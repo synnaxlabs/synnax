@@ -123,10 +123,10 @@ schematic. Click it again to show them.
 
 1. Add a valve, a pump, or a switch.
 2. Select it, then open the **Telemetry** tab of its properties.
-3. Under **Active**, set **Source** to **Channel**.
-4. Select the **Channel** that reports the position of the valve.
-5. Select the **Command channel** that the Console writes to when an operator clicks the
-   valve.
+3. Under **Source**, keep **Channel**, then select the channel that reports the position
+   of the valve.
+4. Open the **Control** tab. Under **Command**, select the **Channel** that the Console
+   writes to when an operator clicks the valve.
 
 To command the valve, turn off editing and click the valve. To take and release control,
 and to see what each symbol writes, see [manual control](/reference/control/manual).
@@ -234,29 +234,26 @@ Click <Icon.Expand /> (**Fit view to contents**) to show every symbol. Hold **Ct
 
 The **Properties** tab shows different tabs for each kind of symbol.
 
-| Tabs                      | Symbols                                                                                                                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Telemetry, Control, Style | Valves other than check valves and regulators, pumps, compressors, agitators, rotary mixers, switches, the thruster, and custom symbols with a click or a command                                |
-| Telemetry, Style, Redline | Value                                                                                                                                                                                            |
-| Telemetry, Style          | Gauge, text display, scale, lights, check valves, regulators, flowmeters, heat exchangers, static mixers, junctions, safety symbols, other fittings, and custom symbols with no click or command |
-| Telemetry, Style, Options | State indicator                                                                                                                                                                                  |
-| Control, Style            | Buttons, setpoints, text inputs                                                                                                                                                                  |
-| Control, Style, Options   | Select                                                                                                                                                                                           |
-| Style, Fill               | Tanks                                                                                                                                                                                            |
-| No tabs                   | Shapes, such as lines and text boxes                                                                                                                                                             |
+| Tabs                      | Symbols                                                                                                                                                                                                           |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Telemetry, Control, Style | Valves other than check valves and regulators, pumps, compressors, agitators, rotary mixers, switches, the thruster, and custom symbols with a click or a command                                                 |
+| Telemetry, Style, Redline | Value                                                                                                                                                                                                             |
+| Telemetry, Style          | Gauge, state indicator, text display, scale, lights, check valves, regulators, flowmeters, heat exchangers, static mixers, junctions, safety symbols, other fittings, and custom symbols with no click or command |
+| Control, Style            | Buttons, setpoints, text inputs, selects                                                                                                                                                                          |
+| Style, Fill               | Tanks                                                                                                                                                                                                             |
+| No tabs                   | Shapes, such as lines and text boxes                                                                                                                                                                              |
 
 ### Style tab
 
-| Group      | Fields                                                                                                    |
-| ---------- | --------------------------------------------------------------------------------------------------------- |
-| Label      | **Label**, **Wrap width**, **Size**, **Alignment**, **Direction**                                         |
-| Appearance | **Stroke** and **Scale**. A value symbol also has **Fill**, **Text**, **Size**, **Units**, and **Width**. |
-| Layout     | The direction of the symbol and the side of its label.                                                    |
+| Group      | Fields                                                                                                                           |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Label      | **Text**, **Wrap width**, **Size**, **Alignment**, **Direction**, and **Position**, the side of the symbol that the label is on. |
+| Appearance | **Stroke** and **Scale**. A value symbol also has **Fill**, **Text**, **Size**, **Units**, and **Width**.                        |
 
-A valve, pump, switch, light, or custom symbol has **Color**, **Scale**, and **Motion**
-under **Appearance**. **Motion** turns the motion of the symbol on or off. For a
-normally open solenoid valve, add the **Normally open solenoid** symbol from the
-**Valves** group.
+A valve, pump, switch, light, or custom symbol has **Color**, **Scale**, **Motion**, and
+**Orientation** under **Appearance**. **Motion** turns the motion of the symbol on or
+off. **Orientation** sets the direction of the symbol. For a normally open solenoid
+valve, add the **Normally open solenoid** symbol from the **Valves** group.
 
 ### Telemetry tab
 
@@ -271,8 +268,14 @@ normally open solenoid valve, add the **Normally open solenoid** symbol from the
 **Timeout** is 5 seconds by default, and 1 second at least. A number with no unit is in
 seconds. A value under 1 second shows a message and does not save.
 
-A valve, pump, switch, light, or custom symbol has a section for each of its states,
-with the channel that the state reads and the channel that its commands write. See the
+A valve, pump, switch, light, or custom symbol reads each of its states from a
+**Source**: a **Channel**, or a **Local** value that the schematic holds. A state also
+has an **Enumeration** that names and colors its values, and a **Default**, the value
+that the symbol shows before data arrives. A state that no command writes, such as the
+state of a light, also has a **Threshold**. A value from its start up to, but not
+including, its end reads as 1, and any other value as 0. **Reset** gives the fields of a
+state the values of its symbol. The channels that commands write are on the
+[Control tab](#control-tab). See the
 [node properties](/reference/visualize/custom-symbols#node-properties) of a custom
 symbol.
 
@@ -287,16 +290,18 @@ symbol.
 A symbol with a click or a command has a **Control** tab: the symbols in the first row
 of the [Properties tabs](#properties-tabs) table. It has these fields:
 
-| Section  | Field        | Description                                                                                 |
-| -------- | ------------ | ------------------------------------------------------------------------------------------- |
-| Commands | A command    | The channel that the command writes. Only a custom symbol command with no state shows here. |
-| Clicks   | Clickable    | When off, a click on the symbol does nothing.                                               |
-| Clicks   | Delay        | The time that an operator must press and hold before the symbol writes.                     |
-| Clicks   | Control chip | Shows the chip that tells who has control of the channel.                                   |
+| Section  | Field        | Description                                                                                       |
+| -------- | ------------ | ------------------------------------------------------------------------------------------------- |
+| Commands | A state      | The channel that the commands of the state write. A state with a **Local** source has no channel. |
+| Commands | A command    | The channel that a command with no state writes.                                                  |
+| Commands | Control chip | Shows the chip that tells who has control of the channel.                                         |
+| Clicks   | Clickable    | When off, a click on the symbol does nothing.                                                     |
+| Clicks   | Delay        | The time that an operator must press and hold before the symbol writes.                           |
 
-A symbol with a command but no click, such as the thruster, shows only **Control chip**,
-in a **Control** section. Its state and command channels are on the
-[Telemetry tab](#telemetry-tab).
+A symbol with one command target names the section **Command** and the field
+**Channel**.
+
+A symbol with a command but no click, such as the thruster, has no **Clicks** section.
 
 Setpoints, text inputs, and selects have these fields:
 
@@ -309,6 +314,7 @@ Setpoints, text inputs, and selects have these fields:
 | Staleness | Timeout      | The same as on the [Telemetry tab](#telemetry-tab).                        |
 
 On a setpoint, text input, or select, the state channel sets the value under the field.
+A select also has an **Enumeration** under **State**. See [enumerations](#enumerations).
 
 **Delay** is a duration, such as `500ms` or `2.5s`. A number with no unit is in
 milliseconds.
@@ -322,21 +328,23 @@ A button has these fields:
 | Actuation | Mode         | **Fire** (the default), **Momentary**, or **Pulse**.                                          |
 | Actuation | Delay        | The time that an operator must press and hold before the button writes. Not on **Momentary**. |
 
-A button has no label at first. Set one under **Label** on the **Style** tab. Press
-Enter in the field to start a new line. A label wraps at its **Wrap width**, which is
-150 px at first. For what each mode writes, see
+A button has no label at first. Set its **Text** under **Label** on the **Style** tab.
+Press Enter in the field to start a new line. A label wraps at its **Wrap width**, which
+is 150 px at first. For what each mode writes, see
 [manual control](/reference/control/manual).
 
-### Options tab
+### Enumerations
 
 A select and a state indicator draw the entries of an enumeration: a set of states, each
 with a name, a value, and a color. Many symbols can use one enumeration, and a change to
 it shows on each of them.
 
-Pick the enumeration under **Enumeration**, or type a name and click **Create
-enumeration** to make an empty one. **Used by** shows how many schematics use it. Under
-**Entries**, click **Add entry**, then give the entry a name, a value, and a color. Two
-entries cannot have the same value.
+Pick the enumeration under **Enumeration**: on the **Telemetry** tab of a state
+indicator, or on the **Control** tab of a select. To make one, click **New
+enumeration**. The search text becomes its name. Give it its entries, each with a name,
+a value, and a color, then click **Create**. Two entries cannot have the same value. To
+change an enumeration, right-click it in the list and click **Edit**. The editor tells
+how many schematics the change affects.
 
 A state indicator shows the entry that matches the value of its channel. The value must
 match exactly. When no entry matches, or the symbol has no enumeration, it shows

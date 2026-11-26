@@ -121,10 +121,10 @@ value wins over a look for all values. See [paints](#paints) for each paint.
 1. In the **Symbols** tab, select the group.
 2. Click the symbol to add it at the center of the schematic, or drag it to a position.
 3. Select the new node, then open the **Telemetry** tab of its properties.
-4. For each state, set the **Source**. Select **Channel**, then select the **Channel**
-   that the state reads, and the **Command channel** that its commands write.
-5. If the symbol has commands with no state, open the **Control** tab. Under
-   **Commands**, select a channel for each command.
+4. For each state, set the **Source**. Select **Channel**, then select the channel that
+   the state reads.
+5. If the symbol has commands, open the **Control** tab. Under **Commands**, select the
+   channel that each command writes.
 
 To send a command, turn off editing and click the node. A node with no channel for a
 command does nothing when you click it.
@@ -172,21 +172,21 @@ that uses it. First change the symbol of each node: see
 
 ### States
 
-A new symbol has one state, **Active**, with the values **Base** (0) and **Active** (1).
+A new symbol has one state, **State**, with the values **Base** (0) and **Active** (1).
 Click <Icon.Add /> next to **States** to add a state. A state that you remove takes its
 looks, its commands, and their clicks with it. When the state has uses, the Console asks
 you to confirm first.
 
 A state copied from a built-in symbol has an enumeration that names its values, such as
-**Closed** and **Open**. Each node can replace the enumeration, the match, and the
-default of a state. See [node properties](#node-properties).
+**Closed** and **Open**. Each node can replace the enumeration, the default, and the
+threshold of a state. See [node properties](#node-properties).
 
 ### Commands
 
-| Field | Description                                                                                                                        |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| State | The state whose **Command channel** the command writes. **No state** writes to the channel set on the **Control** tab of the node. |
-| Value | **Fixed** writes one value. **Ask** asks the operator for the value on each click. **Ask** needs a state.                          |
+| Field | Description                                                                                                                                    |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| State | The state that the command writes. **No state** writes to a channel of the command itself. The node sets both channels on its **Control** tab. |
+| Value | **Fixed** writes one value. **Ask** asks the operator for the value on each click. **Ask** needs a state.                                      |
 
 ### Clicks
 
@@ -262,22 +262,23 @@ import.
 
 The **Telemetry** tab of a node has a section for each state of its symbol:
 
-| Field           | Description                                                                                                                                             |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Source          | **None**, **Channel**, or **Local**. A state with no source shows its default value.                                                                    |
-| Channel         | The channel that the state reads.                                                                                                                       |
-| Command channel | The channel that the commands of the state write.                                                                                                       |
-| Value           | With a **Local** source, the value of the state. A command sets it.                                                                                     |
-| Match           | **Exact** reads the value as it is. **Within** reads a value from **Min value** up to, but not including, **Max value** as 1, and any other value as 0. |
-| Enumeration     | Replaces the enumeration of the state.                                                                                                                  |
-| Default         | The value that the node shows when it has no data.                                                                                                      |
+| Field       | Description                                                                                                                                              |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source      | **Channel** or **Local**. A state with no channel shows its default value.                                                                               |
+| Channel     | The channel that the state reads.                                                                                                                        |
+| Value       | With a **Local** source, the value of the state. A command sets it.                                                                                      |
+| Enumeration | Replaces the enumeration of the state.                                                                                                                   |
+| Default     | The value that the node shows when it has no data.                                                                                                       |
+| Threshold   | On a state that reads a range and that no command writes. A value from its start up to, but not including, its end reads as 1, and any other value as 0. |
 
-Click **Reset to symbol** to remove the changes to **Match**, **Enumeration**, and
-**Default**.
+Click **Reset** to remove the changes to **Enumeration**, **Default**, and
+**Threshold**. The source stays.
 
-The **Control** tab has a channel for each command with no state. Turn off **Clickable**
-to stop clicks on the node. For **Delay** and **Control chip**, see the
-[Control tab](/reference/visualize/schematics#control-tab) of a schematic.
+The **Control** tab has a channel for each state that a command writes, and for each
+command with no state. A state with a **Local** source has no channel, because its
+commands set its value. Turn off **Clickable** to stop clicks on the node. For **Delay**
+and **Control chip**, see the [Control tab](/reference/visualize/schematics#control-tab)
+of a schematic.
 
 <Divider.Divider x />
 
@@ -313,8 +314,8 @@ Editing is on, the command of the click has no channel, or the node is not click
 <Problem.Fix>
 
 - Turn off editing.
-- On the **Telemetry** tab, set the **Command channel** of the state that the command
-  writes. For a command with no state, set its channel on the **Control** tab.
+- On the **Control** tab, set the channel of the state that the command writes. For a
+  command with no state, set the channel of the command.
 - On the **Control** tab, turn on **Clickable**.
 - In the symbol editor, check that the part or the whole drawing has a click.
 
