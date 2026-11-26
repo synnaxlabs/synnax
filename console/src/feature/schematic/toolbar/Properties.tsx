@@ -51,6 +51,7 @@ import { Session } from "@/session";
 const path = deep.path<{
   variant: Schematic.ElementConfig["variant"];
   specKey?: schematic.symbol.Key;
+  spec?: schematic.symbol.Ref;
 }>();
 
 export const Properties = (): ReactElement => {
@@ -88,15 +89,17 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   const variant = Form.useFieldValue(path.variant, { ctx: form });
   const specKey = Form.useFieldValue(path.specKey, { ctx: form, optional: true });
   const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
+  const spec = Form.useFieldValue(path.spec, { ctx: form, optional: true });
+  const editKey = isCustom ? specKey : spec?.type === "custom" ? spec.key : null;
   const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;
-  if (isCustom)
+  if (editKey != null)
     actions = (
       <Button.Button
         variant="filled"
         size="tiny"
         className={CSS.BE("schematic", "properties", "edit")}
-        onClick={() => openEditModal({ symbolKey: specKey })}
+        onClick={() => openEditModal({ symbolKey: editKey })}
       >
         <Icon.Edit />
       </Button.Button>

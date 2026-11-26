@@ -171,6 +171,15 @@ class LayoutClient:
         )
         return self.page.locator(".lyra-form-section").filter(has=header)
 
+    def form_item(self, section: str, label: str) -> Locator:
+        """The input item with the given label in the form section with the given
+        title.
+        """
+        name = self.page.locator(".lyra-input-label").filter(
+            has_text=re.compile(rf"^\s*{re.escape(label)}\s*$")
+        )
+        return self.form_section(section).locator(".lyra-input__item").filter(has=name)
+
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette."""
         self._palette(query=command, input_text=f">{command}")

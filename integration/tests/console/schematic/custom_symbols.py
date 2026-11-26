@@ -16,7 +16,7 @@ from console.case import ConsoleCase
 from console.schematic import CustomSymbol, Schematic
 from console.schematic.symbol_toolbar import SymbolToolbar
 from framework.utils import assert_envelope, get_fixture_path
-from x import random_name
+from x import random_name, spatial
 
 TEST_SYMBOL_SVG = get_fixture_path("test_symbol.svg")
 STYLED_SYMBOL_SVG = get_fixture_path("styled_symbol.svg")
@@ -34,6 +34,7 @@ class CustomSymbols(ConsoleCase):
     suffix: str
     test_group_name: str
     test_symbol_name: str
+    actuator_symbol_name: str
     schematic_name: str
     idx_channel_name: str
     cmd_channel_name: str
@@ -44,6 +45,7 @@ class CustomSymbols(ConsoleCase):
         self.suffix = random_name()
         self.test_group_name = f"Test Group {self.suffix}"
         self.test_symbol_name = f"Test Symbol {self.suffix}"
+        self.actuator_symbol_name = f"Actuator Symbol {self.suffix}"
         self.schematic_name = f"Symbol Test Schematic {self.suffix}"
         self.idx_channel_name = f"idx_{self.suffix}"
         self.cmd_channel_name = f"cmd_{self.suffix}"
@@ -181,16 +183,16 @@ class CustomSymbols(ConsoleCase):
         editor.add_handle()
         editor.set_part_stroke_color("#FF0000", part_index=0)
         editor.set_default_scale(50)
-        editor.set_state("Actuator")
         editor.save()
 
         assert toolbar.symbol_exists(
             self.test_symbol_name, select_group=self.test_group_name
         ), f"Symbol '{self.test_symbol_name}' should exist after creation"
 
+        self._create_actuator(drawn_like=self.test_symbol_name)
         custom_symbol_config = CustomSymbol(
             label="Actuator Test",
-            symbol_name=self.test_symbol_name,
+            symbol_name=self.actuator_symbol_name,
             group_name=self.test_group_name,
             command_channel=self.cmd_channel_name,
         )
@@ -203,6 +205,47 @@ class CustomSymbols(ConsoleCase):
         symbol_id = self.custom_symbol.symbol_id
         assert symbol_id.startswith("rf__node-"), (
             f"Symbol ID should start with 'rf__node-', got '{symbol_id}'"
+        )
+
+    def _create_actuator(self, *, drawn_like: str) -> None:
+        """Create an actuator symbol through the client, with the drawing and group of
+        the symbol named drawn_like. The editor cannot add a click.
+        """
+        base = next(
+            s for s in self.client.schematics.symbols.retrieve() if s.name == drawn_like
+        )
+        data = base.data.model_copy(
+            update={
+                "states": [
+                    sy.schematic.symbol.EnumerationState(
+                        key="active",
+                        name="Active",
+                        match=sy.schematic.symbol.WithinMatcher(
+                            bounds=spatial.Bounds(lower=0.9, upper=1.1)
+                        ),
+                    )
+                ],
+                "commands": [
+                    sy.schematic.symbol.Command(
+                        key=key,
+                        name=name,
+                        state="active",
+                        value=sy.schematic.symbol.FixedCommandValue(value=value),
+                    )
+                    for key, name, value in (("off", "Off", 0), ("on", "On", 1))
+                ],
+                "interactions": [
+                    sy.schematic.symbol.NextInteraction(
+                        key="click", commands=["off", "on"]
+                    )
+                ],
+                "variant": "actuator",
+            }
+        )
+        self.client.schematics.symbols.create(
+            sy.schematic.symbol.Symbol(
+                name=self.actuator_symbol_name, data=data, group=base.group
+            )
         )
 
     def test_rename_symbol(self, toolbar: SymbolToolbar) -> None:
@@ -239,7 +282,9 @@ class CustomSymbols(ConsoleCase):
         assert self.custom_symbol is not None, "Custom symbol should exist"
 
         self.log("Pressing custom symbol actuator (expecting 1)")
+        # The channel has no value yet, so the first click asks which command to send.
         self.custom_symbol.press()
+        self.custom_symbol.choose_command("On")
         self.wait_for_eq(self.cmd_channel_name, 1)
         self.log("Received expected value: 1")
 
@@ -273,4 +318,7 @@ class CustomSymbols(ConsoleCase):
     def test_delete_symbol_group(self, toolbar: SymbolToolbar) -> None:
         """Test deleting a symbol group via context menu."""
         self.log("Testing delete symbol group")
+        # The Core refuses to delete a symbol that a schematic uses.
+        assert self.custom_symbol is not None
+        self.custom_symbol.delete()
         toolbar.delete_group(self.test_group_name)
