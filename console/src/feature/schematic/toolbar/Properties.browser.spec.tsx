@@ -197,14 +197,14 @@ describe("Schematic toolbar Properties", () => {
   });
 
   describe("tabs", () => {
-    it("opens a symbol on its control tab", async () => {
+    it("opens a symbol on its first tab", async () => {
       const { result } = await renderProperties({ nodeKeys: ["n1"] });
       await screen.findByRole("tab", { name: "Style" });
       const rail = result.container.querySelector<HTMLElement>(
         ".pluto-properties-tabs",
       );
       assertDefined(rail);
-      const tab = within(rail).getByRole("tab", { name: "Control" });
+      const tab = within(rail).getByRole("tab", { name: "Telemetry" });
       expect(tab.ariaSelected).toBe("true");
     });
 

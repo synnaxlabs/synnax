@@ -133,8 +133,8 @@ export const changeConfig = <V extends Variant>(
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
 
-/// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol variant,
-/// the group box, or the symbol variant.
+/// STATIC_SPECS lists every Spec in the registry except the group box and the symbol
+/// variant.
 export const STATIC_SPECS: readonly Spec[] = (Object.values(REGISTRY) as Spec[]).filter(
   (s) => s.key !== GroupBox.VARIANT && s.key !== SYMBOL_VARIANT,
 );
