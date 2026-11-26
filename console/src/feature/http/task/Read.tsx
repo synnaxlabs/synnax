@@ -11,20 +11,17 @@ import "@/feature/http/task/Form.css";
 
 import { channel, DisconnectedError, http, icd, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { Channel, ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive, uuid } from "@synnaxlabs/x";
+import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { deep, uuid } from "@synnaxlabs/x";
 import {
-  createContext,
   type Dispatch,
   type FC,
   type PropsWithChildren,
@@ -32,7 +29,6 @@ import {
   type ReactNode,
   type RefObject,
   type SetStateAction,
-  useContext,
   useRef,
   useState,
 } from "react";
@@ -44,10 +40,8 @@ import {
   deployReadConfigZ,
   READ_SCHEMAS,
   type ReadEndpoint,
-  type ReadField,
   type ReadSchemas,
 } from "@/feature/http/task/types";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
@@ -75,183 +69,9 @@ const Properties = () => (
   </>
 );
 
-const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
-
 /** @returns the prefix of the channel names that deploying creates for a path. */
 const endpointPrefix = (deviceName: string, path: string): string =>
   channel.escapeInvalidName(deviceName) + channel.escapeInvalidName(path);
-
-/** The name configure gives a field's channel when the field carries none. */
-const defaultChannelName = (devName: string, epPath: string, pointer: string): string =>
-  channel.escapeInvalidName(devName) + channel.escapeInvalidName(epPath + pointer);
-
-/** @returns how deploying names and indexes the channels of an endpoint. */
-const endpointChannels = (deviceName: string, ep: ReadEndpoint) => ({
-  fields: ep.fields,
-  namePrefix: endpointPrefix(deviceName, ep.path),
-  indexKey: ep.index,
-  indexed: (f: ReadField) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
-});
-
-/** Plans the channels of an endpoint with the channels that the device stores now. */
-const planEndpoint = async (
-  client: Synnax,
-  namer: Task.Namer,
-  dev: Device.Device,
-  ep: ReadEndpoint,
-): Promise<Task.ReadChannelPlan> =>
-  await Task.planReadChannels({
-    client,
-    namer,
-    props: dev.properties.read[ep.path],
-    ...endpointChannels(dev.name, ep),
-  });
-
-/**
- * @returns the plan of an endpoint with the path of an earlier one. Each of its unbound
- * fields takes the channel that the earlier one creates for its pointer.
- */
-const sharedPlan = (
-  earlier: ReadEndpoint,
-  plan: Task.ReadChannelPlan,
-  ep: ReadEndpoint,
-): Task.ReadChannelPlan => {
-  const pointers = new Map(earlier.fields.map(({ key, pointer }) => [key, pointer]));
-  const created = new Map(plan.creates.map((c) => [pointers.get(c.key), c]));
-  return {
-    props: plan.props,
-    newIndex: plan.newIndex,
-    indexField: plan.indexField == null ? undefined : ep.index,
-    channels: {},
-    creates: ep.fields.flatMap(({ key, pointer, channel, disabled }) => {
-      const create = created.get(pointer);
-      return create == null || disabled || primitive.isNonZero(channel)
-        ? []
-        : [{ ...create, key }];
-    }),
-    renames: [],
-  };
-};
-
-/**
- * Plans the channels of each endpoint in order with one namer, as deploying creates
- * them. Reads from the Core alone. Throws between endpoints once signal aborts.
- */
-const planEndpoints = async (
-  client: Synnax,
-  dev: Device.Device,
-  endpoints: ReadEndpoint[],
-  signal?: AbortSignal,
-): Promise<Task.ReadChannelPlan[]> => {
-  const namer = Task.createNamer(client);
-  const first = new Map<string, number>();
-  const plans: Task.ReadChannelPlan[] = [];
-  for (const [i, ep] of endpoints.entries()) {
-    signal?.throwIfAborted();
-    const earlier = first.get(ep.path);
-    if (earlier != null) {
-      plans.push(sharedPlan(endpoints[earlier], plans[earlier], ep));
-      continue;
-    }
-    first.set(ep.path, i);
-    plans.push(await planEndpoint(client, namer, dev, ep));
-  }
-  return plans;
-};
-
-/** The plan of each endpoint, by endpoint key. */
-const PlansContext = createContext<
-  ReadonlyMap<string, Task.ReadChannelPlan | undefined>
->(new Map());
-PlansContext.displayName = "HTTP.PlansContext";
-
-/** Plans the channels of every endpoint together, as deploying does, for the panes. */
-const Plans = ({ children }: PropsWithChildren): ReactElement => {
-  const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const dev = Device.useFromConfig();
-  const sources = endpoints.map((ep) => ({
-    ep,
-    name: dev?.name,
-    props: dev?.properties.read[ep.path],
-  }));
-  const plans = Task.useChannelPlans(sources, async (client, signal) =>
-    dev == null ? [] : await planEndpoints(client, dev, endpoints, signal),
-  );
-  const byEndpoint = new Map(endpoints.map(({ key }, i) => [key, plans[i]]));
-  return <PlansContext value={byEndpoint}>{children}</PlansContext>;
-};
-
-/**
- * @returns the name that a new channel of a field falls back to, and the name that
- * deploying gives it once the plan is done.
- */
-const useChannelNames = (endpoint: deep.Path<ReadEndpoint>, field: ReadField) => {
-  const ep = PForm.useFieldValue(endpoint);
-  const dev = Device.useFromConfig();
-  const plan = useContext(PlansContext).get(ep.key);
-  const plannedName = plan == null ? undefined : Task.newChannelName(plan, field.key);
-  const fallback =
-    dev == null ? "" : defaultChannelName(dev.name, ep.path, field.pointer);
-  return { defaultName: plannedName ?? fallback, plannedName };
-};
-
-const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
-
-const OPTIONAL_INPUT_PROPS = {
-  tooltip:
-    "Write the fill value with no warning when the value is missing. A float channel with no fill value writes NaN.",
-} as const;
-
-interface FillValueFieldProps {
-  path: deep.Path<ReadField>;
-  value: unknown;
-  channel: channel.Key;
-  dataType: string;
-}
-
-const formatFillValue = (value: unknown): string => {
-  if (value == null) return "";
-  return typeof value === "string" ? value : JSON.stringify(value);
-};
-
-// A numeric channel also takes text, such as an enum label, which the Driver validates.
-const parseNumericFillValue = (text: string): number | string => {
-  const parsed = Number(text);
-  return text.trim() === "" || !Number.isFinite(parsed) ? text : parsed;
-};
-
-// The stored value is any JSON and the key can be absent, so Form.Field cannot bind it.
-const FillValueField: FC<FillValueFieldProps> = ({
-  path,
-  value,
-  channel: key,
-  dataType,
-}) => {
-  const { data: channelDataType } = Channel.useResultDataType(
-    key === 0 ? null : { key },
-  );
-  const { set } = PForm.useContext();
-  const resolved = new DataType(channelDataType ?? dataType);
-  const isString = resolved.equals(DataType.STRING);
-  const text = formatFillValue(value);
-  const handleChange = (next: string) => {
-    // A blur reports unedited text too, which must not retype the stored value.
-    if (next === text) return;
-    if (next === "") set(path.fillValue, undefined);
-    else set(path.fillValue, isString ? next : parseNumericFillValue(next));
-  };
-  return (
-    <Input.Item label="Fill value" padHelpText={false}>
-      <Input.Text
-        value={text}
-        onChange={handleChange}
-        onlyChangeOnBlur
-        placeholder={resolved.isFloat ? "NaN" : "Required"}
-        className={CSS.B("fill-value")}
-      />
-    </Input.Item>
-  );
-};
 
 const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
   const { set } = PForm.useContext();
@@ -274,63 +94,6 @@ const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
     </PForm.Field>
   );
 };
-
-type TimingMode = "software" | "value";
-
-const TimestampFields: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
-  const fields = PForm.useFieldValue(path.fields);
-  const { set } = PForm.useContext();
-  const indexField = fields.find(isTimingField);
-  const isValueTiming = indexField != null;
-
-  const handleChange = (mode: TimingMode) => {
-    if (mode === "value" && !isValueTiming) {
-      const indexF: ReadField = {
-        ...http.readFieldZ.parse({}),
-        key: id.create(),
-        timeFormat: "unix_sec",
-      };
-      set(path.fields, [...fields, indexF]);
-      set(path.index, indexF.key);
-    } else if (mode === "software" && isValueTiming) {
-      set(
-        path.fields,
-        fields.filter((f) => !isTimingField(f)),
-      );
-      set(path.index, "");
-    }
-  };
-
-  return (
-    <>
-      <Input.Item label="Source" padHelpText={false}>
-        <Select.Buttons<TimingMode>
-          value={isValueTiming ? "value" : "software"}
-          onChange={handleChange}
-        >
-          <Select.Item<TimingMode> itemKey="software">Poll time</Select.Item>
-          <Select.Item<TimingMode> itemKey="value">Response value</Select.Item>
-        </Select.Buttons>
-      </Input.Item>
-      {isValueTiming && indexField != null && (
-        <>
-          <PForm.TextField
-            path={path.fields[indexField.key].pointer}
-            label="Pointer"
-            padHelpText={false}
-            inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
-          />
-          <Task.Payload.TimeFormatField
-            path={path.fields[indexField.key].timeFormat}
-            label="Format"
-          />
-        </>
-      )}
-    </>
-  );
-};
-
-const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "/timestamp" } as const;
 
 interface RequestSectionProps extends PropsWithChildren {
   path: deep.Path<ReadEndpoint>;
@@ -378,68 +141,6 @@ const RequestSection: FC<RequestSectionProps> = ({ path, actions, children }) =>
   );
 };
 
-const EndpointDetails: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => (
-  <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-    <PForm.Sections className={CSS.B("endpoint-form")}>
-      <RequestSection path={path} />
-      <PForm.Section title="Timestamp">
-        <TimestampFields path={path} />
-      </PForm.Section>
-    </PForm.Sections>
-  </Flex.Box>
-);
-
-interface FieldPaneProps {
-  endpoint: deep.Path<ReadEndpoint>;
-  path: deep.Path<ReadField>;
-}
-
-const FieldPane: FC<FieldPaneProps> = ({ endpoint, path }) => {
-  const field = PForm.useFieldValue(path);
-  const { channel: fieldChannel, disabled, optional, fillValue, dataType } = field;
-  const names = useChannelNames(endpoint, field);
-  return (
-    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <PForm.Sections className={CSS.cls(CSS.B("endpoint-form"), CSS.B("field-form"))}>
-        <PForm.Section title="Field">
-          <PForm.TextField
-            path={path.pointer}
-            label="Pointer"
-            padHelpText={false}
-            inputProps={POINTER_INPUT_PROPS}
-          />
-          <Task.Payload.DataTypeField path={path.dataType} channel={fieldChannel} />
-          <Task.ChannelNameField
-            channel={fieldChannel}
-            namePath={path.name}
-            {...names}
-            skipped={disabled}
-          />
-          <Flex.Box x grow wrap>
-            <PForm.CheckboxField
-              path={path.optional}
-              label="Optional"
-              inputProps={OPTIONAL_INPUT_PROPS}
-              onChange={(next, { set }) => {
-                if (!next) set(path.fillValue, undefined);
-              }}
-            />
-            {optional && (
-              <FillValueField
-                path={path}
-                value={fillValue}
-                channel={fieldChannel}
-                dataType={dataType}
-              />
-            )}
-          </Flex.Box>
-        </PForm.Section>
-        <Task.Payload.EnumMappingSection path={path.enumValues} />
-      </PForm.Sections>
-    </Flex.Box>
-  );
-};
-
 const PATH_INPUT_PROPS = { placeholder: "/api/data" } as const;
 
 const REQUEST_BODY_INPUT_PROPS = {
@@ -447,60 +148,6 @@ const REQUEST_BODY_INPUT_PROPS = {
   area: true,
   className: CSS.B("request-body"),
 } as const;
-
-const createEndpoints = async (): Promise<ReadEndpoint[]> => [
-  http.readEndpointZ.parse({}),
-];
-
-const createField = (): Omit<ReadField, "key"> => http.readFieldZ.parse({});
-
-const GroupLabel = ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
-  <EndpointLabel path={path} />
-);
-
-const endpointLabel = Component.renderProp(GroupLabel);
-
-const GroupDetails = ({ path }: Task.Views.GroupProps<ReadEndpoint>) => (
-  <EndpointDetails path={path} />
-);
-
-const endpointDetails = Component.renderProp(GroupDetails);
-
-const FieldDetails = ({ groupKey, path }: Task.Views.FieldProps<ReadField>) => (
-  <FieldPane endpoint={root.config.endpoints[groupKey]} path={path} />
-);
-
-const fieldDetails = Component.renderProp(FieldDetails);
-
-const Form: FC = () => {
-  const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const read = Device.useFromConfig()?.properties.read ?? null;
-  return (
-    <Plans>
-      <Task.Views.GroupTree<ReadEndpoint, ReadField>
-        path={root.config.endpoints}
-        listTitle="Endpoints"
-        emptyMessage="No endpoints"
-        placeholder="Select an endpoint or field to configure"
-        addLabel="Add endpoint"
-        createGroups={createEndpoints}
-        createField={createField}
-        groupLabel={endpointLabel}
-        groupDetails={endpointDetails}
-        fieldDetails={fieldDetails}
-        tareable
-      />
-      {endpoints.map(({ key }) => (
-        <Task.BindReadChannels
-          key={key}
-          path={root.config.endpoints[key]}
-          propertiesKey={root.config.endpoints[key].path}
-          read={read}
-        />
-      ))}
-    </Plans>
-  );
-};
 
 /** An endpoint that reads the messages of an ICD. */
 interface ICDEndpoint extends ReadEndpoint {
@@ -1172,34 +819,11 @@ const configureICD: Task.OnConfigure<ReadSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
-  const dev = await client.devices.retrieve({
-    key: config.device,
-    schemas: Device.SCHEMAS,
-  });
-  const before = deep.copy(dev.properties);
-  try {
-    // Endpoints with one path share the channels that the device stores for it, so each
-    // one plans after the ones before it store theirs.
-    const namer = Task.createNamer(client);
-    for (const ep of config.endpoints) {
-      const plan = await planEndpoint(client, namer, dev, ep);
-      await Task.applyReadChannels(client, plan, ep.fields, {
-        read: dev.properties.read,
-        key: ep.path,
-      });
-    }
-  } finally {
-    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
-  }
-  return [config, dev.rack];
-};
-
 export const Read = Task.wrapForm({
   Properties,
-  Form: FLAGS.icds ? ICDForm : Form,
+  Form: ICDForm,
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "http_read",
-  onConfigure: FLAGS.icds ? configureICD : onConfigure,
+  onConfigure: configureICD,
 });

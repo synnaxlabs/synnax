@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -168,12 +167,12 @@ func LiftWrite(
 	}, write, nil
 }
 
-// writeBase returns the base of a new field at pointer, named apart from the names in
-// taken.
+// writeBase returns the base of a new field at pointer, which v0.FieldName names apart
+// from the names in taken.
 func writeBase(taken set.Set[string], pointer string) JSONBaseField {
 	return JSONBaseField{
 		Key:     uuid.New(),
-		Name:    v0.UniqueName(taken, pointerName(pointer)),
+		Name:    v0.FieldName(taken, "", pointer),
 		Scale:   1,
 		Pointer: pointer,
 	}
@@ -325,11 +324,6 @@ func number(value any) (float64, bool) {
 		return float64(v.Uint()), true
 	}
 	return 0, false
-}
-
-// pointerName returns the name of the field at pointer.
-func pointerName(pointer string) string {
-	return lo.CoalesceOrEmpty(strings.TrimPrefix(pointer, "/"), "value")
 }
 
 // validFormat returns format, or nil when format is not valid.

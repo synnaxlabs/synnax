@@ -63,6 +63,7 @@ var _ = Describe("Service", func() {
 		rackKey = rackSvc.EmbeddedKey
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      db,
 			HostKey: node.Identity.HostKey,
 			Status:  stat,
@@ -711,6 +712,7 @@ var _ = Describe("Service", func() {
 			}))
 			mChannel := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 				Channel: mNode.Channel,
+				TS:      mNode.Storage.TS,
 				DB:      mDB,
 				HostKey: mNode.Identity.HostKey,
 				Status:  mStat,
