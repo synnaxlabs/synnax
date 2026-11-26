@@ -31,7 +31,7 @@ const group = (): schematic.NodeConfig => nodeCfg({ variant: "group_box" });
 
 const node = (
   key: string,
-  config: schematic.NodeConfig = nodeCfg({ variant: "vent" }),
+  config: schematic.NodeConfig = nodeCfg({ variant: "box" }),
   position = { x: 0, y: 0 },
 ): schematic.Node => ({ key, position, zIndex: 0, config });
 
@@ -509,9 +509,14 @@ describe("Schematic", () => {
             key: "valveNode_B2",
             position: { x: 0, y: 0 },
             config: {
-              variant: "valve",
-              stateChannel: state.key,
-              commandChannel: command.key,
+              variant: "symbol",
+              spec: { type: "builtin", name: "valve" },
+              states: [
+                {
+                  key: "active",
+                  source: { type: "channel", key: state.key, command: command.key },
+                },
+              ],
             },
           },
         }),
@@ -519,10 +524,13 @@ describe("Schematic", () => {
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes.map((n) => n.key)).toEqual(["valveNode_B2"]);
       const { config } = res.nodes[0];
-      expect(config.variant).toBe("valve");
-      if (config.variant !== "valve") return;
-      expect(config.stateChannel).toBe(state.key);
-      expect(config.commandChannel).toBe(command.key);
+      expect(config.variant).toBe("symbol");
+      if (config.variant !== "symbol") return;
+      expect(config.states[0].source).toEqual({
+        type: "channel",
+        key: state.key,
+        command: command.key,
+      });
     });
   });
 });

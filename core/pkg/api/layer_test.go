@@ -266,7 +266,6 @@ var _ = Describe("Layer", func() {
 					Drawing: symbol.Drawing{
 						Variant: symbol.SvgDrawing{Markup: "<svg></svg>"},
 					},
-					Variant: "valve",
 				},
 			})
 			rck = rack.Rack{Name: "moved"}

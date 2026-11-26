@@ -78,8 +78,8 @@ const createDoc = (key: schematic.Key): schematic.Schematic =>
     key,
     name: `dispatch_test_${uuid.create()}`,
     nodes: [
-      { key: "n1", position: { x: 0, y: 0 }, config: { variant: "vent" } },
-      { key: "n2", position: { x: 10, y: 10 }, config: { variant: "vent" } },
+      { key: "n1", position: { x: 0, y: 0 }, config: { variant: "box" } },
+      { key: "n2", position: { x: 10, y: 10 }, config: { variant: "box" } },
     ],
     edges: [],
   });
@@ -728,7 +728,7 @@ describe("Flux.createDispatch", () => {
       return await client.schematics.create({
         project: proj.key,
         name: `dispatch_live_${uuid.create()}`,
-        nodes: [{ key: "n1", position: { x: 0, y: 0 }, config: { variant: "vent" } }],
+        nodes: [{ key: "n1", position: { x: 0, y: 0 }, config: { variant: "box" } }],
         edges: [],
       });
     };

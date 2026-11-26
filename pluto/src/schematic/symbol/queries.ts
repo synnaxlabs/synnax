@@ -104,7 +104,6 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       commands: [],
       looks: [],
       interactions: [],
-      variant: "static",
       scale: 1,
       strokeScaled: false,
       previewViewport: { zoom: 1, position: { x: 0, y: 0 } },

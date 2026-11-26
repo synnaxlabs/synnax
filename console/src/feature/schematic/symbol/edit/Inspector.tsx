@@ -155,7 +155,7 @@ const Property = ({
     Spec.variesByValue({ looks }, part, field, state),
   );
   const several = values.list.length > 1;
-  // A static symbol has one value, so it ends By state.
+  // A symbol with no states has one value, so it ends By state.
   if (split && !several) setSplit(false);
   const varies =
     several && (split || Spec.variesByValue({ looks }, part, field, state));

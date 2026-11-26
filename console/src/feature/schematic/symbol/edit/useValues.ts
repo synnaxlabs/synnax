@@ -28,9 +28,9 @@ export interface Values {
 
 /**
  * @returns the values of the enumeration state key of the symbol in the form. A state
- * takes the entries of its enumeration, or 0 and 1 as an actuator draws them when it
- * has none, and each value that a look names. It lists no values while the enumeration
- * loads, or with no state.
+ * takes the entries of its enumeration, or Base and Active when it has none, and each
+ * value that a look names. It lists no values while the enumeration loads, or with no
+ * state.
  */
 export const useValues = (key: string): Values => {
   const all = Form.useFieldValue(path.data.states);
@@ -47,7 +47,7 @@ export const useValues = (key: string): Values => {
     if (state?.enumeration != null && res.variant === "loading") return [];
     const listed =
       state?.enumeration == null
-        ? Schematic.Node.Custom.listValues({ variant: "actuator" })
+        ? Schematic.Node.Custom.UNNAMED_VALUES
         : (entries ?? []).map(({ key, value, name }) => ({ key, value, name }));
     const named = looks.flatMap((l) => (l.when?.state === key ? l.when.values : []));
     const extra = [...new Set(named)]
