@@ -488,15 +488,18 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   of the renamed channel's old path in a rewire, which defaults to `keep` (§4.13). A
   tombstone's path counts as held: a token that names it follows the tombstone when the
   action changes that path, so the text binds at the heal. In a swap, this rule decides
-  each token. All edits of one holder come from one lex. The helper is a pure function
-  in `arc/go` (precedent: `arc/go/lsp/rename.go:114`). The Arc service writes text
-  actions, as the Core already does (`core/pkg/service/arc/actions.go:106`).
+  each token. Until the quotes land, the pass binds a bare token as compile does, with
+  the match of §4.2, so a token that still binds its channel after the action needs no
+  edit. All edits of one holder come from one lex. The helper is a pure function in
+  `arc/go` (precedent: `arc/go/lsp/rename.go:114`). The Arc service writes text actions,
+  as the Core already does (`core/pkg/service/arc/actions.go:106`).
 - **Form**: An edit writes the bare form only when every segment is an identifier and
   none is an Arc keyword, literal, or type name, and the name does not clash with a
-  variable or a module member. Until the quotes land, an edit of any other path is not
-  made, and the plan notes the holder as broken by the action, as for text that does not
-  parse. With the quotes, it writes the quoted form, with `\` and `'` escaped. A quoted
-  token stays quoted. Two entries of one key merge into one.
+  variable or a module member. Until the quotes land, an edit of any other path writes
+  the channel's bare name when that name binds the channel by the match of §4.2. Else
+  the edit is not made, and the plan notes the holder as broken by the action, as for
+  text that does not parse. With the quotes, it writes the quoted form, with `\` and `'`
+  escaped. A quoted token stays quoted. Two entries of one key merge into one.
 - **Text that does not parse**: An edit rewrites its lexer tokens, and the plan notes
   it. The LSP rename calls `path.Apply` (§4.11).
 
