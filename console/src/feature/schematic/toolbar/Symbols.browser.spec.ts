@@ -26,7 +26,7 @@ import { color } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { createElement, type ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import {
   client,
@@ -104,6 +104,29 @@ describe("Schematic toolbar Symbols", () => {
       ).toBe("valves"),
     );
     expect(await screen.findByText("Ball")).toBeDefined();
+  });
+
+  it("lists a symbol group past the first page of groups", async () => {
+    const keys: group.Key[] = [];
+    onTestFinished(async () => await client.groups.delete(keys));
+    await Promise.all(
+      Array.from({ length: 1000 }, async () => {
+        const { key } = await client.groups.create({
+          scope: "schematic_symbol",
+          name: uniqueName("filler_grp"),
+        });
+        keys.push(key);
+      }),
+    );
+    // The Core lists groups by key, so this key puts the group after every filler.
+    const last = await client.groups.create({
+      key: `ffffffff-ffff-4fff-bfff-${crypto.randomUUID().slice(-12)}`,
+      scope: "schematic_symbol",
+      name: uniqueName("last_grp"),
+    });
+    keys.push(last.key);
+    await renderSymbolsToolbar();
+    expect(await screen.findByText(last.name)).toBeTruthy();
   });
 
   it("searches static symbols across groups", async () => {

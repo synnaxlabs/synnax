@@ -162,6 +162,46 @@
     }
 }
 
+/* A part with a click takes presses on its whole shape, also where it has no fill. */
+.pluto-symbol__part--clickable {
+    cursor: pointer;
+    pointer-events: all;
+}
+
+/* A part with a click tints like a toggle, also inside a closed shape with no fill. A
+   held part darkens over the hold delay: its stroke, and the fill of a closed shape. */
+.pluto-symbol__container:not(.lyra--editable) {
+    /* stylelint-disable declaration-no-important -- part tints win over the paints of
+       the looks */
+    & .pluto-symbol__part--hovered {
+        stroke: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
+
+        &:not(.pluto-symbol__part--open) {
+            fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
+        }
+    }
+
+    & .pluto-symbol__part--pressed {
+        stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
+
+        &:not(.pluto-symbol__part--open) {
+            fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
+        }
+    }
+
+    & .pluto-symbol-parts--delayed .pluto-symbol__part--pressed {
+        stroke: oklch(from var(--pluto-symbol-display) l c h / 100%) !important;
+        transition:
+            stroke var(--pluto-toggle-delay) linear,
+            fill var(--pluto-toggle-delay) linear;
+
+        &:not(.pluto-symbol__part--open) {
+            fill: oklch(from var(--pluto-symbol-display) l c h / 40%) !important;
+        }
+    }
+    /* stylelint-enable declaration-no-important */
+}
+
 @keyframes symbol-hold {
     0% {
         clip-path: inset(0 100% 0 0);

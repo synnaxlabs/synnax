@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	httpv2 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 	httpv3 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
 	httpv4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
@@ -628,6 +629,99 @@ var _ = Describe("Layer", func() {
 			Expect(upgraded.ConfigHash).
 				To(Equal(MustSucceed(layer.HTTP.Read.Hash(ctx, db, key))))
 		},
+	)
+
+	DescribeTable(
+		"Should move the channel and fields of a stored HTTP write config into an ICD",
+		func(
+			ctx SpecContext,
+			lastApplied string,
+			store func(context.Context, *gorp.DB, uuid.UUID) error,
+		) {
+			node := testutil.NewNode(ctx)
+			db := node.DB
+			markTaskChain(ctx, db, lastApplied)
+			key := uuid.New()
+			Expect(store(ctx, db, key)).To(Succeed())
+			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			Expect(db.Get(httpv5.StagedWriteFieldsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
+			var cfg http.WriteConfig
+			Expect(gorp.NewRetrieve[uuid.UUID, http.WriteConfig]().
+				Where(gorp.MatchKeys[uuid.UUID, http.WriteConfig](key)).
+				Entry(&cfg).
+				Exec(ctx, db)).To(Succeed())
+			Expect(cfg.Endpoints).To(HaveLen(1))
+			ep := cfg.Endpoints[0]
+			var ic icd.ICD
+			Expect(layer.ICD.NewRetrieve().
+				Where(icd.MatchKeys(*ep.ICD)).
+				Entry(&ic).
+				Exec(ctx, db)).To(Succeed())
+			Expect(ic.Name).To(Equal("Valves"))
+			Expect(ic.Messages).To(HaveLen(1))
+			Expect(ic.Messages[0].Name).To(Equal("PUT /setpoint"))
+			Expect(ep.Message.Message).To(Equal(ic.Messages[0].Key))
+			var upgraded task.Task
+			Expect(layer.Task.NewRetrieve().
+				Where(task.MatchKeys(key)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.ConfigHash).
+				To(Equal(MustSucceed(layer.HTTP.Write.Hash(ctx, db, key))))
+		},
+		Entry(
+			"from Core v0.61, which stored task v3 and HTTP write v2",
+			"v61_task_range",
+			func(ctx context.Context, db *gorp.DB, key uuid.UUID) error {
+				if err := gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(
+					ctx,
+					taskv3.Task{Key: key, Name: "Valves", Type: "http_write"},
+				); err != nil {
+					return err
+				}
+				return gorp.WrapWriter[uuid.UUID, httpv2.WriteConfig](db).Set(
+					ctx,
+					httpv2.WriteConfig{Key: key, Endpoints: []httpv2.WriteEndpoint{
+						{
+							Key:    "sp",
+							Method: httpv2.MethodPut,
+							Path:   "/setpoint",
+							Channel: httpv2.ChannelField{
+								Pointer:  "/value",
+								DataType: "float64",
+							},
+						},
+					}},
+				)
+			},
+		),
+		Entry(
+			"from Core v0.62, which stored task v4 and HTTP write v4",
+			"v62_task_drop_snapshot",
+			func(ctx context.Context, db *gorp.DB, key uuid.UUID) error {
+				if err := gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
+					ctx,
+					taskv4.Task{Key: key, Name: "Valves", Type: "http_write"},
+				); err != nil {
+					return err
+				}
+				return gorp.WrapWriter[uuid.UUID, httpv4.WriteConfig](db).Set(
+					ctx,
+					httpv4.WriteConfig{Key: key, Endpoints: []httpv4.WriteEndpoint{
+						{
+							Key:    "sp",
+							Method: httpv4.MethodPut,
+							Path:   "/setpoint",
+							Channel: httpv4.ChannelField{
+								Pointer:  "/value",
+								DataType: "float64",
+							},
+						},
+					}},
+				)
+			},
+		),
 	)
 
 	It(

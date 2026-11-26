@@ -13,6 +13,7 @@ import "schemas/synnax/task"
 
 BrowserConfig struct extends task.KeyedConfig {
     @doc value  "configures the file browser task, which carries no settings."
+    @go entry   "file_browser_config"
     @go imex    body
     @go marshal
     @go migrate
