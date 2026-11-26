@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <optional>
 #include <span>
@@ -346,7 +347,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     const x::telem::TimeStamp received,
     x::telem::Frame &fr,
     const std::size_t cap,
-    const std::optional<double> fill
+    const bool nan_filled
 ) {
     const auto [i, err] = std::visit(
         [&]<typename D>(D &d) {
@@ -381,8 +382,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
                  .error = f.error}
             );
             if (const auto dt = samples[f.binding].data_type();
-                fill.has_value() &&
-                (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
+                nan_filled && (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
                 this->filled[f.binding] = true;
         }
     this->present.assign(m.indexes.size(), true);
@@ -404,8 +404,9 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         if (const auto group = m.groups[k]; group.has_value() && !this->present[*group])
             continue;
         const auto &dt = samples[k].data_type();
-        if (fill.has_value() && this->filled[k])
-            series(fr, m.channels[k], dt, cap).write(dt.cast(*fill));
+        if (this->filled[k])
+            series(fr, m.channels[k], dt, cap)
+                .write(dt.cast(std::numeric_limits<double>::quiet_NaN()));
         else if (!samples[k].empty())
             series(fr, m.channels[k], dt, cap).write(samples[k]);
     }
