@@ -19,7 +19,6 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { compare } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Clipboard } from "@/platform/clipboard";
@@ -43,27 +42,23 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
   const handleLink = Link.useCopyToClipboard();
   const copy = Clipboard.useCopy();
   const openConnect = useConnectModal();
-  const allCores = cores.toSorted(compare.by((c) => c.name));
-  const keys = allCores.map((c) => c.key);
+  const keys = Session.Core.useSelectOrder();
 
   const handleRemove = (key: string): void => {
-    if (key === value) {
-      const nextCore = allCores.find((c) => c.key !== key);
-      onChange(nextCore?.key);
-    }
+    if (key === value) onChange(keys.find((k) => k !== key));
     dispatch(Session.Core.remove(key));
   };
 
   const handleRename = (key: string): void => Text.edit(nameID(key));
 
   const handleCopyAddress = (key: string): void => {
-    const core = allCores.find((c) => c.key === key);
+    const core = cores.find((c) => c.key === key);
     if (core == null) return;
     copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
 
   const handleRetest = async (key: string): Promise<void> => {
-    const core = allCores.find((c) => c.key === key);
+    const core = cores.find((c) => c.key === key);
     if (core == null) return;
     setTesting(key);
     const status = await connection.check({
@@ -115,7 +110,7 @@ export const List = ({ value, onChange, ...rest }: ListProps): ReactElement => {
         </Menu.Item>
         <Link.CopyContextMenuItem
           onClick={() => {
-            const core = allCores.find((c) => c.key === key);
+            const core = cores.find((c) => c.key === key);
             if (core == null) return;
             handleLink({ clusterKey: core.clusterKey, name: core.name });
           }}

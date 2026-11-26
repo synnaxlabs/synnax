@@ -1967,7 +1967,7 @@ var _ = Describe("Read task", func() {
 					stat := taskStatus(ctx, t)
 					Expect(stat.Message).To(Equal("Skipped 1 of 2 records"))
 					Expect(stat.Description).To(Equal(
-						`Record value: field v: unknown enum label "none": validation` +
+						`Record value: field v: invalid number "none": validation` +
 							" error (topic " + topic + ", partition 0, offset 0).",
 					))
 				},

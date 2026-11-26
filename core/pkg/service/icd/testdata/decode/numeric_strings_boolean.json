@@ -1,0 +1,62 @@
+{
+  "description": "A boolean field takes no number in a string. It takes only true, false, or an enum label.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "boolean",
+            "enum_values": [
+              {
+                "label": "ON",
+                "value": true
+              }
+            ]
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "v": "ON"
+      },
+      "message": "reading",
+      "samples": [1]
+    },
+    {
+      "document": {
+        "v": true
+      },
+      "message": "reading",
+      "samples": [1]
+    },
+    {
+      "document": {
+        "v": "1"
+      },
+      "error": "field v: expected a boolean, got string \"1\": validation error"
+    },
+    {
+      "document": {
+        "v": "true"
+      },
+      "error": "field v: expected a boolean, got string \"true\": validation error"
+    }
+  ]
+}

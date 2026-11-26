@@ -377,7 +377,7 @@ var _ = Describe("Read task ICD messages", func() {
 				Eventually(func() int64 { return stored(ctx, level).Len() }).
 					Should(BeEquivalentTo(1))
 				warned(ctx, t, "Message on topic plant/status: field temp: "+
-					`unknown enum label "hot": validation error`,
+					`invalid number "hot": validation error`,
 				)
 				Expect(stored(ctx, level)).
 					To(MatchSeriesData(telem.NewSeriesV(2.5)))
@@ -434,7 +434,7 @@ var _ = Describe("Read task ICD messages", func() {
 				)))
 				broker.publish("plant/status", `{"temp":"hot"}`, false)
 				warned(ctx, t, "Message on topic plant/status: field temp: "+
-					`unknown enum label "hot": validation error`,
+					`invalid number "hot": validation error`,
 				)
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},
