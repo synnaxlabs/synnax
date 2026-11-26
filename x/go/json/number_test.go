@@ -58,6 +58,22 @@ var _ = Describe("ParseNumber", func() {
 		Entry("negative zero", "-0.0", integer[int64]{0, true},
 			integer[uint64]{0, true}, math.Copysign(0, -1)),
 		Entry("a fraction", "2.5", integer[int64]{}, integer[uint64]{}, 2.5),
+		Entry("an integer negative zero", "-0", integer[int64]{0, true},
+			integer[uint64]{0, true}, 0.0),
+		Entry("a whole number with an exponent", "25e-1", integer[int64]{},
+			integer[uint64]{}, 2.5),
+		Entry("a decimal of several digits", "1234.5678", integer[int64]{},
+			integer[uint64]{}, 1234.5678),
+		Entry("the largest exact power of ten", "1e22", integer[int64]{},
+			integer[uint64]{}, 1e22),
+		Entry("a power of ten past the exact ones", "1e23", integer[int64]{},
+			integer[uint64]{}, 1e23),
+		Entry("a fraction past the exact powers of ten", "1e-23", integer[int64]{},
+			integer[uint64]{}, 1e-23),
+		Entry("more digits than a float holds", "0.30000000000000000001",
+			integer[int64]{}, integer[uint64]{}, 0.3),
+		Entry("a number below the smallest float", "1e-400", integer[int64]{},
+			integer[uint64]{}, 0.0),
 	)
 
 	DescribeTable("Should reject text that is not a number",
@@ -68,6 +84,10 @@ var _ = Describe("ParseNumber", func() {
 			))
 		},
 		Entry("a word", "x", `invalid number "x"`),
+		Entry("a sign alone", "-", `invalid number "-"`),
+		Entry("a point alone", ".", `invalid number "."`),
+		Entry("two points", "1.2.3", `invalid number "1.2.3"`),
+		Entry("an exponent with no digits", "1e", `invalid number "1e"`),
 		Entry("a number past a float64", "1e999", `invalid number "1e999"`),
 	)
 })
