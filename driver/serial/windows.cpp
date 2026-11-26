@@ -153,6 +153,10 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
     return x::errors::NIL;
 }
 
+void discard_output(const Handle handle) {
+    ::PurgeComm(reinterpret_cast<HANDLE>(handle), PURGE_TXABORT | PURGE_TXCLEAR);
+}
+
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
     DWORD errors = 0;
     COMSTAT stat{};
