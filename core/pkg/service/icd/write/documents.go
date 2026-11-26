@@ -46,7 +46,8 @@ type Documents struct {
 	next [][]byte
 	// commands holds the commands of each binding in one frame.
 	commands [][][]byte
-	// size is the length of the longest document, which sizes each new one.
+	// size is the capacity of the next document: the length of the last one, and an
+	// eighth more for values that grow.
 	size int
 }
 
@@ -133,7 +134,7 @@ func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq2[int, []
 				d.skip(skips, err)
 				continue
 			}
-			d.size = max(d.size, len(doc))
+			d.size = len(doc) + len(doc)/8
 			if !yield(i, doc) {
 				return
 			}
