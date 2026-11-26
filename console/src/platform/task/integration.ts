@@ -14,7 +14,10 @@ import type { PlotChannels } from "@/platform/task/plot";
 
 /** The tasks of an integration, as the task feature names and lists them. */
 export interface Integration {
-  /** The first word of each of its task types, such as "opc". */
+  /**
+   * The first word of each of its task types, such as "opc". A rack runs the tasks
+   * only when it lists this name in its integrations.
+   */
   prefix: string;
   /** The display name, such as "OPC UA". */
   name: string;

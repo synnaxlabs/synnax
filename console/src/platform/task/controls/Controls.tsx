@@ -16,7 +16,10 @@ import { deep, type TimeStamp } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
+import { Rack } from "@/platform/rack";
 import { Bar } from "@/platform/task/controls/Bar";
+import { useRegistry } from "@/platform/task/registry";
+import { formPath } from "@/platform/task/types";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
@@ -80,6 +83,9 @@ const Settings = () => {
   );
 };
 
+const blockedDescription = (integration: string): string =>
+  `Only a running Driver with ${integration} enabled can run this task.`;
+
 /** A deploy that failed before the task took its start command. */
 export interface DeployFailure {
   status: status.Status;
@@ -111,6 +117,14 @@ export const Controls = ({
   const key = useKey();
   const drifted = useDrifted();
   const canControl = Framer.useCanCommand();
+  const type = Form.useFieldValue(formPath.type);
+  const rackKey = Form.useFieldValue(formPath.rack, { optional: true }) ?? null;
+  const integration = useRegistry().getIntegration(type);
+  const blocked = Rack.useBlockedReason(
+    integration == null
+      ? null
+      : { integration: integration.prefix, name: integration.name, rack: rackKey },
+  );
 
   const handleDeploy = () => {
     if (key == null) return;
@@ -134,6 +148,13 @@ export const Controls = ({
     failure.taskStatusTime?.valueOf() === taskStatus?.time.valueOf()
   )
     shownStatus = failure.status;
+  else if (blocked != null && integration != null && !running)
+    shownStatus = status.create({
+      name: taskStatus?.name ?? "",
+      variant: "warning",
+      message: blocked,
+      description: blockedDescription(integration.name),
+    });
   let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
   // On a running task, a loading variant disables Redeploy and keeps Stop enabled.
   if (configuring) startStopVariant = running ? "loading" : undefined;
@@ -144,7 +165,7 @@ export const Controls = ({
       running={running}
       drifted={drifted}
       hideActions={!canControl}
-      disabled={configuring && !running}
+      disabled={(configuring || blocked != null) && !running}
       startStopVariant={startStopVariant}
       settings={<Settings />}
       onDeploy={handleDeploy}

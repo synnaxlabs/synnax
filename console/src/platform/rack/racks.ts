@@ -67,17 +67,14 @@ export interface UseBlockedReasonArgs extends Omit<BlockedReasonArgs, "rack"> {
 
 /**
  * Returns {@link getBlockedReason} for the Core's racks, or null until they resolve.
+ * Null args check nothing.
  */
-export const useBlockedReason = ({
-  integration,
-  name,
-  rack: key,
-}: UseBlockedReasonArgs): string | null => {
+export const useBlockedReason = (args: UseBlockedReasonArgs | null): string | null => {
   const { data } = Rack.useResultMultiple({});
-  if (data == null) return null;
+  if (args == null || data == null) return null;
+  const { rack: key, ...rest } = args;
   return getBlockedReason(data, {
-    integration,
-    name,
+    ...rest,
     rack: key == null || key === 0 ? undefined : key,
   });
 };

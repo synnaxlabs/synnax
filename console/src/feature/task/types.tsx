@@ -48,11 +48,12 @@ const TASK_ICON = <Icon.Task />;
 export const getIcon = (type: string): Icon.ReactElement =>
   INTEGRATIONS.find(({ prefix }) => type.startsWith(prefix))?.icon ?? TASK_ICON;
 
+export const getIntegration = (type: string): Task.Integration | undefined =>
+  INTEGRATIONS.find(({ prefix }) => prefix === type.split("_")[0]);
+
 export const parseType = (type: string): string => {
   const [first, ...rest] = type.split("_");
-  const name =
-    INTEGRATIONS.find(({ prefix }) => prefix === first)?.name ??
-    strings.capitalize(first);
+  const name = getIntegration(type)?.name ?? strings.capitalize(first);
   return `${[name, ...rest].join(" ")} task`;
 };
 

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -17,6 +18,7 @@ import { z } from "zod";
 import { Task } from "@/platform/task";
 import {
   clickRedeploy,
+  createRegistry,
   createTaskStatus,
   isRedeployHidden,
   renderInTaskForm,
@@ -50,7 +52,43 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
   }),
 });
 
+const ACME: Task.Integration = {
+  prefix: "acme",
+  name: "Acme",
+  icon: <Icon.Task />,
+  selectables: [],
+};
+
 describe("Controls.Controls", () => {
+  it("should block Start when no running Driver has the integration", async () => {
+    const { container } = await renderInTaskFormWithClient(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      {
+        client,
+        values: { key: "1", type: "acme_read" },
+        registry: createRegistry({ integrations: [ACME] }),
+      },
+    );
+    expect(await screen.findByText("No running Driver has Acme enabled")).toBeTruthy();
+    const play = await findIconButton(container, "play");
+    expect(play.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("should not block Start for a task type of no integration", async () => {
+    const onDeploy = vi.fn();
+    const { container } = await renderInTaskFormWithClient(
+      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      {
+        client,
+        values: { key: "1", type: "arc" },
+        registry: createRegistry({ integrations: [ACME] }),
+      },
+    );
+    fireEvent.click(await findIconButton(container, "play"));
+    expect(onDeploy).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/No running Driver has/)).toBeNull();
+  });
+
   it("should invoke onDeploy when the start button is pressed", async () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskFormWithClient(

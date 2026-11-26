@@ -48,6 +48,7 @@ import type { z } from "zod";
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import type { Forms, FormTabProps } from "@/platform/task/Form";
+import type { Integration } from "@/platform/task/integration";
 import type { PlotChannels } from "@/platform/task/plot";
 import { type Registry, RegistryProvider } from "@/platform/task/registry";
 import type { CreateParams, UseCreate } from "@/platform/task/useCreate";
@@ -104,13 +105,22 @@ export type FormRef = { current: PForm.ContextValue<z.ZodType> | null };
 
 const TASK_ICON = <Icon.Task />;
 
-/** Creates a task registry that plots the channels of the given task types. */
-export const createRegistry = (
-  plotChannels: Record<string, PlotChannels> = {},
-): Registry => ({
+export interface CreateRegistryOptions {
+  /** Finds the channels to plot, by task type. */
+  plotChannels?: Record<string, PlotChannels>;
+  integrations?: Integration[];
+}
+
+/** Creates a task registry of the given plot channels and integrations. */
+export const createRegistry = ({
+  plotChannels = {},
+  integrations = [],
+}: CreateRegistryOptions = {}): Registry => ({
   getIcon: () => TASK_ICON,
   parseType: (type) => type,
   getPlotChannels: (type) => plotChannels[type],
+  getIntegration: (type) =>
+    integrations.find(({ prefix }) => prefix === type.split("_")[0]),
 });
 
 const DEFAULT_REGISTRY = createRegistry();

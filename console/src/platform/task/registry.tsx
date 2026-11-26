@@ -11,6 +11,7 @@ import { context } from "@synnaxlabs/lyra/context";
 import type { Icon } from "@synnaxlabs/lyra/icon";
 import type { PropsWithChildren, ReactElement } from "react";
 
+import type { Integration } from "@/platform/task/integration";
 import type { PlotChannels } from "@/platform/task/plot";
 
 export interface Registry {
@@ -18,6 +19,8 @@ export interface Registry {
   parseType: (type: string) => string;
   /** Returns undefined for a task type that has no channels to plot. */
   getPlotChannels: (type: string) => PlotChannels | undefined;
+  /** Returns undefined for a task type of no integration, such as an Arc task. */
+  getIntegration: (type: string) => Integration | undefined;
 }
 
 const [Context, useContext] = context.create<Registry>({
