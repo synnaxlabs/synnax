@@ -27,8 +27,9 @@ func GoExecutor(f func()) { go f() }
 // files in one pool. To open a handle when the limit is reached, it closes the idle
 // handle that was used least recently, and syncs that handle first when it has unsynced
 // bytes. When every open handle is in use, the open waits for one to become idle. A
-// held handle stays open outside the limit. At most width file and directory syncs run
-// at once. A Budget is safe for concurrent use.
+// held handle stays open outside the limit, and a Hold opens past the limit instead of
+// waiting. At most width file and directory syncs run at once. A Budget is safe for
+// concurrent use.
 type Budget struct {
 	limit int
 	exec  Executor
@@ -62,7 +63,7 @@ func NewBudget(limit, width int, exec Executor) (*Budget, error) {
 // first Sync of the handle also syncs the directory of name.
 func (b *Budget) Create(fs xfs.FS, name string) (*Handle, error) {
 	h := &Handle{b: b, fs: fs, name: name, flag: createFlag, newEntry: true}
-	if _, err := h.acquire(); err != nil {
+	if _, err := h.acquire(false); err != nil {
 		return nil, err
 	}
 	h.release(false)
@@ -76,7 +77,7 @@ func (b *Budget) CreateHeld(fs xfs.FS, name string) (*Handle, error) {
 	h := &Handle{
 		b: b, fs: fs, name: name, flag: createFlag, newEntry: true, held: true,
 	}
-	if _, err := h.acquire(); err != nil {
+	if _, err := h.acquire(false); err != nil {
 		return nil, err
 	}
 	h.release(false)

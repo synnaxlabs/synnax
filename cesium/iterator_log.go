@@ -21,17 +21,27 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// logSource opens the cursors of one key on the pointer log layout.
+// logSource opens the cursors of one key on the pointer log layout for one read. The
+// calls of a read never overlap, so the source gives the cursor that a call closed to
+// the next call.
 type logSource struct {
 	e   *engine
 	key ChannelKey
+	// closed is the cursor that the last Close gave back, or nil.
+	closed *logCursor
 }
 
-var _ domain.Source = logSource{}
+var _ domain.Source = (*logSource)(nil)
 
 // OpenCursor implements domain.Source.
-func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	return domain.NewCursor(&logCursor{e: s.e, key: s.key, bounds: cfg.Bounds})
+func (s *logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
+	c := s.closed
+	s.closed = nil
+	if c == nil {
+		c = &logCursor{}
+	}
+	*c = logCursor{e: s.e, key: s.key, src: s, bounds: cfg.Bounds, ranges: c.ranges[:0]}
+	return domain.NewCursor(c)
 }
 
 // logRange is one committed pointer of a key, with the segment that holds it. Its time
@@ -57,6 +67,7 @@ func (r logRange) timeRange() telem.TimeRange {
 type logCursor struct {
 	e      *engine
 	key    ChannelKey
+	src    *logSource
 	bounds telem.TimeRange
 	ranges []logRange
 	pos    int
@@ -169,6 +180,11 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	cfg := c.e.segmentConfig(r.seg)
 	cfg.Key = c.key
+	h := c.e.handle(c.key, r.seg.ID)
+	file, err := h.Hold()
+	if err != nil {
+		return nil, err
+	}
 	return &logReader{
 		e:  c.e,
 		rd: c.e.reader(),
@@ -177,25 +193,30 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 			Length:  int64(r.seg.Length),
 			TailCRC: r.seg.TailCRC,
 		},
-		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID)),
+		h:      h,
+		file:   file,
 		offset: int64(r.ptr.Offset),
 		size:   int64(r.ptr.Length),
 	}, nil
 }
 
-// Close implements domain.Ranges.
+// Close implements domain.Ranges. It gives c back to its source, so c must not be used
+// after it.
 func (c *logCursor) Close() error {
 	c.valid = false
+	c.src.closed = c
 	return nil
 }
 
-// logReader reads the bytes of one pointer from its segment file, and checks each block
-// that it reads with a segment reader from the pool of the engine until Close.
+// logReader reads the bytes of one pointer from its segment file, which it holds open
+// until Close, and checks each block that it reads with a segment reader from the pool
+// of the engine.
 type logReader struct {
 	e      *engine
 	rd     *segment.Reader
 	seg    segment.Committed
 	h      *segment.Handle
+	file   io.ReaderAt
 	offset int64
 	size   int64
 }
@@ -210,7 +231,7 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 	n := int(min(int64(len(p)), r.size-off))
-	if err := r.rd.Read(r.h, r.seg, p[:n], r.offset+off); err != nil {
+	if err := r.rd.Read(r.file, r.seg, p[:n], r.offset+off); err != nil {
 		return 0, err
 	}
 	if n < len(p) {
@@ -225,5 +246,6 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
 	r.e.readers.Put(r.rd)
-	return r.h.Close()
+	r.h.Release()
+	return nil
 }
