@@ -147,11 +147,12 @@ const newAgreement = (keys: channel.Key[], dataTypes: DataType[]): Agreement => 
   all: keys,
 });
 
-interface Entry {
-  key: channel.Key;
-  series: SeriesPayload;
-  // The position of key in the requested keys, or -1 for a declared clock.
-  index: number;
+/** The series of one frame in key order, as parallel arrays. */
+interface Entries {
+  keys: channel.Key[];
+  series: SeriesPayload[];
+  // The position of each key in the requested keys, or -1 for a declared clock.
+  indices: number[];
 }
 
 /** The extension flags, type codes, overrides, and declared clocks of one frame. */
@@ -268,22 +269,29 @@ export class Codec {
   }
 
   // Returns the series of src in key order, keeping the producer's order within a key.
-  private entries(src: Payload, state: CodecState): Entry[] {
-    const entries = src.keys.map((key, i): Entry => {
-      const series = src.series[i];
-      const index = state.index.get(key);
-      if (index != null) return { key, series, index };
-      if (isOwnClock(key, series)) return { key, series, index: -1 };
-      throw new ValidationError(
-        `Channel ${key} was not provided in the list of channels when opening the writer`,
-      );
-    });
-    if (entries.every((e, i) => i === 0 || entries[i - 1].key <= e.key)) return entries;
-    return entries.sort((a, b) => compareKeys(a.key, b.key));
+  // It leaves src as it is.
+  private entries(src: Payload, state: CodecState): Entries {
+    let { keys, series } = src;
+    if (!keys.every((k, i) => i === 0 || keys[i - 1] <= k)) {
+      const order = keys.map((_, i) => i).sort((a, b) => compareKeys(keys[a], keys[b]));
+      keys = order.map((i) => src.keys[i]);
+      series = order.map((i) => src.series[i]);
+    }
+    const indices = new Array<number>(keys.length);
+    for (let i = 0; i < keys.length; i++) {
+      const index = state.index.get(keys[i]);
+      if (index != null) indices[i] = index;
+      else if (isOwnClock(keys[i], series[i])) indices[i] = -1;
+      else
+        throw new ValidationError(
+          `Channel ${keys[i]} was not provided in the list of channels when opening the writer`,
+        );
+    }
+    return { keys, series, indices };
   }
 
   // Plans the extension of the next frame of ag without changing ag.
-  private plan(entries: Entry[], state: CodecState): Plan {
+  private plan(entries: Entries, state: CodecState): Plan {
     const ag = state.enc;
     const plan: Plan = {
       ext: 0,
@@ -299,21 +307,25 @@ export class Codec {
     }
     let overrides = false;
     let undeclared = false;
-    for (const { series, index } of entries)
+    for (let i = 0; i < entries.keys.length; i++) {
+      const index = entries.indices[i];
+      const series = entries.series[i];
       if (index < 0) undeclared = true;
       else if (
         (series.clock ?? 0) !== ag.clocks[index] ||
         needsTypeOverride(ag.dataTypes[index], series.dataType)
       )
         overrides = true;
+    }
     if (overrides) {
       plan.ext |= OVERRIDES_PRESENT;
       plan.clocks = [...ag.clocks];
-      plan.kinds = entries.map(({ key, series, index }) => {
+      plan.kinds = entries.indices.map((index, i) => {
         if (index < 0) return 0;
+        const series = entries.series[i];
         let kinds = 0;
         if (needsTypeOverride(ag.dataTypes[index], series.dataType)) {
-          codeOf(key, series.dataType);
+          codeOf(entries.keys[i], series.dataType);
           kinds |= TYPE_KIND;
         }
         const clock = series.clock ?? 0;
@@ -326,7 +338,7 @@ export class Codec {
     }
     if (undeclared || ag.declared.length > 0) {
       const named = (k: channel.Key): boolean => plan.clocks.includes(k);
-      const inFrame = new Set(entries.filter((e) => e.index < 0).map((e) => e.key));
+      const inFrame = new Set(entries.keys.filter((_, i) => entries.indices[i] < 0));
       const declared = [
         ...inFrame,
         ...ag.declared.filter((k) => !inFrame.has(k) && named(k)),
@@ -358,12 +370,12 @@ export class Codec {
     let equalTimeRangesFlag = true;
     let equalAlignmentsFlag = true;
     let multiplesPresentFlag = false;
+    const n = entries.keys.length;
     const channelFlag =
-      entries.length === plan.all.length &&
-      entries.every((e, i) => e.key === plan.all[i]);
-    if (!channelFlag) byteArraySize += entries.length * KEY_SIZE;
+      n === plan.all.length && entries.keys.every((k, i) => k === plan.all[i]);
+    if (!channelFlag) byteArraySize += n * KEY_SIZE;
 
-    entries.forEach(({ series }) => {
+    for (const series of entries.series) {
       const pldLength = seriesPldLength(series);
       const start = series.timeRange?.start.valueOf() ?? 0n;
       const end = series.timeRange?.end.valueOf() ?? 0n;
@@ -372,31 +384,29 @@ export class Codec {
       if (series.dataType.isVariable) equalLengthsFlag = false;
       if ((series.alignmentMultiple ?? 1n) > 1n) multiplesPresentFlag = true;
       if (currDataSize === -1) {
-        [currDataSize, startTime, endTime, currAlignment] = [
-          pldLength,
-          start,
-          end,
-          alignment,
-        ];
-        return;
+        currDataSize = pldLength;
+        startTime = start;
+        endTime = end;
+        currAlignment = alignment;
+        continue;
       }
       if (currDataSize !== pldLength) equalLengthsFlag = false;
       if (startTime !== start || endTime !== end) equalTimeRangesFlag = false;
       if (currAlignment !== alignment) equalAlignmentsFlag = false;
-    });
+    }
     const timeRangesZeroFlag =
       equalTimeRangesFlag && startTime === 0n && endTime === 0n;
     const zeroAlignmentsFlag = equalAlignmentsFlag && currAlignment === 0n;
 
     if (equalLengthsFlag) byteArraySize += DATA_LENGTH_SIZE;
-    else byteArraySize += entries.length * DATA_LENGTH_SIZE;
+    else byteArraySize += n * DATA_LENGTH_SIZE;
     if (!timeRangesZeroFlag)
       if (equalTimeRangesFlag) byteArraySize += TIMESTAMP_SIZE * 2;
-      else byteArraySize += entries.length * TIMESTAMP_SIZE * 2;
+      else byteArraySize += n * TIMESTAMP_SIZE * 2;
     if (!zeroAlignmentsFlag)
       if (equalAlignmentsFlag) byteArraySize += ALIGNMENT_SIZE;
-      else byteArraySize += entries.length * ALIGNMENT_SIZE;
-    if (multiplesPresentFlag) byteArraySize += entries.length * MULTIPLE_SIZE;
+      else byteArraySize += n * ALIGNMENT_SIZE;
+    if (multiplesPresentFlag) byteArraySize += n * MULTIPLE_SIZE;
     if (plan.ext !== 0) byteArraySize += 1 + plan.codes.length;
     if ((plan.ext & CLOCKS_DECLARED) !== 0)
       byteArraySize += KEY_SIZE + KEY_SIZE * plan.declared.length;
@@ -451,8 +461,9 @@ export class Codec {
     };
     if ((plan.ext & OVERRIDES_PRESENT) !== 0) u32(nextOverride(0));
 
-    entries.forEach(({ key, series }, i) => {
-      if (!channelFlag) u32(key);
+    for (let i = 0; i < n; i++) {
+      const series = entries.series[i];
+      if (!channelFlag) u32(entries.keys[i]);
       const kinds = plan.kinds[i] ?? 0;
       if (kinds !== 0) {
         buffer[offset++] = kinds;
@@ -483,7 +494,7 @@ export class Codec {
         offset += ALIGNMENT_SIZE;
       }
       if (multiplesPresentFlag) u32(Number(series.alignmentMultiple ?? 1n));
-    });
+    }
     const ag = state.enc;
     ag.typesDeclared = true;
     [ag.clocks, ag.declared, ag.all] = [plan.clocks, plan.declared, plan.all];
