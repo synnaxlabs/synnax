@@ -31,7 +31,9 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	db  *gorp.DB
 	svc *icd.Service
-	tx  gorp.Tx
+	// holders is a table whose records use ICDs.
+	holders *gorp.Table[string, holder]
+	tx      gorp.Tx
 )
 
 var (
@@ -43,6 +45,7 @@ var (
 			DB:   db,
 			ImEx: imex.NewService(),
 		}))
+		holders = openHolders(ctx, db)
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )
