@@ -45,12 +45,13 @@ func (*Service) Match(body map[string]any) bool {
 // enumeration with On in that color. Each custom node of such a file with state
 // overrides gets the enumeration or symbol copy that the upgrade gives it, and each
 // custom actuator whose symbol does not actuate gets a copy that does, when
-// opts.Retrievable allows the symbol and each enumeration that the node needs. The
-// schematic drops each named color and each enumeration that the Core does not hold, so
-// a select or state indicator that loses its enumeration draws no states. A node whose
-// custom symbol the Core does not hold draws a missing symbol with the same key, and
-// every other node drops the bindings that its symbol orphans. An unknown envelope
-// version is a path-scoped validation error.
+// opts.Retrievable allows the symbol and each enumeration that the node needs. A copy
+// goes in the group of its symbol, so the import needs create on symbols and update on
+// that group. The schematic drops each named color and each enumeration that the Core
+// does not hold, so a select or state indicator that loses its enumeration draws no
+// states. A node whose custom symbol the Core does not hold draws a missing symbol with
+// the same key, and every other node drops the bindings that its symbol orphans. An
+// unknown envelope version is a path-scoped validation error.
 func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, error) {
 	sch, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
