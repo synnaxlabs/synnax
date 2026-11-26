@@ -125,6 +125,30 @@ var _ = Describe("Delete breaker", func() {
 			Count(ctx, db)).To(Equal(2))
 	})
 
+	It("Should delete a data channel named by key and its index named by name, "+
+		"as it did before", func(ctx SpecContext) {
+		index := createChannel(
+			ctx,
+			channel.Channel{IsIndex: true, DataType: telem.TimestampT},
+		)
+		data := createChannel(ctx, channel.Channel{
+			DataType:   telem.Float32T,
+			LocalIndex: index.LocalKey,
+		})
+		req := apichannel.DeleteRequest{
+			Keys:  channel.Keys{data.Key()},
+			Names: []string{index.Name},
+		}
+		Expect(oldDelete(ctx, db, channelSvc, req)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := apiSvc.Delete(ctx, tx, req)
+			return err
+		})).To(Succeed())
+		Expect(channelSvc.NewRetrieve().
+			Where(channel.MatchKeys(index.Key(), data.Key())).
+			Count(ctx, db)).To(BeZero())
+	})
+
 	It("Should name the channel that it named before when a task holds two deleted "+
 		"channels", func(ctx SpecContext) {
 		a := createChannel(ctx, channel.Channel{})
