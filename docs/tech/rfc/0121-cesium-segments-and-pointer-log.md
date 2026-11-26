@@ -386,19 +386,19 @@ An entry larger than a frame is refused, so the compactor and progression encodi
 no rewrite whose Replace would be larger than a frame. The file header is 64 bytes at
 offset 0, and again at 4,096. Frames start at 8,192.
 
-| Offset | Size | Type     | Meaning                                                                                                                                                                   |
-| ------ | ---- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0      | 8    | bytes    | Magic `CSPTRLOG`                                                                                                                                                          |
-| 8      | 2    | `uint16` | Format version, 1                                                                                                                                                         |
-| 10     | 2    | `uint16` | Flags. Bit 0, the end flag: this log goes on from the log that offset 52 names, after the frame that offset 48 links to (§6)                                              |
-| 12     | 4    | zero     |                                                                                                                                                                           |
-| 16     | 8    | `uint64` | Database identity                                                                                                                                                         |
-| 24     | 8    | `uint64` | Generation                                                                                                                                                                |
-| 32     | 8    | `uint64` | Sequence of the first entry in the file                                                                                                                                   |
-| 40     | 8    | `uint64` | File size. Recovery checks it against the size on disk                                                                                                                    |
-| 48     | 4    | `uint32` | `crc` field of the frame that this log follows: the last frame of the generation before, or with the end flag the last synced frame of the log that offset 52 names; or 0 |
-| 52     | 8    | `uint64` | With the end flag, the generation of the log that this log follows; else zero                                                                                             |
-| 60     | 4    | `uint32` | CRC of bytes 0 to 59. Place offset: 0 or 4,096                                                                                                                            |
+| Offset | Size | Type     | Meaning                                                                                                                                                                                                                                |
+| ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0      | 8    | bytes    | Magic `CSPTRLOG`                                                                                                                                                                                                                       |
+| 8      | 2    | `uint16` | Format version, 1                                                                                                                                                                                                                      |
+| 10     | 2    | `uint16` | Flags. Bit 0, the end flag: this log goes on from the log that offset 52 names, after the frame that offset 48 links to (§6)                                                                                                           |
+| 12     | 4    | zero     |                                                                                                                                                                                                                                        |
+| 16     | 8    | `uint64` | Database identity                                                                                                                                                                                                                      |
+| 24     | 8    | `uint64` | Generation                                                                                                                                                                                                                             |
+| 32     | 8    | `uint64` | Sequence of the first entry in the file                                                                                                                                                                                                |
+| 40     | 8    | `uint64` | File size. Recovery checks it against the size on disk                                                                                                                                                                                 |
+| 48     | 4    | `uint32` | `crc` field of the frame that this log follows: the last frame of the generation before, or with the end flag the last synced frame of the log that offset 52 names, or that log's header CRC at 0 when it holds no synced frame; or 0 |
+| 52     | 8    | `uint64` | With the end flag, the generation of the log that this log follows; else zero                                                                                                                                                          |
+| 60     | 4    | `uint32` | CRC of bytes 0 to 59. Place offset: 0 or 4,096                                                                                                                                                                                         |
 
 A frame is one group commit batch, 16 MiB at most:
 
@@ -609,11 +609,11 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
    record in a valid frame that breaks a rule of §5.2 refuses the open.
 6. Before it replays log `h`, read the header of each later log. When one passes and
    holds the end flag for `h`, log `h` ends at the frame that the highest such header
-   links to: go on in that log. Replay skips the logs between, which hold no acked
-   frame. Else, at the first position `X` where no valid frame continues log `h`, at the
-   end of the last frame or at the next 4 KiB boundary, look at log `h + 1`. A header
-   there that passes and links to the last valid frame ends log `h`: go on in log
-   `h + 1`.
+   links to, or before its first frame when that link is the CRC of the header at 0 of
+   `h`: go on in that log. Replay skips the logs between, which hold no acked frame.
+   Else, at the first position `X` where no valid frame continues log `h`, at the end of
+   the last frame or at the next 4 KiB boundary, look at log `h + 1`. A header there
+   that passes and links to the last valid frame ends log `h`: go on in log `h + 1`.
 7. **Torn tail rule**: If not, read log `h` from `X` to its end twice, and scan the
    8-byte grid for a frame whose magic, bounds, and `crc` pass at its own offset. Its
    link and sequence cannot pass after a bad frame, so the scan does not check them.
@@ -755,31 +755,35 @@ A second read comes before every verdict of lasting corruption, and the verdict 
 two failed reads of the same bytes: failures of two different byte ranges, such as a
 frame header and then its body, are two one-time faults, and each range gets its own
 second read. No storage fault stops a running Core: live data, streams, control, and Arc
-keep running. After a sync error on log `g`, the log owner never writes or syncs that
-log again and acks nothing. Each attempt to go on takes a fresh log file from the
-checkpointer, at the next free generation, and writes and syncs its header first: the
-end flag, the generation of the newest log whose header synced, and the `crc` of that
-log's last synced frame or, when it holds none, the CRC of its header at 0, the link of
-a first frame (§5.2). That log is `g`, or the log before `g` when the header sync of `g`
-failed, so recovery finds the chain and skips the log between (§5.5 step 6). Only after
+keep running. After a sync error on the log in use, `g`, the log owner never writes or
+syncs that log again and acks nothing. Each attempt to go on takes a fresh log file from
+the checkpointer, at the next free generation, and writes and syncs its header first:
+the end flag, the generation `g`, and the `crc` of the last synced frame of `g` or, when
+`g` holds none, the CRC of its header at 0, the link of a first frame (§5.2). Only after
 that sync passes does it write every unacked entry again, whose segments are already
 durable (§5.4 step 3), as the first frames of that log, sync, and ack. One attempt runs
 at a time: a `Sync` during an attempt returns the error at once, and the next `Sync`
 after a failed attempt makes the next one. Before it, the log owner removes the file of
 the failed attempt, which holds no acked frame, so a lasting fault adds at most one log
-file. Failed attempts do not count toward the 16 logs of §5.3. The checkpointer learns
-each generation that the log owner takes, so a due switch takes the next free generation
-and never writes the headers of a log in use, and the orphan pass keeps each log from
-the older head's generation on. Recovery goes on from the named log in the highest log
-whose header holds the end flag for it (§5.5 step 6), so a failed frame that reached the
-disk is neither replayed nor a sign of corruption. Until an attempt acks, `Sync` returns
-the error, `Close` returns it and releases its claims (§4.2), commits stay visible, and
-the Core raises a status that says storage is failing. A crash in that time loses the
-commits since the last durable entry. At start, the Core gets past damage by itself:
-when `Open` returns `ErrCorrupt`, the Core runs `cesium.Repair` (§6.0) with a confirm
-that accepts, raises a warning status that lists what repair could not save, and opens
-again. A repair that fails fails the start. The identity refusal (§9.0) is its own
-error, and the Core never repairs past it. Cesium does not panic.
+file. Every attempt after one error names the same link, so none names a removed
+attempt, and recovery finds the chain and skips the logs between (§5.5 step 6). Log `g`
+always has a synced header: a switch log is in use only after its header syncs (§5.3
+step 2), and an attempt only after its first frames ack. When the header sync of a
+switch log fails, the log owner removes that file, and the next batch tries the switch
+again at the next free generation. Failed attempts do not count toward the 16 logs of
+§5.3. The checkpointer learns each generation that the log owner takes, so a due switch
+takes the next free generation and never writes the headers of a log in use, and the
+orphan pass keeps each log from the older head's generation on. Recovery goes on from
+the named log in the highest log whose header holds the end flag for it (§5.5 step 6),
+so a failed frame that reached the disk is neither replayed nor a sign of corruption.
+Until an attempt acks, `Sync` returns the error, `Close` returns it and releases its
+claims (§4.2), commits stay visible, and the Core raises a status that says storage is
+failing. A crash in that time loses the commits since the last durable entry. At start,
+the Core gets past damage by itself: when `Open` returns `ErrCorrupt`, the Core runs
+`cesium.Repair` (§6.0) with a confirm that accepts, raises a warning status that lists
+what repair could not save, and opens again. A repair that fails fails the start. The
+identity refusal (§9.0) is its own error, and the Core never repairs past it. Cesium
+does not panic.
 
 | Fault                                                                                         | What the engine sees                                                                             | What it does                                                                                                                                                                                                                                                            |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
