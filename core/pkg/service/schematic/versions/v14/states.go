@@ -57,6 +57,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 				},
 				retrievable: func(resource.ID) bool { return true },
 				copies:      map[string]symbol.Key{},
+				named:       map[string]int{},
 			}
 			if err := migrate.NewInstrumentedEntry(
 				key,

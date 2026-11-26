@@ -40,6 +40,8 @@ type overrides struct {
 	retrievable func(resource.ID) bool
 	// copies holds the copy of a symbol for each source symbol and set of overrides.
 	copies map[string]symbol.Key
+	// named counts the copies under each name that a first copy gets.
+	named map[string]int
 }
 
 // apply makes each custom node of old with state overrides a symbol node in s, with the
@@ -129,9 +131,9 @@ func (o *overrides) node(
 		if !o.linksRetrievable(drawn.States) {
 			return cfg, nil
 		}
-		c := symbol.Symbol{Name: src.Name + " (" + schematic + ")", Group: src.Group}
+		c := symbol.Symbol{Name: src.Name, Group: src.Group}
 		c.Data = *drawn
-		key, err := o.copy(ctx, src.Key, states, actuated, c, recolored)
+		key, err := o.copy(ctx, src.Key, states, actuated, schematic, c, recolored)
 		if err != nil {
 			return SymbolNodeConfig{}, err
 		}
@@ -166,12 +168,13 @@ func onEntries(recolored, entries []enumeration.Entry) []enumeration.Entry {
 // copy creates c, a copy of the symbol with key src, and returns its key. When entries
 // is not empty, the first state of c gets an enumeration of entries. A scale that is
 // not positive becomes 1. Nodes share a copy when they have the same source symbol,
-// overrides states, and actuated.
+// overrides states, and actuated. The copy gets the next copyName of c in schematic.
 func (o *overrides) copy(
 	ctx context.Context,
 	src symbol.Key,
 	states []symbolv4.State,
 	actuated bool,
+	schematic string,
 	c symbol.Symbol,
 	entries []enumeration.Entry,
 ) (symbol.Key, error) {
@@ -183,6 +186,9 @@ func (o *overrides) copy(
 	if key, ok := o.copies[id]; ok {
 		return key, nil
 	}
+	first := copyName(c.Name, schematic, 1)
+	o.named[first]++
+	c.Name = copyName(c.Name, schematic, o.named[first])
 	if len(entries) > 0 {
 		if c.Data, err = o.enumerate(ctx, c.Name, c.Data, entries); err != nil {
 			return uuid.Nil(), err
@@ -237,6 +243,15 @@ func actuates(spec symbol.Spec) bool {
 	}) && slices.ContainsFunc(spec.Commands, func(c symbol.Command) bool {
 		return c.State != nil && *c.State == activeState
 	})
+}
+
+// copyName returns the name of copy n of the symbol named name in schematic:
+// "Valve (Panel)", then "Valve (Panel 2)".
+func copyName(name, schematic string, n int) string {
+	if n == 1 {
+		return name + " (" + schematic + ")"
+	}
+	return name + " (" + schematic + " " + strconv.Itoa(n) + ")"
 }
 
 // entriesOf returns the entries of the stored enumeration of state, or none when state
