@@ -177,11 +177,12 @@ var _ = Describe("NameRuleMigration", func() {
 		})
 
 	It("Should give each of several new names its own suffix", func(ctx SpecContext) {
+		first, second := uuid.New(), uuid.New()
 		names := migrate(
 			ctx,
 			channel(1, "a.b", nil),
-			channel(2, "a\u200B_b", nil),
-			channel(3, "a_b\u00A0", nil),
+			channel(2, "a.b", &first),
+			channel(3, "a.b", &second),
 		)
 		Expect(names).To(Equal(map[v1.LocalKey]string{
 			1: "a_b",
