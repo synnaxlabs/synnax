@@ -135,6 +135,11 @@ func (i *Iterator) Error() error {
 		return ErrIteratorClosed
 	}
 	i.frame = Frame{}
+	return i.readErr()
+}
+
+// readErr returns the first error of a channel's iterator.
+func (i *Iterator) readErr() error {
 	for _, u := range i.internal {
 		if err := u.Error(); err != nil {
 			return err
@@ -219,7 +224,13 @@ func (i *Iterator) read(
 			fr = fr.Extend(u.Value())
 		}
 	}
-	return ok, emitFrame(emit, fr)
+	if err := i.readErr(); err != nil {
+		return false, err
+	}
+	if err := emitFrame(emit, fr); err != nil {
+		return false, err
+	}
+	return ok, nil
 }
 
 // readInChunks runs a Next or Prev with a fixed span. It reads the range of each
@@ -273,6 +284,9 @@ func (i *Iterator) readInChunks(
 				ok = true
 				chunk = chunk.Extend(u.Value())
 			}
+		}
+		if err = i.readErr(); err != nil {
+			return false, err
 		}
 		if err = emitFrame(emit, chunk); err != nil {
 			return false, err
