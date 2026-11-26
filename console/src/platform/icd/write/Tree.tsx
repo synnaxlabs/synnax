@@ -180,6 +180,7 @@ export const useTree = <T extends Target>({
   const formats = useFormats();
   const all = PForm.useFieldValue(path);
   const [added, setAdded] = useState<icd.FieldKey>();
+  const [created, setCreated] = useState<icd.FieldKey[]>([]);
   const structure = ICDTree.useStructure(formats, (): Structure =>
     ctx.get(path).value.map((t): Structure[number] => {
       const sent = messageOf(t);
@@ -290,6 +291,7 @@ export const useTree = <T extends Target>({
       fields.at(-1)?.key,
     );
     setAdded(field.key);
+    setCreated((prev) => [...prev, field.key]);
     const mark = openKey(target);
     onExpand((prev) =>
       unique.unique([...prev, ...(marks.has(mark) ? [mark] : []), target]),
@@ -486,6 +488,7 @@ export const useTree = <T extends Target>({
           channelName={sent.channelName(node.field)}
           skipped={target.disabled}
           autoFocus={node.field.key === added}
+          created={created.includes(node.field.key)}
         />
       ),
     };
