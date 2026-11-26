@@ -20,12 +20,25 @@ import (
 	"go.uber.org/zap"
 )
 
-// CreateChannel creates a channel in the database.
+// CreateChannel creates a channel in the database. It waits for a DeleteTimeRange on
+// the index of a channel in ch to return, and returns ctx.Err() if ctx ends first.
 func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	db.mu.Lock()
+	for {
+		db.mu.Lock()
+		done := db.indexDeleteDone(ch)
+		if done == nil {
+			break
+		}
+		db.mu.Unlock()
+		select {
+		case <-done:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 	defer db.mu.Unlock()
 	for _, c := range ch {
 		if err := db.createChannel(ctx, c); err != nil {
