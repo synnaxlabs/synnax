@@ -380,6 +380,7 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
+  const handleAddressChange = () => set(path.message, ICD.Write.unbind(target.message));
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -389,12 +390,14 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
             label="Topic"
             padHelpText={false}
             inputProps={TOPIC_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
           <PForm.TextField
             path={path.recordKey}
             label="Record key"
             padHelpText={false}
             inputProps={RECORD_KEY_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
         </PForm.Section>
         <PForm.Section
@@ -467,20 +470,21 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const specs = all
     .filter(({ disabled }) => !disabled)
     .flatMap((t) => commandChannelsOf(t, namingOf(device.name, t)));
-  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
   const messageOf = (target: WriteTarget): ICD.Write.TargetMessage => {
     const naming = namingOf(device.name, target);
     return {
       icd: target.icd,
       message: target.message.message,
       path: root.config.targets[target.key].message,
-      channelName: (field) => names.get(naming.key(field)) ?? naming.name(field),
+      naming,
     };
   };
   const { tree, handleSelect, contextMenu, renderItem, pane, currentGroup } =
     ICD.Write.useTree<WriteTarget>({
       path: root.config.targets,
       messageOf,
+      plans,
       groups: TOPICS,
       TargetItem,
       targetPane: (target, onAddField) => ({
