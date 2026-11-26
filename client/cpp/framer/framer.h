@@ -102,8 +102,7 @@ struct CodecFlags {
     /// @brief whether each series carries an alignment multiple. The codec does not
     /// support multiples, so decode rejects frames that set this flag.
     bool multiples_present = false;
-    /// @brief whether a second flags byte follows. Reserved; decode rejects frames that
-    /// set it.
+    /// @brief whether the extension flags follow the sequence number.
     bool extended = false;
 
     /// @brief Encodes the flags into a byte
