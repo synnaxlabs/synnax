@@ -62,7 +62,7 @@ class Writer {
     command(std::size_t binding, std::size_t i) const;
     /// @brief points commands at the series of each binding in fr.
     /// @returns the number of rows of commands in fr.
-    std::size_t sort(const x::telem::Frame &fr);
+    std::size_t gather(const x::telem::Frame &fr);
     /// @brief keeps the good commands of row, and sets refused to the error of the
     /// first command that it drops when refused is nil.
     /// @returns true when row holds a good command.

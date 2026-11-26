@@ -218,7 +218,7 @@ Writer::command(const std::size_t binding, std::size_t i) const {
     return std::nullopt;
 }
 
-std::size_t Writer::sort(const x::telem::Frame &fr) {
+std::size_t Writer::gather(const x::telem::Frame &fr) {
     for (auto &series: this->commands)
         series.clear();
     for (const auto &[key, s]: fr)
@@ -253,7 +253,7 @@ bool Writer::apply(const std::size_t row, x::errors::Error &refused) {
 }
 
 Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
-    const auto rows = this->sort(fr);
+    const auto rows = this->gather(fr);
     Result result;
     for (std::size_t row = 0; row < rows; row++)
         if (this->apply(row, result.refused) && !result.error)
@@ -262,7 +262,7 @@ Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
 }
 
 x::errors::Error Writer::keep(const x::telem::Frame &fr) {
-    const auto rows = this->sort(fr);
+    const auto rows = this->gather(fr);
     x::errors::Error refused;
     for (std::size_t row = 0; row < rows; row++)
         this->apply(row, refused);

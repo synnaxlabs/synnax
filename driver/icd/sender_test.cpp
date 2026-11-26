@@ -286,10 +286,9 @@ TEST(Sender, ReturnsFramingError) {
     cfg.bind_text(0, 2);
     auto s = ASSERT_NIL_P(cfg.create());
     Wire t;
-    ASSERT_OCCURRED_AS_P(
-        s.write(t, frame(2, x::telem::Series(123.0))),
-        x::errors::VALIDATION
-    );
+    const auto err = s.write(t, frame(2, x::telem::Series(123.0))).second;
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "the frame has 3 bytes, not the fixed length of 2");
     ASSERT_TRUE(t.writes.empty());
 }
 
