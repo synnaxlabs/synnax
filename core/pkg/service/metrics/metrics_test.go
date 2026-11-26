@@ -263,6 +263,44 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 		})
 
+		// D-242: an ambiguous input of a metrics calculation is a compile status, never
+		// a start failure.
+		It("Should open when it creates its calculated metric again and an input name "+
+			"is held in two folders (check)", func(ctx SpecContext) {
+			names := getNames(dist.Identity.HostKey)
+			Expect(open(ctx).Close()).To(Succeed())
+			ts := retrieve(ctx, names[4])
+			total := retrieve(ctx, names[3])
+			kept := MustSucceed(groupSvc.CreateOrRetrieve(
+				ctx, "Kept Size Group", resource.TypeChannel,
+			))
+			twin := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: ts.LocalIndex,
+				Group:      &kept.Key,
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &twin)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(ctx, twin.Key(), false)
+				})).To(Succeed())
+				// The next open creates the calculated metric again.
+				Expect(open(ctx).Close()).To(Succeed())
+			})
+			// A v0.62 store can hold one name in two folders.
+			twin.Name = ts.Name
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](dist.DB).
+				Set(ctx, twin)).To(Succeed())
+			// The calculated metric is missing, as on a node that deleted it.
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, total.Key(), false)
+			})).To(Succeed())
+			Expect(open(ctx).Close()).To(Succeed())
+		})
+
 		It("Should bind a metric to the highest key of its name in two folders", func(
 			ctx SpecContext,
 		) {
