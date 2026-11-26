@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/protocol"
@@ -377,6 +378,47 @@ var _ = Describe("Statement", func() {
 				},
 				Entry("bare channel", "bad $= sensor"),
 				Entry("channel-read expression", "bad $= sensor + 1"),
+			)
+
+			DescribeTable(
+				"give a fix that changes a stateful channel initializer to ':='",
+				func(bCtx SpecContext, format string) {
+					analyze := func(source string) diagnostics.Diagnostics {
+						GinkgoHelper()
+						ctx := context.NewRoot(
+							bCtx,
+							MustSucceed(parser.Parse(source)),
+							NewRoot(nil, sensorChan...),
+						)
+						analyzer.AnalyzeProgram(ctx)
+						return *ctx.Diagnostics
+					}
+					source := fmt.Sprintf(format, "$=")
+					diag := analyze(source)
+					Expect(diag).To(HaveLen(1))
+					Expect(diag[0].Code).To(Equal(codes.StatefulVariable.Code))
+					Expect(diag[0].Fixes).To(HaveLen(1))
+					Expect(diag[0].Fixes[0].Title).To(Equal("Change to `:=`"))
+					fixed := testutil.ApplyFix(source, diag[0].Fixes[0])
+					Expect(fixed).To(Equal(fmt.Sprintf(format, ":=")))
+					Expect(analyze(fixed)).To(BeEmpty())
+				},
+				Entry(
+					"bare channel in a sequence",
+					"sequence main {\n    bad %s sensor\n    stage s {\n    }\n}\n",
+				),
+				Entry(
+					"channel-read expression in a sequence",
+					"sequence main {\n    bad %s sensor + 1\n    stage s {\n    }\n}\n",
+				),
+				Entry(
+					"bare channel in a stage",
+					"sequence main {\n    stage s {\n        bad %s sensor\n    }\n}\n",
+				),
+				Entry(
+					"declaration with a type",
+					"sequence main {\n    bad f64 %s sensor\n    stage s {\n    }\n}\n",
+				),
 			)
 
 			It("keeps a bare alias to a literal a literal", func(bCtx SpecContext) {
@@ -3753,6 +3795,84 @@ var _ = Describe("Statement", func() {
 				).To(ContainSubstring("cannot assign to loop variable"))
 			})
 		})
+	})
+
+	Describe("Return Statement", func() {
+		analyze := func(
+			bCtx SpecContext,
+			source string,
+		) context.Context[parser.IProgramContext] {
+			GinkgoHelper()
+			ctx := context.NewRoot(
+				bCtx,
+				MustSucceed(parser.Parse(source)),
+				NewRoot(nil),
+			)
+			analyzer.AnalyzeProgram(ctx)
+			return ctx
+		}
+		fixesOf := func(bCtx SpecContext, source string) []diagnostics.Fix {
+			GinkgoHelper()
+			var fixes []diagnostics.Fix
+			for _, d := range *analyze(bCtx, source).Diagnostics {
+				if d.Code == codes.ReturnValue.Code {
+					fixes = append(fixes, d.Fixes...)
+				}
+			}
+			return fixes
+		}
+
+		DescribeTable(
+			"should give fixes for a value in a function with no return type",
+			func(bCtx SpecContext, params, value, returnType string) {
+				source := fmt.Sprintf("func f(%s) {\n    return %s\n}\n", params, value)
+				fixes := fixesOf(bCtx, source)
+				Expect(fixes).To(HaveLen(2))
+				Expect(fixes[0].Title).To(Equal("Remove value"))
+				removed := testutil.ApplyFix(source, fixes[0])
+				Expect(removed).To(Equal(
+					fmt.Sprintf("func f(%s) {\n    return\n}\n", params),
+				))
+				Expect(*analyze(bCtx, removed).Diagnostics).To(BeEmpty())
+				Expect(fixes[1].Title).To(Equal("Add return type `" + returnType + "`"))
+				added := testutil.ApplyFix(source, fixes[1])
+				Expect(added).To(Equal(fmt.Sprintf(
+					"func f(%s) %s {\n    return %s\n}\n", params, returnType, value,
+				)))
+				Expect(*analyze(bCtx, added).Diagnostics).To(BeEmpty())
+			},
+			Entry("integer literal", "", "1", "i64"),
+			Entry("float literal", "", "1.5", "f64"),
+			Entry("float literal of a whole number", "", "1.0", "f64"),
+			Entry("string literal", "", `"a"`, "str"),
+			Entry("variable", "x f32", "x", "f32"),
+			Entry("variable with a unit", "x f64 psi", "x", "f64 psi"),
+			Entry("expression", "x i32", "x + 1", "i32"),
+			Entry("comparison", "x i32", "x > 1", "bool"),
+			Entry("series variable", "x series f32", "x", "series f32"),
+			Entry("series literal", "", "[1, 2]", "series i64"),
+			Entry("literal with a unit", "", "5psi", "i64 psi"),
+		)
+
+		DescribeTable(
+			"should give only the fix that removes the value",
+			func(bCtx SpecContext, source, fixed string) {
+				fixes := fixesOf(bCtx, source)
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove value"))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+			},
+			Entry(
+				"function with named outputs",
+				"func f() (a f64, b f64) {\n    a = 1.0\n    return 1\n}\n",
+				"func f() (a f64, b f64) {\n    a = 1.0\n    return\n}\n",
+			),
+			Entry(
+				"function with one named output",
+				"func f() a f64 {\n    a = 1.0\n    return 1\n}\n",
+				"func f() a f64 {\n    a = 1.0\n    return\n}\n",
+			),
+		)
 	})
 })
 

@@ -124,9 +124,7 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			return
 		}
 		if bound, _ := rhsBindsChannel(ctx, expr); bound {
-			ctx.Diagnostics.Add(
-				codes.StatefulVariable.Atf(ctx.AST, statefulChannelInitMsg),
-			)
+			rejectStatefulChannelInit(ctx.Diagnostics, ctx.AST.StatefulVariable())
 			return
 		}
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
@@ -222,11 +220,19 @@ func CheckStatefulInitializers[T antlr.ParserRuleContext](ctx context.Context[T]
 			continue
 		}
 		if decl, ok := expr.GetParent().(parser.IStatefulVariableContext); ok {
-			ctx.Diagnostics.Add(
-				codes.StatefulVariable.Atf(decl, statefulChannelInitMsg),
-			)
+			rejectStatefulChannelInit(ctx.Diagnostics, decl)
 		}
 	}
+}
+
+func rejectStatefulChannelInit(
+	d *diagnostics.Diagnostics,
+	decl parser.IStatefulVariableContext,
+) {
+	d.Add(codes.StatefulVariable.Atf(decl, statefulChannelInitMsg).WithEdits(
+		"Change to `:=`",
+		formatter.ReplaceToken(decl.STATE_DECLARE().GetSymbol(), ":="),
+	))
 }
 
 // PromoteChannelReadLocals retypes a computed `:=` local as reactive when its
@@ -957,6 +963,25 @@ func analyzeContinueStatement(ctx context.Context[parser.IContinueStatementConte
 	}
 }
 
+// typeSource returns the source text of t, with the default type for a literal. It
+// returns false for a type that has no source text.
+func typeSource(t types.Type) (string, bool) {
+	prefix := ""
+	if t.Kind == types.KindSeries && t.Elem != nil {
+		prefix, t = "series ", *t.Elem
+	}
+	unit := t.Unit
+	t = defaultLiteralType(t)
+	t.Unit = unit
+	if t.Kind == types.KindVariable || t.Unit != nil && t.Unit.Name == "" {
+		return "", false
+	}
+	if !t.IsNumeric() && t.Kind != types.KindBool && t.Kind != types.KindString {
+		return "", false
+	}
+	return prefix + t.String(), true
+}
+
 func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext]) {
 	enclosingScope, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
@@ -984,10 +1009,20 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 		// Check for void function first - this error applies even in type inference
 		// mode
 		if !expectedReturnType.IsValid() && !ctx.InTypeInferenceMode {
-			ctx.Diagnostics.Add(codes.ReturnValue.Atf(
+			d := codes.ReturnValue.Atf(
 				ctx.AST,
 				"cannot return a value from a function with no return type",
-			))
+			).WithEdits("Remove value", formatter.Replace(ctx.AST, "return"))
+			fn, ok := enclosingScope.AST.(parser.IFunctionDeclarationContext)
+			if ok && fn.OutputType() == nil {
+				if source, ok := typeSource(actualReturnType); ok {
+					d = d.WithEdits(
+						"Add return type `"+source+"`",
+						formatter.InsertBefore(fn.Block(), source+" "),
+					)
+				}
+			}
+			ctx.Diagnostics.Add(d)
 			return
 		}
 

@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -165,6 +166,43 @@ var _ = Describe("Authority Analyzer", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(ctx.Diagnostics.String()).To(ContainSubstring("duplicate"))
 		})
+
+		DescribeTable(
+			"Should give a fix that removes the second authority",
+			func(specCtx SpecContext, source, fixed string) {
+				ctx := acontext.NewRoot(
+					specCtx,
+					MustSucceed(parser.Parse(source)),
+					root,
+				)
+				authority.Analyze(ctx)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				fixes := (*ctx.Diagnostics)[0].Fixes
+				Expect(fixes).To(HaveLen(1))
+				Expect(fixes[0].Title).To(Equal("Remove authority"))
+				Expect(testutil.ApplyFix(source, fixes[0])).To(Equal(fixed))
+			},
+			Entry(
+				"second default value",
+				"authority 200\nauthority 100\n",
+				"authority 200\n",
+			),
+			Entry(
+				"second default value in a block",
+				"authority (\n    200\n    100\n)\n",
+				"authority (\n    200\n)\n",
+			),
+			Entry(
+				"second value of a channel",
+				"authority (\n    valve 100\n    valve 200\n)\n",
+				"authority (\n    valve 100\n)\n",
+			),
+			Entry(
+				"second value of a channel on one line",
+				"authority (valve 100 valve 200)",
+				"authority (valve 100 )",
+			),
+		)
 
 		It("Should reject non-existent channel", func(specCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`authority (nonexistent 100)`))

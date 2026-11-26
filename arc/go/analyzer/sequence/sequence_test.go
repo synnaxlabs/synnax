@@ -896,6 +896,69 @@ var _ = Describe("Sequence Analyzer", func() {
 			Expect(diag[0].Message).
 				To(Equal("invalid assignment: use '<value> -> valve' to write to 'valve'"))
 		})
+
+		DescribeTable("Should give a fix that changes the assignment to a flow write",
+			func(source, fixed string) {
+				stmt := MustSucceed(parser.ParseStatement(source))
+				var diag diagnostics.Diagnostics
+				sequence.RejectReactiveAssignment(&diag, stmt.Assignment())
+				Expect(diag).To(HaveLen(1))
+				Expect(diag[0].Fixes).To(HaveLen(1))
+				Expect(diag[0].Fixes[0].Title).To(Equal("Change to `" + fixed + "`"))
+				Expect(testutil.ApplyFix(source, diag[0].Fixes[0])).To(Equal(fixed))
+			},
+			Entry("literal", "valve = 1", "1 -> valve"),
+			Entry("expression", "valve = level + 1", "level + 1 -> valve"),
+		)
+
+		DescribeTable("Should give no fix for an assignment that is not plain",
+			func(source string) {
+				stmt := MustSucceed(parser.ParseStatement(source))
+				var diag diagnostics.Diagnostics
+				sequence.RejectReactiveAssignment(&diag, stmt.Assignment())
+				Expect(diag).To(HaveLen(1))
+				Expect(diag[0].Fixes).To(BeEmpty())
+			},
+			Entry("compound assignment", "valve += 1"),
+			Entry("indexed assignment", "valve[0] = 1"),
+		)
+
+		DescribeTable(
+			"Should give a fix that makes the program valid",
+			func(bCtx SpecContext, format, assignment, write string) {
+				source := fmt.Sprintf(format, assignment)
+				ctx := context.NewRoot(
+					bCtx,
+					MustSucceed(parser.Parse(source)),
+					NewRoot(nil, resolver...),
+				)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				fixes := (*ctx.Diagnostics)[0].Fixes
+				Expect(fixes).To(HaveLen(1))
+				fixed := testutil.ApplyFix(source, fixes[0])
+				Expect(fixed).To(Equal(fmt.Sprintf(format, write)))
+				analyzeAndExpectSuccess(bCtx, fixed)
+			},
+			Entry(
+				"channel in a stage",
+				"sequence main {\n    stage s1 {\n        %s\n    }\n}\n",
+				"pressure = 1.0",
+				"1.0 -> pressure",
+			),
+			Entry(
+				"channel alias in a sequence",
+				"sequence main {\n    p := pressure\n    %s\n    stage s {\n    }\n}\n",
+				"p = 5.0",
+				"5.0 -> p",
+			),
+			Entry(
+				"channel at the top level",
+				"%s\n",
+				"pressure = 1.0",
+				"1.0 -> pressure",
+			),
+		)
 	})
 })
 

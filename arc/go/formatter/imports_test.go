@@ -205,6 +205,19 @@ var _ = Describe("RemoveStatement", func() {
 	)
 })
 
+var _ = Describe("InsertBefore", func() {
+	It("Should add the text before the node", func() {
+		source := "func f() {\n    return 1\n}"
+		block := MustSucceed(parser.Parse(source)).
+			TopLevelItem(0).
+			FunctionDeclaration().
+			Block()
+		Expect(
+			applied(source, formatter.InsertBefore(block, "i64 ")),
+		).To(Equal("func f() i64 {\n    return 1\n}"))
+	})
+})
+
 var _ = Describe("Replace", func() {
 	It("Should change the code at the node to the text", func() {
 		source := "x := 1 + 2\ny := 3"

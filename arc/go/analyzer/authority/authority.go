@@ -16,11 +16,14 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/formatter"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 )
+
+const removeTitle = "Remove authority"
 
 // Analyze validates authority blocks in a program and returns the Authorities.
 // It checks:
@@ -62,7 +65,7 @@ func Analyze(
 				ctx.Diagnostics.Add(codes.AuthorityDefault.Atf(
 					authBlock,
 					"multiple default authority values",
-				))
+				).WithEdits(removeTitle, formatter.RemoveStatement(authBlock)))
 				continue
 			}
 			v, ok := parseAuthorityValue(ctx.Diagnostics, authBlock, lit.GetText())
@@ -96,7 +99,7 @@ func analyzeEntry(
 		ctx.Diagnostics.Add(codes.AuthorityDefault.Atf(
 			entry,
 			"multiple default authority values",
-		))
+		).WithEdits(removeTitle, formatter.RemoveStatement(entry)))
 		return
 	}
 	v, ok := parseAuthorityValue(
@@ -123,7 +126,7 @@ func analyzeChannelEntry(
 			entry,
 			"duplicate authority: '%s'",
 			name,
-		))
+		).WithEdits(removeTitle, formatter.RemoveStatement(entry)))
 		return
 	}
 	sym, err := ctx.Resolve(name)
