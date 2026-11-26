@@ -370,11 +370,16 @@ func (f *Factory) claim(ctx context.Context, t task.Task) error {
 		f.mu.Lock()
 		u, held := f.uploads[t.Rack]
 		released := f.stopping[t.Rack]
-		if !held {
-			u = &rackUploads{task: t.Key, uploader: openUploader(f.cfg, t.Rack)}
-			f.uploads[t.Rack] = u
-		}
-		if u.task == t.Key {
+		switch {
+		case !held:
+			f.uploads[t.Rack] = &rackUploads{
+				task:     t.Key,
+				uploader: openUploader(f.cfg, t.Rack),
+				refs:     1,
+			}
+			f.mu.Unlock()
+			return nil
+		case u.task == t.Key && u.refs > 0:
 			u.refs++
 			f.mu.Unlock()
 			return nil
@@ -403,25 +408,40 @@ func (f *Factory) releasing(t task.Task) {
 }
 
 // release drops the reference of an instance of t to the uploads of its rack. The last
-// one closes the uploader and releases the rack.
+// one closes the uploader before it releases the rack, so a waiting claim opens its
+// uploader only after the old one saves its progress.
 func (f *Factory) release(t task.Task) error {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	u, ok := f.uploads[t.Rack]
 	if !ok || u.task != t.Key {
+		f.mu.Unlock()
 		return nil
 	}
-	var err error
 	u.refs--
-	if u.refs == 0 {
-		err = u.uploader.Close()
-		delete(f.uploads, t.Rack)
+	if u.refs > 0 {
+		f.unblock(t.Rack)
+		f.mu.Unlock()
+		return nil
 	}
-	if released, ok := f.stopping[t.Rack]; ok {
-		close(released)
-		delete(f.stopping, t.Rack)
+	if f.stopping[t.Rack] == nil {
+		f.stopping[t.Rack] = make(chan struct{})
 	}
+	f.mu.Unlock()
+	// Close waits for Sift to confirm each upload in flight.
+	err := u.uploader.Close()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.uploads, t.Rack)
+	f.unblock(t.Rack)
 	return err
+}
+
+// unblock wakes each claim that waits for the rack rk. f.mu must be held.
+func (f *Factory) unblock(rk rack.Key) {
+	if released, ok := f.stopping[rk]; ok {
+		close(released)
+		delete(f.stopping, rk)
+	}
 }
 
 // scanTask is the sift_scan task. Besides checking devices, it runs the uploads of

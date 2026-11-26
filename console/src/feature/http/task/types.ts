@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { http, type task } from "@synnaxlabs/client";
-import { json, payload, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Device } from "@/feature/http/device";
@@ -24,25 +23,10 @@ const readMethodZ = z.enum(["GET", "POST"]);
 
 const readConfigZ = http.readConfigZ;
 
-const deployReadFieldZ = http.readFieldZ.extend({
-  pointer: json.pointerZ,
-  enumValues: payload.enumEntryZ
-    .array()
-    .check(
-      zod.uniqueBy<payload.EnumEntry, "label">(
-        "label",
-        (label) => `Duplicate enum label "${label}"`,
-        ({ label }) => label === "",
-      ),
-    )
-    .default(() => []),
-});
-
 const deployReadEndpointZ = http.readEndpointZ.extend({
   method: readMethodZ,
   headers: Device.headersZ.default(() => []),
   queryParams: Device.queryParamsZ.default(() => []),
-  fields: deployReadFieldZ.array().check(Task.validateReadChannels),
 });
 
 export const deployReadConfigZ = http.readConfigZ.extend({

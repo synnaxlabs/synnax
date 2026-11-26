@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -155,6 +156,19 @@ var _ = Describe("Factory", func() {
 			dt = MustSucceed(f.ConfigureTask(ctx, second, driver.NoCommand))
 			Expect(dt.Stop(false)).To(Succeed())
 		})
+
+		DescribeTable("Should start a scan task only at boot",
+			func(ctx SpecContext, cmdKey string, running bool) {
+				t := newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
+				dt := MustSucceed(f.ConfigureTask(ctx, t, cmdKey))
+				DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+				stat, err := taskStatus(ctx, t)
+				Expect(errors.Skip(err, query.ErrNotFound)).To(Succeed())
+				Expect(stat.Details.Running).To(Equal(running))
+			},
+			Entry("at boot", driver.NoCommand, true),
+			Entry("for a start command", "cmd-1", false),
+		)
 
 		It("Should keep the rack for a scan task built while it still runs",
 			func(ctx SpecContext) {

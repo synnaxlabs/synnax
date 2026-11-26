@@ -30,9 +30,5 @@ func autoMigrateWriteConfig(_ context.Context, old v0.WriteConfig) (WriteConfig,
 	return WriteConfig{
 		StartConfig: old.StartConfig,
 		Device:      old.Device,
-		Topic:       old.Topic,
-		RecordKey:   old.RecordKey,
-		Record:      old.Record,
-		Channels:    old.Channels,
 	}, nil
 }
