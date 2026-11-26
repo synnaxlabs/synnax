@@ -427,7 +427,7 @@ describe("icd", () => {
         { path: "messages.1.name", message: 'duplicate message name "Mode"' },
         {
           path: "messages.2.payload.fields.0.scale",
-          message: "scale must be finite and non-zero",
+          message: "scale must be non-zero",
         },
       ]);
     });
