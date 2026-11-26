@@ -54,6 +54,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RecordOf func(holder gorp.Target) resource.ID
+	// DB is the database that holds the records that the service deletes.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -62,6 +66,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Deleters = override.Nil(c.Deleters, other.Deleters)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
+	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
@@ -70,6 +75,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("impact")
 	v.NotNil("deleters", c.Deleters)
 	v.NotNil("record_of", c.RecordOf)
+	v.NotNil("db", c.DB)
 	return v.Error()
 }
 

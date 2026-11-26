@@ -75,6 +75,7 @@ var _ = Describe("Delete order", func() {
 				b: held(a, restrict),
 			},
 			RecordOf: recordOf,
+			DB:       db,
 		}))
 		Expect(svc.Plan(
 			ctx,
@@ -93,6 +94,7 @@ var _ = Describe("Delete order", func() {
 				b: held(a, nothing),
 			},
 			RecordOf: recordOf,
+			DB:       db,
 		}))
 		Expect(svc.Plan(
 			ctx,

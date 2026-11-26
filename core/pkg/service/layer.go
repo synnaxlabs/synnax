@@ -1295,6 +1295,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	if l.Impact, err = impact.OpenService(impact.ServiceConfig{
 		RecordOf: taskconfig.RecordOf,
+		DB:       cfg.Distribution.DB,
 		Deleters: map[resource.Type]impact.Deleter{
 			resource.TypeChannel: channelDeleter(l.Channel),
 			resource.TypeTask:    taskDeleter(l.Task),
