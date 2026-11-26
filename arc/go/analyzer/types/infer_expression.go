@@ -333,30 +333,8 @@ func InferPostfix(
 func inferPrimaryType(
 	ctx context.Context[parser.IPrimaryExpressionContext],
 ) types.Type {
-	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		head, tail := parser.QualifiedNameParts(qid)
-		headSym, err := ctx.Scope.Resolve(ctx, head)
-		if err != nil {
-			return types.Type{}
-		}
-		resolved, err := headSym.Resolve(ctx, tail)
-		if err != nil {
-			return types.Type{}
-		}
-		if resolved.Kind == symbol.KindConstant {
-			return inferConstantType(ctx, resolved)
-		}
-		return resolved.Type
-	}
 	if name := parser.PrimaryName(ctx.AST); name.Head != "" {
-		if varScope, err := ctx.Scope.ResolveName(ctx, name); err == nil {
-			if varScope.Type.Kind != types.KindInvalid {
-				// A read gives an untyped variable one type, so `x := 10; x + 3.2`
-				// fails while `2 + 3.2` (both fresh literals) promotes to float.
-				return bindOnRead(ctx.Constraints, varScope.Type, ctx.AST)
-			}
-		}
-		return types.Type{}
+		return inferNameType(ctx, name)
 	}
 	if literal := ctx.AST.Literal(); literal != nil {
 		return inferLiteralType(ctx.Child(literal))
@@ -368,6 +346,26 @@ func inferPrimaryType(
 		return inferCastType(typeCast.Type_())
 	}
 	return types.Type{}
+}
+
+func inferNameType(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	n parser.Name,
+) types.Type {
+	sym, err := ctx.Scope.ResolveName(ctx, n)
+	switch {
+	case err != nil:
+		return types.Type{}
+	case n.Tail != "" && sym.Kind == symbol.KindConstant:
+		return inferConstantType(ctx, sym)
+	case n.Tail != "":
+		return sym.Type
+	case sym.Type.Kind == types.KindInvalid:
+		return types.Type{}
+	}
+	// A read gives an untyped variable one type, so `x := 10; x + 3.2` fails while
+	// `2 + 3.2` (both fresh literals) promotes to float.
+	return bindOnRead(ctx.Constraints, sym.Type, ctx.AST)
 }
 
 func inferCastType(typeCtx parser.ITypeContext) types.Type {

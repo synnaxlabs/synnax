@@ -69,13 +69,8 @@ func primaryLiteralOnly[N antlr.ParserRuleContext](
 	if lit := prim.Literal(); lit != nil {
 		return lit.NumericLiteral() != nil
 	}
-	if qid := prim.QualifiedIdentifier(); qid != nil {
-		head, tail := parser.QualifiedNameParts(qid)
-		scope, err := ctx.Scope.Resolve(ctx, head)
-		if err != nil {
-			return false
-		}
-		sym, err := scope.Resolve(ctx, tail)
+	if prim.QualifiedIdentifier() != nil {
+		sym, err := ctx.Scope.ResolveName(ctx, parser.PrimaryName(prim))
 		return err == nil && sym.Kind == symbol.KindConstant
 	}
 	if prim.LPAREN() == nil || prim.Expression() == nil {
