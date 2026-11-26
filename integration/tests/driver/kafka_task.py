@@ -31,14 +31,14 @@ def create_topic(
     """Create an ICD with one JSON message, named after topic, that holds the fields of
     bindings. Return a topic that reads its records of record_key as that message.
 
-    :param bindings: Each field of the message, with the channel it writes to.
+    :param bindings: Each field of the message, with the channel it writes to. A field
+        can write to several channels.
     :param index: The field of bindings whose channel indexes the others. None stamps
         each sample with the timestamp of its record.
     :param record_key: The Kafka key of the records. Empty reads every record.
     """
-    message = sy.icd.Message(
-        name=topic, payload=sy.icd.JSONPayload(fields=[f for f, _ in bindings])
-    )
+    fields = list({f.key: f for f, _ in bindings}.values())
+    message = sy.icd.Message(name=topic, payload=sy.icd.JSONPayload(fields=fields))
     ic = client.icds.create(name=topic, messages=[message])
     return kafka.ReadTopic(
         name=topic,
