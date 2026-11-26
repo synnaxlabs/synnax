@@ -86,8 +86,7 @@ public:
         id = other.id;
         variant = other.variant;
         deadline = other.deadline;
-        for (const auto &[k, v]: other.params)
-            params[k] = v;
+        params = other.params;
         return *this;
     }
 
