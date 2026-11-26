@@ -16,7 +16,6 @@ import type { CSSProperties, MouseEventHandler, ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
-import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import type { Toggle } from "@/schematic/node/common/toggle";
 import svg from "@/schematic/node/general/switch/Switch.svg?raw";
@@ -28,7 +27,10 @@ const ON: schematic.symbol.Condition = { type: "equals", state: "active", values
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   family: "switch",
   svg,
-  handles: [],
+  handles: [
+    { key: "1", position: { x: 0, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 1, y: 0.5 }, orientation: "right" },
+  ],
   parts: [
     { key: "track", name: "Track", selectors: [".pluto-switch-symbol__track"] },
     { key: "knob-off", name: "Knob off", selectors: [".pluto-switch-symbol__knob"] },
@@ -96,7 +98,6 @@ export const Switch = ({
         orientation={location.direction(orientation) === "y" ? "top" : "left"}
         scale={scale}
       />
-      <Handle.Linear orientation={orientation} left={0} right={100} />
     </Primitive.Div>
   );
 };

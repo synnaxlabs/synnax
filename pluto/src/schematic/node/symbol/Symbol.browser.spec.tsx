@@ -13,7 +13,7 @@ import {
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
-import { ReactFlowProvider } from "@xyflow/react";
+import { type NodeProps, ReactFlow, ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
@@ -230,6 +230,45 @@ describe("Symbol node", () => {
     // The drawing is 36 by 48, and Primitive.SVG draws a built-in at 0.8 of its size.
     expect(width).toBeCloseTo(36 * 0.8 * 0.6, 1);
     expect(height).toBeCloseTo(48 * 0.8 * 0.6, 1);
+  });
+
+  it("should connect a switch at the middle of its left and right edges", async () => {
+    const Wrapper = createSynnaxWrapper({ client: null, additionalRegistry: REGISTRY });
+    const Switch = ({ id }: NodeProps) => (
+      <Node.REGISTRY.symbol.Node
+        nodeKey={id}
+        selected={false}
+        onConfigChange={vi.fn()}
+        config={schematic.symbolNodeConfigZ.parse({
+          variant: "symbol",
+          spec: { type: "builtin", name: "switch" },
+        })}
+      />
+    );
+    const { container } = await render(
+      <Wrapper>
+        <ReactFlowProvider>
+          <div style={{ width: 400, height: 400 }}>
+            <ReactFlow
+              nodes={[
+                { id: "s1", type: "symbol", position: { x: 100, y: 100 }, data: {} },
+              ]}
+              nodeTypes={{ symbol: Switch }}
+            />
+          </div>
+        </ReactFlowProvider>
+      </Wrapper>,
+    );
+    const handlesOf = () =>
+      [...container.querySelectorAll<HTMLElement>(".react-flow__handle")].map((h) => [
+        h.dataset.handleid,
+        h.style.left,
+        h.style.top,
+      ]);
+    await expect.poll(handlesOf).toEqual([
+      ["1", "0%", "50%"],
+      ["2", "100%", "50%"],
+    ]);
   });
 
   it("should ask which command to send while its state is unknown", async () => {
