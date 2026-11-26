@@ -33,6 +33,20 @@ const bitPackedByteCount = (nSamples: number): number =>
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
+// MAX_LENGTH is the largest sample count or byte size that a frame length field holds.
+const MAX_LENGTH = 0xffffffff;
+
+// Throws when the length field of series, a sample count or a byte size for a variable
+// type, cannot hold its length.
+const checkLength = (key: channel.Key, series: SeriesPayload): void => {
+  const variable = series.dataType.isVariable;
+  const length = variable ? series.data.byteLength : seriesPldLength(series);
+  if (length <= MAX_LENGTH) return;
+  throw new ValidationError(
+    `series of channel ${key} holds ${length} ${variable ? "bytes" : "samples"}, more than a frame length field holds`,
+  );
+};
+
 const seriesWireByteLength = (series: SeriesPayload): number => {
   if (series.dataType.equals(DataType.BOOLEAN))
     return bitPackedByteCount(seriesPldLength(series));
@@ -269,7 +283,8 @@ export class Codec {
   }
 
   // Returns the series of src in key order, keeping the producer's order within a key.
-  // It leaves src as it is.
+  // It leaves src as it is, and drops an unrequested time series under its own clock
+  // that no requested series names as its clock.
   private entries(src: Payload, state: CodecState): Entries {
     let { keys, series } = src;
     if (!keys.every((k, i) => i === 0 || keys[i - 1] <= k)) {
@@ -278,16 +293,30 @@ export class Codec {
       series = order.map((i) => src.series[i]);
     }
     const indices = new Array<number>(keys.length);
+    let unrequested = false;
     for (let i = 0; i < keys.length; i++) {
       const index = state.index.get(keys[i]);
       if (index != null) indices[i] = index;
-      else if (isOwnClock(keys[i], series[i])) indices[i] = -1;
-      else
+      else if (isOwnClock(keys[i], series[i])) {
+        indices[i] = -1;
+        unrequested = true;
+      } else
         throw new ValidationError(
           `Channel ${keys[i]} was not provided in the list of channels when opening the writer`,
         );
     }
-    return { keys, series, indices };
+    if (!unrequested) return { keys, series, indices };
+    const named = new Set<number>();
+    for (let i = 0; i < keys.length; i++)
+      if (indices[i] >= 0) named.add(series[i].clock ?? 0);
+    const kept = indices.flatMap((index, i) =>
+      index >= 0 || named.has(keys[i]) ? [i] : [],
+    );
+    return {
+      keys: kept.map((i) => keys[i]),
+      series: kept.map((i) => series[i]),
+      indices: kept.map((i) => indices[i]),
+    };
   }
 
   // Plans the extension of the next frame of ag without changing ag.
@@ -375,7 +404,9 @@ export class Codec {
       n === plan.all.length && entries.keys.every((k, i) => k === plan.all[i]);
     if (!channelFlag) byteArraySize += n * KEY_SIZE;
 
-    for (const series of entries.series) {
+    for (let i = 0; i < n; i++) {
+      const series = entries.series[i];
+      checkLength(entries.keys[i], series);
       const pldLength = seriesPldLength(series);
       const start = series.timeRange?.start.valueOf() ?? 0n;
       const end = series.timeRange?.end.valueOf() ?? 0n;
