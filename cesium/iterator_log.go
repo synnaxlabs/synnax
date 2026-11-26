@@ -202,8 +202,8 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 		hs:     hs,
 		h:      h,
 		file:   file,
-		offset: int64(r.ptr.Offset),
-		size:   int64(r.ptr.Length),
+		offset: r.ptr.Offset,
+		size:   r.ptr.Length,
 	}, nil
 }
 
@@ -222,8 +222,8 @@ type logReader struct {
 	hs     *segmentHandles
 	h      *segment.Handle
 	file   io.ReaderAt
-	offset int64
-	size   int64
+	offset uint32
+	size   uint32
 }
 
 var _ domain.RangeReader = (*logReader)(nil)
@@ -231,11 +231,11 @@ var _ domain.RangeReader = (*logReader)(nil)
 // ReadAt implements domain.RangeReader. A read past the end of the pointer returns the
 // bytes before it with io.EOF.
 func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
-	if off >= r.size {
+	if off >= int64(r.size) {
 		return 0, io.EOF
 	}
-	n := int(min(int64(len(p)), r.size-off))
-	if err := r.cfg.ReadAt(r.file, p[:n], r.offset+off); err != nil {
+	n := int(min(int64(len(p)), int64(r.size)-off))
+	if err := r.cfg.ReadAt(r.file, p[:n], int64(r.offset)+off); err != nil {
 		return 0, err
 	}
 	if n < len(p) {
