@@ -688,7 +688,7 @@ var _ = Describe("Service", func() {
 					Field:   fieldKey(pair, 1),
 					Channel: 999999999,
 				}}
-				_, err := tasks.Create(ctx, svc.Write, config(kafka.WriteConfig{
+				Expect(tasks.Create(ctx, svc.Write, config(kafka.WriteConfig{
 					Targets: []kafka.WriteTarget{
 						writeTarget("plant", ic, setpoint, command(setpoint, 0, value)),
 						writeTarget(
@@ -699,11 +699,12 @@ var _ = Describe("Service", func() {
 							missing,
 						),
 					},
-				}))
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(
-					"targets.1.message.bindings.1.channel: channel 999999999 does not " +
-						"exist: validation error",
+				}))).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						"targets.1.message.bindings.1.channel: channel 999999999 does "+
+							"not exist: validation error",
+					),
 				))
 			},
 		)
