@@ -187,19 +187,25 @@ describe("Store", () => {
       expect(store.expired(block)).toBe(false);
     });
 
-    it("should keep only a sealed block valid while history signals stream", () => {
+    const createSignaled = (virtual = false) => {
       const clock = new ManualClock();
-      const store = new cacheStore.Store({ now: clock.now, node: () => 1 });
+      const store = new cacheStore.Store({ now: clock.now });
       store.setChannel(
         new channel.Channel({
           key: 1,
           name: "data",
           dataType: "float32",
-          leaseholder: 1,
+          leaseholder: 2,
+          virtual,
         }).payload,
       );
       store.setSignalKey(99);
       store.setAcked(new Set([99]));
+      return { clock, store };
+    };
+
+    it("should keep only a sealed block valid while history signals stream", () => {
+      const { clock, store } = createSignaled();
       const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
       const unsealed = createBlock({ fetchedAt: clock.now() });
       clock.advance(TimeSpan.hours(1));
@@ -207,19 +213,15 @@ describe("Store", () => {
       expect(store.expired(unsealed)).toBe(true);
     });
 
+    it("should expire a sealed block of a virtual channel", () => {
+      const { clock, store } = createSignaled(true);
+      const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
+      clock.advance(TimeSpan.hours(1));
+      expect(store.expired(sealed)).toBe(true);
+    });
+
     it("should keep a sealed block valid only to the threshold after a restart", () => {
-      const clock = new ManualClock();
-      const store = new cacheStore.Store({ now: clock.now, node: () => 1 });
-      store.setChannel(
-        new channel.Channel({
-          key: 1,
-          name: "data",
-          dataType: "float32",
-          leaseholder: 1,
-        }).payload,
-      );
-      store.setSignalKey(99);
-      store.setAcked(new Set([99]));
+      const { clock, store } = createSignaled();
       const sealed = createBlock({ fetchedAt: clock.now(), sealed: true });
       clock.advance(TimeSpan.minutes(1));
       store.restartSignals();
@@ -239,41 +241,65 @@ describe("Store", () => {
     });
   });
 
-  describe("retainDataType", () => {
-    const createStore = (): cacheStore.Store => {
-      const store = new cacheStore.Store();
-      const channels: channel.Key[] = [1, 1, 2];
-      channels.forEach((ch, i) => store.set(`${i}`, createBlock({ channel: ch })));
-      store.retainDataType(1, DataType.FLOAT32);
-      store.retainDataType(2, DataType.FLOAT32);
-      return store;
+  describe("data types", () => {
+    const createFilled = (store: cacheStore.Store) => {
+      const block = store.raw(1, 100);
+      const f64 = new Series({
+        data: new Float64Array([3, 4]),
+        alignment: cacheBlock.alignmentOf(100, 2),
+        timeRange: new TimeRange(
+          BLOCK.start.add(TimeSpan.seconds(2)),
+          BLOCK.start.add(TimeSpan.seconds(4)),
+        ),
+      });
+      block.fill(
+        [createPiece(0, [1, 2]), f64],
+        BLOCK.start.add(TimeSpan.seconds(4)),
+        4,
+      );
+      store.set(cacheBlock.rawKey(1, 100), block);
+      return block;
     };
 
-    it("should keep a channel's blocks while its data type holds", () => {
-      const store = createStore();
-      store.retainDataType(1, DataType.FLOAT32);
-      expect(store.get("0")).toBeDefined();
-      expect(store.get("1")).toBeDefined();
+    it("should hold the series of two data types in one block", () => {
+      const store = new cacheStore.Store();
+      const block = createFilled(store);
+      expect(block.seriesIn(TimeRange.MAX).map((s) => s.dataType)).toEqual([
+        DataType.FLOAT32,
+        DataType.FLOAT64,
+      ]);
     });
 
-    it("should drop every block of a channel whose data type changes", () => {
-      const store = createStore();
-      store.retainDataType(1, DataType.INT64);
-      expect(store.get("0")).toBeUndefined();
-      expect(store.get("1")).toBeUndefined();
-      expect(store.get("2")).toBeDefined();
+    it("should evict a block of two data types whole", () => {
+      const store = new cacheStore.Store({ budget: Size.bytes(1.5 * BYTES) });
+      const tr = new TimeRange(BLOCK.start, BLOCK.start.add(TimeSpan.seconds(4)));
+      expect(createFilled(store).covers(tr)).toBe(true);
+      store.set("a", createBlock());
+      store.set("b", createBlock());
+      expect(store.findRaw(1, 100)).toBeUndefined();
+      const block = store.raw(1, 100);
+      expect(block.covers(tr)).toBe(false);
+      expect(block.fetched).toEqual([]);
     });
 
-    it("should close the channel's open block when its data type changes", () => {
+    it("should keep the open block when the stream changes its data type", () => {
       const store = new cacheStore.Store({ dynamicBufferSize: 100 });
       const block = store.raw(1, 100);
-      store.retainDataType(1, DataType.FLOAT32);
       store.append(block, createPiece(0, [1]));
-      expect(store.retainDataType(1, DataType.FLOAT64)).toBe(true);
-      expect(block.buffer).toBeNull();
-      expect(block.joined).toBe(false);
-      expect(store.open(1)).toBeNull();
-      expect(store.raw(1, 100)).not.toBe(block);
+      const f64 = new Series({
+        data: new Float64Array([2]),
+        alignment: cacheBlock.alignmentOf(100, 1),
+        timeRange: new TimeRange(
+          BLOCK.start.add(TimeSpan.seconds(1)),
+          BLOCK.start.add(TimeSpan.seconds(2)),
+        ),
+      });
+      store.append(block, f64);
+      expect(store.open(1)).toBe(block);
+      expect(block.seriesIn(TimeRange.MAX).map((s) => [s.dataType, s.at(0)])).toEqual([
+        [DataType.FLOAT32, 1],
+        [DataType.FLOAT64, 2],
+      ]);
     });
   });
 
@@ -653,6 +679,48 @@ describe("Store", () => {
       const block = store.raw(data.key, 100);
       expect(block.covers(new TimeRange(block.coveredStart, TimeStamp.MAX))).toBe(true);
       expect(block.covers(BLOCK)).toBe(false);
+    });
+
+    // backfill appends count index samples at the next alignment after the stream,
+    // stamped from the start of the block, earlier than the floor.
+    const backfill = (store: cacheStore.Store, count: number): void => {
+      const start = BLOCK.start.add(TimeSpan.milliseconds(1));
+      const piece = new Series({
+        data: new Float32Array(count),
+        alignment: cacheBlock.alignmentOf(100, 10_000),
+        timeRange: start.range(start.add(TimeSpan.milliseconds(count))),
+      });
+      store.append(store.raw(index.key, 100), piece, true);
+    };
+
+    it("should not move the floor back in time for backfilled samples", () => {
+      const store = createStore(BLOCK.end);
+      stream(store, 10_000);
+      const floor = store.floor(index.key);
+      backfill(store, 40);
+      expect(store.floor(index.key)).toEqual(floor);
+    });
+
+    it("should move the floor forward for samples that come after a backfill", () => {
+      const store = createStore(BLOCK.end);
+      stream(store, 10_000);
+      const floor = store.floor(index.key);
+      backfill(store, 40);
+      for (let offset = 0; offset < 400; offset += 4) {
+        const start = BLOCK.start.add(TimeSpan.milliseconds(10_000 + offset));
+        store.append(
+          store.raw(index.key, 100),
+          new Series({
+            data: new Float32Array(4),
+            alignment: cacheBlock.alignmentOf(100, 10_040 + offset),
+            timeRange: start.range(start.add(TimeSpan.milliseconds(4))),
+          }),
+          offset === 0,
+        );
+      }
+      expect(store.floor(index.key)?.start.after(floor?.start ?? TimeStamp.MAX)).toBe(
+        true,
+      );
     });
 
     describe("missed", () => {

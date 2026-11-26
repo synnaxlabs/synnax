@@ -142,8 +142,13 @@ func writeValue(s *channels.ProgramState, key uint32, value telem.Series) {
 	}
 }
 
-// readSeries returns the data and time series that an on node for key emits.
-func readSeries(s *channels.ProgramState, key uint32) (data, time []telem.Series) {
+// readSeries returns the data and time series that an on node of output type t emits
+// for key.
+func readSeries(
+	s *channels.ProgramState,
+	key uint32,
+	t types.Type,
+) (data, time []telem.Series) {
 	GinkgoHelper()
 	ctx := context.Background()
 	g := graph.Graph{
@@ -160,8 +165,9 @@ func readSeries(s *channels.ProgramState, key uint32) (data, time []telem.Series
 	source := MustSucceed(MustSucceed(channels.NewHost(ctx, nil, s, nil)).Create(
 		rnode.Config{
 			Node: ir.Node{
-				Type:   "on",
-				Inputs: types.Params{{Name: "channel", Type: types.U32(), Value: key}},
+				Type:    "on",
+				Inputs:  types.Params{{Name: "channel", Type: types.U32(), Value: key}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: t}},
 			},
 			State: state,
 		},
@@ -251,7 +257,7 @@ var _ = Describe("ProgramState", func() {
 			s.Ingest(
 				telem.UnaryFrame[uint32](3, aligned(telem.NewSeriesV[int32](2), 1)),
 			)
-			data, _ := readSeries(s, 3)
+			data, _ := readSeries(s, 3, types.I32())
 			Expect(data).To(HaveLen(2))
 		})
 
@@ -730,7 +736,7 @@ var _ = Describe("ProgramState", func() {
 	Describe("Reads through an on node", func() {
 		It("Should read a channel without an index", func() {
 			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1, 2)))
-			data, _ := readSeries(s, 3)
+			data, _ := readSeries(s, 3, types.I32())
 			Expect(data).To(HaveLen(1))
 			Expect(data[0]).To(MatchSeries(telem.NewSeriesV[int32](1, 2)))
 		})
@@ -740,7 +746,7 @@ var _ = Describe("ProgramState", func() {
 			fr = fr.Append(1, telem.NewSeriesV[float32](1.0, 2.0))
 			fr = fr.Append(2, telem.NewSeriesSecondsTSV(10, 20))
 			s.Ingest(fr)
-			data, time := readSeries(s, 1)
+			data, time := readSeries(s, 1, types.F32())
 			Expect(data).To(HaveLen(1))
 			Expect(time).To(HaveLen(1))
 			Expect(time[0]).To(MatchSeries(telem.NewSeriesSecondsTSV(10, 20)))
@@ -748,11 +754,11 @@ var _ = Describe("ProgramState", func() {
 
 		It("Should read nothing when index data is missing", func() {
 			s.Ingest(telem.UnaryFrame[uint32](1, telem.NewSeriesV[float32](1.0)))
-			Expect(readSeries(s, 1)).To(BeEmpty())
+			Expect(readSeries(s, 1, types.F32())).To(BeEmpty())
 		})
 
 		It("Should read nothing for an unknown channel", func() {
-			Expect(readSeries(s, 999)).To(BeEmpty())
+			Expect(readSeries(s, 999, types.F32())).To(BeEmpty())
 		})
 
 		It("Should read data accumulated across multiple ingestions", func() {
@@ -764,7 +770,7 @@ var _ = Describe("ProgramState", func() {
 			fr2 = fr2.Append(1, aligned(telem.NewSeriesV[float32](2.0), 1))
 			fr2 = fr2.Append(2, aligned(telem.NewSeriesSecondsTSV(20), 1))
 			s.Ingest(fr2)
-			data, time := readSeries(s, 1)
+			data, time := readSeries(s, 1, types.F32())
 			Expect(data).To(HaveLen(2))
 			Expect(time).To(HaveLen(2))
 		})
@@ -808,7 +814,7 @@ var _ = Describe("ProgramState", func() {
 				)))
 			}
 			s.ClearReads()
-			data, _ := readSeries(s, 3)
+			data, _ := readSeries(s, 3, types.I32())
 			Expect(data).To(HaveLen(1))
 			Expect(data[0]).To(MatchSeriesDataV[int32](3))
 		})
@@ -816,7 +822,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should be a no-op for channels with a single series", func() {
 			s.Ingest(telem.UnaryFrame[uint32](3, telem.NewSeriesV[int32](1)))
 			s.ClearReads()
-			data, _ := readSeries(s, 3)
+			data, _ := readSeries(s, 3, types.I32())
 			Expect(data).To(HaveLen(1))
 		})
 
@@ -834,10 +840,10 @@ var _ = Describe("ProgramState", func() {
 			fr = fr.Append(2, telem.NewSeriesSecondsTSV(100))
 			s.Ingest(fr)
 			s.ClearReads()
-			d3, _ := readSeries(s, 3)
+			d3, _ := readSeries(s, 3, types.I32())
 			Expect(d3).To(HaveLen(1))
 			Expect(d3[0]).To(MatchSeriesDataV[int32](2))
-			d1, _ := readSeries(s, 1)
+			d1, _ := readSeries(s, 1, types.F32())
 			Expect(d1).To(HaveLen(1))
 		})
 
@@ -850,7 +856,7 @@ var _ = Describe("ProgramState", func() {
 			s.Ingest(
 				telem.UnaryFrame[uint32](3, aligned(telem.NewSeriesV[int32](3), 2)),
 			)
-			data, _ := readSeries(s, 3)
+			data, _ := readSeries(s, 3, types.I32())
 			Expect(data).To(HaveLen(2))
 		})
 
@@ -862,7 +868,7 @@ var _ = Describe("ProgramState", func() {
 				))
 			}
 			s.ClearReads()
-			data, _ := readSeries(s, 3)
+			data, _ := readSeries(s, 3, types.I32())
 			Expect(data).To(HaveLen(1))
 		})
 	})

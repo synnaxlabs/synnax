@@ -510,6 +510,30 @@ describe("reduce.Reducer", () => {
       },
     );
 
+    it.each<Aggregation>(["min_max", "average", "decimate"])(
+      "should reduce %s ops of two y data types apart",
+      (aggregation) => {
+        const [a, b] = cut([10]);
+        const u8 = op(
+          a.x,
+          new Series({
+            data: new Uint8Array(YS.slice(0, 10)),
+            dataType: DataType.UINT8,
+            alignment: 0n,
+          }),
+        );
+        const parts = new reduce.Reducer().reduce([u8, b], aggregation, 8);
+        const runs = [
+          ...new reduce.Reducer().reduce([u8], aggregation, 8),
+          ...new reduce.Reducer().reduce([b], aggregation, 8),
+        ];
+        expect(values(parts, "y")).toEqual(values(runs, "y"));
+        expect(values(parts, "x")).toEqual(values(runs, "x"));
+        expect(parts.map((o) => o.y.dataType)).toEqual(runs.map((o) => o.y.dataType));
+        expect(parts[0].y.dataType).toEqual(DataType.UINT8);
+      },
+    );
+
     it("should reduce a group that spans three or more ops", () => {
       const parts = new reduce.Reducer().reduce(
         cut([3, 6, 9, 12, 15, 18]),
