@@ -12,6 +12,7 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/parser"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 )
 
@@ -23,6 +24,9 @@ func renameTo(names map[string]string) func(string) (string, bool) {
 	}
 }
 
+// dashed lexes text as a v0.62 Core with name validation off did.
+var dashed = parser.Config{AllowDashedNames: true}
+
 var _ = Describe("RenameInText", func() {
 	rename := renameTo(map[string]string{
 		"pt-01":   "pt_01",
@@ -32,7 +36,7 @@ var _ = Describe("RenameInText", func() {
 	})
 	DescribeTable("Should write the new name of each renamed channel",
 		func(text, expected string) {
-			Expect(v1.RenameInText(text, rename)).To(Equal(expected))
+			Expect(v1.RenameInText(text, dashed, rename)).To(Equal(expected))
 		},
 		Entry("a bare name", "return Metrics + 1", "return Metrics_2 + 1"),
 		Entry("a flow node", "pt-01 -> out{}", "pt_01 -> out{}"),
@@ -60,7 +64,7 @@ var _ = Describe("RenameInText", func() {
 			`f"\q{pt_01}"`),
 		Entry("a placeholder in a placeholder", `f"{f\"{Metrics}\"}"`,
 			`f"{f\"{Metrics_2}\"}"`),
-		Entry("an escape inside a placeholder name", `f"{pt-01}"`,
+		Entry("an escape inside a placeholder name", `f"{pt\u002d01}"`,
 			`f"{pt_01}"`),
 		Entry("a name after digits", "return 10pt-01", "return 10pt_01"),
 		Entry("a name after a not-equal", "x!=pt-01", "x!=pt_01"),
@@ -72,7 +76,7 @@ var _ = Describe("RenameInText", func() {
 
 	DescribeTable("Should leave text as it is",
 		func(text string) {
-			Expect(v1.RenameInText(text, rename)).To(Equal(text))
+			Expect(v1.RenameInText(text, dashed, rename)).To(Equal(text))
 		},
 		Entry("a name that no renamed channel held", "return pt-02 * 2"),
 		Entry("a longer dashed name", "return pt-01-b"),
@@ -89,4 +93,17 @@ var _ = Describe("RenameInText", func() {
 		Entry("a name after an unclosed quote on its line", `"pt-01`),
 		Entry("a name right after a lone '!'", "!pt-01"),
 	)
+
+	It("Should read a '-' between names as a minus when dashed names are off", func() {
+		rename := func(name string) (string, bool) {
+			if name == "Metrics" {
+				return "Metrics_2", true
+			}
+			return "", false
+		}
+		Expect(v1.RenameInText("return Metrics-1", parser.Config{}, rename)).
+			To(Equal("return Metrics_2-1"))
+		Expect(v1.RenameInText("return Metrics-1", dashed, rename)).
+			To(Equal("return Metrics-1"))
+	})
 })
