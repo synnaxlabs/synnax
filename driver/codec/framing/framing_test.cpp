@@ -22,6 +22,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/bench/alloc.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/testutil/testutil.h"
@@ -30,6 +31,7 @@
 
 namespace driver::codec::framing {
 namespace {
+namespace icd = synnax::icd;
 using x::testutil::bytes;
 
 std::vector<std::uint8_t> vec(const std::string_view s) {
@@ -37,7 +39,19 @@ std::vector<std::uint8_t> vec(const std::string_view s) {
 }
 
 std::unique_ptr<Framer> delimited_by(const std::string_view d) {
-    return ASSERT_NIL_P(delimited(vec(d)));
+    return ASSERT_NIL_P(create(icd::DelimitedFraming{.delimiter = std::string(d)}));
+}
+
+std::unique_ptr<Framer> fixed(const std::uint32_t length) {
+    return ASSERT_NIL_P(create(icd::FixedFraming{.length = length}));
+}
+
+std::unique_ptr<Framer> cobs() {
+    return ASSERT_NIL_P(create(icd::CobsFraming{}));
+}
+
+std::unique_ptr<Framer> slip() {
+    return ASSERT_NIL_P(create(icd::SlipFraming{}));
 }
 
 /// @brief writes chunk to f and returns the frames that it completes, failing on an
@@ -190,16 +204,9 @@ TEST(Delimited, RefuseEncode) {
     );
 }
 
-/// @brief it should refuse an empty delimiter.
-TEST(Delimited, RefuseEmptyDelimiter) {
-    const auto [f, err] = delimited({});
-    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-    EXPECT_EQ(err.data, "the delimiter is empty");
-}
-
 /// @brief it should split a stream into frames of its length.
 TEST(Fixed, Split) {
-    const auto f = ASSERT_NIL_P(fixed(3));
+    const auto f = fixed(3);
     EXPECT_EQ(frames(*f, "abcde"), (Frames{"abc"}));
     EXPECT_EQ(frames(*f, "fghi"), (Frames{"def", "ghi"}));
 }
@@ -207,7 +214,7 @@ TEST(Fixed, Split) {
 /// @brief it should drop a partial frame when the stream goes quiet, so the next frame
 /// starts in step.
 TEST(Fixed, DropPartialFrameWhenIdle) {
-    const auto f = ASSERT_NIL_P(fixed(3));
+    const auto f = fixed(3);
     EXPECT_EQ(frames(*f, "ab"), Frames{});
     const auto err = f->idle();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
@@ -218,7 +225,7 @@ TEST(Fixed, DropPartialFrameWhenIdle) {
 
 /// @brief it should drop a partial frame on clear.
 TEST(Fixed, Clear) {
-    const auto f = ASSERT_NIL_P(fixed(2));
+    const auto f = fixed(2);
     EXPECT_EQ(frames(*f, "a"), Frames{});
     f->clear();
     EXPECT_EQ(frames(*f, "bc"), (Frames{"bc"}));
@@ -226,7 +233,7 @@ TEST(Fixed, Clear) {
 
 /// @brief it should encode frames that a framer of the same length reads back.
 TEST(Fixed, RoundTrip) {
-    const auto f = ASSERT_NIL_P(fixed(5));
+    const auto f = fixed(5);
     std::vector<std::vector<std::uint8_t>> payloads;
     payloads.reserve(100);
     for (std::uint8_t i = 0; i < 100; i++)
@@ -237,22 +244,10 @@ TEST(Fixed, RoundTrip) {
 /// @brief it should refuse to encode a frame of another length.
 TEST(Fixed, RefuseEncode) {
     assert_refuses(
-        *ASSERT_NIL_P(fixed(4)),
+        *fixed(4),
         "abc",
         "the frame has 3 bytes, not the fixed length of 4"
     );
-}
-
-/// @brief it should refuse a length of zero or past MAX_SIZE.
-TEST(Fixed, RefuseLength) {
-    for (const auto length: {std::size_t{0}, MAX_SIZE + 1}) {
-        const auto [f, err] = fixed(length);
-        ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        EXPECT_EQ(
-            err.data,
-            "the length must be from 1 to 65536, not " + std::to_string(length)
-        );
-    }
 }
 
 namespace {
@@ -445,9 +440,15 @@ TEST(Slip, RefuseEmptyFrame) {
 }
 
 namespace {
-/// @brief returns a sync config with sync bytes AA 55 and a 1-byte length after them.
-SyncConfig sync_config(const std::optional<Checksum> &checksum = std::nullopt) {
+/// @brief returns a sync framing with sync bytes AA 55 and a 1-byte length after them.
+icd::SyncFraming
+sync_framing(const std::optional<icd::Checksum> &checksum = std::nullopt) {
     return {.sync = {0xAA, 0x55}, .length_offset = 2, .checksum = checksum};
+}
+
+/// @brief returns a little-endian CRC-32 checksum.
+icd::Checksum crc32() {
+    return {.algorithm = icd::CHECKSUM_ALGORITHM_CRC_32};
 }
 
 /// @brief returns a frame with a blank 3-byte header before payload.
@@ -478,33 +479,38 @@ void assert_next_drops(Framer &f, const std::string &text) {
 TEST(Sync, ChecksumCheckValues) {
     const auto digits = vec("123456789");
     const auto check =
-        [&](const Checksum c, const std::int64_t adjustment, const Bytes &sum) {
+        [&](const icd::Checksum &c, const std::int32_t adjustment, const Bytes &sum) {
             // The sync bytes "12" and a length byte of '3' make the checksum cover the
             // nine digits alone.
-            const auto f = ASSERT_NIL_P(sync({
-                .sync = vec("12"),
-                .length_offset = 2,
-                .length_adjustment = adjustment,
-                .checksum = c,
-            }));
+            const auto f = ASSERT_NIL_P(create(
+                icd::SyncFraming{
+                    .sync = vec("12"),
+                    .length_offset = 2,
+                    .length_adjustment = adjustment,
+                    .checksum = c,
+                }
+            ));
             assert_codes(*f, digits, join(digits, sum));
         };
     check(
-        {.algorithm = ChecksumAlgorithm::CRC16_CCITT_FALSE, .big_endian = true},
+        {
+            .algorithm = icd::CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE,
+            .byte_order = icd::BYTE_ORDER_BIG_ENDIAN,
+        },
         -43,
         {0x29, 0xB1}
     );
-    check({.algorithm = ChecksumAlgorithm::CRC16_MODBUS}, -43, {0x37, 0x4B});
-    check({.algorithm = ChecksumAlgorithm::CRC32}, -41, {0x26, 0x39, 0xF4, 0xCB});
+    check({.algorithm = icd::CHECKSUM_ALGORITHM_CRC_16_MODBUS}, -43, {0x37, 0x4B});
+    check(crc32(), -41, {0x26, 0x39, 0xF4, 0xCB});
 }
 
 /// @brief it should write the sync bytes and a big-endian length into the header.
 TEST(Sync, EncodeHeader) {
-    auto config = sync_config();
-    config.length_size = 2;
-    config.big_endian = true;
+    auto config = sync_framing();
+    config.length_size = icd::LENGTH_SIZE_TWO;
+    config.byte_order = icd::BYTE_ORDER_BIG_ENDIAN;
     config.length_adjustment = 1;
-    const auto f = ASSERT_NIL_P(sync(config));
+    const auto f = ASSERT_NIL_P(create(config));
     const Bytes wire = {0xAA, 0x55, 0x00, 0x02, 7, 8, 9};
     Bytes out;
     ASSERT_NIL(f->encode(Bytes{0, 0, 0, 0, 7, 8, 9}, out));
@@ -516,7 +522,7 @@ TEST(Sync, EncodeHeader) {
 /// @brief it should drop the bytes before a sync sequence, and find one that two chunks
 /// split.
 TEST(Sync, DropBytesBeforeSync) {
-    const auto f = ASSERT_NIL_P(sync(sync_config()));
+    const auto f = ASSERT_NIL_P(create(sync_framing()));
     f->write(Bytes{1, 2, 0xAA});
     assert_next_drops(*f, "dropped 2 bytes that are not a frame");
     assert_frames(*f, {});
@@ -526,7 +532,7 @@ TEST(Sync, DropBytesBeforeSync) {
 
 /// @brief it should drop a frame with a bad checksum, and read the frame after it.
 TEST(Sync, DropBadChecksum) {
-    const auto f = ASSERT_NIL_P(sync(sync_config(Checksum{})));
+    const auto f = ASSERT_NIL_P(create(sync_framing(crc32())));
     Bytes wire;
     ASSERT_NIL(f->encode(with_header({1, 2}), wire));
     wire[3] ^= 0xFF;
@@ -540,9 +546,9 @@ TEST(Sync, DropBadChecksum) {
 /// @brief it should drop a frame whose length is past the maximum or too short for its
 /// checksum, and read the frame after it.
 TEST(Sync, DropInvalidLength) {
-    auto config = sync_config(Checksum{});
+    auto config = sync_framing(crc32());
     config.max_length = 16;
-    const auto f = ASSERT_NIL_P(sync(config));
+    const auto f = ASSERT_NIL_P(create(config));
     f->write(Bytes{0xAA, 0x55, 20, 0xAA, 0x55, 3});
     assert_next_drops(*f, "dropped a frame with an invalid length of 20");
     assert_next_drops(*f, "dropped 2 bytes that are not a frame");
@@ -556,7 +562,7 @@ TEST(Sync, DropInvalidLength) {
 
 /// @brief it should drop a partial frame on idle, and read the frame after it.
 TEST(Sync, IdleDropsPartialFrame) {
-    const auto f = ASSERT_NIL_P(sync(sync_config()));
+    const auto f = ASSERT_NIL_P(create(sync_framing()));
     f->write(Bytes{0xAA, 0x55, 200, 1, 2, 0xAA, 0x55, 1, 9});
     assert_frames(*f, {});
     const auto err = f->idle();
@@ -568,9 +574,9 @@ TEST(Sync, IdleDropsPartialFrame) {
 
 /// @brief it should read a frame of max_length bytes, which its checksum follows.
 TEST(Sync, AcceptMaxLength) {
-    auto config = sync_config(Checksum{});
-    config.length_size = 4;
-    const auto f = ASSERT_NIL_P(sync(config));
+    auto config = sync_framing(crc32());
+    config.length_size = icd::LENGTH_SIZE_FOUR;
+    const auto f = ASSERT_NIL_P(create(config));
     Bytes frame(MAX_SIZE, 0x11);
     Bytes wire;
     ASSERT_NIL(f->encode(frame, wire));
@@ -582,20 +588,25 @@ TEST(Sync, AcceptMaxLength) {
 
 /// @brief it should encode frames that a framer of the same config reads back.
 TEST(Sync, RoundTrip) {
-    for (const auto algorithm:
-         {ChecksumAlgorithm::CRC16_CCITT_FALSE,
-          ChecksumAlgorithm::CRC16_MODBUS,
-          ChecksumAlgorithm::CRC32}) {
-        auto config = sync_config(Checksum{.algorithm = algorithm, .big_endian = true});
-        config.length_size = 2;
-        const auto f = ASSERT_NIL_P(sync(config));
+    for (const std::string algorithm:
+         {icd::CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE,
+          icd::CHECKSUM_ALGORITHM_CRC_16_MODBUS,
+          icd::CHECKSUM_ALGORITHM_CRC_32}) {
+        auto config = sync_framing(
+            icd::Checksum{
+                .algorithm = algorithm,
+                .byte_order = icd::BYTE_ORDER_BIG_ENDIAN,
+            }
+        );
+        config.length_size = icd::LENGTH_SIZE_TWO;
+        const auto f = ASSERT_NIL_P(create(config));
         std::vector<Bytes> frames;
         for (const auto &p: random_frames(0xAA)) {
             Bytes out;
             ASSERT_NIL(f->encode(with_header(p), out));
             frames.emplace_back(
                 out.begin(),
-                out.end() - (algorithm == ChecksumAlgorithm::CRC32 ? 4 : 2)
+                out.end() - (algorithm == icd::CHECKSUM_ALGORITHM_CRC_32 ? 4 : 2)
             );
         }
         assert_round_trips(*f, frames);
@@ -605,7 +616,7 @@ TEST(Sync, RoundTrip) {
 /// @brief it should refuse to encode a frame that its header, length field, or maximum
 /// length cannot hold.
 TEST(Sync, RefuseEncode) {
-    const auto f = ASSERT_NIL_P(sync(sync_config()));
+    const auto f = ASSERT_NIL_P(create(sync_framing()));
     assert_refuses(
         *f,
         "ab",
@@ -616,37 +627,60 @@ TEST(Sync, RefuseEncode) {
         std::string(300, 'x'),
         "the length 297 does not fit a 1-byte length field"
     );
-    auto config = sync_config();
+    auto config = sync_framing();
     config.max_length = 4;
     assert_refuses(
-        *ASSERT_NIL_P(sync(config)),
+        *ASSERT_NIL_P(create(config)),
         "abcde",
         "the frame has 5 bytes, more than the maximum length of 4"
     );
 }
 
-/// @brief it should refuse a sync config that cannot frame a stream.
-TEST(Sync, RefuseConfig) {
-    const auto refuse = [](const SyncConfig &c, const std::string &text) {
-        const auto [f, err] = sync(c);
-        ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        EXPECT_EQ(err.data, text);
-    };
-    auto c = sync_config();
-    c.sync = {};
-    refuse(c, "the sync sequence is empty");
-    c = sync_config();
-    c.length_size = 3;
-    refuse(c, "the length field must be 1, 2, or 4 bytes, not 3");
-    c = sync_config();
+namespace {
+/// @brief asserts that create refuses c with text.
+void assert_refuses_config(const icd::SyncFraming &c, const std::string &text) {
+    const auto [f, err] = create(c);
+    ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
+    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(f, nullptr);
+}
+}
+
+/// @brief it should refuse a length field that overlaps the sync sequence.
+TEST(Sync, RefuseLengthOverSync) {
+    auto c = sync_framing();
     c.length_offset = 1;
-    refuse(c, "the length field overlaps the sync sequence");
-    c = sync_config();
-    c.max_length = 0;
-    refuse(c, "the maximum length of 0 is less than the 3 bytes of the header");
-    c = sync_config();
-    c.max_length = MAX_SIZE + 1;
-    refuse(c, "the maximum length must be at most 65536, not 65537");
+    assert_refuses_config(c, "the length field overlaps the sync sequence");
+}
+
+/// @brief it should refuse a maximum length that cannot hold the header.
+TEST(Sync, RefuseMaxLengthUnderHeader) {
+    auto c = sync_framing();
+    c.max_length = 2;
+    assert_refuses_config(
+        c,
+        "the maximum length of 2 is less than the 3 bytes of the header"
+    );
+}
+
+/// @brief it should refuse a length size, byte order, or checksum algorithm that it
+/// does not know.
+TEST(Sync, RefuseUnknownEnumValue) {
+    auto c = sync_framing();
+    c.length_size = "three";
+    assert_refuses_config(c, "unknown length size three");
+    c = sync_framing();
+    c.byte_order = "middle_endian";
+    assert_refuses_config(c, "unknown byte order middle_endian");
+    c = sync_framing(icd::Checksum{.algorithm = "crc8"});
+    assert_refuses_config(c, "unknown checksum algorithm crc8");
+    c = sync_framing(
+        icd::Checksum{
+            .algorithm = icd::CHECKSUM_ALGORITHM_CRC_32,
+            .byte_order = "middle_endian",
+        }
+    );
+    assert_refuses_config(c, "unknown byte order middle_endian");
 }
 
 /// @brief it should encode a frame of MAX_SIZE bytes in every framing, and refuse one
@@ -654,15 +688,17 @@ TEST(Sync, RefuseConfig) {
 TEST(Framer, EncodeMaxSize) {
     std::vector<std::unique_ptr<Framer>> framers;
     framers.push_back(delimited_by("\n"));
-    framers.push_back(ASSERT_NIL_P(fixed(MAX_SIZE)));
+    framers.push_back(fixed(MAX_SIZE));
     framers.push_back(cobs());
     framers.push_back(slip());
-    framers.push_back(ASSERT_NIL_P(sync({
-        .sync = {0xAA},
-        .length_offset = 1,
-        .length_size = 4,
-        .checksum = Checksum{},
-    })));
+    framers.push_back(ASSERT_NIL_P(create(
+        icd::SyncFraming{
+            .sync = {0xAA},
+            .length_offset = 1,
+            .length_size = icd::LENGTH_SIZE_FOUR,
+            .checksum = crc32(),
+        }
+    )));
     for (const auto &f: framers) {
         Bytes wire;
         ASSERT_NIL(f->encode(Bytes(MAX_SIZE, 0x11), wire));
@@ -676,10 +712,10 @@ TEST(Framer, EncodeMaxSize) {
 /// @brief it should split a stream without allocating once its buffer has grown.
 TEST(Framer, SplitWithoutAllocating) {
     const auto d = delimited_by("\r\n");
-    const auto f = ASSERT_NIL_P(fixed(4));
+    const auto f = fixed(4);
     const auto c = cobs();
     const auto s = slip();
-    const auto y = ASSERT_NIL_P(sync(sync_config(Checksum{})));
+    const auto y = ASSERT_NIL_P(create(sync_framing(crc32())));
     Bytes synced;
     ASSERT_NIL(y->encode(with_header({1, 2, 3}), synced));
     const auto chunk = bytes("abc\r\ndefg\r\nhi");

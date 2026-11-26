@@ -34,6 +34,14 @@ func jsonField(name string, v icd.JSONFieldVariant) icd.JSONField {
 	return f
 }
 
+// withZeroScale returns f with a scale of zero.
+func withZeroScale(f icd.JSONField) icd.JSONField {
+	b := f.Base()
+	b.Scale = 0
+	f.SetBase(b)
+	return f
+}
+
 // withMax returns f with limit as its max.
 func withMax(f icd.JSONField, limit float64) icd.JSONField {
 	b := f.Base()
