@@ -19,7 +19,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/checkpoint"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/segment"
@@ -29,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
-	"go.uber.org/zap"
 )
 
 const (
@@ -44,14 +42,15 @@ const (
 // engine is the pointer log layout of a DB: the state owner, the log owner, the
 // checkpointer, and the budget of the segment file handles.
 type engine struct {
-	ins    alamos.Instrumentation
-	fs     xfs.FS
-	db     uint64
-	exec   func(f func())
-	state  *state.State
-	log    *log.Log
-	ckpt   *checkpoint.Checkpointer
-	budget *segment.Budget
+	// onError gets each error that the engine survives and no call returns.
+	onError func(error)
+	fs      xfs.FS
+	db      uint64
+	exec    func(f func())
+	state   *state.State
+	log     *log.Log
+	ckpt    *checkpoint.Checkpointer
+	budget  *segment.Budget
 	// handles holds the read handle of each segment file that a read opened, by key and
 	// segment ID, until the file is removed or the engine closes.
 	handles struct {
@@ -111,7 +110,7 @@ func openEngine(o *options) (*engine, error) {
 		return nil, err
 	}
 	e := &engine{
-		ins:      o.Instrumentation,
+		onError:  o.errorHandler,
 		fs:       o.fs,
 		exec:     o.executor,
 		ready:    make(chan struct{}),
@@ -245,11 +244,7 @@ func (e *engine) append(entry *log.Entry) { e.log.Append(entry) }
 // calls return the error, so the hook only logs it.
 func (e *engine) durable(sequence uint64, records []log.Record) {
 	if err := e.state.Durable(sequence, records); err != nil {
-		e.ins.L.Error(
-			"state refused a durable log entry",
-			zap.Uint64("sequence", sequence),
-			zap.Error(err),
-		)
+		e.onError(errors.Wrapf(err, "state refused the durable log entry %d", sequence))
 	}
 }
 
@@ -257,7 +252,7 @@ func (e *engine) durable(sequence uint64, records []log.Record) {
 // requests that wait for it, and returns no error of its own.
 func (e *engine) refused(records []log.Record, err error) {
 	if stateErr := e.state.Refused(records, err); stateErr != nil {
-		e.ins.L.Error("state failed a refused log entry", zap.Error(stateErr))
+		e.onError(errors.Wrap(stateErr, "state failed a refused log entry"))
 	}
 }
 
@@ -267,11 +262,7 @@ func (e *engine) prepare(next uint64) { e.ckpt.Prepare(next) }
 // head there. The state fails itself on an error, and its later calls return it.
 func (e *engine) switchedTo(generation uint64) {
 	if err := e.state.Switch(generation); err != nil {
-		e.ins.L.Error(
-			"state failed the switch to a log",
-			zap.Uint64("generation", generation),
-			zap.Error(err),
-		)
+		e.onError(errors.Wrapf(err, "state failed the switch to log %d", generation))
 	}
 }
 
@@ -299,9 +290,8 @@ func (e *engine) covered(sequence uint64) {
 	if free := e.uncover(sequence, nil); len(free) > 0 {
 		e.exec(func() {
 			if err := e.unlink(free); err != nil {
-				e.ins.L.Error(
-					"failed to unlink the file of a dead segment",
-					zap.Error(err),
+				e.onError(
+					errors.Wrap(err, "failed to unlink the file of a dead segment"),
 				)
 			}
 		})
@@ -464,9 +454,8 @@ func (e *engine) serve(ctx context.Context, owners signal.Context) error {
 			return e.failure
 		case <-e.reaps:
 			if err := e.reap(); err != nil {
-				e.ins.L.Error(
-					"failed to unlink the file of a dead segment",
-					zap.Error(err),
+				e.onError(
+					errors.Wrap(err, "failed to unlink the file of a dead segment"),
 				)
 			}
 		}

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 type Option func(*options)
@@ -49,6 +50,8 @@ type options struct {
 	executor    func(f func())
 	// pointerLog opens the database on the pointer log layout.
 	pointerLog bool
+	// errorHandler gets each error that the DB survives and no call returns.
+	errorHandler func(error)
 }
 
 func (o *options) Report() alamos.Report { return alamos.Report{"dirname": o.dirname} }
@@ -89,6 +92,12 @@ func mergeAndValidateOptions(o *options) error {
 	}
 	if o.executor == nil {
 		o.executor = segment.GoExecutor
+	}
+	if o.errorHandler == nil {
+		l := o.L
+		o.errorHandler = func(err error) {
+			l.Error("survived a storage fault", zap.Error(err))
+		}
 	}
 	o.logFileSize = override.Numeric(int64(log.FileSize), o.logFileSize)
 	if o.logFileSize < log.MinFileSize || o.logFileSize%log.BlockSize != 0 {
@@ -161,6 +170,13 @@ func WithFileSizeCap(size telem.Size) Option {
 // number of 4 KiB blocks of at least 4 MiB. Defaults to 64 MiB.
 func WithLogFileSize(size telem.Size) Option {
 	return func(o *options) { o.logFileSize = int64(size) }
+}
+
+// WithErrorHandler sets the handler of each error that the DB survives and no call
+// returns, such as a channel directory that open cannot read. The DB calls it from any
+// goroutine, so it must not block. Defaults to a log of the error at the Error level.
+func WithErrorHandler(handler func(error)) Option {
+	return func(o *options) { o.errorHandler = handler }
 }
 
 // WithChunkSize sets the most samples, summed over an iterator's channels, that one

@@ -17,6 +17,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/meta"
+	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
@@ -24,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // Open opens a Cesium database on the specified directory. If the directory is not
@@ -76,10 +76,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		return nil, err
 	}
 	if db.corruptIntents > 0 {
-		db.L.Warn(
-			"skipped corrupt delete intents, whose data Sweep keeps",
-			zap.Int("records", db.corruptIntents),
-		)
+		db.errorHandler(errors.Wrapf(
+			place.ErrCorrupt,
+			"skipped %d corrupt batches of delete intents, whose data Sweep keeps",
+			db.corruptIntents,
+		))
 	}
 	var detached []string
 	for _, i := range info {
@@ -100,12 +101,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		}
 		key, err := dirNameToKey(i.Name())
 		if err != nil {
-			db.L.Error(fmt.Sprintf(
-				"failed parsing existing folder <%s> to channel key",
+			db.errorHandler(errors.Wrapf(
+				err,
+				"failed to parse the directory %s as a channel key",
 				i.Name(),
-			),
-				zap.Error(err),
-			)
+			))
 			continue
 		}
 
@@ -121,11 +121,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 
 	for _, name := range detached {
 		if err := db.fs.Remove(name); err != nil {
-			db.L.Error(
-				"failed to remove deleted channel data",
-				zap.String("dir", name),
-				zap.Error(err),
-			)
+			db.errorHandler(errors.Wrapf(
+				err,
+				"failed to remove the deleted channel data in %s",
+				name,
+			))
 		}
 	}
 	return db, nil
@@ -167,10 +167,11 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 		// untruncated, as a crash leaves it, or cut in memory when only the save of
 		// the cut failed.
 		if truncErr := u.TruncateToIndex(ctx); truncErr != nil {
-			db.L.Error(
-				"failed to truncate a channel to the samples its index has timestamps for",
-				zap.Error(truncErr),
-			)
+			db.errorHandler(errors.Wrapf(
+				truncErr,
+				"failed to truncate channel %d to the samples its index has stamps for",
+				ch.Key,
+			))
 		}
 	}
 	db.mu.dbs.unary[ch.Key] = *u
