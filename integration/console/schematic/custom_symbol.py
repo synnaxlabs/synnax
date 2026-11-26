@@ -47,6 +47,12 @@ class CustomSymbol(Symbol):
         if self.command_channel is not None:
             self.set_properties(channel_name=self.command_channel)
 
+    def click(self) -> None:
+        """Click the symbol to select it. A click at the center of the node can miss
+        shapes with no fill.
+        """
+        self.locator.locator("div").first.click()
+
     def set_label(self, label: str) -> None:
         """Custom symbols don't have a standard label field in properties."""
         self.label = label
@@ -67,4 +73,4 @@ class CustomSymbol(Symbol):
     def press(self) -> None:
         """Press the custom symbol to actuate it."""
         self._disable_edit_mode()
-        self.click()
+        self.layout.click(self.locator.locator(".pluto-symbol").first)
