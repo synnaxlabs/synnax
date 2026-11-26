@@ -166,7 +166,7 @@ DataType string {
 
 DataTypeCode enum {
     unknown   = 0 {
-        @doc value "is never valid on the wire."
+        @doc value "is no data type. Every codec refuses it on the wire."
     }
     uint8     = 1 {
         @doc value "is the code of uint8."
