@@ -26,7 +26,7 @@ describe("Settings with an embedded Core", () => {
   it("should hold only usage data in the Account group and hide Users", async () => {
     await renderSettings();
     expect(await screen.findByRole("menuitem", { name: "Usage data" })).toBeTruthy();
-    expect(await screen.findByRole("menuitem", { name: "Labels" })).toBeTruthy();
+    expect(await screen.findByRole("menuitem", { name: "About" })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "Profile" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "API keys" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Users" })).toBeNull();
