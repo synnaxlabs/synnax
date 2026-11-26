@@ -1035,14 +1035,25 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     const RED = color.construct("#ff0000");
 
-    // previewFault opens a symbol whose Body takes the entry color of Active, and a red
-    // stroke at Active 0, then previews Fault at Trip (2). Active also has an entry at
-    // 2, which a preview that gave 2 to every state would draw.
+    // PAINTED gives Body the entry color of Active, and a red stroke at Active 0.
+    const PAINTED: schematic.symbol.Look[] = [
+      { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+      {
+        key: "base",
+        part: "body",
+        when: { type: "equals", state: "active", values: [0] },
+        stroke: { type: "color", value: { type: "fixed", value: RED } },
+      },
+    ];
+
+    // previewFault opens a symbol with looks, then previews Fault at Trip (2). Active
+    // also has an entry at 2, which a preview that gave 2 to every state would draw.
     const previewFault = async (
       faultEntries: { key: string; value: number; name: string }[] = [
         { key: "ok", value: 0, name: "OK" },
         { key: "trip", value: 2, name: "Trip" },
       ],
+      looks: schematic.symbol.Look[] = PAINTED,
     ) => {
       const active = await client.enumerations.create({
         name: uniqueName("valve"),
@@ -1079,15 +1090,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
             default: 2,
           },
         ],
-        looks: [
-          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
-          {
-            key: "base",
-            part: "body",
-            when: { type: "equals", state: "active", values: [0] },
-            stroke: { type: "color", value: { type: "fixed", value: RED } },
-          },
-        ],
+        looks,
       });
       fireEvent.click(within(getValueBar()).getByText("Fault"));
       await waitFor(() =>
@@ -1119,6 +1122,57 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect((await screen.findByRole("tooltip")).textContent).toBe(
         "Active gives this. Change it there, or set it by state.",
       );
+    });
+
+    const hiddenAtActive = (part?: string): schematic.symbol.Look[] => [
+      {
+        key: "hide",
+        part,
+        when: { type: "equals", state: "active", values: [0] },
+        hidden: true,
+      },
+    ];
+
+    const bodyDisplay = (): string => {
+      const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+      assertDefined(shape);
+      return getComputedStyle(shape).display;
+    };
+
+    it("shows a part on a state with one value over a look that hides it", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        hiddenAtActive("body"),
+      );
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("shows the drawing on a state with one value over a look that hides it", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }], hiddenAtActive());
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("locks Blink on a state with one value under a blink of another state", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        [
+          {
+            key: "blink",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            blink: { period: 1e9 },
+          },
+        ],
+      );
+      const blink = screen.getByLabelText<HTMLInputElement>("Blink");
+      await waitFor(() => expect(blink.checked).toBe(true));
+      expect(blink.disabled).toBe(true);
     });
 
     it("edits a state with one value over a look of another state", async () => {

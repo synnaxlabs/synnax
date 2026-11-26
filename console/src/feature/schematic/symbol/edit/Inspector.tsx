@@ -277,18 +277,19 @@ const VisibleControl = (): ReactElement => {
     onChange,
     label,
   } = useScope<"hidden">("VisibleControl");
-  // A part shown at every value stores false when the drawing hides at any value.
+  // Showing stores false when an inherited look hides the target here, or when the
+  // drawing hides a part shown at every value at any value.
   const drawingHides =
-    part != null &&
-    (at == null
-      ? values.list.some(
-          (v) =>
-            Spec.effective({ looks, states }, undefined, "hidden", {
-              ...preview,
-              value: v.value,
-            }) === true,
-        )
-      : inherited === true);
+    inherited === true ||
+    (part != null &&
+      at == null &&
+      values.list.some(
+        (v) =>
+          Spec.effective({ looks, states }, undefined, "hidden", {
+            ...preview,
+            value: v.value,
+          }) === true,
+      ));
   return (
     <Input.Checkbox
       aria-label={label}
