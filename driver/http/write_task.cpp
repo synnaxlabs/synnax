@@ -79,7 +79,8 @@ WriteTaskSink::WriteTaskSink(
 
 x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     // Queue i holds the requests of endpoint i in sample order. Each round sends the
-    // front of each queue, so an endpoint gets its commands in order.
+    // front of each queue, so an endpoint gets its commands in order. A failed request
+    // drops the rest of its queue, so an endpoint never repeats or holds back another.
     std::vector<std::deque<Request>> queues(this->writers.size());
     std::vector<std::string> refused;
     std::vector<std::string> error_msgs;
@@ -106,6 +107,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
     }
 
     bool sent = false;
+    bool temporary = false;
     std::vector<Request> batch;
     std::vector<std::size_t> owners;
     while (true) {
@@ -118,7 +120,6 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             }
         if (batch.empty()) break;
         auto results = this->processor->execute(batch);
-        bool made_progress = false;
         for (std::size_t j = 0; j < results.size(); j++) {
             auto &queue = queues[owners[j]];
             auto &[resp, req_err] = results[j];
@@ -129,32 +130,29 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 auto status_err = errors::from_status(resp.status_code); status_err
             )
                 err = status_err;
-            if (err.matches(errors::TEMPORARY_ERROR)) continue;
-            made_progress = true;
-            if (!err)
+            if (!err) {
                 sent = true;
-            else {
-                if (first_error_type.empty()) first_error_type = err.type;
-                auto msg = describe(batch[j]);
-                if (req_err)
-                    msg += ": " + req_err.data;
-                else {
-                    msg += " returned " + std::to_string(resp.status_code);
-                    if (!resp.body.empty()) msg += ": " + resp.body;
-                }
-                error_msgs.push_back(std::move(msg));
+                queue.pop_front();
+                continue;
             }
-            queue.pop_front();
+            if (err.matches(errors::TEMPORARY_ERROR))
+                temporary = true;
+            else if (first_error_type.empty())
+                first_error_type = err.type;
+            auto msg = describe(batch[j]);
+            if (req_err)
+                msg += ": " + req_err.data;
+            else {
+                msg += " returned " + std::to_string(resp.status_code);
+                if (!resp.body.empty()) msg += ": " + resp.body;
+            }
+            error_msgs.push_back(std::move(msg));
+            queue.clear();
         }
-        if (!made_progress) break;
     }
     if (sent) this->set_state(frame);
-
-    for (const auto &queue: queues) {
-        if (queue.empty()) continue;
-        if (first_error_type.empty()) first_error_type = errors::TEMPORARY_ERROR.type;
-        error_msgs.push_back(describe(queue.front()) + ": timed out");
-    }
+    if (first_error_type.empty() && temporary)
+        first_error_type = errors::TEMPORARY_ERROR.type;
 
     if (!refused.empty())
         this->warn({

@@ -28,9 +28,10 @@ The body of each endpoint is the JSON payload of one message of an
 sends a command from a command channel, a fixed value, or its
 [default](/reference/hardware/icds/reference#defaults).
 
-- **Commands** -> each command sends one request. If you write several commands at once,
-  the endpoint sends them in order. A field with no new command sends the last command
-  of its channel.
+- **Commands** -> request 1 holds the first new command of each channel of the message,
+  request 2 holds the second, and so on, in order. So commands to two fields in one
+  write go in one request. A field with no new command sends the last command of its
+  channel.
 - **First commands** -> the endpoint sends nothing until each field with a channel and
   no default has a command.
 - **Dropped commands** -> the task drops a command that its field cannot hold, such as
@@ -236,31 +237,26 @@ fixed value is `icd.ValueWriteBinding`.
 
 <Problem.List>
 
-<Problem.Item message={"... returned ...: ..."}>
+<Problem.Item message={"Failed to write commands"}>
 <Problem.Cause>
 
-The server rejected the request. The description shows the method, the address, the
-status code, and the response body.
+A request failed. The description shows the method and the address of each failed
+request, and the status code and the response body if the server answered. The task
+drops the later commands of that endpoint in the same write. The other endpoints still
+send their commands.
+
+- **No answer, or 408, 429, or a 5xx code** -> the task waits, then goes on with the
+  next write. The wait pauses all endpoints of the task. After 50 failures in a row, the
+  task stops.
+- **Other codes, such as a 4xx code** -> the task stops after the other endpoints send
+  their commands.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Check the path, the message, and the authentication of the server.
-
-</Problem.Fix>
-</Problem.Item>
-
-<Problem.Item message={"...: timed out"}>
-<Problem.Cause>
-
-The server did not answer, or it returned a temporary error, such as 408, 429, or a 5xx
-code. The task drops the command, waits, and then goes on with the next command. After
-50 failures in a row, the task stops.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Make sure that the server is running and that the Driver can reach it.
+Make sure that the server is running and that the Driver can reach it. For a 4xx code,
+check the path, the message, and the authentication of the server. Then start the task
+again.
 
 </Problem.Fix>
 </Problem.Item>
