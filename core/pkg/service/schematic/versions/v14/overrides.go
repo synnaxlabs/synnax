@@ -76,6 +76,10 @@ func (o *overrides) node(
 	states []symbolv4.State,
 	schematic string,
 ) (SymbolNodeConfig, error) {
+	if len(src.Data.Commands) == 0 {
+		// A symbol with no commands draws only value 0.
+		states = states[:1]
+	}
 	var state symbol.EnumerationState
 	if len(src.Data.States) > 0 {
 		state, _ = src.Data.States[0].Variant.(symbol.EnumerationState)

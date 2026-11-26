@@ -788,6 +788,38 @@ var _ = Describe("Stored v13 state overrides", func() {
 			Expect(copied.Data.Commands).To(HaveLen(2))
 		},
 	)
+
+	It("Should give a custom_static node no record for overrides of states that it "+
+		"never draws", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		vent := decodeReleased[v4.Symbol]("symbol_vent_valve.hex")
+		vent.Data.Variant = "static"
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&vent).Exec(ctx, db)).
+			To(Succeed())
+		states := slices.Clone(vent.Data.States)
+		states[1].Regions = slices.Clone(states[1].Regions)
+		states[1].Regions[0].FillColor = new(white)
+		cfg := v13.CustomStaticNodeConfig{SpecKey: vent.Key.String()}
+		cfg.StateOverrides = states
+		stored := v13.Schematic{
+			Key:   uuid.New(),
+			Name:  "Panel",
+			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{Variant: cfg}}},
+		}
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&stored).Exec(ctx, db)).
+			To(Succeed())
+		openService(ctx, db)
+		var sc schematic.Schematic
+		Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
+			Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](stored.Key)).
+			Entry(&sc).
+			Exec(ctx, db)).To(Succeed())
+		n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
+		Expect(n.Spec.Variant).To(Equal(symbol.CustomRef{Key: vent.Key}))
+		Expect(n.States).To(HaveEach(HaveField("Enumeration", BeNil())))
+		Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().Count(ctx, db)).
+			To(Equal(1))
+	})
 })
 
 var _ = Describe("Stored v13 selects", func() {
