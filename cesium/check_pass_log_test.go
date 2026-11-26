@@ -12,6 +12,7 @@ package cesium_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"maps"
 	"math/rand/v2"
 	"os"
@@ -444,30 +445,73 @@ var _ = Describe("Check pass on the pointer log", func() {
 		Expect(closeDB()).To(Succeed())
 	})
 
-	It("Should cut the stamps from a zero inside an older index pointer to its end, "+
-		"with the samples that they time", func(ctx SpecContext) {
-		p := oldPointers(disk, idx)[0]
-		n := int(p.size / 8)
-		zero(disk, oldName(idx, p), p.offset+16, 8)
-		db, closeDB := openConverted(ctx, disk, ins)
-		head := checked(db)
-		Expect(dataOf(ctx, db, keys)).To(Equal(old.without(2, n)))
-		// The cuts are by position: each key keeps the two samples before the zero.
-		for _, key := range keys {
-			var kept []state.Pointer
-			for _, s := range head[key] {
-				for _, ptr := range s.Pointers {
-					if ptr.First == p.start {
-						kept = append(kept, ptr)
+	const riseCut = "cut the samples of a converted segment whose stamps do not rise"
+	// write puts stamp at sample i of the old index pointer p.
+	write := func(p oldPointer, i int, stamp telem.TimeStamp) {
+		GinkgoHelper()
+		f := MustSucceed(disk.Open(oldName(idx, p), os.O_RDWR))
+		b := binary.LittleEndian.AppendUint64(nil, uint64(stamp))
+		MustSucceed(f.WriteAt(b, p.offset+8*int64(i)))
+		Expect(f.Close()).To(Succeed())
+	}
+	DescribeTable(
+		"Should cut the samples of an older index pointer whose stamps do not "+
+			"rise, alone and with the samples that they time, and warn of the cut",
+		func(ctx SpecContext, run func(n int) (from, to int), repeat bool) {
+			p := oldPointers(disk, idx)[0]
+			n := int(p.size / 8)
+			from, to := run(n)
+			Expect(from).To(BeNumerically(">", 0))
+			for i := from; i < to; i++ {
+				var stamp telem.TimeStamp
+				if repeat {
+					stamp = old.stamps[from-1]
+				}
+				write(p, i, stamp)
+			}
+			db, closeDB := openConverted(ctx, disk, ins)
+			head := checked(db)
+			Expect(dataOf(ctx, db, keys)).To(Equal(old.without(from, to)))
+			for _, key := range keys {
+				var kept uint32
+				for _, s := range head[key] {
+					for _, ptr := range s.Pointers {
+						if ptr.First >= p.start && ptr.Last <= old.stamps[n-1] {
+							kept += ptr.Samples
+						}
 					}
 				}
+				Expect(kept).To(Equal(uint32(n-to+from)), "key %d", key)
 			}
-			Expect(kept).To(HaveLen(1), "key %d", key)
-			Expect(kept[0].Samples).To(Equal(uint32(2)), "key %d", key)
-			Expect(kept[0].Last).To(Equal(old.stamps[1]), "key %d", key)
-		}
-		Expect(closeDB()).To(Succeed())
-	})
+			cuts := logs.FilterMessage(riseCut).All()
+			Expect(cuts).To(HaveLen(1))
+			fields := cuts[0].ContextMap()
+			Expect(fields).To(SatisfyAll(
+				HaveKeyWithValue("key", uint32(idx)),
+				HaveKeyWithValue("keys", ConsistOf(uint32(i32), uint32(str))),
+				HaveKeyWithValue("after", old.stamps[from-1].String()),
+				HaveKeyWithValue("samples", uint32(to-from)),
+			))
+			if to < n {
+				Expect(fields).To(HaveKeyWithValue("before", old.stamps[to].String()))
+			} else {
+				Expect(fields).ToNot(HaveKey("before"))
+			}
+			Expect(closeDB()).To(Succeed())
+		},
+		Entry("a zero", func(int) (int, int) { return 2, 3 }, false),
+		Entry("two zeros", func(int) (int, int) { return 2, 4 }, false),
+		Entry(
+			"a repeat of the stamp before it",
+			func(int) (int, int) { return 3, 4 },
+			true,
+		),
+		Entry(
+			"a repeat at the end of the pointer",
+			func(n int) (int, int) { return n - 1, n },
+			true,
+		),
+	)
 
 	It("Should read rising stamps, none of them zero, and each sample at its own "+
 		"stamp, from each crash image of a write of the old layout", func(
