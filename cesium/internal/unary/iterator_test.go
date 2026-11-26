@@ -10,6 +10,7 @@
 package unary_test
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"runtime"
@@ -2047,6 +2048,45 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 
 				Describe("Regressions", func() {
+					DescribeTable(
+						"Should read nothing outside the bounds after a seek to a "+
+							"stamp outside them, in a domain that holds the stamp",
+						func(ctx SpecContext, seek func(*unary.Iterator) bool, back bool) {
+							stamps := make([]telem.TimeStamp, 100)
+							for i := range stamps {
+								stamps[i] = telem.TimeStamp(i + 1)
+							}
+							Expect(unary.Write(
+								ctx,
+								indexDB,
+								telem.SecondTS,
+								telem.NewSeriesSecondsTSV(stamps...),
+							)).To(Succeed())
+							iter := MustSucceed(
+								indexDB.OpenIterator(unary.IteratorConfig{
+									Bounds: telem.TimeRangeMax,
+								}),
+							)
+							iter.SetBounds(
+								(40 * telem.SecondTS).Range(50 * telem.SecondTS),
+							)
+							Expect(seek(iter)).To(BeTrue())
+							if back {
+								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
+							} else {
+								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
+							}
+							Expect(iter.Error()).ToNot(HaveOccurred())
+							Expect(iter.Close()).To(Succeed())
+						},
+						Entry("SeekLE after the end", func(i *unary.Iterator) bool {
+							return i.SeekLE(context.Background(), 80*telem.SecondTS)
+						}, false),
+						Entry("SeekGE before the start", func(i *unary.Iterator) bool {
+							return i.SeekGE(context.Background(), 20*telem.SecondTS)
+						}, true),
+					)
+
 					// This spec was added due to a bug in the line plotting mechanics
 					// due to misalignment between actually-related domains. Let's say
 					// you create an index and write a domain to it
