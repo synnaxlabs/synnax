@@ -78,13 +78,12 @@ export const sampleOfTopic = (topic: string, ...shapes: object[]) => ({
 /** @returns a field of a sampled shape, held by two records. */
 export const createInferredField = (
   pointer: string,
-  dataType: string,
+  kind: payload.Kind,
   type: "number" | "boolean" | "string",
   timeFormat?: payload.TimeFormat,
 ) => ({
   pointer,
-  dataType,
-  kind: payload.kindOf(dataType),
+  kind,
   type,
   timeFormat,
   enum: [],
