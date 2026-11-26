@@ -827,6 +827,27 @@ describe("ICD editor", () => {
     expect(await within(options).findByText("None")).toBeTruthy();
   });
 
+  it("should show, set, and clear the min and max of a JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONField("Temp", "/temp"), min: 0, max: 100 }]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("Min 0, Max 100")).toBeTruthy();
+    await openOptions(1);
+    const min = await screen.findByLabelText<HTMLInputElement>("Min");
+    fireEvent.change(min, { target: { value: "5" } });
+    fireEvent.blur(min);
+    const max = screen.getByLabelText<HTMLInputElement>("Max");
+    fireEvent.change(max, { target: { value: "" } });
+    fireEvent.blur(max);
+    await waitFor(async () => {
+      const field = await retrieveJSONField(ic.key);
+      expect(field.min).toBe(5);
+      expect(field).not.toHaveProperty("max");
+    });
+    expect(await screen.findByText("Min 5")).toBeTruthy();
+  });
+
   it("should store the default of an integer JSON field as text", async () => {
     const ic = await createICD([
       createJSONMessage([
