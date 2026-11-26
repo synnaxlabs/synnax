@@ -91,9 +91,6 @@ type delta[K, V comparable] struct {
 	// so a batch of staged keys allocates a few arrays instead of slices per key.
 	arena []V
 	keys  []K
-	// added counts the entries added to forward since the last reset. forward drops an
-	// entry when its last holder goes, so its length can be less than its peak.
-	added int
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
@@ -101,18 +98,6 @@ func newDelta[K, V comparable]() *delta[K, V] {
 }
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
-
-func (d *delta[K, V]) footprint() int {
-	return max(len(d.state), d.added, cap(d.arena), cap(d.keys))
-}
-
-func (d *delta[K, V]) reset() {
-	clear(d.state)
-	clear(d.forward)
-	clear(d.arena)
-	clear(d.keys)
-	d.arena, d.keys, d.added = d.arena[:0], d.keys[:0], 0
-}
 
 // set stages values for key. The delta owns values from then on.
 func (d *delta[K, V]) set(key K, values []V) {
@@ -128,10 +113,7 @@ func (d *delta[K, V]) set(key K, values []V) {
 
 // setOne stages value as the one value of key.
 func (d *delta[K, V]) setOne(key K, value V) {
-	if len(d.arena) == cap(d.arena) {
-		d.arena = make([]V, 0, max(arenaMin, 2*cap(d.arena)))
-	}
-	d.arena = append(d.arena, value)
+	d.arena = append(grow(d.arena), value)
 	n := len(d.arena)
 	d.set(key, d.arena[n-1:n:n])
 }
@@ -145,18 +127,20 @@ func (d *delta[K, V]) addHolder(value V, key K) {
 		d.forward[value] = h
 		return
 	}
-	if len(d.keys) == cap(d.keys) {
-		d.keys = make([]K, 0, max(arenaMin, 2*cap(d.keys)))
-	}
-	d.keys = append(d.keys, key)
+	d.keys = append(grow(d.keys), key)
 	n := len(d.keys)
 	h.few = d.keys[n-1 : n : n]
 	d.forward[value] = h
-	d.added++
 }
 
-// arenaMin is the size of the first arena of a delta.
-const arenaMin = 8
+// grow returns s with room for one more element. A full s moves to a new array of twice
+// its size and leaves its elements in the old one, which the slices taken from it keep.
+func grow[T any](s []T) []T {
+	if len(s) < cap(s) {
+		return s
+	}
+	return make([]T, 0, max(1, 2*cap(s)))
+}
 
 func (d *delta[K, V]) delete(key K) {
 	d.unstage(key)
@@ -215,28 +199,16 @@ func AnyOf[V comparable](values []V) func(V) bool {
 }
 
 // changes is the set of changes that one scope has staged against an index.
-type changes interface {
-	isEmpty() bool
-	// footprint returns at least the most entries that any map or slice of the changes
-	// has held since the last reset.
-	footprint() int
-	// reset empties the changes, keeping their storage for the next scope.
-	reset()
-}
+type changes interface{ isEmpty() bool }
 
 // overlay holds the changes of every scope that has staged changes against an index.
 type overlay[S Scope, D changes] struct {
-	// mu guards deltas, spare, and hasSpare.
+	// mu guards deltas.
 	mu     sync.RWMutex
 	deltas map[S]D
-	// spare is the changes of the last scope that ended, emptied, so the next scope
-	// stages into them and allocates none. hasSpare is true when spare holds them.
-	spare    D
-	hasSpare bool
 	// create returns an empty set of changes.
 	create func() D
-	// flush applies the changes of a committed scope to committed state. It must not
-	// keep the slices of the changes, which the next scope reuses.
+	// flush applies the changes of a committed scope to committed state.
 	flush func(D)
 }
 
@@ -251,33 +223,18 @@ func (o *overlay[S, D]) load(scope S) D {
 	if o.deltas == nil {
 		o.deltas = make(map[S]D)
 	}
-	var d, none D
-	if o.hasSpare {
-		d, o.spare, o.hasSpare = o.spare, none, false
-	} else {
-		d = o.create()
-	}
+	d := o.create()
 	o.deltas[scope] = d
 	scope.OnCleanup(func(committed bool) {
 		if committed && !d.isEmpty() {
 			o.flush(d)
 		}
 		o.mu.Lock()
-		defer o.mu.Unlock()
 		delete(o.deltas, scope)
-		// A map keeps the buckets it grew to, and iterating it costs them all, so only
-		// small changes are worth reusing. The reset runs under mu because readers of
-		// committing scopes walk the changes while they hold it.
-		if d.footprint() <= spareSize {
-			d.reset()
-			o.spare, o.hasSpare = d, true
-		}
+		o.mu.Unlock()
 	})
 	return d
 }
-
-// spareSize is the largest footprint of changes that the next scope may reuse.
-const spareSize = 64
 
 // get returns the changes of scope, or false when scope has staged none.
 func (o *overlay[S, D]) get(scope S) (D, bool) {
