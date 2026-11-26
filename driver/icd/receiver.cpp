@@ -58,18 +58,6 @@ message_name(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
     return m == ic.messages.end() ? key.to_string() : m->name;
 }
 
-/// @brief returns true when the messages of entry, on ic, are JSON.
-bool is_json(const synnax::icd::ICD &ic, const synnax::icd::ReadEntry &entry) {
-    if (entry.messages.empty()) return false;
-    const auto m = std::ranges::find(
-        ic.messages,
-        entry.messages.front().message,
-        &synnax::icd::Message::key
-    );
-    return m != ic.messages.end() &&
-           std::holds_alternative<synnax::icd::JSONPayload>(m->payload);
-}
-
 /// @brief returns the error when entries a and b, both on ic, read one message.
 x::errors::Error check_shared(
     const std::size_t a,
@@ -130,7 +118,6 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
         auto [reader, err] = Reader::create(entries[i].messages, *ic, channels);
         if (err) return {Receiver{}, x::errors::Error(err, context + err.data)};
         r.readers.push_back(std::move(reader));
-        r.json.push_back(is_json(*ic, entries[i]));
         found.push_back(&*ic);
     }
     if (!found.empty())
@@ -171,18 +158,15 @@ void Receiver::dispatch(
 ) {
     this->stamp = std::max(this->received, this->stamp + x::telem::NANOSECOND);
     x::errors::Error read_err;
-    for (std::size_t i = 0; i < this->readers.size(); i++) {
-        auto &reader = this->readers[i];
+    for (auto &reader: this->readers) {
         const auto [message, err] = reader.read(payload, this->stamp, fr, BATCH);
-        if (err && this->json[i]) {
+        if (!message.has_value()) {
             if (!read_err) read_err = err;
             continue;
         }
-        if (!err && !message.has_value()) continue;
+        read_err = err;
         if (!err && !reader.failures().empty())
             read_err = reader.failures().front().error;
-        else
-            read_err = err;
         break;
     }
     if (read_err && warning.empty())

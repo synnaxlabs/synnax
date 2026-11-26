@@ -340,7 +340,7 @@ JSON::decode(const std::string_view doc) {
     if (const auto err = this->extractor.extract(doc, this->values))
         return {std::nullopt, err};
     auto [message, err] = this->router.find(this->values);
-    if (err || !message.has_value()) return {std::nullopt, err};
+    if (err || !message.has_value()) return {message, err};
     auto &m = this->messages[*message];
     m.decode(this->values);
     if (this->messages.size() > 1)

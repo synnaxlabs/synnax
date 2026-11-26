@@ -223,7 +223,7 @@ JSON::Router::find(const std::vector<std::optional<std::string_view>> &values) {
         if (!value.has_value() || value->front() == 'n') continue;
         if (message.has_value())
             return {
-                std::nullopt,
+                std::min(*message, p.message),
                 x::errors::Error(
                     x::errors::VALIDATION,
                     "document matches messages " +

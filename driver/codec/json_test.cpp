@@ -217,6 +217,7 @@ TEST(JSON, RejectsDocumentThatIsNotJSON) {
     const auto [message, err] = dec.decode("not json");
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, "invalid character 'o' after offset 1");
+    ASSERT_FALSE(message.has_value());
 }
 
 /// @brief it should give a timestamp field with a now default the time of each decode.
@@ -576,6 +577,16 @@ TEST(JSON, ClearsFailuresOnEachDecode) {
     ASSERT_EQ(ASSERT_NIL_P(dec.decode(R"({"v": 1, "w": 2})")), std::size_t{0});
     ASSERT_TRUE(dec.failures(0).empty());
     ASSERT_EQ(dec.samples(0)[0].at<std::int64_t>(0), 1);
+}
+
+/// @brief it should return the first of two messages whose rules a document meets, with
+/// an error.
+TEST(JSON, ReturnsFirstOfTwoMatchingMessages) {
+    auto dec = ASSERT_NIL_P(JSON::create(routed(present("/other"), present("/temp"))));
+    const auto [message, err] = dec.decode(R"({"other": 1, "temp": 40})");
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "document matches messages other and status");
+    ASSERT_EQ(message, std::size_t{0});
 }
 
 /// @brief it should name the message of a failure when the decoder holds more than one.

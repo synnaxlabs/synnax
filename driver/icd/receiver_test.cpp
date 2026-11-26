@@ -208,6 +208,49 @@ Config lines(
     return cfg;
 }
 
+/// @brief returns the config of two-byte frames whose first byte is id, and whose byte
+/// at offset holds the value of channel key, on index channel index.
+Config tagged(
+    const std::uint8_t id,
+    const synnax::channel::Key key,
+    const synnax::channel::Key index,
+    const std::string &name,
+    const std::uint16_t offset = 1
+) {
+    auto tag = byte_field("id", 0);
+    tag.key = x::uuid::create();
+    Config cfg{
+        synnax::icd::BinaryPayload{
+            .identifier = synnax::icd::FieldIdentifier{.field = tag.key, .value = id},
+            .fields = {tag},
+        },
+        synnax::icd::FixedFraming{.length = 2},
+        name
+    };
+    cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", offset), key, index);
+    return cfg;
+}
+
+/// @brief returns the config of JSON lines that meet match, and whose /v holds the
+/// value of channel key, on index channel index.
+Config documents(
+    std::optional<synnax::icd::JSONMatch> match,
+    const synnax::channel::Key key,
+    const synnax::channel::Key index,
+    const std::string &name
+) {
+    Config cfg{
+        synnax::icd::JSONPayload{.match = std::move(match)},
+        synnax::icd::DelimitedFraming{},
+        name
+    };
+    synnax::icd::FloatJSONField v;
+    v.name = "v";
+    v.pointer = "/v";
+    cfg.bind<synnax::icd::JSONPayload>(v, key, index);
+    return cfg;
+}
+
 /// @brief returns a receiver of two-byte frames.
 Receiver fixed() {
     return create(pairs());
@@ -625,11 +668,7 @@ TEST(Receiver, GivesFrameToFirstMatchingEntry) {
 /// @brief it should give a frame that a JSON entry cannot parse to a later entry that
 /// matches it, with no warning.
 TEST(Receiver, GivesFrameThatIsNotJSONToLaterEntry) {
-    Config a{synnax::icd::JSONPayload{}, synnax::icd::DelimitedFraming{}, "first"};
-    synnax::icd::FloatJSONField v;
-    v.name = "v";
-    v.pointer = "/v";
-    a.bind<synnax::icd::JSONPayload>(v, 2, 1);
+    const auto a = documents(std::nullopt, 2, 1, "first");
     const auto b = lines("T", 3, 4, "second");
     auto r = ASSERT_NIL_P(
         Receiver::create(
@@ -647,6 +686,57 @@ TEST(Receiver, GivesFrameThatIsNotJSONToLaterEntry) {
     ASSERT_TRUE(res.warning.empty());
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3}));
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+}
+
+/// @brief it should give a binary frame to the entry with a message whose identifier it
+/// meets.
+TEST(Receiver, GivesBinaryFrameToEntryWithMatchingIdentifier) {
+    const auto a = tagged(1, 2, 1, "first");
+    const auto b = tagged(2, 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push(std::vector<std::uint8_t>{2, 7, 1, 5});
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{5.0}));
+}
+
+/// @brief it should give a JSON frame to the entry with a message whose rule it meets.
+TEST(Receiver, GivesJSONFrameToEntryWhoseRuleItMeets) {
+    synnax::icd::StringJSONMatch first;
+    first.pointer = "/type";
+    first.value = "a";
+    auto second = first;
+    second.value = "b";
+    const auto a = documents(first, 2, 1, "first");
+    const auto b = documents(second, 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push(std::string(R"({"type": "b", "v": 7})") + "\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0}));
 }
 
 /// @brief it should read two entries that read different messages of one ICD.
@@ -870,17 +960,12 @@ TEST(Receiver, KeepsFrameThatFirstMatchingEntryFailsToDecode) {
 /// matching entry fails to decode, warn about the field, and give the frame to no later
 /// entry.
 TEST(Receiver, KeepsFrameWhoseFieldFirstMatchingEntryFailsToDecode) {
-    Config a{synnax::icd::JSONPayload{}, synnax::icd::DelimitedFraming{}, "first"};
-    synnax::icd::FloatJSONField v;
-    v.name = "v";
-    v.pointer = "/v";
-    a.bind<synnax::icd::JSONPayload>(v, 2, 1);
-    auto w = v;
+    auto a = documents(std::nullopt, 2, 1, "first");
+    synnax::icd::FloatJSONField w;
     w.name = "w";
     w.pointer = "/w";
     a.bind<synnax::icd::JSONPayload>(w, 3, 4);
-    Config b{synnax::icd::JSONPayload{}, synnax::icd::DelimitedFraming{}, "second"};
-    b.bind<synnax::icd::JSONPayload>(v, 5, 6);
+    const auto b = documents(std::nullopt, 5, 6, "second");
     auto r = ASSERT_NIL_P(
         Receiver::create(
             {a.entry(), b.entry()},
@@ -901,5 +986,64 @@ TEST(Receiver, KeepsFrameWhoseFieldFirstMatchingEntryFailsToDecode) {
     );
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{1.0}));
+}
+
+/// @brief it should give a binary frame to the first entry whose identifier it meets
+/// when that entry fails to decode it, warn about the error, and give the frame to no
+/// later entry.
+TEST(Receiver, KeepsBinaryFrameThatFirstMatchingEntryFailsToDecode) {
+    const auto a = tagged(1, 2, 1, "first", 2);
+    const auto b = tagged(1, 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push(std::vector<std::uint8_t>{1, 5});
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Failed to decode message");
+    ASSERT_EQ(
+        res.warning.description,
+        "field v: the payload has 2 bytes and the field needs 3"
+    );
+    ASSERT_TRUE(fr.empty());
+}
+
+/// @brief it should keep a JSON frame that meets the rules of two messages of the first
+/// entry, warn about it, and give the frame to no later entry.
+TEST(Receiver, KeepsJSONFrameThatMeetsTwoRulesOfFirstEntry) {
+    synnax::icd::PresentJSONMatch v;
+    v.pointer = "/v";
+    auto a = documents(v, 2, 1, "first");
+    auto w = v;
+    w.pointer = "/w";
+    const auto other = documents(w, 5, 6, "first");
+    a.ic.messages.push_back(other.ic.messages.front());
+    a.ic.messages.back().name = "other";
+    auto entry = a.entry();
+    entry.messages.push_back(other.read);
+    const auto b = documents(std::nullopt, 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {entry, b.entry()},
+            {a.ic, b.ic},
+            merged(merged(a.channels, other.channels), b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push(std::string(R"({"v": 1, "w": 2})") + "\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Failed to decode message");
+    ASSERT_EQ(res.warning.description, "document matches messages frame and other");
+    ASSERT_TRUE(fr.empty());
 }
 }

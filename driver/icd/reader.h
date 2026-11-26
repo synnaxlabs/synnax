@@ -125,9 +125,11 @@ public:
     /// already holds for a channel takes the sample instead, and must have room for it.
     /// @param fill when set, the sample of a field on a float channel that the decoder
     /// cannot decode, which keeps its index group.
-    /// @returns the position in reads of the message, or nothing, adding nothing, when
-    /// payload belongs to no message.
-    /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload.
+    /// @returns the position in reads of the message that payload matches, or nothing,
+    /// adding nothing, when payload matches no message.
+    /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload. The
+    /// message is there when payload matched it before the error, and absent when
+    /// payload cannot match one, such as a document that is not JSON.
     std::pair<std::optional<std::size_t>, x::errors::Error> read(
         std::span<const std::uint8_t> payload,
         x::telem::TimeStamp received,

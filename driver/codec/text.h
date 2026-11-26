@@ -119,15 +119,16 @@ public:
     /// @returns the index of the message in create order, or nothing when line belongs
     /// to no message. A line of only spaces, tabs, and carriage returns belongs to
     /// none.
-    /// @returns VALIDATION when a field with no default has no value in line, a value
-    /// is not a number, or a scaled value does not fit its channel. The error names the
-    /// field, and also the message when the decoder holds more than one.
+    /// @returns VALIDATION, with the message, when a field with no default has no value
+    /// in line, a value is not a number, or a scaled value does not fit its channel.
+    /// The error names the field, and also the message when the decoder holds more than
+    /// one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view line);
 
     /// @brief returns the samples of the last decode of message: one series for each
     /// binding, in binding order, each holding one sample. They are unspecified after a
-    /// decode that does not return message.
+    /// decode that does not return message, or returns an error.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;

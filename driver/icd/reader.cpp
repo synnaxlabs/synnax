@@ -367,7 +367,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         this->decoder
     );
     this->failed.clear();
-    if (err || !i.has_value()) return {std::nullopt, err};
+    if (err || !i.has_value()) return {i, err};
     const auto msg = *i;
     const auto &m = this->messages[msg];
     const auto &samples = std::visit(

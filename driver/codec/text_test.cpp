@@ -74,11 +74,13 @@ void assert_refuses(const std::vector<TextMessage> &messages, const std::string 
     EXPECT_EQ(err.data, text);
 }
 
-/// @brief asserts that decoding line with dec fails with text.
+/// @brief asserts that line matches a message of dec and then fails to decode with
+/// text.
 void assert_rejects(Text &dec, const std::string_view line, const std::string &text) {
     const auto [message, err] = dec.decode(line);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, text);
+    EXPECT_TRUE(message.has_value());
 }
 
 /// @brief returns the first sample of series s of message m in dec.

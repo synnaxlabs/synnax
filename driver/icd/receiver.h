@@ -63,9 +63,6 @@ class Receiver {
     bool datagram = false;
     /// @brief readers holds the reader of each entry, in task order.
     std::vector<Reader> readers;
-    /// @brief json holds whether each reader reads JSON. A JSON reader fails before it
-    /// matches a message, and a binary or text reader fails only after.
-    std::vector<bool> json;
     std::vector<Poll> polls;
     /// @brief received is the time at which the bytes in the framer arrived.
     x::telem::TimeStamp received;

@@ -136,11 +136,12 @@ public:
     /// belongs to by its field identifiers, and decodes its bindings into its samples.
     /// A message with a CAN identifier never matches.
     /// @returns the index of the message in create order, or nothing when payload
-    /// belongs to no message.
-    /// @returns VALIDATION when payload meets the identifiers of two messages, it is
-    /// too short for its multiplexors or for a field with no default, or a value does
-    /// not fit its channel. A decode error names the field, and also the message when
-    /// the decoder holds more than one.
+    /// belongs to no message. When payload meets the identifiers of two messages, the
+    /// first of them.
+    /// @returns VALIDATION, with the message, when payload meets the identifiers of two
+    /// messages, it is too short for its multiplexors or for a field with no default,
+    /// or a value does not fit its channel. A decode error names the field, and also
+    /// the message when the decoder holds more than one.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::span<const std::uint8_t> payload);
 
@@ -155,7 +156,7 @@ public:
     /// @brief returns the samples of the last decode of message: one series for each
     /// binding, in binding order. Each holds one sample, or none for a field that the
     /// multiplexors of the frame do not select and that has no default. They are
-    /// unspecified after a decode that does not return message.
+    /// unspecified after a decode that does not return message, or returns an error.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
