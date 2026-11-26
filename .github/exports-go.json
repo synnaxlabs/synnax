@@ -6,6 +6,12 @@
   "pending": [
     {
       "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "WithErrorHandler",
+      "caller": "https://linear.app/synnax/issue/SY-6970"
+    },
+    {
+      "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/log",
       "name": "Check",
       "caller": "sy-6575-18i-version0-check"
