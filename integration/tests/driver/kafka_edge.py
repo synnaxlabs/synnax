@@ -88,5 +88,6 @@ class KafkaEdgeBrokerRestart(KafkaReadTaskCase):
             collect_samples(
                 self.client, keys, duration=sy.TimeSpan.SECOND, frame_size=1
             )
+            watch.collect(sy.TimeSpan.SECOND)
         if any(s.variant == "error" for s in watch.seen):
             raise AssertionError(f"The task failed during the restart: {watch.texts()}")
