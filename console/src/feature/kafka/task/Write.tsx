@@ -10,35 +10,27 @@
 import "@/feature/kafka/task/Task.css";
 
 import { channel, DisconnectedError, type icd, kafka } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
-import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { Channel as PChannel, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, id, type json, primitive, unique } from "@synnaxlabs/x";
-import { type Dispatch, type FC, type SetStateAction, useState } from "react";
+import { Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { deep, id, type json, unique } from "@synnaxlabs/x";
+import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
 import { createDiscoverModal, type Format } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
-  deployICDWriteConfigZ,
   deployWriteConfigZ,
-  isString,
-  type RecordKey,
-  type TimeFormat,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  type WriteChannel,
   type WriteSchemas,
   type WriteTarget,
 } from "@/feature/kafka/task/types";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { ICD } from "@/platform/icd";
@@ -46,217 +38,8 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
-const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
-
-const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
-
-const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
-
-const SelectRecordKey = (
-  p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">,
-) => (
-  <Select.Simple<RecordKey>
-    {...p}
-    resourceName="record key"
-    triggerProps={SELECT_TRIGGER_PROPS}
-    dialogProps={SELECT_DIALOG_PROPS}
-  >
-    <Select.Item itemKey="channel_name">Channel name</Select.Item>
-    <Select.Item itemKey="none">None</Select.Item>
-  </Select.Simple>
-);
-
-const renderRecordKeySelect = Component.renderProp(SelectRecordKey);
-
-const SelectTimeFormat = (
-  p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">,
-) => (
-  <Select.Simple<TimeFormat>
-    {...p}
-    resourceName="time format"
-    triggerProps={SELECT_TRIGGER_PROPS}
-    dialogProps={SELECT_DIALOG_PROPS}
-  >
-    <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
-    <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
-    <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
-    <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
-    <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
-  </Select.Simple>
-);
-
-const renderTimeFormatSelect = Component.renderProp(SelectTimeFormat);
-
-const Properties = () => (
-  <>
-    <Device.Select />
-    <Flex.Box x grow wrap>
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.topic}
-        label="Topic"
-        inputProps={TOPIC_INPUT_PROPS}
-        grow
-      />
-      <PForm.Field path={root.config.recordKey} label="Record key">
-        {renderRecordKeySelect}
-      </PForm.Field>
-    </Flex.Box>
-    <Flex.Box x grow wrap>
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.record.valuePointer}
-        label="Value pointer"
-        inputProps={VALUE_POINTER_INPUT_PROPS}
-        grow
-      />
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.record.channelPointer}
-        label="Channel pointer"
-        inputProps={CHANNEL_POINTER_INPUT_PROPS}
-        grow
-      />
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.record.timestampPointer}
-        label="Timestamp pointer"
-        inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
-        grow
-      />
-      <PForm.Field path={root.config.record.timeFormat} label="Time format">
-        {renderTimeFormatSelect}
-      </PForm.Field>
-    </Flex.Box>
-  </>
-);
-
 const TOPIC_INPUT_PROPS = { placeholder: "synnax-samples" } as const;
 
-const VALUE_POINTER_INPUT_PROPS = { placeholder: "/value" } as const;
-
-const CHANNEL_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
-
-const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
-
-const ChannelListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = root.config.channels[itemKey];
-  const { channel: key, jsonType, disabled } = PForm.useFieldValue(path);
-  return (
-    <Select.Item
-      {...props}
-      justify="between"
-      align="center"
-      x
-      className={CSS.cls(CSS.B("kafka-item"), disabled && CSS.M("off"))}
-    >
-      <Flex.Box x align="center" gap="small" className={CSS.BE("kafka-item", "label")}>
-        <Task.ChannelName
-          channel={key}
-          picked
-          level="p"
-          weight={500}
-          color={10}
-          className={CSS.BE("kafka-item", "name")}
-        />
-        <Text.Text level="small" color={9}>
-          {jsonType}
-        </Text.Text>
-      </Flex.Box>
-      <Task.EnabledCheckbox path={path.disabled} />
-    </Select.Item>
-  );
-};
-
-const listItem = Component.renderProp(ChannelListItem);
-
-const SelectChannel = (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
-  <PChannel.SelectSingle {...p} />
-);
-
-const renderSelectChannel = Component.renderProp(SelectChannel);
-
-const JSON_TYPE_ITEMS = (
-  <>
-    <Select.Item itemKey="number">Number</Select.Item>
-    <Select.Item itemKey="string">String</Select.Item>
-    <Select.Item itemKey="boolean">Boolean</Select.Item>
-  </>
-);
-
-const SelectJSONType = (
-  p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">,
-) => (
-  <Select.Simple<string> {...p} resourceName="JSON type">
-    {JSON_TYPE_ITEMS}
-  </Select.Simple>
-);
-
-const renderSelectJSONType = Component.renderProp(SelectJSONType);
-
-const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
-  const { channel: key, jsonType } = PForm.useFieldValue(path);
-  const query = primitive.isNonZero(key) ? { key } : null;
-  const { data: dataType } = PChannel.useResultDataType(query);
-  const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
-  // A string, JSON, or UUID channel always goes out as a string, and the time format
-  // alone encodes a timestamp channel, so neither has a JSON type.
-  const typed = dataType == null || (!isString(dataType) && !isTimestamp);
-  return (
-    <PForm.Sections className={CSS.B("kafka-details")}>
-      <PForm.Section title="Channel">
-        <PForm.Field path={path.channel} label="Channel" required>
-          {renderSelectChannel}
-        </PForm.Field>
-        {typed && (
-          <PForm.Field path={path.jsonType} label="JSON type" padHelpText={false}>
-            {renderSelectJSONType}
-          </PForm.Field>
-        )}
-        {isTimestamp && (
-          <Task.Payload.TimeFormatField path={path.timeFormat} label="Time format" />
-        )}
-      </PForm.Section>
-      {jsonType === "string" && typed && (
-        <Task.Payload.EnumMappingSection path={path.enumValues} valueFirst />
-      )}
-    </PForm.Sections>
-  );
-};
-
-const details = Component.renderProp(ChannelDetails);
-
-const ChannelTitle = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
-  const key = PForm.useFieldValue(path.channel);
-  return <Task.ChannelName channel={key} picked level="p" weight={500} color={10} />;
-};
-
-const detailsTitle = Component.renderProp(ChannelTitle);
-
-const createChannel = (channels: WriteChannel[], keyToCopy?: string): WriteChannel => {
-  const source = channels.find((c) => c.key === keyToCopy);
-  return {
-    ...(source != null ? { ...source, channel: 0 } : kafka.writeChannelZ.parse({})),
-    key: id.create(),
-  };
-};
-
-/** The channels are chosen in the form, so the device binds none. */
-const resolveNothing = () => null;
-
-const Form: FC = () => (
-  <Task.Views.ListAndDetails<WriteChannel>
-    path={root.config.channels}
-    listItem={listItem}
-    details={details}
-    detailsTitle={detailsTitle}
-    createChannel={createChannel}
-    resolve={resolveNothing}
-  />
-);
-
-/** The prefix of the names of the command channels that deploying gives a target. */
 const commandPrefix = (
   deviceName: string,
   { topic, recordKey }: Pick<WriteTarget, "topic" | "recordKey">,
@@ -283,11 +66,8 @@ const namingOf = (deviceName: string, target: WriteTarget): ICD.Write.ChannelNam
 };
 
 /**
- * A cleared pointer is omitted from the record instead of placed at "". A string,
- * JSON, or UUID channel goes out as a string, and a timestamp channel by its time
- * format, whatever JSON type the form holds. Disabled rows are left alone, so a
- * deleted channel on one cannot block the deploy. Each channel binding of an enabled
- * target gets a command channel, which the device keeps for the next deploy.
+ * Each channel binding of an enabled target gets a command channel, which the device
+ * keeps for the next deploy.
  */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -297,25 +77,6 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  const chs = await client.channels.retrieve(
-    config.channels
-      .filter((c) => !c.disabled)
-      .map((c) => c.channel)
-      .filter((k) => k !== 0),
-  );
-  const stringOnly = new Set(chs.filter((c) => isString(c.dataType)).map((c) => c.key));
-  const timestamps = new Set(
-    chs.filter((c) => DataType.TIMESTAMP.equals(c.dataType)).map((c) => c.key),
-  );
-  config.channels.forEach((c) => {
-    if (stringOnly.has(c.channel)) c.jsonType = "string";
-    if (timestamps.has(c.channel)) {
-      c.jsonType = "number";
-      c.enumValues = [];
-    }
-  });
-  if (config.record.channelPointer === "") delete config.record.channelPointer;
-  if (config.record.timestampPointer === "") delete config.record.timestampPointer;
   const before = deep.copy(dev.properties);
   try {
     for (const target of config.targets) {
@@ -333,7 +94,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-const ICDProperties = () => <Device.Select />;
+const Properties = () => <Device.Select />;
 
 /** Stands in for the record key of a target whose records have no key. */
 const NO_KEY = "No key";
@@ -589,7 +350,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   );
 };
 
-const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const targets = PForm.useFieldValue(root.config.targets);
   const [selected, setSelected] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(() =>
@@ -608,18 +369,18 @@ const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Devic
   );
 };
 
-const ICDForm = PlatformDevice.wrapTaskForm({
+const Form = PlatformDevice.wrapTaskForm({
   use: Device.use,
   useConfigure: Device.useConnectModal,
   useNoneSelected: Device.useNoneSelected,
-  Content: ICDContent,
+  Content,
 });
 
 export const Write = Task.wrapForm({
-  Properties: FLAGS.icds ? ICDProperties : Properties,
-  Form: FLAGS.icds ? ICDForm : Form,
+  Properties,
+  Form,
   schemas: WRITE_SCHEMAS,
-  deployConfigZ: FLAGS.icds ? deployICDWriteConfigZ : deployWriteConfigZ,
+  deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
   onConfigure,
 });
