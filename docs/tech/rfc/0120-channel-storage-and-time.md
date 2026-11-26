@@ -756,11 +756,13 @@ The migration changes metadata only and runs at the first start, before any writ
    clock is a `uint32` key in every record of RFC 0121.
 2. **Channel table**: A new last step of the chain
    (`core/pkg/service/channel/versions/migrations.go:19-26`), with Cesium's `Keys`
-   injected, deletes an index record when Cesium holds data for one of the stored data
-   channels that name it, with no storage delete (D-464). It keeps every other index
-   record as a timestamp channel, which times itself. It mints channel v3, which drops
-   `is_index`, `local_index`, and `concurrency`, keeps `data_type` as the declared type,
-   and stores `key` whole (RFC 0119 §4.0).
+   injected, deletes an index record when `Keys` marks its key as a clock, a key that a
+   kept segment of another key names, with no storage delete (D-464). It reads `Keys`
+   after the start deletes of the pending-drop notes (RFC 0121 §4.1). It keeps every
+   other index record as a timestamp channel, which times itself. So this step and the
+   start check read one fact, and data of a kept key with no record also counts. It
+   mints channel v3, which drops `is_index`, `local_index`, and `concurrency`, keeps
+   `data_type` as the declared type, and stores `key` whole (RFC 0119 §4.0).
 3. **Start check**: After the migrations, a clock that has a Core record fails the start
    with an error that names it. It is the one check that Gorp and Cesium agree.
 4. **Holders**: Every holder of an index key migrates in its own chain, in the same
