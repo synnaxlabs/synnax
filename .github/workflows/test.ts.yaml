@@ -427,6 +427,7 @@ jobs:
               done
             ) &> "$log" < /dev/null &
             monitor=$!
+            # shellcheck disable=SC2329 # The EXIT trap calls report.
             report() {
               kill "$monitor"
               echo "Memory samples: $(grep -c Mem: "$log")"
@@ -438,7 +439,7 @@ jobs:
           read -ra specs <<< "$SPECS"
           runs=1
           if ((PAGE_FILES > 0)); then
-            files=$(cd "$DIRECTORY" && pnpm exec vitest list --filesOnly \
+            files=$(cd "$DIRECTORY" && pnpm -s test list --filesOnly \
               --project '*webkit' "${specs[@]}" | grep -c '\.spec\.')
             # Vitest opens one page per worker: one per core but one, and at least one.
             pages=$(node -p 'Math.max(os.availableParallelism() - 1, 1)')
