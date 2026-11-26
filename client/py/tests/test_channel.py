@@ -15,7 +15,8 @@ import pydantic
 import pytest
 
 import synnax as sy
-from x import control, filter
+from synnax import schematic
+from x import control, filter, spatial
 from x.strings import random_name
 from x.telem import seconds_linspace
 from x.testutil import assert_eventually, untyped
@@ -1104,6 +1105,58 @@ class TestChannelGroup:
         assert client.channels.retrieve(ch.key).group == g.key
         client.channels.set_group(ch.key)
         assert client.channels.retrieve(ch.key).group is None
+
+
+@pytest.mark.channel
+class TestChannelUses:
+    def test_include_uses(self, client: sy.Synnax) -> None:
+        """Should list a schematic that reads the channel."""
+        ch = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        project = client.projects.create(name=f"uses-{channel_name()}")
+        diagram = client.schematics.create(
+            sy.Schematic(
+                project=project.key,
+                name="Uses",
+                nodes=[
+                    schematic.Node(
+                        key="value",
+                        position=spatial.XY(x=0, y=0),
+                        config=schematic.ValueNodeConfig(channel=ch.key),
+                    )
+                ],
+            )
+        )
+        res = client.channels.retrieve(ch.key, include_uses=True)
+        assert res.uses is not None
+        assert [(u.id.type, u.id.key, u.direction) for u in res.uses] == [
+            ("schematic", str(diagram.key), "read")
+        ]
+
+    def test_uses_empty(self, client: sy.Synnax) -> None:
+        """Should return empty uses for a channel that nothing uses."""
+        ch = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        assert client.channels.retrieve(ch.key, include_uses=True).uses == []
+
+    def test_uses_not_asked(self, client: sy.Synnax) -> None:
+        """Should leave uses out when the retrieve does not ask for them."""
+        ch = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        assert client.channels.retrieve(ch.key).uses is None
+
+    def test_retrieve_internal(self, client: sy.Synnax) -> None:
+        """Should retrieve the built-in channels through the internal filter."""
+        cmd = client.channels.retrieve("sy_task_cmd")
+        plain = client.channels.create(
+            name=channel_name(), virtual=True, data_type=sy.DataType.FLOAT32
+        )
+        keys = [ch.key for ch in client.channels.retrieve(internal=True)]
+        assert cmd.key in keys
+        assert plain.key not in keys
 
 
 class TestChannelPayload:

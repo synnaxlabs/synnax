@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, table } from "@synnaxlabs/client";
+import { color, DataType, table } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { box, color as xcolor, id, TimeSpan } from "@synnaxlabs/x";
+import { box, color as xcolor, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -18,7 +18,11 @@ import { z } from "zod";
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
 import { Cell } from "@/table/cells";
+import { telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 import { createAsyncSynnaxWrapper } from "@/testutil";
+import { canvasTest } from "@/vis/render/testutil";
+import { value } from "@/vis/value/aether";
 
 const valueState = z.object({ stalenessTimeout: z.number().optional() }).loose();
 
@@ -60,6 +64,117 @@ const renderValue = (config: Partial<table.ValueCellConfig>): void => {
     </Aether.Provider>,
   );
 };
+
+const client = createTestClient();
+
+const STREAM_VALUE_TYPE = telem.streamChannelValue({ channel: 0 }).type;
+
+// Serves each channel value samples a minute old, so a cell reads it as stale once
+// send delivers one.
+class OldSampleFactory implements telem.Factory {
+  type = "remote";
+  private readonly sources: telemTest.TestSource<number>[] = [];
+
+  create(spec: telem.Spec): telem.Telem | null {
+    if (spec.type !== STREAM_VALUE_TYPE) return null;
+    const source = telemTest.source<number>(1);
+    source.time = TimeStamp.now().sub(TimeSpan.minutes(1));
+    this.sources.push(source);
+    return source;
+  }
+
+  send(): void {
+    this.sources.forEach((s) => s.setValue(s.value().data + 1));
+  }
+}
+
+const renderLiveValue = async (
+  channel: number,
+  config: Partial<table.ValueCellConfig> = {},
+  telemFactories: telem.Factory[] = [],
+) => {
+  const Providers = await createAsyncSynnaxWrapper({
+    client,
+    additionalRegistry: value.REGISTRY,
+    telemFactories,
+    renderContext: canvasTest.record(),
+  });
+  return render(
+    <Providers>
+      <table>
+        <tbody>
+          <tr>
+            <Cell.Value
+              {...table.valueCellConfigZ.parse({
+                variant: "value",
+                channel,
+                ...config,
+              })}
+              cellKey={id.create()}
+              box={box.construct(0, 0, 100, 20)}
+              selected={false}
+              editable={false}
+              onSelect={vi.fn()}
+              onChange={vi.fn()}
+            />
+          </tr>
+        </tbody>
+      </table>
+    </Providers>,
+  );
+};
+
+describe("Cells.Value deleted channel", () => {
+  it("should tint Deleted channel with the stale color once its value went stale", async () => {
+    const ch = await client.channels.create({
+      name: `cell_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const samples = new OldSampleFactory();
+    const { findByText } = await renderLiveValue(
+      ch.key,
+      {
+        stalenessTimeout: TimeSpan.seconds(1).nanoseconds,
+        stalenessColor: { type: "fixed", value: [255, 0, 0, 255] },
+      },
+      [samples],
+    );
+    const text = await findByText("Deleted channel");
+    await expect
+      .poll(
+        () => {
+          samples.send();
+          return getComputedStyle(text).color;
+        },
+        { timeout: 5000 },
+      )
+      .toBe("rgb(255, 0, 0)");
+  });
+
+  it("should say Deleted channel for a channel the Core deleted", async () => {
+    const ch = await client.channels.create({
+      name: `cell_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const { findByText } = await renderLiveValue(ch.key);
+    expect(await findByText("Deleted channel")).toBeTruthy();
+  });
+
+  it("should say nothing while its channel exists", async () => {
+    const ch = await client.channels.create({
+      name: `cell_${id.create()}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    });
+    const { container, queryByText } = await renderLiveValue(ch.key);
+    await waitFor(() => expect(container.querySelector("td")).not.toBeNull());
+    expect(queryByText("Deleted channel")).toBeNull();
+  });
+});
 
 describe("Cells.Value", () => {
   it("should send its staleness timeout to the worker in nanoseconds", async () => {

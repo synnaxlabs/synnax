@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { DataType, schematic } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { id } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import { ReactFlowProvider } from "@xyflow/react";
 import { createRef, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -18,7 +21,9 @@ import { Node } from "@/schematic/node";
 import { General } from "@/schematic/node/general";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
 import { Primitive } from "@/schematic/node/general/stringDisplay/primitive";
-import { createSynnaxWrapper } from "@/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
+import { canvasTest } from "@/vis/render/testutil";
+import { stringValue } from "@/vis/stringValue/aether";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
@@ -100,5 +105,41 @@ describe("StringDisplay", () => {
   // GROUP.symbols is reachable only through search.
   it("should be listed in the general group", () => {
     expect(General.GROUP.symbols).toContain("string_display");
+  });
+});
+
+const client = createTestClient();
+
+describe("StringDisplay.Symbol deleted channel", () => {
+  it("should show the deleted badge below its box, with nothing in the box", async () => {
+    const ch = await client.channels.create({
+      name: `display_${id.create()}`,
+      dataType: DataType.STRING,
+      virtual: true,
+    });
+    await client.channels.delete(ch.key);
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: stringValue.REGISTRY,
+      telemFactories: [],
+      renderContext: canvasTest.record(),
+    });
+    const Display = Node.resolveSpec("string_display").Node;
+    const { findByText } = render(
+      <Wrapper>
+        <ReactFlowProvider>
+          <Display
+            nodeKey="s1"
+            selected={false}
+            onConfigChange={() => {}}
+            config={Node.createConfig({ variant: "string_display", channel: ch.key })}
+          />
+        </ReactFlowProvider>
+      </Wrapper>,
+    );
+    const text = await findByText("Deleted channel");
+    expect(text.closest(".lyra-badge")).not.toBeNull();
+    expect(text.closest(`.${CSS.BE("grid", "item")}`)).not.toBeNull();
+    expect(text.closest(`.${CSS.BE("string-display", "content")}`)).toBeNull();
   });
 });

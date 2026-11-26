@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, project } from "@synnaxlabs/client";
+import { channel, DataType, project, type Synnax } from "@synnaxlabs/client";
 import {
+  builtInsFetches,
   createTestClient,
+  holdResponses,
+  isBuiltInsFetch,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -22,6 +25,54 @@ import { Channel } from "@/channel";
 import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const path = Channel.formPath;
+
+const SCROLL_COUNT = 1010;
+
+// Scrolls a channel list of fresh channels to its end, as a channel select does.
+const scrollToEnd = async (client: Synnax) => {
+  const prefix = `scroll_${id.create()}_`;
+  await createTestClient().channels.create(
+    Array.from({ length: SCROLL_COUNT }, (_, i) => ({
+      name: `${prefix}${i}`,
+      dataType: DataType.FLOAT32,
+      virtual: true,
+    })),
+  );
+  const wrapper = await createAsyncSynnaxWrapper({ client });
+  const { result } = renderHook(
+    () => Channel.useList({ query: { where: { name: { startsWith: prefix } } } }),
+    { wrapper },
+  );
+  for (
+    let i = 0;
+    i < 40 && !(result.current.answered && result.current.complete);
+    i++
+  ) {
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.variant).toBe("success"));
+  }
+  return { length: result.current.data.length, complete: result.current.complete };
+};
+
+describe("useList with the built-in keys", () => {
+  it("should scroll to the end once the built-in keys arrived", async () => {
+    const client = createTestClient();
+    const send = spyOnSend(client);
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    await expect.poll(() => builtInsFetches(send).length).toBeGreaterThan(0);
+    await builtInsFetches(send)[0];
+    expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });
+  }, 60000);
+
+  it("should scroll to the end before the built-in keys arrive", async () => {
+    const client = createTestClient();
+    holdResponses(client, isBuiltInsFetch);
+    await client.connect();
+    await waitForStreamLive(client.connection);
+    expect(await scrollToEnd(client)).toEqual({ length: SCROLL_COUNT, complete: true });
+  }, 60000);
+});
 
 describe("queries", () => {
   let controller: AbortController;
@@ -800,7 +851,7 @@ describe("queries", () => {
       });
     });
 
-    it("should fail to delete an internal channel", async () => {
+    it("should fail to delete a built-in channel", async () => {
       const [internal] = await client.channels.retrieve({ internal: true });
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
       await act(async () => {
@@ -808,7 +859,7 @@ describe("queries", () => {
       });
       expect(result.current.variant).toEqual("error");
       expect(result.current.status.description).toContain(
-        `can't delete internal channel "${internal.name}"`,
+        `can't delete built-in channel "${internal.name}"`,
       );
       await expect(client.channels.retrieve(internal.key)).resolves.toBeDefined();
     });

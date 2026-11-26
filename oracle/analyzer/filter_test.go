@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -484,6 +485,39 @@ var _ = Describe("Filter definitions", func() {
 	})
 
 	Describe("Retrieve request", func() {
+		It("Should omit an include flag where its field is omitted", func() {
+			table, diag := Analyze(`
+				import "schemas/x/filter"
+
+				@go output "out"
+				@cpp output "out"
+
+				Label struct {
+					key uuid { @key }
+				}
+				Thing struct {
+					key    uuid     { @key }
+					labels Label[]? {
+						@include
+						@cpp omit
+						@go marshal omit
+					}
+				}
+				Where filter Thing {
+					key
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form, ok := table.MustGet("test.RetrieveRequest").Form.(resolution.StructForm)
+			Expect(ok).To(BeTrue())
+			flag, found := lo.Find(form.Fields, func(f resolution.Field) bool {
+				return f.Name == "include_labels"
+			})
+			Expect(found).To(BeTrue())
+			Expect(omit.IsField(flag, "cpp")).To(BeTrue())
+			Expect(omit.IsField(flag, "go")).To(BeFalse())
+		})
+
 		It("Should derive the request and response", func() {
 			table, diag := Analyze(`
 				import "schemas/x/filter"

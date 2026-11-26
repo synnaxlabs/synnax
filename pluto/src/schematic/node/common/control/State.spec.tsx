@@ -23,6 +23,7 @@ import { render } from "@/testutil";
 
 interface RenderOptions {
   config?: Control.StateConfig;
+  deleted?: boolean;
   registry?: aether.ComponentRegistry;
   children?: ReactNode;
 }
@@ -32,6 +33,7 @@ const renderState = (
   {
     config = Control.stateConfigZ.parse({}),
     registry = control.REGISTRY,
+    deleted,
     children,
   }: RenderOptions = {},
 ) =>
@@ -40,7 +42,7 @@ const renderState = (
       <Haul.Provider>
         <div data-id="node">
           <Grid.Grid nodeKey="node" editable={false}>
-            <Control.State config={config} channels={channels}>
+            <Control.State config={config} channels={channels} deleted={deleted}>
               {children}
             </Control.State>
           </Grid.Grid>
@@ -101,5 +103,31 @@ describe("Control.State authority", () => {
         control.acquireChannelControl({ channels: [7], authority: 100 }),
       ),
     );
+  });
+});
+
+describe("Control.State deleted", () => {
+  it("should hide the chip and the indicator", () => {
+    const { queryAllByRole, container } = renderState([7], {
+      registry: STUB_REGISTRY,
+      deleted: true,
+    });
+    expect(queryAllByRole("button")).toHaveLength(0);
+    expect(container.querySelector(".pluto-control-state")).toBeNull();
+  });
+
+  it("should still show its children", () => {
+    const { getByText, queryAllByRole } = renderState([7], {
+      registry: STUB_REGISTRY,
+      deleted: true,
+      children: <span>child</span>,
+    });
+    expect(getByText("child")).toBeTruthy();
+    expect(queryAllByRole("button")).toHaveLength(0);
+  });
+
+  it("should show the chip and the indicator of a channel that exists", () => {
+    const { queryAllByRole } = renderState([7], { registry: STUB_REGISTRY });
+    expect(queryAllByRole("button").length).toBeGreaterThan(0);
   });
 });

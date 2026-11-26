@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -40,6 +41,7 @@ func TestAPIChannel(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
+	layer      *service.Layer
 	db         *gorp.DB
 	channelSvc *channel.Service
 	groupSvc   *group.Service
@@ -73,9 +75,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	dist = testutil.NewNode(ctx)
 	db = dist.DB
-	svc := MustOpen(svctestutil.OpenLayer(ctx, dist))
-	channelSvc, groupSvc, statusSvc, rbacSvc = svc.Channel, svc.Group, svc.Status, svc.RBAC
-	userSvc = svc.User
+	layer = MustOpen(svctestutil.OpenLayer(ctx, dist))
+	channelSvc, groupSvc, statusSvc, rbacSvc = layer.Channel, layer.Group, layer.Status,
+		layer.RBAC
+	userSvc = layer.User
 	apiSvc = MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
 		DB:      db,
 		RBAC:    rbacSvc,

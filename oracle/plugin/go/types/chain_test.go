@@ -340,6 +340,79 @@ Log struct {
 	})
 })
 
+var _ = Describe("Frozen alias of a hand-written definer", func() {
+	It("Should keep the alias when a later version freezes the alias", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/channel/v0.oracle", `
+Key uint32 {
+	@go hand
+}
+
+Channel struct {
+	local Key
+	name string
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v1.oracle", `
+Key = v0.Key
+
+Channel struct {
+	local Key
+	name string
+	internal bool
+
+	@go marshal
+}
+`)
+		write("schemas/synnax/versions/channel/v2.oracle", `
+Key = v1.Key
+
+Channel struct extends v1.Channel {
+	-internal
+}
+`)
+		write("schemas/synnax/channel.oracle", `
+@go output "core/pkg/service/channel"
+
+Key uint32
+
+Channel struct {
+	local Key
+	name string
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze([]string{"schemas/synnax/channel"}, loader)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{
+			Resolutions: table,
+			RepoRoot:    root,
+			Versions:    versions.NewResolver(chains, loader),
+		}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		contents := make(map[string]string)
+		for _, f := range resp.Files {
+			contents[f.Path] = string(f.Content)
+		}
+		frozen := contents["core/pkg/service/channel/versions/v1/types.gen.go"]
+		Expect(frozen).To(ContainSubstring("type Key = v0.Key"))
+		Expect(frozen).To(ContainSubstring("Local Key"))
+		Expect(contents["core/pkg/service/channel/versions/v2/types.gen.go"]).
+			To(ContainSubstring("type Key = v1.Key"))
+		Expect(contents["core/pkg/service/channel/versions/v0/types.gen.go"]).
+			ToNot(ContainSubstring("type Key"))
+	})
+})
+
 var _ = Describe("Live validation on a frozen definer", func() {
 	const liveSource = `
 @go output "core/doc"

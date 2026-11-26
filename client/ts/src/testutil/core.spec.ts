@@ -10,7 +10,7 @@
 import { DataType, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NotFoundError } from "@/index";
+import { NotFoundError, query } from "@/index";
 import { SyntheticCore } from "@/testutil";
 
 const DOMAIN = 1n << 32n;
@@ -39,6 +39,20 @@ describe("SyntheticCore", () => {
     it("should throw a not found error for an unknown channel", async () => {
       await expect(createCore().channels.retrieve(99)).rejects.toThrow(
         new NotFoundError("channel 99 not found"),
+      );
+    });
+
+    it("should send a watch the corpse of a deleted channel", async () => {
+      const core = createCore();
+      const ch = core.data[0];
+      const results: unknown[] = [];
+      core.channels.watch(ch.key).onChange((r) => results.push(r));
+      core.delete(ch.key);
+      expect(results).toHaveLength(1);
+      expect(query.Deleted.matches(results[0])).toBe(true);
+      expect(query.requireCorpse(results[0] as query.Cached<typeof ch>)).toBe(ch);
+      await expect(core.channels.retrieve(ch.key)).rejects.toThrow(
+        new NotFoundError(`channel ${ch.key} not found`),
       );
     });
   });

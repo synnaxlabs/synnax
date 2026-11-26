@@ -25,14 +25,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -66,7 +64,7 @@ var _ = Describe("Writer", func() {
 			})
 		})
 		It(
-			"Should not count virtual or internal channels toward the limit",
+			"Should not count virtual or built-in channels toward the limit",
 			func(ctx SpecContext) {
 				for range 5 {
 					virtual := channel.Channel{
@@ -82,11 +80,10 @@ var _ = Describe("Writer", func() {
 						Name:        UniqueChannelName(),
 						DataType:    telem.TimestampT,
 						IsIndex:     true,
-						Internal:    true,
 						Leaseholder: 1,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return limitSvc.NewWriter(tx).Create(ctx, &internal)
+						return limitSvc.NewWriter(tx).Declare(ctx, &internal)
 					})).To(Succeed())
 				}
 			},
@@ -115,63 +112,6 @@ var _ = Describe("Writer", func() {
 					return limitSvc.NewWriter(tx).Create(ctx, &third)
 				})).
 					Error().To(MatchError(ContainSubstring("channel limit exceeded")))
-			},
-		)
-		It(
-			"Should remove overwritten channels from the external channel set",
-			func(ctx SpecContext) {
-				cleanup := testutil.NewNode(ctx)
-				cleanupSvc := openService(
-					ctx,
-					cleanup,
-					channel.ServiceConfig{
-						Limit: fixedLimit(3),
-					},
-				)
-				idx := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.TimestampT,
-					IsIndex:     true,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &idx)
-				})).To(Succeed())
-				name := UniqueChannelName()
-				data := channel.Channel{
-					Name:        name,
-					DataType:    telem.Float64T,
-					LocalIndex:  idx.LocalKey,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &data)
-				})).To(Succeed())
-
-				overwrite := channel.Channel{
-					Name:        name,
-					DataType:    telem.Float32T,
-					LocalIndex:  idx.LocalKey,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &overwrite,
-						channel.OverwriteIfNameExistsAndDifferentProperties(),
-					)
-				})).To(Succeed())
-
-				// The set now holds {idx, overwrite}. If the overwritten channel's key
-				// had been left behind, creating another external channel would push
-				// the count to 4 and trip the limit of 3.
-				another := channel.Channel{
-					Name:        UniqueChannelName(),
-					DataType:    telem.Float64T,
-					LocalIndex:  idx.LocalKey,
-					Leaseholder: 1,
-				}
-				Expect(cleanup.DB.WithTx(ctx, func(tx gorp.Tx) error {
-					return cleanupSvc.NewWriter(tx).Create(ctx, &another)
-				})).To(Succeed())
 			},
 		)
 		Describe("Rolled back transaction", func() {
@@ -424,137 +364,6 @@ var _ = Describe("Writer", func() {
 					Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
 				},
 			)
-			Describe("OverwriteIfNameExists", func() {
-				It(
-					"Should overwrite the channel if it already exists by name and the new channel has different properties than the old one",
-					func(ctx SpecContext) {
-						name := UniqueChannelName()
-						ch := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float64T,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &ch)
-						})).To(Succeed())
-						originalKey := ch.Key()
-
-						// Try to create a new channel with the same name but different
-						// properties
-						newCh := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float32T,
-							Leaseholder: 1,
-						}
-
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(
-								ctx,
-								&newCh,
-								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							)
-						})).To(Succeed())
-
-						var resChannels []channel.Channel
-						Expect(svc.NewRetrieve().Where(channel.MatchKeys(newCh.Key())).
-							Entries(&resChannels).Exec(ctx, db)).To(Succeed())
-						Expect(resChannels).To(HaveLen(1))
-
-						Expect(resChannels[0].Virtual).To(BeTrue())
-						Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
-
-						Expect(
-							svc.NewRetrieve().
-								Where(channel.MatchKeys(originalKey)).
-								Entries(&resChannels).
-								Exec(ctx, db),
-						).To(MatchError(query.ErrNotFound))
-					},
-				)
-				It(
-					"Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one",
-					func(ctx SpecContext) {
-						ch := channel.Channel{
-							IsIndex:     true,
-							Name:        "SG0001",
-							DataType:    telem.TimestampT,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &ch)
-						})).To(Succeed())
-						originalKey := ch.Key()
-
-						newCh := channel.Channel{
-							IsIndex:     true,
-							Name:        "SG0001",         // Same name
-							DataType:    telem.TimestampT, // Same data type
-							Leaseholder: 1,
-						}
-
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(
-								ctx,
-								&newCh,
-								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							)
-						})).To(Succeed())
-						Expect(newCh.Key()).To(Equal(originalKey))
-
-						var resChannels []channel.Channel
-						Expect(
-							svc.NewRetrieve().
-								Where(channel.MatchKeys(originalKey)).
-								Entries(&resChannels).
-								Exec(ctx, db),
-						).To(Succeed())
-						Expect(resChannels).To(HaveLen(1))
-						Expect(resChannels[0].IsIndex).To(BeTrue())
-						Expect(resChannels[0].DataType).To(Equal(telem.TimestampT))
-					},
-				)
-				It(
-					"Should leave the overwritten channel out of its resources",
-					func(ctx SpecContext) {
-						name := UniqueChannelName()
-						ch := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float64T,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &ch)
-						})).To(Succeed())
-						originalKey := ch.Key()
-
-						newCh := channel.Channel{
-							Virtual:     true,
-							Name:        name,
-							DataType:    telem.Float32T,
-							Leaseholder: 1,
-						}
-						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(
-								ctx,
-								&newCh,
-								channel.OverwriteIfNameExistsAndDifferentProperties(),
-							)
-						})).To(Succeed())
-						Expect(newCh.Key()).ToNot(Equal(originalKey))
-
-						Expect(svc.Resources().Retrieve(ctx, dist.DB, []resource.ID{
-							channel.ResourceID(originalKey),
-							channel.ResourceID(newCh.Key()),
-						})).To(ConsistOf(resource.Resource{
-							ID:   channel.ResourceID(newCh.Key()),
-							Name: name,
-						}))
-					},
-				)
-			})
 			It(
 				"Should not create a free channel if it already exists by name",
 				func(ctx SpecContext) {
@@ -947,69 +756,6 @@ var _ = Describe("Writer", func() {
 					})).To(Succeed())
 					Expect(chs[0].LocalIndex).To(Equal(chs[1].LocalKey))
 					Expect(chs[0].Index()).To(Equal(chs[1].Key()))
-				},
-			)
-
-			It(
-				"Should reuse the existing index when overwriting a calculated channel",
-				func(ctx SpecContext) {
-					name := UniqueChannelName()
-					calcCh := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-					originalIndex := calcCh.LocalIndex
-
-					replacement := channel.Channel{
-						Name:       name,
-						DataType:   telem.Float64T,
-						Expression: "return 2 + 2",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(
-							ctx,
-							&replacement,
-							channel.OverwriteIfNameExistsAndDifferentProperties(),
-						)
-					})).To(Succeed())
-
-					var indexChannels []channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchNames(name+"_time")).
-						Entries(&indexChannels).
-						Exec(ctx, db)).To(Succeed())
-					Expect(indexChannels).To(HaveLen(1))
-					Expect(indexChannels[0].LocalKey).To(Equal(originalIndex))
-					Expect(replacement.LocalIndex).To(Equal(originalIndex))
-				},
-			)
-
-			It(
-				"Should create internal index for internal calculated channel",
-				func(ctx SpecContext) {
-					calcCh := channel.Channel{
-						Name:       "internal_calculated",
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-						Internal:   true,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					// Verify index is also internal
-					indexName := "internal_calculated_time"
-					var indexChannels []channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchNames(indexName)).
-						Entries(&indexChannels).
-						Exec(ctx, db)).To(Succeed())
-					Expect(indexChannels).To(HaveLen(1))
-					Expect(indexChannels[0].Internal).To(BeTrue())
 				},
 			)
 		})
@@ -1513,8 +1259,7 @@ var _ = Describe("Writer", func() {
 						Expression:  "return 1 + 1",
 						Virtual:     true,
 					}
-					Expect(gorp.WrapWriter[channel.Key, channel.Channel](fresh.DB).
-						Set(ctx, calc)).To(Succeed())
+					createStored(ctx, fresh.DB, calc)
 					freshSvc := openService(ctx, fresh)
 					var stored channel.Channel
 					Expect(freshSvc.NewRetrieve().
@@ -1585,34 +1330,33 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
-		Context("Internal Channels", func() {
+		Context("Built-in Channels", func() {
 			var internalCh channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {
 				internalCh = channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.TimestampT,
 					IsIndex:     true,
-					Internal:    true,
 					Leaseholder: 1,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &internalCh)
+					return svc.NewWriter(tx).Declare(ctx, &internalCh)
 				})).To(Succeed())
 			})
 			It(
-				"Should return an error when deleting an internal channel by key",
+				"Should return an error when deleting a built-in channel by key",
 				func(ctx SpecContext) {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Delete(ctx, internalCh.Key(), false)
 					})).
-						To(MatchError(ContainSubstring("can't delete internal channel")))
+						To(MatchError(ContainSubstring("can't delete built-in channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(internalCh.Key())).
 						Exists(ctx, db)).To(BeTrue())
 				},
 			)
 			It(
-				"Should return an error when deleting an internal channel by name",
+				"Should return an error when deleting a built-in channel by name",
 				func(ctx SpecContext) {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).DeleteManyByNames(
@@ -1621,14 +1365,14 @@ var _ = Describe("Writer", func() {
 							false,
 						)
 					})).
-						To(MatchError(ContainSubstring("can't delete internal channel")))
+						To(MatchError(ContainSubstring("can't delete built-in channel")))
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchNames(internalCh.Name)).
 						Exists(ctx, db)).To(BeTrue())
 				},
 			)
 			It(
-				"Should not delete any channels when the batch contains an internal channel",
+				"Should not delete any channels when the batch contains a built-in channel",
 				func(ctx SpecContext) {
 					externalCh := channel.Channel{
 						Name:        UniqueChannelName(),
@@ -1643,7 +1387,7 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).DeleteMany(ctx, keys, false)
 					})).
-						To(MatchError(ContainSubstring("can't delete internal channel")))
+						To(MatchError(ContainSubstring("can't delete built-in channel")))
 					var remaining []channel.Channel
 					Expect(svc.NewRetrieve().
 						Where(channel.MatchKeys(keys...)).
@@ -1653,7 +1397,7 @@ var _ = Describe("Writer", func() {
 				},
 			)
 			It(
-				"Should delete an internal channel when allowInternal is true",
+				"Should delete a built-in channel when allowInternal is true",
 				func(ctx SpecContext) {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Delete(ctx, internalCh.Key(), true)
