@@ -93,8 +93,12 @@ func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	return err
 }
 
-// removeLogDir removes the channel file and the directory of key, when they exist.
+// removeLogDir closes the read handles of the segments of key, then removes the channel
+// file and the directory of key, when they exist.
 func (db *DB) removeLogDir(key ChannelKey) error {
+	if err := db.engine.closeHandles(key); err != nil {
+		return err
+	}
 	dir := keyToDirName(key)
 	for _, name := range []string{path.Join(dir, channelFile), dir} {
 		if err := db.fs.Remove(name); err != nil && !errors.Is(err, os.ErrNotExist) {

@@ -204,6 +204,30 @@ var _ = Describe("Writer on the pointer log", func() {
 			)
 			Expect(w.Close()).To(Succeed())
 		})
+		It("Should read the stamps that a commit adds between two seeks of one "+
+			"iterator", func(ctx SpecContext) {
+			w := openWriter(ctx, 10*telem.SecondTS)
+			MustSucceed2(w.Write(ctx, frame(10, 11, 12), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: []cesium.ChannelKey{data},
+			}))
+			Expect(iter.SeekFirst()).To(BeTrue())
+			Expect(iter.Next(cesium.AutoSpan)).To(BeTrue())
+			Expect(iter.Value().Get(data).Series).To(HaveLen(1))
+			Expect(iter.Value().Get(data).Series[0]).To(
+				MatchSeriesDataV[int64](10, 11, 12),
+			)
+			MustSucceed2(w.Write(ctx, frame(13, 14), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(iter.SeekGE(13 * telem.SecondTS)).To(BeTrue())
+			Expect(iter.Next(cesium.AutoSpan)).To(BeTrue())
+			Expect(iter.Value().Get(data).Series).To(HaveLen(1))
+			Expect(iter.Value().Get(data).Series[0]).To(MatchSeriesDataV[int64](13, 14))
+			Expect(iter.Close()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+		})
 		It("Should read an index with samples together with a data key that holds none",
 			func(ctx SpecContext) {
 				w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
