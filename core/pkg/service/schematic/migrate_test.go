@@ -975,6 +975,9 @@ var _ = Describe("Imported v13 state overrides", func() {
 			[]v4.Region{region("a", &yellow, &white)},
 		)
 	)
+	// tank is a static symbol with one state, which a custom actuator actuates.
+	tank := valve([]v4.Region{region("a", &blue, &blue)})
+	tank.Variant = "static"
 	// look is what a node draws: its symbol, and the entries that its state draws with.
 	type look struct {
 		symbol  symbol.Symbol
@@ -1137,6 +1140,30 @@ var _ = Describe("Imported v13 state overrides", func() {
 			n := as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant)
 			Expect(n.Spec.Variant).To(BeAssignableToTypeOf(symbol.MissingRef{}))
 		})
+
+	It("Should give a custom actuator on a stored static symbol the copy that the "+
+		"upgrade gives it", func(ctx SpecContext) {
+		sym := v4.Symbol{Key: uuid.New(), Name: "Tank", Data: tank}
+		old := panel(sym.Key, states([]v4.Region{region("a", &red, &white)}))
+		upgradedDB := openShipped(ctx)
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, upgradedDB)).
+			To(Succeed())
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().
+			Entry(&old).
+			Exec(ctx, upgradedDB)).To(Succeed())
+		openService(ctx, upgradedDB)
+		upgraded := lookOf(ctx, upgradedDB, old.Key)
+		importedDB := openShipped(ctx)
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&sym).Exec(ctx, importedDB)).
+			To(Succeed())
+		svc := openService(ctx, importedDB)
+		imported := lookOf(ctx, importedDB, importFile(ctx, importedDB, svc, old, all))
+		Expect(upgraded.symbol.Key).ToNot(Equal(sym.Key))
+		Expect(imported.symbol.Key).ToNot(Equal(sym.Key))
+		Expect(imported.entries.Entries).To(Equal(upgraded.entries.Entries))
+		Expect(drawing(imported.symbol.Data, imported.entries.Entries)).
+			To(Equal(drawing(upgraded.symbol.Data, upgraded.entries.Entries)))
+	})
 
 	DescribeTable(
 		"Should import an old file with the look that the upgrade gives it",
