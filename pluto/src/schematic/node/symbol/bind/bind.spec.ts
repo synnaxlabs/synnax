@@ -31,7 +31,6 @@ const SPEC: schematic.symbol.Spec = {
   commands: [],
   looks: [],
   interactions: [],
-  variant: "static",
   scale: 1,
   strokeScaled: false,
 };

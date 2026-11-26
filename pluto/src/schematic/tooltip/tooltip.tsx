@@ -76,8 +76,6 @@ const SAMPLE_AGE_ORDER: Field[] = ["stateChannel", "channel", "commandChannel"];
 
 const FIELD_ROWS: { field: Field; label?: string }[] = [
   { field: "mode" },
-  { field: "normallyOpen" },
-  { field: "clickable" },
   { field: "onClickDelay" },
   { field: "stalenessTimeout", label: "Stale timeout" },
 ];

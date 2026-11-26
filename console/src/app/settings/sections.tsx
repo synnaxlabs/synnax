@@ -21,7 +21,7 @@ import { Secret } from "@/feature/secret";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
-import type { Settings } from "@/platform/settings";
+import type { Page } from "@/platform/page";
 import { Session } from "@/session";
 
 const useUsersVisible = (): boolean => Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
@@ -77,7 +77,7 @@ const About = (): ReactElement => (
 
 const useLicenseVisible = (): boolean => Access.useRetrieveGranted(license.RESOURCE_ID);
 
-const CONSOLE: Settings.Section[] = [
+const CONSOLE: Page.Section[] = [
   {
     key: "appearance",
     name: "Appearance",
@@ -94,7 +94,7 @@ const CONSOLE: Settings.Section[] = [
 
 // An embedded Core has one user, so its account is the Synnax account that the machine
 // signs in with.
-const ACCOUNT: Settings.Group = {
+const ACCOUNT: Page.Group = {
   key: "account",
   name: "Account",
   sections: Session.Runtime.CORE_EMBEDDED
@@ -122,7 +122,7 @@ const ACCOUNT: Settings.Group = {
       ],
 };
 
-export const GROUPS: Settings.Group[] = [
+export const GROUPS: Page.Group[] = [
   ACCOUNT,
   { key: "console", name: "Console", sections: CONSOLE },
   {

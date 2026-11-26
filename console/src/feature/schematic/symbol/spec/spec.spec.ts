@@ -59,7 +59,6 @@ const createSpec = (
   commands: [],
   looks: [],
   interactions: [],
-  variant: "static",
   scale: 1,
   strokeScaled: false,
   ...overrides,
@@ -899,9 +898,14 @@ describe("symbol editor spec", () => {
   });
 
   describe("clicks", () => {
-    const send = (key: string, value: number): schematic.symbol.Command => ({
+    const send = (
+      key: string,
+      value: number,
+      state?: string,
+    ): schematic.symbol.Command => ({
       key,
       name: key,
+      state,
       value: { type: "fixed", value },
     });
 
@@ -956,6 +960,40 @@ describe("symbol editor spec", () => {
         { ...spec, interactions: [] },
         { looks: [], commands: [], interactions: [] },
       ]);
+    });
+
+    it("should pair a command with others on its state that send other values", () => {
+      const spec = createSpec({
+        commands: [
+          send("off", 0, STATE),
+          send("on", 1, STATE),
+          send("again", 0, STATE),
+          send("trip", 1, FAULT.key),
+          { key: "ask", name: "Ask", state: STATE, value: { type: "ask" } },
+        ],
+      });
+      expect(Spec.nextPartners(spec, "off").map((c) => c.key)).toEqual(["on"]);
+    });
+
+    it("should pair commands whose values differ after a within match", () => {
+      const active: schematic.symbol.State = {
+        type: "enumeration",
+        key: STATE,
+        name: "Active",
+        match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
+        default: 0,
+      };
+      const spec = createSpec({
+        states: [active],
+        commands: [
+          send("off", 0, STATE),
+          send("on", 1, STATE),
+          send("near", 1.05, STATE),
+          send("half", 0.5, STATE),
+        ],
+      });
+      expect(Spec.nextPartners(spec, "off").map((c) => c.key)).toEqual(["on", "near"]);
+      expect(Spec.nextPartners(spec, "on").map((c) => c.key)).toEqual(["off", "half"]);
     });
   });
 
@@ -1244,88 +1282,6 @@ describe("symbol editor spec", () => {
     it("should keep the parts when another part holds a group around the shape", () => {
       const parts = Spec.toggleSelector(grouped, "body", "#g");
       expect(Spec.toggleSelector({ ...grouped, parts }, "seat", "#seat")).toBe(parts);
-    });
-  });
-
-  describe("setVariant", () => {
-    it("should copy a Base look of the whole drawing to Active", () => {
-      const spec = createSpec({
-        looks: [{ key: "a", when: equals(0), fill: fixed(RED) }],
-      });
-      const next = Spec.setVariant(spec, "actuator");
-      expect(next.looks).toEqual([
-        spec.looks[0],
-        { key: expect.any(String), when: equals(1), fill: fixed(RED) },
-      ]);
-    });
-
-    it("should copy a Base look of the whole drawing before the looks of parts", () => {
-      const spec = createSpec({
-        looks: [
-          { key: "a", when: equals(0), fill: fixed(RED) },
-          { key: "b", part: "body", when: equals(0, 1), fill: fixed(BLUE) },
-        ],
-      });
-      const next = Spec.setVariant(spec, "actuator");
-      expect(next.looks.map((l) => l.key)).toEqual(["a", expect.any(String), "b"]);
-      expect(Spec.effective(next, "body", "fill", at(1))).toEqual(fixed(BLUE));
-    });
-
-    it("should drop an Active look of the whole drawing from a static symbol", () => {
-      const spec = createSpec({
-        variant: "actuator",
-        looks: [
-          { key: "a", when: equals(0), fill: fixed(RED) },
-          { key: "b", when: equals(1), fill: fixed(BLUE) },
-        ],
-      });
-      expect(Spec.setVariant(spec, "static").looks).toEqual([
-        { key: "a", fill: fixed(RED) },
-      ]);
-    });
-
-    it("should give an actuator the commands, the match, and the Base looks on Active", () => {
-      const spec = createSpec({
-        looks: [{ key: "a", part: "body", when: equals(0), stroke: fixed(RED) }],
-      });
-      const next = Spec.setVariant(spec, "actuator");
-      expect(next.variant).toBe("actuator");
-      expect(next.states[0]).toMatchObject({
-        match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
-      });
-      expect(next.commands.map((c) => [c.key, c.value])).toEqual([
-        ["deactivate", { type: "fixed", value: 0 }],
-        ["activate", { type: "fixed", value: 1 }],
-      ]);
-      expect(next.interactions).toEqual([
-        { type: "next", key: "next", commands: ["deactivate", "activate"] },
-      ]);
-      expect(next.looks).toHaveLength(2);
-      expect(next.looks[1]).toMatchObject({
-        part: "body",
-        when: equals(1),
-        stroke: fixed(RED),
-      });
-    });
-
-    it("should take the Active looks, commands, and clicks from a static symbol", () => {
-      const actuator = Spec.setVariant(
-        createSpec({
-          looks: [
-            { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
-            { key: "b", part: "body", when: equals(0, 1), fill: fixed(BLUE) },
-          ],
-        }),
-        "actuator",
-      );
-      const next = Spec.setVariant(actuator, "static");
-      expect(next.looks).toEqual([
-        { key: "a", part: "body", stroke: fixed(RED) },
-        { key: "b", part: "body", fill: fixed(BLUE) },
-      ]);
-      expect(next.commands).toEqual([]);
-      expect(next.interactions).toEqual([]);
-      expect(next.states[0]).toMatchObject({ match: { type: "exact" } });
     });
   });
 });

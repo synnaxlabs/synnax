@@ -11,6 +11,7 @@ import type { schematic } from "@synnaxlabs/client";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -22,8 +23,8 @@ import { CSS } from "@/platform/css";
 
 const path = Schematic.Symbol.formPath;
 
-// NONE is the key of no state, which a select cannot hold as undefined.
-const NONE = "";
+/** NONE is the key of no state, which a select cannot hold as undefined. */
+export const NONE = "";
 
 const ASK_NEEDS_STATE = "A command that asks for a value needs a state.";
 const TOGGLED = "A toggle sends this command, so it keeps a fixed value on its state.";
@@ -86,6 +87,12 @@ export const CommandInspector = ({
   );
   const isTaken = (v: number): boolean => taken.includes(match(v));
   const sendsTaken = command.value.type === "fixed" && isTaken(command.value.value);
+  // The value select keeps the value that the command sends, as the error says why.
+  const choices = values.list.filter(
+    (v) =>
+      (command.value.type === "fixed" && v.value === command.value.value) ||
+      !isTaken(v.value),
+  );
   // useValues lists no values for a number state, with no state, or while one loads.
   const listed = values.list.length > 0;
   return (
@@ -93,32 +100,32 @@ export const CommandInspector = ({
       <Text.Text level="h5">{command.name}</Text.Text>
       <Divider.Divider x />
       <Input.Item label="State">
-        <Select.Buttons<string>
+        <Select.Simple<string>
+          resourceName="state"
           value={command.state ?? NONE}
           onChange={handleStateChange}
-          size="small"
-          variant="outlined"
+          allowNone={false}
+          triggerProps={{ "aria-label": "State" }}
+          footer={
+            !toggled && (
+              <>
+                <Divider.Divider x />
+                <Select.Item<string> itemKey={NONE} textValue="No state">
+                  <Icon.None />
+                  No state
+                </Select.Item>
+              </>
+            )
+          }
         >
-          <Select.Item<string>
-            itemKey={NONE}
-            size="small"
-            disabled={toggled}
-            tooltip={toggled ? TOGGLED : undefined}
-          >
-            None
-          </Select.Item>
-          {states.map((s) => (
-            <Select.Item<string>
-              key={s.key}
-              itemKey={s.key}
-              size="small"
-              disabled={toggled && s.key !== command.state}
-              tooltip={toggled && s.key !== command.state ? TOGGLED : undefined}
-            >
-              {s.name}
-            </Select.Item>
-          ))}
-        </Select.Buttons>
+          {(toggled ? states.filter((s) => s.key === command.state) : states).map(
+            (s) => (
+              <Select.Item<string> key={s.key} itemKey={s.key}>
+                {s.name}
+              </Select.Item>
+            ),
+          )}
+        </Select.Simple>
       </Input.Item>
       <Input.Item
         label="Value"
@@ -151,24 +158,19 @@ export const CommandInspector = ({
         </Select.Buttons>
         {command.value.type === "fixed" &&
           (listed ? (
-            <Select.Buttons<number>
+            <Select.Simple<number>
+              resourceName="value"
               value={command.value.value}
               onChange={handleValueChange}
-              size="small"
-              variant="outlined"
+              allowNone={false}
+              triggerProps={{ "aria-label": "Fixed value" }}
             >
-              {values.list.map((v) => (
-                <Select.Item<number>
-                  key={v.value}
-                  itemKey={v.value}
-                  size="small"
-                  disabled={isTaken(v.value)}
-                  tooltip={isTaken(v.value) ? TAKEN : undefined}
-                >
+              {choices.map((v) => (
+                <Select.Item<number> key={v.value} itemKey={v.value}>
                   {v.name}
                 </Select.Item>
               ))}
-            </Select.Buttons>
+            </Select.Simple>
           ) : (
             <Input.Numeric value={command.value.value} onChange={handleValueChange} />
           ))}

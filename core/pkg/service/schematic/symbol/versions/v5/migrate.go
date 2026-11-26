@@ -223,13 +223,11 @@ func (m *specMigration) addLook(part string, value float64, r v4.Region) {
 	})
 }
 
-// Actuate returns spec as an actuator: the commands Off and On of the state "active", a
-// click that picks between them, and the variant actuator. It adds the state when spec
-// has none, and makes the state match within 0.9 and 1.1. When no look holds on value
-// 1, each look on value 0 holds on value 1 too. The enumeration of the state needs
-// ActuatorEntries.
+// Actuate returns spec as an actuator: the commands Off and On of the state "active",
+// and a click that picks between them. It adds the state when spec has none, and makes
+// the state match within 0.9 and 1.1. When no look holds on value 1, each look on value
+// 0 holds on value 1 too. The enumeration of the state needs ActuatorEntries.
 func Actuate(spec Spec) Spec {
-	spec.Variant = actuatorVariant
 	spec.Looks = activeLooks(spec.Looks)
 	spec.States = slices.Clone(spec.States)
 	st := EnumerationState{Key: activeState, Name: "Active"}
@@ -392,6 +390,23 @@ func (m *partMigrator) resolve(sel string) []string {
 		out[i] = m.tree.name(el)
 	}
 	return out
+}
+
+// ResolveRegion returns the selectors of the part that a v4 region with selectors sels
+// gets in a drawing with markup, as MigrateSpec names parts. It also returns markup
+// with a data-region-id on each shape that those selectors name.
+func ResolveRegion(markup string, sels []string) ([]string, string) {
+	t, parsed := parseTree(markup)
+	m := partMigrator{tree: t, parsed: parsed}
+	out := []string{}
+	for _, sel := range sels {
+		for _, named := range m.resolve(sel) {
+			if !slices.Contains(out, named) {
+				out = append(out, named)
+			}
+		}
+	}
+	return out, m.markup(markup)
 }
 
 func (m *partMigrator) markup(svg string) string {

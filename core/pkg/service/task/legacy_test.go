@@ -101,6 +101,9 @@ var legacyDiscarded = map[string]set.Set[string]{
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),
 	"ni_digital_write": set.New("type"),
+	// The channel and fields of each endpoint move into a message of a new ICD, which
+	// the golden freezes.
+	"http_write": set.New("channel", "fields"),
 }
 
 // legacySecrets maps each task type whose import moves a plain value into a new secret
