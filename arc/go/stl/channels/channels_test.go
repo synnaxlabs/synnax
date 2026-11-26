@@ -245,6 +245,22 @@ var _ = Describe("Channel", func() {
 				result := rt.Call(ctx, "channels", "read_i32", testutil.U32(2))
 				Expect(int32(testutil.AsU32(result[0]))).To(Equal(int32(300)))
 			})
+
+			It("Should read a non-zero number of a boolean channel as true", func(
+				ctx SpecContext,
+			) {
+				cs.Ingest(telem.UnaryFrame[uint32](4, telem.NewSeriesV(-0.5)))
+				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
+				Expect(testutil.AsU32(result[0])).To(Equal(uint32(1)))
+			})
+
+			It("Should read a zero number of a boolean channel as false", func(
+				ctx SpecContext,
+			) {
+				cs.Ingest(telem.UnaryFrame[uint32](4, telem.NewSeriesV[int16](3, 0)))
+				result := rt.Call(ctx, "channels", "read_bool", testutil.U32(4))
+				Expect(testutil.AsU32(result[0])).To(Equal(uint32(0)))
+			})
 		})
 
 		Describe("read with no data", func() {
