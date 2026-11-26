@@ -61,6 +61,7 @@ func BenchmarkSeekPointerLog(b *testing.B) {
 		b.Fatal(err)
 	}
 	b.ReportAllocs()
+	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		iter, err := db.OpenIterator(cesium.IteratorConfig{
 			Bounds:   telem.TimeRangeMax,
