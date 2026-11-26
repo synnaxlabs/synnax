@@ -187,6 +187,20 @@ describe("Symbol node", () => {
     ]).toEqual(["2px", "2px"]);
   });
 
+  it("should draw an ISO cap at 0.6 of the size of other built-ins", async () => {
+    const Wrapper = createSynnaxWrapper({ client: null, additionalRegistry: REGISTRY });
+    const { container } = await renderNode(Wrapper, {
+      spec: { type: "builtin", name: "iso_cap" },
+    });
+    const drawing = await vi.waitUntil(() =>
+      container.querySelector(".pluto-symbol__drawing"),
+    );
+    const { width, height } = drawing.getBoundingClientRect();
+    // The drawing is 36 by 48, and Primitive.SVG draws a built-in at 0.8 of its size.
+    expect(width).toBeCloseTo(36 * 0.8 * 0.6, 1);
+    expect(height).toBeCloseTo(48 * 0.8 * 0.6, 1);
+  });
+
   it("should ask which command to send while its state is unknown", async () => {
     const { sinks, factory } = createChannelTelem();
     const button = await renderValve(factory, { type: "channel", key: 5, command: 7 });
