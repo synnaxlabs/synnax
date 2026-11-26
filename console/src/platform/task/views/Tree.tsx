@@ -40,6 +40,8 @@ export interface ChannelIconProps {
   skipped: boolean;
   /** Deploying the task replaces the channel with a new one. */
   replaced?: boolean;
+  /** The stored channel that deploying keeps when the form has none, or 0. */
+  stored?: channel.Key;
 }
 
 /** Marks a tree item whose channel deploying creates, or whose channel is gone. */
@@ -47,8 +49,10 @@ export const ChannelIcon = ({
   channel,
   skipped,
   replaced = false,
+  stored = 0,
 }: ChannelIconProps): ReactElement | null => {
-  const key = Form.useFieldValue(channel);
+  const own = Form.useFieldValue(channel);
+  const key = primitive.isNonZero(own) ? own : stored;
   const result = Channel.useResultName(primitive.isNonZero(key) ? { key } : null);
   if (replaced || !primitive.isNonZero(key))
     return skipped ? null : (
@@ -123,6 +127,8 @@ export interface TreeFieldItemProps extends Tree.ItemRenderProps<string> {
   skipped: boolean;
   /** Deploying the task replaces the channel with a new one. */
   replaced?: boolean;
+  /** The stored channel that deploying keeps when the form has none, or 0. */
+  stored?: channel.Key;
   /** Trails the label, such as an enabled checkbox. */
   children?: ReactNode;
 }
@@ -135,6 +141,7 @@ export const TreeFieldItem = ({
   off,
   skipped,
   replaced,
+  stored,
   children,
   ...props
 }: TreeFieldItemProps): ReactElement => (
@@ -149,7 +156,12 @@ export const TreeFieldItem = ({
       {label === "" ? emptyLabel : label}
     </Text.Text>
     {channel != null && (
-      <ChannelIcon channel={channel} skipped={skipped} replaced={replaced} />
+      <ChannelIcon
+        channel={channel}
+        skipped={skipped}
+        replaced={replaced}
+        stored={stored}
+      />
     )}
     {children}
   </Tree.Item>

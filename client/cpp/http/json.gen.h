@@ -12,7 +12,6 @@
 #pragma once
 
 #include <string>
-#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/json.gen.h"
@@ -162,53 +161,6 @@ inline x::json::json ReadConfig::to_json() const {
     return j;
 }
 
-inline ChannelField ChannelField::parse(x::json::Parser parser) {
-    return ChannelField{
-        .pointer = parser.field<std::string>("pointer", ""),
-        .json_type = parser.field<std::string>("json_type", "number"),
-        .channel = parser.field<::synnax::channel::Key>(
-            "channel",
-            ::synnax::channel::Key(0)
-        ),
-        .name = parser.field<std::string>("name", ""),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("float64")
-        ),
-        .time_format = parser.field<std::optional<std::string>>("time_format"),
-        .enum_values = parser.field<std::vector<::x::payload::EnumEntry>>(
-            "enum_values",
-            std::vector<::x::payload::EnumEntry>{}
-        ),
-    };
-}
-
-inline x::json::json ChannelField::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["pointer"] = this->pointer;
-    j["json_type"] = this->json_type;
-    j["channel"] = this->channel;
-    j["name"] = this->name;
-    j["data_type"] = this->data_type;
-    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    return j;
-}
-
-inline BaseWriteField BaseWriteField::parse(x::json::Parser parser) {
-    return BaseWriteField{
-        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
-        .pointer = parser.field<std::string>("pointer", ""),
-    };
-}
-
-inline x::json::json BaseWriteField::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["key"] = this->key;
-    j["pointer"] = this->pointer;
-    return j;
-}
-
 inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
     return WriteEndpoint{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
@@ -222,15 +174,6 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
         ),
         .icd = parser.field<std::optional<::synnax::icd::Key>>("icd"),
         .message = parser.field<std::optional<::synnax::icd::WriteMessage>>("message"),
-        .channel = parser.field<ChannelField>("channel", ChannelField{}),
-        .fields = [&] {
-            std::vector<WriteField> result;
-            if (parser.has("fields"))
-                parser.iter("fields", [&result](x::json::Parser &p) {
-                    result.push_back(parse_write_field(p));
-                });
-            return result;
-        }(),
     };
 }
 
@@ -244,13 +187,6 @@ inline x::json::json WriteEndpoint::to_json() const {
     j["query_params"] = x::json::to_array(this->query_params);
     if (this->icd.has_value()) j["icd"] = this->icd->to_json();
     if (this->message.has_value()) j["message"] = this->message->to_json();
-    j["channel"] = this->channel.to_json();
-    {
-        auto arr = x::json::json::array();
-        for (const auto &item: this->fields)
-            arr.push_back(::synnax::http::to_json(item));
-        j["fields"] = arr;
-    }
     return j;
 }
 
@@ -289,56 +225,6 @@ inline x::json::json ScanConfig::to_json() const {
     if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
         j.update(parent);
     return j;
-}
-
-inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
-    StaticWriteField result;
-    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
-    result.json_type = parser.field<std::string>("json_type", "number");
-    result.value = parser.field<x::json::json>("value");
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json StaticWriteField::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
-        j.update(parent);
-    j["json_type"] = this->json_type;
-    j["value"] = this->value;
-    j["type"] = this->type;
-    return j;
-}
-
-inline GeneratedWriteField GeneratedWriteField::parse(x::json::Parser parser) {
-    GeneratedWriteField result;
-    static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
-    result.generator = parser.field<std::string>("generator", "uuid");
-    result.time_format = parser.field<std::optional<std::string>>("time_format");
-    result.type = parser.field<std::string>("type");
-    return result;
-}
-
-inline x::json::json GeneratedWriteField::to_json() const {
-    x::json::json j = x::json::json::object();
-    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
-        j.update(parent);
-    j["generator"] = this->generator;
-    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
-    j["type"] = this->type;
-    return j;
-}
-
-inline WriteField parse_write_field(x::json::Parser parser) {
-    const auto discriminator = parser.field<std::string>("type");
-    if (discriminator == "static") return StaticWriteField::parse(parser);
-    if (discriminator == "generated") return GeneratedWriteField::parse(parser);
-    parser.field_err("type", "unknown WriteField type: " + discriminator);
-    return {};
-}
-
-inline x::json::json to_json(const WriteField &value) {
-    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

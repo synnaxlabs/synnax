@@ -25,6 +25,7 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "1", position: { x: 0.021373, y: 0.690785 }, orientation: "left" },
     { key: "2", position: { x: 0.967416, y: 0.72368 }, orientation: "right" },
   ],
+  ...Custom.ACTIVE_SOLID_SHAPES,
 });
 
 export const SpringLoadedRelief = ({
