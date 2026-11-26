@@ -1301,21 +1301,19 @@ def _values(values: list[float], alignment: int, clock: int) -> sy.Series:
 
 @pytest.mark.framer
 class TestReadFrameAdapterClocks:
-    def test_pairs_each_series_with_the_time_of_its_clock(self) -> None:
-        """Should pair each series of a channel on two clocks with its own time."""
+    def test_refuses_a_channel_on_two_clocks(self) -> None:
+        """Should refuse a frame that holds the series of one channel on two clocks,
+        since a channel's samples pair with one index."""
         adapter = ReadFrameAdapter(_FixedRetriever([_A, _B, _D]))
         adapter.update([1, 2, 3])
-        fr = adapter.adapt(
-            sy.Frame(
-                [1, 2, 3, 3],
-                [
-                    _stamps([100], 0, 1),
-                    _stamps([500, 600], 0, 2),
-                    _values([1.0], 0, 1),
-                    _values([2.0], 1, 2),
-                ],
-            )
+        frame = sy.Frame(
+            [1, 2, 3, 3],
+            [
+                _stamps([100], 0, 1),
+                _stamps([500, 600], 0, 2),
+                _values([1.0], 0, 1),
+                _values([2.0], 1, 2),
+            ],
         )
-        d = fr.to_df()["d"].dropna()
-        assert list(d.index.astype("int64")) == [100, 600]
-        assert d.tolist() == [1.0, 2.0]
+        with pytest.raises(ValueError, match="channel 3 has series on clocks 1 and 2"):
+            adapter.adapt(frame)
