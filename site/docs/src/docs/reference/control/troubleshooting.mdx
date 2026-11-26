@@ -68,7 +68,10 @@ acquire control", with this text in the description.
 </Problem.Cause>
 <Problem.Fix>
 
-Turn on editing, and set a channel in the **Control** tab of each symbol.
+Turn on editing, and set the command channel of each symbol. A valve, pump, or switch,
+and a custom symbol command with a state, take it on the **Telemetry** tab. A button,
+setpoint, text input, or select, and a custom symbol command with no state, take it on
+the **Control** tab.
 
 </Problem.Fix>
 </Problem.Body>
@@ -85,8 +88,10 @@ schematic takes control of the other channels.
 </Problem.Cause>
 <Problem.Fix>
 
-Turn on editing, and set a channel that exists in the **Control** tab of each symbol
-that used a deleted channel.
+Turn on editing, and give each symbol that used a deleted channel a channel that exists.
+A valve, pump, or switch, and a custom symbol command with a state, take it on the
+**Telemetry** tab. A button, setpoint, text input, or select, and a custom symbol
+command with no state, take it on the **Control** tab.
 
 </Problem.Fix>
 </Problem.Body>

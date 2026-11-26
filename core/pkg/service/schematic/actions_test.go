@@ -707,9 +707,11 @@ var _ = Describe("Payload decoding", func() {
 	invalidTimeout := MatchError(ContainSubstring("staleness_timeout"))
 	DescribeTable("Should validate a span against its bounds",
 		func(field string, span int64, matcher OmegaMatcher) {
-			cfg := decodeConfig(
-				fmt.Sprintf(`{"variant": "valve", %q: %d}`, field, span),
-			)
+			cfg := decodeConfig(fmt.Sprintf(
+				`{"variant": "symbol", "spec": {"type": "builtin", "name": "valve"}, %q: %d}`,
+				field,
+				span,
+			))
 			Expect(cfg.Validate()).To(matcher)
 		},
 		Entry("staleness timeout at 0", "staleness_timeout", int64(0), invalidTimeout),
@@ -870,6 +872,15 @@ var _ = Describe("Payload decoding", func() {
 			{"key": "n1", "config": {"scale": 2}}}}`), &a)).To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring(`NodeConfig: unknown variant ""`)),
+		))
+	})
+
+	It("Should reject a config naming a removed equipment variant", func() {
+		var a schematic.Action
+		Expect(json.Unmarshal([]byte(`{"type": "set_node", "set_node": {"node":
+			{"key": "n1", "config": {"variant": "valve"}}}}`), &a)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`NodeConfig: unknown variant "valve"`)),
 		))
 	})
 })

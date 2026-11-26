@@ -121,7 +121,7 @@ export const ACTIVE_SOLID_SHAPES: Pick<schematic.symbol.Spec, "parts" | "looks">
 
 type Behavior = Pick<
   schematic.symbol.Spec,
-  "states" | "commands" | "looks" | "interactions" | "variant"
+  "states" | "commands" | "looks" | "interactions"
 >;
 
 const STATIC: Behavior = {
@@ -129,7 +129,6 @@ const STATIC: Behavior = {
   commands: [],
   looks: [NODE_STROKE_LOOK],
   interactions: [],
-  variant: "static",
 };
 
 const createBehavior = (key: FamilyKey): Behavior => {
@@ -167,7 +166,6 @@ const createBehavior = (key: FamilyKey): Behavior => {
     interactions: [
       { type: "next", key: "click", commands: ["deactivate", "activate"] },
     ],
-    variant: "actuator",
   };
 };
 
@@ -189,8 +187,8 @@ export interface BuiltInParams
 }
 
 /**
- * @returns the spec of a built-in symbol, static and stroked in the node color unless
- * family says otherwise. Its scale is the shrink Primitive.SVG gives a built-in
+ * @returns the spec of a built-in symbol, with no states and stroked in the node color
+ * unless family says otherwise. Its scale is the shrink Primitive.SVG gives a built-in
  * drawing, times the scale in the params.
  */
 export const createBuiltIn = ({

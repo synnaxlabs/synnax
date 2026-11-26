@@ -89,12 +89,7 @@ const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName 
   const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
   const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
   const ref = shared?.variant === "symbol" ? shared.spec : undefined;
-  const specKey =
-    shared != null && Schematic.Node.isCustomConfig(shared)
-      ? shared.specKey
-      : ref?.type === "custom"
-        ? ref.key
-        : null;
+  const specKey = ref?.type === "custom" ? ref.key : null;
   const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
   if (shared == null) return { name: "Mixed" };
   const symbol = Schematic.Node.symbolKey(shared);
@@ -187,7 +182,8 @@ const Internal = (): ReactElement => {
         value: current.symbol,
         onChange: (input, spec) => {
           handleError(async () => {
-            if (!(await confirmChange(() => changeableRef.current, spec))) return;
+            if (!(await confirmChange(() => changeableRef.current, input, spec)))
+              return;
             changeSymbol([...changeableRef.current.keys()], input, spec);
             setChanging(false);
           }, "Failed to change symbol");

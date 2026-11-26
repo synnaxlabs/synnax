@@ -38,7 +38,7 @@ export const Cylinder = ({
 }: RenderProps): ReactElement => {
   const radiusCSS = Border.cssRadius(border.constructRadius(borderRadius));
   const refreshDeps = `${dimensions.width} ${dimensions.height} ${radiusCSS}`;
-  const bgColor = fillColor == null ? undefined : color.cssString(fillColor);
+  const bgColor = color.cssString(fillColor) ?? "none";
   const transform = `scale(${dimensions.width / 66},${dimensions.height / 180})`;
 
   return (
