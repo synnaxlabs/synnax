@@ -162,14 +162,16 @@ func (v *logView) close() error {
 
 // logSource opens the cursors of the key at index slot of view on the pointer log
 // layout. clock is true for the source of the index, whose slot is 0. The calls of a
-// read never overlap, so the source gives the cursor that a call closed to the next
-// call.
+// read never overlap, so the source gives the cursor and range reader that a call
+// closed to the next call.
 type logSource struct {
 	view  *logView
 	slot  int
 	clock bool
 	// closed is the cursor that the last Close gave back, or nil.
 	closed *logCursor
+	// spare is the range reader that the last reader Close gave back, or nil.
+	spare *logReader
 }
 
 var _ domain.Source = (*logSource)(nil)
@@ -368,28 +370,37 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	cfg := c.e.segmentConfig(*r.seg)
 	cfg.Key = c.key
-	h := c.e.handle(c.key, r.seg.ID)
+	hs := c.e.readHandles(c.key, r.seg.ID)
+	h := hs.take(c.e.budget, c.e.fs)
 	file, err := h.Hold()
 	if err != nil {
+		hs.give(h)
 		return nil, err
 	}
 	var rd *segment.Reader
 	if c.e.readsChecked {
 		rd = c.e.reader()
 	}
-	return &logReader{
-		e:  c.e,
-		rd: rd,
+	lr := c.src.spare
+	c.src.spare = nil
+	if lr == nil {
+		lr = &logReader{}
+	}
+	*lr = logReader{
+		src: c.src,
+		rd:  rd,
 		seg: segment.Committed{
 			Config:  cfg,
 			Length:  int64(r.seg.Length),
 			TailCRC: r.seg.TailCRC,
 		},
+		hs:     hs,
 		h:      h,
 		file:   file,
-		offset: int64(r.ptr.Offset),
-		size:   int64(r.ptr.Length),
-	}, nil
+		offset: r.ptr.Offset,
+		size:   r.ptr.Length,
+	}
+	return lr, nil
 }
 
 // Close implements domain.Ranges. The Close of a data cursor unpins its segments, and
@@ -406,19 +417,20 @@ func (c *logCursor) Close() error {
 	return errors.Join(err, c.view.close())
 }
 
-// logReader reads the bytes of one pointer from its segment file, which it holds open
-// until Close. It takes no pin: its cursor's pins and its view's pins keep the segment
-// for the call that opens and closes it. When data reads are checked, it checks each
-// block that it reads with a segment reader from the pool of the engine. Otherwise it
-// reads the bytes as stored.
+// logReader reads the bytes of one pointer from its segment file, through a handle that
+// no other read holds, which it holds open until Close. It takes no pin: its cursor's
+// pins and its view's pins keep the segment for the call that opens and closes it. When
+// data reads are checked, it checks each block that it reads with a segment reader from
+// the pool of the engine. Otherwise it reads the bytes as stored.
 type logReader struct {
-	e      *engine
+	src    *logSource
 	rd     *segment.Reader
 	seg    segment.Committed
+	hs     *segmentHandles
 	h      *segment.Handle
 	file   io.ReaderAt
-	offset int64
-	size   int64
+	offset uint32
+	size   uint32
 }
 
 var _ domain.RangeReader = (*logReader)(nil)
@@ -427,15 +439,16 @@ var _ domain.RangeReader = (*logReader)(nil)
 // bytes before it with io.EOF. A block that fails its check on two reads returns an
 // error that wraps place.ErrCorrupt.
 func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
-	if off >= r.size {
+	if off >= int64(r.size) {
 		return 0, io.EOF
 	}
-	n := int(min(int64(len(p)), r.size-off))
+	n := int(min(int64(len(p)), int64(r.size)-off))
+	at := int64(r.offset) + off
 	var err error
 	if r.rd == nil {
-		err = r.seg.ReadStored(r.file, p[:n], r.offset+off)
+		err = r.seg.ReadStored(r.file, p[:n], at)
 	} else {
-		err = r.rd.Read(r.file, r.seg, p[:n], r.offset+off)
+		err = r.rd.Read(r.file, r.seg, p[:n], at)
 	}
 	if err != nil {
 		return 0, err
@@ -449,11 +462,14 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 // Size implements domain.RangeReader.
 func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
-// Close implements domain.RangeReader.
+// Close implements domain.RangeReader. It gives r back to its source, so r must not be
+// used after it.
 func (r *logReader) Close() error {
 	if r.rd != nil {
-		r.e.readers.Put(r.rd)
+		r.src.view.e.readers.Put(r.rd)
 	}
 	r.h.Release()
+	r.hs.give(r.h)
+	r.src.spare = r
 	return nil
 }
