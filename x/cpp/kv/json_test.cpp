@@ -47,6 +47,20 @@ TEST_F(JSONTest, CreateNewFile) {
     ASSERT_TRUE(std::filesystem::exists(temp_path));
 }
 
+/// @brief it should open a file named without a directory.
+TEST_F(JSONTest, OpenBareFileName) {
+    const auto dir = std::filesystem::path(temp_path).parent_path();
+    std::filesystem::create_directories(dir);
+    const auto previous = std::filesystem::current_path();
+    std::filesystem::current_path(dir);
+    JSONFileConfig config;
+    config.path = "bare.json";
+    const auto result = JSONFile::open_file(config);
+    std::filesystem::current_path(previous);
+    ASSERT_NIL(result.second);
+    ASSERT_TRUE(std::filesystem::exists(dir / "bare.json"));
+}
+
 /// @brief it should correctly set, get, and delete key-value pairs.
 TEST_F(JSONTest, SetGetDelete) {
     JSONFileConfig config;
