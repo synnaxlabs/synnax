@@ -135,9 +135,9 @@ data type stays the `DataType` string in memory.
 | Python     | `clock` | `int`           | On `Series` and its payload                                                                                                         |
 | C++        | `clock` | `std::uint32_t` | `x/cpp/telem/series.h:83-146`; every copy, move, and protobuf path carries it                                                       |
 
-The framer sets the field: the writer from the writer's clock, the iterator from the
-segment's clock key. While index channels exist, the clock of a channel's series is its
-index key. Clients set it only on the write path of §4.8.
+The framer sets the field: the writer from the clock of each key, the iterator from the
+segment's clock. While a channel has an index channel, its clock is that index key. A
+client never sets it: a data series names no clock on the write wire (§4.8).
 
 ### 4.2 The frame codec
 
@@ -253,8 +253,8 @@ override sits before the length, so a decoder knows the type before it reads dat
   it.
 - The writer service, not the codec, judges a write: it rejects a type that differs from
   the session's type of the key (`core/pkg/service/framer/writer/validator.go:82-95`)
-  and a clock that is not one of the session's clocks. A calculation session is exempt
-  from the clock check (§4.5).
+  and a time series under a key that is not one of the session's clocks. A calculation
+  session is exempt from the clock check (§4.5).
 
 **Worked example**: A request names keys 6 (`float32`) and 8 (`uint8`, no clock). Clock
 5 times key 6. The first frame of state 1 holds 2 samples per series, and the series of
@@ -333,25 +333,37 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
 
 - **Pairing**: A reader pairs a data series with the time series whose key equals its
   clock, then by alignment, never by alignment alone. Exports (CSV, TDMS, Sift), the
-  TypeScript cache, line plots, Python frames, and the Arc C++ `on` node change.
+  TypeScript cache, line plots, Python frames, and the Arc C++ `on` node change. Plot
+  pairing (`pluto/src/vis/line/aether/pair/pair.ts:43-54`) adds a check that x and y
+  name one clock; an XY plot across clocks pairs by time (§4.7).
 - **Order**: A reader orders the stretches of a channel by time and uses alignment only
   inside one. The floor walk of the TypeScript cache compares alignments across blocks
   today (`client/ts/src/framer/cache/store/store.ts:370-387`) and changes to time.
-- **Reader API**: `frame.time(series)` gives the times of a series: the time series of
-  the frame under `series.clock` with the same multiple, whose alignments hold the
-  data's. It fails when none is there. A DataFrame of channels on one clock has one
-  `time` column, the mirror of the write key of §4.8.
+- **Reader API**: `frame.time(channel)` gives one time series per data series of the
+  channel, with the same lengths, and `frame.time(series)` the times of one series: the
+  time series under `series.clock` whose alignments hold the data's. Each fails when the
+  frame holds no time for it, such as an untimed key or a `min_max` read. Time series
+  sit in a store of the frame of their own, keyed by clock, and never appear among its
+  channels, keys, or columns. `frame["time"]` fails and names `frame.time`. `to_df()`
+  has a `DatetimeIndex` named `time`: an outer join on time across clocks, with blanks,
+  as today. A range channel has `time` (Python `ScopedChannel.time`). A TypeScript cache
+  `Snapshot` has `time`, one time series per series, and its old `time`, the end of the
+  newest sample, becomes `end` (`client/ts/src/framer/subscription.ts:81`).
 - **Mixed types**: Series lists and frames hold more than one type in TypeScript,
   Python, and C++. A read of one series keeps its exact type. A read of a whole channel
   as one array widens by the NumPy rule (`int64` with `float64` gives `float64`), which
   loses integers above 2^53; text against numbers is an error.
 - **Changes**: The TypeScript cache keeps one block per channel and tile, the one unit
-  of coverage and eviction. A block holds the series of every type, and from Phase 6 of
-  every clock, each clock in an alignment space of its own, so a type or clock change
-  keeps history and no read loses part of a tile. The cache trusts the Core it is
-  connected to, not `leaseholder` (`cache/store/store.ts:289`). A line plot draws one
-  line through a change, a TDMS export writes one column per type, and an Arc node
-  converts an input per series with no recompile.
+  of coverage and eviction. A block holds the series of every type and of every clock,
+  each clock in an alignment space of its own, so a type or clock change keeps history
+  and no read loses part of a tile. One stamp block per clock and tile serves every
+  channel on the clock. The cache trusts the Core it is connected to, not `leaseholder`
+  (`cache/store/store.ts:289`). A line plot draws one line through a change, a TDMS
+  export writes one column per type, and an Arc node converts an input per series with
+  no recompile.
+- **Pluto**: A line plot with no x channel draws y against `telem.timeOf(y)` (NEW), the
+  time series of y's own series, in place of y's index channel
+  (`pluto/src/lineplot/LinePlot.tsx:257-263`). `useIndexOfChannel` goes.
 - **Variable samples**: A sample, or a variable series in field 15, of 2^32 bytes or
   more fails loud instead of wrapping its `uint32` length
   (`x/go/telem/series_factory.go:134-136`, `codec.go:757`).
@@ -381,10 +393,21 @@ names no clock key.
   point: the relay applies the new set and the codec takes its new state when the relay
   applies the request, not when the transport decodes it. The response to the request is
   the ack. A demand that needs time waits for that ack, and until then a display ignores
-  a series of the key that comes with no time. Phase 6 lands the field.
+  a series of the key that comes with no time. A read of one channel that returns a bare
+  series, such as Python `client.read(tr, "temperature")`, marks its key untimed.
 - **Sources**: A writer's relay frame holds each clock write whole (§4.8). The storage
   iterator adds, per chunk and clock, the stamps of the alignment ranges of its data
   series, within the chunk size. A reduced read reduces them as it does the data.
+- **Storage reads**: A key's clock can change between segments, so the iterator takes
+  the clock per segment. Keys whose newest segment names one clock share a view. Each
+  view loads its keys and every clock that their segments name in one state step: the
+  clocks of segments in memory, and of segments that only a part holds, through a cache
+  per immutable `Parts` (NEW). A load guesses the clocks of the last load and loads
+  again only when a part names a new one. `unary.Iterator` takes its index per domain
+  from the segment's clock (NEW `IteratorConfig.Index`), the freeze test runs `cut` over
+  every clock slot, not slot 0 only, and the group size and the chunk probe run per
+  clock. The stamps of a chunk come per clock and contiguous alignment range, by offset,
+  with no search.
 - **Calculations**: A calculation session stores nothing, names no clock, and takes no
   claim: its series carry the clocks of its inputs. Its relay frame holds the outputs,
   with `Clock` set to the primary's clock key, and the primary's time series for the
@@ -402,24 +425,24 @@ names no clock key.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
   `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:192-194`, `:228-231`), and
   clients stop adding index keys (`client/ts/src/framer/cache/reader/reader.ts:270-276`,
-  `client/py/synnax/framer/adapter.py:68-69`). Until Phase 9 a read or a stream that
-  names an index channel works. After Phase 9 it fails with an error that names
-  `frame.time(series)`.
+  `client/py/synnax/framer/adapter.py:68-69`). Until Phase 38 a read or a stream that
+  names an index channel works. After it, a list that names `"time"` or an old index
+  name fails with an error that names `frame.time(channel)`.
 - **Access**: A time series leaves the Core only beside data that the subject may read.
   No check runs on the clock.
 - **Cost**: A reader that marks its keys untimed pays nothing for time. A reader that
   draws a timed key with no time pays 8 bytes of time per sample.
-- **Phases**: Phase 3 lands the codec field. Phase 6 turns the rule on: from that phase
-  every clock write holds its time series.
+- **Phases**: Phase 8 lands the codec field. Phase 12 turns the rule on, with untimed
+  keys in the same PR, and Phase 17 builds the storage reads.
 
 ### 4.6 Type and clock changes
 
-A channel's declared type can change to any type, from Phase 7. Open writers keep the
+A channel's declared type can change to any type, from Phase 41. Open writers keep the
 type they opened with. The next segment starts the new type (RFC 0121), and a read
 returns each segment in its stored type. A task save that changes an output's type
 changes the channel's declared type. A type change on an index channel fails. A clock
-move is not a channel edit: a channel moves when a writer writes it against another
-clock, which is legal from Phase 6.
+move is not a channel edit: storage moves a key at continuation, at a handoff, and at a
+pause move (§4.0, §4.8), from Phase 23.
 
 ### 4.7 Calculations and XY plots across clocks
 
@@ -433,7 +456,7 @@ alignment and inputs of two clocks by sample time:
 | Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule                                                       |
 | Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, with a median of 0, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                                                          |
-| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a stale status on the calculation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a status on the calculation: message `Input stale`, and a description that names the input and its hold limit                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. Until an input has a frame gap, its window is the larger of its hold limit and 3 times the median of the primary's frame gaps, or the primary's term alone for an input with fewer than 2 samples, computed again at each primary frame. Before an input's first value, a stamp gets no output, and no stale status comes before the primary has a frame gap and one such window has passed. History judges by stamps |
 | Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -457,7 +480,12 @@ alignment and inputs of two clocks by sample time:
   the first stamp (`arc/go/stl/math/math.go:441-447`). The calculator sets the joined
   bounds and the windows of absolute time for its nodes, through the hosts that it
   builds; Arc flows keep both as today, in the Go and C++ runtimes.
-- **Stored `<name>_time` records**: Phase 5 deletes each `<name>_time` index channel
+- **Time as a value**: `time.of(channel)` (NEW, in `arc/go/stl/time`) is a source of a
+  channel's stamps as `i64 ns`, on that channel's clock, in Arc and in calculations. The
+  migration rewrites a read of an index channel to `time.of` of its first data channel
+  by key (§4.10). No builtin gives a sample's stamp today
+  (`arc/go/stl/time/time.go:34-38`).
+- **Stored `<name>_time` records**: Phase 19 deletes each `<name>_time` index channel
   that a v0.62 Core stored. First it retargets every reference to the record onto the
   output's new clock, the primary's index, through the references of RFC 0119, and it
   lists each holder that it cannot retarget.
