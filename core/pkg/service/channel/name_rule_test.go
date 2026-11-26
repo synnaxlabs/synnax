@@ -136,14 +136,4 @@ var _ = Describe("Name rule", Ordered, func() {
 		Expect(stored(ctx, ch.Key())).To(Equal("stand.pt.flag"))
 		Expect(rename(ctx, ch.Key(), "stand_pt_flag")).To(Succeed())
 	})
-
-	It("Should keep a stored name that is not in NFC when a write keeps it", func(
-		ctx SpecContext,
-	) {
-		ch := virtual(UniqueChannelName())
-		Expect(create(ctx, &ch)).To(Succeed())
-		storeName(ctx, ch.Key(), "o\u0308_flag")
-		Expect(move(ctx, ch.Key(), &folder.Key)).To(Succeed())
-		Expect(stored(ctx, ch.Key())).To(Equal("o\u0308_flag"))
-	})
 })

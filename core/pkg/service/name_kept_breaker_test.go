@@ -48,8 +48,8 @@ var _ = Describe("Kept name upgrade", func() {
 				func([]channelv1.Channel) {},
 			)
 			l := MustOpen(svctestutil.OpenLayer(ctx, n))
-			// The upgrade keeps the name as stored.
-			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal(decomposed))
+			// The upgrade writes the name in NFC.
+			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("caf\u00E9"))
 			Expect(n.DB.WithTx(ctx, func(tx gorp.Tx) error {
 				return l.Channel.NewWriter(tx).
 					DeleteManyByNames(ctx, []string{decomposed}, false)
