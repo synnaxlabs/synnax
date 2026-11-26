@@ -10,6 +10,7 @@
 package write_test
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"testing"
@@ -54,6 +55,31 @@ func benchDocuments(b *testing.B, n, samples int) (*write.Documents, frame.Frame
 	return d, frame.NewMulti(keys, series)
 }
 
+// checkDocuments checks that d builds the documents of benchDocuments from fr: one for
+// each row, with the command of channel i at /fi.
+func checkDocuments(b *testing.B, d *write.Documents, fr frame.Frame, n, samples int) {
+	b.Helper()
+	docs := 0
+	for row, doc := range d.From(fr, driver.NewSkips("command", driver.SkipHold)) {
+		want := []byte{'{'}
+		for i := range n {
+			if i > 0 {
+				want = append(want, ',')
+			}
+			want = fmt.Appendf(want, "%q:", "f"+strconv.Itoa(i))
+			want = strconv.AppendFloat(want, float64(i*samples+row)+0.5, 'g', -1, 64)
+		}
+		want = append(want, '}')
+		if row != docs || !bytes.Equal(doc, want) {
+			b.Fatalf("document %d is row %d, %s, not %s", docs, row, doc, want)
+		}
+		docs++
+	}
+	if docs != samples {
+		b.Fatalf("built %d documents, want %d", docs, samples)
+	}
+}
+
 func BenchmarkDocumentsFrom(b *testing.B) {
 	for _, sc := range []struct{ channels, samples int }{
 		{channels: 1, samples: 1},
@@ -65,6 +91,7 @@ func BenchmarkDocumentsFrom(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			d, fr := benchDocuments(b, sc.channels, sc.samples)
 			skips := driver.NewSkips("command", driver.SkipHold)
+			checkDocuments(b, d, fr, sc.channels, sc.samples)
 			b.ReportAllocs()
 			for b.Loop() {
 				docs := 0

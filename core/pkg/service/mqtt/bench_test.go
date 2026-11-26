@@ -13,6 +13,7 @@ package mqtt_test
 
 import (
 	"context"
+	"encoding/json/v2"
 	"fmt"
 	"math"
 	"os"
@@ -117,12 +118,17 @@ func percentile(sorted []float64, p float64) float64 {
 	return sorted[max(int(math.Ceil(p*float64(len(sorted))))-1, 0)]
 }
 
-// benchDuration returns the duration that MQTT_BENCH_DURATION sets, or else d.
+// benchDuration returns the duration that MQTT_BENCH_DURATION sets, or else d. The
+// duration must give each run at least one frame.
 func benchDuration(d time.Duration) time.Duration {
-	if env, err := time.ParseDuration(os.Getenv("MQTT_BENCH_DURATION")); err == nil {
-		return env
+	GinkgoHelper()
+	env := os.Getenv("MQTT_BENCH_DURATION")
+	if env == "" {
+		return d
 	}
-	return d
+	parsed := MustSucceed(time.ParseDuration(env))
+	Expect(parsed).To(BeNumerically(">=", 10*time.Millisecond))
+	return parsed
 }
 
 var _ = Describe("Task benchmark", Serial, func() {
@@ -284,10 +290,17 @@ var _ = Describe("Task benchmark", Serial, func() {
 	) {
 		sc.duration = benchDuration(sc.duration)
 		const topic = "bench/command"
-		var published atomic.Int64
+		var (
+			published atomic.Int64
+			mu        sync.Mutex
+			payloads  [][]byte
+		)
 		Expect(broker.server.Subscribe(topic, 1, func(
-			*mochi.Client, packets.Subscription, packets.Packet,
+			_ *mochi.Client, _ packets.Subscription, pk packets.Packet,
 		) {
+			mu.Lock()
+			payloads = append(payloads, pk.Payload)
+			mu.Unlock()
 			published.Add(1)
 		})).To(Succeed())
 		fields := make([]icd.JSONField, 0, sc.fields)
@@ -338,10 +351,12 @@ var _ = Describe("Task benchmark", Serial, func() {
 			time.Sleep(50 * time.Millisecond)
 			return published.Load() - before
 		}).Should(BeZero())
-		published.Store(0)
-
 		frames := sc.messages() / sc.samples
 		total := frames * sc.samples
+		mu.Lock()
+		payloads = make([][]byte, 0, total)
+		mu.Unlock()
+		published.Store(0)
 		period := time.Duration(sc.samples) * time.Second / time.Duration(sc.rate)
 		end := measure()
 		begin := time.Now()
@@ -367,6 +382,18 @@ var _ = Describe("Task benchmark", Serial, func() {
 			total,
 			end(),
 		)
+		mu.Lock()
+		defer mu.Unlock()
+		Expect(payloads).To(HaveLen(total))
+		want := make(map[string]float64, sc.fields)
+		for n, p := range payloads {
+			var doc map[string]float64
+			Expect(json.Unmarshal(p, &doc)).To(Succeed())
+			for i := range sc.fields {
+				want["f"+strconv.Itoa(i)] = benchValue(i, n)
+			}
+			Expect(doc).To(Equal(want))
+		}
 	},
 		Entry(
 			"one field",

@@ -10,6 +10,7 @@
 package read_test
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -77,6 +78,32 @@ func benchSource(b *testing.B, n int, stamped bool) (*read.Source, []byte) {
 	return s, []byte(doc.String())
 }
 
+// checkDecode checks that doc decodes to n samples of 1234.5678, each with the stamp
+// of /ts when stamped.
+func checkDecode(b *testing.B, s *read.Source, doc []byte, n int, stamped bool) {
+	b.Helper()
+	samples, ok, err := s.Decode(doc)
+	if err != nil || !ok {
+		b.Fatalf("decode: ok %t, err %v", ok, err)
+	}
+	want := telem.NewSeriesV(1234.5678).Data
+	count := 0
+	for _, sample := range samples {
+		if stamped && sample.Stamp != 1767323045123456789 {
+			b.Fatalf("decode: stamp is %d", sample.Stamp)
+		}
+		for _, data := range sample.Data {
+			if !bytes.Equal(data, want) {
+				b.Fatalf("decode: sample is %v, not %v", data, want)
+			}
+			count++
+		}
+	}
+	if count != n {
+		b.Fatalf("decode: %d samples, not %d", count, n)
+	}
+}
+
 func BenchmarkSourceDecode(b *testing.B) {
 	for _, stamped := range []bool{true, false} {
 		for _, n := range []int{1, 10, 100} {
@@ -86,6 +113,7 @@ func BenchmarkSourceDecode(b *testing.B) {
 			}
 			b.Run(fmt.Sprintf("%s/fields=%d", layout, n), func(b *testing.B) {
 				s, doc := benchSource(b, n, stamped)
+				checkDecode(b, s, doc, n, stamped)
 				b.ReportAllocs()
 				b.SetBytes(int64(len(doc)))
 				for b.Loop() {

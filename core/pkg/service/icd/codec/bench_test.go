@@ -10,6 +10,7 @@
 package codec_test
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"strconv"
@@ -24,7 +25,8 @@ import (
 )
 
 // benchKind is one field kind of a benchmark: the variant of the field, the data type
-// of its channel, the JSON text of a value, and the sample that encodes to it.
+// of its channel, the JSON text of a value, and the sample that the text decodes to or
+// encodes from.
 type benchKind struct {
 	name          string
 	variant       icd.JSONFieldVariant
@@ -41,7 +43,13 @@ var (
 	benchFloat = telem.NewSeriesV(1234.5678).Data
 	benchUUID  = uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 	benchStamp = telem.NewSeriesV(telem.TimeStamp(1767323045123456789)).Data
+	benchBytes = []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}
 )
+
+// scaled returns the sample of v after scale and offset.
+func scaled(v, scale, offset float64) []byte {
+	return telem.NewSeriesV(v*scale + offset).Data
+}
 
 var decodeKinds = []benchKind{
 	{
@@ -49,62 +57,77 @@ var decodeKinds = []benchKind{
 		variant:  icd.FloatJSONField{},
 		dataType: telem.Float64T,
 		text:     "1234.5678",
+		sample:   benchFloat,
 	},
 	{
 		name: "float_scaled", variant: icd.FloatJSONField{}, scale: 0.5, offset: 10,
 		dataType: telem.Float64T, text: "1234.5678",
+		sample: scaled(1234.5678, 0.5, 10),
 	},
 	{
 		name: "float_string", variant: icd.FloatJSONField{}, dataType: telem.Float64T,
-		text: `"1234.5678"`,
+		text: `"1234.5678"`, sample: benchFloat,
 	},
 	{
 		name: "integer", variant: icd.IntegerJSONField{}, dataType: telem.Int64T,
-		text: "-123456789",
+		text: "-123456789", sample: telem.NewSeriesV[int64](-123456789).Data,
 	},
 	{
 		name: "integer_label", variant: icd.IntegerJSONField{EnumValues: onOff},
-		dataType: telem.Int64T, text: `"ON"`,
+		dataType: telem.Int64T, text: `"ON"`, sample: telem.NewSeriesV[int64](1).Data,
 	},
 	{
 		name:     "unsigned",
 		variant:  icd.UnsignedJSONField{},
 		dataType: telem.Uint32T,
 		text:     "123456",
+		sample:   telem.NewSeriesV[uint32](123456).Data,
 	},
 	{
 		name:     "boolean",
 		variant:  icd.BooleanJSONField{},
 		dataType: telem.BooleanT,
 		text:     "true",
+		sample:   []byte{1},
 	},
 	{
-		name: "string", variant: icd.StringJSONField{}, dataType: telem.StringT,
-		text: `"pump running"`,
+		name:     "string",
+		variant:  icd.StringJSONField{},
+		dataType: telem.StringT,
+		text:     `"pump running"`,
+		sample:   telem.MarshalVariableSample([]byte("pump running")),
 	},
 	{
 		name:     "timestamp_iso8601",
 		variant:  icd.TimestampJSONField{TimeFormat: payload.TimeFormatISO8601},
 		dataType: telem.TimestampT,
 		text:     `"2026-01-02T03:04:05.123456789Z"`,
+		sample:   benchStamp,
 	},
 	{
 		name:     "timestamp_unix_ns",
 		variant:  icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixNs},
 		dataType: telem.TimestampT,
 		text:     "1767323045123456789",
+		sample:   benchStamp,
 	},
 	{
-		name: "json", variant: icd.JSONJSONField{}, dataType: telem.JSONT,
-		text: `{"a":1,"b":[true,null]}`,
+		name:     "json",
+		variant:  icd.JSONJSONField{},
+		dataType: telem.JSONT,
+		text:     `{"a":1,"b":[true,null]}`,
+		sample:   telem.MarshalVariableSample([]byte(`{"a":1,"b":[true,null]}`)),
 	},
 	{
 		name: "uuid", variant: icd.UuidJSONField{}, dataType: telem.UUIDT,
-		text: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"`,
+		text: `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"`, sample: benchUUID[:],
 	},
 	{
-		name: "bytes", variant: icd.BytesJSONField{}, dataType: telem.BytesT,
-		text: `"AAECAwQFBgcICQoLDA0ODw=="`,
+		name:     "bytes",
+		variant:  icd.BytesJSONField{},
+		dataType: telem.BytesT,
+		text:     `"AAECAwQFBgcICQoLDA0ODw=="`,
+		sample:   telem.MarshalVariableSample(benchBytes),
 	},
 }
 
@@ -113,11 +136,12 @@ var encodeKinds = []benchKind{
 		name:     "float",
 		variant:  icd.FloatJSONField{},
 		dataType: telem.Float64T,
+		text:     "1234.5678",
 		sample:   benchFloat,
 	},
 	{
 		name: "float_scaled", variant: icd.FloatJSONField{}, scale: 0.5, offset: 10,
-		dataType: telem.Float64T, sample: benchFloat,
+		dataType: telem.Float64T, text: "2449.1356", sample: benchFloat,
 	},
 	{
 		name:     "float_bounded",
@@ -125,57 +149,61 @@ var encodeKinds = []benchKind{
 		min:      new(-1e6),
 		max:      new(1e6),
 		dataType: telem.Float64T,
+		text:     "1234.5678",
 		sample:   benchFloat,
 	},
 	{
 		name: "integer", variant: icd.IntegerJSONField{}, dataType: telem.Int64T,
-		sample: telem.NewSeriesV[int64](-123456789).Data,
+		text: "-123456789", sample: telem.NewSeriesV[int64](-123456789).Data,
 	},
 	{
 		name: "integer_from_float", variant: icd.IntegerJSONField{},
-		dataType: telem.Float64T, sample: benchFloat,
+		dataType: telem.Float64T, text: "1235", sample: benchFloat,
 	},
 	{
 		name: "integer_label", variant: icd.IntegerJSONField{EnumValues: onOff},
-		dataType: telem.Int64T, sample: telem.NewSeriesV[int64](1).Data,
+		dataType: telem.Int64T, text: `"ON"`, sample: telem.NewSeriesV[int64](1).Data,
 	},
 	{
 		name: "unsigned", variant: icd.UnsignedJSONField{}, dataType: telem.Uint32T,
-		sample: telem.NewSeriesV[uint32](123456).Data,
+		text: "123456", sample: telem.NewSeriesV[uint32](123456).Data,
 	},
 	{
 		name: "boolean", variant: icd.BooleanJSONField{}, dataType: telem.BooleanT,
-		sample: []byte{1},
+		text: "true", sample: []byte{1},
 	},
 	{
 		name: "string", variant: icd.StringJSONField{}, dataType: telem.StringT,
-		sample: []byte("pump running"),
+		text: `"pump running"`, sample: []byte("pump running"),
 	},
 	{
 		name:     "timestamp_iso8601",
 		variant:  icd.TimestampJSONField{TimeFormat: payload.TimeFormatISO8601},
 		dataType: telem.TimestampT,
+		text:     `"2026-01-02T03:04:05.123456789Z"`,
 		sample:   benchStamp,
 	},
 	{
 		name:     "timestamp_unix_ns",
 		variant:  icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixNs},
 		dataType: telem.TimestampT,
+		text:     "1767323045123456789",
 		sample:   benchStamp,
 	},
 	{
 		name: "json", variant: icd.JSONJSONField{}, dataType: telem.JSONT,
-		sample: []byte(`{"a":1,"b":[true,null]}`),
+		text: `{"a":1,"b":[true,null]}`, sample: []byte(`{"a":1,"b":[true,null]}`),
 	},
 	{
 		name:     "uuid",
 		variant:  icd.UuidJSONField{},
 		dataType: telem.UUIDT,
+		text:     `"6ba7b810-9dad-11d1-80b4-00c04fd430c8"`,
 		sample:   benchUUID[:],
 	},
 	{
 		name: "bytes", variant: icd.BytesJSONField{}, dataType: telem.BytesT,
-		sample: []byte{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15},
+		text: `"AAECAwQFBgcICQoLDA0ODw=="`, sample: benchBytes,
 	},
 }
 
@@ -240,18 +268,17 @@ func newBenchDecoder(b *testing.B, messages ...codec.JSONMessage) *codec.JSON {
 }
 
 // runDecode decodes doc with dec once per iteration. doc must decode as message want
-// with no failed field.
+// with no failed field, and with each sample of the message equal to sample.
 func runDecode(
 	b *testing.B,
 	dec *codec.JSON,
 	samples [][][]byte,
 	doc []byte,
 	want int,
+	sample []byte,
 ) {
 	b.Helper()
-	b.ReportAllocs()
-	b.SetBytes(int64(len(doc)))
-	for b.Loop() {
+	decode := func() {
 		for _, s := range samples {
 			for i := range s {
 				s[i] = s[i][:0]
@@ -263,6 +290,40 @@ func runDecode(
 				message, ok, failures, err)
 		}
 	}
+	decode()
+	for i, s := range samples[want] {
+		if !bytes.Equal(s, sample) {
+			b.Fatalf("decode: sample %d is %v, not %v", i, s, sample)
+		}
+	}
+	b.ReportAllocs()
+	b.SetBytes(int64(len(doc)))
+	for b.Loop() {
+		decode()
+	}
+}
+
+// nestedMessage returns a message of floats at /a/b/f0 to /a/b/f9, and a document that
+// holds a value for each.
+func nestedMessage() (codec.JSONMessage, []byte) {
+	m := codec.JSONMessage{Name: "nested"}
+	var doc strings.Builder
+	doc.WriteString(`{"a":{"b":{`)
+	for i := range benchFields {
+		name := "f" + strconv.Itoa(i)
+		f := benchFloatKind.field(name, "/a/b/"+name)
+		m.Payload.Fields = append(m.Payload.Fields, f)
+		m.Bindings = append(
+			m.Bindings,
+			codec.Binding{Field: f.Base().Key, DataType: telem.Float64T},
+		)
+		if i > 0 {
+			doc.WriteByte(',')
+		}
+		fmt.Fprintf(&doc, "%q:1234.5678", name)
+	}
+	doc.WriteString(`}}}`)
+	return m, []byte(doc.String())
 }
 
 func BenchmarkJSONDecode(b *testing.B) {
@@ -271,7 +332,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 			b.Run(k.name, func(b *testing.B) {
 				m, doc := benchMessage(k, benchFields)
 				dec := newBenchDecoder(b, m)
-				runDecode(b, dec, newSamples([]codec.JSONMessage{m}), doc, 0)
+				runDecode(b, dec, newSamples([]codec.JSONMessage{m}), doc, 0, k.sample)
 			})
 		}
 	})
@@ -280,7 +341,14 @@ func BenchmarkJSONDecode(b *testing.B) {
 			b.Run(strconv.Itoa(n), func(b *testing.B) {
 				m, doc := benchMessage(benchFloatKind, n)
 				dec := newBenchDecoder(b, m)
-				runDecode(b, dec, newSamples([]codec.JSONMessage{m}), doc, 0)
+				runDecode(
+					b,
+					dec,
+					newSamples([]codec.JSONMessage{m}),
+					doc,
+					0,
+					benchFloat,
+				)
 			})
 		}
 	})
@@ -289,28 +357,12 @@ func BenchmarkJSONDecode(b *testing.B) {
 		m, _ := benchMessage(benchFloatKind, benchFields)
 		_, doc := benchMessage(benchFloatKind, 100)
 		dec := newBenchDecoder(b, m)
-		runDecode(b, dec, newSamples([]codec.JSONMessage{m}), doc, 0)
+		runDecode(b, dec, newSamples([]codec.JSONMessage{m}), doc, 0, benchFloat)
 	})
 	b.Run("nested", func(b *testing.B) {
-		m := codec.JSONMessage{Name: "nested"}
-		var doc strings.Builder
-		doc.WriteString(`{"a":{"b":{`)
-		for i := range benchFields {
-			name := "f" + strconv.Itoa(i)
-			f := benchFloatKind.field(name, "/a/b/"+name)
-			m.Payload.Fields = append(m.Payload.Fields, f)
-			m.Bindings = append(
-				m.Bindings,
-				codec.Binding{Field: f.Base().Key, DataType: telem.Float64T},
-			)
-			if i > 0 {
-				doc.WriteByte(',')
-			}
-			fmt.Fprintf(&doc, "%q:1234.5678", name)
-		}
-		doc.WriteString(`}}}`)
+		m, doc := nestedMessage()
 		dec := newBenchDecoder(b, m)
-		runDecode(b, dec, newSamples([]codec.JSONMessage{m}), []byte(doc.String()), 0)
+		runDecode(b, dec, newSamples([]codec.JSONMessage{m}), doc, 0, benchFloat)
 	})
 	b.Run("routed", func(b *testing.B) {
 		// Four messages, each with a value rule on /type, and a document of the last.
@@ -326,7 +378,7 @@ func BenchmarkJSONDecode(b *testing.B) {
 		_, doc := benchMessage(benchFloatKind, benchFields)
 		doc = append([]byte(`{"type":"m3",`), doc[1:]...)
 		dec := newBenchDecoder(b, messages...)
-		runDecode(b, dec, newSamples(messages), doc, 3)
+		runDecode(b, dec, newSamples(messages), doc, 3, benchFloat)
 	})
 }
 
@@ -339,7 +391,9 @@ func benchSamples(k benchKind, m codec.JSONMessage) [][]byte {
 	return samples
 }
 
-func runEncode(b *testing.B, m codec.JSONMessage, samples [][]byte) {
+// runEncode encodes samples as m once per iteration. The document must equal want,
+// unless want is nil.
+func runEncode(b *testing.B, m codec.JSONMessage, samples [][]byte, want []byte) {
 	b.Helper()
 	enc, err := codec.NewJSONEncoder(m)
 	if err != nil {
@@ -348,6 +402,9 @@ func runEncode(b *testing.B, m codec.JSONMessage, samples [][]byte) {
 	doc, err := enc.Encode(nil, samples)
 	if err != nil {
 		b.Fatal(err)
+	}
+	if want != nil && !bytes.Equal(doc, want) {
+		b.Fatalf("encode: document is %s, not %s", doc, want)
 	}
 	b.ReportAllocs()
 	b.SetBytes(int64(len(doc)))
@@ -362,16 +419,16 @@ func BenchmarkJSONEncode(b *testing.B) {
 	b.Run("kind", func(b *testing.B) {
 		for _, k := range encodeKinds {
 			b.Run(k.name, func(b *testing.B) {
-				m, _ := benchMessage(k, benchFields)
-				runEncode(b, m, benchSamples(k, m))
+				m, want := benchMessage(k, benchFields)
+				runEncode(b, m, benchSamples(k, m), want)
 			})
 		}
 	})
 	b.Run("fields", func(b *testing.B) {
 		for _, n := range benchSizes {
 			b.Run(strconv.Itoa(n), func(b *testing.B) {
-				m, _ := benchMessage(benchFloatKind, n)
-				runEncode(b, m, benchSamples(benchFloatKind, m))
+				m, want := benchMessage(benchFloatKind, n)
+				runEncode(b, m, benchSamples(benchFloatKind, m), want)
 			})
 		}
 	})
@@ -395,6 +452,7 @@ func BenchmarkJSONEncode(b *testing.B) {
 				m.Payload.Fields, benchKind{variant: v}.field(name, "/"+name),
 			)
 		}
-		runEncode(b, m, samples)
+		// The generated defaults change in each document.
+		runEncode(b, m, samples, nil)
 	})
 }
