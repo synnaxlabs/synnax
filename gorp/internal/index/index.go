@@ -87,6 +87,9 @@ type delta[K, V comparable] struct {
 	// forward maps each staged value to the keys that hold it. It is nil until a staged
 	// key holds a value.
 	forward map[V]holders[K]
+	// added counts the entries added to forward since the last reset. forward drops an
+	// entry when its last holder goes, so its length can be less than its peak.
+	added int
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
@@ -94,6 +97,14 @@ func newDelta[K, V comparable]() *delta[K, V] {
 }
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
+
+func (d *delta[K, V]) footprint() int { return max(len(d.state), d.added) }
+
+func (d *delta[K, V]) reset() {
+	clear(d.state)
+	clear(d.forward)
+	d.added = 0
+}
 
 // set stages values for key. The delta owns values from then on.
 func (d *delta[K, V]) set(key K, values []V) {
@@ -103,8 +114,16 @@ func (d *delta[K, V]) set(key K, values []V) {
 		d.forward = make(map[V]holders[K])
 	}
 	for _, v := range values {
-		addHolder(d.forward, v, key)
+		d.addHolder(v, key)
 	}
+}
+
+// addHolder adds key to the staged holders of value.
+func (d *delta[K, V]) addHolder(value V, key K) {
+	if d.forward[value].len() == 0 {
+		d.added++
+	}
+	addHolder(d.forward, value, key)
 }
 
 func (d *delta[K, V]) delete(key K) {
@@ -164,16 +183,28 @@ func AnyOf[V comparable](values []V) func(V) bool {
 }
 
 // changes is the set of changes that one scope has staged against an index.
-type changes interface{ isEmpty() bool }
+type changes interface {
+	isEmpty() bool
+	// footprint returns at least the most entries that any map or slice of the changes
+	// has held since the last reset.
+	footprint() int
+	// reset empties the changes, keeping their storage for the next scope.
+	reset()
+}
 
 // overlay holds the changes of every scope that has staged changes against an index.
 type overlay[S Scope, D changes] struct {
-	// mu guards deltas.
+	// mu guards deltas, spare, and hasSpare.
 	mu     sync.RWMutex
 	deltas map[S]D
+	// spare is the changes of the last scope that ended, emptied, so the next scope
+	// stages into them and allocates none. hasSpare is true when spare holds them.
+	spare    D
+	hasSpare bool
 	// create returns an empty set of changes.
 	create func() D
-	// flush applies the changes of a committed scope to committed state.
+	// flush applies the changes of a committed scope to committed state. It must not
+	// keep the slices of the changes, which the next scope reuses.
 	flush func(D)
 }
 
@@ -188,18 +219,33 @@ func (o *overlay[S, D]) load(scope S) D {
 	if o.deltas == nil {
 		o.deltas = make(map[S]D)
 	}
-	d := o.create()
+	var d, none D
+	if o.hasSpare {
+		d, o.spare, o.hasSpare = o.spare, none, false
+	} else {
+		d = o.create()
+	}
 	o.deltas[scope] = d
 	scope.OnCleanup(func(committed bool) {
 		if committed && !d.isEmpty() {
 			o.flush(d)
 		}
 		o.mu.Lock()
+		defer o.mu.Unlock()
 		delete(o.deltas, scope)
-		o.mu.Unlock()
+		// A map keeps the buckets it grew to, and iterating it costs them all, so only
+		// small changes are worth reusing. The reset runs under mu because readers of
+		// committing scopes walk the changes while they hold it.
+		if d.footprint() <= spareSize {
+			d.reset()
+			o.spare, o.hasSpare = d, true
+		}
 	})
 	return d
 }
+
+// spareSize is the largest footprint of changes that the next scope may reuse.
+const spareSize = 64
 
 // get returns the changes of scope, or false when scope has staged none.
 func (o *overlay[S, D]) get(scope S) (D, bool) {

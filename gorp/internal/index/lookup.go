@@ -24,16 +24,19 @@ type Lookup[S Scope, K, V comparable] struct {
 	// until the load finishes.
 	mu         sync.RWMutex
 	population population
-	forward    map[V][]K
+	forward    map[V]keyList[K]
 	reverse    map[K]V
 	overlay    overlay[S, *delta[K, V]]
+	// loaded holds the mappings of the bulk load until it finishes. A map that grows
+	// rehashes what it holds, so the load builds the maps once at their final size.
+	loaded []mapping[K, V]
 }
 
 // NewLookup returns an empty Lookup that waits for its bulk load.
 func NewLookup[S Scope, K, V comparable]() *Lookup[S, K, V] {
 	l := &Lookup[S, K, V]{
 		population: newPopulation(),
-		forward:    make(map[V][]K),
+		forward:    make(map[V]keyList[K]),
 		reverse:    make(map[K]V),
 	}
 	l.overlay.create, l.overlay.flush = newDelta[K, V], l.flush
@@ -45,9 +48,31 @@ func NewLookup[S Scope, K, V comparable]() *Lookup[S, K, V] {
 // err makes the index invalid, and every later read returns err.
 func (l *Lookup[S, K, V]) Populate() (insert func(K, V), finish func(err error)) {
 	l.mu.Lock()
-	return l.put, func(err error) {
+	return l.insert, func(err error) {
+		if err == nil && len(l.loaded) > 0 {
+			l.load()
+		}
+		l.loaded = nil
 		l.population.finish(err)
 		l.mu.Unlock()
+	}
+}
+
+func (l *Lookup[S, K, V]) insert(key K, value V) {
+	l.loaded = append(l.loaded, mapping[K, V]{key: key, value: value})
+}
+
+// mapping is one key and its value in a bulk load.
+type mapping[K, V comparable] struct {
+	key   K
+	value V
+}
+
+// load maps each key of the bulk load to its value. The index holds nothing before.
+func (l *Lookup[S, K, V]) load() {
+	l.reverse = make(map[K]V, len(l.loaded))
+	for _, m := range l.loaded {
+		l.put(m.key, m.value)
 	}
 }
 
@@ -106,7 +131,7 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	}
 	committed := set.New[K]()
 	for _, v := range values {
-		committed.Add(l.forward[v]...)
+		l.forward[v].addTo(committed)
 	}
 	return mergeValues(&l.overlay, scope, committed, values), nil
 }
@@ -126,7 +151,9 @@ func (l *Lookup[S, K, V]) put(key K, value V) {
 		}
 		l.removeFromForward(key, prev)
 	}
-	l.forward[value] = append(l.forward[value], key)
+	keys := l.forward[value]
+	keys.add(key)
+	l.forward[value] = keys
 	l.reverse[key] = value
 }
 
@@ -141,14 +168,50 @@ func (l *Lookup[S, K, V]) remove(key K) {
 
 func (l *Lookup[S, K, V]) removeFromForward(key K, value V) {
 	keys := l.forward[value]
-	if i := slices.Index(keys, key); i >= 0 {
-		keys = slices.Delete(keys, i, i+1)
-	}
-	if len(keys) == 0 {
+	if keys.remove(key) {
 		delete(l.forward, value)
 		return
 	}
 	l.forward[value] = keys
+}
+
+// keyList is the keys that hold one value in a Lookup. The first key sits inline, so a
+// value with one holder, the common case, allocates nothing.
+type keyList[K comparable] struct {
+	// first is a key when held is true.
+	first K
+	held  bool
+	rest  []K
+}
+
+func (l *keyList[K]) add(key K) {
+	if !l.held {
+		l.first, l.held = key, true
+		return
+	}
+	l.rest = append(l.rest, key)
+}
+
+// remove removes key, and reports whether the list is then empty.
+func (l *keyList[K]) remove(key K) bool {
+	if l.held && l.first == key {
+		if n := len(l.rest); n > 0 {
+			l.first, l.rest = l.rest[n-1], l.rest[:n-1]
+		} else {
+			var none K
+			l.first, l.held = none, false
+		}
+	} else if i := slices.Index(l.rest, key); i >= 0 {
+		l.rest = slices.Delete(l.rest, i, i+1)
+	}
+	return !l.held
+}
+
+func (l keyList[K]) addTo(out set.Set[K]) {
+	if l.held {
+		out.Add(l.first)
+	}
+	out.Add(l.rest...)
 }
 
 func (l *Lookup[S, K, V]) flush(d *delta[K, V]) {
