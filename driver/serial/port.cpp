@@ -13,6 +13,7 @@
 #include <string>
 #include <system_error>
 #include <thread>
+#include <type_traits>
 
 #include "asio/buffer.hpp"
 #include "asio/write.hpp"
@@ -71,6 +72,16 @@ x::errors::Error validate(const synnax::serial::Properties &p) {
     return x::errors::NIL;
 }
 
+/// @returns handle, which is a file descriptor on POSIX and a HANDLE on Windows, as a
+/// native::Handle.
+template<typename NativeHandle>
+native::Handle to_native(const NativeHandle handle) {
+    if constexpr (std::is_pointer_v<NativeHandle>)
+        return reinterpret_cast<native::Handle>(handle);
+    else
+        return static_cast<native::Handle>(handle);
+}
+
 /// @brief cancels the pending operations of device.
 void cancel(asio::serial_port &device) {
     std::error_code ignored;
@@ -80,7 +91,7 @@ void cancel(asio::serial_port &device) {
 }
 
 native::Handle Port::handle() {
-    return static_cast<native::Handle>(this->device.native_handle());
+    return to_native(this->device.native_handle());
 }
 
 std::pair<std::unique_ptr<Port>, x::errors::Error>

@@ -12,23 +12,25 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "serial",
-    srcs = [
-        "port.cpp",
-        "posix.cpp",
-    ] + select({
-        "@platforms//os:linux": ["linux.cpp"],
-        "@platforms//os:macos": ["macos.cpp"],
+    srcs = ["port.cpp"] + select({
+        "@platforms//os:linux": [
+            "linux.cpp",
+            "posix.cpp",
+        ],
+        "@platforms//os:macos": [
+            "macos.cpp",
+            "posix.cpp",
+        ],
+        "@platforms//os:windows": ["windows.cpp"],
     }),
     hdrs = [
         "errors.h",
         "line.h",
         "native.h",
         "port.h",
-        "posix.h",
-    ],
-    target_compatible_with = select({
-        "@platforms//os:windows": ["@platforms//:incompatible"],
-        "//conditions:default": [],
+    ] + select({
+        "@platforms//os:windows": [],
+        "//conditions:default": ["posix.h"],
     }),
     visibility = ["//visibility:public"],
     deps = [
@@ -50,6 +52,11 @@ cc_test(
         "@platforms//os:macos": ["macos_test.cpp"],
         "//conditions:default": [],
     }),
+    # The tests play the device on a pseudo-terminal, which Windows lacks.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":serial",
         "//driver/transport",
@@ -62,7 +69,10 @@ cc_test(
 cc_test(
     name = "native_test",
     size = "small",
-    srcs = ["posix_test.cpp"],
+    srcs = select({
+        "@platforms//os:windows": ["windows_test.cpp"],
+        "//conditions:default": ["posix_test.cpp"],
+    }),
     deps = [
         ":serial",
         "//driver/transport",
@@ -78,6 +88,7 @@ cc_test(
     srcs = select({
         "@platforms//os:linux": ["line_linux_test.cpp"],
         "@platforms//os:macos": ["line_macos_test.cpp"],
+        "@platforms//os:windows": ["line_windows_test.cpp"],
     }),
     deps = [
         ":serial",

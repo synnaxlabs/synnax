@@ -13,6 +13,8 @@
 #include <asm/termbits.h>
 #elif defined(__APPLE__)
 #include <termios.h>
+#elif defined(_WIN32)
+#include <windows.h>
 #endif
 
 #include "client/cpp/serial/types.gen.h"
@@ -26,6 +28,8 @@ namespace driver::serial::line {
 using Settings = ::termios2;
 #elif defined(__APPLE__)
 using Settings = ::termios;
+#elif defined(_WIN32)
+using Settings = ::DCB;
 #endif
 
 /// @brief writes the baud rate, character size, parity, stop bits, and flow control in
