@@ -638,3 +638,48 @@ var _ = Describe("CheckDefault", func() {
 		),
 	)
 })
+
+var _ = Describe("CheckWrite", func() {
+	DescribeTable(
+		"Should accept samples that can write a field",
+		func(k payload.Kind, scaled bool, dt telem.DataType) {
+			Expect(codec.CheckWrite(k, scaled, dt)).To(Succeed())
+		},
+		Entry("a channel of the kind of the field",
+			payload.KindString, false, telem.StringT,
+		),
+		Entry("a number channel to a field of another number kind",
+			payload.KindUnsigned, false, telem.Float64T,
+		),
+		Entry("a boolean channel to a number field",
+			payload.KindFloat, false, telem.BooleanT,
+		),
+		Entry(
+			"a float channel to a scaled field",
+			payload.KindInteger,
+			true,
+			telem.Float32T,
+		),
+	)
+
+	DescribeTable("Should refuse samples that cannot write a field",
+		func(k payload.Kind, scaled bool, dt telem.DataType, expected string) {
+			Expect(codec.CheckWrite(k, scaled, dt)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+		},
+		Entry("a channel whose kind does not write the field",
+			payload.KindFloat, false, telem.StringT,
+			"cannot write string channels to float fields: validation error",
+		),
+		Entry("a number channel to a string field",
+			payload.KindString, false, telem.Int32T,
+			"cannot write int32 channels to string fields: validation error",
+		),
+		Entry("an integer channel to a scaled field",
+			payload.KindInteger, true, telem.Int64T,
+			"a scaled field requires a float channel, not int64: validation error",
+		),
+	)
+})
