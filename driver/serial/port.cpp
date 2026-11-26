@@ -55,7 +55,10 @@ Port::open(const synnax::serial::Properties &props) {
 }
 
 void Port::close() {
-    if (this->locked) native::unlock(this->handle());
+    if (this->locked) {
+        native::discard_output(this->handle());
+        native::unlock(this->handle());
+    }
     std::error_code ignored;
     // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
     this->device.close(ignored);
@@ -69,7 +72,7 @@ x::errors::Error Port::fail(const x::errors::Error &err) {
 
 Port::~Port() {
     if (!this->device.is_open()) return;
-    // Closing a port discards the output that it has not yet sent.
+    // close discards the output that has not left, so the port waits for it first.
     const x::telem::Stopwatch sw;
     while (this->locked && sw.elapsed() < DRAIN_TIMEOUT) {
         const auto [queued, ec] = native::queued_output(this->handle());

@@ -16,6 +16,7 @@
 #include "asio/error.hpp"
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <termios.h>
 
 #include "driver/serial/errors.h"
 #include "driver/serial/native.h"
@@ -90,6 +91,10 @@ void unlock(const Handle handle) {
     // A pseudo-terminal keeps TIOCEXCL after its last close while its controller is
     // open, so the port clears it.
     ::ioctl(static_cast<int>(handle), TIOCNXCL);
+}
+
+void discard_output(const Handle handle) {
+    ::tcflush(static_cast<int>(handle), TCOFLUSH);
 }
 
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {
