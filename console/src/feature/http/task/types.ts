@@ -18,8 +18,6 @@ export const PREFIX = "http";
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends http.ReadField {}
-
 export interface ReadEndpoint extends http.ReadEndpoint {}
 
 const readMethodZ = z.enum(["GET", "POST"]);

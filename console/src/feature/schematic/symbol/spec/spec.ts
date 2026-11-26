@@ -346,11 +346,12 @@ export const nextPartName = (parts: schematic.symbol.Part[]): string =>
     parts.map((p) => p.name),
   );
 
-/** @returns spec without part and the looks on it. */
+/** @returns spec without part and the looks and clicks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,
   parts: spec.parts.filter((p) => p.key !== part),
   looks: spec.looks.filter((l) => l.part !== part),
+  interactions: spec.interactions.filter((i) => i.part !== part),
 });
 
 /** Removed holds the keys of what an edit takes with the item, for its confirm. */
@@ -447,6 +448,37 @@ export const removeState = (spec: Spec, state: string): [Spec, Removed] => {
   );
   return [next, { looks: changed, commands, interactions }];
 };
+
+/** @returns the targets that no click of spec is on: the whole drawing, then parts. */
+export const freeTargets = (spec: Pick<Spec, "parts" | "interactions">): Target[] => {
+  const taken = new Set(spec.interactions.map((i) => i.part));
+  return [undefined, ...spec.parts.map((p) => p.key)].filter((t) => !taken.has(t));
+};
+
+/**
+ * @returns spec with a new click on the first free target that sends the first command,
+ * and the key of the click.
+ * @throws when every target has a click, or spec has no command.
+ */
+export const addInteraction = (spec: Spec): [Spec, string] => {
+  const targets = freeTargets(spec);
+  const command = spec.commands.at(0);
+  if (targets.length === 0 || command == null)
+    throw new Error("a symbol with no free target or no command takes no click");
+  const click: schematic.symbol.Interaction = {
+    type: "fire",
+    key: `click-${id.create()}`,
+    part: targets[0],
+    command: command.key,
+  };
+  return [{ ...spec, interactions: [...spec.interactions, click] }, click.key];
+};
+
+/** @returns spec without the click, which takes nothing with it. */
+export const removeInteraction = (spec: Spec, key: string): [Spec, Removed] => [
+  { ...spec, interactions: spec.interactions.filter((i) => i.key !== key) },
+  { looks: [], commands: [], interactions: [] },
+];
 
 /**
  * @returns the part that holds the shape of selector: the shape itself, a span of the

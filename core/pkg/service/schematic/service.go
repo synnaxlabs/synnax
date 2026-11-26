@@ -11,7 +11,6 @@ package schematic
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
@@ -31,7 +30,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -118,6 +116,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	// The schematic upgrade reads and writes symbols, so their chain runs first.
+	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
+		Instrumentation: cfg.Child("symbol"),
+		DB:              cfg.DB,
+		Group:           cfg.Group,
+		Signals:         cfg.Signals,
+		ImEx:            cfg.ImEx,
+		Enumeration:     cfg.Enumeration,
+		RemoveOrphans:   s.removeOrphans,
+	}); !ok(err, s.Symbol) {
+		return nil, err
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Schematic]{
 		DB:         cfg.DB,
 		Name:       tableName,
@@ -140,18 +150,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
-		return nil, err
-	}
-	if s.Symbol, err = symbol.OpenService(ctx, symbol.ServiceConfig{
-		Instrumentation: cfg.Child("symbol"),
-		DB:              cfg.DB,
-		Group:           cfg.Group,
-		Signals:         cfg.Signals,
-		ImEx:            cfg.ImEx,
-		Enumeration:     cfg.Enumeration,
-		Actuators:       s.actuatorSymbols,
-		RemoveOrphans:   s.removeOrphans,
-	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
@@ -228,29 +226,4 @@ func (s *Service) MoveGroups(
 	}
 	keys := lo.Map(moved, func(e Schematic, _ int) Key { return e.Key })
 	return s.NewWriter(tx).setProject(ctx, *p, keys...)
-}
-
-// actuatorSymbols returns the keys of the symbols that a custom_actuator node draws.
-func (s *Service) actuatorSymbols(
-	ctx context.Context,
-	tx gorp.Tx,
-) (set.Set[symbol.Key], error) {
-	var all []Schematic
-	if err := s.table.NewRetrieve().Entries(&all).Exec(ctx, tx); err != nil {
-		return nil, err
-	}
-	keys := set.Set[symbol.Key]{}
-	for _, sc := range all {
-		for _, n := range sc.Nodes {
-			cfg, isActuator := n.Config.Variant.(CustomActuatorNodeConfig)
-			if !isActuator {
-				continue
-			}
-			// A spec key that is not a UUID names no symbol.
-			if key, err := uuid.Parse(cfg.SpecKey); err == nil {
-				keys.Add(key)
-			}
-		}
-	}
-	return keys, nil
 }
