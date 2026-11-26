@@ -19,7 +19,8 @@ interface Sent {
   body: unknown;
 }
 
-// fakeCore answers each request with the next status and body, as a Core over HTTP.
+// fakeCore answers each request with the next status and body, as a Core over HTTP. A
+// success body is the plan of a delete, which the Core sends under the delete arm.
 const fakeCore = (
   ...replies: Array<{ status: number; body: string }>
 ): { client: impact.Client; sent: Sent[] } => {
@@ -32,9 +33,11 @@ const fakeCore = (
       });
       const reply = replies.shift();
       if (reply == null) throw new Error("fake Core has no reply left");
-      const data = new TextEncoder().encode(reply.body);
+      const ok = reply.status >= 200 && reply.status < 300;
+      const body = ok ? `{"type":"delete","plan":${reply.body}}` : reply.body;
+      const data = new TextEncoder().encode(body);
       return {
-        ok: reply.status >= 200 && reply.status < 300,
+        ok,
         status: reply.status,
         statusText: "",
         arrayBuffer: async () => data.buffer,
@@ -55,12 +58,11 @@ const fakeCore = (
 
 const change: impact.Change = impact.deleteChannels([1048577]);
 
-// What the apply route returns with no token, picks, or hidden pick, encoded by the
-// Core's JSON codec: a plan of the delete with no entries.
+// The plan that the apply route returns with no token, picks, or hidden pick, encoded
+// by the Core's JSON codec: a plan of the delete with no entries.
 const EMPTY_APPLIED_PLAN =
-  '{"type":"delete","plan":{"entries":[],"kept":0,' +
-  '"hidden":{"restrict":0,"cascade":0,"detach":0},"token":"",' +
-  '"records":[{"type":"channel","key":"1048577"}]}}';
+  '{"entries":[],"kept":0,"hidden":{"restrict":0,"cascade":0,"detach":0},' +
+  '"token":"","records":[{"type":"channel","key":"1048577"}]}';
 
 const CHANGED_PLAN = JSON.stringify({
   entries: [
