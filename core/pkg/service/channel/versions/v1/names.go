@@ -22,12 +22,12 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// NameRuleMigration renames each stored channel whose name breaks the v63 name rule
-// (resource.IsLegalName), or whose legal name an earlier channel in the same group
-// holds, and stages each rename (resource.StageRename). Built-ins come first and keep
-// their names, then the rest go by key. A new name is resource.SanitizeName of the old
-// one, or "channel_<key>" when that is empty, with the first suffix (_2, _3) that no
-// other channel holds. It runs after the step that names each unnamed channel.
+// NameRuleMigration renames each stored channel whose name a path cannot hold
+// (resource.NeedsRename), or whose name an earlier channel in the same group holds, and
+// stages each rename (resource.StageRename). Built-ins come first and keep their names,
+// then the rest go by key. A new name is resource.SanitizeName of the old one, or
+// "channel_<key>" when that is empty, with the first suffix (_2, _3) that no other
+// channel holds. It runs after the step that names each unnamed channel.
 var NameRuleMigration = migrate.New("v63_channel_name_rule", migrateNameRule)
 
 // sibling is a name in a group, or in no group when group is zero.
@@ -58,7 +58,7 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		taken   = make(set.Set[string], len(channels))
 	)
 	for i, c := range channels {
-		if !c.Internal && !resource.IsLegalName(c.Name) {
+		if !c.Internal && resource.NeedsRename(c.Name) {
 			moves[i] = true
 			continue
 		}
