@@ -137,11 +137,11 @@ func (db *DB) openLogIterator(
 		view := newLogView(db.engine, clock)
 		c = &logClock{view: view, idx: &index.Domain{
 			Instrumentation: db.Instrumentation,
-			DB:              logSource{view: view, clock: true},
+			DB:              &logSource{view: view, clock: true},
 			Channel:         db.mu.channels[clock],
 		}}
 		clocks[clock] = c
 	}
-	data := logSource{view: c.view, slot: c.view.add(key)}
+	data := &logSource{view: c.view, slot: c.view.add(key)}
 	return unary.NewIterator(db.Instrumentation, ch, data, c.idx, cfg)
 }

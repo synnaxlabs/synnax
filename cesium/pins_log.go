@@ -127,11 +127,16 @@ func (e *engine) pinnedFiles(key ChannelKey) set.Set[string] {
 	return names
 }
 
-// unlink removes the file of each segment of dead, and tries every removal.
+// unlink closes the read handle of each segment of dead and removes its file, and tries
+// every removal.
 func (e *engine) unlink(dead []state.Dead) error {
 	errs := make([]error, 0, len(dead))
 	for _, d := range dead {
-		errs = append(errs, e.fs.Remove(segmentName(d.Key, d.Segment)))
+		errs = append(
+			errs,
+			e.closeHandle(d.Key, d.Segment),
+			e.fs.Remove(segmentName(d.Key, d.Segment)),
+		)
 	}
 	return errors.Join(errs...)
 }

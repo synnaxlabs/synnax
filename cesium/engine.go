@@ -12,7 +12,9 @@ package cesium
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -50,6 +52,12 @@ type engine struct {
 	log    *log.Log
 	ckpt   *checkpoint.Checkpointer
 	budget *segment.Budget
+	// handles holds the read handle of each segment file that a read opened, by key and
+	// segment ID, until the file is removed or the engine closes.
+	handles struct {
+		sync.RWMutex
+		m map[ChannelKey]map[uint64]*segment.Handle
+	}
 	// head is the generation of the head that recovery used.
 	head uint64
 	// switched is the generation of a log that recovery made live, whose head the
@@ -114,6 +122,7 @@ func openEngine(o *options) (*engine, error) {
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
 	e.cover.advanced = make(chan struct{})
+	e.handles.m = make(map[ChannelKey]map[uint64]*segment.Handle)
 	if snapshot == nil {
 		if snapshot, err = e.create(o, r); err != nil {
 			return nil, err
@@ -351,6 +360,61 @@ func (e *engine) waitCovered(ctx context.Context, sequence uint64) error {
 	}
 }
 
+// handle returns the read handle of segment id of key, which every read of the segment
+// shares.
+func (e *engine) handle(key ChannelKey, id uint64) *segment.Handle {
+	e.handles.RLock()
+	h := e.handles.m[key][id]
+	e.handles.RUnlock()
+	if h != nil {
+		return h
+	}
+	e.handles.Lock()
+	defer e.handles.Unlock()
+	segs := e.handles.m[key]
+	if segs == nil {
+		segs = make(map[uint64]*segment.Handle)
+		e.handles.m[key] = segs
+	}
+	if h = segs[id]; h == nil {
+		h = e.budget.Open(e.fs, segmentName(key, id))
+		segs[id] = h
+	}
+	return h
+}
+
+// closeHandle closes the read handle of segment id of key, if a read opened one. It
+// waits for the reads that hold the handle.
+func (e *engine) closeHandle(key ChannelKey, id uint64) error {
+	e.handles.Lock()
+	h := e.handles.m[key][id]
+	delete(e.handles.m[key], id)
+	e.handles.Unlock()
+	if h == nil {
+		return nil
+	}
+	return h.Close()
+}
+
+// closeHandles closes the read handles of the segments of key whose files kept does not
+// hold. It waits for the reads that hold them.
+func (e *engine) closeHandles(key ChannelKey, kept func(name string) bool) error {
+	var hs []*segment.Handle
+	e.handles.Lock()
+	for id, h := range e.handles.m[key] {
+		if !kept(segmentName(key, id)) {
+			hs = append(hs, h)
+			delete(e.handles.m[key], id)
+		}
+	}
+	e.handles.Unlock()
+	var err error
+	for _, h := range hs {
+		err = errors.Join(err, h.Close())
+	}
+	return err
+}
+
 // run runs the owners until ctx is done, then closes them in order: the log, so that
 // its queued entries and a clean mark reach the file, then the checkpointer, then the
 // state. It runs the orphan pass first.
@@ -423,9 +487,26 @@ func (e *engine) replay(sequence uint64, records []log.Record) error {
 // close closes the owners once.
 func (e *engine) close() error {
 	e.shutdown.Do(func() {
-		e.closeErr = errors.Join(e.log.Close(), e.ckpt.Close(), e.state.Close())
+		e.closeErr = errors.Join(
+			e.log.Close(),
+			e.ckpt.Close(),
+			e.state.Close(),
+			e.closeAllHandles(),
+		)
 	})
 	return e.closeErr
+}
+
+// closeAllHandles closes the read handle of every segment.
+func (e *engine) closeAllHandles() error {
+	e.handles.RLock()
+	keys := slices.Collect(maps.Keys(e.handles.m))
+	e.handles.RUnlock()
+	var err error
+	for _, k := range keys {
+		err = errors.Join(err, e.closeHandles(k, func(string) bool { return false }))
+	}
+	return err
 }
 
 // segmentName returns the file name of segment id of key.
@@ -473,6 +554,8 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 		}
 		seg, ok := named[name]
 		if !ok {
+			// No read opens a file that the state does not name, so no read handle
+			// needs a close first.
 			if err = e.fs.Remove(name); err != nil {
 				return err
 			}

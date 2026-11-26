@@ -161,28 +161,42 @@ func (v *logView) close() error {
 }
 
 // logSource opens the cursors of the key at index slot of view on the pointer log
-// layout. clock is true for the source of the index, whose slot is 0.
+// layout. clock is true for the source of the index, whose slot is 0. The calls of a
+// read never overlap, so the source gives the cursor that a call closed to the next
+// call.
 type logSource struct {
 	view  *logView
 	slot  int
 	clock bool
+	// closed is the cursor that the last Close gave back, or nil.
+	closed *logCursor
 }
 
-var _ domain.Source = logSource{}
+var _ domain.Source = (*logSource)(nil)
 
 // OpenCursor implements domain.Source.
-func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
+func (s *logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
 	if !s.clock {
 		s.view.readers++
 	}
-	return domain.NewCursor(&logCursor{
+	c := s.closed
+	s.closed = nil
+	if c == nil {
+		c = &logCursor{}
+	}
+	*c = logCursor{
 		e:      s.view.e,
 		key:    s.view.keys[s.slot],
+		src:    s,
 		view:   s.view,
 		slot:   s.slot,
 		clock:  s.clock,
+		held:   c.held[:0],
+		spare:  c.spare[:0],
 		bounds: cfg.Bounds,
-	})
+		ranges: c.ranges[:0],
+	}
+	return domain.NewCursor(c)
 }
 
 // logRange is one committed pointer of a key, with the segment that holds it. Its time
@@ -211,6 +225,7 @@ type logCursor struct {
 	view  *logView
 	slot  int
 	clock bool
+	src   *logSource
 	// held holds the segments of the ranges of a data cursor, which it pins until its
 	// next load or Close, since a seek of another cursor of the view can load the view
 	// again while the ranges of this one still name them. spare is the array that the
@@ -340,19 +355,27 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
 	c.e.pin(r.seg.ID)
+	h := c.e.handle(c.key, r.seg.ID)
+	file, err := h.Hold()
+	if err != nil {
+		return nil, errors.Join(err, c.e.unpin([]uint64{r.seg.ID}))
+	}
 	return &logReader{
 		e:      c.e,
 		id:     r.seg.ID,
 		cfg:    c.e.segmentConfig(r.seg),
-		h:      c.e.budget.Open(c.e.fs, segmentName(c.key, r.seg.ID)),
+		h:      h,
+		file:   file,
 		offset: int64(r.ptr.Offset),
 		size:   int64(r.ptr.Length),
 	}, nil
 }
 
 // Close implements domain.Ranges. The Close of a data cursor unpins its segments, and
-// the view after the last data cursor of the view.
+// the view after the last data cursor of the view. It gives c back to its source, so c
+// must not be used after it.
 func (c *logCursor) Close() error {
+	defer func() { c.src.closed = c }()
 	c.valid = false
 	if c.clock {
 		return nil
@@ -362,13 +385,14 @@ func (c *logCursor) Close() error {
 	return errors.Join(err, c.view.close())
 }
 
-// logReader reads the bytes of one pointer from its segment file, which it pins until
-// Close.
+// logReader reads the bytes of one pointer from its segment file, which it pins and
+// holds open until Close.
 type logReader struct {
 	e      *engine
 	id     uint64
 	cfg    segment.Config
 	h      *segment.Handle
+	file   io.ReaderAt
 	offset int64
 	size   int64
 }
@@ -382,7 +406,7 @@ func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.EOF
 	}
 	n := int(min(int64(len(p)), r.size-off))
-	if err := r.cfg.ReadAt(r.h, p[:n], r.offset+off); err != nil {
+	if err := r.cfg.ReadAt(r.file, p[:n], r.offset+off); err != nil {
 		return 0, err
 	}
 	if n < len(p) {
@@ -396,5 +420,7 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	return errors.Join(r.h.Close(), r.e.unpin([]uint64{r.id}))
+	// The release comes before the unpin, which may close the handle.
+	r.h.Release()
+	return r.e.unpin([]uint64{r.id})
 }
