@@ -9,7 +9,6 @@
 
 """MQTT-specific task test cases."""
 
-import os
 from abc import abstractmethod
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -18,12 +17,10 @@ from examples.mqtt_sim import MQTTSim
 
 import synnax as sy
 from synnax import mqtt
-from tests.driver.simulator_case import SimulatorCase
+from tests.driver.simulator_case import CORE_RACK_NAME, SimulatorCase
 from tests.driver.task import ReadTaskCase, WriteTaskCase
 from x.telem import SampleValue, to_float
 
-# MQTT tasks run on the driver inside the Core, which has its own rack.
-CORE_RACK_NAME = os.environ.get("SYNNAX_CORE_RACK", "Node 1")
 WRITE_TIMEOUT = 20 * sy.TimeSpan.SECOND
 
 

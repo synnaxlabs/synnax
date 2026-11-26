@@ -14,7 +14,7 @@ from console.task.mqtt import MQTTTask
 from console.task_page import TaskPage
 from synnax import mqtt
 from tests.console.task.task_case import ConsoleTaskCase
-from tests.driver.mqtt_task import CORE_RACK_NAME
+from tests.driver.simulator_case import CORE_RACK_NAME
 from tests.driver.task import assert_sample_counts_in_range, collect_samples
 
 _Source = (
