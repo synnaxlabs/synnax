@@ -13,6 +13,12 @@ import { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 
+/** The ICD and message of a write endpoint that sends one. */
+const SENDS = {
+  icd: "8c1f2e6a-4b7d-4c3e-9f10-2a5b6c7d8e9f",
+  message: { message: "1d2e3f4a-5b6c-4d7e-8f90-a1b2c3d4e5f6", bindings: [] },
+};
+
 describe("HTTP Task Types", () => {
   const readField = {
     pointer: "/value",
@@ -475,6 +481,7 @@ describe("HTTP Task Types", () => {
             key: "ep1",
             method: "GET",
             path: "/api",
+            ...SENDS,
           },
         ],
       };
@@ -528,6 +535,7 @@ describe("HTTP Task Types", () => {
               { name: "X-Key", value: "a" },
               { name: "X-Key", value: "b" },
             ],
+            ...SENDS,
           },
         ],
       };
@@ -546,10 +554,25 @@ describe("HTTP Task Types", () => {
               { parameter: "key", value: "a" },
               { parameter: "key", value: "b" },
             ],
+            ...SENDS,
           },
         ],
       };
       expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
+    });
+
+    it("should reject an enabled endpoint that sends no message at deploy", () => {
+      const result = HTTP.Task.deployWriteConfigZ.safeParse({
+        device: "dev-001",
+        endpoints: [
+          { key: "ep1", method: "POST", path: "/api", ...SENDS },
+          { key: "ep2", method: "POST", path: "/off", disabled: true },
+          { key: "ep3", method: "POST", path: "/none" },
+        ],
+      });
+      expect(result.error?.issues).toMatchObject([
+        { message: "A message is required", path: ["endpoints", 2, "message"] },
+      ]);
     });
   });
 

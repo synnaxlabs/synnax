@@ -80,9 +80,25 @@ const deployWriteEndpointZ = http.writeEndpointZ.extend({
   queryParams: Device.queryParamsZ.default(() => []),
 });
 
+/** Refuses an enabled endpoint that sends no message. */
+const validateMessages = ({
+  value,
+  issues,
+}: z.core.ParsePayload<Pick<WriteEndpoint, "disabled" | "icd" | "message">[]>) =>
+  value.forEach(({ disabled, icd, message }, i) => {
+    if (disabled || (icd != null && message != null)) return;
+    issues.push({
+      continue: true,
+      code: "custom",
+      input: value,
+      message: "A message is required",
+      path: [i, "message"],
+    });
+  });
+
 export const deployWriteConfigZ = writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  endpoints: deployWriteEndpointZ.array(),
+  endpoints: deployWriteEndpointZ.array().check(validateMessages),
 });
 
 export const WRITE_SCHEMAS = {
