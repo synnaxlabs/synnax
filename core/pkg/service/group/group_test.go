@@ -237,14 +237,14 @@ var _ = Describe("Group", Ordered, func() {
 				mid := create(ctx, "mid", &root)
 				a := create(ctx, "a", &mid)
 				b := create(ctx, "b", &mid)
-				Expect(svc.Ancestors(ctx, db, a.Key, b.Key)).
+				Expect(group.Ancestors(ctx, db, a.Key, b.Key)).
 					To(ConsistOf(mid, root))
 			},
 		)
 
 		It("Should return nothing for a top-level group", func(ctx SpecContext) {
 			g := create(ctx, "lonely", nil)
-			Expect(svc.Ancestors(ctx, db, g.Key)).To(BeEmpty())
+			Expect(group.Ancestors(ctx, db, g.Key)).To(BeEmpty())
 		})
 	})
 
@@ -291,7 +291,7 @@ var _ = Describe("Group", Ordered, func() {
 			top       *resource.ID
 		)
 		Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-			if ancestors, err = svc.Ancestors(ctx, snap, leaf.Key); err != nil {
+			if ancestors, err = group.Ancestors(ctx, snap, leaf.Key); err != nil {
 				return err
 			}
 			if children, err = svc.Children(ctx, snap, mid.Key); err != nil {

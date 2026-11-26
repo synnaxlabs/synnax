@@ -30,6 +30,7 @@ var _ = Describe("Paths", Ordered, func() {
 		groupSvc          *group.Service
 		svc               *channel.Service
 		stand, sensors    string
+		standKey          group.Key
 		root, top, nested channel.Key
 	)
 	folder := func(tx gorp.Tx, ctx SpecContext, name string, parent *group.Key) group.Key {
@@ -68,7 +69,7 @@ var _ = Describe("Paths", Ordered, func() {
 		svc = MustOpen(channel.OpenService(ctx, cfg))
 		stand, sensors = UniqueChannelName(), UniqueChannelName()
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			standKey := folder(tx, ctx, stand, nil)
+			standKey = folder(tx, ctx, stand, nil)
 			sensorsKey := folder(tx, ctx, sensors, &standKey)
 			root = create(tx, ctx, UniqueChannelName(), nil)
 			top = create(tx, ctx, UniqueChannelName(), &standKey)
@@ -145,6 +146,58 @@ var _ = Describe("Paths", Ordered, func() {
 		Expect(keysAt(ctx, db, in)).To(ConsistOf(top, root))
 		Expect(channel.MatchWhere(channel.Where{Path: &filter.Set[string]{}})).
 			Error().To(MatchError(ContainSubstring("path")))
+	})
+
+	It("Should match no channel through a folder that AllowFolders refuses", func(
+		ctx SpecContext,
+	) {
+		hidden := func(id resource.ID) bool { return id != group.ResourceID(standKey) }
+		at := func(allowed func(resource.ID) bool, path string) []channel.Key {
+			var chs []channel.Channel
+			Expect(svc.NewRetrieve().
+				AllowFolders(allowed).
+				Where(channel.MatchPaths(path)).
+				Entries(&chs).
+				Exec(ctx, db)).To(Succeed())
+			return channel.KeysFromChannels(chs)
+		}
+		topPath := stand + "." + nameOf(ctx, top)
+		Expect(at(hidden, topPath)).To(BeEmpty())
+		Expect(at(hidden, stand+"."+sensors+"."+nameOf(ctx, nested))).To(BeEmpty())
+		Expect(at(hidden, nameOf(ctx, root))).To(ConsistOf(root))
+		all := func(resource.ID) bool { return true }
+		Expect(at(all, topPath)).To(ConsistOf(top))
+	})
+
+	It("Should return the folders and the name of each channel", func(
+		ctx SpecContext,
+	) {
+		var chs []channel.Channel
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchKeys(root, top, nested)).
+			Entries(&chs).
+			Exec(ctx, db)).To(Succeed())
+		texts := channel.PathTexts(MustSucceed(channel.Paths(ctx, db, chs)))
+		byKey := make(map[channel.Key]string, len(chs))
+		for i, ch := range chs {
+			byKey[ch.Key()] = texts[i]
+		}
+		Expect(byKey).To(Equal(map[channel.Key]string{
+			root:   nameOf(ctx, root),
+			top:    stand + "." + nameOf(ctx, top),
+			nested: stand + "." + sensors + "." + nameOf(ctx, nested),
+		}))
+		Expect(channel.Paths(ctx, db, nil)).To(BeEmpty())
+	})
+
+	It("Should join the names of the folders and the channel of each path", func() {
+		folders := group.Path{{Name: "stand"}, {Name: "sensors"}}
+		Expect(channel.PathTexts([]channel.Path{
+			{Folders: folders, Name: "pt_01"},
+			{Name: "at_top"},
+			{Folders: folders[:1], Name: "pt_02"},
+		})).To(Equal([]string{"stand.sensors.pt_01", "at_top", "stand.pt_02"}))
+		Expect(channel.PathTexts(nil)).To(BeEmpty())
 	})
 
 	It("Should find a path sent in another normal form", func(ctx SpecContext) {
