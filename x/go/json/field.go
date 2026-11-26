@@ -36,9 +36,9 @@ const (
 	Boolean
 )
 
-// ParseType parses the config form of a Type: "number", "string", or "boolean". It
+// parseType parses the config form of a Type: "number", "string", or "boolean". It
 // returns an error wrapping validate.ErrValidation for any other text.
-func ParseType(text string) (Type, error) {
+func parseType(text string) (Type, error) {
 	switch text {
 	case "number":
 		return Number, nil
@@ -72,7 +72,7 @@ func (t Type) MarshalText() ([]byte, error) { return []byte(t.String()), nil }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (t *Type) UnmarshalText(text []byte) (err error) {
-	*t, err = ParseType(string(text))
+	*t, err = parseType(string(text))
 	return err
 }
 
@@ -419,7 +419,7 @@ func (d *Decoder) enum() ([]byte, bool) {
 
 func (d *Decoder) timeStamp(raw jsontext.Value) (telem.TimeStamp, error) {
 	format := d.field.TimeFormat
-	if format == ISO8601 {
+	if format == iso8601 {
 		if raw.Kind() != '"' {
 			return 0, errors.Wrapf(
 				validate.ErrValidation,

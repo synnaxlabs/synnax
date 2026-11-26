@@ -14,6 +14,7 @@ package ranger
 import (
 	"context"
 	"slices"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -65,6 +66,14 @@ func newIndexes() indexes {
 			Kind:     gorp.Use,
 			Targets: func(e *Range) []label.Key {
 				return e.Labels
+			},
+			Locate: func(e *Range, t label.Key) []string {
+				for i, v := range e.Labels {
+					if v == t {
+						return []string{"labels", strconv.Itoa(i)}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Range, t label.Key) {
 				e.Labels = slices.DeleteFunc(e.Labels, func(v label.Key) bool {
