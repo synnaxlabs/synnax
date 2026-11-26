@@ -681,10 +681,16 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
   those of an `Unstored` writer, and a sample with no stored stamp. The framer numbers a
   session of virtual keys only (`writer/free.go:53` today). So each key takes its
   numbers from one owner.
-- **One step per stretch**: The counter steps at the first sample of a writer session,
-  after `EndStretch`, after a put-back or a failed sync (§5.4), and when a stretch
-  reaches 2^32 - 1 samples. The first sample of a stretch has index 0. A new segment
-  inside a stretch takes no number.
+- **One step per stretch**: The counter steps at the first sample of a writer session on
+  each of its clocks, after `EndStretch`, after a put-back or a failed sync (§5.4), and
+  when a stretch reaches 2^32 - 1 samples. The first sample of a stretch has index 0. A
+  new segment inside a stretch takes no number.
+- **Continued stretches**: A session goes on with the stretch of its clock, with no new
+  number, when the session before it on the clock closed clean, its commits are durable,
+  every alignment it gave is committed, and the new session's first stamp is after the
+  clock's last stored stamp. The state owner keeps the last number and next index of
+  each clock in memory only, so after a restart each clock takes a new number at its
+  next session. A `client.write` loop then takes no number per call.
 - **Data follows its clock**: The channels of a clock write take the alignment of the
   clock, and data written against stored stamps takes the alignment of the stamp at its
   start. Each pointer stores the alignment of its first sample, so a live stream and
@@ -704,11 +710,12 @@ assumptions.
 | A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years   |
 | Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years |
 | Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years |
-| 100 script runs per day on 10 channels each       | 1,100     | 4 million files in 10 years   |
+| 100 script runs per day on 10 channels each       | 0         | Each run takes over its files |
+| A `client.write` loop at 10 Hz, 864,000 sessions  | 0         | No number per session         |
 
-A script run has a new clock key (RFC 0120 §4.0), so it starts one segment per channel
-and one for its clock. The Core raises a warning status at half of the numbers, and at
-the end a new stretch fails with a typed error.
+A script run continues its clock (§5.8) and takes over its open segments, so a run after
+a clean close starts no segment and takes no number. The Core raises a warning status at
+half of the numbers, and at the end a new stretch fails with a typed error.
 
 ### 5.8 One writer per time range
 
