@@ -366,15 +366,12 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 // OpenReader implements domain.Ranges.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
-	c.e.pin(r.seg.ID)
 	h := c.e.handle(c.key, r.seg.ID)
 	file, err := h.Hold()
 	if err != nil {
-		return nil, errors.Join(err, c.e.unpin([]uint64{r.seg.ID}))
+		return nil, err
 	}
 	return &logReader{
-		e:      c.e,
-		id:     r.seg.ID,
 		cfg:    c.e.segmentConfig(*r.seg),
 		h:      h,
 		file:   file,
@@ -397,11 +394,10 @@ func (c *logCursor) Close() error {
 	return errors.Join(err, c.view.close())
 }
 
-// logReader reads the bytes of one pointer from its segment file, which it pins and
-// holds open until Close.
+// logReader reads the bytes of one pointer from its segment file, which it holds open
+// until Close. It takes no pin: its cursor's pins and its view's pins keep the segment
+// for the call that opens and closes it.
 type logReader struct {
-	e      *engine
-	id     uint64
 	cfg    segment.Config
 	h      *segment.Handle
 	file   io.ReaderAt
@@ -432,7 +428,6 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
-	// The release comes before the unpin, which may close the handle.
 	r.h.Release()
-	return r.e.unpin([]uint64{r.id})
+	return nil
 }

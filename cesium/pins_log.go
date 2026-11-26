@@ -82,13 +82,6 @@ func (e *engine) repin(held, ids []uint64) error {
 	return e.unlink(free)
 }
 
-// pin pins segment id for a reader.
-func (e *engine) pin(id uint64) {
-	e.pins.mu.Lock()
-	e.pins.pin([]uint64{id})
-	e.pins.mu.Unlock()
-}
-
 // unpin drops a reader's pins of ids, and unlinks each dead segment that no reader
 // pins after it.
 func (e *engine) unpin(ids []uint64) error {
