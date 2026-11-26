@@ -113,33 +113,6 @@ describe("Orientation.Select", () => {
     });
   });
 
-  describe("hideOuter", () => {
-    it("should render only the inner cluster", () => {
-      const { container } = render(
-        <Orientation.Select value={ZERO_VALUE} onChange={() => {}} hideOuter />,
-      );
-      // Internal renders 4 inner buttons (no outer buttons, no center).
-      expect(buttons(container)).toHaveLength(4);
-    });
-
-    it("should still call onChange with inner-targeted updates", () => {
-      const onChange = vi.fn();
-      const { container } = render(
-        <Orientation.Select
-          value={{ inner: "top", outer: "bottom" }}
-          onChange={onChange}
-          hideOuter
-        />,
-      );
-      // [0] inner top, [1] inner left, [2] inner right, [3] inner bottom
-      fireEvent.click(buttons(container)[1]);
-      expect(onChange).toHaveBeenCalledWith({
-        inner: "left",
-        outer: "bottom",
-      });
-    });
-  });
-
   describe("hideInner", () => {
     it("should mark the inner buttons as disabled and leave outer buttons enabled", () => {
       const { container } = render(
@@ -221,13 +194,6 @@ describe("Orientation.Select", () => {
     it("should always tag the root with pluto-select-orientation", () => {
       const { container } = render(
         <Orientation.Select value={ZERO_VALUE} onChange={() => {}} />,
-      );
-      expect(container.querySelector(".pluto-select-orientation")).not.toBeNull();
-    });
-
-    it("should still tag the root with pluto-select-orientation when hideOuter is set", () => {
-      const { container } = render(
-        <Orientation.Select value={ZERO_VALUE} onChange={() => {}} hideOuter />,
       );
       expect(container.querySelector(".pluto-select-orientation")).not.toBeNull();
     });

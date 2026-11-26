@@ -1,0 +1,30 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* An edit view keeps the width of the options, so they take the width of the entries
+   grid and its padding. */
+.pluto-enumeration-select__dialog {
+    min-width: min(81rem, var(--pluto-dialog-available-width, 100vw));
+}
+
+/* Names run long, and the trigger also shows the colors of the entries. */
+.lyra-dialog__frame:has(> .lyra-dialog__trigger.pluto-enumeration-select__trigger) {
+    --pluto-control-width: 64rem;
+}
+
+/* The name keeps at least two fifths of an option. The entries fold into the rest and
+   end at the option's own padding, so the entries of all options line up at the end. */
+.pluto-enumeration-select__entries {
+    flex: 0 1 auto;
+    justify-content: flex-end;
+    max-width: 60%;
+    padding-right: 0;
+}

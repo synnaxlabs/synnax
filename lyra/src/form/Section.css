@@ -25,6 +25,7 @@
 
     & > .lyra-form-section,
     .lyra-form-section__body,
+    .lyra-form-section__column,
     .lyra-input__item {
         display: contents;
     }
@@ -34,7 +35,8 @@
     }
 
     .lyra-form-section__header,
-    .lyra-form-section__body > :not(.lyra-input__item),
+    .lyra-form-section__body > :not(.lyra-input__item, .lyra-form-section__column),
+    .lyra-form-section__column > :not(.lyra-input__item),
     .lyra-input__item:not(:has(> .lyra-input-label)) > * {
         grid-column: 1 / -1;
     }
@@ -131,8 +133,20 @@
         border-left: var(--pluto-border-l6);
     }
 
+    /* A color field is as wide as a number, so the two line up in a column. */
+    .lyra-color-input {
+        --pluto-control-width: 24rem;
+
+        & .lyra-color-hex-text {
+            flex-grow: 1;
+        }
+    }
+
     .lyra-form-section__header {
         margin-bottom: 1.5rem;
+
+        /* An action, such as Reset, fits the header, so its arrival moves nothing. */
+        min-height: var(--pluto-height-small);
 
         /* The body's negative margin overlaps the header; keep the header clickable. */
         position: relative;
@@ -163,7 +177,8 @@
         }
 
         & > .lyra-input__item,
-        & > .lyra-flex > .lyra-input__item {
+        & > .lyra-flex > .lyra-input__item,
+        & > .lyra-form-section__column > .lyra-input__item {
             display: grid;
             grid-template-columns: subgrid;
 
@@ -177,6 +192,21 @@
                 & > * {
                     width: var(--pluto-control-width, auto);
                 }
+            }
+        }
+
+        /* A column spans the three rows and sizes its own, so its fields keep their
+           heights whatever the columns beside it hold. */
+        & > .lyra-form-section__column {
+            grid-row: 1 / -1;
+            display: grid;
+            grid-template-columns: subgrid;
+            grid-auto-rows: max-content;
+            align-content: start;
+            gap: 2rem 3rem;
+
+            & > * {
+                grid-column: 1 / -1;
             }
         }
     }

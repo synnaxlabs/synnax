@@ -61,6 +61,17 @@ const Fallback = (props: PErrors.FallbackProps): ReactElement => (
   </Base.Frame>
 );
 
+const [DismissContext, useDismissContext] = context.create<() => void>({
+  displayName: "Modals.DismissContext",
+  providerName: "Modals.Modal",
+});
+
+/**
+ * @returns a function that closes the modal as its close trigger does, for a cancel
+ * button. It asks first when the modal has unsaved edits, and does nothing while busy.
+ */
+export const useDismiss = (): (() => void) => useDismissContext("Modals.useDismiss");
+
 interface ModalProps extends Session.Modals.Entry {}
 
 export const Modal = ({
@@ -92,9 +103,11 @@ export const Modal = ({
     >
       <BusyContext value={setBusy}>
         <UnsavedContext value={setUnsaved}>
-          <PErrors.SuspenseBoundary FallbackComponent={Fallback}>
-            {render()}
-          </PErrors.SuspenseBoundary>
+          <DismissContext value={handleDismiss}>
+            <PErrors.SuspenseBoundary FallbackComponent={Fallback}>
+              {render()}
+            </PErrors.SuspenseBoundary>
+          </DismissContext>
         </UnsavedContext>
       </BusyContext>
     </Dialog.Frame>

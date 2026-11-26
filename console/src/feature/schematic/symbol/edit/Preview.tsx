@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming } from "@synnaxlabs/pluto";
-import { bounds, type color, dimensions, TimeSpan } from "@synnaxlabs/x";
+import { bounds, type color, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -43,11 +43,14 @@ const ZOOM_IN_TOOLTIP = (
   </Triggers.Text>
 );
 
-const RESET_ZOOM_TOOLTIP = (
+const FIT_TOOLTIP = (
   <Triggers.Text trigger={ZOOM_TRIGGERS.modes.reset[0]} level="small">
-    Reset zoom
+    Fit drawing
   </Triggers.Text>
 );
+
+// The share of the preview that a fit drawing fills.
+const FIT_SHARE = 0.6;
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
@@ -131,7 +134,32 @@ export const Preview = ({
     form.set(path.data.previewViewport, { ...current, ...change(current) });
   };
 
-  const resetViewport = () => form.set(path.data.previewViewport, DEFAULT_VIEWPORT);
+  // Fit zooms so the drawing fills a share of the preview, at its center.
+  const fit = () => {
+    if (svg == null || themeContainer == null) return;
+    const zoom =
+      form.get(path.data.previewViewport, { optional: true })?.value?.zoom ?? 1;
+    const drawn = svg.getBoundingClientRect();
+    const room = themeContainer.getBoundingClientRect();
+    if (drawn.width === 0 || drawn.height === 0) return;
+    const scale = Math.min(
+      (room.width * FIT_SHARE) / (drawn.width / zoom),
+      (room.height * FIT_SHARE) / (drawn.height / zoom),
+    );
+    form.set(path.data.previewViewport, {
+      zoom: bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, scale),
+      position: { x: 0, y: 0 },
+    });
+  };
+
+  // A drawing that opens at the default view fits the preview instead.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || svg == null || themeContainer == null) return;
+    opened.current = true;
+    const stored = form.get(path.data.previewViewport, { optional: true })?.value;
+    if (stored == null || deep.equal(stored, DEFAULT_VIEWPORT)) fit();
+  }, [svg, themeContainer]);
 
   const stepZoom = (factor: number) =>
     setViewport(({ zoom }) => ({
@@ -140,7 +168,7 @@ export const Preview = ({
 
   const handleZoomIn = () => stepZoom(ZOOM_STEP);
   const handleZoomOut = () => stepZoom(1 / ZOOM_STEP);
-  const handleResetZoom = () => resetViewport();
+  const handleFit = () => fit();
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -182,7 +210,7 @@ export const Preview = ({
       if (stage === "end") return stopRepeat();
       if (stage !== "start") return;
       const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
-      if (mode === "reset") return handleResetZoom();
+      if (mode === "reset") return handleFit();
       if (mode !== "in" && mode !== "out") return;
       const step = mode === "in" ? handleZoomIn : handleZoomOut;
       step();
@@ -308,6 +336,7 @@ export const Preview = ({
                 variant="text"
                 size="small"
                 onClick={() => setDarkMode({ app: isDark, dark: !isDarkMode })}
+                tooltip={isDarkMode ? "Preview in light mode" : "Preview in dark mode"}
               >
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>
@@ -326,11 +355,7 @@ export const Preview = ({
                 >
                   <Icon.Add />
                 </Button.Button>
-                <Button.Button
-                  onClick={handleResetZoom}
-                  size="small"
-                  tooltip={RESET_ZOOM_TOOLTIP}
-                >
+                <Button.Button onClick={handleFit} size="small" tooltip={FIT_TOOLTIP}>
                   <Icon.Expand />
                 </Button.Button>
               </Flex.Box>

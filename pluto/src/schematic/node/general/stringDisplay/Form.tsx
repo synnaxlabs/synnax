@@ -62,6 +62,7 @@ const StyleForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Label">
       <Label.Form path={path.label} />
+      <Orientation.Field path={path} hideInner label="Position" />
     </Base.Section>
     <Base.Section title="Appearance">
       <Form.ColorField path={path.strokeColor} label="Stroke" />
@@ -74,7 +75,6 @@ const StyleForm = (): ReactElement => (
         inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
       />
     </Base.Section>
-    <Orientation.Section path={path} hideInner />
   </Base.Sections>
 );
 

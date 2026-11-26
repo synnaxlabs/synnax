@@ -12,6 +12,7 @@ import "@/feature/schematic/symbol/edit/Edit.css";
 import type { schematic } from "@synnaxlabs/client";
 import { Color as Base } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
+import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -56,20 +57,34 @@ const NAMES: Record<Kind, string> = {
 
 const KINDS: Kind[] = ["drawing", "color", "entry", "contrast", "node"];
 
-const NOTES: Record<Exclude<Kind, "color">, string> = {
+const NOTES: Record<Kind, string> = {
   drawing: "The shapes keep the colors of the drawing.",
+  color: "One color in every state.",
   entry: "Each state draws the color of its enumeration entry.",
-  contrast: "Each state draws black or white, whichever reads on its entry color.",
+  contrast: "Black or white, whichever reads on the entry color.",
   node: "Each node on a schematic sets this color.",
 };
+
+const NO_ENUMERATION =
+  "The state has no enumeration. Select it under States to add one.";
 
 // FILLS are the button inputs for its fill at rest, on hover, and on press.
 const FILLS = ["--pluto-bg", "--pluto-hover-bg", "--pluto-active-bg"];
 
-const ICONS: Partial<Record<Kind, ReactElement>> = {
+const ICONS: Record<Kind, ReactElement> = {
+  drawing: <Icon.Schematic />,
+  color: <Icon.Swatches />,
   entry: <Icon.Enumeration />,
   contrast: <Icon.Contrast />,
   node: <Icon.Node />,
+};
+
+// The trigger shows the color that the paint draws, so only a paint with no single
+// color shows its icon.
+const TRIGGER_ICONS: Partial<Record<Kind, ReactElement>> = {
+  entry: ICONS.entry,
+  contrast: ICONS.contrast,
+  node: ICONS.node,
 };
 
 /**
@@ -140,33 +155,41 @@ export const Paint = ({
         style={chip}
         textColor={text}
       >
-        {ICONS[kind] ?? (shown == null && <Icon.Auto />)}
+        {TRIGGER_ICONS[kind] ?? (shown == null && <Icon.Auto />)}
       </Dialog.Trigger>
       <Dialog.Dialog>
         <Flex.Box y gap="small" className={CSS.B("schematic-paint-dialog")}>
-          <Select.Buttons<Kind> value={kind} onChange={handleKindChange} size="small">
-            {KINDS.map((k) => (
-              <Select.Item
-                key={k}
-                itemKey={k}
-                size="small"
-                disabled={
-                  (k === "drawing" && locked) ||
-                  ((k === "entry" || k === "contrast") && entryState == null)
-                }
-                tooltip={
-                  k === "drawing" && locked
-                    ? `${inheritedFrom ?? "The whole drawing"} gives this paint. ` +
-                      "Change it there."
-                    : undefined
-                }
-              >
-                {k === "drawing" && whole
-                  ? (inheritedFrom ?? "Whole drawing")
-                  : NAMES[k]}
-              </Select.Item>
-            ))}
+          <Select.Buttons<Kind>
+            value={kind}
+            onChange={handleKindChange}
+            size="small"
+            aria-label={`${ariaLabel} kind`}
+          >
+            {KINDS.map((k) => {
+              const noEntry = (k === "entry" || k === "contrast") && entryState == null;
+              const drawingLocked = k === "drawing" && locked;
+              return (
+                <Select.Item
+                  key={k}
+                  itemKey={k}
+                  size="small"
+                  aria-label={NAMES[k]}
+                  disabled={noEntry || drawingLocked}
+                  tooltip={
+                    drawingLocked
+                      ? `${inheritedFrom ?? "The whole drawing"} gives this paint. ` +
+                        "Change it there."
+                      : noEntry
+                        ? NO_ENUMERATION
+                        : NAMES[k]
+                  }
+                >
+                  {ICONS[k]}
+                </Select.Item>
+              );
+            })}
           </Select.Buttons>
+          <Divider.Divider x />
           {kind === "color" ? (
             <Base.Picker
               value={binding.value}
@@ -174,9 +197,16 @@ export const Paint = ({
               library={binding.library}
             />
           ) : (
-            <Text.Text level="small" color={9}>
-              {NOTES[kind]}
-            </Text.Text>
+            <Flex.Box y gap={0.5}>
+              <Text.Text level="small" weight={500}>
+                {kind === "drawing" && whole
+                  ? (inheritedFrom ?? "Whole drawing")
+                  : NAMES[kind]}
+              </Text.Text>
+              <Text.Text level="small" color={9}>
+                {NOTES[kind]}
+              </Text.Text>
+            </Flex.Box>
           )}
         </Flex.Box>
       </Dialog.Dialog>

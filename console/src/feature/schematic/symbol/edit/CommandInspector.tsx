@@ -139,15 +139,12 @@ export const CommandInspector = ({
               value: type === "ask" ? { type } : { type, value: start(command.state) },
             })
           }
-          size="small"
-          variant="outlined"
         >
-          <Select.Item<schematic.symbol.CommandValueType> itemKey="fixed" size="small">
+          <Select.Item<schematic.symbol.CommandValueType> itemKey="fixed">
             Fixed
           </Select.Item>
           <Select.Item<schematic.symbol.CommandValueType>
             itemKey="ask"
-            size="small"
             disabled={command.state == null || toggled}
             tooltip={
               toggled ? TOGGLED : command.state == null ? ASK_NEEDS_STATE : undefined

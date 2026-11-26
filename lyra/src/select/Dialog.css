@@ -41,6 +41,11 @@
     min-height: 0;
 }
 
+/* The body draws the border of the options, so a view in its place draws it too. */
+.lyra-select__dialog:not(.lyra-menu-dialog) > .lyra-dialog-views--viewing {
+    border: var(--pluto-border-width) solid var(--pluto-gray-l6);
+}
+
 /* At the dialog's height cap, the list gives up space, never the footer. */
 .lyra-select__body > :not(.lyra-list__scroll) {
     flex-shrink: 0;

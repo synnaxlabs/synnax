@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { enumeration } from "@synnaxlabs/client";
+import { type enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
-import type { FC, PropsWithChildren } from "react";
+import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { Access } from "@/access";
 import { Enumeration } from "@/enumeration";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
@@ -73,5 +74,63 @@ describe("Enumeration select", () => {
     fireEvent.click(c.getByRole("button", { name: "Enumeration" }));
     expect(await c.findByText(b.name)).toBeTruthy();
     expect(c.queryByText(a.name)).toBeNull();
+  });
+
+  it("should show the named entries of an enumeration in its option", async () => {
+    const e = await client.enumerations.create({
+      name: id.create(),
+      entries: [
+        { key: id.create(), name: "Open", value: 0, abnormal: false },
+        { key: id.create(), name: "", value: 1, abnormal: false },
+        { key: id.create(), name: "Closed", value: 2, abnormal: true },
+      ],
+    });
+    const c = render(
+      <Enumeration.SelectSingle
+        value={undefined}
+        onChange={vi.fn()}
+        query={{ where: { key: { in: [e.key] } } }}
+        virtual={false}
+      />,
+      { wrapper },
+    );
+    fireEvent.click(c.getByRole("button", { name: "Enumeration" }));
+    const option = (await c.findByText(e.name)).closest("[role=option]");
+    expect(option?.textContent).toBe(`${e.name}OpenClosed`);
+  });
+
+  it("should name the schematics that an edit changes", async () => {
+    const e = await client.enumerations.create({ name: id.create(), entries: [] });
+    const project = await client.projects.create({ name: id.create() });
+    const config = schematic.nodeConfigZ.parse({
+      variant: "select",
+      enumeration: e.key,
+    });
+    for (let i = 0; i < 2; i++)
+      await client.schematics.create({
+        project: project.key,
+        name: id.create(),
+        nodes: [{ key: "select", position: { x: 0, y: 0 }, zIndex: 0, config }],
+      });
+    const Harness = (): ReactElement => {
+      Access.useEnsurePermissions({});
+      return (
+        <Enumeration.SelectSingle
+          value={undefined}
+          onChange={vi.fn()}
+          query={{ where: { key: { in: [e.key] } } }}
+          virtual={false}
+        />
+      );
+    };
+    const c = render(<Harness />, { wrapper });
+    fireEvent.click(await c.findByRole("button", { name: "Enumeration" }));
+    const option = (await c.findByText(e.name)).closest("[role=option]");
+    if (option == null) throw new Error("expected an option");
+    fireEvent.contextMenu(option);
+    fireEvent.click(await c.findByRole("menuitem", { name: "Edit" }));
+    expect(
+      await c.findByText("Changes every use of this enumeration, in 2 schematics."),
+    ).toBeTruthy();
   });
 });

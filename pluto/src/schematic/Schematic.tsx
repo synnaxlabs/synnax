@@ -9,14 +9,16 @@
 
 import "@/schematic/Schematic.css";
 
+import { schematic } from "@synnaxlabs/client";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import type { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useRef, useState } from "react";
+import { type MouseEvent, type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { useClipboard } from "@/schematic/clipboard";
@@ -64,9 +66,12 @@ interface Hovered {
 }
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
+const DELETE_TRIGGER: Triggers.Trigger = ["Backspace"];
 const DRAG_HANDLE_SELECTOR = `.${Node.Grid.DRAG_HANDLE_CLASS}`;
 const CONTROL_STATE_SELECTOR = `.${Node.Control.STATE_CLASS}`;
 const STALE_BADGE_SELECTOR = `.${Staleness.BADGE_CLASS}`;
+const NODE_SELECTOR = ".react-flow__node";
+const PANE_SELECTOR = ".react-flow__pane";
 
 export const Schematic = ({
   className,
@@ -212,7 +217,34 @@ export const Schematic = ({
     editable,
   });
 
+  const handleDelete = () => {
+    const keys = new Set(selectedRef.current);
+    dispatch([
+      ...edgesRef.current
+        .filter((e) => keys.has(e.key))
+        .map((e) => schematic.removeEdge({ key: e.key })),
+      ...nodesRef.current
+        .filter((n) => keys.has(n.key))
+        .map((n) => schematic.removeNode({ key: n.key })),
+    ]);
+    onSelectionChange?.([]);
+  };
+
   const contextMenu = Menu.useContextMenu();
+  // The menu acts on what the user clicked: a node outside the selection replaces it,
+  // and the empty canvas clears it.
+  const handleContextMenu = (e: MouseEvent) => {
+    if (editable && e.target instanceof Element) {
+      const nodeKey = e.target.closest(NODE_SELECTOR)?.getAttribute("data-id");
+      const current = selectedRef.current ?? [];
+      if (nodeKey != null) {
+        if (!current.includes(nodeKey)) handleSelectionChange([nodeKey]);
+      } else if (e.target.closest(PANE_SELECTOR) != null && current.length > 0)
+        handleClearSelection();
+    }
+    contextMenu.open(e);
+  };
+  const hasSelection = (selected?.length ?? 0) > 0;
   const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (menuProps) => (
     <Menu.Menu gap="small">
       {editable && (
@@ -221,7 +253,7 @@ export const Schematic = ({
             cut={cut}
             copy={copy}
             paste={paste}
-            hasSelection={(selected?.length ?? 0) > 0}
+            hasSelection={hasSelection}
           />
           {(canGroup || canUngroup) && (
             <>
@@ -241,6 +273,19 @@ export const Schematic = ({
             canUndo={canUndo}
             canRedo={canRedo}
           />
+          {hasSelection && (
+            <>
+              <Menu.Divider />
+              <Menu.Item
+                itemKey="delete"
+                onClick={handleDelete}
+                triggerIndicator={DELETE_TRIGGER}
+              >
+                <Icon.Delete />
+                Delete
+              </Menu.Item>
+            </>
+          )}
           {extraMenuItems != null && <Menu.Divider />}
         </>
       )}
@@ -266,7 +311,7 @@ export const Schematic = ({
         onNodeMouseMove={handleNodeMouseMove}
         onNodeMouseLeave={clearHovered}
         onNodeDragStart={clearHovered}
-        onContextMenu={contextMenu.open}
+        onContextMenu={handleContextMenu}
         onCopy={onCopy}
         onCut={onCut}
         onPaste={onPaste}

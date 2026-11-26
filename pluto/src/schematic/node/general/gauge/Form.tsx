@@ -17,6 +17,7 @@ import type { ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
 import { Gauge as VisGauge } from "@/vis/gauge";
 import { Properties } from "@/vis/properties";
@@ -50,6 +51,7 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       <Base.Sections x>
         <Base.Section title="Label">
           <Label.Form path={path.label} />
+          <Orientation.Field path={path} hideInner label="Position" />
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.ColorField
@@ -74,15 +76,15 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
             inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
           />
         </Base.Section>
-        <Base.Section title="Range">
-          <Form.UnitsField />
-          <Form.BoundsFields path={path.bounds} padHelpText={false} />
-        </Base.Section>
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <Base.Sections x>
-        <Value.TelemForm />
+        <Value.TelemForm>
+          <Base.Section title="Range">
+            <Form.RangeField path={path.bounds} />
+          </Base.Section>
+        </Value.TelemForm>
       </Base.Sections>
     </Tabs.Content>
   </Properties.Tabs>

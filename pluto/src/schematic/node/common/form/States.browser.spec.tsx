@@ -11,7 +11,7 @@ import { type enumeration, schematic, type Synnax } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { deep, id } from "@synnaxlabs/x";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
 import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 import { page } from "vitest/browser";
@@ -25,10 +25,10 @@ const path = deep.path<schematic.StateIndicatorNodeConfig>();
 
 const client = createTestClient();
 
-const findInput = async (label: string): Promise<HTMLInputElement> =>
-  await screen.findByLabelText<HTMLInputElement>(label);
+// The entries a new enumeration starts with: one blank entry.
+const BLANK = [expect.objectContaining({ name: "", value: 0, abnormal: false })];
 
-describe("Form.States", () => {
+describe("Form.EnumerationField", () => {
   // Stands in for the Console's name modal, which creates the enumeration on Create.
   let prompt: Mock<Enumeration.CreatePrompt>;
   beforeEach(() => {
@@ -60,8 +60,8 @@ describe("Form.States", () => {
     as: FC<PropsWithChildren> = wrapper,
   ) =>
     renderForm(
-      <Form.States
-        enumeration={path.enumeration}
+      <Form.EnumerationField
+        path={path.enumeration}
         label={path.label.label}
         symbolName="State indicator"
       />,
@@ -142,20 +142,15 @@ describe("Form.States", () => {
       expect(e.name).toBe(term);
     });
 
-    it("should create an empty enumeration for a node that names none", async () => {
+    it("should start a new enumeration with one blank entry", async () => {
       const c = renderStates();
       await openCreate(c);
       const e = await created(c.value);
-      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ entries: [] }));
-      expect(e.entries).toEqual([]);
-      await waitFor(() =>
-        expect(document.activeElement).toBe(
-          c.getByRole("button", { name: "Add entry" }),
-        ),
-      );
+      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ entries: BLANK }));
+      expect(e.entries).toEqual(BLANK);
     });
 
-    it("should start the name of an unlinked node's enumeration with its label", async () => {
+    it("should start the name of a new enumeration with the node's label", async () => {
       const c = renderStates({ label: { label: "Pump" } });
       await openCreate(c);
       await created(c.value);
@@ -207,57 +202,28 @@ describe("Form.States", () => {
       );
     });
 
-    it("should create an empty enumeration for a node that names one", async () => {
+    it("should name a new enumeration for a node that names one", async () => {
       const linked = await client.enumerations.create({
         name: id.create(),
         entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
       });
-      const term = `Pump ${id.create()}`;
-      const c = renderStates({ enumeration: linked.key });
-      await openCreate(c, term);
-      const e = await created(c.value, linked.key);
-      expect(e.name).toBe(term);
-      expect(e.entries).toEqual([]);
-      await waitFor(() =>
-        expect(document.activeElement).toBe(
-          c.getByRole("button", { name: "Add entry" }),
-        ),
-      );
-    });
-
-    it("should ask for the name of a linked node's new enumeration", async () => {
-      const linked = await client.enumerations.create({
-        name: id.create(),
-        entries: [],
-      });
       const c = renderStates({ enumeration: linked.key, label: { label: "Pump" } });
       await openCreate(c);
       const e = await created(c.value, linked.key);
-      expect(prompt).toHaveBeenCalledWith({ name: "", entries: [] });
-      expect(e.entries).toEqual([]);
-      await waitFor(() =>
-        expect(document.activeElement).toBe(
-          c.getByRole("button", { name: "Add entry" }),
-        ),
-      );
+      expect(prompt).toHaveBeenCalledWith({ name: "Pump", entries: BLANK });
+      expect(e.entries).toEqual(BLANK);
     });
 
-    it("should not focus a created enumeration's entries on a later pick", async () => {
+    it("should pick an earlier enumeration after a create", async () => {
       const linked = await client.enumerations.create({
         name: `Valve ${id.create()}`,
         entries: [],
       });
       const c = renderStates({ enumeration: linked.key });
       await openCreate(c);
-      const e = await created(c.value, linked.key);
-      const add = (): HTMLElement => c.getByRole("button", { name: "Add entry" });
-      await waitFor(() => expect(document.activeElement).toBe(add()));
+      await created(c.value, linked.key);
       await pick(c, linked);
       await waitFor(() => expect(c.value(path.enumeration)).toBe(linked.key));
-      await pick(c, e);
-      await waitFor(() => expect(c.value(path.enumeration)).toBe(e.key));
-      await act(async () => {});
-      expect(document.activeElement).not.toBe(add());
     });
 
     it("should make no copy on a second click of a typed create", async () => {
@@ -277,87 +243,11 @@ describe("Form.States", () => {
     });
   });
 
-  describe("enumeration", () => {
-    /** Creates a schematic whose one select draws the enumeration. */
-    const createUser = async (e: enumeration.Key): Promise<schematic.Schematic> => {
-      const project = await client.projects.create({ name: id.create() });
-      return await client.schematics.create({
-        project: project.key,
-        name: id.create(),
-        nodes: [
-          {
-            key: "select",
-            position: { x: 0, y: 0 },
-            zIndex: 0,
-            config: schematic.nodeConfigZ.parse({ variant: "select", enumeration: e }),
-          },
-        ],
-      });
-    };
-
-    it("should count a schematic that links the enumeration while it shows", async () => {
-      const e = await client.enumerations.create({ name: id.create(), entries: [] });
-      await createUser(e.key);
-      const c = renderStates({ enumeration: e.key });
-      expect(await c.findByText("1 schematic")).toBeTruthy();
-      await createUser(e.key);
-      expect(await c.findByText("2 schematics")).toBeTruthy();
-    });
-
-    it("should edit the entries of the enumeration that the node names", async () => {
-      const e = await client.enumerations.create({
-        name: id.create(),
-        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
-      });
-      renderStates({ enumeration: e.key });
-      expect((await findInput("Name 1")).value).toBe("Primed");
-    });
-
-    it("should show no entries on No enumeration", async () => {
-      const e = await client.enumerations.create({
-        name: id.create(),
-        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
-      });
-      const c = renderStates({ enumeration: e.key });
-      await findInput("Name 1");
-      fireEvent.click(await c.findByRole("button", { name: /^Enumeration/ }));
-      fireEvent.click(await c.findByText("No enumeration"));
-      await waitFor(() => expect(c.value(path.enumeration)).toBeUndefined());
-      expect(c.queryByLabelText("Name 1")).toBeNull();
-    });
-
-    it("should span the picker across the columns of the entries", async () => {
-      const e = await client.enumerations.create({
-        name: id.create(),
-        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
-      });
-      const c = renderStates({ enumeration: e.key });
-      await findInput("Name 1");
-      const picker = c
-        .getByRole("button", { name: /^Enumeration/ })
-        .getBoundingClientRect();
-      const columns = c
-        .getAllByRole("columnheader")
-        .filter((th) => th.textContent !== "");
-      const first = columns[0].getBoundingClientRect();
-      const last = columns[columns.length - 1].getBoundingClientRect();
-      expect(picker.left).toBeCloseTo(first.left, 0);
-      expect(picker.right).toBeCloseTo(last.right, 0);
-    });
-
-    it("should keep the picker as wide when the node names no enumeration", async () => {
-      const e = await client.enumerations.create({
-        name: id.create(),
-        entries: [{ key: id.create(), name: "Primed", value: 0, abnormal: false }],
-      });
-      const c = renderStates({ enumeration: e.key });
-      await findInput("Name 1");
-      const picker = (): HTMLElement => c.getByRole("button", { name: /^Enumeration/ });
-      const linked = picker().getBoundingClientRect().width;
-      fireEvent.click(picker());
-      fireEvent.click(await c.findByText("No enumeration"));
-      await waitFor(() => expect(c.queryByLabelText("Name 1")).toBeNull());
-      expect(picker().getBoundingClientRect().width).toBeCloseTo(linked, 0);
-    });
+  it("should name no enumeration on No enumeration", async () => {
+    const e = await client.enumerations.create({ name: id.create(), entries: [] });
+    const c = renderStates({ enumeration: e.key });
+    fireEvent.click(await c.findByRole("button", { name: /^Enumeration/ }));
+    fireEvent.click(await c.findByText("No enumeration"));
+    await waitFor(() => expect(c.value(path.enumeration)).toBeUndefined());
   });
 });

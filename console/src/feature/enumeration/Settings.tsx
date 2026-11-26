@@ -172,7 +172,14 @@ const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
     const key = uuid.create();
     creating(key);
     void (async () => {
-      if ((await updateAsync({ key, name: trimmed })) === false) return;
+      if (
+        (await updateAsync({
+          key,
+          name: trimmed,
+          entries: Enumeration.createEntries(),
+        })) === false
+      )
+        return;
       // The new enumeration lists at the top, so its entries show to take focus.
       created(key);
       close();

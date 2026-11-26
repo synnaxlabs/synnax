@@ -17,6 +17,7 @@ import type { ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import type { FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
@@ -42,6 +43,11 @@ const StateIndicatorTelemForm = (): ReactElement => {
             onChange={handleSourceChange}
           />
         </Input.Item>
+        <Form.EnumerationField
+          path={path.enumeration}
+          label={path.label.label}
+          symbolName={NAME}
+        />
       </Base.Section>
       <Base.Section title="Staleness">
         <Staleness.TimeoutField />
@@ -51,15 +57,12 @@ const StateIndicatorTelemForm = (): ReactElement => {
 };
 
 export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElement => (
-  <Properties.Tabs
-    tabs={["telemetry", "style", "options"]}
-    tab={tab}
-    onTabChange={onTabChange}
-  >
+  <Properties.Tabs tabs={["telemetry", "style"]} tab={tab} onTabChange={onTabChange}>
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
           <Label.Form path={path.label} />
+          <Orientation.Field path={path} hideInner label="Position" />
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.ColorField path={path.strokeColor} label="Stroke" />
@@ -75,13 +78,6 @@ export const StateIndicatorForm = ({ tab, onTabChange }: FormProps): ReactElemen
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <StateIndicatorTelemForm />
-    </Tabs.Content>
-    <Tabs.Content itemKey="options">
-      <Form.States
-        enumeration={path.enumeration}
-        label={path.label.label}
-        symbolName={NAME}
-      />
     </Tabs.Content>
   </Properties.Tabs>
 );

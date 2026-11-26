@@ -108,7 +108,7 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
   return (
     <Base.Sections x>
       <Base.Section title="Label">
-        <Base.TextField path={path.label.label} label="Label" padHelpText={false} />
+        <Base.TextField path={path.label.label} label="Text" padHelpText={false} />
         <Base.Field path={path.label.level} label="Size" padHelpText={false}>
           {(p) => <Form.SelectTextLevel {...p} />}
         </Base.Field>
@@ -140,8 +140,8 @@ export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement 
       </Base.Section>
       <Base.Section title="Appearance">
         <Form.FillField fallback={colorFallbacks.fillColor} />
+        <Orientation.Field path={path} hideOuter label="Orientation" />
       </Base.Section>
-      <Orientation.Section path={path} hideOuter />
     </Base.Sections>
   );
 };

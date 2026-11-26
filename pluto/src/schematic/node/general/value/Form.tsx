@@ -38,13 +38,13 @@ export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => {
         <Base.Sections x>
           <Base.Section title="Label">
             <Label.Form path={path.label} />
+            <Orientation.Field path={path} hideInner label="Position" />
           </Base.Section>
           <Base.Section title="Appearance">
             <Form.ColorField path={path.strokeColor} label="Stroke" />
             <Form.FillField />
             <Form.ColorField path={path.textColor} label="Text" />
             <Form.LevelSizeField />
-            <Form.UnitsField />
             <Base.NumericField
               path={path.inlineSize}
               label="Width"
@@ -52,7 +52,6 @@ export const ValueForm = ({ tab, onTabChange }: FormProps): ReactElement => {
               inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
             />
           </Base.Section>
-          <Orientation.Section path={path} hideInner />
         </Base.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telemetry">

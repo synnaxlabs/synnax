@@ -55,7 +55,7 @@ export const Form = ({ path, omit = [], multiline }: FormProps): ReactElement =>
   <Flex.Box x align="stretch">
     <Base.TextField
       path={path.label}
-      label="Label"
+      label="Text"
       padHelpText={false}
       grow
       inputProps={multiline ? MULTILINE_INPUT_FIELD_PROPS : LABEL_INPUT_FIELD_PROPS}

@@ -39,7 +39,6 @@ export const TimeoutField = (): ReactElement => (
     {({ value, onChange, ...p }) => (
       <Input.TimeSpan
         {...p}
-        {...INPUT_PROPS}
         inline
         value={value}
         onChange={onChange}
@@ -48,5 +47,3 @@ export const TimeoutField = (): ReactElement => (
     )}
   </Form.Field>
 );
-
-const INPUT_PROPS = { style: { maxWidth: "18rem" } } as const;

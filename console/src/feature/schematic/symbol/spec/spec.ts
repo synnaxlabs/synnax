@@ -61,7 +61,7 @@ export const edited = (base: Spec, spec: Spec): boolean =>
 export const createState = (): schematic.symbol.State => ({
   type: "enumeration",
   key: STATE,
-  name: "Active",
+  name: "State",
   match: { type: "exact" },
   default: 0,
 });

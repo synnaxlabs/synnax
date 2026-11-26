@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/enumeration/CreatePrompt.css";
+
 import type { enumeration } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -14,25 +16,45 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Enumeration } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
+import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+/** Applies one edit of the entries table to the entries. */
+const apply = (
+  entries: enumeration.Entry[],
+  { changed, added, removed }: Enumeration.Edit,
+): enumeration.Entry[] => [
+  ...entries
+    .filter(({ key }) => !removed.includes(key))
+    .map((e) => changed.find(({ key }) => key === e.key) ?? e),
+  ...added,
+];
 
 const Create = ({
   close,
   name: initialName,
-  entries,
+  entries: initialEntries,
 }: Modals.ContentProps<
   Enumeration.CreatePromptParams,
   enumeration.Key
 >): ReactElement => {
   const [name, setName] = useState(initialName);
+  const [entries, setEntries] = useState(initialEntries);
+  const handleMove = (from: number, to: number): void =>
+    setEntries((prev) => {
+      const next = prev.filter((_, i) => i !== from);
+      next.splice(to, 0, prev[from]);
+      return next;
+    });
   const [error, setError] = useState<string>();
   const { updateAsync, variant } = Enumeration.useCreate();
   const loading = variant === "loading";
   Modals.useBusy(loading);
+  Modals.useUnsaved(() => name !== initialName || !deep.equal(entries, initialEntries));
   const handleChange = (next: string): void => {
     setName(next);
     setError(undefined);
@@ -46,10 +68,11 @@ const Create = ({
     })();
   };
   return (
-    <Modal.Frame>
+    <Modal.Frame className={CSS.BE("enumeration", "create")}>
       <Modal.Header icon={<Icon.Enumeration />}>Enumeration.Create</Modal.Header>
       <Modal.Body>
         <Input.Item
+          className={CSS.BE("enumeration", "create-name")}
           showLabel={false}
           helpText={error}
           status={error == null ? undefined : "error"}
@@ -67,6 +90,11 @@ const Create = ({
             full="x"
           />
         </Input.Item>
+        <Enumeration.Table
+          value={entries}
+          onChange={(edit) => setEntries((prev) => apply(prev, edit))}
+          onMove={handleMove}
+        />
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.End>
@@ -90,7 +118,7 @@ const useCreateModal = Modals.createPrompt<
   Enumeration.CreatePromptParams
 >(Create);
 
-/** Gives the symbol forms below it the modal that names a new enumeration. */
+/** Gives the forms below it the modal that creates an enumeration. */
 export const CreatePromptProvider = ({ children }: PropsWithChildren): ReactElement => {
   const prompt = useCreateModal();
   return (

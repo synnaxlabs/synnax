@@ -15,6 +15,7 @@ import type { ReactElement } from "react";
 
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 
 const path = deep.path<schematic.CircleNodeConfig>();
 
@@ -29,6 +30,7 @@ export const CircleForm = (): ReactElement => (
   <Base.Sections x>
     <Base.Section title="Label">
       <Label.Form path={path.label} />
+      <Orientation.Field path={path} hideInner label="Position" />
     </Base.Section>
     <Base.Section title="Appearance">
       <Form.ColorField path={path.strokeColor} label="Stroke" />

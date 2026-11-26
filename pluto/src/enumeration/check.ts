@@ -85,6 +85,6 @@ export const check = (
       break;
     }
   if (!entry.abnormal && isAlarm(pair))
-    warnings.push("It has an alarm color, but it is not abnormal.");
+    warnings.push("Its color reads as an alarm, but Abnormal is off.");
   return warnings;
 };

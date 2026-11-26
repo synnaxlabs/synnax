@@ -179,7 +179,7 @@ class Symbol(ABC):
         style_tab = self.page.get_by_text("Style", exact=True).first
         style_tab.wait_for(state="visible", timeout=5000)
         click_past(style_tab)
-        self.layout.fill_input_field("Label", label)
+        self.layout.fill_input_field("Text", label)
         self.label = label
 
     def channel_trigger(self, section: str) -> Locator:

@@ -10,13 +10,11 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { theme } from "@synnaxlabs/lyra/theme";
 import type { color, xy } from "@synnaxlabs/x";
-import type { FC, ReactNode } from "react";
+import type { FC } from "react";
 
 import type { Properties } from "@/vis/properties";
 
 export interface FormProps extends Properties.SelectionProps {
-  /** actions render at the foot of the form's tab rail. */
-  actions?: ReactNode;
   schematicKey?: string;
 }
 

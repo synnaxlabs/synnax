@@ -14,16 +14,14 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
-import { Header } from "@synnaxlabs/lyra/header";
 import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Schematic } from "@synnaxlabs/pluto";
-import { type bounds, id, type xy } from "@synnaxlabs/x";
+import { Enumeration, Schematic } from "@synnaxlabs/pluto";
+import { id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 import type { z } from "zod";
 
@@ -41,6 +39,7 @@ import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { ItemList } from "@/feature/schematic/symbol/edit/ItemList";
 import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
+import { StateInspector } from "@/feature/schematic/symbol/edit/StateInspector";
 import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
@@ -64,11 +63,17 @@ export interface ModalParams {
   createKey?: string;
 }
 
-const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
+interface StateDetailProps {
+  state: schematic.symbol.State;
+}
 
-const STATE_TYPES: Record<schematic.symbol.StateType, string> = {
-  enumeration: "Enumeration",
-  number: "Number",
+// StateDetail names the enumeration that names the values of a state.
+const StateDetail = ({ state }: StateDetailProps): ReactNode => {
+  const key = state.type === "enumeration" ? state.enumeration : undefined;
+  const res = Enumeration.useResult(key == null ? null : { key });
+  if (state.type === "number") return "Number";
+  if (key == null) return "No enumeration";
+  return res.data?.name ?? "";
 };
 
 interface CommandDetailProps {
@@ -85,9 +90,9 @@ const CommandDetail = ({ command }: CommandDetailProps): ReactNode => {
   return `Sends ${named ?? value}`;
 };
 
-// Item is a command or a click that the inspector edits.
+// Item is a state, a command, or a click that the inspector edits.
 interface Item {
-  type: "command" | "click";
+  type: "state" | "command" | "click";
   key: string;
 }
 
@@ -189,6 +194,7 @@ const Editor = ({
     afterSave: () => close(),
   });
   Modals.useBusy(variant === "loading");
+  const dismiss = Modals.useDismiss();
   const stored = Schematic.Symbol.useResult(
     symbolKey == null ? null : { key: symbolKey, includeUses: true },
   );
@@ -285,11 +291,14 @@ const Editor = ({
   const commands = Form.useFieldValue(path.data.commands, { ctx: form });
   const interactions = Form.useFieldValue(path.data.interactions, { ctx: form });
   const parts = Form.useFieldValue(path.data.parts, { ctx: form });
+  const itemsOf: Record<Item["type"], { key: string }[]> = {
+    state: states,
+    command: commands,
+    click: interactions,
+  };
   const shown =
     selectedItem != null &&
-    (selectedItem.type === "command" ? commands : interactions).some(
-      (i) => i.key === selectedItem.key,
-    )
+    itemsOf[selectedItem.type].some((i) => i.key === selectedItem.key)
       ? selectedItem
       : undefined;
   const describeClick = (click: schematic.symbol.Interaction): string => {
@@ -366,19 +375,16 @@ const Editor = ({
                   items={states}
                   label={(s) => s.name}
                   name={(key) => path.data.states[key].name}
-                  detail={(s) => STATE_TYPES[s.type]}
+                  detail={(s) => <StateDetail state={s} />}
                   add={Spec.addState}
                   remove={Spec.removeState}
-                  // The inspector shows no state, so no state looks selected.
-                  value={undefined}
+                  value={shown?.type === "state" ? shown.key : undefined}
                   onChange={(key) => {
+                    selectItem("state")(key);
                     // The preview shows enumeration states alone.
                     const state = states.find((s) => s.key === key);
                     if (state?.type !== "enumeration") return;
-                    setPreview({
-                      state: state.key,
-                      value: state.default,
-                    });
+                    setPreview({ state: state.key, value: state.default });
                   }}
                 />
                 <Divider.Divider x />
@@ -425,35 +431,6 @@ const Editor = ({
                   onChange={setSelectedHandle}
                   onAddHandle={addNewHandle}
                 />
-                <Divider.Divider x />
-                <Flex.Box y>
-                  <Header.Header level="p" bordered={false}>
-                    <Header.Title level="p" weight={500}>
-                      Properties
-                    </Header.Title>
-                  </Header.Header>
-                  <Flex.Box className={CSS.BE("schematic", "properties")}>
-                    <Form.Field
-                      path={path.data.scale}
-                      helpText="Sets the default scale when added to a schematic"
-                    >
-                      {({ onChange, value }) => (
-                        <Input.Numeric
-                          value={Math.round(value * 100)}
-                          onChange={(v) => onChange(v / 100)}
-                          bounds={SCALE_BOUNDS}
-                          dragScale={0.5}
-                          endContent="%"
-                        />
-                      )}
-                    </Form.Field>
-                    <Form.CheckboxField
-                      path={path.data.strokeScaled}
-                      label="Scale stroke"
-                      align="start"
-                    />
-                  </Flex.Box>
-                </Flex.Box>
               </Flex.Box>
             )}
             <Flex.Box y grow className={CSS.BE("schematic", "canvas")}>
@@ -485,7 +462,9 @@ const Editor = ({
                 bordered
                 borderColor={6}
               >
-                {shown?.type === "command" ? (
+                {shown?.type === "state" ? (
+                  <StateInspector key={shown.key} state={shown.key} />
+                ) : shown?.type === "command" ? (
                   <CommandInspector key={shown.key} command={shown.key} />
                 ) : shown?.type === "click" ? (
                   <ClickInspector key={shown.key} click={shown.key} />
@@ -502,7 +481,10 @@ const Editor = ({
         </Modal.Body>
         {hasSVG && (
           <Modal.Footer background={0}>
-            <Nav.Bar.End>
+            <Nav.Bar.End gap="small">
+              <Button.Button variant="outlined" onClick={dismiss}>
+                Cancel
+              </Button.Button>
               <Button.Button
                 variant="filled"
                 status={

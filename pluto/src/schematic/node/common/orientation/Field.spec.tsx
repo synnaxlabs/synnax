@@ -25,15 +25,17 @@ const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
   return <Form.Form {...methods}>{children}</Form.Form>;
 };
 
-describe("Orientation.Section", () => {
-  it("should render the field under a layout title", () => {
-    render(<Orientation.Section path={path.node} />, { wrapper: FormWrapper });
-    expect(screen.getByText("Layout")).toBeTruthy();
+describe("Orientation.Field", () => {
+  it("should render the field with its label", () => {
+    render(<Orientation.Field path={path.node} label="Position" />, {
+      wrapper: FormWrapper,
+    });
+    expect(screen.getByText("Position")).toBeTruthy();
   });
 
   it("should render nothing when both the inner and outer parts hide", () => {
     const { container } = render(
-      <Orientation.Section path={path.node} hideInner hideOuter />,
+      <Orientation.Field path={path.node} hideInner hideOuter />,
       { wrapper: FormWrapper },
     );
     expect(container.innerHTML).toBe("");

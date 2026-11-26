@@ -396,6 +396,12 @@ bound, a log precision, or the line plot X channel.
   group in the picker, such as a palette, ends with a "+" text button that adds an item
   to that group. The Series palette is the one exception: it has no "+", because a user
   adds a series color in the Library.
+- Where a create happens follows the user's goal. In the Library the item is the goal,
+  so it creates in place. In a field the item serves another goal, so a create that
+  needs more than a name is a draft, and nothing exists until the user clicks Create.
+  The draft stays in the picker when the picker already edits that kind of value, as the
+  color picker does. Otherwise it opens the create modal, as for a label or an
+  enumeration. The modal asks before Esc or a click outside discards a changed draft.
 - A right click on an item in a picker opens its menu, with Edit. Shift+F10 and the Menu
   key open it on a focused item. Edit opens the type's editor in place. A picker has no
   hover edit button.
@@ -521,12 +527,13 @@ bound, a log precision, or the line plot X channel.
   an empty search, a pinned "New <noun>" opens the create modal. While the user types,
   it changes to "Create <noun> "text"", which creates the item at once and picks it. An
   item that needs a choice from the user opens the create modal with the text as its
-  name: a label asks for its color. The Console never picks a color for the user. The
-  option hides when the text matches a name in any case, and after a click until the
-  text changes, so a second click makes no copy. It needs create permission. A filter
-  never creates. A new parent range covers the ranges that move into it. Under the
-  divider, the create option comes first, then "No <noun>". The "Replace with" select of
-  the enumeration delete dialog only picks: a new enumeration has no entries for the
+  name: a label asks for its color. An enumeration asks for its entries, so a mistake
+  never strands an empty one. The Console never picks a color for the user. The option
+  hides when the text matches a name in any case, and after a click until the text
+  changes, so a second click makes no copy. It needs create permission. A filter never
+  creates. A new parent range covers the ranges that move into it. Under the divider,
+  the create option comes first, then "No <noun>". The "Replace with" select of the
+  enumeration delete dialog only picks: a new enumeration has only a blank entry for the
   users to move to.
 - A create button at the foot of a dialog, such as "New project" in the project selector
   or "Create palette", is a small `Button.CreateListItem` with its own margin: 1rem from
@@ -562,6 +569,10 @@ bound, a log precision, or the line plot X channel.
   nothing.
 - Only a tag that shows a color dot shows as a dot in the count. Tags with other icons,
   such as channels, fold into a plain "+N".
+- A group whose tags are short names to read, such as the entries of an enumeration in
+  its select, never stacks. Each tag shows in full or folds into the count.
+- The list of hidden tags lines up their names. When one has a dot, a tag with no dot
+  keeps the room of one.
 - An outlined group, such as a select in a form, keeps its outline at every step.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
@@ -795,8 +806,9 @@ bound, a log precision, or the line plot X channel.
 - Create in place when every field you set is a column, such as a label or a secret. The
   create item opens at the top with check and X buttons, and Enter and Esc. It stays
   open and empty after each create, and the new item fades in under it.
-- A record whose next step is to fill in its children, such as an enumeration, closes
-  the create item and opens with its add button focused.
+- A record whose next step is to fill in its children, such as an enumeration, starts
+  with one blank child. The create item closes, and the record opens with that child
+  focused.
 - Use a modal when the item needs a field the list does not show, such as a user's
   password, or when the create returns a value to copy, such as an API key's token.
 - A record table names its columns in a band above the items. Explorers have no

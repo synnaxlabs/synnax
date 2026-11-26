@@ -32,7 +32,7 @@ func static(name string) Builtin {
 
 func active(enum enumeration.Key) State {
 	return State{Variant: EnumerationState{
-		BaseState:   BaseState{Key: activeState, Name: "Active"},
+		BaseState:   BaseState{Key: activeState, Name: "State"},
 		Enumeration: &enum,
 		Match: Matcher{
 			Variant: WithinMatcher{Bounds: spatial.Bounds{Lower: 0.9, Upper: 1.1}},

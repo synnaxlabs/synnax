@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as Base } from "@synnaxlabs/lyra/select";
 import type { location } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
@@ -36,34 +38,45 @@ export const Field = ({
   if (hideInner && hideOuter) return null;
   return (
     <Form.Field label="Layout" padHelpText={false} {...rest}>
-      {({ value, onChange }) => (
-        <Select
-          value={{
-            inner: value.orientation ?? "top",
-            outer: value.label.orientation,
-          }}
-          hideInner={hideInner}
-          hideOuter={hideOuter}
-          showOuterCenter={showOuterCenter}
-          onChange={(v) =>
-            onChange({
-              ...value,
-              orientation: v.inner,
-              label: { ...value.label, orientation: v.outer },
-            })
-          }
-        />
-      )}
+      {({ value, onChange }) =>
+        hideOuter ? (
+          <Base.Buttons
+            value={value.orientation ?? "top"}
+            onChange={(orientation: location.Outer) =>
+              onChange({ ...value, orientation })
+            }
+          >
+            <Base.Item itemKey="left" tooltip="Left">
+              <Icon.Arrow.Left />
+            </Base.Item>
+            <Base.Item itemKey="top" tooltip="Top">
+              <Icon.Arrow.Up />
+            </Base.Item>
+            <Base.Item itemKey="right" tooltip="Right">
+              <Icon.Arrow.Right />
+            </Base.Item>
+            <Base.Item itemKey="bottom" tooltip="Bottom">
+              <Icon.Arrow.Down />
+            </Base.Item>
+          </Base.Buttons>
+        ) : (
+          <Select
+            value={{
+              inner: value.orientation ?? "top",
+              outer: value.label.orientation,
+            }}
+            hideInner={hideInner}
+            showOuterCenter={showOuterCenter}
+            onChange={(v) =>
+              onChange({
+                ...value,
+                orientation: v.inner,
+                label: { ...value.label, orientation: v.outer },
+              })
+            }
+          />
+        )
+      }
     </Form.Field>
-  );
-};
-
-/** Section is the field in a titled form section, or nothing when both parts hide. */
-export const Section = (props: FieldProps): ReactElement | null => {
-  if (props.hideInner && props.hideOuter) return null;
-  return (
-    <Form.Section title="Layout">
-      <Field showLabel={false} showHelpText={false} {...props} />
-    </Form.Section>
   );
 };

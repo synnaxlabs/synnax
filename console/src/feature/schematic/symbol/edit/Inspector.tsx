@@ -22,7 +22,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic } from "@synnaxlabs/pluto";
-import { type color, TimeSpan } from "@synnaxlabs/x";
+import { type bounds, type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
@@ -198,7 +198,7 @@ const Property = ({
                   : `Set the ${name} of each state`
               }
             >
-              By state
+              <Icon.Enumeration />
             </Button.Toggle>
           )}
         </Flex.Box>
@@ -369,6 +369,11 @@ const MotionControl = (): ReactElement => {
         ? MOVES_WITH_DRAWING
         : `${inheritedFrom} moves this part.`);
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
+  // A group names itself only beside another group, where the name tells them apart.
+  const groups = MOTIONS.map(({ name, kinds }) => ({
+    name,
+    offered: kinds.filter((k) => isLoop(k.kind) || k.kind === value?.type),
+  })).filter(({ offered }) => offered.length > 0);
   const handleKindChange = (kind: schematic.symbol.MotionType | "none") => {
     if (kind === "none") return onChange(undefined);
     if (!isLoop(kind)) throw new Error(`the motion picker cannot set ${kind}`);
@@ -390,29 +395,27 @@ const MotionControl = (): ReactElement => {
         <Select.Item itemKey="none" size="small" disabled={why != null} tooltip={why}>
           None
         </Select.Item>
-        {MOTIONS.map(({ name, kinds }) => {
-          const offered = kinds.filter((k) => isLoop(k.kind) || k.kind === value?.type);
-          if (offered.length === 0) return null;
-          return (
-            <Fragment key={name}>
-              <Divider.Divider y />
+        {groups.map(({ name, offered }) => (
+          <Fragment key={name}>
+            <Divider.Divider y />
+            {groups.length > 1 && (
               <Text.Text level="small" color={8}>
                 {name}
               </Text.Text>
-              {offered.map((k) => (
-                <Select.Item
-                  key={k.kind}
-                  itemKey={k.kind}
-                  size="small"
-                  disabled={why != null || !isLoop(k.kind)}
-                  tooltip={!isLoop(k.kind) ? FOLLOWS : why}
-                >
-                  {k.name}
-                </Select.Item>
-              ))}
-            </Fragment>
-          );
-        })}
+            )}
+            {offered.map((k) => (
+              <Select.Item
+                key={k.kind}
+                itemKey={k.kind}
+                size="small"
+                disabled={why != null || !isLoop(k.kind)}
+                tooltip={!isLoop(k.kind) ? FOLLOWS : why}
+              >
+                {k.name}
+              </Select.Item>
+            ))}
+          </Fragment>
+        ))}
       </Select.Buttons>
       {moving != null && (
         <Input.Numeric
@@ -484,7 +487,11 @@ const SelectParent = ({ part }: SelectParentProps): ReactElement => {
     <Button.Button
       size="small"
       variant="outlined"
-      tooltip={SELECT_PARENT_TOOLTIP}
+      tooltip={
+        group == null
+          ? "The shapes of this part sit in no group"
+          : SELECT_PARENT_TOOLTIP
+      }
       disabled={group == null}
       onClick={handleClick}
     >
@@ -492,6 +499,55 @@ const SelectParent = ({ part }: SelectParentProps): ReactElement => {
     </Button.Button>
   );
 };
+
+const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
+
+// SizeFields edit the size of a new node, and whether its strokes scale with it.
+const SizeFields = (): ReactElement => (
+  <>
+    <Form.Field<number> path={path.data.scale} showLabel={false} padHelpText={false}>
+      {({ value, onChange }) => (
+        <Flex.Box x align="center" justify="between">
+          <Text.Text level="small" gap="small">
+            <Icon.Expand />
+            Scale
+          </Text.Text>
+          <Input.Numeric
+            size="small"
+            aria-label="Scale"
+            value={Math.round(value * 100)}
+            onChange={(v) => onChange(v / 100)}
+            bounds={SCALE_BOUNDS}
+            dragScale={0.5}
+            endContent="%"
+            tooltip="The scale of a new node"
+            className={CSS.BE("schematic-inspector", "rate")}
+          />
+        </Flex.Box>
+      )}
+    </Form.Field>
+    <Form.Field<boolean>
+      path={path.data.strokeScaled}
+      showLabel={false}
+      padHelpText={false}
+    >
+      {({ value, onChange }) => (
+        <Flex.Box x align="center" justify="between">
+          <Text.Text level="small" gap="small">
+            <Icon.StrokeWidth />
+            Scale stroke
+          </Text.Text>
+          <Input.Checkbox
+            aria-label="Scale stroke"
+            value={value}
+            onChange={onChange}
+            tooltip="Strokes grow and shrink with the node"
+          />
+        </Flex.Box>
+      )}
+    </Form.Field>
+  </>
+);
 
 /** Inspector edits the looks of one part, or of the whole drawing. */
 export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement => {
@@ -548,6 +604,12 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
             {issue != null && (
               <Status.Summary level="small" variant="error" {...LEVEL_ISSUES[issue]} />
             )}
+          </>
+        )}
+        {part == null && (
+          <>
+            <Divider.Divider x />
+            <SizeFields />
           </>
         )}
       </Flex.Box>
