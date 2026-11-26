@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/settings/Table.css";
+import "@/platform/collection/Table.css";
 
 import type { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
@@ -32,7 +32,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { Card } from "@/platform/settings/Page";
+import { Page } from "@/platform/page";
 
 /** The items of a {@link Table}, from a Flux list or a static list. */
 export interface TableData<
@@ -62,12 +62,12 @@ export interface CreateContextValue {
 }
 
 const CreateContext = createContext<CreateContextValue | null>(null);
-CreateContext.displayName = "Settings.Create";
+CreateContext.displayName = "Collection.Create";
 
 /** Returns the callbacks of the create item. Throws outside a create item. */
 export const useCreate = (): CreateContextValue => {
   const ctx = use(CreateContext);
-  if (ctx == null) throw new Error("Settings.useCreate must be inside a create item");
+  if (ctx == null) throw new Error("Collection.useCreate must be inside a create item");
   return ctx;
 };
 
@@ -130,19 +130,19 @@ const ScrollTo = <K extends record.Key>({
 };
 
 const FreshContext = createContext<ReadonlySet<record.Key>>(new Set());
-FreshContext.displayName = "Settings.Fresh";
+FreshContext.displayName = "Collection.Fresh";
 
 /** Returns the class of an item in a {@link Table}. An item created in it fades in. */
 export const useItemClass = (key: record.Key): string =>
   CSS.cls(
-    CSS.BE("settings-table", "item"),
-    use(FreshContext).has(key) && CSS.BE("settings-table", "fresh"),
+    CSS.BE("collection-table", "item"),
+    use(FreshContext).has(key) && CSS.BE("collection-table", "fresh"),
   );
 
 /** Lays out the fields of a new item on the columns of its {@link Table}. */
 export const CreateFrame = ({ children }: PropsWithChildren): ReactElement => (
-  <div className={CSS.BE("settings-table", "create")}>
-    <span className={CSS.BE("settings-table", "create-check")} />
+  <div className={CSS.BE("collection-table", "create")}>
+    <span className={CSS.BE("collection-table", "create-check")} />
     <List.Cells>{children}</List.Cells>
   </div>
 );
@@ -175,7 +175,7 @@ export const CreateActions = ({ onSave, status }: CreateActionsProps): ReactElem
       x
       gap="small"
       justify="end"
-      className={CSS.BE("settings-table", "actions")}
+      className={CSS.BE("collection-table", "actions")}
     >
       <Button.Button
         variant="filled"
@@ -201,9 +201,9 @@ export const CreateActions = ({ onSave, status }: CreateActionsProps): ReactElem
 };
 
 /**
- * A searchable list of items on the columns of a Settings page, with a create action
- * and a context menu for the selected items. An item created in place lists at the top
- * until the page closes, so it does not jump to its sorted place.
+ * A searchable list of items in columns, with a create action and a context menu for
+ * the selected items. An item created in place lists at the top until the page closes,
+ * so it does not jump to its sorted place.
  */
 export const Table = <K extends record.Key, E extends record.Keyed<K>>({
   list,
@@ -280,14 +280,14 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
     >
       <Menu.ContextMenu menu={menu} {...menuProps} />
       <ScrollTo data={ordered} itemKey={initial} onShow={onShowSelected} />
-      <Flex.Box y gap="medium" className={CSS.B("settings-table")}>
+      <Flex.Box y gap="medium" className={CSS.B("collection-table")}>
         <Flex.Box x wrap align="center" justify="between" gap="medium">
           <Input.Text
             value={term}
             onChange={handleSearch}
             placeholder={`Search ${noun}`}
             startContent={<Icon.Search />}
-            className={CSS.BE("settings-table", "search")}
+            className={CSS.BE("collection-table", "search")}
           />
           {createLabel != null && (
             <Button.Button
@@ -300,17 +300,17 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
             </Button.Button>
           )}
         </Flex.Box>
-        <Card flush>
-          <div className={CSS.BE("settings-table", "scroll")}>
-            <div className={CSS.BE("settings-table", "columns")}>
+        <Page.Card flush>
+          <div className={CSS.BE("collection-table", "scroll")}>
+            <div className={CSS.BE("collection-table", "columns")}>
               <List.Columns columns={columns}>
                 <List.Headings checkable />
                 {creating != null && create != null && (
                   <div
                     className={CSS.cls(
-                      CSS.BE("settings-table", "reveal"),
+                      CSS.BE("collection-table", "reveal"),
                       creating === "closing" &&
-                        CSS.BEM("settings-table", "reveal", "closing"),
+                        CSS.BEM("collection-table", "reveal", "closing"),
                     )}
                     onAnimationEnd={(e) => {
                       if (creating === "closing" && e.target === e.currentTarget)
@@ -338,7 +338,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
                           <Status.Summary
                             center
                             status={query}
-                            className={CSS.BE("settings-table", "empty")}
+                            className={CSS.BE("collection-table", "empty")}
                           />
                         ) : (
                           answered &&
@@ -347,7 +347,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
                               center
                               variant="disabled"
                               hideIcon
-                              className={CSS.BE("settings-table", "empty")}
+                              className={CSS.BE("collection-table", "empty")}
                             >
                               No {noun}
                             </Status.Summary>
@@ -362,7 +362,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
               </List.Columns>
             </div>
           </div>
-        </Card>
+        </Page.Card>
       </Flex.Box>
     </Select.Frame>
   );

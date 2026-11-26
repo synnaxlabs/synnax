@@ -13,7 +13,11 @@ import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { binary, errors } from "@synnaxlabs/x";
 import { useState } from "react";
 
-import { type CommandChannelSpec, planCommandChannels } from "@/platform/task/channels";
+import {
+  type CommandChannelPlan,
+  type CommandChannelSpec,
+  planCommandChannels,
+} from "@/platform/task/channels";
 
 /**
  * Plans the channels that deploying gives each source of a task, together, so a form
@@ -55,7 +59,7 @@ export const useChannelPlans = <P>(
   return keys.map((key) => plans.get(key));
 };
 
-const NO_NAMES: ReadonlyMap<string, string> = new Map();
+const NO_PLANS: ReadonlyMap<string, CommandChannelPlan> = new Map();
 
 /**
  * Plans the command channels of the write targets of a task, as deploying gives them,
@@ -63,15 +67,15 @@ const NO_NAMES: ReadonlyMap<string, string> = new Map();
  *
  * @param write - The write properties of the device, or undefined before it loads.
  * @param specs - The command channel of each enabled target, in deploy order.
- * @returns the name of each channel that deploying creates, by the properties key of
- * its target, once the plan is done.
+ * @returns the plan of each properties key, as planCommandChannels gives it, once the
+ * plan is done.
  */
-export const useCommandChannelNames = (
+export const useCommandChannelPlans = (
   write: Record<string, channel.Key> | undefined,
   specs: CommandChannelSpec[],
-): ReadonlyMap<string, string> => {
-  const [names] = useChannelPlans([{ write, specs }], async (client) =>
+): ReadonlyMap<string, CommandChannelPlan> => {
+  const [plans] = useChannelPlans([{ write, specs }], async (client) =>
     write == null ? [] : [await planCommandChannels(client, write, specs)],
   );
-  return names ?? NO_NAMES;
+  return plans ?? NO_PLANS;
 };
