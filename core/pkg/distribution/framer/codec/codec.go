@@ -404,12 +404,12 @@ func (c *Codec) panicIfNotUpdated(opName string) {
 }
 
 // mergeable returns true when s2 can join s1 in one series: both have the same clock,
-// data type, and alignment multiple, and s2 starts at the alignment where s1 ends. The
-// type compare comes before the alignment bounds, which a type with no density cannot
-// compute.
+// data type, and alignment multiple, and s2 starts at the alignment where s1 ends. A
+// type with no density never merges, since its alignment bounds cannot be computed.
 func mergeable(s1, s2 telem.Series) bool {
 	return s1.Clock == s2.Clock &&
 		s1.DataType == s2.DataType &&
+		(s1.DataType.IsVariable() || s1.DataType.Density() != telem.UnknownDensity) &&
 		s1.Multiple() == s2.Multiple() &&
 		s1.AlignmentBounds().Upper == s2.AlignmentBounds().Lower
 }
