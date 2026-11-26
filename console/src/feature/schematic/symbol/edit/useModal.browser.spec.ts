@@ -1062,7 +1062,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("shows a part that the whole drawing hides", async () => {
-      mocks.symbolNodes = false;
       const symbol = await openPainted({ looks: [{ key: "hide", hidden: true }] });
       const visible = screen.getByLabelText<HTMLInputElement>("Visible");
       expect(visible.checked).toBe(false);

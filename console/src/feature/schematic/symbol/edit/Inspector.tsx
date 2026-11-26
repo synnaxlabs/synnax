@@ -236,10 +236,11 @@ const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
 const VisibleControl = (): ReactElement => {
   const { value, inherited, part, at, values, preview, looks, onChange, label } =
     useScope<"hidden">("VisibleControl");
-  // A part shown at every value stores false when the drawing hides at any value.
+  // A part shown at every value stores false when the drawing hides at any value. A
+  // symbol with no state lists no values, so only its preview value counts.
   const drawingHides =
     part != null &&
-    (at == null
+    (at == null && values.list.length > 0
       ? values.list.some(
           (v) =>
             Spec.effective({ looks }, undefined, "hidden", {
