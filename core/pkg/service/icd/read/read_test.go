@@ -404,25 +404,6 @@ var _ = Describe("Read", func() {
 			)
 		})
 
-		Describe("Claim", func() {
-			It("Should take a channel that nothing writes", func(ctx SpecContext) {
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
-				Expect(c.Claim(valueKey, []string{"tag"})).To(Succeed())
-			})
-
-			It("Should reject a channel that another binding or tag writes", func(
-				ctx SpecContext,
-			) {
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
-				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				err := c.Claim(valueKey, []string{"b", "channel"})
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(
-					"b.channel: channel 2 is also written by a.channel",
-				))
-			})
-		})
-
 		Describe("Tag", func() {
 			// takes is the check of a tag that takes floats.
 			takes := func(dt telem.DataType) bool { return dt == telem.Float64T }
@@ -433,7 +414,7 @@ var _ = Describe("Read", func() {
 				tags := []channel.Key{valueKey}
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
 				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
-				Expect(c.Claim(valueKey, []string{"b", "channel"})).To(MatchError(
+				Expect(c.Tag(valueKey, []string{"b", "channel"}, takes)).To(MatchError(
 					"b.channel: channel 2 is also written by a.channel",
 				))
 			})
@@ -471,11 +452,11 @@ var _ = Describe("Read", func() {
 			It("Should reject a channel that another binding or tag writes", func(
 				ctx SpecContext,
 			) {
-				tags := []channel.Key{valueKey}
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
-				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.Tag(valueKey, []string{"b", "channel"}, takes)).To(MatchError(
-					"b.channel: channel 2 is also written by a.channel",
+				rd := readAt(0, plant.Key, readOf(status, bind(temp, valueKey)))
+				c := MustSucceed(checker(ctx, rd))
+				Expect(c.Tag(valueKey, []string{"tag"}, takes)).To(MatchError(
+					"tag: channel 2 is also written by " +
+						"reads.0.messages.0.bindings.0.channel",
 				))
 			})
 		})
@@ -484,23 +465,15 @@ var _ = Describe("Read", func() {
 			It("Should reject a tag whose index channel another tag writes", func(
 				ctx SpecContext,
 			) {
+				takes := func(telem.DataType) bool { return true }
 				tags := []channel.Key{valueKey, levelKey}
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
-				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.Claim(levelKey, []string{"b", "channel"})).To(Succeed())
+				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
+				Expect(c.Tag(levelKey, []string{"b", "channel"}, takes)).To(Succeed())
 				Expect(c.ClaimIndex(valueKey, []string{"a", "channel"})).To(Succeed())
 				Expect(c.ClaimIndex(levelKey, []string{"b", "channel"})).To(MatchError(
 					"b.channel: channel 1 is also written by a.channel",
 				))
-			})
-
-			It("Should take nothing for a tag on an index channel", func(
-				ctx SpecContext,
-			) {
-				tags := []channel.Key{timeKey}
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
-				Expect(c.Claim(timeKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.ClaimIndex(timeKey, []string{"a", "channel"})).To(Succeed())
 			})
 		})
 	})

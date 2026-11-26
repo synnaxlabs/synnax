@@ -53,7 +53,7 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 	return Resolver{icds: icds, channels: channels}
 }
 
-// NewChecker returns the Checker of reads and of tags, the channels that Claim takes
+// NewChecker returns the Checker of reads and of tags, the channels that Tag takes
 // beyond the bindings of reads. It holds each ICD from icds or else retrieved through
 // snap, and the channels of the bindings and the tags. The Checker skips an ICD or a
 // channel that does not exist, which the reference check of the write reports.
@@ -159,9 +159,9 @@ func (c Checker) Read(rd Read) error {
 	return nil
 }
 
-// Claim takes key for the binding or tag at path. It returns a validation error when
+// claim takes key for the binding or tag at path. It returns a validation error when
 // another binding or tag of the config already writes to key.
-func (c Checker) Claim(key channel.Key, path []string) error {
+func (c Checker) claim(key channel.Key, path []string) error {
 	if other, ok := c.written[key]; ok {
 		return validate.PathedError(
 			validate.Errorf("channel %d is also written by %s", key, other),
@@ -195,12 +195,12 @@ func (c Checker) Tag(
 			), path...)
 		}
 	}
-	return c.Claim(key, path)
+	return c.claim(key, path)
 }
 
 // ClaimIndexes claims, for each message of rd, each index channel of its bound channels
 // that its index field does not bind, since the task writes its timestamps. Run it
-// after Read and Claim, so that an error is at the path of the message that does not
+// after Read and Tag, so that an error is at the path of the message that does not
 // bind it.
 func (c Checker) ClaimIndexes(rd Read) error {
 	for j, rm := range rd.Messages {
@@ -224,7 +224,7 @@ func (c Checker) ClaimIndexes(rd Read) error {
 			if key == indexChannel {
 				continue
 			}
-			if err := c.Claim(key, path); err != nil {
+			if err := c.claim(key, path); err != nil {
 				return err
 			}
 		}
@@ -236,8 +236,8 @@ func (c Checker) ClaimIndexes(rd Read) error {
 // timestamps the task writes. It returns a validation error when another binding or
 // tag already writes to it.
 func (c Checker) ClaimIndex(key channel.Key, path []string) error {
-	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 && ch.IndexKey != key {
-		return c.Claim(ch.IndexKey, path)
+	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 {
+		return c.claim(ch.IndexKey, path)
 	}
 	return nil
 }
@@ -375,5 +375,5 @@ func (c Checker) checkBinding(
 			name, ch.Name, name,
 		), "channel")
 	}
-	return c.Claim(b.Channel, slices.Concat(path, []string{"channel"}))
+	return c.claim(b.Channel, slices.Concat(path, []string{"channel"}))
 }
