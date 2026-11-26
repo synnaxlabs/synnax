@@ -734,9 +734,6 @@ func (f *Factory) configureEdge(
 	if err != nil {
 		return nil, cfg.AutoStart, err
 	}
-	if _, err = newClientConfig(dev); err != nil {
-		return nil, cfg.AutoStart, err
-	}
 	edge := &edgeNode{
 		ins:       f.cfg.Child(t.Key.String()),
 		broker:    dev.Key,
