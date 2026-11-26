@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/content"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // readResolver resolves read configs against the ICDs and channels they read.
@@ -31,10 +30,9 @@ type readResolver struct {
 	ins      alamos.Instrumentation
 }
 
-// resolve moves the inline fields of cfg into a new ICD named name, refuses an endpoint
-// that sets fields and reads no messages, then checks each endpoint of cfg against its
-// ICD and its channels, read through snap. It returns the write that creates the ICD,
-// or nil when cfg holds no inline fields.
+// resolve moves the inline fields of cfg into a new ICD named name, then checks each
+// endpoint of cfg against its ICD and its channels, read through snap. It returns the
+// write that creates the ICD, or nil when cfg holds no inline fields.
 func (r readResolver) resolve(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -45,9 +43,6 @@ func (r readResolver) resolve(
 		ctx, snap, r.channels, name, cfg, v5.NoteLift(r.ins, cfg.Key),
 	)
 	if err != nil {
-		return nil, err
-	}
-	if err = refuseFields(cfg); err != nil {
 		return nil, err
 	}
 	icds := make(map[icd.Key]icd.ICD)
@@ -89,20 +84,6 @@ func (r readResolver) check(
 	for _, rd := range reads {
 		if err = c.Read(rd); err != nil {
 			return err
-		}
-	}
-	return nil
-}
-
-// refuseFields returns a validation error for the first endpoint of cfg that sets
-// fields and reads no messages, as a client from before ICDs sends.
-func refuseFields(cfg *ReadConfig) error {
-	for i, ep := range cfg.Endpoints {
-		if len(ep.Fields) > 0 && len(ep.Messages) == 0 {
-			return validate.PathedError(validate.Errorf(
-				"an endpoint no longer reads fields. Set icd and messages to read the "+
-					"response as ICD messages",
-			), "endpoints", strconv.Itoa(i), "fields")
 		}
 	}
 	return nil
