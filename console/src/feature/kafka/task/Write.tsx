@@ -380,6 +380,7 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
+  const handleAddressChange = () => set(path.message, ICD.Write.unbind(target.message));
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -389,12 +390,14 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
             label="Topic"
             padHelpText={false}
             inputProps={TOPIC_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
           <PForm.TextField
             path={path.recordKey}
             label="Record key"
             padHelpText={false}
             inputProps={RECORD_KEY_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
         </PForm.Section>
         <PForm.Section

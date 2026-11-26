@@ -331,6 +331,39 @@ describe("Write", () => {
     expect(second.channel).toBe(first.channel);
   });
 
+  it("should give a deployed endpoint new command channels when its path changes, and leave the old ones to the old path", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const first = await deployEndpoint(
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    );
+    const { container } = await renderTaskFormTab(
+      HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE],
+      { client, taskKey: first.task.key },
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
+      target: { value: "/speed" },
+    });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      first.task.key,
+      HTTP.Task.WRITE_SCHEMAS,
+    );
+    const [moved] = firstChannels(deployed.config.endpoints);
+    expect(moved).not.toBe(0);
+    expect(moved).not.toBe(first.channel);
+    const updated = await client.devices.retrieve({
+      key: first.dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(updated.properties.write).toEqual({
+      [`PUT /setpoint#${value.key}`]: first.channel,
+      [`PUT /speed#${value.key}`]: moved,
+    });
+  });
+
   it("should give an endpoint a new command channel when its method changes", async () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);

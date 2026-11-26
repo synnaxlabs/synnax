@@ -149,6 +149,7 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
+  const handleAddressChange = () => set(path.message, ICD.Write.unbind(target.message));
   return (
     <PForm.Sections>
       <PForm.Section title="Publish">
@@ -157,6 +158,7 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
           label="Topic"
           padHelpText={false}
           inputProps={TOPIC_INPUT_PROPS}
+          onChange={handleAddressChange}
         />
         <QoSField path={path.qos} />
         <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />

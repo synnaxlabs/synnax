@@ -622,6 +622,38 @@ describe("Kafka Write form", () => {
     expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
   });
 
+  it.each([
+    ["topic", "plant.pumps", "plant.valves", (to: string) => `${to}#pump-1`],
+    ["record key", "pump-1", "pump-2", (to: string) => `plant.pumps#${to}`],
+  ])(
+    "should give a deployed target new command channels when its %s changes, and leave the old ones to the old address",
+    async (_, from, to, addressOf) => {
+      const speed = createField("speed", "float");
+      const { target } = await createTarget([speed], { recordKey: "pump-1" });
+      const first = await renderWrite([target]);
+      const [stored] = boundChannels(
+        (await deployWrite(first.container, first.draft.key))[0],
+      );
+      expect(stored).not.toBe(0);
+      first.unmount();
+      const { container } = await renderTaskFormTab(
+        Kafka.Task.FORMS[Kafka.Task.WRITE_TYPE],
+        { client, taskKey: first.draft.key },
+      );
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*pump-1/ }));
+      fireEvent.change(await screen.findByDisplayValue(from), {
+        target: { value: to },
+      });
+      const [next] = boundChannels((await deployWrite(container, first.draft.key))[0]);
+      expect(next).not.toBe(0);
+      expect(next).not.toBe(stored);
+      expect(await retrieveWriteRecord(first.dev.key)).toEqual({
+        [`plant.pumps#pump-1#${speed.key}`]: stored,
+        [`${addressOf(to)}#${speed.key}`]: next,
+      });
+    },
+  );
+
   it("should show the planned command channel name of a field after a rename", async () => {
     const { target } = await createTarget([createField("speed", "float")], {
       recordKey: "pump-1",

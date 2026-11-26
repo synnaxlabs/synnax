@@ -415,11 +415,13 @@ const ICDEndpointDetails = ({
   const ctx = PForm.useContext();
   const formats = ICD.useFormats();
   const sends = sendsICD(PForm.useFieldValue(path));
-  // A message that this form created and no other endpoint sends follows its request
-  // while it keeps the name that the request gave it.
   const handleRequestChange = (change: Partial<RequestLine>) => {
     const ep = ctx.get(path).value;
-    if (!sendsICD(ep) || !created.includes(ep.message.message)) return;
+    if (!sendsICD(ep)) return;
+    ctx.set(icdPath(epKey).message, ICD.Write.unbind(ep.message));
+    // A message that this form created and no other endpoint sends follows its request
+    // while it keeps the name that the request gave it.
+    if (!created.includes(ep.message.message)) return;
     const shared = ctx
       .get(root.config.endpoints)
       .value.some(
