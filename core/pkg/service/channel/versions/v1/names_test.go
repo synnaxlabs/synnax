@@ -69,7 +69,7 @@ var _ = Describe("NameRuleMigration", func() {
 		return from
 	}
 
-	DescribeTable("Should rewrite a name that breaks the rule",
+	DescribeTable("Should rewrite a name that a path cannot hold",
 		func(ctx SpecContext, name, expected string) {
 			names := migrate(ctx, channel(1, name, nil))
 			Expect(names[1]).To(Equal(expected))
@@ -77,16 +77,24 @@ var _ = Describe("NameRuleMigration", func() {
 			Expect(staged()).To(Equal(map[string]string{key: name}))
 		},
 		Entry("a separator", "stand.pt", "stand_pt"),
-		Entry("a control character", "pt\x00a", "pta"),
-		Entry("a zero-width space", "pt\u200B01", "pt01"),
-		Entry("a no-break space", "pt\u00A001", "pt01"),
 		Entry("each invalid byte", "pt\xff\xfe", "pt\uFFFD\uFFFD"),
-		Entry("a name not in NFC", "cafe\u0301", "caf\u00E9"),
 	)
 
-	It("Should name a channel channel_<key> when no character of its name is left",
+	DescribeTable("Should keep a name that breaks the rule but not a path",
+		func(ctx SpecContext, name string) {
+			Expect(migrate(ctx, channel(1, name, nil))[1]).To(Equal(name))
+			Expect(staged()).To(BeEmpty())
+		},
+		Entry("a dash and a space", "Stand A-01"),
+		Entry("a control character", "pt\x00a"),
+		Entry("a zero-width space", "pt\u200B01"),
+		Entry("a no-break space", "pt\u00A001"),
+		Entry("a name not in NFC", "cafe\u0301"),
+	)
+
+	It("Should name a channel channel_<key> when its name is empty",
 		func(ctx SpecContext) {
-			ch := channel(1, "\u200B\u00A0", nil)
+			ch := channel(1, "", nil)
 			Expect(migrate(ctx, ch)[1]).To(Equal("channel_" + ch.Key().String()))
 		})
 

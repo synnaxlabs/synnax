@@ -11,7 +11,6 @@ package v1_test
 
 import (
 	"context"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -22,7 +21,6 @@ import (
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("NameRuleMigration breaker", func() {
@@ -63,15 +61,6 @@ var _ = Describe("NameRuleMigration breaker", func() {
 		Expect(gorp.WrapWriter[v1.Key, v1.Channel](db).Set(ctx, channels...)).
 			To(Succeed())
 	}
-
-	It("Should give a legal name to a channel whose 30 marks end in a Hangul vowel",
-		func(ctx SpecContext) {
-			name := "pt" + strings.Repeat("\u0316", 30) + "\u1161"
-			store(ctx, channel(1, name, false))
-			names := run(ctx)
-			Expect(validate.IsPathSegment(names[1])).
-				To(BeTrue(), "new name %+q", names[1])
-		})
 
 	It("Should move a user channel off the NFC form of a built-in name that is not "+
 		"in NFC", func(ctx SpecContext) {

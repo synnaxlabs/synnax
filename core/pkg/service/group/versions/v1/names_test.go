@@ -61,7 +61,7 @@ var _ = Describe("NameRuleMigration", func() {
 		return names
 	}
 
-	DescribeTable("Should rewrite a name that breaks the rule and stage it",
+	DescribeTable("Should rewrite a name that a path cannot hold and stage it",
 		func(ctx SpecContext, name, expected string) {
 			Expect(migrate(ctx, folder(first, name, nil))[first]).To(Equal(expected))
 			Expect(MustSucceed(resourcev0.StagedRenames(db))).To(ConsistOf(
@@ -69,9 +69,18 @@ var _ = Describe("NameRuleMigration", func() {
 			))
 		},
 		Entry("a separator", "Stand.A", "Stand_A"),
-		Entry("a zero-width space", "Stand\u200BA", "StandA"),
-		Entry("a name not in NFC", "Cafe\u0301", "Caf\u00E9"),
-		Entry("a name of refused characters only", "\u00A0", "folder"),
+		Entry("each invalid byte", "Stand\xffA", "Stand\uFFFDA"),
+		Entry("an empty name", "", "folder"),
+	)
+
+	DescribeTable("Should keep a name that breaks the rule but not a path",
+		func(ctx SpecContext, name string) {
+			Expect(migrate(ctx, folder(first, name, nil))[first]).To(Equal(name))
+			Expect(MustSucceed(resourcev0.StagedRenames(db))).To(BeEmpty())
+		},
+		Entry("a zero-width space", "Stand\u200BA"),
+		Entry("a name not in NFC", "Cafe\u0301"),
+		Entry("a no-break space alone", "\u00A0"),
 	)
 
 	It("Should keep each legal name, repeats in other parents included",
