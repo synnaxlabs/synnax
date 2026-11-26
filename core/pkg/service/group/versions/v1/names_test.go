@@ -65,7 +65,11 @@ var _ = Describe("NameRuleMigration", func() {
 		func(ctx SpecContext, name, expected string) {
 			Expect(migrate(ctx, folder(first, name, nil))[first]).To(Equal(expected))
 			Expect(MustSucceed(resourcev0.StagedRenames(db))).To(ConsistOf(
-				resourcev0.Rename{ID: groupID(first), From: name},
+				resourcev0.Rename{
+					ID:     groupID(first),
+					From:   name,
+					Reason: resourcev0.RenameReason(name),
+				},
 			))
 		},
 		Entry("a separator", "Stand.A", "Stand_A"),

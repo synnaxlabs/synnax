@@ -268,6 +268,29 @@ var _ = Describe("Name upgrade", func() {
 			Expect(deps.Reads.Contains(other)).To(BeFalse())
 		})
 
+	It("Should fail on a staged rename of a resource that is not a channel or a folder",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			storeV062(ctx, n, nil, func([]channelv1.Channel) {})
+			id := resource.ID{Type: resource.TypeTask, Key: "1"}
+			Expect(
+				resourcev0.StageRename(
+					ctx,
+					n.DB,
+					id,
+					"t.1",
+					resourcev0.ReasonSeparator,
+				),
+			).
+				To(Succeed())
+			Expect(
+				svctestutil.OpenLayer(ctx, n),
+			).Error().
+				To(MatchError(ContainSubstring(
+					"staged rename of task:1 is not of a channel or a folder",
+				)))
+		})
+
 	It("Should rename the storage of a renamed channel", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)
 		storeV062(ctx, n, nil, func([]channelv1.Channel) {})
