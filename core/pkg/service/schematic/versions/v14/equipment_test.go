@@ -173,22 +173,33 @@ var _ = Describe("SymbolNode", func() {
 	)
 
 	DescribeTable(
-		"Should leave a node with no symbol, or one that needs a record",
-		func(
-			v v13.NodeConfigVariant,
-		) {
+		"Should drop what only the records of a migration draw",
+		func(drawn, plain v13.NodeConfigVariant) {
+			Expect(convert(drawn)).To(Equal(convert(plain)))
+		},
+		Entry(
+			"the on color of a light",
+			v13.LightNodeConfig{OnColor: shade(1)},
+			v13.LightNodeConfig{},
+		),
+		Entry(
+			"the overrides of a custom actuator",
+			v13.CustomActuatorNodeConfig{StateOverrides: []symbolv4.State{{Key: "on"}}},
+			v13.CustomActuatorNodeConfig{},
+		),
+		Entry(
+			"the overrides of a custom static",
+			v13.CustomStaticNodeConfig{StateOverrides: []symbolv4.State{{Key: "on"}}},
+			v13.CustomStaticNodeConfig{},
+		),
+	)
+
+	DescribeTable(
+		"Should leave a node with no symbol",
+		func(v v13.NodeConfigVariant) {
 			_, ok := MustSucceed2(v14.SymbolNode(v13.NodeConfig{Variant: v}))
 			Expect(ok).To(BeFalse())
 		},
-		Entry("a light with an on color", v13.LightNodeConfig{OnColor: shade(1)}),
-		Entry(
-			"a custom actuator with overrides",
-			v13.CustomActuatorNodeConfig{StateOverrides: []symbolv4.State{{Key: "on"}}},
-		),
-		Entry(
-			"a custom static with overrides",
-			v13.CustomStaticNodeConfig{StateOverrides: []symbolv4.State{{Key: "on"}}},
-		),
 		Entry("a box", v13.BoxNodeConfig{}),
 		Entry("a group box with one field", v13.GroupBoxNodeConfig{Locked: true}),
 	)

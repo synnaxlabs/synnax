@@ -687,8 +687,9 @@ var _ = Describe("Payload decoding", func() {
 	}
 
 	It("Should fill the defaults a node config omits", func() {
-		cfg, ok := decodeConfig(`{"variant": "switch"}`).
-			Variant.(schematic.SwitchNodeConfig)
+		cfg, ok := decodeConfig(
+			`{"variant": "symbol", "spec": {"type": "builtin", "name": "switch"}}`,
+		).Variant.(schematic.SymbolNodeConfig)
 		Expect(ok).To(BeTrue())
 		Expect(cfg.Scale).To(BeEquivalentTo(1))
 		Expect(cfg.StalenessTimeout).To(Equal(5 * telem.Second))
@@ -760,15 +761,22 @@ var _ = Describe("Payload decoding", func() {
 	)
 
 	DescribeTable("Should validate a scale above 0",
-		func(variant string, scale float64, matcher OmegaMatcher) {
-			cfg := decodeConfig(
-				fmt.Sprintf(`{"variant": %q, "scale": %g}`, variant, scale),
-			)
-			Expect(cfg.Validate()).To(matcher)
+		func(config string, matcher OmegaMatcher) {
+			Expect(decodeConfig(config).Validate()).To(matcher)
 		},
-		Entry("valve at 0", "valve", 0.0, MatchError(ContainSubstring("scale"))),
-		Entry("light below 0", "light", -1.0, MatchError(ContainSubstring("scale"))),
-		Entry("cylinder above 0", "cylinder", 0.5, Succeed()),
+		Entry(
+			"symbol at 0",
+			`{"variant": "symbol", "spec": {"type": "builtin", "name": "valve"}, `+
+				`"scale": 0}`,
+			MatchError(ContainSubstring("scale")),
+		),
+		Entry(
+			"symbol below 0",
+			`{"variant": "symbol", "spec": {"type": "builtin", "name": "light"}, `+
+				`"scale": -1}`,
+			MatchError(ContainSubstring("scale")),
+		),
+		Entry("cylinder above 0", `{"variant": "cylinder", "scale": 0.5}`, Succeed()),
 	)
 
 	DescribeTable("Should validate a tank staleness timeout against its bounds",
@@ -1219,8 +1227,9 @@ var _ = Describe("Path actions on defaulted fields", func() {
 			"Precision"),
 		Entry("a precision set to no value", "value", "precision", 5,
 			set([]string{"precision"}, nil), "Precision"),
-		Entry("a removed light threshold", "light", "threshold",
-			map[string]any{"lower": 1, "upper": 2}, remove("threshold"), "Threshold"),
+		Entry("a removed symbol color", "symbol", "color",
+			map[string]any{"type": "fixed", "value": "#ff0000"}, remove("color"),
+			"Color"),
 		Entry("a removed cylinder border radius", "cylinder", "border_radius", 4,
 			remove("border_radius"), "BorderRadius"),
 		Entry("a removed tank border radius", "tank", "border_radius", 4,

@@ -40,9 +40,9 @@ var builtinWithin = spatial.Bounds{Lower: 0.9, Upper: 1.1}
 
 // SymbolNode returns the symbol node that a stored equipment node becomes, with the
 // same label, scale, color, timing, and channels. A custom node draws the custom symbol
-// of its spec key. It returns false for a node with no symbol, and for a light with an
-// on color or a custom node with state overrides, which need the records that
-// NewMigration makes.
+// of its spec key. It returns false for a node with no symbol. It drops the on color of
+// a light and the state overrides of a custom node, which InternLights and the records
+// of NewMigration and an import draw.
 func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 	switch v := old.Variant.(type) {
 	case v13.SolenoidValveNodeConfig:
@@ -53,9 +53,6 @@ func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 		}
 		return n, true, nil
 	case v13.LightNodeConfig:
-		if v.OnColor != nil {
-			return SymbolNodeConfig{}, false, nil
-		}
 		n := base(v.LabeledConfig, v.ScaledConfig, v.StrokeColor)
 		n.Spec = builtin(string(v13.LightNodeConfigType))
 		n.StalenessTimeout = v.StalenessTimeout
@@ -66,16 +63,10 @@ func SymbolNode(old v13.NodeConfig) (SymbolNodeConfig, bool, error) {
 		}}
 		return n, true, nil
 	case v13.CustomActuatorNodeConfig:
-		if len(v.StateOverrides) > 0 {
-			return SymbolNodeConfig{}, false, nil
-		}
 		n := toggle(v.ToggleConfig, nil)
 		n.Spec = custom(v.SpecKey)
 		return n, true, nil
 	case v13.CustomStaticNodeConfig:
-		if len(v.StateOverrides) > 0 {
-			return SymbolNodeConfig{}, false, nil
-		}
 		n := base(v.LabeledConfig, v.ScaledConfig, nil)
 		n.Spec = custom(v.SpecKey)
 		n.States = []StateBinding{{Key: activeState}}
@@ -428,8 +419,7 @@ func InternLights(
 			continue
 		}
 		on := light.OnColor
-		light.OnColor = nil
-		cfg, _, err := SymbolNode(v13.NodeConfig{Variant: light})
+		cfg, _, err := SymbolNode(n.Config)
 		if err != nil {
 			return err
 		}

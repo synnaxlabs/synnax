@@ -51,12 +51,12 @@ type overrides struct {
 // symbol is gone, gets neither.
 func (o *overrides) apply(ctx context.Context, s *Schematic, old v13.Schematic) error {
 	for i, n := range old.Nodes {
-		plain, states := withoutOverrides(n.Config)
-		_, actuator := plain.Variant.(v13.CustomActuatorNodeConfig)
+		states := stateOverrides(n.Config)
+		_, actuator := n.Config.Variant.(v13.CustomActuatorNodeConfig)
 		if len(states) == 0 && !actuator {
 			continue
 		}
-		cfg, _, err := SymbolNode(plain)
+		cfg, _, err := SymbolNode(n.Config)
 		if err != nil {
 			return err
 		}
@@ -551,17 +551,13 @@ func colorPaint(c xcolor.Color) *symbol.Paint {
 	return &symbol.Paint{Variant: symbol.ColorPaint{Value: *fixed(&c)}}
 }
 
-// withoutOverrides returns cfg with no state overrides, and the overrides it had.
-func withoutOverrides(cfg v13.NodeConfig) (v13.NodeConfig, []symbolv4.State) {
+// stateOverrides returns the state overrides of a custom node.
+func stateOverrides(cfg v13.NodeConfig) []symbolv4.State {
 	switch v := cfg.Variant.(type) {
 	case v13.CustomActuatorNodeConfig:
-		states := v.StateOverrides
-		v.StateOverrides = nil
-		return v13.NodeConfig{Variant: v}, states
+		return v.StateOverrides
 	case v13.CustomStaticNodeConfig:
-		states := v.StateOverrides
-		v.StateOverrides = nil
-		return v13.NodeConfig{Variant: v}, states
+		return v.StateOverrides
 	}
-	return cfg, nil
+	return nil
 }
