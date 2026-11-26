@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -30,7 +31,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
@@ -604,9 +604,9 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 	for _, g := range t.groups {
 		keys = append(keys, g.keys...)
 	}
-	mode := ts.WriterModePersistStream
+	mode := cesium.WriterModePersistStream
 	if t.cfg.DataSavingDisabled {
-		mode = ts.WriterModeStreamOnly
+		mode = cesium.WriterModeStreamOnly
 	}
 	return t.factoryCfg.Framer.OpenWriter(ctx, framer.WriterConfig{
 		ControlSubject: control.Subject{
@@ -619,7 +619,7 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 		Mode:              mode,
 		// The offsets commit once Write returns, so the index must persist every
 		// commit before then or a crash loses samples Kafka will not replay.
-		AutoIndexPersistInterval: ts.AlwaysIndexPersistOnAutoCommit,
+		AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 	})
 }
 
