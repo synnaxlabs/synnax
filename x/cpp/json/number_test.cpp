@@ -452,6 +452,15 @@ TEST(ParseFloat64, Rejects) {
     }
 }
 
+/// @brief it should reject a number whose exponent is past ±2^20.
+TEST(ParseFloat64, RejectsExponentPastBound) {
+    for (const auto *text: {"1e-1048577", "0e1048577"}) {
+        const auto [v, err] = parse_float64(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        EXPECT_EQ(err.data, "invalid number " + quote(text));
+    }
+}
+
 /// @brief it should append the shortest JSON number that reads back as the double.
 TEST(AppendFloat, AppendsShortestNumber) {
     for (const auto &[v, expected]: std::vector<std::pair<double, std::string>>{
