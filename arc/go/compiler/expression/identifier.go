@@ -10,10 +10,9 @@
 package expression
 
 import (
-	"strings"
-
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -23,21 +22,14 @@ import (
 
 func compileIdentifier[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
-	head, tail string,
+	n parser.Name,
 ) (types.Type, error) {
-	name := head
-	if tail != "" {
-		name = head + "." + tail
-	}
-	scope := liftedInput(ctx.Scope, name)
+	name := n.String()
+	scope := liftedInput(ctx.Scope, n)
 	if scope == nil {
 		var err error
-		if scope, err = ctx.Scope.ResolveMember(
-			ctx,
-			head,
-			tail,
-			symbol.IncludeInternal,
-		); err != nil {
+		scope, err = ctx.Scope.ResolveName(ctx, n, symbol.IncludeInternal)
+		if err != nil {
 			return types.Type{}, err
 		}
 	}
@@ -109,16 +101,16 @@ func compileChannelRead[ASTNode antlr.ParserRuleContext](
 }
 
 // liftedInput returns the input of the enclosing function that carries a read of the
-// module member name, nil for a bare name or a read that was not lifted.
-func liftedInput(scope *symbol.Symbol, name string) *symbol.Symbol {
-	if !strings.Contains(name, ".") {
+// module member n, nil for a bare name or a read that was not lifted.
+func liftedInput(scope *symbol.Symbol, n parser.Name) *symbol.Symbol {
+	if n.Tail == "" {
 		return nil
 	}
 	fn, err := scope.ClosestAncestorOfKind(symbol.KindFunction)
 	if err != nil {
 		return nil
 	}
-	if in := fn.FindChild(name); in != nil && in.Kind == symbol.KindInput {
+	if in := fn.FindChild(n.String()); in != nil && in.Kind == symbol.KindInput {
 		return in
 	}
 	return nil
