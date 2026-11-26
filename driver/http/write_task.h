@@ -56,9 +56,12 @@ public:
         std::vector<driver::icd::Writer> writers
     );
 
-    /// @brief writes a frame of command values to HTTP endpoints.
+    /// @brief sends the commands in frame to each enabled endpoint, one request per
+    /// row, in order. A failed request drops the later commands of its endpoint in
+    /// frame, and the other endpoints still send theirs.
     /// @param frame the frame containing command channel values.
-    /// @returns nil on success, or a combined error describing all failures.
+    /// @returns nil, or an error that joins each failure. Its type is that of the first
+    /// failure that is not temporary, or TEMPORARY_ERROR when each one is temporary.
     x::errors::Error write(x::telem::Frame &frame) override;
 };
 

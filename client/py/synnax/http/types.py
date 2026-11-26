@@ -12,7 +12,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, JsonValue
 
-from synnax import device, rack as rack_, task
+from synnax import device, icd, rack as rack_, task
 from synnax.http.types_gen import (
     Header,
     QueryParam,
@@ -172,12 +172,17 @@ class WriteTask(
 
     @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
-        """Sync channel mappings to device properties."""
+        """Sync the command channel of each field of each enabled endpoint to device
+        properties, keyed by the key of the endpoint and the key of the field."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
         write = device.ensure_object(props, "write")
         for ep in self.config.endpoints:
-            write[ep.path] = ep.channel.channel
+            if ep.disabled or ep.message is None:
+                continue
+            for binding in ep.message.bindings:
+                if isinstance(binding, icd.ChannelWriteBinding):
+                    write[f"{ep.key}#{binding.field}"] = binding.channel
         dev.properties = props
         device_client.dispatch(
             dev.key, device.set(device.SetPayload(path=["properties"], value=props))

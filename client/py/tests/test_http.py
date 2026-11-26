@@ -1038,7 +1038,8 @@ class TestHTTPDevicePropertyUpdates:
         assert obj(props, "read", "/api/v1/data")["index"] == time_ch.key
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
-        """Test that configuring a WriteTask updates device properties."""
+        """Test that configuring a WriteTask records the command channel of each field
+        of each enabled endpoint in device properties."""
         rack = client.racks.retrieve_embedded_rack()
         device = sy.http.Device(
             host="127.0.0.1:8080",
@@ -1059,25 +1060,41 @@ class TestHTTPDevicePropertyUpdates:
             data_type=sy.DataType.FLOAT64,
             index=cmd_time.key,
         )
+        value = sy.icd.FloatJSONField(name="value", pointer="/value")
+        mode = sy.icd.StringJSONField(name="mode", pointer="/mode")
+        message = sy.icd.Message(
+            name="PUT /api/v1/setpoint",
+            payload=sy.icd.JSONPayload(fields=[value, mode]),
+        )
+        ic = client.icds.create(name=random_name(), messages=[message])
+
+        def endpoint(path: str, *, disabled: bool = False) -> sy.http.WriteEndpoint:
+            return sy.http.WriteEndpoint(
+                method="PUT",
+                path=path,
+                disabled=disabled,
+                icd=ic.key,
+                message=sy.icd.WriteMessage(
+                    message=message.key,
+                    bindings=[
+                        sy.icd.ChannelWriteBinding(field=value.key, channel=cmd_ch.key),
+                        sy.icd.ValueWriteBinding(
+                            field=mode.key, value=sy.icd.StringWriteValue(value="AUTO")
+                        ),
+                    ],
+                ),
+            )
 
         task = sy.http.WriteTask(
             name="Test HTTP Write",
             device=device.key,
             endpoints=[
-                sy.http.WriteEndpoint(
-                    method="PUT",
-                    path="/api/v1/setpoint",
-                    channel=sy.http.ChannelField(
-                        pointer="/value",
-                        channel=cmd_ch.key,
-                    ),
-                ),
+                endpoint("/api/v1/setpoint"),
+                endpoint("/api/v1/off", disabled=True),
             ],
         )
         task.update_device_properties(client.devices)
 
-        updated = client.devices.retrieve(key=device.key)
-        props = updated.properties
-        assert "write" in props
-        assert "/api/v1/setpoint" in obj(props, "write")
-        assert obj(props, "write")["/api/v1/setpoint"] == cmd_ch.key
+        props = client.devices.retrieve(key=device.key).properties
+        key = task.config.endpoints[0].key
+        assert obj(props, "write") == {f"{key}#{value.key}": cmd_ch.key}
