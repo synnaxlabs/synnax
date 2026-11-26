@@ -171,10 +171,10 @@ std::string
 document(const std::size_t n, const std::size_t samples, const std::size_t j) {
     std::string doc = "{";
     for (std::size_t i = 0; i < n; i++) {
-        if (i > 0) doc += ",";
+        if (i > 0) doc += ',';
         std::array<char, 32> buf{};
         const auto v = static_cast<double>(i * samples + j) + 0.5;
-        const auto end = std::to_chars(buf.data(), buf.data() + buf.size(), v).ptr;
+        auto *const end = std::to_chars(buf.data(), buf.data() + buf.size(), v).ptr;
         doc += "\"f" + std::to_string(i) + "\":" + std::string(buf.data(), end);
     }
     return doc + "}";

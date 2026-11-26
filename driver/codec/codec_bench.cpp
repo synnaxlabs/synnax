@@ -12,7 +12,6 @@
 #include <cstdint>
 #include <cstring>
 #include <functional>
-#include <numeric>
 #include <span>
 #include <string>
 #include <utility>
@@ -95,7 +94,7 @@ timestamp(const std::string &format) {
 }
 
 template<typename T>
-std::function<x::telem::Series()> sample_of(T v, const x::telem::DataType &dt) {
+std::function<x::telem::Series()> sample_of(const T &v, const x::telem::DataType &dt) {
     return [v, dt] { return x::telem::Series(v, dt); };
 }
 
@@ -112,7 +111,8 @@ std::function<x::telem::Series()> uuid_sample() {
 std::function<x::telem::Series()> bytes_sample() {
     return [] {
         std::string b(16, '\0');
-        std::iota(b.begin(), b.end(), 0);
+        for (std::size_t i = 0; i < b.size(); i++)
+            b[i] = static_cast<char>(i);
         return x::telem::Series(b, x::telem::BYTES_T);
     };
 }
@@ -300,7 +300,7 @@ std::pair<JSONMessage, std::string> json_message(const Kind &k, const std::size_
         auto f = k.field(name);
         m.bindings.push_back({.field = icd::base(f).key, .data_type = k.data_type});
         m.payload.fields.push_back(std::move(f));
-        if (i > 0) doc += ",";
+        if (i > 0) doc += ',';
         doc += "\"" + name + "\":" + k.text;
     }
     return {std::move(m), doc + "}"};
@@ -335,6 +335,7 @@ void json_encode(benchmark::State &state, const Kind &k, const std::size_t n) {
         return;
     }
     std::vector<x::telem::Series> samples;
+    samples.reserve(n);
     for (std::size_t i = 0; i < n; i++)
         samples.push_back(k.sample());
     std::vector<std::uint8_t> payload;
@@ -400,6 +401,7 @@ void binary_encode(benchmark::State &state, const std::size_t n) {
         return;
     }
     std::vector<x::telem::Series> samples;
+    samples.reserve(n);
     for (std::size_t i = 0; i < n; i++)
         samples.emplace_back(1000.0, x::telem::FLOAT64_T);
     std::vector<std::uint8_t> payload;
@@ -423,7 +425,7 @@ std::pair<TextMessage, std::string> text_message(const std::size_t n) {
         f.position = static_cast<std::uint32_t>(i);
         m.bindings.push_back({.field = f.key, .data_type = x::telem::FLOAT64_T});
         m.payload.fields.emplace_back(std::move(f));
-        if (i > 0) line += ",";
+        if (i > 0) line += ',';
         line += "1234.5678";
     }
     return {std::move(m), std::move(line)};
@@ -460,6 +462,7 @@ void text_encode(benchmark::State &state, const std::size_t n) {
         return;
     }
     std::vector<x::telem::Series> samples;
+    samples.reserve(n);
     for (std::size_t i = 0; i < n; i++)
         samples.emplace_back(1234.5678, x::telem::FLOAT64_T);
     std::vector<std::uint8_t> payload;
