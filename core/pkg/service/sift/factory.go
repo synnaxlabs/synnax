@@ -408,9 +408,8 @@ func (f *Factory) releasing(t task.Task) {
 }
 
 // release drops the reference of an instance of t to the uploads of its rack. The last
-// one closes the uploader, then releases the rack, so a waiting claim opens its
-// uploader
-// only after the old one saves its progress.
+// one closes the uploader before it releases the rack, so a waiting claim opens its
+// uploader only after the old one saves its progress.
 func (f *Factory) release(t task.Task) error {
 	f.mu.Lock()
 	u, ok := f.uploads[t.Rack]
