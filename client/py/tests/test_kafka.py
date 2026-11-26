@@ -195,3 +195,50 @@ class TestKafkaWriteTask:
 
         props = client.devices.retrieve(key=dev.key).properties
         assert obj(props, "write") == {f"plant.pumps#pump-1#{speed.key}": cmd_ch.key}
+
+    def test_write_task_keeps_stored_channel_of_unset_binding(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should keep the stored command channel of a field whose binding has no
+        channel yet."""
+        speed = sy.icd.FloatJSONField(name="speed", pointer="/speed")
+        message = sy.icd.Message(
+            name="plant.pumps", payload=sy.icd.JSONPayload(fields=[speed])
+        )
+        ic = client.icds.create(name=random_name(), messages=[message])
+        stored = client.channels.create(
+            name=f"kafka_cmd_{random_name()}",
+            virtual=True,
+            data_type=sy.DataType.FLOAT64,
+        )
+        key = f"plant.pumps#pump-1#{speed.key}"
+        dev = client.devices.create(
+            sy.Device(
+                key=random_name(),
+                name="Test Kafka Stored Cluster",
+                rack=client.racks.retrieve_embedded_rack().key,
+                location="localhost:9092",
+                make="kafka",
+                model="cluster",
+                properties={"brokers": ["localhost:9092"], "write": {key: stored.key}},
+            )
+        )
+        task = sy.kafka.WriteTask(
+            name="Test Kafka Unset Binding",
+            device=dev.key,
+            targets=[
+                sy.kafka.WriteTarget(
+                    topic="plant.pumps",
+                    record_key="pump-1",
+                    icd=ic.key,
+                    message=sy.icd.WriteMessage(
+                        message=message.key,
+                        bindings=[sy.icd.ChannelWriteBinding(field=speed.key)],
+                    ),
+                )
+            ],
+        )
+        task.update_device_properties(client.devices)
+
+        props = client.devices.retrieve(key=dev.key).properties
+        assert obj(props, "write") == {key: stored.key}

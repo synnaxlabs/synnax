@@ -113,7 +113,10 @@ class WriteTask(
             if t.disabled:
                 continue
             for binding in t.message.bindings:
-                if isinstance(binding, icd.ChannelWriteBinding):
+                if (
+                    isinstance(binding, icd.ChannelWriteBinding)
+                    and binding.channel != 0
+                ):
                     write[f"{t.topic}#{t.record_key}#{binding.field}"] = binding.channel
         dev.properties = props
         device_client.dispatch(
