@@ -10,8 +10,6 @@
 package lsp
 
 import (
-	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/symbol"
 	"go.lsp.dev/protocol"
 )
 
@@ -22,61 +20,4 @@ type position struct {
 
 func fromProtocol(pos protocol.Position) position {
 	return position{Line: int(pos.Line) + 1, Col: int(pos.Character)}
-}
-
-func findScopeAtInternalPosition(
-	rootScope *symbol.Symbol,
-	pos position,
-) *symbol.Symbol {
-	if rootScope == nil {
-		return nil
-	}
-	var deepest *symbol.Symbol
-	findScopeRecursive(rootScope, pos.Line, pos.Col, &deepest)
-	if deepest == nil {
-		return rootScope
-	}
-	return deepest
-}
-
-func findScopeRecursive(scope *symbol.Symbol, line, col int, deepest **symbol.Symbol) {
-	if scope == nil {
-		return
-	}
-	if scope.AST != nil && !scope.Internal {
-		start := scope.AST.GetStart()
-		stop := scope.AST.GetStop()
-		if start != nil && stop != nil &&
-			isPositionInTokenRange(line, col, start, stop) {
-			*deepest = scope
-		}
-	}
-	// An import's children are the module's members, positioned in the module's text.
-	if scope.Kind == symbol.KindModuleAlias {
-		return
-	}
-	for _, child := range scope.Children() {
-		findScopeRecursive(child, line, col, deepest)
-	}
-}
-
-func isPositionInTokenRange(line, col int, start, stop antlr.Token) bool {
-	startLine := start.GetLine()
-	startCol := start.GetColumn()
-	stopLine := stop.GetLine()
-	stopCol := stop.GetColumn() + len(stop.GetText())
-
-	if line > startLine && line < stopLine {
-		return true
-	}
-	if line == startLine && startLine == stopLine {
-		return col >= startCol && col <= stopCol
-	}
-	if line == startLine {
-		return col >= startCol
-	}
-	if line == stopLine {
-		return col <= stopCol
-	}
-	return false
 }

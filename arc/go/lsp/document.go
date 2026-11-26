@@ -149,7 +149,8 @@ func findScopeAt(
 	if isBlock && pos.Line == 0 {
 		astPos.Character++
 	}
-	return findScopeAtInternalPosition(symbols, fromProtocol(astPos))
+	at := fromProtocol(astPos)
+	return symbol.ScopeAt(symbols, at.Line, at.Col)
 }
 
 // symbolAt returns the symbol at pos, or nil when no symbol resolves there.
