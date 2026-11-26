@@ -87,6 +87,10 @@ type delta[K, V comparable] struct {
 	// forward maps each staged value to the keys that hold it. It is nil until a staged
 	// key holds a value.
 	forward map[V]holders[K]
+	// arena backs the values of setOne, and keys the first holder of each staged value,
+	// so a batch of staged keys allocates a few arrays instead of slices per key.
+	arena []V
+	keys  []K
 	// added counts the entries added to forward since the last reset. forward drops an
 	// entry when its last holder goes, so its length can be less than its peak.
 	added int
@@ -98,12 +102,16 @@ func newDelta[K, V comparable]() *delta[K, V] {
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
 
-func (d *delta[K, V]) footprint() int { return max(len(d.state), d.added) }
+func (d *delta[K, V]) footprint() int {
+	return max(len(d.state), d.added, cap(d.arena), cap(d.keys))
+}
 
 func (d *delta[K, V]) reset() {
 	clear(d.state)
 	clear(d.forward)
-	d.added = 0
+	clear(d.arena)
+	clear(d.keys)
+	d.arena, d.keys, d.added = d.arena[:0], d.keys[:0], 0
 }
 
 // set stages values for key. The delta owns values from then on.
@@ -118,13 +126,37 @@ func (d *delta[K, V]) set(key K, values []V) {
 	}
 }
 
-// addHolder adds key to the staged holders of value.
-func (d *delta[K, V]) addHolder(value V, key K) {
-	if d.forward[value].len() == 0 {
-		d.added++
+// setOne stages value as the one value of key.
+func (d *delta[K, V]) setOne(key K, value V) {
+	if len(d.arena) == cap(d.arena) {
+		d.arena = make([]V, 0, max(arenaMin, 2*cap(d.arena)))
 	}
-	addHolder(d.forward, value, key)
+	d.arena = append(d.arena, value)
+	n := len(d.arena)
+	d.set(key, d.arena[n-1:n:n])
 }
+
+// addHolder adds key to the staged holders of value. A first holder takes its slice
+// from keys.
+func (d *delta[K, V]) addHolder(value V, key K) {
+	h := d.forward[value]
+	if h.len() > 0 {
+		h.add(key)
+		d.forward[value] = h
+		return
+	}
+	if len(d.keys) == cap(d.keys) {
+		d.keys = make([]K, 0, max(arenaMin, 2*cap(d.keys)))
+	}
+	d.keys = append(d.keys, key)
+	n := len(d.keys)
+	h.few = d.keys[n-1 : n : n]
+	d.forward[value] = h
+	d.added++
+}
+
+// arenaMin is the size of the first arena of a delta.
+const arenaMin = 8
 
 func (d *delta[K, V]) delete(key K) {
 	d.unstage(key)
