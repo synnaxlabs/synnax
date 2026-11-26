@@ -710,8 +710,9 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 		warning = driver.Warning{
 			Message: "Sample out of range",
 			Description: fmt.Sprintf(
-				"The %s node stopped reading channel %s: value %v (%s) does not fit "+
-					"%s. Change the node's output type, or the data of the channel.",
+				"The %s node could not read channel %s: value %v (%s) does not fit "+
+					"%s. Change the channel's data type to one that holds the value, "+
+					"or delete that data.",
 				nodeType,
 				channel,
 				value.Value,
