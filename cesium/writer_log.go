@@ -17,13 +17,11 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/log"
-	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // segmentLimit is the stream length at which a commit seals the segment of a key.
@@ -166,7 +164,8 @@ func (db *DB) readLogChannels(
 }
 
 // openState opens the state writer of w on stateCfg, with the start and bound of cfg,
-// and takes over the open segments of its keys that the state hands over.
+// and seals each open segment of its keys that the state hands over, since a writer
+// starts a new segment for each key.
 func (w *logWriter) openState(
 	ctx context.Context,
 	db *DB,
@@ -183,44 +182,17 @@ func (w *logWriter) openState(
 		return err
 	}
 	w.st = st
-	if err = w.takeOver(); err != nil {
-		for _, lk := range w.keys {
-			if lk.h != nil {
-				err = errors.Join(err, lk.h.Close())
-			}
-		}
-		return errors.Join(err, st.Close())
-	}
-	return nil
-}
-
-// takeOver appends to each open segment of the keys of w that the state hands over. It
-// seals a segment whose tail fails its check, logs the error, and starts a new one.
-func (w *logWriter) takeOver() error {
 	for _, lk := range w.keys {
-		seg, held, err := w.st.Held(lk.ch.Key)
+		_, held, err := st.Held(lk.ch.Key)
 		if err != nil {
-			return err
+			return errors.Join(err, st.Close())
 		}
 		if !held {
 			continue
 		}
-		err = w.resume(lk, seg)
-		if err == nil {
-			continue
-		}
-		if !errors.Is(err, place.ErrCorrupt) {
-			return err
-		}
-		w.e.ins.L.Error(
-			"sealed a held segment whose tail fails its check",
-			zap.Uint32("key", lk.ch.Key),
-			zap.Uint64("segment", seg.ID),
-			zap.Error(err),
-		)
-		seal, err := w.st.Seal(lk.ch.Key)
+		seal, err := st.Seal(lk.ch.Key)
 		if err != nil {
-			return err
+			return errors.Join(err, st.Close())
 		}
 		w.entry.Add(&seal)
 	}
@@ -432,43 +404,24 @@ func (w *logWriter) append(ctx context.Context, lk *logKey, p []byte) error {
 			Version:  segmentVersion,
 			DataType: uint8(lk.code),
 		})
+		cfg := segment.Config{
+			DB:       w.e.db,
+			ID:       id,
+			DataType: uint8(lk.code),
+			Clock:    w.clock,
+			Variable: lk.ch.DataType.IsVariable(),
+		}
 		h, err := w.e.budget.CreateHeld(w.e.fs, segmentName(lk.ch.Key, id))
 		if err != nil {
 			return err
 		}
-		lk.h, lk.w = h, segment.NewWriter(h, w.segmentConfig(lk, id))
-		lk.id, lk.committed = id, 0
+		lk.h, lk.w, lk.id, lk.committed = h, segment.NewWriter(h, cfg), id, 0
 	}
 	if err := lk.w.Write(p); err != nil {
 		return err
 	}
 	lk.dirty = true
 	return nil
-}
-
-// resume continues seg, the held segment of lk, where its last commit ends.
-func (w *logWriter) resume(lk *logKey, seg state.Segment) error {
-	h, err := w.e.budget.OpenHeld(w.e.fs, segmentName(lk.ch.Key, seg.ID))
-	if err != nil {
-		return err
-	}
-	cfg := w.segmentConfig(lk, seg.ID)
-	sw, err := segment.Resume(h, cfg, int64(seg.Length), seg.TailCRC)
-	if err != nil {
-		return errors.Join(err, h.Close())
-	}
-	lk.h, lk.w, lk.id, lk.committed = h, sw, seg.ID, int64(seg.Length)
-	return nil
-}
-
-func (w *logWriter) segmentConfig(lk *logKey, id uint64) segment.Config {
-	return segment.Config{
-		DB:       w.e.db,
-		ID:       id,
-		DataType: uint8(lk.code),
-		Clock:    w.clock,
-		Variable: lk.ch.DataType.IsVariable(),
-	}
 }
 
 // collectSlots sets keySegments to a slot for each segment with uncommitted samples, in
