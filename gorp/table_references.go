@@ -39,18 +39,22 @@ func (t *Table[K, E]) register(named bool) error {
 	return nil
 }
 
-// registerIndexes adds the table's references to its indexes and to its DB's
-// registry, and its unique indexes to their spaces. Call it after the table's
-// migrations: a delete that follows a reference waits for its index to populate, which
-// starts only after them.
+// registerIndexes adds the table's unique indexes to their spaces, and then its
+// references to its indexes and to its DB's registry. A failed join adds no reference,
+// so no delete waits for the reference index of a table that failed to open. Call it
+// after the table's migrations: a delete that follows a reference waits for its index
+// to populate, which starts only after them.
 func (t *Table[K, E]) registerIndexes() error {
+	if err := t.joinSpaces(); err != nil {
+		return err
+	}
 	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
 	t.db.registry.addReferences(refs)
-	return t.joinSpaces()
+	return nil
 }
 
 // joinSpaces adds the table's unique indexes to their spaces, all of them or none, so
