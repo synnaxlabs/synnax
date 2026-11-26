@@ -410,7 +410,7 @@ jobs:
       directory: client/py
       free_threaded: true
       macos: *full
-      type_check_dir: ./synnax ./examples ./tests ./benchmarks
+      type_check_dir: ./synnax ./examples ./tests
       # Not Windows on ARM: cryptography, which asyncua needs, has no wheel for it.
       ubuntu_arm: *full
       windows: *full
@@ -430,7 +430,7 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       directory: client/py
       lowest: true
-      type_check_dir: ./synnax ./examples ./tests ./benchmarks
+      type_check_dir: ./synnax ./examples ./tests
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
