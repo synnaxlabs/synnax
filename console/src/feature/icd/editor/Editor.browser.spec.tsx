@@ -357,9 +357,7 @@ describe("ICD editor", () => {
       expect((await retrieveMessage(ic.key)).cycleTime).toBeUndefined(),
     );
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
   });
 
   it("should refuse a cycle time of zero", async () => {
@@ -1018,9 +1016,7 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
     await waitFor(async () =>
       expect((await retrieveMessage(ic.key)).payload.fields[1].scale).toBe(0),
     );
@@ -1032,9 +1028,7 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    expect(
-      await screen.findByText(/^Field 2: scale must be finite and non-zero/),
-    ).toBeTruthy();
+    expect(await screen.findByText(/^Field 2: scale must be non-zero/)).toBeTruthy();
   });
 
   it("should mark a blank name shortly after an edit", async () => {
@@ -1052,10 +1046,10 @@ describe("ICD editor", () => {
     ]);
     await renderEditor(ic);
     await commit("Scale", 2, "0");
-    await screen.findByText(/^Field 2: scale must be finite and non-zero/);
+    await screen.findByText(/^Field 2: scale must be non-zero/);
     await commit("Scale", 2, "2");
     await waitFor(() =>
-      expect(screen.queryByText(/^Field 2: scale must be finite/)).toBeNull(),
+      expect(screen.queryByText(/^Field 2: scale must be non-zero/)).toBeNull(),
     );
   });
 
