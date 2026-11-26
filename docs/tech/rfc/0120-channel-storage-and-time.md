@@ -500,42 +500,176 @@ x holds, so each y sample stays one point.
 writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 ```
 
-- **The key**: `"time"` is a reserved key in a write. Its value is the time series of
-  the write, and it never looks up a channel. A channel named `time` stays legal: a
-  write reaches it by path (`"daq.time"`) or by key, and at the root by key only.
-- **Kinds**: A clock has one of three kinds in a session. Supplied: the writer sends its
-  time series. Arrival: the framer stamps. Stored: the data takes stamps that the clock
-  already holds, from a start. An open that names a clock states its kind; the Driver
-  and Arc task writers state supplied. In a client session the first write fixes
-  supplied or arrival, and a write of the other kind then fails.
-- **Index channels** (Phases 6 to 8): While a channel has an index channel, the clock of
-  a writer that is not a control writer is that index key, and `"time"` carries its
-  stamps. A write to such a channel with no index series is the stored kind, as today.
-  Its relay frame carries the stamps that its data takes, which the writer reads from
-  the clock as the commit check does, so every frame keeps its time series. One `"time"`
-  key is one clock for the whole write: channels with no index channel join it, and two
-  index channels in one write fail. `is_index=`, `index=`, and index keys in a write
-  work until Phase 9, after which no channel has an index channel.
-- **Control writers**: Arc tasks, the Python `Controller`, and Pluto control write their
-  command channels on their own clocks from Phase 6 and never write an index channel.
-  Authority applies to command channels, and until Phase 9 to an index channel that
-  several sessions write (§4.0).
+- **The key**: `"time"` is a reserved key in a write. Its value is the time of each
+  group that has a channel in the write, and it never looks up a channel. From Phase 38
+  a new channel whose path is `time` fails at create. A stored one keeps its name
+  (D-448), and a write reaches it by key.
+- **Groups**: An open may name `time_groups`, a partition of its stored channels. Each
+  stored channel is in exactly one group, a virtual channel in none, and no group is
+  empty, or the open fails and names the channel. With no groups, the writer has one
+  **adaptive** group of all its stored channels.
+- **Rules per frame**: A declared group is whole: a frame holds all of its channels or
+  none, and a partial group fails with an error that stays, as a missing channel does
+  today. An adaptive group takes any subset, and an absent channel pauses. A frame holds
+  the time of each present group, with the length of its channels' series. A channel
+  keeps its group for the life of the session. The authority filter runs after the group
+  check: a channel that the writer does not control pauses, and the rest of its group
+  writes. The cost is one presence count per declared group per frame, as `main` counts
+  per index group (`cesium/writer_stream.go:987-1048`).
+- **Kinds**: A writer picks one at open. **Supplied**, the default: each present group
+  has its time in the frame, and a write of stored channels with no `"time"` fails.
+  **`arrival_timed`**: the framer stamps each present group on arrival, and a write that
+  holds `"time"` fails. **`time_of`**: the channels take the stored stamps of another
+  channel from `start`, on its clock, in one group, and the writer waits for those
+  stamps (RFC 0121 §5.8). A write that holds `"time"` fails, and so does an open whose
+  `start` is not a sample of that channel.
+- **Pause moves**: Only an adaptive group moves a channel. A channel at P pauses (64) in
+  its open segment moves to a clock of its own at the next commit, and the framer copies
+  the group's time series to that clock. It moves back only at the next open. Tasks,
+  Arc, Pluto, and the `Controller` declare their groups and never pay for it.
+- **Handoff**: When control of a channel moves to another session, the old holder
+  commits its samples of the channel first, and then the claim moves. The channel starts
+  a new segment on the new holder's clock. Cesium makes a spare segment file for the old
+  holder's clock off the frame path, so a move back opens no file on the frame path, and
+  the orphan pass removes a spare that no Create names (RFC 0121 §5.5).
+- **Control writers**: Arc tasks, the Python `Controller`, and Pluto control declare one
+  group per command channel, so each command channel has its own clock. Pluto and the
+  `Controller` stamp on arrival. Authority covers channels only, so two command channels
+  that share an index channel today stop sharing authority.
+- **Arc**: The compiler fills the groups of a program (`time_groups` in
+  `schemas/arc/ir.oracle`, NEW) by one rule. Sinks fed from one output port of one node
+  in one scope share a group. Writes of one function that sit outside every branch and
+  loop, one value each per call, share a group. Every other output has a group of its
+  own. A new analyzer pass records the branch and loop depth of each write; today the
+  analyzer records a body write per function, whatever the branch
+  (`arc/go/analyzer/statement/statement.go:1113`). The runtimes group a cycle's writes
+  by group, not by index (`arc/go/stl/channels/state.go:173-198`), and stop adding index
+  keys to a program's writes (`core/pkg/service/arc/runtime/dependencies.go:110-112`).
 - **Types**: A writer may name the type of each key at open; the default is the declared
   type. The validator checks each series against the session's type, so a Driver spool
   that holds an old type drains after a type change.
 - **DataFrames**: A `time` column is the time; with none, a `DatetimeIndex` is. A
   DataFrame write with a blank cell fails: a read on two clocks leaves blanks, and they
-  are not samples. C++ and clib carry the time series in a frame field of its own.
-- **On the wire**: The time series travels under the clock key, and the client sets
-  `clock` on the data series it times. In a session that supplies no time, the framer
-  sets it. A writer with several clocks, such as a Driver task, names each at open and
-  on each series. Live-only channels, which nothing stores, have no clock.
-- **Control handoff**: The framer's region owner closes the Cesium writer of the old
-  session's clock and opens one on the new session's clock, as one event in its queue
-  (RFC 0121 §4.2). The cost is one sealed segment and one stretch per handoff.
-- **Other producers**: The metrics service writes on its own clock. The Arc runtimes
-  stop adding index keys to a program's reads and writes, and Driver common code builds
-  one time series per clock.
+  are not samples.
+- **On the wire**: The open names the groups, and the response gives the clock of each
+  group. A frame holds, for each present group, its time series under the group's clock,
+  declared in field 5 of the codec (§4.2). A data series names no clock: the Core knows
+  each channel's group from the open and sets `Series.clock` on relayed series, also for
+  a channel that a pause move put on its own clock. Live-only channels have no clock.
+- **Index channels** (until Phase 38): A group whose channels share an index channel
+  takes that index key as its clock, and its time is the index's stamps. A group that
+  mixes channels of two index channels, or of one and none, fails at open. With no
+  groups, the channels of each index channel form one whole group, as on `main`. From
+  Phase 13 a client maps `"time"` to the index channel of each group, and until Phase 26
+  a writer of channels without their index channel takes the stored kind, as today.
+  `is_index=`, `index=`, and index keys in a write work until Phase 38.
+- **Other producers**: The metrics service and scripts give no groups. Driver common
+  code builds one time series per group, where `generate_index_data` copies one per
+  index channel today (`driver/common/sample_clock.h:222-244`).
+
+**Python:**
+
+```python
+# Before
+idx = client.channels.create(name="time", is_index=True)
+client.channels.create(name="temperature", data_type=sy.DataType.FLOAT32, index=idx.key)
+with client.open_writer(start, ["time", "temperature"]) as w:
+    w.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
+t = client.read(tr, ["time", "temperature"])["time"]
+client.open_writer(start, ["temperature"], auto_index=True)
+
+# After
+client.channels.create(name="temperature", data_type=sy.DataType.FLOAT32)
+with client.open_writer(start, ["temperature"]) as w:
+    w.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
+t = client.read(tr, ["temperature"]).time("temperature")
+client.open_writer(start, ["temperature"], arrival_timed=True)
+client.open_writer(t0, ["derived"], time_of="temperature")
+with client.open_writer(start, ["a1", "b1"], time_groups=[["a1"], ["b1"]]) as w:
+    w.write({"time": msg.time, msg.channel: msg.value})
+```
+
+**TypeScript:**
+
+```typescript
+// Before
+const w = await client.openWriter({ start, channels: ["time", "temperature"] });
+const t = (await client.read(tr, ["time", "temperature"])).get("time");
+
+// After
+await client.channels.create({ name: "temperature", dataType: "float32" });
+const w = await client.openWriter({ start, channels: ["temperature"] });
+await w.write({ time: TimeStamp.now(), temperature: 20 });
+const t = (await client.read(tr, ["temperature"])).time("temperature");
+await client.openWriter({
+  start,
+  channels: ["a1", "b1"],
+  timeGroups: [["a1"], ["b1"]],
+});
+await client.openWriter({ start, channels: ["cmd"], arrivalTimed: true });
+```
+
+**C++:**
+
+```cpp
+// Before
+synnax::framer::WriterConfig cfg{.channels = {ai_time, ai_0, ai_1}, .start = start};
+x::telem::Frame fr(3);
+fr.emplace(ai_time, x::telem::Series(stamps));
+fr.emplace(ai_0, std::move(s0));
+fr.emplace(ai_1, std::move(s1));
+
+// After
+synnax::framer::WriterConfig cfg{
+    .channels = {ai_0, ai_1, state_0},
+    .start = start,
+    .time_groups = {{ai_0, ai_1}, {state_0}},
+};
+x::telem::Frame fr(2);
+fr.emplace_time(0, x::telem::Series(stamps));
+fr.emplace(ai_0, std::move(s0));
+fr.emplace(ai_1, std::move(s1));
+```
+
+C++ names a group by its position, through `x::telem::Frame::emplace_time` (NEW), and
+the writer maps it to the group's clock. So no clock key reaches a documented surface
+(D-141), and a Driver source builds frames before the open returns. `WriterConfig` gains
+`time_groups`, `time_of`, and `arrival_timed`, and `auto_index` goes
+(`client/cpp/framer/framer.h:351`). The C calls drop `index_channel` from both writes,
+`is_index` and `index` from create, and `out_index_keys` from key retrieves, and
+`auto_index` becomes `arrival_timed` (`client/clib/framer/framer.h:64-82`). The LabVIEW
+VIs ship with the library, and `client/lv` checks `synnax_client_version` at open.
+
+**Wire:**
+
+```proto
+message TimeGroup { repeated uint32 keys = 1; }
+message WriterConfig {
+  // fields 1 to 8 as today
+  reserved 9; // auto_index
+  bool arrival_timed = 10;
+  uint32 time_of = 11;
+  repeated TimeGroup time_groups = 12;
+}
+message WriterResponse { repeated uint32 clocks = 7; }    // fields 1 to 6 as today
+message StreamerRequest { repeated uint32 untimed_keys = 8; }
+message IteratorRequest { repeated uint32 untimed_keys = 7; }
+```
+
+**Errors:** Each message names channels and "time", never a clock.
+
+| Case                                   | Error                                                                                                   |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| A partial declared group               | The write holds temperature but not pressure. A write holds all or none of the channels of a time group |
+| No time                                | The write has no time for temperature. Add "time", or open the writer with arrival_timed or time_of     |
+| Lengths differ                         | pressure has 2 samples, and its time has 3                                                              |
+| Time goes back                         | Time out of order at sample 4. When channels have their own times, open the writer with time_groups     |
+| Time and no channel                    | The write holds "time" and no channels                                                                  |
+| Time in a writer that takes none       | The writer takes its time on arrival, so a write cannot hold "time"                                     |
+| A `time_of` start that is not a sample | temperature has no sample at the start. A writer with time_of starts at a sample of that channel        |
+| `"time"` in an open or read list       | "time" is not a channel. Writes take time under "time", and frame.time(channel) gives a channel's time  |
+| `frame.time` with no time              | The frame holds no time for temperature. The read reduced it with min_max, or read it untimed           |
+| A new channel named `time`             | time is a reserved name                                                                                 |
 
 ### 4.9 Tasks and devices
 
