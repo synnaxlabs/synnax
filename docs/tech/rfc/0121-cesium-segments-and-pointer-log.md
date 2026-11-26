@@ -768,18 +768,18 @@ the failed attempt, which holds no acked frame, so a lasting fault adds at most 
 file. Every attempt after one error names the same link, so none names a removed
 attempt, and recovery finds the chain and skips the logs between (§5.5 step 6). Log `g`
 always has a synced header: a switch log is in use only after its header syncs (§5.3
-step 2), and an attempt only after its first frames ack. When the header sync of a
-switch log fails, the log owner removes that file, and the next batch tries the switch
-again at the next free generation. Failed attempts do not count toward the 16 logs of
-§5.3. The checkpointer learns each generation that the log owner takes, so a due switch
-takes the next free generation and never writes the headers of a log in use, and the
-orphan pass keeps each log from the older head's generation on. Recovery goes on from
-the named log in the highest log whose header holds the end flag for it (§5.5 step 6),
-so a failed frame that reached the disk is neither replayed nor a sign of corruption.
-Until an attempt acks, `Sync` returns the error, `Close` returns it and releases its
-claims (§4.2), commits stay visible, and the Core raises a status that says storage is
-failing. A crash in that time loses the commits since the last durable entry. At start,
-the Core gets past damage by itself: when `Open` returns `ErrCorrupt`, the Core runs
+step 2), and an attempt only after it acks. A failed header sync of a switch log is a
+sync error on `g`: the log owner removes that file, sends no switch request, and goes on
+with attempts as above. Failed attempts do not count toward the 16 logs of §5.3. The
+checkpointer learns each generation that the log owner takes, so a due switch takes the
+next free generation and never writes the headers of a log in use, and the orphan pass
+keeps each log from the older head's generation on. Recovery goes on from the named log
+in the highest log whose header holds the end flag for it (§5.5 step 6), so a failed
+frame that reached the disk is neither replayed nor a sign of corruption. Until an
+attempt acks, `Sync` returns the error, `Close` returns it and releases its claims
+(§4.2), commits stay visible, and the Core raises a status that says storage is failing.
+A crash in that time loses the commits since the last durable entry. At start, the Core
+gets past damage by itself: when `Open` returns `ErrCorrupt`, the Core runs
 `cesium.Repair` (§6.0) with a confirm that accepts, raises a warning status that lists
 what repair could not save, and opens again. A repair that fails fails the start. The
 identity refusal (§9.0) is its own error, and the Core never repairs past it. Cesium
