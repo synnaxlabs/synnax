@@ -701,9 +701,12 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
 - **Continued stretches**: A session goes on with the stretch of its clock, with no new
   number, when the session before it on the clock closed clean, its commits are durable,
   every alignment it gave is committed, and the new session's first stamp is after the
-  clock's last stored stamp. The state owner keeps the last number and next index of
-  each clock in memory only, so after a restart each clock takes a new number at its
-  next session. A `client.write` loop then takes no number per call.
+  clock's last stored stamp by at most 3 times the clock's last step (the time between
+  its last two stamps). A reader draws one line through a stretch, so the gap rule keeps
+  a task stop out of a line, and a loop at a steady rate stays in one. The state owner
+  keeps the last number, the next index, and the last two stamps of each clock in memory
+  only, so after a restart each clock takes a new number at its next session. A
+  `client.write` loop takes a number at its first two calls only.
 - **Data follows its clock**: The channels of a clock write take the alignment of the
   clock, and data written against stored stamps takes the alignment of the stamp at its
   start. Each pointer stores the alignment of its first sample, so a live stream and
@@ -724,7 +727,7 @@ assumptions.
 | Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years |
 | Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years |
 | 100 script runs per day on 10 channels each       | 0         | Each run takes over its files |
-| A `client.write` loop at 10 Hz, 864,000 sessions  | 0         | No number per session         |
+| A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start    |
 
 A script run continues its clock (§5.8) and takes over its open segments, so a run after
 a clean close starts no segment and takes no number. The Core raises a warning status at
