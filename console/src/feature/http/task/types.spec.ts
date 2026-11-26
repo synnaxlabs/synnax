@@ -13,6 +13,12 @@ import { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 
+/** The ICD and message of a write endpoint that sends one. */
+const SENDS = {
+  icd: "8c1f2e6a-4b7d-4c3e-9f10-2a5b6c7d8e9f",
+  message: { message: "1d2e3f4a-5b6c-4d7e-8f90-a1b2c3d4e5f6", bindings: [] },
+};
+
 describe("HTTP Task Types", () => {
   const readField = {
     pointer: "/value",
@@ -481,6 +487,7 @@ describe("HTTP Task Types", () => {
             path: "/api",
             channel: { pointer: "/val", jsonType: "number", channel: 1 },
             fields: [],
+            ...SENDS,
           },
         ],
       };
@@ -540,6 +547,7 @@ describe("HTTP Task Types", () => {
             ],
             channel: { pointer: "/val", jsonType: "number", channel: 1 },
             fields: [],
+            ...SENDS,
           },
         ],
       };
@@ -560,10 +568,25 @@ describe("HTTP Task Types", () => {
             ],
             channel: { pointer: "/val", jsonType: "number", channel: 1 },
             fields: [],
+            ...SENDS,
           },
         ],
       };
       expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
+    });
+
+    it("should reject an enabled endpoint that sends no message at deploy", () => {
+      const result = HTTP.Task.deployWriteConfigZ.safeParse({
+        device: "dev-001",
+        endpoints: [
+          { key: "ep1", method: "POST", path: "/api", ...SENDS },
+          { key: "ep2", method: "POST", path: "/off", disabled: true },
+          { key: "ep3", method: "POST", path: "/none" },
+        ],
+      });
+      expect(result.error?.issues).toMatchObject([
+        { message: "A message is required", path: ["endpoints", 2, "message"] },
+      ]);
     });
   });
 
@@ -603,22 +626,6 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
     });
 
-    it("should reject a field pointer nested inside the channel pointer", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [{ type: "static", pointer: "/value/unit", value: "mm" }],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
-    });
-
     it("should validate a channel field with enum values", () => {
       const config = {
         device: "dev-001",
@@ -644,47 +651,6 @@ describe("HTTP Task Types", () => {
       expect(result.endpoints[0].channel.enumValues).toHaveLength(2);
     });
 
-    it("should default a channel field without enum values to an empty list", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/state", jsonType: "string", channel: 1 },
-            fields: [],
-          },
-        ],
-      };
-      const result = HTTP.Task.deployWriteConfigZ.parse(config);
-      expect(result.endpoints[0].channel.enumValues).toEqual([]);
-    });
-
-    it("should reject duplicate write enum values", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: {
-              pointer: "/state",
-              jsonType: "string",
-              channel: 1,
-              enumValues: [
-                { value: 1, label: "ON" },
-                { value: 1, label: "OFF" },
-              ],
-            },
-            fields: [],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
-    });
-
     it("should validate a channel field with timeFormat", () => {
       const config = {
         device: "dev-001",
@@ -705,189 +671,6 @@ describe("HTTP Task Types", () => {
       };
       const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
       expect(result.endpoints[0].channel.timeFormat).toBe("unix_ms");
-    });
-  });
-
-  describe("write endpoint custom checks", () => {
-    it("should reject bare primitive pointer with additional fields", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "sf1",
-                type: "static",
-                pointer: "/extra",
-                jsonType: "number",
-                value: 42,
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
-    });
-
-    it("should allow bare primitive pointer with no fields", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "", jsonType: "number", channel: 1 },
-            fields: [],
-          },
-        ],
-      };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].channel.pointer).toBe("");
-    });
-
-    it("should reject duplicate pointers between channel and fields", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "sf1",
-                type: "static",
-                pointer: "/value",
-                jsonType: "number",
-                value: 42,
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
-    });
-
-    const nestedConfig = (channel: string, ...fields: string[]) => ({
-      device: "dev-001",
-      endpoints: [
-        {
-          key: "ep1",
-          method: "POST",
-          path: "/api",
-          channel: { pointer: channel, jsonType: "number", channel: 1 },
-          fields: fields.map((pointer, i) => ({
-            key: `sf${i}`,
-            type: "static",
-            pointer,
-            jsonType: "number",
-            value: i,
-          })),
-        },
-      ],
-    });
-
-    it("should reject a field pointer inside the channel pointer", () => {
-      expect(
-        HTTP.Task.deployWriteConfigZ.validate(nestedConfig("/value", "/value/unit")),
-      ).toBe(false);
-    });
-
-    it("should reject a field pointer above the channel pointer", () => {
-      expect(
-        HTTP.Task.deployWriteConfigZ.validate(nestedConfig("/value/unit", "/value")),
-      ).toBe(false);
-    });
-
-    it("should reject nested field pointers", () => {
-      expect(
-        HTTP.Task.deployWriteConfigZ.validate(
-          nestedConfig("/value", "/meta", "/meta/id"),
-        ),
-      ).toBe(false);
-    });
-
-    it("should allow sibling pointers that share a prefix", () => {
-      expect(
-        HTTP.Task.deployWriteConfigZ.validate(nestedConfig("/value", "/value_x")),
-      ).not.toBe(false);
-    });
-
-    it("should reject duplicate pointers between fields", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "sf1",
-                type: "static",
-                pointer: "/extra",
-                jsonType: "number",
-                value: 1,
-              },
-              {
-                key: "sf2",
-                type: "static",
-                pointer: "/extra",
-                jsonType: "number",
-                value: 2,
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
-    });
-
-    it("should reject a static field with empty pointer", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "sf1",
-                type: "static",
-                pointer: "",
-                jsonType: "number",
-                value: 42,
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
-    });
-
-    it("should reject a generated field with empty pointer", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [{ key: "gf1", type: "generated", pointer: "", generator: "uuid" }],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
     });
   });
 

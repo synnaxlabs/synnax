@@ -19,17 +19,8 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, primitive, unique } from "@synnaxlabs/x";
-import {
-  createContext,
-  type Dispatch,
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  type SetStateAction,
-  useContext,
-  useState,
-} from "react";
+import { deep, id, unique } from "@synnaxlabs/x";
+import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/http/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/http/task/create";
@@ -42,10 +33,8 @@ import {
   writeEndpointZ,
   type WriteSchemas,
 } from "@/feature/http/task/types";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
@@ -56,7 +45,7 @@ const Properties = () => <Device.Select />;
 
 interface MethodSelectProps {
   path: deep.Target<http.Method>;
-  onChange?: (method: http.Method) => void;
+  onChange: (method: http.Method) => void;
 }
 
 const MethodSelect = ({ path, onChange }: MethodSelectProps) => (
@@ -75,108 +64,24 @@ const SelectMethod = (p: Select.ButtonsProps<http.Method>) => (
 
 const renderMethodSelect = Component.renderProp(SelectMethod);
 
-/** The name deploying gives an endpoint's command channel while it has none. */
-const commandChannelName = (device: string, endpoint: string): string =>
-  `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_cmd`;
-
-/** What the command channel of an endpoint needs from deploying. */
-const endpointCommand = (
-  device: string,
-  ep: WriteEndpoint,
-): Task.CommandChannelSpec => ({
-  propertiesKey: ep.path,
-  channel: ep.channel.channel,
-  name: primitive.isNonZero(ep.channel.name)
-    ? ep.channel.name
-    : commandChannelName(device, ep.path),
-  dataType: ep.channel.dataType,
-});
-
-/** The plan of the command channel of each endpoint, by endpoint path. */
-const PlansContext = createContext<ReadonlyMap<string, Task.CommandChannelPlan>>(
-  new Map(),
-);
-PlansContext.displayName = "HTTP.PlansContext";
-
-/** Plans the command channels of every endpoint together, as deploying does. */
-const CommandNames = ({ children }: PropsWithChildren): ReactElement => {
-  const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const dev = Device.useFromConfig();
-  const specs =
-    dev == null
-      ? []
-      : endpoints
-          .filter(({ disabled }) => !disabled)
-          .map((ep) => endpointCommand(dev.name, ep));
-  const plans = Task.useCommandChannelPlans(dev?.properties.write, specs);
-  return <PlansContext value={plans}>{children}</PlansContext>;
-};
-
-const ChannelEndpointItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = root.config.endpoints[itemKey];
-  const channelKey = PForm.useFieldValue(path.channel.channel);
-  const endpointPath = PForm.useFieldValue(path.path);
-  const disabled = PForm.useFieldValue(path.disabled);
-  const dev = Device.useFromConfig();
-  const planned = Task.newCommandChannelName(
-    useContext(PlansContext).get(endpointPath),
-  );
-  return (
-    <Select.Item
-      {...props}
-      y
-      align="start"
-      gap="small"
-      className={CSS.B("endpoint-item")}
-    >
-      <Flex.Box x align="center" gap="small" full="x">
-        <EndpointLabel path={path} />
-      </Flex.Box>
-      <Flex.Box x align="center" justify="between" gap="small" full="x">
-        <Task.ChannelName
-          channel={channelKey}
-          namePath={path.channel.name}
-          defaultName={
-            dev == null
-              ? undefined
-              : (planned ?? commandChannelName(dev.name, endpointPath))
-          }
-          skipped={disabled}
-          id={Task.getChannelNameID(itemKey)}
-          level="small"
-          weight={450}
-          color={9}
-          overflow="fade"
-        />
-        <Task.EnabledCheckbox path={path.disabled} />
-      </Flex.Box>
-    </Select.Item>
-  );
-};
-
-const endpointItem = Component.renderProp(ChannelEndpointItem);
-
-const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
-
 /** The method and path of the request of an endpoint. */
 type RequestLine = Pick<WriteEndpoint, "method" | "path">;
 
 interface RequestSectionProps {
   path: deep.Path<WriteEndpoint>;
   /** Called with each change to the method or path, before the form applies it. */
-  onChange?: (change: Partial<RequestLine>) => void;
+  onChange: (change: Partial<RequestLine>) => void;
 }
 
 const RequestSection = ({ path, onChange }: RequestSectionProps) => (
   <PForm.Section title="Request">
-    <MethodSelect path={path.method} onChange={(method) => onChange?.({ method })} />
+    <MethodSelect path={path.method} onChange={(method) => onChange({ method })} />
     <PForm.TextField
       path={path.path}
       label="Path"
       padHelpText={false}
       inputProps={PATH_INPUT_PROPS}
-      onChange={(p) => onChange?.({ path: p })}
+      onChange={(p) => onChange({ path: p })}
     />
     <PlatformForm.KeyValueEditor
       path={path.queryParams}
@@ -197,102 +102,7 @@ const RequestSection = ({ path, onChange }: RequestSectionProps) => (
   </PForm.Section>
 );
 
-const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
-  const path = root.config.endpoints[epKey];
-  return (
-    <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
-      <PForm.Sections className={CSS.B("endpoint-form")}>
-        <RequestSection path={path} />
-        <Task.Payload.ChannelSections path={path.channel} pointerPlaceholder="/value" />
-        <Task.Payload.AdditionalFields key={epKey} path={path.fields} />
-      </PForm.Sections>
-    </Flex.Box>
-  );
-};
-
 const PATH_INPUT_PROPS = { placeholder: "/api/control" } as const;
-
-const createEndpoint = (): WriteEndpoint => writeEndpointZ.parse({});
-
-const duplicateEndpoints = (
-  endpoints: WriteEndpoint[],
-  keys: string[],
-): WriteEndpoint[] =>
-  endpoints
-    .filter(({ key }) => keys.includes(key))
-    .map((ep) => ({
-      ...ep,
-      key: id.create(),
-      channel: { ...ep.channel, channel: 0 },
-      fields: ep.fields.map((f) => ({ ...f, key: id.create() })),
-    }));
-
-const Form: FC = () => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const dev = Device.useFromConfig();
-  const resolve = (ep: WriteEndpoint) =>
-    dev == null
-      ? null
-      : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } };
-  const current = selected.length > 0 ? selected[0] : null;
-  return (
-    <Task.Views.Panes
-      listTitle="Endpoints"
-      list={
-        <CommandNames>
-          <Task.Views.ChannelList<WriteEndpoint>
-            path={root.config.endpoints}
-            header={null}
-            emptyContent={EMPTY_ENDPOINTS}
-            addLabel="Add endpoint"
-            createChannel={createEndpoint}
-            createChannels={duplicateEndpoints}
-            listItem={endpointItem}
-            contextMenuItems={Task.readChannelContextMenuItem}
-            resolve={resolve}
-            selected={selected}
-            onSelect={setSelected}
-            grow
-          />
-        </CommandNames>
-      }
-      detailsPath={current != null ? root.config.endpoints[current] : null}
-      title={current != null && <EndpointLabel path={root.config.endpoints[current]} />}
-    >
-      {current != null ? (
-        <EndpointDetails epKey={current} />
-      ) : (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
-        </Flex.Box>
-      )}
-    </Task.Views.Panes>
-  );
-};
-
-const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
-  client,
-  config,
-) => {
-  const dev = await client.devices.retrieve({
-    key: config.device,
-    schemas: Device.SCHEMAS,
-  });
-  const before = deep.copy(dev.properties);
-  try {
-    for (const ep of config.endpoints) {
-      if (ep.disabled) continue;
-      ep.channel.channel = await Task.configureCommandChannel(
-        client,
-        dev.properties.write,
-        endpointCommand(dev.name, ep),
-      );
-    }
-  } finally {
-    await PlatformDevice.setProperties(client, dev, before, Device.SCHEMAS);
-  }
-  return [config, dev.rack];
-};
 
 /** An endpoint whose request body is a message of an ICD. */
 interface ICDEndpoint extends WriteEndpoint {
@@ -348,13 +158,13 @@ const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({
   message: ep.message == null ? undefined : ICD.Write.unbind(ep.message),
 });
 
-interface ICDDetailsProps {
+interface DetailsProps {
   epKey: string;
   onAddField: () => void;
 }
 
 /** The message that an endpoint sends. */
-const MessageDetails = ({ epKey, onAddField }: ICDDetailsProps) => {
+const MessageDetails = ({ epKey, onAddField }: DetailsProps) => {
   const path = icdPath(epKey);
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
@@ -401,16 +211,12 @@ const MessagePick = ({ epKey }: { epKey: string }) => {
   );
 };
 
-interface ICDEndpointDetailsProps extends ICDDetailsProps {
+interface EndpointDetailsProps extends DetailsProps {
   /** The key of each message that this form created. */
   created: icd.MessageKey[];
 }
 
-const ICDEndpointDetails = ({
-  epKey,
-  onAddField,
-  created,
-}: ICDEndpointDetailsProps) => {
+const EndpointDetails = ({ epKey, onAddField, created }: EndpointDetailsProps) => {
   const path = root.config.endpoints[epKey];
   const ctx = PForm.useContext();
   const formats = ICD.useFormats();
@@ -509,7 +315,7 @@ const Endpoints = ({
       path: root.config.endpoints[ep.key],
       title: <EndpointLabel path={root.config.endpoints[ep.key]} />,
       details: (
-        <ICDEndpointDetails
+        <EndpointDetails
           key={ep.key}
           epKey={ep.key}
           onAddField={onAddField}
@@ -581,7 +387,7 @@ const Endpoints = ({
   );
 };
 
-const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const [selected, setSelected] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(() =>
@@ -605,15 +411,15 @@ const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Devic
 };
 
 /** The endpoints of the task, each with the message of an ICD that it sends. */
-const ICDForm = PlatformDevice.wrapTaskForm({
+const Form = PlatformDevice.wrapTaskForm({
   use: Device.use,
   useConfigure: Device.useConnectModal,
   useNoneSelected: Device.useNoneSelected,
-  Content: ICDContent,
+  Content,
 });
 
 /** Gives each channel binding of an enabled endpoint a command channel. */
-const configureICD: Task.OnConfigure<WriteSchemas["config"]> = async (
+const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
 ) => {
@@ -640,9 +446,9 @@ const configureICD: Task.OnConfigure<WriteSchemas["config"]> = async (
 
 export const Write = Task.wrapForm({
   Properties,
-  Form: FLAGS.icds ? ICDForm : Form,
+  Form,
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
-  onConfigure: FLAGS.icds ? configureICD : onConfigure,
+  onConfigure,
 });
