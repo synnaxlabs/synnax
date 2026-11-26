@@ -36,6 +36,8 @@ type overrides struct {
 	create func(ctx context.Context, sym *symbol.Symbol) error
 	// copies holds the copy of a symbol for each source symbol and set of overrides.
 	copies map[string]symbol.Key
+	// named counts the copies under each name that a first copy gets.
+	named map[string]int
 }
 
 // apply makes each custom node of old with state overrides a symbol node in s, with the
@@ -93,9 +95,9 @@ func (o *overrides) node(
 		return SymbolNodeConfig{}, err
 	}
 	if drawn != nil {
-		c := symbol.Symbol{Name: src.Name + " (" + schematic + ")", Group: src.Group}
+		c := symbol.Symbol{Name: src.Name, Group: src.Group}
 		c.Data = *drawn
-		key, err := o.copy(ctx, src.Key, states, c, recolored)
+		key, err := o.copy(ctx, src.Key, states, schematic, c, recolored)
 		if err != nil {
 			return SymbolNodeConfig{}, err
 		}
@@ -116,11 +118,13 @@ func (o *overrides) node(
 
 // copy creates c, a copy of the symbol with key src, with an enumeration of entries on
 // its first state, and returns its key. Nodes share a copy when they have the same
-// source symbol and the same overrides states.
+// source symbol and the same overrides states. The copy gets the next copyName of c in
+// schematic.
 func (o *overrides) copy(
 	ctx context.Context,
 	src symbol.Key,
 	states []symbolv4.State,
+	schematic string,
 	c symbol.Symbol,
 	entries []enumeration.Entry,
 ) (symbol.Key, error) {
@@ -132,6 +136,9 @@ func (o *overrides) copy(
 	if key, ok := o.copies[id]; ok {
 		return key, nil
 	}
+	first := copyName(c.Name, schematic, 1)
+	o.named[first]++
+	c.Name = copyName(c.Name, schematic, o.named[first])
 	e, err := o.intern(ctx, c.Name, entries)
 	if err != nil {
 		return uuid.Nil(), err
@@ -148,6 +155,15 @@ func (o *overrides) copy(
 	}
 	o.copies[id] = c.Key
 	return c.Key, nil
+}
+
+// copyName returns the name of copy n of the symbol named name in schematic:
+// "Valve (Panel)", then "Valve (Panel 2)".
+func copyName(name, schematic string, n int) string {
+	if n == 1 {
+		return name + " (" + schematic + ")"
+	}
+	return name + " (" + schematic + " " + strconv.Itoa(n) + ")"
 }
 
 // entriesOf returns the entries of the stored enumeration of state, or none when state

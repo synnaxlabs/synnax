@@ -55,6 +55,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 						Exec(ctx, tx)
 				},
 				copies: map[string]symbol.Key{},
+				named:  map[string]int{},
 			}
 			if err := migrate.NewInstrumentedEntry(
 				key,

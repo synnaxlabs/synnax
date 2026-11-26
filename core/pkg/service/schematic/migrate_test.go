@@ -789,6 +789,36 @@ var _ = Describe("Stored v13 state overrides", func() {
 		},
 	)
 
+	It(
+		"Should number the later copies of a symbol in node order",
+		func(ctx SpecContext) {
+			grey := color.Color{R: 128, G: 128, B: 128, A: 255}
+			db, _, nodes := upgrade(ctx, func(vent v4.Symbol) [][]v4.State {
+				strokes := []color.Color{red, yellow}
+				return [][]v4.State{
+					paint(vent, strokes, []color.Color{white, white}),
+					paint(vent, strokes, []color.Color{grey, grey}),
+					paint(vent, strokes, []color.Color{white, white}),
+				}
+			})
+			names := lo.Map(nodes, func(n schematic.SymbolNodeConfig, _ int) string {
+				var copied symbol.Symbol
+				Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+					Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](
+						as[symbol.CustomRef](n.Spec.Variant).Key,
+					)).
+					Entry(&copied).
+					Exec(ctx, db)).To(Succeed())
+				return copied.Name
+			})
+			Expect(names).To(Equal([]string{
+				"Vent valve (Panel)",
+				"Vent valve (Panel 2)",
+				"Vent valve (Panel)",
+			}))
+		},
+	)
+
 	It("Should give a custom_static node no record for overrides of states that it "+
 		"never draws", func(ctx SpecContext) {
 		db := openShipped(ctx)
