@@ -528,6 +528,37 @@ var _ = Describe("Writer", func() {
 		Expect(res.Frame.Get(virtualCh.Key()).Series[0].Clock).To(BeZero())
 	})
 
+	It("Should replace a clock that a written series brings with its channel's index",
+		func(ctx SpecContext) {
+			idxCh, dataCh := createIndexed(ctx, telem.Float32T)
+			keys := channel.Keys{idxCh.Key(), dataCh.Key()}
+			streamer := MustSucceed(mockNode.Framer.NewStreamer(framer.StreamerConfig{
+				Keys:        keys,
+				SendOpenAck: new(true),
+			}))
+			_, out := confluence.Attach(streamer, 10)
+			sCtx, cancel := signal.WithCancel(ctx)
+			defer cancel()
+			streamer.Flow(sCtx)
+			var res framer.StreamerResponse
+			Eventually(out.Outlet()).Should(Receive(&res))
+			w := MustOpen(writerSvc.Open(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			stamps := telem.NewSeriesSecondsTSV(10, 11)
+			stamps.Clock = 999
+			values := telem.NewSeriesV[float32](1, 2)
+			values.Clock = 999
+			Expect(w.Write(frame.NewMulti(keys, []telem.Series{stamps, values}))).
+				To(BeTrue())
+			Eventually(out.Outlet()).Should(Receive(&res))
+			clock := uint32(idxCh.Key())
+			Expect(res.Frame.Get(idxCh.Key()).Series[0].Clock).To(Equal(clock))
+			Expect(res.Frame.Get(dataCh.Key()).Series[0].Clock).To(Equal(clock))
+		},
+	)
+
 	Describe("Free Channel Writes", func() {
 		It(
 			"Should stamp alignments on free writes and stream them through the relay",
