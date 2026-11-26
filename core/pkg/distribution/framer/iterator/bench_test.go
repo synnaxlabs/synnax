@@ -73,7 +73,8 @@ func openStreamData(
 		for i := range stamps {
 			stamps[i] = start + telem.TimeStamp(written+i)*telem.MillisecondTS
 		}
-		series := []telem.Series{telem.NewSeries(stamps)}
+		series := make([]telem.Series, 1, 1+data)
+		series[0] = telem.NewSeries(stamps)
 		for range data {
 			series = append(series, telem.NewSeries(make([]float32, n)))
 		}
@@ -99,6 +100,7 @@ func readAll(
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) int64 {
+	b.Helper()
 	iter, err := dist.Framer.OpenIterator(b.Context(), iterator.Config{
 		Keys:      keys,
 		Bounds:    tr,
