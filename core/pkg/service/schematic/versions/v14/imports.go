@@ -39,6 +39,7 @@ func ImportCustomNodes(
 		create:      create,
 		retrievable: retrievable,
 		copies:      map[string]symbol.Key{},
+		named:       map[string]int{},
 	}
 	return o.apply(ctx, s, old)
 }
