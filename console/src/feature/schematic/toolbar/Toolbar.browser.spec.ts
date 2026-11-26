@@ -22,6 +22,8 @@ import {
   retrieveConfigs,
 } from "@/feature/schematic/testutil";
 import { findLastButton } from "@/platform/modals/testutil";
+import { Session } from "@/session";
+import { documentIn } from "@/session/window/testutil";
 
 const LOSS = "Valve loses the Active binding.";
 const SPARE_LOSS = "Spare loses the Active binding.";
@@ -94,13 +96,17 @@ describe("Toolbar symbol change", () => {
   });
 
   it("should keep the symbol and bindings when the confirm is canceled", async () => {
-    const { key } = await renderSelected({
+    const { key, store } = await renderSelected({
       n1: createValveNode({ states: [ACTIVE_BINDING] }),
     });
     await pickSymbol("Cap");
     await screen.findByText(LOSS);
     fireEvent.click(findLastButton("Cancel"));
     await waitFor(() => expect(screen.queryByText(LOSS)).toBeNull());
+    await act(async () => {});
+    expect(
+      documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar,
+    ).toMatchObject({ selectedTab: "symbols", changing: true });
     expect((await retrieveConfigs(key)).n1).toMatchObject({
       spec: { type: "builtin", name: "valve" },
       states: [ACTIVE_BINDING],
