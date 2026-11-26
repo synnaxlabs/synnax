@@ -11,6 +11,7 @@ package write_test
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"uuid"
 
@@ -24,11 +25,65 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const modeKey channel.Key = 3
+
+// missingField is the key of a field that no message holds.
+var missingField = uuid.New()
+
+var (
+	gain = icd.BinaryField{Variant: icd.FloatBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "gain", Scale: 1},
+			BitLength: 32,
+		},
+	}}
+	unit = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "unit", Scale: 1},
+			StartBit:  32,
+			BitLength: 8,
+		},
+		Default: new(payload.Unsigned(1)),
+	}}
+	counts = icd.Message{
+		Key:  uuid.New(),
+		Name: "Counts",
+		Payload: icd.Payload{Variant: icd.BinaryPayload{
+			Fields: []icd.BinaryField{gain, unit},
+		}},
+	}
+	volts = textField("volts", nil)
+	trim  = textField("trim", new(payload.Float(0)))
+	line  = icd.Message{
+		Key:  uuid.New(),
+		Name: "Line",
+		Payload: icd.Payload{Variant: icd.TextPayload{
+			Delimiter: ",",
+			Fields:    []icd.TextField{volts, trim},
+		}},
+	}
+)
+
+func textField(name string, fallback *payload.Float) icd.TextField {
+	return icd.TextField{Variant: icd.DelimitedTextField{
+		TextBaseField: icd.TextBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: name, Scale: 1},
+			Default:   fallback,
+		},
+	}}
+}
+
+// framed returns w as a write that frames its message on a byte stream.
+func framed(w write.Write) write.Write {
+	w.Framed = true
+	return w
+}
 
 // writeAt returns the write of wm of the ICD with key, at targets.i of a config.
 func writeAt(i int, key icd.Key, wm icd.WriteMessage) write.Write {
@@ -65,6 +120,7 @@ var _ = Describe("Resolver", func() {
 	Describe("Check", func() {
 		given := plant
 		given.Key = uuid.New()
+		given.Messages = append(slices.Clone(plant.Messages), counts, line)
 		// check checks writes with given as the only ICD that the caller holds.
 		check := func(ctx context.Context, writes ...write.Write) error {
 			GinkgoHelper()
@@ -166,6 +222,87 @@ var _ = Describe("Resolver", func() {
 				scaled(jsonField("raw", icd.IntegerJSONField{}), 1, 4),
 				nil,
 				Succeed(),
+			),
+		)
+
+		It("Should accept framed writes of binary and text messages", func(
+			ctx SpecContext,
+		) {
+			Expect(check(
+				ctx,
+				framed(writeAt(0, given.Key, writeOf(
+					counts,
+					channelOf(gain.Base().Key, valueKey, nil),
+					valueOf(unit.Base().Key, icd.UnsignedWriteValue{Value: 2}),
+				))),
+				framed(writeAt(1, given.Key, writeOf(
+					line, channelOf(volts.Base().Key, valueKey, nil),
+				))),
+			)).To(Succeed())
+		})
+
+		It("Should refuse a write of a binary message that is not framed", func(
+			ctx SpecContext,
+		) {
+			w := writeAt(0, given.Key, writeOf(
+				counts, channelOf(gain.Base().Key, valueKey, nil),
+			))
+			Expect(check(ctx, w)).To(MatchError(
+				"targets.0.message: message Counts is not a JSON message",
+			))
+		})
+
+		It("Should build the encoder of a framed write of a JSON message", func(
+			ctx SpecContext,
+		) {
+			held[modeKey] = icdv0.Channel{Name: "mode", DataType: telem.Float64T}
+			w := framed(writeAt(0, given.Key, writeOf(
+				setpoint, bind(temp), channelOf(mode.Base().Key, modeKey, nil),
+			)))
+			Expect(check(ctx, w)).To(MatchError(
+				"targets.0.message: message Setpoint: field mode: cannot write float64 " +
+					"channels to string fields: validation error",
+			))
+		})
+
+		DescribeTable("Should refuse a framed write of a binary or text message at "+
+			"the path of the problem",
+			func(ctx SpecContext, wm icd.WriteMessage, expected string) {
+				Expect(check(ctx, framed(writeAt(0, given.Key, wm)))).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(expected),
+				))
+			},
+			Entry("no channel binding",
+				writeOf(counts, valueOf(unit.Base().Key, icd.UnsignedWriteValue{})),
+				"targets.0.message: message Counts binds no channels",
+			),
+			Entry("a binding to a field that the message lacks",
+				writeOf(counts, channelOf(missingField, valueKey, nil)),
+				"targets.0.message.bindings.0.field: field "+missingField.String()+
+					" does not exist",
+			),
+			Entry("a field with two bindings",
+				writeOf(
+					counts,
+					channelOf(gain.Base().Key, valueKey, nil),
+					channelOf(gain.Base().Key, modeKey, nil),
+				),
+				"targets.0.message.bindings.1.field: field gain has more than one "+
+					"binding",
+			),
+			Entry("a value of another kind than its field",
+				writeOf(
+					counts,
+					channelOf(gain.Base().Key, valueKey, nil),
+					valueOf(unit.Base().Key, icd.FloatWriteValue{Value: 2}),
+				),
+				"targets.0.message.bindings.1.value: field unit of kind unsigned "+
+					"needs a value of its kind",
+			),
+			Entry("a field with no binding and no default",
+				writeOf(line, channelOf(trim.Base().Key, valueKey, nil)),
+				"targets.0.message: field volts has no binding and no default",
 			),
 		)
 
@@ -277,6 +414,36 @@ var _ = Describe("Resolver", func() {
 				))
 			})).To(Succeed())
 		}
+
+		// reframed creates a copy of stored, under a new key, that frames with framing.
+		reframed := func(ctx context.Context, framing icd.Framing) icd.Key {
+			GinkgoHelper()
+			other := stored
+			other.Key = uuid.New()
+			other.Framing = &framing
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icdSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			return other.Key
+		}
+
+		It("Should cover the framing of the ICD of a framed write", func(
+			ctx SpecContext,
+		) {
+			wm := writeOf(setpoint, bind(temp))
+			slip := reframed(ctx, icd.Framing{Variant: icd.SlipFraming{}})
+			Expect(sum(ctx, framed(writeAt(0, slip, wm)))).
+				ToNot(Equal(sum(ctx, framed(writeAt(0, stored.Key, wm)))))
+		})
+
+		It("Should not cover the framing of the ICD of a write", func(
+			ctx SpecContext,
+		) {
+			wm := writeOf(setpoint, bind(temp))
+			slip := reframed(ctx, icd.Framing{Variant: icd.SlipFraming{}})
+			Expect(sum(ctx, writeAt(0, slip, wm))).
+				To(Equal(sum(ctx, writeAt(0, stored.Key, wm))))
+		})
 
 		It("Should give the same sum for the same writes", func(ctx SpecContext) {
 			w := writeAt(0, stored.Key, writeOf(setpoint, bind(temp)))

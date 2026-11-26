@@ -66,14 +66,43 @@ var (
 	status  = jsonMessage("Status", ts, temp, state, raw)
 	stamped = jsonMessage("Stamped", defaulted)
 	frame   = icd.Message{
-		Key:     uuid.New(),
-		Name:    "Frame",
-		Payload: icd.Payload{Variant: icd.BinaryPayload{}},
+		Key:  uuid.New(),
+		Name: "Frame",
+		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: []icd.BinaryField{
+			count, level,
+		}}},
+	}
+	count = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "count", Scale: 1},
+			BitLength: 8,
+		},
+	}}
+	// level is a scaled binary field, which decodes only into a float channel.
+	level = icd.BinaryField{Variant: icd.FloatBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 2},
+			StartBit:  8,
+			BitLength: 32,
+		},
+	}}
+	volts = icd.TextField{Variant: icd.DelimitedTextField{
+		TextBaseField: icd.TextBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "volts", Scale: 1},
+		},
+	}}
+	line = icd.Message{
+		Key:  uuid.New(),
+		Name: "Line",
+		Payload: icd.Payload{Variant: icd.TextPayload{
+			Delimiter: ",",
+			Fields:    []icd.TextField{volts},
+		}},
 	}
 	plant = icd.ICD{
 		Key:      uuid.New(),
 		Name:     "Plant",
-		Messages: []icd.Message{status, stamped, frame},
+		Messages: []icd.Message{status, stamped, frame, line},
 	}
 )
 
@@ -84,6 +113,7 @@ const (
 	levelKey channel.Key = 4
 	// pressureKey is a data channel on an index channel other than timeKey.
 	pressureKey channel.Key = 5
+	totalKey    channel.Key = 7
 )
 
 // held holds the channels that the channel lookup of the specs finds.
@@ -98,10 +128,17 @@ var held = map[channel.Key]icdv0.Channel{
 	stampKey:    {Name: "stamp", DataType: telem.TimestampT},
 	levelKey:    {Name: "level", DataType: telem.Float64T, IndexKey: timeKey},
 	pressureKey: {Name: "pressure", DataType: telem.Float64T, IndexKey: 6},
+	totalKey:    {Name: "total", DataType: telem.Int64T, IndexKey: timeKey},
 }
 
 func bind(f icd.JSONField, key channel.Key) icd.ReadBinding {
 	return icd.ReadBinding{Field: f.Base().Key, Channel: key}
+}
+
+// framed returns rd as a read that splits a byte stream with the framing of its ICD.
+func framed(rd read.Read) read.Read {
+	rd.Framed = true
+	return rd
 }
 
 func readOf(m icd.Message, bindings ...icd.ReadBinding) icd.ReadMessage {
@@ -184,6 +221,62 @@ var _ = Describe("Read", func() {
 				rm := readOf(status, bind(temp, valueKey), bind(temp, pressureKey))
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
+
+			It("Should accept a framed read of binary and text messages", func(
+				ctx SpecContext,
+			) {
+				Expect(check(ctx, framed(readAt(0, plant.Key,
+					readOf(
+						frame,
+						icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
+						icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
+					),
+					readOf(line, icd.ReadBinding{
+						Field: volts.Base().Key, Channel: levelKey,
+					}),
+				)))).To(Succeed())
+			})
+
+			DescribeTable("Should reject a framed read with the path of the problem",
+				func(ctx SpecContext, rm icd.ReadMessage, path, msg string) {
+					Expect(check(ctx, framed(readAt(0, plant.Key, rm)))).To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(path+": "+msg),
+					))
+				},
+				Entry("a scaled binary field into a channel that is not a float",
+					readOf(frame, icd.ReadBinding{
+						Field: level.Base().Key, Channel: totalKey,
+					}),
+					"reads.0.messages.0.bindings.0.channel",
+					"field level of kind float cannot read into channel total of "+
+						"data type int64",
+				),
+				Entry("a binary field into a data type that its kind does not suit",
+					readOf(frame, icd.ReadBinding{
+						Field: count.Base().Key, DataType: telem.StringT,
+					}),
+					"reads.0.messages.0.bindings.0.data_type",
+					"field count of kind unsigned cannot read into data type string",
+				),
+				Entry("a text field into a channel that is not a float",
+					readOf(line, icd.ReadBinding{
+						Field: volts.Base().Key, Channel: totalKey,
+					}),
+					"reads.0.messages.0.bindings.0.channel",
+					"field volts of kind float cannot read into channel total of "+
+						"data type int64",
+				),
+				Entry("a binary index field",
+					icd.ReadMessage{
+						Message:  frame.Key,
+						Index:    new(count.Base().Key),
+						Bindings: []icd.ReadBinding{{Field: count.Base().Key}},
+					},
+					"reads.0.messages.0.index",
+					"the index field count must be a timestamp field",
+				),
+			)
 
 			It("Should accept a binding to a channel that the lookup does not find",
 				func(ctx SpecContext) {
@@ -521,6 +614,36 @@ var _ = Describe("Read", func() {
 			before := sum(ctx, rd)
 			setPointer(ctx, stamped, defaulted, "/stamp")
 			Expect(sum(ctx, rd)).To(Equal(before))
+		})
+
+		// reframed creates a copy of ic, under a new key, that frames with framing.
+		reframed := func(ctx context.Context, framing icd.Framing) icd.Key {
+			GinkgoHelper()
+			other := ic
+			other.Key = uuid.New()
+			other.Framing = &framing
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icdSvc.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			return other.Key
+		}
+
+		It("Should cover the framing of the ICD of a framed read", func(
+			ctx SpecContext,
+		) {
+			rm := readOf(status, bind(temp, valueKey))
+			cobs := reframed(ctx, icd.Framing{Variant: icd.CobsFraming{}})
+			Expect(sum(ctx, framed(readAt(0, cobs, rm)))).
+				ToNot(Equal(sum(ctx, framed(readAt(0, ic.Key, rm)))))
+		})
+
+		It("Should not cover the framing of the ICD of a read", func(
+			ctx SpecContext,
+		) {
+			rm := readOf(status, bind(temp, valueKey))
+			cobs := reframed(ctx, icd.Framing{Variant: icd.CobsFraming{}})
+			Expect(sum(ctx, readAt(0, cobs, rm))).
+				To(Equal(sum(ctx, readAt(0, ic.Key, rm))))
 		})
 
 		It("Should mark a read of a message that the ICD lacks", func(
