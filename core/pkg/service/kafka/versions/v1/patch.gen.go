@@ -220,21 +220,6 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
 	case "device":
 		return patch.Value(&wc.Device, c.Next())
-	case "topic":
-		return patch.Value(&wc.Topic, c.Next())
-	case "record_key":
-		return patch.Defaulted(&wc.RecordKey, c.Next(), func(def *WriteConfig) {
-			wc.RecordKey = def.RecordKey
-		})
-	case "record":
-		if c = c.Next(); c.Done() {
-			return patch.Defaulted(&wc.Record, c, func(def *WriteConfig) {
-				wc.Record = def.Record
-			})
-		}
-		return wc.Record.Patch(c)
-	case "channels":
-		return patch.List(&wc.Channels, c.Next())
 	case "targets":
 		return patch.List(&wc.Targets, c.Next())
 	case "inline":
@@ -256,13 +241,6 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 func (wc *WriteConfig) HashContent(h *content.Hash) {
 	h.Bool(wc.StartConfig.AutoStart)
 	h.String(wc.Device)
-	h.String(wc.Topic)
-	h.String(string(wc.RecordKey))
-	wc.Record.HashContent(h)
-	h.Len(len(wc.Channels))
-	for i0 := range wc.Channels {
-		wc.Channels[i0].HashContent(h)
-	}
 	h.Len(len(wc.Targets))
 	for i0 := range wc.Targets {
 		wc.Targets[i0].HashContent(h)

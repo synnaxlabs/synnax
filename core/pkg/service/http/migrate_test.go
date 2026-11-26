@@ -94,10 +94,10 @@ var _ = Describe("Task migration", func() {
 			}))
 			stored := MustSucceed(svc.Read.Read(ctx, db, t.Key))
 			Expect(stored).ToNot(HaveKey("inline"))
+			Expect(stored["endpoints"]).To(HaveExactElements(Not(HaveKey("fields"))))
 			var cfg http.ReadConfig
 			Expect(stored.Unmarshal(&cfg)).To(Succeed())
 			Expect(cfg.Endpoints).To(HaveLen(1))
-			Expect(cfg.Endpoints[0].Fields).To(HaveLen(1))
 			var ic icd.ICD
 			Expect(icds.NewRetrieve().
 				Where(icd.MatchKeys(*cfg.Endpoints[0].ICD)).
@@ -161,8 +161,6 @@ var _ = Describe("ICDMigration", func() {
 				Key:    "ep",
 				Method: "GET",
 				Path:   "/level",
-				Index:  index,
-				Fields: fields,
 			}}},
 		)).To(Succeed())
 		b := MustSucceed(json.Marshal(http.InlineRead{
@@ -217,7 +215,6 @@ var _ = Describe("ICDMigration", func() {
 			Expect(cfg.Inline).To(BeNil())
 			Expect(cfg.Endpoints).To(HaveLen(1))
 			ep := cfg.Endpoints[0]
-			Expect(ep.Fields).To(HaveLen(1))
 			Expect(ep.Messages).To(HaveLen(1))
 			var ic icd.ICD
 			Expect(icdSvc.NewRetrieve().

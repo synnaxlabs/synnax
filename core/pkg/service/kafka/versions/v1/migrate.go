@@ -116,8 +116,19 @@ var ReadMigration = migrate.New(
 	},
 )
 
-// WriteMigration lifts each stored v0 write config to v1. It keeps the channels of each
-// config.
+// StagedChannelsKVPrefix is the KV key prefix under which WriteMigration stages the
+// channels of each config. The rest of the key is the config key as a string, and the
+// value is the InlineWrite that holds the channels, as JSON.
+const StagedChannelsKVPrefix = "sy_kafka_write_staged_channels/"
+
+// StagedChannelsKVKey returns the staging KV key of the channels of the write config
+// with the given key.
+func StagedChannelsKVKey(key uuid.UUID) []byte {
+	return []byte(StagedChannelsKVPrefix + key.String())
+}
+
+// WriteMigration lifts each stored v0 write config to v1. It stages the channels of
+// each config under StagedChannelsKVPrefix, with its topic, record key, and record.
 var WriteMigration = migrate.New(
 	"v63_kafka_write_targets",
 	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
@@ -129,55 +140,22 @@ var WriteMigration = migrate.New(
 		}
 		news := make([]WriteConfig, len(olds))
 		for i, old := range olds {
-			var err error
-			if news[i], err = autoMigrateWriteConfig(ctx, old); err != nil {
+			cfg, err := MigrateWriteConfig(ctx, old)
+			if err != nil {
 				return errors.Wrapf(err, "config %s", old.Key)
 			}
+			if cfg.Inline != nil {
+				b, err := json.Marshal(cfg.Inline)
+				if err != nil {
+					return errors.Wrapf(err, "config %s", old.Key)
+				}
+				if err = tx.Set(ctx, StagedChannelsKVKey(cfg.Key), b); err != nil {
+					return err
+				}
+				cfg.Inline = nil
+			}
+			news[i] = cfg
 		}
 		return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, news...)
-	},
-)
-
-// StagedChannelsKVPrefix is the KV key prefix under which WriteStageMigration stages
-// the channels of each write config. The rest of the key is the config key as a string,
-// and the value is the InlineWrite that holds the channels, as JSON.
-const StagedChannelsKVPrefix = "sy_kafka_write_staged_channels/"
-
-// StagedChannelsKVKey returns the staging KV key of the channels of the write config
-// with the given key.
-func StagedChannelsKVKey(key uuid.UUID) []byte {
-	return []byte(StagedChannelsKVPrefix + key.String())
-}
-
-// WriteStageMigration stages the channels of each stored write config under
-// StagedChannelsKVPrefix, with its topic, record key, and record, and stores the config
-// without them. It runs after WriteMigration.
-var WriteStageMigration = migrate.New(
-	"v63_kafka_write_stage",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-		var cfgs []WriteConfig
-		if err := gorp.NewRetrieve[uuid.UUID, WriteConfig]().
-			Where(gorp.Match[uuid.UUID](
-				func(_ gorp.Context, c *WriteConfig) (bool, error) {
-					return len(c.Channels) > 0, nil
-				},
-			)).
-			Entries(&cfgs).
-			Exec(ctx, tx); err != nil || len(cfgs) == 0 {
-			return err
-		}
-		for i := range cfgs {
-			cfg := &cfgs[i]
-			stage(cfg)
-			b, err := json.Marshal(cfg.Inline)
-			if err != nil {
-				return errors.Wrapf(err, "config %s", cfg.Key)
-			}
-			if err = tx.Set(ctx, StagedChannelsKVKey(cfg.Key), b); err != nil {
-				return err
-			}
-			cfg.Inline = nil
-		}
-		return gorp.WrapWriter[uuid.UUID, WriteConfig](tx).Set(ctx, cfgs...)
 	},
 )

@@ -187,20 +187,6 @@ func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
 	w.Write(wc.Key[:])
 	w.Bool(wc.AutoStart)
 	w.String(wc.Device)
-	w.String(wc.Topic)
-	w.String(string(wc.RecordKey))
-	if err := wc.Record.EncodeOrc(w); err != nil {
-		return err
-	}
-	w.Bool(wc.Channels != nil)
-	if wc.Channels != nil {
-		w.Uint32(uint32(len(wc.Channels)))
-		for i := range wc.Channels {
-			if err := wc.Channels[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
 	w.Bool(wc.Targets != nil)
 	if wc.Targets != nil {
 		w.Uint32(uint32(len(wc.Targets)))
@@ -224,37 +210,6 @@ func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if wc.Device, err = r.String(); err != nil {
 		return err
-	}
-	if wc.Topic, err = r.String(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		wc.RecordKey = RecordKey(rawV)
-	}
-	if err = wc.Record.DecodeOrc(r); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			wc.Channels = make([]WriteChannel, n)
-			for i := range wc.Channels {
-				if err = wc.Channels[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	{
 		present, err := r.Bool()

@@ -328,8 +328,8 @@ TEST(JSONEncoder, WritesRandomDefault) {
     }
 }
 
-/// @brief it should report which bindings have a default.
-TEST(JSONEncoder, ReportsDefaults) {
+/// @brief it should be ready when each field has a sample or a default.
+TEST(JSONEncoder, Ready) {
     auto mode = field<icd::StringJSONField>("mode");
     mode.default_ = "auto";
     const auto temp = field<icd::FloatJSONField>("temp");
@@ -338,8 +338,13 @@ TEST(JSONEncoder, ReportsDefaults) {
             command({mode, temp}, {x::telem::STRING_T, x::telem::FLOAT64_T})
         )
     );
-    ASSERT_TRUE(enc.has_default(0));
-    ASSERT_FALSE(enc.has_default(1));
+    EXPECT_FALSE(enc.ready(series_of(
+        x::telem::Series(x::telem::STRING_T, 0),
+        x::telem::Series(x::telem::FLOAT64_T, 0)
+    )));
+    EXPECT_TRUE(enc.ready(
+        series_of(x::telem::Series(x::telem::STRING_T, 0), x::telem::Series(1.5))
+    ));
 }
 
 /// @brief it should fail to encode an empty series whose field has no default.

@@ -120,8 +120,11 @@ ReadField struct {
         @doc value "maps string labels in the response to numeric channel values."
     }
 
+    @cpp omit
     @doc value  "is a single value extracted from an endpoint's JSON response."
     @go marshal
+    @py omit
+    @ts omit
 }
 
 ReadEndpoint struct {
@@ -157,15 +160,6 @@ ReadEndpoint struct {
     }
     messages     icd.ReadMessage[] = [] {
         @doc value "are the messages that the response body is read as."
-    }
-    fields       ReadField[]       {
-        @doc value "contains the values to extract from the response."
-    }
-    index        string = "" {
-        @doc value """
-            is the key of the field whose channel indexes the others. Empty when the
-            task stamps samples on arrival.
-        """
     }
 
     @doc value  "is a single HTTP endpoint polled by a read task."
@@ -271,6 +265,8 @@ BaseWriteField struct {
     @cpp omit
     @doc value  "carries the fields every write body field shares."
     @go marshal
+    @py omit
+    @ts omit
 }
 
 WriteField union on type extends BaseWriteField {
@@ -303,6 +299,8 @@ WriteField union on type extends BaseWriteField {
         the value is fixed or generated per request.
     """
     @go marshal
+    @py omit
+    @ts omit
 }
 
 WriteEndpoint struct {
