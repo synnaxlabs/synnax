@@ -470,13 +470,17 @@ var _ = Describe("JSONEncoder", func() {
 		})
 
 		It("Should keep the text of the last good sample after a failed check", func() {
+			expected := "message command: field v: NaN is not a JSON number: " +
+				"validation error"
 			Expect(enc.Check(0, float64Sample(1.5))).To(Succeed())
-			Expect(enc.Check(0, float64Sample(math.NaN()))).
-				To(MatchError(validate.ErrValidation))
+			Expect(enc.Check(0, float64Sample(math.NaN()))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
 			Expect(enc.Encode(nil, [][]byte{float64Sample(1.5)})).
 				To(MatchJSON(`{"v":1.5}`))
 			Expect(enc.Encode(nil, [][]byte{float64Sample(math.NaN())})).Error().
-				To(MatchError(validate.ErrValidation))
+				To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(expected)))
 		})
 
 		It("Should encode an empty string after the check of a nil sample", func() {
