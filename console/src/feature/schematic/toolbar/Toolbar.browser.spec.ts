@@ -9,6 +9,7 @@
 
 import { query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Schematic } from "@synnaxlabs/pluto";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -27,6 +28,7 @@ import { documentIn } from "@/session/window/testutil";
 
 const LOSS = "Valve loses the Active binding.";
 const SPARE_LOSS = "Spare loses the Active binding.";
+const VALUE_LOSS = "Pressure loses its Value settings.";
 
 preloadTab();
 
@@ -110,6 +112,25 @@ describe("Toolbar symbol change", () => {
     expect((await retrieveConfigs(key)).n1).toMatchObject({
       spec: { type: "builtin", name: "valve" },
       states: [ACTIVE_BINDING],
+    });
+  });
+
+  it("should ask before it changes a value node to a valve", async () => {
+    const { key } = await renderSelected({
+      n1: Schematic.Node.createConfig({
+        variant: "value",
+        label: { label: "Pressure" },
+        channel: 12,
+      }),
+    });
+    await pickSymbol("Ball");
+    await screen.findByText(VALUE_LOSS);
+    fireEvent.click(findLastButton("Cancel"));
+    await waitFor(() => expect(screen.queryByText(VALUE_LOSS)).toBeNull());
+    await act(async () => {});
+    expect((await retrieveConfigs(key)).n1).toMatchObject({
+      variant: "value",
+      channel: 12,
     });
   });
 });
