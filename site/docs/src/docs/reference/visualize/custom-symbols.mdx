@@ -1,12 +1,12 @@
 ---
 title: "Create custom symbols"
 description:
-  "Import an SVG drawing as a schematic symbol, color it by state, and share it."
+  "Draw a schematic symbol from an SVG file, give it states, commands, and looks, and
+  share it."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import Image from "@/components/media/Image.astro";
 import { Video } from "@/components/media/Media";
 import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -17,14 +17,19 @@ A custom symbol is an SVG drawing that you add to a
 hardware has no built-in symbol, such as a special valve or the outline of a vehicle.
 Custom symbols live in symbol groups, which every schematic on the Core can use.
 
-A custom symbol is one of two kinds:
+Each symbol holds:
 
-- **Static** -> a drawing only. It does not connect to channels.
-- **Actuator** -> a symbol with a **Base** and an **Active** state, like a built-in
-  valve. It shows the **Active** colors when its
-  [state channel](/reference/hardware/tasks#state-channels) is 1, and it writes to a
-  [command channel](/reference/hardware/tasks#command-channels) when an operator clicks
-  it.
+- **Parts** -> named sets of shapes in the drawing, such as the body of a valve.
+- **States** -> what the symbol shows, such as open or closed. Each node on a schematic
+  reads its states from channels.
+- **Looks** -> the fill, stroke, and visibility of a part, for all states or for each
+  state.
+- **Commands** -> named values that the symbol writes, such as 1 for **Open**.
+- **Clicks** -> the command that a click on a part, or on the whole drawing, sends.
+
+The symbol holds the design. Each node of the symbol on a schematic holds its channels,
+label, color, and size. When you edit a symbol, every node that draws it shows the
+change.
 
 <Divider.Divider x />
 
@@ -32,7 +37,7 @@ A custom symbol is one of two kinds:
 
 1. Open a schematic and turn on editing.
 2. Press **V** to open the component toolbar, then select the **Symbols** tab.
-3. Click <Icon.Add /> (**Create symbol group**).
+3. Click **Create symbol group**.
 4. Enter a name, then click **Save**.
 
 <Video
@@ -47,11 +52,11 @@ A custom symbol is one of two kinds:
 1. In the **Symbols** tab, select your symbol group.
 2. Click **Create symbol**.
 3. Drop an SVG file on the dialog, or click it to select a file. The file name becomes
-   the **Symbol name**.
-4. Under **States**, select **Static** or **Actuator**.
-5. Under **Parts**, select a part, then set its **Fill** and **Stroke** in the
-   inspector. A color applies to every state. For an actuator, click **By state** to
-   give **Base** and **Active** their own colors.
+   the symbol name.
+4. Under **Parts**, select a part. Then set its **Fill**, **Stroke**, and **Visible** in
+   the inspector on the right of the dialog.
+5. Optional: to make the symbol clickable, add commands and clicks. See
+   [make a symbol clickable](#make-a-symbol-clickable).
 6. Optional: under **Handles**, click <Icon.Add /> to add a connection point. Drag it to
    the edge of the drawing.
 7. Click **Create**.
@@ -59,45 +64,81 @@ A custom symbol is one of two kinds:
 After you load a file, you cannot replace it. To use a different drawing, create a new
 symbol.
 
-<Video
-  id="console/schematics/symbol-import-svg"
-  label="Import an SVG file as a custom symbol"
-/>
+### Start from a built-in symbol
+
+To change a built-in symbol, copy it into a custom group:
+
+1. In the **Symbols** tab, right-click a built-in symbol.
+2. Select **Duplicate to**, then select a group, or **New group…**.
+
+The copy is named after the built-in symbol with **(copy)** at the end, and opens in the
+symbol editor. It keeps the states, commands, clicks, and looks of the built-in symbol.
+Start from a built-in symbol when you want a click that toggles between two commands,
+like a valve: the editor cannot add a toggle.
+
+<Divider.Divider x />
+
+## Make a symbol clickable
+
+A click sends a command. A command writes one value, to the channel of a state or to a
+channel of its own.
+
+1. In the symbol editor, click <Icon.Add /> next to **Commands**.
+2. In the inspector, select the **State** that the command writes, or **None**.
+3. Under **Value**, select **Fixed** and set the value, or select **Ask**.
+4. Click <Icon.Add /> next to **Clicks**.
+5. In the inspector, select the **Target**: **Whole drawing** or a part.
+6. Select the **Command** that a click on the target sends.
+7. Click **Create** or **Save**.
+
+Each part, and the whole drawing, can have one click. Double-click the name of a state
+or command to rename it.
+
+An **Ask** command needs a state. When an operator clicks the symbol, it asks for the
+value: a menu of the entries of its enumeration, or a number field.
+
+<Divider.Divider x />
+
+## Color a symbol by state
+
+1. In the symbol editor, select a part, or **Whole drawing**.
+2. Click the button next to **Fill** or **Stroke**, then select a paint, such as
+   **Color** or **Node color**.
+3. To give each state its own paint, click **By state** next to the field. Then set the
+   paint for each value.
+4. Use the **Preview** bar under the drawing to show each value.
+5. Click **Create** or **Save**.
+
+A look on a part wins over a look on the whole drawing. On the same part, a look for one
+value wins over a look for all values. See [paints](#paints) for each paint.
 
 <Divider.Divider x />
 
 ## Add the symbol to a schematic
 
-In the **Symbols** tab, select the group, then click the symbol or drag it onto the
-schematic.
+1. In the **Symbols** tab, select the group.
+2. Click the symbol to add it at the center of the schematic, or drag it to a position.
+3. Select the new node, then open the **Telemetry** tab of its properties.
+4. For each state, set the **Source**. Select **Channel**, then select the **Channel**
+   that the state reads, and the **Command channel** that its commands write.
+5. If the symbol has commands with no state, open the **Control** tab. Under
+   **Commands**, select a channel for each command.
 
-To connect an actuator to hardware, select it, then set the state and command channels
-on its [**Control** tab](/reference/visualize/schematics#control-tab). When editing is
-off, a click writes 1 when the symbol shows **Base**, and 0 when it shows **Active**.
-
-A placed symbol keeps the kind it had when you placed it. If you change a static symbol
-to an actuator, place it again.
-
-<Divider.Divider x />
-
-## Change the colors of one placed symbol
-
-1. Select the placed symbol.
-2. On the **Style** tab, find **State overrides**.
-3. Set the colors of a region for each state.
-
-The change applies to that symbol only. Click the reset button of a region to use the
-colors of the symbol again.
+To send a command, turn off editing and click the node. A node with no channel for a
+command does nothing when you click it.
 
 <Divider.Divider x />
 
 ## Edit a symbol
 
-Right-click the symbol in the **Symbols** tab and select **Edit**. You can also select a
-placed symbol and click <Icon.Edit /> on its **Properties** tab. Change the settings,
-then click **Save**.
+1. Right-click the symbol in the **Symbols** tab and select **Edit**. You can also
+   select a node of the symbol and click <Icon.Edit /> next to its properties tabs.
+2. Change the settings.
+3. Click **Save**.
 
-Every placed copy of the symbol shows the change.
+Every node that draws the symbol shows the change. When schematics use the symbol, the
+Console asks you to confirm the save first. The dialog lists each schematic and what
+each node loses, such as the binding of a state that you removed.
 
 <Divider.Divider x />
 
@@ -119,9 +160,9 @@ Core, so importing the same file two times makes two symbols.
 Right-click a symbol or a group and select **Delete**. Deleting a group deletes every
 symbol in it.
 
-A placed copy of a deleted symbol shows **Missing symbol**. Select it, then choose a
-different symbol on its **Properties** tab, or create a new one. A symbol that you
-create there replaces every missing copy.
+You cannot delete a symbol that a node on a schematic draws. The error names a schematic
+that uses it. First change the symbol of each node: see
+[change the type of a symbol](/reference/visualize/schematics#change-the-type-of-a-symbol).
 
 <Divider.Divider x />
 
@@ -129,38 +170,61 @@ create there replaces every missing copy.
 
 ### States
 
-**Static** has one state. **Actuator** has **Base**, shown when the state channel is not
-1, and **Active**, shown when it is 1. The state is active when the value is between 0.9
-and 1.1.
+A new symbol has one state, **Active**, with the values **Base** (0) and **Active** (1).
+Click <Icon.Add /> next to **States** to add a state. A state that you remove takes its
+looks, its commands, and their clicks with it. When the state has uses, the Console asks
+you to confirm first.
+
+A state copied from a built-in symbol has an enumeration that names its values, such as
+**Closed** and **Open**. Each node can replace the enumeration, the match, and the
+default of a state. See [node properties](#node-properties).
+
+### Commands
+
+| Field | Description                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------ |
+| State | The state whose **Command channel** the command writes. **None** writes to the channel set on the **Control** tab of the node. |
+| Value | **Fixed** writes one value. **Ask** asks the operator for the value on each click. **Ask** needs a state.                      |
+
+### Clicks
+
+| Field   | Description                                   |
+| ------- | --------------------------------------------- |
+| Target  | **Whole drawing** or a part.                  |
+| Command | The command that a click on the target sends. |
+
+A toggle, copied from a built-in symbol, sends the command whose value differs from the
+value of the state. When the value matches neither command, it shows a menu of the two.
 
 ### Parts
 
 Synnax finds the parts of the drawing from its colors. Shapes with the same stroke and
 fill are one part, named **Part 1**, **Part 2**, and so on. The first entry, **Whole
-drawing**, sets the colors of all shapes. The colors of a part override it.
-
-Select a part to edit it in the inspector, on the right of the dialog. A field applies
-to every state. Click **By state** next to a field to give each state its own value. The
-**Preview** bar at the bottom of the drawing selects the state that the drawing shows.
-
-Below the colors, **Visible** shows or hides the part.
-
-<Image
-  id="console/schematics/symbol-color-regions/b8ba285d15de/colors"
-  extension="webp"
-  alt="The parts of a tank symbol in the create symbol dialog"
-/>
+drawing**, has looks that apply to all shapes.
 
 With **Whole drawing** selected, click a shape in the preview to select its part, or to
-add a part from it. With a part selected, the preview marks its shapes, and a click adds
-a shape to the part or removes it. A click on a shape inside a group of the part takes
-the group out of the part. A click on a shape inside a group of another part selects
-that part. Click <Icon.Add /> to add a part. Click a part name to rename it.
+add a part from it. With a part selected, a click adds a shape to the part or removes
+it. A click on a shape inside a group of the part takes the group out of the part. A
+click on a shape inside a group of another part selects that part. Click <Icon.Add /> to
+add a part. Double-click a part name to rename it.
 
 When the shapes of a part sit in one group of the drawing, click **Select parent group**
 in the inspector to make that group the part. **Alt**+click (**Option**+click on macOS)
 a shape to do the same with the group around it. On a shape that the part holds, each
 **Alt**+click takes the part one group higher.
+
+### Paints
+
+| Paint       | Description                                                                |
+| ----------- | -------------------------------------------------------------------------- |
+| Drawing     | The shapes keep the colors of the drawing. The default.                    |
+| Color       | One color.                                                                 |
+| State color | Each state draws the color of its enumeration entry.                       |
+| Contrast    | Each state draws black or white, whichever reads on its entry color.       |
+| Node color  | Each node sets the color, with **Color** on the **Style** tab of the node. |
+
+**State color** and **Contrast** need a state with an enumeration, such as a state
+copied from a built-in symbol. **Visible** shows or hides the part.
 
 ### Handles
 
@@ -189,6 +253,27 @@ Draw with vector shapes. The Console removes scripts, event handlers, `foreignOb
 elements, and links to anything outside the file, so embedded and linked images do not
 import.
 
+### Node properties
+
+The **Telemetry** tab of a node has a section for each state of its symbol:
+
+| Field           | Description                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Source          | **None**, **Channel**, or **Local**. A state with no source shows its default value.                                                                    |
+| Channel         | The channel that the state reads.                                                                                                                       |
+| Command channel | The channel that the commands of the state write.                                                                                                       |
+| Value           | With a **Local** source, the value of the state. A command sets it.                                                                                     |
+| Match           | **Exact** reads the value as it is. **Within** reads a value from **Min value** up to, but not including, **Max value** as 1, and any other value as 0. |
+| Enumeration     | Replaces the enumeration of the state.                                                                                                                  |
+| Default         | The value that the node shows when it has no data.                                                                                                      |
+
+Click **Reset to symbol** to remove the changes to **Match**, **Enumeration**, and
+**Default**.
+
+The **Control** tab has a channel for each command with no state. Turn off **Clickable**
+to stop clicks on the node. For **Delay** and **Control chip**, see the
+[Control tab](/reference/visualize/schematics#control-tab) of a schematic.
+
 <Divider.Divider x />
 
 ## Troubleshooting
@@ -212,6 +297,28 @@ why.
 </Problem.Fix>
 </Problem.Body>
 
+### A node does nothing when I click it
+
+<Problem.Body>
+<Problem.Cause>
+
+Editing is on, the command of the click has no channel, or the node is not clickable.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- Turn off editing.
+- On the **Telemetry** tab, set the **Command channel** of the state that the command
+  writes. For a command with no state, set its channel on the **Control** tab.
+- On the **Control** tab, turn on **Clickable**.
+- In the symbol editor, check that the part or the whole drawing has a click.
+
+If the node still does nothing, see
+[control troubleshooting](/reference/control/troubleshooting#a-click-on-a-valve-does-nothing).
+
+</Problem.Fix>
+</Problem.Body>
+
 ### A node shows a warning
 
 <Problem.Body>
@@ -222,12 +329,14 @@ The node cannot draw its symbol. The text of the warning says why.
 </Problem.Cause>
 <Problem.Fix>
 
-- **"Missing symbol"** -> the symbol was deleted, or the import did not include it.
-  Select the node and choose a different symbol on its **Properties** tab.
+- **"Missing symbol"** -> the Core does not have the symbol, such as after you import a
+  schematic from another Core.
+  [Change the symbol](/reference/visualize/schematics#change-the-type-of-a-symbol) of
+  the node.
 - **"Failed to load symbol"** -> your user cannot read symbols, or the Console has no
   connection to the Core. Ask an administrator for access to symbols, or connect again.
 - **"Invalid symbol"** -> the stored drawing is not a valid SVG. Create a new symbol
-  from a valid SVG file and choose it on the node's **Properties** tab.
+  from a valid SVG file, then change the symbol of the node to it.
 
 </Problem.Fix>
 </Problem.Body>
