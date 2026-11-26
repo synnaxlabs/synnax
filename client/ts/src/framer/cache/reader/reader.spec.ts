@@ -30,8 +30,8 @@ import { store as cacheStore } from "@/framer/cache/store";
 import { NotFoundError, UnexpectedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
-const blockRange = (index: number): TimeRange =>
-  grid.tileRange({ level: cacheBlock.RAW_LEVEL, index });
+const blockRange = (tile: number): TimeRange =>
+  grid.tileRange({ level: cacheBlock.RAW_LEVEL, tile });
 
 const blockAlignment = (index: number, offset: number): bigint =>
   (BigInt(index) << 32n) | BigInt(offset);
@@ -64,7 +64,7 @@ const readBlocks = async (
   await reader.fill(tr, ch);
   return new MultiSeries(
     grid
-      .indexes(tr, cacheBlock.RAW_LEVEL)
+      .tiles(tr, cacheBlock.RAW_LEVEL)
       .flatMap((i) => store.findRaw(ch, i)?.seriesIn(tr) ?? []),
   );
 };
@@ -242,9 +242,9 @@ describe("Reader", () => {
         expect(fetches).toHaveLength(1);
         expect(res.length).toBe(span.seconds);
         res.series.forEach((s) => {
-          const index = cacheBlock.rawIndex(s.timeRange.start);
-          const block = blockRange(index);
-          expect(s.alignment >> 32n).toBe(BigInt(index));
+          const tile = cacheBlock.rawTile(s.timeRange.start);
+          const block = blockRange(tile);
+          expect(s.alignment >> 32n).toBe(BigInt(tile));
           expect(s.timeRange.end.beforeEq(block.end)).toBe(true);
         });
       },
@@ -258,7 +258,7 @@ describe("Reader", () => {
       await reader.catchUp(2, 100);
       const held = (ch: channel.Key) =>
         grid
-          .indexes(new TimeRange(START, now), cacheBlock.RAW_LEVEL)
+          .tiles(new TimeRange(START, now), cacheBlock.RAW_LEVEL)
           .filter((i) => store.findRaw(ch, i) != null);
       expect(held(2)).toEqual([100, 101, 102, 103, 104]);
       expect(held(1)).toEqual([100, 101, 102, 103, 104]);
@@ -318,7 +318,7 @@ describe("Reader", () => {
       });
       const tr = new TimeRange(at(60), at(70));
       // Points pins the blocks of its raw range before it fills them.
-      grid.indexes(tr, cacheBlock.RAW_LEVEL).forEach((i) => store.raw(1, i).pins++);
+      grid.tiles(tr, cacheBlock.RAW_LEVEL).forEach((i) => store.raw(1, i).pins++);
       const res = await read(tr, 1);
       expect(timestamps(res)).toEqual(expectedTimestamps(0, 132));
     });
@@ -727,7 +727,7 @@ describe("Reader", () => {
           (await client.channels.retrieve(keys as channel.Key[])).map((c) => c.payload),
         store,
       });
-      const empty = blockRange(cacheBlock.rawIndex(start) - 3);
+      const empty = blockRange(cacheBlock.rawTile(start) - 3);
       const tr = new TimeRange(empty.start, empty.start.add(TimeSpan.seconds(10)));
       expect(await readBlocks(reader, store, tr, data.key)).toHaveLength(0);
       expect(await readBlocks(reader, store, tr, data.key)).toHaveLength(0);
@@ -746,7 +746,7 @@ describe("Reader", () => {
         dataType: "float32",
         index: time.key,
       });
-      const first = cacheBlock.rawIndex(TimeStamp.now().sub(TimeSpan.minutes(10)));
+      const first = cacheBlock.rawTile(TimeStamp.now().sub(TimeSpan.minutes(10)));
       // One sample per second from 5 seconds into the first block to inside the third.
       const times = Array.from({ length: 146 }, (_, i) =>
         blockRange(first).start.add(TimeSpan.seconds(5 + i)),
