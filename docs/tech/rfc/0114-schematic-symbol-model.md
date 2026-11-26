@@ -438,7 +438,9 @@ match gets a `data-region-id`. A stored actuator, and a static symbol that a
 `custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
 `deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
 whole drawing. A static symbol that no `custom_actuator` node uses keeps only its value
-0 looks, with no condition.
+0 looks, with no condition. The schematic upgrade removes the other looks after it gives
+commands to each symbol that a `custom_actuator` node uses. A symbol file import removes
+them at once.
 
 ## 5 What this RFC does not cover
 
