@@ -177,12 +177,14 @@ Read struct {
     }
     index   channel.Key {
         @doc value         "is the index channel of the channel."
+        @ref direction     write
         @ref kind          use
         @ref on_delete     restrict
         @validate required
     }
     channel channel.Key {
         @doc value         "is the channel that holds the samples of the node."
+        @ref direction     write
         @ref kind          use
         @ref on_delete     restrict
         @validate required
@@ -202,6 +204,7 @@ Write struct {
     }
     channel channel.Key {
         @doc value         "is the channel that commands the node."
+        @ref direction     read
         @ref kind          use
         @ref on_delete     restrict
         @validate required
