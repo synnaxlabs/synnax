@@ -40,6 +40,21 @@ namespace driver::bus {
 namespace {
 const x::telem::TimeStamp ARRIVED(1000);
 
+/// @brief returns the framer of framing.
+std::unique_ptr<codec::framing::Framer> framer(const synnax::icd::Framing &framing) {
+    return ASSERT_NIL_P(codec::framing::create(framing));
+}
+
+/// @brief returns a framer of 2-byte frames.
+std::unique_ptr<codec::framing::Framer> pair_framer() {
+    return framer(synnax::icd::FixedFraming{.length = 2});
+}
+
+/// @brief returns a framer of lines.
+std::unique_ptr<codec::framing::Framer> line_framer() {
+    return framer(synnax::icd::DelimitedFraming{});
+}
+
 /// @brief Memory is a transport whose reads return the chunks that a spec queues, and
 /// whose writes keep their bytes.
 class Memory final : public transport::Transport {
@@ -148,9 +163,7 @@ byte_field(const std::string &name, const std::uint16_t offset) {
 Reader fixed() {
     Config cfg{synnax::icd::BinaryPayload{}};
     cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
-    return ASSERT_NIL_P(
-        Reader::create(ASSERT_NIL_P(codec::framing::fixed(2)), cfg.create())
-    );
+    return ASSERT_NIL_P(Reader::create(pair_framer(), cfg.create()));
 }
 
 /// @brief returns a reader of lines that start with prefix and hold the value of
@@ -161,9 +174,7 @@ Reader lines(const std::string &prefix = "") {
     v.name = "v";
     v.position = 1;
     cfg.bind<synnax::icd::TextPayload>(v, 2);
-    return ASSERT_NIL_P(
-        Reader::create(ASSERT_NIL_P(codec::framing::delimited({'\n'})), cfg.create())
-    );
+    return ASSERT_NIL_P(Reader::create(line_framer(), cfg.create()));
 }
 
 /// @brief Steady is a steady clock that a spec moves by hand.
@@ -182,7 +193,7 @@ Reader polling(Steady &clock) {
     cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
     return ASSERT_NIL_P(
         Reader::create(
-            ASSERT_NIL_P(codec::framing::fixed(2)),
+            pair_framer(),
             cfg.create(),
             Poll{.query = {0xAA, 0x01}, .rate = x::telem::Rate(10)},
             clock.clock()
@@ -244,9 +255,7 @@ TEST(Reader, KeepsGroupsAlignedWithTheirIndexes) {
     b.multiplexor = mux.key;
     b.multiplex_values = {2};
     cfg.bind<synnax::icd::BinaryPayload>(b, 3, 4);
-    auto r = ASSERT_NIL_P(
-        Reader::create(ASSERT_NIL_P(codec::framing::fixed(2)), cfg.create())
-    );
+    auto r = ASSERT_NIL_P(Reader::create(pair_framer(), cfg.create()));
     Memory t;
     t.push(std::vector<std::uint8_t>{1, 7, 2, 9, 1, 8});
     x::telem::Frame fr;
@@ -316,7 +325,9 @@ TEST(Reader, DropsPartialFrameWhenIdle) {
 TEST(Reader, ReadsFramesAfterInvalidFrame) {
     Config cfg{synnax::icd::BinaryPayload{}};
     cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
-    auto r = ASSERT_NIL_P(Reader::create(codec::framing::cobs(), cfg.create()));
+    auto r = ASSERT_NIL_P(
+        Reader::create(framer(synnax::icd::CobsFraming{}), cfg.create())
+    );
     Memory t;
     t.push(std::vector<std::uint8_t>{0x05, 0x01, 0x00, 0x01, 0x02, 0x07, 0x00});
     x::telem::Frame fr;
@@ -370,9 +381,7 @@ TEST(Reader, WarnsAboutFieldItCannotDecode) {
     w.name = "w";
     w.pointer = "/w";
     cfg.bind<synnax::icd::JSONPayload>(w, 3, 4);
-    auto r = ASSERT_NIL_P(
-        Reader::create(ASSERT_NIL_P(codec::framing::delimited({'\n'})), cfg.create())
-    );
+    auto r = ASSERT_NIL_P(Reader::create(line_framer(), cfg.create()));
     Memory t;
     t.push(std::string(R"({"v": 1, "w": {}})") + "\n");
     x::telem::Frame fr;
@@ -450,7 +459,7 @@ TEST(Reader, FramesQuery) {
     Steady clock;
     auto r = ASSERT_NIL_P(
         Reader::create(
-            ASSERT_NIL_P(codec::framing::delimited({'\n'})),
+            line_framer(),
             cfg.create(),
             Poll{.query = {'?'}, .rate = x::telem::Rate(10)},
             clock.clock()
@@ -467,7 +476,7 @@ TEST(Reader, RejectsQueryThatFramingCannotHold) {
     Config cfg{synnax::icd::BinaryPayload{}};
     cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
     const auto err = Reader::create(
-                         ASSERT_NIL_P(codec::framing::fixed(2)),
+                         pair_framer(),
                          cfg.create(),
                          Poll{.query = {1, 2, 3}, .rate = x::telem::Rate(10)}
     )
@@ -491,7 +500,7 @@ TEST(Reader, RejectsPollRateOutOfRange) {
         Config cfg{synnax::icd::BinaryPayload{}};
         cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 2);
         const auto err = Reader::create(
-                             ASSERT_NIL_P(codec::framing::fixed(2)),
+                             pair_framer(),
                              cfg.create(),
                              Poll{.query = {1, 2}, .rate = x::telem::Rate(hz)}
         )
@@ -512,7 +521,7 @@ TEST(Reader, KeepsPartialFrameUntilReadTimeout) {
     Steady clock;
     auto r = ASSERT_NIL_P(
         Reader::create(
-            ASSERT_NIL_P(codec::framing::fixed(2)),
+            pair_framer(),
             cfg.create(),
             Poll{.query = {0xAA, 0x01}, .rate = x::telem::Rate(50)},
             clock.clock()
