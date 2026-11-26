@@ -77,7 +77,8 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<::x::telem::DataType>> data_type;
     /// @brief is_index selects by is_index.
     ::x::filter::Field<::x::filter::Bool> is_index;
-    /// @brief internal selects by internal.
+    /// @brief internal matches the built-in channels, or every other channel when
+    /// false.
     ::x::filter::Field<::x::filter::Bool> internal;
     /// @brief virtual_ matches virtual channels that are not calculated, or every other
     /// channel when false.

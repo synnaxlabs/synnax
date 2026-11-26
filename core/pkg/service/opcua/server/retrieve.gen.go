@@ -71,6 +71,9 @@ func newIndexes() indexes {
 			Targets: func(e *Server) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Reads {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Reads))
+					}
 					targets = append(targets, v1.Index)
 				}
 				return targets
@@ -99,6 +102,9 @@ func newIndexes() indexes {
 			Targets: func(e *Server) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Reads {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Reads))
+					}
 					targets = append(targets, v1.Channel)
 				}
 				return targets
@@ -127,6 +133,9 @@ func newIndexes() indexes {
 			Targets: func(e *Server) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Writes {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Writes))
+					}
 					targets = append(targets, v1.Channel)
 				}
 				return targets

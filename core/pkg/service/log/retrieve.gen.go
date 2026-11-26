@@ -96,9 +96,13 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Detach,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *Log) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.Channels {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Channels))
+					}
 					targets = append(targets, v1.Channel)
 				}
 				return targets
@@ -130,6 +134,9 @@ func newIndexes() indexes {
 					if v1.Color != nil {
 						switch v2 := v1.Color.Variant.(type) {
 						case color.NamedRef:
+							if targets == nil {
+								targets = make([]color.Key, 0, len(e.Channels))
+							}
 							targets = append(targets, v2.Key)
 						}
 					}

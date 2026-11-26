@@ -185,15 +185,13 @@ type Channel struct {
 	// concurrency sets the policy for concurrent writes to the channel's data. Only
 	// virtual channels can have a policy of shared concurrency.
 	Concurrency pb.Concurrency `protobuf:"varint,8,opt,name=concurrency,proto3,enum=x.control.pb.Concurrency" json:"concurrency,omitempty"`
-	// internal is true if this is a system channel hidden from normal user queries.
-	Internal bool `protobuf:"varint,9,opt,name=internal,proto3" json:"internal,omitempty"`
 	// operations contains aggregation operations applied to this channel's data.
-	Operations []*Operation `protobuf:"bytes,10,rep,name=operations,proto3" json:"operations,omitempty"`
+	Operations []*Operation `protobuf:"bytes,9,rep,name=operations,proto3" json:"operations,omitempty"`
 	// expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
-	Expression string `protobuf:"bytes,11,opt,name=expression,proto3" json:"expression,omitempty"`
+	Expression string `protobuf:"bytes,10,opt,name=expression,proto3" json:"expression,omitempty"`
 	// group is the group the channel sits in, if any.
-	Group         *string `protobuf:"bytes,12,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	Group         *string `protobuf:"bytes,11,opt,name=group,proto3,oneof" json:"group,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -282,13 +280,6 @@ func (x *Channel) GetConcurrency() pb.Concurrency {
 		return x.Concurrency
 	}
 	return pb.Concurrency(0)
-}
-
-func (x *Channel) GetInternal() bool {
-	if x != nil {
-		return x.Internal
-	}
-	return false
 }
 
 func (x *Channel) GetOperations() []*Operation {
@@ -719,7 +710,7 @@ type Where struct {
 	DataType *TelemDataTypeSet `protobuf:"bytes,7,opt,name=data_type,json=dataType,proto3,oneof" json:"data_type,omitempty"`
 	// is_index selects by is_index.
 	IsIndex *pb1.Bool `protobuf:"bytes,8,opt,name=is_index,json=isIndex,proto3,oneof" json:"is_index,omitempty"`
-	// internal selects by internal.
+	// internal matches the built-in channels, or every other channel when false.
 	Internal *pb1.Bool `protobuf:"bytes,9,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
 	// virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
@@ -854,7 +845,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\tOperation\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.channel.pb.OperationTypeR\x04type\x12#\n" +
 	"\rreset_channel\x18\x02 \x01(\rR\fresetChannel\x12\x1a\n" +
-	"\bduration\x18\x03 \x01(\x03R\bduration\"\xac\x03\n" +
+	"\bduration\x18\x03 \x01(\x03R\bduration\"\x90\x03\n" +
 	"\aChannel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vleaseholder\x18\x02 \x01(\rR\vleaseholder\x12\x1b\n" +
@@ -864,16 +855,15 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\vlocal_index\x18\x06 \x01(\rR\n" +
 	"localIndex\x12\x18\n" +
 	"\avirtual\x18\a \x01(\bR\avirtual\x12;\n" +
-	"\vconcurrency\x18\b \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x12\x1a\n" +
-	"\binternal\x18\t \x01(\bR\binternal\x12=\n" +
+	"\vconcurrency\x18\b \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x12=\n" +
 	"\n" +
-	"operations\x18\n" +
-	" \x03(\v2\x1d.service.channel.pb.OperationR\n" +
+	"operations\x18\t \x03(\v2\x1d.service.channel.pb.OperationR\n" +
 	"operations\x12\x1e\n" +
 	"\n" +
-	"expression\x18\v \x01(\tR\n" +
+	"expression\x18\n" +
+	" \x01(\tR\n" +
 	"expression\x12\x19\n" +
-	"\x05group\x18\f \x01(\tH\x00R\x05group\x88\x01\x01B\b\n" +
+	"\x05group\x18\v \x01(\tH\x00R\x05group\x88\x01\x01B\b\n" +
 	"\x06_group\">\n" +
 	"\tWhereList\x121\n" +
 	"\x06values\x18\x01 \x03(\v2\x19.service.channel.pb.WhereR\x06values\"!\n" +

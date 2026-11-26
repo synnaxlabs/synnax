@@ -16,6 +16,7 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -40,20 +41,26 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name                         *gorp.SortedIndex[Key, Schematic, string]
-	group                        *gorp.KeyReference[Key, Schematic, group.Key]
-	project                      *gorp.KeyReference[Key, Schematic, project.Key]
-	nodesConfigStrokeColorKey    *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigFillColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigEnumeration       *gorp.KeyReference[Key, Schematic, enumeration.Key]
-	nodesConfigLevelColorKey     *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigAxisColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigTextColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigSpecKey           *gorp.KeyReference[Key, Schematic, symbol.Key]
-	nodesConfigColorKey          *gorp.KeyReference[Key, Schematic, color.Key]
-	nodesConfigStatesEnumeration *gorp.KeyReference[Key, Schematic, enumeration.Key]
-	edgesConfigStrokeColorKey    *gorp.KeyReference[Key, Schematic, color.Key]
-	search                       *gorp.SearchIndex[Key, Schematic]
+	name                           *gorp.SortedIndex[Key, Schematic, string]
+	group                          *gorp.KeyReference[Key, Schematic, group.Key]
+	project                        *gorp.KeyReference[Key, Schematic, project.Key]
+	nodesConfigStateChannel        *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigCommandChannel      *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigStrokeColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigFillColorKey        *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigChannel             *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigEnumeration         *gorp.KeyReference[Key, Schematic, enumeration.Key]
+	nodesConfigLevelColorKey       *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigAxisColorKey        *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigTextColorKey        *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigSpecKey             *gorp.KeyReference[Key, Schematic, symbol.Key]
+	nodesConfigColorKey            *gorp.KeyReference[Key, Schematic, color.Key]
+	nodesConfigStatesSourceKey     *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigStatesSourceCommand *gorp.KeyReference[Key, Schematic, channel.Key]
+	nodesConfigStatesEnumeration   *gorp.KeyReference[Key, Schematic, enumeration.Key]
+	nodesConfigCommandsChannel     *gorp.KeyReference[Key, Schematic, channel.Key]
+	edgesConfigStrokeColorKey      *gorp.KeyReference[Key, Schematic, color.Key]
+	search                         *gorp.SearchIndex[Key, Schematic]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -100,6 +107,1301 @@ func newIndexes() indexes {
 				}
 			},
 		}),
+		nodesConfigStateChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.state_channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case InputNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case SelectNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case SetpointNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case SwitchNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case AgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case CrossBeamAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case FlatBladeAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case HelicalAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case PaddleAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case PropellerAgitatorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case RotaryMixerNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case CavityPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case CentrifugalCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case CompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case DiaphragmPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case EjectionPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case EjectorCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case LiquidRingCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case PistonPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case PumpNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case RollerVaneCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case ScrewPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case TurboCompressorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case VacuumPumpNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case AngledValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case BallValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case ButterflyValveOneNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case ButterflyValveTwoNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case FourWayValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case GateValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case SolenoidValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case ThreeWayValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case ThreeWayBallValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case ValveNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					case CustomActuatorNodeConfig:
+						if v2.StateChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.StateChannel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case InputNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SelectNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SetpointNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SwitchNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CrossBeamAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FlatBladeAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case HelicalAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PaddleAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PropellerAgitatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RotaryMixerNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CavityPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CentrifugalCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case DiaphragmPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectionPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectorCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case LiquidRingCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PistonPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RollerVaneCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ScrewPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case TurboCompressorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case VacuumPumpNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AngledValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case BallValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveOneNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveTwoNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FourWayValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case GateValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SolenoidValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayBallValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ValveNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CustomActuatorNodeConfig:
+						if v4.StateChannel == t {
+							v4.StateChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case InputNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SelectNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SetpointNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SwitchNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AgitatorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CrossBeamAgitatorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FlatBladeAgitatorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case HelicalAgitatorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PaddleAgitatorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PropellerAgitatorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RotaryMixerNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CavityPumpNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CentrifugalCompressorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CompressorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case DiaphragmPumpNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectionPumpNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectorCompressorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case LiquidRingCompressorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PistonPumpNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PumpNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RollerVaneCompressorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ScrewPumpNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case TurboCompressorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case VacuumPumpNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AngledValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case BallValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveOneNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveTwoNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FourWayValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case GateValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SolenoidValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayBallValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ValveNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CustomActuatorNodeConfig:
+						if v6.StateChannel == from {
+							v6.StateChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+		}),
+		nodesConfigCommandChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.command_channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ButtonNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case InputNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SelectNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SetpointNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SwitchNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case AgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CrossBeamAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case FlatBladeAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case HelicalAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PaddleAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PropellerAgitatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case RotaryMixerNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CavityPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CentrifugalCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case DiaphragmPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case EjectionPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case EjectorCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case LiquidRingCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PistonPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case PumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case RollerVaneCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ScrewPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case TurboCompressorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case VacuumPumpNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case AngledValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case BallValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ButterflyValveOneNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ButterflyValveTwoNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case FourWayValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case GateValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case SolenoidValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ThreeWayValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ThreeWayBallValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case ValveNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					case CustomActuatorNodeConfig:
+						if v2.CommandChannel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.CommandChannel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButtonNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case InputNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SelectNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SetpointNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SwitchNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CrossBeamAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FlatBladeAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case HelicalAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PaddleAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PropellerAgitatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RotaryMixerNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CavityPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CentrifugalCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case DiaphragmPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectionPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case EjectorCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case LiquidRingCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PistonPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case PumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case RollerVaneCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ScrewPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case TurboCompressorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case VacuumPumpNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case AngledValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case BallValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveOneNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ButterflyValveTwoNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case FourWayValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case GateValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case SolenoidValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ThreeWayBallValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ValveNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case CustomActuatorNodeConfig:
+						if v4.CommandChannel == t {
+							v4.CommandChannel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case ThrusterNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButtonNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case InputNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SelectNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SetpointNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SwitchNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AgitatorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CrossBeamAgitatorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FlatBladeAgitatorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case HelicalAgitatorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PaddleAgitatorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PropellerAgitatorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RotaryMixerNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CavityPumpNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CentrifugalCompressorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CompressorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case DiaphragmPumpNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectionPumpNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case EjectorCompressorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case LiquidRingCompressorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PistonPumpNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case PumpNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case RollerVaneCompressorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ScrewPumpNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case TurboCompressorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case VacuumPumpNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case AngledValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case BallValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveOneNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ButterflyValveTwoNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case FourWayValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case GateValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case SolenoidValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ThreeWayBallValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ValveNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case CustomActuatorNodeConfig:
+						if v6.CommandChannel == from {
+							v6.CommandChannel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+		}),
 		nodesConfigStrokeColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, color.Key]{
 			Name:     "nodes.config.stroke_color.key",
 			Table:    "color",
@@ -113,6 +1415,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v3 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -120,6 +1425,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v4 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v4.Key)
 							}
 						}
@@ -127,6 +1435,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v5 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v5.Key)
 							}
 						}
@@ -134,6 +1445,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v6 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v6.Key)
 							}
 						}
@@ -141,6 +1455,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v7 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v7.Key)
 							}
 						}
@@ -148,6 +1465,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v8 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v8.Key)
 							}
 						}
@@ -155,6 +1475,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v9 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v9.Key)
 							}
 						}
@@ -162,6 +1485,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v10 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v10.Key)
 							}
 						}
@@ -169,6 +1495,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v11 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v11.Key)
 							}
 						}
@@ -176,6 +1505,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v12 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v12.Key)
 							}
 						}
@@ -478,6 +1810,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v3 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -485,6 +1820,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v4 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v4.Key)
 							}
 						}
@@ -492,6 +1830,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v5 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v5.Key)
 							}
 						}
@@ -499,6 +1840,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v6 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v6.Key)
 							}
 						}
@@ -506,6 +1850,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v7 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v7.Key)
 							}
 						}
@@ -513,6 +1860,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v8 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v8.Key)
 							}
 						}
@@ -520,6 +1870,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v9 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v9.Key)
 							}
 						}
@@ -527,6 +1880,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v10 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v10.Key)
 							}
 						}
@@ -534,6 +1890,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v11 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v11.Key)
 							}
 						}
@@ -541,6 +1900,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v12 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v12.Key)
 							}
 						}
@@ -548,6 +1910,9 @@ func newIndexes() indexes {
 						if v2.FillColor != nil {
 							switch v13 := v2.FillColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v13.Key)
 							}
 						}
@@ -862,6 +2227,152 @@ func newIndexes() indexes {
 				return nil
 			},
 		}),
+		nodesConfigChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case GaugeNodeConfig:
+						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.Channel)
+						}
+					case LightNodeConfig:
+						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.Channel)
+						}
+					case ScaleNodeConfig:
+						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.Channel)
+						}
+					case StateIndicatorNodeConfig:
+						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.Channel)
+						}
+					case StringDisplayNodeConfig:
+						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.Channel)
+						}
+					case ValueNodeConfig:
+						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.Channel)
+						}
+					case TankNodeConfig:
+						if v2.Channel != 0 {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v2.Channel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i3 := range e.Nodes {
+					switch v4 := e.Nodes[i3].Config.Variant.(type) {
+					case GaugeNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case LightNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ScaleNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case StateIndicatorNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case StringDisplayNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case ValueNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					case TankNodeConfig:
+						if v4.Channel == t {
+							v4.Channel = 0
+						}
+						e.Nodes[i3].Config.Variant = v4
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case GaugeNodeConfig:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case LightNodeConfig:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ScaleNodeConfig:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case StateIndicatorNodeConfig:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case StringDisplayNodeConfig:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case ValueNodeConfig:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					case TankNodeConfig:
+						if v6.Channel == from {
+							v6.Channel = to
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+		}),
 		nodesConfigEnumeration: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, enumeration.Key]{
 			Name:     "nodes.config.enumeration",
 			Table:    "enumeration",
@@ -873,10 +2384,16 @@ func newIndexes() indexes {
 					switch v2 := v1.Config.Variant.(type) {
 					case SelectNodeConfig:
 						if v2.Enumeration != nil {
+							if targets == nil {
+								targets = make([]enumeration.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, *v2.Enumeration)
 						}
 					case StateIndicatorNodeConfig:
 						if v2.Enumeration != nil {
+							if targets == nil {
+								targets = make([]enumeration.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, *v2.Enumeration)
 						}
 					}
@@ -929,6 +2446,9 @@ func newIndexes() indexes {
 						if v2.LevelColor != nil {
 							switch v3 := v2.LevelColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -936,6 +2456,9 @@ func newIndexes() indexes {
 						if v2.LevelColor != nil {
 							switch v4 := v2.LevelColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v4.Key)
 							}
 						}
@@ -1038,6 +2561,9 @@ func newIndexes() indexes {
 						if v2.AxisColor != nil {
 							switch v3 := v2.AxisColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -1045,6 +2571,9 @@ func newIndexes() indexes {
 						if v2.AxisColor != nil {
 							switch v4 := v2.AxisColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v4.Key)
 							}
 						}
@@ -1147,6 +2676,9 @@ func newIndexes() indexes {
 						if v2.TextColor != nil {
 							switch v3 := v2.TextColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -1154,6 +2686,9 @@ func newIndexes() indexes {
 						if v2.TextColor != nil {
 							switch v4 := v2.TextColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v4.Key)
 							}
 						}
@@ -1161,6 +2696,9 @@ func newIndexes() indexes {
 						if v2.TextColor != nil {
 							switch v5 := v2.TextColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v5.Key)
 							}
 						}
@@ -1168,6 +2706,9 @@ func newIndexes() indexes {
 						if v2.TextColor != nil {
 							switch v6 := v2.TextColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v6.Key)
 							}
 						}
@@ -1175,6 +2716,9 @@ func newIndexes() indexes {
 						if v2.TextColor != nil {
 							switch v7 := v2.TextColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v7.Key)
 							}
 						}
@@ -1351,6 +2895,9 @@ func newIndexes() indexes {
 					case SymbolNodeConfig:
 						switch v3 := v2.Spec.Variant.(type) {
 						case symbol.CustomRef:
+							if targets == nil {
+								targets = make([]symbol.Key, 0, len(e.Nodes))
+							}
 							targets = append(targets, v3.Key)
 						}
 					}
@@ -1400,6 +2947,9 @@ func newIndexes() indexes {
 						if v2.Color != nil {
 							switch v3 := v2.Color.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -1464,6 +3014,140 @@ func newIndexes() indexes {
 				return nil
 			},
 		}),
+		nodesConfigStatesSourceKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.states.source.key",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      1, // direction read
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for _, v3 := range v2.States {
+							if v3.Source != nil {
+								switch v4 := v3.Source.Variant.(type) {
+								case ChannelSource:
+									if v4.Key != nil {
+										if targets == nil {
+											targets = make([]channel.Key, 0, len(e.Nodes))
+										}
+										targets = append(targets, *v4.Key)
+									}
+								}
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i7 := range v6.States {
+							if v6.States[i7].Source != nil {
+								switch v8 := v6.States[i7].Source.Variant.(type) {
+								case ChannelSource:
+									if v8.Key != nil && *v8.Key == t {
+										v8.Key = nil
+									}
+									v6.States[i7].Source.Variant = v8
+								}
+							}
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i9 := range e.Nodes {
+					switch v10 := e.Nodes[i9].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i11 := range v10.States {
+							if v10.States[i11].Source != nil {
+								switch v12 := v10.States[i11].Source.Variant.(type) {
+								case ChannelSource:
+									if v12.Key != nil && *v12.Key == from {
+										*v12.Key = to
+									}
+									v10.States[i11].Source.Variant = v12
+								}
+							}
+						}
+						e.Nodes[i9].Config.Variant = v10
+					}
+				}
+			},
+		}),
+		nodesConfigStatesSourceCommand: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.states.source.command",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for _, v3 := range v2.States {
+							if v3.Source != nil {
+								switch v4 := v3.Source.Variant.(type) {
+								case ChannelSource:
+									if v4.Command != nil {
+										if targets == nil {
+											targets = make([]channel.Key, 0, len(e.Nodes))
+										}
+										targets = append(targets, *v4.Command)
+									}
+								}
+							}
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i5 := range e.Nodes {
+					switch v6 := e.Nodes[i5].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i7 := range v6.States {
+							if v6.States[i7].Source != nil {
+								switch v8 := v6.States[i7].Source.Variant.(type) {
+								case ChannelSource:
+									if v8.Command != nil && *v8.Command == t {
+										v8.Command = nil
+									}
+									v6.States[i7].Source.Variant = v8
+								}
+							}
+						}
+						e.Nodes[i5].Config.Variant = v6
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i9 := range e.Nodes {
+					switch v10 := e.Nodes[i9].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i11 := range v10.States {
+							if v10.States[i11].Source != nil {
+								switch v12 := v10.States[i11].Source.Variant.(type) {
+								case ChannelSource:
+									if v12.Command != nil && *v12.Command == from {
+										*v12.Command = to
+									}
+									v10.States[i11].Source.Variant = v12
+								}
+							}
+						}
+						e.Nodes[i9].Config.Variant = v10
+					}
+				}
+			},
+		}),
 		nodesConfigStatesEnumeration: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, enumeration.Key]{
 			Name:     "nodes.config.states.enumeration",
 			Table:    "enumeration",
@@ -1476,6 +3160,9 @@ func newIndexes() indexes {
 					case SymbolNodeConfig:
 						for _, v3 := range v2.States {
 							if v3.Enumeration != nil {
+								if targets == nil {
+									targets = make([]enumeration.Key, 0, len(e.Nodes))
+								}
 								targets = append(targets, *v3.Enumeration)
 							}
 						}
@@ -1510,6 +3197,55 @@ func newIndexes() indexes {
 				}
 			},
 		}),
+		nodesConfigCommandsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, channel.Key]{
+			Name:     "nodes.config.commands.channel",
+			Table:    "channel",
+			OnDelete: gorp.Weak,
+			Kind:     gorp.Use,
+			Tag:      2, // direction write
+			Targets: func(e *Schematic) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Nodes {
+					switch v2 := v1.Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for _, v3 := range v2.Commands {
+							if targets == nil {
+								targets = make([]channel.Key, 0, len(e.Nodes))
+							}
+							targets = append(targets, v3.Channel)
+						}
+					}
+				}
+				return targets
+			},
+			Detach: func(e *Schematic, t channel.Key) {
+				for i4 := range e.Nodes {
+					switch v5 := e.Nodes[i4].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						v5.Commands = slices.DeleteFunc(v5.Commands, func(v6 CommandBinding) bool {
+							if v6.Channel == t {
+								return true
+							}
+							return false
+						})
+						e.Nodes[i4].Config.Variant = v5
+					}
+				}
+			},
+			Retarget: func(e *Schematic, from, to channel.Key) {
+				for i7 := range e.Nodes {
+					switch v8 := e.Nodes[i7].Config.Variant.(type) {
+					case SymbolNodeConfig:
+						for i9 := range v8.Commands {
+							if v8.Commands[i9].Channel == from {
+								v8.Commands[i9].Channel = to
+							}
+						}
+						e.Nodes[i7].Config.Variant = v8
+					}
+				}
+			},
+		}),
 		edgesConfigStrokeColorKey: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Schematic, color.Key]{
 			Name:     "edges.config.stroke_color.key",
 			Table:    "color",
@@ -1523,6 +3259,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v3 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Edges))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -1530,6 +3269,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v4 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Edges))
+								}
 								targets = append(targets, v4.Key)
 							}
 						}
@@ -1537,6 +3279,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v5 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Edges))
+								}
 								targets = append(targets, v5.Key)
 							}
 						}
@@ -1544,6 +3289,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v6 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Edges))
+								}
 								targets = append(targets, v6.Key)
 							}
 						}
@@ -1551,6 +3299,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v7 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Edges))
+								}
 								targets = append(targets, v7.Key)
 							}
 						}
@@ -1558,6 +3309,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v8 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Edges))
+								}
 								targets = append(targets, v8.Key)
 							}
 						}
@@ -1565,6 +3319,9 @@ func newIndexes() indexes {
 						if v2.StrokeColor != nil {
 							switch v9 := v2.StrokeColor.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Edges))
+								}
 								targets = append(targets, v9.Key)
 							}
 						}
@@ -1803,15 +3560,21 @@ func (i indexes) references() []gorp.Reference[Key, Schematic] {
 	return []gorp.Reference[Key, Schematic]{
 		i.group,
 		i.project,
+		i.nodesConfigStateChannel,
+		i.nodesConfigCommandChannel,
 		i.nodesConfigStrokeColorKey,
 		i.nodesConfigFillColorKey,
+		i.nodesConfigChannel,
 		i.nodesConfigEnumeration,
 		i.nodesConfigLevelColorKey,
 		i.nodesConfigAxisColorKey,
 		i.nodesConfigTextColorKey,
 		i.nodesConfigSpecKey,
 		i.nodesConfigColorKey,
+		i.nodesConfigStatesSourceKey,
+		i.nodesConfigStatesSourceCommand,
 		i.nodesConfigStatesEnumeration,
+		i.nodesConfigCommandsChannel,
 		i.edgesConfigStrokeColorKey,
 	}
 }

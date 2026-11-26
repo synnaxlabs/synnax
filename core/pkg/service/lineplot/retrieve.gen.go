@@ -104,6 +104,9 @@ func newIndexes() indexes {
 						if v2.Color != nil {
 							switch v3 := v2.Color.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Ranges))
+								}
 								targets = append(targets, v3.Key)
 							}
 						}
@@ -111,6 +114,9 @@ func newIndexes() indexes {
 						if v2.Color != nil {
 							switch v4 := v2.Color.Variant.(type) {
 							case color.NamedRef:
+								if targets == nil {
+									targets = make([]color.Key, 0, len(e.Ranges))
+								}
 								targets = append(targets, v4.Key)
 							}
 						}
@@ -211,6 +217,9 @@ func newIndexes() indexes {
 					if v1.Color != nil {
 						switch v2 := v1.Color.Variant.(type) {
 						case color.NamedRef:
+							if targets == nil {
+								targets = make([]color.Key, 0, len(e.Lines))
+							}
 							targets = append(targets, v2.Key)
 						}
 					}
@@ -273,6 +282,9 @@ func newIndexes() indexes {
 					if v1.Color != nil {
 						switch v2 := v1.Color.Variant.(type) {
 						case color.NamedRef:
+							if targets == nil {
+								targets = make([]color.Key, 0, len(e.Rules))
+							}
 							targets = append(targets, v2.Key)
 						}
 					}
