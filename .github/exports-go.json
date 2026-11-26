@@ -62,19 +62,6 @@
       "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
       "name": "Fault",
       "caller": "https://linear.app/synnax/issue/SY-6384"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/telem",
-      "receiver": "DataTypeCode",
-      "name": "DataType",
-      "caller": "https://linear.app/synnax/issue/SY-6394"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/telem",
-      "name": "CodeOf",
-      "caller": "https://linear.app/synnax/issue/SY-6394"
     }
   ]
 }
