@@ -511,6 +511,11 @@ var _ = Describe("Check pass on the pointer log", func() {
 			func(n int) (int, int) { return n - 1, n },
 			true,
 		),
+		Entry(
+			"repeats of its first stamp in every later sample",
+			func(n int) (int, int) { return 1, n },
+			true,
+		),
 	)
 
 	It("Should read rising stamps, none of them zero, and each sample at its own "+
