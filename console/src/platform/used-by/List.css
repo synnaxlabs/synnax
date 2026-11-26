@@ -9,14 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A list in a box with a max height scrolls below what sits above it, so the focus
-   ring of an entry draws inside the entry. The list takes focus only while a retry
-   reads again, and shows no ring for it. */
+/* A list in a box with a max height scrolls below what sits above it. The list takes
+   focus only while a retry reads again, and shows no ring for it. */
 .console-used-by__list {
     min-height: 0;
     overflow-y: auto;
-
-    --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 
     &:focus-visible {
         outline: none;
@@ -31,8 +28,11 @@
     font-variant-numeric: tabular-nums;
 }
 
+/* An entry spans the scroll box, which would clip a ring drawn outside it. */
 .console-used-by__resource {
     min-width: 0;
+
+    --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 }
 
 /* A use that nothing opens, or one that loads, lines up with a small button. */

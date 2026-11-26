@@ -196,8 +196,10 @@ const Loading = ({ uses }: Pick<ListProps, "uses">): ReactElement => (
 interface Retry {
   /** Reads the uses again, then resets the boundary with reset. */
   retry: (reset: () => void) => void;
-  /** Whether a retry ran, so a failure after it focuses Retry. */
-  retried: boolean;
+  /** Whether a retry is reading, so a failure after it focuses Retry. */
+  retrying: boolean;
+  /** Ends a retry once its read fails or the list shows. */
+  settle: () => void;
 }
 
 const RetryContext = createContext<Retry | null>(null);
@@ -206,10 +208,11 @@ RetryContext.displayName = "UsedBy.Retry";
 const Failed = ({ error, resetErrorBoundary }: Errors.FallbackProps): ReactElement => {
   const ctx = use(RetryContext);
   const button = useRef<HTMLButtonElement>(null);
-  const retried = ctx?.retried ?? false;
   useEffect(() => {
-    if (retried) button.current?.focus();
-  }, [retried]);
+    if (ctx?.retrying !== true) return;
+    button.current?.focus();
+    ctx.settle();
+  }, [ctx]);
   if (ctx == null) throw new Error("Failed must be inside a used-by list");
   // A read wraps the error of the Core, which says why the read failed.
   const cause = Array.from(errors.causes(error)).at(-1);
@@ -219,6 +222,7 @@ const Failed = ({ error, resetErrorBoundary }: Errors.FallbackProps): ReactEleme
         <Status.Summary
           variant="error"
           level="small"
+          center={false}
           message="Failed to load the uses"
           description={errors.fromUnknown(cause ?? error).message}
         />
@@ -238,6 +242,10 @@ const Failed = ({ error, resetErrorBoundary }: Errors.FallbackProps): ReactEleme
 const Resolved = ({ kind, uses, selects, onSelect }: ListProps): ReactElement => {
   // A resource in the uses can be deleted between the read of the uses and this read.
   const resources = Resource.useMultiple({ ids: uses.map(({ id }) => id) });
+  const ctx = use(RetryContext);
+  useEffect(() => {
+    if (ctx?.retrying === true) ctx.settle();
+  }, [ctx]);
   const byID = new Map(resources.map((r) => [resource.idToString(r.id), r]));
   const resolved = uses.flatMap(({ id, direction }): ResolvedUse[] => {
     const r = byID.get(resource.idToString(id));
@@ -276,18 +284,18 @@ export interface ListProps {
 
 const Uses = (props: ListProps): ReactElement => {
   const root = useRef<HTMLDivElement>(null);
-  const [retried, setRetried] = useState(false);
+  const [retrying, setRetrying] = useState(false);
   const invalidate = Resource.useInvalidateMultiple();
   const retry = (reset: () => void) => {
     // Focus stays in the list while the read runs again.
     root.current?.focus();
     invalidate({ ids: props.uses.map(({ id }) => id) });
-    setRetried(true);
+    setRetrying(true);
     reset();
   };
   return (
     <Flex.Box y empty ref={root} tabIndex={-1} className={CSS.BE("used-by", "list")}>
-      <RetryContext value={{ retry, retried }}>
+      <RetryContext value={{ retry, retrying, settle: () => setRetrying(false) }}>
         <Errors.SuspenseBoundary
           FallbackComponent={Failed}
           loading={<Loading uses={props.uses} />}
