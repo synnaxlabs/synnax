@@ -18,11 +18,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
-	http "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -197,47 +195,22 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart: false,
 				Device:    "test_3",
-				Topic:     "test_4",
-				RecordKey: v1.RecordKey("none"),
-				Record: v1.Record{
-					ValuePointer:     "test_7",
-					ChannelPointer:   new(string("test_8")),
-					TimestampPointer: new(string("test_9")),
-					TimeFormat:       payload.TimeFormat("iso8601"),
-					Fields: []http.WriteField{
-						{Variant: http.StaticWriteField{
-							BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
-							JSONType:       payload.JSONType("number"),
-							Value:          any(map[string]any{"key_15": "value_15"}),
-						}},
-					},
-				},
-				Channels: []v1.WriteChannel{
-					{
-						Key:        "test_17",
-						Disabled:   false,
-						Channel:    channel.Key(20),
-						JSONType:   payload.JSONType("number"),
-						TimeFormat: new(payload.TimeFormat("iso8601")),
-						EnumValues: []payload.EnumEntry{{Label: "test_23", Value: 24.5}},
-					},
-				},
 				Targets: []v1.WriteTarget{
 					{
-						Key:       "test_26",
-						Disabled:  true,
-						Topic:     "test_28",
-						RecordKey: "test_29",
-						ICD:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"),
+						Key:       "test_5",
+						Disabled:  false,
+						Topic:     "test_7",
+						RecordKey: "test_8",
+						ICD:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 						Message: icd.WriteMessage{
-							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820"),
+							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 							Bindings: []icd.WriteBinding{
 								{Variant: icd.ChannelWriteBinding{
 									WriteBaseBinding: icd.WriteBaseBinding{
-										Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"),
+										Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
 									},
-									Channel:  channel.Key(36),
-									DataType: new(telem.DataType("test_36")),
+									Channel:  channel.Key(15),
+									DataType: new(telem.DataType("test_15")),
 								}},
 							},
 						},
@@ -248,33 +221,13 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.Nil(),
 				AutoStart: false,
 				Device:    "",
-				Topic:     "",
-				RecordKey: v1.RecordKey(""),
-				Record: v1.Record{
-					ValuePointer:     "",
-					ChannelPointer:   nil,
-					TimestampPointer: nil,
-					TimeFormat:       payload.TimeFormat(""),
-					Fields:           []http.WriteField{},
-				},
-				Channels: []v1.WriteChannel{},
-				Targets:  []v1.WriteTarget{},
+				Targets:   []v1.WriteTarget{},
 			}),
 			Entry("empty collections", v1.WriteConfig{
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				AutoStart: false,
 				Device:    "test_3",
-				Topic:     "test_4",
-				RecordKey: v1.RecordKey("none"),
-				Record: v1.Record{
-					ValuePointer:     "test_7",
-					ChannelPointer:   new(string("test_8")),
-					TimestampPointer: new(string("test_9")),
-					TimeFormat:       payload.TimeFormat("iso8601"),
-					Fields:           []http.WriteField{},
-				},
-				Channels: []v1.WriteChannel{},
-				Targets:  []v1.WriteTarget{},
+				Targets:   []v1.WriteTarget{},
 			}),
 		)
 	})
@@ -446,47 +399,22 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		AutoStart: false,
 		Device:    "test_3",
-		Topic:     "test_4",
-		RecordKey: v1.RecordKey("none"),
-		Record: v1.Record{
-			ValuePointer:     "test_7",
-			ChannelPointer:   new(string("test_8")),
-			TimestampPointer: new(string("test_9")),
-			TimeFormat:       payload.TimeFormat("iso8601"),
-			Fields: []http.WriteField{
-				{Variant: http.StaticWriteField{
-					BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
-					JSONType:       payload.JSONType("number"),
-					Value:          any(map[string]any{"key_15": "value_15"}),
-				}},
-			},
-		},
-		Channels: []v1.WriteChannel{
-			{
-				Key:        "test_17",
-				Disabled:   false,
-				Channel:    channel.Key(20),
-				JSONType:   payload.JSONType("number"),
-				TimeFormat: new(payload.TimeFormat("iso8601")),
-				EnumValues: []payload.EnumEntry{{Label: "test_23", Value: 24.5}},
-			},
-		},
 		Targets: []v1.WriteTarget{
 			{
-				Key:       "test_26",
-				Disabled:  true,
-				Topic:     "test_28",
-				RecordKey: "test_29",
-				ICD:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"),
+				Key:       "test_5",
+				Disabled:  false,
+				Topic:     "test_7",
+				RecordKey: "test_8",
+				ICD:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 				Message: icd.WriteMessage{
-					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820"),
+					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 					Bindings: []icd.WriteBinding{
 						{Variant: icd.ChannelWriteBinding{
 							WriteBaseBinding: icd.WriteBaseBinding{
-								Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"),
+								Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
 							},
-							Channel:  channel.Key(36),
-							DataType: new(telem.DataType("test_36")),
+							Channel:  channel.Key(15),
+							DataType: new(telem.DataType("test_15")),
 						}},
 					},
 				},
@@ -796,47 +724,22 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart: false,
 			Device:    "test_3",
-			Topic:     "test_4",
-			RecordKey: v1.RecordKey("none"),
-			Record: v1.Record{
-				ValuePointer:     "test_7",
-				ChannelPointer:   new(string("test_8")),
-				TimestampPointer: new(string("test_9")),
-				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields: []http.WriteField{
-					{Variant: http.StaticWriteField{
-						BaseWriteField: http.BaseWriteField{Key: "test_12", Pointer: "test_13"},
-						JSONType:       payload.JSONType("number"),
-						Value:          any(map[string]any{"key_15": "value_15"}),
-					}},
-				},
-			},
-			Channels: []v1.WriteChannel{
-				{
-					Key:        "test_17",
-					Disabled:   false,
-					Channel:    channel.Key(20),
-					JSONType:   payload.JSONType("number"),
-					TimeFormat: new(payload.TimeFormat("iso8601")),
-					EnumValues: []payload.EnumEntry{{Label: "test_23", Value: 24.5}},
-				},
-			},
 			Targets: []v1.WriteTarget{
 				{
-					Key:       "test_26",
-					Disabled:  true,
-					Topic:     "test_28",
-					RecordKey: "test_29",
-					ICD:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781e"),
+					Key:       "test_5",
+					Disabled:  false,
+					Topic:     "test_7",
+					RecordKey: "test_8",
+					ICD:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
 					Message: icd.WriteMessage{
-						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567820"),
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 						Bindings: []icd.WriteBinding{
 							{Variant: icd.ChannelWriteBinding{
 								WriteBaseBinding: icd.WriteBaseBinding{
-									Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567822"),
+									Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
 								},
-								Channel:  channel.Key(36),
-								DataType: new(telem.DataType("test_36")),
+								Channel:  channel.Key(15),
+								DataType: new(telem.DataType("test_15")),
 							}},
 						},
 					},
@@ -854,17 +757,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			Key:       uuid.Nil(),
 			AutoStart: false,
 			Device:    "",
-			Topic:     "",
-			RecordKey: v1.RecordKey(""),
-			Record: v1.Record{
-				ValuePointer:     "",
-				ChannelPointer:   nil,
-				TimestampPointer: nil,
-				TimeFormat:       payload.TimeFormat(""),
-				Fields:           []http.WriteField{},
-			},
-			Channels: []v1.WriteChannel{},
-			Targets:  []v1.WriteTarget{},
+			Targets:   []v1.WriteTarget{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -877,17 +770,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			AutoStart: false,
 			Device:    "test_3",
-			Topic:     "test_4",
-			RecordKey: v1.RecordKey("none"),
-			Record: v1.Record{
-				ValuePointer:     "test_7",
-				ChannelPointer:   new(string("test_8")),
-				TimestampPointer: new(string("test_9")),
-				TimeFormat:       payload.TimeFormat("iso8601"),
-				Fields:           []http.WriteField{},
-			},
-			Channels: []v1.WriteChannel{},
-			Targets:  []v1.WriteTarget{},
+			Targets:   []v1.WriteTarget{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

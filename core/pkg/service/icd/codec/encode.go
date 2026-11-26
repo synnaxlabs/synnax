@@ -417,7 +417,7 @@ func checkPresent(pointer string, fields []xjson.TemplateField) error {
 		return err
 	}
 	if slices.ContainsFunc(fields, func(f xjson.TemplateField) bool {
-		return within(f.Pointer, at)
+		return f.Pointer.HasPrefix(at)
 	}) {
 		return nil
 	}

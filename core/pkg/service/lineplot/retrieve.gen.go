@@ -13,6 +13,7 @@ package lineplot
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -118,6 +119,31 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *LinePlot, t color.Key) []string {
+				for i17, v18 := range e.Ranges {
+					switch v19 := v18.Variant.(type) {
+					case ranger.KeyRef:
+						if v19.Color != nil {
+							switch v20 := v19.Color.Variant.(type) {
+							case color.NamedRef:
+								if v20.Key == t {
+									return []string{"ranges", strconv.Itoa(i17), "color", "key"}
+								}
+							}
+						}
+					case ranger.WindowRef:
+						if v19.Color != nil {
+							switch v21 := v19.Color.Variant.(type) {
+							case color.NamedRef:
+								if v21.Key == t {
+									return []string{"ranges", strconv.Itoa(i17), "color", "key"}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *LinePlot, t color.Key) {
 				for i9 := range e.Ranges {
 					switch v10 := e.Ranges[i9].Variant.(type) {
@@ -217,6 +243,19 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *LinePlot, t color.Key) []string {
+				for i9, v10 := range e.Lines {
+					if v10.Color != nil {
+						switch v11 := v10.Color.Variant.(type) {
+						case color.NamedRef:
+							if v11.Key == t {
+								return []string{"lines", strconv.Itoa(i9), "color", "key"}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *LinePlot, t color.Key) {
 				for i5 := range e.Lines {
 					if e.Lines[i5].Color != nil {
@@ -278,6 +317,19 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *LinePlot, t color.Key) []string {
+				for i9, v10 := range e.Rules {
+					if v10.Color != nil {
+						switch v11 := v10.Color.Variant.(type) {
+						case color.NamedRef:
+							if v11.Key == t {
+								return []string{"rules", strconv.Itoa(i9), "color", "key"}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *LinePlot, t color.Key) {
 				for i5 := range e.Rules {
