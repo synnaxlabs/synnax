@@ -299,15 +299,6 @@ func (we *WriteEndpoint) Patch(c patch.Cursor) error {
 		}
 		we.Message = &next
 		return nil
-	case "channel":
-		if c = c.Next(); c.Done() {
-			return patch.Defaulted(&we.Channel, c, func(def *WriteEndpoint) {
-				we.Channel = def.Channel
-			})
-		}
-		return we.Channel.Patch(c)
-	case "fields":
-		return patch.List(&we.Fields, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -340,10 +331,5 @@ func (we *WriteEndpoint) HashContent(h *content.Hash) {
 	} else {
 		h.Bool(true)
 		we.Message.HashContent(h)
-	}
-	we.Channel.HashContent(h)
-	h.Len(len(we.Fields))
-	for i0 := range we.Fields {
-		we.Fields[i0].HashContent(h)
 	}
 }

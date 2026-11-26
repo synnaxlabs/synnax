@@ -23,6 +23,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   client,
+  createSymbolPayload,
   preloadTab,
   renderSchematic,
   TabToolbar,
@@ -251,6 +252,25 @@ describe("Schematic toolbar Properties", () => {
       ).toBeDefined();
       expect(screen.getByText("Or create a symbol in:")).toBeDefined();
       expect(isPlutoDisabled(findButton("Create symbol"))).toBe(true);
+    });
+  });
+
+  describe("custom symbol node", () => {
+    it("opens the editor on the custom symbol that the node draws", async () => {
+      const symbol = await client.schematics.symbols.create(
+        createSymbolPayload(uniqueName("custom")),
+      );
+      const { result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: () =>
+          PSchematic.Node.createConfig({
+            variant: "symbol",
+            spec: { type: "custom", key: symbol.key },
+          }),
+      });
+      const edit = await waitFor(() => getIconButton(result.baseElement, "edit"));
+      fireEvent.click(edit);
+      expect(await screen.findByDisplayValue(symbol.name)).toBeDefined();
     });
   });
 

@@ -291,8 +291,10 @@ class WriteFrameAdapter:
         if isinstance(channels_or_data, Frame) or is_dataframe(channels_or_data):
             if isinstance(channels_or_data, Frame):
                 cols: list[channel.Key | str] = channels_or_data.channels
+                columns = channels_or_data.series
             else:
                 cols = list(channels_or_data.columns)
+                columns = [Series(channels_or_data[col]) for col in cols]
             if self._adapter is None:
                 return (
                     Frame(channels_or_data)
@@ -301,12 +303,12 @@ class WriteFrameAdapter:
                 )
             adapted_channels: list[channel.Key] = []
             adapted_series: list[Series] = []
-            for col in cols:
+            for col, column in zip(cols, columns, strict=True):
                 try:
                     adapted_channels.append(
                         self._adapter[col] if isinstance(col, str) else col
                     )
-                    adapted_series.append(Series(channels_or_data[col]))
+                    adapted_series.append(column)
                 except KeyError as e:
                     if self._err_on_extra_chans:
                         raise ValidationError(

@@ -20,8 +20,9 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type deep, strings } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import type { ReactElement } from "react";
+import type { ReactElement, ReactNode } from "react";
 
+import { Scroll } from "@/feature/schematic/symbol/edit/Scroll";
 import type { Spec } from "@/feature/schematic/symbol/spec";
 import { Modals } from "@/platform/modals";
 
@@ -56,8 +57,13 @@ export interface ItemListProps<T extends Item> extends Input.Control<
   label: (item: T) => string;
   /** name returns the path of the name of an item, which makes the name editable. */
   name?: (key: string) => deep.Target<string>;
+  /**
+   * removeLabel returns the label of the remove button and confirm of an item. It
+   * defaults to Remove and the label.
+   */
+  removeLabel?: (item: T) => string;
   /** detail returns the second line of an item. */
-  detail: (item: T) => string;
+  detail: (item: T) => ReactNode;
   /** add returns spec with a new item, and the key of the item. */
   add: (spec: schematic.symbol.Spec) => [schematic.symbol.Spec, string];
   /** addDisabledReason, when set, turns off the add button and says why. */
@@ -79,6 +85,7 @@ export const ItemList = <T extends Item>({
   items,
   label,
   name,
+  removeLabel,
   detail,
   add,
   addDisabledReason,
@@ -88,13 +95,14 @@ export const ItemList = <T extends Item>({
 }: ItemListProps<T>): ReactElement => {
   const { get, set } = Form.useContext();
   const confirm = Modals.useConfirm();
+  const removeText = (item: T) => removeLabel?.(item) ?? `Remove ${label(item)}`;
   const handleRemove = async (item: T) => {
     const [next, removed] = remove(get(path.data).value, item.key);
     const uses = describeUses(removed);
     if (
       uses.length > 0 &&
       (await confirm({
-        message: `Remove ${label(item)}?`,
+        message: `${removeText(item)}?`,
         description: `Its uses go with it: ${uses}.`,
         confirm: { label: "Remove", variant: "error" },
       })) !== true
@@ -133,8 +141,9 @@ export const ItemList = <T extends Item>({
         onChange={onChange}
         data={keys}
         closeDialogOnSelect={false}
+        cursor="selection"
       >
-        <List.Scroll y gap={1}>
+        <Scroll y gap={1}>
           <List.Items<string>>
             {({ key, itemKey, ...rest }) => {
               const item = items.find((i) => i.key === itemKey);
@@ -171,8 +180,8 @@ export const ItemList = <T extends Item>({
                     }}
                     size="small"
                     variant="text"
-                    tooltip={`Remove ${label(item)}`}
-                    aria-label={`Remove ${label(item)}`}
+                    tooltip={removeText(item)}
+                    aria-label={removeText(item)}
                     reveal
                   >
                     <Icon.Close />
@@ -181,7 +190,7 @@ export const ItemList = <T extends Item>({
               );
             }}
           </List.Items>
-        </List.Scroll>
+        </Scroll>
       </Select.Frame>
     </Flex.Box>
   );

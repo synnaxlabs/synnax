@@ -13,14 +13,17 @@ import { LABELS_SECTION } from "@/app/library/tab";
 import {
   useColorsVisible,
   useEnumerationsVisible,
+  useICDsVisible,
   useLabelsVisible,
 } from "@/app/library/visible";
 import { Color } from "@/feature/color";
 import { Enumeration } from "@/feature/enumeration";
+import { ICD } from "@/feature/icd";
 import { Label } from "@/feature/label";
-import type { Settings } from "@/platform/settings";
+import { FLAGS } from "@/flags";
+import type { Page } from "@/platform/page";
 
-export const GROUPS: Settings.Group[] = [
+export const GROUPS: Page.Group[] = [
   {
     key: "core",
     name: "Core",
@@ -46,6 +49,17 @@ export const GROUPS: Settings.Group[] = [
         Content: Enumeration.Settings,
         useVisible: useEnumerationsVisible,
       },
+      ...(FLAGS.icds
+        ? [
+            {
+              key: "icds",
+              name: "ICDs",
+              icon: <Icon.Library />,
+              Content: ICD.Settings,
+              useVisible: useICDsVisible,
+            },
+          ]
+        : []),
     ],
   },
 ];

@@ -35,7 +35,7 @@ import {
 
 import { Device } from "@/feature/http/device";
 import { DEFAULT_READ_NAME } from "@/feature/http/task/create";
-import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
+import { EndpointItem, EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -269,20 +269,9 @@ const icdName = (name: string): string =>
 const usePrefix = (deviceName: string, path: deep.Path<ICDEndpoint>): string =>
   endpointPrefix(deviceName, PForm.useFieldValue(path.path));
 
-const EndpointItem = (props: Tree.ItemRenderProps<string>) => {
-  const path = root.config.endpoints[props.itemKey];
-  const disabled = PForm.useFieldValue(path.disabled, { optional: true });
-  if (disabled == null) return null;
-  return (
-    <Task.Views.TreeGroupItem
-      {...props}
-      label={<EndpointLabel path={path} />}
-      off={disabled}
-    >
-      <Task.EnabledCheckbox path={path.disabled} />
-    </Task.Views.TreeGroupItem>
-  );
-};
+const SourceItem = (props: Tree.ItemRenderProps<string>) => (
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+);
 
 /** @returns the props that the panels of a message of an endpoint share. */
 const useMessageProps = (
@@ -470,7 +459,7 @@ const Endpoints: FC<EndpointsProps> = ({
     sources: root.config.endpoints,
     sourceOf: (ep) => (readsICD(ep) ? ep : null),
     pathOf: icdPath,
-    SourceItem: EndpointItem,
+    SourceItem,
     tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an endpoint reads it, another endpoint owns its message, or it no longer

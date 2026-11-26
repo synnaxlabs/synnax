@@ -91,21 +91,36 @@ const clearPaint = (el: SVGElement) => {
   setHidden(el, false);
 };
 
+const isStoredStrokeHidden = (el: Element): boolean => {
+  const stroke = el.getAttribute("stroke");
+  if (stroke == null) return false;
+  if (stroke === "none") return true;
+  const parsed = color.colorZ.safeParse(stroke);
+  return parsed.success && color.opacity(parsed.data) === 0;
+};
+
+const isStoredStrokeShown = (el: Element): boolean =>
+  el.hasAttribute("stroke") && !isStoredStrokeHidden(el);
+
+// A whole-drawing stroke skips a shape whose markup hides its stroke. A part stroke
+// does not.
+const strokeOf = (
+  el: Element,
+  { stroke, selectors }: Paint,
+): color.Color | undefined =>
+  stroke == null || (selectors == null && isStoredStrokeHidden(el))
+    ? undefined
+    : stroke;
+
 // A later paint wins on each field that it sets.
 const applyPaints = (drawing: Element, paints: Paint[], prevPaints: Paint[]) => {
   iterElements(prevPaints, drawing, clearPaint);
-  iterElements(paints, drawing, (el, { stroke, fill, hidden }) => {
+  iterElements(paints, drawing, (el, paint) => {
+    const stroke = strokeOf(el, paint);
     if (stroke != null) setStroke(el, stroke);
-    if (fill != null) setFill(el, fill);
-    if (hidden != null) setHidden(el, hidden);
+    if (paint.fill != null) setFill(el, paint.fill);
+    if (paint.hidden != null) setHidden(el, paint.hidden);
   });
-};
-
-const isStoredStrokeShown = (el: Element): boolean => {
-  const stroke = el.getAttribute("stroke");
-  if (stroke == null || stroke === "none") return false;
-  const parsed = color.colorZ.safeParse(stroke);
-  return !parsed.success || color.opacity(parsed.data) > 0;
 };
 
 // A symbol color replaces each stroke the drawing shows: the stroke of the shape's
@@ -117,7 +132,8 @@ const applySymbolStrokes = (
   symbolColor: color.Crude | undefined,
 ) => {
   const paintStrokes = new Map<SVGElement, color.Color>();
-  iterElements(paints, drawing, (el, { stroke }) => {
+  iterElements(paints, drawing, (el, paint) => {
+    const stroke = strokeOf(el, paint);
     if (stroke != null) paintStrokes.set(el, stroke);
   });
   const elements = new Set([...Region.allGraphics(drawing), ...paintStrokes.keys()]);
