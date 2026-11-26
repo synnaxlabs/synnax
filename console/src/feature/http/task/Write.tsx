@@ -9,44 +9,46 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, type http } from "@synnaxlabs/client";
+import { channel, DisconnectedError, http, type icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, id, primitive } from "@synnaxlabs/x";
-import {
-  createContext,
-  type FC,
-  type PropsWithChildren,
-  type ReactElement,
-  useContext,
-  useState,
-} from "react";
+import type { Tree } from "@synnaxlabs/lyra/tree";
+import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { deep, id, unique } from "@synnaxlabs/x";
+import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/http/device";
-import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
+import { DEFAULT_WRITE_NAME } from "@/feature/http/task/create";
+import { EndpointItem, EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployWriteConfigZ,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
-  writeEndpointZ,
   type WriteSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-import { Empty } from "@/platform/empty";
 import { Form as PlatformForm } from "@/platform/form";
+import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Device.Select />;
 
-const MethodSelect: FC<{ path: deep.Target<http.Method> }> = ({ path }) => (
-  <PForm.Field path={path} label="Method">
+interface MethodSelectProps {
+  path: deep.Target<http.Method>;
+  onChange: (method: http.Method) => void;
+}
+
+const MethodSelect = ({ path, onChange }: MethodSelectProps) => (
+  <PForm.Field path={path} label="Method" onChange={onChange}>
     {renderMethodSelect}
   </PForm.Field>
 );
@@ -61,183 +63,359 @@ const SelectMethod = (p: Select.ButtonsProps<http.Method>) => (
 
 const renderMethodSelect = Component.renderProp(SelectMethod);
 
-/** The name deploying gives an endpoint's command channel while it has none. */
-const commandChannelName = (device: string, endpoint: string): string =>
-  `${channel.escapeInvalidName(device)}${channel.escapeInvalidName(endpoint)}_cmd`;
+/** The method and path of the request of an endpoint. */
+type RequestLine = Pick<WriteEndpoint, "method" | "path">;
 
-/** What the command channel of an endpoint needs from deploying. */
-const endpointCommand = (
+interface RequestSectionProps {
+  path: deep.Path<WriteEndpoint>;
+  /** Called with each change to the method or path, before the form applies it. */
+  onChange: (change: Partial<RequestLine>) => void;
+}
+
+const RequestSection = ({ path, onChange }: RequestSectionProps) => (
+  <PForm.Section title="Request">
+    <MethodSelect path={path.method} onChange={(method) => onChange({ method })} />
+    <PForm.TextField
+      path={path.path}
+      label="Path"
+      padHelpText={false}
+      inputProps={PATH_INPUT_PROPS}
+      onChange={(p) => onChange({ path: p })}
+    />
+    <PlatformForm.KeyValueEditor
+      path={path.queryParams}
+      resourceName="parameter"
+      label="Query parameters"
+      keyField="parameter"
+      keyPlaceholder="limit"
+      valuePlaceholder="100"
+    />
+    <PlatformForm.KeyValueEditor
+      path={path.headers}
+      resourceName="header"
+      label="Headers"
+      keyField="name"
+      keyPlaceholder="Content-Type"
+      valuePlaceholder="application/json"
+    />
+  </PForm.Section>
+);
+
+const PATH_INPUT_PROPS = { placeholder: "/api/control" } as const;
+
+/** An endpoint whose request body is a message of an ICD. */
+interface ICDEndpoint extends WriteEndpoint {
+  icd: icd.Key;
+  message: icd.WriteMessage;
+}
+
+const sendsICD = (ep: WriteEndpoint): ep is ICDEndpoint =>
+  ep.icd != null && ep.message != null;
+
+const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndpoint>;
+
+/**
+ * Keys and names the command channels of fields of an endpoint, as deploying does. The
+ * key holds the method and path, so each endpoint on the device that sends there shares
+ * the channel.
+ */
+const namingOf = (
   device: string,
-  ep: WriteEndpoint,
-): Task.CommandChannelSpec => ({
-  propertiesKey: ep.path,
-  channel: ep.channel.channel,
-  name: primitive.isNonZero(ep.channel.name)
-    ? ep.channel.name
-    : commandChannelName(device, ep.path),
-  dataType: ep.channel.dataType,
-});
-
-/** The name that deploying gives each command channel it creates, by endpoint path. */
-const NamesContext = createContext<ReadonlyMap<string, string>>(new Map());
-NamesContext.displayName = "HTTP.NamesContext";
-
-/** Plans the command channels of every endpoint together, as deploying does. */
-const CommandNames = ({ children }: PropsWithChildren): ReactElement => {
-  const endpoints = PForm.useFieldValue(root.config.endpoints);
-  const dev = Device.useFromConfig();
-  const specs =
-    dev == null
-      ? []
-      : endpoints
-          .filter(({ disabled }) => !disabled)
-          .map((ep) => endpointCommand(dev.name, ep));
-  const names = Task.useCommandChannelNames(dev?.properties.write, specs);
-  return <NamesContext value={names}>{children}</NamesContext>;
+  { method, path }: WriteEndpoint,
+): ICD.Write.ChannelNaming => {
+  const prefix = channel.escapeInvalidName(device) + channel.escapeInvalidName(path);
+  return {
+    key: (field) => `${method} ${path}#${field.key}`,
+    name: (field) => ICD.Write.commandName(prefix, field),
+  };
 };
 
-const EndpointItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = root.config.endpoints[itemKey];
-  const channelKey = PForm.useFieldValue(path.channel.channel);
-  const endpointPath = PForm.useFieldValue(path.path);
-  const disabled = PForm.useFieldValue(path.disabled);
-  const dev = Device.useFromConfig();
-  const planned = useContext(NamesContext).get(endpointPath);
+/** @returns the name that an endpoint gives the message it sends. */
+const messageName = ({ method, path }: RequestLine): string =>
+  `${method} ${path}`.trim();
+
+/** @returns whether name is the message name of request, with or without a number. */
+const namedBy = (name: string, request: RequestLine): boolean => {
+  const base = messageName(request);
+  if (name === base) return true;
+  return name.startsWith(`${base} `) && /^\d+$/.test(name.slice(base.length + 1));
+};
+
+/** @returns the name of the ICD of a task named name. */
+const icdName = (name: string): string =>
+  name.trim() === "" ? DEFAULT_WRITE_NAME : name;
+
+const TargetItem = (props: Tree.ItemRenderProps<string>) => (
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+);
+
+const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({
+  ...ep,
+  key: id.create(),
+  message: ep.message == null ? undefined : ICD.Write.unbind(ep.message),
+});
+
+interface DetailsProps {
+  epKey: string;
+  onAddField: () => void;
+}
+
+/** The message that an endpoint sends. */
+const MessageDetails = ({ epKey, onAddField }: DetailsProps) => {
+  const path = icdPath(epKey);
+  const { set } = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+  const ep = PForm.useFieldValue(path);
+  const message = ICD.useMessage(ep.icd, ep.message.message);
+  const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
+    set(path, { ...ep, icd: icdKey, message: ICD.Write.create(picked) });
   return (
-    <Select.Item
-      {...props}
-      y
-      align="start"
-      gap="small"
-      className={CSS.B("endpoint-item")}
-    >
-      <Flex.Box x align="center" gap="small" full="x">
-        <EndpointLabel path={path} />
-      </Flex.Box>
-      <Flex.Box x align="center" justify="between" gap="small" full="x">
-        <Task.ChannelName
-          channel={channelKey}
-          namePath={path.channel.name}
-          defaultName={
-            dev == null
-              ? undefined
-              : (planned ?? commandChannelName(dev.name, endpointPath))
-          }
-          skipped={disabled}
-          id={Task.getChannelNameID(itemKey)}
-          level="small"
-          weight={450}
-          color={9}
-          overflow="fade"
+    <PForm.Section
+      title="Message"
+      actions={
+        <ICD.AddField
+          onClick={onAddField}
+          disabled={message?.payload.format !== "json"}
         />
-        <Task.EnabledCheckbox path={path.disabled} />
-      </Flex.Box>
-    </Select.Item>
+      }
+    >
+      <ICD.MessageFormatField
+        icdKey={ep.icd}
+        message={ep.message.message}
+        onChange={handleFormatChange}
+        preview={isPreview}
+      />
+      <ICD.MessageWarning
+        message={message}
+        missingDescription={ICD.Write.MISSING_DESCRIPTION}
+      />
+    </PForm.Section>
   );
 };
 
-const endpointItem = Component.renderProp(EndpointItem);
-
-const EMPTY_ENDPOINTS = <Empty.Action message="No endpoints" />;
-
-const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
+/** Picks the message of an endpoint that sends none. */
+const MessagePick = ({ epKey }: { epKey: string }) => {
   const path = root.config.endpoints[epKey];
+  const { set } = PForm.useContext();
+  const isPreview = Task.useIsPreview();
+  const ep = PForm.useFieldValue(path);
+  const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
+    set(path, { ...ep, icd: icdKey, message: ICD.Write.create(picked) });
+  return (
+    <PForm.Section title="Message">
+      <ICD.MessageFormatField onChange={handleFormatChange} preview={isPreview} />
+    </PForm.Section>
+  );
+};
+
+interface EndpointDetailsProps extends DetailsProps {
+  /** The key of each message that this form created. */
+  created: icd.MessageKey[];
+}
+
+const EndpointDetails = ({ epKey, onAddField, created }: EndpointDetailsProps) => {
+  const path = root.config.endpoints[epKey];
+  const ctx = PForm.useContext();
+  const formats = ICD.useFormats();
+  const sends = sendsICD(PForm.useFieldValue(path));
+  const handleRequestChange = (change: Partial<RequestLine>) => {
+    const ep = ctx.get(path).value;
+    if (!sendsICD(ep)) return;
+    ctx.set(icdPath(epKey).message, ICD.Write.unbind(ep.message));
+    // A message that this form created and no other endpoint sends follows its request
+    // while it keeps the name that the request gave it.
+    if (!created.includes(ep.message.message)) return;
+    const shared = ctx
+      .get(root.config.endpoints)
+      .value.some(
+        (other) =>
+          other.key !== ep.key &&
+          other.icd === ep.icd &&
+          other.message?.message === ep.message.message,
+      );
+    if (shared) return;
+    const format = ICD.formatOf(formats, ep.icd);
+    const { messages } = format.value();
+    const message = messages.find(({ key }) => key === ep.message.message);
+    if (message == null || !namedBy(message.name, ep)) return;
+    format.set(
+      PICD.formPath.messages[message.key].name,
+      ICD.availableName(
+        messageName({ ...ep, ...change }),
+        messages.filter(({ key }) => key !== message.key),
+      ),
+    );
+  };
   return (
     <Flex.Box y grow empty className={CSS.B("endpoint-details")}>
       <PForm.Sections className={CSS.B("endpoint-form")}>
-        <PForm.Section title="Request">
-          <MethodSelect path={path.method} />
-          <PForm.TextField
-            path={path.path}
-            label="Path"
-            padHelpText={false}
-            inputProps={PATH_INPUT_PROPS}
-          />
-          <PlatformForm.KeyValueEditor
-            path={path.queryParams}
-            resourceName="parameter"
-            label="Query parameters"
-            keyField="parameter"
-            keyPlaceholder="limit"
-            valuePlaceholder="100"
-          />
-          <PlatformForm.KeyValueEditor
-            path={path.headers}
-            resourceName="header"
-            label="Headers"
-            keyField="name"
-            keyPlaceholder="Content-Type"
-            valuePlaceholder="application/json"
-          />
-        </PForm.Section>
-        <Task.Payload.ChannelSections path={path.channel} pointerPlaceholder="/value" />
-        <Task.Payload.AdditionalFields key={epKey} path={path.fields} />
+        <RequestSection path={path} onChange={handleRequestChange} />
+        {sends ? (
+          <MessageDetails epKey={epKey} onAddField={onAddField} />
+        ) : (
+          <MessagePick epKey={epKey} />
+        )}
       </PForm.Sections>
     </Flex.Box>
   );
 };
 
-const PATH_INPUT_PROPS = { placeholder: "/api/control" } as const;
+interface EndpointsProps {
+  device: Device.Device;
+  selected: string[];
+  onSelect: Dispatch<SetStateAction<string[]>>;
+  expanded: string[];
+  onExpand: Dispatch<SetStateAction<string[]>>;
+  /** The key of each message that this form created. */
+  created: icd.MessageKey[];
+  onCreate: Dispatch<SetStateAction<icd.MessageKey[]>>;
+}
 
-const createEndpoint = (): WriteEndpoint => writeEndpointZ.parse({});
+/** The endpoints of the task as a tree, beside the details of the selected item. */
+const Endpoints = ({
+  device,
+  selected,
+  onSelect,
+  expanded,
+  onExpand,
+  created,
+  onCreate,
+}: EndpointsProps) => {
+  const client = PSynnax.use();
+  const ctx = PForm.useContext();
+  const handleError = Status.useErrorHandler();
+  const formats = ICD.useFormats();
+  const list = PForm.useFieldListUtils(root.config.endpoints);
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const sending = endpoints.filter(sendsICD);
+  const commandChannelsOf = ICD.Write.useCommandChannels();
+  const specs = sending
+    .filter(({ disabled }) => !disabled)
+    .flatMap((ep) => commandChannelsOf(ep, namingOf(device.name, ep)));
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
+  const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null => {
+    if (!sendsICD(ep)) return null;
+    const naming = namingOf(device.name, ep);
+    return {
+      icd: ep.icd,
+      message: ep.message.message,
+      path: icdPath(ep.key).message,
+      naming,
+    };
+  };
+  const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
+    path: root.config.endpoints,
+    messageOf,
+    plans,
+    TargetItem,
+    targetPane: (ep, onAddField) => ({
+      path: root.config.endpoints[ep.key],
+      title: <EndpointLabel path={root.config.endpoints[ep.key]} />,
+      details: (
+        <EndpointDetails
+          key={ep.key}
+          epKey={ep.key}
+          onAddField={onAddField}
+          created={created}
+        />
+      ),
+    }),
+    duplicate,
+    selected,
+    onSelect,
+    expanded,
+    onExpand,
+  });
 
-const duplicateEndpoints = (
-  endpoints: WriteEndpoint[],
-  keys: string[],
-): WriteEndpoint[] =>
-  endpoints
-    .filter(({ key }) => keys.includes(key))
-    .map((ep) => ({
-      ...ep,
-      key: id.create(),
-      channel: { ...ep.channel, channel: 0 },
-      fields: ep.fields.map((f) => ({ ...f, key: id.create() })),
-    }));
+  /**
+   * Adds an endpoint that sends a new message with no fields, in the ICD of the most
+   * endpoints, or in a new ICD named after the task when no endpoint sends one.
+   */
+  const add = async () => {
+    if (client == null) throw new DisconnectedError();
+    const ep = http.writeEndpointZ.parse({});
+    const {
+      icd: key,
+      messages: [message],
+    } = await ICD.Write.addMessages({
+      client,
+      formats,
+      targets: sending,
+      name: icdName(ctx.get(root.name).value),
+      messages: [{ name: messageName(ep), fields: [] }],
+    });
+    const added = { ...ep, icd: key, message: ICD.Write.create(message) };
+    onCreate((prev) => [...prev, message.key]);
+    list.push([added]);
+    onSelect([added.key]);
+    onExpand((prev) => unique.unique([...prev, ...ICD.Write.expandedOf([added])]));
+  };
+  // Adds run one at a time, so a second click cannot make a second ICD.
+  const addExclusive = useExclusiveCallback(add);
+  const handleAdd = () => handleError(addExclusive, "Failed to add endpoint");
 
-const Form: FC = () => {
-  const [selected, setSelected] = useState<string[]>([]);
-  const dev = Device.useFromConfig();
-  const resolve = (ep: WriteEndpoint) =>
-    dev == null
-      ? null
-      : { channel: { ...ep.channel, channel: dev.properties.write[ep.path] ?? 0 } };
-  const current = selected.length > 0 ? selected[0] : null;
   return (
     <Task.Views.Panes
       listTitle="Endpoints"
       list={
-        <CommandNames>
-          <Task.Views.ChannelList<WriteEndpoint>
-            path={root.config.endpoints}
-            header={null}
-            emptyContent={EMPTY_ENDPOINTS}
-            addLabel="Add endpoint"
-            createChannel={createEndpoint}
-            createChannels={duplicateEndpoints}
-            listItem={endpointItem}
-            contextMenuItems={Task.readChannelContextMenuItem}
-            resolve={resolve}
-            selected={selected}
-            onSelect={setSelected}
-            grow
-          />
-        </CommandNames>
+        <Task.Views.TreeList
+          {...tree}
+          onSelect={handleSelect}
+          menu={contextMenu}
+          emptyMessage="No endpoints"
+          addLabel="Add endpoint"
+          onAdd={handleAdd}
+        >
+          {renderItem}
+        </Task.Views.TreeList>
       }
-      detailsPath={current != null ? root.config.endpoints[current] : null}
-      title={current != null && <EndpointLabel path={root.config.endpoints[current]} />}
+      detailsPath={pane?.path ?? null}
+      title={pane?.title}
     >
-      {current != null ? (
-        <EndpointDetails epKey={current} />
-      ) : (
+      {pane?.details ?? (
         <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">Select an endpoint to configure</Text.Text>
+          <Text.Text status="disabled">Add an endpoint to send requests to</Text.Text>
         </Flex.Box>
       )}
+      {sending.map(({ key, icd: icdKey }) => (
+        <ICD.Write.Suit key={key} icdKey={icdKey} path={icdPath(key).message} />
+      ))}
     </Task.Views.Panes>
   );
 };
 
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
+  const endpoints = PForm.useFieldValue(root.config.endpoints);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState<string[]>(() =>
+    ICD.Write.expandedOf(endpoints),
+  );
+  const [created, setCreated] = useState<icd.MessageKey[]>([]);
+  const icds = endpoints.filter(sendsICD).map((ep) => ep.icd);
+  return (
+    <ICD.WithFormats icdKeys={icds}>
+      <Endpoints
+        device={device}
+        selected={selected}
+        onSelect={setSelected}
+        expanded={expanded}
+        onExpand={setExpanded}
+        created={created}
+        onCreate={setCreated}
+      />
+    </ICD.WithFormats>
+  );
+};
+
+/** The endpoints of the task, each with the message of an ICD that it sends. */
+const Form = PlatformDevice.wrapTaskForm({
+  use: Device.use,
+  useConfigure: Device.useConnectModal,
+  useNoneSelected: Device.useNoneSelected,
+  Content,
+});
+
+/** Gives each channel binding of an enabled endpoint a command channel. */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -248,12 +426,13 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   });
   const before = deep.copy(dev.properties);
   try {
-    for (const ep of config.endpoints) {
+    for (const ep of config.endpoints.filter(sendsICD)) {
       if (ep.disabled) continue;
-      ep.channel.channel = await Task.configureCommandChannel(
+      await ICD.Write.configureChannels(
         client,
         dev.properties.write,
-        endpointCommand(dev.name, ep),
+        ep,
+        namingOf(dev.name, ep),
       );
     }
   } finally {

@@ -10,29 +10,29 @@
  */
 
 /* The create button wraps under the search when the search has less than 30rem. */
-.console-settings-table__search {
+.console-collection-table__search {
     flex: 1 1 30rem;
 }
 
 /* Columns that do not fit scroll sideways, with their headings and the create item. */
-.console-settings-table__scroll {
+.console-collection-table__scroll {
     overflow-x: auto;
     overscroll-behavior-x: contain;
 }
 
-.console-settings-table__columns {
+.console-collection-table__columns {
     min-width: min-content;
 }
 
-.console-settings-table__empty {
+.console-collection-table__empty {
     height: 20rem;
 }
 
 /* Opens and closes by growing its one row, so the items below move with it. */
-.console-settings-table__reveal {
+.console-collection-table__reveal {
     display: grid;
     grid-template-rows: 1fr;
-    animation: console-settings-table-open 0.15s ease-in-out;
+    animation: console-collection-table-open 0.15s ease-in-out;
 
     & > div {
         min-height: 0;
@@ -40,13 +40,13 @@
     }
 }
 
-.console-settings-table__reveal--closing {
-    animation: console-settings-table-close 0.15s ease-in-out forwards;
+.console-collection-table__reveal--closing {
+    animation: console-collection-table-close 0.15s ease-in-out forwards;
 }
 
 /* Matches a list item's padding, with the scroll box's inset, so each field sits over
    its column. */
-.console-settings-table__create {
+.console-collection-table__create {
     display: flex;
     align-items: center;
     gap: 1.5rem;
@@ -55,40 +55,40 @@
     border-bottom: var(--pluto-border);
 }
 
-.console-settings-table__create-check {
+.console-collection-table__create-check {
     flex-shrink: 0;
     width: var(--pluto-height-medium);
     margin-inline: -1rem -1.5rem;
 }
 
-.console-settings-table__actions {
+.console-collection-table__actions {
     flex-grow: 0;
 }
 
 /* Items move to their new place when one is added or removed above them. */
-.console-settings-table__item {
+.console-collection-table__item {
     transition: transform 0.15s ease-in-out;
 }
 
-.console-settings-table__fresh {
-    animation: console-settings-table-fade 0.15s ease-in-out;
+.console-collection-table__fresh {
+    animation: console-collection-table-fade 0.15s ease-in-out;
 }
 
-@keyframes console-settings-table-open {
+@keyframes console-collection-table-open {
     from {
         grid-template-rows: 0fr;
         opacity: 0;
     }
 }
 
-@keyframes console-settings-table-close {
+@keyframes console-collection-table-close {
     to {
         grid-template-rows: 0fr;
         opacity: 0;
     }
 }
 
-@keyframes console-settings-table-fade {
+@keyframes console-collection-table-fade {
     from {
         opacity: 0;
     }
@@ -96,12 +96,12 @@
 
 /* The close still ends with an animation event, so it runs for a moment. */
 @media (prefers-reduced-motion: reduce) {
-    .console-settings-table__reveal,
-    .console-settings-table__fresh {
+    .console-collection-table__reveal,
+    .console-collection-table__fresh {
         animation-duration: 1ms;
     }
 
-    .console-settings-table__item {
+    .console-collection-table__item {
         transition: none;
     }
 }

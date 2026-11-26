@@ -79,6 +79,8 @@ BaseWriteField = v2.BaseWriteField
 WriteField = v4.WriteField
 
 WriteEndpoint struct extends v4.WriteEndpoint {
+    -channel
+    -fields
     query_params
     icd          icd.Key?          {
         @doc value """

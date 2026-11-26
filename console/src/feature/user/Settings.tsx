@@ -18,13 +18,14 @@ import { type ReactElement, useState } from "react";
 
 import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
+import { Page } from "@/platform/page";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { Session } from "@/session";
 
 const Password = ({ userKey }: { userKey: user.Key }): ReactElement => {
   const [changed, setChanged] = useState(false);
   return (
-    <PlatformSettings.Card title="Password">
+    <Page.Card title="Password">
       <PlatformSettings.Body>
         <Credential.Password.Form
           subject={user.resourceID(userKey)}
@@ -32,7 +33,7 @@ const Password = ({ userKey }: { userKey: user.Key }): ReactElement => {
         />
         {changed && <Status.Summary variant="success" message="Changed password" />}
       </PlatformSettings.Body>
-    </PlatformSettings.Card>
+    </Page.Card>
   );
 };
 
@@ -72,14 +73,14 @@ export const ProfileSettings = (): ReactElement | null => {
   if (current == null) return null;
   return (
     <>
-      <PlatformSettings.Card>
+      <Page.Card>
         <Name current={current} />
         {core != null && core.username !== "" && (
           <PlatformSettings.Entry label="Username" description="You log in with it.">
             <Text.Text color={10}>{core.username}</Text.Text>
           </PlatformSettings.Entry>
         )}
-      </PlatformSettings.Card>
+      </Page.Card>
       <Password userKey={current.key} />
     </>
   );

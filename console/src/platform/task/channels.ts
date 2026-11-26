@@ -383,7 +383,7 @@ export interface CommandChannelSpec {
  * What deploying does for the command channel of a write target: keep a channel, or
  * create one by name after moving the replaced channel that holds it.
  */
-type CommandChannelPlan =
+export type CommandChannelPlan =
   | { keeps: channel.Key }
   | { creates: string; moves?: { channel: channel.Channel; name: string } };
 
@@ -412,27 +412,31 @@ const planCommandChannel = async (
   return { creates: await namer.claim(name), moves };
 };
 
+/** @returns the name of the channel that plan creates, or undefined if it keeps one. */
+export const newCommandChannelName = (
+  plan: CommandChannelPlan | undefined,
+): string | undefined => (plan != null && "creates" in plan ? plan.creates : undefined);
+
 /**
  * Plans the command channels of the write targets of a task, in deploy order, as
  * configureCommandChannel gives them. Reads from the Core, and changes nothing.
  *
- * @returns the name of each channel that deploying creates, by the properties key of
- * its target.
+ * @returns the plan of the first target of each properties key, by that key. A later
+ * target of the key with no channel gets the same channel.
  */
 export const planCommandChannels = async (
   client: Client,
   write: Record<string, channel.Key>,
   specs: CommandChannelSpec[],
-): Promise<Map<string, string>> => {
+): Promise<Map<string, CommandChannelPlan>> => {
   const namer = createNamer(client);
-  const names = new Map<string, string>();
+  const plans = new Map<string, CommandChannelPlan>();
   for (const spec of specs) {
-    // Deploying stores the channel it creates, so a later target of the key adopts it.
-    if (names.has(spec.propertiesKey)) continue;
-    const plan = await planCommandChannel(client, namer, write, spec);
-    if ("creates" in plan) names.set(spec.propertiesKey, plan.creates);
+    // Deploying stores the channel of the first target, so a later one adopts it.
+    if (plans.has(spec.propertiesKey)) continue;
+    plans.set(spec.propertiesKey, await planCommandChannel(client, namer, write, spec));
   }
-  return names;
+  return plans;
 };
 
 /**

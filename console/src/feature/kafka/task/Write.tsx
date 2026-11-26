@@ -20,13 +20,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel as PChannel, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { DataType, deep, id, type json, primitive, unique } from "@synnaxlabs/x";
-import {
-  type Dispatch,
-  type FC,
-  type ReactNode,
-  type SetStateAction,
-  useState,
-} from "react";
+import { type Dispatch, type FC, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
@@ -386,6 +380,7 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
+  const handleAddressChange = () => set(path.message, ICD.Write.unbind(target.message));
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -395,12 +390,14 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
             label="Topic"
             padHelpText={false}
             inputProps={TOPIC_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
           <PForm.TextField
             path={path.recordKey}
             label="Record key"
             padHelpText={false}
             inputProps={RECORD_KEY_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
         </PForm.Section>
         <PForm.Section
@@ -452,16 +449,6 @@ const duplicate = (target: WriteTarget): WriteTarget => ({
   message: ICD.Write.unbind(target.message),
 });
 
-const messageOf = ({
-  key,
-  icd: icdKey,
-  message,
-}: WriteTarget): ICD.Write.TargetMessage => ({
-  icd: icdKey,
-  message: message.message,
-  bindings: root.config.targets[key].message.bindings,
-});
-
 interface TargetsProps {
   device: Device.Device;
   selected: string[];
@@ -479,39 +466,50 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const targets = PForm.useFieldListUtils(root.config.targets);
   const all = PForm.useFieldValue(root.config.targets);
   const addTargets = useAddTargetsModal();
-  const {
-    tree,
-    handleSelect,
-    contextMenu,
-    renderItem,
-    current,
-    currentGroup,
-    addField,
-    fieldProps,
-  } = ICD.Write.useTree<WriteTarget>({
-    path: root.config.targets,
-    messageOf,
-    groups: TOPICS,
-    TargetItem,
-    duplicate,
-    selected,
-    onSelect,
-    expanded,
-    onExpand,
-  });
-  const target =
-    current == null ? undefined : all.find(({ key }) => key === current.target);
   const commandChannelsOf = ICD.Write.useCommandChannels();
   const specs = all
     .filter(({ disabled }) => !disabled)
     .flatMap((t) => commandChannelsOf(t, namingOf(device.name, t)));
-  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
+  const messageOf = (target: WriteTarget): ICD.Write.TargetMessage => {
+    const naming = namingOf(device.name, target);
+    return {
+      icd: target.icd,
+      message: target.message.message,
+      path: root.config.targets[target.key].message,
+      naming,
+    };
+  };
+  const { tree, handleSelect, contextMenu, renderItem, pane, currentGroup } =
+    ICD.Write.useTree<WriteTarget>({
+      path: root.config.targets,
+      messageOf,
+      plans,
+      groups: TOPICS,
+      TargetItem,
+      targetPane: (target, onAddField) => ({
+        path: root.config.targets[target.key],
+        title: <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />,
+        details: (
+          <TargetDetails
+            key={target.key}
+            path={root.config.targets[target.key]}
+            onAddField={onAddField}
+          />
+        ),
+      }),
+      duplicate,
+      selected,
+      onSelect,
+      expanded,
+      onExpand,
+    });
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
     const result = await addTargets({
       device,
-      topic: currentGroup ?? target?.topic ?? "",
+      topic: currentGroup ?? "",
       topics: targets.value().map(({ topic }) => topic),
       label: keyLabel,
     });
@@ -550,51 +548,6 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
-  const path = target == null ? null : root.config.targets[target.key];
-  let title: ReactNode = null;
-  let details: ReactNode = null;
-  let detailsPath: deep.Target<unknown> | null = null;
-  if (currentGroup != null) {
-    title = <TopicLabel name={currentGroup} />;
-    details = (
-      <Flex.Box y grow align="center" justify="center">
-        <Text.Text status="disabled">Select a record key of the topic</Text.Text>
-      </Flex.Box>
-    );
-  } else if (path != null && target != null && current?.kind === "field") {
-    const i = target.message.bindings.findIndex(
-      ({ field }) => field === current.field.key,
-    );
-    detailsPath = i < 0 ? path.message : path.message.bindings[i];
-    const naming = namingOf(device.name, target);
-    title = (
-      <Text.Text level="p" weight={500} overflow="fade">
-        {current.field.name}
-      </Text.Text>
-    );
-    details = (
-      <ICD.Write.FieldDetails
-        key={selected[0]}
-        path={path.message.bindings}
-        icdKey={target.icd}
-        message={target.message.message}
-        field={current.field.key}
-        channelName={names.get(naming.key(current.field)) ?? naming.name(current.field)}
-        skipped={target.disabled}
-        {...fieldProps(current.field.key)}
-      />
-    );
-  } else if (path != null && target != null) {
-    detailsPath = path;
-    title = <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />;
-    details = (
-      <TargetDetails
-        key={target.key}
-        path={path}
-        onAddField={() => addField(target.key)}
-      />
-    );
-  }
   return (
     <Task.Views.Panes
       listTitle="Topics"
@@ -610,13 +563,18 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
           {renderItem}
         </Task.Views.TreeList>
       }
-      detailsPath={detailsPath}
-      title={title ?? undefined}
+      detailsPath={pane?.path ?? null}
+      title={
+        pane?.title ??
+        (currentGroup == null ? null : <TopicLabel name={currentGroup} />)
+      }
     >
-      {details ?? (
+      {pane?.details ?? (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">
-            Add a target to send records to a topic
+            {currentGroup == null
+              ? "Add a target to send records to a topic"
+              : "Select a record key of the topic"}
           </Text.Text>
         </Flex.Box>
       )}

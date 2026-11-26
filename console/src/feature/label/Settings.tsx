@@ -20,10 +20,10 @@ import { Access, Color, Flux, Label } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [{ name: "Name", width: "minmax(24rem, 1fr)" }];
 
@@ -35,7 +35,7 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
   const name = Form.useField<string>(path.name, { ctx: form });
   const swatch = Form.useField<color.Ref>(path.color, { ctx: form });
   const canUpdate = Access.useUpdateGranted(label.resourceID(itemKey));
-  const itemClass = PlatformSettings.useItemClass(itemKey);
+  const itemClass = Collection.useItemClass(itemKey);
   return (
     <Select.Item<label.Key>
       {...props}
@@ -68,7 +68,7 @@ const Item = (props: List.ItemProps<label.Key>): ReactElement => {
 };
 
 const CreateLabel = (): ReactElement => {
-  const { creating, created } = PlatformSettings.useCreate();
+  const { creating, created } = Collection.useCreate();
   const { form, save, variant } = Label.useCreateForm({
     query: null,
     beforeSave: async ({ set }) => {
@@ -86,9 +86,9 @@ const CreateLabel = (): ReactElement => {
   const handleSave = (): void => {
     if (variant !== "loading") save();
   };
-  const onKeyDown = PlatformSettings.useCreateKeyDown(handleSave);
+  const onKeyDown = Collection.useCreateKeyDown(handleSave);
   return (
-    <PlatformSettings.CreateFrame>
+    <Collection.CreateFrame>
       <List.Cell>
         <Form.Form<typeof Label.createFormSchema> {...form}>
           <Flex.Box x align="center" gap="medium">
@@ -107,11 +107,11 @@ const CreateLabel = (): ReactElement => {
                 />
               )}
             </Form.Field>
-            <PlatformSettings.CreateActions onSave={handleSave} status={variant} />
+            <Collection.CreateActions onSave={handleSave} status={variant} />
           </Flex.Box>
         </Form.Form>
       </List.Cell>
-    </PlatformSettings.CreateFrame>
+    </Collection.CreateFrame>
   );
 };
 
@@ -157,7 +157,7 @@ export const Settings = (): ReactElement => {
   });
   const canCreate = Access.useCreateGranted(label.TYPE_RESOURCE_ID);
   return (
-    <PlatformSettings.Table<label.Key, label.Label>
+    <Collection.Table<label.Key, label.Label>
       list={list}
       columns={COLUMNS}
       noun="labels"
@@ -166,6 +166,6 @@ export const Settings = (): ReactElement => {
       create={<CreateLabel />}
     >
       {({ key, ...p }) => <Item key={key} {...p} />}
-    </PlatformSettings.Table>
+    </Collection.Table>
   );
 };
