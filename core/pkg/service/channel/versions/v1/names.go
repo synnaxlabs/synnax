@@ -23,11 +23,12 @@ import (
 )
 
 // NameRuleMigration renames each stored channel whose name a path cannot hold
-// (resource.NeedsRename), or whose name an earlier channel in the same group holds, and
-// stages each rename (resource.StageRename). Built-ins come first and keep their names,
-// then the rest go by key. A new name is resource.SanitizeName of the old one, or
-// "channel_<key>" when that is empty, with the first suffix (_2, _3) that no other
-// channel holds. It runs after the step that names each unnamed channel.
+// (resource.NeedsRename), or whose name in NFC an earlier channel in the same group
+// holds, and stages each rename (resource.StageRename). Built-ins come first and keep
+// their names, then names in NFC, then the rest, each by key. A new name is
+// resource.SanitizeName of the old one, or "channel_<key>" when that is empty, with the
+// first suffix (_2, _3) that no other channel holds. It runs after the step that names
+// each unnamed channel.
 var NameRuleMigration = migrate.New("v63_channel_name_rule", migrateNameRule)
 
 // sibling is a name in a group, or in no group when group is zero.
@@ -46,6 +47,13 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 	slices.SortFunc(channels, func(a, b Channel) int {
 		if a.Internal != b.Internal {
 			if a.Internal {
+				return -1
+			}
+			return 1
+		}
+		// On a tie in NFC, the name that is in NFC keeps it.
+		if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
+			if aNFC {
 				return -1
 			}
 			return 1

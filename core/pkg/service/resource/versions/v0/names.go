@@ -30,6 +30,17 @@ func NormalizeName(s string) string { return norm.NFC.String(s) }
 // invalid byte becomes U+FFFD and each '.' becomes '_', in NFC. It returns "" when s is
 // empty.
 func SanitizeName(s string) string {
-	valid := strings.ToValidUTF8(s, string(utf8.RuneError))
-	return NormalizeName(strings.ReplaceAll(valid, ".", "_"))
+	var b strings.Builder
+	b.Grow(len(s))
+	// A range decodes each invalid byte as its own utf8.RuneError.
+	for _, r := range s {
+		if r == '.' {
+			r = '_'
+		}
+		b.WriteRune(r)
+	}
+	return NormalizeName(b.String())
 }
+
+// InNFC reports whether s is in Unicode Normalization Form C.
+func InNFC(s string) bool { return norm.NFC.IsNormalString(s) }
