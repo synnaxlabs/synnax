@@ -577,21 +577,23 @@ TEST(Receiver, RejectsPollRateOutOfRange) {
 /// even when the next query cuts each wait short.
 TEST(Receiver, KeepsPartialFrameUntilReadTimeout) {
     Steady clock;
-    auto r = create(
-        pairs(),
-        synnax::icd::Poll{.query = {0xAA, 0x01}, .rate = x::telem::Rate(50)},
-        clock.clock()
-    );
+    auto r = polling(clock);
     Memory t;
     t.push(std::vector<std::uint8_t>{0});
     x::telem::Frame fr;
     ASSERT_NIL(r.read(t, fr).error);
-    clock.time += std::chrono::milliseconds(20);
+    clock.time += std::chrono::milliseconds(60);
     ASSERT_TRUE(r.read(t, fr).warning.empty());
-    clock.time += std::chrono::milliseconds(20);
-    ASSERT_TRUE(r.read(t, fr).warning.empty());
-    clock.time += std::chrono::milliseconds(20);
+    clock.time += std::chrono::milliseconds(30);
     ASSERT_EQ(r.read(t, fr).warning.message, "Dropped invalid data");
+    ASSERT_EQ(
+        t.timeouts,
+        (std::vector{
+            READ_TIMEOUT,
+            40 * x::telem::MILLISECOND,
+            10 * x::telem::MILLISECOND
+        })
+    );
 }
 
 /// @brief it should return the error of a query that fails to send, and drop the bytes
@@ -784,31 +786,44 @@ TEST(Receiver, ReadsEntriesOfOneICDWithDifferentMessages) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{2.0}));
 }
 
-/// @brief it should send the query of each entry on its own period, and wait for bytes
-/// no later than the next query of any entry.
-TEST(Receiver, SendsQueryOfEachEntryOnItsOwnPeriod) {
+/// @brief returns a receiver of lines that start with A or B, whose two entries send
+/// the queries a and b at rates a_hz and b_hz on clock.
+Receiver polling_two(Steady &clock, const double a_hz, const double b_hz) {
     const auto a = lines("A", 2, 1, "first");
     const auto b = lines("B", 3, 4, "second");
-    Steady clock;
-    auto r = ASSERT_NIL_P(
+    return ASSERT_NIL_P(
         Receiver::create(
-            {a.entry(synnax::icd::Poll{.query = {'a'}, .rate = x::telem::Rate(10)}),
-             b.entry(synnax::icd::Poll{.query = {'b'}, .rate = x::telem::Rate(4)})},
+            {a.entry(synnax::icd::Poll{.query = {'a'}, .rate = x::telem::Rate(a_hz)}),
+             b.entry(synnax::icd::Poll{.query = {'b'}, .rate = x::telem::Rate(b_hz)})},
             {a.ic, b.ic},
             merged(a.channels, b.channels),
             false,
             clock.clock()
         )
     );
+}
+
+/// @brief it should send the query of each entry on its own period when each reply
+/// comes at once, and wait for bytes no later than the next query of any entry.
+TEST(Receiver, SendsQueryOfEachEntryOnItsOwnPeriod) {
+    Steady clock;
+    auto r = polling_two(clock, 10, 4);
     Memory t;
     x::telem::Frame fr;
-    ASSERT_NIL(r.read(t, fr).error);
+    const auto replied = [&](const std::string &line) {
+        t.push(line + "\n");
+        return r.read(t, fr).error;
+    };
+    ASSERT_NIL(replied("A,1"));
+    ASSERT_NIL(replied("B,1"));
     clock.time += std::chrono::milliseconds(100);
-    ASSERT_NIL(r.read(t, fr).error);
-    clock.time += std::chrono::milliseconds(140);
+    ASSERT_NIL(replied("A,2"));
+    clock.time += std::chrono::milliseconds(100);
+    ASSERT_NIL(replied("A,3"));
+    clock.time += std::chrono::milliseconds(40);
     ASSERT_NIL(r.read(t, fr).error);
     clock.time += std::chrono::milliseconds(10);
-    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_NIL(replied("B,2"));
     const std::vector<std::vector<std::uint8_t>> sent{
         {'a', '\n'},
         {'b', '\n'},
@@ -822,9 +837,57 @@ TEST(Receiver, SendsQueryOfEachEntryOnItsOwnPeriod) {
         (std::vector{
             READ_TIMEOUT,
             READ_TIMEOUT,
+            READ_TIMEOUT,
+            READ_TIMEOUT,
             10 * x::telem::MILLISECOND,
             READ_TIMEOUT,
         })
+    );
+}
+
+/// @brief it should send no query while the reply to the last one is due, and send the
+/// next after REPLY_TIMEOUT when no reply comes.
+TEST(Receiver, SendsNextQueryAfterReplyTimeout) {
+    Steady clock;
+    auto r = polling_two(clock, 10, 10);
+    Memory t;
+    x::telem::Frame fr;
+    const std::vector<std::vector<std::uint8_t>> first{{'a', '\n'}};
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    clock.time += std::chrono::milliseconds(60);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    clock.time += std::chrono::milliseconds(40);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(
+        t.writes,
+        (std::vector<std::vector<std::uint8_t>>{{'a', '\n'}, {'b', '\n'}})
+    );
+    ASSERT_EQ(
+        t.timeouts,
+        (std::vector{READ_TIMEOUT, 40 * x::telem::MILLISECOND, READ_TIMEOUT})
+    );
+}
+
+/// @brief it should send the next query as soon as a frame of the entry that sent the
+/// last one arrives, and keep waiting through a frame of another entry.
+TEST(Receiver, SendsNextQueryOnReply) {
+    Steady clock;
+    auto r = polling_two(clock, 10, 10);
+    Memory t;
+    t.push("B,9\n");
+    t.push("A,1\n");
+    x::telem::Frame fr;
+    const std::vector<std::vector<std::uint8_t>> first{{'a', '\n'}};
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(
+        t.writes,
+        (std::vector<std::vector<std::uint8_t>>{{'a', '\n'}, {'b', '\n'}})
     );
 }
 

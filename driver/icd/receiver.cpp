@@ -201,7 +201,7 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
                  << poll.rate;
             return {Receiver{}, refuse(text.str())};
         }
-        Poll p{.period = poll.rate.period()};
+        Poll p{.entry = i, .period = poll.rate.period()};
         if (r.framer == nullptr)
             p.query = poll.query;
         else if (const auto err = r.framer->encode(poll.query, p.query))
@@ -221,12 +221,14 @@ void Receiver::dispatch(
 ) {
     this->stamp = std::max(this->received, this->stamp + x::telem::NANOSECOND);
     x::errors::Error read_err;
-    for (auto &reader: this->readers) {
+    for (std::size_t i = 0; i < this->readers.size(); i++) {
+        auto &reader = this->readers[i];
         const auto [message, err] = reader.read(payload, this->stamp, fr, BATCH);
         if (!message.has_value()) {
             if (!read_err) read_err = err;
             continue;
         }
+        if (this->reply.has_value() && this->reply->entry == i) this->reply.reset();
         read_err = err;
         if (!err && !reader.failures().empty())
             read_err = reader.failures().front().error;
@@ -275,18 +277,22 @@ std::size_t Receiver::decode(x::telem::Frame &fr, common::Warning &warning) {
 
 std::pair<x::telem::TimeSpan, x::errors::Error>
 Receiver::send(transport::Transport &t) {
-    auto wait = READ_TIMEOUT;
-    if (this->polls.empty()) return {wait, x::errors::NIL};
+    if (this->polls.empty()) return {READ_TIMEOUT, x::errors::NIL};
     const auto now = this->now();
-    for (auto &p: this->polls) {
-        if (now >= p.next) {
-            if (auto err = t.write(p.query, WRITE_TIMEOUT)) return {wait, err};
-            p.next += p.period.chrono();
-            if (p.next <= now) p.next = now + p.period.chrono();
-        }
-        wait = std::min(wait, x::telem::TimeSpan(p.next - now));
+    if (this->reply.has_value() && now >= this->reply->deadline) this->reply.reset();
+    if (const auto p = std::ranges::min_element(this->polls, {}, &Poll::next);
+        !this->reply.has_value() && now >= p->next) {
+        if (auto err = t.write(p->query, WRITE_TIMEOUT)) return {READ_TIMEOUT, err};
+        this->reply = Reply{
+            .entry = p->entry,
+            .deadline = now + REPLY_TIMEOUT.chrono()
+        };
+        p->next += p->period.chrono();
+        if (p->next <= now) p->next = now + p->period.chrono();
     }
-    return {wait, x::errors::NIL};
+    auto ready = std::ranges::min_element(this->polls, {}, &Poll::next)->next;
+    if (this->reply.has_value()) ready = std::max(ready, this->reply->deadline);
+    return {std::min(READ_TIMEOUT, x::telem::TimeSpan(ready - now)), x::errors::NIL};
 }
 
 common::ReadResult Receiver::fail(const x::errors::Error &err) {
