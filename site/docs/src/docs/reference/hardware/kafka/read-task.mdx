@@ -131,7 +131,7 @@ task = client.tasks.create(
         ],
     ),
 )
-task.start()
+task.execute_command_sync("start")
 ```
 
 Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs Kafka.
