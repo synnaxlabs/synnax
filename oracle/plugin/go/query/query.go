@@ -313,6 +313,17 @@ func (r retrieveInfo) needsSlices() bool {
 	}) || lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesSlices })
 }
 
+// needsStrconv reports whether the generated code calls the strconv package.
+func (r retrieveInfo) needsStrconv() bool {
+	return lo.SomeBy(r.Refs, func(ref refInfo) bool { return ref.IsSlice }) ||
+		lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesStrconv })
+}
+
+// needsFmt reports whether the generated code calls the fmt package.
+func (r retrieveInfo) needsFmt() bool {
+	return lo.SomeBy(r.NestedRefs, func(ref nestedRef) bool { return ref.usesFmt })
+}
+
 // needsSet reports whether the generated code calls the set package.
 func (r retrieveInfo) needsSet() bool {
 	return lo.SomeBy(r.Filters, func(f filterInfo) bool {
@@ -413,6 +424,14 @@ func generateRetrieveFile(
 	if lo.SomeBy(infos, retrieveInfo.needsSlices) ||
 		lo.SomeBy(refRoots, referencesInfo.needsSlices) {
 		imps.AddExternal("slices")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsStrconv) ||
+		lo.SomeBy(refRoots, referencesInfo.needsStrconv) {
+		imps.AddExternal("strconv")
+	}
+	if lo.SomeBy(infos, retrieveInfo.needsFmt) ||
+		lo.SomeBy(refRoots, referencesInfo.needsFmt) {
+		imps.AddExternal("fmt")
 	}
 	if lo.SomeBy(infos, retrieveInfo.needsSet) {
 		imps.AddInternal(
@@ -1069,6 +1088,16 @@ func newIndexes() indexes {
 				return []{{$ref.TargetType}}{ {{- $ref.TargetOf (printf "e.%s" $ref.GoName) -}} }
 {{- end}}
 			},
+{{- if $ref.IsSlice}}
+			Locate: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) []string {
+				for i, v := range e.{{$ref.GoName}} {
+					if {{if $ref.IsID}}({{$ref.TargetOf "v"}}){{else}}{{$ref.TargetOf "v"}}{{end}} == t {
+						return []string{"{{$ref.FieldName}}", strconv.Itoa(i)}
+					}
+				}
+				return nil
+			},
+{{- end}}
 {{- if eq $ref.OnDelete "Detach"}}
 {{- if $ref.IsSlice}}
 			Detach: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) {
@@ -1445,6 +1474,11 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 			Targets: func(e *{{.EntryType}}) []{{.TargetType}} {
 				{{.TargetsBody}}
 			},
+{{- if .LocateBody}}
+			Locate: func(e *{{.EntryType}}, t {{.TargetType}}) []string {
+				{{.LocateBody -}}
+			},
+{{- end}}
 {{- if .DetachBody}}
 			Detach: func(e *{{.EntryType}}, t {{.TargetType}}) {
 				{{.DetachBody -}}

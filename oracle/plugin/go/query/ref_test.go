@@ -429,6 +429,21 @@ var _ = Describe("@ref", func() {
 			ToNotContain("func MatchLabel(", "func setLabels")
 	})
 
+	It("Should locate a target in an array by its index", func() {
+		resp := MustGenerate(device(`
+			labels label.Key[] @ref on_delete detach @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain(
+				`"strconv"`,
+				"Locate: func(e *Device, t label.Key) []string {",
+				"for i, v := range e.Labels {",
+				"if v == t {",
+				`return []string{"labels", strconv.Itoa(i)}`,
+			).
+			ToBeValidGoSource()
+	})
+
 	It("Should detach an optional field and write it", func() {
 		resp := MustGenerate(device(`
 			shelf rack.Key? @ref on_delete detach @ref kind use
@@ -1303,6 +1318,65 @@ var _ = Describe("@ref", func() {
 					"v3.Variant = v5",
 					"e.Channels[k4] = v3",
 				)
+		})
+
+		DescribeTable("Should locate a target by the path to the field that holds it",
+			func(types, fields string, locate []string) {
+				generate(types, fields).ToContain(locate...).ToBeValidGoSource()
+			},
+			Entry("an index of an array of structs", `
+				Entry struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+			`, `
+				entries Entry[]
+			`, []string{
+				`"strconv"`,
+				"Locate: func(e *ReadConfig, t channel.Key) []string {",
+				"for i4, v5 := range e.Entries {",
+				"if v5.Channel == t {",
+				`return []string{"entries", strconv.Itoa(i4), "channel"}`,
+			}),
+			Entry("an index of a nested array of keys", `
+				Axes struct {
+					y1 channel.Key[] @ref on_delete detach @ref kind use
+				}
+			`, `
+				axes Axes
+			`, []string{
+				"for i5, k6 := range e.Axes.Y1 {",
+				"if k6 == t {",
+				`return []string{"axes", "y1", strconv.Itoa(i5)}`,
+			}),
+			Entry("a map key, through each variant of a union", `
+				Base struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+				Channel union on type extends Base {
+					coil {}
+					register {
+						address uint16
+					}
+				}
+			`, `
+				channels map<uint16, Channel> = {}
+			`, []string{
+				`"fmt"`,
+				"for k9, v10 := range e.Channels {",
+				"switch v11 := v10.Variant.(type) {",
+				"if v11.Channel == t {",
+				`return []string{"channels", fmt.Sprint(k9), "channel"}`,
+			}),
+		)
+
+		It("Should not locate a target that fields alone reach", func() {
+			generate(`
+				Inner struct {
+					channel channel.Key = 0 @ref on_delete restrict @ref kind use
+				}
+			`, `
+				inner Inner
+			`).ToNotContain("Locate:", `"strconv"`, `"fmt"`)
 		})
 
 		It("Should drop each map entry that holds a deleted resource ID", func() {
