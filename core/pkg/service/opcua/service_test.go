@@ -14,9 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -41,8 +44,24 @@ var _ = Describe("Service", func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
+		secrets := secrettestutil.OpenService(
+			ctx,
+			db,
+			secret.ServiceConfig{EncryptionKey: secretsKey},
+		)
 		svc = MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
-			DB: db,
+			DB:     db,
+			Status: statusSvc,
+			Secret: secrets,
+			Certificate: MustOpen(
+				certificate.OpenService(ctx, certificate.ServiceConfig{
+					DB:      db,
+					Secret:  secrets,
+					Status:  statusSvc,
+					Rack:    1,
+					HostKey: node.Identity.HostKey,
+				}),
+			),
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
@@ -52,10 +71,16 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(opcua.OpenService(ctx, opcua.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string) {
+				Expect(opcua.OpenService(ctx, opcua.ServiceConfig{})).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db"),
+			Entry("status", "status"),
+			Entry("secret", "secret"),
+			Entry("certificate", "certificate"),
+		)
 	})
 
 	Describe("Normalize", func() {

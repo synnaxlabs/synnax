@@ -13,14 +13,14 @@
 
 #include <windows.h>
 
-#include "driver/journal/file.h"
+#include "x/cpp/fs/file.h"
 
-namespace driver::journal {
+namespace x::fs {
 namespace {
 x::errors::Error last_error(const std::string &msg) {
     const auto code = static_cast<int>(GetLastError());
     return x::errors::Error(
-        BASE_ERROR,
+        FS_ERROR,
         msg + ": " + std::system_category().message(code)
     );
 }
