@@ -14,7 +14,7 @@ import { deep, id } from "@synnaxlabs/x";
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
 
-/** STATE is the key of the state of a new symbol, which the variant sets up. */
+/** STATE is the key of the state of a new symbol. */
 export const STATE = "active";
 
 /** At is one value of one state. */
