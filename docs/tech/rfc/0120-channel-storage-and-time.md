@@ -70,83 +70,58 @@ channel.
 
 ## 4 Design
 
-### 4.0 Clocks and keys
+### 4.0 Clocks
 
-A clock is a key under which Cesium stores timestamps (RFC 0121). The Core keeps no
-clock record and no channel record for it. A clock belongs to one producer and lives as
-long as that producer names it.
+A clock is a key under which Cesium stores stamps (RFC 0121). Storage picks it when a
+writer opens. No channel record, task config, or client library keeps it.
 
-| Producer        | Where the clock key lives                                                    | Lifetime                                                                         |
-| --------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Hardware task   | the task config, one key per sample clock of the task                        | the task                                                                         |
-| Arc task        | the Arc task config (`schemas/synnax/arc_task.oracle`, a new schema version) | the task                                                                         |
-| Script          | the framer, one entry per subject, client ID, and channel set (NEW)          | back-to-back sessions of one client object, up to one hour idle, in one Core run |
-| Metrics service | Core memory, allocated at start                                              | one Core run                                                                     |
-
-- **Named at open**: A task writer names the clocks that its config holds, each with its
-  kind (§4.8). In the save transaction, the task service allocates each clock key that
-  an Arc task config lacks from Phase 6, and that a hardware task config lacks from
-  Phase 9 (§4.9), so a task keeps its clock across restarts. A client writer names no
-  clock. It sends a client ID (NEW), a UUID that each client object makes at
-  construction, and the framer picks the clock.
-- **The framer's entries**: The framer writer service keeps one entry per subject,
-  client ID, and channel set, so a subject that sends another's client ID gets a clock
-  of its own. A session reuses the entry's clock, so `client.write` in a loop writes one
-  clock, and parallel sessions on time ranges that do not overlap share it (RFC 0121
-  §5.8). A session whose claim overlaps an open session's claim on that clock takes a
-  new clock; the entry keeps its first. The kind is per session (§4.8), so the framer
-  picks the clock at open, before the first write fixes the kind. The pick and the claim
-  run under one lock per entry, so two sessions whose claims overlap never pick one
-  clock. A sweep on the injected time source removes an entry one hour after its last
-  session closes (a `Config` field), skips an entry with an open session, and a Core
-  restart drops them all. The open response carries the session's clock key, which the
-  client library sets on the wire for that session only. No client library keeps a clock
-  between sessions or shows one to a user.
-- **Who may name a clock**: A subject that may update a producer may name a clock that
-  the producer's config holds. The API checks it through an injected owner lookup over
-  the unique space of clock keys. Until Phase 9 the framer gives a writer of a channel
-  that has an index channel that index key (§4.8). A task writer names its clock from
-  its config, and the metrics service from Core memory; the framer picks a script's. An
-  open fails on a key that is not issued, and on a key of a record that is not an index
-  channel.
-- **Claims**: A clock key takes claims like a channel key (RFC 0121 §5.8). Sessions of
-  one producer may write one clock on time ranges that do not overlap, and an open that
-  overlaps fails. The exception, until Phase 9, is an index key that several sessions
-  write, whether a task config names it or the framer gives it (§4.8): a later session
-  joins the control region of the clock, as a second writer does in RFC 0121 §5.8, and
-  does not fail. A calculation session names no clock and takes no claim (§4.5).
-- **Unique**: Clock keys in producer configs share one unique space (RFC 0119 §4.1), so
-  a save that names another producer's clock fails. A task copy and an import allocate
-  new clock keys. A spooled Driver frame keeps its key.
-- **End of a clock**: When its producer ends, the Core calls `Delete` on its clock (RFC
-  0121 §4.1). A task save or delete saves a pending-drop note, in its transaction, for
-  each clock that the old config held and the new config does not. Until Phase 9, a
-  clock that an index channel record holds is that record's and takes no note. A
-  script's clock and the metrics clock end with their Core run: the framer and the
-  metrics service save a note for each clock that they make, so the next start deletes
-  it, and the framer's sweep deletes the clock of an entry that it removes when the
-  framer made that clock. An index key that the framer gives (§4.8) is never deleted and
-  takes no note. Storage keeps a clock's stamps while a stored segment of another key
-  names it, so no stamp that data uses goes, and the Core deletes no clock on absence.
-- **One clock, one producer**: From Phase 9, stored writes of two producers never share
-  a clock. Until then, an index channel that several sessions or tasks write stays under
-  write control, as today: the framer gates its writers by authority.
-- **Key ranges**: A channel's local key stays below 2^20 until Phase 9
+- **One clock per group**: Cesium gives each time group of a writer one clock at open
+  (§4.8). The open response lists the clock of each group, in order. The framer and the
+  client libraries use the list to place time series on the wire; no user surface shows
+  it (D-141).
+- **Continuation**: For each group, Cesium takes as candidates the clock of the newest
+  segment of each key of the group, from memory or from the newest part record (one part
+  read per key). It drops a candidate that is a key of the group, one that an open
+  session holds, and one whose last stamp is not before the writer's start. It takes the
+  candidate that the most keys name, then the one with the latest last stamp, then the
+  lowest key. With no candidate left, it leases a new key. Each key of the group on
+  another clock moves to the chosen clock once, with one new segment. So a task restart,
+  a changed config, a task copy, and a `client.write` loop keep one clock.
+- **One session per clock**: A clock has at most one open session, which holds its claim
+  (RFC 0121 §5.8). A second writer of the same channels at once gets a new clock. A key
+  moves between sessions only through a handoff (§4.8).
+- **Takeover**: A session takes over the open segment of a continued clock, and of each
+  key on it, once the earlier commits are durable, and appends at the committed length
+  (RFC 0121 §5.8).
+- **Stretches**: A session takes one alignment number per clock. A clean next session
+  continues the stretch of its clock (RFC 0121 §5.7), so a loop of sessions takes no new
+  number.
+- **Pauses**: A pause costs one pointer on the clock. In an adaptive group, a key that
+  reaches P pauses (64) in its open segment moves to a clock of its own at the next
+  commit, and moves back at the next open (§4.8).
+- **End of a clock**: A clock lives while a kept segment of a key names it. When a
+  channel delete removes the last such key and no session holds the clock, the same log
+  entry holds the clock's Intent (RFC 0121 §4.1). A range delete that leaves no live
+  pointer on a clock in its range adds the clock's Tombstone over that range. `Keys`
+  marks each clock, and the Core counts a clock as accounted for. The Core never deletes
+  a key on absence (D-469).
+- **Key ranges**: A channel's local key stays below 2^20 until Phase 38
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
-  hold a larger one. From Phase 6, clock keys come from their own counter below
+  hold a larger one. From Phase 22, clock keys come from their own counter below
   `0xFFF00000`. It starts above the host's lease (`0x00200000` for host key 1), or above
   the largest key below `0xFFF00000` that the table or storage holds when that is higher
   (RFC 0121 §4.1), since a Core from a cluster before 0.61 can have another host key and
-  hold keys on other leases. The free keys of today sit at `0xFFF00000` and up, and
-  their counter still serves virtual channels, such as signals and calculation outputs.
-  The v3 record of Phase 9 stores `key` whole and drops `leaseholder` and `local_key`
-  (RFC 0119 §4.0); from then one counter serves both, above the largest key issued below
-  `0xFFF00000`, and it never enters the free range. So no value is both a channel and a
-  clock. The channel table answers "issued" for the leased range, the clock range, and
-  the free range up to the current value of its counter. One new clock per second lasts
+  hold keys on other leases. Cesium takes keys in leases of 256 through an open option
+  (NEW), so no counter write sits on the commit path, and a restart loses at most 256
+  keys. The free keys of today sit at `0xFFF00000` and up, and their counter still
+  serves virtual channels, such as signals and calculation outputs. The v3 record of
+  Phase 38 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
+  from then one counter serves both, above the largest key issued below `0xFFF00000`,
+  and it never enters the free range. So no value is both a channel and a clock. Storage
+  makes a clock only when continuation finds none, and one new clock per second lasts
   136 years.
-- **Index keys**: The key of each index channel of today becomes the key of its clock,
-  so stored configs, stored data, and frames keep their numbers.
+- **Index keys become clock keys**: The key of each index channel of today becomes the
+  key of its clock, so stored data, stored positions, and frames keep their numbers.
 
 ### 4.1 The series clock field
 
