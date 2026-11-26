@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -29,6 +30,7 @@ type Retrieve struct {
 	indexes   indexes
 	configs   config.Registry
 	matchArcs func(arcs ...uuid.UUID) Filter
+	icdUses   func(context.Context, gorp.Snapshot, uuid.UUID) ([]resource.ID, error)
 	entry     *Task
 	entries   *[]Task
 }
@@ -91,6 +93,33 @@ func MatchArcs(arcs ...uuid.UUID) Filter {
 			})
 		}
 		return r.matchArcs(arcs...)(r)
+	}
+}
+
+// MatchICDs returns a filter for the tasks whose config uses any of the ICDs with the
+// given keys. Drafts match too.
+func MatchICDs(icds ...uuid.UUID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Task] {
+		return gorp.MatchKeysFunc[Key, Task](func(ctx gorp.Context) ([]Key, error) {
+			if r.icdUses == nil {
+				return nil, errors.New("this task service cannot filter tasks by ICD")
+			}
+			var tasks []resource.ID
+			for _, k := range icds {
+				uses, err := r.icdUses(ctx, ctx.Snapshot, k)
+				if err != nil {
+					return nil, err
+				}
+				for _, id := range uses {
+					if t, ok := config.TaskOf(
+						gorp.Target{Table: string(id.Type), Key: id.Key},
+					); ok {
+						tasks = append(tasks, t)
+					}
+				}
+			}
+			return KeysFromResourceIDs(tasks)
+		})
 	}
 }
 

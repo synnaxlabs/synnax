@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
+import type { icd } from "@/icd";
 import {
   DisconnectedError,
   MultipleFoundError,
@@ -319,6 +320,37 @@ describe("Task", async () => {
         key: [created.key, uuid.create()],
       });
       expect(retrieved.map(({ key }) => key)).toEqual([created.key]);
+    });
+
+    it("should retrieve the tasks whose config uses an ICD", async () => {
+      const createICD = async () =>
+        await client.icds.create({
+          name: "Plant",
+          messages: [{ name: "Setpoint", payload: { format: "json", fields: [] } }],
+        });
+      const createUsing = async (ic: icd.ICD) =>
+        await testRack.createTask({
+          name: "Setpoints",
+          type: "kafka_write",
+          config: {
+            targets: [
+              {
+                key: "plant",
+                topic: "plant",
+                icd: ic.key,
+                message: { message: ic.messages[0].key },
+              },
+            ],
+          },
+        });
+      const used = await createICD();
+      const first = await createUsing(used);
+      const second = await createUsing(used);
+      await createUsing(await createICD());
+      const retrieved = await client.tasks.retrieve({ icds: [used.key] });
+      expect(retrieved.map(({ key }) => key).sort()).toEqual(
+        [first.key, second.key].sort(),
+      );
     });
 
     it("should retrieve a task by its key", async () => {

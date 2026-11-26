@@ -214,6 +214,9 @@ func WhereToPB(r task.Where) (*Where, error) {
 	if r.Arcs != nil {
 		pb.Arcs = &UuidList{Values: lo.Map(r.Arcs, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
 	}
+	if r.ICDs != nil {
+		pb.Icds = &UuidList{Values: lo.Map(r.ICDs, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
 	return pb, nil
 }
 
@@ -295,6 +298,23 @@ func WhereFromPB(pb *Where) (task.Where, error) {
 			return task.Where{}, err
 		}
 		r.Arcs = xpb.ListValues(vals)
+	}
+	if pb.Icds != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.Icds.Values))
+			for i, s := range pb.Icds.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return task.Where{}, err
+		}
+		r.ICDs = xpb.ListValues(vals)
 	}
 	return r, nil
 }

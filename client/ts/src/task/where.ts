@@ -9,5 +9,8 @@
 
 import type { Lines } from "@/task/where.gen";
 
-/** The typed lines of a task Where. Only the Core can check which Arc a task runs. */
-export const LINES: Lines = { arcs: null };
+/**
+ * The typed lines of a task Where. Only the Core can check which Arc a task runs and
+ * which ICDs it uses.
+ */
+export const LINES: Lines = { arcs: null, icds: null };

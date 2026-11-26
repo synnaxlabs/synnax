@@ -1255,6 +1255,17 @@ var _ = Describe("Task", Ordered, func() {
 			},
 		)
 
+		It(
+			"Should fail to filter by ICD on a service that cannot match ICDs",
+			func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().
+					Where(task.MatchICDs(uuid.New())).
+					Entries(&[]task.Task{}).
+					Exec(ctx, tx)).
+					To(MatchError("this task service cannot filter tasks by ICD"))
+			},
+		)
+
 		It("Should filter tasks by internal status", func(ctx SpecContext) {
 			regular := &task.Task{
 				Type: testType,

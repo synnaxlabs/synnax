@@ -108,6 +108,8 @@ message Where {
   optional .x.filter.pb.Bool internal = 8;
   // arcs matches the tasks that run any of the Arcs with the given keys.
   UuidList arcs = 9;
+  // icds matches the tasks that use any of the ICDs with the given keys.
+  UuidList icds = 10;
 }
 
 // Command is a command to execute on a task in the Driver system.
