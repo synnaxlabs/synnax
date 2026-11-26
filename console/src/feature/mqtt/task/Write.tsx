@@ -325,7 +325,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const targets = PForm.useFieldValue(root.config.targets);
   const plain = targets.filter((t) => t.type === "plain");
   const discover = useDiscoverModal();
-  const { tree, handleSelect, contextMenu, renderItem, current, addField, added } =
+  const { tree, handleSelect, contextMenu, renderItem, current, addField, fieldProps } =
     ICD.Write.useTree({
       path: root.config.targets,
       messageOf,
@@ -404,7 +404,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         field={current.field.key}
         channelName={names.get(naming.key(current.field)) ?? naming.name(current.field)}
         skipped={target.disabled}
-        autoFocus={current.field.key === added}
+        {...fieldProps(current.field.key)}
       />
     );
   } else if (target != null) {
