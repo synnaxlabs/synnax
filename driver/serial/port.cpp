@@ -118,8 +118,10 @@ Port::read(const x::telem::TimeSpan timeout) {
             },
             [this] { cancel(this->device); }
         );
-        if (done.timed_out()) return {chunk, x::errors::NIL};
-        if (done.ec) return {{}, this->fail(translate(context, done.ec))};
+        // Windows completes a cancelled read with the bytes that it already received.
+        if (done.timed_out() && done.size == 0) return {chunk, x::errors::NIL};
+        if (done.ec && !done.timed_out())
+            return {{}, this->fail(translate(context, done.ec))};
         const auto [received, ec] = native::receive(
             this->handle(),
             this->line,

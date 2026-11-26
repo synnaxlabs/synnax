@@ -150,6 +150,14 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
     if (!::GetCommState(h, &settings)) return failed(props.port);
     if (auto err = line::apply(props, settings)) return err;
     if (!::SetCommState(h, &settings)) return failed(props.port);
+    // Asio's 1 ms interval timeout holds a read open while a device streams without a
+    // gap. These values return the waiting bytes at once, or wait for the first byte.
+    COMMTIMEOUTS timeouts{
+        .ReadIntervalTimeout = MAXDWORD,
+        .ReadTotalTimeoutMultiplier = MAXDWORD,
+        .ReadTotalTimeoutConstant = MAXDWORD - 1,
+    };
+    if (!::SetCommTimeouts(h, &timeouts)) return failed(props.port);
     return x::errors::NIL;
 }
 
