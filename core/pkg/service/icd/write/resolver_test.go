@@ -52,11 +52,19 @@ var (
 		},
 		Default: new(payload.Unsigned(1)),
 	}}
+	stuck = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "stuck"},
+			StartBit:  40,
+			BitLength: 8,
+		},
+		Default: new(payload.Unsigned(0)),
+	}}
 	counts = icd.Message{
 		Key:  uuid.New(),
 		Name: "Counts",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{
-			Fields: []icd.BinaryField{gain, unit},
+			Fields: []icd.BinaryField{gain, unit, stuck},
 		}},
 	}
 	volts = textField("volts", nil)
@@ -71,9 +79,10 @@ var (
 	}
 )
 
-// valve sends an opening or a rate, as its selector picks, and names itself with id.
+// actuator sends an opening or a rate, as its selector picks, and names itself with
+// id.
 var (
-	valveID = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+	actuatorID = icd.BinaryField{Variant: icd.UnsignedBinaryField{
 		BinaryBaseField: icd.BinaryBaseField{
 			BaseField: icd.BaseField{Key: uuid.New(), Name: "id", Scale: 1},
 			BitLength: 8,
@@ -106,13 +115,13 @@ var (
 			MultiplexValues: []int32{1},
 		},
 	}}
-	valve = icd.Message{
+	actuator = icd.Message{
 		Key:  uuid.New(),
-		Name: "Valve",
+		Name: "Actuator",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{
-			Fields: []icd.BinaryField{valveID, selector, opening, rate},
+			Fields: []icd.BinaryField{actuatorID, selector, opening, rate},
 			Identifier: &icd.Identifier{Variant: icd.FieldIdentifier{
-				Field: valveID.Base().Key, Value: 7,
+				Field: actuatorID.Base().Key, Value: 7,
 			}},
 		}},
 	}
@@ -171,7 +180,7 @@ var _ = Describe("Resolver", func() {
 	Describe("Check", func() {
 		given := plant
 		given.Key = uuid.New()
-		given.Messages = append(slices.Clone(plant.Messages), counts, line, valve)
+		given.Messages = append(slices.Clone(plant.Messages), counts, line, actuator)
 		// check checks writes with given as the only ICD that the caller holds.
 		check := func(ctx context.Context, writes ...write.Write) error {
 			GinkgoHelper()
@@ -203,6 +212,39 @@ var _ = Describe("Resolver", func() {
 				writeAt(1, given.Key, writeOf(tagged)),
 				writeAt(2, given.Key, writeOf(binary)),
 			)).To(MatchError("targets.1.message: message Tagged binds no channels"))
+		})
+
+		Describe("A field with a zero scale", func() {
+			flat := withZeroScale(
+				jsonField("flat", icd.FloatJSONField{Default: new(payload.Float(3))}),
+			)
+			valve := jsonMessage("Valve", temp, flat)
+			valves := icd.ICD{
+				Key: uuid.New(), Name: "Valves", Messages: []icd.Message{valve},
+			}
+			checkValve := func(ctx context.Context, wm icd.WriteMessage) error {
+				GinkgoHelper()
+				return resolver.Check(
+					ctx,
+					db,
+					[]write.Write{writeAt(0, valves.Key, wm)},
+					map[icd.Key]icd.ICD{valves.Key: valves},
+				)
+			}
+
+			It("Should refuse a write that binds it", func(ctx SpecContext) {
+				wm := writeOf(valve, bind(temp), bind(flat))
+				Expect(checkValve(ctx, wm)).To(MatchError(
+					"targets.0.message: message Valve: field flat: " +
+						"scale must be non-zero: validation error",
+				))
+			})
+
+			It("Should accept a write that leaves it to its default", func(
+				ctx SpecContext,
+			) {
+				Expect(checkValve(ctx, writeOf(valve, bind(temp)))).To(Succeed())
+			})
 		})
 
 		It("Should take the data type of each channel that the lookup finds", func(
@@ -295,7 +337,7 @@ var _ = Describe("Resolver", func() {
 		It("Should not ask a binding of the identifier or of a field that a fixed "+
 			"multiplexor never selects", func(ctx SpecContext) {
 			Expect(check(ctx, framed(writeAt(0, given.Key, writeOf(
-				valve,
+				actuator,
 				channelOf(opening.Base().Key, valueKey, nil),
 				valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 0}),
 			))))).To(Succeed())
@@ -375,6 +417,14 @@ var _ = Describe("Resolver", func() {
 				writeOf(line, channelOf(trim.Base().Key, valueKey, nil)),
 				"targets.0.message: field volts has no binding and no default",
 			),
+			Entry("a channel on a field with a zero scale",
+				writeOf(
+					counts,
+					channelOf(gain.Base().Key, valueKey, nil),
+					channelOf(stuck.Base().Key, valueKey, nil),
+				),
+				"targets.0.message.bindings.1: field stuck: scale must be non-zero",
+			),
 			Entry(
 				"a channel data type that cannot write its field",
 				writeOf(
@@ -386,7 +436,7 @@ var _ = Describe("Resolver", func() {
 			),
 			Entry("a channel that is not a float on a scaled field",
 				writeOf(
-					valve,
+					actuator,
 					valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 1}),
 					channelOf(rate.Base().Key, unheldKey, new(telem.Int32T)),
 				),
@@ -415,7 +465,7 @@ var _ = Describe("Resolver", func() {
 			),
 			Entry("a value that decodes outside the min and max of its field",
 				writeOf(
-					valve,
+					actuator,
 					channelOf(selector.Base().Key, valueKey, nil),
 					valueOf(rate.Base().Key, icd.FloatWriteValue{Value: 60}),
 				),
@@ -423,13 +473,13 @@ var _ = Describe("Resolver", func() {
 					"which is above the max 100: validation error",
 			),
 			Entry("a binding to the field that holds the identifier",
-				writeOf(valve, channelOf(valveID.Base().Key, valueKey, nil)),
+				writeOf(actuator, channelOf(actuatorID.Base().Key, valueKey, nil)),
 				"targets.0.message.bindings.0.field: field id holds the identifier, "+
 					"so it takes no binding",
 			),
 			Entry("a channel on a field that a fixed multiplexor never selects",
 				writeOf(
-					valve,
+					actuator,
 					valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 1}),
 					channelOf(opening.Base().Key, valueKey, nil),
 				),
@@ -439,7 +489,7 @@ var _ = Describe("Resolver", func() {
 			Entry("no binding or default for a field that a multiplexor set by a "+
 				"channel can select",
 				writeOf(
-					valve,
+					actuator,
 					channelOf(selector.Base().Key, valueKey, nil),
 					channelOf(opening.Base().Key, valueKey, nil),
 				),
