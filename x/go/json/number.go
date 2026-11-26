@@ -359,6 +359,10 @@ var exactPowers = [...]float64{
 // float returns the float64 nearest to t. exact is false when t has more digits or a
 // larger exponent than one float64 operation rounds correctly, and then f is zero.
 func (t decimalText) float() (f float64, exact bool) {
+	// A clamped exponent no longer gives the value.
+	if t.exp <= -maxExponent || t.exp >= maxExponent {
+		return 0, false
+	}
 	var m uint64
 	digits := 0
 	for _, part := range [...][]byte{t.whole, t.frac} {

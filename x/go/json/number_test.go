@@ -11,6 +11,7 @@ package json_test
 
 import (
 	"math"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -90,6 +91,13 @@ var _ = Describe("ParseNumber", func() {
 		Entry("an exponent with no digits", "1e", `invalid number "1e"`),
 		Entry("a number past a float64", "1e999", `invalid number "1e999"`),
 	)
+
+	It("Should read a number with a clamped exponent as strconv does", func() {
+		// The exponent clamps to the length of the fraction, which then cancels it.
+		text := "0." + strings.Repeat("0", 1<<20-1) + "15e9999999"
+		n := MustSucceed(xjson.ParseNumber([]byte(text)))
+		Expect(n.Float64()).To(BeZero())
+	})
 })
 
 var _ = Describe("AppendFloat", func() {
