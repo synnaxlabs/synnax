@@ -17,25 +17,32 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const BROWSE_COMMAND_TYPE = "browse";
 
-// The kind is absent when the topic holds more fields than the Core infers.
 const browsedFieldZ = json.inferredFieldZ
   .pick({ pointer: true, type: true, kind: true, timeFormat: true })
-  .partial({ kind: true })
   .extend({
-    /** The start of the JSON text of the value. */
+    /** The start of the JSON text of the last value heard. */
     sample: z.string(),
   });
 
 export interface BrowsedField extends z.infer<typeof browsedFieldZ> {}
 
+/** The JSON messages of a topic that hold the same fields. */
+const browsedShapeZ = z.object({
+  fields: browsedFieldZ.array(),
+  /** The pointer of the timestamp in fields that indexes the messages. */
+  index: z.string().optional(),
+  /** The pointer of the field that only the messages of the shape hold. */
+  present: z.string().optional(),
+  /** The number of messages heard. */
+  count: z.number(),
+});
+
 const browsedTopicZ = z.object({
   topic: z.string(),
   /** The start of the last payload. */
   payload: z.string(),
-  /** The scalars of the whole last payload. */
-  fields: browsedFieldZ.array(),
-  /** The pointer of the timestamp in fields that indexes the messages heard. */
-  index: z.string().optional(),
+  /** The shapes of the JSON messages heard, in the order first heard. */
+  shapes: browsedShapeZ.array(),
   retained: z.boolean(),
 });
 

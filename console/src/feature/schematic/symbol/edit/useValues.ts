@@ -30,24 +30,20 @@ export interface Values {
 }
 
 /**
- * @returns the values of the enumeration state key of the symbol in the form. With no
- * such state, it edits STATE, or else the first enumeration state. With symbolNodes
- * off, STATE keeps the values of the variant. A state takes the entries of its
- * enumeration, or 0 and 1 as an actuator draws them when it has none, and each value
- * that a look names. It lists no values while the enumeration loads, or with no state.
+ * @returns the values of the enumeration state key of the symbol in the form. With
+ * symbolNodes off, STATE keeps the values of the variant. A state takes the entries of
+ * its enumeration, or 0 and 1 as an actuator draws them when it has none, and each
+ * value that a look names. It lists no values while the enumeration loads, or with no
+ * state.
  */
-export const useValues = (key?: string): Values => {
+export const useValues = (key: string): Values => {
   const all = Form.useFieldValue(path.data.states);
   const variant = Form.useFieldValue(path.data.variant);
   const looks = Form.useFieldValue(path.data.looks);
   const states = all.filter(
     (s): s is schematic.symbol.EnumerationState => s.type === "enumeration",
   );
-  const state =
-    states.find((s) => s.key === key) ??
-    states.find((s) => s.key === Spec.STATE) ??
-    states.at(0);
-  const stateKey = state?.key ?? Spec.STATE;
+  const state = states.find((s) => s.key === key);
   const res = Enumeration.useResult(
     state?.enumeration == null ? null : { key: state.enumeration },
   );
@@ -58,41 +54,40 @@ export const useValues = (key?: string): Values => {
       state?.enumeration == null
         ? Schematic.Node.Custom.listValues({ variant: "actuator" })
         : (entries ?? []).map(({ key, value, name }) => ({ key, value, name }));
-    const named = looks.flatMap((l) =>
-      l.when?.state === stateKey ? l.when.values : [],
-    );
+    const named = looks.flatMap((l) => (l.when?.state === key ? l.when.values : []));
     const extra = [...new Set(named)]
       .filter((v) => !listed.some((l) => l.value === v))
       .map((v) => ({ key: String(v), value: v, name: String(v) }));
     return [...listed, ...extra].sort((a, b) => a.value - b.value);
   };
   const list =
-    stateKey === Spec.STATE && !FLAGS.symbolNodes
+    key === Spec.STATE && !FLAGS.symbolNodes
       ? Schematic.Node.Custom.listValues({ variant }, entries)
       : state == null
         ? []
         : listOther();
   return {
-    state: stateKey,
+    state: key,
     states,
     list,
-    entryState: state?.enumeration == null ? undefined : stateKey,
+    entryState: state?.enumeration == null ? undefined : key,
   };
 };
 
 /**
- * @returns the color of the entry for value in the enumeration of state, or of the
- * entry for the default value of state when value is undefined or has no entry.
+ * @returns the color that an entry paint on state shows at values, as the preview draws
+ * it: the entry for the value of state, or else the entry for its default.
  */
 export const useEntryColor = (
   state: schematic.symbol.EnumerationState | undefined,
-  value?: number,
+  values: Schematic.Node.Custom.StateValues,
 ): color.Color | undefined => {
   const res = Enumeration.useResult(
     state?.enumeration == null ? null : { key: state.enumeration },
   );
   const resolve = Color.useResolve();
   if (state == null || res.variant !== "success") return undefined;
+  const value = Schematic.Node.Custom.matched(state, values);
   const { entries } = res.data;
   const entry =
     entries.find((e) => e.value === value) ??

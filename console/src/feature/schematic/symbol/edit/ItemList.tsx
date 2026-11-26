@@ -72,8 +72,6 @@ export interface ItemListProps<T extends Item> extends Input.Control<
     spec: schematic.symbol.Spec,
     key: string,
   ) => [schematic.symbol.Spec, Spec.Removed];
-  /** onRemove is called after an item goes. */
-  onRemove?: () => void;
 }
 
 /**
@@ -91,7 +89,6 @@ export const ItemList = <T extends Item>({
   add,
   addDisabledReason,
   remove,
-  onRemove,
   value,
   onChange,
 }: ItemListProps<T>): ReactElement => {
@@ -111,7 +108,6 @@ export const ItemList = <T extends Item>({
     )
       return;
     set(path.data, next);
-    onRemove?.();
   };
   const nameID = (key: string) => `symbol-${noun}-${key}`;
   const handleAdd = () => {

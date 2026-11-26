@@ -57,8 +57,9 @@ type sampledTopic struct {
 		Format  payload.Format      `json:"format"`
 		Payload string              `json:"payload"`
 	} `json:"records"`
-	Shapes []xjson.Shape `json:"shapes"`
-	Error  string        `json:"error"`
+	Shapes  []xjson.Shape `json:"shapes"`
+	Error   string        `json:"error"`
+	Missing bool          `json:"missing"`
 }
 
 var _ = Describe("Discover", func() {
@@ -469,7 +470,9 @@ var _ = Describe("Discover", func() {
 				produceJSON(ctx, newKafkaClient(), topic, "", map[string]int{"v": 1})
 				samples, _ := sample(ctx, []string{"missing-" + topic, topic}, 0)
 				Expect(samples[0].Error).To(Equal("The topic does not exist."))
+				Expect(samples[0].Missing).To(BeTrue())
 				Expect(samples[1].Records).To(HaveLen(1))
+				Expect(samples[1].Missing).To(BeFalse())
 			},
 		)
 
