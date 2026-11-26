@@ -437,6 +437,18 @@ class TestICD:
             (("framing", *loc), msg)
         ]
 
+    @pytest.mark.parametrize("name", ["scale", "offset", "min", "max"])
+    @pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+    def test_reject_value_not_finite(self, name: str, value: float) -> None:
+        """Should not parse a scale, offset, min, or max that is not finite."""
+        with pytest.raises(ValidationError) as exc:
+            sy.icd.FloatJSONField.model_validate(
+                {"name": "v", "pointer": "/v", name: value}
+            )
+        assert [(e["loc"], e["type"]) for e in exc.value.errors()] == [
+            ((name,), "finite_number")
+        ]
+
     def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         """Should create an ICD from keyword arguments."""
         ic = client.icds.create(

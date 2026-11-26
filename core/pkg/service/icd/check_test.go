@@ -570,3 +570,23 @@ var _ = Describe("Check", func() {
 		})
 	})
 })
+
+var _ = Describe("CheckScale", func() {
+	DescribeTable("Should refuse a zero scale", func(scale float64) {
+		Expect(icd.CheckScale(scale)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("scale must be non-zero"),
+		))
+	},
+		Entry("zero", 0.0),
+		Entry("negative zero", math.Copysign(0, -1)),
+	)
+
+	DescribeTable("Should accept a non-zero scale", func(scale float64) {
+		Expect(icd.CheckScale(scale)).To(Succeed())
+	},
+		Entry("one", 1.0),
+		Entry("a negative scale", -0.5),
+		Entry("the smallest positive float", math.SmallestNonzeroFloat64),
+	)
+})
