@@ -109,17 +109,15 @@ describe("Schematic toolbar Symbols", () => {
   it("lists a symbol group past the first page of groups", async () => {
     const keys: group.Key[] = [];
     onTestFinished(async () => await client.groups.delete(keys));
-    const fillers = await Promise.all(
-      Array.from(
-        { length: 1000 },
-        async () =>
-          await client.groups.create({
-            scope: "schematic_symbol",
-            name: uniqueName("filler_grp"),
-          }),
-      ),
+    await Promise.all(
+      Array.from({ length: 1000 }, async () => {
+        const { key } = await client.groups.create({
+          scope: "schematic_symbol",
+          name: uniqueName("filler_grp"),
+        });
+        keys.push(key);
+      }),
     );
-    keys.push(...fillers.map(({ key }) => key));
     // The Core lists groups by key, so this key puts the group after every filler.
     const last = await client.groups.create({
       key: `ffffffff-ffff-4fff-bfff-${crypto.randomUUID().slice(-12)}`,
