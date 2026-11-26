@@ -185,36 +185,34 @@ sy.http.ReadField(
 )
 ```
 
-## Write task fields
+## Write task messages
 
-### Channel field
-
-Each write endpoint has one channel field that provides the dynamic value:
+Each write endpoint sends a message of an ICD. A binding fills each field of the message
+from a command channel or a fixed value. A field with no binding sends its default.
 
 ```python
-sy.http.ChannelField(
-    pointer="/value",  # Where to place the value in the request body
-    json_type="number",  # JSON type: "number", "string", "boolean"
-    channel=cmd_ch.key,
+value = sy.icd.FloatJSONField(name="value", pointer="/value")
+source = sy.icd.StringJSONField(name="source", pointer="/source")
+message = sy.icd.Message(
+    name="PUT /api/v1/setpoint",
+    payload=sy.icd.JSONPayload(fields=[value, source]),
 )
-```
+ic = client.icds.create(name="HTTP Server", messages=[message])
 
-### Static fields
-
-Add fixed values to the request body:
-
-```python
-sy.http.StaticWriteField(pointer="/source", json_type="string", value="python-client")
-sy.http.StaticWriteField(pointer="/priority", json_type="number", value=1)
-```
-
-### Generated fields
-
-Add auto-generated values (UUIDs or timestamps):
-
-```python
-sy.http.GeneratedWriteField(pointer="/id", generator="uuid")
-sy.http.GeneratedWriteField(pointer="/ts", generator="timestamp", time_format="iso8601")
+sy.http.WriteEndpoint(
+    method="PUT",
+    path="/api/v1/setpoint",
+    icd=ic.key,
+    message=sy.icd.WriteMessage(
+        message=message.key,
+        bindings=[
+            sy.icd.ChannelWriteBinding(field=value.key, channel=cmd_ch.key),
+            sy.icd.ValueWriteBinding(
+                field=source.key, value=sy.icd.StringWriteValue(value="python-client")
+            ),
+        ],
+    ),
+)
 ```
 
 ## Troubleshooting

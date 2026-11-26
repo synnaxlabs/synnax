@@ -171,7 +171,7 @@ class WriteTask(
     @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
         """Sync the command channel of each field of each enabled endpoint to device
-        properties, keyed by the path of the endpoint and the key of the field."""
+        properties, keyed by the key of the endpoint and the key of the field."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
         write = device.ensure_object(props, "write")
@@ -180,7 +180,7 @@ class WriteTask(
                 continue
             for binding in ep.message.bindings:
                 if isinstance(binding, icd.ChannelWriteBinding):
-                    write[f"{ep.path}#{binding.field}"] = binding.channel
+                    write[f"{ep.key}#{binding.field}"] = binding.channel
         dev.properties = props
         device_client.dispatch(
             dev.key, device.set(device.SetPayload(path=["properties"], value=props))
