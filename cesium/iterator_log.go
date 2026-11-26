@@ -27,16 +27,16 @@ import (
 type logSource struct {
 	e   *engine
 	key ChannelKey
-	// spare is the cursor that the last Close gave back, or nil.
-	spare *logCursor
+	// closed is the cursor that the last Close gave back, or nil.
+	closed *logCursor
 }
 
 var _ domain.Source = (*logSource)(nil)
 
 // OpenCursor implements domain.Source.
 func (s *logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	c := s.spare
-	s.spare = nil
+	c := s.closed
+	s.closed = nil
 	if c == nil {
 		c = &logCursor{}
 	}
@@ -190,7 +190,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 // after it.
 func (c *logCursor) Close() error {
 	c.valid = false
-	c.src.spare = c
+	c.src.closed = c
 	return nil
 }
 
