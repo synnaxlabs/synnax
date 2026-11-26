@@ -196,7 +196,7 @@ var _ = Describe("WriteICDMigration", func() {
 	})
 
 	// stage stores a config that the task named name owns, with one channel that does
-	// not exist, staged as v1.WriteStageMigration stages it.
+	// not exist, staged as v1.WriteMigration stages it.
 	stage := func(ctx SpecContext, name string) uuid.UUID {
 		GinkgoHelper()
 		key := uuid.New()

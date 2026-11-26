@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
+from typing import Literal, override as _override
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, device as device_, icd as icd_, task
-from x import payload, telem
+from synnax import device as device_, icd as icd_, task
+from x import telem
 
 METHOD_GET: Literal["GET"] = "GET"
 
@@ -67,59 +67,39 @@ class QueryParam(BaseModel):
     value: str = ""
 
 
-class ReadField(BaseModel):
-    """Is a single value extracted from an endpoint's JSON response.
-
-    Attributes:
-        key: Uniquely identifies the field within the endpoint.
-        name: Is the human-readable field name.
-        disabled: Is true when the field is excluded from polling.
-        optional: Is true when a missing value is normal for this field. The task writes
-            fill_value, or NaN on a float channel, and sends no warning.
-        fill_value: Is the value written when an optional field is missing, typed by the
-            channel. Unset writes NaN, which needs a float channel.
-        channel: Is the Synnax channel the extracted value is written to.
-        pointer: Is the JSON Pointer to the value within the response body.
-        data_type: Is the data type of the extracted value.
-        time_format: Is the encoding of the JSON value when the target channel holds
-            timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the response to numeric channel values.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    disabled: bool = False
-    optional: bool = False
-    fill_value: JsonValue | None = None
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    pointer: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class BaseWriteField(BaseModel):
-    """Carries the fields every write body field shares.
-
-    Attributes:
-        key: Uniquely identifies the field within the endpoint.
-        pointer: Is the JSON Pointer where the value is placed in the body.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    pointer: str = ""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ReadEndpoint(BaseModel):
+    """Is a single HTTP endpoint polled by a read task.
+
+    Attributes:
+        key: Uniquely identifies the endpoint within the task.
+        disabled: Is true when the endpoint is excluded from the task.
+        method: Is the HTTP method used to poll the endpoint.
+        path: Is the URL path appended to the device's base URL.
+        headers: Contains additional headers merged into the request.
+        query_params: Contains query parameters appended to the request URL.
+        body: Is a static body sent with each request. Empty sends no body.
+        icd: Is the key of the ICD that holds the messages of the endpoint. Absent when
+            the endpoint reads no messages.
+        messages: Are the messages that the response body is read as.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
+    method: Method = "GET"
+    path: str = ""
+    headers: list[Header] = Field(default_factory=list)
+    query_params: list[QueryParam] = Field(default_factory=list)
+    body: str = ""
+    icd: icd_.Key | None = None
+    messages: list[icd_.ReadMessage] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:
@@ -156,83 +136,6 @@ class WriteEndpoint(BaseModel):
         return hash(self.key)
 
 
-class ReadEndpoint(BaseModel):
-    """Is a single HTTP endpoint polled by a read task.
-
-    Attributes:
-        key: Uniquely identifies the endpoint within the task.
-        disabled: Is true when the endpoint is excluded from the task.
-        method: Is the HTTP method used to poll the endpoint.
-        path: Is the URL path appended to the device's base URL.
-        headers: Contains additional headers merged into the request.
-        query_params: Contains query parameters appended to the request URL.
-        body: Is a static body sent with each request. Empty sends no body.
-        icd: Is the key of the ICD that holds the messages of the endpoint. Absent when
-            the endpoint reads no messages.
-        messages: Are the messages that the response body is read as.
-        fields: Contains the values to extract from the response.
-        index: Is the key of the field whose channel indexes the others. Empty when the
-            task stamps samples on arrival.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    disabled: bool = False
-    method: Method = "GET"
-    path: str = ""
-    headers: list[Header] = Field(default_factory=list)
-    query_params: list[QueryParam] = Field(default_factory=list)
-    body: str = ""
-    icd: icd_.Key | None = None
-    messages: list[icd_.ReadMessage] = Field(default_factory=list)
-    fields: list[ReadField] = Field(default_factory=list)
-    index: str = ""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class StaticWriteField(BaseWriteField):
-    """Places a fixed value in the request body."""
-
-    type: Literal["static"] = "static"
-    json_type: payload.JSONType = "number"
-    value: JsonValue
-
-
-class GeneratedWriteField(BaseWriteField):
-    """Places a freshly generated UUID or timestamp in the body."""
-
-    type: Literal["generated"] = "generated"
-    generator: payload.GeneratorType = "uuid"
-    time_format: payload.TimeFormat | None = None
-
-
-# Is an additional body field on a write endpoint. The type field selects whether
-# the value is fixed or generated per request.
-WriteField = Annotated[
-    StaticWriteField | GeneratedWriteField,
-    Field(discriminator="type"),
-]
-
-
-class WriteConfig(task.StartConfig):
-    """Configures an HTTP write task, which sends an HTTP request whenever a value is
-    written to an endpoint's command channel.
-
-    Attributes:
-        device: Is the key of the HTTP server device to write to.
-        endpoints: Contains the endpoints to write to.
-    """
-
-    device: device_.Key = ""
-    endpoints: list[WriteEndpoint] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class ReadConfig(task.PersistConfig):
     """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
     device and writes extracted JSON values to Synnax channels.
@@ -250,6 +153,23 @@ class ReadConfig(task.PersistConfig):
     rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteConfig(task.StartConfig):
+    """Configures an HTTP write task, which sends an HTTP request whenever a value is
+    written to an endpoint's command channel.
+
+    Attributes:
+        device: Is the key of the HTTP server device to write to.
+        endpoints: Contains the endpoints to write to.
+    """
+
+    device: device_.Key = ""
+    endpoints: list[WriteEndpoint] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

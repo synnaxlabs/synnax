@@ -187,27 +187,13 @@ func (f *factory) ConfigureTask(
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
-		// Only a config from before ICDs has channels, and it has no targets.
-		if len(cfg.Targets) > 0 || len(cfg.Channels) == 0 {
-			wt, err := f.configureTargets(ctx, t, cfg)
-			if err != nil {
-				f.reporter().Report(ctx, t, cmdKey, err)
-				return nil, err
-			}
-			if cfg.AutoStart {
-				if err = wt.Start(ctx, cmdKey); err != nil {
-					return nil, err
-				}
-			}
-			return wt, nil
-		}
-		wt, err := f.configureWrite(ctx, t, cfg)
+		wt, err := f.configureTargets(ctx, t, cfg)
 		if err != nil {
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
-		if wt.cfg.AutoStart {
-			if err := errors.Combine(wt.start(ctx, cmdKey)); err != nil {
+		if cfg.AutoStart {
+			if err = wt.Start(ctx, cmdKey); err != nil {
 				return nil, err
 			}
 		}
