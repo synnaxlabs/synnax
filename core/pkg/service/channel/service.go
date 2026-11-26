@@ -11,7 +11,6 @@ package channel
 
 import (
 	"context"
-	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
@@ -155,7 +154,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:   cfg.DB,
 		Name: tableName,
 		Migrations: append(
-			slices.Clone(versions.Migrations),
+			versions.NewMigrations(cfg.HostKey),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
 		Indexes:         append(s.indexes.all(), s.names),

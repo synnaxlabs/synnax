@@ -1184,6 +1184,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			l.MQTT.ICDMigration(taskNames(l.Task)),
 			opcua.PasswordMigration(l.Secret),
 			opcua.CertificateMigration(l.Certificate, l.Status),
+			arcTextMigration,
 			newRenameReport(l.Resource, l.Status, cfg.Storage.TS),
 		),
 	}); !ok(err, nil) {

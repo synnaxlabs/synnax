@@ -20,13 +20,18 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
+// MetricsFolder is the name of the top-level channel folder that holds the metrics of
+// the Core.
+const MetricsFolder = "Metrics"
+
 // NameRuleMigration renames each stored channel folder whose name a path cannot hold
 // (resource.NeedsRename), or whose name in NFC an earlier folder in the same parent
 // holds, and stages each rename (resource.StageRename). Names in NFC come first, then
 // the rest, each by key, which is a random order for v4 UUIDs. A new name is
 // resource.SanitizeName of the old one, or "folder" when that is empty, with the first
-// suffix (_2, _3) that no other folder in the same parent holds. It runs after the step
-// that sets each parent.
+// suffix (_2, _3) that no other folder in the same parent holds. It leaves each
+// top-level MetricsFolder to the clash pass of the channel table, which knows the one
+// that the Core uses. It runs after the step that sets each parent.
 var NameRuleMigration = migrate.New("v63_folder_name_rule", migrateNameRule)
 
 // sibling is a name in a parent, or at the top when parent is zero.
@@ -59,6 +64,7 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		claimed = make(set.Set[sibling], len(groups))
 		moves   = make([]bool, len(groups))
 		taken   = make(set.Set[sibling], len(groups))
+		metrics = sibling{name: MetricsFolder}
 	)
 	for i, g := range groups {
 		if resource.NeedsRename(g.Name) {
@@ -66,6 +72,10 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			continue
 		}
 		at := sibling{parent: parentOf(g), name: resource.NormalizeName(g.Name)}
+		if at == metrics {
+			taken.Add(at)
+			continue
+		}
 		moves[i] = claimed.Contains(at)
 		claimed.Add(at)
 		if !moves[i] {

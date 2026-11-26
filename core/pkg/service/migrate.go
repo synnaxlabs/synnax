@@ -17,10 +17,13 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -110,9 +113,74 @@ func newGroupRemovalReport(
 	)
 }
 
+// arcTextMigration writes the new name of each renamed channel into the text of each
+// Arc and into the function bodies of each graph (channelv1.TextRename). It runs before
+// newRenameReport deletes the staged renames, and before anything compiles an Arc.
+var arcTextMigration = migrate.New(
+	"v63_rename_arc_channels",
+	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+		renames, err := resourcev0.StagedRenames(tx)
+		if err != nil || len(renames) == 0 {
+			return err
+		}
+		var channels []channel.Channel
+		if err = gorp.NewRetrieve[channel.Key, channel.Channel]().
+			Entries(&channels).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		names := make(map[channel.Key]string, len(channels))
+		for _, c := range channels {
+			names[c.Key()] = c.Name
+		}
+		rename, err := channelv1.TextRename(names, renames)
+		if err != nil {
+			return err
+		}
+		var arcs []arc.Arc
+		if err = gorp.NewRetrieve[arc.Key, arc.Arc]().
+			Entries(&arcs).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		var changed []arc.Arc
+		for _, a := range arcs {
+			b := a.Base()
+			if renameSource(&b.Source, rename) {
+				a.SetBase(b)
+				changed = append(changed, a)
+			}
+		}
+		return gorp.WrapWriter[arc.Key, arc.Arc](tx).Set(ctx, changed...)
+	},
+)
+
+// renameSource applies rename to each channel name in src, and reports whether it
+// changed src.
+func renameSource(src *arc.Source, rename func(string) (string, bool)) bool {
+	changed := false
+	switch v := src.Variant.(type) {
+	case arc.TextSource:
+		raw := v.Text.Materialize().Raw
+		if renamed := channelv1.RenameInText(raw, rename); renamed != raw {
+			v.Text = text.Text{Doc: text.Create(renamed)}
+			src.Variant, changed = v, true
+		}
+	case arc.GraphSource:
+		for i, f := range v.Graph.Functions {
+			renamed := channelv1.RenameInText(f.Body.Raw, rename)
+			if renamed != f.Body.Raw {
+				v.Graph.Functions[i].Body.Raw = renamed
+				src.Variant, changed = v, true
+			}
+		}
+	}
+	return changed
+}
+
 // newRenameReport returns a migration that writes a warning status for each rename that
-// the name passes staged, renames the storage of each renamed channel in ts, and then
-// deletes the staged renames.
+// the name and clash passes staged, renames the storage of each renamed channel in ts,
+// and then deletes the staged renames.
 func newRenameReport(
 	res *resource.Service,
 	statuses *status.Service,
@@ -203,9 +271,9 @@ func renameReason(from, noun string) string {
 	case from == "":
 		return "the old name was empty"
 	case noun == "folder":
-		return "another folder beside it held the same name"
+		return "another folder or a channel beside it held the same name"
 	}
-	return "another channel in the same folder held the same name"
+	return "another channel or a folder beside it held the same name"
 }
 
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.
