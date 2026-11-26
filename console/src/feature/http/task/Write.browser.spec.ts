@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device, icd, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  http,
+  icd,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -66,7 +73,7 @@ const createEndpoint = (
   message: icd.Message,
   fields: icd.JSONField[],
 ): HTTP.Task.WriteEndpoint => ({
-  ...HTTP.Task.writeEndpointZ.parse({}),
+  ...http.writeEndpointZ.parse({}),
   key,
   method: "PUT",
   path,
@@ -454,29 +461,6 @@ describe("Write", () => {
     });
   });
 
-  it("should duplicate an endpoint that sends no message without its command channel", async () => {
-    const cmd = await client.channels.create({
-      name: uniqueName("http_cmd"),
-      dataType: "float64",
-      virtual: true,
-    });
-    const base = HTTP.Task.writeEndpointZ.parse({});
-    const { draft } = await renderWrite([
-      {
-        ...base,
-        key: "ep1",
-        path: "/setpoint",
-        channel: { ...base.channel, channel: cmd.key },
-      },
-    ]);
-    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
-    fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(async () => {
-      const endpoints = await retrieveEndpoints(draft.key);
-      expect(endpoints.map(({ channel }) => channel.channel)).toEqual([cmd.key, 0]);
-    });
-  });
-
   it("should switch an endpoint off through its checkbox", async () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
@@ -494,7 +478,7 @@ describe("Write", () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
     const { draft } = await renderWrite([
-      { ...HTTP.Task.writeEndpointZ.parse({}), key: "ep1", path: "/setpoint" },
+      { ...http.writeEndpointZ.parse({}), key: "ep1", path: "/setpoint" },
     ]);
     fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
     await pickMessageFormat("Select message format", message.name, ic.name);

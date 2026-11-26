@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, DisconnectedError, type http, type icd } from "@synnaxlabs/client";
+import { channel, DisconnectedError, http, type icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -30,7 +30,6 @@ import {
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteEndpoint,
-  writeEndpointZ,
   type WriteSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
@@ -153,8 +152,6 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => (
 const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({
   ...ep,
   key: id.create(),
-  channel: { ...ep.channel, channel: 0 },
-  fields: ep.fields.map((f) => ({ ...f, key: id.create() })),
   message: ep.message == null ? undefined : ICD.Write.unbind(ep.message),
 });
 
@@ -336,7 +333,7 @@ const Endpoints = ({
    */
   const add = async () => {
     if (client == null) throw new DisconnectedError();
-    const ep = writeEndpointZ.parse({});
+    const ep = http.writeEndpointZ.parse({});
     const {
       icd: key,
       messages: [message],

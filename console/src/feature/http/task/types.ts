@@ -66,24 +66,13 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-const writeFieldZ = z.discriminatedUnion("type", [
-  http.staticWriteFieldZ,
-  http.generatedWriteFieldZ,
-]);
-
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 
-export const writeEndpointZ = http.writeEndpointZ.extend({
-  fields: writeFieldZ.array().default(() => []),
-});
+export interface WriteEndpoint extends http.WriteEndpoint {}
 
-export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
+const writeConfigZ = http.writeConfigZ;
 
-const writeConfigZ = http.writeConfigZ.extend({
-  endpoints: writeEndpointZ.array().default(() => []),
-});
-
-const deployWriteEndpointZ = writeEndpointZ.extend({
+const deployWriteEndpointZ = http.writeEndpointZ.extend({
   method: writeMethodZ,
   headers: Device.headersZ.default(() => []),
   queryParams: Device.queryParamsZ.default(() => []),

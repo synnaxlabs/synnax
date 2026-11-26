@@ -448,8 +448,6 @@ describe("HTTP Task Types", () => {
             key: "ep1",
             method: "POST",
             path: "/api/control",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [],
           },
         ],
       };
@@ -467,8 +465,6 @@ describe("HTTP Task Types", () => {
               key: "ep1",
               method,
               path: "/api",
-              channel: { pointer: "/val", jsonType: "number", channel: 1 },
-              fields: [],
             },
           ],
         };
@@ -485,8 +481,6 @@ describe("HTTP Task Types", () => {
             key: "ep1",
             method: "GET",
             path: "/api",
-            channel: { pointer: "/val", jsonType: "number", channel: 1 },
-            fields: [],
             ...SENDS,
           },
         ],
@@ -502,8 +496,6 @@ describe("HTTP Task Types", () => {
             key: "ep1",
             method: "POST",
             path: "/api",
-            channel: { pointer: "/val", jsonType: "number", channel: 1 },
-            fields: [],
           },
         ],
       };
@@ -521,8 +513,6 @@ describe("HTTP Task Types", () => {
             path: "/api",
             headers: [{ name: "X-Custom", value: "val" }],
             queryParams: [{ parameter: "key", value: "abc" }],
-            channel: { pointer: "/val", jsonType: "number", channel: 1 },
-            fields: [],
           },
         ],
       };
@@ -545,8 +535,6 @@ describe("HTTP Task Types", () => {
               { name: "X-Key", value: "a" },
               { name: "X-Key", value: "b" },
             ],
-            channel: { pointer: "/val", jsonType: "number", channel: 1 },
-            fields: [],
             ...SENDS,
           },
         ],
@@ -566,8 +554,6 @@ describe("HTTP Task Types", () => {
               { parameter: "key", value: "a" },
               { parameter: "key", value: "b" },
             ],
-            channel: { pointer: "/val", jsonType: "number", channel: 1 },
-            fields: [],
             ...SENDS,
           },
         ],
@@ -590,189 +576,6 @@ describe("HTTP Task Types", () => {
     });
   });
 
-  describe("write channel field", () => {
-    it("should validate a channel field with all json types", () => {
-      for (const jsonType of ["number", "string", "boolean"] as const) {
-        const config = {
-          device: "dev-001",
-          endpoints: [
-            {
-              key: "ep1",
-              method: "POST",
-              path: "/api",
-              channel: { pointer: "/val", jsonType, channel: 1 },
-              fields: [],
-            },
-          ],
-        };
-        const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-        expect(result.endpoints[0].channel.jsonType).toBe(jsonType);
-      }
-    });
-
-    it("should reject an invalid jsonType", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/val", jsonType: "object", channel: 1 },
-            fields: [],
-          },
-        ],
-      };
-      expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
-    });
-
-    it("should validate a channel field with enum values", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: {
-              pointer: "/state",
-              jsonType: "string",
-              channel: 1,
-              enumValues: [
-                { value: 1, label: "ON" },
-                { value: 0, label: "OFF" },
-              ],
-            },
-            fields: [],
-          },
-        ],
-      };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].channel.enumValues).toHaveLength(2);
-    });
-
-    it("should validate a channel field with timeFormat", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: {
-              pointer: "/ts",
-              jsonType: "number",
-              channel: 1,
-              timeFormat: "unix_ms",
-            },
-            fields: [],
-          },
-        ],
-      };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].channel.timeFormat).toBe("unix_ms");
-    });
-  });
-
-  describe("write fields", () => {
-    it("should validate a static field", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "sf1",
-                type: "static",
-                pointer: "/device_id",
-                jsonType: "string",
-                value: "sensor-01",
-              },
-            ],
-          },
-        ],
-      };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].type).toBe("static");
-    });
-
-    it("should validate a generated UUID field", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "gf1",
-                type: "generated",
-                pointer: "/request_id",
-                generator: "uuid",
-              },
-            ],
-          },
-        ],
-      };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].type).toBe("generated");
-    });
-
-    it("should validate a generated timestamp field with format", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "gf1",
-                type: "generated",
-                pointer: "/timestamp",
-                generator: "timestamp",
-                timeFormat: "iso8601",
-              },
-            ],
-          },
-        ],
-      };
-      const result = HTTP.Task.WRITE_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].type).toBe("generated");
-    });
-
-    it("should reject an invalid generator type", () => {
-      const config = {
-        device: "dev-001",
-        endpoints: [
-          {
-            key: "ep1",
-            method: "POST",
-            path: "/api",
-            channel: { pointer: "/value", jsonType: "number", channel: 1 },
-            fields: [
-              {
-                key: "gf1",
-                type: "generated",
-                pointer: "/id",
-                generator: "random",
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.WRITE_SCHEMAS.config.validate(config)).toBe(false);
-    });
-  });
-
   describe("write endpoint v0 shapes", () => {
     it("should not migrate a v0 header record on a write endpoint", () => {
       // The Core migrates stored configs; the console only speaks generated shapes.
@@ -784,8 +587,6 @@ describe("HTTP Task Types", () => {
             method: "POST",
             path: "/api",
             headers: { "X-Custom": "val" },
-            channel: { pointer: "/val", jsonType: "number", channel: 1 },
-            fields: [],
           },
         ],
       };
@@ -801,8 +602,6 @@ describe("HTTP Task Types", () => {
             method: "POST",
             path: "/api",
             queryParams: { key: "abc" },
-            channel: { pointer: "/val", jsonType: "number", channel: 1 },
-            fields: [],
           },
         ],
       };

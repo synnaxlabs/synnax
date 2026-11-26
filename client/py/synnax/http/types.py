@@ -170,8 +170,6 @@ class WriteTask(
             endpoints=endpoints if endpoints is not None else [],
         )
         task.assign_keys(self.config.endpoints)
-        for ep in self.config.endpoints:
-            task.assign_keys(ep.fields)
 
     @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
