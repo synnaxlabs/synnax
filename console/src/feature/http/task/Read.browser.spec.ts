@@ -71,6 +71,8 @@ preloadForms(HTTP.Task.FORMS);
 
 const client = createTestClient();
 
+const NO_FIELDS = "Message has no fields";
+
 const createField = (name: string, kind: payload.Kind = "float"): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
 
@@ -307,6 +309,17 @@ describe("Read", () => {
       expect((await retrieveEndpoints(draft.key))[0].messages[0].bindings).toHaveLength(
         2,
       ),
+    );
+  });
+
+  it("should mark an endpoint until its message has a field", async () => {
+    await renderWithDevice([await createEndpoint({ key: "ep1", path: "/data" })]);
+    const item = await screen.findByRole("treeitem", { name: /\/data/ });
+    await within(item).findByRole("img", { name: NO_FIELDS });
+    fireEvent.click(item);
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await waitFor(() =>
+      expect(within(item).queryByRole("img", { name: NO_FIELDS })).toBeNull(),
     );
   });
 

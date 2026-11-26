@@ -134,13 +134,6 @@ const namingOf = (
 const messageName = ({ method, path }: RequestLine): string =>
   `${method} ${path}`.trim();
 
-/** @returns whether name is the message name of request, with or without a number. */
-const namedBy = (name: string, request: RequestLine): boolean => {
-  const base = messageName(request);
-  if (name === base) return true;
-  return name.startsWith(`${base} `) && /^\d+$/.test(name.slice(base.length + 1));
-};
-
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
@@ -253,7 +246,7 @@ const EndpointDetails = ({ epKey, onAddField, created }: EndpointDetailsProps) =
     const format = ICD.formatOf(formats, ep.icd);
     const { messages } = format.value();
     const message = messages.find(({ key }) => key === ep.message.message);
-    if (message == null || !namedBy(message.name, ep)) return;
+    if (message == null || !ICD.namedBy(message.name, messageName(ep))) return;
     format.set(
       PICD.formPath.messages[message.key].name,
       ICD.availableName(

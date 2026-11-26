@@ -22,9 +22,7 @@ import {
   type Dispatch,
   type FC,
   type ReactElement,
-  type RefObject,
   type SetStateAction,
-  useRef,
   useState,
 } from "react";
 
@@ -139,19 +137,17 @@ const SparkplugTargetPane: FC<SparkplugTargetPaneProps> = ({
   );
 };
 
-/** The name that the form gave each message that it made, by message key. */
-type Made = RefObject<Map<icd.MessageKey, string>>;
-
 interface PlainTargetPaneProps {
   path: deep.Path<PlainWriteTarget>;
   onAddField: () => void;
-  made: Made;
+  /** The key of each message that this form created. */
+  created: icd.MessageKey[];
 }
 
 const PlainTargetPane = ({
   path,
   onAddField,
-  made,
+  created,
 }: PlainTargetPaneProps): ReactElement => {
   const { set, get } = PForm.useContext();
   const isPreview = Task.useIsPreview();
@@ -160,23 +156,26 @@ const PlainTargetPane = ({
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
-  // A message that the form made follows the topic until a user renames it.
+  // A message that this form created and no other target sends follows its topic while
+  // it keeps the name that the topic gave it.
   const follow = (topic: string) => {
     const key = target.message.message;
-    const given = made.current.get(key);
-    const format = ICD.formatOf(formats, target.icd);
-    const messages = format.value().messages;
-    if (given == null || messages.find((m) => m.key === key)?.name !== given) return;
+    if (!created.includes(key)) return;
     const shared = get(root.config.targets).value.some(
       (t) => t.key !== target.key && t.type === "plain" && t.message.message === key,
     );
     if (shared) return;
-    const name = ICD.messageName(
-      topic,
-      messages.filter((m) => m.key !== key),
+    const format = ICD.formatOf(formats, target.icd);
+    const { messages } = format.value();
+    const message = messages.find((m) => m.key === key);
+    if (message == null || !ICD.namedBy(message.name, target.topic)) return;
+    format.set(
+      PICD.formPath.messages[key].name,
+      ICD.messageName(
+        topic,
+        messages.filter((m) => m.key !== key),
+      ),
     );
-    format.set(PICD.formPath.messages[key].name, name);
-    made.current.set(key, name);
   };
   const handleTopicChange = (topic: string) => {
     set(path.message, ICD.Write.unbind(target.message));
@@ -227,14 +226,14 @@ interface TargetPaneProps
   extends
     PaneProps<WriteTarget>,
     Pick<SparkplugTargetPaneProps, "plannedName">,
-    Pick<PlainTargetPaneProps, "onAddField" | "made"> {}
+    Pick<PlainTargetPaneProps, "onAddField" | "created"> {}
 
 const TargetPane: FC<TargetPaneProps> = ({
   path,
   deviceName,
   plannedName,
   onAddField,
-  made,
+  created,
 }) => {
   const type = PForm.useFieldValue(path.type);
   return (
@@ -243,7 +242,7 @@ const TargetPane: FC<TargetPaneProps> = ({
         <PlainTargetPane
           path={deep.variant(path, "type", "plain")}
           onAddField={onAddField}
-          made={made}
+          created={created}
         />
       ) : (
         <SparkplugTargetPane
@@ -343,7 +342,8 @@ interface TargetsProps {
   onSelect: Dispatch<SetStateAction<string[]>>;
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
-  made: Made;
+  created: icd.MessageKey[];
+  onCreate: Dispatch<SetStateAction<icd.MessageKey[]>>;
 }
 
 /** The targets of the task as a tree, beside the details of the selected item. */
@@ -353,7 +353,8 @@ const Targets = ({
   onSelect,
   expanded,
   onExpand,
-  made,
+  created,
+  onCreate,
 }: TargetsProps) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
@@ -395,7 +396,7 @@ const Targets = ({
           key={target.key}
           path={root.config.targets[target.key]}
           deviceName={device.name}
-          made={made}
+          created={created}
           plannedName={
             target.type === "sparkplug"
               ? Task.newCommandChannelName(plans.get(sparkplugPropertiesKey(target)))
@@ -420,7 +421,7 @@ const Targets = ({
     });
     if (additions == null || additions.length === 0) return;
     const inferred = additions.filter(isDraft).filter(({ format }) => format == null);
-    const formatsMade: Format[] = [];
+    const made: Format[] = [];
     if (inferred.length > 0) {
       const { icd: key, messages } = await ICD.Write.addMessages({
         client,
@@ -429,14 +430,12 @@ const Targets = ({
         name: icdName(ctx.get(root.name).value),
         messages: inferred.map(({ topic, fields }) => ({ name: topic, fields })),
       });
-      for (const message of messages) {
-        made.current.set(message.key, message.name);
-        formatsMade.push({ icd: key, message });
-      }
+      made.push(...messages.map((message) => ({ icd: key, message })));
+      onCreate((prev) => [...prev, ...messages.map(({ key }) => key)]);
     }
     const created = additions.map((a) =>
       isDraft(a)
-        ? createPlainTarget(a.topic, a.format ?? formatsMade[inferred.indexOf(a)])
+        ? createPlainTarget(a.topic, a.format ?? made[inferred.indexOf(a)])
         : a,
     );
     list.push(created);
@@ -485,7 +484,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
   const [expanded, setExpanded] = useState<string[]>(() =>
     ICD.Write.expandedOf(targets),
   );
-  const made: Made = useRef(new Map());
+  const [created, setCreated] = useState<icd.MessageKey[]>([]);
   const icds = targets.flatMap((t) => (t.type === "plain" ? [t.icd] : []));
   const resolve = (target: WriteTarget): Partial<WriteTarget> | null =>
     target.type === "sparkplug"
@@ -500,7 +499,8 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
           onSelect={setSelected}
           expanded={expanded}
           onExpand={setExpanded}
-          made={made}
+          created={created}
+          onCreate={setCreated}
         />
       </ICD.WithFormats>
       <Task.BindChannels path={root.config.targets} resolve={resolve} />
