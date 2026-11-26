@@ -14,6 +14,7 @@ import {
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -52,15 +53,23 @@ const renderEditor = async (
       </PlutoPanel.TabScope.Provider>
     </PlutoPanel.Scope.Provider>
   );
-  const { unmount } = await renderSuspended(ui, { wrapper });
+  // A panel hosts each tab through a portal, so a hidden tab is detached.
+  const tree = (hosted: boolean) => (
+    <Portal.Context>
+      <Portal.In itemKey={tabKey}>{ui}</Portal.In>
+      {hosted && <Portal.Out itemKey={tabKey} />}
+    </Portal.Context>
+  );
+  const { unmount, rerender } = await renderSuspended(tree(true), { wrapper });
   // The editor is a preview until the grant check resolves, and only an editor shows
   // Import.
   if (as === client) await screen.findByRole("button", { name: "Import" });
   const reopen = async () => {
     unmount();
-    await renderSuspended(ui, { wrapper });
+    await renderSuspended(tree(true), { wrapper });
   };
-  return { store, reopen };
+  const host = async (hosted: boolean) => await act(async () => rerender(tree(hosted)));
+  return { store, reopen, host };
 };
 
 const cell = (column: string, row: number): HTMLInputElement =>
@@ -217,6 +226,24 @@ describe("ICD editor", () => {
       await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
       expect(cell("Name", 2).selectionStart).toBe(0);
       expect(cell("Name", 2).selectionEnd).toBe("Flow".length);
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should focus the field once its hidden tab shows", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { store, host } = await renderEditor(ic, client, [reading.key]);
+      await host(false);
+      const selected = [reading.key];
+      act(() => {
+        store.dispatch(
+          Session.ICD.setSelected({ key: ic.key, selected, focused: flow.key }),
+        );
+      });
+      await act(async () => {});
+      expect(focusedIn(store, ic.key)).toBe(flow.key);
+      await host(true);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
       expect(focusedIn(store, ic.key)).toBeUndefined();
     });
 

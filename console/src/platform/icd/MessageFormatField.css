@@ -10,5 +10,5 @@
  */
 
 .console-message-format__dialog {
-    min-width: min(60rem, var(--pluto-dialog-available-width, 100vw));
+    min-width: min(80rem, var(--pluto-dialog-available-width, 100vw));
 }

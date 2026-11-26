@@ -15,6 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Panel } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
@@ -94,6 +95,7 @@ export const Editor = (): ReactElement => {
   const dispatch = Session.useDispatch();
   const selected = Session.ICD.useSelectSelected(key);
   const focused = Session.ICD.useSelectFocused(key);
+  const attached = Portal.useAttached();
   const handleSelect = (selected: icd.MessageKey[]) =>
     dispatch(Session.ICD.setSelected({ key, selected }));
   const handleFocused = () => dispatch(Session.ICD.clearFocused({ key }));
@@ -141,7 +143,8 @@ export const Editor = (): ReactElement => {
           <Body
             selected={selected}
             onSelect={handleSelect}
-            focused={focused}
+            // Detached content cannot take focus, so the request waits for the tab.
+            focused={attached ? focused : undefined}
             onFocused={handleFocused}
           />
         </Flex.Box>
