@@ -35,9 +35,9 @@ import (
 // checker gives each sealed version 0 segment its check file and turns its checks on,
 // newest last stamp first. Each job of a segment runs on the executor: it reads at most
 // jobBlocks blocks of the old file, each two or three times, and counts the reads in
-// the budget of the background reads. In a segment of a clock, it also cuts each
-// pointer at its first stamp that does not rise inside the range of the pointer, with
-// the samples that the stamps time.
+// the budget of the background reads. In a segment of a clock, it also cuts the
+// samples of each pointer whose stamps lie outside the range of the pointer or do not
+// rise, with the samples that the stamps time, and warns of each cut.
 type checker struct {
 	e     *engine
 	clock xtime.Clock
@@ -294,17 +294,17 @@ func (c *checker) check(ctx context.Context, t target) (retry bool, err error) {
 	return c.finish(t.key, seg, bad, fields)
 }
 
-// finish logs the cuts of bad, the stamps of seg that fail the rise check, then the
-// Check of seg, a segment of key, and logs a failure with fields. It reports whether a
+// finish logs the cuts of bad, the runs of seg that fail the rise check, then the Check
+// of seg, a segment of key, and logs a failure with fields. It reports whether a
 // claim or a change cut it short. It returns only an error of a failed state.
 func (c *checker) finish(
 	key ChannelKey,
 	seg state.Segment,
-	bad []badStamp,
+	bad []badRun,
 	fields []zap.Field,
 ) (retry bool, err error) {
 	for _, b := range bad {
-		if err = c.cut(key, b); err != nil {
+		if err = c.cut(key, seg.ID, b); err != nil {
 			break
 		}
 	}
@@ -338,7 +338,7 @@ func (c *checker) fatal(err error) error {
 
 // read reads each block of seg, a segment of key, in jobs on the executor, and leaves
 // the sums of its blocks in c.sg. It closes the file of seg, then unpins h, the pins of
-// its load. It returns the stamps of a clock segment that fail the rise check, an error
+// its load. It returns the runs of a clock segment that fail the rise check, an error
 // that wraps place.ErrCorrupt when no two reads of a block agree, or one that wraps
 // state.ErrStale when a Drop takes key before the last block.
 func (c *checker) read(
@@ -346,7 +346,7 @@ func (c *checker) read(
 	key ChannelKey,
 	seg state.Segment,
 	h held,
-) ([]badStamp, error) {
+) ([]badRun, error) {
 	c.sg = pass{
 		key:    key,
 		cfg:    c.e.segmentConfig(seg),
@@ -366,7 +366,7 @@ func (c *checker) read(
 	}
 	err = errors.Join(err, c.sg.h.Close())
 	c.e.unpin(h)
-	var bad []badStamp
+	var bad []badRun
 	if c.sg.rise != nil {
 		bad = c.sg.rise.bad
 	}
@@ -439,17 +439,30 @@ func (c *checker) agree(off int64, size int) ([]byte, error) {
 		"segment %d agree", off/segment.BlockSize, sg.cfg.ID)
 }
 
-// cut cuts the pointer of b, a pointer of clock, at its first stamp that fails the rise
-// check, with the samples of each key that clock times there. The cuts are by position,
-// since the stamps there do not rise. The timed keys go first, since the state refuses
-// a cut of a range of clock that a key still uses. It returns an error that wraps
-// validate.ErrValidation when another claim reaches the range.
-func (c *checker) cut(clock ChannelKey, b badStamp) error {
-	tr := telem.TimeRange{Start: b.prev + 1, End: b.p.Last + 1}
-	if b.i == 0 {
-		tr.Start = b.p.First
+// cut cuts the samples of b, a run of a pointer of seg, a segment of clock, with the
+// samples of each key that clock times there, and warns of the cut. The cuts are by
+// position, since the stamps there do not rise. A run inside its pointer splits it
+// around the run, and one that reaches the end of its pointer cuts it there. The timed
+// keys go first, since the state refuses a cut of a range of clock that a key still
+// uses. It returns an error that wraps validate.ErrValidation when another claim
+// reaches the range.
+func (c *checker) cut(clock ChannelKey, seg uint64, b badRun) error {
+	split := b.i+b.n < b.p.Samples
+	tr := telem.TimeRange{Start: b.p.First, End: b.p.Last + 1}
+	if split {
+		tr.End = b.next
 	}
-	at := b.p.Alignment.AddSamples(b.i)
+	if b.i > 0 {
+		// The cut keeps the samples stamped prev by position, so the range starts at
+		// prev only when no stamp lies between prev and its end.
+		tr.Start = min(b.prev+1, tr.End-1)
+	}
+	tr.End = max(tr.End, tr.Start+1)
+	from := b.p.Alignment.AddSamples(b.i)
+	to := b.p.Alignment.AddSamples(b.p.Samples)
+	if split {
+		to = b.p.Alignment.AddSamples(b.i + b.n)
+	}
 	timed, err := c.e.timedKeys(clock, tr)
 	if err != nil {
 		return err
@@ -458,20 +471,65 @@ func (c *checker) cut(clock ChannelKey, b badStamp) error {
 		if _, err := c.e.logTombstone(key, clock, tr, func(
 			d *state.Delete,
 		) (left, right *log.Cut, err error) {
-			if d.Right != nil {
+			// A key with no sample in the run keeps its pointers whole.
+			if !slices.ContainsFunc(d.Reached, func(e state.Edge) bool {
+				return holds(e.Pointer, from, to)
+			}) {
+				return nil, nil, errNoSamples
+			}
+			if d.Right != nil && !split {
 				return nil, nil, errors.Newf("segment %d of key %d holds samples past "+
 					"the end of the cut range of clock %d", d.Right.Segment.ID, key, clock)
 			}
-			if d.Left == nil {
-				return nil, nil, nil
+			if edge := holding(d.Reached, from); b.i > 0 && edge != nil {
+				left, err = c.e.cutAtAlignment(key, edge, from, b.prev)
 			}
-			left, err = c.e.cutBefore(key, d.Left, at, b.prev)
-			return left, nil, err
-		}); err != nil {
+			if edge := holding(d.Reached, to); split && edge != nil && err == nil {
+				right, err = c.e.cutAtAlignment(key, edge, to, b.next)
+			}
+			return left, right, err
+		}); err != nil && !errors.Is(err, errNoSamples) {
 			return err
 		}
 	}
+	samples := b.p.Samples - b.i
+	fields := []zap.Field{
+		zap.Uint32("key", clock),
+		zap.Uint32s("keys", timed),
+		zap.Uint64("segment", seg),
+	}
+	if b.i > 0 {
+		fields = append(fields, zap.Stringer("after", b.prev))
+	}
+	if split {
+		samples = b.n
+		fields = append(fields, zap.Stringer("before", b.next))
+	}
+	c.e.ins.L.Warn(
+		"cut the samples of a converted segment whose stamps do not rise",
+		append(fields, zap.Uint32("samples", samples))...,
+	)
 	return nil
+}
+
+// errNoSamples is the error of a cut of the check pass for a key with no sample in the
+// run, which logs no Tombstone.
+var errNoSamples = errors.New("no sample of the key lies in the run")
+
+// holding returns the edge of edges whose pointer holds the sample at alignment at, or
+// nil.
+func holding(edges []state.Edge, at telem.Alignment) *state.Edge {
+	for i, e := range edges {
+		if holds(e.Pointer, at, at+1) {
+			return &edges[i]
+		}
+	}
+	return nil
+}
+
+// holds reports whether p holds a sample from alignment from up to to.
+func holds(p state.Pointer, from, to telem.Alignment) bool {
+	return p.Alignment < to && p.Alignment.AddSamples(p.Samples) > from
 }
 
 // timedKeys returns the keys other than clock that clock times in tr: those of the
@@ -499,13 +557,14 @@ func (e *engine) timedKeys(clock ChannelKey, tr telem.TimeRange) ([]ChannelKey, 
 	return slices.Sorted(maps.Keys(keys)), nil
 }
 
-// cutBefore returns the left cut of the pointer of edge, a pointer of key, that keeps
-// its samples before alignment at, the last of them stamped prev.
-func (e *engine) cutBefore(
+// cutAtAlignment returns the cut of the pointer of edge, a pointer of key, at the
+// sample at alignment at. stamp is the last live stamp before a left cut, or the stamp
+// of the sample at a right cut.
+func (e *engine) cutAtAlignment(
 	key ChannelKey,
 	edge *state.Edge,
 	at telem.Alignment,
-	prev telem.TimeStamp,
+	stamp telem.TimeStamp,
 ) (*log.Cut, error) {
 	p := edge.Pointer
 	k := int64(at.SampleIndex()) - int64(p.Alignment.SampleIndex())
@@ -524,7 +583,7 @@ func (e *engine) cutBefore(
 		Segment:   edge.Segment.ID,
 		Offset:    offset,
 		Alignment: uint64(at),
-		Stamp:     int64(prev),
+		Stamp:     int64(stamp),
 	}, nil
 }
 
@@ -601,26 +660,31 @@ func (c *checker) createChecks(key ChannelKey, name string, b []byte) error {
 	return errors.Join(err, f.Close())
 }
 
-// badStamp is the first stamp i of pointer p of a clock that lies outside the range of
-// p or does not rise, and prev the stamp before it in p.
-type badStamp struct {
-	p    state.Pointer
-	i    uint32
-	prev telem.TimeStamp
+// badRun is the run of n samples of pointer p of a clock from sample i whose stamps lie
+// outside the range of p or are not above prev, the last kept stamp before the run.
+// next is the first kept stamp after the run, when the run ends inside p.
+type badRun struct {
+	p          state.Pointer
+	i, n       uint32
+	prev, next telem.TimeStamp
 }
 
 // rise checks that the stamps of each pointer of a clock segment rise inside the range
 // of the pointer. It takes the bytes of the segment in stream order.
 type rise struct {
 	ptrs []state.Pointer
-	// p is the pointer of the next stamp, i its sample in p, and prev the stamp before
-	// it.
+	// p is the pointer of the next stamp, i its sample in p, and prev the last kept
+	// stamp of p when kept is true.
 	p    int
 	i    uint32
 	prev telem.TimeStamp
+	kept bool
+	// run is the run in progress when open is true.
+	run  badRun
+	open bool
 	// part holds the bytes of a stamp that a block end split.
 	part []byte
-	bad  []badStamp
+	bad  []badRun
 }
 
 func newRise(ptrs []state.Pointer) *rise {
@@ -653,13 +717,24 @@ func (r *rise) feed(b []byte, from int64) {
 // check checks stamp, sample i of pointer p.
 func (r *rise) check(stamp telem.TimeStamp) {
 	ptr := r.ptrs[r.p]
-	if stamp < ptr.First || stamp > ptr.Last || (r.i > 0 && stamp <= r.prev) {
-		r.bad = append(r.bad, badStamp{p: ptr, i: r.i, prev: r.prev})
-		r.p, r.i = r.p+1, 0
-		return
+	switch {
+	case stamp < ptr.First || stamp > ptr.Last || (r.kept && stamp <= r.prev):
+		if r.open {
+			r.run.n++
+		} else {
+			r.run, r.open = badRun{p: ptr, i: r.i, n: 1, prev: r.prev}, true
+		}
+	default:
+		if r.open {
+			r.run.next = stamp
+			r.bad, r.open = append(r.bad, r.run), false
+		}
+		r.prev, r.kept = stamp, true
 	}
-	r.prev, r.i = stamp, r.i+1
-	if r.i == ptr.Samples {
-		r.p, r.i = r.p+1, 0
+	if r.i++; r.i == ptr.Samples {
+		if r.open {
+			r.bad, r.open = append(r.bad, r.run), false
+		}
+		r.p, r.i, r.kept = r.p+1, 0, false
 	}
 }
