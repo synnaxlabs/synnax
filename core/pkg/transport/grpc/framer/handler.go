@@ -33,7 +33,11 @@ type (
 		codec *codec.Codec
 		errs  *errors.Codec
 	}
-	frameStreamerRequestTranslator  struct{ codec *codec.Codec }
+	frameStreamerRequestTranslator struct {
+		codec *codec.Codec
+		// opened is true once the open request of the stream has passed.
+		opened *bool
+	}
 	frameStreamerResponseTranslator struct{ codec *codec.Codec }
 	frameDeleteRequestTranslator    struct{}
 	framerWriterServerCore          = fgrpc.StreamServerCore[
@@ -207,10 +211,19 @@ func (t frameStreamerRequestTranslator) Backward(
 		AckRequested:     msg.AckRequested,
 		MissedRequested:  msg.MissedRequested,
 	}
-	if len(rq.Keys) > 0 {
-		if err := t.codec.Update(ctx, rq.Keys); err != nil {
-			return framer.StreamerRequest{}, err
-		}
+	opened := *t.opened
+	*t.opened = true
+	if len(rq.Keys) == 0 {
+		return rq, nil
+	}
+	// The relay applies the keys of the open request before its first frame, and those
+	// of a later request at the response whose Applied counts it.
+	update := t.codec.Update
+	if opened {
+		update = t.codec.Stage
+	}
+	if err := update(ctx, rq.Keys); err != nil {
+		return framer.StreamerRequest{}, err
 	}
 	return rq, nil
 }
@@ -219,6 +232,11 @@ func (t frameStreamerResponseTranslator) Forward(
 	ctx context.Context,
 	msg framer.StreamerResponse,
 ) (*StreamerResponse, error) {
+	for range msg.Applied {
+		if err := t.codec.Apply(); err != nil {
+			return nil, err
+		}
+	}
 	if t.codec.Initialized() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
 		if err != nil {
@@ -323,8 +341,13 @@ func New(
 					fgrpc.ForwardTranslator[framer.StreamerResponse, *StreamerResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
-					return frameStreamerRequestTranslator{codec: codec},
-						frameStreamerResponseTranslator{codec: codec}
+					return frameStreamerRequestTranslator{
+							codec:  codec,
+							opened: new(bool),
+						},
+						frameStreamerResponseTranslator{
+							codec: codec,
+						}
 				},
 				ServiceDesc: &FrameStreamerService_ServiceDesc,
 				Errors:      errs,

@@ -58,6 +58,8 @@ const frameContentType = "application/vnd.synnax.frame"
 type Codec struct {
 	ctx   context.Context
 	frame *codec.Codec
+	// opened is true once the open request of a streamer has passed.
+	opened bool
 }
 
 var _ encoding.Codec = (*Codec)(nil)
@@ -244,6 +246,11 @@ func (c *Codec) encodeStreamResponse(
 	w io.Writer,
 	v http.WSMessage[StreamerResponse],
 ) error {
+	for range v.Payload.Applied {
+		if err := c.frame.Apply(); err != nil {
+			return err
+		}
+	}
 	if v.Type != http.WSMessageTypeData || v.Payload.Frame.Empty() {
 		return c.lowPerfEncode(true, w, v)
 	}
@@ -263,8 +270,15 @@ func (c *Codec) decodeStreamRequest(
 	if v.Type != http.WSMessageTypeData {
 		return nil
 	}
+	opened := c.opened
+	c.opened = true
 	if len(v.Payload.Keys) == 0 {
 		return nil
+	}
+	// The relay applies the keys of the open request before its first frame, and those
+	// of a later request at the response whose Applied counts it.
+	if opened {
+		return c.frame.Stage(c.ctx, v.Payload.Keys)
 	}
 	return c.frame.Update(c.ctx, v.Payload.Keys)
 }

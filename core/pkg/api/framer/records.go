@@ -35,6 +35,9 @@ type recordSender struct {
 	// held holds each policy that the subject's roles held at a check since the stream
 	// opened.
 	held set.Set[resource.ID]
+	// applied is the Applied of the responses that Send dropped, which the next
+	// response it sends carries.
+	applied int
 }
 
 func (s *Service) newRecordSender(
@@ -59,10 +62,10 @@ func (s *Service) newRecordSender(
 // for each frame that holds record samples, so a policy change applies from the next
 // such frame. The delete of a policy that the subject's roles held at any such check is
 // also sent, because the delete removes what let the subject read it. A frame left with
-// no samples is not sent.
+// no samples is not sent, and the next response that Send sends carries its Applied.
 func (s *recordSender) Send(res StreamerResponse) error {
 	if !s.carriesRecords(res.Frame) {
-		return s.StreamSender.Send(res)
+		return s.send(res)
 	}
 	allowed, err := s.allowed()
 	if err != nil {
@@ -90,9 +93,17 @@ func (s *recordSender) Send(res StreamerResponse) error {
 		series = append(series, sr)
 	}
 	if len(keys) == 0 {
+		s.applied += res.Applied
 		return nil
 	}
 	res.Frame = frame.NewMulti(keys, series)
+	return s.send(res)
+}
+
+// send sends res with the Applied of the responses that Send dropped before it.
+func (s *recordSender) send(res StreamerResponse) error {
+	res.Applied += s.applied
+	s.applied = 0
 	return s.StreamSender.Send(res)
 }
 
