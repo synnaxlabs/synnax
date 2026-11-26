@@ -726,12 +726,12 @@ assumptions.
 | A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years   |
 | Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years |
 | Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years |
-| 100 script runs per day on 10 channels each       | 0         | Each run takes over its files |
+| 100 script sessions per day, 10 channels each     | 0         | Each takes over its files     |
 | A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start    |
 
-A script run continues its clock (§5.8) and takes over its open segments, so a run after
-a clean close starts no segment and takes no number. The Core raises a warning status at
-half of the numbers, and at the end a new stretch fails with a typed error.
+A script session continues its clock (§5.8) and takes over its open segments, so one
+after a clean close starts no segment and takes no number. The Core raises a warning
+status at half of the numbers, and at the end a new stretch fails with a typed error.
 
 ### 5.8 One writer per time range
 
