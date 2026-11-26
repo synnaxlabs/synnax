@@ -1462,7 +1462,7 @@ func wireVarEdges[T antlr.ParserRuleContext](
 	for i, p := range n.Inputs {
 		// A lifted input carries the name its expression reads, such as m.doubled.
 		head, tail, _ := strings.Cut(p.Name, ".")
-		vsym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+		vsym, err := ctx.Scope.ResolveName(ctx, parser.Name{Head: head, Tail: tail})
 		if err != nil {
 			continue
 		}
