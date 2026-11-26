@@ -15,6 +15,7 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Control } from "@/schematic/node/common/control";
 import { Custom } from "@/schematic/node/common/custom";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
@@ -49,6 +50,7 @@ interface DrawnProps
   partClicks?: Record<string, () => void>;
   onClickDelay?: Config["onClickDelay"];
   anchorRef?: RefCallback<HTMLElement>;
+  disabled?: boolean;
 }
 
 const Drawn = ({
@@ -67,6 +69,7 @@ const Drawn = ({
   partClicks,
   onClickDelay,
   anchorRef,
+  disabled,
 }: DrawnProps): ReactElement => {
   const [nodeColor] = Color.useValues([color]);
   const paints = Custom.usePaints(spec, value, { nodeColor, builtIn });
@@ -99,6 +102,7 @@ const Drawn = ({
       className={className}
       onClick={onClick}
       onClickDelay={onClickDelay}
+      disabled={disabled}
     >
       {drawing}
     </Toggle.Button>
@@ -185,6 +189,10 @@ export const Node = ({
     sinks: bind.sinks(commandChannels),
     stalenessTimeout,
   });
+  const { deleted, watchers } = Deleted.useAny([
+    ...bind.channels(states),
+    ...commandChannels,
+  ]);
   const value = bind.values(states, readings);
   const missing = bind.missing(states, readings);
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -221,53 +229,59 @@ export const Node = ({
   const unmatched = Custom.useUnmatched(bound.spec, value);
   const scaleResize = Grid.useScaleResize(config, onConfigChange);
   return (
-    <Grid.Grid
-      editable={selected}
-      nodeKey={nodeKey}
-      orientation={orientation}
-      onRotate={onConfigChange}
-      {...scaleResize}
-    >
-      <Label.Label config={label} onChange={onConfigChange} />
-      <Control.State
-        config={config.control ?? DEFAULT_CONTROL}
-        channels={commandChannels}
-        onChange={onConfigChange}
-      />
-      <Indicator.Slot
-        stale={bind.stale(states, readings)}
-        unknown={missing.size > 0 || unmatched}
-      />
-      <Drawn
-        {...bound}
-        color={color}
+    <>
+      {watchers}
+      <Grid.Grid
+        editable={selected}
+        nodeKey={nodeKey}
         orientation={orientation}
-        scale={scale}
-        motionDisabled={motionDisabled}
-        value={value}
-        readings={bind.stateReadings(states, readings)}
-        onClick={onClick}
-        partClicks={partClicks}
-        onClickDelay={config.onClickDelay}
-        anchorRef={setAnchor}
-      />
-      <Dialog.Frame
-        visible={promptVisible}
-        onVisibleChange={setPromptVisible}
-        anchor={anchor}
+        onRotate={onConfigChange}
+        {...scaleResize}
       >
-        {/* The prompt mounts for each open, so a typed value never outlives it. */}
-        {promptVisible && request != null && (
-          <Prompt
-            request={request}
-            onSend={(s) => {
-              setPromptVisible(false);
-              send(s);
-            }}
-          />
-        )}
-      </Dialog.Frame>
-    </Grid.Grid>
+        <Label.Label config={label} onChange={onConfigChange} />
+        <Control.State
+          config={config.control ?? DEFAULT_CONTROL}
+          channels={commandChannels}
+          deleted={deleted}
+          onChange={onConfigChange}
+        />
+        <Indicator.Slot
+          stale={bind.stale(states, readings)}
+          unknown={missing.size > 0 || unmatched}
+        />
+        {deleted && <Deleted.Item />}
+        <Drawn
+          {...bound}
+          color={color}
+          orientation={orientation}
+          scale={scale}
+          motionDisabled={motionDisabled}
+          value={value}
+          readings={bind.stateReadings(states, readings)}
+          onClick={onClick}
+          partClicks={deleted ? undefined : partClicks}
+          onClickDelay={config.onClickDelay}
+          anchorRef={setAnchor}
+          disabled={deleted}
+        />
+        <Dialog.Frame
+          visible={promptVisible}
+          onVisibleChange={setPromptVisible}
+          anchor={anchor}
+        >
+          {/* The prompt mounts for each open, so a typed value never outlives it. */}
+          {promptVisible && request != null && (
+            <Prompt
+              request={request}
+              onSend={(s) => {
+                setPromptVisible(false);
+                send(s);
+              }}
+            />
+          )}
+        </Dialog.Frame>
+      </Grid.Grid>
+    </>
   );
 };
 
