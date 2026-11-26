@@ -531,9 +531,9 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   Arc, Pluto, and the `Controller` declare their groups and never pay for it.
 - **Handoff**: When control of a channel moves to another session, the old holder
   commits its samples of the channel first, and then the claim moves. The channel starts
-  a new segment on the new holder's clock. Cesium makes a spare segment file for the old
-  holder's clock off the frame path, so a move back opens no file on the frame path, and
-  the orphan pass removes a spare that no Create names (RFC 0121 §5.5).
+  a new segment on the new holder's clock, in a file made at the new holder's open.
+  Cesium makes a spare file on the old holder's clock off the frame path, so a move back
+  opens no file on the frame path either (RFC 0121 §5.8).
 - **Control writers**: Arc tasks, the Python `Controller`, and Pluto control declare one
   group per command channel, so each command channel has its own clock. Pluto and the
   `Controller` stamp on arrival. Authority covers channels only, so two command channels
