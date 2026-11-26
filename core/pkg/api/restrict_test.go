@@ -231,6 +231,15 @@ var _ = Describe("Restrict", func() {
 				},
 			}
 		}
+		// planOf returns the plan of the delete of ch that the plan route answers.
+		planOf := func() impact.Plan {
+			GinkgoHelper()
+			var p impact.Plan
+			Expect(post(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
+				Change: deleteOf(),
+			}, &p)).To(Succeed())
+			return p
+		}
 
 		DescribeTable("Should not name the holder",
 			func(send func() error) {
@@ -255,10 +264,7 @@ var _ = Describe("Restrict", func() {
 				}, nil)
 			}),
 			Entry("on an apply with the token of its plan", func() error {
-				var p impact.Plan
-				Expect(post(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
-					Change: deleteOf(),
-				}, &p)).To(Succeed())
+				p := planOf()
 				Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
 				return post(token, "/api/v1/impact/apply", apiimpact.ApplyRequest{
 					Change: deleteOf(),
