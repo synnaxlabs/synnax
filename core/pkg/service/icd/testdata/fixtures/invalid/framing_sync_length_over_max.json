@@ -37,6 +37,7 @@
     "framing": {
       "type": "sync",
       "sync": "qg==",
+      "length_offset": 1,
       "max_length": 16
     }
   }

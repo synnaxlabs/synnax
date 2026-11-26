@@ -1,0 +1,45 @@
+{
+  "description": "Sync frames of at most 4 bytes cannot hold their 5-byte header.",
+  "codec_rejects": true,
+  "problems": [
+    {
+      "path": "framing.max_length",
+      "message": "the maximum length of 4 is less than the 5 bytes of the header"
+    }
+  ],
+  "icd": {
+    "key": "00000000-0000-4000-8000-000000000fff",
+    "name": "Fixture",
+    "messages": [
+      {
+        "key": "00000000-0000-4000-8000-000000000001",
+        "name": "M",
+        "payload": {
+          "format": "binary",
+          "fields": [
+            {
+              "key": "00000000-0000-4000-8000-00000000000a",
+              "name": "a",
+              "scale": 1,
+              "offset": 0,
+              "units": "",
+              "multiplex_values": [],
+              "start_bit": 0,
+              "bit_length": 8,
+              "byte_order": "little_endian",
+              "kind": "unsigned"
+            }
+          ],
+          "length": 4
+        }
+      }
+    ],
+    "framing": {
+      "type": "sync",
+      "sync": "qg==",
+      "length_offset": 1,
+      "length_size": "four",
+      "max_length": 4
+    }
+  }
+}
