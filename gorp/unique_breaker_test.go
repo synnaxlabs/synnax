@@ -221,6 +221,10 @@ var _ = Describe("UniqueIndex breaker", func() {
 				held:    make(chan struct{}),
 				release: make(chan struct{}),
 			}
+			var releaseOnce sync.Once
+			release := func() { releaseOnce.Do(func() { close(gated.release) }) }
+			// A failed spec still releases the gate, so the populate ends.
+			DeferCleanup(release)
 			openDB(gated)
 			openFolders(ctx)
 			sibling := func(f breakerFailing) (uniqueSibling, bool) {
@@ -249,7 +253,7 @@ var _ = Describe("UniqueIndex breaker", func() {
 			}()
 			var err error
 			Eventually(written).WithTimeout(5 * time.Second).Should(Receive(&err))
-			close(gated.release)
+			release()
 			Eventually(opened).Should(Receive(MatchError(ContainSubstring(
 				"table failing already has an index",
 			))))

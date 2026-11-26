@@ -1003,6 +1003,9 @@ func takenName(err error) string {
 	return ""
 }
 
+// nameTaken returns err as a validation error at the name of the channel at position i
+// of a request when err is a clash of the name index, and returns err unchanged
+// otherwise.
 func nameTaken(err error, i int) error {
 	var clash gorp.UniqueError
 	if !errors.As(err, &clash) || clash.Space != nameSpace {

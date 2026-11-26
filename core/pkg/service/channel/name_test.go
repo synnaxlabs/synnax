@@ -10,6 +10,8 @@
 package channel_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
@@ -95,10 +97,33 @@ var _ = Describe("Unique names", Ordered, func() {
 		ctx SpecContext,
 	) {
 		chs := []channel.Channel{virtual("pt_batch_01"), virtual("pt_batch_01")}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		err := db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).CreateMany(ctx, &chs)
-		})).To(MatchError(
+		})
+		Expect(err).To(MatchError(
 			ContainSubstring("duplicate channel name 'pt_batch_01' in request"),
+		))
+		pathErr, ok := errors.AsType[validate.PathError](err)
+		Expect(ok).To(BeTrue())
+		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+	})
+
+	It("Should refuse a rename of two channels to one name", func(ctx SpecContext) {
+		a, b := virtual(UniqueChannelName()), virtual(UniqueChannelName())
+		Expect(create(ctx, &a)).To(Succeed())
+		Expect(create(ctx, &b)).To(Succeed())
+		name := UniqueChannelName()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).RenameMany(
+				ctx,
+				[]channel.Key{a.Key(), b.Key()},
+				[]string{name, name},
+				false,
+			)
+		})).To(MatchError(
+			ContainSubstring(
+				fmt.Sprintf("duplicate channel name '%s' in request", name),
+			),
 		))
 	})
 
@@ -133,6 +158,28 @@ var _ = Describe("Unique names", Ordered, func() {
 			dup := index(first.Name)
 			Expect(create(ctx, &dup)).To(MatchError(ContainSubstring("already exists")))
 		}
+		next := index(UniqueChannelName())
+		Expect(create(ctx, &next)).To(Succeed())
+		Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
+	})
+
+	It("Should use up no channel keys on a create that repeats a name", func(
+		ctx SpecContext,
+	) {
+		index := func(name string) channel.Channel {
+			return channel.Channel{
+				Name:     name,
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+		}
+		first := index(UniqueChannelName())
+		Expect(create(ctx, &first)).To(Succeed())
+		name := UniqueChannelName()
+		chs := []channel.Channel{index(name), index(name)}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).CreateMany(ctx, &chs)
+		})).To(MatchError(ContainSubstring("duplicate channel name")))
 		next := index(UniqueChannelName())
 		Expect(create(ctx, &next)).To(Succeed())
 		Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
