@@ -322,17 +322,52 @@ TEST(Sender, ReturnsTransportErrorOfCommand) {
     ASSERT_EQ(t.writes, (Writes{"1,2\n", "1,2\n"}));
 }
 
-/// @brief it should return the error of the transport on a period, and send the message
-/// at the next send.
-TEST(Sender, KeepsTargetDueAfterTransportError) {
+/// @brief it should return the error of the transport on a period, and send again at
+/// the next period.
+TEST(Sender, ReturnsTransportErrorOfPeriod) {
     Steady clock;
     auto s = ASSERT_NIL_P(periodic().create(false, clock.clock()));
     Wire t;
     t.err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed");
-    ASSERT_OCCURRED_AS_P(s.send(t), transport::UNREACHABLE_ERROR);
+    ASSERT_EQ(
+        ASSERT_OCCURRED_AS_P(s.send(t), transport::UNREACHABLE_ERROR),
+        100 * x::telem::MILLISECOND
+    );
     t.err = x::errors::NIL;
     ASSERT_NIL_P(s.send(t));
+    ASSERT_TRUE(t.writes.empty());
+    clock.time += std::chrono::milliseconds(100);
+    ASSERT_NIL_P(s.send(t));
     ASSERT_EQ(t.writes, (Writes{"0,5\n"}));
+}
+
+/// @brief it should move a target that fails to its next period, send the due targets
+/// after it, and return the first error.
+TEST(Sender, AdvancesTargetThatFails) {
+    Steady clock;
+    Config a{synnax::icd::TextPayload{}, synnax::icd::FixedFraming{.length = 2}};
+    a.bind_text(0, 2, 123);
+    a.target.period = 100 * x::telem::MILLISECOND;
+    const auto b = periodic();
+    auto s = ASSERT_NIL_P(
+        Sender::create(
+            {a.target, b.target},
+            {a.ic, b.ic},
+            b.channels,
+            false,
+            clock.clock()
+        )
+    );
+    Wire t;
+    ASSERT_EQ(
+        ASSERT_OCCURRED_AS_P(s.send(t), x::errors::VALIDATION),
+        100 * x::telem::MILLISECOND
+    );
+    ASSERT_EQ(t.writes, (Writes{"0,5\n"}));
+    ASSERT_EQ(ASSERT_NIL_P(s.send(t)), 100 * x::telem::MILLISECOND);
+    clock.time += std::chrono::milliseconds(100);
+    ASSERT_OCCURRED_AS_P(s.send(t), x::errors::VALIDATION);
+    ASSERT_EQ(t.writes, (Writes{"0,5\n", "0,5\n"}));
 }
 
 /// @brief it should refuse a target whose ICD does not exist.

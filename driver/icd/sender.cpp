@@ -103,20 +103,21 @@ Sender::write(transport::Transport &t, const x::telem::Frame &fr) {
 
 std::pair<x::telem::TimeSpan, x::errors::Error> Sender::send(transport::Transport &t) {
     auto wait = x::telem::TimeSpan::max();
+    x::errors::Error error;
     const auto now = this->now();
     for (auto &d: this->deliveries) {
         if (!d.period.has_value()) continue;
         const auto period = d.period->chrono();
         if (now >= d.next) {
-            if (auto err = d.writer.encode([&](const std::span<const std::uint8_t> p) {
-                    return this->deliver(t, d, p);
-                }))
-                return {x::telem::TimeSpan::ZERO(), err};
+            const auto err = d.writer.encode([&](const auto p) {
+                return this->deliver(t, d, p);
+            });
+            if (!error) error = err;
             d.next += period;
             if (d.next <= now) d.next = now + period;
         }
         wait = std::min(wait, x::telem::TimeSpan(d.next - now));
     }
-    return {wait, x::errors::NIL};
+    return {wait, error};
 }
 }

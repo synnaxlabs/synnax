@@ -85,11 +85,11 @@ public:
     std::pair<common::Warning, x::errors::Error>
     write(transport::Transport &t, const x::telem::Frame &fr);
 
-    /// @brief sends on t the message of each target with a period that is due. After a
-    /// stall, a target sends one message, not one for each period it missed.
+    /// @brief sends on t the message of each target with a period that is due. A target
+    /// that fails waits for its next period, as one that sends does. After a stall, a
+    /// target sends one message, not one for each period it missed.
     /// @returns the wait until the next message is due, or TimeSpan::max() when no
-    /// target has a period, and the error of t, of an encode, or of the framing, after
-    /// which the target that failed stays due.
+    /// target has a period, and the first error of t, of an encode, or of the framing.
     std::pair<x::telem::TimeSpan, x::errors::Error> send(transport::Transport &t);
 };
 }
