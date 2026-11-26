@@ -10,7 +10,6 @@
 package channel
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -552,46 +551,36 @@ func addPosition(positions set.Set[int], at int) set.Set[int] {
 	return positions
 }
 
-// resetStoredNames resets each channel whose name exists to its stored record.
+// resetStoredNames resets each channel whose name exists to its stored record. Of
+// channels in two folders with the name, it takes the one with the highest key, which a
+// v0.62 Core retrieved and Arc binds the name to.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
 	reset set.Set[int],
 ) (set.Set[int], error) {
-	names := Names(channels)
-	normal := NormalizeNames(names)
+	names := NormalizeNames(Names(channels))
 	var existing []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(lo.Uniq(slices.Concat(names, normal))...)).
+		Where(MatchNames(names...)).
 		Entries(&existing).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	exact, normalPositions := positions(names), positions(normal)
-	// A record whose name the request holds exactly wins over one that holds its NFC.
-	slices.SortStableFunc(existing, func(a, b Channel) int {
-		_, aExact := exact[a.Name]
-		_, bExact := exact[b.Name]
-		return cmp.Compare(boolRank(bExact), boolRank(aExact))
-	})
+	last := make(map[string]Channel, len(existing))
 	for _, e := range existing {
-		at, ok := exact[e.Name]
-		if !ok {
-			at = normalPositions[e.Name]
+		if prev, ok := last[e.Name]; !ok || e.Key() > prev.Key() {
+			last[e.Name] = e
 		}
-		if !reset.Contains(at[0]) {
-			channels[at[0]] = e
-			reset = addPosition(reset, at[0])
+	}
+	at := positions(names)
+	for name, e := range last {
+		if i := at[name][0]; !reset.Contains(i) {
+			channels[i] = e
+			reset = addPosition(reset, i)
 		}
 	}
 	return reset, nil
-}
-
-func boolRank(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 // synthesizeIndexes returns a new index channel for each calculated channel without
@@ -1093,13 +1082,15 @@ func (w Writer) rename(
 					)
 			}
 			// A stored name that the rule refuses stays writable while a rename keeps
-			// it.
-			if next := renameMap[c.Key()]; next != c.Name {
+			// it, in any normal form.
+			next := renameMap[c.Key()]
+			if next != validate.NormalizeName(c.Name) {
 				if err := checkNameRule(next, *w.svc.cfg.ValidateNames); err != nil {
-					return Channel{}, err
+					i := strconv.Itoa(slices.Index(keys, c.Key()))
+					return Channel{}, validate.PathedError(err, i, "name")
 				}
-				c.Name = next
 			}
+			c.Name = next
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
