@@ -732,7 +732,7 @@ const Content = ({
           }
         />
       );
-  } else if (whole && listing?.truncated === false && activeSample.data.missing)
+  } else if (whole && activeSample.data.missing)
     pane = (
       <Status.Summary
         center

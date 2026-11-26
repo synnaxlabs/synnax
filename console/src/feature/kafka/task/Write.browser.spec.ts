@@ -443,11 +443,11 @@ describe("Kafka Write form", () => {
     expect(dialog.queryByText("Topic does not exist yet")).toBeNull();
   });
 
-  it("should show the read error of a typed topic past the end of a full list", async () => {
+  it("should show the records of a typed topic past the end of a full list", async () => {
     const { dev } = await renderWrite();
     const { answered } = await answerScan(dev, "sample", {
       browse: { data: { ...browseOf(), truncated: true } },
-      sample: { data: { topics: [MISSING], truncated: false } },
+      sample: { data: sampleOfTopic(TOPIC, createShape(["pump-1"], 2, "/speed")) },
     });
     const dialog = await clickAddTargets();
     fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
@@ -455,8 +455,7 @@ describe("Kafka Write form", () => {
     });
     fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
     await answered;
-    await dialog.findByText("Read no records");
-    dialog.getByText(MISSING.error);
+    await dialog.findByText("/speed");
     expect(dialog.queryByText("Topic does not exist yet")).toBeNull();
   });
 
@@ -469,16 +468,17 @@ describe("Kafka Write form", () => {
       const browse = await awaitCommand(streamer, scan.key, "browse");
       const { answered } = await answerNextCommand(client, scan, {
         type: "sample",
-        data: { topics: [MISSING], truncated: false },
+        data: sampleOfTopic(TOPIC, createShape(["pump-1"], 2, "/speed")),
       });
       fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
         target: { value: TOPIC },
       });
       fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
       await answered;
-      await dialog.findByText("Read no records");
+      await dialog.findByText("/speed");
       await answerCommand(client, scan, browse, { data: browseOf() });
-      await dialog.findByText("Topic does not exist yet");
+      await dialog.findByText("1 topic");
+      dialog.getByText("/speed");
     } finally {
       streamer.close();
     }
