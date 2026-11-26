@@ -480,6 +480,7 @@ export class Joins {
         sampleOffset: sub.sampleOffset,
         timeRange: s.timeRange.isZero ? s.timeRange : new TimeRange(start, end),
         alignment: s.alignment,
+        clock: s.clock,
       }),
     ];
   }

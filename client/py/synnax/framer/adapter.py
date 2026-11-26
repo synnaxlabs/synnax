@@ -123,11 +123,17 @@ class ReadFrameAdapter:
         ]
         fr.series = [s for _, s in items]
         fr.names.update(self._names)
-        fr.indexes.update(
-            (k, s.clock)
-            for k, s in items
-            if isinstance(k, channel.Key) and k in self._paired and s.clock != 0
-        )
+        indexes: dict[channel.Key, int] = {}
+        for k, s in items:
+            if not isinstance(k, channel.Key) or k not in self._paired or s.clock == 0:
+                continue
+            held = indexes.setdefault(k, s.clock)
+            if held != s.clock:
+                raise ValueError(
+                    f"channel {k} has series on clocks {held} and {s.clock}, so its "
+                    "samples do not pair with one index"
+                )
+        fr.indexes.update(indexes)
         return fr
 
 

@@ -509,4 +509,24 @@ TEST(SubscriptionTest, QueueStaysAtCapacity) {
         count++;
     ASSERT_EQ(count, 3);
 }
+/// @brief it should stamp the clock on the part of a frame that a subscriber takes.
+TEST(BusTest, PublishStampsTheClockOnThePartOfAFrameASubscriberTakes) {
+    Bus bus;
+    synnax::channel::Channel index;
+    index.key = 1;
+    index.is_index = true;
+    synnax::channel::Channel data;
+    data.key = 2;
+    data.index = 1;
+    bus.register_channels({index, data});
+    auto sub = bus.subscribe({2});
+    x::telem::Frame frame;
+    frame.emplace(1, x::telem::Series(1.0f));
+    frame.emplace(2, x::telem::Series(1.0f));
+    bus.publish(frame);
+    x::telem::Frame r;
+    ASSERT_TRUE(sub->try_pop(r));
+    ASSERT_EQ(r.size(), 1);
+    EXPECT_EQ(r.series->at(0).clock, 1);
+}
 }

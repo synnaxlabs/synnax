@@ -2072,4 +2072,85 @@ TEST(BoolChannelTest, NormalizesNonzeroWriteToOne) {
     EXPECT_EQ(f.read_bool(4), 1);
 }
 
+/// @brief builds an on node over channel ch, read from state s.
+class OnUnderTest {
+public:
+    ir::IR ir;
+    std::unique_ptr<runtime::state::State> s;
+    std::unique_ptr<runtime::node::Node> node;
+
+    OnUnderTest(
+        const uint32_t ch,
+        const std::vector<runtime::state::ChannelDigest> &channels,
+        const types::Kind kind = types::Kind::F32
+    ) {
+        types::Param output_param;
+        output_param.name = ir::default_output_param;
+        output_param.type.kind = kind;
+        types::Param channel_config;
+        channel_config.name = "channel";
+        channel_config.type.kind = types::Kind::U32;
+        channel_config.value = ch;
+        ir::Node ir_node;
+        ir_node.key = "source";
+        ir_node.type = "on";
+        ir_node.outputs.push_back(output_param);
+        ir_node.inputs.push_back(channel_config);
+        this->ir.nodes.push_back(ir_node);
+        runtime::state::Config cfg{.ir = this->ir, .channels = channels};
+        this->s = std::make_unique<runtime::state::State>(
+            cfg,
+            runtime::errors::noop_handler
+        );
+        channels::Module module(nullptr, nullptr);
+        this->node = ASSERT_NIL_P(module.create(
+            runtime::node::Config(
+                this->ir,
+                this->ir.nodes[0],
+                ASSERT_NIL_P(this->s->node("source"))
+            )
+        ));
+    }
+
+    /// @brief returns the sizes of the output data and time after one next.
+    std::pair<size_t, size_t> next(bool &changed) {
+        changed = false;
+        auto ctx = make_context(&changed);
+        EXPECT_NIL(this->node->next(ctx));
+        auto checker = ASSERT_NIL_P(this->s->node("source"));
+        if (!changed) return {0, 0};
+        return {checker.output(0)->size(), checker.output_time(0)->size()};
+    }
+};
+
+::x::telem::Series aligned_at(::x::telem::Series s, const uint64_t a) {
+    s.alignment = ::x::telem::Alignment(a);
+    return s;
+}
+
+/// @brief it should give a series with no clock synthetic time when another series of
+/// the channel is on a clock with time.
+TEST(OnClockTest, StampsASeriesWithNoClockBesideAClockedSeries) {
+    OnUnderTest on(10, {{10, ::x::telem::FLOAT32_T, 11}});
+    ::x::telem::Frame frame(3);
+    frame.emplace(
+        11,
+        clocked(aligned_at(::x::telem::Series(std::vector<int64_t>{100}), 0), 11)
+    );
+    frame.emplace(
+        10,
+        clocked(aligned_at(::x::telem::Series(std::vector<float>{1}), 0), 11)
+    );
+    frame.emplace(10, aligned_at(::x::telem::Series(std::vector<float>{2}), 1));
+    on.s->ingest(frame);
+    bool changed = false;
+    const auto [d1, t1] = on.next(changed);
+    ASSERT_TRUE(changed);
+    EXPECT_EQ(d1, 1);
+    EXPECT_EQ(t1, 1);
+    const auto [d2, t2] = on.next(changed);
+    ASSERT_TRUE(changed);
+    EXPECT_EQ(d2, 1);
+    EXPECT_EQ(t2, 1);
+}
 }
