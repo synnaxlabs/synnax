@@ -723,9 +723,9 @@ func (c *Codec) sortSeries(src framer.Frame, currState *state) frameDiff {
 // checkLength returns an error when the length field of s, a sample count or a byte
 // size for a variable type, cannot hold its length.
 func checkLength(key channel.Key, s telem.Series) error {
-	n, unit := uint64(s.Len()), "samples"
-	if s.DataType.IsVariable() {
-		n, unit = uint64(s.Size()), "bytes"
+	n, unit := uint64(s.Size()), "bytes"
+	if !s.DataType.IsVariable() {
+		n, unit = uint64(s.Len()), "samples"
 	}
 	if n <= math.MaxUint32 {
 		return nil
