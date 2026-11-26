@@ -28,6 +28,10 @@ var _ = Describe("Escape", func() {
 		Entry("operator", "operator", "operator_"),
 	)
 
+	It("Should append an underscore to Windows SDK macro names", func() {
+		Expect(keywords.Escape("PARITY_NONE")).To(Equal("PARITY_NONE_"))
+	})
+
 	DescribeTable("should return the name unchanged for non-reserved words",
 		func(input string) {
 			Expect(keywords.Escape(input)).To(Equal(input))
