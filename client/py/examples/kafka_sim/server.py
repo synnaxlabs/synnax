@@ -33,11 +33,12 @@ import math
 import signal
 import tempfile
 import time
+from collections.abc import Collection
 from pathlib import Path
 from typing import override
 from uuid import uuid4
 
-from confluent_kafka import KafkaException, Producer
+from confluent_kafka import Consumer, KafkaException, Producer, TopicPartition
 from confluent_kafka.admin import AdminClient
 
 import synnax as sy
@@ -105,6 +106,19 @@ async def run_server(
         await broker.stop()
 
 
+def _serves(consumer: Consumer, topic: str, partitions: Collection[int]) -> bool:
+    """Report whether topic has partitions, and the broker answers an offset query on
+    each of them."""
+    if len(partitions) == 0:
+        return False
+    try:
+        for p in partitions:
+            consumer.get_watermark_offsets(TopicPartition(topic, p), timeout=1)
+    except KafkaException:
+        return False
+    return True
+
+
 class KafkaSim(DeviceSim):
     """The mock Kafka plant as a device simulator. It needs a POSIX host."""
 
@@ -127,31 +141,37 @@ class KafkaSim(DeviceSim):
 
     @override
     def _wait_for_ready(self) -> None:
-        """Poll until the broker lists each topic of the plant with a leader."""
+        """Poll until the broker lists each topic of the plant, and answers an offset
+        query on each topic that it holds, from an earlier run too. The broker names a
+        leader of a partition before it serves the partition."""
         super()._wait_for_ready()
-        admin = AdminClient({"bootstrap.servers": f"{self.host}:{self.port}"})
+        servers = f"{self.host}:{self.port}"
+        admin = AdminClient({"bootstrap.servers": servers})
+        consumer = Consumer({"bootstrap.servers": servers, "group.id": str(uuid4())})
         timer = sy.Timer()
-        while True:
-            if self.process is None or not self.process.is_alive():
-                raise RuntimeError("Server process died during startup")
-            try:
-                topics = admin.list_topics(timeout=1).topics
-            except KafkaException:
-                topics = {}
-            if all(
-                (topic := topics.get(name)) is not None
-                and topic.error is None
-                and len(topic.partitions) > 0
-                and all(p.leader >= 0 for p in topic.partitions.values())
-                for name in TOPICS
-            ):
-                return
-            if timer.elapsed() > self.startup_timeout:
-                raise RuntimeError(
-                    f"Kafka broker on {self.host}:{self.port} has no leader for each "
-                    f"of {TOPICS} after {self.startup_timeout}"
-                )
-            sy.sleep(0.1)
+        try:
+            while True:
+                if self.process is None or not self.process.is_alive():
+                    raise RuntimeError("Server process died during startup")
+                try:
+                    topics = admin.list_topics(timeout=1).topics
+                except KafkaException:
+                    topics = {}
+                if all(name in topics for name in TOPICS) and all(
+                    topic.error is None
+                    and _serves(consumer, name, topic.partitions.keys())
+                    for name, topic in topics.items()
+                    if not name.startswith("__")
+                ):
+                    return
+                if timer.elapsed() > self.startup_timeout:
+                    raise RuntimeError(
+                        f"Kafka broker on {servers} does not serve each of its topics "
+                        f"after {self.startup_timeout}"
+                    )
+                sy.sleep(0.1)
+        finally:
+            consumer.close()
 
     @override
     async def _run_server(self) -> None:
