@@ -102,6 +102,19 @@ var _ = Describe("Discover", func() {
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
 	}
 
+	// expectUnreachable checks that stat answers a command to a cluster whose only seed
+	// broker, at addr, does not answer.
+	expectUnreachable := func(stat task.Status, addr string) {
+		GinkgoHelper()
+		Expect(stat.Variant).To(Equal(status.VariantError))
+		Expect(stat.Message).To(Equal("Failed to reach broker"))
+		Expect(stat.Description).To(And(
+			HavePrefix("Could not reach "+addr+": "),
+			HaveSuffix(" Check the address and port of each broker, and that the "+
+				"network of the Core can reach them."),
+		))
+	}
+
 	Describe("Browse", func() {
 		// browse returns the topics of the cluster of props.
 		browse := func(ctx context.Context, props kafka.Properties) []browsedTopic {
@@ -282,13 +295,7 @@ var _ = Describe("Discover", func() {
 				addr := closedAddress()
 				dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
 				stat := command(ctx, "browse", map[string]any{"device": dev.Key}, nil)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to reach broker"))
-				Expect(stat.Description).To(And(
-					HavePrefix("Could not reach "+addr+": "),
-					HaveSuffix(" Check the address and port of each broker, and that "+
-						"the network of the Core can reach them."),
-				))
+				expectUnreachable(stat, addr)
 			},
 		)
 	})
@@ -474,6 +481,18 @@ var _ = Describe("Discover", func() {
 				stat.Description,
 			).To(Equal("topics: must be non-empty: validation error"))
 		})
+
+		It("Should name the broker of a cluster that it cannot reach",
+			func(ctx SpecContext) {
+				addr := closedAddress()
+				dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
+				stat := command(ctx, "sample", map[string]any{
+					"device": dev.Key,
+					"topics": []string{"plant"},
+				}, nil)
+				expectUnreachable(stat, addr)
+			},
+		)
 
 		It("Should reject a sample that repeats a topic", func(ctx SpecContext) {
 			topic := uniqueTopic()

@@ -94,14 +94,6 @@ type browseResult struct {
 // browseTopics returns the topics of the cluster of props, other than internal topics,
 // sorted by name. It fails as the connect test does when no seed broker answers.
 func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error) {
-	// The client does not name the brokers that it cannot reach.
-	conn, _, err := dialSeed(ctx, props.Brokers)
-	if err != nil {
-		return nil, err
-	}
-	if err = conn.Close(); err != nil {
-		return nil, err
-	}
 	cl, err := openClient(props)
 	if err != nil {
 		return nil, err
@@ -110,7 +102,7 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	adm := kadm.NewClient(cl)
 	details, err := describeTopics(ctx, cl, nil)
 	if err != nil {
-		return nil, err
+		return nil, reachFailure(ctx, props.Brokers, err)
 	}
 	topics, readable := listTopics(details)
 	if len(readable) == 0 {
@@ -432,7 +424,7 @@ func sampleTopics(
 	adm := kadm.NewClient(cl)
 	details, err := describeTopics(ctx, cl, args.Topics)
 	if err != nil {
-		return sampleResult{}, err
+		return sampleResult{}, reachFailure(ctx, props.Brokers, err)
 	}
 	res, readable := newSampleResult(args.Topics, details)
 	if len(readable) == 0 {
