@@ -115,7 +115,7 @@ type DataTypeCode uint8
 //go:generate go tool stringer -type=DataTypeCode
 
 const (
-	// DataTypeCodeUnknown is never valid on the wire.
+	// DataTypeCodeUnknown is no data type. Every codec refuses it on the wire.
 	DataTypeCodeUnknown DataTypeCode = 0
 	// DataTypeCodeUint8 is the code of uint8.
 	DataTypeCodeUint8 DataTypeCode = 1
