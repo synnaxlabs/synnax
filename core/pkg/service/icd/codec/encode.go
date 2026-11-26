@@ -573,9 +573,9 @@ func quote(s string) ([]byte, error) {
 // Encode appends the document of samples to dst. samples holds one sample for each
 // binding, in binding order. A variable-density sample is its data alone, without a
 // length, and a nil sample writes the default of its field. Encode returns an error
-// wrapping validate.ErrValidation when a field cannot hold its sample or the sample is
-// outside the field's min and max, and an error when a nil sample's field has no
-// default.
+// wrapping validate.ErrValidation when a field cannot hold its sample or the sample,
+// rounded for an integer field, is outside the field's min and max, and an error when
+// a nil sample's field has no default.
 func (e *JSONEncoder) Encode(dst []byte, samples [][]byte) ([]byte, error) {
 	e.slots.samples = samples
 	out, err := e.template.Append(dst, &e.slots)
@@ -642,20 +642,21 @@ func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	dst = dst[:start]
+	if f.kind == payload.KindInteger || f.kind == payload.KindUnsigned {
+		return f.appendInteger(dst, n)
+	}
 	v := n.Float64()
 	if err = icd.CheckRange(f.base, f.atLimit(v)); err != nil {
 		return nil, err
 	}
-	dst = dst[:start]
 	switch f.kind {
 	case payload.KindFloat:
 		return xjson.AppendFloat(dst, (v-f.offset)/f.scale)
-	case payload.KindInteger, payload.KindUnsigned:
-		return f.appendInteger(dst, n)
 	case payload.KindBoolean:
-		return appendBoolean(dst, n.Float64())
-	case payload.KindString, payload.KindTimestamp, payload.KindJSON,
-		payload.KindUUID, payload.KindBytes:
+		return appendBoolean(dst, v)
+	case payload.KindInteger, payload.KindUnsigned, payload.KindString,
+		payload.KindTimestamp, payload.KindJSON, payload.KindUUID, payload.KindBytes:
 	}
 	panic(fmt.Sprintf("codec: %s fields are never converted", f.kind))
 }
@@ -673,21 +674,31 @@ func appendBoolean(dst []byte, v float64) ([]byte, error) {
 	)
 }
 
-// appendInteger appends n, unscaled and rounded to the nearest integer, to dst.
+// appendInteger appends n, unscaled and rounded to the nearest integer, to dst. It
+// checks the limits of f against the value that the rounded integer decodes to.
 func (f *encodeField) appendInteger(dst []byte, n xjson.ParsedNumber) ([]byte, error) {
-	if !f.scaled {
-		if v, ok := n.Int64(); ok && f.kind == payload.KindInteger {
-			return strconv.AppendInt(dst, v, 10), nil
-		}
-		if v, ok := n.Uint64(); ok && f.kind == payload.KindUnsigned {
-			return strconv.AppendUint(dst, v, 10), nil
-		}
-	}
 	v := n.Float64()
 	if f.scaled {
 		v = (v - f.offset) / f.scale
 	}
 	r := math.Round(v)
+	var err error
+	if f.scaled {
+		err = icd.CheckRawRange(f.base, r)
+	} else {
+		err = icd.CheckRange(f.base, r)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !f.scaled {
+		if i, ok := n.Int64(); ok && f.kind == payload.KindInteger {
+			return strconv.AppendInt(dst, i, 10), nil
+		}
+		if u, ok := n.Uint64(); ok && f.kind == payload.KindUnsigned {
+			return strconv.AppendUint(dst, u, 10), nil
+		}
+	}
 	switch {
 	case f.kind == payload.KindInteger && r >= math.MinInt64 && r < math.MaxInt64:
 		return strconv.AppendInt(dst, int64(r), 10), nil
