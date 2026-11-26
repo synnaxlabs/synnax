@@ -184,14 +184,18 @@ std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
 State::read_series(const types::ChannelKey key) {
     auto [data, ok] = this->read_value(key);
     if (!ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    const auto index_it = this->indexes.find(key);
-    if (index_it == this->indexes.end() || index_it->second == 0) {
-        const bool has_data = !data.series.empty();
-        return {std::move(data), x::telem::MultiSeries{}, has_data};
+    std::vector<std::uint32_t> clocks;
+    for (const auto &s: data.series)
+        if (s.clock != 0 && std::ranges::find(clocks, s.clock) == clocks.end())
+            clocks.push_back(s.clock);
+    x::telem::MultiSeries time;
+    for (const auto clock: clocks) {
+        auto [t, time_ok] = this->read_value(clock);
+        if (!time_ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
+        for (auto &s: t.series)
+            time.series.push_back(std::move(s));
     }
-    auto [time, time_ok] = this->read_value(index_it->second);
-    if (!time_ok) return {x::telem::MultiSeries{}, x::telem::MultiSeries{}, false};
-    const bool has_data = !data.series.empty() && !time.series.empty();
+    const bool has_data = !data.series.empty();
     return {std::move(data), std::move(time), has_data};
 }
 

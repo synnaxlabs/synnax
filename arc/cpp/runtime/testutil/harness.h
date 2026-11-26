@@ -204,6 +204,9 @@ public:
     ) {
         timestamps.alignment = this->alignment;
         data.alignment = this->alignment;
+        // The Core and the bus stamp both series with the clock of the index.
+        timestamps.clock = index_key;
+        data.clock = index_key;
         this->alignment += x::telem::Alignment(data.size());
         x::telem::Frame fr(2);
         fr.emplace(index_key, std::move(timestamps));
