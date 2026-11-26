@@ -571,16 +571,6 @@ var _ = Describe("Index Persist", Ordered, func() {
 				It(
 					"Should keep a delete queued behind a failed write",
 					func(ctx SpecContext) {
-						prepared := make(chan struct{}, 1)
-						Expect(db.Close()).To(Succeed())
-						db = MustOpen(domain.Open(domain.Config{
-							FS:              hooked,
-							FileSize:        telem.Megabyte,
-							Instrumentation: PanicLogger(),
-							OnHistoryChange: func(context.Context, telem.TimeRange) {
-								prepared <- struct{}{}
-							},
-						}))
 						Expect(writeSecond(ctx, 1)).To(Succeed())
 						Expect(writeSecond(ctx, 2)).To(Succeed())
 						entered, release := failFirstWrite(ctx)
@@ -597,7 +587,9 @@ var _ = Describe("Index Persist", Ordered, func() {
 							)
 							deleted <- err
 						}()
-						Eventually(prepared).Should(Receive())
+						// The delete waits behind the failed write until release.
+						Consistently(deleted, 200*time.Millisecond).
+							ShouldNot(Receive())
 						release()
 						Eventually(failed).Should(Receive(MatchError(ErrFault)))
 						Eventually(deleted).Should(Receive(BeNil()))

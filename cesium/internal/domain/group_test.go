@@ -420,23 +420,20 @@ var _ = Describe("Group", func() {
 				Expect(changes).To(Equal([]telem.TimeRange{seconds(10, 20)}))
 			})
 
-		It("Should report the change of an unpublished commit that a delete reaches",
+		It("Should return the change of an unpublished commit that a delete reaches",
 			func(ctx SpecContext) {
 				var g domain.Group
 				commitIn(ctx, openWriter(ctx, 30), 40, nil)
 				commitIn(ctx, openWriter(ctx, 10), 20, &g)
-				MustSucceed(db.Delete(
+				Expect(db.Delete(
 					ctx,
 					seconds(10, 20),
 					fixedOffset(0),
 					fixedOffset(1),
-				))
-				Expect(changes).To(Equal([]telem.TimeRange{
-					seconds(10, 20),
-					seconds(10, 20),
-				}))
+				)).To(Equal([]telem.TimeRange{seconds(10, 20), seconds(10, 20)}))
+				Expect(changes).To(BeEmpty())
 				g.Publish()
-				Expect(changes).To(HaveLen(2))
+				Expect(changes).To(BeEmpty())
 			})
 	})
 })
