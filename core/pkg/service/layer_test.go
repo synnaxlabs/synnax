@@ -47,6 +47,7 @@ import (
 	httpv4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	kafkav0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	kafkav1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
@@ -127,6 +128,49 @@ func markApplied(ctx context.Context, db *gorp.DB, namespace string, keys ...str
 			)
 		}),
 	})).To(Succeed())
+}
+
+// readConfigV4 returns an HTTP read config with one field, as Core v0.61 and v0.62
+// export it.
+func readConfigV4() map[string]any {
+	return map[string]any{"endpoints": []any{map[string]any{
+		"key":    "ep",
+		"method": "GET",
+		"path":   "/level",
+		"fields": []any{map[string]any{
+			"key":       "level",
+			"pointer":   "/level",
+			"data_type": "float64",
+		}},
+	}}}
+}
+
+// storeReadConfigV4 stores config as the HTTP read v4 config of key, as Core v0.61 and
+// v0.62 leave it.
+func storeReadConfigV4(
+	ctx context.Context,
+	db *gorp.DB,
+	key uuid.UUID,
+	config map[string]any,
+) error {
+	GinkgoHelper()
+	markApplied(
+		ctx,
+		db,
+		types.Name[httpv4.ReadConfig](),
+		httpv3.Migration.Key(),
+		httpv4.Migration.Key(),
+	)
+	b, err := json.Marshal(config)
+	if err != nil {
+		return err
+	}
+	var cfg httpv4.ReadConfig
+	if err = json.Unmarshal(b, &cfg); err != nil {
+		return err
+	}
+	cfg.Key = key
+	return gorp.WrapWriter[uuid.UUID, httpv4.ReadConfig](db).Set(ctx, cfg)
 }
 
 var _ = Describe("Layer", func() {
@@ -572,47 +616,39 @@ var _ = Describe("Layer", func() {
 		),
 	)
 
-	It("Should move the fields of a stored HTTP read config into an ICD in one start",
-		func(ctx SpecContext) {
+	DescribeTable(
+		"Should move the fields of a stored or imported HTTP read config into an ICD",
+		func(
+			ctx SpecContext,
+			lastApplied string,
+			version imex.Version,
+			config map[string]any,
+			store func(context.Context, *gorp.DB, uuid.UUID, map[string]any) error,
+		) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
-			markTaskChain(ctx, db, "v62_task_drop_snapshot")
-			markApplied(
-				ctx,
-				db,
-				types.Name[httpv4.ReadConfig](),
-				httpv3.Migration.Key(),
-				httpv4.Migration.Key(),
-			)
+			markTaskChain(ctx, db, lastApplied)
 			key := uuid.New()
-			Expect(gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
-				ctx,
-				taskv4.Task{Key: key, Name: "Tank farm", Type: "http_read"},
-			)).To(Succeed())
-			Expect(gorp.WrapWriter[uuid.UUID, httpv4.ReadConfig](db).Set(
-				ctx,
-				httpv4.ReadConfig{Key: key, Endpoints: []httpv4.ReadEndpoint{{
-					Key:    "ep",
-					Method: "GET",
-					Path:   "/level",
-					Fields: []httpv4.ReadField{{
-						Key:      "level",
-						Pointer:  "/level",
-						DataType: telem.Float64T,
-					}},
-				}}},
-			)).To(Succeed())
+			Expect(store(ctx, db, key, config)).To(Succeed())
 			layer := MustOpen(svctestutil.OpenLayer(ctx, node))
+			Expect(db.Get(taskv3.QuarantineKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
 			Expect(db.Get(httpv5.StagedFieldsKVKey(key))).Error().
 				To(MatchError(query.ErrNotFound))
-			var cfg http.ReadConfig
-			Expect(gorp.NewRetrieve[uuid.UUID, http.ReadConfig]().
-				Where(gorp.MatchKeys[uuid.UUID, http.ReadConfig](key)).
-				Entry(&cfg).
-				Exec(ctx, db)).To(Succeed())
-			Expect(cfg.Endpoints).To(HaveLen(1))
-			ep := cfg.Endpoints[0]
-			Expect(ep.Fields).To(HaveLen(1))
+			read := func(key uuid.UUID) http.ReadEndpoint {
+				GinkgoHelper()
+				var cfg http.ReadConfig
+				Expect(gorp.NewRetrieve[uuid.UUID, http.ReadConfig]().
+					Where(gorp.MatchKeys[uuid.UUID, http.ReadConfig](key)).
+					Entry(&cfg).
+					Exec(ctx, db)).To(Succeed())
+				Expect(cfg.Endpoints).To(HaveLen(1))
+				ep := cfg.Endpoints[0]
+				Expect(ep.Fields).To(HaveLen(1))
+				Expect(ep.Messages).To(HaveLen(1))
+				return ep
+			}
+			ep := read(key)
 			var ic icd.ICD
 			Expect(layer.ICD.NewRetrieve().
 				Where(icd.MatchKeys(*ep.ICD)).
@@ -621,6 +657,7 @@ var _ = Describe("Layer", func() {
 			Expect(ic.Name).To(Equal("Tank farm"))
 			Expect(ic.Messages).To(HaveLen(1))
 			Expect(ic.Messages[0].Name).To(Equal("GET /level"))
+			Expect(ep.Messages[0].Message).To(Equal(ic.Messages[0].Key))
 			var upgraded task.Task
 			Expect(layer.Task.NewRetrieve().
 				Where(task.MatchKeys(key)).
@@ -628,7 +665,96 @@ var _ = Describe("Layer", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(upgraded.ConfigHash).
 				To(Equal(MustSucceed(layer.HTTP.Read.Hash(ctx, db, key))))
+			By("Importing an export of the config")
+			var env imex.Envelope
+			Expect(json.Unmarshal(MustSucceed(json.Marshal(lo.Assign(
+				map[string]any{
+					"version": version,
+					"type":    "http_read",
+					"name":    "Tank farm",
+				},
+				config,
+			))), &env)).To(Succeed())
+			var id resource.ID
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				id, err = layer.ImEx.Import(ctx, tx, env, imex.ImportOptions{})
+				return err
+			})).To(Succeed())
+			read(uuid.MustParse(id.Key))
 		},
+		Entry(
+			"from Core v0.56, which stored the config in task v2",
+			"v56_task_uuid_key",
+			imex.Version(0),
+			map[string]any{"endpoints": []any{map[string]any{
+				"key":    "ep",
+				"method": "GET",
+				"path":   "/level",
+				"fields": []any{map[string]any{
+					"enabled":  true,
+					"key":      "level",
+					"pointer":  "/level",
+					"dataType": "float64",
+				}},
+			}}},
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				config map[string]any,
+			) error {
+				return gorp.WrapWriter[taskv2.Key, taskv2.Task](
+					db,
+				).Set(ctx, taskv2.Task{
+					Key:    key,
+					Name:   "Tank farm",
+					Type:   "http_read",
+					Config: config,
+				})
+			},
+		),
+		Entry(
+			"from Core v0.61, which stored task v3 and HTTP read v4",
+			"v61_task_range",
+			imex.Version(4),
+			readConfigV4(),
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				config map[string]any,
+			) error {
+				GinkgoHelper()
+				if err := gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(
+					ctx,
+					taskv3.Task{Key: key, Name: "Tank farm", Type: "http_read"},
+				); err != nil {
+					return err
+				}
+				return storeReadConfigV4(ctx, db, key, config)
+			},
+		),
+		Entry(
+			"from Core v0.62, which stored task v4 and HTTP read v4",
+			"v62_task_drop_snapshot",
+			imex.Version(4),
+			readConfigV4(),
+			func(
+				ctx context.Context,
+				db *gorp.DB,
+				key uuid.UUID,
+				config map[string]any,
+			) error {
+				GinkgoHelper()
+				if err := gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
+					ctx,
+					taskv4.Task{Key: key, Name: "Tank farm", Type: "http_read"},
+				); err != nil {
+					return err
+				}
+				return storeReadConfigV4(ctx, db, key, config)
+			},
+		),
 	)
 
 	DescribeTable(
@@ -1378,6 +1504,17 @@ var _ = Describe("LayerConfig", func() {
 			})),
 		}
 		Expect(cfg.Validate()).To(MatchError(ContainSubstring("secrets_key: required")))
+	})
+
+	It("Should not open with no storage layer", func(ctx SpecContext) {
+		node := testutil.NewNode(ctx)
+		Expect(service.OpenLayer(ctx, service.LayerConfig{
+			Distribution: node.Layer,
+			Security: MustSucceed(security.NewProvider(security.ProviderConfig{
+				Insecure: new(true),
+			})),
+			SecretsKey: secret.EncryptionKey{1},
+		})).Error().To(MatchError(ContainSubstring("storage: must be non-nil")))
 	})
 
 	It("Should reject an unknown auth method", func() {

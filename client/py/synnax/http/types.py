@@ -119,6 +119,9 @@ class ReadTask(
         props = dict(dev.properties)
         read = device.ensure_object(props, "read")
         for ep in self.config.endpoints:
+            # An endpoint that reads ICD messages binds its channels in the messages.
+            if len(ep.fields) == 0:
+                continue
             channels: dict[str, JsonValue] = {}
             index_key = 0
             for field in ep.fields:

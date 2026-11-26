@@ -95,7 +95,6 @@ cc_test(
         "//driver/http/errors",
         "//driver/http/testutil",
         "//x/cpp/defer",
-        "//x/cpp/payload",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",

@@ -39,7 +39,7 @@ var _ = Describe("Node", func() {
 			Leaseholder: 1,
 		}}))[0]
 		Expect(ch.Key().Lease()).To(Equal(node.Key(1)))
-		chs := MustSucceed(n.Storage.TS.RetrieveChannels(ctx, ch.Key().StorageKey()))
+		chs := MustSucceed(n.Storage.TS.RetrieveChannels(ctx, uint32(ch.Key())))
 		Expect(chs).To(HaveLen(1))
 	})
 
