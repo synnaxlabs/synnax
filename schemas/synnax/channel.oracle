@@ -9,6 +9,7 @@
 
 import "schemas/synnax/group"
 import "schemas/synnax/node"
+import "schemas/synnax/resource"
 import "schemas/synnax/status"
 import "schemas/x/control"
 import "schemas/x/filter"
@@ -145,11 +146,6 @@ Channel struct {
             channels can have a policy of shared concurrency.
         """
     }
-    internal    bool                {
-        @doc value """
-            is true if this is a system channel hidden from normal user queries.
-        """
-    }
     operations  Operation[]         {
         @doc value "contains aggregation operations applied to this channel's data."
     }
@@ -193,19 +189,19 @@ Channel struct {
     }
 
     @cpp hand
-    @doc value     """
+    @doc value       """
         is an internal representation of a channel containing all storage and
         cluster-routing metadata. This type is used internally by the server; clients
         should use APIChannel instead.
     """
     @go marshal
     @go migrate
-    @go output     "core/pkg/service/channel"
+    @go output       "core/pkg/service/channel"
     @pb
     @py hand
-    @resource type "channel"
-    @retrieve
-    @retrieve key  "Key"
+    @resource type   "channel"
+    @retrieve custom
+    @retrieve key    "Key"
     @ts hand
 }
 
@@ -286,6 +282,16 @@ APIChannel struct {
         @cpp omit
         @doc value "is the group the channel sits in, if any."
     }
+    uses        Use[]?              {
+        @cpp omit
+        @doc value """
+            are the records that read or write the channel and that the caller can
+            retrieve, filled only when a retrieve request asks for them. A task config
+            shows as its task.
+        """
+        @include
+        @pb omit
+    }
 
     @cpp name      "Channel"
     @create
@@ -300,6 +306,34 @@ APIChannel struct {
     @py name       "Payload"
     @resource type "channel"
     @ts name       "Payload"
+}
+
+Direction enum {
+    read  = "read" {
+        @doc value "is a record that reads the channel."
+    }
+    write = "write" {
+        @doc value "is a record that writes the channel."
+    }
+
+    @cpp omit
+    @doc value "is how a record uses a channel."
+    @go output "core/pkg/service/channel"
+    @pb omit
+}
+
+Use struct {
+    id        resource.ID {
+        @doc value "is the record that uses the channel."
+    }
+    direction Direction   {
+        @doc value "is how the record uses the channel."
+    }
+
+    @cpp omit
+    @doc value "is a record that reads or writes a channel."
+    @go output "core/pkg/api/channel"
+    @pb omit
 }
 
 CountLimitedResponse struct {
@@ -322,7 +356,9 @@ Where filter Channel {
     leaseholder
     data_type
     is_index
-    internal
+    internal    filter.Bool {
+        @doc value "matches the built-in channels, or every other channel when false."
+    }
     virtual     bool        {
         @doc value """
             matches virtual channels that are not calculated, or every other channel

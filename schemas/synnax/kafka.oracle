@@ -116,7 +116,10 @@ ReadField struct {
         @doc value "is the name given to the channel when the task creates it."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax channel the extracted value is written to."
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref direction write
+        @ref kind      use
+        @ref on_delete restrict
     }
     pointer     string = "" {
         @doc value "is the JSON Pointer to the value within the record value."
@@ -193,6 +196,7 @@ WriteChannel struct {
     }
     channel     channel.Key = 0 {
         @doc value     "is the Synnax channel whose samples are produced."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }

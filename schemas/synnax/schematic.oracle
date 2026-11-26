@@ -279,16 +279,22 @@ ControlStateConfig struct {
 
 ToggleConfig struct extends LabeledConfig, ScaledConfig, StalenessConfig {
     state_channel   channel.Key = 0 {
-        @doc value """
+        @doc value     """
             is the channel whose value drives the symbol's active state, or 0 when none
             does.
         """
+        @ref direction read
+        @ref kind      use
+        @ref on_delete weak
     }
     command_channel channel.Key = 0 {
-        @doc value """
+        @doc value     """
             is the channel actuation commands are written to, or 0 when the symbol
             writes to none.
         """
+        @ref direction write
+        @ref kind      use
+        @ref on_delete weak
     }
     control         ControlStateConfig = {} {
         @doc value "is the control state display configuration."
@@ -455,10 +461,13 @@ NodeConfig union on variant {
             @validate min 0
         }
         command_channel channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel button presses are written to, or 0 when the symbol
                 writes to none.
             """
+            @ref direction write
+            @ref kind      use
+            @ref on_delete weak
         }
         mode            ButtonMode = ButtonModeFire {
             @doc value "is the actuation behavior of the button."
@@ -531,16 +540,22 @@ NodeConfig union on variant {
             @doc value "is the rendered size preset of the input."
         }
         command_channel channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel submitted values are written to, or 0 when the symbol
                 writes to none.
             """
+            @ref direction write
+            @ref kind      use
+            @ref on_delete weak
         }
         state_channel   channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel that reports the value the device holds, or 0 when none
                 does.
             """
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         dimensions      spatial.Dimensions = { width = 0, height = 0 } {
             @doc value """
@@ -577,10 +592,13 @@ NodeConfig union on variant {
     }
     light extends LabeledConfig, ScaledConfig, StalenessConfig {
         channel      channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel whose value drives the light's on state, or 0 when none
                 does.
             """
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         threshold    spatial.Bounds? {
             @doc value "is the value range within which the light is considered on."
@@ -672,16 +690,22 @@ NodeConfig union on variant {
             @doc value "is the rendered size preset of the select."
         }
         command_channel channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel the selected value is written to, or 0 when the symbol
                 writes to none.
             """
+            @ref direction write
+            @ref kind      use
+            @ref on_delete weak
         }
         state_channel   channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel that reports the state the device holds, or 0 when none
                 does.
             """
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         fill_color      color.Ref?         {
             @doc value """
@@ -739,16 +763,22 @@ NodeConfig union on variant {
             @doc value "is the rendered size preset of the setpoint."
         }
         command_channel channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel submitted setpoints are written to, or 0 when the symbol
                 writes to none.
             """
+            @ref direction write
+            @ref kind      use
+            @ref on_delete weak
         }
         state_channel   channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel that reports the value the device holds, or 0 when none
                 does.
             """
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         dimensions      spatial.Dimensions = { width = 0, height = 0 } {
             @doc value """
@@ -788,10 +818,13 @@ NodeConfig union on variant {
     }
     state_indicator extends LabeledConfig, StalenessConfig {
         channel      channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel whose value selects the displayed state, or 0 when none
                 does.
             """
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         stroke_color color.Ref?       {
             @doc value """
@@ -832,10 +865,13 @@ NodeConfig union on variant {
             @validate min 1
         }
         channel      channel.Key = 0 {
-            @doc value """
+            @doc value     """
                 is the channel whose string value the symbol displays, or 0 when it
                 displays none.
             """
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         level        text.Level = text.LevelH4 {
             @doc value "is the typography level of the displayed text."
@@ -1459,9 +1495,12 @@ StalenessConfig struct {
 
 NumericTelemConfig struct {
     channel         channel.Key = 0 {
-        @doc value """
+        @doc value     """
             is the channel whose value the symbol displays, or 0 when it displays none.
         """
+        @ref direction read
+        @ref kind      use
+        @ref on_delete weak
     }
     rolling_average uint16 = 1 {
         @doc value    "is the number of samples in the rolling average."
@@ -1541,10 +1580,16 @@ StateBinding struct extends FormatConfig {
 Source union on type {
     channel {
         key     channel.Key? {
-            @doc value "is the channel that the state reads."
+            @doc value     "is the channel that the state reads."
+            @ref direction read
+            @ref kind      use
+            @ref on_delete weak
         }
         command channel.Key? {
-            @doc value "is the channel that the commands of the state write to."
+            @doc value     "is the channel that the commands of the state write to."
+            @ref direction write
+            @ref kind      use
+            @ref on_delete weak
         }
 
         @doc value "reads a channel."
@@ -1566,7 +1611,10 @@ CommandBinding struct {
         @doc value "is the key of the command of the symbol."
     }
     channel channel.Key {
-        @doc value "is the channel that the command writes to."
+        @doc value     "is the channel that the command writes to."
+        @ref direction write
+        @ref kind      use
+        @ref on_delete weak
     }
 
     @doc value  "is the channel of a command that has no state."

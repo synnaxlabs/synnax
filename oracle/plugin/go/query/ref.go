@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/oracle/domain/key"
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	plugindomain "github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
@@ -43,13 +44,15 @@ type refInfo struct {
 	ElemGoType string
 	// Tables are the names of the tables the reference may point at.
 	Tables []string
-	// OnDelete is "Restrict", "Cascade", "Detach", or "Inline".
+	// OnDelete is "Restrict", "Cascade", "Detach", "Inline", or "Weak".
 	OnDelete string
 	// TargetGoType is the Go type of the entries of the one target table, set when
 	// OnDelete is "Inline".
 	TargetGoType string
 	// Kind is "Place" or "Use".
 	Kind string
+	// Direction is how the holder uses its targets, which the reference's Tag holds.
+	Direction refdomain.Direction
 	// Unique is true when at most one entry may hold each target.
 	Unique bool
 	// Acyclic is true when a chain of references within the table may not return to
@@ -70,6 +73,12 @@ type refInfo struct {
 
 // HoldsNone reports whether an entry can hold no target through the field.
 func (r refInfo) HoldsNone() bool { return r.IsOptional || r.IsSlice || r.Zero != "" }
+
+// Detaches reports whether the reference gets a Detach: a Detach reference, or a Weak
+// one that can hold no target, whose Detach clears a key that was never issued.
+func (r refInfo) Detaches() bool {
+	return r.OnDelete == "Detach" || (r.OnDelete == "Weak" && r.HoldsNone())
+}
 
 // ZeroOperand returns Zero in a form that can follow == in Go.
 func (r refInfo) ZeroOperand() string {
@@ -147,6 +156,7 @@ var onDeleteNames = map[string]string{
 	"cascade":  "Cascade",
 	"detach":   "Detach",
 	"inline":   "Inline",
+	"weak":     "Weak",
 }
 
 var kindNames = map[string]string{"place": "Place", "use": "Use"}
@@ -193,10 +203,17 @@ func newResourceTypes(table *resolution.Table) resourceTypes {
 }
 
 // refExpressions are the expressions a @ref domain may hold.
-var refExpressions = set.New("on_delete", "kind", "types", "unique", "acyclic")
+var refExpressions = set.New(
+	"on_delete",
+	"kind",
+	"types",
+	"unique",
+	"acyclic",
+	"direction",
+)
 
 // singleRefExpressions are the @ref expressions that hold one value.
-var singleRefExpressions = set.New("on_delete", "kind")
+var singleRefExpressions = set.New("on_delete", "kind", "direction")
 
 // flagRefExpressions are the @ref expressions that hold no value.
 var flagRefExpressions = set.New("unique", "acyclic")
@@ -230,7 +247,12 @@ func extractRef(
 	if problem != "" {
 		return fail("%s", problem)
 	}
+	direction, err := refdomain.DirectionOf(field)
+	if err != nil {
+		return refInfo{}, errors.Wrap(err, typ.QualifiedName)
+	}
 	info := newRefInfo(field, elem, onDelete, kind, isSlice)
+	info.Direction = direction
 	if !info.IsOptional && !isSlice && isZeroDefault(field.Default) {
 		info.Zero = zeroValue(elem, table, func() string {
 			return r.ResolveTypeRef(elem, ctx)
@@ -297,7 +319,7 @@ func refMode(field resolution.Field) (onDelete, kind, problem string) {
 		"on_delete",
 	)]
 	if !ok {
-		return "", "", "needs on_delete cascade, restrict, detach, or inline"
+		return "", "", "needs on_delete cascade, restrict, detach, inline, or weak"
 	}
 	kind, ok = kindNames[plugindomain.GetStringFromField(field, "ref", "kind")]
 	if !ok {

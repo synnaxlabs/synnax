@@ -36,6 +36,7 @@ import (
 	"strings"
 	"text/template"
 
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -253,7 +254,7 @@ func newTarget(
 func referenceNames(typ resolution.Type, table *resolution.Table) []string {
 	var names []string
 	for _, f := range resolution.UnifiedFields(typ, table) {
-		if domain.HasDomainFromField(f, "ref") {
+		if refdomain.Declares(f) {
 			names = append(names, casing.FieldSnake(f.Name))
 		}
 	}

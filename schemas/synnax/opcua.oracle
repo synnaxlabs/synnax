@@ -46,6 +46,7 @@ BaseChannel struct {
 ReadChannel struct extends BaseChannel {
     channel  channel.Key = 0 {
         @doc value     "is the Synnax channel that samples are written to."
+        @ref direction write
         @ref kind      use
         @ref on_delete restrict
     }
@@ -66,6 +67,7 @@ ReadChannel struct extends BaseChannel {
 WriteChannel struct extends BaseChannel {
     cmd_channel channel.Key = 0 {
         @doc value     "is the Synnax channel commands are read from."
+        @ref direction read
         @ref kind      use
         @ref on_delete restrict
     }

@@ -53,6 +53,8 @@ type DraggableElement = ReactElement<{
 export interface ItemProps {
   itemKey: string;
   location: location.Location;
+  /** fixed keeps the item in its location, so an edit cannot drag it. */
+  fixed?: boolean;
   onLocationChange?: (loc: location.Location) => void;
   children: DraggableElement;
 }
@@ -234,17 +236,21 @@ const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
         isDragging && CSS.B("dragging"),
       )}
       onDragLeave={() => setDraggingOver(false)}
-      empty
+      gap="tiny"
       {...dropProps}
     >
-      {filtered.map(({ children, itemKey }) => (
+      {filtered.map(({ children, itemKey, fixed }) => (
         <Fragment key={itemKey}>
-          {cloneElement(children, {
-            draggable: true,
-            onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, itemKey),
-            onDragEnd,
-            style: { ...children.props.style, cursor: "grab" },
-          })}
+          {fixed === true
+            ? cloneElement(children, {
+                style: { ...children.props.style, cursor: "default" },
+              })
+            : cloneElement(children, {
+                draggable: true,
+                onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, itemKey),
+                onDragEnd,
+                style: { ...children.props.style, cursor: "grab" },
+              })}
         </Fragment>
       ))}
     </Flex.Box>
@@ -258,7 +264,7 @@ const StaticSlot = ({ loc, items }: SlotProps) => {
     <Flex.Box
       direction={location.direction(loc)}
       className={CSS.cls(CSS.BE("grid", "item"), CSS.loc(loc))}
-      empty
+      gap="tiny"
     >
       {filtered.map(({ children, itemKey }) => (
         <Fragment key={itemKey}>{children}</Fragment>

@@ -114,6 +114,34 @@ func probe[K Key, V comparable](
 	return lo.Uniq(append(keys, committing...)), nil
 }
 
+// probeEach returns, at each position of values, the keys that hold that value, as
+// probe does for one value, under one wait and one lock of store. It returns nil when
+// no key holds any of values.
+func probeEach[K Key, V comparable](
+	ctx context.Context,
+	store *index.Multi[*txState, K, V],
+	snap Snapshot,
+	values []V,
+) ([][]K, error) {
+	if err := store.Wait(ctx); err != nil {
+		return nil, err
+	}
+	committing := store.CommittingEach(values)
+	keys, err := store.GetEach(scopeOf(snap), values)
+	if err != nil || committing == nil {
+		return keys, err
+	}
+	if keys == nil {
+		keys = make([][]K, len(values))
+	}
+	for i := range keys {
+		if len(committing[i]) > 0 {
+			keys[i] = lo.Uniq(append(keys[i], committing[i]...))
+		}
+	}
+	return keys, nil
+}
+
 // indexFilter returns a Filter matching entries that hold any of values. The filter
 // resolves its keys through store at Exec time. When store failed to populate, it
 // leaves its keys unbounded, so holds checks every entry.

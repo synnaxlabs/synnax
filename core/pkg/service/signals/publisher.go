@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -131,6 +130,31 @@ func (c ObservablePublisherConfig) Override(
 	return c
 }
 
+// declareObserved declares the set and delete channels of cfg that have a name, fills
+// them with the stored channels, and returns their keys.
+func (p *Provider) declareObserved(
+	ctx context.Context,
+	cfg *ObservablePublisherConfig,
+) (channel.Keys, error) {
+	var channels []*channel.Channel
+	for _, ch := range []*channel.Channel{&cfg.SetChannel, &cfg.DeleteChannel} {
+		if ch.Name != "" {
+			channels = append(channels, ch)
+		}
+	}
+	declared := make([]channel.Channel, len(channels))
+	for i, ch := range channels {
+		declared[i] = *ch
+	}
+	if err := p.declare(ctx, declared); err != nil {
+		return nil, err
+	}
+	for i, ch := range channels {
+		*ch = declared[i]
+	}
+	return channel.KeysFromChannels(declared), nil
+}
+
 // PublishFromObservable opens a new Signals pipeline that subscribes to the configured
 // ObservableSubscriber and writes changes to the configured channels. The returned
 // io.Closer can be used to close the pipeline when done.
@@ -143,11 +167,10 @@ func (p *Provider) PublishFromObservable(
 		return nil, err
 	}
 	setEnabled := cfg.SetChannel.Name != ""
-	channels, err := p.createChannels(ctx, &cfg)
+	keys, err := p.declareObserved(ctx, &cfg)
 	if err != nil {
 		return nil, err
 	}
-	keys := channel.KeysFromChannels(channels)
 	w, err := p.cfg.Framer.NewStreamWriter(ctx, framer.WriterConfig{
 		Keys:        keys,
 		Start:       telem.Now(),
@@ -188,40 +211,6 @@ func (p *Provider) PublishFromObservable(
 		confluence.RecoverWithErrOnPanic(),
 	)
 	return signal.NewHardShutdown(sCtx, cancel), nil
-}
-
-// createChannels creates the set and delete channels that cfg names, retrieving any
-// that already exist by name, and binds the stored channels back into cfg.
-func (p *Provider) createChannels(
-	ctx context.Context,
-	cfg *ObservablePublisherConfig,
-) ([]channel.Channel, error) {
-	var channels []channel.Channel
-	if cfg.SetChannel.Name != "" {
-		channels = append(channels, cfg.SetChannel)
-	}
-	if cfg.DeleteChannel.Name != "" {
-		channels = append(channels, cfg.DeleteChannel)
-	}
-	if err := p.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return p.cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&channels,
-			channel.RetrieveIfNameExists(),
-			channel.OverwriteIfNameExistsAndDifferentProperties(),
-		)
-	}); err != nil {
-		return nil, err
-	}
-	for _, ch := range channels {
-		switch ch.Name {
-		case cfg.SetChannel.Name:
-			cfg.SetChannel = ch
-		case cfg.DeleteChannel.Name:
-			cfg.DeleteChannel = ch
-		}
-	}
-	return channels, nil
 }
 
 // encodeChanges returns a transform that encodes changes as a write to set and del. It

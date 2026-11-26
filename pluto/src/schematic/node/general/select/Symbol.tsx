@@ -12,6 +12,7 @@ import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Options } from "@/schematic/node/common/options";
@@ -53,6 +54,7 @@ export const Symbol = ({
     options,
     stalenessTimeout,
   });
+  const deleted = Deleted.useEither(stateChannel, commandChannel);
   const readback = options.find((o) => o.key === readbackKey);
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
@@ -64,16 +66,18 @@ export const Symbol = ({
         config={control}
         channels={[commandChannel]}
         onChange={onConfigChange}
+        deleted={deleted}
       >
         {stale ? <Staleness.Badge /> : null}
       </Control.State>
+      {deleted && <Deleted.Item />}
       <Label.Label config={label} onChange={onConfigChange} />
       <Primitive.Select
         value={target}
         onSend={set}
         fillColor={resolve(fillColor)}
         orientation={orientation}
-        disabled={disabled}
+        disabled={disabled || deleted}
         options={options}
         size={size}
         inlineSize={inlineSize}

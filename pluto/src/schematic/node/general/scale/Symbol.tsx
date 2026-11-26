@@ -13,8 +13,10 @@ import type { schematic } from "@synnaxlabs/client";
 import { box, dimensions, location, xy } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { CSS } from "@/css";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
@@ -48,6 +50,7 @@ export const Symbol = ({
     box: box.construct(position ?? xy.ZERO, outer),
     direction: dir,
   });
+  const deleted = Channel.useDeleted(channel);
   // The bar has one orientation per axis, so rotating it toggles between them.
   const handleRotate = (): void =>
     onConfigChange({
@@ -72,6 +75,7 @@ export const Symbol = ({
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Indicator.Slot stale={stale} />
+      {deleted && <Deleted.Item />}
       <div style={outer} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );

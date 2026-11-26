@@ -38,6 +38,9 @@ const (
 	// Inline keeps the referencing entry and replaces the deleted target in it with a
 	// value read from the target.
 	Inline
+	// Weak keeps the referencing entry and the deleted target in it. A write checks
+	// only that the target table issued the key, through TableConfig.Issued.
+	Weak
 )
 
 // Target identifies an entry by the name of its table and its key in the text form
@@ -80,9 +83,9 @@ func FormatKey[K Key](k K) string { return key.Format(k) }
 
 // Reference is a field of E that holds the keys of other entries. Register it on a
 // Table through TableConfig.References. Gorp then checks on every write that each
-// target exists, keeps an index from each target to the entries that hold it, and
-// applies its OnDelete when a target is deleted. All of it runs in the caller's
-// transaction.
+// target exists (for Weak, that it was issued), keeps an index from each target to the
+// entries that hold it, and applies its OnDelete when a target is deleted. All of it
+// runs in the caller's transaction.
 //
 // KeyReference and TargetReference implement Reference. Integrity holds within one
 // node only.
@@ -125,6 +128,7 @@ type referenceSpec struct {
 	kind     LinkKind
 	unique   bool
 	acyclic  bool
+	tag      uint8
 	// textKeys is true when a target names its key as caller-provided text, which a
 	// write must check against the text form of its table's keys.
 	textKeys bool
@@ -151,8 +155,8 @@ func (s *referenceSpec) validate(table string, targets bool) error {
 	v.Ternary("targets", !targets, "must be non-nil")
 	v.Ternary(
 		"on_delete",
-		s.onDelete < Restrict || s.onDelete > Inline,
-		"must be Restrict, Cascade, Detach, or Inline",
+		s.onDelete < Restrict || s.onDelete > Weak,
+		"must be Restrict, Cascade, Detach, Inline, or Weak",
 	)
 	v.Ternary("kind", s.kind < Place || s.kind > Use, "must be Place or Use")
 	v.Ternary(
@@ -261,6 +265,8 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	// Acyclic rejects a write that makes a chain of references within the table return
 	// to its start. Table must be the table the reference is registered on.
 	Acyclic bool
+	// Tag is a value that Gorp stores and returns in each Dependent, and never reads.
+	Tag uint8
 	// Check returns an error when e may not hold target. A write of e calls it for each
 	// target that e holds after the write, and fails with its error under Name.
 	Check func(ctx context.Context, tx Tx, e *E, target T) error
@@ -285,6 +291,7 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 		kind:        cfg.Kind,
 		unique:      cfg.Unique,
 		acyclic:     cfg.Acyclic,
+		tag:         cfg.Tag,
 		detachable:  cfg.Detach != nil,
 		inlinable:   cfg.Inline != nil,
 		targetsOf:   cfg.Targets,
@@ -341,6 +348,8 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	// Acyclic rejects a write that makes a chain of references within the table return
 	// to its start. The table must be one of Tables.
 	Acyclic bool
+	// Tag is a value that Gorp stores and returns in each Dependent, and never reads.
+	Tag uint8
 }
 
 // TargetReference is a Reference to the entries of any of several tables, which holds
@@ -362,6 +371,7 @@ func NewTargetReference[K Key, E Entry[K]](
 		kind:        cfg.Kind,
 		unique:      cfg.Unique,
 		acyclic:     cfg.Acyclic,
+		tag:         cfg.Tag,
 		textKeys:    true,
 		detachable:  cfg.Detach != nil,
 		targetsOf:   cfg.Targets,
@@ -626,21 +636,75 @@ func (r *reference[K, E, T]) FilterAs[F Entry[K]](targets ...T) Filter[K, F] {
 func (r *reference[K, E, T]) dependents(
 	ctx context.Context,
 	snap Snapshot,
+	targets []Target,
+	typed any,
+) ([][]string, error) {
+	values, positions := r.values(targets, typed)
+	keys, err := probeEach(ctx, r.store, snap, values)
+	if err != nil || keys == nil {
+		return nil, err
+	}
+	out := make([][]string, len(targets))
+	formatted := make(map[K]string)
+	for j, held := range keys {
+		if len(held) == 0 {
+			continue
+		}
+		texts := make([]string, len(held))
+		for i, k := range held {
+			text, ok := formatted[k]
+			if !ok {
+				text = FormatKey(k)
+				formatted[k] = text
+			}
+			texts[i] = text
+		}
+		at := j
+		if positions != nil {
+			at = positions[j]
+		}
+		out[at] = texts
+	}
+	return out, nil
+}
+
+// dependentsOf implements registeredReference.
+func (r *reference[K, E, T]) dependentsOf(
+	ctx context.Context,
+	snap Snapshot,
 	target Target,
 ) ([]string, error) {
 	t, ok := r.parse(target)
 	if !ok {
 		return nil, nil
 	}
-	keys, err := probe(ctx, r.store, snap, []T{t})
-	if err != nil {
+	keys, err := probeEach(ctx, r.store, snap, []T{t})
+	if err != nil || keys == nil {
 		return nil, err
 	}
-	out := make([]string, len(keys))
-	for i, k := range keys {
+	out := make([]string, len(keys[0]))
+	for i, k := range keys[0] {
 		out[i] = FormatKey(k)
 	}
 	return out, nil
+}
+
+// values returns the values of targets that the reference can hold, and the position
+// in targets of each, or nil positions when every target is a value. It reads typed
+// when it holds values of type T.
+func (r *reference[K, E, T]) values(targets []Target, typed any) ([]T, []int) {
+	if vs, ok := typed.([]T); ok {
+		return vs, nil
+	}
+	values := make([]T, 0, len(targets))
+	positions := make([]int, 0, len(targets))
+	for i, target := range targets {
+		if t, ok := r.parse(target); ok {
+			values = append(values, t)
+			positions = append(positions, i)
+		}
+	}
+	return values, positions
 }
 
 func (r *reference[K, E, T]) ownerTable() string       { return r.owner }
@@ -648,6 +712,7 @@ func (r *reference[K, E, T]) referenceName() string    { return r.name }
 func (r *reference[K, E, T]) index() int               { return r.position }
 func (r *reference[K, E, T]) onDeletePolicy() OnDelete { return r.onDelete }
 func (r *reference[K, E, T]) linkKind() LinkKind       { return r.kind }
+func (r *reference[K, E, T]) referenceTag() uint8      { return r.tag }
 func (r *reference[K, E, T]) targetTables() []string   { return r.tables }
 
 // check implements Reference.
@@ -679,6 +744,20 @@ func (r *reference[K, E, T]) check(
 		}
 		if r.textKeys && !table.canonical(target.Key) {
 			return false, r.fieldErr("%q is not a key of %s", target.Key, target.Table)
+		}
+		if r.onDelete == Weak {
+			issued, err := table.issued(target.Key)
+			if err != nil {
+				return false, err
+			}
+			if !issued {
+				return false, r.fieldErr(
+					"%s %s was never issued",
+					target.Table,
+					target.Key,
+				)
+			}
+			continue
 		}
 		ok, err := table.exists(ctx, tx, target.Key)
 		if err != nil {

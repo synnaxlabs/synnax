@@ -11,6 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { type FC, memo, type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import type { Primitive } from "@/schematic/node/common/primitive";
@@ -57,6 +58,7 @@ export const createToggle = <C extends ToggleConfig>(
       sink,
       stalenessTimeout,
     });
+    const deleted = Deleted.useEither(stateChannel, commandChannel);
     const scaleResize = Grid.useScaleResize(config, onConfigChange);
     return (
       <Grid.Grid
@@ -72,14 +74,17 @@ export const createToggle = <C extends ToggleConfig>(
           config={control}
           channels={[commandChannel]}
           onChange={onConfigChange}
+          deleted={deleted}
         >
           {stale ? <Staleness.Badge /> : null}
         </Control.State>
+        {deleted && <Deleted.Item />}
         <Sym
           enabled={enabled}
           onClick={toggle}
           onClickDelay={onClickDelay}
           orientation={orientation}
+          disabled={deleted}
           {...rest}
         />
       </Grid.Grid>

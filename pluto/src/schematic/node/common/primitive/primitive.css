@@ -110,6 +110,15 @@
         outline: none;
     }
 
+    &:disabled {
+        cursor: not-allowed;
+
+        & svg {
+            /* The alpha of the theme's disabled text. */
+            opacity: 0.45;
+        }
+    }
+
     &.pluto--pressed {
         opacity: 0.95;
     }
@@ -124,7 +133,8 @@
     }
 }
 
-.pluto-symbol__container:not(.lyra--editable) .pluto-symbol-primitive-toggle {
+.pluto-symbol__container:not(.lyra--editable)
+    .pluto-symbol-primitive-toggle:not(:disabled) {
     &:hover {
         &:not(.pluto--enabled) svg {
             /* stylelint-disable declaration-no-important -- toggle state colors win

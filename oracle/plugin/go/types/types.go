@@ -19,6 +19,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/internal/casing"
@@ -110,11 +111,13 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	unversionedResp, err := g.generator(
+	unversionedGen := g.generator(
 		g.pattern,
 		&goFileGenerator{embedded: embedded},
 		func(outputPath string) bool { return !g.isVersioned(outputPath) },
-	).Generate(req)
+	)
+	unversionedGen.FilterEnums = ownedEnums
+	unversionedResp, err := unversionedGen.Generate(req)
 	if err != nil {
 		return nil, err
 	}
@@ -239,6 +242,15 @@ func (g generation) versionedRoots(files []plugin.File) ([]plugin.File, error) {
 	return append(files, selectorResp.Files...), nil
 }
 
+// ownedEnums drops the enums that declare another Go output path than outputPath. A
+// struct refers to such an enum in its own package.
+func ownedEnums(enums []resolution.Type, outputPath string) []resolution.Type {
+	return lo.Filter(enums, func(e resolution.Type, _ int) bool {
+		path := output.GetPath(e, "go")
+		return path == "" || path == outputPath
+	})
+}
+
 // localEnums returns the enums whose Go output path is outputPath.
 func localEnums(enums []resolution.Type, outputPath string) []resolution.Type {
 	filtered := make([]resolution.Type, 0, len(enums))
@@ -261,6 +273,16 @@ type predecessor struct {
 	// package declares. A frozen package declares its version file's name, which a
 	// live @go name does not change.
 	names map[string]string
+}
+
+// declares reports whether the package declares t. It declares no omitted type, and no
+// type hand-written in its own version. Hand is version-local, so a type aliased to the
+// predecessor declares its alias even when its definer is hand-written.
+func (p predecessor) declares(t resolution.Type) bool {
+	if omit.IsType(t, "go") {
+		return false
+	}
+	return !omit.IsHand(t, "go") || p.aliased.Contains(t.QualifiedName)
 }
 
 // AliasedTypes returns the qualified names of all types that alias their predecessor
@@ -532,7 +554,7 @@ func (f *goFile) render(
 	for _, d := range orderDecls(
 		f.table, f.order, f.typeDefs, f.enums, f.structs, f.unions,
 	) {
-		if omit.IsSkipped(d.typ, "go") ||
+		if !f.pred.declares(d.typ) ||
 			(d.kind == declEnum && d.typ.Namespace != data.Namespace) {
 			continue
 		}

@@ -17,8 +17,15 @@
     align-items: center;
 
     & .pluto-value__content {
+        display: flex;
         padding-left: 1.5rem;
         flex-grow: 1;
+        align-items: center;
+        min-width: 0;
+
+        & .lyra-text {
+            min-width: 0;
+        }
     }
 
     & .pluto-value__units {

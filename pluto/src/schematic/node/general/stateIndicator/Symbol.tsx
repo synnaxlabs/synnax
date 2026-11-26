@@ -10,7 +10,9 @@
 import type { schematic } from "@synnaxlabs/client";
 import type { ReactElement } from "react";
 
+import { Channel } from "@/channel";
 import { Color } from "@/color";
+import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
 import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
@@ -43,6 +45,7 @@ export const Symbol = ({
     options,
     stalenessTimeout,
   });
+  const deleted = Channel.useDeleted(channel);
   return (
     <Grid.Grid
       allowRotate={false}
@@ -53,6 +56,7 @@ export const Symbol = ({
     >
       <Label.Label config={label} onChange={onConfigChange} />
       <Indicator.Slot stale={stale} />
+      {deleted && <Deleted.Item />}
       <Primitive.StateIndicator
         matchedOptionKey={optKey}
         options={options}
