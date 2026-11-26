@@ -10,6 +10,7 @@
 package codec
 
 import (
+	"bytes"
 	"encoding/json/jsontext"
 	"fmt"
 	"math"
@@ -95,6 +96,10 @@ type encodeField struct {
 	// narrow is true for float32 samples, which check against each limit at float32
 	// precision, so a command at a limit passes.
 	narrow bool
+	// sample is the last sample that Check passed, and text is its JSON text, which
+	// encode writes again for an equal sample. cached is false before the first.
+	sample, text []byte
+	cached       bool
 }
 
 // atLimit returns the limit of f that v equals at the precision of the samples of f,
@@ -593,7 +598,8 @@ func (e *JSONEncoder) HasDefault(i int) bool {
 }
 
 // Check returns the error that Encode returns when binding i holds sample, or nil when
-// the field of binding i can hold sample.
+// the field of binding i can hold sample. The next Encode of an equal sample at binding
+// i reuses the text that Check wrote.
 func (e *JSONEncoder) Check(i int, sample []byte) error {
 	f := &e.slots.fields[i]
 	out, err := f.encode(e.checked[:0], sample)
@@ -601,6 +607,12 @@ func (e *JSONEncoder) Check(i int, sample []byte) error {
 		return errors.Wrapf(err, "message %s: field %s", e.name, f.name)
 	}
 	e.checked = out
+	// A nil sample writes a default, which can change at each encode.
+	if sample != nil {
+		f.sample = append(f.sample[:0], sample...)
+		f.text = append(f.text[:0], out...)
+		f.cached = true
+	}
 	return nil
 }
 
@@ -621,6 +633,9 @@ func (s *encodeSlots) AppendSlot(dst []byte, field int) ([]byte, error) {
 func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 	if sample == nil {
 		return f.fallback.append(dst)
+	}
+	if f.cached && bytes.Equal(sample, f.sample) {
+		return append(dst, f.text...), nil
 	}
 	if f.kind == payload.KindJSON {
 		if !jsontext.Value(sample).IsValid() {
