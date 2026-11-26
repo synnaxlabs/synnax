@@ -78,9 +78,15 @@ export const CommandInspector = ({
       : [],
   );
   const toggled = partners.length > 0;
+  // The Core compares the values of a toggle after the match of their state.
+  const state = states.find((s) => s.key === command.state);
+  const match = (v: number): number =>
+    state == null ? v : Schematic.Node.Custom.matched(state, v);
   const taken = commands.flatMap((c) =>
-    partners.includes(c.key) && c.value.type === "fixed" ? [c.value.value] : [],
+    partners.includes(c.key) && c.value.type === "fixed" ? [match(c.value.value)] : [],
   );
+  const isTaken = (v: number): boolean => taken.includes(match(v));
+  const sendsTaken = command.value.type === "fixed" && isTaken(command.value.value);
   // useValues lists no values for a number state, with no state, or while one loads.
   const listed = values.list.length > 0;
   return (
@@ -121,7 +127,11 @@ export const CommandInspector = ({
           ))}
         </Select.Simple>
       </Input.Item>
-      <Input.Item label="Value">
+      <Input.Item
+        label="Value"
+        status={sendsTaken ? "error" : undefined}
+        helpText={sendsTaken ? TAKEN : undefined}
+      >
         <Select.Buttons<schematic.symbol.CommandValueType>
           value={command.value.type}
           onChange={(type: schematic.symbol.CommandValueType) =>
@@ -159,8 +169,8 @@ export const CommandInspector = ({
                 <Select.Item<number>
                   key={v.value}
                   itemKey={v.value}
-                  disabled={taken.includes(v.value)}
-                  tooltip={taken.includes(v.value) ? TAKEN : undefined}
+                  disabled={isTaken(v.value)}
+                  tooltip={isTaken(v.value) ? TAKEN : undefined}
                 >
                   {v.name}
                 </Select.Item>
