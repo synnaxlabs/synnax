@@ -35,6 +35,10 @@ type refRack struct{ Key uint32 }
 
 func (r refRack) GorpKey() uint32 { return r.Key }
 
+type refIssuer struct{ Key uint32 }
+
+func (r refIssuer) GorpKey() uint32 { return r.Key }
+
 type refLabel struct{ Key string }
 
 func (l refLabel) GorpKey() string { return l.Key }
@@ -2407,6 +2411,62 @@ var _ = Describe("DropDangling", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(d).To(Equal(refDevice{Key: "d"}))
 		})
+
+		It(
+			"Should ask an issued function in place of a weak target's table",
+			func(ctx SpecContext) {
+				// The table's own answer is the opposite of issued's, so the result
+				// shows
+				// which one the migration asked.
+				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refIssuer]{
+					DB:     db,
+					Name:   "issuer",
+					Issued: func(k uint32) bool { return k == 1 },
+				}))
+				target := func(d *refDevice) []gorp.Target {
+					return []gorp.Target{gorp.NewTarget("issuer", d.Rack)}
+				}
+				weak := []gorp.Reference[string, refDevice]{
+					gorp.NewTargetReference(
+						gorp.TargetReferenceConfig[string, refDevice]{
+							Name:     "rack",
+							Tables:   []string{"issuer"},
+							OnDelete: gorp.Weak,
+							Kind:     gorp.Use,
+							Targets:  target,
+							Detach:   clearRack,
+						},
+					),
+				}
+				devices := open(ctx, weak)
+				w := gorp.WrapWriter[string, refDevice](db)
+				Expect(w.Set(ctx, refDevice{Key: "kept", Rack: 7})).To(Succeed())
+				Expect(w.Set(ctx, refDevice{Key: "cleared", Rack: 1})).To(Succeed())
+				var asked []gorp.Target
+				issued := func(t gorp.Target) (bool, error) {
+					asked = append(asked, t)
+					return t == gorp.NewTarget("issuer", uint32(7)), nil
+				}
+				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+					DB:        db,
+					Namespace: "dangling",
+					Migrations: []gorp.Migration{
+						devices.IssuedDanglingMigration("drop", issued),
+					},
+				})).To(Succeed())
+				var entries []refDevice
+				Expect(devices.NewRetrieve().Entries(&entries).Exec(ctx, db)).
+					To(Succeed())
+				Expect(entries).To(ConsistOf(
+					refDevice{Key: "kept", Rack: 7},
+					refDevice{Key: "cleared"},
+				))
+				Expect(asked).To(ConsistOf(
+					gorp.NewTarget("issuer", uint32(7)),
+					gorp.NewTarget("issuer", uint32(1)),
+				))
+			},
+		)
 
 		It("Should fail outside the config of its table", func(ctx SpecContext) {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
