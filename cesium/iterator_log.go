@@ -190,13 +190,16 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 // OpenReader implements domain.Ranges.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
-	h := c.e.handle(c.key, r.seg.ID)
+	hs := c.e.readHandles(c.key, r.seg.ID)
+	h := hs.take(c.e.budget, c.e.fs)
 	file, err := h.Hold()
 	if err != nil {
+		hs.give(h)
 		return nil, err
 	}
 	return &logReader{
 		cfg:    c.e.segmentConfig(*r.seg),
+		hs:     hs,
 		h:      h,
 		file:   file,
 		offset: int64(r.ptr.Offset),
@@ -212,10 +215,11 @@ func (c *logCursor) Close() error {
 	return nil
 }
 
-// logReader reads the bytes of one pointer from its segment file, which it holds open
-// until Close.
+// logReader reads the bytes of one pointer from its segment file, through a handle that
+// no other read holds, which it holds open until Close.
 type logReader struct {
 	cfg    segment.Config
+	hs     *segmentHandles
 	h      *segment.Handle
 	file   io.ReaderAt
 	offset int64
@@ -246,5 +250,6 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
 	r.h.Release()
+	r.hs.give(r.h)
 	return nil
 }
