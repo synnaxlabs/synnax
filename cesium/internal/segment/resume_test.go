@@ -73,6 +73,7 @@ var _ = Describe("Resume", func() {
 		segment.BlockSize-40,
 		5,
 		600,
+		2*segment.BlockSize,
 	)
 
 	DescribeTable(
@@ -97,6 +98,12 @@ var _ = Describe("Resume", func() {
 			variable,
 			starts[2],
 			starts[4],
+		),
+		Entry(
+			"variable density, after a block whose first start has samples before it",
+			varCfg,
+			variable,
+			starts[5],
 		),
 		Entry(
 			"variable density, in each unfinished block",
