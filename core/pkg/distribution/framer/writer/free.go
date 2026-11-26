@@ -77,7 +77,7 @@ func (s *Service) newFree(
 		return !indexed
 	})
 	w := &freeWriter{
-		freeWrites: s.cfg.FreeWrites,
+		writes:     s.cfg.Writes,
 		mode:       mode,
 		sync:       sync,
 		group:      group,
@@ -98,8 +98,8 @@ type freeWriter struct {
 	alignments map[channel.Key]telem.Alignment
 	stamper    *unindexedStamper[channel.Key]
 	confluence.LinearTransform[Request, Response]
-	// freeWrites is the inlet for communicating free frames to the relay
-	freeWrites confluence.Inlet[relay.Response]
+	// writes is where the writer sends its frames for the relay to stream.
+	writes confluence.Inlet[relay.Response]
 	// mode is the mode of the writer.
 	mode Mode
 	// sync is true if the writer should receive acknowledgments for all requests,
@@ -150,7 +150,7 @@ func (w *freeWriter) transform(
 	if req.Command == CommandWrite {
 		if w.mode.Stream() {
 			if err = signal.SendUnderContext(
-				ctx, w.freeWrites.Inlet(),
+				ctx, w.writes.Inlet(),
 				relay.Response{Frame: w.alignFrame(req.Frame), Group: w.group},
 			); err != nil {
 				return res, false, err

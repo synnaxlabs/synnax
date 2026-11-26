@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -84,9 +85,10 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	Start telem.TimeStamp
-	// AutoIndexPersistInterval is the interval at which commits to the index will be
-	// persisted. To persist every commit to guarantee minimal loss of data, set
-	// AutoIndexPersistInterval to AlwaysAutoPersist.
+	// AutoIndexPersistInterval is the least time between two syncs of auto commits. To
+	// sync every auto commit, so that no committed sample is lost, set it to
+	// AlwaysIndexPersistOnAutoCommit. A writer that does not auto commit syncs every
+	// commit.
 	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan
@@ -97,8 +99,9 @@ type Config struct {
 	Mode Mode
 	// AutoIndex causes the writer to generate timestamps for any index channel in its
 	// Keys whose series is omitted from a Write frame. The first sample in each Write
-	// call is stamped with telem.Now(); remaining samples in the same call are spaced
-	// 1ns apart. A high-water mark guarantees strict monotonicity across Write calls.
+	// call is stamped with telem.Now(), or 1ns after Start or after the last stamp of
+	// the index when either is later; remaining samples in the same call are spaced 1ns
+	// apart.
 	//
 	// When AutoIndex is true and the caller's Keys reference data channels whose index
 	// channels are not also in Keys, those index channels are implicitly added to the
@@ -149,16 +152,12 @@ func (c Config) splitFree() (stored Config, free channel.Keys) {
 
 func (c Config) toStorage() cesium.WriterConfig {
 	return cesium.WriterConfig{
-		ControlSubject:           c.ControlSubject,
-		Channels:                 c.Keys.Uint32(),
-		Start:                    c.Start,
-		Authorities:              c.Authorities,
-		ErrOnUnauthorized:        c.ErrOnUnauthorized,
-		Mode:                     c.Mode,
-		EnableAutoCommit:         c.EnableAutoCommit,
-		AutoIndexPersistInterval: c.AutoIndexPersistInterval,
-		Sync:                     c.Sync,
-		AutoIndex:                c.AutoIndex,
+		ControlSubject:    c.ControlSubject,
+		Channels:          c.Keys.Uint32(),
+		Start:             c.Start,
+		Authorities:       c.Authorities,
+		ErrOnUnauthorized: c.ErrOnUnauthorized,
+		Mode:              c.Mode,
 	}
 }
 
@@ -210,15 +209,18 @@ func (c Config) Override(other Config) Config {
 
 // ServiceConfig is the configuration for opening a Writer Service.
 type ServiceConfig struct {
-	// FreeWrites is the write pipeline where samples from free channels should be
-	// written.
+	// Writes is where writers send every frame they write, for the relay to stream.
 	//
 	// [REQUIRED]
-	FreeWrites confluence.Inlet[relay.Response]
+	Writes confluence.Inlet[relay.Response]
 	// TS is the local time series store to write to.
 	//
 	// [REQUIRED]
 	TS *cesium.DB
+	// Clock times the AutoIndexPersistInterval of each writer. It must be monotonic.
+	//
+	// [OPTIONAL] - Defaults to xtime.Real.
+	Clock xtime.Clock
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -230,15 +232,17 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	v.NotNil("free_writes", cfg.FreeWrites)
+	v.NotNil("writes", cfg.Writes)
 	v.NotNil("ts", cfg.TS)
+	v.NotNil("clock", cfg.Clock)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	cfg.FreeWrites = override.Nil(cfg.FreeWrites, other.FreeWrites)
+	cfg.Writes = override.Nil(cfg.Writes, other.Writes)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
+	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
@@ -276,7 +280,7 @@ func (s *Service) SetFreeIndexResolver(r FreeIndexResolver) { s.resolver.Store(&
 
 // NewService opens the writer service using the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(ServiceConfig{Clock: xtime.Real}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
