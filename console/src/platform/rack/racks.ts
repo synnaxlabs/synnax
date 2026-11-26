@@ -42,7 +42,7 @@ export const getDefault = (
   return usable.length === 1 ? usable[0].key : undefined;
 };
 
-/** Returns why no rack can connect a device of the integration, or null if one can. */
+/** Returns why no rack can run the integration, or null if one can. */
 export const getBlockedReason = (
   racks: rack.Payload[],
   { integration, name, rack: key }: BlockedReasonArgs,
