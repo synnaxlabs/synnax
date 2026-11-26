@@ -28,6 +28,12 @@
 
 namespace arc::stl::channels {
 
+/// @brief returns s with the clock that the Core and the bus stamp it with.
+::x::telem::Series clocked(::x::telem::Series s, const std::uint32_t clock) {
+    s.clock = clock;
+    return s;
+}
+
 /// @brief stands in for the cycle stamp a runtime loop passes to flush_into.
 constexpr auto FLUSH_NOW = x::telem::TimeStamp(1000LL * 1000 * 1000 * 1000);
 
@@ -162,6 +168,59 @@ TEST(ChannelModuleTest, HandlesOnAndWrite) {
     EXPECT_FALSE(module.handles("constant"));
 }
 
+/// @brief it should pair each channel with the time of its own clock when two clocks
+/// share an alignment.
+TEST(OnTest, PairsEachChannelWithTheTimeOfItsClock) {
+    ir::IR ir;
+    for (const auto &[key, ch]: std::vector<std::pair<std::string, uint32_t>>{
+             {"a", 10},
+             {"b", 20},
+         }) {
+        types::Param output_param;
+        output_param.name = ir::default_output_param;
+        output_param.type.kind = types::Kind::F32;
+        types::Param channel_config;
+        channel_config.name = "channel";
+        channel_config.type.kind = types::Kind::U32;
+        channel_config.value = ch;
+        ir::Node ir_node;
+        ir_node.key = key;
+        ir_node.type = "on";
+        ir_node.outputs.push_back(output_param);
+        ir_node.inputs.push_back(channel_config);
+        ir.nodes.push_back(ir_node);
+    }
+    runtime::state::Config cfg{
+        .ir = ir,
+        .channels = {{10, ::x::telem::FLOAT32_T, 11}, {20, ::x::telem::FLOAT32_T, 21}}
+    };
+    runtime::state::State s(cfg, runtime::errors::noop_handler);
+    channels::Module module(nullptr, nullptr);
+    ::x::telem::Frame frame(4);
+    frame.emplace(10, clocked(::x::telem::Series(1.0f), 11));
+    frame.emplace(11, clocked(::x::telem::Series(static_cast<int64_t>(100)), 11));
+    frame.emplace(20, clocked(::x::telem::Series(2.0f), 21));
+    frame.emplace(21, clocked(::x::telem::Series(static_cast<int64_t>(500)), 21));
+    s.ingest(frame);
+    bool changed = false;
+    auto ctx = make_context(&changed);
+    for (const auto &[key, time]: std::vector<std::pair<std::string, int64_t>>{
+             {"a", 100},
+             {"b", 500},
+         }) {
+        auto node = ASSERT_NIL_P(module.create(
+            runtime::node::Config(
+                ir,
+                ir.nodes[key == "a" ? 0 : 1],
+                ASSERT_NIL_P(s.node(key))
+            )
+        ));
+        ASSERT_NIL(node->next(ctx));
+        auto checker = ASSERT_NIL_P(s.node(key));
+        EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), time);
+    }
+}
+
 TEST(OnTest, NextReadsChannelData) {
     types::Param output_param;
     output_param.name = ir::default_output_param;
@@ -193,8 +252,8 @@ TEST(OnTest, NextReadsChannelData) {
     ::x::telem::Frame frame(2);
     auto data = ::x::telem::Series(std::vector<float>{1.5f, 2.5f, 3.5f});
     auto time = ::x::telem::Series(std::vector<int64_t>{100, 101, 102});
-    frame.emplace(10, std::move(data));
-    frame.emplace(11, std::move(time));
+    frame.emplace(10, clocked(std::move(data), 11));
+    frame.emplace(11, clocked(std::move(time), 11));
     s.ingest(frame);
 
     bool changed = false;
@@ -254,8 +313,8 @@ TEST(OnTest, TrimmedBatchKeepsItsTimeRange) {
     data.time_range = range;
     auto time = ::x::telem::Series(std::vector<int64_t>{100, 101, 102});
     time.time_range = range;
-    frame.emplace(10, std::move(data));
-    frame.emplace(11, std::move(time));
+    frame.emplace(10, clocked(std::move(data), 11));
+    frame.emplace(11, clocked(std::move(time), 11));
     s.ingest(frame);
 
     ASSERT_NIL(node->next(ctx));
@@ -305,8 +364,8 @@ TEST(OnTest, SkipsABatchTakenEntirelyBeforeEntry) {
     d1.alignment = ::x::telem::Alignment(0);
     auto t1 = ::x::telem::Series(std::vector<int64_t>{100, 101});
     t1.alignment = ::x::telem::Alignment(0);
-    frame1.emplace(10, std::move(d1));
-    frame1.emplace(11, std::move(t1));
+    frame1.emplace(10, clocked(std::move(d1), 11));
+    frame1.emplace(11, clocked(std::move(t1), 11));
     s.ingest(frame1);
 
     ::x::telem::Frame frame2(2);
@@ -314,8 +373,8 @@ TEST(OnTest, SkipsABatchTakenEntirelyBeforeEntry) {
     d2.alignment = ::x::telem::Alignment(2);
     auto t2 = ::x::telem::Series(static_cast<int64_t>(201));
     t2.alignment = ::x::telem::Alignment(2);
-    frame2.emplace(10, std::move(d2));
-    frame2.emplace(11, std::move(t2));
+    frame2.emplace(10, clocked(std::move(d2), 11));
+    frame2.emplace(11, clocked(std::move(t2), 11));
     s.ingest(frame2);
 
     ASSERT_NIL(node->next(ctx));
@@ -360,8 +419,14 @@ TEST(OnTest, TrimsAStringBatchAtEntry) {
     node->reset(ctx);
 
     ::x::telem::Frame frame(2);
-    frame.emplace(12, ::x::telem::Series(std::vector<std::string>{"a", "b", "c"}));
-    frame.emplace(13, ::x::telem::Series(std::vector<int64_t>{100, 101, 102}));
+    frame.emplace(
+        12,
+        clocked(::x::telem::Series(std::vector<std::string>{"a", "b", "c"}), 13)
+    );
+    frame.emplace(
+        13,
+        clocked(::x::telem::Series(std::vector<int64_t>{100, 101, 102}), 13)
+    );
     s.ingest(frame);
 
     ASSERT_NIL(node->next(ctx));
@@ -490,8 +555,8 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     d1.alignment = ::x::telem::Alignment(0);
     auto t1 = ::x::telem::Series(static_cast<int64_t>(10));
     t1.alignment = ::x::telem::Alignment(0);
-    frame1.emplace(10, std::move(d1));
-    frame1.emplace(11, std::move(t1));
+    frame1.emplace(10, clocked(std::move(d1), 11));
+    frame1.emplace(11, clocked(std::move(t1), 11));
     s.ingest(frame1);
 
     ::x::telem::Frame frame2(2);
@@ -499,8 +564,8 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     d2.alignment = ::x::telem::Alignment(1);
     auto t2 = ::x::telem::Series(static_cast<int64_t>(20));
     t2.alignment = ::x::telem::Alignment(1);
-    frame2.emplace(10, std::move(d2));
-    frame2.emplace(11, std::move(t2));
+    frame2.emplace(10, clocked(std::move(d2), 11));
+    frame2.emplace(11, clocked(std::move(t2), 11));
     s.ingest(frame2);
 
     int call_count = 0;
@@ -553,13 +618,13 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     ::x::telem::Frame frame1(2);
     auto d1 = ::x::telem::Series(1.0f);
     auto t1 = ::x::telem::Series(static_cast<int64_t>(10));
-    frame1.emplace(10, std::move(d1));
-    frame1.emplace(11, std::move(t1));
+    frame1.emplace(10, clocked(std::move(d1), 11));
+    frame1.emplace(11, clocked(std::move(t1), 11));
     s.ingest(frame1);
 
     ::x::telem::Frame frame2(1);
     auto d2 = ::x::telem::Series(2.0f);
-    frame2.emplace(10, std::move(d2));
+    frame2.emplace(10, clocked(std::move(d2), 11));
     s.ingest(frame2);
 
     int call_count = 0;
@@ -607,8 +672,8 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     data.alignment = ::x::telem::Alignment(100);
     auto time = ::x::telem::Series(std::vector<int64_t>{10, 20});
     time.alignment = ::x::telem::Alignment(200);
-    frame.emplace(30, std::move(data));
-    frame.emplace(31, std::move(time));
+    frame.emplace(30, clocked(std::move(data), 31));
+    frame.emplace(31, clocked(std::move(time), 31));
     s.ingest(frame);
 
     int call_count = 0;
@@ -654,8 +719,8 @@ TEST(OnTest, NextCallsMarkChanged) {
     ::x::telem::Frame frame(2);
     auto data = ::x::telem::Series(1.0f);
     auto time = ::x::telem::Series(static_cast<int64_t>(10));
-    frame.emplace(10, std::move(data));
-    frame.emplace(11, std::move(time));
+    frame.emplace(10, clocked(std::move(data), 11));
+    frame.emplace(11, clocked(std::move(time), 11));
     s.ingest(frame);
 
     std::vector<size_t> marked;
@@ -1228,8 +1293,8 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     ::x::telem::Frame ingest_frame(2);
     auto data = ::x::telem::Series(std::vector<int32_t>{42, 99});
     auto time = ::x::telem::Series(std::vector<int64_t>{10, 20});
-    ingest_frame.emplace(1, std::move(data));
-    ingest_frame.emplace(2, std::move(time));
+    ingest_frame.emplace(1, clocked(std::move(data), 2));
+    ingest_frame.emplace(2, clocked(std::move(time), 2));
     s.ingest(ingest_frame);
 
     auto ctx = make_context();
@@ -1355,8 +1420,8 @@ TEST(ChannelStateTest, ReadSeries_ReturnsDataAndTimeForIndexedChannel) {
 
     auto data = ::x::telem::Series(std::vector<float>{1.0f, 2.0f});
     auto time = ::x::telem::Series(std::vector<int64_t>{100, 200});
-    channel_state.ingest(::x::telem::Frame(1, std::move(data)));
-    channel_state.ingest(::x::telem::Frame(2, std::move(time)));
+    channel_state.ingest(::x::telem::Frame(1, clocked(std::move(data), 2)));
+    channel_state.ingest(::x::telem::Frame(2, clocked(std::move(time), 2)));
 
     auto [result_data, result_time, ok] = channel_state.read_series(1);
     ASSERT_TRUE(ok);
@@ -1398,7 +1463,7 @@ TEST(ChannelStateTest, ReadSeries_ReturnsFalseWhenTimeMissing) {
     );
 
     auto data = ::x::telem::Series(std::vector<float>{1.0f});
-    channel_state.ingest(::x::telem::Frame(1, std::move(data)));
+    channel_state.ingest(::x::telem::Frame(1, clocked(std::move(data), 2)));
 
     auto [result_data, result_time, ok] = channel_state.read_series(1);
     ASSERT_FALSE(ok);
