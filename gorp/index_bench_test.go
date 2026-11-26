@@ -239,6 +239,76 @@ func BenchmarkLookupUpdate(b *testing.B) {
 	}
 }
 
+// BenchmarkUniqueCreate measures one create through a Table whose name index is a
+// LookupIndex, against the same create through a UniqueIndex, which also checks that
+// no other entry of its space holds the name.
+func BenchmarkUniqueCreate(b *testing.B) {
+	for _, kind := range []string{"lookup", "unique"} {
+		for _, size := range []int{1_000, 100_000} {
+			b.Run(fmt.Sprintf("index=%s/n=%d", kind, size), func(b *testing.B) {
+				benchUniqueCreate(b, kind == "unique", size)
+			})
+		}
+	}
+}
+
+func benchUniqueCreate(b *testing.B, unique bool, size int) {
+	b.Helper()
+	db := openBenchDB(b)
+	ctx := context.Background()
+	entries := makeIndexBenchEntries(size)
+	if err := gorp.NewCreate[int32, indexBenchEntry]().
+		Entries(&entries).Exec(ctx, db); err != nil {
+		b.Fatal(err)
+	}
+	lookup := gorp.NewLookupIndex(
+		"name", func(e *indexBenchEntry) string { return e.Name },
+	)
+	var idx gorp.Index[int32, indexBenchEntry] = lookup
+	if unique {
+		idx = gorp.NewUniqueIndex(
+			"name",
+			"name",
+			func(e *indexBenchEntry) (string, bool) { return e.Name, true },
+		)
+	}
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[int32, indexBenchEntry]{
+		DB:      db,
+		Name:    "entry",
+		Indexes: []gorp.Index[int32, indexBenchEntry]{idx},
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	defer func() {
+		if err := table.Close(); err != nil {
+			b.Error(err)
+		}
+	}()
+	// A create waits for the populate of a unique index, and Get waits for a lookup.
+	warm := indexBenchEntry{ID: int32(size), Name: "warm"}
+	if err = table.NewCreate().Entry(&warm).Exec(ctx, db); err != nil {
+		b.Fatal(err)
+	}
+	if !unique {
+		if _, err = lookup.Get(ctx, nil, "warm"); err != nil {
+			b.Fatal(err)
+		}
+	}
+	names := make([]string, b.N)
+	for i := range names {
+		names[i] = "new-" + strconv.Itoa(i)
+	}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := range b.N {
+		e := indexBenchEntry{ID: int32(size + 1 + i), Name: names[i]}
+		if err = table.NewCreate().Entry(&e).Exec(ctx, db); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 // --- Sorted index ---
 
 // BenchmarkSortedSetup is the cold-start path for a SortedIndex index. Asserts

@@ -31,6 +31,8 @@ type Writer[K Key, E Entry[K]] struct {
 	indexes []Index[K, E]
 	// table checks the references of each entry Set writes. Nil means no checks.
 	table *Table[K, E]
+	// uniques are the unique indexes whose values Set checks.
+	uniques []checkedIndex[K, E]
 	// tableName names the table of each record in the change list of tx.
 	tableName string
 	// references are the references whose links the change list of tx records.
@@ -45,7 +47,8 @@ type Writer[K Key, E Entry[K]] struct {
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
 // references. The Writer keeps the indexes of each open Table of E on the DB of tx
 // current, and records its writes under the name of the table of E, with the links of
-// the references of each open Table of E.
+// the references of each open Table of E. It skips unique checks, so only a migration
+// may write through it to a table with a unique index.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 	w := wrapWriter[K, E](tx, "", nil, nil)
 	return &w
@@ -170,6 +173,11 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 	var current bool
 	if w.table != nil {
 		if current, err = w.table.check(ctx, w.tx, &entry); err != nil {
+			return err
+		}
+	}
+	for _, u := range w.uniques {
+		if err = u.check(ctx, w.tx, &entry); err != nil {
 			return err
 		}
 	}

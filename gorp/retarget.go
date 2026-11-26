@@ -97,7 +97,7 @@ func (t *Table[K, E]) retarget(
 			k,
 		)
 	}
-	w := t.writer(tx, true)
+	w := t.writer(tx, checkAll)
 	w.derived = true
 	if err = w.Set(ctx, e); err != nil || t.onRewrite == nil {
 		return err
