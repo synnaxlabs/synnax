@@ -23,11 +23,11 @@ import (
 
 // OpenDelete takes control of tr so that del deletes it, and returns an error if a
 // writer controls part of tr. Writers that open on tr wait until the caller calls
-// release, and MarkClosed refuses until then. del returns the time range that it
-// removed data from, or telem.TimeRangeZero when it removed none.
+// release, and MarkClosed refuses until then. del returns the time ranges whose history
+// it changed, as domain.DB.Delete does.
 func (db *DB) OpenDelete(
 	tr telem.TimeRange,
-) (del func(context.Context) (telem.TimeRange, error), release func(), err error) {
+) (del func(context.Context) ([]telem.TimeRange, error), release func(), err error) {
 	if !tr.Valid() {
 		return nil, nil, db.wrapError(errors.Newf(
 			"delete start %d cannot be after delete end %d",
@@ -38,18 +38,18 @@ func (db *DB) OpenDelete(
 	if release, err = db.openNonWriteOp(tr, "delete"); err != nil {
 		return nil, nil, err
 	}
-	return func(ctx context.Context) (telem.TimeRange, error) {
-		deleted, err := db.domain.Delete(
+	return func(ctx context.Context) ([]telem.TimeRange, error) {
+		changes, err := db.domain.Delete(
 			ctx,
 			tr,
 			db.calculateStartOffset,
 			db.calculateEndOffset,
 		)
 		if err != nil {
-			return telem.TimeRangeZero, db.wrapError(err)
+			return nil, db.wrapError(err)
 		}
 		db.resolver.invalidate()
-		return deleted, nil
+		return changes, nil
 	}, release, nil
 }
 
