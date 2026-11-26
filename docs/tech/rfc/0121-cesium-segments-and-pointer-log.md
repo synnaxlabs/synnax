@@ -194,22 +194,22 @@ of the first head.
 
 ### 4.2 The Cesium API
 
-| Call                                                                  | Status                        | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| --------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Open`, `DB.Run`                                                      | Kept                          | `Open` takes the database identity that the Core holds (§9.0) and runs recovery or the conversion; options inject the file system, clock, random source, the executor of owner steps and syncs, and a handler of errors that no call returns (§7), and set `WithReadsChecked` and `WithVersion0Rewritable` (NEW, both false by default). `Run` runs the owners of §7 until its context ends                                                                                                                                                                                                                                                                                                       |
-| `DB.Identity`                                                         | NEW                           | Returns the database identity, and whether this open converted the old layout. After an open that converted, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `DB.OpenWriter`                                                       | Changed                       | Takes the groups (`Group`, NEW: its keys, and the key whose stored stamps time them, or zero), the type of each key, `Adaptive` (NEW: the one group may arrive in part, and a key that pauses often moves to a clock of its own), a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Picks the clock of each group (§5.8), which `Writer.Clocks` (NEW) returns in the order of the groups. Refuses an overlap (§5.8) |
-| `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp. Both take the skip predicate of Phase 5 (§12); in test builds, a call into Cesium from inside it panics (`x/go/invariants`)                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entry. `Close` does the same and releases the claims after its last entry is acked. While the log is failing (§6), it returns the error at once and releases them: its commits stay visible, so the overlap rules of §5.8 still see them, and no writer takes over its segments before they are durable                                                                                                                                                                                                                                                                                           |
-| `Writer.EndStretch`                                                   | NEW, replaces `EndDomain`     | Takes no keys. Commits, then ends the stretch of the writer's clock and channels (RFC 0095 §4.2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| `DB.Handoff`                                                          | NEW                           | Pointer log only; on the old layout it fails. Moves keys from one writer to another as one event. The writer that loses a key commits its samples of the key first, then the claim moves, so no sample waits across the move. The key's next sample starts a new segment on the clock of the writer that gains it. A key that stays keeps its uncommitted samples for the next commit. A start in stored data is refused, as at an open. A failed commit drops the key's uncommitted samples, the claim still moves, and the error names the key and their time range                                                                                                                             |
-| `DB.OpenIterator`, `DB.Read`                                          | Kept                          | One series per pointer, in time order, with its stored type, clock key, and alignment. `cesium.Iterator` is the one iterator: the stream iterator (`cesium/iterator_stream.go`) leaves Cesium, and the framer builds its stream stage over `cesium.Iterator`. Each read step loads every key of the read on one clock, and that clock, from one state step. A cursor never offers a range outside its current load                                                                                                                                                                                                                                                                                |
-| `DB.DeleteTimeRange`                                                  | Kept                          | §5.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `DB.Delete`, `DB.Keys`                                                | NEW                           | §4.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `cesium.Repair`                                                       | NEW                           | `Repair(ctx, dir, confirm, opts...)` runs §6.0 on a closed database: it builds the report of step 4, calls `confirm` with it, and writes only when `confirm` returns true                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `DB.OnHistoryChange`                                                  | Kept (`cesium/history.go:32`) | Reports a time range for a commit before the newest stored stamp of its key (a backfill), for a delete, and for a failed sync that takes visible samples back. Compaction and progression encoding change no sample and report nothing. Cesium calls the handlers only after it releases its own locks, and a live commit that is not a backfill does no extra work                                                                                                                                                                                                                                                                                                                               |
-| `DB.Write`, `DB.WriteSeries`                                          | Gone                          | `cesium/db.go:78`, `:105`. No Core code calls them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Relay, streamer, stream writer, control, virtual channels, meta files | Gone                          | `cesium/relay.go`, `cesium/streamer.go`, `cesium/writer_stream.go:110-133`, `cesium/control.go`, `cesium/internal/virtual`, `cesium/internal/meta`. The framer runs sessions, the relay, virtual channels, and control                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Call                                                                  | Status                        | Contract                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Open`, `DB.Run`                                                      | Kept                          | `Open` takes the database identity that the Core holds (§9.0) and runs recovery or the conversion; options inject the file system, clock, random source, the executor of owner steps and syncs, and a handler of errors that no call returns (§7), and set `WithReadsChecked` and `WithVersion0Rewritable` (NEW, both false by default). `Run` runs the owners of §7 until its context ends                                                                                                                                                                                                                                                                                                                                                         |
+| `DB.Identity`                                                         | NEW                           | Returns the database identity, and whether this open converted the old layout. After an open that converted, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `DB.OpenWriter`                                                       | Changed                       | From RFC 0120 Phase 23 (one clock key before it), takes the groups (`Group`, NEW: its keys, and the key whose stored stamps time them, or zero), the type of each key, `Adaptive` (NEW: the one group may arrive in part, and a key that pauses often moves to a clock of its own), a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Picks the clock of each group (§5.8), which `Writer.Clocks` (NEW) returns in the order of the groups. Refuses an overlap (§5.8) |
+| `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp. Both take the skip predicate of Phase 5 (§12); in test builds, a call into Cesium from inside it panics (`x/go/invariants`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entry. `Close` does the same and releases the claims after its last entry is acked. While the log is failing (§6), it returns the error at once and releases them: its commits stay visible, so the overlap rules of §5.8 still see them, and no writer takes over its segments before they are durable                                                                                                                                                                                                                                                                                                                                             |
+| `Writer.EndStretch`                                                   | NEW, replaces `EndDomain`     | Takes no keys. Commits, then ends the stretch of the writer's clock and channels (RFC 0095 §4.2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `DB.Handoff`                                                          | NEW                           | Pointer log only; on the old layout it fails. Moves keys from one writer to another as one event. The writer that loses a key commits its samples of the key first, then the claim moves, so no sample waits across the move. A writer that gains a key on the same clock takes over its open segment, and on another clock the key starts a new segment. A handoff starts a new stretch. A key that stays keeps its uncommitted samples for the next commit. A start in stored data is refused, as at an open. A failed commit drops the key's uncommitted samples, the claim still moves, and the error names the key and their time range                                                                                                        |
+| `DB.OpenIterator`, `DB.Read`                                          | Kept                          | One series per pointer, in time order, with its stored type, clock key, and alignment. `cesium.Iterator` is the one iterator: the stream iterator (`cesium/iterator_stream.go`) leaves Cesium, and the framer builds its stream stage over `cesium.Iterator`. Each read step loads every key of the read on one clock, and that clock, from one state step. A cursor never offers a range outside its current load                                                                                                                                                                                                                                                                                                                                  |
+| `DB.DeleteTimeRange`                                                  | Kept                          | §5.6                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `DB.Delete`, `DB.Keys`                                                | NEW                           | §4.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `cesium.Repair`                                                       | NEW                           | `Repair(ctx, dir, confirm, opts...)` runs §6.0 on a closed database: it builds the report of step 4, calls `confirm` with it, and writes only when `confirm` returns true                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `DB.OnHistoryChange`                                                  | Kept (`cesium/history.go:32`) | Reports a time range for a commit before the newest stored stamp of its key (a backfill), for a delete, and for a failed sync that takes visible samples back. Compaction and progression encoding change no sample and report nothing. Cesium calls the handlers only after it releases its own locks, and a live commit that is not a backfill does no extra work                                                                                                                                                                                                                                                                                                                                                                                 |
+| `DB.Write`, `DB.WriteSeries`                                          | Gone                          | `cesium/db.go:78`, `:105`. No Core code calls them                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Relay, streamer, stream writer, control, virtual channels, meta files | Gone                          | `cesium/relay.go`, `cesium/streamer.go`, `cesium/writer_stream.go:110-133`, `cesium/control.go`, `cesium/internal/virtual`, `cesium/internal/meta`. The framer runs sessions, the relay, virtual channels, and control                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 The errors `ErrCorrupt` and `ErrDiskFull` are NEW. The framer calls `Sync` on the
 interval of auto commit from a background task per writer, so a write and the relay
@@ -251,13 +251,13 @@ The root holds `<g>.log` (the pointer log of generation `g`, 64 MiB), `<g>.head`
 version 0 segment), `<key>/<S>.chk` (its check file), and `<key>/channel`. The channel
 file replaces `meta.json` on the new layout until Phase 7 removes the channel list
 (§4.0): an 8-byte header (the body length, then a CRC32C of the length and the body over
-a place of kind 6) and the encoded channel. `<g>`, `<p>`, and `<S>` are 16 lowercase hex
-digits, and `<key>` is decimal (`cesium/delete.go:66`). All integers are little-endian.
-Cesium renames no file while it runs, so no rename crosses two directories. `SyncDir` of
-the directory follows each create and each remove that a later step depends on. A file
-is unlinked only after a durable head or a durable later frame covers the record that
-makes it dead, and no reader pins it, so the cut of an acked frame (§6, fault 5d) never
-leaves a live segment with no file.
+a place of kind 6) and the encoded channel. It holds no clock flag (§5.8). `<g>`, `<p>`,
+and `<S>` are 16 lowercase hex digits, and `<key>` is decimal (`cesium/delete.go:66`).
+All integers are little-endian. Cesium renames no file while it runs, so no rename
+crosses two directories. `SyncDir` of the directory follows each create and each remove
+that a later step depends on. A file is unlinked only after a durable head or a durable
+later frame covers the record that makes it dead, and no reader pins it, so the cut of
+an acked frame (§6, fault 5d) never leaves a live segment with no file.
 
 Every checksum is CRC32C (Castagnoli, initial value and final XOR `0xFFFFFFFF`) over a
 32-byte place and then the covered bytes. The place is never stored.
@@ -751,8 +751,8 @@ into that session's writer through `DB.Handoff` (§4.2), the one path that moves
   candidate that the most keys name, then the one with the latest last stamp, then the
   lowest key, and else leases a new key (RFC 0120 §4.0). A key of the group on another
   clock starts a new segment on the chosen clock. The first drop rule keeps a group's
-  stamps out of a key that times itself, such as an index channel with no data that the
-  migration keeps as a timestamp channel, with no stored flag.
+  stamps out of a key that times itself, such as an index channel that the migration
+  keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock (NEW).
 - **Pauses**: In an `Adaptive` writer, a key that reaches 64 pauses in its open segment
@@ -983,24 +983,24 @@ it. It keeps every sample that a checked block holds.
 
 A target is a ratio to a floor that a Go benchmark of the standard library measures in
 the same run, or to a named benchmark on `main`. The floors are NEW in
-`cesium/floor_bench_test.go` (RFC 0120 Phase 1): `BenchmarkFloorSync` (append and sync,
-4 KiB to 1 MiB), `BenchmarkFloorSyncFiles` (1,000 files at a fan-out width),
-`BenchmarkFloorWrite`, `BenchmarkFloorCopy`, and `BenchmarkFloorCRC32C`: `F_sync(s)`,
-`F_files(k)`, `F_write`, `F_copy`, and `F_crc` below, with `F_cpu` = 1 / (1/`F_copy` +
-1/`F_crc`) and `F_block` = the copy and CRC of 65,536 bytes. `BenchmarkFloorReadPage`,
-in the cold group, gives `F_page`: one 4 KiB read at a random offset of a cold file.
-Recovery and the cold scan, with their read floor `F_read`, run as a cold group of the
-compare script, with a page cache drop between its two processes. The method is RFC 0120
-§4.11's, run on the bench host against `main`; no speed gate runs on `main` or in CI.
-One baseline moves by design: Phase 6 raises `BenchmarkCommit` (commits sync). Every
-read (full reads, long streamed reads, point reads, and time lookups) stays within 15%
-of `main`, with an aim of 10%, in time, bytes, and allocations per read, with read
-checks off, at 1 and 8 readers. A run with checks on is measured and reported. The block
-cache splits its lock, so parallel readers scale. A live auto-commit writer is as fast
-as on `main`: write-to-stream latency at p50, p99, and max, and throughput, at 1 kHz, on
-a 25 kHz card, and in a wide frame of many channels. The framer's stream stage over
-`cesium.Iterator` loses nothing against today's stream iterator in read time,
-allocations, bytes, and 8 parallel readers.
+`cesium/floor_bench_test.go`, which the bench host keeps off `main` (D-430):
+`BenchmarkFloorSync` (append and sync, 4 KiB to 1 MiB), `BenchmarkFloorSyncFiles` (1,000
+files at a fan-out width), `BenchmarkFloorWrite`, `BenchmarkFloorCopy`, and
+`BenchmarkFloorCRC32C`: `F_sync(s)`, `F_files(k)`, `F_write`, `F_copy`, and `F_crc`
+below, with `F_cpu` = 1 / (1/`F_copy` + 1/`F_crc`) and `F_block` = the copy and CRC of
+65,536 bytes. `BenchmarkFloorReadPage`, in the cold group, gives `F_page`: one 4 KiB
+read at a random offset of a cold file. Recovery and the cold scan, with their read
+floor `F_read`, run as a cold group of the compare script, with a page cache drop
+between its two processes. The method is RFC 0120 §4.13's, run on the bench host against
+`main`; no speed gate runs on `main` or in CI. One baseline moves by design: Phase 6
+raises `BenchmarkCommit` (commits sync). Every read (full reads, long streamed reads,
+point reads, and time lookups) stays within 15% of `main`, with an aim of 10%, in time,
+bytes, and allocations per read, with read checks off, at 1 and 8 readers. A run with
+checks on is measured and reported. The block cache splits its lock, so parallel readers
+scale. A live auto-commit writer is as fast as on `main`: write-to-stream latency at
+p50, p99, and max, and throughput, at 1 kHz, on a 25 kHz card, and in a wide frame of
+many channels. The framer's stream stage over `cesium.Iterator` loses nothing against
+today's stream iterator in read time, allocations, bytes, and 8 parallel readers.
 
 **Read checks**: Writes always store checksums. The reads that serve iterators check
 them only when the Core start flag `--check-reads` (NEW) sets the Cesium option
@@ -1202,24 +1202,28 @@ the index again, and it drops at `Close` otherwise; and the framer names to `End
 only the indexes whose groups it fully controls, so a write or a commit never reaches a
 channel that another session controls. From Phase 6, on the pointer log only, the framer
 opens one Cesium writer per live clock, for the session that holds the clock, over that
-session's keys on it. A handoff of the clock closes that writer and opens one for the
-new holder through `DB.Handoff` (§4.2), as one event, with one new stretch, as does
-every key move. The old layout keeps each session's own Cesium writer and old Cesium's
-claim join until Phase 7. The framer reads the layout from one storage config field,
-which goes when Phase 7 makes the new layout the only one. The predicate stays for data
-channels that the holder lacks, until RFC 0120 Phase 6 gives each control writer its own
-clock. One clock per writer and the refusal of an overlapping writer (§5.8) arrive with
-Phase 6, on the pointer log. Phase 6 builds the log, heads, `Sync` and the framer's call
-to it, recovery, the state owner, the handle budget, version 1 segments, and replay from
-a run key, behind a Cesium open option that keeps the old layout the default. Phase 7
-builds parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test
-at each of its steps, the backup change, `synnax repair` with its two ways on (§6.0,
-§9.0), the Core's repair at start, and makes the new layout the only one that opens. It
-then removes `CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC
-0120 Phase 8 deletes the old code, except the old-layout reader of the conversion. Phase
-5 comes after RFC 0120 Phases 1 and 2, and RFC 0120 Phases 6 to 8 come after Phase 7.
-Each phase lands as several pieces, grouped into pull requests of about 2,000
-hand-written lines.
+session's keys on it. A handoff of the clock moves its keys to the new holder's writer
+through `DB.Handoff` (§4.2), as one event, until RFC 0120 Phase 38 gives each command
+channel a clock of its own. The old layout keeps each session's own Cesium writer and
+old Cesium's claim join until Phase 7. The framer reads the layout from one storage
+config field, which goes when Phase 7 makes the new layout the only one. The predicate
+stays for data channels that the holder lacks until RFC 0120 Phase 38. One clock per
+writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6, on the
+pointer log. Phase 6 builds the log, heads, `Sync` and the framer's call to it,
+recovery, the state owner, the handle budget, version 1 segments, and replay from a run
+key, behind a Cesium open option that keeps the old layout the default. RFC 0120 Phases
+2 to 4 then build takeover at open, one number per clock per session with continued
+stretches, and the commit-first handoff (§5.7, §5.8) on the pointer log. Phase 7 builds
+parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test at
+each of its steps, the backup change, `synnax repair` with its two ways on (§6.0, §9.0),
+the Core's repair at start, and makes the new layout the only one that opens. It then
+removes `CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC 0120
+Phase 22 leases clock keys, Phase 23 opens each writer on groups (§4.2, §5.8), Phase 24
+moves often paused keys, Phase 25 ends a clock with its last user (§4.1), and Phase 42
+deletes the old code, except the old-layout reader of the conversion. Phase 5 comes
+after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 17 come after Phase 6, Phases 2 to 4
+land before Phase 7, and RFC 0120 Phases 22 to 42 come after Phase 7. Each phase lands
+as several pieces, grouped into pull requests of about 2,000 hand-written lines.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                  | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
@@ -1255,10 +1259,9 @@ hand-written lines.
 5. **One alignment number per stretch**: Rejected: one per clock segment, shared by its
    stretches. It uses 1% of the space in 10 years, but two stretches then touch by
    alignment, and the codec merges them across the gap.
-6. **The clock key on the segment, one clock per writer**: Rejected: the clock key on
-   the pointer. It gives fewer files for script runs and control handoffs, but a segment
-   then has no single clock to seal on, to encode as progressions, or to share as a
-   struct.
+6. **The clock key on the segment, one clock per group**: Rejected: the clock key on the
+   pointer. It gives fewer files for control handoffs, but a segment then has no single
+   clock to seal on, to encode as progressions, or to share as a struct.
 7. **A bad data block fails its read**: Rejected: stop the engine. One bad block in old
    data must not stop a Core that runs live hardware.
 8. **Old files stay version 0, old metadata stays in place**: Rejected: a rewrite or a
@@ -1268,14 +1271,28 @@ hand-written lines.
    crash safe).
 9. **`Delete` of whole keys, no merge of sealed segments**: Rejected: a registry in
    Cesium (two writes per create), dropping stamps when their last data pointer dies (an
-   index over all history), and a merge by size class (a script segment has its own
-   clock key and cannot merge). The trade is real: about 7 million files (§5.7).
+   index over all history), and a merge by size class (segments of two clocks cannot
+   merge). The trade is real: about 3 million files in 10 years (§5.7).
 10. **No Cesium file in the backup of a later update**: Rejected: a backup of the newest
     head and its logs, with calls that pin the parts it names. Its undo would lose the
     telemetry that RFC 0102 keeps.
 11. **`Delete` and `Keys`, with the policy in the Core**: Rejected: `Intend`, `Drop`,
     and `Sweep` in Cesium, which split one delete policy across Cesium and the Core. The
     Core already holds the records, the producers, and the notes in one transaction.
+12. **Cesium picks each clock at open**: Continuation (§5.8) keeps one clock for a task
+    restart, a changed config, and a script loop. Rejected: a clock key that the caller
+    names, which every task config must then store, and a `Line` flag in the channel
+    file, which Phase 7 removes.
+13. **The old holder commits first at a handoff**: Rejected: a `Pending` that waits for
+    the new clock's stamps, with `adopt` across handoffs (D-458), which parks samples
+    across a move and drops them at `Close`.
+14. **Continued stretches in memory only**: Rejected: a durable clean flag, a new record
+    for one number per clock per restart.
+15. **The Core ends a clock**: Rejected: a `Delete` that ends each clock with no user on
+    its own. Before RFC 0120 Phase 38 a clock can be an index channel with a record,
+    which Cesium cannot see.
+16. **No segment file on the frame path**: Spares made at open and at a handoff cost one
+    empty file each. Rejected: a file made at a key's first write after a move.
 
 ## 14 Open questions
 
@@ -1283,4 +1300,5 @@ Each is a parameter with a default, checked against the measured floors: the wid
 the sync pool (32); the log file size and the switch trigger (64 MiB, three quarters);
 the handle budget of readers and background passes (1,024); the part threshold (8 MiB)
 and the part cache budget (64 MiB); the Reserve blocks (16, then 1,024); the dead share
-that starts a compaction (20%, as today); the rate limits.
+that starts a compaction (20%, as today); the rate limits; the pauses before a move (64)
+and the gap of a continued stretch (3 steps), both RFC 0120 §8's.
