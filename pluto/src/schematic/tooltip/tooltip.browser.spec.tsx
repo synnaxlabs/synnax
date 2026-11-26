@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, connection, DataType } from "@synnaxlabs/client";
+import { type channel, connection, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Tooltip as Base } from "@synnaxlabs/lyra/tooltip";
 import { id, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -144,13 +144,13 @@ describe("Tooltip.Panel", () => {
 
   describe("timing", () => {
     it("should stay hidden until the delay passes", async () => {
-      renderTooltip(Node.createConfig({ variant: "valve" }));
+      renderTooltip(schematic.nodeConfigZ.parse({ variant: "valve" }));
       expect(getTooltip()).toBeNull();
       await findTooltip();
     });
 
     it("should reopen instantly within the warm window", async () => {
-      const config = Node.createConfig({ variant: "valve" });
+      const config = schematic.nodeConfigZ.parse({ variant: "valve" });
       const { rerender } = renderTooltip(config);
       await findTooltip();
       rerender(<div />);
@@ -164,7 +164,7 @@ describe("Tooltip.Panel", () => {
     it("should name the command and state channels under their role icons", async () => {
       const [command, state] = await Promise.all([createChannel(), createChannel()]);
       renderTooltip(
-        Node.createConfig({
+        schematic.nodeConfigZ.parse({
           variant: "valve",
           commandChannel: command.key,
           stateChannel: state.key,
@@ -230,7 +230,7 @@ describe("Tooltip.Panel", () => {
   describe("field rows", () => {
     it("should label fields in sentence case with their units", async () => {
       renderTooltip(
-        Node.createConfig({
+        schematic.nodeConfigZ.parse({
           variant: "valve",
           onClickDelay: TimeSpan.milliseconds(250).nanoseconds,
         }),
@@ -243,7 +243,7 @@ describe("Tooltip.Panel", () => {
     });
 
     it("should hide a zero click delay", async () => {
-      renderTooltip(Node.createConfig({ variant: "valve" }));
+      renderTooltip(schematic.nodeConfigZ.parse({ variant: "valve" }));
       const tooltip = await findTooltip();
       expect(within(tooltip).queryByText("On click delay")).toBeNull();
     });
@@ -257,7 +257,7 @@ describe("Tooltip.Panel", () => {
 
     it("should show whether a solenoid valve is normally open", async () => {
       renderTooltip(
-        Node.createConfig({ variant: "solenoid_valve", normallyOpen: true }),
+        schematic.nodeConfigZ.parse({ variant: "solenoid_valve", normallyOpen: true }),
       );
       const tooltip = await findTooltip();
       expect(within(tooltip).getByText("Normally open")).not.toBeNull();
@@ -276,7 +276,7 @@ describe("Tooltip.Panel", () => {
       ["input", ["Stale timeout"]],
       ["select", ["Stale timeout"]],
     ])("should show the %s rows in order", async (variant, labels) => {
-      renderTooltip(Node.createConfig({ variant }));
+      renderTooltip(schematic.nodeConfigZ.parse({ variant }));
       const tooltip = await findTooltip();
       const rendered = within(tooltip)
         .getAllByRole("term")
@@ -287,7 +287,7 @@ describe("Tooltip.Panel", () => {
     it.each<Node.Variant>(["cap", "circle", "group_box"])(
       "should render nothing for a %s, which has no rows",
       async (variant) => {
-        renderTooltip(Node.createConfig({ variant }));
+        renderTooltip(schematic.nodeConfigZ.parse({ variant }));
         await sleep.sleep(TimeSpan.milliseconds(DELAY.milliseconds * 3));
         expect(getTooltip()).toBeNull();
       },
@@ -381,7 +381,7 @@ describe("Tooltip.Panel", () => {
     it("should show one row for a valve with two channels", async () => {
       const [command, state] = await Promise.all([createChannel(), createChannel()]);
       renderTooltip(
-        Node.createConfig({
+        schematic.nodeConfigZ.parse({
           variant: "valve",
           commandChannel: command.key,
           stateChannel: state.key,
@@ -396,7 +396,7 @@ describe("Tooltip.Panel", () => {
       stamps.stamp(command.key, TimeStamp.now().sub(TimeSpan.hours(1)));
       stamps.stamp(state.key, TimeStamp.now().sub(TimeSpan.hours(2)));
       renderTooltip(
-        Node.createConfig({
+        schematic.nodeConfigZ.parse({
           variant: "valve",
           commandChannel: command.key,
           stateChannel: state.key,
@@ -409,7 +409,7 @@ describe("Tooltip.Panel", () => {
     it("should fall back to the command channel", async () => {
       const command = await createChannel();
       renderTooltip(
-        Node.createConfig({ variant: "valve", commandChannel: command.key }),
+        schematic.nodeConfigZ.parse({ variant: "valve", commandChannel: command.key }),
       );
       const tooltip = await findTooltip();
       expect(within(tooltip).queryByText(LABEL)).not.toBeNull();
@@ -475,10 +475,13 @@ describe("Tooltip.Panel", () => {
       it("should follow a state channel added to a command-only valve", async () => {
         const [command, state] = await Promise.all([createSampled(), createCached()]);
         const { tooltip, label, swap } = await renderSwappable(
-          Node.createConfig({ variant: "valve", commandChannel: command.key }),
+          schematic.nodeConfigZ.parse({
+            variant: "valve",
+            commandChannel: command.key,
+          }),
         );
         swap(
-          Node.createConfig({
+          schematic.nodeConfigZ.parse({
             variant: "valve",
             commandChannel: command.key,
             stateChannel: state.key,

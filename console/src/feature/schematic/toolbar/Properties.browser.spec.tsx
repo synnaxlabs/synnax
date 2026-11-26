@@ -32,7 +32,11 @@ import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
 import { CaptureStatuses, getIconButton, getInputByItemLabel } from "@/testutil";
 
-const createValveConfig = (): schematic.SymbolNodeConfig =>
+// No spec draws a valve node, so createConfig refuses one; the schema still parses it.
+const createValveConfig = (): Record<string, unknown> =>
+  schematic.nodeConfigZ.parse({ variant: "valve", label: { label: "Valve" } });
+
+const createValveNodeConfig = (): schematic.SymbolNodeConfig =>
   schematic.symbolNodeConfigZ.parse({
     variant: "symbol",
     spec: { type: "builtin", name: "valve" },
@@ -141,7 +145,10 @@ preloadTab();
 describe("Schematic toolbar Properties", () => {
   describe("single selection", () => {
     it("writes label edits back to the schematic config and the breadcrumb", async () => {
-      const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: createValveNodeConfig,
+      });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
       const input = getInputByItemLabel(result.container, "Label");
       fireEvent.change(input, { target: { value: "Main Valve" } });
@@ -153,7 +160,10 @@ describe("Schematic toolbar Properties", () => {
     });
 
     it("shows an edit that another client makes to the selected element", async () => {
-      const { key, result } = await renderProperties({ nodeKeys: ["n1"] });
+      const { key, result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: createValveNodeConfig,
+      });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
       const remote = createTestClient();
       await remote.schematics.retrieve(key);
@@ -176,6 +186,7 @@ describe("Schematic toolbar Properties", () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1"],
         onStatuses: (s) => statuses.push(...s),
+        createConfig: createValveNodeConfig,
       });
       await screen.findByRole("tab", { name: "Style" });
       await waitForStreamLive(client.connection);
@@ -198,7 +209,10 @@ describe("Schematic toolbar Properties", () => {
 
   describe("tabs", () => {
     it("opens a symbol on its first tab", async () => {
-      const { result } = await renderProperties({ nodeKeys: ["n1"] });
+      const { result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: createValveNodeConfig,
+      });
       await screen.findByRole("tab", { name: "Style" });
       const rail = result.container.querySelector<HTMLElement>(
         ".pluto-properties-tabs",
@@ -212,6 +226,7 @@ describe("Schematic toolbar Properties", () => {
       const { key, store } = await renderProperties({
         nodeKeys: ["n1", "n2"],
         sessionState: { selected: ["n1"] },
+        createConfig: createValveNodeConfig,
       });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
       act(() => {
@@ -519,7 +534,7 @@ describe("Schematic toolbar Properties", () => {
     it("recolors the node color of symbol nodes", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
-        createConfig: () => ({ ...createValveConfig(), color: fixed(RED) }),
+        createConfig: () => ({ ...createValveNodeConfig(), color: fixed(RED) }),
       });
       await screen.findByText("Selection");
       fireEvent.click(getSwatches("Selection")[0]);
@@ -539,7 +554,7 @@ describe("Schematic toolbar Properties", () => {
     it("sets the color of every selected symbol node", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
-        createConfig: createValveConfig,
+        createConfig: createValveNodeConfig,
       });
       await screen.findByText("Colors");
       expect(getHexInput("Color").placeholder).toBe("Auto");
@@ -558,7 +573,7 @@ describe("Schematic toolbar Properties", () => {
         nodeKeys: ["n1", "n2", "n3"],
         createConfig: (key) => {
           if (key === "n1") return { ...createBoxConfig(), strokeColor: fixed(RED) };
-          if (key === "n2") return { ...createValveConfig(), color: fixed(RED) };
+          if (key === "n2") return { ...createValveNodeConfig(), color: fixed(RED) };
           return { ...createBoxConfig(), fillColor: fixed(GREEN) };
         },
       });

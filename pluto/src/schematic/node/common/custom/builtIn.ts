@@ -147,18 +147,21 @@ export interface BuiltInParams
    * active. Looks and interactions in the params replace those of the family.
    */
   family?: FamilyKey;
+  /** scale is the size of the drawing next to the other built-ins. Defaults to 1. */
+  scale?: number;
 }
 
 /**
  * @returns the spec of a built-in symbol, static unless family says otherwise. Its
- * scale is the shrink Primitive.SVG gives a built-in drawing, so Drawing draws it at
- * the size of that drawing.
+ * scale is the shrink Primitive.SVG gives a built-in drawing, times the scale in the
+ * params.
  */
 export const createBuiltIn = ({
   svg,
   handles,
   family,
   parts = [],
+  scale = 1,
   ...overrides
 }: BuiltInParams): schematic.symbol.Spec => ({
   drawing: {
@@ -169,6 +172,6 @@ export const createBuiltIn = ({
   handles,
   ...(family == null ? STATIC : createBehavior(family)),
   ...overrides,
-  scale: Primitive.BASE_SCALE,
+  scale: Primitive.BASE_SCALE * scale,
   strokeScaled: false,
 });

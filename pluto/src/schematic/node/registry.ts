@@ -11,27 +11,15 @@ import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { deep, record } from "@synnaxlabs/x";
 import type { z } from "zod";
 
-import { BUILT_INS } from "@/schematic/node/builtIns";
-import { Fittings } from "@/schematic/node/fittings";
-import { Flowmeters } from "@/schematic/node/flowmeters";
+import { NAMES } from "@/schematic/node/builtIns";
 import { General } from "@/schematic/node/general";
 import { GroupBox } from "@/schematic/node/groupBox";
-import { Process } from "@/schematic/node/process";
-import { Pumps } from "@/schematic/node/pumps";
-import { Safety } from "@/schematic/node/safety";
 import type { Spec } from "@/schematic/node/spec";
 import { SYMBOL_VARIANT, symbolSpec } from "@/schematic/node/symbol/spec";
-import { Valves } from "@/schematic/node/valves";
 import { Vessels } from "@/schematic/node/vessels";
 
 export const REGISTRY = {
-  ...Fittings.REGISTRY,
-  ...Flowmeters.REGISTRY,
   ...General.REGISTRY,
-  ...Process.REGISTRY,
-  ...Pumps.REGISTRY,
-  ...Safety.REGISTRY,
-  ...Valves.REGISTRY,
   ...Vessels.REGISTRY,
   group_box: GroupBox.spec,
   symbol: symbolSpec,
@@ -54,7 +42,7 @@ export type Input<V extends Variant> = { variant: V } & Omit<
 >;
 
 export const resolveSpec = (variant: string): Spec => {
-  const spec: unknown = REGISTRY[variant as keyof typeof REGISTRY];
+  const spec = REGISTRY[variant as keyof typeof REGISTRY];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
   return spec as Spec;
 };
@@ -90,31 +78,18 @@ export const symbolKey = (config: Config): string => {
   return config.spec.type === "builtin" ? config.spec.name : config.spec.key;
 };
 
-// The labels of the built-ins that no older variant draws.
-const LABELS: Record<string, string> = {
-  normally_open_solenoid_valve: "Normally open solenoid",
-};
-
 /**
  * @returns the label that a node of the built-in symbol takes on creation, or undefined
  * if no built-in has the name.
  */
-export const builtInLabel = (name: string): string | undefined => {
-  if (!BUILT_INS.has(name)) return undefined;
-  if (name in LABELS) return LABELS[name];
-  const spec = resolveSpec(name);
-  return spec.label ?? spec.name;
-};
+export const builtInLabel = (name: string): string | undefined =>
+  NAMES.get(name)?.label;
 
 /**
  * @returns the name that the symbols toolbar gives the built-in symbol, or undefined if
  * no built-in has the name.
  */
-export const builtInName = (name: string): string | undefined => {
-  if (!BUILT_INS.has(name)) return undefined;
-  if (name in LABELS) return LABELS[name];
-  return resolveSpec(name).name;
-};
+export const builtInName = (name: string): string | undefined => NAMES.get(name)?.name;
 
 /**
  * Changes the config to the variant the input names. Each field the new variant
@@ -132,9 +107,3 @@ export const changeConfig = <V extends Variant>(
     record.omit(config as record.Unknown, "spec"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
-
-/// STATIC_SPECS lists every Spec in the registry except the group box and the symbol
-/// variant.
-export const STATIC_SPECS: readonly Spec[] = (Object.values(REGISTRY) as Spec[]).filter(
-  (s) => s.key !== GroupBox.VARIANT && s.key !== SYMBOL_VARIANT,
-);

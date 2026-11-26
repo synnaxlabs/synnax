@@ -23,7 +23,9 @@ interface ElementSpec {
   colorFallbacks?: Node.ColorFallbacks;
 }
 
-/** ELEMENT_REGISTRY maps each element variant to its spec. An equipment node has none. */
+/**
+ * ELEMENT_REGISTRY maps each element variant to its spec. Equipment variants have none.
+ */
 export const ELEMENT_REGISTRY: Partial<
   Record<schematic.ElementConfigType, ElementSpec>
 > = { ...Node.REGISTRY, ...Edge.REGISTRY };

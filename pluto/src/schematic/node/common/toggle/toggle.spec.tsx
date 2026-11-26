@@ -28,17 +28,17 @@ const SynnaxWrapper = createSynnaxWrapper({
 });
 
 describe("createToggle", () => {
-  it("should hold a valve for its stored delay in nanoseconds", () => {
-    const Valve = Node.resolveSpec("valve").Node;
+  it("should hold a switch for its stored delay in nanoseconds", () => {
+    const Switch = Node.resolveSpec("switch").Node;
     const config = Node.createConfig({
-      variant: "valve",
+      variant: "switch",
       onClickDelay: Number(TimeSpan.milliseconds(500).valueOf()),
     });
     const { container } = render(
       <SynnaxWrapper>
         <ReactFlowProvider>
-          <Valve
-            nodeKey="v1"
+          <Switch
+            nodeKey="s1"
             selected={false}
             config={config}
             onConfigChange={() => {}}
@@ -46,8 +46,8 @@ describe("createToggle", () => {
         </ReactFlowProvider>
       </SynnaxWrapper>,
     );
-    const button = container.querySelector("button");
-    expect(button?.style.getPropertyValue(Primitive.TOGGLE_DELAY)).toBe("0.5s");
+    const symbol = container.querySelector<HTMLElement>(".pluto-switch-symbol");
+    expect(symbol?.style.getPropertyValue(Primitive.TOGGLE_DELAY)).toBe("0.5s");
   });
 });
 
