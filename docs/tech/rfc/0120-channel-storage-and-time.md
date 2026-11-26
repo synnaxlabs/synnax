@@ -577,7 +577,10 @@ others, and writes a warning status.
 every integration's index keys into its task config. The migration then applies, to
 every holder of an index channel key, the rule for its holder in the table below, and
 deletes the index channel records last, with no storage delete: each key lives on as the
-clock that its producer config holds.
+clock that its producer config holds. A key that no producer config holds, such as the
+index channel of a script or of a task deleted before Phase 9, gets a pending-drop note
+in the same transaction, so the next start deletes its clock. Storage still keeps its
+stamps while a stored segment of another key names them.
 
 | Holder                                                  | Rule                                                                                                  |
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
