@@ -478,8 +478,8 @@ jobs:
       package: console
       shards: 3
       webkit: *full
-      # Three runs hold each WebKit page under 2.3 GB, from 4.1 GB with one.
-      webkit_runs: 3
+      # A page keeps every file (microsoft/playwright#44290), so 4 stay under 1.5 GB.
+      webkit_files_per_page: 4
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}

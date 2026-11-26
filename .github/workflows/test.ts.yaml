@@ -129,11 +129,11 @@ on:
         required: false
         type: boolean
         default: false
-      webkit_runs:
-        description: How many Vitest runs split each job's WebKit specs, from 1 to 4
+      webkit_files_per_page:
+        description: The most WebKit spec files one page runs, or 0 for no limit
         required: false
         type: number
-        default: 1
+        default: 0
       windows:
         description: Whether to test on Windows
         required: false
@@ -231,14 +231,6 @@ jobs:
         if: inputs.shards < 1 || inputs.shards > 4
         run: |
           echo "::error::shards must be from 1 to 4, not ${{ inputs.shards }}."
-          exit 1
-
-      - name: Check the WebKit run count
-        if: inputs.webkit_runs < 1 || inputs.webkit_runs > 4
-        env:
-          WEBKIT_RUNS: ${{ inputs.webkit_runs }}
-        run: |
-          echo "::error::webkit_runs must be from 1 to 4, not $WEBKIT_RUNS."
           exit 1
 
       # The job bound leaves 25 minutes for the steps before and after the tests.
@@ -400,15 +392,17 @@ jobs:
       # more shards than files, so a package needs more browser spec files than shards
       # times WebKit runs. Playwright's WebKit never frees the heap of a finished spec
       # file (https://github.com/microsoft/playwright/issues/44290), so a page that runs
-      # too many files crashes. Each run starts new pages. Set webkit_runs back to 1
-      # when the issue is fixed.
+      # too many files crashes. Each run starts new pages, and the step makes enough
+      # runs that a page runs at most about webkit_files_per_page files. Set it back to
+      # 0 when the issue is fixed.
       - name: Test in WebKit and Firefox
         if: inputs.test && inputs.webkit && !matrix.node
         shell: bash
         timeout-minutes: 15
         env:
+          DIRECTORY: ${{ inputs.directory }}
           PACKAGE: ${{ inputs.package }}
-          RUNS: ${{ inputs.webkit_runs }}
+          PAGE_FILES: ${{ inputs.webkit_files_per_page }}
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ inputs.shards }}
           SYNNAX_TEST_CACHE_KEY:
@@ -436,12 +430,22 @@ jobs:
             trap 'kill "$monitor"; echo "Memory samples: $(grep -c Mem: "$log")"' EXIT
           fi
           read -ra specs <<< "$SPECS"
+          runs=1
+          if ((PAGE_FILES > 0)); then
+            files=$(cd "$DIRECTORY" && pnpm exec vitest list --filesOnly \
+              --project '*webkit' "${specs[@]}" | grep -c '\.spec\.')
+            # Vitest opens one page per worker, one worker per core but one.
+            pages=$(node -p 'os.availableParallelism() - 1')
+            per_run=$((SHARDS * pages * PAGE_FILES))
+            runs=$(((files + per_run - 1) / per_run))
+            echo "$files WebKit spec files in $((SHARDS * runs)) runs"
+          fi
           status=0
-          total=$((SHARDS * RUNS))
-          for ((run = 1; run <= RUNS; run++)); do
+          total=$((SHARDS * runs))
+          for ((run = 1; run <= runs; run++)); do
             args=()
             if ((total > 1)); then
-              args=(--shard="$(((SHARD - 1) * RUNS + run))/$total")
+              args=(--shard="$(((SHARD - 1) * runs + run))/$total")
             fi
             pnpm test:"$PACKAGE" --log-order=stream --log-prefix=none -- --run \
               --project '*webkit' --project '*firefox' "${args[@]}" "${specs[@]}" \
@@ -509,9 +513,9 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/diagnostics"
           if [ "$RUNNER_OS" = Linux ]; then
-            echo "Kernel OOM, kill, and segfault lines:"
+            echo "Kernel OOM, kill, segfault, and trap lines:"
             { sudo dmesg 2> /dev/null || sudo journalctl -k --no-pager; } \
-              | grep -iE 'oom|killed process|segfault' | tail -50 || true
+              | grep -iE 'oom|killed process|segfault|traps' | tail -50 || true
           fi
           if [ -f "$RUNNER_TEMP/diagnostics/webkit-memory.log" ]; then
             tail -n 40 "$RUNNER_TEMP/diagnostics/webkit-memory.log"
