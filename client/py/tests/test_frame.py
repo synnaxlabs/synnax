@@ -18,6 +18,8 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from synnax.channel.payload import Payload as ChannelPayload, normalize_params
+from synnax.channel.retrieve import Retriever
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.frame import FramePayload, is_dataframe
 from synnax.telem import CrudeSeries
@@ -806,6 +808,24 @@ class TestReadFrameAdapter:
         )
         assert fr.indexes == {idx_ch.key: idx_ch.key, data_ch.key: 99}
 
+    def test_adapt_gives_no_index_to_a_series_with_no_clock(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        """Should give no index to a channel whose series carry no clock."""
+        idx_ch, data_ch = indexed_pair
+        adapter = ReadFrameAdapter(client.channels._retriever)
+        adapter.update([idx_ch.key, data_ch.key])
+        fr = adapter.adapt(
+            sy.Frame(
+                [idx_ch.key, data_ch.key],
+                [
+                    sy.Series([1], data_type=sy.DataType.TIMESTAMP, clock=idx_ch.key),
+                    sy.Series([1.0], data_type=sy.DataType.FLOAT32),
+                ],
+            )
+        )
+        assert fr.indexes == {idx_ch.key: idx_ch.key}
+
     def test_update_with_keys(
         self, client: sy.Synnax, channels: tuple[sy.Channel, sy.Channel, sy.Channel]
     ) -> None:
@@ -1239,3 +1259,63 @@ class TestFramePandasLoading:
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "False"
+
+
+class _FixedRetriever(Retriever):
+    """Retrieves channels from a fixed list, with no Core."""
+
+    def __init__(self, channels: list[ChannelPayload]) -> None:
+        self._channels = channels
+
+    def retrieve(self, channels: sy.channel.Params) -> list[ChannelPayload]:
+        wanted = set(normalize_params(channels).channels)
+        return [c for c in self._channels if c.key in wanted or c.name in wanted]
+
+
+_A = ChannelPayload(
+    key=1, name="a_time", data_type=sy.DataType.TIMESTAMP, is_index=True
+)
+_B = ChannelPayload(
+    key=2, name="b_time", data_type=sy.DataType.TIMESTAMP, is_index=True
+)
+_D = ChannelPayload(key=3, name="d", data_type=sy.DataType.FLOAT64, index=1)
+
+
+def _stamps(values: list[int], alignment: int, clock: int) -> sy.Series:
+    return sy.Series(
+        values,
+        data_type=sy.DataType.TIMESTAMP,
+        alignment=sy.Alignment(0, alignment),
+        clock=clock,
+    )
+
+
+def _values(values: list[float], alignment: int, clock: int) -> sy.Series:
+    return sy.Series(
+        values,
+        data_type=sy.DataType.FLOAT64,
+        alignment=sy.Alignment(0, alignment),
+        clock=clock,
+    )
+
+
+@pytest.mark.framer
+class TestReadFrameAdapterClocks:
+    def test_pairs_each_series_with_the_time_of_its_clock(self) -> None:
+        """Should pair each series of a channel on two clocks with its own time."""
+        adapter = ReadFrameAdapter(_FixedRetriever([_A, _B, _D]))
+        adapter.update([1, 2, 3])
+        fr = adapter.adapt(
+            sy.Frame(
+                [1, 2, 3, 3],
+                [
+                    _stamps([100], 0, 1),
+                    _stamps([500, 600], 0, 2),
+                    _values([1.0], 0, 1),
+                    _values([2.0], 1, 2),
+                ],
+            )
+        )
+        d = fr.to_df()["d"].dropna()
+        assert list(d.index.astype("int64")) == [100, 600]
+        assert d.tolist() == [1.0, 2.0]

@@ -782,4 +782,22 @@ describe("Joins", () => {
       expect(keysOf(joins)).toEqual([]);
     });
   });
+
+  describe("clocks", () => {
+    it("should keep the clock of held series that end cuts", () => {
+      const { joins } = createJoins();
+      joins.write(
+        createFrame(
+          [INDEX, createIndex([1, 2, 3], 0n)],
+          [DATA, createData([10, 20, 30], 0n)],
+        ),
+      );
+      const whole = joins.held(DATA);
+      const cut = joins.held(DATA, at(2));
+      expect(whole.map((s) => s.clock)).toEqual([INDEX]);
+      expect(cut.map((s) => s.length)).toEqual([1]);
+      expect(cut.map((s) => s.clock)).toEqual([INDEX]);
+      expect(joins.held(INDEX, at(2)).map((s) => s.clock)).toEqual([INDEX]);
+    });
+  });
 });
