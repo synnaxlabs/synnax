@@ -370,11 +370,12 @@ const CommandField = ({ command }: CommandFieldProps): ReactElement => {
 
 const useSymbol = (): Resolved => useResolved(Base.useFieldValue(path.spec));
 
-const stateless = (spec?: schematic.symbol.Spec): schematic.symbol.Command[] =>
-  spec?.commands.filter((c) => c.state == null) ?? [];
-
+// A symbol that has not resolved keeps every control field, since the node stores them.
 const clickable = (spec?: schematic.symbol.Spec): boolean =>
-  (spec?.interactions.length ?? 0) > 0;
+  spec == null || spec.interactions.length > 0;
+
+const commanded = (spec?: schematic.symbol.Spec): boolean =>
+  spec == null || spec.commands.length > 0;
 
 // WarningSection tells why a tab shows no states or commands.
 const WarningSection = ({
@@ -409,7 +410,7 @@ const TelemetryForm = (): ReactElement => {
 
 const ControlForm = (): ReactElement => {
   const { spec, missing, failed } = useSymbol();
-  const commands = stateless(spec);
+  const commands = spec?.commands.filter((c) => c.state == null) ?? [];
   return (
     <Base.Sections x>
       <WarningSection missing={missing} failed={failed} />
@@ -420,7 +421,7 @@ const ControlForm = (): ReactElement => {
           ))}
         </Base.Section>
       )}
-      {clickable(spec) && (
+      {clickable(spec) ? (
         <Base.Section title="Clicks">
           <NodeForm.NegatedSwitchField
             path={path.disabled}
@@ -429,6 +430,10 @@ const ControlForm = (): ReactElement => {
           />
           <NodeForm.ActivationDelayField />
           <NodeForm.ControlChipField />
+        </Base.Section>
+      ) : (
+        <Base.Section title="Control chip">
+          <NodeForm.ControlChipField label="Visible" />
         </Base.Section>
       )}
     </Base.Sections>
@@ -456,11 +461,11 @@ const StyleForm = (): ReactElement => (
 /**
  * Edits a symbol node: the source, format, and overrides of each state of its symbol,
  * the channel of each command with no state, its clicks, and its style. The Control
- * tab shows only for a symbol with a click or a command with no state.
+ * tab shows only for a symbol with a click or a command.
  */
 export const Form = ({ actions, tab, onTabChange }: FormProps): ReactElement => {
   const { spec } = useSymbol();
-  const control = clickable(spec) || stateless(spec).length > 0;
+  const control = clickable(spec) || commanded(spec);
   return (
     <Properties.Tabs
       tabs={control ? ["telemetry", "control", "style"] : ["telemetry", "style"]}
