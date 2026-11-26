@@ -54,8 +54,7 @@ func parseNumber(text []byte) (number, error) {
 	}
 	d := t.decimal(0)
 	// Integer text keeps its kind, and a negative zero with a point or an exponent
-	// keeps
-	// its sign as a float.
+	// keeps its sign as a float.
 	if !d.overflow && (t.integer || (!d.fraction && d.magnitude != 0)) {
 		switch {
 		case !d.negative && d.magnitude <= math.MaxInt64:
