@@ -98,6 +98,10 @@ func (o *overrides) node(
 	if actuated {
 		src.Data = symbol.Actuate(src.Data)
 	}
+	if len(src.Data.Commands) == 0 {
+		// A symbol with no commands draws only value 0.
+		states = states[:1]
+	}
 	var state symbol.EnumerationState
 	if len(src.Data.States) > 0 {
 		state, _ = src.Data.States[0].Variant.(symbol.EnumerationState)
