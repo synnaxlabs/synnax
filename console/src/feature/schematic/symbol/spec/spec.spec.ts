@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Spec } from "@/feature/schematic/symbol/spec";
 
 const STATE = Spec.createState().key;
+const at = (value: number): Spec.At => ({ state: STATE, value });
 const RED = color.construct("#ff0000");
 const BLUE = color.construct("#0000ff");
 const GREEN = color.construct("#00ff00");
@@ -26,6 +27,22 @@ const fixed = (c: color.Color): schematic.symbol.Paint => ({
 const equals = (...values: number[]): schematic.symbol.Condition => ({
   type: "equals",
   state: STATE,
+  values,
+});
+
+const FAULT: schematic.symbol.State = {
+  type: "enumeration",
+  key: "fault",
+  name: "Fault",
+  match: { type: "exact" },
+  default: 0,
+};
+
+const STATES = [Spec.createState(), FAULT];
+
+const onFault = (...values: number[]): schematic.symbol.Condition => ({
+  type: "equals",
+  state: FAULT.key,
   values,
 });
 
@@ -49,13 +66,28 @@ const createSpec = (
 });
 
 describe("symbol editor spec", () => {
+  describe("edited", () => {
+    it("should not count a zoom or a pan of the preview", () => {
+      const spec = createSpec();
+      const moved = { ...spec, previewViewport: { zoom: 2, position: { x: 5, y: 9 } } };
+      expect(Spec.edited(spec, moved)).toBe(false);
+    });
+
+    it("should count a change to the drawing", () => {
+      const spec = createSpec();
+      expect(Spec.edited(spec, Spec.removePart(spec, "body"))).toBe(true);
+    });
+  });
+
   describe("effective", () => {
     it("should return the field that wins for the part at the value", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", when: equals(0, 1), fill: fixed(RED) },
         { key: "b", part: "body", fill: fixed(BLUE) },
       ];
-      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
+      expect(Spec.effective({ looks, states: STATES }, "body", "fill", at(0))).toEqual(
+        fixed(BLUE),
+      );
     });
 
     it("should count a later look of the whole drawing for a part", () => {
@@ -63,15 +95,95 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", fill: fixed(BLUE) },
         { key: "b", when: equals(0), fill: fixed(RED) },
       ];
-      expect(Spec.effective({ looks }, "body", "fill", 0)).toEqual(fixed(RED));
-      expect(Spec.effective({ looks }, "body", "fill", 1)).toEqual(fixed(BLUE));
+      expect(Spec.effective({ looks, states: STATES }, "body", "fill", at(0))).toEqual(
+        fixed(RED),
+      );
+      expect(Spec.effective({ looks, states: STATES }, "body", "fill", at(1))).toEqual(
+        fixed(BLUE),
+      );
     });
 
     it("should not count the looks of a part for the whole drawing", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", fill: fixed(RED) },
       ];
-      expect(Spec.effective({ looks }, undefined, "fill", 0)).toBeUndefined();
+      expect(
+        Spec.effective({ looks, states: STATES }, undefined, "fill", at(0)),
+      ).toBeUndefined();
+    });
+
+    it("should count a look on another state at the default of that state", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", part: "body", when: onFault(1), fill: fixed(RED) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.effective(spec, "body", "fill", at(0))).toEqual(fixed(BLUE));
+      const fault = { state: FAULT.key, value: 1 };
+      expect(Spec.effective(spec, "body", "fill", fault)).toEqual(fixed(RED));
+      const faulted = { looks, states: [Spec.createState(), { ...FAULT, default: 1 }] };
+      expect(Spec.effective(faulted, "body", "fill", at(0))).toEqual(fixed(RED));
+    });
+
+    it("should not count a look on a state that the symbol lacks", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(BLUE) },
+        { key: "b", part: "body", when: onFault(0), fill: fixed(RED) },
+      ];
+      const spec = { looks, states: [Spec.createState()] };
+      expect(Spec.effective(spec, "body", "fill", at(0))).toEqual(fixed(BLUE));
+    });
+  });
+
+  describe("inheritedSource", () => {
+    it("should return a look of the part on another state", () => {
+      const fault: schematic.symbol.Look = {
+        key: "fault",
+        part: "body",
+        when: onFault(0),
+        fill: fixed(RED),
+      };
+      const looks: schematic.symbol.Look[] = [
+        { key: "whole", fill: fixed(BLUE) },
+        fault,
+        { key: "own", part: "body", when: equals(0), fill: fixed(GREEN) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.inheritedSource(spec, "body", "fill", at(0))).toBe(fault);
+    });
+
+    it("should not return a look that the part has on the shown state", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "own", part: "body", when: equals(0), fill: fixed(GREEN) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.inheritedSource(spec, "body", "fill", at(0))).toBeUndefined();
+    });
+  });
+
+  describe("resolvePreview", () => {
+    it("should keep a state that the symbol has", () => {
+      const fault = { state: FAULT.key, value: 2 };
+      expect(Spec.resolvePreview(STATES, fault)).toBe(fault);
+    });
+
+    it("should move to the first enumeration state at its default", () => {
+      const tripped = { ...FAULT, default: 2 };
+      expect(Spec.resolvePreview([tripped], at(1))).toEqual({
+        state: FAULT.key,
+        value: 2,
+      });
+    });
+
+    it("should move to STATE when the symbol has no enumeration state", () => {
+      const level: schematic.symbol.State = {
+        type: "number",
+        key: "level",
+        name: "Level",
+        bounds: { lower: 0, upper: 1 },
+      };
+      const fault = { state: FAULT.key, value: 0 };
+      expect(Spec.resolvePreview([level], fault)).toEqual(at(0));
     });
   });
 
@@ -81,8 +193,21 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", fill: fixed(BLUE) },
         { key: "b", when: equals(0), fill: fixed(RED) },
       ];
-      expect(Spec.own({ looks }, "body", "fill", 0)).toEqual(fixed(BLUE));
-      expect(Spec.own({ looks: looks.slice(1) }, "body", "fill", 0)).toBeUndefined();
+      expect(Spec.own({ looks, states: STATES }, "body", "fill", at(0))).toEqual(
+        fixed(BLUE),
+      );
+      expect(
+        Spec.own({ looks: looks.slice(1), states: STATES }, "body", "fill", at(0)),
+      ).toBeUndefined();
+    });
+
+    it("should not count a look of the part on another state", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: onFault(0), fill: fixed(RED) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.effective(spec, "body", "fill", at(0))).toEqual(fixed(RED));
+      expect(Spec.own(spec, "body", "fill", at(0))).toBeUndefined();
     });
 
     it("should return the look of the whole drawing for the whole drawing", () => {
@@ -90,12 +215,29 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", fill: fixed(BLUE) },
         { key: "b", when: equals(0), fill: fixed(RED) },
       ];
-      expect(Spec.own({ looks }, undefined, "fill", 0)).toEqual(fixed(RED));
-      expect(Spec.own({ looks }, undefined, "fill", 1)).toBeUndefined();
+      expect(Spec.own({ looks, states: STATES }, undefined, "fill", at(0))).toEqual(
+        fixed(RED),
+      );
+      expect(
+        Spec.own({ looks, states: STATES }, undefined, "fill", at(1)),
+      ).toBeUndefined();
     });
   });
 
   describe("setOwn", () => {
+    it("should add a look after a later look of another state that covers it", () => {
+      const fault = { state: FAULT.key, value: 0 };
+      const spec = createSpec({
+        states: STATES,
+        looks: [
+          { key: "own", part: "body", when: onFault(0), fill: fixed(RED) },
+          { key: "base", part: "body", when: equals(0), fill: fixed(GREEN) },
+        ],
+      });
+      const next = Spec.setOwn(spec, "body", "fill", fixed(BLUE), fault);
+      expect(Spec.effective(next, "body", "fill", fault)).toEqual(fixed(BLUE));
+    });
+
     it("should add a drawing look after its last hider, not after every look", () => {
       const spec = createSpec({
         looks: [
@@ -104,7 +246,7 @@ describe("symbol editor spec", () => {
           { key: "c", part: "seat", when: equals(0), fill: fixed(RED) },
         ],
       });
-      const next = Spec.setOwn(spec, undefined, "fill", fixed(GREEN), 0);
+      const next = Spec.setOwn(spec, undefined, "fill", fixed(GREEN), at(0));
       expect(next.looks.map((l) => l.key)).toEqual(["a", "b", expect.any(String), "c"]);
     });
 
@@ -121,7 +263,7 @@ describe("symbol editor spec", () => {
         ],
       });
       const flow: schematic.symbol.Motion = { type: "flow", rate: 2 };
-      expect(Spec.setOwn(spec, "body", "motion", flow, 0).looks).toEqual([
+      expect(Spec.setOwn(spec, "body", "motion", flow, at(0)).looks).toEqual([
         { ...spec.looks[0], motion: flow },
         spec.looks[1],
       ]);
@@ -135,7 +277,7 @@ describe("symbol editor spec", () => {
         ],
       });
       const blink: schematic.symbol.Blink = { period: 3e9 };
-      expect(Spec.setOwn(spec, "body", "blink", blink, 0).looks).toEqual([
+      expect(Spec.setOwn(spec, "body", "blink", blink, at(0)).looks).toEqual([
         { ...spec.looks[0], blink },
         spec.looks[1],
       ]);
@@ -160,7 +302,7 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", when: equals(0), fill: fixed(BLUE) },
       ];
       expect(
-        Spec.setOwn(createSpec({ looks }), "body", "stroke", fixed(RED), 0).looks,
+        Spec.setOwn(createSpec({ looks }), "body", "stroke", fixed(RED), at(0)).looks,
       ).toEqual([{ ...looks[0], stroke: fixed(RED) }]);
     });
 
@@ -170,7 +312,7 @@ describe("symbol editor spec", () => {
       ];
       const blink = { period: 1e9 };
       expect(
-        Spec.setOwn(createSpec({ looks }), "body", "blink", blink, 1).looks,
+        Spec.setOwn(createSpec({ looks }), "body", "blink", blink, at(1)).looks,
       ).toEqual([{ ...looks[0], blink }]);
     });
 
@@ -183,7 +325,7 @@ describe("symbol editor spec", () => {
         "body",
         "stroke",
         fixed(RED),
-        0,
+        at(0),
       );
       expect(next).toEqual([
         looks[0],
@@ -205,7 +347,7 @@ describe("symbol editor spec", () => {
         stroke: { type: "entry", state: STATE },
       };
       expect(
-        Spec.setOwn(createSpec({ looks: [entry] }), "body", "stroke", fixed(RED), 0)
+        Spec.setOwn(createSpec({ looks: [entry] }), "body", "stroke", fixed(RED), at(0))
           .looks,
       ).toEqual([
         { ...entry, when: equals(1) },
@@ -223,7 +365,7 @@ describe("symbol editor spec", () => {
         "body",
         "stroke",
         fixed(RED),
-        0,
+        at(0),
       );
       expect(next).toEqual([
         looks[1],
@@ -244,7 +386,7 @@ describe("symbol editor spec", () => {
         motion: { type: "flow" as const, rate: 1 },
       };
       const spec = createSpec({ looks: [{ ...spin, stroke: fixed(RED) }, flow] });
-      const next = Spec.setOwn(spec, "body", "motion", flow.motion, 0);
+      const next = Spec.setOwn(spec, "body", "motion", flow.motion, at(0));
       expect(next.looks).toEqual([
         { key: "a", part: "body", when: equals(0), stroke: fixed(RED) },
         flow,
@@ -265,10 +407,10 @@ describe("symbol editor spec", () => {
         "body",
         "stroke",
         fixed(RED),
-        0,
+        at(0),
       );
       const flow = { type: "flow" as const, rate: 1 };
-      expect(Spec.setOwn(first, "body", "motion", flow, 0).looks).toEqual([
+      expect(Spec.setOwn(first, "body", "motion", flow, at(0)).looks).toEqual([
         stroke,
         {
           key: expect.any(String),
@@ -343,7 +485,7 @@ describe("symbol editor spec", () => {
         { key: "b", part: "seat", when: equals(0), stroke: fixed(RED) },
       ];
       expect(
-        Spec.setOwn(createSpec({ looks }), "body", "stroke", undefined, 0).looks,
+        Spec.setOwn(createSpec({ looks }), "body", "stroke", undefined, at(0)).looks,
       ).toEqual([looks[1]]);
     });
 
@@ -358,7 +500,7 @@ describe("symbol editor spec", () => {
         },
       ];
       expect(
-        Spec.setOwn(createSpec({ looks }), "body", "stroke", undefined, 0).looks,
+        Spec.setOwn(createSpec({ looks }), "body", "stroke", undefined, at(0)).looks,
       ).toEqual([{ ...looks[0], stroke: undefined }]);
     });
 
@@ -370,7 +512,8 @@ describe("symbol editor spec", () => {
         fill: { type: "entry", state: STATE },
       };
       expect(
-        Spec.setOwn(createSpec({ looks: [entry] }), "body", "fill", undefined, 1).looks,
+        Spec.setOwn(createSpec({ looks: [entry] }), "body", "fill", undefined, at(1))
+          .looks,
       ).toEqual([{ ...entry, when: equals(0) }]);
     });
 
@@ -385,7 +528,7 @@ describe("symbol editor spec", () => {
         { key: "a", part: "body", when: equals(1), fill: fixed(RED) },
       ];
       expect(
-        Spec.setOwn(createSpec({ looks }), "body", "fill", undefined, 1).looks,
+        Spec.setOwn(createSpec({ looks }), "body", "fill", undefined, at(1)).looks,
       ).toEqual([{ ...looks[0], when: equals(0) }]);
     });
 
@@ -398,7 +541,7 @@ describe("symbol editor spec", () => {
         fill: fixed(BLUE),
       };
       expect(
-        Spec.setOwn(createSpec({ looks: [look] }), "body", "stroke", undefined, 1)
+        Spec.setOwn(createSpec({ looks: [look] }), "body", "stroke", undefined, at(1))
           .looks,
       ).toEqual([
         { ...look, when: equals(0) },
@@ -420,7 +563,7 @@ describe("symbol editor spec", () => {
         "body",
         "stroke",
         fixed(RED),
-        0,
+        at(0),
       );
       expect(next.states).toEqual([Spec.createState()]);
       expect(next.looks).toEqual([
@@ -435,7 +578,7 @@ describe("symbol editor spec", () => {
         "body",
         "fill",
         fixed(RED),
-        0,
+        at(0),
       );
       expect(next.states).toEqual([other, Spec.createState()]);
     });
@@ -447,17 +590,53 @@ describe("symbol editor spec", () => {
 
     it("should keep the spec when it clears a field that no look sets", () => {
       const spec = createSpec({ states: [] });
-      expect(Spec.setOwn(spec, "body", "stroke", undefined, 0)).toBe(spec);
+      expect(Spec.setOwn(spec, "body", "stroke", undefined, at(0))).toBe(spec);
+    });
+  });
+
+  describe("variesByValue", () => {
+    it("should vary only by the state of the looks on values", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: onFault(1), fill: fixed(RED) },
+      ];
+      expect(Spec.variesByValue({ looks }, "body", "fill", STATE)).toBe(false);
+      expect(Spec.variesByValue({ looks }, "body", "fill", FAULT.key)).toBe(true);
     });
   });
 
   describe("setVariesByValue", () => {
+    it("should keep a look on another state out of the look on every value", () => {
+      const spec = createSpec({
+        states: STATES,
+        looks: [
+          { key: "base", part: "body", when: equals(0), fill: fixed(RED) },
+          { key: "fault", part: "body", when: onFault(0), fill: fixed(GREEN) },
+        ],
+      });
+      const next = Spec.setVariesByValue(spec, "body", "fill", STATE, [0, 1], false);
+      expect(Spec.own(next, "body", "fill")).toEqual(fixed(RED));
+    });
+
+    it("should put each value of another state on that state alone", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", fill: fixed(RED) },
+      ];
+      const spec = createSpec({ states: [FAULT], looks });
+      const next = Spec.setVariesByValue(spec, "body", "fill", FAULT.key, [0, 1], true);
+      expect(next.states).toEqual([FAULT]);
+      expect(next.looks).toEqual([
+        expect.objectContaining({ part: "body", when: onFault(0), fill: fixed(RED) }),
+        expect.objectContaining({ part: "body", when: onFault(1), fill: fixed(RED) }),
+      ]);
+    });
+
     it("should move the field on every value onto each value", () => {
       const looks: schematic.symbol.Look[] = [{ key: "a", part: "body", hidden: true }];
       const next = Spec.setVariesByValue(
         createSpec({ looks }),
         "body",
         "hidden",
+        STATE,
         [0, 1],
         true,
       );
@@ -465,7 +644,7 @@ describe("symbol editor spec", () => {
         expect.objectContaining({ part: "body", when: equals(0), hidden: true }),
         expect.objectContaining({ part: "body", when: equals(1), hidden: true }),
       ]);
-      expect(Spec.variesByValue(next, "body", "hidden")).toBe(true);
+      expect(Spec.variesByValue(next, "body", "hidden", STATE)).toBe(true);
     });
 
     it("should keep the field at the first value on every value", () => {
@@ -477,13 +656,14 @@ describe("symbol editor spec", () => {
         createSpec({ looks }),
         "body",
         "fill",
+        STATE,
         [0, 1],
         false,
       );
       expect(next.looks).toEqual([
         { key: expect.any(String), part: "body", fill: fixed(RED) },
       ]);
-      expect(Spec.variesByValue(next, "body", "fill")).toBe(false);
+      expect(Spec.variesByValue(next, "body", "fill", STATE)).toBe(false);
     });
 
     it("should not give the part a field of the whole drawing", () => {
@@ -495,6 +675,7 @@ describe("symbol editor spec", () => {
         createSpec({ looks }),
         "body",
         "fill",
+        STATE,
         [0, 1],
         false,
       );
@@ -503,7 +684,120 @@ describe("symbol editor spec", () => {
 
     it("should keep a spec with no field on every value", () => {
       const spec = createSpec();
-      expect(Spec.setVariesByValue(spec, "body", "fill", [0, 1], true)).toBe(spec);
+      expect(Spec.setVariesByValue(spec, "body", "fill", STATE, [0, 1], true)).toBe(
+        spec,
+      );
+    });
+  });
+
+  describe("levelIssues", () => {
+    const LEVEL: schematic.symbol.Motion = {
+      type: "level",
+      state: "fill",
+      side: "bottom",
+    };
+    const createDrawing = (shape: string): schematic.symbol.Spec["drawing"] => ({
+      type: "svg",
+      markup: `<svg xmlns="http://www.w3.org/2000/svg">${shape}<rect id="seat"/></svg>`,
+    });
+
+    it("should return a part with a level motion and a shape with a clip-path", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
+    });
+
+    it("should skip a level motion on a look of no value", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [{ key: "a", part: "body", when: equals(), motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
+    it("should count a level motion on a value of another state", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            when: { type: "equals", state: "other", values: [0] },
+            motion: LEVEL,
+          },
+        ],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
+    });
+
+    it("should count a clip-path in the style of a shape", () => {
+      const spec = createSpec({
+        drawing: createDrawing(
+          '<rect id="body" style="fill: red; clip-path: inset(0)"/>',
+        ),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "clip"]]));
+    });
+
+    it("should not count a clip-path of none", () => {
+      const spec = createSpec({
+        drawing: createDrawing(
+          '<rect id="body" clip-path="none" style="clip-path: none; fill: red"/>',
+        ),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map());
+    });
+
+    it("should return a part with a level motion and more than one shape", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body"/>'),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", "#seat"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec)).toEqual(new Map([["body", "shapes"]]));
+    });
+
+    it("should count a shape that two selectors match once", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" class="tank"/>'),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", ".tank"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should count a group of shapes as one shape", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<g id="body"><rect/><rect/></g>'),
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should count only the outermost shapes of a part", () => {
+      const spec = createSpec({
+        drawing: createDrawing(
+          '<g id="body"><rect id="inner" clip-path="url(#c)"/><rect/></g>',
+        ),
+        parts: [{ key: "body", name: "Body", selectors: ["#body", "#inner"] }],
+        looks: [{ key: "a", part: "body", motion: LEVEL }],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
+    });
+
+    it("should return no part when the clipped part has no level motion", () => {
+      const spec = createSpec({
+        drawing: createDrawing('<rect id="body" clip-path="url(#c)"/>'),
+        looks: [
+          { key: "a", part: "body", motion: { type: "spin", rate: 1 } },
+          { key: "b", part: "seat", motion: LEVEL },
+        ],
+      });
+      expect(Spec.levelIssues(spec).size).toBe(0);
     });
   });
 
@@ -521,22 +815,366 @@ describe("symbol editor spec", () => {
   });
 
   describe("removePart", () => {
-    it("should remove the part and the looks on it", () => {
+    it("should remove the part and the looks and clicks on it", () => {
       const spec = createSpec({
         looks: [
           { key: "a", part: "body", stroke: fixed(RED) },
           { key: "b", part: "seat", stroke: fixed(RED) },
         ],
+        interactions: [
+          { type: "fire", key: "c", part: "body", command: "go" },
+          { type: "fire", key: "d", command: "go" },
+        ],
       });
       const next = Spec.removePart(spec, "body");
       expect(next.parts.map((p) => p.key)).toEqual(["seat"]);
       expect(next.looks.map((l) => l.key)).toEqual(["b"]);
+      expect(next.interactions.map((i) => i.key)).toEqual(["d"]);
+    });
+  });
+
+  describe("addState", () => {
+    it("should add an enumeration state named State 2", () => {
+      const [spec, key] = Spec.addState(createSpec());
+      expect(spec.states[1]).toEqual({ ...Spec.createState(), key, name: "State 2" });
+    });
+
+    it("should give a new state a key other than that of a removed state", () => {
+      const [added, removedKey] = Spec.addState(createSpec());
+      const [removed] = Spec.removeState(added, removedKey);
+      const [, key] = Spec.addState(removed);
+      expect(key).not.toBe(removedKey);
+    });
+
+    it("should skip a name that a state has", () => {
+      const spec = createSpec({
+        states: [Spec.createState(), { ...FAULT, name: "State 2" }],
+      });
+      expect(Spec.addState(spec)[0].states[2]).toMatchObject({ name: "State 3" });
+    });
+  });
+
+  describe("addCommand", () => {
+    it("should add a command named Command 1 that sends 0", () => {
+      const [spec, key] = Spec.addCommand(createSpec());
+      expect(spec.commands).toEqual([
+        { key, name: "Command 1", value: { type: "fixed", value: 0 } },
+      ]);
+    });
+
+    it("should give a new command a key other than that of a removed command", () => {
+      const [added, removedKey] = Spec.addCommand(createSpec());
+      const [removed] = Spec.removeCommand(added, removedKey);
+      const [, key] = Spec.addCommand(removed);
+      expect(key).not.toBe(removedKey);
+    });
+  });
+
+  describe("removeCommand", () => {
+    it("should remove the command and the clicks that send it", () => {
+      const send = (key: string): schematic.symbol.Command => ({
+        key,
+        name: key,
+        value: { type: "fixed", value: 1 },
+      });
+      const kept: schematic.symbol.Interaction = {
+        type: "fire",
+        key: "c",
+        part: "seat",
+        command: "b",
+      };
+      const spec = createSpec({
+        commands: [send("a"), send("b")],
+        interactions: [
+          { type: "fire", key: "x", part: "body", command: "a" },
+          { type: "next", key: "y", commands: ["a", "b"] },
+          kept,
+        ],
+      });
+      const [next, removed] = Spec.removeCommand(spec, "a");
+      expect(next.commands).toEqual([send("b")]);
+      expect(next.interactions).toEqual([kept]);
+      expect(removed).toEqual({ looks: [], commands: [], interactions: ["x", "y"] });
+    });
+  });
+
+  describe("clicks", () => {
+    const send = (key: string, value: number): schematic.symbol.Command => ({
+      key,
+      name: key,
+      value: { type: "fixed", value },
+    });
+
+    it("should list the whole drawing, then each part with no click", () => {
+      const spec = createSpec({
+        interactions: [{ type: "fire", key: "c", part: "body", command: "a" }],
+      });
+      expect(Spec.freeTargets(spec)).toEqual([undefined, "seat"]);
+    });
+
+    it("should add a click on the first free target with the first command", () => {
+      const spec = createSpec({
+        commands: [send("a", 1)],
+        interactions: [{ type: "fire", key: "c", command: "a" }],
+      });
+      const [next, key] = Spec.addInteraction(spec);
+      expect(next.interactions[1]).toEqual({
+        type: "fire",
+        key,
+        part: "body",
+        command: "a",
+      });
+    });
+
+    it("should throw on an add with no command", () => {
+      expect(() => Spec.addInteraction(createSpec())).toThrow(
+        "a symbol with no free target or no command takes no click",
+      );
+    });
+
+    it("should throw on an add when every target has a click", () => {
+      const spec = createSpec({
+        commands: [send("a", 1)],
+        interactions: [undefined, "body", "seat"].map((part, i) => ({
+          type: "fire" as const,
+          key: `c${i}`,
+          part,
+          command: "a",
+        })),
+      });
+      expect(Spec.freeTargets(spec)).toEqual([]);
+      expect(() => Spec.addInteraction(spec)).toThrow(
+        "a symbol with no free target or no command takes no click",
+      );
+    });
+
+    it("should remove a click and take nothing with it", () => {
+      const spec = createSpec({
+        interactions: [{ type: "fire", key: "c", command: "a" }],
+      });
+      expect(Spec.removeInteraction(spec, "c")).toEqual([
+        { ...spec, interactions: [] },
+        { looks: [], commands: [], interactions: [] },
+      ]);
+    });
+  });
+
+  describe("removeState", () => {
+    const onEntry: schematic.symbol.Paint = { type: "entry", state: FAULT.key };
+
+    it("should remove the looks on the state and each paint that reads it", () => {
+      const kept: schematic.symbol.Look = {
+        key: "d",
+        part: "seat",
+        when: equals(1),
+        fill: fixed(GREEN),
+      };
+      const spec = createSpec({
+        states: [Spec.createState(), FAULT],
+        looks: [
+          { key: "a", part: "body", when: onFault(1), fill: fixed(RED) },
+          { key: "b", part: "body", fill: onEntry, stroke: fixed(BLUE) },
+          { key: "c", part: "seat", fill: onEntry },
+          kept,
+        ],
+      });
+      const [next, removed] = Spec.removeState(spec, FAULT.key);
+      expect(next.states).toEqual([Spec.createState()]);
+      expect(next.looks).toEqual([
+        { key: "b", part: "body", stroke: fixed(BLUE) },
+        kept,
+      ]);
+      expect(removed.looks).toEqual(["a", "b", "c"]);
+    });
+
+    it("should remove a motion that reads the state", () => {
+      const level: schematic.symbol.State = {
+        type: "number",
+        key: "level",
+        name: "Level",
+        bounds: { lower: 0, upper: 100 },
+      };
+      const spec = createSpec({
+        states: [Spec.createState(), level],
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            motion: { type: "level", state: "level", side: "bottom" },
+          },
+        ],
+      });
+      const [next, removed] = Spec.removeState(spec, "level");
+      expect(next.looks).toEqual([]);
+      expect(removed.looks).toEqual(["a"]);
+    });
+
+    it("should remove the commands on the state and their clicks", () => {
+      const reset: schematic.symbol.Command = {
+        key: "reset",
+        name: "Reset",
+        value: { type: "fixed", value: 0 },
+      };
+      const resets: schematic.symbol.Interaction = {
+        type: "fire",
+        key: "c",
+        part: "seat",
+        command: "reset",
+      };
+      const spec = createSpec({
+        states: [Spec.createState(), FAULT],
+        commands: [
+          {
+            key: "trip",
+            name: "Trip",
+            state: FAULT.key,
+            value: { type: "fixed", value: 1 },
+          },
+          reset,
+        ],
+        interactions: [
+          { type: "fire", key: "a", part: "body", command: "trip" },
+          { type: "next", key: "b", commands: ["reset", "trip"] },
+          resets,
+        ],
+      });
+      const [next, removed] = Spec.removeState(spec, FAULT.key);
+      expect(next.commands).toEqual([reset]);
+      expect(next.interactions).toEqual([resets]);
+      expect(removed).toEqual({
+        looks: [],
+        commands: ["trip"],
+        interactions: ["a", "b"],
+      });
+    });
+  });
+
+  describe("owner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "body", name: "Body", selectors: ["#body"] },
+      ],
+    });
+
+    it("should return the part that holds the shape itself", () => {
+      expect(Spec.owner(spec, "#body")?.key).toBe("body");
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.owner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should return the part that holds a span of a text", () => {
+      const text = createSpec({
+        drawing: {
+          type: "svg",
+          markup:
+            '<svg xmlns="http://www.w3.org/2000/svg">' +
+            '<text id="t"><tspan id="s">Tank</tspan></text></svg>',
+        },
+        parts: [{ key: "label", name: "Label", selectors: ["#s"] }],
+      });
+      expect(Spec.owner(text, "#t")?.key).toBe("label");
+    });
+
+    it("should return undefined for a shape that no part holds", () => {
+      expect(Spec.owner(spec, "#d")).toBeUndefined();
+    });
+
+    it("should not return the part of a shape inside a group", () => {
+      expect(Spec.owner({ ...spec, parts: [spec.parts[1]] }, "#g")).toBeUndefined();
+    });
+  });
+
+  describe("parentGroup", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg"><g id="o">' +
+          '<g id="g"><rect id="c"/><rect id="d"/></g><g id="h"><rect id="e"/></g>' +
+          '</g><rect id="f"/></svg>',
+      },
+    });
+
+    it.each([
+      { name: "the group around a shape", selectors: ["#c"], group: "g" },
+      { name: "the group around every shape", selectors: ["#c", "#d"], group: "g" },
+      {
+        name: "the nearest group around shapes at two depths",
+        selectors: ["#c", "#e"],
+        group: "o",
+      },
+      { name: "the group around a group", selectors: ["#g"], group: "o" },
+      { name: "no group for a shape in no group", selectors: ["#f"], group: undefined },
+      {
+        name: "no group for shapes that no group holds",
+        selectors: ["#c", "#f"],
+        group: undefined,
+      },
+      {
+        name: "no group for a selector of no shape",
+        selectors: ["#x"],
+        group: undefined,
+      },
+    ])("should return $name", ({ selectors, group }) => {
+      expect(Spec.parentGroup(spec, selectors)?.id).toBe(group);
+    });
+  });
+
+  describe("outermost", () => {
+    const markup =
+      '<svg xmlns="http://www.w3.org/2000/svg">' +
+      '<g id="o"><g id="g"><rect id="c"/></g></g><rect id="f"/></svg>';
+
+    it.each([
+      { name: "the shape itself", selectors: ["#c"], found: "#c" },
+      { name: "a group around the shape", selectors: ["#g", "#f"], found: "#g" },
+      { name: "the outermost of two groups", selectors: ["#g", "#o"], found: "#o" },
+      { name: "no selector away from the shape", selectors: ["#f"], found: undefined },
+    ])("should return $name", ({ selectors, found }) => {
+      const spec = createSpec({
+        drawing: { type: "svg", markup },
+        parts: [{ key: "body", name: "Body", selectors }],
+      });
+      expect(Spec.outermost(spec, "body", "#c")).toBe(found);
+    });
+  });
+
+  describe("groupOwner", () => {
+    const spec = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="c"/></g><rect id="d"/></svg>',
+      },
+      parts: [
+        { key: "group", name: "Group", selectors: ["#g"] },
+        { key: "d", name: "D", selectors: ["#d"] },
+      ],
+    });
+
+    it("should return the part that holds the group around the shape", () => {
+      expect(Spec.groupOwner(spec, "#c")?.key).toBe("group");
+    });
+
+    it("should not return the part that holds the shape itself", () => {
+      expect(Spec.groupOwner(spec, "#d")).toBeUndefined();
+      expect(Spec.groupOwner(spec, "#g")).toBeUndefined();
     });
   });
 
   describe("toggleSelector", () => {
     it("should move a selector to the part from the other parts", () => {
-      const next = Spec.toggleSelector(createSpec().parts, "body", "#seat");
+      const next = Spec.toggleSelector(createSpec(), "body", "#seat");
       expect(next).toEqual([
         { key: "body", name: "Body", selectors: ["#body", "#seat"] },
         { key: "seat", name: "Seat", selectors: [] },
@@ -544,8 +1182,68 @@ describe("symbol editor spec", () => {
     });
 
     it("should remove a selector that the part already has", () => {
-      const next = Spec.toggleSelector(createSpec().parts, "body", "#body");
+      const next = Spec.toggleSelector(createSpec(), "body", "#body");
       expect(next[0].selectors).toEqual([]);
+    });
+
+    const labeled = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<text id="t"><tspan id="s">Tank</tspan></text><rect id="seat"/></svg>',
+      },
+      parts: [
+        { key: "body", name: "Body", selectors: ["#s", "#t"] },
+        { key: "seat", name: "Seat", selectors: ["#seat"] },
+      ],
+    });
+
+    it("should take the spans of a text out with the text", () => {
+      expect(Spec.toggleSelector(labeled, "body", "#t")[0].selectors).toEqual([]);
+    });
+
+    it("should take a text out of a part that holds only its span", () => {
+      const parts = [{ key: "body", name: "Body", selectors: ["#s"] }];
+      expect(Spec.toggleSelector({ ...labeled, parts }, "body", "#t")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+      ]);
+    });
+
+    it("should move the spans of a text with the text", () => {
+      expect(Spec.toggleSelector(labeled, "seat", "#t")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+        { key: "seat", name: "Seat", selectors: ["#seat", "#t"] },
+      ]);
+    });
+
+    const grouped = createSpec({
+      drawing: {
+        type: "svg",
+        markup:
+          '<svg xmlns="http://www.w3.org/2000/svg">' +
+          '<g id="g"><rect id="body"/><rect id="seat"/></g></svg>',
+      },
+    });
+
+    it("should put a group in place of the shapes of every part inside it", () => {
+      expect(Spec.toggleSelector(grouped, "body", "#g")).toEqual([
+        { key: "body", name: "Body", selectors: ["#g"] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ]);
+    });
+
+    it("should take a group out of the part when a shape inside it is clicked", () => {
+      const parts = Spec.toggleSelector(grouped, "body", "#g");
+      expect(Spec.toggleSelector({ ...grouped, parts }, "body", "#seat")).toEqual([
+        { key: "body", name: "Body", selectors: [] },
+        { key: "seat", name: "Seat", selectors: [] },
+      ]);
+    });
+
+    it("should keep the parts when another part holds a group around the shape", () => {
+      const parts = Spec.toggleSelector(grouped, "body", "#g");
+      expect(Spec.toggleSelector({ ...grouped, parts }, "seat", "#seat")).toBe(parts);
     });
   });
 
@@ -570,7 +1268,7 @@ describe("symbol editor spec", () => {
       });
       const next = Spec.setVariant(spec, "actuator");
       expect(next.looks.map((l) => l.key)).toEqual(["a", expect.any(String), "b"]);
-      expect(Spec.effective(next, "body", "fill", 1)).toEqual(fixed(BLUE));
+      expect(Spec.effective(next, "body", "fill", at(1))).toEqual(fixed(BLUE));
     });
 
     it("should drop an Active look of the whole drawing from a static symbol", () => {

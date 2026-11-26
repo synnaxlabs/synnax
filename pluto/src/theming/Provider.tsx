@@ -22,7 +22,9 @@ import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { Aether } from "@/aether";
 import { theming } from "@/theming/aether";
 
-const FONT_URLS = [
+const FONT_URLS: theming.FontSpec[] = [
+  { name: "Inter Variable", url: inter900 },
+  { name: "Inter Tabular", url: inter900, tabular: true },
   { name: "Inter Nine", url: inter900 },
   { name: "Inter Eight", url: inter800 },
   { name: "Inter Seven", url: inter700 },

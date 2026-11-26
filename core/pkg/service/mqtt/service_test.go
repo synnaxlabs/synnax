@@ -493,6 +493,41 @@ var _ = Describe("Service", func() {
 					"entries.0.channel"),
 		)
 
+		// A draft can hold these. Configure refuses them.
+		DescribeTable("Should accept entries that stamp one index channel",
+			func(ctx SpecContext, build func(f format) []map[string]any) {
+				f := createFormat(ctx)
+				Expect(prepare(ctx, readConfigOf(build(f)...))).To(Succeed())
+			},
+			Entry("two messages", func(f format) []map[string]any {
+				return []map[string]any{
+					icdEntry(
+						"plant/a",
+						f.ic,
+						readMessage(f.m, binding(f.m, 1, f.value)),
+					),
+					icdEntry(
+						"plant/b",
+						f.ic,
+						readMessage(f.m, binding(f.m, 2, f.text)),
+					),
+				}
+			}),
+			Entry("two tags", func(f format) []map[string]any {
+				tag := func(name string, ch channel.Channel) map[string]any {
+					return map[string]any{
+						"key":       name,
+						"type":      "sparkplug",
+						"group":     "plant",
+						"edge_node": "line1",
+						"tag":       name,
+						"channel":   ch.Key(),
+					}
+				}
+				return []map[string]any{tag("temp", f.value), tag("state", f.text)}
+			}),
+		)
+
 		Describe("Import", func() {
 			// v1 is a v1 read config with one plain entry that reads an index field
 			// and a field into channels, and holds a disabled field.

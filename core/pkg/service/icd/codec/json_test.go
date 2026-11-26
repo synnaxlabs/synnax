@@ -25,6 +25,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	xjson "github.com/synnaxlabs/x/json"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
@@ -95,10 +96,10 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	}
 	switch dt {
 	case telem.Float64T:
-		return math.Float64frombits(telem.ByteOrder.Uint64(data))
+		return floatJSON(math.Float64frombits(telem.ByteOrder.Uint64(data)))
 	case telem.Float32T:
-		return float64(math.Float32frombits(telem.ByteOrder.Uint32(data)))
-	case telem.Int64T:
+		return floatJSON(float64(math.Float32frombits(telem.ByteOrder.Uint32(data))))
+	case telem.Int64T, telem.TimestampT:
 		return int64(telem.ByteOrder.Uint64(data))
 	case telem.Int32T:
 		return int32(telem.ByteOrder.Uint32(data))
@@ -106,7 +107,7 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 		return int16(telem.ByteOrder.Uint16(data))
 	case telem.Int8T:
 		return int8(data[0])
-	case telem.Uint64T, telem.TimestampT:
+	case telem.Uint64T:
 		return telem.ByteOrder.Uint64(data)
 	case telem.Uint32T:
 		return telem.ByteOrder.Uint32(data)
@@ -128,6 +129,20 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	}
 	Fail("unknown data type " + string(dt))
 	return nil
+}
+
+// floatJSON returns f as the fixtures write it: a number, or a string for NaN,
+// Infinity, and -Infinity.
+func floatJSON(f float64) any {
+	switch {
+	case math.IsNaN(f):
+		return "NaN"
+	case math.IsInf(f, 1):
+		return "Infinity"
+	case math.IsInf(f, -1):
+		return "-Infinity"
+	}
+	return f
 }
 
 func readDecodeFixture(path string) decodeFixture {
@@ -484,6 +499,52 @@ var _ = Describe("JSON", func() {
 			))
 		})
 	})
+
+	DescribeTable("Should accept the present rules that Infer gives the kinds of a key",
+		func(kinds ...string) {
+			docs := make([]xjson.Document, len(kinds))
+			for i, k := range kinds {
+				docs[i] = xjson.Document{Source: "pump", Data: []byte(k)}
+			}
+			shapes := xjson.Infer(docs)
+			messages := make([]codec.JSONMessage, len(shapes))
+			for i, shape := range shapes {
+				key, field := uuid.New(), shape.Fields[0]
+				var match *icd.JSONMatch
+				if shape.Present >= 0 {
+					field = shape.Fields[shape.Present]
+					match = &icd.JSONMatch{Variant: icd.PresentJSONMatch{
+						JSONBaseMatch: icd.JSONBaseMatch{
+							Pointer: field.Pointer.String(),
+						},
+					}}
+				}
+				messages[i] = codec.JSONMessage{
+					Name: "kind " + strconv.Itoa(i),
+					Payload: icd.JSONPayload{
+						Match: match,
+						Fields: []icd.JSONField{{Variant: icd.StringJSONField{
+							Key:     key,
+							Name:    "v",
+							Scale:   1,
+							Pointer: field.Pointer.String(),
+						}}},
+					},
+					Bindings: []codec.Binding{{Field: key, DataType: telem.StringT}},
+				}
+			}
+			Expect(codec.NewJSON(messages)).Error().ToNot(HaveOccurred())
+		},
+		Entry("an object and a string at one pointer",
+			`{"status":{"code":1}}`, `{"status":"ok"}`,
+		),
+		Entry("a string and an object at one pointer, with a shared field",
+			`{"t":1,"status":"ok"}`, `{"t":1,"status":{"code":3}}`,
+		),
+		Entry("an object and a string at one pointer, with fields that differ",
+			`{"status":{"code":1},"fault":2}`, `{"status":"ok","rpm":3}`,
+		),
+	)
 
 	DescribeTable("Should decode a document without allocating",
 		func(first, second icd.JSONMatch, doc []byte) {

@@ -13,7 +13,7 @@ import (
 	"context"
 	"uuid"
 
-	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -22,13 +22,11 @@ import (
 )
 
 // OpenDelete takes control of tr so that del deletes it, and returns an error if a
-// writer controls part of tr. No writer can take tr until the caller calls release.
+// writer controls part of tr. Writers that open on tr wait until the caller calls
+// release, and MarkClosed refuses until then.
 func (db *DB) OpenDelete(
 	tr telem.TimeRange,
 ) (del func(context.Context) error, release func(), err error) {
-	if db.closed.Load() {
-		return nil, nil, ErrDBClosed
-	}
 	if !tr.Valid() {
 		return nil, nil, db.wrapError(errors.Newf(
 			"delete start %d cannot be after delete end %d",
@@ -36,8 +34,8 @@ func (db *DB) OpenDelete(
 			tr.End,
 		))
 	}
-	if release, err = db.lockControllerForNonWriteOp(tr, "delete"); err != nil {
-		return nil, nil, db.wrapError(err)
+	if release, err = db.openNonWriteOp(tr, "delete"); err != nil {
+		return nil, nil, err
 	}
 	return func(ctx context.Context) error {
 		if err := db.domain.Delete(
@@ -85,25 +83,35 @@ func (db *DB) resolveByteOffset(
 	return db.resolver.byteOffset(ctx, iter, sampleOffset)
 }
 
-func (db *DB) lockControllerForNonWriteOp(
+// openNonWriteOp takes control of tr for an operation that does not write. It returns
+// ErrDBClosed if db is closed.
+func (db *DB) openNonWriteOp(
 	tr telem.TimeRange,
 	opName string,
 ) (release func(), err error) {
-	g, _, err := db.controller.OpenGate(
-		xcontrol.GateConfig[channel.Key, *controlledWriter]{
-			ErrIfControlled: new(true),
-			TimeRange:       tr,
-			Authority:       xcontrol.AuthorityAbsolute,
-			Subject:         xcontrol.Subject{Key: uuid.New().String(), Name: opName},
-			OpenResource: func() (*controlledWriter, error) {
-				return &controlledWriter{
-					Writer:     nil,
-					channelKey: db.cfg.Channel.Key,
-				}, nil
-			},
+	// MarkClosed sets closed before it reads pending, so one of the two sees the other.
+	db.pending.Add(1)
+	if db.closed.Load() {
+		db.pending.Add(-1)
+		return nil, ErrDBClosed
+	}
+	g, _, err := db.controller.OpenGate(control.GateConfig[*controlledWriter]{
+		Exclusive: new(true),
+		TimeRange: tr,
+		Authority: xcontrol.AuthorityAbsolute,
+		Subject:   xcontrol.Subject{Key: uuid.New().String(), Name: opName},
+		OpenResource: func() (*controlledWriter, error) {
+			return &controlledWriter{Writer: nil, channelKey: db.cfg.Channel.Key}, nil
 		},
-	)
-	return func() { g.Release() }, err
+	})
+	if err != nil {
+		db.pending.Add(-1)
+		return nil, db.wrapError(err)
+	}
+	return func() {
+		g.Release()
+		db.pending.Add(-1)
+	}, nil
 }
 
 // calculateStartOffset calculates the distance from a domain's start to the given time

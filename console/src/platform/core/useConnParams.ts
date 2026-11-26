@@ -35,12 +35,23 @@ const servesPage = ({ host, port, secure }: Session.Core.Core): boolean => {
 };
 
 /**
+ * Reports whether a client for the Core has a password, OpenID Connect code, or saved
+ * session to log in with. On the web, a Core on another origin keeps its session only
+ * in the page's memory, so a reload loses it. On desktop, the keychain may hold one.
+ */
+export const hasLogin = (core: Session.Core.Core): boolean =>
+  Session.Runtime.ENGINE === "tauri" ||
+  servesPage(core) ||
+  core.password !== "" ||
+  core.oidc != null;
+
+/**
  * The parameters a client needs to reach the selected Core. A password or OpenID
  * Connect code the user has just entered logs in; otherwise the saved session resumes,
  * from the keychain on desktop and from the session cookie on a page the Core serves.
- * Undefined while no Core is selected and, on desktop, until the keychain has answered.
- * A saved session outlives the client. Fields that only describe the Core stay out, so
- * renaming it keeps the connection.
+ * Undefined while no Core is selected or the selected Core has no login, and, on
+ * desktop, until the keychain has answered. A saved session outlives the client. Fields
+ * that only describe the Core stay out, so renaming it keeps the connection.
  */
 export const useConnParams = (): SynnaxParams | undefined => {
   const core = Session.Core.useSelectSelected();
@@ -66,7 +77,7 @@ export const useConnParams = (): SynnaxParams | undefined => {
       stale = true;
     };
   }, [account, lastLogin]);
-  if (core == null) return undefined;
+  if (core == null || !hasLogin(core)) return undefined;
   const { host, port, secure, username, password, oidc } = core;
   const params: SynnaxParams =
     oidc == null

@@ -13,8 +13,10 @@ package server
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/set"
 )
@@ -35,8 +37,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	rack   *gorp.KeyReference[Key, Server, rack.Key]
-	search *gorp.SearchIndex[Key, Server]
+	rack          *gorp.KeyReference[Key, Server, rack.Key]
+	readsIndex    *gorp.KeyReference[Key, Server, channel.Key]
+	readsChannel  *gorp.KeyReference[Key, Server, channel.Key]
+	writesChannel *gorp.KeyReference[Key, Server, channel.Key]
+	search        *gorp.SearchIndex[Key, Server]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -55,6 +60,99 @@ func newIndexes() indexes {
 			Retarget: func(e *Server, from, to rack.Key) {
 				if e.Rack == from {
 					e.Rack = to
+				}
+			},
+		}),
+		readsIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Server, channel.Key]{
+			Name:     "reads.index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Server) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Reads {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Reads))
+					}
+					targets = append(targets, v1.Index)
+				}
+				return targets
+			},
+			Detach: func(e *Server, t channel.Key) {
+				e.Reads = slices.DeleteFunc(e.Reads, func(v2 Read) bool {
+					if v2.Index == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *Server, from, to channel.Key) {
+				for i3 := range e.Reads {
+					if e.Reads[i3].Index == from {
+						e.Reads[i3].Index = to
+					}
+				}
+			},
+		}),
+		readsChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Server, channel.Key]{
+			Name:     "reads.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Server) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Reads {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Reads))
+					}
+					targets = append(targets, v1.Channel)
+				}
+				return targets
+			},
+			Detach: func(e *Server, t channel.Key) {
+				e.Reads = slices.DeleteFunc(e.Reads, func(v2 Read) bool {
+					if v2.Channel == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *Server, from, to channel.Key) {
+				for i3 := range e.Reads {
+					if e.Reads[i3].Channel == from {
+						e.Reads[i3].Channel = to
+					}
+				}
+			},
+		}),
+		writesChannel: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Server, channel.Key]{
+			Name:     "writes.channel",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Server) []channel.Key {
+				var targets []channel.Key
+				for _, v1 := range e.Writes {
+					if targets == nil {
+						targets = make([]channel.Key, 0, len(e.Writes))
+					}
+					targets = append(targets, v1.Channel)
+				}
+				return targets
+			},
+			Detach: func(e *Server, t channel.Key) {
+				e.Writes = slices.DeleteFunc(e.Writes, func(v2 Write) bool {
+					if v2.Channel == t {
+						return true
+					}
+					return false
+				})
+			},
+			Retarget: func(e *Server, from, to channel.Key) {
+				for i3 := range e.Writes {
+					if e.Writes[i3].Channel == from {
+						e.Writes[i3].Channel = to
+					}
 				}
 			},
 		}),
@@ -80,6 +178,9 @@ func (i indexes) all() []gorp.Index[Key, Server] {
 func (i indexes) references() []gorp.Reference[Key, Server] {
 	return []gorp.Reference[Key, Server]{
 		i.rack,
+		i.readsIndex,
+		i.readsChannel,
+		i.writesChannel,
 	}
 }
 
@@ -195,6 +296,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // OrderBy, since an Order carries its own cursor.
 func (r Retrieve) After(key Key) Retrieve {
 	r.gorp = r.gorp.After(key)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no server as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

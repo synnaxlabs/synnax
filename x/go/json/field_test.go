@@ -244,6 +244,19 @@ var _ = Describe("Field", func() {
 					TimeFormat: xjson.UnixNanosecond,
 				},
 				`10.9`, sample(telem.TimeStamp(10))),
+			Entry("Unix seconds in hex with whitespace",
+				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
+				`" 0x10\t"`, sample(telem.TimeStamp(16000000000))),
+			Entry("Unix seconds with every digit in a string with whitespace",
+				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
+				`" 1767323045.123456789 "`,
+				sample(telem.TimeStamp(1767323045123456789))),
+			Entry("a hex float of nanoseconds, truncated",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: xjson.UnixNanosecond,
+				},
+				`"-0x1.8"`, sample(telem.TimeStamp(-1))),
 			Entry("an integer in range into a float",
 				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, `-3`,
 				sample(-3.0)),
@@ -253,6 +266,17 @@ var _ = Describe("Field", func() {
 			Entry("true in an unsigned range",
 				xjson.Field{DataType: telem.Float64T, Range: telem.Uint64T}, `true`,
 				sample(1.0)),
+			Entry("a number in a string with whitespace and a sign",
+				xjson.Field{DataType: telem.Float64T}, `" +1.5e1\n"`, sample(15.0)),
+			Entry("a hex integer in a string past the precision of a float",
+				xjson.Field{DataType: telem.Int64T}, `"0x20000000000001"`,
+				sample[int64](9007199254740993)),
+			Entry("a hex float in a string", xjson.Field{DataType: telem.Float64T},
+				`"-0x1.8p1"`, sample(-3.0)),
+			Entry("infinity in a string", xjson.Field{DataType: telem.Float64T},
+				`"-Infinity"`, sample(math.Inf(-1))),
+			Entry("NaN in a string", xjson.Field{DataType: telem.Float64T},
+				`"nan(1)"`, sample(math.NaN())),
 		)
 
 		DescribeTable("Should reject a JSON value that does not convert",
@@ -265,8 +289,19 @@ var _ = Describe("Field", func() {
 				))
 				Expect(out).To(BeNil())
 			},
-			Entry("a string into a number", xjson.Field{DataType: telem.Float64T},
-				`"1"`, `unknown enum label "1"`),
+			Entry("a string that holds no number into a number",
+				xjson.Field{DataType: telem.Float64T}, `"x"`, `invalid number "x"`),
+			Entry("a string that holds two numbers into a number",
+				xjson.Field{DataType: telem.Float64T}, `"1 2"`, `invalid number "1 2"`),
+			Entry("a hex prefix with no digits into a number",
+				xjson.Field{DataType: telem.Float64T}, `"0x"`, `invalid number "0x"`),
+			Entry("NaN in a string into an integer",
+				xjson.Field{DataType: telem.Int32T}, `"NaN"`, "NaN is not an integer"),
+			Entry("a string that is no label into a number with enums",
+				xjson.Field{
+					DataType: telem.Uint8T,
+					Enums:    []xjson.Enum{xjson.NewEnum("ON", uint8(1))},
+				}, `"1x"`, `unknown enum label "1x"`),
 			Entry("null into a number", xjson.Field{DataType: telem.Float64T}, `null`,
 				"expected a number or boolean, got null"),
 			Entry("a number past an int8", xjson.Field{DataType: telem.Int8T}, `128`,
@@ -307,6 +342,27 @@ var _ = Describe("Field", func() {
 			Entry("Unix seconds past the range of a timestamp",
 				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
 				`1e12`, "1e12 is out of range for a unix_sec timestamp"),
+			Entry("infinity in Unix seconds",
+				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
+				`"inf"`, "inf is out of range for a unix_sec timestamp"),
+			Entry("hex Unix seconds past the range of a timestamp",
+				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
+				`"0x7fffffffffffffff"`,
+				"0x7fffffffffffffff is out of range for a unix_sec timestamp"),
+			Entry("hex Unix nanoseconds below an int64",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: xjson.UnixNanosecond,
+				},
+				`"-0x8000000000000001"`,
+				"-0x8000000000000001 is out of range for a unix_ns timestamp"),
+			Entry("hex Unix nanoseconds past an int64",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: xjson.UnixNanosecond,
+				},
+				`"0x8000000000000000"`,
+				"0x8000000000000000 is out of range for a unix_ns timestamp"),
 			Entry("JSON with a repeated member", xjson.Field{DataType: telem.JSONT},
 				`{"a":1,"a":2}`, "duplicate object member name"),
 			Entry("a number into bytes", xjson.Field{DataType: telem.BytesT}, `1`,
@@ -365,6 +421,10 @@ var _ = Describe("Field", func() {
 			Entry("a whole float in an integer range",
 				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, 4.0,
 				sample(4.0)),
+			Entry("NaN into a float32", xjson.Field{DataType: telem.Float32T},
+				math.NaN(), sample(float32(math.NaN()))),
+			Entry("infinity into a float64", xjson.Field{DataType: telem.Float64T},
+				math.Inf(-1), sample(math.Inf(-1))),
 		)
 
 		DescribeTable("Should reject a float that does not convert",
@@ -375,10 +435,10 @@ var _ = Describe("Field", func() {
 					MatchError(ContainSubstring(message)),
 				))
 			},
-			Entry("infinity", xjson.Field{DataType: telem.Float64T}, math.Inf(1),
-				"Infinity is not finite"),
-			Entry("NaN", xjson.Field{DataType: telem.Float32T}, math.NaN(),
-				"NaN is not finite"),
+			Entry("NaN into an integer", xjson.Field{DataType: telem.Int32T},
+				math.NaN(), "NaN is not an integer"),
+			Entry("infinity into an integer", xjson.Field{DataType: telem.Int64T},
+				math.Inf(1), "Infinity is out of range for int64"),
 			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
 				1e39, "1e+39 overflows float32"),
 			Entry("a fraction into an integer", xjson.Field{DataType: telem.Int32T},
@@ -451,6 +511,23 @@ var _ = Describe("Field", func() {
 			dst = MustSucceed(d.Append(dst, jsontext.Value(`"bc"`)))
 			Expect(dst).To(Equal(append(text("a"), text("bc")...)))
 		})
+
+		DescribeTable("Should report whether a JSON value is the label of an enum",
+			func(f xjson.Field, raw string, expected bool) {
+				d := MustSucceed(xjson.NewDecoder(f))
+				Expect(d.Labeled(jsontext.Value(raw))).To(Equal(expected))
+			},
+			Entry("a label", xjson.Field{DataType: telem.Float64T, Enums: onOff},
+				`"ON"`, true),
+			Entry("a label that holds an escape",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `"\u004fN"`, true),
+			Entry("a string that is not a label",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `"1"`, false),
+			Entry("a field with no enums", xjson.Field{DataType: telem.Float64T},
+				`"ON"`, false),
+			Entry("a value that is not a string",
+				xjson.Field{DataType: telem.Float64T, Enums: onOff}, `1`, false),
+		)
 	})
 
 	Describe("Encoder", func() {

@@ -97,6 +97,18 @@ const BROWSER_FETCH_FAILURE = /load failed|failed to fetch|networkerror|network 
 const isBrowserFetchFailure = (err: Error): boolean =>
   err.name === "TypeError" && BROWSER_FETCH_FAILURE.test(err.message);
 
+// A server that closes an HTTP/2 connection with GOAWAY does not process the streams
+// after its last stream ID. Undici sends such a request again only if it can replay
+// the body. It cannot replay a fetch body, so it fails the request with this error.
+const GOAWAY_REFUSAL = /^HTTP\/2: "GOAWAY" frame received with code 0$/;
+
+const isGoAwayRefusal = (err: unknown): boolean =>
+  err instanceof Error &&
+  err.cause instanceof Error &&
+  "code" in err.cause &&
+  err.cause.code === "UND_ERR_INFO" &&
+  GOAWAY_REFUSAL.test(err.cause.message);
+
 const BROWSER_CERTIFICATE_HINT =
   "The server may be down, or the browser may not trust its certificate";
 
@@ -382,12 +394,15 @@ export class HTTPClient
           : undefined;
       return new Unreachable({ url, cause: err, delivered, hint });
     };
-    let res: FetchResponse;
-    try {
-      res = await this.connector.fetch(target, request);
-    } catch (e) {
-      throw cast(e, false);
-    }
+    const send = async (replayable: boolean): Promise<FetchResponse> => {
+      try {
+        return await this.connector.fetch(target, request);
+      } catch (e) {
+        if (replayable && isGoAwayRefusal(e)) return await send(false);
+        throw cast(e, false);
+      }
+    };
+    const res = await send(!(request.body instanceof ReadableStream));
     // The connection can fail after the headers arrive, while the body is read.
     return {
       ok: res.ok,

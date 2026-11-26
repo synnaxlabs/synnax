@@ -36,7 +36,6 @@ export const Symbol = ({
     commandChannel,
     stateChannel,
     stalenessTimeout,
-    options: ownOptions,
     enumeration,
     size,
     disabled,
@@ -45,7 +44,7 @@ export const Symbol = ({
   },
 }: NodeProps<schematic.SelectNodeConfig>): ReactElement => {
   const resolve = Color.useResolve();
-  const options = Options.use({ enumeration, options: ownOptions });
+  const options = Options.use(enumeration);
   const sink = Telem.numberSink(commandChannel);
   const source = Telem.numberSource(commandChannel);
   const { set, value } = BaseSetpoint.use({ aetherKey: nodeKey, sink, source });
@@ -65,7 +64,7 @@ export const Symbol = ({
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected} {...resize}>
       <Control.State
         config={control}
-        channel={commandChannel}
+        channels={[commandChannel]}
         onChange={onConfigChange}
         deleted={deleted}
       >

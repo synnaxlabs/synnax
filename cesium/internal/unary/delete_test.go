@@ -10,10 +10,13 @@
 package unary_test
 
 import (
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -1906,7 +1909,8 @@ var _ = Describe("Delete", func() {
 					del, release := MustSucceed2(dataDB.OpenDelete(tr))
 					Expect(del(ctx)).To(Succeed())
 					release()
-					Expect(MustSucceed(dataDB.HasDataFor(ctx, tr))).To(BeFalse())
+					Expect(MustSucceed(hasDataFor(ctx,
+						dataDB, tr))).To(BeFalse())
 				})
 				It("Should return an error when a writer controls the range",
 					func(ctx SpecContext) {
@@ -1930,24 +1934,67 @@ var _ = Describe("Delete", func() {
 						(10 * telem.SecondTS).Range(12 * telem.SecondTS),
 					)).Error().To(MatchError(unary.ErrDBClosed))
 				})
-				It("Should block writers until release", func(ctx SpecContext) {
+				It("Should make OpenHold wait until release", func(ctx SpecContext) {
+					Expect(unary.Write(
+						ctx, indexDB, 10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					)).To(Succeed())
+					Expect(unary.Write(
+						ctx, dataDB, 10*telem.SecondTS,
+						telem.NewSeriesV[int64](0, 1, 2, 3),
+					)).To(Succeed())
+					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+					del, release := MustSucceed2(dataDB.OpenDelete(tr))
+					found := make(chan bool, 1)
+					go func() {
+						defer GinkgoRecover()
+						found <- MustSucceed(hasDataFor(ctx,
+							dataDB, tr))
+					}()
+					Consistently(found, 50*time.Millisecond).ShouldNot(Receive())
+					Expect(del(ctx)).To(Succeed())
+					release()
+					Eventually(found).Should(Receive(BeFalse()))
+				})
+				It("Should make WriteCursor wait until release", func(ctx SpecContext) {
+					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+					_, release := MustSucceed2(indexDB.OpenDelete(tr))
+					cursor := make(chan telem.Alignment, 1)
+					go func() {
+						defer GinkgoRecover()
+						cursor <- MustSucceed(indexDB.WriteCursor(10 * telem.SecondTS))
+					}()
+					Consistently(cursor, 50*time.Millisecond).ShouldNot(Receive())
+					release()
+					Eventually(cursor).Should(Receive())
+				})
+				It("Should make a writer wait until release", func(ctx SpecContext) {
+					Expect(unary.Write(
+						ctx, indexDB, 10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					)).To(Succeed())
 					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
 					_, release := MustSucceed2(dataDB.OpenDelete(tr))
-					Expect(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:                 10 * telem.SecondTS,
-						Subject:               control.Subject{Key: "foo_writer"},
-						ErrOnUnauthorizedOpen: new(true),
-					})).Error().To(MatchError(control.ErrUnauthorized))
+					opened := make(chan *unary.Writer, 1)
+					go func() {
+						defer GinkgoRecover()
+						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo_writer"},
+						}))
+						opened <- w
+					}()
+					Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
 					release()
-					w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
-						Start:   10 * telem.SecondTS,
-						Subject: control.Subject{Key: "foo_writer"},
-					}))
+					var w *unary.Writer
+					Eventually(opened).Should(Receive(&w))
+					MustSucceed(w.Write(telem.NewSeriesV[int64](0, 1, 2, 3)))
+					MustSucceed(w.Commit(ctx))
 					MustSucceed(w.Close())
 				})
 			})
 
-			Describe("HasDataFor", func() {
+			Describe("OpenHold", func() {
 				It(
 					"Should return whether there is data for the given range",
 					func(ctx SpecContext) {
@@ -1968,24 +2015,27 @@ var _ = Describe("Delete", func() {
 							),
 						).To(Succeed())
 						hasData := MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(12 * telem.SecondTS).Range(23*telem.SecondTS),
 							),
 						)
 						Expect(hasData).To(BeTrue())
 
 						hasData = MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(16*telem.SecondTS + 1).Range(25*telem.SecondTS),
 							),
 						)
 						Expect(hasData).To(BeFalse())
 
 						hasData = MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(5 * telem.SecondTS).Range(10*telem.SecondTS),
 							),
 						)
@@ -2001,8 +2051,9 @@ var _ = Describe("Delete", func() {
 						}))
 
 						hasData := MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(12 * telem.SecondTS).Range(23*telem.SecondTS),
 							),
 						)
@@ -2011,8 +2062,9 @@ var _ = Describe("Delete", func() {
 						MustSucceed(w.Close())
 
 						hasData = MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(12 * telem.SecondTS).Range(23*telem.SecondTS),
 							),
 						)
@@ -2028,8 +2080,9 @@ var _ = Describe("Delete", func() {
 						}))
 
 						hasData := MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(12 * telem.SecondTS).Range(23*telem.SecondTS),
 							),
 						)
@@ -2038,8 +2091,9 @@ var _ = Describe("Delete", func() {
 						MustSucceed(w.Close())
 
 						hasData = MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(12 * telem.SecondTS).Range(23*telem.SecondTS),
 							),
 						)
@@ -2055,8 +2109,9 @@ var _ = Describe("Delete", func() {
 						}))
 
 						hasData := MustSucceed(
-							dataDB.HasDataFor(
+							hasDataFor(
 								ctx,
+								dataDB,
 								(12 * telem.SecondTS).Range(23*telem.SecondTS),
 							),
 						)
@@ -2065,6 +2120,52 @@ var _ = Describe("Delete", func() {
 						MustSucceed(w.Close())
 					},
 				)
+				It("Should make a writer wait until release", func(ctx SpecContext) {
+					tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+					_, release := MustSucceed2(dataDB.OpenHold(ctx, tr))
+					opened := make(chan *unary.Writer, 1)
+					go func() {
+						defer GinkgoRecover()
+						w, _ := MustSucceed2(dataDB.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo_writer"},
+						}))
+						opened <- w
+					}()
+					Consistently(opened, 50*time.Millisecond).ShouldNot(Receive())
+					release()
+					var w *unary.Writer
+					Eventually(opened).Should(Receive(&w))
+					MustSucceed(w.Close())
+				})
+				It(
+					"Should return an error when the DB is closed",
+					func(ctx SpecContext) {
+						Expect(dataDB.Close()).To(Succeed())
+						Expect(dataDB.OpenHold(
+							ctx,
+							(10 * telem.SecondTS).Range(12*telem.SecondTS),
+						)).Error().To(MatchError(unary.ErrDBClosed))
+					},
+				)
+			})
+
+			Describe("MarkClosed", func() {
+				tr := (10 * telem.SecondTS).Range(12 * telem.SecondTS)
+				It("Should refuse while a delete is open", func() {
+					_, release := MustSucceed2(dataDB.OpenDelete(tr))
+					Expect(dataDB.MarkClosed()).To(MatchError(resource.ErrOpen))
+					release()
+					Expect(dataDB.MarkClosed()).To(Succeed())
+					dataDB.UnmarkClosed()
+				})
+				It("Should refuse while a hold is open", func(ctx SpecContext) {
+					_, release := MustSucceed2(dataDB.OpenHold(ctx, tr))
+					Expect(dataDB.MarkClosed()).To(MatchError(resource.ErrOpen))
+					release()
+					Expect(dataDB.MarkClosed()).To(Succeed())
+					dataDB.UnmarkClosed()
+				})
 			})
 		})
 	}

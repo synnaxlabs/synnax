@@ -357,9 +357,19 @@ const createField = (
   }
 };
 
+/** @returns the pointer of a field named name: the name in lowercase, spaces as "_". */
+const namePointer = (name: string): string => {
+  const token = name.toLowerCase().replaceAll(" ", "_");
+  return `/${token.replaceAll("~", "~0").replaceAll("/", "~1")}`;
+};
+
+/** @returns whether a field at one of pointers reads the value at pointer or in it. */
+const pointerTaken = (pointers: string[], pointer: string): boolean =>
+  pointers.some((p) => p === pointer || p.startsWith(`${pointer}/`));
+
 /**
- * @returns a numbered name that no field takes, and the pointer of the same number. No
- * field at one of pointers reads the value at that pointer or a value in it.
+ * @returns a numbered name that no field takes, and the pointer of the same number,
+ * which no field at one of pointers takes.
  */
 const freeNameAndPointer = (
   names: string[],
@@ -368,10 +378,35 @@ const freeNameAndPointer = (
   const taken = new Set(names);
   for (let i = names.length + 1; ; i++) {
     const name = `Field ${i}`;
-    const pointer = `/field_${i}`;
-    const used = pointers.some((p) => p === pointer || p.startsWith(`${pointer}/`));
-    if (!taken.has(name) && !used) return { name, pointer };
+    const pointer = namePointer(name);
+    if (!taken.has(name) && !pointerTaken(pointers, pointer)) return { name, pointer };
   }
+};
+
+/** @returns whether pointer is the pointer of name, perhaps numbered "_n" from 2. */
+const isNamePointer = (pointer: string, name: string): boolean => {
+  const base = namePointer(name);
+  if (pointer === base) return true;
+  const n = pointer.startsWith(`${base}_`) ? pointer.slice(base.length + 1) : "";
+  return /^\d+$/.test(n) && Number(n) >= 2;
+};
+
+/**
+ * @returns the pointer that a rename of field to name moves it to, or undefined when
+ * the pointer of field is not the pointer of its name. A pointer that another of fields
+ * takes gets the lowest free suffix "_n", from 2.
+ */
+export const renamedPointer = (
+  field: icd.JSONField,
+  name: string,
+  fields: icd.JSONField[],
+): string | undefined => {
+  if (!isNamePointer(field.pointer, field.name)) return undefined;
+  const others = fields.filter(({ key }) => key !== field.key).map((f) => f.pointer);
+  const base = namePointer(name);
+  if (!pointerTaken(others, base)) return base;
+  for (let n = 2; ; n++)
+    if (!pointerTaken(others, `${base}_${n}`)) return `${base}_${n}`;
 };
 
 /** @returns a float field named apart from fields, at a pointer none of them reads. */
@@ -572,6 +607,8 @@ export const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null =
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
+const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true, selectOnFocus: true } as const;
+
 interface ScaleControlProps extends Input.Control<number> {
   offset: deep.Target<number>;
 }
@@ -589,13 +626,22 @@ export interface JSONFieldProps {
   path: deep.Path<icd.JSONField>;
   /** Actions in the header of the field's section. */
   actions?: ReactNode;
+  /** Name takes focus when the field mounts. */
+  autoFocus?: boolean;
+  /** Called with each new name, while the form still holds the old one. */
+  onNameChange?: (name: string) => void;
 }
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
  * default and enum mapping when its kind has them.
  */
-export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
+export const JSONField = ({
+  path,
+  actions,
+  autoFocus = false,
+  onNameChange,
+}: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
   const type = jsonTypeOf(field);
@@ -604,7 +650,13 @@ export const JSONField = ({ path, actions }: JSONFieldProps): ReactElement => {
   };
   return (
     <Form.Section title="Field" actions={actions}>
-      <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Form.TextField
+        path={path.name}
+        label="Name"
+        padHelpText={false}
+        inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+        onChange={onNameChange}
+      />
       <Form.TextField
         path={path.pointer}
         label="Pointer"

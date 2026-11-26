@@ -7,10 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <map>
 #include <optional>
+#include <span>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -19,12 +23,16 @@
 #include <vector>
 
 #include "client/cpp/icd/types.gen.h"
+#include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
 #include "x/cpp/json/extract.h"
 #include "x/cpp/json/field.h"
+#include "x/cpp/json/number.h"
 #include "x/cpp/json/pointer.h"
+#include "x/cpp/json/template.h"
 #include "x/cpp/json/text.h"
+#include "x/cpp/json/timestamp.h"
 #include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -135,7 +143,7 @@ read_variant(const icd::JSONField &jf, const x::telem::DataType &dt) {
             } else if constexpr (std::is_same_v<F, icd::JSONJSONField>) {
                 out.kind = payload::KIND_JSON;
                 if (v.default_.has_value()) {
-                    if (!x::json::json::accept(*v.default_))
+                    if (!x::json::valid(*v.default_))
                         return {
                             {},
                             x::errors::Error(
@@ -223,9 +231,13 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
                     "a scaled field requires a float channel, not " + dt.name()
                 ),
             };
-        auto [number, err] = x::json::Decoder::create(
-            {.data_type = x::telem::FLOAT64_T, .range = v.sample.range}
-        );
+        // The enums of number fail a string that is no label as an unknown label. A
+        // label itself goes to sample.
+        auto [number, err] = x::json::Decoder::create({
+            .data_type = x::telem::FLOAT64_T,
+            .enums = v.sample.enums,
+            .range = v.sample.range,
+        });
         if (err) return {Field{}, err};
         field.number = std::move(number);
         // A scaled value need not be an integer.
@@ -258,8 +270,16 @@ JSON::Field::decode(const std::string_view raw, x::telem::Series &dst) {
             x::errors::VALIDATION,
             "expected a boolean, got number " + std::string(raw)
         );
-    // An enum label maps straight to a channel value, which takes no scale.
-    if (!this->scaled || raw.front() == '"') return this->sample.append(raw, dst);
+    if (raw.front() == '"' && (this->boolean || this->scaled)) {
+        // An enum label maps straight to a channel value, which takes no scale.
+        if (this->sample.labeled(raw)) return this->sample.append(raw, dst);
+        if (this->boolean)
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "expected a boolean, got string " + std::string(raw)
+            );
+    }
+    if (!this->scaled) return this->sample.append(raw, dst);
     this->scratch.clear();
     if (const auto err = this->number.append(raw, this->scratch)) return err;
     return this->append_float(this->scratch.at<double>(0), dst);
@@ -357,5 +377,405 @@ void JSON::Message::decode(const std::vector<std::optional<std::string_view>> &v
             .error = wrap(err, "field " + f.name),
         });
     }
+}
+
+namespace {
+x::errors::Error invalid(const std::string &message) {
+    return x::errors::Error(x::errors::VALIDATION, message);
+}
+
+/// @brief reports whether k holds numbers or booleans.
+bool numeric(const std::string_view k) {
+    return k == payload::KIND_FLOAT || k == payload::KIND_INTEGER ||
+           k == payload::KIND_UNSIGNED || k == payload::KIND_BOOLEAN;
+}
+
+/// @brief reports whether samples of dt write to a field of kind k.
+bool writes(const std::string_view k, const x::telem::DataType &dt) {
+    const auto dk = kind_of(dt);
+    return dk.has_value() && (*dk == k || (numeric(*dk) && numeric(k)));
+}
+
+/// @brief reports whether a field of kind k changes or checks the number that an
+/// encoder writes for a sample of dt.
+bool needs_conversion(
+    const std::string_view k,
+    const x::telem::DataType &dt,
+    const bool scaled,
+    const bool bounded
+) {
+    if (k == payload::KIND_FLOAT) return scaled || bounded;
+    if (k == payload::KIND_INTEGER || k == payload::KIND_UNSIGNED)
+        return scaled || bounded || kind_of(dt) != k;
+    if (k == payload::KIND_BOOLEAN) return kind_of(dt) != k;
+    return false;
+}
+
+/// @brief reports whether token is "0" or digits that do not start with "0".
+bool array_index(const std::string &token) {
+    if (token.empty() || (token.size() > 1 && token[0] == '0')) return false;
+    return std::ranges::all_of(token, [](const char c) {
+        return c >= '0' && c <= '9';
+    });
+}
+
+/// @brief parses text as a pointer that names object members.
+/// @returns VALIDATION for an array index, since a decoder reads one as an element.
+std::pair<x::json::Pointer, x::errors::Error> member_pointer(const std::string &text) {
+    auto [pointer, err] = x::json::Pointer::parse(text);
+    if (err) return {{}, err};
+    if (std::ranges::any_of(pointer.tokens, array_index))
+        return {
+            {},
+            invalid(
+                "pointer " + x::json::quote(text) +
+                " holds an array index, which a document cannot place"
+            ),
+        };
+    return {std::move(pointer), x::errors::NIL};
+}
+
+/// @brief returns the template field that writes the value of m, a value rule.
+std::pair<x::json::Template::Field, x::errors::Error>
+match_literal(const icd::JSONMatch &m) {
+    auto [pointer, ptr_err] = member_pointer(icd::base(m).pointer);
+    if (ptr_err) return {{}, ptr_err};
+    std::string text;
+    const auto err = std::visit(
+        [&text]<typename M>(const M &v) -> x::errors::Error {
+            if constexpr (std::is_same_v<M, icd::FloatJSONMatch>)
+                return x::json::append_float(v.value.value, text);
+            else if constexpr (
+                std::is_same_v<M, icd::IntegerJSONMatch> ||
+                std::is_same_v<M, icd::UnsignedJSONMatch>
+            )
+                text = std::to_string(v.value.value);
+            else if constexpr (std::is_same_v<M, icd::StringJSONMatch>)
+                return x::json::append_quoted(v.value, text);
+            else if constexpr (std::is_same_v<M, icd::BooleanJSONMatch>)
+                text = v.value ? "true" : "false";
+            else {
+                static_assert(std::is_same_v<M, icd::PresentJSONMatch>);
+                throw std::logic_error("a present rule has no value to write");
+            }
+            return x::errors::NIL;
+        },
+        m
+    );
+    if (err) return {{}, err};
+    return {
+        {.label = "match", .pointer = std::move(pointer), .literal = std::move(text)},
+        x::errors::NIL,
+    };
+}
+}
+
+std::pair<JSONEncoder::Default, x::errors::Error>
+JSONEncoder::Default::create(const icd::JSONField &f) {
+    Default d;
+    const auto err = std::visit(
+        [&d]<typename F>(const F &v) -> x::errors::Error {
+            if (!v.default_.has_value()) return x::errors::NIL;
+            std::string text;
+            if constexpr (std::is_same_v<F, icd::FloatJSONField>) {
+                if (!std::isfinite(v.default_->value)) return invalid("must be finite");
+                if (auto err = x::json::append_float(v.default_->value, text))
+                    return err;
+            } else if constexpr (
+                std::is_same_v<F, icd::IntegerJSONField> ||
+                std::is_same_v<F, icd::UnsignedJSONField>
+            )
+                text = std::to_string(v.default_->value);
+            else if constexpr (std::is_same_v<F, icd::StringJSONField>) {
+                if (auto err = x::json::append_quoted(v.default_.value(), text))
+                    return err;
+            } else if constexpr (std::is_same_v<F, icd::BooleanJSONField>)
+                text = v.default_.value() ? "true" : "false";
+            else if constexpr (std::is_same_v<F, icd::TimestampJSONField>) {
+                auto [format, err] = x::json::parse_time_format(v.time_format);
+                if (err) return err;
+                if (const auto *c = std::get_if<icd::ConstantTimestampDefault>(
+                        &v.default_.value()
+                    ))
+                    x::json::append_timestamp(c->value, format, text);
+                else {
+                    d.generator = Generator::NOW;
+                    d.time_format = format;
+                    return x::errors::NIL;
+                }
+            } else if constexpr (std::is_same_v<F, icd::JSONJSONField>) {
+                if (!x::json::valid(v.default_.value()))
+                    return invalid("must be valid JSON");
+                text = v.default_.value();
+            } else if constexpr (std::is_same_v<F, icd::UuidJSONField>) {
+                const auto *c = std::get_if<icd::ConstantUUIDDefault>(
+                    &v.default_.value()
+                );
+                if (c == nullptr) {
+                    d.generator = Generator::UUID;
+                    return x::errors::NIL;
+                }
+                text = '"' + c->value.to_string() + '"';
+            } else {
+                static_assert(std::is_same_v<F, icd::BytesJSONField>);
+                if (x::base64::decode_strict(v.default_.value()).second)
+                    return invalid("must be base64");
+                // Canonical base64 text needs no escapes.
+                text = '"' + v.default_.value() + '"';
+            }
+            d.text = std::move(text);
+            return x::errors::NIL;
+        },
+        f
+    );
+    if (err) return {Default{}, err};
+    return {std::move(d), x::errors::NIL};
+}
+
+x::errors::Error JSONEncoder::Default::append(std::string &out) const {
+    switch (this->generator) {
+        case Generator::NOW:
+            x::json::append_timestamp(
+                x::telem::TimeStamp::now(),
+                this->time_format,
+                out
+            );
+            return x::errors::NIL;
+        case Generator::UUID:
+            out += '"';
+            out += x::uuid::create().to_string();
+            out += '"';
+            return x::errors::NIL;
+        case Generator::NONE:
+            break;
+    }
+    if (!this->text.has_value()) return invalid("no sample and no default");
+    out += this->text.value();
+    return x::errors::NIL;
+}
+
+std::pair<JSONEncoder::Field, x::errors::Error>
+JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
+    const auto &b = icd::base(f);
+    Field field;
+    field.name = b.name;
+    field.scaled = b.scale != 1 || b.offset != 0;
+    field.scale = b.scale;
+    field.offset = b.offset;
+    field.base = static_cast<const icd::BaseField &>(b);
+    auto [v, variant_err] = read_variant(f, dt);
+    if (variant_err) return {Field{}, variant_err};
+    field.kind = v.kind;
+    if (!writes(v.kind, dt))
+        return {
+            Field{},
+            invalid(
+                "cannot write " + dt.name() + " channels to " + std::string(v.kind) +
+                " fields"
+            ),
+        };
+    if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
+        return {
+            Field{},
+            invalid("a scaled field requires a float channel, not " + dt.name()),
+        };
+    field.converted = needs_conversion(
+        v.kind,
+        dt,
+        field.scaled,
+        b.min.has_value() || b.max.has_value()
+    );
+    if (v.kind == payload::KIND_JSON) return {std::move(field), x::errors::NIL};
+    auto type = x::json::Type::Number;
+    if (v.kind == payload::KIND_STRING || v.kind == payload::KIND_UUID ||
+        v.kind == payload::KIND_BYTES)
+        type = x::json::Type::String;
+    else if (v.kind == payload::KIND_BOOLEAN)
+        type = x::json::Type::Boolean;
+    auto [encoder, err] = x::json::Encoder::create({
+        .data_type = dt,
+        .time_format = v.sample.time_format,
+        .type = type,
+        .enums = std::move(v.sample.enums),
+    });
+    if (err) return {Field{}, err};
+    field.encoder = std::move(encoder);
+    return {std::move(field), x::errors::NIL};
+}
+
+x::errors::Error JSONEncoder::Field::append(
+    const x::telem::Series &s,
+    const std::size_t i,
+    std::string &out
+) const {
+    if (this->kind == payload::KIND_JSON) {
+        const auto text = s.at<std::string>(static_cast<int>(i));
+        if (!x::json::valid(text)) return invalid("invalid JSON");
+        out += text;
+        return x::errors::NIL;
+    }
+    if (!this->converted) return this->encoder.append(s, i, out);
+    auto sample = s.at(static_cast<int>(i));
+    // A boolean matches and converts as 0 or 1.
+    if (s.data_type() == x::telem::BOOLEAN_T) sample = x::telem::BOOLEAN_T.cast(sample);
+    // An enum label writes a value that the ICD names, with no conversion or check.
+    if (const auto *label = this->encoder.label(sample)) {
+        out += *label;
+        return x::errors::NIL;
+    }
+    const auto n = x::json::to_number(sample).value();
+    const auto v = n.to_float64();
+    if (!std::isfinite(v)) return invalid(n.to_string() + " is not a JSON number");
+    const auto *narrow = std::get_if<float>(&sample);
+    if (auto err = narrow != nullptr ? check_limits(this->base, *narrow)
+                                     : check_limits(this->base, v))
+        return err;
+    if (this->kind == payload::KIND_FLOAT)
+        return x::json::append_float((v - this->offset) / this->scale, out);
+    if (this->kind != payload::KIND_BOOLEAN) return this->append_integer(n, out);
+    if (v != 0 && v != 1)
+        return invalid(x::json::Number(v).to_string() + " is not 0 or 1");
+    out += v == 1 ? "true" : "false";
+    return x::errors::NIL;
+}
+
+x::errors::Error
+JSONEncoder::Field::append_integer(const x::json::Number &n, std::string &out) const {
+    const bool integer = this->kind == payload::KIND_INTEGER;
+    if (!this->scaled) {
+        if (const auto v = n.to_int64(); integer && v.has_value()) {
+            out += std::to_string(*v);
+            return x::errors::NIL;
+        }
+        if (const auto v = n.to_uint64(); !integer && v.has_value()) {
+            out += std::to_string(*v);
+            return x::errors::NIL;
+        }
+    }
+    auto v = n.to_float64();
+    if (this->scaled) v = (v - this->offset) / this->scale;
+    const auto r = std::round(v);
+    if (integer && r >= -0x1p63 && r < 0x1p63) {
+        out += std::to_string(static_cast<std::int64_t>(r));
+        return x::errors::NIL;
+    }
+    if (!integer && r >= 0 && r < 0x1p64) {
+        out += std::to_string(static_cast<std::uint64_t>(r));
+        return x::errors::NIL;
+    }
+    return invalid(
+        x::json::Number(v).to_string() + " is out of range for " +
+        std::string(this->kind) + " values"
+    );
+}
+
+std::pair<JSONEncoder, x::errors::Error>
+JSONEncoder::create(const JSONMessage &message) {
+    const auto fail = [&message](const x::errors::Error &err) {
+        return std::pair{JSONEncoder{}, as_config(err, "message " + message.name)};
+    };
+    std::map<icd::FieldKey, const icd::JSONField *> by_key;
+    for (const auto &f: message.payload.fields)
+        by_key[icd::base(f).key] = &f;
+    std::map<icd::FieldKey, std::size_t> bound;
+    for (std::size_t i = 0; i < message.bindings.size(); i++) {
+        const auto &key = message.bindings[i].field;
+        const auto found = by_key.find(key);
+        if (found == by_key.end())
+            return fail(invalid("field " + key.to_string() + " does not exist"));
+        if (!bound.try_emplace(key, i).second)
+            return fail(invalid(
+                "field " + icd::base(*found->second).name + " has more than one binding"
+            ));
+    }
+    JSONEncoder e;
+    e.name = message.name;
+    e.fields.resize(message.bindings.size());
+    std::vector<x::json::Template::Field> fields;
+    const icd::PresentJSONMatch *present = nullptr;
+    if (const auto &match = message.payload.match; match.has_value()) {
+        present = std::get_if<icd::PresentJSONMatch>(&match.value());
+        if (present == nullptr) {
+            auto [f, err] = match_literal(match.value());
+            if (err) return fail(wrap(err, "match"));
+            fields.push_back(std::move(f));
+            e.slots.emplace_back();
+        }
+    }
+    for (const auto &f: message.payload.fields) {
+        const auto &b = icd::base(f);
+        auto [pointer, ptr_err] = member_pointer(b.pointer);
+        if (ptr_err) return fail(wrap(ptr_err, "field " + b.name));
+        auto [fallback, def_err] = Default::create(f);
+        if (def_err) return fail(wrap(def_err, "field " + b.name + ": default"));
+        x::json::Template::Field tf{.label = "field " + b.name, .pointer = pointer};
+        const auto binding = bound.find(b.key);
+        if (binding == bound.end()) {
+            if (!fallback.defined())
+                return fail(
+                    invalid("field " + b.name + ": needs a channel or a default")
+                );
+            tf.literal = fallback.text;
+            fields.push_back(std::move(tf));
+            e.slots.push_back({.fallback = std::move(fallback)});
+            continue;
+        }
+        const auto i = binding->second;
+        auto [field, err] = Field::create(f, message.bindings[i].data_type);
+        if (err) return fail(wrap(err, "field " + b.name));
+        field.fallback = std::move(fallback);
+        e.fields[i] = std::move(field);
+        fields.push_back(std::move(tf));
+        e.slots.push_back({.binding = i});
+    }
+    if (present != nullptr) {
+        auto [at, err] = x::json::Pointer::parse(present->pointer);
+        if (err) return fail(wrap(err, "match"));
+        if (std::ranges::none_of(fields, [&at](const auto &f) {
+                return within(f.pointer, at);
+            }))
+            return fail(invalid(
+                "match: no field is at or inside " + x::json::quote(present->pointer)
+            ));
+    }
+    auto [document, err] = x::json::Template::create(fields);
+    if (err) return fail(err);
+    e.document = std::move(document);
+    return {std::move(e), x::errors::NIL};
+}
+
+x::errors::Error JSONEncoder::encode(
+    const std::span<const x::telem::Series> samples,
+    std::vector<std::uint8_t> &payload
+) {
+    this->text.clear();
+    const auto err = this->document.append(
+        this->text,
+        [this, &samples](const std::size_t slot, std::string &out) -> x::errors::Error {
+            const auto &s = this->slots[slot];
+            if (!s.binding.has_value()) return s.fallback.append(out);
+            const auto &f = this->fields[*s.binding];
+            const auto &sample = samples[*s.binding];
+            const auto err = sample.empty() ? f.fallback.append(out)
+                                            : f.append(sample, 0, out);
+            if (err) return wrap(err, "field " + f.name);
+            return x::errors::NIL;
+        }
+    );
+    if (err) return wrap(err, "message " + this->name);
+    payload.assign(this->text.begin(), this->text.end());
+    return x::errors::NIL;
+}
+
+x::errors::Error JSONEncoder::check(
+    const std::size_t binding,
+    const x::telem::Series &s,
+    const std::size_t i
+) {
+    const auto &f = this->fields[binding];
+    this->text.clear();
+    if (auto err = f.append(s, i, this->text))
+        return wrap(err, "message " + this->name + ": field " + f.name);
+    return x::errors::NIL;
 }
 }

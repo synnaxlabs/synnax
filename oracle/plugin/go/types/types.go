@@ -1709,6 +1709,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 {{- end}}
 {{- if eq .Kind "non_empty_string"}}
 	v.NotEmptyString("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "non_empty_slice"}}
+	v.NotEmptySlice("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}
@@ -1851,6 +1853,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 {{- end}}
 {{- if eq .Kind "non_empty_string"}}
 	v.NotEmptyString("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "non_empty_slice"}}
+	v.NotEmptySlice("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "non_zero"}}
 	v.NonZero("{{.FieldName}}", {{$val}})
 {{- else if eq .Kind "min_len"}}

@@ -18,10 +18,12 @@ Project struct {
         @doc value "is a human-readable name for the project."
     }
 
-    @doc value  """
+    @doc value     """
         is a named, persistable container that groups the panels of the Console
         application.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "project"
 }

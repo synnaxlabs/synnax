@@ -68,6 +68,100 @@ const createBound = (
 const createIndex = async (name: string) =>
   await client.channels.create({ name, dataType: "timestamp", isIndex: true });
 
+interface Kind {
+  /** The name of the timestamp field that the kind reads as its index, if any. */
+  index?: string;
+  /** The names of its float fields. The match rule needs the first one. */
+  fields: string[];
+  /** The channel of each field by name. A field with none gets a new one. */
+  channels?: Record<string, number>;
+}
+
+/** @returns a message for each kind, as one source reads them. */
+const createKinds = (kinds: Kind[]) => {
+  const source = {
+    icd: uuid.create(),
+    disabled: false,
+    messages: [] as icd.ReadMessage[],
+  };
+  return kinds.map(({ index, fields: names, channels = {} }, read) => {
+    const indexField =
+      index == null
+        ? undefined
+        : icd.jsonFieldZ.parse({
+            key: uuid.create(),
+            name: index,
+            pointer: `/${index}`,
+            type: "timestamp",
+            timeFormat: "unix_ms",
+          });
+    const fields = [
+      ...(indexField == null ? [] : [indexField]),
+      ...names.map((name) =>
+        icd.jsonFieldZ.parse({
+          key: uuid.create(),
+          name,
+          pointer: `/${name}`,
+          type: "float",
+        }),
+      ),
+    ];
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: names[0],
+      payload: {
+        format: "json",
+        match: { type: "present", pointer: `/${names[0]}` },
+        fields,
+      },
+    };
+    source.messages.push({
+      message: message.key,
+      index: indexField?.key,
+      bindings: fields.map(({ key, name }) => ({
+        field: key,
+        channel: channels[name] ?? 0,
+        dataType: "",
+      })),
+    });
+    return { source, read, message, fields };
+  });
+};
+
+/**
+ * Plans and then applies every message of bound with one namer, as a deploy does.
+ *
+ * @returns the names of the channels of each message, in binding order.
+ */
+const deployKinds = async (
+  prefix: string,
+  bound: ReturnType<typeof createKinds>,
+): Promise<string[][]> => {
+  const namer = Task.createNamer(client);
+  const written = new Set(
+    bound
+      .flatMap(({ source, read }) => source.messages[read].bindings)
+      .map(({ channel }) => channel)
+      .filter((key) => key !== 0),
+  );
+  const plans = [];
+  for (const b of bound)
+    plans.push(
+      await ICD.planMessage(client, namer, b, prefix, undefined, written, bound),
+    );
+  for (const [i, b] of bound.entries()) await ICD.applyMessage(client, b, plans[i]);
+  return await Promise.all(
+    bound.map(
+      async ({ source, read }) =>
+        await Promise.all(
+          source.messages[read].bindings.map(
+            async ({ channel }) => (await client.channels.retrieve(channel)).name,
+          ),
+        ),
+    ),
+  );
+};
+
 describe("planMessage", () => {
   it("should plan a new channel for a field whose channel was deleted", async () => {
     const prefix = uniqueName("src");
@@ -85,6 +179,17 @@ describe("planMessage", () => {
     const key = bound.source.messages[0].bindings[0].channel;
     expect(key).not.toBe(old.key);
     expect((await client.channels.retrieve(key)).name).toBe(`${prefix}_temp`);
+  });
+
+  it("should name a new index after its index field", async () => {
+    const prefix = uniqueName("src");
+    const bound = createBound({ temp: 0, ts: 0 }, "ts");
+    const plan = await ICD.planMessage(client, Task.createNamer(client), bound, prefix);
+    await ICD.applyMessage(client, bound, plan);
+    const [temp, ts] = bound.source.messages[0].bindings.map(({ channel }) => channel);
+    const index = await client.channels.retrieve(ts);
+    expect(index.name).toBe(`${prefix}_ts`);
+    expect((await client.channels.retrieve(temp)).index).toBe(index.key);
   });
 
   it("should plan a float64 channel for a scaled integer field", async () => {
@@ -311,5 +416,63 @@ describe("planMessage", () => {
     const flow = await client.channels.retrieve(channel);
     expect(flow.index).not.toBe(0);
     expect(flow.index).not.toBe(index.key);
+  });
+
+  describe("a source with a message for each kind", () => {
+    it("should name both new indexes of the same name after their kinds", async () => {
+      const prefix = uniqueName("src");
+      const bound = createKinds([
+        { index: "ts", fields: ["rpm"] },
+        { index: "ts", fields: ["code"] },
+      ]);
+      expect(await deployKinds(prefix, bound)).toEqual([
+        [`${prefix}_rpm_ts`, `${prefix}_rpm`],
+        [`${prefix}_code_ts`, `${prefix}_code`],
+      ]);
+    });
+
+    it("should name only the new index after its kind when the other exists", async () => {
+      const prefix = uniqueName("src");
+      const index = await createIndex(`${prefix}_ts`);
+      const rpm = await client.channels.create({
+        name: `${prefix}_rpm`,
+        dataType: "float64",
+        index: index.key,
+      });
+      const bound = createKinds([
+        { index: "ts", fields: ["rpm"], channels: { ts: index.key, rpm: rpm.key } },
+        { index: "ts", fields: ["code"] },
+      ]);
+      expect(await deployKinds(prefix, bound)).toEqual([
+        [`${prefix}_ts`, `${prefix}_rpm`],
+        [`${prefix}_code_ts`, `${prefix}_code`],
+      ]);
+    });
+
+    it("should name both new indexes of arrival times after their kinds", async () => {
+      const prefix = uniqueName("src");
+      const bound = createKinds([{ fields: ["rpm"] }, { fields: ["code"] }]);
+      await deployKinds(prefix, bound);
+      const indexes = await Promise.all(
+        bound.map(async ({ source, read }) => {
+          const [{ channel: key }] = source.messages[read].bindings;
+          const { index } = await client.channels.retrieve(key);
+          return (await client.channels.retrieve(index)).name;
+        }),
+      );
+      expect(indexes).toEqual([`${prefix}_rpm_time`, `${prefix}_code_time`]);
+    });
+
+    it("should name both new value channels of the same name after their kinds", async () => {
+      const prefix = uniqueName("src");
+      const bound = createKinds([
+        { index: "ts", fields: ["rpm", "status"] },
+        { index: "time", fields: ["code", "status"] },
+      ]);
+      expect(await deployKinds(prefix, bound)).toEqual([
+        [`${prefix}_ts`, `${prefix}_rpm`, `${prefix}_rpm_status`],
+        [`${prefix}_time`, `${prefix}_code`, `${prefix}_code_status`],
+      ]);
+    });
   });
 });

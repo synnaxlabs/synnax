@@ -11,18 +11,7 @@ import type { channel, control } from "@synnaxlabs/client";
 
 import type { flux } from "@/flux/aether";
 
-export const RESOURCE_NAME = "control state";
 export const PLURAL_RESOURCE_NAME = "control states";
-
-export type RetrieveQuery = { key: channel.Key };
-
-export const retrieveDefinition: flux.Definition<RetrieveQuery, control.KeyedState> = {
-  name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.control.retrieve(query),
-  onChange: ({ client, query }, handler) =>
-    client.control.watch(query).onChange(handler),
-  getCached: ({ client, query }) => client.control.watch(query).getCached(),
-};
 
 export type ListQuery = { keys: channel.Key[] };
 

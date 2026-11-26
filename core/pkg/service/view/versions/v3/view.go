@@ -9,13 +9,6 @@
 
 package v3
 
-import (
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-)
-
-var _ gorp.Entry[Key] = View{}
-
 // WithKey returns a copy of the view with its key set to key.
 func (v View) WithKey(key Key) View {
 	switch variant := v.Variant.(type) {
@@ -27,12 +20,4 @@ func (v View) WithKey(key Key) View {
 		v.Variant = variant
 	}
 	return v
-}
-
-// GorpKey returns the view's storage key.
-func (v View) GorpKey() Key { return v.Base().Key }
-
-// ResourceID returns the view's resource identifier.
-func (v View) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeView, Key: v.Base().Key.String()}
 }

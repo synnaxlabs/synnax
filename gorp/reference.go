@@ -789,7 +789,9 @@ func (r *reference[K, E, T]) check(
 		}
 	}
 	if r.acyclic {
-		return current, r.checkAcyclic(ctx, tx, t, e)
+		if err := r.checkAcyclic(ctx, tx, t, e); err != nil {
+			return false, err
+		}
 	}
 	return current, nil
 }

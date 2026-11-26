@@ -84,13 +84,18 @@ describe("useByKeys", () => {
 
 describe("typed devices", async () => {
   const rack = await client.racks.create({ name: uniqueName("ni_rack") });
+  const port = await client.channels.create({
+    name: uniqueName("ni_port"),
+    dataType: "float32",
+    virtual: true,
+  });
   const createTyped = async (): Promise<ni.device.Device> =>
     await client.ni.devices.create({
       rack: rack.key,
       name: uniqueName("ni_dev"),
       resourceName: id.create(),
       model: "PXIe-4300",
-      analogInput: { index: 0, temperature: 0, channels: { 0: 1 } },
+      analogInput: { index: 0, temperature: 0, channels: { 0: port.key } },
     });
 
   describe("useRetrieve", () => {
@@ -116,7 +121,7 @@ describe("typed devices", async () => {
       });
       const stored = await client.ni.devices.retrieve({ key: dev.key });
       expect(stored.name).toBe(name);
-      expect(stored.analogInput.channels).toEqual({ 0: 1 });
+      expect(stored.analogInput.channels).toEqual({ 0: port.key });
     });
   });
 

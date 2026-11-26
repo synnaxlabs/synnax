@@ -34,6 +34,18 @@
       "receiver": "Table",
       "name": "PlanDelete",
       "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "Iterator",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
+      "name": "Writeback",
+      "caller": "https://linear.app/synnax/issue/SY-6385"
     }
   ]
 }

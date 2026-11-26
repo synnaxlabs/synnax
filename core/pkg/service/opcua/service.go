@@ -14,9 +14,14 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/versions/legacy"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/secret"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -25,11 +30,25 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ServiceConfig is the configuration for opening the OPC UA task config service.
+// ServiceConfig is the configuration for opening the OPC UA service.
 type ServiceConfig struct {
-	// DB is the database config records are stored in.
+	// DB is the database config records and servers are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Status stores the status of each server.
+	// [REQUIRED]
+	Status *status.Service
+	// Secret holds the password of each server.
+	// [REQUIRED]
+	Secret *secret.Service
+	// Certificate holds the certificates of each server.
+	// [REQUIRED]
+	Certificate *certificate.Service
+	// Signals publishes server changes.
+	//
+	// [OPTIONAL]
+	Signals *signals.Provider
 	alamos.Instrumentation
 }
 
@@ -38,6 +57,10 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.Secret = override.Nil(c.Secret, other.Secret)
+	c.Certificate = override.Nil(c.Certificate, other.Certificate)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -46,11 +69,17 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("opcua.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("status", c.Status)
+	v.NotNil("secret", c.Secret)
+	v.NotNil("certificate", c.Certificate)
 	return v.Error()
 }
 
-// Service owns the stored configuration records of the OPC UA task types.
+// Service owns the OPC UA servers and the stored configuration records of the OPC UA
+// task types.
 type Service struct {
+	// Servers stores OPC UA servers.
+	Servers *server.Service
 	// Read stores opc_read task configuration records.
 	Read *config.Service[ReadConfig]
 	// Write stores opc_write task configuration records.
@@ -60,7 +89,7 @@ type Service struct {
 	closer xio.MultiCloser
 }
 
-// OpenService opens the OPC UA task config service with the provided configuration.
+// OpenService opens the OPC UA service with the provided configuration.
 // If error is nil, the service is ready for use and must be closed by calling Close
 // to prevent resource leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
@@ -71,6 +100,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.Servers, err = server.OpenService(ctx, server.ServiceConfig{
+		DB:              cfg.DB,
+		Status:          cfg.Status,
+		Secret:          cfg.Secret,
+		Certificate:     cfg.Certificate,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Servers) {
+		return nil, err
+	}
 	if s.Read, err = config.OpenService(
 		ctx, config.ServiceConfig[ReadConfig]{
 			DB:              cfg.DB,

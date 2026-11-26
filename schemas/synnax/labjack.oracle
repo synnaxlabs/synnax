@@ -237,6 +237,7 @@ ReadConfig struct extends task.ReadConfig {
     }
 
     @doc value           "configures a LabJack read task."
+    @go entry            "labjack_read_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -257,6 +258,7 @@ WriteConfig struct extends task.WriteConfig {
     }
 
     @doc value           "configures a LabJack write task."
+    @go entry            "labjack_write_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -274,6 +276,7 @@ ScanConfig struct extends task.ScanConfig {
     }
 
     @doc value  "configures a LabJack scan task."
+    @go entry   "labjack_scan_config"
     @go imex    body
     @go marshal
     @go migrate

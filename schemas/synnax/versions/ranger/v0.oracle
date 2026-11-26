@@ -34,10 +34,12 @@ Range struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a user-defined region of time in the Synnax cluster. Ranges act as a method
         for labeling and categorizing telemetry data within specific time periods.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "range"
 }

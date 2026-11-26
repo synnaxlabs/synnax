@@ -9,9 +9,12 @@
 
 import { color } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Custom } from "@/schematic/node/common/custom";
 import { Primitive } from "@/schematic/node/general/switch/primitive";
+import { createSynnaxWrapper } from "@/testutil";
 
 const getRoot = (container: HTMLElement): HTMLElement => {
   const el = container.firstElementChild;
@@ -122,5 +125,58 @@ describe("switch symbol", () => {
       fireEvent.click(getRoot(container));
       expect(onClick).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("switch spec", () => {
+  const Drawn = ({ value }: { value: number }): ReactElement => {
+    const paints = Custom.usePaints(Primitive.SYMBOL, value, { builtIn: true });
+    return <Custom.Drawing spec={Primitive.SYMBOL} builtIn paints={paints} />;
+  };
+
+  const draw = (value: number) =>
+    render(<Drawn value={value} />, { wrapper: createSynnaxWrapper({ client: null }) });
+
+  const find = (container: HTMLElement, part: string): SVGElement => {
+    const el = container.querySelector<SVGElement>(`.pluto-switch-symbol__${part}`);
+    if (el == null) throw new Error(`expected the ${part} of the switch`);
+    return el;
+  };
+
+  const shown = (container: HTMLElement, part: string): boolean =>
+    find(container, part).style.display !== "none";
+
+  it("should show only the near knob before its paints resolve", () => {
+    const { container } = render(
+      <Custom.Drawing spec={Primitive.SYMBOL} builtIn paints={[]} />,
+      { wrapper: createSynnaxWrapper({ client: null }) },
+    );
+    expect(shown(container, "knob")).toBe(true);
+    expect(shown(container, "knob-on")).toBe(false);
+  });
+
+  it("should show the near knob on an empty track while off", async () => {
+    const { container } = draw(0);
+    await vi.waitFor(() => expect(shown(container, "knob-on")).toBe(false));
+    expect(shown(container, "knob")).toBe(true);
+    expect(find(container, "track").getAttribute("fill")).toBeNull();
+  });
+
+  it("should fill the track and show the far knob while on", async () => {
+    const { container } = draw(1);
+    await vi.waitFor(() =>
+      expect(find(container, "track").getAttribute("fill")).not.toBeNull(),
+    );
+    expect(shown(container, "knob")).toBe(false);
+    expect(shown(container, "knob-on")).toBe(true);
+    expect(find(container, "knob-on").getAttribute("fill")).not.toBeNull();
+  });
+
+  it("should hide the far knob again when it turns off", async () => {
+    const { container, rerender } = draw(1);
+    await vi.waitFor(() => expect(shown(container, "knob-on")).toBe(true));
+    rerender(<Drawn value={0} />);
+    await vi.waitFor(() => expect(shown(container, "knob-on")).toBe(false));
+    expect(shown(container, "knob")).toBe(true);
   });
 });
