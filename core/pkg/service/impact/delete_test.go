@@ -12,6 +12,7 @@ package impact_test
 import (
 	"fmt"
 	"slices"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -23,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	nidevice "github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -331,6 +333,55 @@ var _ = Describe("Delete", Ordered, func() {
 		Entry("channel first", false),
 		Entry("task first", true),
 	)
+
+	It("Should offer only cancel on an NI device that uses the channel", func(
+		ctx SpecContext,
+	) {
+		index := createChannel(ctx, channel.Channel{
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		})
+		dev := nidevice.Device{
+			Rack:         layer.Rack.EmbeddedKey,
+			Name:         "PXI-6255",
+			Serial:       uuid.New().String(),
+			ResourceName: uuid.New().String(),
+			Model:        "PXI-6255",
+			AnalogInput:  nidevice.AnalogInputPorts{Index: index.Key()},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.NI.Devices.NewWriter(tx).Create(ctx, &dev)
+		})).To(Succeed())
+		id := nidevice.ResourceID(dev.Key)
+		p := MustSucceed(layer.Impact.Plan(
+			ctx,
+			db,
+			deleteOf(index.Key()),
+			impact.PlanOptions{},
+		))
+		Expect(p.Entries).To(Equal([]impact.Entry{{
+			Record:  id,
+			Effect:  impact.EffectRestrict,
+			Choices: []impact.Choice{impact.ChoiceCancel},
+			Default: new(impact.ChoiceCancel),
+		}}))
+		Expect(apply(ctx, impact.ApplyOptions{}, index.Key())).
+			Error().To(BeAssignableToTypeOf(gorp.RestrictError{}))
+		Expect(apply(ctx, impact.ApplyOptions{
+			Picks: map[resource.ID]impact.Choice{id: impact.ChoiceDelete},
+		}, index.Key())).Error().To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("entry "+id.String()+" cannot take delete")),
+		))
+		Expect(apply(ctx, impact.ApplyOptions{
+			Hidden:  new(impact.ChoiceDelete),
+			Visible: func(r resource.ID) bool { return r != id },
+		}, index.Key())).Error().To(BeAssignableToTypeOf(gorp.RestrictError{}))
+		Expect(exists(ctx, index.Key())).To(BeTrue())
+		Expect(layer.NI.Devices.NewRetrieve().
+			Where(nidevice.MatchKeys(dev.Key)).
+			Exists(ctx, db)).To(BeTrue())
+	})
 
 	It("Should refuse a task key that is not a UUID in a plan and an apply", func(
 		ctx SpecContext,
