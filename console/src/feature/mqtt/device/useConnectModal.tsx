@@ -29,6 +29,7 @@ import {
 } from "@/feature/mqtt/device/types";
 import { Analytics } from "@/platform/analytics";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Rack } from "@/platform/rack";
 
 const path = deep.path<Device>();
 const { properties } = path;
@@ -106,7 +107,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "MQTT",
     rack: rackKey,

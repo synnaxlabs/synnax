@@ -42,6 +42,7 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
+import { Rack } from "@/platform/rack";
 
 const path = deep.path<Device>();
 const { auth, healthCheck } = path.properties;
@@ -136,7 +137,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "HTTP",
     rack: rackKey,

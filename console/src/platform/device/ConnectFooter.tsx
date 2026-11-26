@@ -19,7 +19,7 @@ import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
 export interface ConnectFooterProps {
-  /** The result of {@link useBlockedReason}. A reason blocks Connect. */
+  /** The result of `Rack.useBlockedReason`. A reason blocks Connect. */
   reason: string | null;
   variant: status.Variant;
   message?: string;
