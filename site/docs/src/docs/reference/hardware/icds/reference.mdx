@@ -90,13 +90,13 @@ These properties are the same for each message format.
 <Field.Item label="Min" field="min" type="number">
   The smallest value, after the scale and offset, that a write task accepts. Empty
   leaves the limit to the bits or the type of the field. Only a number field can have a
-  min. The Console does not show it.
+  min. The Console edits it in the options of a JSON field only.
 </Field.Item>
 
 <Field.Item label="Max" field="max" type="number">
   The largest value, after the scale and offset, that a write task accepts. It cannot be
   less than the min. Empty leaves the limit to the bits or the type of the field. Only a
-  number field can have a max. The Console does not show it.
+  number field can have a max. The Console edits it in the options of a JSON field only.
 </Field.Item>
 
 </Field.List>
@@ -516,6 +516,20 @@ code, `client.icds.check` returns the problems of an ICD.
   <Problem.Fix>Enter a number, or clear the default.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item
+  message={[
+    "scale must be finite",
+    "offset must be finite",
+    "min must be finite",
+    "max must be finite",
+  ]}
+>
+  <Problem.Cause>
+    The scale, offset, min, or max is not a finite number, such as infinity or NaN.
+  </Problem.Cause>
+  <Problem.Fix>Enter a finite number.</Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 ### Names and keys
@@ -565,18 +579,13 @@ code, `client.icds.check` returns the problems of an ICD.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  message={[
-    "scale must be finite and non-zero",
-    "offset must be finite",
-    "min must be finite",
-    "max must be finite",
-  ]}
->
+<Problem.Item message={"scale must be non-zero"}>
   <Problem.Cause>
-    The scale is 0, or the scale, offset, min, or max is not a finite number.
+    The scale of a number field is 0, so the field reads and writes each value as its
+    offset. Synnax saves the ICD, but a read or write task that binds the field does not
+    save or start.
   </Problem.Cause>
-  <Problem.Fix>Enter a finite number. A scale cannot be 0.</Problem.Fix>
+  <Problem.Fix>Enter a scale other than 0.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item

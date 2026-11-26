@@ -111,25 +111,29 @@ BaseField struct {
         @validate min_length 1
     }
     scale  float64 = 1 {
-        @doc value "multiplies the raw value on decode."
+        @doc value       "multiplies the raw value on decode."
+        @validate finite
     }
     offset float64 = 0 {
-        @doc value "is added to the scaled value on decode."
+        @doc value       "is added to the scaled value on decode."
+        @validate finite
     }
     units  string = "" {
         @doc value "is the engineering unit of the decoded value."
     }
     min    float64? {
-        @doc value """
+        @doc value       """
             is the smallest decoded value a write task accepts. When absent the field's
             encoding sets the limit.
         """
+        @validate finite
     }
     max    float64? {
-        @doc value """
+        @doc value       """
             is the largest decoded value a write task accepts. When absent the field's
             encoding sets the limit.
         """
+        @validate finite
     }
 
     @doc value  "carries the parts every message field shares."

@@ -55,8 +55,6 @@ type Document struct {
 type InferredField struct {
 	// Pointer locates the field in a document.
 	Pointer Pointer `json:"pointer" msgpack:"pointer"`
-	// DataType is the data type of a channel that takes the values of the field.
-	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// Kind is the kind of a payload field that holds the values of the field.
 	Kind payload.Kind `json:"kind" msgpack:"kind"`
 	// Type is the JSON type of most values of the field.
@@ -68,7 +66,7 @@ type InferredField struct {
 	Enum []string `json:"enum" msgpack:"enum"`
 	// Count is the number of documents that hold a value of the field.
 	Count int `json:"count" msgpack:"count"`
-	// Mismatched is the number of values that a channel of DataType does not take.
+	// Mismatched is the number of values that a payload field of Kind cannot hold.
 	Mismatched int `json:"mismatched" msgpack:"mismatched"`
 }
 
@@ -110,8 +108,8 @@ type SampledShape struct {
 //     source whose shapes have none merge into one, so each source has at most one
 //     shape with none.
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
-//   - Types widen across documents: int64, then uint64, then float64. A boolean field
-//     gives uint8. The JSON type of most values wins, and the rest are mismatched.
+//   - Number kinds widen across documents: integer, then unsigned, then float. The JSON
+//     type of most values wins, and the rest are mismatched.
 //   - A string field that repeats a few values of at most 64 bytes gives an enum.
 //   - A field whose name suggests a time and whose values all fit one format near the
 //     document time gives a timestamp. Unix units come from the magnitude.
@@ -296,13 +294,15 @@ func NewInferrer() *Inferrer {
 	return &Inferrer{src: newInferSource("", maxInferredFields)}
 }
 
-// Add adds data, written at t. Data that is not one JSON value adds nothing.
-func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
+// Add adds data, written at t, and returns true if data is one JSON value. Data that
+// is not adds nothing.
+func (i *Inferrer) Add(data []byte, t telem.TimeStamp) bool {
 	leaves, err := parseLeaves(data)
 	if err != nil {
-		return
+		return false
 	}
 	i.src.add(parsedDocument{leaves: leaves, time: t})
+	return true
 }
 
 // Shapes returns the shapes of the documents added, with no sources.
@@ -891,16 +891,15 @@ func (s *fieldStats) field() InferredField {
 	switch {
 	case s.numbers > 0 && numeric >= s.strings:
 		f.Type, f.Mismatched = Number, s.strings+s.unreadable
-		f.DataType, f.Kind = s.numberType()
+		f.Kind = s.numberKind()
 	case s.numbers == 0 && s.booleans > s.strings:
-		f.Type, f.DataType, f.Kind = Boolean, telem.Uint8T, payload.KindBoolean
+		f.Type, f.Kind = Boolean, payload.KindBoolean
 		f.Mismatched = s.strings
 	default:
-		f.Type, f.DataType, f.Kind, f.Mismatched = String, telem.StringT,
-			payload.KindString, numeric
+		f.Type, f.Kind, f.Mismatched = String, payload.KindString, numeric
 	}
 	if s.timestamp() {
-		f.DataType, f.Kind = telem.TimestampT, payload.KindTimestamp
+		f.Kind = payload.KindTimestamp
 		f.TimeFormat, f.Mismatched = new(s.time.format), 0
 		return f
 	}
@@ -915,14 +914,14 @@ func (s *fieldStats) field() InferredField {
 	return f
 }
 
-func (s *fieldStats) numberType() (telem.DataType, payload.Kind) {
+func (s *fieldStats) numberKind() payload.Kind {
 	switch {
 	case s.floating, s.unsigned && s.negative:
-		return telem.Float64T, payload.KindFloat
+		return payload.KindFloat
 	case s.unsigned:
-		return telem.Uint64T, payload.KindUnsigned
+		return payload.KindUnsigned
 	default:
-		return telem.Int64T, payload.KindInteger
+		return payload.KindInteger
 	}
 }
 

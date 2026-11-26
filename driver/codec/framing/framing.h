@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
 #include "driver/errors/errors.h"
@@ -68,74 +69,13 @@ public:
     ) const = 0;
 };
 
-/// @brief creates a framer that ends each frame with delimiter. It drops an empty frame
-/// with no error.
-/// @returns CONFIG_ERROR when delimiter is empty.
+/// @brief creates the framer of framing. A delimited, COBS, or SLIP framer drops an
+/// empty frame with no error. A sync framer reads a frame from its sync sequence, with
+/// no checksum, and its encode fills in the sync sequence and the length and appends
+/// the checksum.
+/// @returns CONFIG_ERROR when the sync length field overlaps the sync sequence, the
+/// sync max_length is less than the bytes up to the end of the length field, or framing
+/// holds an unknown length size, byte order, or checksum algorithm.
 std::pair<std::unique_ptr<Framer>, x::errors::Error>
-delimited(std::vector<std::uint8_t> delimiter);
-
-/// @brief creates a framer whose frames each hold length bytes.
-/// @returns CONFIG_ERROR when length is zero or larger than MAX_SIZE.
-std::pair<std::unique_ptr<Framer>, x::errors::Error> fixed(std::size_t length);
-
-/// @brief creates a framer that stuffs each frame with consistent overhead byte
-/// stuffing (COBS) and ends it with a zero byte. It drops an empty frame with no error.
-std::unique_ptr<Framer> cobs();
-
-/// @brief creates a framer that escapes each frame with the serial line internet
-/// protocol (SLIP, RFC 1055) and ends it with an END byte. It drops an empty frame with
-/// no error.
-std::unique_ptr<Framer> slip();
-
-/// @brief ChecksumAlgorithm is a CRC that ends a sync frame.
-enum class ChecksumAlgorithm : std::uint8_t {
-    /// @brief CRC16_CCITT_FALSE has polynomial 0x1021 and initial value 0xFFFF, with no
-    /// reflection.
-    CRC16_CCITT_FALSE,
-    /// @brief CRC16_MODBUS has polynomial 0x8005 and initial value 0xFFFF, reflected.
-    CRC16_MODBUS,
-    /// @brief CRC32 is the CRC of Ethernet and zlib.
-    CRC32,
-};
-
-/// @brief Checksum is the CRC that ends a sync frame.
-struct Checksum {
-    /// @brief algorithm is the CRC that the checksum holds.
-    ChecksumAlgorithm algorithm = ChecksumAlgorithm::CRC32;
-    /// @brief big_endian is true when the checksum puts its most significant byte
-    /// first.
-    bool big_endian = false;
-};
-
-/// @brief SyncConfig describes frames that start with a sync sequence and a length
-/// field.
-struct SyncConfig {
-    /// @brief sync is the byte sequence that starts each frame.
-    std::vector<std::uint8_t> sync;
-    /// @brief length_offset is the offset of the length field from the frame start.
-    std::size_t length_offset = 0;
-    /// @brief length_size is the number of bytes in the length field: 1, 2, or 4.
-    std::size_t length_size = 1;
-    /// @brief big_endian is true when the length field puts its most significant byte
-    /// first.
-    bool big_endian = false;
-    /// @brief length_adjustment is added to the length field to give the number of
-    /// bytes after the length field, checksum included.
-    std::int64_t length_adjustment = 0;
-    /// @brief checksum is the CRC that ends each frame and covers every byte before it,
-    /// or nothing when frames have no checksum.
-    std::optional<Checksum> checksum;
-    /// @brief max_length is the most bytes in a frame, sync included. A length field
-    /// that gives a larger frame marks a corrupt frame.
-    std::size_t max_length = MAX_SIZE;
-};
-
-/// @brief creates a framer for frames that start with a sync sequence and a length
-/// field. A frame that it reads starts at the sync sequence and has no checksum. It
-/// finds the next sync sequence after bytes that are not a frame. Its encode writes the
-/// sync sequence and the length into the header of the frame, and appends the checksum.
-/// @returns CONFIG_ERROR when the sync sequence is empty, the length field is not 1, 2,
-/// or 4 bytes or overlaps the sync sequence, or max_length is larger than MAX_SIZE or
-/// too small for the header.
-std::pair<std::unique_ptr<Framer>, x::errors::Error> sync(SyncConfig config);
+create(const synnax::icd::Framing &framing);
 }
