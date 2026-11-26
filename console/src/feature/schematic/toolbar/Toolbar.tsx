@@ -13,6 +13,7 @@ import { schematic } from "@synnaxlabs/client";
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
@@ -169,6 +170,8 @@ const Internal = (): ReactElement => {
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
   const selected = Session.Schematic.useSelectSelected();
   const changeable = useChangeableSymbols(selected);
+  // Another client can edit the configs while the confirm asks, so it reads them again.
+  const changeableRef = useSyncedRef(changeable);
   const current = useSymbolName(changeable);
   const changing = Session.Schematic.useSelectChanging();
   const changeSymbol = Schematic.useChangeSymbol();
@@ -184,8 +187,8 @@ const Internal = (): ReactElement => {
         value: current.symbol,
         onChange: (input, spec) => {
           handleError(async () => {
-            if (!(await confirmChange(changeable, spec))) return;
-            changeSymbol([...changeable.keys()], input, spec);
+            if (!(await confirmChange(() => changeableRef.current, spec))) return;
+            changeSymbol([...changeableRef.current.keys()], input, spec);
             setChanging(false);
           }, "Failed to change symbol");
         },
