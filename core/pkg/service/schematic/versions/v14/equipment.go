@@ -305,11 +305,13 @@ func retrieveEnumeration(
 	key enumeration.Key,
 ) (enumeration.Enumeration, error) {
 	var e enumeration.Enumeration
-	err := gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
+	if err := gorp.NewRetrieve[enumeration.Key, enumeration.Enumeration]().
 		Where(gorp.MatchKeys[enumeration.Key, enumeration.Enumeration](key)).
 		Entry(&e).
-		Exec(ctx, tx)
-	return e, err
+		Exec(ctx, tx); err != nil {
+		return enumeration.Enumeration{}, err
+	}
+	return e, nil
 }
 
 // dropUndrawnLooks gives each stored symbol with no commands its symbol.DrawnLooks.
