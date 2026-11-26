@@ -121,16 +121,12 @@ schematic. Click it again to show them.
 
 ## Connect a valve to hardware
 
-1. Add a valve, a switch, or a button.
-2. Select it, then open the **Control** tab of its properties.
-3. Under **Command**, select the **Channel** that the Console writes to when an operator
-   clicks the symbol.
-4. Under **State**, select the **Channel** that reports the position of the valve.
-
-<Video
-  id="console/schematics/control-tab"
-  label="Set the command and state channels of a valve"
-/>
+1. Add a valve, a pump, or a switch.
+2. Select it, then open the **Telemetry** tab of its properties.
+3. Under **Active**, set **Source** to **Channel**.
+4. Select the **Channel** that reports the position of the valve.
+5. Select the **Command channel** that the Console writes to when an operator clicks the
+   valve.
 
 To command the valve, turn off editing and click the valve. To take and release control,
 and to see what each symbol writes, see [manual control](/reference/control/manual).
@@ -257,9 +253,10 @@ The **Properties** tab shows different tabs for each kind of symbol.
 | Appearance | **Stroke** and **Scale**. A value symbol also has **Fill**, **Text**, **Size**, **Units**, and **Width**. |
 | Layout     | The direction of the symbol and the side of its label.                                                    |
 
-A solenoid valve also has **Normally open**, which swaps its open and closed look. For
-the properties of a custom symbol, see
-[custom symbols](/reference/visualize/custom-symbols#node-properties).
+A valve, pump, switch, light, or custom symbol has **Color**, **Scale**, and **Motion**
+under **Appearance**. **Motion** turns the motion of the symbol on or off. For a
+normally open solenoid valve, add the **Normally open solenoid** symbol from the
+**Valves** group.
 
 ### Telemetry tab
 
@@ -274,6 +271,11 @@ the properties of a custom symbol, see
 **Timeout** is 5 seconds by default, and 1 second at least. A number with no unit is in
 seconds. A value under 1 second shows a message and does not save.
 
+A valve, pump, switch, light, or custom symbol has a section for each of its states,
+with the channel that the state reads and the channel that its commands write. See the
+[node properties](/reference/visualize/custom-symbols#node-properties) of a custom
+symbol.
+
 <Note.Note variant="info">
   A symbol is stale when no new sample has arrived within the timeout. A stale symbol
   shows a clock indicator and keeps its colors. Give it a timeout longer than the
@@ -282,8 +284,18 @@ seconds. A value under 1 second shows a message and does not save.
 
 ### Control tab
 
-Valves, pumps, switches, setpoints, text inputs, selects, and other actuators have these
-fields:
+A valve, pump, switch, light, or custom symbol has these fields:
+
+| Section  | Field        | Description                                                                                 |
+| -------- | ------------ | ------------------------------------------------------------------------------------------- |
+| Commands | A command    | The channel that the command writes. Only a custom symbol command with no state shows here. |
+| Clicks   | Clickable    | When off, a click on the symbol does nothing.                                               |
+| Clicks   | Delay        | The time that an operator must press and hold before the symbol writes.                     |
+| Clicks   | Control chip | Shows the chip that tells who has control of the channel.                                   |
+
+Its state and command channels are on the [Telemetry tab](#telemetry-tab).
+
+Setpoints, text inputs, and selects have these fields:
 
 | Section   | Field        | Description                                                                |
 | --------- | ------------ | -------------------------------------------------------------------------- |
