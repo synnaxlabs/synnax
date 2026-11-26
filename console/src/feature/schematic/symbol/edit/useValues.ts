@@ -12,9 +12,6 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Color, Enumeration, Schematic } from "@synnaxlabs/pluto";
 import type { color } from "@synnaxlabs/x";
 
-import { Spec } from "@/feature/schematic/symbol/spec";
-import { FLAGS } from "@/flags";
-
 const path = Schematic.Symbol.formPath;
 
 /** Values holds the values of the state that the editor edits. */
@@ -30,15 +27,13 @@ export interface Values {
 }
 
 /**
- * @returns the values of the enumeration state key of the symbol in the form. With
- * symbolNodes off, STATE keeps the values of the variant. A state takes the entries of
- * its enumeration, or 0 and 1 as an actuator draws them when it has none, and each
+ * @returns the values of the enumeration state key of the symbol in the form. A state
+ * takes the entries of its enumeration, or Base and Active when it has none, and each
  * value that a look names. It lists no values while the enumeration loads, or with no
  * state.
  */
 export const useValues = (key: string): Values => {
   const all = Form.useFieldValue(path.data.states);
-  const variant = Form.useFieldValue(path.data.variant);
   const looks = Form.useFieldValue(path.data.looks);
   const states = all.filter(
     (s): s is schematic.symbol.EnumerationState => s.type === "enumeration",
@@ -52,7 +47,7 @@ export const useValues = (key: string): Values => {
     if (state?.enumeration != null && res.variant === "loading") return [];
     const listed =
       state?.enumeration == null
-        ? Schematic.Node.Custom.listValues({ variant: "actuator" })
+        ? Schematic.Node.Custom.UNNAMED_VALUES
         : (entries ?? []).map(({ key, value, name }) => ({ key, value, name }));
     const named = looks.flatMap((l) => (l.when?.state === key ? l.when.values : []));
     const extra = [...new Set(named)]
@@ -60,12 +55,7 @@ export const useValues = (key: string): Values => {
       .map((v) => ({ key: String(v), value: v, name: String(v) }));
     return [...listed, ...extra].sort((a, b) => a.value - b.value);
   };
-  const list =
-    key === Spec.STATE && !FLAGS.symbolNodes
-      ? Schematic.Node.Custom.listValues({ variant }, entries)
-      : state == null
-        ? []
-        : listOther();
+  const list = state == null ? [] : listOther();
   return {
     state: key,
     states,

@@ -16,11 +16,9 @@
 // release turns on a flag whose expression is true when `DESKTOP` is. Each entry names
 // its owner, its Linear umbrella issue, and the release that removes it.
 //
-// Keep each flag its own `export const`: the bundler folds `FLAGS.icds` to a literal,
+// Keep each flag its own `export const`: the bundler folds `FLAGS.breaks` to a literal,
 // but not a property of an object.
 
-// Owner: Emiliano Bonilla. Umbrella: SY-4970. Removed in 0.63.
-export const icds = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
 // Owner: Emiliano Bonilla. Umbrella: SY-6601. On in Desktop. Removed in 0.64.
 export const breaks =
   IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";
@@ -30,7 +28,5 @@ export const compare =
 // Owner: Patrick Dotson. Umbrella: SY-5127. Removed in 0.63. Reads NI devices from
 // their typed tables. Turns on when the Driver writes them.
 export const typedNIDevices = false;
-// Owner: Emiliano Bonilla. Umbrella: SY-6745. Off in integration. Removed in 0.64.
-export const symbolNodes = IS_DEV || import.meta.env.MODE === "test";
 // Owner: Emiliano Bonilla. Umbrella: SY-6757. Removed in 0.64.
 export const symbolMotion = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";

@@ -92,7 +92,12 @@ var _ = Describe("Factory", func() {
 
 		It("Should write an error status for an invalid config at boot",
 			func(ctx SpecContext) {
-				t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{})
+				dev := createDevice(ctx, clusterProperties())
+				t := newTask(
+					ctx,
+					kafka.WriteTaskType,
+					kafka.WriteConfig{Device: dev.Key},
+				)
 				Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 					To(MatchError(validate.ErrValidation))
 				stat := taskStatus(ctx, t)
@@ -104,13 +109,18 @@ var _ = Describe("Factory", func() {
 
 		It("Should answer the command with an error status for an invalid config",
 			func(ctx SpecContext) {
-				t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{})
+				dev := createDevice(ctx, clusterProperties())
+				t := newTask(
+					ctx,
+					kafka.WriteTaskType,
+					kafka.WriteConfig{Device: dev.Key},
+				)
 				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
 					To(MatchError(validate.ErrValidation))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Description).To(ContainSubstring("topic"))
+				Expect(stat.Description).To(ContainSubstring("no enabled targets"))
 				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 			},
 		)

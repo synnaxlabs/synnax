@@ -119,7 +119,6 @@
     ],
     "console/src/platform/task/views/Panes.css": ["lyra-divider", "lyra-header"],
     "console/src/platform/task/views/Tree.css": [
-      "lyra--selected",
       "lyra-btn",
       "lyra-icon",
       "lyra-tree__item"
@@ -173,7 +172,6 @@
     ],
     "pluto/src/schematic/node/general/select/select.css": [
       "lyra-btn",
-      "lyra-caret-animated",
       "lyra-dialog__frame",
       "lyra-dialog__trigger",
       "lyra-input"

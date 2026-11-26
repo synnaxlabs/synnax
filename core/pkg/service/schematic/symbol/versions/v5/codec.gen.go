@@ -891,7 +891,6 @@ func (s Spec) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.String(s.Variant)
 	w.Float64(float64(s.Scale))
 	w.Bool(s.StrokeScaled)
 	if s.PreviewViewport != nil {
@@ -1019,9 +1018,6 @@ func (s *Spec) DecodeOrc(r *orc.Reader) error {
 			}
 		}
 	}
-	if s.Variant, err = r.String(); err != nil {
-		return err
-	}
 	if s.Scale, err = r.Float64(); err != nil {
 		return err
 	}
@@ -1121,52 +1117,6 @@ func (s *State) DecodeOrc(r *orc.Reader) error {
 		s.Variant = v
 	default:
 		return errors.Newf("State: unknown variant %q", tag)
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (so StateOverride) EncodeOrc(w *orc.Writer) error {
-	w.String(so.Key)
-	w.String(so.Name)
-	w.Bool(so.Regions != nil)
-	if so.Regions != nil {
-		w.Uint32(uint32(len(so.Regions)))
-		for i := range so.Regions {
-			if err := so.Regions[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (so *StateOverride) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if so.Key, err = r.String(); err != nil {
-		return err
-	}
-	if so.Name, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			so.Regions = make([]Region, n)
-			for i := range so.Regions {
-				if err = so.Regions[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	return nil
 }

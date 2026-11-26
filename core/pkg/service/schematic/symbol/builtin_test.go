@@ -60,7 +60,6 @@ var _ = Describe("Builtins", func() {
 			tx := DeferClose(db.OpenTx())
 			sym := symbol.Symbol{Name: b.Name, Data: symbol.Spec{
 				Drawing:  svg(`<svg/>`),
-				Variant:  "static",
 				Scale:    1,
 				States:   b.States,
 				Commands: b.Commands,

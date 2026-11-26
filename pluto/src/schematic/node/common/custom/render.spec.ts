@@ -65,7 +65,6 @@ describe("Custom.useRender", () => {
     commands: [],
     looks: [],
     interactions: [],
-    variant: "test",
     scale: 1,
     strokeScaled: false,
     previewViewport: { zoom: 1, position: { x: 0, y: 0 } },

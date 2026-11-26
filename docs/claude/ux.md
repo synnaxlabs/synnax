@@ -156,9 +156,9 @@ in a color picker has no "+".
   Confluence use.
 - The left bar holds toolbars only. Settings and the Library are tabs, not toolbars, so
   their buttons never go in the left bar.
-- The Library holds what users make to use again: labels, colors, and enumerations.
-  Settings holds who gets in and with what: preferences, users, secrets, certificates,
-  and the license.
+- The Library holds what users make to use again: labels, colors, enumerations, and
+  ICDs. Settings holds who gets in and with what: preferences, users, secrets,
+  certificates, and the license.
 - The islands of a pre-workspace surface, such as login or the project splash, are not
   the top bar. Their right end is the Core island, then the island of the theme toggle.
   On the project splash, the Settings gear shares the island of the theme toggle.
@@ -790,7 +790,7 @@ bound, a log precision, or the line plot X channel.
 - Secrets and certificates are two record tables in Settings, not a toolbar. A secret
   shows where its value comes from and a "Used by" count that opens what uses it. A
   certificate shows when it is valid.
-- The lists of Settings and the Library share `Settings.Table`: search and a filled
+- The lists of Settings and the Library share `Collection.Table`: search and a filled
   create button above, headings, checkable items, and a right-click menu.
 - Create in place when every field you set is a column, such as a label or a secret. The
   create item opens at the top with check and X buttons, and Enter and Esc. It stays
@@ -827,8 +827,6 @@ bound, a log precision, or the line plot X channel.
   list, its tooltip says that deploying skips it.
 - A missing channel shows the name deploying will use, and a rename edits that name. Its
   data type unlocks too, because deploying creates a new channel.
-- A channel that the form picks, as in Kafka write, is never new. It reads "No channel"
-  before a pick and "Channel not found" after its channel is deleted.
 - A channel name input shows the same state icons at its start. An item in a group tree
   shows them at its end, before its switch, so the pointers keep one left edge. Neither
   shows an icon or a tooltip for a skipped channel: the tree strikes through the item or

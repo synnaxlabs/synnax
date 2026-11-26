@@ -627,24 +627,6 @@ describe("schematic queries", () => {
       );
     });
 
-    it("fills a new edge's stroke from a symbol that stores a color value", async () => {
-      await dispatch(
-        schematic.setNode({
-          node: {
-            key: "n1",
-            position: { x: 0, y: 0 },
-            config: { variant: "valve", strokeColor: "#00ff00" },
-          },
-        }),
-      );
-      await dispatch(schematic.addEdge({ edge: edge(pipe()) }));
-      await waitFor(() =>
-        expect(getEdgeCfg()).toMatchObject({
-          strokeColor: { type: "fixed", value: [0, 255, 0, 255] },
-        }),
-      );
-    });
-
     it("keeps the stroke a new edge's config chose", async () => {
       await dispatch(greenTank);
       await dispatch(

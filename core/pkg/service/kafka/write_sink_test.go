@@ -159,6 +159,26 @@ var _ = Describe("Write task with targets", func() {
 			To(Equal(map[string]any{"value": 4.0}))
 	})
 
+	It("Should produce the targets of a config that also has channels",
+		func(ctx SpecContext) {
+			ch := createVirtual(ctx)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			start(ctx, kafka.WriteConfig{
+				Device: dev.Key,
+				Channels: []kafka.WriteChannel{
+					{Key: "c1", Channel: createVirtual(ctx).Key()},
+				},
+				Targets: []kafka.WriteTarget{
+					writeTarget(topic, ic, setpoint, command(setpoint, 0, ch)),
+				},
+			})
+			write(ctx, ch.Key(), telem.Now(), telem.NewSeriesV(4.0))
+			Expect(decode(consume(ctx, topic, 1)[0])).
+				To(Equal(map[string]any{"value": 4.0}))
+		},
+	)
+
 	It("Should refuse a task with no enabled target", func(ctx SpecContext) {
 		ch := createVirtual(ctx)
 		dev := createDevice(ctx, clusterProperties())
@@ -167,6 +187,18 @@ var _ = Describe("Write task with targets", func() {
 		t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
 			Device:  dev.Key,
 			Targets: []kafka.WriteTarget{wt},
+		})
+		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("targets: the task has no enabled targets")),
+		))
+	})
+
+	It("Should refuse a task with no targets", func(ctx SpecContext) {
+		dev := createDevice(ctx, clusterProperties())
+		t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+			Device:  dev.Key,
+			Targets: []kafka.WriteTarget{},
 		})
 		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),

@@ -37,10 +37,10 @@ import {
   useState,
 } from "react";
 
+import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "minmax(24rem, 2fr)" },
@@ -287,7 +287,7 @@ const ItemContent = (props: List.ItemProps<color.Key>): ReactElement | null => {
   const name = Form.useField<string>(path.name);
   const { get } = Form.useContext();
   const canUpdate = Access.useUpdateGranted(color.resourceID(itemKey));
-  const itemClass = PlatformSettings.useItemClass(itemKey);
+  const itemClass = Collection.useItemClass(itemKey);
   const [over, setOver] = useState(false);
   const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
     type: HAUL_TYPE,
@@ -391,7 +391,7 @@ interface NewColorNameProps extends Input.Control<string> {
 }
 
 const NewColorName = ({ onSave, ...rest }: NewColorNameProps): ReactElement => {
-  const onKeyDown = PlatformSettings.useCreateKeyDown(onSave);
+  const onKeyDown = Collection.useCreateKeyDown(onSave);
   return (
     <Input.Text
       placeholder="Color name"
@@ -424,11 +424,7 @@ const NewColorForm = ({
     if (variant !== "loading") save();
   };
   return (
-    <PlatformSettings.CreateProvider
-      close={onClose}
-      creating={onCreated}
-      created={onCreated}
-    >
+    <Collection.CreateProvider close={onClose} creating={onCreated} created={onCreated}>
       <Form.Form<typeof PColor.createFormSchema> {...form}>
         <div className={CSS.BE("color-settings", "form")}>
           <span className={CSS.BE("color-settings", "form-check")} />
@@ -451,13 +447,13 @@ const NewColorForm = ({
                 <Text.Text level="small" variant="code" color={8}>
                   Auto
                 </Text.Text>
-                <PlatformSettings.CreateActions onSave={handleSave} status={variant} />
+                <Collection.CreateActions onSave={handleSave} status={variant} />
               </Flex.Box>
             </List.Cell>
           </List.Cells>
         </div>
       </Form.Form>
-    </PlatformSettings.CreateProvider>
+    </Collection.CreateProvider>
   );
 };
 
@@ -483,7 +479,7 @@ interface NewPaletteProps {
 }
 
 const NewPalette = ({ onCreated }: NewPaletteProps): ReactElement => {
-  const { close } = PlatformSettings.useCreate();
+  const { close } = Collection.useCreate();
   const { updateAsync } = PColor.useCreatePalette();
   const handleSave = async (name: string): Promise<boolean> => {
     const key = uuid.create();
@@ -492,9 +488,9 @@ const NewPalette = ({ onCreated }: NewPaletteProps): ReactElement => {
     return created;
   };
   return (
-    <PlatformSettings.CreateFrame>
+    <Collection.CreateFrame>
       <PaletteName saveLabel="Create" onSave={handleSave} onClose={close} />
-    </PlatformSettings.CreateFrame>
+    </Collection.CreateFrame>
   );
 };
 
@@ -706,7 +702,7 @@ export const Settings = (): ReactElement => {
   }
   return (
     <Context value={{ shipped, palettes, members, move }}>
-      <PlatformSettings.Table<color.Key, color.Named>
+      <Collection.Table<color.Key, color.Named>
         list={{ ...list, data }}
         columns={COLUMNS}
         noun="colors"
@@ -721,7 +717,7 @@ export const Settings = (): ReactElement => {
           if (n != null) return <NewColor key={key} {...n} />;
           return <Item key={key} {...p} />;
         }}
-      </PlatformSettings.Table>
+      </Collection.Table>
     </Context>
   );
 };

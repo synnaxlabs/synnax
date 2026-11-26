@@ -36,7 +36,7 @@ describe("colorFallback", () => {
   });
 
   it("should return the default for a stroke or text the variant does not override", () => {
-    expect(Schematic.colorFallback("strokeColor", "valve", THEME, SERIES)).toEqual(
+    expect(Schematic.colorFallback("strokeColor", "polygon", THEME, SERIES)).toEqual(
       THEME.colors.gray.l11,
     );
     expect(Schematic.colorFallback("textColor", "value", THEME, SERIES)).toEqual(

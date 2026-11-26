@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic, ValidationError } from "@synnaxlabs/client";
+import { ValidationError } from "@synnaxlabs/client";
 import { color, type dimensions, map, unique } from "@synnaxlabs/x";
 import DOMPurify from "dompurify";
 
@@ -178,7 +178,16 @@ export const selector = (element: SVGElement): string => {
   return `${parentSelector}${tagName}:nth-of-type(${index})`;
 };
 
-export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
+/** Region is a part of a drawing whose elements share one stroke and fill color. */
+export interface Region {
+  key: string;
+  name: string;
+  selectors: string[];
+  strokeColor: color.Color;
+  fillColor: color.Color;
+}
+
+export const extract = (svgElement: SVGElement): Region[] => {
   const visualElements = collectVisualElements(svgElement);
   const groups = new Map<string, ElementGroup>();
   visualElements.forEach((element) => {
@@ -192,14 +201,13 @@ export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
     const selectors = group.elements.map(selector);
     const uniqueSelectors = unique.unique(selectors);
     const regionIndex = index + 1;
-    const region: schematic.symbol.Region = {
+    return {
       key: `region-${regionIndex}`,
       name: `Part ${regionIndex}`,
       selectors: uniqueSelectors,
+      strokeColor: group.colorPair.stroke,
+      fillColor: group.colorPair.fill,
     };
-    region.strokeColor = group.colorPair.stroke;
-    region.fillColor = group.colorPair.fill;
-    return region;
   });
 };
 
