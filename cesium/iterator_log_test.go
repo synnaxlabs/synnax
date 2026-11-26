@@ -118,15 +118,15 @@ func (f *openFile) Close() error {
 	return f.File.Close()
 }
 
-// gateFS counts the opens of each file of its tree, and holds the first ReadAt of a
+// readGateFS counts the opens of each file of its tree, and holds the first ReadAt of a
 // file under prefix, once armed, until release closes.
-type gateFS struct {
+type readGateFS struct {
 	xfs.FS
 	dir string
-	g   *gate
+	g   *readGate
 }
 
-type gate struct {
+type readGate struct {
 	mu               sync.Mutex
 	opens            map[string]int
 	prefix           string
@@ -134,15 +134,15 @@ type gate struct {
 	entered, release chan struct{}
 }
 
-func newGateFS(fs xfs.FS) *gateFS {
-	return &gateFS{FS: fs, g: &gate{
+func newReadGateFS(fs xfs.FS) *readGateFS {
+	return &readGateFS{FS: fs, g: &readGate{
 		opens:   map[string]int{},
 		entered: make(chan struct{}),
 		release: make(chan struct{}),
 	}}
 }
 
-func (f *gateFS) Open(name string, flag int) (xfs.File, error) {
+func (f *readGateFS) Open(name string, flag int) (xfs.File, error) {
 	file, err := f.FS.Open(name, flag)
 	if err != nil {
 		return nil, err
@@ -151,20 +151,20 @@ func (f *gateFS) Open(name string, flag int) (xfs.File, error) {
 	f.g.mu.Lock()
 	f.g.opens[full]++
 	f.g.mu.Unlock()
-	return &gateFile{File: file, name: full, g: f.g}, nil
+	return &readGateFile{File: file, name: full, g: f.g}, nil
 }
 
-func (f *gateFS) Sub(name string) (xfs.FS, error) {
+func (f *readGateFS) Sub(name string) (xfs.FS, error) {
 	sub, err := f.FS.Sub(name)
 	if err != nil {
 		return nil, err
 	}
-	return &gateFS{FS: sub, dir: path.Join(f.dir, name), g: f.g}, nil
+	return &readGateFS{FS: sub, dir: path.Join(f.dir, name), g: f.g}, nil
 }
 
 // arm makes the next ReadAt of a file under prefix wait for release, and counts opens
 // from zero.
-func (f *gateFS) arm(prefix string) {
+func (f *readGateFS) arm(prefix string) {
 	f.g.mu.Lock()
 	defer f.g.mu.Unlock()
 	f.g.prefix, f.g.armed = prefix, true
@@ -172,7 +172,7 @@ func (f *gateFS) arm(prefix string) {
 }
 
 // segmentOpensUnder returns the opens of the segment files under prefix since arm.
-func (f *gateFS) segmentOpensUnder(prefix string) int {
+func (f *readGateFS) segmentOpensUnder(prefix string) int {
 	f.g.mu.Lock()
 	defer f.g.mu.Unlock()
 	n := 0
@@ -184,13 +184,13 @@ func (f *gateFS) segmentOpensUnder(prefix string) int {
 	return n
 }
 
-type gateFile struct {
+type readGateFile struct {
 	xfs.File
 	name string
-	g    *gate
+	g    *readGate
 }
 
-func (f *gateFile) ReadAt(p []byte, off int64) (int, error) {
+func (f *readGateFile) ReadAt(p []byte, off int64) (int, error) {
 	g := f.g
 	g.mu.Lock()
 	hold := g.armed && strings.HasPrefix(f.name, g.prefix)
@@ -208,7 +208,7 @@ func (f *gateFile) ReadAt(p []byte, off int64) (int, error) {
 var _ = Describe("Reads on the pointer log", func() {
 	It("Should give a read of a segment its own open of the file while another read "+
 		"of it waits inside a read", func(ctx SpecContext) {
-		fs := newGateFS(xfs.NewMem())
+		fs := newReadGateFS(xfs.NewMem())
 		db := mustOpenDBOnFS(ctx, fs, cesium.WithPointerLog())
 		idx, data := GenerateChannelKey(), GenerateChannelKey()
 		keys := []cesium.ChannelKey{idx, data}
