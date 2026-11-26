@@ -1308,7 +1308,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		RecordOf: taskconfig.RecordOf,
 		Deleters: map[resource.Type]impact.Deleter{
 			resource.TypeChannel: channelDeleter(l.Channel),
-			resource.TypeTask:    taskDeleter(l.Task),
+			resource.TypeTask:    taskDeleter(l.Task, l.TaskStopper),
 		},
 	}); err != nil {
 		return nil, err
@@ -1351,8 +1351,9 @@ func channelDeleter(svc *channel.Service) impact.Deleter {
 }
 
 // taskDeleter returns the impact.Deleter of tasks. A delete of tasks plans no effect on
-// the records that hold them. A key that is not a UUID fails the plan as invalid.
-func taskDeleter(svc *task.Service) impact.Deleter {
+// the records that hold them. A key that is not a UUID fails the plan as invalid. Its
+// Stop stops the running tasks through stopper, as the task delete route does.
+func taskDeleter(svc *task.Service, stopper *task.Stopper) impact.Deleter {
 	return impact.Deleter{
 		Plan: func(
 			_ context.Context,
@@ -1383,6 +1384,13 @@ func taskDeleter(svc *task.Service) impact.Deleter {
 				}
 			}
 			return nil
+		},
+		Stop: func(ctx context.Context, removed []resource.ID) error {
+			keys, err := task.KeysFromResourceIDs(removed)
+			if err != nil {
+				return err
+			}
+			return stopper.Stop(ctx, keys)
 		},
 	}
 }

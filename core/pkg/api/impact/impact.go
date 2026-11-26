@@ -146,11 +146,13 @@ func (s *Service) Plan(
 	return Response{Variant: DeleteResponse{Plan: plan}}, nil
 }
 
-// ApplyHandler returns the apply route on binder: it plans and applies the change and
-// checks access on what it wrote, in one transaction, and returns the plan under the
-// type of the change. As the plan route does, it refuses a change that names a record
-// the subject cannot retrieve, before it plans. A denial on a record that the subject
-// cannot retrieve and did not name names no record.
+// ApplyHandler returns the apply route on binder. It first stops what the delete must
+// stop, such as running tasks, once the subject may delete each, outside any
+// transaction. It then plans and applies the change and checks access on what it wrote,
+// in one transaction, and returns the plan under the type of the change. As the plan
+// route does, it refuses a change that names a record the subject cannot retrieve,
+// before it plans. A denial on a record that the subject cannot retrieve and did not
+// name names no record.
 func (s *Service) ApplyHandler(
 	binder *bind.Service,
 ) freighter.UnaryHandler[ApplyRequest, Response] {
@@ -160,6 +162,7 @@ func (s *Service) ApplyHandler(
 			ctx context.Context,
 			tx gorp.Tx,
 			req ApplyRequest,
+			_ struct{},
 		) (impact.Plan, error) {
 			records, err := deleted(req.Change)
 			if err != nil {
@@ -181,19 +184,68 @@ func (s *Service) ApplyHandler(
 				Visible: visible,
 			})
 		}
-		plan, err := bind.Write(binder, apply)(ctx, req)
-		if err == nil {
-			return Response{Variant: DeleteResponse{Plan: plan}}, nil
+		stopping := bind.Read(binder, s.stopping)
+		prepare := func(ctx context.Context, req ApplyRequest) (struct{}, error) {
+			ids, err := stopping(ctx, req)
+			if err != nil {
+				return struct{}{}, err
+			}
+			return struct{}{}, s.cfg.Impact.Stop(ctx, ids)
 		}
-		denied, ok := errors.AsType[access.DeniedError](err)
-		if !ok || visible == nil || visible(denied.Object) {
-			return Response{}, err
+		plan, err := bind.WritePrepared(binder, prepare, apply)(ctx, req)
+		if err != nil {
+			return Response{}, redact(err, visible)
 		}
-		return Response{}, errors.Wrapf(
-			access.ErrDenied,
-			"%s cannot %s a record that it cannot see",
-			denied.Subject,
-			denied.Action,
-		)
+		return Response{Variant: DeleteResponse{Plan: plan}}, nil
 	}
+}
+
+// stopping returns the records that the delete of req must stop before it deletes, as
+// impact.Service.Stopping does, once the subject may delete each.
+func (s *Service) stopping(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req ApplyRequest,
+) ([]resource.ID, error) {
+	records, err := deleted(req.Change)
+	if err != nil {
+		return nil, err
+	}
+	picks, err := parsePicks(req.Picks)
+	if err != nil {
+		return nil, err
+	}
+	ids, err := s.cfg.Impact.Stopping(ctx, snap, records, impact.ApplyOptions{
+		Token:   req.Token,
+		Picks:   picks,
+		Hidden:  req.Hidden,
+		Visible: snap.Allowed,
+	})
+	if err != nil || len(ids) == 0 {
+		return nil, err
+	}
+	err = s.cfg.RBAC.NewEnforcer(snap).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionDelete,
+		Objects: ids,
+	})
+	if err != nil {
+		return nil, redact(err, snap.Allowed)
+	}
+	return ids, nil
+}
+
+// redact returns err, or for a denial on a record that visible hides, a denial that
+// names no record.
+func redact(err error, visible func(resource.ID) bool) error {
+	denied, ok := errors.AsType[access.DeniedError](err)
+	if !ok || visible == nil || visible(denied.Object) {
+		return err
+	}
+	return errors.Wrapf(
+		access.ErrDenied,
+		"%s cannot %s a record that it cannot see",
+		denied.Subject,
+		denied.Action,
+	)
 }

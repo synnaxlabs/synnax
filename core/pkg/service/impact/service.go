@@ -41,6 +41,10 @@ type Deleter struct {
 		removed []resource.ID,
 		effects gorp.DeleteEffects,
 	) error
+	// Stop stops what removed runs before it is deleted, such as a running task, and
+	// waits for it. Service.Stop calls it outside any transaction or snapshot. Nil
+	// stops nothing.
+	Stop func(ctx context.Context, removed []resource.ID) error
 }
 
 // ServiceConfig is the configuration for opening an impact service.
@@ -266,6 +270,52 @@ func (s *Service) Apply(
 		return Plan{Records: records}, nil
 	}
 	return r.plan, nil
+}
+
+// Stopping returns the records that the delete of records with the picks of opts
+// removes and whose Deleter has a Stop, as snap sees it and as Apply plans. It returns
+// none when the plan cancels the delete or opts.Token names another plan, since Apply
+// then deletes nothing. Picks fail as they fail Plan. Stopping writes nothing.
+func (s *Service) Stopping(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	records []resource.ID,
+	opts ApplyOptions,
+) ([]resource.ID, error) {
+	chosen, err := newPicks(PlanOptions{
+		Picks:   opts.Picks,
+		Hidden:  opts.Hidden,
+		Visible: opts.Visible,
+	})
+	if err != nil {
+		return nil, err
+	}
+	r, err := s.resolve(ctx, snap, records, chosen)
+	if err != nil || r.cancel != nil {
+		return nil, err
+	}
+	if opts.Token != "" && !matches(opts.Token, records, r.plan) {
+		return nil, nil
+	}
+	var stopping []resource.ID
+	for _, b := range r.last.batches {
+		if b.deleter.Stop != nil {
+			stopping = append(stopping, b.removed...)
+		}
+	}
+	return stopping, nil
+}
+
+// Stop runs the Stop of the Deleter of each type on its records of ids, which
+// Stopping returned. Run it outside any transaction and snapshot, before Apply, since
+// a Stop waits on writes that others commit. Stop deletes nothing.
+func (s *Service) Stop(ctx context.Context, ids []resource.ID) error {
+	for t, of := range byType(ids) {
+		if err := s.cfg.Deleters[t].Stop(ctx, of); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // seen returns p for the delete of records, with the entries whose records visible
