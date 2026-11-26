@@ -187,6 +187,11 @@ var _ = Describe("Agreement", func() {
 				telem.NewSeriesV[float32](1),
 				telem.Series{DataType: "int128", Data: make([]byte, 16)},
 			),
+			Entry(
+				"beside a series of the same type",
+				telem.Series{DataType: "int128", Data: make([]byte, 16)},
+				telem.Series{DataType: "int128", Data: make([]byte, 16)},
+			),
 		)
 	})
 
