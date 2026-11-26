@@ -471,7 +471,7 @@ class TestUpgrade:
     def test_should_get_the_wildcard_certificate_first(self, host: Host) -> None:
         assert host.run("upgrade").returncode == 0
         assert host.docker()[0] == (
-            f"docker run --rm --volume {host.path}/acme:/acme"
+            f"docker run --rm --network host --volume {host.path}/acme:/acme"
             " --env AWS_REGION=us-east-1 --env AWS_HOSTED_ZONE_ID=Z123"
             f" {LEGO} run --accept-tos --no-random-sleep --dns route53"
             " --dns.resolvers 169.254.169.253:53 --dns.propagation.disable-ans"
