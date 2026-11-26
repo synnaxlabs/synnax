@@ -10,6 +10,7 @@
 package cesium
 
 import (
+	"cmp"
 	"context"
 	"math/rand/v2"
 	"slices"
@@ -222,86 +223,155 @@ func (db *DB) removeDirs(names ...string) {
 // there are other channels depending on it in the time range. DeleteTimeRange is
 // idempotent, but when the channel does not exist, it returns ErrChannelNotFound. It
 // deletes nothing and returns ctx.Err() if ctx is already canceled.
+//
+// Writers that open on tr in a channel it deletes, or in a dependent of an index it
+// deletes, wait until it returns. So does CreateChannel of a new dependent.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
 	tr telem.TimeRange,
 ) error {
-	db.mu.Lock()
-	defer db.mu.Unlock()
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	var (
-		indexChannels = make([]ChannelKey, 0, len(chs))
-		dataChannels  = make([]ChannelKey, 0, len(chs))
-	)
-
-	for _, ch := range chs {
-		if uDB, ok := db.mu.dbs.unary[ch]; ok {
-			if uDB.Channel().IsIndex {
-				indexChannels = append(indexChannels, ch)
-			} else {
-				dataChannels = append(dataChannels, ch)
-			}
-			continue
-		}
-		if _, ok := db.mu.dbs.virtual[ch]; ok {
-			continue
-		}
-		return channel.NewNotFoundError(ch)
+	targets, end, err := db.startTimeRangeDelete(chs)
+	if err != nil {
+		return err
 	}
-
-	deleted := set.New(dataChannels...)
-	for _, ch := range indexChannels {
-		idxDB := db.mu.dbs.unary[ch]
-		for otherDBKey, otherDB := range db.mu.dbs.unary {
-			if otherDBKey == ch ||
-				otherDB.Channel().Index != ch ||
-				deleted.Contains(otherDBKey) {
-				continue
-			}
-			hasOverlap, err := otherDB.HasDataFor(ctx, tr)
-			if err != nil || hasOverlap {
-				return errors.Newf(
-					"cannot delete index channel %v "+
-						"with channel %v depending on it on the time range %s",
-					idxDB.Channel(),
-					otherDB.Channel(),
-					tr,
-				)
-			}
-		}
-	}
-
-	// Take every channel before the first delete, so that a channel a writer controls
-	// refuses the call before it deletes anything.
+	defer end()
 	var (
-		dels     = make([]func(context.Context) error, 0, len(chs))
-		releases = make([]func(), 0, len(chs))
-		opened   = make(set.Set[ChannelKey], len(chs))
+		dataDels  = make([]func(context.Context) error, 0, len(targets))
+		indexDels = make([]func(context.Context) error, 0, len(targets))
+		releases  = make([]func(), 0, len(targets))
 	)
 	defer func() {
 		for _, release := range releases {
 			release()
 		}
 	}()
-	for _, ch := range slices.Concat(dataChannels, indexChannels) {
-		if opened.Contains(ch) {
+	// Take every channel before the first delete, so that a channel a writer controls
+	// refuses the call before it deletes anything. The key order keeps two deletes from
+	// waiting on each other.
+	for _, t := range targets {
+		if t.dependent {
+			hasData, release, err := t.db.OpenHold(ctx, tr)
+			if err != nil {
+				return err
+			}
+			releases = append(releases, release)
+			if hasData {
+				return errors.Newf(
+					"cannot delete index channel %v "+
+						"with channel %v depending on it on the time range %s",
+					t.index,
+					t.db.Channel(),
+					tr,
+				)
+			}
 			continue
 		}
-		uDB := db.mu.dbs.unary[ch]
-		del, release, err := uDB.OpenDelete(tr)
+		del, release, err := t.db.OpenDelete(tr)
 		if err != nil {
 			return err
 		}
-		opened.Add(ch)
-		dels = append(dels, del)
 		releases = append(releases, release)
+		if t.db.Channel().IsIndex {
+			indexDels = append(indexDels, del)
+		} else {
+			dataDels = append(dataDels, del)
+		}
 	}
-	for _, del := range dels {
+	// Data deletes resolve their offsets through the index, so they run first.
+	for _, del := range slices.Concat(dataDels, indexDels) {
 		if err := del(ctx); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// deleteTarget is a channel that DeleteTimeRange takes before it deletes.
+type deleteTarget struct {
+	db unary.DB
+	// index is the channel that db depends on, set when dependent is true.
+	index channel.Channel
+	// dependent is true when DeleteTimeRange only holds db to keep data out of the
+	// time range of an index it deletes.
+	dependent bool
+}
+
+// indexDelete records the index channels that a DeleteTimeRange deletes from. done
+// closes when the delete returns.
+type indexDelete struct {
+	indexes set.Set[ChannelKey]
+	done    chan struct{}
+}
+
+// startTimeRangeDelete returns the unary channels in chs and the dependents of the
+// index channels in chs, sorted by key. It records the index channels until end runs,
+// so that CreateChannel waits to add a dependent of one of them.
+func (db *DB) startTimeRangeDelete(
+	chs []ChannelKey,
+) (targets []deleteTarget, end func(), err error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	var (
+		deleted = make(set.Set[ChannelKey], len(chs))
+		indexes = make(set.Set[ChannelKey])
+	)
+	for _, ch := range lo.Uniq(chs) {
+		if uDB, ok := db.mu.dbs.unary[ch]; ok {
+			deleted.Add(ch)
+			targets = append(targets, deleteTarget{db: uDB})
+			if uDB.Channel().IsIndex {
+				indexes.Add(ch)
+			}
+			continue
+		}
+		if _, ok := db.mu.dbs.virtual[ch]; ok {
+			continue
+		}
+		return nil, nil, channel.NewNotFoundError(ch)
+	}
+	for key, uDB := range db.mu.dbs.unary {
+		idx := uDB.Channel().Index
+		if key == idx || !indexes.Contains(idx) || deleted.Contains(key) {
+			continue
+		}
+		idxDB := db.mu.dbs.unary[idx]
+		targets = append(targets, deleteTarget{
+			db:        uDB,
+			index:     idxDB.Channel(),
+			dependent: true,
+		})
+	}
+	slices.SortFunc(targets, func(a, b deleteTarget) int {
+		return cmp.Compare(a.db.Channel().Key, b.db.Channel().Key)
+	})
+	if len(indexes) == 0 {
+		return targets, func() {}, nil
+	}
+	del := &indexDelete{indexes: indexes, done: make(chan struct{})}
+	db.mu.indexDeletes = append(db.mu.indexDeletes, del)
+	return targets, func() {
+		db.mu.Lock()
+		defer db.mu.Unlock()
+		db.mu.indexDeletes = slices.DeleteFunc(
+			db.mu.indexDeletes,
+			func(d *indexDelete) bool { return d == del },
+		)
+		close(del.done)
+	}, nil
+}
+
+// indexDeleteDone returns a channel that closes when a running DeleteTimeRange on the
+// index of a channel in chs returns, or nil if none runs. The caller must hold db.mu.
+func (db *DB) indexDeleteDone(chs []Channel) <-chan struct{} {
+	for _, del := range db.mu.indexDeletes {
+		for _, ch := range chs {
+			if !ch.IsIndex && del.indexes.Contains(ch.Index) {
+				return del.done
+			}
 		}
 	}
 	return nil
