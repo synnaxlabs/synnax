@@ -63,6 +63,7 @@ from synnax import (
     opcua,
     pagerduty,
     resource,
+    serial,
     sift,
     status,
 )
@@ -281,6 +282,7 @@ __all__ = [
     "pagerduty",
     "poll",
     "resource",
+    "serial",
     "sift",
     "sleep",
     "status",

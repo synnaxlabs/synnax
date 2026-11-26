@@ -84,6 +84,19 @@ class Checksum(BaseModel):
     byte_order: ByteOrder = "little_endian"
 
 
+class Poll(BaseModel):
+    """Is a query that a read task sends at a fixed rate.
+
+    Attributes:
+        query: Is the request that the device must receive before it answers. The task
+            frames it with the framing of the ICD.
+        rate: Is how often the task sends the query, in Hertz.
+    """
+
+    query: Bytes = Field(min_length=1)
+    rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
+
+
 class ConstantTimestampDefault(BaseModel):
     """Is one fixed timestamp."""
 
@@ -671,6 +684,22 @@ BinaryField = Annotated[
 ]
 
 
+class ReadEntry(BaseModel):
+    """Reads the messages of one device on a serial port or a socket.
+
+    Attributes:
+        icd: Is the key of the ICD that holds the messages of the entry.
+        messages: Are the messages the device sends. Each frame is read as the message
+            whose match rule it meets.
+        poll: Is the query that asks the device to send. Absent when the device sends on
+            its own.
+    """
+
+    icd: Key
+    messages: list[ReadMessage] = Field(default_factory=list)
+    poll: Poll | None = None
+
+
 class WriteMessage(BaseModel):
     """Sends one message of an ICD.
 
@@ -715,6 +744,21 @@ Payload = Annotated[
     BinaryPayload | TextPayload | JSONPayload,
     Field(discriminator="format"),
 ]
+
+
+class WriteTarget(BaseModel):
+    """Sends one message to one device on a serial port or a socket.
+
+    Attributes:
+        icd: Is the key of the ICD that holds the message.
+        message: Is the message the target sends.
+        period: Is how often the target sends the message, with the last command of each
+            bound channel. Absent when the target sends one message for each command.
+    """
+
+    icd: Key
+    message: WriteMessage
+    period: telem.TimeSpan | None = Field(default=None, gt=0, le=9223372036854775807)
 
 
 class Message(BaseModel):

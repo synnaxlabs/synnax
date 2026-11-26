@@ -2695,3 +2695,89 @@ func (w WriteMessage) Validate() error {
 	}
 	return v.Error()
 }
+
+// Poll is a query that a read task sends at a fixed rate.
+type Poll struct {
+	// Query is the request that the device must receive before it answers. The task
+	// frames it with the framing of the ICD.
+	Query []byte `json:"query" msgpack:"query"`
+	// Rate is how often the task sends the query, in Hertz.
+	Rate telem.Rate `json:"rate" msgpack:"rate"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Poll) SetDefaults() {
+	p.Rate = 1
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Poll) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Poll
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Poll) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Poll
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (p Poll) Validate() error {
+	v := validate.New("Poll")
+	v.MinBytes("query", p.Query, 1)
+	v.GreaterThan("rate", p.Rate, 0)
+	return v.Error()
+}
+
+// ReadEntry reads the messages of one device on a serial port or a socket.
+type ReadEntry struct {
+	// ICD is the key of the ICD that holds the messages of the entry.
+	ICD Key `json:"icd" msgpack:"icd"`
+	// Messages are the messages the device sends. Each frame is read as the message
+	// whose match rule it meets.
+	Messages []ReadMessage `json:"messages" msgpack:"messages"`
+	// Poll is the query that asks the device to send. Absent when the device sends on
+	// its own.
+	Poll *Poll `json:"poll,omitzero" msgpack:"poll,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadEntry) Validate() error {
+	v := validate.New("ReadEntry")
+	if r.Poll != nil {
+		v.Exec(func() error { return validate.PathedError(r.Poll.Validate(), "poll") })
+	}
+	return v.Error()
+}
+
+// WriteTarget sends one message to one device on a serial port or a socket.
+type WriteTarget struct {
+	// ICD is the key of the ICD that holds the message.
+	ICD Key `json:"icd" msgpack:"icd"`
+	// Message is the message the target sends.
+	Message WriteMessage `json:"message" msgpack:"message"`
+	// Period is how often the target sends the message, with the last command of each
+	// bound channel. Absent when the target sends one message for each command.
+	Period *telem.TimeSpan `json:"period,omitzero" msgpack:"period,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteTarget) Validate() error {
+	v := validate.New("WriteTarget")
+	if w.Period != nil {
+		v.GreaterThan("period", *w.Period, 0)
+	}
+	v.Exec(func() error { return validate.PathedError(w.Message.Validate(), "message") })
+	return v.Error()
+}

@@ -1,0 +1,136 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/device"
+import "schemas/synnax/icd"
+import "schemas/synnax/task"
+
+@cpp output "client/cpp/serial"
+@go output  "core/pkg/service/serial"
+@py output  "client/py/synnax/serial"
+@ts output  "client/ts/src/serial"
+
+Parity enum {
+    none  = "none" {
+        @doc value "sends no parity bit."
+    }
+    even  = "even" {
+        @doc value "makes the count of 1 bits in each character even."
+    }
+    odd   = "odd" {
+        @doc value "makes the count of 1 bits in each character odd."
+    }
+    mark  = "mark" {
+        @doc value "always sets the parity bit to 1."
+    }
+    space = "space" {
+        @doc value "always sets the parity bit to 0."
+    }
+
+    @doc value "is the parity bit of each character on a serial port."
+}
+
+StopBits enum {
+    one          = "1" {
+        @doc value "ends each character with one stop bit."
+    }
+    one_and_half = "1.5" {
+        @doc value "ends each character with one and a half stop bits."
+    }
+    two          = "2" {
+        @doc value "ends each character with two stop bits."
+    }
+
+    @doc value "is the number of stop bits that end each character on a serial port."
+}
+
+FlowControl enum {
+    none     = "none" {
+        @doc value "uses no flow control."
+    }
+    hardware = "hardware" {
+        @doc value "uses the RTS and CTS lines."
+    }
+    software = "software" {
+        @doc value "uses the XON and XOFF characters."
+    }
+
+    @doc value "is how a serial port stops a sender that is too fast."
+}
+
+Properties struct {
+    port         string = "" {
+        @doc value           "is the path of the port, such as /dev/ttyUSB0 or COM3."
+        @validate min_length 1
+    }
+    baud_rate    uint32 = 9600 {
+        @doc value   "is the speed of the port, in bits per second."
+        @validate gt 0
+    }
+    data_bits    uint8 = 8 {
+        @doc value    "is the number of data bits in each character, from 5 to 8."
+        @validate max 8
+        @validate min 5
+    }
+    parity       Parity = none {
+        @doc value "is the parity bit of each character."
+    }
+    stop_bits    StopBits = one {
+        @doc value "is the number of stop bits that end each character."
+    }
+    flow_control FlowControl = none {
+        @doc value "is how the port stops a sender that is too fast."
+    }
+
+    @doc value "configures the serial port of a serial device."
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device  device.Key = "" {
+        @doc value     "is the key of the serial device to read from."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    entries icd.ReadEntry[] {
+        @doc value "contains the devices on the port and the messages each one sends."
+    }
+
+    @doc value           """
+        configures a serial read task, which reads the frames of a serial port as ICD
+        messages and writes their fields to channels.
+    """
+    @go entry            "serial_read_config"
+    @go imex             body
+    @go marshal
+    @go migrate
+    @patch
+    @retrieve references
+}
+
+WriteConfig struct extends task.StartConfig {
+    device  device.Key = "" {
+        @doc value     "is the key of the serial device to write to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    targets icd.WriteTarget[] {
+        @doc value "contains the messages the task sends on the port."
+    }
+
+    @doc value           """
+        configures a serial write task, which sends ICD messages on a serial port from
+        the commands of channels.
+    """
+    @go entry            "serial_write_config"
+    @go imex             body
+    @go marshal
+    @go migrate
+    @patch
+    @retrieve references
+}
