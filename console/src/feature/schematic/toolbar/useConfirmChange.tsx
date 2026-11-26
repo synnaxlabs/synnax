@@ -18,9 +18,17 @@ import type { ReactElement } from "react";
 import { Symbol } from "@/feature/schematic/symbol";
 import { Modals } from "@/platform/modals";
 
-/** A symbol node loses bindings. A node of another item loses its item settings. */
+/**
+ * A node loses the settings of its item when the change gives it a different variant. A
+ * symbol node can also lose bindings.
+ */
 type LosingNode =
-  | { key: string; config: schematic.SymbolNodeConfig; lost: schematic.Orphans }
+  | {
+      key: string;
+      config: schematic.SymbolNodeConfig;
+      lost: schematic.Orphans;
+      settings: boolean;
+    }
   | { key: string; config: Schematic.Node.Config; lost: null };
 
 /** The states and commands that a symbol takes bindings for. */
@@ -49,18 +57,26 @@ const itemLoss = (config: Schematic.Node.Config): string => {
 interface LossProps {
   config: schematic.SymbolNodeConfig;
   lost: schematic.Orphans;
+  settings: boolean;
   spec: Bindable;
 }
 
-/** What a node loses in the change, with the names that its old symbol gives. */
-const Loss = ({ config, lost, spec }: LossProps): ReactElement => {
+/** What a symbol node loses in the change, with the names that its old symbol gives. */
+const Loss = ({ config, lost, settings, spec }: LossProps): ReactElement => {
   const ref = config.spec;
   const custom = Schematic.Symbol.useResolved(ref.type === "custom" ? ref.key : null);
   const before =
     ref.type === "builtin"
       ? Schematic.Node.BUILT_INS.get(ref.name)
       : custom.symbol?.data;
-  const names = Symbol.losses(lost, before ?? NO_SPEC, spec);
+  const name =
+    ref.type === "builtin"
+      ? Schematic.Node.builtInLabel(ref.name)
+      : custom.symbol?.name;
+  const names = [
+    ...Symbol.losses(lost, before ?? NO_SPEC, spec),
+    ...(settings ? [`its ${name ?? "symbol"} settings`] : []),
+  ];
   return (
     <Text.Text level="small" color={9}>
       {`${nodeLabel(config)} loses ${strings.naturalLanguageJoin(names)}.`}
@@ -89,7 +105,13 @@ const ConfirmChange = ({
             {itemLoss(n.config)}
           </Text.Text>
         ) : (
-          <Loss key={n.key} config={n.config} lost={n.lost} spec={spec} />
+          <Loss
+            key={n.key}
+            config={n.config}
+            lost={n.lost}
+            settings={n.settings}
+            spec={spec}
+          />
         ),
       )}
     </Flex.Box>
@@ -100,17 +122,16 @@ const useConfirm = Modals.createPrompt<boolean, ConfirmChangeParams>(ConfirmChan
 
 const losing = (
   configs: Map<string, Schematic.Node.Config>,
-  target: string,
+  variant: Schematic.Node.Variant,
   spec: Bindable,
 ): LosingNode[] =>
   [...configs].flatMap(([key, config]): LosingNode[] => {
+    const settings = config.variant !== variant;
     if (config.variant !== "symbol")
-      return Schematic.Node.symbolKey(config) === target
-        ? []
-        : [{ key, config, lost: null }];
+      return settings ? [{ key, config, lost: null }] : [];
     const lost = schematic.orphans(config, spec.states, spec.commands);
     const count = lost.states.length + lost.overrides.length + lost.commands.length;
-    return count > 0 ? [{ key, config, lost }] : [];
+    return settings || count > 0 ? [{ key, config, lost, settings }] : [];
   });
 
 const sameLosses = (a: LosingNode[], b: LosingNode[]): boolean =>
@@ -125,10 +146,9 @@ const sameLosses = (a: LosingNode[], b: LosingNode[]): boolean =>
 /**
  * @returns a callback that resolves true when a change to the item that input names may
  * go ahead. read returns the configs to change, and spec is the spec of a symbol. It
- * asks first when the change removes a binding from a symbol node, or gives a node of
- * another item a different item. It asks again if what the nodes lose changes while it
- * asks. With no spec, the new item takes no bindings, so a change to it removes each
- * one.
+ * asks first when the change gives a node a different variant, or removes a binding
+ * from a symbol node. It asks again if what the nodes lose changes while it asks. With
+ * no spec, the new item takes no bindings, so a change to it removes each one.
  */
 export const useConfirmChange = () => {
   const confirm = useConfirm();
@@ -137,11 +157,10 @@ export const useConfirmChange = () => {
     input: Schematic.Node.Input<V>,
     spec: Bindable = NO_SPEC,
   ): Promise<boolean> => {
-    const target = Schematic.Node.symbolKey(Schematic.Node.createConfig(input));
-    let nodes = losing(read(), target, spec);
+    let nodes = losing(read(), input.variant, spec);
     while (nodes.length > 0) {
       if ((await confirm({ nodes, spec })) !== true) return false;
-      const now = losing(read(), target, spec);
+      const now = losing(read(), input.variant, spec);
       if (sameLosses(nodes, now)) return true;
       nodes = now;
     }

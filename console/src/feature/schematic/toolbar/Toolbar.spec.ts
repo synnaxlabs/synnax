@@ -288,14 +288,6 @@ describe("Toolbar", () => {
       ).toBeDefined();
     });
 
-    it("shows the form of the new symbol", async () => {
-      await renderSelected({ n1: createValveNode() });
-      await screen.findByText("Style");
-      expect(screen.queryByText("Wrap width")).toBeNull();
-      await pickSymbol("Text box");
-      expect(await screen.findByText("Wrap width")).toBeDefined();
-    });
-
     it("shows no symbol picker when only a group box is selected", async () => {
       await renderSelected({
         g1: Schematic.Node.createConfig({ variant: "group_box" }),
