@@ -16,13 +16,13 @@
 #include <sys/file.h>
 #include <unistd.h>
 
-#include "driver/journal/file.h"
+#include "x/cpp/fs/file.h"
 
-namespace driver::journal {
+namespace x::fs {
 namespace {
 x::errors::Error errno_error(const std::string &msg) {
     return x::errors::Error(
-        BASE_ERROR,
+        FS_ERROR,
         msg + ": " + std::generic_category().message(errno)
     );
 }
