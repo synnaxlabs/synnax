@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// MetricsFolder is the name of the top-level channel folder that holds the metrics of
-// the Core.
+// MetricsFolder is the name of the top-level channel folder in which a v0.62 Core
+// stored its metrics channels. The metrics service keeps its own copy of the name.
 const MetricsFolder = "Metrics"
 
 // NameRuleMigration renames each stored channel folder whose name a path cannot hold

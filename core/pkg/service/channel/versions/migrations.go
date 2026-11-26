@@ -10,6 +10,7 @@
 package versions
 
 import (
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -17,8 +18,8 @@ import (
 )
 
 // NewMigrations returns the migration chain of the channel table on the Core with the
-// host key host.
-func NewMigrations(host node.Key) []gorp.Migration {
+// host key host. cfg lexes the text that a v0.62 Core stored.
+func NewMigrations(host node.Key, cfg parser.Config) []gorp.Migration {
 	return []gorp.Migration{
 		v0.NormalizeKeys,
 		v0.Migration,
@@ -28,6 +29,6 @@ func NewMigrations(host node.Key) []gorp.Migration {
 		v1.NameMigration,
 		v1.NameRuleMigration,
 		v1.NewClashMigration(host),
-		v1.CalculationTextMigration,
+		v1.NewCalculationTextMigration(cfg),
 	}
 }

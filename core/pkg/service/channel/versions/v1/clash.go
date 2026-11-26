@@ -19,7 +19,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
+	group "github.com/synnaxlabs/synnax/pkg/service/group/versions"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -28,13 +29,13 @@ import (
 // NewClashMigration returns the migration that renames one side of each channel and
 // channel folder that hold one name in NFC in one folder, and stages each rename
 // (resource.StageRename). The folder yields, unless a name pass renamed the channel and
-// not the folder, or the channel is top-level and holds group.MetricsFolder. Of several
-// top-level metrics folders, the one that holds the metrics index channel of host keeps
-// the name, or else the first by key. A folder takes the first suffix (_2, _3) that no
-// sibling holds, and a channel the first that also no other channel holds. It runs
-// after the name passes.
+// not the folder, or the channel is top-level and holds groupv1.MetricsFolder. Of
+// several top-level metrics folders, the one that holds the metrics index channel of
+// host keeps the name, or else the first by key. A folder takes the first suffix (_2,
+// _3) that no sibling holds, and a channel the first that also no other channel holds.
+// It runs after the name passes.
 func NewClashMigration(host node.Key) gorp.Migration {
-	// A v0.62 Core made its metrics index channel in its metrics folder.
+	// The metrics index channel that a v0.62 Core made in its metrics folder.
 	index := fmt.Sprintf("sy_node_%s_metrics_time", host)
 	return migrate.New(
 		"v63_name_clashes",
@@ -76,6 +77,8 @@ func openClash(ctx context.Context, tx gorp.Tx) (*clash, error) {
 		Exec(ctx, tx); err != nil {
 		return nil, err
 	}
+	// The group table opens first and migrates its folders, so they are in the current
+	// group version.
 	if err = gorp.NewRetrieve[group.Key, group.Group]().
 		Where(gorp.Match(func(_ gorp.Context, g *group.Group) (bool, error) {
 			return g.Scope == resource.TypeChannel, nil
@@ -128,11 +131,11 @@ func parentKey(f group.Group) (group.Key, error) {
 }
 
 func (c *clash) resolve(ctx context.Context, index string) error {
-	metrics := sibling{name: group.MetricsFolder}
+	metrics := sibling{name: groupv1.MetricsFolder}
 	kept := c.metricsFolder(index)
 	for i := range c.folders {
 		if i != kept && c.at[i] == metrics {
-			if err := c.moveFolder(ctx, i); err != nil {
+			if err := c.moveFolder(ctx, i, resource.ReasonRepeat); err != nil {
 				return err
 			}
 		}
@@ -147,9 +150,9 @@ func (c *clash) resolve(ctx context.Context, index string) error {
 		_, folderRenamed := c.from[f.ResourceID()]
 		var err error
 		if i == kept || channelRenamed && !folderRenamed {
-			err = c.moveChannel(ctx, ch, c.at[i].group)
+			err = c.moveChannel(ctx, ch, c.at[i].group, resource.ReasonClash)
 		} else {
-			err = c.moveFolder(ctx, i)
+			err = c.moveFolder(ctx, i, resource.ReasonClash)
 		}
 		if err != nil {
 			return err
@@ -157,7 +160,12 @@ func (c *clash) resolve(ctx context.Context, index string) error {
 	}
 	// The metrics service makes the folder later when the store holds none.
 	if h, ok := c.holders[metrics]; ok && kept < 0 {
-		return c.moveChannel(ctx, c.channels[h], group.Key{})
+		return c.moveChannel(
+			ctx,
+			c.channels[h],
+			group.Key{},
+			resource.ReasonMetricsFolder,
+		)
 	}
 	return nil
 }
@@ -174,7 +182,7 @@ func (c *clash) metricsFolder(index string) int {
 	}
 	kept := -1
 	for i, f := range c.folders {
-		if c.at[i] == (sibling{name: group.MetricsFolder}) &&
+		if c.at[i] == (sibling{name: groupv1.MetricsFolder}) &&
 			(kept < 0 || holder != nil && *holder == f.Key) {
 			kept = i
 		}
@@ -195,7 +203,12 @@ func (c *clash) base(id resource.ID, name, empty string) string {
 	return empty
 }
 
-func (c *clash) moveChannel(ctx context.Context, ch Channel, parent group.Key) error {
+func (c *clash) moveChannel(
+	ctx context.Context,
+	ch Channel,
+	parent group.Key,
+	reason resource.Reason,
+) error {
 	first := c.base(ch.ResourceID(), ch.Name, "channel_"+ch.Key().String())
 	name := resource.FreeName(first, func(name string) bool {
 		return c.names.Contains(name) ||
@@ -208,7 +221,7 @@ func (c *clash) moveChannel(ctx context.Context, ch Channel, parent group.Key) e
 		c.tx,
 		ch.ResourceID(),
 		ch.Name,
-		resource.ReasonClash,
+		reason,
 	); err != nil {
 		return err
 	}
@@ -216,7 +229,7 @@ func (c *clash) moveChannel(ctx context.Context, ch Channel, parent group.Key) e
 	return gorp.WrapWriter[Key, Channel](c.tx).Set(ctx, ch)
 }
 
-func (c *clash) moveFolder(ctx context.Context, i int) error {
+func (c *clash) moveFolder(ctx context.Context, i int, reason resource.Reason) error {
 	f, parent := c.folders[i], c.at[i].group
 	name := resource.FreeName(
 		c.base(f.ResourceID(), f.Name, "folder"),
@@ -231,7 +244,7 @@ func (c *clash) moveFolder(ctx context.Context, i int) error {
 		c.tx,
 		f.ResourceID(),
 		f.Name,
-		resource.ReasonClash,
+		reason,
 	); err != nil {
 		return err
 	}
