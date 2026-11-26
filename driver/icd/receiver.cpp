@@ -16,6 +16,7 @@
 #include <span>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -58,6 +59,47 @@ message_name(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
     return m == ic.messages.end() ? key.to_string() : m->name;
 }
 
+/// @brief returns the payload of the message with key, which must be in ic.
+const synnax::icd::Payload &
+payload_of(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
+    return std::ranges::find(ic.messages, key, &synnax::icd::Message::key)->payload;
+}
+
+/// @brief returns true when a message of payload matches every frame that its decoder
+/// sees: a binary message with no identifier, a text message with no prefix, or a JSON
+/// message with no match rule.
+bool matches_all(const synnax::icd::Payload &payload) {
+    return std::visit(
+        []<typename P>(const P &p) {
+            if constexpr (std::is_same_v<P, synnax::icd::BinaryPayload>)
+                return !p.identifier.has_value();
+            else if constexpr (std::is_same_v<P, synnax::icd::TextPayload>)
+                return p.prefix.empty();
+            else
+                return !p.match.has_value();
+        },
+        payload
+    );
+}
+
+/// @brief CatchAll is an entry message that matches every frame its decoder sees.
+struct CatchAll {
+    std::size_t entry;
+    const synnax::icd::ICD *ic;
+    synnax::icd::MessageKey message;
+};
+
+/// @brief returns the error when the message of a matches every what that entry b could
+/// get.
+x::errors::Error
+shadowed(const CatchAll &a, const std::size_t b, const std::string &what) {
+    return refuse(
+        "message " + message_name(*a.ic, a.message) + " of ICD " + a.ic->name +
+        " in entry " + std::to_string(a.entry) + " matches every " + what +
+        ", so entry " + std::to_string(b) + " never gets one"
+    );
+}
+
 /// @brief returns the error when entries a and b, both on ic, read one message.
 x::errors::Error check_shared(
     const std::size_t a,
@@ -88,6 +130,8 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
     r.datagram = datagram;
     r.now = std::move(now);
     std::vector<const synnax::icd::ICD *> found;
+    std::optional<CatchAll> every;
+    std::optional<CatchAll> json;
     for (std::size_t i = 0; i < entries.size(); i++) {
         const auto context = "entry " + std::to_string(i) + ": ";
         const auto ic = std::ranges::find(icds, entries[i].icd, &synnax::icd::ICD::key);
@@ -117,6 +161,25 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
                     return {Receiver{}, err};
         auto [reader, err] = Reader::create(entries[i].messages, *ic, channels);
         if (err) return {Receiver{}, x::errors::Error(err, context + err.data)};
+        const auto &messages = entries[i].messages;
+        const bool reads_json = !messages.empty() &&
+                                std::holds_alternative<synnax::icd::JSONPayload>(
+                                    payload_of(*ic, messages.front().message)
+                                );
+        if (every.has_value()) return {Receiver{}, shadowed(*every, i, "frame")};
+        if (json.has_value() && reads_json)
+            return {Receiver{}, shadowed(*json, i, "JSON document")};
+        if (const auto m = std::ranges::find_if(
+                messages,
+                [&](const auto &rm) { return matches_all(payload_of(*ic, rm.message)); }
+            );
+            m != messages.end()) {
+            const CatchAll c{.entry = i, .ic = &*ic, .message = m->message};
+            if (reads_json)
+                json = c;
+            else
+                every = c;
+        }
         r.readers.push_back(std::move(reader));
         found.push_back(&*ic);
     }
@@ -138,7 +201,7 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
                  << poll.rate;
             return {Receiver{}, refuse(text.str())};
         }
-        Poll p{.period = poll.rate.period()};
+        Poll p{.entry = i, .period = poll.rate.period()};
         if (r.framer == nullptr)
             p.query = poll.query;
         else if (const auto err = r.framer->encode(poll.query, p.query))
@@ -158,12 +221,14 @@ void Receiver::dispatch(
 ) {
     this->stamp = std::max(this->received, this->stamp + x::telem::NANOSECOND);
     x::errors::Error read_err;
-    for (auto &reader: this->readers) {
+    for (std::size_t i = 0; i < this->readers.size(); i++) {
+        auto &reader = this->readers[i];
         const auto [message, err] = reader.read(payload, this->stamp, fr, BATCH);
         if (!message.has_value()) {
             if (!read_err) read_err = err;
             continue;
         }
+        if (this->reply.has_value() && this->reply->entry == i) this->reply.reset();
         read_err = err;
         if (!err && !reader.failures().empty())
             read_err = reader.failures().front().error;
@@ -212,19 +277,23 @@ std::size_t Receiver::decode(x::telem::Frame &fr, common::Warning &warning) {
 
 std::pair<x::telem::TimeSpan, x::errors::Error>
 Receiver::send(transport::Transport &t) {
-    auto wait = READ_TIMEOUT;
-    if (this->polls.empty()) return {wait, x::errors::NIL};
+    if (this->polls.empty()) return {READ_TIMEOUT, x::errors::NIL};
     const auto now = this->now();
-    for (auto &p: this->polls) {
-        if (now >= p.next) {
-            if (auto err = t.write(p.query, transport::WRITE_TIMEOUT))
-                return {wait, err};
-            p.next += p.period.chrono();
-            if (p.next <= now) p.next = now + p.period.chrono();
-        }
-        wait = std::min(wait, x::telem::TimeSpan(p.next - now));
+    if (this->reply.has_value() && now >= this->reply->deadline) this->reply.reset();
+    if (const auto p = std::ranges::min_element(this->polls, {}, &Poll::next);
+        !this->reply.has_value() && now >= p->next) {
+        if (auto err = t.write(p->query, transport::WRITE_TIMEOUT))
+            return {READ_TIMEOUT, err};
+        this->reply = Reply{
+            .entry = p->entry,
+            .deadline = now + REPLY_TIMEOUT.chrono()
+        };
+        p->next += p->period.chrono();
+        if (p->next <= now) p->next = now + p->period.chrono();
     }
-    return {wait, x::errors::NIL};
+    auto ready = std::ranges::min_element(this->polls, {}, &Poll::next)->next;
+    if (this->reply.has_value()) ready = std::max(ready, this->reply->deadline);
+    return {std::min(READ_TIMEOUT, x::telem::TimeSpan(ready - now)), x::errors::NIL};
 }
 
 common::ReadResult Receiver::fail(const x::errors::Error &err) {

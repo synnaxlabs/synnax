@@ -577,21 +577,23 @@ TEST(Receiver, RejectsPollRateOutOfRange) {
 /// even when the next query cuts each wait short.
 TEST(Receiver, KeepsPartialFrameUntilReadTimeout) {
     Steady clock;
-    auto r = create(
-        pairs(),
-        synnax::icd::Poll{.query = {0xAA, 0x01}, .rate = x::telem::Rate(50)},
-        clock.clock()
-    );
+    auto r = polling(clock);
     Memory t;
     t.push(std::vector<std::uint8_t>{0});
     x::telem::Frame fr;
     ASSERT_NIL(r.read(t, fr).error);
-    clock.time += std::chrono::milliseconds(20);
+    clock.time += std::chrono::milliseconds(60);
     ASSERT_TRUE(r.read(t, fr).warning.empty());
-    clock.time += std::chrono::milliseconds(20);
-    ASSERT_TRUE(r.read(t, fr).warning.empty());
-    clock.time += std::chrono::milliseconds(20);
+    clock.time += std::chrono::milliseconds(30);
     ASSERT_EQ(r.read(t, fr).warning.message, "Dropped invalid data");
+    ASSERT_EQ(
+        t.timeouts,
+        (std::vector{
+            READ_TIMEOUT,
+            40 * x::telem::MILLISECOND,
+            10 * x::telem::MILLISECOND
+        })
+    );
 }
 
 /// @brief it should return the error of a query that fails to send, and drop the bytes
@@ -784,31 +786,44 @@ TEST(Receiver, ReadsEntriesOfOneICDWithDifferentMessages) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{2.0}));
 }
 
-/// @brief it should send the query of each entry on its own period, and wait for bytes
-/// no later than the next query of any entry.
-TEST(Receiver, SendsQueryOfEachEntryOnItsOwnPeriod) {
+/// @brief returns a receiver of lines that start with A or B, whose two entries send
+/// the queries a and b at rates a_hz and b_hz on clock.
+Receiver polling_two(Steady &clock, const double a_hz, const double b_hz) {
     const auto a = lines("A", 2, 1, "first");
     const auto b = lines("B", 3, 4, "second");
-    Steady clock;
-    auto r = ASSERT_NIL_P(
+    return ASSERT_NIL_P(
         Receiver::create(
-            {a.entry(synnax::icd::Poll{.query = {'a'}, .rate = x::telem::Rate(10)}),
-             b.entry(synnax::icd::Poll{.query = {'b'}, .rate = x::telem::Rate(4)})},
+            {a.entry(synnax::icd::Poll{.query = {'a'}, .rate = x::telem::Rate(a_hz)}),
+             b.entry(synnax::icd::Poll{.query = {'b'}, .rate = x::telem::Rate(b_hz)})},
             {a.ic, b.ic},
             merged(a.channels, b.channels),
             false,
             clock.clock()
         )
     );
+}
+
+/// @brief it should send the query of each entry on its own period when each reply
+/// comes at once, and wait for bytes no later than the next query of any entry.
+TEST(Receiver, SendsQueryOfEachEntryOnItsOwnPeriod) {
+    Steady clock;
+    auto r = polling_two(clock, 10, 4);
     Memory t;
     x::telem::Frame fr;
-    ASSERT_NIL(r.read(t, fr).error);
+    const auto replied = [&](const std::string &line) {
+        t.push(line + "\n");
+        return r.read(t, fr).error;
+    };
+    ASSERT_NIL(replied("A,1"));
+    ASSERT_NIL(replied("B,1"));
     clock.time += std::chrono::milliseconds(100);
-    ASSERT_NIL(r.read(t, fr).error);
-    clock.time += std::chrono::milliseconds(140);
+    ASSERT_NIL(replied("A,2"));
+    clock.time += std::chrono::milliseconds(100);
+    ASSERT_NIL(replied("A,3"));
+    clock.time += std::chrono::milliseconds(40);
     ASSERT_NIL(r.read(t, fr).error);
     clock.time += std::chrono::milliseconds(10);
-    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_NIL(replied("B,2"));
     const std::vector<std::vector<std::uint8_t>> sent{
         {'a', '\n'},
         {'b', '\n'},
@@ -822,9 +837,57 @@ TEST(Receiver, SendsQueryOfEachEntryOnItsOwnPeriod) {
         (std::vector{
             READ_TIMEOUT,
             READ_TIMEOUT,
+            READ_TIMEOUT,
+            READ_TIMEOUT,
             10 * x::telem::MILLISECOND,
             READ_TIMEOUT,
         })
+    );
+}
+
+/// @brief it should send no query while the reply to the last one is due, and send the
+/// next after REPLY_TIMEOUT when no reply comes.
+TEST(Receiver, SendsNextQueryAfterReplyTimeout) {
+    Steady clock;
+    auto r = polling_two(clock, 10, 10);
+    Memory t;
+    x::telem::Frame fr;
+    const std::vector<std::vector<std::uint8_t>> first{{'a', '\n'}};
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    clock.time += std::chrono::milliseconds(60);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    clock.time += std::chrono::milliseconds(40);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(
+        t.writes,
+        (std::vector<std::vector<std::uint8_t>>{{'a', '\n'}, {'b', '\n'}})
+    );
+    ASSERT_EQ(
+        t.timeouts,
+        (std::vector{READ_TIMEOUT, 40 * x::telem::MILLISECOND, READ_TIMEOUT})
+    );
+}
+
+/// @brief it should send the next query as soon as a frame of the entry that sent the
+/// last one arrives, and keep waiting through a frame of another entry.
+TEST(Receiver, SendsNextQueryOnReply) {
+    Steady clock;
+    auto r = polling_two(clock, 10, 10);
+    Memory t;
+    t.push("B,9\n");
+    t.push("A,1\n");
+    x::telem::Frame fr;
+    const std::vector<std::vector<std::uint8_t>> first{{'a', '\n'}};
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(t.writes, first);
+    ASSERT_NIL(r.read(t, fr).error);
+    ASSERT_EQ(
+        t.writes,
+        (std::vector<std::vector<std::uint8_t>>{{'a', '\n'}, {'b', '\n'}})
     );
 }
 
@@ -835,6 +898,109 @@ TEST(Receiver, RejectsEntriesThatReadOneMessage) {
     const auto err = refused({cfg.entry(), cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(err.data, "entries 0 and 1 both read message frame of ICD device");
+}
+
+/// @brief it should refuse an entry after one that reads a binary message with no
+/// identifier, which matches every frame.
+TEST(Receiver, RejectsEntryAfterBinaryCatchAll) {
+    const auto a = pairs();
+    const auto b = pairs();
+    const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, b.channels);
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame of ICD device in entry 0 matches every frame, so entry 1 never "
+        "gets one"
+    );
+}
+
+/// @brief it should refuse a JSON entry after one that reads a text message with no
+/// prefix, which matches every frame.
+TEST(Receiver, RejectsEntryAfterTextCatchAll) {
+    const auto a = lines("", 2, 1, "first");
+    synnax::icd::PresentJSONMatch rule;
+    rule.pointer = "/v";
+    const auto b = documents(rule, 3, 4, "second");
+    const auto err = refused(
+        {a.entry(), b.entry()},
+        {a.ic, b.ic},
+        merged(a.channels, b.channels)
+    );
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame of ICD first in entry 0 matches every frame, so entry 1 never "
+        "gets one"
+    );
+}
+
+/// @brief it should refuse a JSON entry after one that reads a JSON message with no
+/// match rule, which matches every JSON document.
+TEST(Receiver, RejectsJSONEntryAfterJSONCatchAll) {
+    const auto a = documents(std::nullopt, 2, 1, "first");
+    synnax::icd::PresentJSONMatch rule;
+    rule.pointer = "/v";
+    const auto b = documents(rule, 3, 4, "second");
+    const auto err = refused(
+        {a.entry(), b.entry()},
+        {a.ic, b.ic},
+        merged(a.channels, b.channels)
+    );
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame of ICD first in entry 0 matches every JSON document, so entry 1 "
+        "never gets one"
+    );
+}
+
+/// @brief it should give the last entry, which reads a message with no prefix, each
+/// frame that no earlier entry matches.
+TEST(Receiver, GivesFrameOfNoOtherEntryToLastCatchAll) {
+    const auto a = lines("T", 2, 1, "first");
+    const auto b = lines("", 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push("T,5\nX,7\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2, 4, 3}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
+}
+
+/// @brief it should give a frame that is not a JSON document to a binary entry after
+/// one that reads a JSON message with no match rule.
+TEST(Receiver, GivesFrameThatIsNotJSONToBinaryEntryAfterJSONCatchAll) {
+    const auto a = documents(std::nullopt, 2, 1, "first");
+    Config b{synnax::icd::BinaryPayload{}, synnax::icd::DelimitedFraming{}, "second"};
+    b.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 3, 4);
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push(std::string(R"({"v": 3})") + "\n" + std::string{'\0', '\7'} + "\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2, 4, 3}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{3.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
 }
 
 /// @brief it should refuse a stream entry whose ICD has no framing.
@@ -1048,7 +1214,9 @@ TEST(Receiver, KeepsFrameThatFirstMatchingEntryFailsToDecode) {
 /// matching entry fails to decode, warn about the field, and give the frame to no later
 /// entry.
 TEST(Receiver, KeepsFrameWhoseFieldFirstMatchingEntryFailsToDecode) {
-    auto a = documents(std::nullopt, 2, 1, "first");
+    synnax::icd::PresentJSONMatch rule;
+    rule.pointer = "/v";
+    auto a = documents(rule, 2, 1, "first");
     synnax::icd::FloatJSONField w;
     w.name = "w";
     w.pointer = "/w";

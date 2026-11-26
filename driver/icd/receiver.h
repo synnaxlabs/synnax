@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <optional>
 #include <span>
 #include <utility>
 #include <vector>
@@ -39,19 +40,35 @@ constexpr std::size_t BATCH = 1024;
 /// after which the framer drops a partial frame.
 const x::telem::TimeSpan READ_TIMEOUT = 50 * x::telem::MILLISECOND;
 
+/// @brief REPLY_TIMEOUT is the longest that the next poll query waits for the reply to
+/// the last one.
+const x::telem::TimeSpan REPLY_TIMEOUT = 100 * x::telem::MILLISECOND;
+
 /// @brief Receiver reads the messages that the entries of a task receive on one
 /// transport into their channels. Each frame goes to the first entry, in task order,
 /// with a message that matches it, and later entries never see it. A frame that is not
-/// a JSON document matches no message of a JSON entry. It is not safe for concurrent
-/// use.
+/// a JSON document matches no message of a JSON entry. It sends one poll query at a
+/// time, so replies on a shared bus do not collide: the next query waits until a frame
+/// of the entry that sent the last one arrives, or until REPLY_TIMEOUT passes. It is
+/// not safe for concurrent use.
 class Receiver {
     /// @brief Poll sends the query of one entry at its rate.
     struct Poll {
+        /// @brief entry is the position of the entry in task order.
+        std::size_t entry;
         /// @brief query holds the transport bytes of the query.
         std::vector<std::uint8_t> query;
         x::telem::TimeSpan period;
         /// @brief next is the time at which the receiver sends the next query.
         std::chrono::steady_clock::time_point next;
+    };
+
+    /// @brief Reply is the reply that the last poll query waits for.
+    struct Reply {
+        /// @brief entry is the position of the entry that sent the query.
+        std::size_t entry;
+        /// @brief deadline is the time after which the next query stops waiting.
+        std::chrono::steady_clock::time_point deadline;
     };
 
     /// @brief framer splits the bytes into frames, and is null for datagrams with no
@@ -61,6 +78,8 @@ class Receiver {
     /// @brief readers holds the reader of each entry, in task order.
     std::vector<Reader> readers;
     std::vector<Poll> polls;
+    /// @brief reply holds back the next poll query, and is empty when no reply is due.
+    std::optional<Reply> reply;
     /// @brief received is the time at which the bytes in the framer arrived.
     x::telem::TimeStamp received;
     /// @brief stamp is the arrival time given to the last frame.
@@ -72,7 +91,7 @@ class Receiver {
 
     /// @brief reads payload with the first reader that has a message of it, and sets
     /// warning to its decoding error when it is empty. With no such reader, it sets
-    /// warning to the first JSON error.
+    /// warning to the first error of a reader that could not match payload.
     void dispatch(
         std::span<const std::uint8_t> payload,
         x::telem::Frame &fr,
@@ -94,7 +113,7 @@ class Receiver {
     /// @brief drops the bytes in the framer after the error err of the transport.
     common::ReadResult fail(const x::errors::Error &err);
 
-    /// @brief sends each query on t that is due.
+    /// @brief sends on t the query that has been due the longest, when no reply is due.
     /// @returns the longest that the next transport read can wait, and the error of t.
     std::pair<x::telem::TimeSpan, x::errors::Error> send(transport::Transport &t);
 
@@ -108,8 +127,11 @@ public:
     /// @param now is the steady clock that schedules the queries.
     /// @returns CONFIGURATION_ERROR when icds has no ICD that an entry names, a stream
     /// ICD has no framing, two ICDs frame the bytes differently, two entries read one
-    /// message of one ICD, a poll rate is not above 0 Hz or is above 1 GHz, the framing
-    /// cannot hold a poll query, or the Reader of an entry fails to create.
+    /// message of one ICD, an entry reads a message that matches every frame a later
+    /// entry could get, a poll rate is not above 0 Hz or is above 1 GHz, the framing
+    /// cannot hold a poll query, or the Reader of an entry fails to create. A binary
+    /// message with no identifier and a text message with no prefix match every frame,
+    /// and a JSON message with no match rule matches every JSON document.
     static std::pair<Receiver, x::errors::Error> create(
         const std::vector<synnax::icd::ReadEntry> &entries,
         const std::vector<synnax::icd::ICD> &icds,
@@ -118,12 +140,13 @@ public:
         transport::Clock now = std::chrono::steady_clock::now
     );
 
-    /// @brief sends each poll query on t that is due, and then reads into fr up to
-    /// BATCH frames: the frames left from the last read, or else the frames of the
-    /// bytes that arrive on t within READ_TIMEOUT or before the next query. A frame
-    /// takes the time its bytes arrived, or 1 ns after the last frame when that is
-    /// later. After READ_TIMEOUT with no bytes, the framer drops a partial frame of a
-    /// stream. A frame of no message adds nothing.
+    /// @brief sends the poll query on t that has been due the longest when no reply to
+    /// the last query is due, and then reads into fr up to BATCH frames: the frames
+    /// left from the last read, or else the frames of the bytes that arrive on t within
+    /// READ_TIMEOUT or before the next query. A frame takes the time its bytes arrived,
+    /// or 1 ns after the last frame when that is later. After READ_TIMEOUT with no
+    /// bytes, the framer drops a partial frame of a stream. A frame of no message adds
+    /// nothing.
     /// @returns the error of t, after which the receiver drops the bytes in the framer.
     /// Framing and decoding errors come back as warnings.
     common::ReadResult read(transport::Transport &t, x::telem::Frame &fr);
