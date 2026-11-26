@@ -33,7 +33,6 @@ import {
 import { z } from "zod";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import { FLAGS } from "@/flags";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -77,7 +76,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const config = spec == null ? null : Schematic.Node.createConfig({ variant });
   if (spec == null || config == null) return null;
   const { name, Preview } = spec;
-  const builtIn = FLAGS.symbolNodes ? Schematic.Node.BUILT_INS.get(variant) : undefined;
+  const builtIn = Schematic.Node.BUILT_INS.get(variant);
   const createParams = (): Schematic.AddNodeProps<"symbol"> | Schematic.AddNodeProps =>
     builtIn != null
       ? createSymbolParams({ type: "builtin", name: variant }, spec.label ?? name)
@@ -288,12 +287,8 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const handleRename = (name: string) => rename({ key: itemKey, name });
 
   if (symbol == null) return null;
-  const createParams = ():
-    | Schematic.AddNodeProps<"symbol">
-    | Schematic.AddNodeProps<Schematic.Node.CustomVariant> =>
-    FLAGS.symbolNodes
-      ? createSymbolParams({ type: "custom", key: itemKey }, symbol.name)
-      : { key: id.create(), config: { variant, specKey: itemKey } };
+  const createParams = (): Schematic.AddNodeProps<"symbol"> =>
+    createSymbolParams({ type: "custom", key: itemKey }, symbol.name);
   const handleAddNode = () => addNode(createParams());
   // The node's own drawing reads the symbol through a hook, which a preview cannot.
   const handleDragStart = (event: DragEvent<HTMLElement>) =>

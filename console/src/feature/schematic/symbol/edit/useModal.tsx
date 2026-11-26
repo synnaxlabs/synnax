@@ -34,7 +34,6 @@ import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
-import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -260,8 +259,7 @@ const Editor = ({
       if (part != null) return setSelectedPart(part);
     }
     // Placement reads the variant, so a symbol with a click saves as an actuator.
-    if (FLAGS.symbolNodes)
-      form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
+    form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const next = form.get(path.data).value;
@@ -305,59 +303,40 @@ const Editor = ({
                   />
                 </Flex.Box>
                 <Divider.Divider x />
-                {FLAGS.symbolNodes ? (
-                  <>
-                    <ItemList
-                      title="States"
-                      noun="state"
-                      items={states}
-                      name={(key) => path.data.states[key].name}
-                      detail={(s) => STATE_TYPES[s.type]}
-                      add={Spec.addState}
-                      remove={Spec.removeState}
-                      onRemove={() => {
-                        // The preview moves to the first state left if its state goes.
-                        const left = form
-                          .get(path.data.states)
-                          .value.filter(
-                            (s): s is schematic.symbol.EnumerationState =>
-                              s.type === "enumeration",
-                          );
-                        if (left.some((s) => s.key === preview.state)) return;
-                        const first = left.at(0);
-                        setPreview({
-                          state: first?.key ?? Spec.STATE,
-                          value: first?.default ?? 0,
-                        });
-                      }}
-                    />
-                    <Divider.Divider x />
-                    <ItemList
-                      title="Commands"
-                      noun="command"
-                      items={commands}
-                      name={(key) => path.data.commands[key].name}
-                      detail={describeCommand}
-                      add={Spec.addCommand}
-                      remove={Spec.removeCommand}
-                    />
-                  </>
-                ) : (
-                  <Flex.Box y>
-                    <Header.Header level="p" bordered={false}>
-                      <Header.Title level="p" weight={500}>
-                        States
-                      </Header.Title>
-                    </Header.Header>
-                    <Flex.Box className={CSS.BE("schematic", "states")}>
-                      <SelectVariantField
-                        onSelectValue={(value) =>
-                          setPreview({ state: Spec.STATE, value })
-                        }
-                      />
-                    </Flex.Box>
-                  </Flex.Box>
-                )}
+                <ItemList
+                  title="States"
+                  noun="state"
+                  items={states}
+                  name={(key) => path.data.states[key].name}
+                  detail={(s) => STATE_TYPES[s.type]}
+                  add={Spec.addState}
+                  remove={Spec.removeState}
+                  onRemove={() => {
+                    // The preview moves to the first state left if its state goes.
+                    const left = form
+                      .get(path.data.states)
+                      .value.filter(
+                        (s): s is schematic.symbol.EnumerationState =>
+                          s.type === "enumeration",
+                      );
+                    if (left.some((s) => s.key === preview.state)) return;
+                    const first = left.at(0);
+                    setPreview({
+                      state: first?.key ?? Spec.STATE,
+                      value: first?.default ?? 0,
+                    });
+                  }}
+                />
+                <Divider.Divider x />
+                <ItemList
+                  title="Commands"
+                  noun="command"
+                  items={commands}
+                  name={(key) => path.data.commands[key].name}
+                  detail={describeCommand}
+                  add={Spec.addCommand}
+                  remove={Spec.removeCommand}
+                />
                 <Divider.Divider x />
                 <PartList
                   value={selectedPart}

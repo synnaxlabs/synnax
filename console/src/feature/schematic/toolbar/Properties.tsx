@@ -42,7 +42,6 @@ import {
   COLOR_FIELDS,
   VALUE_COLOR_FIELDS,
 } from "@/feature/schematic/toolbar/colorFields";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Enumeration } from "@/platform/enumeration";
 import { MultiEdit } from "@/platform/multiedit";
@@ -383,7 +382,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const hasStroke = selection.has("strokeColor");
   const hasFill = selection.has("fillColor");
   const hasText = selection.has("textColor");
-  const hasColor = FLAGS.symbolNodes && selection.has("color");
+  const hasColor = selection.has("color");
   const hasColors =
     hasStroke || hasFill || hasText || hasColor || selectionRefs.length > 0;
 

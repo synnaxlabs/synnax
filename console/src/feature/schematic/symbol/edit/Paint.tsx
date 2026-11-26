@@ -13,16 +13,14 @@ import type { schematic } from "@synnaxlabs/client";
 import { Color as Base } from "@synnaxlabs/lyra/color";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { Color, Schematic } from "@synnaxlabs/pluto";
+import { Color } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
 import type { CSSProperties, ReactElement } from "react";
 
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 
 type Value = schematic.symbol.Paint;
@@ -87,9 +85,6 @@ export const Paint = ({
 }: PaintProps): ReactElement => {
   const { gray } = Theming.use().colors;
   const kind: Kind = value?.type ?? "drawing";
-  const variant = Form.useFieldValue(Schematic.Symbol.formPath.data.variant);
-  // Until symbol nodes ship, only an actuator node gives a node color.
-  const nodes = FLAGS.symbolNodes || variant === "actuator";
   // Drawing clears the paint of the part, which then takes the paint of the whole
   // drawing when there is one.
   const locked = inherited != null && own == null;
@@ -143,7 +138,7 @@ export const Paint = ({
       <Dialog.Dialog>
         <Flex.Box y gap="small" className={CSS.B("schematic-paint-dialog")}>
           <Select.Buttons<Kind> value={kind} onChange={handleKindChange} size="small">
-            {KINDS.filter((k) => k !== "node" || nodes || kind === "node").map((k) => (
+            {KINDS.map((k) => (
               <Select.Item
                 key={k}
                 itemKey={k}

@@ -31,11 +31,6 @@ const FIELDS: Field[] = ["fill", "stroke", "hidden", "blink", "motion"];
 /** Target is the key of a part, or undefined for the whole drawing. */
 export type Target = string | undefined;
 
-const BASE = 0;
-const ACTIVE = 1;
-const DEACTIVATE = "deactivate";
-const ACTIVATE = "activate";
-
 /**
  * edited returns whether spec differs from base. The preview viewport is where the
  * editor last looked, so a zoom or a pan is not an edit.
@@ -512,71 +507,4 @@ export const toggleSelector = (
     const rest = p.selectors.filter((s) => !covered(s));
     return { ...p, selectors: p.key === part ? [...rest, selector] : rest };
   });
-};
-
-const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] =>
-  withActive(spec.states).map((s) =>
-    s.key === STATE && s.type === "enumeration" ? { ...s, match } : s,
-  );
-
-/**
- * @returns looks as a static symbol draws them, with only Base: each look on Base
- * reaches every value, and the looks on other values go.
- */
-export const staticLooks = (looks: Look[]): Look[] =>
-  looks.flatMap((l): Look[] => {
-    if (l.when?.state !== STATE) return [l];
-    if (!l.when.values.includes(BASE)) return [];
-    const { when: _, ...rest } = l;
-    return [rest];
-  });
-
-/**
- * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
- * 0.9 to 1.1, the commands Off and On, and a click that picks between them, as the
- * migration gives a stored actuator. A static symbol keeps its Base looks on every
- * value and loses its other looks on the state, the commands, and the clicks.
- */
-export const setVariant = (spec: Spec, variant: string): Spec => {
-  if (variant === "actuator") {
-    const copies = spec.looks
-      .filter((l) => only(l, l.part, { state: STATE, value: BASE }))
-      .map((l) => ({
-        ...l,
-        key: `look-${id.create()}`,
-        when: { type: "equals" as const, state: STATE, values: [ACTIVE] },
-      }));
-    return {
-      ...spec,
-      variant,
-      states: withState(spec, {
-        type: "within",
-        bounds: { lower: 0.9, upper: 1.1 },
-      }),
-      looks: copies.reduce((ls, c) => ls.toSpliced(slot(ls, c), 0, c), spec.looks),
-      commands: [
-        {
-          key: DEACTIVATE,
-          name: "Off",
-          state: STATE,
-          value: { type: "fixed", value: BASE },
-        },
-        {
-          key: ACTIVATE,
-          name: "On",
-          state: STATE,
-          value: { type: "fixed", value: ACTIVE },
-        },
-      ],
-      interactions: [{ type: "next", key: "next", commands: [DEACTIVATE, ACTIVATE] }],
-    };
-  }
-  return {
-    ...spec,
-    variant,
-    states: withState(spec, { type: "exact" }),
-    looks: staticLooks(spec.looks),
-    commands: [],
-    interactions: [],
-  };
 };
