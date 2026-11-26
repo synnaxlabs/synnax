@@ -722,7 +722,10 @@ into that session's writer through `DB.Handoff` (§4.2), the one path that moves
 
 - **Segments**: An open segment belongs to one writer. A later session with the same
   key, type, and clock key takes it over only after the commits of the earlier writer
-  are durable. Two writers on one key at once have two open segments.
+  are durable. A takeover appends at the committed length. It first checks the tail
+  through the same helper as the open check (§5.5 step 10), and for a variable type
+  rebuilds the sample cursor from the file. A tail that fails its check seals, and the
+  key starts a new segment. Two writers on one key at once have two open segments.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, and a `Bounded` claim that starts inside another claim.
 - **At commit**: Cesium refuses a commit whose time range overlaps any stored pointer or
