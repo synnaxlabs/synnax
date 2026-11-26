@@ -33,7 +33,10 @@ export const commandName = (
 export const MISSING_DESCRIPTION =
   "The ICD no longer has this message. Pick another message format.";
 
-/** @returns message with no command channels, so deploying creates new ones. */
+/**
+ * @returns message with no command channels, so deploying gives each field the channel
+ * that the device stores for its address, or a new one.
+ */
 export const unbind = (message: icd.WriteMessage): icd.WriteMessage => ({
   ...message,
   bindings: message.bindings.map((b) =>
