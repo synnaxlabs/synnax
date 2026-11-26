@@ -254,11 +254,53 @@ TEST(Number, ParsesUnderflowAsZero) {
     expect_number("1e-400", std::nullopt, std::nullopt, 0.0);
 }
 
+/// @brief it should read a number at the smallest exponent.
+TEST(Number, ParsesSmallestExponent) {
+    expect_number("1e-1048576", std::nullopt, std::nullopt, 0.0);
+}
+
+/// @brief it should hold an integer negative zero as the integer zero.
+TEST(Number, ParsesIntegerNegativeZero) {
+    expect_number("-0", 0, 0, 0.0);
+}
+
+/// @brief it should read a decimal of several digits as the nearest double.
+TEST(Number, ParsesDecimalOfSeveralDigits) {
+    expect_number("1234.5678", std::nullopt, std::nullopt, 1234.5678);
+}
+
+/// @brief it should read a whole number with a negative exponent as a fraction.
+TEST(Number, ParsesWholeNumberWithNegativeExponent) {
+    expect_number("25e-1", std::nullopt, std::nullopt, 2.5);
+}
+
+/// @brief it should read powers of ten at and past the exact ones as the nearest
+/// double.
+TEST(Number, ParsesPowersOfTenPastExactOnes) {
+    expect_number("1e22", std::nullopt, std::nullopt, 1e22);
+    expect_number("1e23", std::nullopt, std::nullopt, 1e23);
+    expect_number("1e-23", std::nullopt, std::nullopt, 1e-23);
+}
+
+/// @brief it should read more digits than a double holds as the nearest double.
+TEST(Number, ParsesMoreDigitsThanDoubleHolds) {
+    expect_number("0.30000000000000000001", std::nullopt, std::nullopt, 0.3);
+}
+
 /// @brief it should reject text that is not a number.
 TEST(Number, RejectsWord) {
     const auto [n, err] = Number::parse("x");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, R"(invalid number "x")");
+}
+
+/// @brief it should reject text that is not a decimal number.
+TEST(Number, RejectsMalformedDecimal) {
+    for (const std::string text: {"-", ".", "1.2.3", "1e", "1e-1048577", "0e1048577"}) {
+        const auto [n, err] = Number::parse(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(err.data, "invalid number \"" + text + "\"");
+    }
 }
 
 /// @brief it should reject a sign that another sign follows.
