@@ -41,6 +41,7 @@ const std::array<tcflag_t, 4> SIZES{CS5, CS6, CS7, CS8};
 
 namespace line {
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
+    if (auto err = check(props)) return err;
     const auto &parity = props.parity;
     if (parity == synnax::serial::PARITY_MARK_ ||
         parity == synnax::serial::PARITY_SPACE_)
