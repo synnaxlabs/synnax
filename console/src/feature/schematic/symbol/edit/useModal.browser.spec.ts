@@ -136,6 +136,10 @@ const pick = async (label: string, option: string): Promise<void> => {
 
 const closeSelect = (): void => pressKey("Escape");
 
+// names returns the names of the options in an open select, in order.
+const names = (options: ReturnType<typeof within>): Array<string | null> =>
+  options.getAllByRole("option").map((o: HTMLElement) => o.textContent);
+
 const disabled = (option: HTMLElement): boolean =>
   option.getAttribute("aria-disabled") === "true";
 
@@ -1828,15 +1832,15 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByText("on"));
       await screen.findByRole("heading", { name: "on" });
       expect(disabled(findButton("Ask"))).toBe(true);
-      await openSelect("State");
-      expect(disabled(screen.getByRole("option", { name: "No state" }))).toBe(true);
+      const states = await openSelect("State");
+      expect(names(states)).toEqual(["Active"]);
+      expect(screen.queryByRole("option", { name: "No state" })).toBeNull();
       closeSelect();
       // Off sends Base, so On cannot.
-      const values = await openSelect("Fixed value");
-      expect(disabled(values.getByRole("option", { name: "Base" }))).toBe(true);
+      expect(names(await openSelect("Fixed value"))).toEqual(["Active"]);
     });
 
-    it("turns off an entry that matches the value of the other command", async () => {
+    it("leaves out an entry that matches the value of the other command", async () => {
       const enumeration = await client.enumerations.create({
         name: uniqueName("valve"),
         entries: [
@@ -1867,10 +1871,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       fireEvent.click(screen.getByText("close"));
       await screen.findByRole("heading", { name: "close" });
-      const values = await openSelect("Fixed value");
-      expect(disabled(values.getByRole("option", { name: "Closed" }))).toBe(false);
       // Open and Wide both read as 1 on the state, and Open sends 1.
-      expect(disabled(values.getByRole("option", { name: "Wide" }))).toBe(true);
+      expect(names(await openSelect("Fixed value"))).toEqual(["Closed"]);
     });
 
     it("shows an error for a number that the other command sends", async () => {
@@ -2058,7 +2060,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
-    it("lists every target in order and turns off the taken ones", async () => {
+    it("lists the free targets in order, the same after a pick", async () => {
       const stop = { ...GO, key: "stop", name: "Stop" };
       await openPainted({
         parts: [
@@ -2074,26 +2076,20 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       fireEvent.click(screen.getByText("Sends Stop"));
-      const offs = async () =>
-        Object.fromEntries(
-          (await openSelect("Target"))
-            .getAllByRole("option")
-            .map((o) => [o.textContent, disabled(o)]),
-        );
-      expect(await offs()).toEqual({
-        "Whole drawing": false,
-        Body: true,
-        Lamp: false,
-        Tank: false,
-      });
+      // Go holds Body.
+      expect(names(await openSelect("Target"))).toEqual([
+        "Whole drawing",
+        "Lamp",
+        "Tank",
+      ]);
       closeSelect();
       await pick("Target", "Lamp");
-      expect(await offs()).toEqual({
-        "Whole drawing": false,
-        Body: true,
-        Lamp: false,
-        Tank: false,
-      });
+      await within(getInspector()).findByRole("button", { name: "Target Lamp" });
+      expect(names(await openSelect("Target"))).toEqual([
+        "Whole drawing",
+        "Lamp",
+        "Tank",
+      ]);
     });
 
     it("sends another command from a click that the inspector picks", async () => {
@@ -2244,22 +2240,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(findButton("Toggle").getAttribute("aria-disabled")).toBe("true");
     });
 
-    it("turns off the commands that do not pair in a toggle", async () => {
+    it("lists only the commands that pair in a toggle", async () => {
       await openPainted({
         states: [createState()],
         commands: [on("off", 0), on("on", 1), GO],
         interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
       });
       fireEvent.click(screen.getByText("Toggles off and on"));
-      const first = await openSelect("First command");
-      expect(disabled(first.getByRole("option", { name: "Go" }))).toBe(true);
-      expect(disabled(first.getByRole("option", { name: "on" }))).toBe(false);
+      expect(names(await openSelect("First command"))).toEqual(["off", "on"]);
       closeSelect();
       // The second command takes only the partner of Off.
-      const second = await openSelect("Second command");
-      expect(disabled(second.getByRole("option", { name: "off" }))).toBe(true);
-      expect(disabled(second.getByRole("option", { name: "Go" }))).toBe(true);
-      expect(disabled(second.getByRole("option", { name: "on" }))).toBe(false);
+      expect(names(await openSelect("Second command"))).toEqual(["on"]);
     });
 
     it("turns off the add of a click with no command", async () => {

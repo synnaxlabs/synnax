@@ -30,8 +30,6 @@ const WHOLE_DRAWING = "";
 
 const TOGGLE_NEEDS_PAIR =
   "A toggle needs two commands on one state that send different fixed values.";
-const TARGET_TAKEN = "Another click is on this target.";
-const NOT_PARTNER = "It sends no other fixed value on the state of the first command.";
 
 /** @returns the name of the target of a click: a part, or the whole drawing. */
 export const targetName = (parts: schematic.symbol.Part[], part?: string): string =>
@@ -44,8 +42,6 @@ interface CommandSelectProps {
   value: string;
   onChange: (key: string) => void;
   commands: schematic.symbol.Command[];
-  /** reason returns why a command cannot be picked, or undefined when it can. */
-  reason?: (command: schematic.symbol.Command) => string | undefined;
 }
 
 const CommandSelect = ({
@@ -53,7 +49,6 @@ const CommandSelect = ({
   value,
   onChange,
   commands,
-  reason,
 }: CommandSelectProps): ReactElement => (
   <Select.Simple<string>
     resourceName="command"
@@ -62,19 +57,11 @@ const CommandSelect = ({
     allowNone={false}
     triggerProps={{ "aria-label": label }}
   >
-    {commands.map((c) => {
-      const why = reason?.(c);
-      return (
-        <Select.Item<string>
-          key={c.key}
-          itemKey={c.key}
-          disabled={why != null}
-          tooltip={why}
-        >
-          {c.name}
-        </Select.Item>
-      );
-    })}
+    {commands.map((c) => (
+      <Select.Item<string> key={c.key} itemKey={c.key}>
+        {c.name}
+      </Select.Item>
+    ))}
   </Select.Simple>
 );
 
@@ -85,7 +72,7 @@ export interface ClickInspectorProps {
 
 /**
  * ClickInspector edits the target of one click, and whether it sends one command or
- * toggles between two. It turns off the targets and commands that the Core refuses.
+ * toggles between two. It lists only the targets and commands that the Core accepts.
  */
 export const ClickInspector = ({
   click: key,
@@ -109,9 +96,12 @@ export const ClickInspector = ({
     update(
       type === "next" ? toggle(first) : { type, key, part: click.part, command: first },
     );
-  const targets: Spec.Target[] = [undefined, ...parts.map((p) => p.key)];
+  // The targets stay in list order and keep the target of the click, so a pick moves
+  // nothing.
   const free = Spec.freeTargets({ parts, interactions });
-  const taken = (t: Spec.Target) => t !== click.part && !free.includes(t);
+  const targets = [undefined, ...parts.map((p) => p.key)].filter(
+    (t) => t === click.part || free.includes(t),
+  );
   return (
     <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
       <Text.Text level="h5">{targetName(parts, click.part)}</Text.Text>
@@ -127,12 +117,7 @@ export const ClickInspector = ({
           triggerProps={{ "aria-label": "Target" }}
         >
           {targets.map((t) => (
-            <Select.Item<string>
-              key={t ?? WHOLE_DRAWING}
-              itemKey={t ?? WHOLE_DRAWING}
-              disabled={taken(t)}
-              tooltip={taken(t) ? TARGET_TAKEN : undefined}
-            >
+            <Select.Item<string> key={t ?? WHOLE_DRAWING} itemKey={t ?? WHOLE_DRAWING}>
               {targetName(parts, t)}
             </Select.Item>
           ))}
@@ -174,12 +159,9 @@ export const ClickInspector = ({
               label="First command"
               value={first}
               onChange={(command) => update(toggle(command))}
-              commands={commands}
-              reason={(c) =>
-                Spec.nextPartners({ states, commands }, c.key).length > 0
-                  ? undefined
-                  : TOGGLE_NEEDS_PAIR
-              }
+              commands={commands.filter(
+                (c) => Spec.nextPartners({ states, commands }, c.key).length > 0,
+              )}
             />
           </Input.Item>
           <Input.Item label="Second command">
@@ -187,8 +169,7 @@ export const ClickInspector = ({
               label="Second command"
               value={click.commands[1]}
               onChange={(command) => update({ ...click, commands: [first, command] })}
-              commands={commands}
-              reason={(c) => (partners.includes(c) ? undefined : NOT_PARTNER)}
+              commands={partners}
             />
           </Input.Item>
         </>
