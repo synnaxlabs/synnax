@@ -156,9 +156,9 @@ in a color picker has no "+".
   Confluence use.
 - The left bar holds toolbars only. Settings and the Library are tabs, not toolbars, so
   their buttons never go in the left bar.
-- The Library holds what users make to use again: labels, colors, and enumerations.
-  Settings holds who gets in and with what: preferences, users, secrets, certificates,
-  and the license.
+- The Library holds what users make to use again: labels, colors, enumerations, and
+  ICDs. Settings holds who gets in and with what: preferences, users, secrets,
+  certificates, and the license.
 - The islands of a pre-workspace surface, such as login or the project splash, are not
   the top bar. Their right end is the Core island, then the island of the theme toggle.
   On the project splash, the Settings gear shares the island of the theme toggle.
