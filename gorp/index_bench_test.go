@@ -239,6 +239,64 @@ func BenchmarkLookupUpdate(b *testing.B) {
 	}
 }
 
+// BenchmarkTableCreate creates one entry per op through a Table with one index of each
+// kind, so allocs/op shows what the index adds to a write.
+func BenchmarkTableCreate(b *testing.B) {
+	for _, tc := range []struct {
+		kind    string
+		indexes func() []gorp.Index[int32, indexBenchEntry]
+	}{
+		{"none", func() []gorp.Index[int32, indexBenchEntry] { return nil }},
+		{"lookup", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewLookupIndex(
+				"name", func(e *indexBenchEntry) string { return e.Name },
+			)}
+		}},
+		{"sorted", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewSortedIndex(
+				"score", func(e *indexBenchEntry) int64 { return e.Score },
+			)}
+		}},
+		{"search", func() []gorp.Index[int32, indexBenchEntry] {
+			return []gorp.Index[int32, indexBenchEntry]{gorp.NewSearchIndex(
+				"name", func(e *indexBenchEntry) []string { return []string{e.Name} },
+			)}
+		}},
+	} {
+		b.Run("index="+tc.kind, func(b *testing.B) {
+			db := openBenchDB(b)
+			ctx := context.Background()
+			table, err := gorp.OpenTable(
+				ctx,
+				gorp.TableConfig[int32, indexBenchEntry]{
+					DB:      db,
+					Indexes: tc.indexes(),
+				},
+			)
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer func() {
+				if err := table.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := range b.N {
+				e := indexBenchEntry{
+					ID:    int32(i),
+					Name:  "new-" + strconv.Itoa(i),
+					Score: int64(i),
+				}
+				if err := table.NewCreate().Entry(&e).Exec(ctx, db); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	}
+}
+
 // --- Sorted index ---
 
 // BenchmarkSortedSetup is the cold-start path for a SortedIndex index. Asserts
