@@ -13,12 +13,10 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/text"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -179,12 +177,12 @@ func renameSource(src *arc.Source, rename func(string) (string, bool)) bool {
 }
 
 // newRenameReport returns a migration that writes a warning status for each rename that
-// the name and clash passes staged, renames the storage of each renamed channel in ts,
-// and then deletes the staged renames.
+// the name and clash passes staged, renames the storage of each renamed channel through
+// channels, and then deletes the staged renames.
 func newRenameReport(
 	res *resource.Service,
 	statuses *status.Service,
-	ts *cesium.DB,
+	channels *channel.Service,
 ) gorp.Migration {
 	return migrate.New(
 		"v63_report_renames",
@@ -193,28 +191,19 @@ func newRenameReport(
 			if err != nil || len(renames) == 0 {
 				return err
 			}
-			ids := make([]resource.ID, len(renames))
-			for i, r := range renames {
-				ids[i] = r.ID
-			}
-			found, err := res.Retrieve(ctx, tx, ids...)
+			names, err := renamedNames(ctx, tx, res, renames)
 			if err != nil {
 				return err
 			}
-			names := make(map[resource.ID]string, len(found))
-			for _, r := range found {
-				names[r.ID] = r.Name
-			}
 			var (
 				w      = statuses.NewWriter(tx)
-				stored = make(map[cesium.ChannelKey]string)
+				stored = make(map[channel.Key]string)
 			)
 			for _, r := range renames {
-				name, ok := names[r.ID]
-				if !ok {
-					return errors.Newf("staged rename of %s names no record", r.ID)
+				s, err := renameStatus(r, names[r.ID])
+				if err != nil {
+					return err
 				}
-				s := renameStatus(r, name)
 				if err = w.Set(ctx, &s); err != nil {
 					return err
 				}
@@ -225,12 +214,9 @@ func newRenameReport(
 				if err != nil {
 					return err
 				}
-				// A free channel has no storage.
-				if !key.Free() {
-					stored[cesium.ChannelKey(key)] = name
-				}
+				stored[key] = names[r.ID]
 			}
-			if err = ts.RenameChannels(ctx, stored); err != nil {
+			if err = channels.RenameStorage(ctx, stored); err != nil {
 				return err
 			}
 			return resourcev0.ClearRenames(ctx, tx)
@@ -238,12 +224,50 @@ func newRenameReport(
 	)
 }
 
+// renamedNames returns the name that each renamed channel and folder holds now, by
+// resource ID.
+func renamedNames(
+	ctx context.Context,
+	tx gorp.Tx,
+	res *resource.Service,
+	renames []resourcev0.Rename,
+) (map[resource.ID]string, error) {
+	ids := make([]resource.ID, len(renames))
+	for i, r := range renames {
+		if r.ID.Type != resource.TypeChannel && r.ID.Type != resource.TypeGroup {
+			return nil, errors.Newf(
+				"staged rename of %s is not of a channel or a folder",
+				r.ID,
+			)
+		}
+		ids[i] = r.ID
+	}
+	found, err := res.Retrieve(ctx, tx, ids...)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[resource.ID]string, len(found))
+	for _, r := range found {
+		names[r.ID] = r.Name
+	}
+	for _, id := range ids {
+		if _, ok := names[id]; !ok {
+			return nil, errors.Newf("staged rename of %s names no record", id)
+		}
+	}
+	return names, nil
+}
+
 // renameStatus returns the warning status that reports the rename r of a resource that
 // now holds name.
-func renameStatus(r resourcev0.Rename, name string) status.Status[any] {
+func renameStatus(r resourcev0.Rename, name string) (status.Status[any], error) {
 	noun := "channel"
 	if r.ID.Type == resource.TypeGroup {
 		noun = "folder"
+	}
+	reason, err := renameReason(r.Reason, noun)
+	if err != nil {
+		return status.Status[any]{}, errors.Wrapf(err, "staged rename of %s", r.ID)
 	}
 	return status.Status[any]{
 		Name:    name,
@@ -255,25 +279,33 @@ func renameStatus(r resourcev0.Rename, name string) status.Status[any] {
 			noun,
 			r.From,
 			name,
-			renameReason(r.From, noun),
+			reason,
 		),
 		Time: telem.Now(),
-	}
+	}, nil
 }
 
-// renameReason returns why the name passes renamed a noun that held the name from.
-func renameReason(from, noun string) string {
-	switch {
-	case !utf8.ValidString(from):
-		return "the old name held bytes that are not valid text"
-	case strings.Contains(from, "."):
-		return "a '.' now separates the folders of a path, so a name cannot hold one"
-	case from == "":
-		return "the old name was empty"
-	case noun == "folder":
-		return "another folder or a channel beside it held the same name"
+// renameReason returns why the upgrade renamed a noun for reason.
+func renameReason(reason resourcev0.Reason, noun string) (string, error) {
+	switch reason {
+	case resourcev0.ReasonInvalidBytes:
+		return "the old name held bytes that are not valid text", nil
+	case resourcev0.ReasonSeparator:
+		return "a '.' now separates the folders of a path, so a name cannot hold one", nil
+	case resourcev0.ReasonEmpty:
+		return "the old name was empty", nil
+	case resourcev0.ReasonRepeat:
+		if noun == "folder" {
+			return "another folder beside it held the same name", nil
+		}
+		return "another channel in the same folder held the same name", nil
+	case resourcev0.ReasonClash:
+		if noun == "folder" {
+			return "a channel beside it held the same name", nil
+		}
+		return "a folder beside it held the same name", nil
 	}
-	return "another channel or a folder beside it held the same name"
+	return "", errors.Newf("unknown reason %d", reason)
 }
 
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.

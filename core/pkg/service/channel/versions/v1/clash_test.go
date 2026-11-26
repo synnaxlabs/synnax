@@ -103,8 +103,16 @@ var _ = Describe("NewClashMigration", func() {
 				second: "pt_2",
 			}))
 			Expect(MustSucceed(resource.StagedRenames(db))).To(ConsistOf(
-				resource.Rename{ID: folder(first, "", nil).ResourceID(), From: "Rigs"},
-				resource.Rename{ID: folder(second, "", nil).ResourceID(), From: "pt"},
+				resource.Rename{
+					ID:     folder(first, "", nil).ResourceID(),
+					From:   "Rigs",
+					Reason: resource.ReasonClash,
+				},
+				resource.Rename{
+					ID:     folder(second, "", nil).ResourceID(),
+					From:   "pt",
+					Reason: resource.ReasonClash,
+				},
 			))
 		})
 
@@ -136,7 +144,13 @@ var _ = Describe("NewClashMigration", func() {
 	It("Should rename a channel that a name pass renamed and not the folder",
 		func(ctx SpecContext) {
 			ch := channel(1, "a_b", nil)
-			Expect(resource.StageRename(ctx, db, ch.ResourceID(), "a.b")).To(Succeed())
+			Expect(resource.StageRename(
+				ctx,
+				db,
+				ch.ResourceID(),
+				"a.b",
+				resource.ReasonSeparator,
+			)).To(Succeed())
 			channels, folders := migrate(
 				ctx,
 				clash,
@@ -146,7 +160,11 @@ var _ = Describe("NewClashMigration", func() {
 			Expect(channels[1]).To(Equal("a_b_2"))
 			Expect(folders[first]).To(Equal("a_b"))
 			Expect(MustSucceed(resource.StagedRenames(db))).To(ConsistOf(
-				resource.Rename{ID: ch.ResourceID(), From: "a.b"},
+				resource.Rename{
+					ID:     ch.ResourceID(),
+					From:   "a.b",
+					Reason: resource.ReasonSeparator,
+				},
 			))
 		})
 

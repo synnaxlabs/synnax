@@ -133,7 +133,7 @@ func OpenTable[K Key, E Entry[K]](
 	}
 	// The migrations of other tables can write references to the table while its own
 	// migrations run.
-	if err := t.register(cfg.Name != "" || len(t.uniques) > 0); err != nil {
+	if err := t.register(cfg.Name != ""); err != nil {
 		return nil, err
 	}
 	if err := Migrate(ctx, MigrateConfig{

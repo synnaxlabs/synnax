@@ -14,6 +14,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -21,8 +22,40 @@ import (
 )
 
 // renamePrefix starts the key of each staged rename. The rest of the key is the
-// resource ID, and the value is the name before the first rename.
+// resource ID, and the value is the reason of the first rename in one byte, then the
+// name before it.
 const renamePrefix = "sy_v63_staged_rename/"
+
+// Reason is why the upgrade renamed a resource.
+type Reason uint8
+
+const (
+	// ReasonInvalidBytes is a name that held bytes that are not valid UTF-8.
+	ReasonInvalidBytes Reason = iota + 1
+	// ReasonSeparator is a name that held a '.', which separates the folders of a path.
+	ReasonSeparator
+	// ReasonEmpty is an empty name.
+	ReasonEmpty
+	// ReasonRepeat is a name that another resource of the same kind beside it held.
+	ReasonRepeat
+	// ReasonClash is a name that a resource of the other kind beside it held: a channel
+	// beside a folder, or a folder beside a channel.
+	ReasonClash
+)
+
+// RenameReason returns why a name pass renames a resource that holds name: what in name
+// a path cannot hold, or else ReasonRepeat.
+func RenameReason(name string) Reason {
+	switch {
+	case !utf8.ValidString(name):
+		return ReasonInvalidBytes
+	case strings.ContainsRune(name, '.'):
+		return ReasonSeparator
+	case name == "":
+		return ReasonEmpty
+	}
+	return ReasonRepeat
+}
 
 // Rename is a stored resource that the upgrade renamed.
 type Rename struct {
@@ -30,13 +63,21 @@ type Rename struct {
 	ID ID
 	// From is the name that the resource held before the upgrade.
 	From string
+	// Reason is why the upgrade first renamed the resource.
+	Reason Reason
 }
 
 func renameKey(id ID) []byte { return []byte(renamePrefix + id.String()) }
 
-// StageRename records that the upgrade renamed the resource id from the name from. A
-// later rename of id keeps the first from.
-func StageRename(ctx context.Context, tx kv.ReadWriter, id ID, from string) error {
+// StageRename records that the upgrade renamed the resource id from the name from, for
+// reason. A later rename of id keeps the first from and reason.
+func StageRename(
+	ctx context.Context,
+	tx kv.ReadWriter,
+	id ID,
+	from string,
+	reason Reason,
+) error {
 	key := renameKey(id)
 	_, closer, err := tx.Get(key)
 	if err == nil {
@@ -45,7 +86,7 @@ func StageRename(ctx context.Context, tx kv.ReadWriter, id ID, from string) erro
 	if !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
-	return tx.Set(ctx, key, []byte(from))
+	return tx.Set(ctx, key, append([]byte{byte(reason)}, from...))
 }
 
 // StagedRenames returns each rename that StageRename recorded, in the order of their
@@ -62,9 +103,14 @@ func StagedRenames(r kv.Reader) (renames []Rename, err error) {
 		if !ok {
 			return nil, errors.Newf("staged rename has no resource ID: %q", id)
 		}
+		value := iter.Value()
+		if len(value) == 0 {
+			return nil, errors.Newf("staged rename of %s has no reason", id)
+		}
 		renames = append(renames, Rename{
-			ID:   ID{Type: Type(typ), Key: key},
-			From: string(iter.Value()),
+			ID:     ID{Type: Type(typ), Key: key},
+			From:   string(value[1:]),
+			Reason: Reason(value[0]),
 		})
 	}
 	return renames, iter.Error()

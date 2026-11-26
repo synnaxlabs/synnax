@@ -27,22 +27,46 @@ var _ = Describe("Renames", func() {
 		}
 	)
 
-	It("Should keep the first name of a resource that the upgrade renames twice",
-		func(ctx SpecContext) {
-			kv := DeferClose(memkv.New())
-			Expect(v0.StageRename(ctx, kv, pressure, "pt.01")).To(Succeed())
-			Expect(v0.StageRename(ctx, kv, stand, "Stand A")).To(Succeed())
-			Expect(v0.StageRename(ctx, kv, pressure, "pt_01")).To(Succeed())
-			Expect(MustSucceed(v0.StagedRenames(kv))).To(Equal([]v0.Rename{
-				{ID: pressure, From: "pt.01"},
-				{ID: stand, From: "Stand A"},
-			}))
-		})
+	It("Should keep the first name and reason of a resource that the upgrade renames "+
+		"twice", func(ctx SpecContext) {
+		kv := DeferClose(memkv.New())
+		Expect(v0.StageRename(ctx, kv, pressure, "pt.01", v0.ReasonSeparator)).
+			To(Succeed())
+		Expect(v0.StageRename(ctx, kv, stand, "Stand A", v0.ReasonRepeat)).To(Succeed())
+		Expect(
+			v0.StageRename(ctx, kv, pressure, "pt_01", v0.ReasonRepeat),
+		).To(Succeed())
+		Expect(MustSucceed(v0.StagedRenames(kv))).To(Equal([]v0.Rename{
+			{ID: pressure, From: "pt.01", Reason: v0.ReasonSeparator},
+			{ID: stand, From: "Stand A", Reason: v0.ReasonRepeat},
+		}))
+	})
+
+	It("Should keep an old name that holds any byte", func(ctx SpecContext) {
+		kv := DeferClose(memkv.New())
+		Expect(v0.StageRename(ctx, kv, pressure, "\x00pt\xff", v0.ReasonInvalidBytes)).
+			To(Succeed())
+		Expect(MustSucceed(v0.StagedRenames(kv))).To(Equal([]v0.Rename{
+			{ID: pressure, From: "\x00pt\xff", Reason: v0.ReasonInvalidBytes},
+		}))
+	})
+
+	DescribeTable("RenameReason",
+		func(name string, expected v0.Reason) {
+			Expect(v0.RenameReason(name)).To(Equal(expected))
+		},
+		Entry("invalid bytes", "pt\xff", v0.ReasonInvalidBytes),
+		Entry("invalid bytes before a separator", "a.\xff", v0.ReasonInvalidBytes),
+		Entry("a separator", "a.b", v0.ReasonSeparator),
+		Entry("an empty name", "", v0.ReasonEmpty),
+		Entry("a name a path can hold", "pt", v0.ReasonRepeat),
+	)
 
 	It("Should delete every staged rename", func(ctx SpecContext) {
 		kv := DeferClose(memkv.New())
-		Expect(v0.StageRename(ctx, kv, pressure, "pt.01")).To(Succeed())
-		Expect(v0.StageRename(ctx, kv, stand, "Stand A")).To(Succeed())
+		Expect(v0.StageRename(ctx, kv, pressure, "pt.01", v0.ReasonSeparator)).
+			To(Succeed())
+		Expect(v0.StageRename(ctx, kv, stand, "Stand A", v0.ReasonRepeat)).To(Succeed())
 		Expect(v0.ClearRenames(ctx, kv)).To(Succeed())
 		Expect(MustSucceed(v0.StagedRenames(kv))).To(BeEmpty())
 	})

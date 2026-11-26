@@ -203,7 +203,13 @@ func (c *clash) moveChannel(ctx context.Context, ch Channel, parent group.Key) e
 	})
 	c.names.Add(name)
 	c.siblings.Add(sibling{group: parent, name: name})
-	if err := resource.StageRename(ctx, c.tx, ch.ResourceID(), ch.Name); err != nil {
+	if err := resource.StageRename(
+		ctx,
+		c.tx,
+		ch.ResourceID(),
+		ch.Name,
+		resource.ReasonClash,
+	); err != nil {
 		return err
 	}
 	ch.Name = name
@@ -220,7 +226,13 @@ func (c *clash) moveFolder(ctx context.Context, i int) error {
 	)
 	c.siblings.Add(sibling{group: parent, name: name})
 	c.at[i].name = name
-	if err := resource.StageRename(ctx, c.tx, f.ResourceID(), f.Name); err != nil {
+	if err := resource.StageRename(
+		ctx,
+		c.tx,
+		f.ResourceID(),
+		f.Name,
+		resource.ReasonClash,
+	); err != nil {
 		return err
 	}
 	f.Name = name

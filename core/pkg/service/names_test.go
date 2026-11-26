@@ -317,14 +317,14 @@ var _ = Describe("Name upgrade", func() {
 			))
 			Expect(statuses["pressure_2"].Description).To(Equal(
 				`The upgrade renamed channel "pressure" to "pressure_2", because ` +
-					"another channel or a folder beside it held the same name. Update " +
-					"each reference to the old name outside Synnax.",
+					"another channel in the same folder held the same name. Update each " +
+					"reference to the old name outside Synnax.",
 			))
 			Expect(statuses["pt�"].Description).To(ContainSubstring(
 				"because the old name held bytes that are not valid text.",
 			))
 			Expect(statuses["Rigs_2"].Description).To(ContainSubstring(
-				"because another folder or a channel beside it held the same name.",
+				"because another folder beside it held the same name.",
 			))
 			Expect(MustSucceed(resourcev0.StagedRenames(n.DB))).To(BeEmpty())
 		})
@@ -377,9 +377,9 @@ var _ = Describe("Name upgrade", func() {
 			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("Rigs"))
 			Expect(folderName(ctx, n, rigs.Key)).To(Equal("Rigs_2"))
 			Expect(renameStatuses(ctx, n)["Rigs_2"].Description).To(Equal(
-				`The upgrade renamed folder "Rigs" to "Rigs_2", because another ` +
-					"folder or a channel beside it held the same name. Update each " +
-					"reference to the old name outside Synnax.",
+				`The upgrade renamed folder "Rigs" to "Rigs_2", because a channel ` +
+					"beside it held the same name. Update each reference to the old " +
+					"name outside Synnax.",
 			))
 		})
 
@@ -406,9 +406,9 @@ var _ = Describe("Name upgrade", func() {
 			statuses := renameStatuses(ctx, n)
 			Expect(statuses).To(HaveLen(1))
 			Expect(statuses["Metrics_2"].Description).To(Equal(
-				`The upgrade renamed channel "Metrics" to "Metrics_2", because ` +
-					"another channel or a folder beside it held the same name. Update " +
-					"each reference to the old name outside Synnax.",
+				`The upgrade renamed channel "Metrics" to "Metrics_2", because a ` +
+					"folder beside it held the same name. Update each reference to the " +
+					"old name outside Synnax.",
 			))
 		}
 		first := MustSucceed(svctestutil.OpenLayer(ctx, n))
@@ -424,6 +424,29 @@ var _ = Describe("Name upgrade", func() {
 		MustOpen(svctestutil.OpenLayer(ctx, n))
 		check()
 	})
+
+	It("Should fail on a staged rename of a resource that is not a channel or a folder",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			storeV062(ctx, n, nil, func([]channelv1.Channel) {})
+			id := resource.ID{Type: resource.TypeTask, Key: "1"}
+			Expect(
+				resourcev0.StageRename(
+					ctx,
+					n.DB,
+					id,
+					"t.1",
+					resourcev0.ReasonSeparator,
+				),
+			).
+				To(Succeed())
+			Expect(
+				svctestutil.OpenLayer(ctx, n),
+			).Error().
+				To(MatchError(ContainSubstring(
+					"staged rename of task:1 is not of a channel or a folder",
+				)))
+		})
 
 	It("Should rename the storage of a renamed channel", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)

@@ -29,9 +29,10 @@ const MetricsFolder = "Metrics"
 // holds, and stages each rename (resource.StageRename). Names in NFC come first, then
 // the rest, each by key, which is a random order for v4 UUIDs. A new name is
 // resource.SanitizeName of the old one, or "folder" when that is empty, with the first
-// suffix (_2, _3) that no other folder in the same parent holds. It leaves each
-// top-level MetricsFolder to the clash pass of the channel table, which knows the one
-// that the Core uses. It runs after the step that sets each parent.
+// suffix (_2, _3) that no other folder in the same parent holds. It writes each name
+// that it keeps in NFC, with no staged rename. It leaves each top-level MetricsFolder
+// to the clash pass of the channel table, which knows the one that the Core uses. It
+// runs after the step that sets each parent.
 var NameRuleMigration = migrate.New("v63_folder_name_rule", migrateNameRule)
 
 // sibling is a name in a parent, or at the top when parent is zero.
@@ -82,9 +83,13 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			taken.Add(at)
 		}
 	}
-	var renamed []Group
+	var changed []Group
 	for i, g := range groups {
 		if !moves[i] {
+			if nfc := resource.NormalizeName(g.Name); nfc != g.Name {
+				g.Name = nfc
+				changed = append(changed, g)
+			}
 			continue
 		}
 		parent := parentOf(g)
@@ -96,13 +101,19 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			return taken.Contains(sibling{parent: parent, name: name})
 		})
 		taken.Add(sibling{parent: parent, name: name})
-		if err := resource.StageRename(ctx, tx, g.ResourceID(), g.Name); err != nil {
+		if err := resource.StageRename(
+			ctx,
+			tx,
+			g.ResourceID(),
+			g.Name,
+			resource.RenameReason(g.Name),
+		); err != nil {
 			return err
 		}
 		g.Name = name
-		renamed = append(renamed, g)
+		changed = append(changed, g)
 	}
-	return gorp.WrapWriter[Key, Group](tx).Set(ctx, renamed...)
+	return gorp.WrapWriter[Key, Group](tx).Set(ctx, changed...)
 }
 
 func parentOf(g Group) resource.ID {

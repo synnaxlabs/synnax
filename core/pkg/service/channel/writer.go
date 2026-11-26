@@ -10,7 +10,6 @@
 package channel
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -143,7 +142,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 		}
 	}
 	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return nil, nameTaken(err, 0)
+		return nil, err
 	}
 	// Opening the service clears the index of a calculated channel when it is missing.
 	if next.IsCalculated() && next.LocalIndex != 0 &&
@@ -552,46 +551,36 @@ func addPosition(positions set.Set[int], at int) set.Set[int] {
 	return positions
 }
 
-// resetStoredNames resets each channel whose name exists to its stored record.
+// resetStoredNames resets each channel whose name exists to its stored record. Of
+// channels in two folders with the name, it takes the one with the highest key, which a
+// v0.62 Core retrieved and Arc binds the name to.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
 	reset set.Set[int],
 ) (set.Set[int], error) {
-	names := Names(channels)
-	normal := NormalizeNames(names)
+	names := NormalizeNames(Names(channels))
 	var existing []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(lo.Uniq(slices.Concat(names, normal))...)).
+		Where(MatchNames(names...)).
 		Entries(&existing).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	exact, normalPositions := positions(names), positions(normal)
-	// A record whose name the request holds exactly wins over one that holds its NFC.
-	slices.SortStableFunc(existing, func(a, b Channel) int {
-		_, aExact := exact[a.Name]
-		_, bExact := exact[b.Name]
-		return cmp.Compare(boolRank(bExact), boolRank(aExact))
-	})
+	last := make(map[string]Channel, len(existing))
 	for _, e := range existing {
-		at, ok := exact[e.Name]
-		if !ok {
-			at = normalPositions[e.Name]
+		if prev, ok := last[e.Name]; !ok || e.Key() > prev.Key() {
+			last[e.Name] = e
 		}
-		if !reset.Contains(at[0]) {
-			channels[at[0]] = e
-			reset = addPosition(reset, at[0])
+	}
+	at := positions(names)
+	for name, e := range last {
+		if i := at[name][0]; !reset.Contains(i) {
+			channels[i] = e
+			reset = addPosition(reset, i)
 		}
 	}
 	return reset, nil
-}
-
-func boolRank(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
 }
 
 // synthesizeIndexes returns a new index channel for each calculated channel without
@@ -890,13 +879,7 @@ func (w Writer) allocateAndWrite(
 		Exec(ctx, w.tx); err != nil {
 		// A request repeats no name (validateRepeatedNames), so the name of a clash
 		// sits at one position.
-		at, name := -1, takenName(err)
-		for _, i := range newIndices {
-			if channels[i].Name == name {
-				at = i
-			}
-		}
-		return nameTaken(err, at)
+		return nameTaken(err, Names(channels))
 	}
 	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 		stored := channel.ToStorage(allocated)
@@ -1006,31 +989,33 @@ func validateRepeatedNames(names []string) error {
 	return nil
 }
 
-// takenName returns the name of a clash of the name index, or "" when err is not one.
-func takenName(err error) string {
-	var clash gorp.UniqueError
-	if errors.As(err, &clash) && clash.Space == nameSpace {
-		name, _ := clash.Value.(string)
-		return name
-	}
-	return ""
-}
-
-// nameTaken returns err as a validation error at the name of the channel at position i
-// of a request when err is a clash of the name index, and returns err unchanged
+// nameTaken returns err as a validation error at the position in names of the name
+// that clashes when err is a clash of the name index, and returns err unchanged
 // otherwise.
-func nameTaken(err error, i int) error {
+func nameTaken(err error, names []string) error {
 	var clash gorp.UniqueError
 	if !errors.As(err, &clash) || clash.Space != nameSpace {
 		return err
 	}
+	name, _ := clash.Value.(string)
+	i := slices.Index(names, name)
+	if i < 0 {
+		return err
+	}
+	return nameExists(name, i)
+}
+
+// nameExists returns the validation error of a request that gives the channel at
+// position i a name that another channel holds.
+func nameExists(name string, i int) error {
 	return validate.PathedError(
 		errors.Wrapf(
 			validate.ErrValidation,
 			"channel with name '%v' already exists",
-			clash.Value,
+			name,
 		),
-		strconv.Itoa(i), "name",
+		strconv.Itoa(i),
+		"name",
 	)
 }
 
@@ -1078,6 +1063,9 @@ func (w Writer) rename(
 	if err := validateRepeatedNames(names); err != nil {
 		return err
 	}
+	if err := w.checkChainedRenames(ctx, keys, names); err != nil {
+		return err
+	}
 	renameMap := make(map[Key]string, len(keys))
 	for i, key := range keys {
 		renameMap[key] = names[i]
@@ -1094,20 +1082,22 @@ func (w Writer) rename(
 					)
 			}
 			// A stored name that the rule refuses stays writable while a rename keeps
-			// it.
-			if next := renameMap[c.Key()]; next != c.Name {
+			// it, in any normal form.
+			next := renameMap[c.Key()]
+			if next != validate.NormalizeName(c.Name) {
 				if err := checkNameRule(next, *w.svc.cfg.ValidateNames); err != nil {
-					return Channel{}, err
+					i := strconv.Itoa(slices.Index(keys, c.Key()))
+					return Channel{}, validate.PathedError(err, i, "name")
 				}
-				c.Name = next
 			}
+			c.Name = next
 			if err := c.Validate(); err != nil {
 				return Channel{}, err
 			}
 			return c, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return nameTaken(err, slices.Index(names, takenName(err)))
+		return nameTaken(err, names)
 	}
 	for i, key := range keys {
 		w.svc.renames.Add(w.tx, rename{key: key, name: names[i]})
@@ -1117,6 +1107,33 @@ func (w Writer) rename(
 		gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
 			return w.renameStored(ctx, count)
 		})
+	}
+	return nil
+}
+
+// checkChainedRenames refuses a rename of a channel to the name that another channel of
+// the same request holds now. The rename writes one channel at a time, so without it
+// the outcome would depend on which channel has the lower key.
+func (w Writer) checkChainedRenames(
+	ctx context.Context,
+	keys Keys,
+	names []string,
+) error {
+	var renamed []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Entries(&renamed).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	held := make(map[string]Key, len(renamed))
+	for _, c := range renamed {
+		held[validate.NormalizeName(c.Name)] = c.Key()
+	}
+	for i, name := range names {
+		if k, ok := held[name]; ok && k != keys[i] {
+			return nameExists(name, i)
+		}
 	}
 	return nil
 }
@@ -1139,7 +1156,7 @@ func (w Writer) renameStored(ctx context.Context, count int) error {
 	for _, r := range renames {
 		names[r.key] = r.name
 	}
-	return w.svc.renameStorage(ctx, names)
+	return w.svc.RenameStorage(ctx, names)
 }
 
 // positions maps each value in vals to the positions that hold it, in ascending order.

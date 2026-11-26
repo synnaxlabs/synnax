@@ -128,6 +128,7 @@ func BenchmarkOpenService(b *testing.B) {
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
+		TS:      node.Storage.TS,
 	}
 	open := func() *channel.Service {
 		svc, err := channel.OpenService(ctx, cfg)

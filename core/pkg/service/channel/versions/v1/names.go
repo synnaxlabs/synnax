@@ -28,8 +28,9 @@ import (
 // their names, then names in NFC, then the rest, each from the highest key down,
 // because a v0.62 Core bound a repeated name to its last channel in key order. A new
 // name is resource.SanitizeName of the old one, or "channel_<key>" when that is empty,
-// with the first suffix (_2, _3) that no other channel holds. It runs after the step
-// that names each unnamed channel.
+// with the first suffix (_2, _3) that no other channel holds. It writes each name of a
+// user channel that it keeps in NFC, with no staged rename. It runs after the step that
+// names each unnamed channel.
 var NameRuleMigration = migrate.New("v63_channel_name_rule", migrateNameRule)
 
 // sibling is a name in a group, or in no group when group is zero.
@@ -81,9 +82,13 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			taken.Add(at.name)
 		}
 	}
-	var renamed []Channel
+	var changed []Channel
 	for i, c := range channels {
 		if !moves[i] {
+			if nfc := resource.NormalizeName(c.Name); !c.Internal && nfc != c.Name {
+				c.Name = nfc
+				changed = append(changed, c)
+			}
 			continue
 		}
 		base := resource.SanitizeName(c.Name)
@@ -92,11 +97,17 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		}
 		name := resource.FreeName(base, taken.Contains)
 		taken.Add(name)
-		if err := resource.StageRename(ctx, tx, c.ResourceID(), c.Name); err != nil {
+		if err := resource.StageRename(
+			ctx,
+			tx,
+			c.ResourceID(),
+			c.Name,
+			resource.RenameReason(c.Name),
+		); err != nil {
 			return err
 		}
 		c.Name = name
-		renamed = append(renamed, c)
+		changed = append(changed, c)
 	}
-	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, renamed...)
+	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, changed...)
 }

@@ -65,7 +65,11 @@ var _ = Describe("NameRuleMigration", func() {
 		func(ctx SpecContext, name, expected string) {
 			Expect(migrate(ctx, folder(first, name, nil))[first]).To(Equal(expected))
 			Expect(MustSucceed(resourcev0.StagedRenames(db))).To(ConsistOf(
-				resourcev0.Rename{ID: groupID(first), From: name},
+				resourcev0.Rename{
+					ID:     groupID(first),
+					From:   name,
+					Reason: resourcev0.RenameReason(name),
+				},
 			))
 		},
 		Entry("a separator", "Stand.A", "Stand_A"),
@@ -79,9 +83,14 @@ var _ = Describe("NameRuleMigration", func() {
 			Expect(MustSucceed(resourcev0.StagedRenames(db))).To(BeEmpty())
 		},
 		Entry("a zero-width space", "Stand\u200BA"),
-		Entry("a name not in NFC", "Cafe\u0301"),
 		Entry("a no-break space alone", "\u00A0"),
 	)
+
+	It("Should write a kept name in NFC with no staged rename", func(ctx SpecContext) {
+		Expect(migrate(ctx, folder(first, "Cafe\u0301", nil))[first]).
+			To(Equal("Caf\u00E9"))
+		Expect(MustSucceed(resourcev0.StagedRenames(db))).To(BeEmpty())
+	})
 
 	It("Should keep each legal name, repeats in other parents included",
 		func(ctx SpecContext) {
