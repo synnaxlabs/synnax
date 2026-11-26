@@ -918,9 +918,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	)
 
 	// A 0.62 Core exported the fields of each HTTP read endpoint inline. The import
-	// must
-	// move each one into the message of the endpoint's ICD under its name, and bind the
-	// channel of each enabled field.
+	// must move each one into the message of the endpoint's ICD under its name, and
+	// bind the channel of each enabled field.
 	DescribeTable("moves the fields of a released 0.62 HTTP read endpoint into an ICD",
 		func(ctx SpecContext, fixture string) {
 			type binding struct {
@@ -935,11 +934,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			_, imported := importFile(ctx, raw, fixture)
 			endpoints := as[[]any](imported.Config["endpoints"])
 			for i, ep := range as[[]any](exported["endpoints"]) {
-				var (
-					names []string
-					bound []binding
-				)
-				for _, f := range as[[]any](as[map[string]any](ep)["fields"]) {
+				exportedFields := as[[]any](as[map[string]any](ep)["fields"])
+				names := make([]string, 0, len(exportedFields))
+				bound := make([]binding, 0, len(exportedFields))
+				for _, f := range exportedFields {
 					field := as[map[string]any](f)
 					names = append(names, as[string](field["name"]))
 					if !as[bool](field["disabled"]) {
@@ -962,18 +960,17 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 					return m.Key.String() == read["message"]
 				})
 				Expect(at).ToNot(Equal(-1))
-				var (
-					fieldNames []string
-					nameOf     = make(map[string]string)
-				)
 				fields := as[icd.JSONPayload](ic.Messages[at].Payload.Variant).Fields
+				fieldNames := make([]string, 0, len(fields))
+				nameOf := make(map[string]string, len(fields))
 				for _, f := range fields {
 					fieldNames = append(fieldNames, f.Base().Name)
 					nameOf[f.Base().Key.String()] = f.Base().Name
 				}
 				Expect(fieldNames).To(Equal(names))
-				var got []binding
-				for _, b := range as[[]any](read["bindings"]) {
+				bindings := as[[]any](read["bindings"])
+				got := make([]binding, 0, len(bindings))
+				for _, b := range bindings {
 					entry := as[map[string]any](b)
 					got = append(got, binding{
 						field:   nameOf[as[string](entry["field"])],
