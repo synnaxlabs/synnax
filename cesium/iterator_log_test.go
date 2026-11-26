@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -118,7 +119,132 @@ func (f *openFile) Close() error {
 	return f.File.Close()
 }
 
+// readGateFS counts the opens of each file of its tree, and holds the first ReadAt of a
+// file under prefix, once armed, until release closes.
+type readGateFS struct {
+	xfs.FS
+	dir string
+	g   *readGate
+}
+
+type readGate struct {
+	mu               sync.Mutex
+	opens            map[string]int
+	prefix           string
+	armed            bool
+	entered, release chan struct{}
+}
+
+func newReadGateFS(fs xfs.FS) *readGateFS {
+	return &readGateFS{FS: fs, g: &readGate{
+		opens:   map[string]int{},
+		entered: make(chan struct{}),
+		release: make(chan struct{}),
+	}}
+}
+
+func (f *readGateFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	full := path.Join(f.dir, name)
+	f.g.mu.Lock()
+	f.g.opens[full]++
+	f.g.mu.Unlock()
+	return &readGateFile{File: file, name: full, g: f.g}, nil
+}
+
+func (f *readGateFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return &readGateFS{FS: sub, dir: path.Join(f.dir, name), g: f.g}, nil
+}
+
+// arm makes the next ReadAt of a file under prefix wait for release, and counts opens
+// from zero.
+func (f *readGateFS) arm(prefix string) {
+	f.g.mu.Lock()
+	defer f.g.mu.Unlock()
+	f.g.prefix, f.g.armed = prefix, true
+	clear(f.g.opens)
+}
+
+// segmentOpensUnder returns the opens of the segment files under prefix since arm.
+func (f *readGateFS) segmentOpensUnder(prefix string) int {
+	f.g.mu.Lock()
+	defer f.g.mu.Unlock()
+	n := 0
+	for name, opens := range f.g.opens {
+		if strings.HasPrefix(name, prefix) && strings.HasSuffix(name, ".seg") {
+			n += opens
+		}
+	}
+	return n
+}
+
+type readGateFile struct {
+	xfs.File
+	name string
+	g    *readGate
+}
+
+func (f *readGateFile) ReadAt(p []byte, off int64) (int, error) {
+	g := f.g
+	g.mu.Lock()
+	hold := g.armed && strings.HasPrefix(f.name, g.prefix)
+	if hold {
+		g.armed = false
+	}
+	g.mu.Unlock()
+	if hold {
+		close(g.entered)
+		<-g.release
+	}
+	return f.File.ReadAt(p, off)
+}
+
 var _ = Describe("Reads on the pointer log", func() {
+	It("Should give a read of a segment its own open of the file while another read "+
+		"of it waits inside a read", func(ctx SpecContext) {
+		fs := newReadGateFS(xfs.NewMem())
+		db := mustOpenDBOnFS(ctx, fs, cesium.WithPointerLog())
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Start:    10 * telem.SecondTS,
+		}))
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(10, 11, 12),
+			telem.NewSeries([]int64{10, 11, 12}),
+		}), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		dir := strconv.FormatUint(uint64(data), 10) + "/"
+		fs.arm(dir)
+		first := make(chan error, 1)
+		go func() {
+			_, err := db.Read(ctx, telem.TimeRangeMax, data)
+			first <- err
+		}()
+		Eventually(fs.g.entered).Should(BeClosed())
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+		Expect(fr.Get(data).Series).To(HaveLen(1))
+		close(fs.g.release)
+		Eventually(first).Should(Receive(BeNil()))
+		Expect(fs.segmentOpensUnder(dir)).To(Equal(2))
+	})
+
 	It("Should open each segment file once across reads of its ranges", func(
 		ctx SpecContext,
 	) {
@@ -270,5 +396,49 @@ var _ = Describe("Reads on the pointer log", func() {
 		iter.Next(cesium.AutoSpan)
 		Expect(iter.Value().Get(data).Series).To(BeEmpty())
 		Expect(iter.Error()).ToNot(HaveOccurred())
+	})
+	It("Should allocate no range reader at a seek and a step of an open read", func(
+		ctx SpecContext,
+	) {
+		if raceEnabled {
+			Skip("the race detector adds allocations of its own")
+		}
+		db := mustOpenDBOnFS(ctx, xfs.NewMem(), cesium.WithPointerLog())
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		for _, start := range []telem.TimeStamp{10 * telem.SecondTS, 20 * telem.SecondTS} {
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Start:    start,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesV(start, start+telem.SecondTS, start+2*telem.SecondTS),
+				telem.NewSeriesV[int64](1, 2, 3),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+		}
+		i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Channels: []cesium.ChannelKey{data},
+			Bounds:   telem.TimeRangeMax,
+		}))
+		Expect(i.SeekFirst()).To(BeTrue())
+		// A step allocates its frame, its series data, and its index lookups.
+		allocs := testing.AllocsPerRun(100, func() {
+			i.SeekGE(20 * telem.SecondTS)
+			i.Next(3 * telem.Second)
+		})
+		series := i.Value().Get(data).Series
+		Expect(series).To(HaveLen(1))
+		Expect(series[0].Len()).To(Equal(int64(3)))
+		Expect(allocs).To(BeNumerically("<=", 9))
+		Expect(i.Close()).To(Succeed())
 	})
 })
