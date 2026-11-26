@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { icd } from "@synnaxlabs/client";
+import type { channel, icd } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -28,6 +28,7 @@ import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
 import { Tree as ICDTree } from "@/platform/icd/tree";
 import { FieldDetails } from "@/platform/icd/write/Details";
+import type { ChannelNaming } from "@/platform/icd/write/write";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -41,8 +42,8 @@ export interface TargetMessage {
   message: icd.MessageKey;
   /** The path of the target's message in the task's form. */
   path: deep.Path<icd.WriteMessage>;
-  /** @returns the name of the command channel that deploying creates for field. */
-  channelName: (field: TreeField) => string;
+  /** Keys and names the command channels of the fields, as deploying does. */
+  naming: ChannelNaming;
 }
 
 /** The details of the selected item, as Task.Views.Panes shows them. */
@@ -84,6 +85,8 @@ export interface UseTreeArgs<T extends Target> {
   targetPane: (target: T, onAddField: () => void) => Pane;
   /** @returns a copy of a target with a new key. Omitted, the menu has no Duplicate. */
   duplicate?: (target: T) => T;
+  /** The plan of each command channel, as Task.useCommandChannelPlans gives it. */
+  plans: ReadonlyMap<string, Task.CommandChannelPlan>;
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
@@ -123,16 +126,33 @@ export const expandedOf = <T extends Target>(
 /** Each target key, the name of its group, and its message and fields, or null. */
 type Structure = [string, string | null, [icd.MessageKey, TreeField[]] | null][];
 
+/**
+ * @returns the stored channel that deploying keeps for a field with no channel, or 0,
+ * and the name of the channel that it creates.
+ */
+const plannedOf = (
+  plans: ReadonlyMap<string, Task.CommandChannelPlan>,
+  { naming }: TargetMessage,
+  field: TreeField,
+): { stored: channel.Key; name: string } => {
+  const plan = plans.get(naming.key(field));
+  if (plan == null || "keeps" in plan)
+    return { stored: plan?.keeps ?? 0, name: naming.name(field) };
+  return { stored: 0, name: plan.creates };
+};
+
 interface FieldItemProps extends Tree.ItemRenderProps<string> {
   bindingsPath: deep.Path<icd.WriteBinding[]>;
   disabledPath: deep.Path<boolean>;
   field: TreeField;
+  stored: channel.Key;
 }
 
 const FieldItem = ({
   bindingsPath: path,
   disabledPath,
   field,
+  stored,
   ...props
 }: FieldItemProps) => {
   const bindings = PForm.useFieldValue(path);
@@ -149,6 +169,7 @@ const FieldItem = ({
       }
       off={false}
       skipped={skipped}
+      stored={stored}
     >
       {source !== "channel" && (
         <Text.Text level="small" color={8}>
@@ -171,6 +192,7 @@ export const useTree = <T extends Target>({
   TargetItem,
   targetPane,
   duplicate,
+  plans,
   selected,
   onSelect,
   expanded,
@@ -458,6 +480,7 @@ export const useTree = <T extends Target>({
           bindingsPath={sent.path.bindings}
           disabledPath={disabledPath(node.target)}
           field={node.field}
+          stored={plannedOf(plans, sent, node.field).stored}
         />
       );
     }
@@ -468,6 +491,7 @@ export const useTree = <T extends Target>({
   const paneOf = (node: Node, target: T): Pane => {
     if (node.kind === "target") return targetPane(target, () => addField(target.key));
     const sent = sending(node.target);
+    const planned = plannedOf(plans, sent, node.field);
     const i = ctx
       .get(sent.path.bindings)
       .value.findIndex(({ field }) => field === node.field.key);
@@ -485,7 +509,8 @@ export const useTree = <T extends Target>({
           icdKey={sent.icd}
           message={sent.message}
           field={node.field.key}
-          channelName={sent.channelName(node.field)}
+          channelName={planned.name}
+          stored={planned.stored}
           skipped={target.disabled}
           autoFocus={node.field.key === added}
           created={created.includes(node.field.key)}
