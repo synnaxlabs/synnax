@@ -92,7 +92,7 @@ const READOUTS: Array<[string, () => ReactElement]> = [
   ],
 ];
 
-describe.each(READOUTS)("Stale.Indicator on a %s", (_, node) => {
+describe.each(READOUTS)("Indicator.Slot on a %s", (_, node) => {
   it("should show the indicator below the readout", async () => {
     const { findByRole } = render(
       <Wrapper>

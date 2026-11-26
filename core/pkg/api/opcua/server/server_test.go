@@ -19,6 +19,8 @@ import (
 	apiserver "github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -30,7 +32,17 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var serverType = resource.ID{Type: resource.TypeOpcuaServer}
+var (
+	serverType = resource.ID{Type: resource.TypeOpcuaServer}
+	statusType = resource.ID{Type: resource.TypeStatus}
+	// channelType lets a user bind any channel, which a write needs to use it.
+	channelType = resource.ID{Type: resource.TypeChannel}
+	allWrites   = []access.Action{
+		access.ActionCreate,
+		access.ActionUpdate,
+		access.ActionDelete,
+	}
+)
 
 var _ = Describe("Service", func() {
 	var u user.User
@@ -52,17 +64,30 @@ var _ = Describe("Service", func() {
 		GinkgoHelper()
 		grant(ctx, u, []access.Action{access.ActionRetrieve}, serverType)
 	}
+	// grantWrites lets u write any OPC UA server, its status, and the rack it sits on.
+	grantWrites := func(ctx SpecContext, r rack.Key) {
+		GinkgoHelper()
+		grant(ctx, u, allWrites, serverType, statusType)
+		grant(ctx, u, []access.Action{access.ActionUpdate}, r.ResourceID())
+	}
+	retrieveServer := func(ctx SpecContext, key server.Key) server.Server {
+		GinkgoHelper()
+		var s server.Server
+		Expect(svc.OPCUA.Servers.NewRetrieve().
+			Where(server.MatchKeys(key)).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		return s
+	}
 	createServer := func(ctx SpecContext, overrides ...func(*server.Server)) server.Server {
 		GinkgoHelper()
 		s := newServer(overrides...)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.NewCreate[server.Key, server.Server]().Entry(&s).Exec(ctx, tx)
+			return svc.OPCUA.Servers.NewWriter(tx).Create(ctx, &s)
 		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewDelete[server.Key, server.Server]().
-					Where(gorp.MatchKeys[server.Key, server.Server](s.Key)).
-					Exec(ctx, tx)
+				return svc.OPCUA.Servers.NewWriter(tx).Delete(ctx, s.Key)
 			})).To(Succeed())
 		})
 		return s
@@ -243,6 +268,178 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Servers).To(BeEmpty())
+		})
+	})
+
+	Describe("Create", func() {
+		It("Should mint a key when writes are granted", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			s := newServer()
+			s.Key = uuid.Nil()
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{s}},
+			))
+			key := res.Servers[0].Key
+			Expect(key).ToNot(Equal(uuid.Nil()))
+			Expect(retrieveServer(ctx, key).Name).To(Equal(s.Name))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.OPCUA.Servers.NewWriter(tx).Delete(ctx, key)
+			})).To(Succeed())
+		})
+
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			s := newServer()
+			s.Status = &server.Status{Message: "Server connected"}
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{s}},
+			))
+			Expect(res.Servers[0].Status).To(BeNil())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.OPCUA.Servers.NewWriter(tx).Delete(ctx, s.Key)
+			})).To(Succeed())
+		})
+
+		It("Should reject the request without update access on the rack", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, u, allWrites, serverType, statusType)
+			s := newServer()
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{s}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject the request when create is not granted", func(
+			ctx SpecContext,
+		) {
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{newServer()}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject an invalid server", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.CreateRequest{Servers: []server.Server{
+					newServer(func(s *server.Server) { s.Connection.Endpoint = "" }),
+				}},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+	})
+
+	Describe("Update", func() {
+		rename := func(s server.Server) apiserver.UpdateRequest {
+			return apiserver.UpdateRequest{
+				Key: s.Key,
+				Update: server.Update{Variant: server.IdentityUpdate{
+					Identity: server.Identity{
+						Rack:       s.Rack,
+						Name:       "Renamed",
+						Connection: s.Connection,
+					},
+				}},
+			}
+		}
+
+		It("Should write only the identity group", func(ctx SpecContext) {
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
+			s := createServer(ctx, func(s *server.Server) {
+				s.Reads = []server.Read{
+					{Node: "nsu=urn:plc;s=Temp", Index: keys[0], Channel: keys[1]},
+				}
+			})
+			grantWrites(ctx, s.Rack)
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
+			got := retrieveServer(ctx, s.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Reads).To(Equal(s.Reads))
+		})
+
+		// bindValve returns an update that binds the node Valve to the channel ch.
+		bindValve := func(s server.Server, ch channel.Key) apiserver.UpdateRequest {
+			return apiserver.UpdateRequest{
+				Key: s.Key,
+				Update: server.Update{Variant: server.ConfigurationUpdate{
+					Configuration: server.Configuration{
+						Writes: []server.Write{
+							{Node: "nsu=urn:plc;s=Valve", Channel: ch},
+						},
+					},
+				}},
+			}
+		}
+
+		It("Should write only the configuration group", func(ctx SpecContext) {
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 1))[0]
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), bindValve(s, ch)))
+			got := retrieveServer(ctx, s.Key)
+			Expect(
+				got.Writes,
+			).To(Equal([]server.Write{{Node: "nsu=urn:plc;s=Valve", Channel: ch}}))
+			Expect(got.Name).To(Equal(s.Name))
+		})
+
+		It("Should reject a binding to a channel the user cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 1))[0]
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), bindValve(s, ch))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key).Writes).To(BeEmpty())
+		})
+
+		It("Should reject a request with no group", func(ctx SpecContext) {
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.UpdateRequest{Key: s.Key},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx)
+			Expect(update(testutil.AuthedCtx(ctx, u), rename(s))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key).Name).To(Equal(s.Name))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the server when delete is granted", func(ctx SpecContext) {
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			MustSucceed(del(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.DeleteRequest{Keys: []server.Key{s.Key}},
+			))
+			Expect(svc.OPCUA.Servers.NewRetrieve().
+				Where(server.MatchKeys(s.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should reject the request when delete is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apiserver.DeleteRequest{Keys: []server.Key{s.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key).Key).To(Equal(s.Key))
 		})
 	})
 })

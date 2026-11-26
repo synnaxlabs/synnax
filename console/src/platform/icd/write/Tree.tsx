@@ -26,6 +26,7 @@ import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
 import { Tree as ICDTree } from "@/platform/icd/tree";
+import type { FieldDetailsProps } from "@/platform/icd/write/Details";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -73,6 +74,7 @@ export interface UseTreeArgs<T extends Target> {
   /** The key of each selected tree item. */
   selected: string[];
   onSelect: Dispatch<SetStateAction<string[]>>;
+  /** What the tree shows open, as expandedOf and onExpand give it. */
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
 }
@@ -91,21 +93,28 @@ export interface UseTreeReturn {
    * Suit of the target binds it.
    */
   addField: (target: string) => void;
-  /** The field that addField added last, until the next click in the tree. */
-  added?: icd.FieldKey;
+  /**
+   * @returns how the details of a field edit it: the name of the field that addField
+   * added last takes the focus, and a rename of a field that addField added can move
+   * its pointer.
+   */
+  fieldProps: (field: icd.FieldKey) => FieldProps;
 }
+
+export type FieldProps = Pick<FieldDetailsProps, "autoFocus" | "created">;
 
 const groupKey = (name: string): string => `group/${name}`;
 
-/** @returns the keys that show the fields of targets: each target, and its group. */
+/** Opens the group of a target, whatever the name of the group. */
+const openKey = (target: string): string => `open/${target}`;
+
+/** @returns the expanded state that shows the fields of each target. */
 export const expandedOf = <T extends Target>(
   targets: T[],
   groups?: Groups<T>,
 ): string[] =>
   unique.unique(
-    targets.flatMap((t) =>
-      groups == null ? [t.key] : [groupKey(groups.of(t)), t.key],
-    ),
+    targets.flatMap((t) => (groups == null ? [t.key] : [openKey(t.key), t.key])),
   );
 
 /** Each target key, the name of its group, and its message and fields, or null. */
@@ -166,6 +175,7 @@ export const useTree = <T extends Target>({
   const ctx = PForm.useContext();
   const formats = useFormats();
   const [added, setAdded] = useState<icd.FieldKey>();
+  const [created, setCreated] = useState<icd.FieldKey[]>([]);
   const structure = ICDTree.useStructure(formats, (): Structure =>
     ctx.get(path).value.map((t): Structure[number] => {
       const sent = messageOf(t);
@@ -180,8 +190,8 @@ export const useTree = <T extends Target>({
   );
   const byKey = new Map<string, Node>();
   const groupNames = new Map<string, string>();
-  /** The key of the group of each target in one. */
-  const parents = new Map<string, string>();
+  /** The open key of each target in a group. */
+  const marks = new Set<string>();
   const nodes: Tree.Node[] = [];
   const groupNodes = new Map<string, Tree.Node[]>();
   for (const [target, group, sent] of structure) {
@@ -202,7 +212,7 @@ export const useTree = <T extends Target>({
       continue;
     }
     const key = groupKey(group);
-    parents.set(target, key);
+    marks.add(openKey(target));
     let children = groupNodes.get(key);
     if (children == null) {
       children = [];
@@ -212,12 +222,30 @@ export const useTree = <T extends Target>({
     }
     children.push(node);
   }
+  // A group is open while one of its targets is, so a target that moves to another
+  // group stays in view.
+  const open = new Set(expanded);
+  const shown = [
+    ...expanded.filter((k) => !marks.has(k)),
+    ...[...groupNodes]
+      .filter(([, children]) => children.some(({ key }) => open.has(openKey(key))))
+      .map(([key]) => key),
+  ];
+  const handleExpand = (arg: SetStateAction<string[]>) => {
+    const next = typeof arg === "function" ? arg(shown) : arg;
+    onExpand([
+      ...next.filter((k) => !marks.has(k) && !groupNodes.has(k)),
+      ...[...groupNodes]
+        .filter(([key]) => next.includes(key))
+        .flatMap(([, children]) => children.map(({ key }) => openKey(key))),
+    ]);
+  };
   const tree = Tree.use({
     nodes,
     selected,
     onSelectedChange: onSelect,
-    expanded,
-    onExpandedChange: onExpand,
+    expanded: shown,
+    onExpandedChange: handleExpand,
     toggleOn: "caret",
   });
 
@@ -254,9 +282,10 @@ export const useTree = <T extends Target>({
       fields.at(-1)?.key,
     );
     setAdded(field.key);
-    const parent = parents.get(target);
+    setCreated((prev) => [...prev, field.key]);
+    const mark = openKey(target);
     onExpand((prev) =>
-      unique.unique([...prev, ...(parent == null ? [] : [parent]), target]),
+      unique.unique([...prev, ...(marks.has(mark) ? [mark] : []), target]),
     );
     onSelect([ICDTree.fieldKey(target, sent.message, field.key)]);
   };
@@ -435,6 +464,9 @@ export const useTree = <T extends Target>({
     current: first == null ? undefined : byKey.get(first),
     currentGroup: first == null ? undefined : groupNames.get(first),
     addField,
-    added,
+    fieldProps: (field) => ({
+      autoFocus: field === added,
+      created: created.includes(field),
+    }),
   };
 };

@@ -136,9 +136,13 @@ const resolvePaint = (
   return show(field, paint.type);
 };
 
-const applies = (
+/**
+ * @returns whether look applies when the states of a symbol are at value. A look on a
+ * state that states lacks never applies.
+ */
+export const applies = (
   look: schematic.symbol.Look,
-  states: Map<string, schematic.symbol.State>,
+  states: ReadonlyMap<string, schematic.symbol.State>,
   value: StateValues,
 ): boolean => {
   if (look.when == null) return true;

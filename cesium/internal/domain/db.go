@@ -145,6 +145,7 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, err
 	}
 	idx := &index{onHistoryChange: cfg.OnHistoryChange}
+	idx.mu.rewrites = make(map[uint16]uint64)
 	idxPst, err := openIndexPersist(idx, cfg.FS)
 	if err != nil {
 		return nil, err
@@ -155,8 +156,9 @@ func Open(configs ...Config) (*DB, error) {
 		return nil, errors.Combine(err, idxPst.Close())
 	}
 	var initialSize int64
-	for _, p := range idx.mu.pointers {
-		initialSize += int64(p.size)
+	for i := range idx.mu.pointers {
+		idx.mu.pointers[i].id = idx.unprotectedNextID()
+		initialSize += int64(idx.mu.pointers[i].size)
 	}
 	idx.totalSize = &atomic.Int64{}
 	idx.totalSize.Store(initialSize)
