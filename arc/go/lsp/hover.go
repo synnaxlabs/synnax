@@ -566,9 +566,11 @@ func (s *Server) channelHover(
 	n parser.Name,
 	pos protocol.Position,
 ) *protocol.Hover {
-	scope := s.cfg.NewRoot()
+	var scope *symbol.Symbol
 	if d.IR.Symbols != nil {
 		scope = d.findScopeAtPosition(pos)
+	} else {
+		scope = s.cfg.NewRoot()
 	}
 	sym, err := scope.ResolveName(ctx, n, symbol.WithoutUsageTracking)
 	if err != nil || sym.Kind != symbol.KindChannel {
