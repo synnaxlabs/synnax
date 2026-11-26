@@ -19,8 +19,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // A store from before the sibling rule can hold a name in several folders.
@@ -60,7 +60,7 @@ var _ = Describe("Delete by an ambiguous name", func() {
 			Names:  []string{name},
 			Bounds: telem.TimeRangeMax,
 		})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
+			MatchError(query.ErrQuery),
 			MatchError(ContainSubstring("2 channels are named '"+name+"': '")),
 		))
 	})

@@ -26,9 +26,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // D-214: no hidden folder's name shows to a subject that cannot retrieve it. A store
@@ -86,7 +86,7 @@ var _ = Describe("Ambiguity breaker", func() {
 	// shown and counts the holder in hidden.
 	matchShownOnly := func() OmegaMatcher {
 		return SatisfyAll(
-			MatchError(validate.ErrValidation),
+			MatchError(query.ErrQuery),
 			MatchError(ContainSubstring(fmt.Sprintf(
 				"2 channels are named '%s': '%s.%s', and 1 more you cannot see",
 				name,

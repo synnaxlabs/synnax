@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Names stay unique across the Core on write, so only names stored before that rule,
@@ -76,7 +75,7 @@ var _ = Describe("Ambiguous names", func() {
 	}
 	matchAmbiguousPT := func() OmegaMatcher {
 		return SatisfyAll(
-			MatchError(validate.ErrValidation),
+			MatchError(query.ErrQuery),
 			WithTransform(func(err error) channel.Keys {
 				ambiguous, _ := errors.AsType[channel.AmbiguousNameError](err)
 				return ambiguous.Holders
