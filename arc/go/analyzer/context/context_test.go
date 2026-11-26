@@ -47,6 +47,47 @@ var _ = Describe("Context", func() {
 		})
 	})
 
+	Describe("ResolveName", func() {
+		It("Should resolve a name in the scope", func(specCtx SpecContext) {
+			ctx := analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+			x := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "x", Kind: symbol.KindVariable, Type: types.I64(),
+			}))
+			Expect(MustSucceed(ctx.ResolveName(parser.Name{Head: "x"}))).
+				To(BeIdenticalTo(x))
+			Expect(*ctx.Diagnostics).To(BeEmpty())
+		})
+
+		It("Should warn when the symbol is deprecated", func(specCtx SpecContext) {
+			ctx := analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+			current := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "current", Kind: symbol.KindVariable, Type: types.I64(),
+			}))
+			old := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name:       "old",
+				Kind:       symbol.KindVariable,
+				Type:       types.I64(),
+				Deprecated: current,
+			}))
+			Expect(MustSucceed(ctx.ResolveName(parser.Name{Head: "old"}))).
+				To(BeIdenticalTo(old))
+			Expect(*ctx.Diagnostics).To(HaveLen(1))
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal(
+				"deprecated symbol: 'old' is deprecated, use 'current' instead",
+			))
+		})
+
+		It("Should return no symbol for a name that does not resolve", func(
+			specCtx SpecContext,
+		) {
+			ctx := analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+			sym, err := ctx.ResolveName(parser.Name{Head: "missing"})
+			Expect(err).To(MatchError(ContainSubstring("undefined symbol: missing")))
+			Expect(sym).To(BeNil())
+			Expect(*ctx.Diagnostics).To(BeEmpty())
+		})
+	})
+
 	Describe("RejectTopLevel", func() {
 		It(
 			"Should reject a variable declared at the top level",
