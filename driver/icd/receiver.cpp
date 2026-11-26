@@ -16,6 +16,7 @@
 #include <span>
 #include <sstream>
 #include <string>
+#include <type_traits>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -58,6 +59,47 @@ message_name(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
     return m == ic.messages.end() ? key.to_string() : m->name;
 }
 
+/// @brief returns the payload of the message with key, which must be in ic.
+const synnax::icd::Payload &
+payload_of(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
+    return std::ranges::find(ic.messages, key, &synnax::icd::Message::key)->payload;
+}
+
+/// @brief returns true when a message of payload matches every frame that its decoder
+/// sees: a binary message with no identifier, a text message with no prefix, or a JSON
+/// message with no match rule.
+bool matches_all(const synnax::icd::Payload &payload) {
+    return std::visit(
+        []<typename P>(const P &p) {
+            if constexpr (std::is_same_v<P, synnax::icd::BinaryPayload>)
+                return !p.identifier.has_value();
+            else if constexpr (std::is_same_v<P, synnax::icd::TextPayload>)
+                return p.prefix.empty();
+            else
+                return !p.match.has_value();
+        },
+        payload
+    );
+}
+
+/// @brief CatchAll is an entry message that matches every frame its decoder sees.
+struct CatchAll {
+    std::size_t entry;
+    const synnax::icd::ICD *ic;
+    synnax::icd::MessageKey message;
+};
+
+/// @brief returns the error when the message of a matches every what that entry b could
+/// get.
+x::errors::Error
+shadowed(const CatchAll &a, const std::size_t b, const std::string &what) {
+    return refuse(
+        "message " + message_name(*a.ic, a.message) + " of ICD " + a.ic->name +
+        " in entry " + std::to_string(a.entry) + " matches every " + what +
+        ", so entry " + std::to_string(b) + " never gets one"
+    );
+}
+
 /// @brief returns the error when entries a and b, both on ic, read one message.
 x::errors::Error check_shared(
     const std::size_t a,
@@ -88,6 +130,8 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
     r.datagram = datagram;
     r.now = std::move(now);
     std::vector<const synnax::icd::ICD *> found;
+    std::optional<CatchAll> every;
+    std::optional<CatchAll> json;
     for (std::size_t i = 0; i < entries.size(); i++) {
         const auto context = "entry " + std::to_string(i) + ": ";
         const auto ic = std::ranges::find(icds, entries[i].icd, &synnax::icd::ICD::key);
@@ -117,6 +161,25 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
                     return {Receiver{}, err};
         auto [reader, err] = Reader::create(entries[i].messages, *ic, channels);
         if (err) return {Receiver{}, x::errors::Error(err, context + err.data)};
+        const auto &messages = entries[i].messages;
+        const bool reads_json = !messages.empty() &&
+                                std::holds_alternative<synnax::icd::JSONPayload>(
+                                    payload_of(*ic, messages.front().message)
+                                );
+        if (every.has_value()) return {Receiver{}, shadowed(*every, i, "frame")};
+        if (json.has_value() && reads_json)
+            return {Receiver{}, shadowed(*json, i, "JSON document")};
+        if (const auto m = std::ranges::find_if(
+                messages,
+                [&](const auto &rm) { return matches_all(payload_of(*ic, rm.message)); }
+            );
+            m != messages.end()) {
+            const CatchAll c{.entry = i, .ic = &*ic, .message = m->message};
+            if (reads_json)
+                json = c;
+            else
+                every = c;
+        }
         r.readers.push_back(std::move(reader));
         found.push_back(&*ic);
     }

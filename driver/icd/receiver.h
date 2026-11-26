@@ -111,8 +111,11 @@ public:
     /// @param now is the steady clock that schedules the queries.
     /// @returns CONFIGURATION_ERROR when icds has no ICD that an entry names, a stream
     /// ICD has no framing, two ICDs frame the bytes differently, two entries read one
-    /// message of one ICD, a poll rate is not above 0 Hz or is above 1 GHz, the framing
-    /// cannot hold a poll query, or the Reader of an entry fails to create.
+    /// message of one ICD, an entry reads a message that matches every frame a later
+    /// entry could get, a poll rate is not above 0 Hz or is above 1 GHz, the framing
+    /// cannot hold a poll query, or the Reader of an entry fails to create. A binary
+    /// message with no identifier and a text message with no prefix match every frame,
+    /// and a JSON message with no match rule matches every JSON document.
     static std::pair<Receiver, x::errors::Error> create(
         const std::vector<synnax::icd::ReadEntry> &entries,
         const std::vector<synnax::icd::ICD> &icds,

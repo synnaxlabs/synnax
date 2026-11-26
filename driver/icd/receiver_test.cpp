@@ -837,6 +837,109 @@ TEST(Receiver, RejectsEntriesThatReadOneMessage) {
     ASSERT_EQ(err.data, "entries 0 and 1 both read message frame of ICD device");
 }
 
+/// @brief it should refuse an entry after one that reads a binary message with no
+/// identifier, which matches every frame.
+TEST(Receiver, RejectsEntryAfterBinaryCatchAll) {
+    const auto a = pairs();
+    const auto b = pairs();
+    const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, b.channels);
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame of ICD device in entry 0 matches every frame, so entry 1 never "
+        "gets one"
+    );
+}
+
+/// @brief it should refuse a JSON entry after one that reads a text message with no
+/// prefix, which matches every frame.
+TEST(Receiver, RejectsEntryAfterTextCatchAll) {
+    const auto a = lines("", 2, 1, "first");
+    synnax::icd::PresentJSONMatch rule;
+    rule.pointer = "/v";
+    const auto b = documents(rule, 3, 4, "second");
+    const auto err = refused(
+        {a.entry(), b.entry()},
+        {a.ic, b.ic},
+        merged(a.channels, b.channels)
+    );
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame of ICD first in entry 0 matches every frame, so entry 1 never "
+        "gets one"
+    );
+}
+
+/// @brief it should refuse a JSON entry after one that reads a JSON message with no
+/// match rule, which matches every JSON document.
+TEST(Receiver, RejectsJSONEntryAfterJSONCatchAll) {
+    const auto a = documents(std::nullopt, 2, 1, "first");
+    synnax::icd::PresentJSONMatch rule;
+    rule.pointer = "/v";
+    const auto b = documents(rule, 3, 4, "second");
+    const auto err = refused(
+        {a.entry(), b.entry()},
+        {a.ic, b.ic},
+        merged(a.channels, b.channels)
+    );
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(
+        err.data,
+        "message frame of ICD first in entry 0 matches every JSON document, so entry 1 "
+        "never gets one"
+    );
+}
+
+/// @brief it should give the last entry, which reads a message with no prefix, each
+/// frame that no earlier entry matches.
+TEST(Receiver, GivesFrameOfNoOtherEntryToLastCatchAll) {
+    const auto a = lines("T", 2, 1, "first");
+    const auto b = lines("", 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push("T,5\nX,7\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2, 4, 3}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
+}
+
+/// @brief it should give a frame that is not a JSON document to a binary entry after
+/// one that reads a JSON message with no match rule.
+TEST(Receiver, GivesFrameThatIsNotJSONToBinaryEntryAfterJSONCatchAll) {
+    const auto a = documents(std::nullopt, 2, 1, "first");
+    Config b{synnax::icd::BinaryPayload{}, synnax::icd::DelimitedFraming{}, "second"};
+    b.bind<synnax::icd::BinaryPayload>(byte_field("v", 1), 3, 4);
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push(std::string(R"({"v": 3})") + "\n" + std::string{'\0', '\7'} + "\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_TRUE(res.warning.empty());
+    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2, 4, 3}));
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{3.0}));
+    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
+}
+
 /// @brief it should refuse a stream entry whose ICD has no framing.
 TEST(Receiver, RejectsStreamICDWithoutFraming) {
     const auto cfg = pairs(std::nullopt);
@@ -1048,7 +1151,9 @@ TEST(Receiver, KeepsFrameThatFirstMatchingEntryFailsToDecode) {
 /// matching entry fails to decode, warn about the field, and give the frame to no later
 /// entry.
 TEST(Receiver, KeepsFrameWhoseFieldFirstMatchingEntryFailsToDecode) {
-    auto a = documents(std::nullopt, 2, 1, "first");
+    synnax::icd::PresentJSONMatch rule;
+    rule.pointer = "/v";
+    auto a = documents(rule, 2, 1, "first");
     synnax::icd::FloatJSONField w;
     w.name = "w";
     w.pointer = "/w";
