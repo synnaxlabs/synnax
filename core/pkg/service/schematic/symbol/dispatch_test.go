@@ -64,7 +64,7 @@ var _ = Describe("Dispatch", func() {
 		g = createGroup(ctx, resource.TypeSchematicSymbol)
 		sym = symbol.Symbol{
 			Name: "Before",
-			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error { return w.Create(ctx, &sym) })).
 			To(Succeed())
@@ -103,7 +103,6 @@ var _ = Describe("Dispatch", func() {
 			Commands:     []symbol.Command{},
 			Looks:        []symbol.Look{},
 			Interactions: []symbol.Interaction{},
-			Variant:      "actuator",
 			Scale:        2,
 		}
 		Expect(apply(
@@ -144,7 +143,7 @@ var _ = Describe("Dispatch", func() {
 		Expect(
 			apply(
 				ctx,
-				set("data", symbol.Spec{Drawing: svg("<svg/>"), Variant: "static"}),
+				set("data", symbol.Spec{Drawing: svg("<svg/>")}),
 			),
 		).
 			To(MatchError(ContainSubstring("data.scale: must be positive, got 0")))
@@ -164,7 +163,7 @@ var _ = Describe("Dispatch", func() {
 
 	It("Should refuse an invalid data", func(ctx SpecContext) {
 		// Generated validators return errors that do not wrap validate.ErrValidation.
-		Expect(apply(ctx, set("data", symbol.Spec{Variant: "static"}))).
+		Expect(apply(ctx, set("data", symbol.Spec{}))).
 			To(MatchError(ContainSubstring("data.drawing.type: required")))
 		Expect(retrieve(ctx)).To(Equal(sym))
 	})
@@ -173,7 +172,7 @@ var _ = Describe("Dispatch", func() {
 		rec := record()
 		created := symbol.Symbol{
 			Name: "Created",
-			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &created)
@@ -223,7 +222,7 @@ var _ = Describe("Dispatch", func() {
 	) {
 		other := symbol.Symbol{
 			Name: "Other",
-			Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "static", Scale: 1},
+			Data: symbol.Spec{Drawing: svg("<svg/>"), Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &other)
@@ -271,8 +270,7 @@ var _ = Describe("Dispatch", func() {
 						Part: new("body"),
 						Fill: paint(namedcolor.NamedRef{Key: trip.Key}),
 					}},
-					Variant: "static",
-					Scale:   1,
+					Scale: 1,
 				},
 			}
 			Expect(write(ctx, func(w symbol.Writer) error {
