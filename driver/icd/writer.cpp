@@ -48,6 +48,34 @@ std::optional<std::string> set_value(icd::TextField &f, const icd::WriteValue &v
     return std::nullopt;
 }
 
+/// @brief sets the default of binary field f to v. It returns the problem with v, to
+/// follow the name of f, or nothing.
+std::optional<std::string> set_value(icd::BinaryField &f, const icd::WriteValue &v) {
+    return std::visit(
+        [](auto &field, const auto &value) -> std::optional<std::string> {
+            using F = std::decay_t<decltype(field)>;
+            using V = std::decay_t<decltype(value)>;
+            if constexpr (
+                (std::is_same_v<F, icd::FloatBinaryField> &&
+                 std::is_same_v<V, icd::FloatWriteValue>) ||
+                (std::is_same_v<F, icd::IntegerBinaryField> &&
+                 std::is_same_v<V, icd::IntegerWriteValue>) ||
+                (std::is_same_v<F, icd::UnsignedBinaryField> &&
+                 std::is_same_v<V, icd::UnsignedWriteValue>)
+            ) {
+                field.default_ = value.value;
+                const auto raw = static_cast<double>(value.value.value);
+                if (const auto err = codec::check_raw_limits(field, raw))
+                    return ": " + err.data;
+                return std::nullopt;
+            } else
+                return " of kind " + field.kind + " needs a value of its kind";
+        },
+        f,
+        v
+    );
+}
+
 /// @brief sets the default of field to value, and returns false when value is not of
 /// the kind of field.
 template<typename Field, typename Value>
@@ -156,10 +184,6 @@ std::pair<Writer, x::errors::Error> Writer::create(
             ),
         };
     };
-    const auto *text = std::get_if<icd::TextPayload>(&msg->payload);
-    const auto *json = std::get_if<icd::JSONPayload>(&msg->payload);
-    if (text == nullptr && json == nullptr)
-        return refuse("the Driver writes only text and JSON messages");
     if (std::ranges::none_of(wm.bindings, [](const icd::WriteBinding &b) {
             return std::holds_alternative<icd::ChannelWriteBinding>(b);
         }))
@@ -176,26 +200,47 @@ std::pair<Writer, x::errors::Error> Writer::create(
         w.last.emplace_back(ch->second.data_type, 1);
         bindings.push_back({.field = cb->field, .data_type = ch->second.data_type});
     }
+    std::optional<std::string> problem;
     x::errors::Error err;
-    if (text != nullptr) {
-        codec::TextMessage m{
-            .name = msg->name,
-            .payload = *text,
-            .bindings = std::move(bindings),
-        };
-        if (const auto problem = set_values(m.payload.fields, wm))
-            return refuse(*problem);
-        std::tie(w.encoder, err) = codec::TextEncoder::create(m);
-    } else {
-        codec::JSONMessage m{
-            .name = msg->name,
-            .payload = *json,
-            .bindings = std::move(bindings),
-        };
-        if (const auto problem = set_values(m.payload.fields, wm))
-            return refuse(*problem);
-        std::tie(w.encoder, err) = codec::JSONEncoder::create(m);
-    }
+    const auto build = [&](auto m, const auto create) {
+        problem = set_values(m.payload.fields, wm);
+        if (!problem) std::tie(w.encoder, err) = create(m);
+    };
+    std::visit(
+        [&]<typename Payload>(const Payload &payload) {
+            if constexpr (std::is_same_v<Payload, icd::BinaryPayload>)
+                build(
+                    codec::BinaryMessage{
+                        .name = msg->name,
+                        .payload = payload,
+                        .bindings = std::move(bindings),
+                    },
+                    codec::BinaryEncoder::create
+                );
+            else if constexpr (std::is_same_v<Payload, icd::TextPayload>)
+                build(
+                    codec::TextMessage{
+                        .name = msg->name,
+                        .payload = payload,
+                        .bindings = std::move(bindings),
+                    },
+                    codec::TextEncoder::create
+                );
+            else {
+                static_assert(std::is_same_v<Payload, icd::JSONPayload>);
+                build(
+                    codec::JSONMessage{
+                        .name = msg->name,
+                        .payload = payload,
+                        .bindings = std::move(bindings),
+                    },
+                    codec::JSONEncoder::create
+                );
+            }
+        },
+        msg->payload
+    );
+    if (problem) return refuse(*problem);
     if (err) return {Writer{}, err};
     w.commands.resize(w.channels.size());
     return {std::move(w), x::errors::NIL};

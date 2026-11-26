@@ -726,7 +726,7 @@ Bytes encode(const BinaryMessage &m, const std::vector<x::telem::Series> &sample
     return payload;
 }
 
-/// @brief asserts that encoding samples for m fails with text.
+/// @brief asserts that encoding samples for m fails with text after the name of m.
 void assert_rejects_samples(
     const BinaryMessage &m,
     const std::vector<x::telem::Series> &samples,
@@ -736,7 +736,7 @@ void assert_rejects_samples(
     Bytes payload;
     const auto err = enc.encode(samples, payload);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, text);
+    EXPECT_EQ(err.data, "message " + m.name + ": " + text);
 }
 
 /// @brief asserts that creating an encoder for m fails with text.
@@ -1121,12 +1121,28 @@ TEST(BinaryEncoder, CheckSample) {
         },
     };
     const auto enc = ASSERT_NIL_P(BinaryEncoder::create(m));
-    ASSERT_NIL(enc.check(0, x::telem::SampleValue(std::uint8_t{15})));
-    ASSERT_NIL(enc.check(1, x::telem::SampleValue(std::uint8_t{16})));
-    const auto err = enc.check(0, x::telem::SampleValue(std::uint8_t{16}));
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::uint8_t{15}), 0));
+    ASSERT_NIL(enc.check(1, x::telem::Series(std::uint8_t{16}), 0));
+    const auto err = enc.check(0, x::telem::Series(std::uint8_t{16}), 0);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_EQ(err.data, "field w: 16 is out of range for 4 bits");
+    EXPECT_EQ(err.data, "message frame: field w: 16 is out of range for 4 bits");
     EXPECT_TRUE(enc.has_default(0));
     EXPECT_FALSE(enc.has_default(1));
+}
+
+/// @brief it should refuse a sample outside the min and max of its field, and accept a
+/// float32 sample that equals a limit at float32 precision.
+TEST(BinaryEncoder, CheckSampleLimits) {
+    auto v = field<icd::FloatBinaryField>("v", 0, 32);
+    v.min = -1;
+    v.max = 0.1;
+    const auto enc = ASSERT_NIL_P(BinaryEncoder::create(frame(v, x::telem::FLOAT32_T)));
+    ASSERT_NIL(enc.check(0, x::telem::Series(0.1F), 0));
+    auto err = enc.check(0, x::telem::Series(0.5F), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "message frame: field v: 0.5 is above the max 0.1");
+    err = enc.check(0, x::telem::Series(-2.0F), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "message frame: field v: -2 is below the min -1");
 }
 }
