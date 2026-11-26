@@ -10,8 +10,8 @@
 """A single-node Apache Kafka broker in KRaft mode, for examples and tests.
 
 The first use downloads the pinned Apache Kafka release, checks its SHA-512, and caches
-it in ``~/.cache/synnax-sim/kafka``. The broker needs a POSIX shell, and Java 17 or later
-on the PATH or in JAVA_HOME.
+it in ``~/.cache/synnax-sim/kafka``. The broker needs a POSIX shell, and Java 17 or
+later on the PATH or in JAVA_HOME.
 """
 
 import asyncio
