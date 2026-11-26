@@ -427,7 +427,13 @@ jobs:
               done
             ) &> "$log" < /dev/null &
             monitor=$!
-            trap 'kill "$monitor"; echo "Memory samples: $(grep -c Mem: "$log")"' EXIT
+            report() {
+              kill "$monitor"
+              echo "Memory samples: $(grep -c Mem: "$log")"
+              awk '/WebProcess/ && $1 > m { m = $1 }
+                END { print "Largest WebKit page: " int(m / 1024) " MB" }' "$log"
+            }
+            trap report EXIT
           fi
           read -ra specs <<< "$SPECS"
           runs=1
