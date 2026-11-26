@@ -21,17 +21,27 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// logSource opens the cursors of one key on the pointer log layout.
+// logSource opens the cursors of one key on the pointer log layout for one read. The
+// calls of a read never overlap, so the source gives the cursor that a call closed to
+// the next call.
 type logSource struct {
 	e   *engine
 	key ChannelKey
+	// spare is the cursor that the last Close gave back, or nil.
+	spare *logCursor
 }
 
-var _ domain.Source = logSource{}
+var _ domain.Source = (*logSource)(nil)
 
 // OpenCursor implements domain.Source.
-func (s logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	return domain.NewCursor(&logCursor{e: s.e, key: s.key, bounds: cfg.Bounds})
+func (s *logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
+	c := s.spare
+	s.spare = nil
+	if c == nil {
+		c = &logCursor{}
+	}
+	*c = logCursor{e: s.e, key: s.key, src: s, bounds: cfg.Bounds, ranges: c.ranges[:0]}
+	return domain.NewCursor(c)
 }
 
 // logRange is one committed pointer of a key, with the segment that holds it. Its time
@@ -57,6 +67,7 @@ func (r logRange) timeRange() telem.TimeRange {
 type logCursor struct {
 	e      *engine
 	key    ChannelKey
+	src    *logSource
 	bounds telem.TimeRange
 	ranges []logRange
 	pos    int
@@ -175,9 +186,11 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	}, nil
 }
 
-// Close implements domain.Ranges.
+// Close implements domain.Ranges. It gives c back to its source, so c must not be used
+// after it.
 func (c *logCursor) Close() error {
 	c.valid = false
+	c.src.spare = c
 	return nil
 }
 

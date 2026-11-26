@@ -127,7 +127,7 @@ func (db *DB) openLogIterator(
 	if !ok {
 		idx = &index.Domain{
 			Instrumentation: db.Instrumentation,
-			DB:              logSource{e: db.engine, key: clock},
+			DB:              &logSource{e: db.engine, key: clock},
 			Channel:         db.mu.channels[clock],
 		}
 		clocks[clock] = idx
@@ -135,7 +135,7 @@ func (db *DB) openLogIterator(
 	return unary.NewIterator(
 		db.Instrumentation,
 		ch,
-		logSource{e: db.engine, key: key},
+		&logSource{e: db.engine, key: key},
 		idx,
 		cfg,
 	)
