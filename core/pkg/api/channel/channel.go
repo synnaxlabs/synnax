@@ -423,7 +423,7 @@ func (s *Service) Delete(
 	}
 	if len(req.Names) > 0 {
 		keys, err := s.internal.KeysByNames(ctx, tx, req.Names...)
-		if err != nil || len(keys) == 0 {
+		if err != nil {
 			return struct{}{}, err
 		}
 		if _, err = s.impact.Apply(

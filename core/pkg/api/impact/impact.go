@@ -148,9 +148,9 @@ func (s *Service) Plan(
 
 // ApplyHandler returns the apply route on binder: it plans and applies the change and
 // checks access on what it wrote, in one transaction, and returns the plan under the
-// type of the change. As the plan route does, it
-// refuses a change that names a record the subject cannot retrieve, before it plans. A
-// denial on a record that the subject cannot retrieve and did not name names no record.
+// type of the change. As the plan route does, it refuses a change that names a record
+// the subject cannot retrieve, before it plans. A denial on a record that the subject
+// cannot retrieve and did not name names no record.
 func (s *Service) ApplyHandler(
 	binder *bind.Service,
 ) freighter.UnaryHandler[ApplyRequest, Response] {
