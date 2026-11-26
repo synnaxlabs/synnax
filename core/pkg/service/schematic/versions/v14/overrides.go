@@ -113,7 +113,7 @@ func (o *overrides) node(
 	) {
 		return cfg, nil
 	}
-	entries, err := entriesOf(ctx, o.tx, state)
+	entries, added, err := nodeEntries(ctx, o.tx, state, actuated)
 	if err != nil {
 		return SymbolNodeConfig{}, err
 	}
@@ -121,11 +121,11 @@ func (o *overrides) node(
 	if err != nil {
 		return SymbolNodeConfig{}, err
 	}
-	if actuated {
-		if drawn == nil {
-			drawn = &src.Data
-		}
-		recolored = onEntries(recolored, entries)
+	if actuated && drawn == nil {
+		drawn = &src.Data
+	}
+	if added && recolored == nil {
+		recolored = entries
 	}
 	if drawn != nil {
 		if !o.linksRetrievable(drawn.States) {
@@ -152,17 +152,20 @@ func (o *overrides) node(
 	return cfg, nil
 }
 
-// onEntries returns recolored, or entries when recolored is nil, with
-// symbol.ActuatorEntries. It returns recolored when that adds no entry.
-func onEntries(recolored, entries []enumeration.Entry) []enumeration.Entry {
-	base := recolored
-	if base == nil {
-		base = entries
+// nodeEntries returns the entries of the stored enumeration of state, with
+// symbol.ActuatorEntries when actuated is true, and whether that added an entry.
+func nodeEntries(
+	ctx context.Context,
+	tx gorp.Tx,
+	state symbol.EnumerationState,
+	actuated bool,
+) ([]enumeration.Entry, bool, error) {
+	entries, err := entriesOf(ctx, tx, state)
+	if err != nil || !actuated {
+		return entries, false, err
 	}
-	if on, added := symbol.ActuatorEntries(base); added {
-		return on
-	}
-	return recolored
+	entries, added := symbol.ActuatorEntries(entries)
+	return entries, added, nil
 }
 
 // copy creates c, a copy of the symbol with key src, and returns its key. When entries
