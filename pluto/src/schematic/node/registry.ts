@@ -142,6 +142,16 @@ export const builtInLabel = (name: string): string | undefined => {
 };
 
 /**
+ * @returns the name that the symbols toolbar gives the built-in symbol, or undefined if
+ * no built-in has the name.
+ */
+export const builtInName = (name: string): string | undefined => {
+  if (!BUILT_INS.has(name)) return undefined;
+  if (name in LABELS) return LABELS[name];
+  return resolveSpec(name).name;
+};
+
+/**
  * Changes the config to the variant the input names. Each field the new variant
  * accepts keeps its value, except the symbol that the config draws and the state
  * overrides of a custom symbol.
