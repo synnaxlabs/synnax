@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -79,21 +80,20 @@ func createCalculatedChannels(
 		DataType: telem.Float32T,
 		Virtual:  true,
 	}
-	calcs := make([]channel.Channel, n)
-	for i := range calcs {
-		calcs[i] = channel.Channel{
+	calculations := make([]calctestutil.Calculation, n)
+	for i := range calculations {
+		calculations[i] = calctestutil.Calculation{
 			Name:       channeltestutil.UniqueChannelName(),
 			DataType:   telem.Float32T,
 			Expression: "return " + base.Name + " * 2",
 		}
 	}
 	gomega.Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		w := layer.Channel.NewWriter(tx)
-		if err := w.Create(ctx, &base); err != nil {
-			return err
-		}
-		return w.CreateMany(ctx, &calcs)
+		return layer.Channel.NewWriter(tx).Create(ctx, &base)
 	})).To(gomega.Succeed())
+	creator := calctestutil.Creator{DB: db, Channel: layer.Channel}
+	calcs := xtestutil.MustSucceed(creator.CreateMany(ctx, calculations))
+	calcs = append(calcs, xtestutil.MustSucceed(creator.Indexes(ctx, calcs))...)
 	return channel.KeysFromChannels(append([]channel.Channel{base}, calcs...))
 }
 

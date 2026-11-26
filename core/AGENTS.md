@@ -10,8 +10,8 @@ engine, exposed over Freighter transports.
 Five strictly-ordered layers, each with a `layer.go` composition root. Dependencies flow
 downward only — a layer never imports one above it:
 
-1. **`storage/`** (lowest) — engine management: Cesium (`ts/`) for telemetry frames +
-   Pebble KV. Single-node, no cluster awareness.
+1. **`storage/`** (lowest) — engine management: Cesium for telemetry frames + Pebble KV.
+   Single-node, no cluster awareness.
 2. **`distribution/`** — turns storage into the data plane: the Core's identity,
    channels with node-aware keys, and the framer (reads, writes, and streams).
 3. **`service/`** — business logic on top of distribution: resource (search and names

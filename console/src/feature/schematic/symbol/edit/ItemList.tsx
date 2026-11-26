@@ -13,6 +13,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import type { Input } from "@synnaxlabs/lyra/input";
+import { List } from "@synnaxlabs/lyra/list";
+import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type deep, strings } from "@synnaxlabs/x";
@@ -39,21 +42,26 @@ const describeUses = ({ looks, commands, interactions }: Spec.Removed): string =
 
 interface Item {
   key: string;
-  name: string;
 }
 
-export interface ItemListProps<T extends Item> {
+export interface ItemListProps<T extends Item> extends Input.Control<
+  string | undefined
+> {
   /** title names the items, such as States. */
   title: string;
   /** noun names one item in its tooltips, such as state. */
   noun: string;
   items: T[];
-  /** name returns the path of the name of an item. */
-  name: (key: string) => deep.Target<string>;
+  /** label returns the name of an item. */
+  label: (item: T) => string;
+  /** name returns the path of the name of an item, which makes the name editable. */
+  name?: (key: string) => deep.Target<string>;
   /** detail returns the second line of an item. */
   detail: (item: T) => string;
   /** add returns spec with a new item, and the key of the item. */
   add: (spec: schematic.symbol.Spec) => [schematic.symbol.Spec, string];
+  /** addDisabledReason, when set, turns off the add button and says why. */
+  addDisabledReason?: string;
   /** remove returns spec without an item, and what goes with it. */
   remove: (
     spec: schematic.symbol.Spec,
@@ -62,17 +70,21 @@ export interface ItemListProps<T extends Item> {
 }
 
 /**
- * ItemList lists items of the symbol, and adds, renames, and removes them. A remove
- * that takes other items with it asks the user first.
+ * ItemList lists items of the symbol, picks one, and adds, renames, and removes them. A
+ * remove that takes other items with it asks the user first.
  */
 export const ItemList = <T extends Item>({
   title,
   noun,
   items,
+  label,
   name,
   detail,
   add,
+  addDisabledReason,
   remove,
+  value,
+  onChange,
 }: ItemListProps<T>): ReactElement => {
   const { get, set } = Form.useContext();
   const confirm = Modals.useConfirm();
@@ -82,7 +94,7 @@ export const ItemList = <T extends Item>({
     if (
       uses.length > 0 &&
       (await confirm({
-        message: `Remove ${item.name}?`,
+        message: `Remove ${label(item)}?`,
         description: `Its uses go with it: ${uses}.`,
         confirm: { label: "Remove", variant: "error" },
       })) !== true
@@ -94,8 +106,10 @@ export const ItemList = <T extends Item>({
   const handleAdd = () => {
     const [next, key] = add(get(path.data).value);
     set(path.data, next);
-    Text.edit(nameID(key));
+    if (name != null) Text.edit(nameID(key));
+    else onChange(key);
   };
+  const keys = items.map((item) => item.key);
   return (
     <Flex.Box y gap={1}>
       <Header.Header level="p" bordered={false}>
@@ -107,41 +121,68 @@ export const ItemList = <T extends Item>({
             onClick={handleAdd}
             size="small"
             variant="text"
-            tooltip={`Add ${noun}`}
+            tooltip={addDisabledReason ?? `Add ${noun}`}
+            disabled={addDisabledReason != null}
           >
             <Icon.Add />
           </Button.Button>
         </Header.Actions>
       </Header.Header>
-      {items.map((item) => (
-        <Flex.Box key={item.key} x justify="between" align="center">
-          <Flex.Box y gap={0}>
-            <Form.Field path={name(item.key)} showLabel={false} padHelpText={false}>
-              {({ onChange, value }) => (
-                <Text.MaybeEditable
-                  id={nameID(item.key)}
-                  level="small"
-                  value={value}
-                  onChange={onChange}
-                />
-              )}
-            </Form.Field>
-            <Text.Text level="small" color={9}>
-              {detail(item)}
-            </Text.Text>
-          </Flex.Box>
-          <Button.Button
-            onClick={() => void handleRemove(item)}
-            size="small"
-            variant="text"
-            tooltip={`Remove ${item.name}`}
-            aria-label={`Remove ${item.name}`}
-            reveal
-          >
-            <Icon.Close />
-          </Button.Button>
-        </Flex.Box>
-      ))}
+      <Select.Frame
+        value={value}
+        onChange={onChange}
+        data={keys}
+        closeDialogOnSelect={false}
+      >
+        <List.Scroll y gap={1}>
+          <List.Items<string>>
+            {({ key, itemKey, ...rest }) => {
+              const item = items.find((i) => i.key === itemKey);
+              if (item == null) return null;
+              return (
+                <Select.Item key={key} itemKey={itemKey} {...rest} justify="between">
+                  <Flex.Box y gap={0}>
+                    {name == null ? (
+                      <Text.Text level="small">{label(item)}</Text.Text>
+                    ) : (
+                      <Form.Field
+                        path={name(item.key)}
+                        showLabel={false}
+                        padHelpText={false}
+                      >
+                        {({ onChange: onRename, value: itemName }) => (
+                          <Text.MaybeEditable
+                            id={nameID(item.key)}
+                            level="small"
+                            value={itemName}
+                            onChange={onRename}
+                          />
+                        )}
+                      </Form.Field>
+                    )}
+                    <Text.Text level="small" color={9}>
+                      {detail(item)}
+                    </Text.Text>
+                  </Flex.Box>
+                  <Button.Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleRemove(item);
+                    }}
+                    size="small"
+                    variant="text"
+                    tooltip={`Remove ${label(item)}`}
+                    aria-label={`Remove ${label(item)}`}
+                    reveal
+                  >
+                    <Icon.Close />
+                  </Button.Button>
+                </Select.Item>
+              );
+            }}
+          </List.Items>
+        </List.Scroll>
+      </Select.Frame>
     </Flex.Box>
   );
 };
