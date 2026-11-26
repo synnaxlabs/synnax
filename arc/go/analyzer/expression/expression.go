@@ -570,9 +570,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	head, tail := parser.PrimaryNameParts(primary)
-	funcName := parser.PrimaryName(primary)
-	scope, err := ctx.ResolveQualified(head, tail)
+	name := parser.PrimaryName(primary)
+	funcName := name.String()
+	scope, err := ctx.ResolveQualified(name.Head, name.Tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 		return
@@ -602,7 +602,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 func nonFunctionCall(
 	postfix parser.IPostfixExpressionContext,
 ) (parser.IFunctionCallSuffixContext, string) {
-	named := parser.PrimaryName(postfix.PrimaryExpression()) != ""
+	named := parser.PrimaryName(postfix.PrimaryExpression()).Head != ""
 	var callee strings.Builder
 	for i, child := range postfix.GetChildren() {
 		rule, ok := child.(antlr.ParserRuleContext)
@@ -704,8 +704,8 @@ func inDeclaredFunction(scope *symbol.Symbol) bool {
 }
 
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
-		resolved, err := ctx.ResolveQualified(head, tail)
+	if n := parser.PrimaryName(ctx.AST); n.Head != "" {
+		resolved, err := ctx.ResolveName(n)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
@@ -844,11 +844,11 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	n := parser.ExpressionName(expr)
+	if n.Head == "" {
 		return 0, "", false
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	sym, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil || sym.Type.Kind != basetypes.KindChan {
 		return 0, "", false
 	}

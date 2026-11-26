@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  icd,
+  mqtt,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
@@ -125,12 +132,17 @@ const createWriteConfig = (
   targets,
 });
 
+interface RenderWriteOptions extends RenderTaskFormTabOptions {
+  /** The broker of the task. Absent creates one. */
+  dev?: device.Device;
+}
+
 // The form body renders against a configured broker only.
 const renderWrite = async (
   targets: MQTT.Task.WriteTarget[] = [],
-  options: RenderTaskFormTabOptions = {},
+  { dev: given, ...options }: RenderWriteOptions = {},
 ) => {
-  const dev = await createBroker(client);
+  const dev = given ?? (await createBroker(client));
   const draft = await createDraft(client, createWriteConfig(dev.key, targets));
   const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
     client,
@@ -158,6 +170,12 @@ const createField = (
   type: icd.JSONField["type"],
   rest: Partial<icd.JSONField> = {},
 ): icd.JSONField => icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type, ...rest });
+
+/** @returns the channel of each channel binding of a plain target. */
+const boundChannels = (target: MQTT.Task.WriteTarget): channel.Key[] =>
+  target.type === "plain"
+    ? target.message.bindings.flatMap((b) => (b.type === "channel" ? [b.channel] : []))
+    : [];
 
 /** Creates a plain target that sends a message of the fields, with no channels. */
 const createFormatTarget = async (fields: icd.JSONField[]) => {
@@ -248,6 +266,63 @@ describe("MQTT Write form", () => {
     expect(within(on).getByRole("img", { name: "New channel" })).toBeTruthy();
     const off = screen.getByRole("treeitem", { name: /^mode/ });
     expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should show the stored command channel that deploying keeps for a field with no channel, not a new one", async () => {
+    const setpoint = createField("setpoint", "float");
+    const { target } = await createFormatTarget([setpoint]);
+    const stored = await client.channels.create({
+      name: uniqueName("mqtt_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const dev = await createBroker(client, {
+      properties: { write: { [`${target.topic}#${setpoint.key}`]: stored.key } },
+    });
+    await renderWrite([target], { dev });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^setpoint/ }));
+    expect(await screen.findByDisplayValue(stored.name)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should give a deployed target new command channels when its topic changes, and leave the old ones to the old topic", async () => {
+    const setpoint = createField("setpoint", "float");
+    const { target } = await createFormatTarget([setpoint]);
+    const first = await renderWrite([target]);
+    const deployed = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      MQTT.Task.WRITE_SCHEMAS,
+    );
+    const [stored] = boundChannels(deployed.config.targets[0]);
+    expect(stored).not.toBe(0);
+    first.unmount();
+    const { container } = await renderTaskFormTab(
+      MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+      { client, taskKey: first.draft.key },
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /plant\/valve\/set/ }));
+    fireEvent.change(await screen.findByDisplayValue("plant/valve/set"), {
+      target: { value: "plant/valve/speed" },
+    });
+    const moved = await deployAndAwaitTask(
+      client,
+      container,
+      first.draft.key,
+      MQTT.Task.WRITE_SCHEMAS,
+    );
+    const [next] = boundChannels(moved.config.targets[0]);
+    expect(next).not.toBe(0);
+    expect(next).not.toBe(stored);
+    const updated = await client.devices.retrieve({
+      key: first.dev.key,
+      schemas: MQTT.Device.SCHEMAS,
+    });
+    expect(updated.properties.write).toEqual({
+      [`plant/valve/set#${setpoint.key}`]: stored,
+      [`plant/valve/speed#${setpoint.key}`]: next,
+    });
   });
 
   it("should bind a tag to the command channel the broker stores, and leave a plain target as it is", async () => {

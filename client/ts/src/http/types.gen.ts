@@ -83,35 +83,6 @@ export const readFieldZ = z.object({
 });
 export interface ReadField extends z.infer<typeof readFieldZ> {}
 
-/** ChannelField is the command channel value placed into a write endpoint's body. */
-export const channelFieldZ = z.object({
-  /**
-   * pointer is the JSON Pointer where the channel value is placed in the body. An empty
-   * pointer sends the bare value as the entire body, in which case the endpoint may not
-   * declare any additional fields.
-   */
-  pointer: z.string().default(""),
-  /** jsonType is the JSON type the channel value is serialized as. */
-  jsonType: payload.jsonTypeZ.default("number"),
-  /** channel is the Synnax command channel that triggers the request. */
-  channel: channel.keyZ.default(0),
-  /** name is the human-readable name of the command channel. */
-  name: z.string().default(""),
-  /** dataType is the data type of the command channel. */
-  dataType: z.string().default("float64"),
-  /**
-   * timeFormat is the output encoding when the command channel holds timestamps. An
-   * unset format is ISO 8601.
-   */
-  timeFormat: payload.timeFormatZ.optional(),
-  /**
-   * enumValues maps numeric channel values to string labels. Only valid when json_type
-   * is 'string'.
-   */
-  enumValues: payload.enumEntryZ.array().default(() => []),
-});
-export interface ChannelField extends z.infer<typeof channelFieldZ> {}
-
 /** BaseWriteField carries the fields every write body field shares. */
 export const baseWriteFieldZ = z.object({
   /** key uniquely identifies the field within the endpoint. */
@@ -123,6 +94,33 @@ export interface BaseWriteField extends z.infer<typeof baseWriteFieldZ> {}
 
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
+
+/** WriteEndpoint is a single HTTP endpoint written to by a write task. */
+export const writeEndpointZ = z.object({
+  /** key uniquely identifies the endpoint within the task. */
+  key: z.string().default(id.create),
+  /** disabled is true when the endpoint is excluded from the task. */
+  disabled: z.boolean().default(false),
+  /** method is the HTTP method used to send the request. */
+  method: methodZ.default("POST"),
+  /** path is the URL path appended to the device's base URL. */
+  path: z.string().default(""),
+  /** headers contains additional headers merged into the request. */
+  headers: headerZ.array().default(() => []),
+  /** queryParams contains query parameters appended to the request URL. */
+  queryParams: queryParamZ.array().default(() => []),
+  /**
+   * icd is the key of the ICD that holds the message of the endpoint. Absent when the
+   * endpoint sends no message.
+   */
+  icd: icd.keyZ.optional(),
+  /**
+   * message is the message whose document is the request body. A command on any bound
+   * channel sends one request.
+   */
+  message: icd.writeMessageZ.optional(),
+});
+export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
 /** ReadEndpoint is a single HTTP endpoint polled by a read task. */
 export const readEndpointZ = z.object({
@@ -200,6 +198,12 @@ export const WRITE_FIELD_SCHEMAS: {
   generated: generatedWriteFieldZ,
 };
 
+export const writeConfigZ = task.startConfigZ.extend({
+  device: device.keyZ.default(""),
+  endpoints: writeEndpointZ.array().default(() => []),
+});
+export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
+
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
   rate: z.number().gt(0).default(1),
@@ -207,40 +211,3 @@ export const readConfigZ = task.persistConfigZ.extend({
   nanFillEnabled: z.boolean().default(false),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
-
-/** WriteEndpoint is a single HTTP endpoint written to by a write task. */
-export const writeEndpointZ = z.object({
-  /** key uniquely identifies the endpoint within the task. */
-  key: z.string().default(id.create),
-  /** disabled is true when the endpoint is excluded from the task. */
-  disabled: z.boolean().default(false),
-  /** method is the HTTP method used to send the request. */
-  method: methodZ.default("POST"),
-  /** path is the URL path appended to the device's base URL. */
-  path: z.string().default(""),
-  /** headers contains additional headers merged into the request. */
-  headers: headerZ.array().default(() => []),
-  /** queryParams contains query parameters appended to the request URL. */
-  queryParams: queryParamZ.array().default(() => []),
-  /**
-   * icd is the key of the ICD that holds the message of the endpoint. Absent when the
-   * endpoint sends no message.
-   */
-  icd: icd.keyZ.optional(),
-  /**
-   * message is the message whose document is the request body. A command on any bound
-   * channel sends one request.
-   */
-  message: icd.writeMessageZ.optional(),
-  /** channel is the command channel whose writes trigger this endpoint. */
-  channel: channelFieldZ.prefault({}),
-  /** fields contains additional static or generated body fields. */
-  fields: writeFieldZ.array().default(() => []),
-});
-export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
-
-export const writeConfigZ = task.startConfigZ.extend({
-  device: device.keyZ.default(""),
-  endpoints: writeEndpointZ.array().default(() => []),
-});
-export interface WriteConfig extends z.infer<typeof writeConfigZ> {}

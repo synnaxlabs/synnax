@@ -312,12 +312,11 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("ExpressionNameParts", func() {
-		DescribeTable("returns the parts of a lone name",
+	Describe("ExpressionName", func() {
+		DescribeTable("returns the name of a lone name",
 			func(code, head, tail string) {
-				h, t := parser.ExpressionNameParts(parseExpr(code))
-				Expect(h).To(Equal(head))
-				Expect(t).To(Equal(tail))
+				Expect(parser.ExpressionName(parseExpr(code))).
+					To(Equal(parser.Name{Head: head, Tail: tail}))
 			},
 			Entry("bare name", "x", "x", ""),
 			Entry("qualified name", "m.doubled", "m", "doubled"),
@@ -338,7 +337,7 @@ var _ = Describe("AST Utilities", func() {
 				primaries := parser.CollectNamedPrimaries(parseExpr(code), nil)
 				names := make([]string, len(primaries))
 				for i, pe := range primaries {
-					names[i] = parser.PrimaryName(pe)
+					names[i] = parser.PrimaryName(pe).String()
 				}
 				Expect(names).To(Equal(expected))
 			},
@@ -366,7 +365,7 @@ var _ = Describe("AST Utilities", func() {
 			primaries := parser.CollectNamedPrimaries(expr, fmtStrings)
 			names := make([]string, len(primaries))
 			for i, pe := range primaries {
-				names[i] = parser.PrimaryName(pe)
+				names[i] = parser.PrimaryName(pe).String()
 			}
 			Expect(names).To(Equal([]string{"a", "x", "b"}))
 		})
@@ -453,7 +452,7 @@ var _ = Describe("AST Utilities", func() {
 		})
 	})
 
-	Describe("IdentifierParts and IdentifierName", func() {
+	Describe("IdentifierName", func() {
 		identifierOf := func(code string) parser.IIdentifierContext {
 			GinkgoHelper()
 			prog := MustSucceed(parser.Parse(code))
@@ -461,24 +460,17 @@ var _ = Describe("AST Utilities", func() {
 		}
 
 		It("Should return the bare name with an empty tail", func() {
-			head, tail := parser.IdentifierParts(identifierOf("trig -> out"))
-			Expect(head).To(Equal("out"))
-			Expect(tail).To(Equal(""))
+			Expect(parser.IdentifierName(identifierOf("trig -> out"))).
+				To(Equal(parser.Name{Head: "out"}))
 		})
 
 		It("Should split a qualified identifier", func() {
-			head, tail := parser.IdentifierParts(identifierOf("trig -> m.f"))
-			Expect(head).To(Equal("m"))
-			Expect(tail).To(Equal("f"))
-		})
-
-		It("Should join names only when a tail is present", func() {
-			Expect(parser.IdentifierName(identifierOf("trig -> out"))).To(Equal("out"))
-			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).To(Equal("m.f"))
+			Expect(parser.IdentifierName(identifierOf("trig -> m.f"))).
+				To(Equal(parser.Name{Head: "m", Tail: "f"}))
 		})
 	})
 
-	Describe("PrimaryNameParts and PrimaryName", func() {
+	Describe("PrimaryName", func() {
 		primaryOf := func(code string) parser.IPrimaryExpressionContext {
 			primary := parser.GetPrimaryExpression(parseExpr(code))
 			Expect(primary).ToNot(BeNil())
@@ -486,27 +478,62 @@ var _ = Describe("AST Utilities", func() {
 		}
 
 		It("Should return the bare name with an empty tail", func() {
-			head, tail := parser.PrimaryNameParts(primaryOf("x"))
-			Expect(head).To(Equal("x"))
-			Expect(tail).To(Equal(""))
+			Expect(parser.PrimaryName(primaryOf("x"))).To(Equal(parser.Name{Head: "x"}))
 		})
 
 		It("Should split a qualified identifier", func() {
-			head, tail := parser.PrimaryNameParts(primaryOf("math.avg"))
-			Expect(head).To(Equal("math"))
-			Expect(tail).To(Equal("avg"))
+			Expect(parser.PrimaryName(primaryOf("math.avg"))).
+				To(Equal(parser.Name{Head: "math", Tail: "avg"}))
 		})
 
-		It("Should return empty parts for a non-identifier primary", func() {
-			head, tail := parser.PrimaryNameParts(primaryOf("42"))
-			Expect(head).To(Equal(""))
-			Expect(tail).To(Equal(""))
+		It("Should return the zero Name for a primary that is not a name", func() {
+			Expect(parser.PrimaryName(primaryOf("42"))).To(BeZero())
+		})
+	})
+
+	Describe("AssignmentName", func() {
+		DescribeTable("Should return the name of the target",
+			func(code string) {
+				stmt := MustSucceed(parser.ParseStatement(code))
+				Expect(parser.AssignmentName(stmt.Assignment())).
+					To(Equal(parser.Name{Head: "valve"}))
+			},
+			Entry("an assignment", "valve = 1"),
+			Entry("a compound assignment", "valve += 1"),
+			Entry("an indexed assignment", "valve[0] = 1"),
+		)
+	})
+
+	Describe("AuthorityEntryName", func() {
+		entryOf := func(code string) parser.IAuthorityEntryContext {
+			GinkgoHelper()
+			prog := MustSucceed(parser.Parse(code))
+			return prog.TopLevelItem(0).AuthorityBlock().AuthorityEntry(0)
+		}
+
+		It("Should return the channel that an entry names", func() {
+			Expect(parser.AuthorityEntryName(entryOf("authority (valve 200)"))).
+				To(Equal(parser.Name{Head: "valve"}))
 		})
 
-		It("Should join or blank the name to match the parts", func() {
-			Expect(parser.PrimaryName(primaryOf("x"))).To(Equal("x"))
-			Expect(parser.PrimaryName(primaryOf("math.avg"))).To(Equal("math.avg"))
-			Expect(parser.PrimaryName(primaryOf("42"))).To(Equal(""))
+		It("Should return the zero Name for the default entry", func() {
+			Expect(parser.AuthorityEntryName(entryOf("authority (100)"))).To(BeZero())
 		})
+	})
+
+	Describe("Name", func() {
+		DescribeTable(
+			"Should join the head and the tail",
+			func(n parser.Name, joined string) {
+				Expect(n.String()).To(Equal(joined))
+			},
+			Entry("a bare name", parser.Name{Head: "x"}, "x"),
+			Entry(
+				"a qualified name",
+				parser.Name{Head: "math", Tail: "avg"},
+				"math.avg",
+			),
+			Entry("the zero Name", parser.Name{}, ""),
+		)
 	})
 })

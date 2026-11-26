@@ -50,6 +50,20 @@ var _ = Describe("Trace", func() {
 			wg.Wait()
 		})
 	})
+	Describe("Shared tracer", func() {
+		It("Should keep each instrumentation's own path", func(specCtx SpecContext) {
+			tracer := MustSucceed(alamos.NewTracer(alamos.TracingConfig{
+				OtelProvider:   otel.GetTracerProvider(),
+				OtelPropagator: otel.GetTextMapPropagator(),
+				Filter:         func(alamos.Environment, string) bool { return true },
+			}))
+			a := alamos.New("a", alamos.WithTracer(tracer))
+			alamos.New("b", alamos.WithTracer(tracer))
+			_, sp := a.T.Prod(specCtx, "span")
+			defer sp.End()
+			Expect(sp.Key()).To(Equal("a.span"))
+		})
+	})
 	Describe("No-op", func() {
 		It(
 			"Should not panic when calling methods on a nil devTracer",

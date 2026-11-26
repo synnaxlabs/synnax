@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color, enumeration, label } from "@synnaxlabs/client";
+import { color, enumeration, icd, label } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
 
 export const useLabelsVisible = (): boolean =>
@@ -19,10 +19,14 @@ export const useColorsVisible = (): boolean =>
 export const useEnumerationsVisible = (): boolean =>
   Access.useUpdateGranted(enumeration.TYPE_RESOURCE_ID);
 
+export const useICDsVisible = (): boolean =>
+  Access.useRetrieveGranted(icd.TYPE_RESOURCE_ID);
+
 /** Reports whether the user can use any section of the Library. */
 export const useVisible = (): boolean => {
   const labels = useLabelsVisible();
   const colors = useColorsVisible();
   const enumerations = useEnumerationsVisible();
-  return labels || colors || enumerations;
+  const icds = useICDsVisible();
+  return labels || colors || enumerations || icds;
 };

@@ -16,10 +16,9 @@
 }
 
 .lyra-input__switch {
-    /* The gap caps so a big switch keeps a slim knob inset. */
-    --pluto-switch-width: calc(5rem * var(--pluto-switch-scale, 1));
-    --pluto-switch-height: calc(2.5rem * var(--pluto-switch-scale, 1));
-    --pluto-switch-gap: min(0.25rem * var(--pluto-switch-scale, 1), 0.5rem);
+    --pluto-switch-width: 5rem;
+    --pluto-switch-height: 2.5rem;
+    --pluto-switch-gap: 0.25rem;
 
     /* Travel = width - knob - both gaps, which reduces to width - height. */
     --pluto-switch-travel: calc(var(--pluto-switch-width) - var(--pluto-switch-height));

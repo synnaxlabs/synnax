@@ -207,6 +207,17 @@ func (c Context[AST]) ResolveQualified(head, tail string) (*symbol.Symbol, error
 	return sym, nil
 }
 
+// ResolveName resolves n as Symbol.ResolveName does, and warns when the symbol it finds
+// is deprecated.
+func (c Context[AST]) ResolveName(n parser.Name) (*symbol.Symbol, error) {
+	sym, err := c.Scope.ResolveName(c, n)
+	if err != nil {
+		return nil, err
+	}
+	c.warnIfDeprecated(n.String(), sym)
+	return sym, nil
+}
+
 // RejectTopLevel reports that name cannot be reassigned and returns true when sym is a
 // variable declared at the top level of its program or module.
 func (c Context[AST]) RejectTopLevel(sym *symbol.Symbol, name string) bool {

@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { record } from "@synnaxlabs/x";
+
 import type { symbol } from "@/schematic/symbol";
 import type { SymbolNodeConfig } from "@/schematic/types.gen";
 
@@ -52,4 +54,25 @@ export const orphans = (
     if (cmd == null || cmd.state != null) result.commands.push(b.key);
   }
   return result;
+};
+
+/**
+ * @returns config without the bindings and overrides that a symbol with states and
+ * commands orphans.
+ */
+export const dropOrphans = (
+  config: SymbolNodeConfig,
+  states: symbol.State[],
+  commands: symbol.Command[],
+): SymbolNodeConfig => {
+  const lost = orphans(config, states, commands);
+  return {
+    ...config,
+    states: config.states.flatMap((b) => {
+      if (lost.states.includes(b.key)) return [];
+      const fields = lost.overrides.find((o) => o.key === b.key)?.fields ?? [];
+      return [record.omit(b, ...fields)];
+    }),
+    commands: config.commands.filter((b) => !lost.commands.includes(b.key)),
+  };
 };

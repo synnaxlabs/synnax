@@ -75,7 +75,7 @@ export const Circle = ({
           cy={height / 2}
           r={radius}
           strokeWidth={strokeWidth}
-          fill={color.cssString(fillColor)}
+          fill={color.cssString(fillColor) ?? "none"}
         />
       </Primitive.SVG>
     </Primitive.Div>

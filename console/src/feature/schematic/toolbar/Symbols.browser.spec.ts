@@ -418,6 +418,16 @@ describe("Schematic toolbar Symbols drag preview", () => {
     expect(layer()?.textContent).toBe("");
   });
 
+  it("should picture a built-in symbol as a built-in drawing", async () => {
+    await renderSchematic(DraggableToolbar, { sessionState: { editable: true } });
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.dragStart(await screen.findByText("Generic"), {
+      dataTransfer: new DataTransfer(),
+    });
+    expect(layer()?.querySelector(".pluto-symbol__drawing")).toBeInstanceOf(Element);
+    expect(layer()?.querySelector(".pluto-custom-drawing")).toBeNull();
+  });
+
   it("should paint the looks of a remote symbol in its picture", async () => {
     const grp = await client.groups.create({
       scope: "schematic_symbol",
@@ -456,6 +466,30 @@ describe("Schematic toolbar Symbols drag preview", () => {
     });
     const body = layer()?.querySelector(".pluto-custom-drawing #body");
     expect(body?.getAttribute("fill")).toBe("#ff0000");
+  });
+});
+
+describe("Schematic toolbar Symbols preview", () => {
+  it("should draw a built-in symbol as a symbol node draws it", async () => {
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText("Valves"));
+    await screen.findByText("Generic");
+    expect(
+      document.querySelector(".pluto-symbol .pluto-symbol__drawing"),
+    ).toBeInstanceOf(Element);
+  });
+
+  it("should draw a remote symbol as a symbol node draws it", async () => {
+    const name = uniqueName("custom_sym");
+    const { grp } = await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    fireEvent.click(await screen.findByText(grp.name));
+    await screen.findByText(name);
+    await waitFor(() =>
+      expect(
+        document.querySelector(".pluto-symbol--custom .pluto-custom-drawing"),
+      ).toBeInstanceOf(Element),
+    );
   });
 });
 

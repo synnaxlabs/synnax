@@ -20,7 +20,6 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import type { FC, ReactElement, ReactNode } from "react";
 
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import type { MessagePlan } from "@/platform/icd/configure";
 import { defaultDataType } from "@/platform/icd/dataType";
@@ -298,8 +297,8 @@ const warningOf = ({
   if (message.payload.format !== "json")
     return (
       <Text.Text color={9}>
-        The format of this message is not JSON.
-        {FLAGS.icds && " Open it in the editor to change its format."}
+        The format of this message is not JSON. Open it in the editor to change its
+        format.
       </Text.Text>
     );
   if (message.payload.fields.length > 0) return null;

@@ -492,8 +492,8 @@ func analyzeIdentifierByRole(
 	shell *shellBuilder,
 	isFirst, isSink bool,
 ) (flowNodeResult, bool) {
-	name := parser.IdentifierName(ctx.AST)
-	sym, err := ctx.ResolveQualified(parser.IdentifierParts(ctx.AST))
+	name := parser.IdentifierName(ctx.AST).String()
+	sym, err := ctx.ResolveName(parser.IdentifierName(ctx.AST))
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return flowNodeResult{}, false
@@ -941,7 +941,7 @@ func lowerAssignment(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, bool) {
-	sym, err := ctx.Scope.Resolve(ctx, ctx.AST.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveName(ctx, parser.AssignmentName(ctx.AST))
 	if err != nil {
 		return nil, nil, true
 	}
@@ -1024,11 +1024,11 @@ func lowerAliasRebind(
 	if register == nil {
 		return nil, nil, true
 	}
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	n := parser.ExpressionName(expr)
+	if n.Head == "" {
 		return nil, nil, true
 	}
-	rhs, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	rhs, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 		return nil, nil, false
@@ -1962,8 +1962,7 @@ func headVarReads[T antlr.ParserRuleContext](
 	var nodes []*ir.Node
 	for _, arg := range symbol.FunctionArguments(fn) {
 		for _, pe := range parser.CollectNamedPrimaries(arg.Expr, ctx.FmtStrings) {
-			head, tail := parser.PrimaryNameParts(pe)
-			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+			sym, err := ctx.Scope.ResolveName(ctx, parser.PrimaryName(pe))
 			if err != nil || !isExprReadVar(sym) {
 				continue
 			}
@@ -2368,10 +2367,8 @@ func (p *inputParser) parse(
 	// Top-level literal variables cannot be reassigned, so they inline; so
 	// does any literal variable with no write sites in the source. Any
 	// other value variable stamps a var ref to its node instead.
-	if head, tail := parser.ExpressionNameParts(expr); head != "" {
-		if value, typ, ok, done := p.parseName(
-			expr, head, tail, paramType, paramName,
-		); done {
+	if n := parser.ExpressionName(expr); n.Head != "" {
+		if value, typ, ok, done := p.parseName(expr, n, paramType, paramName); done {
 			return value, typ, ok
 		}
 	}
@@ -2401,12 +2398,11 @@ func (p *inputParser) parse(
 // the expression falls through to the other input forms.
 func (p *inputParser) parseName(
 	expr parser.IExpressionContext,
-	head string,
-	tail string,
+	n parser.Name,
 	paramType types.Type,
 	paramName string,
 ) (value any, typ types.Type, ok, done bool) {
-	sym, err := p.ctx.Scope.ResolveMember(p.ctx, head, tail)
+	sym, err := p.ctx.Scope.ResolveName(p.ctx, n)
 	if err != nil {
 		return nil, paramType, false, false
 	}
