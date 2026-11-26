@@ -40,19 +40,23 @@ const useVisibleGroups = (groups: Group[]): Group[] => {
 const NARROW_WIDTH = 800;
 
 export interface FrameProps {
+  /** The page that the frame renders, which keeps its own selected section. */
+  page: Session.Nav.Page;
+  /** The name of the page, which labels its section list. */
+  name: string;
   /** A module-level constant, since each section's visibility hook runs in order. */
   groups: Group[];
 }
 
 /**
- * Renders Settings: the section list on the left and the selected section's page on
- * the right. The window keeps its selected section, and shows the first section the
- * user can use when it has none or cannot use it.
+ * Renders a page of sections, such as Settings: the section list on the left and the
+ * selected section on the right. The window keeps the selected section of each page,
+ * and shows the first section the user can use when it has none or cannot use it.
  */
-export const Frame = ({ groups }: FrameProps): ReactElement => {
+export const Frame = ({ page, name, groups }: FrameProps): ReactElement => {
   const visible = useVisibleGroups(groups);
   const sections = visible.flatMap((group) => group.sections);
-  const selected = Session.Nav.useSelectSettingsSection();
+  const selected = Session.Nav.useSelectSection(page);
   const background = useCardBackground();
   const dispatch = Session.useDispatch();
   const [narrow, setNarrow] = useState(false);
@@ -68,14 +72,14 @@ export const Frame = ({ groups }: FrameProps): ReactElement => {
   const rail = narrow || collapsed;
   const toggleLabel = collapsed ? "Expand sidebar" : "Collapse sidebar";
   const setSelected = (section: string): void => {
-    dispatch(Session.Nav.selectSettingsSection({ section }));
+    dispatch(Session.Nav.selectSection({ page, section }));
   };
   const section = sections.find(({ key }) => key === selected) ?? sections[0];
   return (
     <Flex.Box x full empty ref={ref} className={CSS.B("settings")}>
       <Flex.Box
         el="nav"
-        aria-label="Settings"
+        aria-label={name}
         empty
         bordered
         rounded={rail ? "medium" : "huge"}
