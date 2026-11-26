@@ -111,6 +111,19 @@ Port::open(const synnax::serial::Properties &props) {
     return {std::move(port), x::errors::NIL};
 }
 
+void Port::close() {
+    native::unlock(this->handle());
+    std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
+    this->device.close(ignored);
+}
+
+x::errors::Error Port::fail(const x::errors::Error &err) {
+    this->close();
+    this->failure = err;
+    return this->failure;
+}
+
 Port::~Port() {
     if (!this->device.is_open()) return;
     // Closing a port discards the output that it has not yet sent.
@@ -120,14 +133,12 @@ Port::~Port() {
         if (ec || queued == 0) break;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    native::unlock(this->handle());
-    std::error_code ignored;
-    // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
-    this->device.close(ignored);
+    this->close();
 }
 
 std::pair<transport::Chunk, x::errors::Error>
 Port::read(const x::telem::TimeSpan timeout) {
+    if (this->failure) return {{}, this->failure};
     const auto done = transport::run_for(
         this->ctx,
         timeout,
@@ -141,13 +152,13 @@ Port::read(const x::telem::TimeSpan timeout) {
     );
     if (done.timed_out()) return {{}, x::errors::NIL};
     const auto context = "failed to read from serial port " + this->path;
-    if (done.ec) return {{}, translate(context, done.ec)};
+    if (done.ec) return {{}, this->fail(translate(context, done.ec))};
     const auto [received, ec] = native::receive(
         this->handle(),
         this->line,
         {this->buffer.data(), done.size}
     );
-    if (ec) return {{}, translate(context, ec)};
+    if (ec) return {{}, this->fail(translate(context, ec))};
     return {
         {.data = {this->buffer.data(), received.size},
          .time = done.time,
@@ -161,6 +172,7 @@ x::errors::Error Port::write(
     const std::span<const std::uint8_t> data,
     const x::telem::TimeSpan timeout
 ) {
+    if (this->failure) return this->failure;
     const auto done = transport::run_for(
         this->ctx,
         timeout,
@@ -175,8 +187,10 @@ x::errors::Error Port::write(
     );
     const auto context = "failed to write to serial port " + this->path;
     if (done.timed_out())
-        return translate(context, std::make_error_code(std::errc::timed_out));
-    if (done.ec) return translate(context, done.ec);
+        return this->fail(
+            translate(context, std::make_error_code(std::errc::timed_out))
+        );
+    if (done.ec) return this->fail(translate(context, done.ec));
     return x::errors::NIL;
 }
 }

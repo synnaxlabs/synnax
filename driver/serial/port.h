@@ -27,8 +27,9 @@
 #include "driver/transport/transport.h"
 
 namespace driver::serial {
-/// @brief Port is an open serial port. Its errors map through translate. It is not safe
-/// for concurrent use.
+/// @brief Port is an open serial port. Its errors map through translate. A failed port
+/// closes at once, and each later read or write returns the error that closed it. It is
+/// not safe for concurrent use.
 class Port final : public transport::Transport {
     /// @brief path is the path of the port, which errors name.
     std::string path;
@@ -38,10 +39,18 @@ class Port final : public transport::Transport {
     std::vector<std::uint8_t> buffer = std::vector<std::uint8_t>(
         transport::BUFFER_SIZE
     );
+    /// @brief failure is the error that closed the port.
+    x::errors::Error failure;
 
     explicit Port(std::string path): path(std::move(path)) {}
 
     [[nodiscard]] native::Handle handle();
+
+    /// @brief lets other programs open the port, then closes it.
+    void close();
+
+    /// @brief closes the port, and returns and keeps err.
+    x::errors::Error fail(const x::errors::Error &err);
 
 public:
     /// @brief opens the port at props.port, locks it against other programs, and
@@ -51,8 +60,8 @@ public:
     static std::pair<std::unique_ptr<Port>, x::errors::Error>
     open(const synnax::serial::Properties &props);
 
-    /// @brief waits up to one second for written bytes to leave the port, then closes
-    /// it.
+    /// @brief waits up to one second for written bytes to leave a port that has not
+    /// failed, then closes it.
     ~Port() override;
 
     Port(const Port &) = delete;
