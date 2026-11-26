@@ -442,7 +442,8 @@ func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 		}
 	}
 	names := Names(channels)
-	// A repeat fails here on every Core, before Allocate uses up keys.
+	// A repeat fails here on every Core, so a clash of the name index names one
+	// position.
 	if err := validateRepeatedNames(names); err != nil {
 		return err
 	}
@@ -688,12 +689,6 @@ func (w Writer) allocateNew(ctx context.Context, channels []Channel) (Keys, erro
 			minimal = append(minimal, ch.Distribution())
 		}
 	}
-	// Allocate uses up keys, so a name that the index refuses fails before it.
-	for _, i := range newIndices {
-		if err := w.svc.names.Check(ctx, w.tx, &channels[i]); err != nil {
-			return nil, nameTaken(err, i)
-		}
-	}
 	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal); err != nil {
 		return nil, err
 	}
@@ -831,8 +826,8 @@ func (w Writer) allocateAndWrite(
 		Exclusive().
 		Entries(&toCreate).
 		Exec(ctx, w.tx); err != nil {
-		// The check before Allocate passed, so a clash is between two new channels, and
-		// the later one is refused.
+		// A request repeats no name (validateRepeatedNames), so the name of a clash
+		// sits at one position.
 		at, name := -1, takenName(err)
 		for _, i := range newIndices {
 			if channels[i].Name == name {
