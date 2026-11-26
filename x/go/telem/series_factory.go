@@ -130,7 +130,7 @@ const variableLengthPrefixSize = 4
 
 // MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
 // prefix. This is useful for code that accumulates samples into a Series.Data buffer
-// incrementally rather than using NewSeriesV. It panics on a sample larger than 4 GiB.
+// incrementally rather than using NewSeriesV. It panics on a sample of 4 GiB or more.
 func MarshalVariableSample(sample []byte) []byte {
 	b := make([]byte, variableLengthPrefixSize+variableLength(len(sample)))
 	ByteOrder.PutUint32(b, uint32(len(sample)))
@@ -142,7 +142,7 @@ func MarshalVariableSample(sample []byte) []byte {
 func variableLength(n int) int {
 	if uint64(n) > math.MaxUint32 {
 		panic(fmt.Sprintf(
-			"telem: a variable sample of %d bytes is larger than the 4 GiB limit",
+			"telem: a variable sample of %d bytes does not fit the 32-bit length prefix",
 			n,
 		))
 	}
