@@ -42,6 +42,7 @@ import {
   COLOR_FIELDS,
   VALUE_COLOR_FIELDS,
 } from "@/feature/schematic/toolbar/colorFields";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Enumeration } from "@/platform/enumeration";
 import { MultiEdit } from "@/platform/multiedit";
@@ -379,7 +380,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const hasStroke = selection.has("strokeColor");
   const hasFill = selection.has("fillColor");
   const hasText = selection.has("textColor");
-  const hasColors = hasStroke || hasFill || hasText || selectionRefs.length > 0;
+  const hasColor = FLAGS.symbolNodes && selection.has("color");
+  const hasColors =
+    hasStroke || hasFill || hasText || hasColor || selectionRefs.length > 0;
 
   return (
     <Form.Sections x>
@@ -506,6 +509,15 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               )}
               onChange={(c) => selection.setColor("textColor", c)}
               palettesHidden={selection.valueOnly("textColor")}
+            />
+          )}
+          {hasColor && (
+            <MultiEdit.ColorField
+              label="Color"
+              values={selection.colors("color", () =>
+                Schematic.Node.Form.defaultFallback(theme),
+              )}
+              onChange={(c) => selection.setColor("color", c)}
             />
           )}
           <MultiEdit.SelectionColors
