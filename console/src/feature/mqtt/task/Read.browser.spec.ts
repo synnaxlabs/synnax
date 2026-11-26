@@ -1449,6 +1449,21 @@ describe("MQTT read form", () => {
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
     });
 
+    it("should not offer the editor at a message that its ICD no longer holds", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
+      await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: "Message not found" }),
+      );
+      await screen.findByText(
+        "The ICD has no message for this topic. Add data to make one.",
+      );
+      expect(screen.queryByRole("button", { name: "Open in editor" })).toBeNull();
+    });
+
     it("should open the editor at a message that is not JSON", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],

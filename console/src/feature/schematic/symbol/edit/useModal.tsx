@@ -244,6 +244,7 @@ const Editor = ({
     setSelectedPart(owner.key);
   };
   const states = Form.useFieldValue(path.data.states, { ctx: form });
+  const previewed = Spec.resolvePreview(states, preview);
   const commands = Form.useFieldValue(path.data.commands, { ctx: form });
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
@@ -311,21 +312,6 @@ const Editor = ({
                   detail={(s) => STATE_TYPES[s.type]}
                   add={Spec.addState}
                   remove={Spec.removeState}
-                  onRemove={() => {
-                    // The preview moves to the first state left if its state goes.
-                    const left = form
-                      .get(path.data.states)
-                      .value.filter(
-                        (s): s is schematic.symbol.EnumerationState =>
-                          s.type === "enumeration",
-                      );
-                    if (left.some((s) => s.key === preview.state)) return;
-                    const first = left.at(0);
-                    setPreview({
-                      state: first?.key ?? Spec.STATE,
-                      value: first?.default ?? 0,
-                    });
-                  }}
                 />
                 <Divider.Divider x />
                 <ItemList
@@ -391,7 +377,7 @@ const Editor = ({
               >
                 {({ onChange }) => (
                   <Preview
-                    selectedValue={preview.value}
+                    value={Spec.stateValues(previewed)}
                     selectedHandle={selectedHandle}
                     selectedPart={selectedPart}
                     onElementClick={handleElementClick}
@@ -401,7 +387,7 @@ const Editor = ({
                   />
                 )}
               </Form.Field>
-              {hasSVG && <ValueBar value={preview} onChange={setPreview} />}
+              {hasSVG && <ValueBar value={previewed} onChange={setPreview} />}
             </Flex.Box>
             {hasSVG && (
               <Flex.Box
@@ -413,9 +399,9 @@ const Editor = ({
                 borderColor={6}
               >
                 <Inspector
-                  key={`${selectedPart ?? ""}/${preview.state}`}
+                  key={`${selectedPart ?? ""}/${previewed.state}`}
                   part={selectedPart}
-                  preview={preview}
+                  preview={previewed}
                 />
               </Flex.Box>
             )}
