@@ -117,34 +117,29 @@ command = sy.icd.Message(
 )
 pumps = client.icds.create(name="Plant pumps", messages=[command])
 
-task = client.tasks.create(
+task = kafka.WriteTask(
     name="Pump 1 commands",
-    type="kafka_write",
-    rack=cluster.rack,
-    config=kafka.WriteConfig(
-        device=cluster.key,
-        targets=[
-            kafka.WriteTarget(
-                topic="plant.pumps",
-                record_key="pump-1",
-                icd=pumps.key,
-                message=sy.icd.WriteMessage(
-                    message=command.key,
-                    bindings=[
-                        sy.icd.ChannelWriteBinding(field=speed.key, channel=cmd.key),
-                        sy.icd.ValueWriteBinding(
-                            field=unit.key, value=sy.icd.StringWriteValue(value="rpm")
-                        ),
-                    ],
-                ),
-            )
-        ],
-    ),
+    device=cluster.key,
+    targets=[
+        kafka.WriteTarget(
+            topic="plant.pumps",
+            record_key="pump-1",
+            icd=pumps.key,
+            message=sy.icd.WriteMessage(
+                message=command.key,
+                bindings=[
+                    sy.icd.ChannelWriteBinding(field=speed.key, channel=cmd.key),
+                    sy.icd.ValueWriteBinding(
+                        field=unit.key, value=sy.icd.StringWriteValue(value="rpm")
+                    ),
+                ],
+            ),
+        )
+    ],
 )
-task.execute_command_sync("start")
+client.tasks.configure(task)
+task.start()
 ```
-
-Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs Kafka.
 
   </Fragment>
   <Fragment slot="typescript">
@@ -258,10 +253,11 @@ value is `icd.ValueWriteBinding`. TypeScript uses the same fields in camel case,
 ## When the cluster is unreachable
 
 The task does not start when the Core cannot reach the cluster. While the task runs, it
-never holds a record back for later. When the cluster does not take the records of a
-write within 10 seconds, the task drops them and shows the warning
-[Failed to write data](#failed-to-write-data). The warning clears when the cluster takes
-the records of the next write.
+sends the records of one write at a time and waits up to 10 seconds for the cluster to
+take them. Commands that arrive during that wait are sent after it, so they can arrive
+late. When the cluster does not take a record within 10 seconds, the task stops waiting
+and shows the warning [Failed to write data](#failed-to-write-data). The warning clears
+after the next write that does not fail.
 
 <Divider.Divider x />
 
@@ -274,7 +270,7 @@ the records of the next write.
 
 The cluster did not take the records of a write within 10 seconds, or it refused them,
 for example because the user cannot write to the topic. The description names the topic.
-The task drops those records and keeps running.
+The task does not send those records again, and keeps running.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -336,13 +332,15 @@ Add a target, or enable one.
 
 <Problem.Item
   message={[
+    "required",
     "must be 1 to 249 letters, digits, periods, underscores, or hyphens",
     'cannot be "." or ".."',
   ]}
 >
 <Problem.Cause>
 
-Kafka does not accept the topic of a target. The task does not start.
+An enabled target has no topic, or Kafka does not accept its topic. The task does not
+start.
 
 </Problem.Cause>
 <Problem.Fix>
