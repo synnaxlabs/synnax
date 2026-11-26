@@ -117,7 +117,7 @@ var _ = Describe("Infer", func() {
 			DataType:   telem.TimestampT,
 			Kind:       payload.KindTimestamp,
 			Type:       xjson.String,
-			TimeFormat: new(xjson.ISO8601),
+			TimeFormat: new(MustSucceed(xjson.ParseTimeFormat("iso8601"))),
 			Count:      4,
 		}))
 		state := fieldAt(shapes[0], "/state")
@@ -146,7 +146,7 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[0].Sources).To(Equal([]string{"tank-1", "tank-2"}))
 		Expect(shapes[0].Count).To(Equal(6))
 		Expect(fieldAt(shapes[0], "/ts").TimeFormat).
-			To(HaveValue(Equal(xjson.UnixMillisecond)))
+			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ms")))))
 		Expect(fieldAt(shapes[0], "/pressure").DataType).To(Equal(telem.Int64T))
 		Expect(shapes[1].Sources).To(Equal([]string{"pump-1"}))
 		Expect(fieldAt(shapes[1], "/running").DataType).To(Equal(telem.Uint8T))
@@ -171,7 +171,7 @@ var _ = Describe("Infer", func() {
 		Expect(shapes[0].Fields).To(HaveLen(2))
 		Expect(indexPointer(shapes[0])).To(Equal("/time"))
 		Expect(fieldAt(shapes[0], "/time").TimeFormat).
-			To(HaveValue(Equal(xjson.UnixSecond)))
+			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_sec")))))
 	})
 
 	It("Should give a shape to each cluster of documents of one source", func() {
@@ -406,7 +406,7 @@ var _ = Describe("Infer", func() {
 		}))
 		Expect(indexPointer(shapes[0])).To(Equal("/timestamp"))
 		Expect(fieldAt(shapes[0], "/timestamp").TimeFormat).
-			To(HaveValue(Equal(xjson.UnixNanosecond)))
+			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ns")))))
 		Expect(fieldAt(shapes[0], "/open")).To(Equal(xjson.InferredField{
 			Pointer:  xjson.Pointer{"open"},
 			DataType: telem.Uint8T,
@@ -428,7 +428,7 @@ var _ = Describe("Infer", func() {
 		Expect(reading.Type).To(Equal(xjson.Number))
 		Expect(reading.Mismatched).To(Equal(1))
 		Expect(fieldAt(shapes[0], "/t").TimeFormat).
-			To(HaveValue(Equal(xjson.UnixMicrosecond)))
+			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_us")))))
 	})
 
 	It("Should count the numbers that do not fit a float64", func() {
@@ -594,7 +594,9 @@ var _ = Describe("Infer", func() {
 		}))
 		ts := fieldAt(shapes[0], "/ts")
 		Expect(ts.Type).To(Equal(xjson.String))
-		Expect(ts.TimeFormat).To(HaveValue(Equal(xjson.UnixMillisecond)))
+		Expect(
+			ts.TimeFormat,
+		).To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ms")))))
 	})
 
 	It("Should take a scalar document as a field at the root", func() {
@@ -644,7 +646,9 @@ var _ = Describe("Infer", func() {
 		Expect(json.Unmarshal(text, &decoded)).To(Succeed())
 		Expect(decoded.Pointer).To(Equal(xjson.Pointer{"a/b", "ts"}))
 		Expect(decoded.Type).To(Equal(xjson.Number))
-		Expect(decoded.TimeFormat).To(HaveValue(Equal(xjson.UnixNanosecond)))
+		Expect(
+			decoded.TimeFormat,
+		).To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ns")))))
 	})
 
 	It("Should omit the time format of a field that is not a timestamp", func() {
@@ -706,7 +710,9 @@ var _ = Describe("Inferrer", func() {
 		Expect(indexPointer(shape)).To(Equal("/ts"))
 		ts := fieldAt(shape, "/ts")
 		Expect(ts.Kind).To(Equal(payload.KindTimestamp))
-		Expect(ts.TimeFormat).To(HaveValue(Equal(xjson.UnixMillisecond)))
+		Expect(
+			ts.TimeFormat,
+		).To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_ms")))))
 		Expect(fieldAt(shape, "/v").Kind).To(Equal(payload.KindFloat))
 	})
 

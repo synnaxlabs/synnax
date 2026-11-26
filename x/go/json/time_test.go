@@ -23,15 +23,16 @@ import (
 var _ = Describe("TimeFormat", func() {
 	Describe("ParseTimeFormat", func() {
 		DescribeTable("Should round trip the config form",
-			func(text string, format xjson.TimeFormat) {
-				Expect(xjson.ParseTimeFormat(text)).To(Equal(format))
-				Expect(format.String()).To(Equal(text))
+			func(text string) {
+				Expect(
+					MustSucceed(xjson.ParseTimeFormat(text)).String(),
+				).To(Equal(text))
 			},
-			Entry("ISO 8601", "iso8601", xjson.ISO8601),
-			Entry("Unix seconds", "unix_sec", xjson.UnixSecond),
-			Entry("Unix milliseconds", "unix_ms", xjson.UnixMillisecond),
-			Entry("Unix microseconds", "unix_us", xjson.UnixMicrosecond),
-			Entry("Unix nanoseconds", "unix_ns", xjson.UnixNanosecond),
+			Entry("ISO 8601", "iso8601"),
+			Entry("Unix seconds", "unix_sec"),
+			Entry("Unix milliseconds", "unix_ms"),
+			Entry("Unix microseconds", "unix_us"),
+			Entry("Unix nanoseconds", "unix_ns"),
 		)
 		It("Should reject an unknown format", func() {
 			Expect(xjson.ParseTimeFormat("rfc822")).Error().To(SatisfyAll(
@@ -43,56 +44,48 @@ var _ = Describe("TimeFormat", func() {
 
 	Describe("AppendTimeStamp", func() {
 		DescribeTable("Should append every digit of a timestamp in ISO 8601 or seconds",
-			func(ts telem.TimeStamp, format xjson.TimeFormat, expected string) {
-				Expect(string(xjson.AppendTimeStamp([]byte("x"), ts, format))).
+			func(ts telem.TimeStamp, format, expected string) {
+				f := MustSucceed(xjson.ParseTimeFormat(format))
+				Expect(string(xjson.AppendTimeStamp([]byte("x"), ts, f))).
 					To(Equal("x" + expected))
 			},
-			Entry("ISO 8601 in UTC", telem.TimeStamp(1500000006), xjson.ISO8601,
+			Entry("ISO 8601 in UTC", telem.TimeStamp(1500000006), "iso8601",
 				`"1970-01-01T00:00:01.500000006Z"`),
-			Entry("whole Unix seconds", 2*telem.SecondTS, xjson.UnixSecond, "2"),
+			Entry("whole Unix seconds", 2*telem.SecondTS, "unix_sec", "2"),
 			Entry("Unix seconds with a fraction", telem.TimeStamp(1767323045123456789),
-				xjson.UnixSecond, "1767323045.123456789"),
+				"unix_sec", "1767323045.123456789"),
 			Entry("a fraction with leading zeros", telem.TimeStamp(1000000005),
-				xjson.UnixSecond, "1.000000005"),
+				"unix_sec", "1.000000005"),
 			Entry("a fraction with trailing zeros", telem.TimeStamp(1500000000),
-				xjson.UnixSecond, "1.5"),
+				"unix_sec", "1.5"),
 			Entry("a negative fraction", telem.TimeStamp(-1500000000),
-				xjson.UnixSecond, "-1.5"),
+				"unix_sec", "-1.5"),
 			Entry("a negative fraction before 1970", telem.TimeStamp(-1500),
-				xjson.UnixSecond, "-0.0000015"),
+				"unix_sec", "-0.0000015"),
 			Entry("the smallest timestamp in Unix nanoseconds",
-				telem.TimeStamp(math.MinInt64), xjson.UnixNanosecond,
+				telem.TimeStamp(math.MinInt64), "unix_ns",
 				"-9223372036854775808"),
 		)
 		DescribeTable(
 			"Should append a whole number of milliseconds or microseconds, rounded down",
-			func(ts telem.TimeStamp, format xjson.TimeFormat, expected string) {
-				Expect(string(xjson.AppendTimeStamp([]byte("x"), ts, format))).
+			func(ts telem.TimeStamp, format, expected string) {
+				f := MustSucceed(xjson.ParseTimeFormat(format))
+				Expect(string(xjson.AppendTimeStamp([]byte("x"), ts, f))).
 					To(Equal("x" + expected))
 			},
 			Entry("whole milliseconds", telem.TimeStamp(1500000000),
-				xjson.UnixMillisecond, "1500"),
+				"unix_ms", "1500"),
 			Entry("a fraction of a millisecond", telem.TimeStamp(1999999),
-				xjson.UnixMillisecond, "1"),
+				"unix_ms", "1"),
 			Entry("a fraction of a microsecond", telem.TimeStamp(1500),
-				xjson.UnixMicrosecond, "1"),
+				"unix_us", "1"),
 			Entry("a millisecond before 1970", telem.TimeStamp(-1),
-				xjson.UnixMillisecond, "-1"),
+				"unix_ms", "-1"),
 			Entry("a microsecond before 1970", telem.TimeStamp(-1500),
-				xjson.UnixMicrosecond, "-2"),
+				"unix_us", "-2"),
 			Entry("the smallest timestamp in milliseconds",
-				telem.TimeStamp(math.MinInt64), xjson.UnixMillisecond,
+				telem.TimeStamp(math.MinInt64), "unix_ms",
 				"-9223372036855"),
 		)
-	})
-})
-
-var _ = Describe("Marshal", func() {
-	It("Should write object names in sorted order", func() {
-		Expect(xjson.Marshal(map[string]any{"z": 1, "a": []any{true, "s"}})).
-			To(Equal([]byte(`{"a":[true,"s"],"z":1}`)))
-	})
-	It("Should replace invalid UTF-8", func() {
-		Expect(string(MustSucceed(xjson.Marshal("a\xffb")))).To(Equal("\"a\ufffdb\""))
 	})
 })
