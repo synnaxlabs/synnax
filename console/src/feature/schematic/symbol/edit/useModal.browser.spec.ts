@@ -2043,6 +2043,104 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    it("toggles a click between two commands on one state", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "off" }],
+      });
+      fireEvent.click(screen.getByText("Sends off"));
+      fireEvent.click(await within(getInspector()).findByText("Toggle"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", part: "body", commands: ["off", "on"] },
+        ]);
+      });
+    });
+
+    it("pairs a new first command with its first partner", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), on("full", 2)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      await within(getInspector()).findByText("First command");
+      // The first command comes before the second, which also lists On.
+      fireEvent.click(within(getInspector()).getAllByText("on")[0]);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", commands: ["on", "off"] },
+        ]);
+      });
+    });
+
+    it("toggles to the second command that the inspector picks", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), on("full", 2)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      await within(getInspector()).findByText("Second command");
+      // The first command list also holds Full.
+      fireEvent.click(within(getInspector()).getAllByText("full")[1]);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", commands: ["off", "full"] },
+        ]);
+      });
+    });
+
+    it("sends one command again from a toggle click", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      fireEvent.click(await within(getInspector()).findByText("Send"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "fire", key: "c", command: "off" },
+        ]);
+      });
+    });
+
+    it("turns off a toggle for a command with no partner", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      await within(getInspector()).findByText("Toggle");
+      expect(findButton("Toggle").getAttribute("aria-disabled")).toBe("true");
+    });
+
+    it("lists only the commands that pair in a toggle", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), GO],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and on"));
+      const inspector = within(getInspector());
+      await inspector.findByText("First command");
+      expect(inspector.queryByText("Go")).toBeNull();
+      // The second command lists only the partner of Off.
+      expect(inspector.getAllByText("off")).toHaveLength(1);
+      expect(inspector.getAllByText("on")).toHaveLength(2);
+    });
+
     it("turns off the add of a click with no command", async () => {
       await openPainted({ states: [createState()] });
       expect(getEditSectionHeaderButton("Clicks").getAttribute("aria-disabled")).toBe(

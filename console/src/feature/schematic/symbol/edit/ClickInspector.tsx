@@ -28,6 +28,9 @@ type Interaction = schematic.symbol.Interaction;
 // undefined.
 const WHOLE_DRAWING = "";
 
+const TOGGLE_NEEDS_PAIR =
+  "A toggle needs two commands on one state that send different fixed values.";
+
 /** @returns the name of the target of a click: a part, or the whole drawing. */
 export const targetName = (parts: schematic.symbol.Part[], part?: string): string =>
   part == null
@@ -64,17 +67,33 @@ export interface ClickInspectorProps {
   click: string;
 }
 
-/** ClickInspector edits the target of one click, and the command that it sends. */
+/**
+ * ClickInspector edits the target of one click, and whether it sends one command or
+ * toggles between two. A toggle offers only the commands that the Core accepts.
+ */
 export const ClickInspector = ({
   click: key,
 }: ClickInspectorProps): ReactElement | null => {
   const click = Form.useFieldValue(path.data.interactions[key], { optional: true });
   const parts = Form.useFieldValue(path.data.parts);
+  const states = Form.useFieldValue(path.data.states);
   const commands = Form.useFieldValue(path.data.commands);
   const interactions = Form.useFieldValue(path.data.interactions);
   const { set } = Form.useContext();
   if (click == null) return null;
   const update = (next: Interaction) => set(path.data.interactions[key], next);
+  const [first, second] =
+    click.type === "fire" ? [click.command, undefined] : click.commands;
+  const partners = Spec.nextPartners({ states, commands }, first);
+  const toggle = (command: string): Interaction => {
+    const [partner] = Spec.nextPartners({ states, commands }, command);
+    if (partner == null) throw new Error(`command ${command} has no toggle partner`);
+    return { type: "next", key, part: click.part, commands: [command, partner.key] };
+  };
+  const handleTypeChange = (type: schematic.symbol.InteractionType) =>
+    update(
+      type === "next" ? toggle(first) : { type, key, part: click.part, command: first },
+    );
   const targets = [click.part, ...Spec.freeTargets({ parts, interactions })];
   return (
     <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
@@ -100,7 +119,27 @@ export const ClickInspector = ({
           ))}
         </Select.Buttons>
       </Input.Item>
-      {click.type === "fire" && (
+      <Input.Item label="Kind">
+        <Select.Buttons<schematic.symbol.InteractionType>
+          value={click.type}
+          onChange={handleTypeChange}
+          size="small"
+          variant="outlined"
+        >
+          <Select.Item<schematic.symbol.InteractionType> itemKey="fire" size="small">
+            Send
+          </Select.Item>
+          <Select.Item<schematic.symbol.InteractionType>
+            itemKey="next"
+            size="small"
+            disabled={partners.length === 0}
+            tooltip={partners.length === 0 ? TOGGLE_NEEDS_PAIR : undefined}
+          >
+            Toggle
+          </Select.Item>
+        </Select.Buttons>
+      </Input.Item>
+      {click.type === "fire" ? (
         <Input.Item label="Command">
           <CommandButtons
             value={click.command}
@@ -108,6 +147,25 @@ export const ClickInspector = ({
             commands={commands}
           />
         </Input.Item>
+      ) : (
+        <>
+          <Input.Item label="First command">
+            <CommandButtons
+              value={first}
+              onChange={(command) => update(toggle(command))}
+              commands={commands.filter(
+                (c) => Spec.nextPartners({ states, commands }, c.key).length > 0,
+              )}
+            />
+          </Input.Item>
+          <Input.Item label="Second command">
+            <CommandButtons
+              value={second}
+              onChange={(command) => update({ ...click, commands: [first, command] })}
+              commands={partners}
+            />
+          </Input.Item>
+        </>
       )}
     </Flex.Box>
   );

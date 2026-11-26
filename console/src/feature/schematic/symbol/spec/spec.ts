@@ -480,6 +480,30 @@ export const removeInteraction = (spec: Spec, key: string): [Spec, Removed] => [
   { looks: [], commands: [], interactions: [] },
 ];
 
+// matched returns value after the match of state, as the Core compares toggle values.
+const matched = (state: schematic.symbol.State | undefined, value: number): number =>
+  state == null ? value : Schematic.Node.Custom.matched(state, value);
+
+/**
+ * @returns the commands that a toggle can pick between with command: fixed commands on
+ * its state with another value after the state's match.
+ */
+export const nextPartners = (
+  spec: Pick<Spec, "states" | "commands">,
+  command: string,
+): schematic.symbol.Command[] => {
+  const c = spec.commands.find((o) => o.key === command);
+  if (c?.state == null || c.value.type !== "fixed") return [];
+  const state = spec.states.find((s) => s.key === c.state);
+  const value = matched(state, c.value.value);
+  return spec.commands.filter(
+    (o) =>
+      o.state === c.state &&
+      o.value.type === "fixed" &&
+      matched(state, o.value.value) !== value,
+  );
+};
+
 /**
  * @returns the part that holds the shape of selector: the shape itself, a span of the
  * text, or the nearest group around it.
