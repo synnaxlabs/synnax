@@ -385,7 +385,7 @@ var _ = Describe("Service", func() {
 					"pdo":    "Value",
 				}},
 			})).Error().To(MatchError(
-				ContainSubstring("channels.device: device gone does not exist"),
+				ContainSubstring("channels.0.device: device gone does not exist"),
 			))
 		})
 

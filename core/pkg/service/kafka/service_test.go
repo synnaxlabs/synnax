@@ -674,6 +674,41 @@ var _ = Describe("Service", func() {
 			}})).To(Succeed())
 		})
 
+		It("Should name the target and binding of a channel that does not exist",
+			func(ctx SpecContext) {
+				pair := jsonMessage("Pair", nil,
+					jsonField("a", "/a", icd.FloatJSONField{}),
+					jsonField("b", "/b", icd.FloatJSONField{}),
+				)
+				pairs := icd.ICD{Name: "Pairs", Messages: []icd.Message{pair}}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Create(ctx, &pairs)
+				})).To(Succeed())
+				missing := icd.WriteBinding{Variant: icd.ChannelWriteBinding{
+					Field:   fieldKey(pair, 1),
+					Channel: 999999999,
+				}}
+				Expect(tasks.Create(ctx, svc.Write, config(kafka.WriteConfig{
+					Targets: []kafka.WriteTarget{
+						writeTarget("plant", ic, setpoint, command(setpoint, 0, value)),
+						writeTarget(
+							"pairs",
+							pairs,
+							pair,
+							command(pair, 0, value),
+							missing,
+						),
+					},
+				}))).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						"targets.1.message.bindings.1.channel: channel 999999999 does "+
+							"not exist: validation error",
+					),
+				))
+			},
+		)
+
 		It("Should skip the checks of a disabled target", func(ctx SpecContext) {
 			wt := writeTarget("", ic, setpoint, command(setpoint, 1, value))
 			wt.Disabled = true
