@@ -173,11 +173,14 @@ var _ = Describe("Reads on the pointer log", func() {
 		// A database holds at most 1024 segment files open. The index makes one more.
 		const limit = 1024
 		idx := GenerateChannelKey()
-		channels := []cesium.Channel{
-			{Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT},
+		channels := make([]cesium.Channel, 1, 1+limit)
+		channels[0] = cesium.Channel{
+			Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 		}
-		keys := []cesium.ChannelKey{idx}
-		series := []telem.Series{telem.NewSeriesSecondsTSV(1)}
+		keys := make([]cesium.ChannelKey, 1, 1+limit)
+		keys[0] = idx
+		series := make([]telem.Series, 1, 1+limit)
+		series[0] = telem.NewSeriesSecondsTSV(1)
 		for range limit {
 			k := GenerateChannelKey()
 			channels = append(channels, cesium.Channel{

@@ -91,11 +91,9 @@ var _ = Describe("Writer take over on the pointer log", func() {
 			Channels: keys,
 			Start:    start,
 		}))
-		var (
-			stamps []telem.TimeStamp
-			values []int64
-			texts  []string
-		)
+		stamps := make([]telem.TimeStamp, 0, 3)
+		values := make([]int64, 0, 3)
+		texts := make([]string, 0, 3)
 		for i := range 3 {
 			s := sample{at: start + telem.TimeStamp(i)*telem.SecondTS, size: size}
 			stamps, values = append(stamps, s.at), append(values, int64(s.at))
@@ -177,7 +175,7 @@ var _ = Describe("Writer take over on the pointer log", func() {
 		Expect(sealed.Len()).To(Equal(1))
 		Expect(sealed.All()[0].ContextMap()).To(HaveKeyWithValue(
 			"key",
-			uint32(fixed),
+			fixed,
 		))
 		Expect(sealed.All()[0].ContextMap()["error"]).To(ContainSubstring("corrupt"))
 		expectWritten(ctx, 3)
