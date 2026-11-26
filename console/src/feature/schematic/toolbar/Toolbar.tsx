@@ -85,13 +85,23 @@ interface SymbolName {
 const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName => {
   const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
   const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
+  const ref = shared?.variant === "symbol" ? shared.spec : undefined;
   const specKey =
-    shared != null && Schematic.Node.isCustomConfig(shared) ? shared.specKey : null;
+    shared != null && Schematic.Node.isCustomConfig(shared)
+      ? shared.specKey
+      : ref?.type === "custom"
+        ? ref.key
+        : null;
   const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
   if (shared == null) return { name: "Mixed" };
-  if (specKey != null) return { symbol: specKey, name: custom?.name ?? "" };
-  const spec = Schematic.Node.resolveSpec(shared.variant);
-  return { symbol: shared.variant, name: spec.label ?? spec.name };
+  const symbol = Schematic.Node.symbolKey(shared);
+  if (specKey != null) return { symbol, name: custom?.name ?? "" };
+  if (ref != null) {
+    const name = ref.type === "builtin" ? Schematic.Node.builtInLabel(ref.name) : null;
+    return { symbol, name: name ?? "Missing symbol" };
+  }
+  const spec = Schematic.Node.resolveSpec(symbol);
+  return { symbol, name: spec.label ?? spec.name };
 };
 
 interface SymbolSummaryProps {
@@ -168,8 +178,8 @@ const Internal = (): ReactElement => {
   const change: SymbolsChangeProps | undefined = changing
     ? {
         value: current.symbol,
-        onChange: (input) => {
-          changeSymbol([...changeable.keys()], input);
+        onChange: (input, spec) => {
+          changeSymbol([...changeable.keys()], input, spec);
           setChanging(false);
         },
       }

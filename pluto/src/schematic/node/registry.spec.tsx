@@ -9,7 +9,7 @@
 
 import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { deep, TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan, uuid } from "@synnaxlabs/x";
 import { fireEvent } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -183,6 +183,53 @@ describe("Schematic.Node.symbolKey", () => {
     const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
     expect(Node.symbolKey(config)).toBe("spec-1");
   });
+
+  it("should return the name of the built-in that a symbol node draws", () => {
+    const config = Node.createConfig({
+      variant: "symbol",
+      spec: { type: "builtin", name: "ball_valve" },
+    });
+    expect(Node.symbolKey(config)).toBe("ball_valve");
+  });
+
+  it("should return the key of the custom symbol that a symbol node draws", () => {
+    const key = uuid.create();
+    const config = Node.createConfig({
+      variant: "symbol",
+      spec: { type: "custom", key },
+    });
+    expect(Node.symbolKey(config)).toBe(key);
+  });
+
+  it("should return the key of a missing symbol that a symbol node draws", () => {
+    const config = Node.createConfig({
+      variant: "symbol",
+      spec: { type: "missing", key: "gone" },
+    });
+    expect(Node.symbolKey(config)).toBe("gone");
+  });
+});
+
+describe("Schematic.Node.builtInLabel", () => {
+  it("should return the label of the variant that draws the built-in", () => {
+    expect(Node.builtInLabel("valve")).toBe("Valve");
+  });
+
+  it("should label a built-in that no variant draws", () => {
+    expect(Node.builtInLabel("normally_open_solenoid_valve")).toBe(
+      "Normally open solenoid",
+    );
+  });
+
+  it("should label every built-in", () => {
+    for (const name of Node.BUILT_INS.keys())
+      expect(Node.builtInLabel(name)).toBeDefined();
+  });
+
+  it.each(["not_a_symbol", "constructor", "symbol"])(
+    "should return undefined for %s, which no built-in has",
+    (name) => expect(Node.builtInLabel(name)).toBeUndefined(),
+  );
 });
 
 describe("Schematic.Node.changeConfig", () => {
@@ -244,6 +291,24 @@ describe("Schematic.Node.changeConfig", () => {
     });
     expect(changed.specKey).toBe("spec-2");
     expect(changed.stateOverrides).toEqual([]);
+  });
+
+  it("should take the spec of the new symbol node and keep its bindings", () => {
+    const config = Node.createConfig({
+      variant: "symbol",
+      spec: { type: "builtin", name: "valve" },
+      states: [{ key: "active", source: { type: "channel", key: 12 } }],
+      commands: [{ key: "open", channel: 13 }],
+    });
+    const changed = Node.changeConfig(config, {
+      variant: "symbol",
+      spec: { type: "builtin", name: "ball_valve" },
+    });
+    expect(changed).toMatchObject({
+      spec: { type: "builtin", name: "ball_valve" },
+      states: [{ key: "active", source: { type: "channel", key: 12 } }],
+      commands: [{ key: "open", channel: 13 }],
+    });
   });
 
   it("should throw for an unknown variant", () => {

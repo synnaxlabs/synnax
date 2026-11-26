@@ -11,6 +11,7 @@ import { NotFoundError, schematic } from "@synnaxlabs/client";
 import { deep, record } from "@synnaxlabs/x";
 import type { z } from "zod";
 
+import { BUILT_INS } from "@/schematic/node/builtIns";
 import {
   CUSTOM_ACTUATOR_VARIANT,
   CUSTOM_STATIC_VARIANT,
@@ -115,15 +116,35 @@ export const customVariant = (symbol: schematic.symbol.Symbol): CustomVariant =>
   symbol.data.variant === "actuator" ? CUSTOM_ACTUATOR_VARIANT : CUSTOM_STATIC_VARIANT;
 
 /**
- * @returns the key of the symbol the config draws: the spec key of a custom symbol, or
- * the variant of a built-in one.
+ * @returns the key of the symbol the config draws: the key of a custom symbol, or the
+ * name of a built-in one.
  */
-export const symbolKey = (config: Config): string =>
-  isCustomConfig(config) ? config.specKey : config.variant;
+export const symbolKey = (config: Config): string => {
+  if (isCustomConfig(config)) return config.specKey;
+  if (config.variant !== SYMBOL_VARIANT) return config.variant;
+  return config.spec.type === "builtin" ? config.spec.name : config.spec.key;
+};
+
+// The labels of the built-ins that no older variant draws.
+const LABELS: Record<string, string> = {
+  normally_open_solenoid_valve: "Normally open solenoid",
+};
+
+/**
+ * @returns the label that a node of the built-in symbol takes on creation, or undefined
+ * if no built-in has the name.
+ */
+export const builtInLabel = (name: string): string | undefined => {
+  if (!BUILT_INS.has(name)) return undefined;
+  if (name in LABELS) return LABELS[name];
+  const spec = resolveSpec(name);
+  return spec.label ?? spec.name;
+};
 
 /**
  * Changes the config to the variant the input names. Each field the new variant
- * accepts keeps its value, except the spec key and state overrides of a custom symbol.
+ * accepts keeps its value, except the symbol that the config draws and the state
+ * overrides of a custom symbol.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -134,7 +155,7 @@ export const changeConfig = <V extends Variant>(
 ): ConfigOf<V> =>
   deep.overrideValidItems(
     createConfig(input),
-    record.omit(config as record.Unknown, "specKey", "stateOverrides"),
+    record.omit(config as record.Unknown, "spec", "specKey", "stateOverrides"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
 
