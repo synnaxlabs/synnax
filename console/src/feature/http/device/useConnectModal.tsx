@@ -469,6 +469,7 @@ export const Connect = ({
         variant={variant}
         message={stat.description}
         onConnect={() => void handleConnect()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -495,7 +496,7 @@ const TAB_PATHS: Record<string, string[]> = {
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "HTTP server",
+  placeholder: "Server name",
   "aria-label": "Name",
 } as const;
 

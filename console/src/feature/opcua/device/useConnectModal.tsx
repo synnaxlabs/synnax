@@ -434,6 +434,7 @@ export const Connect = ({
         variant={variant}
         message={stat.description}
         onConnect={() => save()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -520,7 +521,7 @@ const HEADER = ["Device", "Connect", "OPC UA server"];
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "OPC UA server",
+  placeholder: "Server name",
   "aria-label": "Name",
 } as const;
 
