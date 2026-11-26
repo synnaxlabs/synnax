@@ -69,7 +69,8 @@ func exists(ctx SpecContext, key group.Key) bool {
 
 func newGroup(ctx SpecContext, scope resource.Type, parent *group.Group) group.Group {
 	GinkgoHelper()
-	g := group.Group{Name: "group", Scope: scope}
+	// Names in a channel group are unique, so each group takes its own.
+	g := group.Group{Name: "group-" + uuid.New().String(), Scope: scope}
 	if parent != nil {
 		g.Parent = new(parent.ResourceID())
 	}
@@ -211,16 +212,21 @@ var _ = Describe("Group", func() {
 	})
 
 	Describe("Dispatch rename", func() {
-		var g group.Group
+		var (
+			g       group.Group
+			renamed string
+		)
 		BeforeEach(func(ctx SpecContext) {
 			g = newGroup(ctx, resource.TypeChannel, nil)
+			// Names in a channel group are unique, so each rename takes its own.
+			renamed = "renamed-" + uuid.New().String()
 		})
 		renameAs := func(ctx SpecContext, u user.User) (struct{}, error) {
 			return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
 				Key: g.Key,
 				Actions: []group.Action{group.NewSetAction(group.SetPayload{
 					Path:  []string{"name"},
-					Value: "renamed",
+					Value: renamed,
 				})},
 			})
 		}
@@ -229,13 +235,13 @@ var _ = Describe("Group", func() {
 			u := newUser(ctx)
 			Expect(renameAs(ctx, u)).
 				Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
-			Expect(retrieve(ctx, g.Key).Name).To(Equal("group"))
+			Expect(retrieve(ctx, g.Key).Name).To(Equal(g.Name))
 		})
 
 		It("Should rename a group the user can update", func(ctx SpecContext) {
 			u := newUser(ctx, grant(update, g.ResourceID()))
 			MustSucceed(renameAs(ctx, u))
-			Expect(retrieve(ctx, g.Key).Name).To(Equal("renamed"))
+			Expect(retrieve(ctx, g.Key).Name).To(Equal(renamed))
 		})
 	})
 

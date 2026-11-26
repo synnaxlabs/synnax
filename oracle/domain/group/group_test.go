@@ -100,6 +100,91 @@ var _ = Describe("Extract", func() {
 		Expect(values(data.Members[1])).To(Equal([]any{"rack", "device", true}))
 	})
 
+	It("Should mark a namespaced member with its record and field", func() {
+		data := MustSucceed(extract(`
+			Name = string
+
+			Channel struct {
+				key   uint32 {
+					@key
+				}
+				name  Name
+				group group.Key? {
+					@group scope channel
+					@group namespaced
+				}
+
+				@resource type "channel"
+			}
+		`))
+		Expect(data.Members).To(HaveLen(1))
+		m := data.Members[0]
+		Expect(m.Namespaced).To(BeTrue())
+		Expect(m.Record.Name).To(Equal("Channel"))
+		Expect(m.Field.Name).To(Equal("group"))
+	})
+
+	It("Should reject a namespaced member with no string name field", func() {
+		Expect(extract(rack(`
+			@group scope device
+			@group namespaced
+		`))).Error().To(MatchError(
+			"records.Rack.group: @group namespaced needs records.Rack to have a " +
+				"string name field",
+		))
+	})
+
+	It("Should reject members of one scope that differ on namespaced", func() {
+		Expect(extract(`
+			Device struct {
+				key   uint32 {
+					@key
+				}
+				name  string
+				group group.Key? {
+					@group scope device
+					@group namespaced
+				}
+
+				@resource type "device"
+			}
+		` + rack(`
+			@group scope device
+		`))).Error().To(MatchError(
+			"@group namespaced must mark every member of scope device or none: " +
+				"records.Device and records.Rack differ",
+		))
+	})
+
+	It("Should reject a pinned member that is namespaced", func() {
+		Expect(extract(`
+			Device struct {
+				key   uint32 {
+					@key
+				}
+				name  string
+				group group.Key? {
+					@group scope device
+					@group pinned
+					@group namespaced
+				}
+
+				@resource type "device"
+			}
+		`)).Error().To(MatchError(
+			"records.Device: @group namespaced cannot go with pinned",
+		))
+	})
+
+	It("Should reject a value for namespaced", func() {
+		Expect(extract(rack(`
+			@group scope device
+			@group namespaced yes
+		`))).Error().To(MatchError(
+			"records.Rack.group: @group needs no value for namespaced",
+		))
+	})
+
 	DescribeTable(
 		"Should reject a malformed @group",
 		func(domains, message string) {
