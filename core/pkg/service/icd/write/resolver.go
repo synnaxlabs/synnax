@@ -238,13 +238,17 @@ func checkBindings(
 	return checkSelected(fieldsOf(p), at, channels)
 }
 
-// checkChannel returns a validation error when the data type of b, from the channel
-// that dataTypes holds or else from b, cannot write f.
+// checkChannel returns a validation error when f has a zero scale, or when the data
+// type
+// of b, from the channel that dataTypes holds or else from b, cannot write f.
 func checkChannel(
 	f field,
 	b icd.ChannelWriteBinding,
 	dataTypes map[channel.Key]telem.DataType,
 ) error {
+	if err := icd.CheckScale(f.scale); err != nil {
+		return errors.Wrapf(err, "field %s", f.name)
+	}
 	dt, found := dataTypes[b.Channel]
 	if !found && b.DataType != nil {
 		dt, found = *b.DataType, true
@@ -305,6 +309,7 @@ type field struct {
 	key       icd.FieldKey
 	name      string
 	kind      payload.Kind
+	scale     float64
 	scaled    bool
 	defaulted bool
 	// identifier is true when the field holds the identifier of its message.
@@ -341,6 +346,7 @@ func fieldsOf(p icd.Payload) []field {
 				key:             b.Key,
 				name:            b.Name,
 				kind:            payload.Kind(f.Kind()),
+				scale:           b.Scale,
 				scaled:          b.Scale != 1 || b.Offset != 0,
 				multiplexor:     b.Multiplexor,
 				multiplexValues: b.MultiplexValues,
@@ -370,6 +376,7 @@ func fieldsOf(p icd.Payload) []field {
 				key:       b.Key,
 				name:      b.Name,
 				kind:      payload.KindFloat,
+				scale:     b.Scale,
 				scaled:    b.Scale != 1 || b.Offset != 0,
 				defaulted: b.Default != nil,
 			}
