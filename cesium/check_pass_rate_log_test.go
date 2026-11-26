@@ -161,7 +161,7 @@ var _ = Describe("Check pass rate on the pointer log", func() {
 		Consistently(dataOf).WithArguments(ctx, db, keys).
 			Should(Equal(blocked), "the claim blocks the Tombstones")
 		Expect(w.Close()).To(Succeed())
-		want := old.without(2, int(p.size/8))
+		want := old.without(2, 3)
 		Eventually(advanced(time.Minute, func() bool {
 			got, err := dataOf(ctx, db, keys)
 			return err == nil && maps.EqualFunc(got, want, bytes.Equal)
