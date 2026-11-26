@@ -58,7 +58,9 @@
         { "case": "driver/kafka_read" },
         { "case": "driver/kafka_write" },
         { "case": "driver/kafka_invalid" },
-        { "case": "driver/kafka_edge" }
+        { "case": "driver/kafka_edge" },
+        { "case": "console/task/kafka_read_task" },
+        { "case": "console/task/kafka_write_task" }
       ]
     },
     {
