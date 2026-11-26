@@ -496,10 +496,11 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
 - **Form**: An edit writes the bare form only when every segment is an identifier and
   none is an Arc keyword, literal, or type name, and the name does not clash with a
   variable or a module member. Until the quotes land, an edit of any other path writes
-  the channel's bare name when that name binds the channel by the match of §4.2. Else
-  the edit is not made, and the plan notes the holder as broken by the action, as for
-  text that does not parse. With the quotes, it writes the quoted form, with `\` and `'`
-  escaped. A quoted token stays quoted. Two entries of one key merge into one.
+  the channel's bare name when that name passes the same checks and binds the channel by
+  the match of §4.2. Else the edit is not made, and the plan notes the holder as broken
+  by the action, as for text that does not parse. With the quotes, it writes the quoted
+  form, with `\` and `'` escaped. A quoted token stays quoted. Two entries of one key
+  merge into one.
 - **Text that does not parse**: An edit rewrites its lexer tokens, and the plan notes
   it. The LSP rename calls `path.Apply` (§4.11).
 
