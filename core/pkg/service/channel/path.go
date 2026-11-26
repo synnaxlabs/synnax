@@ -11,6 +11,8 @@ package channel
 
 import (
 	"context"
+	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -79,8 +81,7 @@ func siblingOf(ch *Channel) group.Sibling {
 
 // siblingAt returns the folder of the last segment of path and that segment, as seen
 // by snap. It returns false when a folder on the path does not exist or r does not
-// allow
-// it.
+// allow it.
 func (r Retrieve) siblingAt(ctx context.Context, snap gorp.Snapshot, path string) (
 	group.Sibling,
 	bool,
@@ -180,4 +181,132 @@ func Paths(
 		}
 	}
 	return paths, nil
+}
+
+// AmbiguousNameError is the error of a name that several channels hold. The Service
+// returns it inside a validation error. It names the holders by key and no path, since
+// a path can name a folder that the reader cannot retrieve. Service.DescribeAmbiguity
+// writes the paths that a subject can see.
+type AmbiguousNameError struct {
+	// Name is the name, and Holders are the keys of the channels that hold it.
+	Name    string
+	Holders Keys
+}
+
+// Error implements error.
+func (e AmbiguousNameError) Error() string {
+	keys := make([]string, len(e.Holders))
+	for i, k := range e.Holders {
+		keys[i] = k.String()
+	}
+	return fmt.Sprintf(
+		"%d channels are named '%s' (keys %s)",
+		len(e.Holders),
+		e.Name,
+		strings.Join(keys, ", "),
+	)
+}
+
+// quotePath returns path in single quotes, with each quote and backslash escaped.
+func quotePath(path string) string {
+	var b strings.Builder
+	b.Grow(len(path) + 2)
+	b.WriteByte('\'')
+	for i := range len(path) {
+		if path[i] == '\'' || path[i] == '\\' {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(path[i])
+	}
+	b.WriteByte('\'')
+	return b.String()
+}
+
+// AmbiguousName returns the validation error that holds the AmbiguousNameError of name
+// and holders.
+func AmbiguousName(name string, holders Keys) error {
+	err := AmbiguousNameError{Name: name, Holders: holders}
+	return validate.WithCause(err, "%s", err.Error())
+}
+
+// KeysByNames returns the key of the channel that holds each of names, compared in NFC,
+// as snap holds them. A name that no channel holds adds no key. A name that several
+// channels hold returns an AmbiguousNameError.
+func (s *Service) KeysByNames(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	names []string,
+) (Keys, error) {
+	normal := NormalizeNames(names)
+	var holders []Channel
+	if err := s.newRetrieve().
+		Where(MatchNames(normal...)).
+		Entries(&holders).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	byName := make(map[string]Keys, len(normal))
+	for _, ch := range holders {
+		byName[ch.Name] = append(byName[ch.Name], ch.Key())
+	}
+	for i, n := range normal {
+		if keys := byName[n]; len(keys) > 1 {
+			return nil, AmbiguousName(names[i], keys)
+		}
+	}
+	return KeysFromChannels(holders), nil
+}
+
+// DescribeAmbiguity returns err as a subject sees it when err is an AmbiguousNameError,
+// and returns err unchanged otherwise. access returns whether the subject can retrieve
+// a record. The result is a validation error that quotes the path of each holder that
+// the subject can retrieve along with every folder on its path, then counts the other
+// holders. errors.As still finds the AmbiguousNameError in it. Paths are as snap holds
+// them.
+func (s *Service) DescribeAmbiguity(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	err error,
+	access func(context.Context) (func(resource.ID) bool, error),
+) error {
+	ambiguous, ok := errors.AsType[AmbiguousNameError](err)
+	if !ok {
+		return err
+	}
+	allowed, rErr := access(ctx)
+	if rErr != nil {
+		return rErr
+	}
+	var holders []Channel
+	if rErr = s.newRetrieve().
+		Where(MatchKeys(ambiguous.Holders...)).
+		Entries(&holders).
+		Exec(ctx, snap); rErr != nil {
+		return rErr
+	}
+	paths, rErr := Paths(ctx, snap, holders)
+	if rErr != nil {
+		return rErr
+	}
+	folderAllowed := func(g group.Group) bool { return allowed(g.ResourceID()) }
+	texts := PathTexts(paths)
+	shown := make([]string, 0, len(holders)+1)
+	for i, p := range paths {
+		if allowed(holders[i].ResourceID()) && lo.EveryBy(p.Folders, folderAllowed) {
+			shown = append(shown, quotePath(texts[i]))
+		}
+	}
+	slices.Sort(shown)
+	if hidden := len(ambiguous.Holders) - len(shown); hidden > 0 && len(shown) > 0 {
+		shown = append(shown, fmt.Sprintf("and %d more you cannot see", hidden))
+	} else if hidden > 0 {
+		shown = append(shown, fmt.Sprintf("%d you cannot see", hidden))
+	}
+	return validate.WithCause(
+		err,
+		"%d channels are named '%s': %s",
+		len(ambiguous.Holders),
+		ambiguous.Name,
+		strings.Join(shown, ", "),
+	)
 }

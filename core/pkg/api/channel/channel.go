@@ -11,6 +11,7 @@ package channel
 
 import (
 	"context"
+	"slices"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -190,7 +191,7 @@ func (s *Service) Create(
 	}
 	if err := s.internal.NewWriter(tx).
 		CreateMany(ctx, &translated, opts...); err != nil {
-		return CreateResponse{}, err
+		return CreateResponse{}, s.describe(ctx, tx, err)
 	}
 	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
 }
@@ -208,8 +209,7 @@ func (r RetrieveRequest) Named() []resource.ID {
 
 // Retrieve retrieves the channels that the request selects and that the subject can
 // retrieve. A channel that the top level of Where names by exact name or path needs
-// retrieve,
-// as a named key does.
+// retrieve, as a named key does.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -393,22 +393,29 @@ type DeleteRequest struct {
 }
 
 // Delete deletes the channels that the request names by key or by name. Deleting an
-// internal channel is a validation error.
+// internal channel, or a name that several channels hold, is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	w := s.internal.NewWriter(tx)
-	if len(req.Keys) > 0 {
-		if err := w.DeleteMany(ctx, req.Keys, false); err != nil {
-			return struct{}{}, err
-		}
+	named, err := s.internal.KeysByNames(ctx, tx, req.Names)
+	if err != nil {
+		return struct{}{}, s.describe(ctx, tx, err)
 	}
-	if len(req.Names) > 0 {
-		return struct{}{}, w.DeleteManyByNames(ctx, req.Names, false)
-	}
-	return struct{}{}, nil
+	return struct{}{}, s.internal.NewWriter(tx).
+		DeleteMany(ctx, slices.Concat(req.Keys, named), false)
+}
+
+// describe returns err as the subject of ctx sees it, through
+// channel.Service.DescribeAmbiguity.
+func (s *Service) describe(ctx context.Context, tx gorp.Tx, err error) error {
+	return s.internal.DescribeAmbiguity(ctx, tx, err, func(
+		ctx context.Context,
+	) (func(resource.ID) bool, error) {
+		return s.access.NewEnforcer(tx).
+			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+	})
 }
 
 // DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
@@ -431,7 +438,7 @@ func (s *Service) Dispatch(
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
 	if err != nil {
-		return DispatchResponse{}, err
+		return DispatchResponse{}, s.describe(ctx, tx, err)
 	}
 	return DispatchResponse{Actions: computed}, nil
 }

@@ -63,9 +63,10 @@ type createOptions struct {
 // CreateOption configures the behavior of a Create or CreateMany call.
 type CreateOption func(*createOptions)
 
-// RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
-// or key already exists, populates the provided channel from the existing record
-// instead of returning an error.
+// RetrieveIfNameExists returns a CreateOption that populates a channel from the stored
+// channel of its name, compared in NFC, instead of creating it. A channel with a group
+// takes only the stored channel in that group. A name that several stored channels
+// hold returns an AmbiguousNameError.
 func RetrieveIfNameExists() CreateOption {
 	return func(o *createOptions) { o.retrieveIfNameExists = true }
 }
@@ -563,9 +564,9 @@ func addPosition(positions set.Set[int], at int) set.Set[int] {
 	return positions
 }
 
-// resetStoredNames resets each channel whose name exists to its stored record. Of
-// channels in two folders with the name, it takes the one with the highest key, which a
-// v0.62 Core retrieved and Arc binds the name to.
+// resetStoredNames resets each channel at a position not in reset to the stored channel
+// of its name: in its group when it has a group, else in any group. A name that several
+// channels hold returns an AmbiguousNameError.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
@@ -579,17 +580,27 @@ func (w Writer) resetStoredNames(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	last := make(map[string]Channel, len(existing))
+	held := make(map[string][]Channel, len(existing))
 	for _, e := range existing {
-		if prev, ok := last[e.Name]; !ok || e.Key() > prev.Key() {
-			last[e.Name] = e
-		}
+		held[e.Name] = append(held[e.Name], e)
 	}
-	at := positions(names)
-	for name, e := range last {
-		if i := at[name][0]; !reset.Contains(i) {
-			channels[i] = e
+	for i, ch := range channels {
+		if reset.Contains(i) {
+			continue
+		}
+		holders := held[names[i]]
+		if ch.Group != nil {
+			holders = lo.Filter(holders, func(e Channel, _ int) bool {
+				return sameGroup(e.Group, ch.Group)
+			})
+		}
+		switch len(holders) {
+		case 0:
+		case 1:
+			channels[i] = holders[0]
 			reset = addPosition(reset, i)
+		default:
+			return nil, AmbiguousName(ch.Name, KeysFromChannels(holders))
 		}
 	}
 	return reset, nil

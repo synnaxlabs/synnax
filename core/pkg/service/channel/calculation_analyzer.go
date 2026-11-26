@@ -84,12 +84,15 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 		}
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
-	if errors.Is(resolveErr, query.ErrNotFound) {
+	// The analysis reports an ambiguous name as a diagnostic, like an unknown one.
+	_, ambiguous := errors.AsType[AmbiguousNameError](resolveErr)
+	switch {
+	case errors.Is(resolveErr, query.ErrNotFound):
 		if s, ok := r.temp.unstored[name]; ok {
 			return s, nil
 		}
 		r.unresolved.Add(name)
-	} else if resolveErr != nil && r.readErr == nil {
+	case resolveErr != nil && !ambiguous && r.readErr == nil:
 		r.readErr = resolveErr
 	}
 	return sym, resolveErr

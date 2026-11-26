@@ -161,7 +161,19 @@ func (s *Service) Delete(
 		q = q.Where(channel.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.Where(channel.MatchNames(channel.NormalizeNames(req.Names)...))
+		named, err := s.channel.KeysByNames(ctx, tx, req.Names)
+		if err != nil {
+			return struct{}{}, s.channel.DescribeAmbiguity(ctx, tx, err, func(
+				ctx context.Context,
+			) (func(resource.ID) bool, error) {
+				return s.access.NewEnforcer(tx).
+					Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
+			})
+		}
+		if len(named) == 0 {
+			return struct{}{}, nil
+		}
+		q = q.Where(channel.MatchKeys(named...))
 	}
 	if err := q.Exec(ctx, tx); err != nil {
 		return struct{}{}, err

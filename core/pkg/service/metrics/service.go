@@ -229,41 +229,30 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-// createChannels creates the index and metric channels, retrieving any that already
-// exist by name. It returns the metrics bound to their stored channels.
+// createChannels finds or creates the index and metric channels. It returns the metrics
+// bound to their stored channels.
 func (s *Service) createChannels(
 	ctx context.Context,
 	namePrefix string,
 ) ([]metric, []channel.Channel, error) {
-	idx := channel.Channel{
-		Name:     namePrefix + "time",
-		DataType: telem.TimestampT,
-		IsIndex:  true,
-		Group:    &s.group.Key,
-	}
 	var (
 		metrics         []metric
 		metricsChannels []channel.Channel
 	)
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		chWriter := s.cfg.Channel.NewWriter(tx)
-		if err := chWriter.Create(
-			ctx,
-			&idx,
-			channel.RetrieveIfNameExists(),
-		); err != nil {
+		idx := []channel.Channel{{
+			Name:     namePrefix + "time",
+			DataType: telem.TimestampT,
+			IsIndex:  true,
+		}}
+		if err := s.findOrCreate(ctx, tx, idx); err != nil {
 			return err
 		}
-		metrics = s.createMetrics(namePrefix, idx.LocalKey)
+		metrics = s.createMetrics(namePrefix, idx[0].LocalKey)
 		metricsChannels = lo.Map(metrics, func(m metric, _ int) channel.Channel {
-			m.ch.Group = &s.group.Key
 			return m.ch
 		})
-		if err := chWriter.CreateMany(
-			ctx,
-			&metricsChannels,
-			channel.RetrieveIfNameExists(),
-		); err != nil {
+		if err := s.findOrCreate(ctx, tx, metricsChannels); err != nil {
 			return err
 		}
 		for i, ch := range metricsChannels {
@@ -281,16 +270,51 @@ func (s *Service) createCalculatedChannels(
 	namePrefix string,
 ) error {
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		calculatedChannels := createCalculatedMetrics(namePrefix)
-		for i := range calculatedChannels {
-			calculatedChannels[i].Group = &s.group.Key
-		}
-		return s.cfg.Channel.NewWriter(tx).CreateMany(
-			ctx,
-			&calculatedChannels,
-			channel.RetrieveIfNameExists(),
-		)
+		return s.findOrCreate(ctx, tx, createCalculatedMetrics(namePrefix))
 	})
+}
+
+// findOrCreate sets each of chs to the stored channel of its name in any folder, and
+// creates each other one in the folder of the metrics. Of stored channels in two
+// folders with one name, it takes the one with the highest key, as a v0.62 Core did.
+func (s *Service) findOrCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	chs []channel.Channel,
+) error {
+	var stored []channel.Channel
+	if err := s.cfg.Channel.NewRetrieve().
+		Where(channel.MatchNames(channel.Names(chs)...)).
+		Entries(&stored).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	found := make(map[string]channel.Channel, len(stored))
+	for _, ch := range stored {
+		if prev, ok := found[ch.Name]; !ok || ch.Key() > prev.Key() {
+			found[ch.Name] = ch
+		}
+	}
+	var missing []int
+	for i, ch := range chs {
+		if st, ok := found[ch.Name]; ok {
+			chs[i] = st
+			continue
+		}
+		chs[i].Group = &s.group.Key
+		missing = append(missing, i)
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	created := lo.Map(missing, func(i, _ int) channel.Channel { return chs[i] })
+	if err := s.cfg.Channel.NewWriter(tx).CreateMany(ctx, &created); err != nil {
+		return err
+	}
+	for j, i := range missing {
+		chs[i] = created[j]
+	}
+	return nil
 }
 
 // run starts the pipeline that writes the metrics that c collects through w.
