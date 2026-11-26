@@ -9,6 +9,7 @@
 
 import type { color } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { color as xcolor } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -36,6 +37,11 @@ const createInPalette = async (): Promise<color.Named> => {
 };
 
 const named = (key: string): color.Ref => ({ type: "named", key });
+
+const fixed = (hex: string): color.Ref => ({
+  type: "fixed",
+  value: xcolor.construct(hex),
+});
 
 describe("ColorField", () => {
   let wrapper: FC<PropsWithChildren>;
@@ -82,31 +88,13 @@ describe("ColorField", () => {
         label="Fill"
         values={[
           { value: named(c.key), fallback: FALLBACK },
-          { value: MultiEdit.fixedRef(GREEN), fallback: FALLBACK },
+          { value: fixed(GREEN), fallback: FALLBACK },
         ]}
         onChange={vi.fn()}
       />,
       { wrapper },
     );
     await waitFor(() => expect(getHexInput("Fill").placeholder).toBe("Mixed"));
-  });
-
-  it("should hide the palettes when palettesHidden is set", async () => {
-    const c = await createInPalette();
-    render(
-      <MultiEdit.ColorField
-        label="Fill"
-        values={[{ value: named(c.key), fallback: FALLBACK }]}
-        onChange={vi.fn()}
-        palettesHidden
-      />,
-      { wrapper },
-    );
-    // The named color resolves once the named colors load.
-    await waitFor(() => expect(getHexInput("Fill").value).toBe(GREEN.slice(1)));
-    fireEvent.click(getSwatches("Fill")[0]);
-    await screen.findByLabelText("Hex");
-    expect(screen.queryByText("Library")).toBeNull();
   });
 });
 
@@ -123,7 +111,7 @@ describe("SelectionColors", () => {
         refs={[
           { key: "a", path: "fillColor", value: named(c.key) },
           { key: "b", path: "fillColor", value: named(c.key) },
-          { key: "c", path: "fillColor", value: MultiEdit.fixedRef(GREEN) },
+          { key: "c", path: "fillColor", value: fixed(GREEN) },
         ]}
         onChange={vi.fn()}
       />,
@@ -132,34 +120,12 @@ describe("SelectionColors", () => {
     await waitFor(() => expect(getSwatches("Selection")).toHaveLength(2));
   });
 
-  it("should hide the palettes of a group that holds a color value", async () => {
-    await createInPalette();
-    render(
-      <MultiEdit.SelectionColors
-        refs={[
-          { key: "a", path: "fillColor", value: MultiEdit.fixedRef(GREEN) },
-          {
-            key: "b",
-            path: "strokeColor",
-            value: MultiEdit.fixedRef(GREEN),
-            valueOnly: true,
-          },
-        ]}
-        onChange={vi.fn()}
-      />,
-      { wrapper },
-    );
-    fireEvent.click(getSwatches("Selection")[0]);
-    await screen.findByLabelText("Hex");
-    expect(screen.queryByText("Library")).toBeNull();
-  });
-
   it("should recolor every holder of a group with a named reference", async () => {
     const c = await createInPalette();
     const onChange = vi.fn();
     const refs: MultiEdit.ColorRef[] = [
-      { key: "a", path: "fillColor", value: MultiEdit.fixedRef(GREEN) },
-      { key: "b", path: "textColor", value: MultiEdit.fixedRef(GREEN) },
+      { key: "a", path: "fillColor", value: fixed(GREEN) },
+      { key: "b", path: "textColor", value: fixed(GREEN) },
     ];
     render(<MultiEdit.SelectionColors refs={refs} onChange={onChange} />, { wrapper });
     fireEvent.click(getSwatches("Selection")[0]);

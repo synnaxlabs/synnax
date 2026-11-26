@@ -391,7 +391,15 @@ export const compareModeConfigs = <K extends string | number | symbol>(
   if (a.defaultMode !== b.defaultMode) return false;
   const aKeys = record.keys(a.modes);
   if (aKeys.length !== record.keys(b.modes).length) return false;
-  return aKeys.every((k) => array.equalUnordered(a.modes[k], b.modes[k]));
+  return aKeys.every((k) => {
+    const aTriggers = a.modes[k];
+    const bTriggers = b.modes[k];
+    return (
+      bTriggers != null &&
+      aTriggers.length === bTriggers.length &&
+      aTriggers.every((t, i) => array.equalUnordered(t, bTriggers[i]))
+    );
+  });
 };
 
 /**

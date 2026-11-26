@@ -158,7 +158,7 @@ JSONFile::open_file(const JSONFileConfig &config) {
     };
     try {
         const auto dir = config.path.parent_path();
-        if (!std::filesystem::exists(dir)) {
+        if (!dir.empty() && !std::filesystem::exists(dir)) {
             auto parent_dir = dir.parent_path();
             if (std::filesystem::exists(parent_dir))
                 if (auto err = check_minimum_permissions(

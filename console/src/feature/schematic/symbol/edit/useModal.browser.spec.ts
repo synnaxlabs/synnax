@@ -935,7 +935,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         hidden: false,
       };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState(enumeration.key)],
         looks: [shown],
       });
@@ -968,7 +967,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       await openPainted({
-        variant: "actuator",
         states: [
           createState(active.key),
           { ...createState(faults.key), key: "fault", name: "Fault" },
@@ -1028,7 +1026,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         entries: faultEntries,
       });
       await openPainted({
-        variant: "actuator",
         parts: [{ ...BODY, selectors: ["#body"] }],
         states: [
           createState(active.key),
@@ -1170,7 +1167,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       await openPainted({
-        variant: "actuator",
         parts: [{ ...BODY, selectors: ["#body"] }],
         states: [
           {
@@ -1195,7 +1191,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("saves a contrast paint on the state", async () => {
       const enumeration = await createEnumeration();
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState(enumeration.key)],
       });
       fireEvent.click(screen.getByLabelText("Fill"));
@@ -1298,7 +1293,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("keeps a part shown at every value where the drawing hides it", async () => {
       const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [hide],
       });
@@ -1319,7 +1313,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("shows and hides a part at each value of a state", async () => {
       const hide: schematic.symbol.Look = { key: "hide", when: atActive, hidden: true };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [hide],
       });
@@ -1348,7 +1341,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("hides a part at a value of the state picked in the preview bar", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState(), fault],
       });
       await pick("Preview state", "Fault");
@@ -1369,7 +1361,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("edits the first enumeration state of a symbol with no active state", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
-      const symbol = await openPainted({ variant: "static", states: [fault] });
+      const symbol = await openPainted({ states: [fault] });
       byState("Visible");
       fireEvent.click(await screen.findByLabelText("Visible while Active"));
       fireEvent.click(findButton("Save"));
@@ -1396,7 +1388,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         ],
       });
       await openPainted({
-        variant: "actuator",
         states: [
           createState(),
           {
@@ -1419,7 +1410,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("turns By state off when the preview picks another state", async () => {
       await openPainted({
-        variant: "actuator",
         states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
       });
       byState("Fill");
@@ -1443,7 +1433,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
       const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
       await openPainted({
-        variant: "actuator",
         states: [createState(), fault],
         looks: [
           {
@@ -1463,7 +1452,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("adds a state that the preview bar can pick", async () => {
-      await openPainted({ variant: "actuator", states: [createState()] });
+      await openPainted({ states: [createState()] });
       fireEvent.click(getEditSectionHeaderButton("States"));
       await pick("Preview state", "State 2");
       expect(
@@ -1476,7 +1465,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("lists many states in order in the preview bar", async () => {
       const names = ["Active", "B", "C", "D", "E", "F", "G", "H"];
       await openPainted({
-        variant: "actuator",
         states: names.map((name, i) => ({
           ...createState(),
           key: i === 0 ? "active" : name.toLowerCase(),
@@ -1495,7 +1483,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     // command sets, and one click on Body sends that command.
     const openFaulted = async () =>
       await openPainted({
-        variant: "actuator",
         states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
         looks: [
           {
@@ -1535,7 +1522,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("removes a state with no uses at once", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
-      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      await openPainted({ states: [createState(), fault] });
       fireEvent.click(screen.getByLabelText("Remove Fault"));
       await waitFor(() => expect(screen.queryByText("Fault")).toBeNull());
       expect(screen.queryByText(/Its uses go with it/)).toBeNull();
@@ -1543,7 +1530,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("opens the name of a new state for edit, and a rename keeps its key", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
       });
       fireEvent.click(getEditSectionHeaderButton("States"));
@@ -1572,7 +1558,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("moves the preview to a state left when its state goes", async () => {
       const fault = { ...createState(), key: "fault", name: "Fault" };
-      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      await openPainted({ states: [createState(), fault] });
       byState("Fill");
       expect(screen.getByLabelText("Fill while Base")).toBeDefined();
       fireEvent.click(screen.getByLabelText("Remove Active"));
@@ -1581,22 +1567,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("saves a symbol with a click as an actuator", async () => {
-      const symbol = await openPainted({
-        states: [createState()],
-        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
-        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
-      });
-      fireEvent.click(findButton("Save"));
-      await waitFor(async () => {
-        const saved = await retrieveStored(symbol.key);
-        expect(saved.data.variant).toBe("actuator");
-      });
-    });
-
     it("adds a command that sends 0 and opens its name for edit", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
       });
       fireEvent.click(getEditSectionHeaderButton("Commands"));
@@ -1615,7 +1587,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("removes a command and its click after a confirm", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
         interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
@@ -1920,7 +1891,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves a command that asks for a value", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         commands: [
           {
@@ -1944,7 +1914,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves the number that a command sends on a number state", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [
           createState(),
           {
@@ -1983,7 +1952,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("drops the selection of a removed command", async () => {
       await openPainted({
-        variant: "actuator",
         states: [createState()],
         commands: [
           { key: "command-1", name: "Command 1", value: { type: "fixed", value: 0 } },
@@ -2049,7 +2017,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         expect(saved.data.interactions).toEqual([
           { type: "fire", key: expect.any(String), command: "go" },
         ]);
-        expect(saved.data.variant).toBe("actuator");
       });
     });
 
@@ -2300,21 +2267,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("saves a symbol with no click as static", async () => {
-      const symbol = await openPainted({
-        variant: "actuator",
-        states: [createState()],
-      });
-      fireEvent.click(findButton("Save"));
-      await waitFor(async () => {
-        const saved = await retrieveStored(symbol.key);
-        expect(saved.data.variant).toBe("static");
-      });
-    });
-
     it("clears the hide of a part at a value and keeps the values shown", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [{ key: "hide", part: "body", when: atBase, hidden: true }],
       });
@@ -2336,7 +2290,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         blink: { period: 1e9 },
       };
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [all],
       });
@@ -2367,7 +2320,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("fits the motion picker and its By state button in the inspector", async () => {
-      await openPainted({ variant: "actuator", states: [createState()] });
+      await openPainted({ states: [createState()] });
       const right = getInspector().getBoundingClientRect().right;
       for (const el of [screen.getByLabelText("Motion by state"), findButton("Flow")])
         expect(el.getBoundingClientRect().right).toBeLessThanOrEqual(right);
@@ -2398,7 +2351,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("keeps By state when the last paint of a part at a value is cleared", async () => {
       const symbol = await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [
           {
@@ -2423,7 +2375,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("shows the paint of the whole drawing at the preview value", async () => {
       await openPainted({
-        variant: "actuator",
         states: [createState()],
         looks: [{ key: "node", when: atBase, fill: { type: "node" } }],
       });

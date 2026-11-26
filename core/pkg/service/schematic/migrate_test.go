@@ -327,7 +327,6 @@ var _ = Describe("Stored v4 symbols", func() {
 			tank := store(ctx, "Tank")
 			upgrade(ctx, tank)
 			sym := retrieve(ctx, tank.Key)
-			Expect(sym.Data.Variant).To(Equal("actuator"))
 			Expect(sym.Data.Looks).To(HaveLen(1))
 			Expect(sym.Data.Looks[0].When).To(Equal(&symbol.Condition{
 				Variant: symbol.EqualsCondition{
