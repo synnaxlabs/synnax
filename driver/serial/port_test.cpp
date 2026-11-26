@@ -28,6 +28,14 @@
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
+namespace {
+/// @brief expects got to be want, with its message.
+void expect_same(const x::errors::Error &got, const x::errors::Error &want) {
+    EXPECT_TRUE(got.matches(want)) << got;
+    EXPECT_EQ(got.data, want.data);
+}
+}
+
 TEST_F(PtyTest, ReadsWhatThePeerWrites) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     const auto before = x::telem::TimeStamp::now();
@@ -106,6 +114,27 @@ TEST_F(PtyTest, FailsAWriteThatTimesOut) {
         "failed to write to serial port " + this->path() + ": " +
             std::make_error_code(std::errc::timed_out).message()
     );
+}
+
+TEST_F(PtyTest, ClosesAtOnceAndKeepsTheErrorAfterAFailedWrite) {
+    const auto failed = ASSERT_NIL_P(Port::open(this->props()));
+    const std::string data(4 * 1024 * 1024, 'x');
+    const auto err = failed->write(bytes(data), 50 * x::telem::MILLISECOND);
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    expect_same(failed->write(bytes("x"), x::telem::SECOND), err);
+    expect_same(failed->read(x::telem::SECOND).second, err);
+    const auto next = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("next");
+    EXPECT_EQ(as_string(ASSERT_NIL_P(next->read(x::telem::SECOND)).data), "next");
+}
+
+TEST_F(PtyTest, ClosesAtOnceAndKeepsTheErrorAfterAFailedRead) {
+    const auto failed = ASSERT_NIL_P(Port::open(this->props()));
+    this->close_peer();
+    const auto [chunk, err] = failed->read(x::telem::SECOND);
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    expect_same(failed->read(x::telem::SECOND).second, err);
+    expect_same(failed->write(bytes("x"), x::telem::SECOND), err);
 }
 
 TEST_F(PtyTest, AppliesStopBitsAndHardwareFlowControl) {
