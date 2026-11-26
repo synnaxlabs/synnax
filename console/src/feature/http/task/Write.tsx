@@ -92,9 +92,11 @@ const endpointCommand = (
   dataType: ep.channel.dataType,
 });
 
-/** The name that deploying gives each command channel it creates, by endpoint path. */
-const NamesContext = createContext<ReadonlyMap<string, string>>(new Map());
-NamesContext.displayName = "HTTP.NamesContext";
+/** The plan of the command channel of each endpoint, by endpoint path. */
+const PlansContext = createContext<ReadonlyMap<string, Task.CommandChannelPlan>>(
+  new Map(),
+);
+PlansContext.displayName = "HTTP.PlansContext";
 
 /** Plans the command channels of every endpoint together, as deploying does. */
 const CommandNames = ({ children }: PropsWithChildren): ReactElement => {
@@ -106,8 +108,8 @@ const CommandNames = ({ children }: PropsWithChildren): ReactElement => {
       : endpoints
           .filter(({ disabled }) => !disabled)
           .map((ep) => endpointCommand(dev.name, ep));
-  const names = Task.useCommandChannelNames(dev?.properties.write, specs);
-  return <NamesContext value={names}>{children}</NamesContext>;
+  const plans = Task.useCommandChannelPlans(dev?.properties.write, specs);
+  return <PlansContext value={plans}>{children}</PlansContext>;
 };
 
 const ChannelEndpointItem = (props: Task.ChannelListItemProps) => {
@@ -117,7 +119,9 @@ const ChannelEndpointItem = (props: Task.ChannelListItemProps) => {
   const endpointPath = PForm.useFieldValue(path.path);
   const disabled = PForm.useFieldValue(path.disabled);
   const dev = Device.useFromConfig();
-  const planned = useContext(NamesContext).get(endpointPath);
+  const planned = Task.newCommandChannelName(
+    useContext(PlansContext).get(endpointPath),
+  );
   return (
     <Select.Item
       {...props}
@@ -411,11 +415,13 @@ const ICDEndpointDetails = ({
   const ctx = PForm.useContext();
   const formats = ICD.useFormats();
   const sends = sendsICD(PForm.useFieldValue(path));
-  // A message that this form created and no other endpoint sends follows its request
-  // while it keeps the name that the request gave it.
   const handleRequestChange = (change: Partial<RequestLine>) => {
     const ep = ctx.get(path).value;
-    if (!sendsICD(ep) || !created.includes(ep.message.message)) return;
+    if (!sendsICD(ep)) return;
+    ctx.set(icdPath(epKey).message, ICD.Write.unbind(ep.message));
+    // A message that this form created and no other endpoint sends follows its request
+    // while it keeps the name that the request gave it.
+    if (!created.includes(ep.message.message)) return;
     const shared = ctx
       .get(root.config.endpoints)
       .value.some(
@@ -483,7 +489,7 @@ const Endpoints = ({
   const specs = sending
     .filter(({ disabled }) => !disabled)
     .flatMap((ep) => commandChannelsOf(ep, namingOf(device.name, ep)));
-  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
   const messageOf = (ep: WriteEndpoint): ICD.Write.TargetMessage | null => {
     if (!sendsICD(ep)) return null;
     const naming = namingOf(device.name, ep);
@@ -491,12 +497,13 @@ const Endpoints = ({
       icd: ep.icd,
       message: ep.message.message,
       path: icdPath(ep.key).message,
-      channelName: (field) => names.get(naming.key(field)) ?? naming.name(field),
+      naming,
     };
   };
   const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
     path: root.config.endpoints,
     messageOf,
+    plans,
     TargetItem,
     targetPane: (ep, onAddField) => ({
       path: root.config.endpoints[ep.key],

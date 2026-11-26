@@ -7,13 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { icd } from "@synnaxlabs/client";
+import type { channel, icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { ICD as PICD } from "@synnaxlabs/pluto";
-import { bounds, DataType, deep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import {
+  bounds,
+  DataType,
+  deep,
+  primitive,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+} from "@synnaxlabs/x";
 import type { FC } from "react";
 
 import { CSS } from "@/platform/css";
@@ -77,6 +85,8 @@ export interface FieldDetailsProps {
   field: icd.FieldKey;
   /** The name of the command channel that deploying creates for the field. */
   channelName: string;
+  /** The stored channel that deploying keeps when the field has none, or 0. */
+  stored?: channel.Key;
   /** Deploying creates no channel, because the target is disabled. */
   skipped?: boolean;
   /** The name of the field takes the focus on mount. */
@@ -98,6 +108,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   message,
   field: key,
   channelName,
+  stored = 0,
   skipped = false,
   autoFocus = false,
   created = false,
@@ -112,6 +123,10 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const i = bindings.findIndex((b) => b.field === key);
   const binding = i >= 0 ? bindings[i] : undefined;
   const bound = binding != null;
+  const shown =
+    binding?.type === "channel" && primitive.isNonZero(binding.channel)
+      ? binding.channel
+      : stored;
   // The Core refuses a message that binds no channels.
   const only =
     binding?.type === "channel" &&
@@ -173,13 +188,13 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
           {bound && binding.type === "channel" && (
             <>
               <Task.ChannelNameField
-                channel={binding.channel}
+                channel={shown}
                 defaultName={channelName}
                 skipped={skipped}
               />
               <Task.Payload.DataTypeField
                 path={deep.variant(path[i], "type", "channel").dataType}
-                channel={binding.channel}
+                channel={shown}
                 defaultDataType={defaultDataType(field)}
                 hideDataTypes={hiddenDataTypes(field)}
               />
