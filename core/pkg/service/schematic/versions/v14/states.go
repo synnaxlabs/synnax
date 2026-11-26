@@ -34,14 +34,17 @@ type MigrationConfig struct {
 
 // NewMigration returns the migration that lifts stored schematics from v13 to v14 as
 // MigrateSchematic does, then gives their selects and state indicators enumerations as
-// InternStates does.
+// InternStates does. Each symbol that a custom_actuator node draws becomes an actuator.
+// A symbol node whose custom symbol is gone gets a missing ref, and a node drops each
+// state binding that its symbol lacks. Then each symbol with no commands drops the
+// looks that it never draws. The stored symbols must be v5.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	const key = "v63_color_ref"
 	return migrate.New(
 		key,
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			intern := cfg.Intern(tx)
-			return migrate.NewInstrumentedEntry(
+			if err := migrate.NewInstrumentedEntry(
 				key,
 				func(
 					ctx context.Context,
@@ -55,9 +58,19 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					if err = InternStates(ctx, &s, old, intern, ins); err != nil {
 						return Schematic{}, err
 					}
+					if err = actuate(ctx, tx, intern, old); err != nil {
+						return Schematic{}, err
+					}
+					if err = resolveSymbols(ctx, tx, &s); err != nil {
+						return Schematic{}, err
+					}
+					warnEmptyThresholds(old, ins)
 					return s, nil
 				},
-			).Run(ctx, tx, ins)
+			).Run(ctx, tx, ins); err != nil {
+				return err
+			}
+			return dropUndrawnLooks(ctx, tx)
 		},
 	)
 }

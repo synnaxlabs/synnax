@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel as PChannel, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive, unique } from "@synnaxlabs/x";
+import { DataType, deep, id, type json, primitive, unique } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -30,6 +30,7 @@ import {
 
 import { Device } from "@/feature/kafka/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
+import { createDiscoverModal, type Format } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
   deployICDWriteConfigZ,
@@ -417,11 +418,11 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
             onChange={handleFormatChange}
             preview={isPreview}
           />
+          <ICD.MessageWarning
+            message={message}
+            missingDescription={ICD.Write.MISSING_DESCRIPTION}
+          />
         </PForm.Section>
-        <ICD.MessageStatus
-          message={message}
-          missingDescription={ICD.Write.MISSING_DESCRIPTION}
-        />
       </PForm.Sections>
     </Flex.Box>
   );
@@ -430,6 +431,20 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
 /** @returns the name of the ICD of a task named name. */
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
+
+const keyLabel = (recordKey: string): string => (recordKey === "" ? NO_KEY : recordKey);
+
+/** @returns the key that sent every record of shape, or "" for none or several. */
+const recordKeyOf = (shape: json.Shape | null): string =>
+  shape?.sources.length === 1 ? shape.sources[0] : "";
+
+const useAddTargetsModal = createDiscoverModal({
+  title: "Add targets",
+  hint: "Select the topics to write. Each one becomes a target.",
+  noun: "target",
+  verb: "Write",
+  whole: true,
+});
 
 const duplicate = (target: WriteTarget): WriteTarget => ({
   ...target,
@@ -463,6 +478,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const formats = ICD.useFormats();
   const targets = PForm.useFieldListUtils(root.config.targets);
   const all = PForm.useFieldValue(root.config.targets);
+  const addTargets = useAddTargetsModal();
   const {
     tree,
     handleSelect,
@@ -483,6 +499,8 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
     expanded,
     onExpand,
   });
+  const target =
+    current == null ? undefined : all.find(({ key }) => key === current.target);
   const commandChannelsOf = ICD.Write.useCommandChannels();
   const specs = all
     .filter(({ disabled }) => !disabled)
@@ -491,32 +509,47 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
-    const {
-      icd: icdKey,
-      messages: [message],
-    } = await ICD.Write.addMessages({
-      client,
-      formats,
-      targets: targets.value(),
-      name: icdName(ctx.get(root.name).value),
-      messages: [{ name: "", fields: [] }],
+    const result = await addTargets({
+      device,
+      topic: currentGroup ?? target?.topic ?? "",
+      topics: targets.value().map(({ topic }) => topic),
+      label: keyLabel,
     });
-    const target = kafka.writeTargetZ.parse({
-      icd: icdKey,
-      message: ICD.Write.create(message),
-    });
-    targets.push([target]);
-    onSelect([target.key]);
+    if (result == null || result.whole.length === 0) return;
+    const { whole, format } = result;
+    let sent: Format[];
+    if (format != null) sent = whole.map(() => format);
+    else {
+      const { icd: icdKey, messages } = await ICD.Write.addMessages({
+        client,
+        formats,
+        targets: targets.value(),
+        name: icdName(ctx.get(root.name).value),
+        messages: whole.map(({ topic, shape }) => ({
+          name: topic,
+          fields: ICD.createFields(shape?.fields ?? []),
+        })),
+      });
+      sent = messages.map((message) => ({ icd: icdKey, message }));
+    }
+    const added = whole.map(({ topic, shape }, i) =>
+      kafka.writeTargetZ.parse({
+        topic,
+        recordKey: recordKeyOf(shape),
+        icd: sent[i].icd,
+        message: ICD.Write.create(sent[i].message),
+      }),
+    );
+    targets.push(added);
+    onSelect([added[0].key]);
     onExpand((prev) =>
-      unique.unique([...prev, ...ICD.Write.expandedOf([target], TOPICS)]),
+      unique.unique([...prev, ...ICD.Write.expandedOf(added, TOPICS)]),
     );
   };
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
-  const handleAdd = () => handleError(addExclusive, "Failed to add a target");
+  const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
-  const target =
-    current == null ? undefined : all.find(({ key }) => key === current.target);
   const path = target == null ? null : root.config.targets[target.key];
   let title: ReactNode = null;
   let details: ReactNode = null;
@@ -571,7 +604,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
           onSelect={handleSelect}
           menu={contextMenu}
           emptyMessage="No targets"
-          addLabel="Add target"
+          addLabel="Add targets"
           onAdd={handleAdd}
         >
           {renderItem}

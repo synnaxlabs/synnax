@@ -906,6 +906,7 @@ describe("MQTT Write form", () => {
       const { target } = await createFormatTarget([]);
       await renderWrite([target]);
       await screen.findByText("Message has no fields");
+      expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       await screen.findByDisplayValue("Field 1");
       fireEvent.click(screen.getByRole("treeitem", { name: /plant\/valve\/set/ }));
@@ -1280,6 +1281,38 @@ describe("MQTT Write form", () => {
       });
       expect(flow.disabled).toBe(true);
       expect(again.getByText("In task")).toBeTruthy();
+    });
+
+    it("should keep the tags of an edge node read while the broker is listened to again", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [], truncated: false } });
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      const line2 = { group: "plant", edgeNode: "line2", devices: [] };
+      await scanner.answer({ data: { nodes: [...NODES, line2], tags: [] } });
+      await scanner.answer({ data: { nodes: [], tags: [] } });
+      await dialog.findByText("0 tags");
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      const listen = await scanner.next();
+      fireEvent.click(dialog.getByText("line2"));
+      const flow = {
+        device: "",
+        name: "flow",
+        dataType: "float",
+        value: "1",
+        supported: true,
+      };
+      await scanner.answer({ data: { nodes: [], tags: [flow] } });
+      await dialog.findByRole("checkbox", { name: "Record flow" });
+      const line3 = { group: "plant", edgeNode: "line3", devices: [] };
+      await scanner.reply(listen, {
+        data: { nodes: [...NODES, line2, line3], tags: [] },
+      });
+      await dialog.findByText("line3");
+      dialog.getByRole("checkbox", { name: "Record flow" });
+      expect(dialog.queryByText("0 tags")).toBeNull();
+      scanner.close();
     });
 
     it("should list the tags of an edge node under their devices and lock an unsupported one", async () => {

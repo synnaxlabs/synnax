@@ -51,6 +51,10 @@ export interface ScannerReply {
 export interface Scanner {
   /** Answers the next command of the scan task, and returns that command. */
   answer: (reply: ScannerReply) => Promise<task.Command>;
+  /** Waits for the next command of the scan task, and does not answer it. */
+  next: () => Promise<task.Command>;
+  /** Answers cmd, which next returned. */
+  reply: (cmd: task.Command, reply: ScannerReply) => Promise<void>;
   close: () => void;
 }
 
@@ -71,19 +75,28 @@ export const openScanner = async (
     config: {},
   });
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  const next = async () => await awaitCommand(streamer, scanTask.key);
+  const reply = async (
+    cmd: task.Command,
+    { variant = "success", message = "", data }: ScannerReply,
+  ) => {
+    await client.statuses.set({
+      owner: task.resourceID(scanTask.key),
+      name: scanTask.name,
+      variant,
+      message,
+      time: TimeStamp.now(),
+      details: { running: true, cmd: cmd.key, data },
+    });
+  };
   return {
-    answer: async ({ variant = "success", message = "", data }) => {
-      const cmd = await awaitCommand(streamer, scanTask.key);
-      await client.statuses.set({
-        owner: task.resourceID(scanTask.key),
-        name: scanTask.name,
-        variant,
-        message,
-        time: TimeStamp.now(),
-        details: { running: true, cmd: cmd.key, data },
-      });
+    answer: async (r) => {
+      const cmd = await next();
+      await reply(cmd, r);
       return cmd;
     },
+    next,
+    reply,
     close: () => streamer.close(),
   };
 };

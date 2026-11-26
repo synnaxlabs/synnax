@@ -7,4 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Stale from "@/schematic/node/common/stale/Indicator";
+package compiler_test
+
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestCompiler(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Calculation Compiler Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()
