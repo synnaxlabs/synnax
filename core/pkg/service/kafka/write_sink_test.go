@@ -174,6 +174,18 @@ var _ = Describe("Write task with targets", func() {
 		))
 	})
 
+	It("Should refuse a task with no targets", func(ctx SpecContext) {
+		dev := createDevice(ctx, clusterProperties())
+		t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+			Device:  dev.Key,
+			Targets: []kafka.WriteTarget{},
+		})
+		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("targets: the task has no enabled targets")),
+		))
+	})
+
 	const nameRule = "must be 1 to 249 letters, digits, periods, underscores, or hyphens"
 
 	DescribeTable(
