@@ -115,14 +115,18 @@ const sendsICD = (ep: WriteEndpoint): ep is ICDEndpoint =>
 
 const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndpoint>;
 
-/** Keys and names the command channels of fields of an endpoint, as deploying does. */
+/**
+ * Keys and names the command channels of fields of an endpoint, as deploying does. The
+ * key holds the method and path, so each endpoint on the device that sends there shares
+ * the channel.
+ */
 const namingOf = (
   device: string,
-  { key, path }: WriteEndpoint,
+  { method, path }: WriteEndpoint,
 ): ICD.Write.ChannelNaming => {
   const prefix = channel.escapeInvalidName(device) + channel.escapeInvalidName(path);
   return {
-    key: (field) => `${key}#${field.key}`,
+    key: (field) => `${method} ${path}#${field.key}`,
     name: (field) => ICD.Write.commandName(prefix, field),
   };
 };
