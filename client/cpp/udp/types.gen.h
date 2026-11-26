@@ -31,7 +31,7 @@ struct Properties;
 /// @brief Remote is the address that a UDP device sends datagrams to.
 struct Remote {
     /// @brief host is the host name or IP address of the remote.
-    std::string host = "";
+    std::string host;
     /// @brief port is the UDP port of the remote.
     std::uint16_t port = 0;
 

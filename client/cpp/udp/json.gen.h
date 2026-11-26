@@ -25,8 +25,8 @@ namespace synnax::udp {
 
 inline Remote Remote::parse(x::json::Parser parser) {
     return Remote{
-        .host = parser.field<std::string>("host", ""),
-        .port = parser.field<std::uint16_t>("port", 0),
+        .host = parser.field<std::string>("host"),
+        .port = parser.field<std::uint16_t>("port"),
     };
 }
 

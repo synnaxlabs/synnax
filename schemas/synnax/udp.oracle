@@ -17,11 +17,11 @@ import "schemas/synnax/task"
 @ts output  "client/ts/src/udp"
 
 Remote struct {
-    host string = "" {
+    host string {
         @doc value           "is the host name or IP address of the remote."
         @validate min_length 1
     }
-    port uint16 = 0 {
+    port uint16 {
         @doc value    "is the UDP port of the remote."
         @validate min 1
     }

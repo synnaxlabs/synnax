@@ -19,9 +19,9 @@ import { task } from "@/task";
 /** Remote is the address that a UDP device sends datagrams to. */
 export const remoteZ = z.object({
   /** host is the host name or IP address of the remote. */
-  host: z.string().min(1).default(""),
+  host: z.string().min(1),
   /** port is the UDP port of the remote. */
-  port: zod.uint16.min(1).default(0),
+  port: zod.uint16.min(1),
 });
 export interface Remote extends z.infer<typeof remoteZ> {}
 
