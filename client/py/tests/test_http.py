@@ -1011,5 +1011,4 @@ class TestHTTPDevicePropertyUpdates:
         task.update_device_properties(client.devices)
 
         props = client.devices.retrieve(key=device.key).properties
-        key = task.config.endpoints[0].key
-        assert obj(props, "write") == {f"{key}#{value.key}": cmd_ch.key}
+        assert obj(props, "write") == {f"PUT /api/v1/setpoint#{value.key}": cmd_ch.key}

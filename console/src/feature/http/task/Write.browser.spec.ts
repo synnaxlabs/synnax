@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  http,
+  icd,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -77,8 +84,11 @@ const createEndpoint = (
   },
 });
 
-const renderWrite = async (endpoints: HTTP.Task.WriteEndpoint[] = []) => {
-  const dev = await createHTTPDevice(client);
+const renderWrite = async (
+  endpoints: HTTP.Task.WriteEndpoint[] = [],
+  dev?: device.Device,
+) => {
+  dev ??= await createHTTPDevice(client);
   const draft = await createDraft(client, {
     ...HTTP.Task.WRITE_SCHEMAS.config.parse({}),
     device: dev.key,
@@ -89,6 +99,33 @@ const renderWrite = async (endpoints: HTTP.Task.WriteEndpoint[] = []) => {
     taskKey: draft.key,
   });
   return { ...result, dev, draft };
+};
+
+/** @returns the channel of the first binding of each endpoint, or 0. */
+const firstChannels = (endpoints: HTTP.Task.WriteEndpoint[]): channel.Key[] =>
+  endpoints.map(({ message }) => {
+    const binding = message?.bindings[0];
+    return binding?.type === "channel" ? binding.channel : 0;
+  });
+
+/** Deploys a task of one endpoint on dev, or on a new device, and unmounts its form. */
+const deployEndpoint = async (
+  endpoint: HTTP.Task.WriteEndpoint,
+  dev?: device.Device,
+) => {
+  const result = await renderWrite([endpoint], dev);
+  const created = await deployAndAwaitTask(
+    client,
+    result.container,
+    result.draft.key,
+    HTTP.Task.WRITE_SCHEMAS,
+  );
+  result.unmount();
+  return {
+    dev: result.dev,
+    task: created,
+    channel: firstChannels(created.config.endpoints)[0],
+  };
 };
 
 const addEndpoint = async (): Promise<void> => {
@@ -246,28 +283,64 @@ describe("Write", () => {
     expect(await screen.findByDisplayValue(`${name}_2`)).toBeTruthy();
   });
 
-  it("should give each of two endpoints of one path and message its own command channels", async () => {
+  it("should share the command channels of two endpoints of one method and path", async () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
-    const { container, dev, draft } = await renderWrite([
+    const { container, draft } = await renderWrite([
       createEndpoint("ep1", "/setpoint", ic, message, [value]),
       createEndpoint("ep2", "/setpoint", ic, message, [value]),
     ]);
-    const name = `${channel.escapeInvalidName(dev.name)}_setpoint_value_cmd`;
-    fireEvent.click((await screen.findAllByRole("treeitem", { name: /^value/ }))[1]);
-    expect(await screen.findByDisplayValue(`${name}_2`)).toBeTruthy();
     const created = await deployAndAwaitTask(
       client,
       container,
       draft.key,
       HTTP.Task.WRITE_SCHEMAS,
     );
-    const keys = created.config.endpoints.map(({ message }) => {
-      const binding = message?.bindings[0];
-      return binding?.type === "channel" ? binding.channel : 0;
+    const [first, second] = firstChannels(created.config.endpoints);
+    expect(first).not.toBe(0);
+    expect(second).toBe(first);
+  });
+
+  it("should reuse the command channel that the device stores for a method and path in a recreated task and a second task", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const first = await deployEndpoint(
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    );
+    expect(first.channel).not.toBe(0);
+    await client.tasks.delete(first.task.key);
+    const recreated = await deployEndpoint(
+      createEndpoint("ep2", "/setpoint", ic, message, [value]),
+      first.dev,
+    );
+    expect(recreated.channel).toBe(first.channel);
+    const second = await deployEndpoint(
+      createEndpoint("ep3", "/setpoint", ic, message, [value]),
+      first.dev,
+    );
+    expect(second.channel).toBe(first.channel);
+  });
+
+  it("should give an endpoint a new command channel when its method changes", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const put = await deployEndpoint(
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    );
+    const post = await deployEndpoint(
+      { ...createEndpoint("ep1", "/setpoint", ic, message, [value]), method: "POST" },
+      put.dev,
+    );
+    expect(post.channel).not.toBe(0);
+    expect(post.channel).not.toBe(put.channel);
+    const updated = await client.devices.retrieve({
+      key: put.dev.key,
+      schemas: HTTP.Device.SCHEMAS,
     });
-    const channels = await client.channels.retrieve(keys);
-    expect(channels.map((ch) => ch.name)).toEqual([name, `${name}_2`]);
+    expect(updated.properties.write).toEqual({
+      [`PUT /setpoint#${value.key}`]: put.channel,
+      [`POST /setpoint#${value.key}`]: post.channel,
+    });
   });
 
   it("should send a fixed value for a field of an endpoint set to Value", async () => {
@@ -404,8 +477,8 @@ describe("Write", () => {
       schemas: HTTP.Device.SCHEMAS,
     });
     expect(updated.properties.write).toEqual({
-      [`ep1#${value.key}`]: keys[0],
-      [`ep1#${open.key}`]: keys[1],
+      [`PUT /setpoint#${value.key}`]: keys[0],
+      [`PUT /setpoint#${open.key}`]: keys[1],
     });
   });
 });
