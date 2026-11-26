@@ -332,16 +332,16 @@ const MessageDetails = ({
   );
 };
 
-interface ICDFieldDetailsProps extends MessagePanelProps {
+interface FieldDetailsProps extends MessagePanelProps {
   field: ICD.TreeField;
 }
 
-const ICDFieldDetails = ({ device, ...rest }: ICDFieldDetailsProps) => {
+const FieldDetails = ({ device, ...rest }: FieldDetailsProps) => {
   const prefix = usePrefix(device.name, rest.path);
   return <ICD.FieldDetails {...rest} prefix={prefix} />;
 };
 
-interface ICDEndpointDetailsProps {
+interface EndpointDetailsProps {
   /** The key of the endpoint. */
   endpoint: string;
   /** The open form of the ICD of the endpoint. Absent when the endpoint reads none. */
@@ -360,7 +360,7 @@ interface ICDEndpointDetailsProps {
  * The request of an endpoint. An endpoint that reads one message also shows its
  * timestamp, which each message of an endpoint that reads several shows on its own.
  */
-const ICDEndpointDetails: FC<ICDEndpointDetailsProps> = ({
+const EndpointDetails: FC<EndpointDetailsProps> = ({
   endpoint,
   format,
   device,
@@ -564,7 +564,7 @@ const Endpoints: FC<EndpointsProps> = ({
       </Text.Text>
     );
     details = (
-      <ICDFieldDetails
+      <FieldDetails
         key={selected[0]}
         path={icdPath(ep.key)}
         read={current.read}
@@ -591,7 +591,7 @@ const Endpoints: FC<EndpointsProps> = ({
     detailsPath = root.config.endpoints[ep.key];
     title = <EndpointLabel path={root.config.endpoints[ep.key]} />;
     details = (
-      <ICDEndpointDetails
+      <EndpointDetails
         key={ep.key}
         endpoint={ep.key}
         format={format}
@@ -730,7 +730,7 @@ const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => 
   return <ICD.Plans plans={reads}>{children}</ICD.Plans>;
 };
 
-const ICDContent = ({ device }: { device: Device.Device }) => {
+const Content = ({ device }: { device: Device.Device }) => {
   const endpoints = PForm.useFieldValue(root.config.endpoints);
   const [selected, setSelected] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(() =>
@@ -765,7 +765,7 @@ const Form = PlatformDevice.wrapTaskForm({
   use: Device.use,
   useConfigure: Device.useConnectModal,
   useNoneSelected: Device.useNoneSelected,
-  Content: ICDContent,
+  Content,
 });
 
 /** Gives each field that an enabled endpoint reads a channel, and binds it. */
