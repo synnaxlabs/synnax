@@ -110,6 +110,7 @@ std::error_code os(const int code) {
 }
 }
 
+/// @brief it should report a missing, gone, or closed port as unreachable.
 TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
     for (const int code: {ENOENT, ENXIO, ENODEV, EIO, EPIPE, EBADF, ETIMEDOUT}) {
         SCOPED_TRACE(os(code).message());
@@ -124,6 +125,7 @@ TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
     );
 }
 
+/// @brief it should report a busy port as in use by another program.
 TEST(Translate, ReportsABusyPortAsInUseByAnotherProgram) {
     const auto err = translate("failed to open serial port /dev/ttyUSB0", os(EBUSY));
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
@@ -134,6 +136,7 @@ TEST(Translate, ReportsABusyPortAsInUseByAnotherProgram) {
     );
 }
 
+/// @brief it should report a port that the Driver may not use as a configuration error.
 TEST(Translate, ReportsAPortTheDriverMayNotUseAsAConfigError) {
     for (const int code:
          {EACCES, EPERM, EINVAL, ENOTTY, EISDIR, ENOTDIR, ENAMETOOLONG, ENOTSUP}) {
@@ -145,6 +148,7 @@ TEST(Translate, ReportsAPortTheDriverMayNotUseAsAConfigError) {
     }
 }
 
+/// @brief it should report an exhausted host or an unknown error as critical.
 TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
     for (const int code: {EMFILE, ENFILE, ENOMEM, ENOBUFS, ENOTRECOVERABLE}) {
         SCOPED_TRACE(os(code).message());
@@ -155,6 +159,7 @@ TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
     }
 }
 
+/// @brief it should map an errno from the generic category.
 TEST(Translate, MapsErrnoFromTheGenericCategory) {
     ASSERT_OCCURRED_AS(
         translate("failed to set the line settings", {EIO, std::generic_category()}),
@@ -166,6 +171,7 @@ TEST(Translate, MapsErrnoFromTheGenericCategory) {
     );
 }
 
+/// @brief it should put the context before the system message.
 TEST(Translate, PutsTheContextBeforeTheSystemMessage) {
     EXPECT_EQ(
         translate("failed to open serial port /dev/ttyUSB0", os(ENOENT)).data,
