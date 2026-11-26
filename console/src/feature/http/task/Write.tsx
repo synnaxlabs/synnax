@@ -335,6 +335,8 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => (
 const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({
   ...ep,
   key: id.create(),
+  channel: { ...ep.channel, channel: 0 },
+  fields: ep.fields.map((f) => ({ ...f, key: id.create() })),
   message: ep.message == null ? undefined : ICD.Write.unbind(ep.message),
 });
 
