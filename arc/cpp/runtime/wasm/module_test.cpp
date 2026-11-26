@@ -598,6 +598,29 @@ TEST(SampleToWasmTypedTest, ConvertsU64) {
     EXPECT_EQ(result.i64(), 999);
 }
 
+/// @brief a 64-bit integer above 2^53 must keep every bit.
+TEST(SampleToWasmTypedTest, KeepsI64AboveDoublePrecision) {
+    arc::types::Type type{.kind = arc::types::Kind::I64};
+    const int64_t big = 9007199254740993;
+    const auto result = sample_to_wasm(x::telem::SampleValue(big), type);
+    EXPECT_EQ(result.i64(), big);
+}
+
+TEST(SampleToWasmTypedTest, KeepsU64AboveDoublePrecision) {
+    arc::types::Type type{.kind = arc::types::Kind::U64};
+    const uint64_t big = 18446744073709551615ULL;
+    const auto result = sample_to_wasm(x::telem::SampleValue(big), type);
+    EXPECT_EQ(static_cast<uint64_t>(result.i64()), big);
+}
+
+/// @brief a u32 above INT32_MAX must keep its bit pattern.
+TEST(SampleToWasmTypedTest, KeepsU32AboveI32Max) {
+    arc::types::Type type{.kind = arc::types::Kind::U32};
+    const uint32_t big = 4000000000U;
+    const auto result = sample_to_wasm(x::telem::SampleValue(big), type);
+    EXPECT_EQ(static_cast<uint32_t>(result.i32()), big);
+}
+
 TEST(SampleToWasmTypedTest, ConvertsI32Default) {
     arc::types::Type type{.kind = arc::types::Kind::I32};
     const auto result = sample_to_wasm(x::telem::SampleValue(42.0), type);
