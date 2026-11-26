@@ -278,6 +278,7 @@ export class Codec {
         `Channel ${key} was not provided in the list of channels when opening the writer`,
       );
     });
+    if (entries.every((e, i) => i === 0 || entries[i - 1].key <= e.key)) return entries;
     return entries.sort((a, b) => compareKeys(a.key, b.key));
   }
 
@@ -296,12 +297,15 @@ export class Codec {
       plan.ext |= TYPES_DECLARED;
       plan.codes = ag.dataTypes.map((dt, i) => codeOf(state.keys[i], dt));
     }
-    const overrides = entries.some(
-      ({ series, index }) =>
-        index >= 0 &&
-        ((series.clock ?? 0) !== ag.clocks[index] ||
-          needsTypeOverride(ag.dataTypes[index], series.dataType)),
-    );
+    let overrides = false;
+    let undeclared = false;
+    for (const { series, index } of entries)
+      if (index < 0) undeclared = true;
+      else if (
+        (series.clock ?? 0) !== ag.clocks[index] ||
+        needsTypeOverride(ag.dataTypes[index], series.dataType)
+      )
+        overrides = true;
     if (overrides) {
       plan.ext |= OVERRIDES_PRESENT;
       plan.clocks = [...ag.clocks];
@@ -320,7 +324,7 @@ export class Codec {
         return kinds;
       });
     }
-    if (entries.some(({ index }) => index < 0) || ag.declared.length > 0) {
+    if (undeclared || ag.declared.length > 0) {
       const named = (k: channel.Key): boolean => plan.clocks.includes(k);
       const inFrame = new Set(entries.filter((e) => e.index < 0).map((e) => e.key));
       const declared = [
@@ -354,10 +358,9 @@ export class Codec {
     let equalTimeRangesFlag = true;
     let equalAlignmentsFlag = true;
     let multiplesPresentFlag = false;
-    const channelFlag = keysEqual(
-      entries.map((e) => e.key),
-      plan.all,
-    );
+    const channelFlag =
+      entries.length === plan.all.length &&
+      entries.every((e, i) => e.key === plan.all[i]);
     if (!channelFlag) byteArraySize += entries.length * KEY_SIZE;
 
     entries.forEach(({ series }) => {
