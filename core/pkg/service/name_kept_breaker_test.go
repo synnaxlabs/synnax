@@ -74,7 +74,7 @@ var _ = Describe("Kept name upgrade", func() {
 		})
 
 	It(
-		"Should retrieve the channel that v0.62 retrieved for a name kept in two folders",
+		"Should refuse a name that channels in two folders kept from a v0.62 store",
 		func(ctx SpecContext) {
 			n := testutil.NewNode(ctx)
 			rigs := folder("Rigs")
@@ -96,10 +96,14 @@ var _ = Describe("Kept name upgrade", func() {
 			names := namesOf(ctx, n, stored)
 			Expect(names[stored[0].Key()]).To(Equal("pt"))
 			Expect(names[bound]).To(Equal("pt"))
-			sym := MustSucceed(l.Channel.NewArcSymbolResolver(n.DB).Resolve(ctx, "pt"))
-			Expect(channel.Key(sym.ID)).To(Equal(bound))
-			ch := MustSucceed(createIfExists(ctx, n, l.Channel, "pt"))
-			Expect(ch.Key()).To(Equal(bound))
+			// The flip rewrites a bare name to the path of the channel that v0.62
+			// bound,
+			// so a lookup of the bare name is refused until then.
+			ambiguous := MatchError(ContainSubstring("2 channels are named 'pt'"))
+			Expect(l.Channel.NewArcSymbolResolver(n.DB).Resolve(ctx, "pt")).Error().
+				To(ambiguous)
+			_, err := createIfExists(ctx, n, l.Channel, "pt")
+			Expect(err).To(ambiguous)
 		},
 	)
 })

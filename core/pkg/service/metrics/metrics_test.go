@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
@@ -260,6 +261,53 @@ var _ = Describe("Metrics", func() {
 			svc = open(ctx)
 			Expect(retrieve(ctx, names[2]).Group).To(Equal(&custom.Key))
 			Expect(svc.Close()).To(Succeed())
+		})
+
+		It("Should bind a metric to the highest key of its name in two folders", func(
+			ctx SpecContext,
+		) {
+			names := getNames(dist.Identity.HostKey)
+			Expect(open(ctx).Close()).To(Succeed())
+			cpu := retrieve(ctx, names[1])
+			kept := MustSucceed(groupSvc.CreateOrRetrieve(
+				ctx, "Kept Metrics Group", resource.TypeChannel,
+			))
+			higher := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				LocalIndex: cpu.LocalIndex,
+				Group:      &kept.Key,
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &higher)
+			})).To(Succeed())
+			Expect(higher.Key()).To(BeNumerically(">", cpu.Key()))
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Delete(ctx, higher.Key(), false)
+				})).To(Succeed())
+			})
+			// A v0.62 store can hold one name in two folders.
+			higher.Name = cpu.Name
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](dist.DB).
+				Set(ctx, higher)).To(Succeed())
+			DeferCleanup(open(ctx).Close)
+			writer := fmt.Sprintf("Node %v Metrics Writer", dist.Identity.HostKey)
+			Eventually(func() []channel.Key {
+				var held []channel.Key
+				for _, t := range dist.Storage.TS.ControlStates().Transfers {
+					if t.To != nil && t.To.Subject.Name == writer {
+						held = append(held, channel.Key(t.To.Resource))
+					}
+				}
+				return held
+			}).Should(SatisfyAll(
+				ContainElement(higher.Key()),
+				Not(ContainElement(cpu.Key())),
+			))
+			Expect(channelSvc.NewRetrieve().
+				Where(channel.MatchNames(cpu.Name)).
+				Count(ctx, dist.DB)).To(Equal(2))
 		})
 	})
 	Describe("Writer Control Subject", func() {

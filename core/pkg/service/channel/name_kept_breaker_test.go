@@ -59,25 +59,24 @@ var _ = Describe("Kept names", func() {
 			To(Succeed())
 	}
 
-	It("Should retrieve the channel that Arc binds for a name kept in two folders",
-		func(ctx SpecContext) {
-			rigs := MustSucceed(
-				groupSvc.CreateOrRetrieve(ctx, "Rigs", resource.TypeChannel),
-			)
-			lower := virtual("kept_pt")
-			lower.Group = &rigs.Key
-			Expect(create(ctx, &lower)).To(Succeed())
-			higher := virtual(UniqueChannelName())
-			Expect(create(ctx, &higher)).To(Succeed())
-			Expect(higher.Key()).To(BeNumerically(">", lower.Key()))
-			storeName(ctx, higher, "kept_pt")
-			sym := MustSucceed(svc.NewArcSymbolResolver(db).Resolve(ctx, "kept_pt"))
-			// v0.62 and Arc take the last match in key order.
-			Expect(channel.Key(sym.ID)).To(Equal(higher.Key()))
-			again := virtual("kept_pt")
-			Expect(create(ctx, &again, channel.RetrieveIfNameExists())).To(Succeed())
-			Expect(again.Key()).To(Equal(higher.Key()))
-		})
+	It("Should refuse a name kept in two folders, in Arc and in a create that "+
+		"retrieves it", func(ctx SpecContext) {
+		rigs := MustSucceed(
+			groupSvc.CreateOrRetrieve(ctx, "Rigs", resource.TypeChannel),
+		)
+		lower := virtual("kept_pt")
+		lower.Group = &rigs.Key
+		Expect(create(ctx, &lower)).To(Succeed())
+		higher := virtual(UniqueChannelName())
+		Expect(create(ctx, &higher)).To(Succeed())
+		Expect(higher.Key()).To(BeNumerically(">", lower.Key()))
+		storeName(ctx, higher, "kept_pt")
+		ambiguous := MatchError(ContainSubstring("2 channels are named 'kept_pt'"))
+		Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, "kept_pt")).Error().
+			To(ambiguous)
+		again := virtual("kept_pt")
+		Expect(create(ctx, &again, channel.RetrieveIfNameExists())).To(ambiguous)
+	})
 
 	It("Should take a rename to the exact name that a kept name holds",
 		func(ctx SpecContext) {

@@ -143,16 +143,11 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 			Expect(bsvc.NewRetrieve().Where(lookup).Exists(ctx, db)).To(BeTrue())
 		})
 
-	It("Should delete a channel by the name the create sent", func(ctx SpecContext) {
-		ch := virtual("n\u0303_brk_delete")
+	It("Should find a channel by the name the create sent", func(ctx SpecContext) {
+		ch := virtual("n\u0303_brk_find")
 		Expect(create(ctx, &ch)).To(Succeed())
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return bsvc.NewWriter(tx).
-				DeleteManyByNames(ctx, []string{"n\u0303_brk_delete"}, false)
-		})).To(Succeed())
-		Expect(bsvc.NewRetrieve().
-			Where(channel.MatchKeys(ch.Key())).
-			Exists(ctx, db)).To(BeFalse())
+		Expect(bsvc.KeysByNames(ctx, db, []string{"n\u0303_brk_find"})).
+			To(Equal(channel.Keys{ch.Key()}))
 	})
 
 	It("Should name the position of a clashing channel in a create of many",

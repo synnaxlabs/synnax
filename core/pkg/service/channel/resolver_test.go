@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"strconv"
 	"sync"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -87,8 +89,10 @@ var _ = Describe("NewArcSymbolResolver", func() {
 
 	Describe("Filters", func() {
 		var visible, hidden channel.Channel
-		hide := func() channel.Filter {
-			return channel.Not(channel.MatchKeys(hidden.Key()))
+		hide := func() func(context.Context) (func(resource.ID) bool, error) {
+			return func(context.Context) (func(resource.ID) bool, error) {
+				return func(id resource.ID) bool { return id != hidden.ResourceID() }, nil
+			}
 		}
 		BeforeEach(func(ctx SpecContext) {
 			visible = channel.Channel{
@@ -120,7 +124,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by name", func(ctx SpecContext) {
-			r := svc.NewArcSymbolResolver(db, hide())
+			r := svc.NewSubjectResolver(db, hide())
 			Expect(r.Resolve(ctx, hidden.Name)).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, visible.Name)).
@@ -128,7 +132,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 		})
 
 		It("Should not resolve a hidden channel by numeric key", func(ctx SpecContext) {
-			r := svc.NewArcSymbolResolver(db, hide())
+			r := svc.NewSubjectResolver(db, hide())
 			Expect(r.Resolve(ctx, strconv.Itoa(int(hidden.Key())))).Error().
 				To(MatchError(query.ErrNotFound))
 			Expect(r.Resolve(ctx, strconv.Itoa(int(visible.Key())))).
@@ -143,7 +147,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 						HaveField("ID", int(hidden.Key())),
 					))
 			}).Should(Succeed())
-			Expect(svc.NewArcSymbolResolver(db, hide()).Search(ctx, "resolver_filter")).
+			Expect(svc.NewSubjectResolver(db, hide()).Search(ctx, "resolver_filter")).
 				To(SatisfyAll(
 					ContainElement(HaveField("ID", int(visible.Key()))),
 					Not(ContainElement(HaveField("ID", int(hidden.Key())))),
