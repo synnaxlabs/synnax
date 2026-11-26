@@ -13,10 +13,12 @@ import { LABELS_SECTION } from "@/app/library/tab";
 import {
   useColorsVisible,
   useEnumerationsVisible,
+  useICDsVisible,
   useLabelsVisible,
 } from "@/app/library/visible";
 import { Color } from "@/feature/color";
 import { Enumeration } from "@/feature/enumeration";
+import { ICD } from "@/feature/icd";
 import { Label } from "@/feature/label";
 import type { Settings } from "@/platform/settings";
 
@@ -45,6 +47,13 @@ export const GROUPS: Settings.Group[] = [
         icon: <Icon.Enumeration />,
         Content: Enumeration.Settings,
         useVisible: useEnumerationsVisible,
+      },
+      {
+        key: "icds",
+        name: "ICDs",
+        icon: <Icon.Library />,
+        Content: ICD.Settings,
+        useVisible: useICDsVisible,
       },
     ],
   },
