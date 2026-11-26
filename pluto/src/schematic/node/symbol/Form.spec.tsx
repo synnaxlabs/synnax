@@ -281,10 +281,11 @@ describe("Symbol form", () => {
     expect(await findByText("The symbol names no enumeration.")).toBeDefined();
   });
 
-  it.each(["telemetry", "control"] as const)(
-    "should warn when the symbol is missing and the open tab is %s",
-    (tab) => {
-      const { getByText } = renderForm(
+  it.each(["Telemetry", "Control"] as const)(
+    "should warn on the %s tab when the symbol is missing",
+    (name) => {
+      const tab = name === "Control" ? "control" : "telemetry";
+      const { getByRole, getByText } = renderForm(
         <Form tab={tab} onTabChange={vi.fn()} />,
         schematic.symbolNodeConfigZ.parse({
           variant: "symbol",
@@ -293,22 +294,25 @@ describe("Symbol form", () => {
         schematic.symbolNodeConfigZ,
         createSynnaxWrapper({ client: null }),
       );
+      expect(getByRole("tab", { name, selected: true })).toBeDefined();
       expect(getByText("The symbol of this node was not found.")).toBeDefined();
     },
   );
 
-  it.each(["telemetry", "control"] as const)(
-    "should warn when the symbol fails to load and the open tab is %s",
-    async (tab) => {
+  it.each(["Telemetry", "Control"] as const)(
+    "should warn on the %s tab when the symbol fails to load",
+    async (name) => {
+      const tab = name === "Control" ? "control" : "telemetry";
       // A user with no policies cannot read the symbol, so its load fails.
       const denied = await createTestClientWithPolicy(client, []);
-      const { findByText } = renderForm(
+      const { findByRole, findByText } = renderForm(
         <Form tab={tab} onTabChange={vi.fn()} />,
         schematic.symbolNodeConfigZ.parse({ variant: "symbol", spec: heater }),
         schematic.symbolNodeConfigZ,
         await createAsyncSynnaxWrapper({ client: denied }),
       );
       expect(await findByText("The symbol of this node failed to load.")).toBeDefined();
+      expect(await findByRole("tab", { name, selected: true })).toBeDefined();
     },
   );
 
@@ -341,13 +345,36 @@ describe("Symbol form", () => {
       expect(await findByLabelText("Clickable")).toBeDefined();
     });
 
-    it("should show no clicks for a symbol with commands and no click", async () => {
-      const { findByText, queryByLabelText } = await render(
+    it("should show the chip but no clicks of a symbol with no click", async () => {
+      const { findByLabelText, queryByLabelText } = await render(
         { spec: heater },
         "control",
       );
-      await findByText("Reset");
+      expect(await findByLabelText("Visible")).toBeDefined();
       expect(queryByLabelText("Clickable")).toBeNull();
+    });
+
+    it("should keep the Control tab when every command has a state", async () => {
+      const symbol = await client.schematics.symbols.create({
+        name: "Lamp",
+        data: schematic.symbol.specZ.parse({
+          drawing: { type: "svg", markup: "<svg/>" },
+          states: [{ type: "enumeration", key: "active", name: "Active" }],
+          commands: [
+            {
+              key: "on",
+              name: "On",
+              state: "active",
+              value: { type: "fixed", value: 1 },
+            },
+          ],
+        }),
+      });
+      const { findByLabelText } = await render(
+        { spec: { type: "custom", key: symbol.key } },
+        "control",
+      );
+      expect(await findByLabelText("Visible")).toBeDefined();
     });
 
     it("should open the Telemetry tab of a light when Control was open", async () => {
