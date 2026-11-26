@@ -731,8 +731,8 @@ holds sizing assumptions.
 
 A script session continues its clock (§5.8) and takes over its open segments, so one
 after a clean close starts no segment, and takes no number when it starts within the gap
-of §5.7. The Core raises a warning status at half of the numbers, and at the end a new
-stretch fails with a typed error.
+of a continued stretch. The Core raises a warning status at half of the numbers, and at
+the end a new stretch fails with a typed error.
 
 ### 5.8 One writer per time range
 
