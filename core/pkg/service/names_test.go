@@ -16,11 +16,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelversions "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
@@ -182,8 +184,8 @@ var _ = Describe("Name upgrade", func() {
 				stored[0].Key(): "pt-01",
 				stored[1].Key(): "Stand A",
 				stored[2].Key(): "stand_pt",
-				stored[3].Key(): "pressure",
-				stored[4].Key(): "pressure_2",
+				stored[3].Key(): "pressure_2",
+				stored[4].Key(): "pressure",
 				stored[5].Key(): "a_b",
 				stored[6].Key(): "pt�",
 			}))
@@ -231,6 +233,39 @@ var _ = Describe("Name upgrade", func() {
 				"because another folder beside it held the same name.",
 			))
 			Expect(MustSucceed(resourcev0.StagedRenames(n.DB))).To(BeEmpty())
+		})
+
+	It("Should leave a repeated name on the channel that a v0.62 Core bound it to",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			stored := storeV062(
+				ctx,
+				n,
+				[]string{"pt", "pt", "calc", "out"},
+				func(cs []channelv1.Channel) { cs[2].Expression = "return pt" },
+			)
+			// A v0.62 Core binds a repeated name to its last channel in key order.
+			bound, other := stored[1].Key(), stored[0].Key()
+			Expect(bound).To(BeNumerically(">", other))
+			l := MustOpen(svctestutil.OpenLayer(ctx, n))
+			names := namesOf(ctx, n, stored)
+			Expect(names[bound]).To(Equal("pt"))
+			Expect(names[other]).To(Equal("pt_2"))
+			var calc channel.Channel
+			Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
+				Where(gorp.MatchKeys[channel.Key, channel.Channel](stored[2].Key())).
+				Entry(&calc).
+				Exec(ctx, n.DB)).To(Succeed())
+			Expect(l.Channel.CalculationInputs(ctx, n.DB, []channel.Channel{calc})).
+				To(ConsistOf(bound))
+			prog := MustSucceed(arc.CompileText(
+				ctx,
+				arc.Text{Raw: "pt -> out"},
+				arc.NewRoot(l.Channel.NewArcSymbolResolver(n.DB)),
+			))
+			deps := MustSucceed(runtime.NewDependencies(ctx, n.DB, l.Channel, prog))
+			Expect(deps.Reads.Contains(bound)).To(BeTrue())
+			Expect(deps.Reads.Contains(other)).To(BeFalse())
 		})
 
 	It("Should rename the storage of a renamed channel", func(ctx SpecContext) {

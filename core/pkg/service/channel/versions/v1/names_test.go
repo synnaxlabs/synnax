@@ -119,29 +119,33 @@ var _ = Describe("NameRuleMigration", func() {
 			Expect(staged()).To(BeEmpty())
 		})
 
-	It("Should keep the name of the lower key in a group and move the higher key",
+	It("Should keep the name of the higher key in a group and move the lower keys",
 		func(ctx SpecContext) {
 			g := uuid.New()
 			names := migrate(
 				ctx,
 				channel(5, "pressure", &g),
 				channel(2, "pressure", &g),
+				channel(8, "pressure", &g),
 				channel(7, "pressure", nil),
 			)
-			Expect(names[2]).To(Equal("pressure"))
-			Expect(names[7]).To(Equal("pressure"))
-			Expect(names[5]).To(Equal("pressure_2"))
+			Expect(names).To(Equal(map[v1.LocalKey]string{
+				2: "pressure_3",
+				5: "pressure_2",
+				7: "pressure",
+				8: "pressure",
+			}))
 		})
 
-	It("Should keep a legal name when a lower key matches it only after NFC",
+	It("Should keep a legal name when a higher key matches it only after NFC",
 		func(ctx SpecContext) {
 			names := migrate(
 				ctx,
-				channel(1, "cafe\u0301", nil),
-				channel(2, "caf\u00E9", nil),
+				channel(2, "cafe\u0301", nil),
+				channel(1, "caf\u00E9", nil),
 			)
-			Expect(names[2]).To(Equal("caf\u00E9"))
-			Expect(names[1]).To(Equal("caf\u00E9_2"))
+			Expect(names[1]).To(Equal("caf\u00E9"))
+			Expect(names[2]).To(Equal("caf\u00E9_2"))
 		})
 
 	It("Should move a channel that holds the name of a built-in in its group, even "+
@@ -185,9 +189,9 @@ var _ = Describe("NameRuleMigration", func() {
 			channel(3, "a.b", &second),
 		)
 		Expect(names).To(Equal(map[v1.LocalKey]string{
-			1: "a_b",
+			1: "a_b_3",
 			2: "a_b_2",
-			3: "a_b_3",
+			3: "a_b",
 		}))
 	})
 })
