@@ -598,7 +598,7 @@ TEST(SampleToWasmTypedTest, ConvertsU64) {
     EXPECT_EQ(result.i64(), 999);
 }
 
-/// @brief a 64-bit integer above 2^53 must keep every bit.
+/// @brief it should keep every bit of an i64 above 2^53.
 TEST(SampleToWasmTypedTest, KeepsI64AboveDoublePrecision) {
     arc::types::Type type{.kind = arc::types::Kind::I64};
     const int64_t big = 9007199254740993;
@@ -606,6 +606,7 @@ TEST(SampleToWasmTypedTest, KeepsI64AboveDoublePrecision) {
     EXPECT_EQ(result.i64(), big);
 }
 
+/// @brief it should keep every bit of a u64 above 2^53.
 TEST(SampleToWasmTypedTest, KeepsU64AboveDoublePrecision) {
     arc::types::Type type{.kind = arc::types::Kind::U64};
     const uint64_t big = 18446744073709551615ULL;
@@ -613,7 +614,7 @@ TEST(SampleToWasmTypedTest, KeepsU64AboveDoublePrecision) {
     EXPECT_EQ(static_cast<uint64_t>(result.i64()), big);
 }
 
-/// @brief a u32 above INT32_MAX must keep its bit pattern.
+/// @brief it should keep the bit pattern of a u32 above INT32_MAX.
 TEST(SampleToWasmTypedTest, KeepsU32AboveI32Max) {
     arc::types::Type type{.kind = arc::types::Kind::U32};
     const uint32_t big = 4000000000U;
