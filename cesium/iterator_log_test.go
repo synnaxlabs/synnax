@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -395,5 +396,46 @@ var _ = Describe("Reads on the pointer log", func() {
 		iter.Next(cesium.AutoSpan)
 		Expect(iter.Value().Get(data).Series).To(BeEmpty())
 		Expect(iter.Error()).ToNot(HaveOccurred())
+	})
+	It("Should allocate no range reader at a seek and a step of an open read", func(
+		ctx SpecContext,
+	) {
+		db := mustOpenDBOnFS(ctx, xfs.NewMem(), cesium.WithPointerLog())
+		idx, data := GenerateChannelKey(), GenerateChannelKey()
+		keys := []cesium.ChannelKey{idx, data}
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: data, Name: "data", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		for _, start := range []telem.TimeStamp{10 * telem.SecondTS, 20 * telem.SecondTS} {
+			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+				Channels: keys,
+				Start:    start,
+			}))
+			MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesV(start, start+telem.SecondTS, start+2*telem.SecondTS),
+				telem.NewSeriesV[int64](1, 2, 3),
+			}), nil))
+			MustSucceed2(w.Commit(ctx, nil))
+			Expect(w.Close()).To(Succeed())
+		}
+		i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Channels: []cesium.ChannelKey{data},
+			Bounds:   telem.TimeRangeMax,
+		}))
+		Expect(i.SeekFirst()).To(BeTrue())
+		// A step allocates its frame, its series data, and its index lookups.
+		allocs := testing.AllocsPerRun(100, func() {
+			i.SeekGE(20 * telem.SecondTS)
+			i.Next(3 * telem.Second)
+		})
+		series := i.Value().Get(data).Series
+		Expect(series).To(HaveLen(1))
+		Expect(series[0].Len()).To(Equal(int64(3)))
+		Expect(allocs).To(BeNumerically("<=", 9))
+		Expect(i.Close()).To(Succeed())
 	})
 })
