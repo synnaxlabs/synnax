@@ -79,7 +79,7 @@ var _ = Describe("Kept names", func() {
 			Expect(again.Key()).To(Equal(higher.Key()))
 		})
 
-	It("Should keep a kept name through a rename to the exact name that it holds",
+	It("Should take a rename to the exact name that a kept name holds",
 		func(ctx SpecContext) {
 			ch := virtual(UniqueChannelName())
 			Expect(create(ctx, &ch)).To(Succeed())
@@ -93,6 +93,6 @@ var _ = Describe("Kept names", func() {
 				Entry(&stored).
 				Exec(ctx, db)).To(Succeed())
 			Expect(fmt.Sprintf("%+q", stored.Name)).
-				To(Equal(fmt.Sprintf("%+q", "ö_kept")))
+				To(Equal(fmt.Sprintf("%+q", "\u00F6_kept")))
 		})
 })
