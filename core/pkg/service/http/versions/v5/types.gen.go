@@ -80,11 +80,6 @@ type ReadEndpoint struct {
 	ICD *icd.Key `json:"icd,omitzero" msgpack:"icd,omitempty"`
 	// Messages are the messages that the response body is read as.
 	Messages []icd.ReadMessage `json:"messages" msgpack:"messages"`
-	// Fields contains the values to extract from the response.
-	Fields []ReadField `json:"fields" msgpack:"fields"`
-	// Index is the key of the field whose channel indexes the others. Empty when the
-	// task stamps samples on arrival.
-	Index string `json:"index" msgpack:"index"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
@@ -116,9 +111,6 @@ func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadEndpoint) Validate() error {
 	v := validate.New("ReadEndpoint")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
-	for i := range r.Fields {
-		v.Exec(func() error { return validate.PathedError(r.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
-	}
 	return v.Error()
 }
 

@@ -235,6 +235,12 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	//
 	// [REQUIRED]
 	Targets func(e *E) []T
+	// Locate returns the path to the first place in e that holds target, one segment
+	// per field, index, or map key: ["targets", "0", "message", "bindings", "1",
+	// "channel"]. A target fails a check at every place that holds it, so the first
+	// place is a true answer. A write that fails on a target reports the path in place
+	// of Name. Leave it nil when e holds its targets in one field.
+	Locate func(e *E, target T) []string
 	// OnDelete is what happens to e when one of its targets is deleted.
 	//
 	// [REQUIRED]
@@ -262,7 +268,8 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	// to its start. Table must be the table the reference is registered on.
 	Acyclic bool
 	// Check returns an error when e may not hold target. A write of e calls it for each
-	// target that e holds after the write, and fails with its error under Name.
+	// target that e holds after the write, and fails with its error at the path that
+	// Locate returns, or under Name when Locate is nil.
 	Check func(ctx context.Context, tx Tx, e *E, target T) error
 }
 
@@ -288,6 +295,7 @@ func NewKeyReference[K Key, E Entry[K], T Key](
 		detachable:  cfg.Detach != nil,
 		inlinable:   cfg.Inline != nil,
 		targetsOf:   cfg.Targets,
+		locate:      cfg.Locate,
 		detach:      cfg.Detach,
 		retarget:    cfg.Retarget,
 		inline:      cfg.Inline,
@@ -320,6 +328,9 @@ type TargetReferenceConfig[K Key, E Entry[K]] struct {
 	//
 	// [REQUIRED]
 	Targets func(e *E) []Target
+	// Locate returns the path to the first place in e that holds target. See
+	// KeyReferenceConfig.Locate.
+	Locate func(e *E, target Target) []string
 	// OnDelete is what happens to e when one of its targets is deleted. It cannot be
 	// Inline.
 	//
@@ -365,6 +376,7 @@ func NewTargetReference[K Key, E Entry[K]](
 		textKeys:    true,
 		detachable:  cfg.Detach != nil,
 		targetsOf:   cfg.Targets,
+		locate:      cfg.Locate,
 		detach:      cfg.Detach,
 		retarget:    cfg.Retarget,
 		format:      func(t Target) Target { return t },
@@ -377,6 +389,7 @@ func NewTargetReference[K Key, E Entry[K]](
 type reference[K Key, E Entry[K], T comparable] struct {
 	referenceSpec
 	targetsOf   func(e *E) []T
+	locate      func(e *E, target T) []string
 	detach      func(e *E, target T)
 	retarget    func(e *E, from, to T)
 	inline      func(ctx context.Context, tx Tx, e *E, target T) error
@@ -666,7 +679,9 @@ func (r *reference[K, E, T]) check(
 		}
 		target := r.format(v)
 		if r.textKeys && !slices.Contains(r.tables, target.Table) {
-			return false, r.fieldErr(
+			return false, r.targetErr(
+				e,
+				v,
 				"%s cannot reference %s %s",
 				t.name,
 				target.Table,
@@ -678,20 +693,32 @@ func (r *reference[K, E, T]) check(
 			return false, err
 		}
 		if r.textKeys && !table.canonical(target.Key) {
-			return false, r.fieldErr("%q is not a key of %s", target.Key, target.Table)
+			return false, r.targetErr(
+				e,
+				v,
+				"%q is not a key of %s",
+				target.Key,
+				target.Table,
+			)
 		}
 		ok, err := table.exists(ctx, tx, target.Key)
 		if err != nil {
 			return false, err
 		}
 		if !ok {
-			return false, r.fieldErr("%s %s does not exist", target.Table, target.Key)
+			return false, r.targetErr(
+				e,
+				v,
+				"%s %s does not exist",
+				target.Table,
+				target.Key,
+			)
 		}
 	}
 	if r.checkTarget != nil {
 		for _, v := range held {
 			if err := r.checkTarget(ctx, tx, e, v); err != nil {
-				return false, validate.PathedError(err, r.name)
+				return false, r.atTarget(e, v, err)
 			}
 		}
 	}
@@ -706,6 +733,37 @@ func (r *reference[K, E, T]) check(
 		}
 	}
 	return current, nil
+}
+
+// targetErr returns a validation error from format and args at the place in e that
+// holds target.
+func (r *reference[K, E, T]) targetErr(
+	e *E,
+	target T,
+	format string,
+	args ...any,
+) error {
+	return r.atTarget(e, target, errors.Wrapf(validate.ErrValidation, format, args...))
+}
+
+// atTarget returns err at the path that Locate returns for target, or at the name of
+// the reference when it has no Locate. It returns an error that is no validation error
+// when Locate finds no place in e that holds target.
+func (r *reference[K, E, T]) atTarget(e *E, target T, err error) error {
+	if r.locate == nil {
+		return validate.PathedError(err, r.name)
+	}
+	path := r.locate(e, target)
+	if path == nil {
+		t := r.format(target)
+		return errors.Newf(
+			"reference %s found no place that holds %s %s",
+			r.name,
+			t.Table,
+			t.Key,
+		)
+	}
+	return validate.PathedError(err, path...)
 }
 
 // indexedAt reports whether stored holds v, the target at position i of an entry. An
@@ -736,7 +794,9 @@ func (r *reference[K, E, T]) checkUnique(
 		for _, h := range holders {
 			if h != self {
 				target := r.format(v)
-				return r.fieldErr(
+				return r.targetErr(
+					e,
+					v,
 					"%s %s already references %s %s",
 					table,
 					FormatKey(h),
