@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 import { ZodError } from "zod";
 
 import { MQTT } from "@/feature/mqtt";
@@ -20,7 +20,9 @@ const client = createTestClient();
 const createScannedBroker = async () => {
   const { key } = await createBroker(client);
   const dev = await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS });
-  return { dev, scanner: await openScanner(client, dev.rack) };
+  const scanner = await openScanner(client, dev.rack);
+  onTestFinished(scanner.close);
+  return { dev, scanner };
 };
 
 describe("MQTT.Device browse", () => {
