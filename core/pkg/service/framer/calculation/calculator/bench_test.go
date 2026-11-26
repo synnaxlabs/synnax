@@ -159,13 +159,14 @@ func BenchmarkCalculator_TypeChange(b *testing.B) {
 	defer env.close(b)
 
 	base := []channel.Channel{{Name: "input", DataType: telem.Float64T, Virtual: true}}
-	calc := calctestutil.Calculation{
+	calc := channel.Channel{
 		Name:       "output",
 		DataType:   telem.Float64T,
+		Virtual:    true,
 		Expression: "return input",
 	}
 
-	c := env.openCalculator(b, base, calc)
+	c := env.openCalculator(b, base, &calc)
 	defer func() {
 		if err := c.Close(); err != nil {
 			b.Errorf("failed to close calculator: %v", err)
