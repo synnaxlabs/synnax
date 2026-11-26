@@ -25,8 +25,8 @@ namespace synnax::tcp {
 
 inline Properties Properties::parse(x::json::Parser parser) {
     return Properties{
-        .host = parser.field<std::string>("host", ""),
-        .port = parser.field<std::uint16_t>("port", 0),
+        .host = parser.field<std::string>("host"),
+        .port = parser.field<std::uint16_t>("port"),
     };
 }
 

@@ -19,9 +19,9 @@ import { task } from "@/task";
 /** Properties configures the server that a TCP device connects to. */
 export const propertiesZ = z.object({
   /** host is the host name or IP address of the server. */
-  host: z.string().min(1).default(""),
+  host: z.string().min(1),
   /** port is the TCP port of the server. */
-  port: zod.uint16.min(1).default(0),
+  port: zod.uint16.min(1),
 });
 export interface Properties extends z.infer<typeof propertiesZ> {}
 

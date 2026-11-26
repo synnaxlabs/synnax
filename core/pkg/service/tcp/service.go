@@ -31,12 +31,12 @@ import (
 )
 
 const (
-	// ReadTaskType is the type of the task that reads ICD messages from a TCP
+	// readTaskType is the type of the task that reads ICD messages from a TCP
 	// connection.
-	ReadTaskType = "tcp_read"
-	// WriteTaskType is the type of the task that sends ICD messages on a TCP
+	readTaskType = "tcp_read"
+	// writeTaskType is the type of the task that sends ICD messages on a TCP
 	// connection.
-	WriteTaskType = "tcp_write"
+	writeTaskType = "tcp_write"
 )
 
 // ServiceConfig is the configuration for opening the TCP task config service.
@@ -107,7 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:              cfg.DB,
 			References:      readConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
-			Type:            ReadTaskType,
+			Type:            readTaskType,
 			Ladder:          versions.ReadConfigLadder,
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
@@ -125,7 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:              cfg.DB,
 			References:      writeConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
-			Type:            WriteTaskType,
+			Type:            writeTaskType,
 			Ladder:          versions.WriteConfigLadder,
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
