@@ -69,8 +69,10 @@ telemetry (§9.0).
 5. **The system stays operational**: Integrity work (syncs, checks, repair) adds no cost
    to the live write and stream path. A storage fault raises a status and never stops a
    writer, a stream, or the Core, and the Core gets past start damage by itself (§6). A
-   bad data block fails its read. The one refusal to open is the identity check (§9.0),
-   whose two ways on keep different data.
+   bad data block fails its read. Cesium's one refusal to open is the identity check
+   (§9.0), whose two ways on keep different data. From RFC 0120 Phase 38 the Core also
+   refuses to start when a clock has a channel record, since a write would put stamps in
+   a user's channel (RFC 0120 §4.10).
 
 ## 4 The seam with the Core
 
@@ -122,11 +124,10 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    live, and whether a kept segment of another key names it as its clock. Before any
    create, the channel service raises each key counter above the highest key that `Keys`
    returns, so such a key is never given to a new channel after an undo or a lost
-   metadata tail. A key with a record, a clock that a producer config holds, and a key
-   whose intent is live are accounted for. A clock of one Core run, a script's or the
-   metrics service's (RFC 0120 §4.0), gets a note when the Core makes it, so the next
-   start deletes it. Any other key with data is kept: the Core raises a warning status
-   whose description names the keys and their bytes and says: restore the records from a
+   metadata tail. A key with a record, a clock, and a key whose intent is live are
+   accounted for. From RFC 0120 Phase 38, a clock that has a record fails the start (RFC
+   0120 §4.10). Any other key with data is kept: the Core raises a warning status whose
+   description names the keys and their bytes and says: restore the records from a
    backup to keep the data, or stop the Core and run `synnax purge <keys>` to remove it.
    A missing record can come from a restored backup or lost metadata, never only from a
    delete, so the Core deletes a key only from a note, never on absence. No writer or
@@ -143,6 +144,16 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
 as its clock, and the intent of such a key stays until they go. `DeleteTimeRange`
 refuses a clock key while a live pointer of another key names it, as today
 (`cesium/delete.go:265-279`).
+
+**The end of a clock** (RFC 0120 Phase 25): A clock that has no record ends with its
+last user. `DB.Clocks` (NEW) takes keys and returns each clock that their segments name
+and that no segment of another key names. In step 2 the channel service adds each such
+clock that has no record to the note and to the `Delete` call, so one log entry holds
+the Intents of the keys and of their clocks. Cesium logs the Drop of a clock after the
+Drops of the keys that it times. No writer can make a new user of such a clock while the
+claim is held: continuation picks only a clock that a key of the group already names. A
+`synnax purge` adds the clocks of its keys in the same way. Before RFC 0120 Phase 38 an
+index channel has a record, so its stamps stay until its own delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
@@ -653,7 +664,9 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
 - **Seal**: One Seal record, in the next entry of the writer. The file is not written.
 - **Delete of a time range**: One Tombstone per key. The delete is refused while the
   claim of an open writer holds part of the range (RFC 0095 §4.0). A sealed segment with
-  no live pointer is unlinked.
+  no live pointer is unlinked. From RFC 0120 Phase 25 the Core adds each clock of the
+  keys that has no record, and Cesium logs, in the same entry, a Tombstone of the clock
+  over each part of the range that no live pointer of another key names.
 - **Compaction**: When a rewrite of a sealed segment would free more than the threshold
   of its length (today `GCConfig`, `cesium/delete.go:32`), with its padding counted, the
   compactor copies the live ranges to a new segment, syncs the file and its directory,
