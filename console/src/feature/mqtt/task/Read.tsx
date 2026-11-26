@@ -939,8 +939,8 @@ const Plans = ({ device, children }: PlansProps): ReactElement => {
       props: device.properties.read[sparkplugPropertiesKey(entry)],
     })),
   ];
-  const plans = Task.useChannelPlans<SourcePlan>(sources, async (client, signal) => {
-    const plan = await planRead(client, device, bound, tags, entries, signal);
+  const plans = Task.useChannelPlans<SourcePlan>(sources, (planner) => {
+    const plan = planRead(planner, device, bound, tags, entries);
     return [
       ...plan.messages.map((p): SourcePlan => ({ type: "message", plan: p })),
       ...plan.tags.map((p): SourcePlan => ({ type: "tag", plan: p })),
@@ -1024,28 +1024,24 @@ interface ReadPlan {
 
 /**
  * Plans the channels of each message and then each tag, in deploy order with one
- * namer. A message plans with the channels that entries bind and that earlier messages
- * keep, so it leaves a stored channel that another binding writes. Reads from the Core
- * alone, and changes no argument. Throws between sources once signal aborts.
+ * planner. A message plans with the channels that entries bind and that earlier
+ * messages keep, so it leaves a stored channel that another binding writes. Changes no
+ * argument.
  */
-const planRead = async (
-  client: Synnax,
+const planRead = (
+  planner: Task.Planner,
   dev: Pick<Device.Device, "name" | "properties">,
   bound: ICD.BoundMessage<PlainReadEntry>[],
   tags: SparkplugReadEntry[],
   entries: ReadEntry[],
-  signal?: AbortSignal,
-): Promise<ReadPlan> => {
-  const namer = Task.createNamer(client);
+): ReadPlan => {
   const kept = writtenChannels(entries);
   const stored = splitStored(dev.properties.read, entries);
   const messages: ICD.MessagePlan[] = [];
   for (const b of bound) {
-    signal?.throwIfAborted();
     const { source: entry, read: r } = b;
-    const plan = await ICD.planMessage(
-      client,
-      namer,
+    const plan = ICD.planMessage(
+      planner,
       b,
       namePrefix(dev.name, entry.topic),
       ICD.Stored.of(stored, storedSource(entry), r),
@@ -1055,21 +1051,16 @@ const planRead = async (
     ICD.keptChannels(plan).forEach((ch) => kept.add(ch));
     messages.push(plan);
   }
-  const plans: Task.ReadChannelPlan[] = [];
-  for (const entry of tags) {
-    signal?.throwIfAborted();
+  const plans = tags.map((entry) => {
     const field = tagField(dev.name, entry);
-    plans.push(
-      await Task.planReadChannels({
-        client,
-        namer,
-        props: dev.properties.read[sparkplugPropertiesKey(entry)],
-        fields: [field],
-        namePrefix: field.name,
-        indexKey: "",
-      }),
-    );
-  }
+    return Task.planReadChannels({
+      planner,
+      props: dev.properties.read[sparkplugPropertiesKey(entry)],
+      fields: [field],
+      namePrefix: field.name,
+      indexKey: "",
+    });
+  });
   return { messages, tags: plans };
 };
 
@@ -1129,7 +1120,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     // disabled or a create below fails.
     dev.properties.read = splitStored(dev.properties.read, config.entries);
     const tags = enabled.filter((e) => e.type === "sparkplug");
-    const plan = await planRead(client, dev, bound, tags, config.entries);
+    const plan = await Task.planChannels(client, (planner) =>
+      planRead(planner, dev, bound, tags, config.entries),
+    );
     for (const [i, message] of bound.entries())
       await applyMessage(client, dev, message, plan.messages[i]);
     for (const [i, entry] of tags.entries())

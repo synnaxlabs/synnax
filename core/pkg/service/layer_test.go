@@ -644,7 +644,6 @@ var _ = Describe("Layer", func() {
 					Exec(ctx, db)).To(Succeed())
 				Expect(cfg.Endpoints).To(HaveLen(1))
 				ep := cfg.Endpoints[0]
-				Expect(ep.Fields).To(HaveLen(1))
 				Expect(ep.Messages).To(HaveLen(1))
 				return ep
 			}

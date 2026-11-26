@@ -6,52 +6,6 @@
     {
       "body": "",
       "disabled": false,
-      "fields": [
-        {
-          "channel": 10010,
-          "data_type": "timestamp",
-          "disabled": false,
-          "enum_values": [],
-          "key": "fld-ts",
-          "name": "fixture_http_timestamp",
-          "optional": false,
-          "pointer": "/data/timestamp",
-          "time_format": "unix_ms"
-        },
-        {
-          "channel": 10020,
-          "data_type": "uint8",
-          "disabled": false,
-          "enum_values": [
-            {
-              "label": "faulted",
-              "value": 3
-            },
-            {
-              "label": "idle",
-              "value": 1
-            },
-            {
-              "label": "running",
-              "value": 2
-            }
-          ],
-          "key": "fld-mode",
-          "name": "fixture_http_mode",
-          "optional": false,
-          "pointer": "/data/modeLabel"
-        },
-        {
-          "channel": 10030,
-          "data_type": "float32",
-          "disabled": true,
-          "enum_values": [],
-          "key": "fld-press",
-          "name": "fixture_http_pressure",
-          "optional": false,
-          "pointer": "/data/pressurePsi"
-        }
-      ],
       "headers": [
         {
           "name": "Content-Type",
@@ -63,7 +17,6 @@
         }
       ],
       "icd": "http_read",
-      "index": "fixture_http_time_index",
       "key": "ep-read-get",
       "messages": [
         {
@@ -98,18 +51,6 @@
     {
       "body": "{\"deviceId\": \"fixture-42\"}",
       "disabled": false,
-      "fields": [
-        {
-          "channel": 10040,
-          "data_type": "float64",
-          "disabled": false,
-          "enum_values": [],
-          "key": "fld-temp",
-          "name": "fixture_http_temperature",
-          "optional": false,
-          "pointer": "/results/0/tempC"
-        }
-      ],
       "headers": [
         {
           "name": "xRequestSource",
@@ -117,7 +58,6 @@
         }
       ],
       "icd": "http_read",
-      "index": "",
       "key": "ep-read-post",
       "messages": [
         {

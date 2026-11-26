@@ -12,7 +12,6 @@ package kafka_test
 import (
 	"context"
 	"crypto/tls"
-	"encoding/json/v2"
 	"encoding/pem"
 	"time"
 	"uuid"
@@ -148,16 +147,6 @@ var _ = Describe("Factory", func() {
 	writeConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
 		GinkgoHelper()
 		_, data := createIndexed(ctx, telem.Float64T)
-		return kafka.WriteConfig{
-			AutoStart: autoStart,
-			Device:    dev,
-			Topic:     uniqueTopic(),
-			Channels:  []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
-		}
-	}
-	targetsConfig := func(ctx context.Context, dev device.Key, autoStart bool) any {
-		GinkgoHelper()
-		_, data := createIndexed(ctx, telem.Float64T)
 		m := jsonMessage(
 			"Setpoint", nil, jsonField("value", "/value", icd.FloatJSONField{}),
 		)
@@ -185,7 +174,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should answer a command that needs no work with the current state",
@@ -211,45 +199,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
-	)
-
-	It(
-		"Should keep and run the channels of a write config saved at the current version",
-		func(ctx SpecContext) {
-			dev := createDevice(ctx, clusterProperties())
-			t := task.Task{
-				Rack: rackSvc.EmbeddedKey,
-				Name: "Pump",
-				Type: kafka.WriteTaskType,
-				Config: toJSON(
-					writeConfig(ctx, dev.Key, false),
-					json.OmitZeroStructFields(true),
-				),
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return taskSvc.NewWriter(tx).Create(ctx, &t)
-			})).To(Succeed())
-			DeferCleanup(func(ctx SpecContext) {
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return taskSvc.NewWriter(tx).Delete(ctx, t.Key, true)
-				})).To(Succeed())
-			})
-			var saved task.Task
-			Expect(taskSvc.NewRetrieve().
-				Where(task.MatchKeys(t.Key)).
-				Entry(&saved).
-				Exec(ctx, db)).To(Succeed())
-			var cfg kafka.WriteConfig
-			Expect(saved.Config.Unmarshal(&cfg)).To(Succeed())
-			Expect(cfg.Channels).To(HaveLen(1))
-			Expect(cfg.Targets).To(BeEmpty())
-			dt := MustSucceed(f.ConfigureTask(ctx, saved, "cmd-1"))
-			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-			start := task.Command{Task: t.Key, Type: "start", Key: "cmd-2"}
-			Expect(dt.Exec(ctx, start)).To(Succeed())
-			Expect(taskStatus(ctx, saved).Details.Running).To(BeTrue())
-		},
 	)
 
 	DescribeTable("Should reject an unknown command",
@@ -263,7 +212,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject a device that is not a Kafka cluster",
@@ -289,7 +237,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject a device whose properties do not parse",
@@ -313,7 +260,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	DescribeTable("Should reject an unknown device",
@@ -324,7 +270,6 @@ var _ = Describe("Factory", func() {
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),
-		Entry("write with targets", kafka.WriteTaskType, targetsConfig),
 	)
 
 	Describe("Scan task", func() {
