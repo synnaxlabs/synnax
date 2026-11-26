@@ -1438,8 +1438,8 @@ TEST(HTTPReadTask, BuildReadersNamesEndpointOfMessageError) {
     }
 }
 
-/// @brief it should fail to configure a task whose endpoint reads no messages, and
-/// tell the user what to do.
+/// @brief it should fail to configure a task whose endpoint reads no messages, one
+/// from before ICDs included, and tell the user what to do.
 TEST(HTTPReadTask, ConfigureRejectsEndpointWithNoMessages) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(
@@ -1460,16 +1460,23 @@ TEST(HTTPReadTask, ConfigureRejectsEndpointWithNoMessages) {
         .properties = props.get<x::json::json::object_t>(),
     };
     ASSERT_NIL(client->devices.create(dev));
-    const auto err = configure_read(
-                         std::make_shared<task::MockContext>(client),
-                         create_task({{{"method", "GET"}, {"path", "/a"}}}, dev.key),
-                         std::make_shared<Processor>()
-    )
-                         .second;
-    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(
-        err.data,
-        "endpoint GET /a reads no messages. Open the task and pick a message for it."
-    );
+    const x::json::json bare = {{"method", "GET"}, {"path", "/a"}};
+    auto before_icds = bare;
+    before_icds["index"] = "f";
+    before_icds["fields"] = {{{"key", "f"}, {"pointer", "/v"}, {"channel", 1}}};
+    for (const auto &ep: {bare, before_icds}) {
+        const auto err = configure_read(
+                             std::make_shared<task::MockContext>(client),
+                             create_task(x::json::json::array({ep}), dev.key),
+                             std::make_shared<Processor>()
+        )
+                             .second;
+        ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "endpoint GET /a reads no messages. Open the task and pick a message for "
+            "it."
+        );
+    }
 }
 }

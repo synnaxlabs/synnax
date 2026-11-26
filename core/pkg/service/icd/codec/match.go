@@ -158,11 +158,11 @@ func (r *router) claim(
 func (r *router) checkPresent(messages []JSONMessage, first int) error {
 	for k, p := range r.present {
 		other, at := -1, xjson.Pointer(nil)
-		if r.ruled && within(r.pointer, p.pointer) {
+		if r.ruled && r.pointer.HasPrefix(p.pointer) {
 			other, at = first, r.pointer
 		}
 		for j, q := range r.present {
-			if j != k && within(q.pointer, p.pointer) {
+			if j != k && q.pointer.HasPrefix(p.pointer) {
 				other, at = q.message, q.pointer
 			}
 		}
@@ -177,11 +177,6 @@ func (r *router) checkPresent(messages []JSONMessage, first int) error {
 		}
 	}
 	return nil
-}
-
-// within reports whether inner is outer or a pointer into the value at outer.
-func within(inner, outer xjson.Pointer) bool {
-	return len(outer) <= len(inner) && slices.Equal(outer, inner[:len(outer)])
 }
 
 // pointers returns the pointers that the rules test, in the order that find takes their
