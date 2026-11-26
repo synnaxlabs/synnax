@@ -20,6 +20,7 @@ export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   svg,
   handles: [{ key: "1", position: { x: 0.05, y: 0.5 }, orientation: "left" }],
+  ...Custom.SOLID_SHAPES,
 });
 
 export const BurstDisc = ({

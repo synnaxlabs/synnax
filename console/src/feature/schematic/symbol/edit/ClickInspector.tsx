@@ -28,35 +28,45 @@ type Interaction = schematic.symbol.Interaction;
 // undefined.
 const WHOLE_DRAWING = "";
 
+const TOGGLE_NEEDS_PAIR =
+  "A toggle needs two commands on one state that send different fixed values.";
+
 /** @returns the name of the target of a click: a part, or the whole drawing. */
 export const targetName = (parts: schematic.symbol.Part[], part?: string): string =>
   part == null
     ? "Whole drawing"
     : (parts.find((p) => p.key === part)?.name ?? "Missing part");
 
-interface CommandButtonsProps {
-  value: string | undefined;
+/** @returns the target of a click in a sentence: a part, or "the whole drawing". */
+export const targetPhrase = (parts: schematic.symbol.Part[], part?: string): string =>
+  part == null ? "the whole drawing" : targetName(parts, part);
+
+interface CommandSelectProps {
+  label: string;
+  value: string;
   onChange: (key: string) => void;
   commands: schematic.symbol.Command[];
 }
 
-const CommandButtons = ({
+const CommandSelect = ({
+  label,
   value,
   onChange,
   commands,
-}: CommandButtonsProps): ReactElement => (
-  <Select.Buttons<string>
+}: CommandSelectProps): ReactElement => (
+  <Select.Simple<string>
+    resourceName="command"
     value={value}
     onChange={onChange}
-    size="small"
-    variant="outlined"
+    allowNone={false}
+    triggerProps={{ "aria-label": label }}
   >
     {commands.map((c) => (
-      <Select.Item<string> key={c.key} itemKey={c.key} size="small">
+      <Select.Item<string> key={c.key} itemKey={c.key}>
         {c.name}
       </Select.Item>
     ))}
-  </Select.Buttons>
+  </Select.Simple>
 );
 
 export interface ClickInspectorProps {
@@ -64,50 +74,110 @@ export interface ClickInspectorProps {
   click: string;
 }
 
-/** ClickInspector edits the target of one click, and the command that it sends. */
+/**
+ * ClickInspector edits the target of one click, and whether it sends one command or
+ * toggles between two. It lists only the targets and commands that the Core accepts.
+ */
 export const ClickInspector = ({
   click: key,
 }: ClickInspectorProps): ReactElement | null => {
   const click = Form.useFieldValue(path.data.interactions[key], { optional: true });
   const parts = Form.useFieldValue(path.data.parts);
+  const states = Form.useFieldValue(path.data.states);
   const commands = Form.useFieldValue(path.data.commands);
   const interactions = Form.useFieldValue(path.data.interactions);
   const { set } = Form.useContext();
   if (click == null) return null;
   const update = (next: Interaction) => set(path.data.interactions[key], next);
-  const targets = [click.part, ...Spec.freeTargets({ parts, interactions })];
+  const first = click.type === "fire" ? click.command : click.commands[0];
+  const partners = Spec.nextPartners({ states, commands }, first);
+  const toggle = (command: string, second?: string): Interaction => {
+    const pairs = Spec.nextPartners({ states, commands }, command);
+    const partner = pairs.find((p) => p.key === second) ?? pairs.at(0);
+    if (partner == null) throw new Error(`command ${command} has no toggle partner`);
+    return { type: "next", key, part: click.part, commands: [command, partner.key] };
+  };
+  const handleTypeChange = (type: schematic.symbol.InteractionType) =>
+    update(
+      type === "next" ? toggle(first) : { type, key, part: click.part, command: first },
+    );
+  // The targets stay in list order and keep the target of the click, so a pick moves
+  // nothing.
+  const free = Spec.freeTargets({ parts, interactions });
+  const targets = [undefined, ...parts.map((p) => p.key)].filter(
+    (t) => t === click.part || free.includes(t),
+  );
   return (
     <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
-      <Text.Text level="h5">{targetName(parts, click.part)}</Text.Text>
+      <Text.Text level="h5">Click on {targetPhrase(parts, click.part)}</Text.Text>
       <Divider.Divider x />
       <Input.Item label="Target">
-        <Select.Buttons<string>
+        <Select.Simple<string>
+          resourceName="target"
           value={click.part ?? WHOLE_DRAWING}
           onChange={(t: string) =>
             update({ ...click, part: t === WHOLE_DRAWING ? undefined : t })
           }
-          size="small"
-          variant="outlined"
+          allowNone={false}
+          triggerProps={{ "aria-label": "Target" }}
         >
           {targets.map((t) => (
-            <Select.Item<string>
-              key={t ?? WHOLE_DRAWING}
-              itemKey={t ?? WHOLE_DRAWING}
-              size="small"
-            >
+            <Select.Item<string> key={t ?? WHOLE_DRAWING} itemKey={t ?? WHOLE_DRAWING}>
               {targetName(parts, t)}
             </Select.Item>
           ))}
+        </Select.Simple>
+      </Input.Item>
+      <Input.Item label="Kind">
+        <Select.Buttons<schematic.symbol.InteractionType>
+          value={click.type}
+          onChange={handleTypeChange}
+          size="small"
+          variant="outlined"
+        >
+          <Select.Item<schematic.symbol.InteractionType> itemKey="fire" size="small">
+            Send
+          </Select.Item>
+          <Select.Item<schematic.symbol.InteractionType>
+            itemKey="next"
+            size="small"
+            disabled={partners.length === 0}
+            tooltip={partners.length === 0 ? TOGGLE_NEEDS_PAIR : undefined}
+          >
+            Toggle
+          </Select.Item>
         </Select.Buttons>
       </Input.Item>
-      {click.type === "fire" && (
+      {click.type === "fire" ? (
         <Input.Item label="Command">
-          <CommandButtons
+          <CommandSelect
+            label="Command"
             value={click.command}
             onChange={(command) => update({ ...click, command })}
             commands={commands}
           />
         </Input.Item>
+      ) : (
+        <>
+          <Input.Item label="First command">
+            <CommandSelect
+              label="First command"
+              value={first}
+              onChange={(command) => update(toggle(command, click.commands[1]))}
+              commands={commands.filter(
+                (c) => Spec.nextPartners({ states, commands }, c.key).length > 0,
+              )}
+            />
+          </Input.Item>
+          <Input.Item label="Second command">
+            <CommandSelect
+              label="Second command"
+              value={click.commands[1]}
+              onChange={(command) => update({ ...click, commands: [first, command] })}
+              commands={partners}
+            />
+          </Input.Item>
+        </>
       )}
     </Flex.Box>
   );

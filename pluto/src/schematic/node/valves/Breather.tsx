@@ -25,6 +25,7 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "1", position: { x: 0.08081, y: 0.5 }, orientation: "left" },
     { key: "2", position: { x: 0.91919, y: 0.5 }, orientation: "right" },
   ],
+  ...Custom.ACTIVE_SOLID_SHAPES,
 });
 
 export const Breather = ({
