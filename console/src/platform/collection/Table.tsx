@@ -32,7 +32,7 @@ import {
 } from "react";
 
 import { CSS } from "@/platform/css";
-import { Settings } from "@/platform/settings";
+import { Page } from "@/platform/page";
 
 /** The items of a {@link Table}, from a Flux list or a static list. */
 export interface TableData<
@@ -300,7 +300,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
             </Button.Button>
           )}
         </Flex.Box>
-        <Settings.Card flush>
+        <Page.Card flush>
           <div className={CSS.BE("collection-table", "scroll")}>
             <div className={CSS.BE("collection-table", "columns")}>
               <List.Columns columns={columns}>
@@ -362,7 +362,7 @@ export const Table = <K extends record.Key, E extends record.Keyed<K>>({
               </List.Columns>
             </div>
           </div>
-        </Settings.Card>
+        </Page.Card>
       </Flex.Box>
     </Select.Frame>
   );

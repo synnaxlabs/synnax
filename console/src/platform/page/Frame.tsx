@@ -19,8 +19,8 @@ import { box } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
+import { useCardBackground } from "@/platform/page/background";
 import type { Group } from "@/platform/page/section";
-import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 
 const useVisibleGroups = (groups: Group[]): Group[] => {
@@ -57,7 +57,7 @@ export const Frame = ({ page, name, groups }: FrameProps): ReactElement => {
   const visible = useVisibleGroups(groups);
   const sections = visible.flatMap((group) => group.sections);
   const selected = Session.Nav.useSelectSection(page);
-  const background = Settings.useCardBackground();
+  const background = useCardBackground();
   const dispatch = Session.useDispatch();
   const [narrow, setNarrow] = useState(false);
   const [collapsed, setCollapsed] = useState(false);

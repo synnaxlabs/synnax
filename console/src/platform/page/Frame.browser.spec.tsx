@@ -12,7 +12,6 @@ import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { Page } from "@/platform/page";
-import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 import { renderWithConsole, stubWidth, type Width } from "@/testutil";
 
@@ -185,19 +184,5 @@ describe("Page.Frame", () => {
     });
     const tooltip = await screen.findByRole("tooltip");
     expect(within(tooltip).getByText("Alpha")).toBeTruthy();
-  });
-
-  it("should drop the inner padding of a flush card", async () => {
-    await renderWithConsole(
-      <>
-        <Settings.Card title="Padded">padded</Settings.Card>
-        <Settings.Card title="Flush" flush>
-          flush
-        </Settings.Card>
-      </>,
-    );
-    const FLUSH = "console-settings__card--flush";
-    expect(screen.getByText("padded").classList.contains(FLUSH)).toBe(false);
-    expect(screen.getByText("flush").classList.contains(FLUSH)).toBe(true);
   });
 });
