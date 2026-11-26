@@ -257,7 +257,7 @@ class SymbolEditor:
         header.locator("button").first.click()
         if name is None:
             return
-        editable = self.modal.locator(".lyra-text--editable[contenteditable='true']")
+        editable = self.modal.locator(self.layout.EDITABLE_SELECTOR)
         editable.wait_for(state="visible", timeout=5000)
         editable.fill(name)
         self.page.keyboard.press("Enter")
