@@ -22,9 +22,54 @@ import (
 // MigrateSchematic lifts a v13 schematic to v14, which stores each stroke, fill, text,
 // level, and axis color of an edge, shape, or readout as a color reference. Each such
 // color becomes a fixed color, and an absent color stays absent. It drops the staleness
-// color.
+// color. It turns a switch upright; see uprightSwitches.
 func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error) {
-	return autoMigrateSchematic(ctx, old)
+	s, err := autoMigrateSchematic(ctx, old)
+	if err != nil {
+		return Schematic{}, err
+	}
+	uprightSwitches(&s, old)
+	return s, nil
+}
+
+// uprightSwitches turns a switch that faced right to face left, and one that faced
+// bottom to face top, as the old switch node drew it. The old node turned its handles
+// with the stored orientation, so each edge end at a turned switch swaps handles 1 and
+// 2 to stay where it was drawn.
+func uprightSwitches(s *Schematic, old v13.Schematic) {
+	turned := make(map[string]bool)
+	for i, n := range old.Nodes {
+		if _, ok := n.Config.Variant.(v13.SwitchNodeConfig); !ok {
+			continue
+		}
+		cfg := as[SymbolNodeConfig](s.Nodes[i].Config.Variant)
+		switch cfg.Orientation {
+		case spatial.OuterLocationRight:
+			cfg.Orientation = spatial.OuterLocationLeft
+		case spatial.OuterLocationBottom:
+			cfg.Orientation = spatial.OuterLocationTop
+		default:
+			continue
+		}
+		s.Nodes[i].Config.Variant = cfg
+		turned[n.Key] = true
+	}
+	for i := range s.Edges {
+		swapSwitchHandle(&s.Edges[i].Source, turned)
+		swapSwitchHandle(&s.Edges[i].Target, turned)
+	}
+}
+
+func swapSwitchHandle(h *Handle, turned map[string]bool) {
+	if !turned[h.Node] {
+		return
+	}
+	switch h.Param {
+	case "1":
+		h.Param = "2"
+	case "2":
+		h.Param = "1"
+	}
 }
 
 // MigrateNode lifts a v13 node to v14.

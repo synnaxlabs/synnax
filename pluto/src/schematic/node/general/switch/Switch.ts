@@ -18,7 +18,10 @@ const ON: schematic.symbol.Condition = { type: "equals", state: "active", values
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   family: "switch",
   svg,
-  handles: [],
+  handles: [
+    { key: "1", position: { x: 0, y: 0.5 }, orientation: "left" },
+    { key: "2", position: { x: 1, y: 0.5 }, orientation: "right" },
+  ],
   parts: [
     { key: "track", name: "Track", selectors: [".pluto-switch-symbol__track"] },
     { key: "knob-off", name: "Knob off", selectors: [".pluto-switch-symbol__knob"] },

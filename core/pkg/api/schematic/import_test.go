@@ -66,6 +66,7 @@ var _ = Describe("Import of an old file with a symbol copy", func() {
 	// importPanel imports, as u, an old file whose custom actuator draws sym, which
 	// does not actuate, so the import copies sym into its group.
 	importPanel := func(ctx SpecContext) (apiimex.ImportResponse, error) {
+		GinkgoHelper()
 		var cfg v13.CustomActuatorNodeConfig
 		cfg.SetDefaults()
 		cfg.SpecKey = sym.Key.String()
