@@ -237,8 +237,9 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	Targets func(e *E) []T
 	// Locate returns the path to the first place in e that holds target, one segment
 	// per field, index, or map key: ["targets", "0", "message", "bindings", "1",
-	// "channel"]. A write that fails on a target reports the path in place of Name.
-	// Leave it nil when e holds its targets in one field.
+	// "channel"]. A target fails a check at every place that holds it, so the first
+	// place is a true answer. A write that fails on a target reports the path in place
+	// of Name. Leave it nil when e holds its targets in one field.
 	Locate func(e *E, target T) []string
 	// OnDelete is what happens to e when one of its targets is deleted.
 	//
