@@ -702,6 +702,14 @@ TEST(Writer, RefuseInvalidBinaryValues) {
         limits,
         "message cmd: field s: 3 decodes to 15, which is above the max 10"
     );
+    auto nan = binary_message();
+    nan.bind(byte<synnax::icd::UnsignedBinaryField>("a", 0), 2);
+    auto f = byte<synnax::icd::FloatBinaryField>("f", 1);
+    f.bit_length = 32;
+    f.max = 10;
+    nan.add(f);
+    nan.fix(f.key, synnax::icd::FloatWriteValue{.value = std::nan("")});
+    assert_refuses(nan, "message cmd: field f: NaN is outside the limits");
 }
 
 /// @brief it should drop a binary command outside the limits of its field, or one that

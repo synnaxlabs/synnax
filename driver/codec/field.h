@@ -87,7 +87,7 @@ x::errors::Error wrap(const x::errors::Error &err, const std::string &context);
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context);
 
 /// @brief returns VALIDATION when v, a value after the scale and offset of b, is
-/// outside the min and max of b.
+/// outside the min and max of b, or is NaN and b has a min or a max.
 x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
 
 /// @brief returns VALIDATION when v, a float32 sample, is outside the min and max of b.
@@ -95,9 +95,10 @@ x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
 x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
 
 /// @brief returns VALIDATION when raw, a value before the scale and offset of b,
-/// decodes outside the min and max of b. It allows the float64 rounding of the decode,
-/// so a value that decodes to a limit passes. When narrow, a value that decodes to a
-/// limit at float32 precision is at that limit.
+/// decodes outside the min and max of b, or decodes to NaN and b has a min or a max. It
+/// allows the float64 rounding of the decode, so a value that decodes to a limit
+/// passes. When narrow, a value that decodes to a limit at float32 precision is at that
+/// limit.
 x::errors::Error
 check_raw_limits(const synnax::icd::BaseField &b, double raw, bool narrow = false);
 

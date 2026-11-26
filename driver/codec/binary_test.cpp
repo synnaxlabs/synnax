@@ -1206,8 +1206,9 @@ TEST(BinaryEncoder, ReadyForSelectedFields) {
     );
 }
 
-/// @brief it should refuse an infinite sample for a float field with a min and a max.
-TEST(BinaryEncoder, CheckInfiniteSampleLimits) {
+/// @brief it should refuse an infinite or NaN sample for a float field with a min and a
+/// max.
+TEST(BinaryEncoder, CheckNonFiniteSampleLimits) {
     for (const std::uint8_t bits: {32, 64}) {
         auto v = field<icd::FloatBinaryField>("v", 0, bits);
         v.min = -10;
@@ -1222,6 +1223,19 @@ TEST(BinaryEncoder, CheckInfiniteSampleLimits) {
         err = enc.check(0, x::telem::Series(-inf), 0);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
         EXPECT_EQ(err.data, "message frame: field v: -Infinity is below the min -10");
+        err = enc.check(0, x::telem::Series(std::nan("")), 0);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "message frame: field v: NaN is outside the limits");
     }
+}
+
+/// @brief it should accept a NaN sample for a float field with no min and no max.
+TEST(BinaryEncoder, CheckNaNSampleWithoutLimits) {
+    const auto enc = ASSERT_NIL_P(
+        BinaryEncoder::create(
+            frame(field<icd::FloatBinaryField>("v", 0, 64), x::telem::FLOAT64_T)
+        )
+    );
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::nan("")), 0));
 }
 }

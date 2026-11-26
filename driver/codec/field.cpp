@@ -38,13 +38,15 @@ std::string format(const double v) {
 }
 
 /// @returns VALIDATION when decoded, the decoded value of raw, is more than slack
-/// outside the min and max of b.
+/// outside the min and max of b, or is NaN and b has a min or a max.
 x::errors::Error out_of_range(
     const icd::BaseField &b,
     const double raw,
     const double decoded,
     const double slack
 ) {
+    if (std::isnan(decoded) && (b.min.has_value() || b.max.has_value()))
+        return {x::errors::VALIDATION, "NaN is outside the limits"};
     std::string side;
     double limit = 0;
     if (b.min.has_value() && decoded < *b.min - slack) {
