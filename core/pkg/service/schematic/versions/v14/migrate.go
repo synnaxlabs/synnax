@@ -16,6 +16,7 @@ import (
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/set"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
@@ -37,7 +38,7 @@ func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error)
 // with the stored orientation, so each edge end at a turned switch swaps handles 1 and
 // 2 to stay where it was drawn.
 func uprightSwitches(s *Schematic, old v13.Schematic) {
-	turned := make(map[string]bool)
+	turned := set.Set[string]{}
 	for i, n := range old.Nodes {
 		if _, ok := n.Config.Variant.(v13.SwitchNodeConfig); !ok {
 			continue
@@ -52,7 +53,7 @@ func uprightSwitches(s *Schematic, old v13.Schematic) {
 			continue
 		}
 		s.Nodes[i].Config.Variant = cfg
-		turned[n.Key] = true
+		turned.Add(n.Key)
 	}
 	for i := range s.Edges {
 		swapSwitchHandle(&s.Edges[i].Source, turned)
@@ -60,8 +61,8 @@ func uprightSwitches(s *Schematic, old v13.Schematic) {
 	}
 }
 
-func swapSwitchHandle(h *Handle, turned map[string]bool) {
-	if !turned[h.Node] {
+func swapSwitchHandle(h *Handle, turned set.Set[string]) {
+	if !turned.Contains(h.Node) {
 		return
 	}
 	switch h.Param {
