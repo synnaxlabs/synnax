@@ -89,6 +89,7 @@ var _ = Describe("Writer take over on the pointer log", func() {
 		GinkgoHelper()
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    start,
 		}))
 		var (
@@ -193,6 +194,7 @@ var _ = Describe("Writer take over on the pointer log", func() {
 		opens.failAt.Store(int64(len(keys)))
 		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    20 * telem.SecondTS,
 		})).Error().To(MatchError(opens.err))
 		Expect(opens.open.Load()).To(Equal(before))
