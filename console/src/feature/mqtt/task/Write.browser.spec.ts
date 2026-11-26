@@ -386,6 +386,24 @@ describe("MQTT Write form", () => {
       expect(screen.getByDisplayValue(name)).toBeTruthy();
     });
 
+    it("should show the format and the message of a target whose message is text", async () => {
+      const target = await createPlainTarget("t1", "plant/valve/set");
+      await renderWrite([target]);
+      await screen.findByRole("treeitem", { name: /JSON.*plant\/valve\/set/ });
+      await client.icds.dispatch(
+        target.icd,
+        icd.set({
+          path: ["messages", target.message.message, "payload"],
+          value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+        }),
+      );
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /TEXT.*plant\/valve\/set/ }),
+      );
+      // The message format field shows the name of the message.
+      await screen.findByRole("button", { name: /Command/ });
+    });
+
     it("should list a tag by its edge node, with its command channel in its pane", async () => {
       const ch = await client.channels.create({
         name: uniqueName("mqtt_cmd"),

@@ -1252,6 +1252,15 @@ describe("MQTT read form", () => {
     await screen.findByText("Message not found");
   });
 
+  it("should show the format and the message of a topic whose message is text", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    await renderRead({ entries: [entry], beforeRender: () => setTextFormat(entry) });
+    await screen.findByText(NOT_JSON_NOTE);
+    await screen.findByRole("treeitem", { name: /TEXT.*plant\/oven/ });
+    // The message format field shows the name of the message.
+    await screen.findByRole("button", { name: /plant\/oven/ });
+  });
+
   it.each([
     { name: "gone", note: "Message not found", change: removeMessage },
     { name: "not JSON", note: NOT_JSON_NOTE, change: setTextFormat },
