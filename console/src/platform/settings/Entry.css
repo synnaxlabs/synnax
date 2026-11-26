@@ -9,16 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-settings__card {
-    container: settings-card / inline-size;
-    padding: 0 3rem;
-}
-
-.console-settings__card--flush {
-    padding: 0;
-    overflow: hidden;
-}
-
 /* The text takes at least 36rem beside the control, else the control wraps under it. */
 .console-settings__entry {
     display: flex;
@@ -44,7 +34,7 @@
 }
 
 /* In a narrow card, every control goes under its label, so no two entries differ. */
-@container settings-card (width < 72rem) {
+@container page-card (width < 72rem) {
     .console-settings__entry-text {
         flex-basis: 100%;
     }

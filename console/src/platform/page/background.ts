@@ -11,12 +11,12 @@ import { context } from "@synnaxlabs/lyra/context";
 import type { Theming } from "@synnaxlabs/lyra/theming";
 
 /**
- * The background of the Settings nav and cards. Settings on an l1 page sets it to 0, so
- * the cards stand off the page.
+ * The background of a page's section list and cards. A page on an l1 surface sets it to
+ * 0, so the cards stand off the surface.
  */
 const [CardBackgroundContext, useCardBackground] = context.create<Theming.Shade>({
   defaultValue: 1,
-  displayName: "Settings.CardBackgroundContext",
+  displayName: "Page.CardBackgroundContext",
 });
 
 export { CardBackgroundContext, useCardBackground };

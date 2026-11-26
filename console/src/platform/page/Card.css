@@ -9,6 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-static-field-value {
-    width: 120px;
+.console-page__card {
+    container: page-card / inline-size;
+    padding: 0 3rem;
+}
+
+.console-page__card--flush {
+    padding: 0;
+    overflow: hidden;
 }
