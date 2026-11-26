@@ -22,6 +22,7 @@ import { type deep, strings } from "@synnaxlabs/x";
 import pluralize from "pluralize";
 import type { ReactElement, ReactNode } from "react";
 
+import { Scroll } from "@/feature/schematic/symbol/edit/Scroll";
 import type { Spec } from "@/feature/schematic/symbol/spec";
 import { Modals } from "@/platform/modals";
 
@@ -142,7 +143,7 @@ export const ItemList = <T extends Item>({
         closeDialogOnSelect={false}
         cursor="selection"
       >
-        <List.Scroll y gap={1}>
+        <Scroll y gap={1}>
           <List.Items<string>>
             {({ key, itemKey, ...rest }) => {
               const item = items.find((i) => i.key === itemKey);
@@ -189,7 +190,7 @@ export const ItemList = <T extends Item>({
               );
             }}
           </List.Items>
-        </List.Scroll>
+        </Scroll>
       </Select.Frame>
     </Flex.Box>
   );

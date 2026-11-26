@@ -22,6 +22,7 @@ import { Schematic } from "@synnaxlabs/pluto";
 import pluralize from "pluralize";
 import type { ReactElement } from "react";
 
+import { Scroll } from "@/feature/schematic/symbol/edit/Scroll";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { CSS } from "@/platform/css";
 
@@ -138,7 +139,7 @@ export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElemen
         closeDialogOnSelect={false}
         cursor="selection"
       >
-        <List.Scroll y gap={1}>
+        <Scroll y gap={1}>
           <List.Items<string>>
             {({ key, ...rest }) => (
               <PartListItem
@@ -149,7 +150,7 @@ export const PartList = ({ value, onChange, onAdd }: PartListProps): ReactElemen
               />
             )}
           </List.Items>
-        </List.Scroll>
+        </Scroll>
       </Select.Frame>
     </Flex.Box>
   );
