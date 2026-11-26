@@ -17,9 +17,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
-	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -74,6 +74,7 @@ type Service struct {
 	// Scan stores http_scan task configuration records.
 	Scan     *config.Service[ScanConfig]
 	resolver readResolver
+	writes   writeResolver
 	closer   xio.MultiCloser
 }
 
@@ -90,6 +91,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		icds:     cfg.ICD,
 		channels: channels,
 		reads:    read.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}, writes: writeResolver{
+		icds:     cfg.ICD,
+		channels: channels,
+		writes:   write.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -128,15 +134,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
-			ResolveEntry: func(
-				_ context.Context,
-				_ gorp.Snapshot,
-				_ string,
-				cfg *WriteConfig,
-			) (func(context.Context, gorp.Tx) error, error) {
-				return v5.StageWrite(cfg)
-			},
-			ValidateEntry: (*WriteConfig).Validate,
+			HashReferences:  s.writes.hash,
+			HashedTables:    []string{"icd"},
+			ResolveEntry:    s.writes.resolve,
+			ReconcileEntry:  detachMessages,
+			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

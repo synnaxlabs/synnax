@@ -9,7 +9,7 @@
 
 import "@/feature/mqtt/task/Form.css";
 
-import { channel, DisconnectedError, type icd, mqtt } from "@synnaxlabs/client";
+import { DisconnectedError, type icd, mqtt } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
@@ -30,6 +30,7 @@ import { Device } from "@/feature/mqtt/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/mqtt/task/create";
 import type { Format, Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
+import { formatOf, type TopicPick } from "@/feature/mqtt/task/discover/Topics";
 import { namePrefix } from "@/feature/mqtt/task/entries";
 import { EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
@@ -61,13 +62,34 @@ const root = deep.path<Task.Values<WriteSchemas>>();
 
 const Properties = () => <Device.Select />;
 
-/** The name deploying gives the command channel of a field of a plain target. */
-const commandName = (prefix: string, { name }: Pick<icd.JSONField, "name">): string =>
-  `${prefix}_${channel.escapeInvalidName(name)}_cmd`;
-
 /** The name deploying gives a tag's command channel while it has none. */
 const defaultCommandName = (devName: string, target: SparkplugWriteTarget): string =>
   `${sparkplugChannelName(devName, target)}_cmd`;
+
+/** Keys and names the command channels of a plain target, as deploying does. */
+const plainNaming = (
+  devName: string,
+  { topic }: PlainWriteTarget,
+): ICD.Write.ChannelNaming => {
+  const prefix = namePrefix(devName, topic);
+  return {
+    key: (field) => `${topic}#${field.key}`,
+    name: (field) => ICD.Write.commandName(prefix, field),
+  };
+};
+
+/** What the command channel of a tag needs from deploying. */
+const sparkplugCommand = (
+  devName: string,
+  target: SparkplugWriteTarget,
+): Task.CommandChannelSpec => ({
+  propertiesKey: sparkplugPropertiesKey(target),
+  channel: target.channel,
+  name: primitive.isNonZero(target.name)
+    ? target.name
+    : defaultCommandName(devName, target),
+  dataType: fromSparkplugDataType(target.tagType),
+});
 
 const plainPath = (key: string) =>
   deep.variant(root.config.targets[key], "type", "plain");
@@ -81,9 +103,15 @@ interface PaneProps<T> {
   deviceName: string;
 }
 
-const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
+interface SparkplugTargetPaneProps extends PaneProps<SparkplugWriteTarget> {
+  /** The name that deploying gives the command channel it creates, once planned. */
+  plannedName?: string;
+}
+
+const SparkplugTargetPane: FC<SparkplugTargetPaneProps> = ({
   path,
   deviceName,
+  plannedName,
 }) => {
   const target = PForm.useFieldValue(path);
   return (
@@ -95,7 +123,8 @@ const SparkplugTargetPane: FC<PaneProps<SparkplugWriteTarget>> = ({
         <Task.ChannelNameField
           channel={target.channel}
           namePath={path.name}
-          defaultName={defaultCommandName(deviceName, target)}
+          defaultName={plannedName ?? defaultCommandName(deviceName, target)}
+          plannedName={plannedName}
           skipped={target.disabled}
         />
         <SparkplugTypeField
@@ -120,6 +149,7 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
+  const handleAddressChange = () => set(path.message, ICD.Write.unbind(target.message));
   return (
     <PForm.Sections>
       <PForm.Section title="Publish">
@@ -128,6 +158,7 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
           label="Topic"
           padHelpText={false}
           inputProps={TOPIC_INPUT_PROPS}
+          onChange={handleAddressChange}
         />
         <QoSField path={path.qos} />
         <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
@@ -147,22 +178,28 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
           onChange={handleFormatChange}
           preview={isPreview}
         />
+        <ICD.MessageWarning
+          message={message}
+          missingDescription={ICD.Write.MISSING_DESCRIPTION}
+        />
       </PForm.Section>
-      <ICD.MessageStatus
-        message={message}
-        missingDescription={ICD.Write.MISSING_DESCRIPTION}
-      />
     </PForm.Sections>
   );
 };
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
 
-interface TargetPaneProps extends PaneProps<WriteTarget> {
+interface TargetPaneProps
+  extends PaneProps<WriteTarget>, Pick<SparkplugTargetPaneProps, "plannedName"> {
   onAddField: () => void;
 }
 
-const TargetPane: FC<TargetPaneProps> = ({ path, deviceName, onAddField }) => {
+const TargetPane: FC<TargetPaneProps> = ({
+  path,
+  deviceName,
+  plannedName,
+  onAddField,
+}) => {
   const type = PForm.useFieldValue(path.type);
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
@@ -175,6 +212,7 @@ const TargetPane: FC<TargetPaneProps> = ({ path, deviceName, onAddField }) => {
         <SparkplugTargetPane
           path={deep.variant(path, "type", "sparkplug")}
           deviceName={deviceName}
+          plannedName={plannedName}
         />
       )}
     </Flex.Box>
@@ -218,6 +256,13 @@ const createDraft = (topic: string, leaves: Leaf[], format: Format | null): Draf
   format,
 });
 
+/** @returns the picked leaves of the shape that sets the format of a topic. */
+const formatLeaves = (pick: TopicPick): Leaf[] => {
+  const format = formatOf(pick);
+  if (format == null) return [];
+  return format.shape.leaves.filter(({ pointer }) => format.pointers.has(pointer));
+};
+
 const DISCOVER_KIND: Kind<Addition> = {
   title: "Add targets",
   hint: "Select the topics to write. Each one becomes a target.",
@@ -226,7 +271,9 @@ const DISCOVER_KIND: Kind<Addition> = {
   whole: true,
   formatPickable: true,
   create: ({ topics, tags, format }) => [
-    ...[...topics].map(([topic, { leaves }]) => createDraft(topic, leaves, format)),
+    ...[...topics].map(([topic, pick]) =>
+      createDraft(topic, formatLeaves(pick), format),
+    ),
     ...[...tags.values()].map((t) => createSparkplugTarget(t)),
   ],
   createTopic: (topic, { format }) => createDraft(topic, [], format),
@@ -238,7 +285,9 @@ const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
 const heldEntry = (target: WriteTarget): HeldEntry =>
-  target.type === "plain" ? { type: "plain", topic: target.topic, fields: [] } : target;
+  target.type === "plain"
+    ? { type: "plain", topic: target.topic, messages: [] }
+    : target;
 
 const useDiscoverModal = createDiscoverModal(DISCOVER_KIND);
 
@@ -250,15 +299,6 @@ const duplicate = (target: WriteTarget): WriteTarget =>
         key: id.create(),
         message: ICD.Write.unbind(target.message),
       };
-
-const messageOf = (target: WriteTarget): ICD.Write.TargetMessage | null =>
-  target.type === "plain"
-    ? {
-        icd: target.icd,
-        message: target.message.message,
-        bindings: plainPath(target.key).message.bindings,
-      }
-    : null;
 
 interface TargetsProps {
   device: Device.Device;
@@ -278,17 +318,53 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const targets = PForm.useFieldValue(root.config.targets);
   const plain = targets.filter((t) => t.type === "plain");
   const discover = useDiscoverModal();
-  const { tree, handleSelect, contextMenu, renderItem, current, addField, added } =
-    ICD.Write.useTree({
-      path: root.config.targets,
-      messageOf,
-      TargetItem,
-      duplicate,
-      selected,
-      onSelect,
-      expanded,
-      onExpand,
-    });
+  const commandChannelsOf = ICD.Write.useCommandChannels();
+  const specs = targets
+    .filter(({ disabled }) => !disabled)
+    .flatMap((t) =>
+      t.type === "plain"
+        ? commandChannelsOf(t, plainNaming(device.name, t))
+        : [sparkplugCommand(device.name, t)],
+    );
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
+  const messageOf = (target: WriteTarget): ICD.Write.TargetMessage | null => {
+    if (target.type !== "plain") return null;
+    const naming = plainNaming(device.name, target);
+    return {
+      icd: target.icd,
+      message: target.message.message,
+      path: plainPath(target.key).message,
+      naming,
+    };
+  };
+  const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
+    path: root.config.targets,
+    messageOf,
+    plans,
+    TargetItem,
+    targetPane: (target, onAddField) => ({
+      path: root.config.targets[target.key],
+      title: <EntryLabel path={root.config.targets[target.key]} />,
+      details: (
+        <TargetPane
+          key={target.key}
+          path={root.config.targets[target.key]}
+          deviceName={device.name}
+          plannedName={
+            target.type === "sparkplug"
+              ? Task.newCommandChannelName(plans.get(sparkplugPropertiesKey(target)))
+              : undefined
+          }
+          onAddField={onAddField}
+        />
+      ),
+    }),
+    duplicate,
+    selected,
+    onSelect,
+    expanded,
+    onExpand,
+  });
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
@@ -322,47 +398,6 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
-  const target =
-    current == null ? undefined : targets.find(({ key }) => key === current.target);
-  let details = null;
-  let title = null;
-  let detailsPath: deep.Target<unknown> | null = null;
-  if (target?.type === "plain" && current?.kind === "field") {
-    const path = plainPath(target.key).message;
-    const i = target.message.bindings.findIndex(
-      ({ field }) => field === current.field.key,
-    );
-    detailsPath = i < 0 ? path : path.bindings[i];
-    title = (
-      <Text.Text level="p" weight={500} overflow="fade">
-        {current.field.name}
-      </Text.Text>
-    );
-    details = (
-      <ICD.Write.FieldDetails
-        key={selected[0]}
-        path={path.bindings}
-        icdKey={target.icd}
-        message={target.message.message}
-        field={current.field.key}
-        channelName={commandName(namePrefix(device.name, target.topic), current.field)}
-        skipped={target.disabled}
-        autoFocus={current.field.key === added}
-      />
-    );
-  } else if (target != null) {
-    detailsPath = root.config.targets[target.key];
-    title = <EntryLabel path={root.config.targets[target.key]} />;
-    details = (
-      <TargetPane
-        key={target.key}
-        path={root.config.targets[target.key]}
-        deviceName={device.name}
-        onAddField={() => addField(target.key)}
-      />
-    );
-  }
-
   return (
     <Task.Views.Panes
       listTitle="Targets"
@@ -378,10 +413,10 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
           {renderItem}
         </Task.Views.TreeList>
       }
-      detailsPath={detailsPath}
-      title={title ?? undefined}
+      detailsPath={pane?.path ?? null}
+      title={pane?.title}
     >
-      {details ?? (
+      {pane?.details ?? (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">
             Add targets to write to a topic or a tag
@@ -442,24 +477,18 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     for (const target of config.targets) {
       if (target.disabled) continue;
       if (target.type === "plain") {
-        const prefix = namePrefix(dev.name, target.topic);
-        await ICD.Write.configureChannels(client, dev.properties.write, target, {
-          key: (field) => `${target.topic}#${field.key}`,
-          name: (field) => commandName(prefix, field),
-        });
+        await ICD.Write.configureChannels(
+          client,
+          dev.properties.write,
+          target,
+          plainNaming(dev.name, target),
+        );
         continue;
       }
       target.channel = await Task.configureCommandChannel(
         client,
         dev.properties.write,
-        {
-          propertiesKey: sparkplugPropertiesKey(target),
-          channel: target.channel,
-          name: primitive.isNonZero(target.name)
-            ? target.name
-            : defaultCommandName(dev.name, target),
-          dataType: fromSparkplugDataType(target.tagType),
-        },
+        sparkplugCommand(dev.name, target),
       );
     }
   } finally {

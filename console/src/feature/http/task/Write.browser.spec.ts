@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, http, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  http,
+  icd,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -16,409 +23,512 @@ import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { Device } from "@/platform/device";
+import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
-  awaitEditableForm,
-  commitFieldInput,
-  createChannelReadOnlyClient,
   deployAndAwaitTask,
-  findChannelListItem,
   preloadForms,
   renderTaskFormTab,
-  type RenderTaskFormTabOptions,
-  selectFromDropdown,
 } from "@/platform/task/testutil";
-import {
-  awaitTextEditingElement,
-  commitTextEdit,
-  findDialogTriggerByText,
-  getHeaderIconButton,
-} from "@/testutil";
 
-// The form renders read-only until the update grant lands, and a preview field renders
-// no input, so wait for it to become editable before querying fields.
-const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
-  const rendered = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE], {
-    task: ZERO_DRAFT,
-    ...options,
-  });
-  await awaitEditableForm();
-  return rendered;
-};
+const client = createTestClient();
 
-// Drafts carry no key; the created row mints its own.
+preloadForms(HTTP.Task.FORMS);
+
+type WriteConfig = z.infer<HTTP.Task.WriteSchemas["config"]>;
+
 const ZERO_DRAFT: task.New<HTTP.Task.WriteSchemas> = {
-  name: "HTTP write task",
+  name: uniqueName("http_write"),
   type: HTTP.Task.WRITE_TYPE,
   config: HTTP.Task.WRITE_SCHEMAS.config.parse({}),
 };
 
-const createDraft = async (
-  client: Synnax,
-  config: z.infer<HTTP.Task.WriteSchemas["config"]>,
-) => await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
+const createDraft = async (client: Synnax, config: WriteConfig) =>
+  await client.tasks.create({ ...ZERO_DRAFT, config }, HTTP.Task.WRITE_SCHEMAS);
+
+const retrieveEndpoints = async (key: task.Key) =>
+  (await client.tasks.retrieve({ key, schemas: HTTP.Task.WRITE_SCHEMAS })).config
+    .endpoints;
+
+const createField = (name: string, type: icd.JSONField["type"]): icd.JSONField =>
+  icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type });
+
+/** Creates an ICD that holds one JSON message of the fields, with unique names. */
+const createFormat = async (fields: icd.JSONField[]) => {
+  const message = icd.messageZ.parse({
+    name: uniqueName("setpoint"),
+    payload: { format: "json", fields },
+  });
+  const ic = await client.icds.create({
+    name: uniqueName("valve"),
+    messages: [message],
+  });
+  return { ic, message };
+};
+
+/** @returns an endpoint that sends message of ic, with each field on a new channel. */
+const createEndpoint = (
+  key: string,
+  path: string,
+  ic: icd.ICD,
+  message: icd.Message,
+  fields: icd.JSONField[],
+): HTTP.Task.WriteEndpoint => ({
+  ...http.writeEndpointZ.parse({}),
+  key,
+  method: "PUT",
+  path,
+  icd: ic.key,
+  message: {
+    message: message.key,
+    bindings: fields.map((f) => ({ type: "channel", field: f.key, channel: 0 })),
+  },
+});
+
+const renderWrite = async (
+  endpoints: HTTP.Task.WriteEndpoint[] = [],
+  dev?: device.Device,
+) => {
+  dev ??= await createHTTPDevice(client);
+  const draft = await createDraft(client, {
+    ...HTTP.Task.WRITE_SCHEMAS.config.parse({}),
+    device: dev.key,
+    endpoints,
+  });
+  const result = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE], {
+    client,
+    taskKey: draft.key,
+  });
+  return { ...result, dev, draft };
+};
+
+/** @returns the channel of the first binding of each endpoint, or 0. */
+const firstChannels = (endpoints: HTTP.Task.WriteEndpoint[]): channel.Key[] =>
+  endpoints.map(({ message }) => {
+    const binding = message?.bindings[0];
+    return binding?.type === "channel" ? binding.channel : 0;
+  });
+
+/** Deploys a task of one endpoint on dev, or on a new device, and unmounts its form. */
+const deployEndpoint = async (
+  endpoint: HTTP.Task.WriteEndpoint,
+  dev?: device.Device,
+) => {
+  const result = await renderWrite([endpoint], dev);
+  const created = await deployAndAwaitTask(
+    client,
+    result.container,
+    result.draft.key,
+    HTTP.Task.WRITE_SCHEMAS,
+  );
+  result.unmount();
+  return {
+    dev: result.dev,
+    task: created,
+    channel: firstChannels(created.config.endpoints)[0],
+  };
+};
 
 const addEndpoint = async (): Promise<void> => {
   fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
   await screen.findByText("Request");
 };
 
-const createWriteEndpoint = (
-  key: string,
-  path: string,
-  channel: Partial<HTTP.Task.ChannelField> = {},
-): HTTP.Task.WriteEndpoint => ({
-  ...HTTP.Task.writeEndpointZ.parse({}),
-  key,
-  path,
-  channel: { ...http.channelFieldZ.parse({}), pointer: "/value", ...channel },
-});
-
-const createWriteConfig = (
-  device: string,
-  endpoints: HTTP.Task.WriteEndpoint[],
-): z.infer<HTTP.Task.WriteSchemas["config"]> => ({
-  ...HTTP.Task.WRITE_SCHEMAS.config.parse({}),
-  device,
-  endpoints,
-});
-
-preloadForms(HTTP.Task.FORMS);
+/** Selects a field in the tree, and returns the section that fills it. */
+const selectField = async (name: string) => {
+  fireEvent.click(
+    await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
+  );
+  return within(await screen.findByRole("group", { name: "Source" }));
+};
 
 describe("Write", () => {
-  it("should show the empty state and add + select an endpoint", async () => {
-    await renderWrite();
-    await screen.findByText("Select an endpoint to configure");
+  // This first test pays the one-time load of the lazy form, which takes over 10 s on
+  // a loaded CI runner.
+  it("should add an endpoint that sends a new message, in an ICD named after the task", async () => {
+    const { draft } = await renderWrite();
+    await screen.findByText("Add an endpoint to send requests to");
     await addEndpoint();
-    expect(screen.getByRole("button", { name: "POST" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "PUT" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "PATCH" })).toBeTruthy();
-    expect(screen.getByPlaceholderText("/api/control")).toBeTruthy();
-    expect(screen.getByText("Data type")).toBeTruthy();
-    expect(screen.getByText("No additional fields")).toBeTruthy();
-  });
-
-  it("should show the enum mapping editor when the channel JSON type is string", async () => {
-    await renderWrite();
-    await addEndpoint();
-    expect(screen.queryByText("Enum mapping")).toBeNull();
-    await selectFromDropdown("Number", "String");
-    await screen.findByText("Enum mapping");
-  });
-
-  it("should add a static field and reset its value when the JSON type changes", async () => {
-    await renderWrite();
-    await addEndpoint();
-    fireEvent.click(getHeaderIconButton("Additional fields", "add"));
-    await screen.findByText("static");
-    const value = screen.getByPlaceholderText<HTMLInputElement>("value");
-    fireEvent.change(value, { target: { value: "on" } });
-    fireEvent.blur(value);
-    await screen.findByDisplayValue("on");
-    await selectFromDropdown("String", "Number");
-    await waitFor(() => expect(screen.queryByDisplayValue("on")).toBeNull());
-  });
-
-  it("should add a generated field and switch its generator to a timestamp", async () => {
-    await renderWrite();
-    await addEndpoint();
-    fireEvent.click(getHeaderIconButton("Additional fields", "time"));
-    await screen.findByText("generated");
-    await selectFromDropdown("UUID", "Timestamp (s)");
-    await findDialogTriggerByText("Timestamp (s)");
-  });
-
-  it("should remove additional fields through a context menu without a duplicate option", async () => {
-    await renderWrite();
-    await addEndpoint();
-    fireEvent.click(getHeaderIconButton("Additional fields", "add"));
-    const pointer = await screen.findByPlaceholderText("/field");
-    fireEvent.contextMenu(pointer);
-    await screen.findByText("Remove");
-    expect(screen.queryByText("Duplicate")).toBeNull();
-    fireEvent.click(screen.getByText("Remove"));
-    await waitFor(() => expect(screen.queryByText("static")).toBeNull());
-  });
-
-  it("should duplicate endpoints and rename the command channel via the context menu", async () => {
-    await renderWrite();
-    await addEndpoint();
-    const item = await screen.findByText("No channel");
-    fireEvent.contextMenu(item);
-    fireEvent.click(await screen.findByText("Duplicate"));
-    await waitFor(() => expect(screen.getAllByText("No channel")).toHaveLength(2));
-    fireEvent.contextMenu(screen.getAllByText("No channel")[0]);
-    fireEvent.click(await screen.findByText("Rename"));
-    const editable = await awaitTextEditingElement();
-    commitTextEdit(editable, "my_cmd_channel");
-    await screen.findByText("my_cmd_channel");
-  });
-
-  it("should withhold rename from a subject who cannot update channels", async () => {
-    const client = createTestClient();
-    await renderWrite({ client, as: await createChannelReadOnlyClient(client) });
-    await addEndpoint();
-    fireEvent.contextMenu(await screen.findByText("No channel"));
-    // Duplicate is ungated, so its presence proves the menu resolved before the
-    // absence below is read.
-    expect(await screen.findByText("Duplicate")).toBeTruthy();
-    expect(screen.queryByText("Rename")).toBeNull();
-  });
-
-  it("should seed the form from the task row's config", async () => {
-    const client = createTestClient();
-    const dev = await createHTTPDevice(client);
-    const config = createWriteConfig(dev.key, [createWriteEndpoint("ep1", "/seeded")]);
-    const draft = await createDraft(client, config);
-    await renderWrite({ client, taskKey: draft.key });
-    await screen.findByRole("option", { name: /\/seeded/ });
-  });
-
-  // Waits on the channel name so the negative case asserts against a settled lookup
-  // rather than one still in flight.
-  const renderWithCommandChannel = async (dataType: string) => {
-    const client = createTestClient();
-    const ch = await client.channels.create({
-      name: uniqueName("http_cmd"),
-      dataType,
-      virtual: true,
-    });
-    const dev = await createHTTPDevice(client);
-    const config = createWriteConfig(dev.key, [
-      createWriteEndpoint("ep1", "/cmd", { channel: ch.key }),
-    ]);
-    const draft = await createDraft(client, config);
-    await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText("Request");
-    await screen.findByText(ch.name);
-  };
-
-  it("should show the time format field for a timestamp command channel", async () => {
-    await renderWithCommandChannel("timestamp");
-    await screen.findByText("Time format");
-  });
-
-  it("should hide the time format field for a numeric command channel", async () => {
-    await renderWithCommandChannel("float64");
-    expect(screen.queryByText("Time format")).toBeNull();
-  });
-
-  it("should lock the data type of a bound command channel to that of the channel", async () => {
-    await renderWithCommandChannel("int32");
-    await screen.findByText("Set on the channel");
-    await findDialogTriggerByText("int32");
-  });
-
-  it("should switch an endpoint off through its checkbox and on through its menu", async () => {
-    await renderWrite();
-    await addEndpoint();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
-    fireEvent.contextMenu(await screen.findByText("No channel"));
-    fireEvent.click(await screen.findByText("Enable"));
-    fireEvent.contextMenu(await screen.findByText("No channel"));
-    await screen.findByText("Disable");
-    expect(screen.queryByText("Enable")).toBeNull();
-  });
-
-  const client = createTestClient();
-
-  it("should create command channels, virtual when variable, and persist them to the device", async () => {
-    const dev = await createHTTPDevice(client);
-    const virtualName = uniqueName("http_cmd");
-    const config = createWriteConfig(dev.key, [
-      createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
-      createWriteEndpoint("ep2", "/msg", { dataType: "string", name: virtualName }),
-    ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.WRITE_SCHEMAS,
-    );
-
-    const updated = await client.devices.retrieve({
-      key: dev.key,
-      schemas: HTTP.Device.SCHEMAS,
-    });
-    const cmdKey = updated.properties.write["/cmd"];
-    const cmdCh = await client.channels.retrieve(cmdKey);
-    expect(cmdCh.dataType.toString()).toBe("uint8");
-    expect(cmdCh.name).toBe(`${dev.name}_cmd_cmd`);
-    expect(cmdCh.index).toBeGreaterThan(0);
-    const indexCh = await client.channels.retrieve(cmdCh.index);
-    expect(indexCh.name).toBe(`${dev.name}_cmd_cmd_time`);
-    expect(created.config.endpoints[0].channel.channel).toBe(cmdKey);
-
-    const virtualKey = updated.properties.write["/msg"];
-    const virtualCh = await client.channels.retrieve(virtualKey);
-    expect(virtualCh.virtual).toBe(true);
-    expect(virtualCh.name).toBe(virtualName);
-    expect(created.config.endpoints[1].channel.channel).toBe(virtualKey);
-  });
-
-  it("should create no command channel for a disabled endpoint", async () => {
-    const dev = await createHTTPDevice(client);
-    const config = createWriteConfig(dev.key, [
-      createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
-      { ...createWriteEndpoint("ep2", "/off", { dataType: "uint8" }), disabled: true },
-    ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    const created = await deployAndAwaitTask(
-      client,
-      container,
-      draft.key,
-      HTTP.Task.WRITE_SCHEMAS,
-    );
-    const updated = await client.devices.retrieve({
-      key: dev.key,
-      schemas: HTTP.Device.SCHEMAS,
-    });
-    expect(Object.keys(updated.properties.write)).toEqual(["/cmd"]);
-    expect(created.config.endpoints[1].channel.channel).toBe(0);
-  });
-
-  it("should follow a path edit to the channel the new path maps, or to none", async () => {
-    const dev = await createHTTPDevice(client);
-    const [cmdCh, otherCh] = await Promise.all(
-      ["http_cmd", "http_other"].map(
-        async (prefix) =>
-          await client.channels.create({
-            name: uniqueName(prefix),
-            dataType: "string",
-            virtual: true,
-          }),
-      ),
-    );
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      write: { "/cmd": cmdCh.key, "/other": otherCh.key },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const draft = await createDraft(
-      client,
-      createWriteConfig(dev.key, [
-        createWriteEndpoint("ep1", "/cmd", { dataType: "string" }),
-      ]),
-    );
-    await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(cmdCh.name);
-    const savedChannel = async () =>
-      (
-        await client.tasks.retrieve({
-          key: draft.key,
-          schemas: HTTP.Task.WRITE_SCHEMAS,
-        })
-      ).config.endpoints[0].channel.channel;
-    commitFieldInput(screen.getByDisplayValue("/cmd"), "/other");
-    await screen.findByText(otherCh.name);
-    await waitFor(async () => expect(await savedChannel()).toBe(otherCh.key));
-    commitFieldInput(screen.getByDisplayValue("/other"), "/none");
-    await waitFor(async () => expect(await savedChannel()).toBe(0));
-    expect(screen.queryByText(otherCh.name)).toBeNull();
-  });
-
-  it("should bind a new endpoint to the command channel the device already stores", async () => {
-    const dev = await createHTTPDevice(client);
-    const storedCh = await client.channels.create({
-      name: uniqueName("http_cmd"),
-      dataType: "string",
-      virtual: true,
-    });
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      write: { "/cmd": storedCh.key },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
-    );
-    const draft = await createDraft(
-      client,
-      createWriteConfig(dev.key, [
-        createWriteEndpoint("ep1", "/cmd", { dataType: "string" }),
-      ]),
-    );
-    await renderWrite({ client, taskKey: draft.key });
-    await screen.findByText(storedCh.name);
+    let endpoints: HTTP.Task.WriteEndpoint[] = [];
     await waitFor(async () => {
-      const saved = await client.tasks.retrieve({
-        key: draft.key,
-        schemas: HTTP.Task.WRITE_SCHEMAS,
-      });
-      expect(saved.config.endpoints[0].channel.channel).toBe(storedCh.key);
+      endpoints = await retrieveEndpoints(draft.key);
+      expect(endpoints[0]?.icd).toBeDefined();
+    });
+    const ic = await client.icds.retrieve(endpoints[0].icd as icd.Key);
+    expect(ic.name).toBe(ZERO_DRAFT.name);
+    expect(ic.messages.map(({ name }) => name)).toEqual(["POST"]);
+    expect(endpoints[0].message).toEqual({ message: ic.messages[0].key, bindings: [] });
+  }, 30_000);
+
+  it("should add the message of a second endpoint to the ICD of the first", async () => {
+    const { draft } = await renderWrite();
+    await addEndpoint();
+    await addEndpoint();
+    let endpoints: HTTP.Task.WriteEndpoint[] = [];
+    await waitFor(async () => {
+      endpoints = await retrieveEndpoints(draft.key);
+      expect(endpoints.map((ep) => ep.icd != null)).toEqual([true, true]);
+    });
+    expect(endpoints[1].icd).toBe(endpoints[0].icd);
+    await waitFor(async () => {
+      const ic = await client.icds.retrieve(endpoints[0].icd as icd.Key);
+      expect(ic.messages.map(({ name }) => name)).toEqual(["POST", "POST 2"]);
     });
   });
 
-  it("should adopt existing channels from the config and the device instead of creating new ones", async () => {
-    const dev = await createHTTPDevice(client);
-    const configuredCh = await client.channels.create({
-      name: uniqueName("http_cmd"),
-      dataType: "string",
-      virtual: true,
-    });
-    const storedCh = await client.channels.create({
-      name: uniqueName("http_cmd"),
-      dataType: "string",
-      virtual: true,
-    });
-    const properties = {
-      ...HTTP.Device.ZERO_PROPERTIES,
-      write: { "/stored": storedCh.key },
-    };
-    await Device.setProperties(
-      client,
-      { key: dev.key, properties },
-      HTTP.Device.ZERO_PROPERTIES,
-      HTTP.Device.SCHEMAS,
+  it("should rename the message of an endpoint after its new method and path", async () => {
+    const { draft } = await renderWrite();
+    await addEndpoint();
+    await addEndpoint();
+    const [first] = await screen.findAllByRole("treeitem");
+    fireEvent.click(first);
+    await waitFor(() =>
+      expect(screen.getByRole("treeitem", { selected: true })).toBe(first),
     );
-    const config = createWriteConfig(dev.key, [
-      createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
-      createWriteEndpoint("ep2", "/stored"),
+    fireEvent.click(screen.getByText("PATCH"));
+    fireEvent.change(screen.getByPlaceholderText("/api/control"), {
+      target: { value: "/speed" },
+    });
+    await waitFor(async () => {
+      const [ep] = await retrieveEndpoints(draft.key);
+      if (ep?.icd == null) throw new Error("the endpoint sends no ICD");
+      const ic = await client.icds.retrieve(ep.icd);
+      expect(ic.messages.map(({ name }) => name)).toEqual(["PATCH /speed", "POST 2"]);
+    });
+  });
+
+  it("should keep the name of a message that the form did not create, though its request names it", async () => {
+    const value = createField("value", "float");
+    const message = icd.messageZ.parse({
+      name: "PUT /setpoint",
+      payload: { format: "json", fields: [value] },
+    });
+    const ic = await client.icds.create({
+      name: uniqueName("valve"),
+      messages: [message],
+    });
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
+      target: { value: "/speed" },
+    });
+    await screen.findByDisplayValue("/speed");
+    expect(screen.getByText("PUT /setpoint")).toBeTruthy();
+  });
+
+  it("should keep the name of a message that two endpoints send", async () => {
+    await renderWrite();
+    await addEndpoint();
+    fireEvent.contextMenu(
+      await screen.findByRole("treeitem", { name: /New endpoint/ }),
+    );
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(() =>
+      expect(screen.getAllByRole("treeitem", { name: /New endpoint/ })).toHaveLength(2),
+    );
+    fireEvent.change(screen.getByPlaceholderText("/api/control"), {
+      target: { value: "/speed" },
+    });
+    await screen.findByDisplayValue("/speed");
+    expect(screen.queryByText("POST /speed")).toBeNull();
+  });
+
+  it("should show the request and the message of an endpoint", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    await screen.findByText("Request");
+    expect(screen.getByDisplayValue("/setpoint")).toBeTruthy();
+    expect(await screen.findByText(message.name)).toBeTruthy();
+  });
+
+  it("should show the stored command channel that deploying keeps for a field with no channel, not a new one", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const stored = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const dev = await createHTTPDevice(client, {
+      properties: { write: { [`PUT /setpoint#${value.key}`]: stored.key } },
+    });
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])], dev);
+    await selectField("value");
+    expect(await screen.findByDisplayValue(stored.name)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should open a field under its endpoint with the name of its new command channel", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { dev } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
     ]);
-    const draft = await createDraft(client, config);
-    const { container } = await renderWrite({ client, taskKey: draft.key });
+    const source = await selectField("value");
+    expect(
+      screen.getByDisplayValue(
+        `${channel.escapeInvalidName(dev.name)}_setpoint_value_cmd`,
+      ),
+    ).toBeTruthy();
+    expect(source.getByRole("img", { name: "New channel" })).toBeTruthy();
+  });
+
+  it("should mark no new command channel for a field of a disabled endpoint", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { dev } = await renderWrite([
+      { ...createEndpoint("ep1", "/setpoint", ic, message, [value]), disabled: true },
+    ]);
+    const source = await selectField("value");
+    screen.getByDisplayValue(
+      `${channel.escapeInvalidName(dev.name)}_setpoint_value_cmd`,
+    );
+    expect(source.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should show the numbered name that deploying gives a field channel whose name another endpoint takes", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { dev } = await renderWrite([
+      createEndpoint("ep1", "/valve-1", ic, message, [value]),
+      createEndpoint("ep2", "/valve_1", ic, message, [value]),
+    ]);
+    const name = `${channel.escapeInvalidName(dev.name)}_valve_1_value_cmd`;
+    const fields = await screen.findAllByRole("treeitem", { name: /^value/ });
+    fireEvent.click(fields[1]);
+    expect(await screen.findByDisplayValue(`${name}_2`)).toBeTruthy();
+  });
+
+  it("should share the command channels of two endpoints of one method and path", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { container, draft } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+      createEndpoint("ep2", "/setpoint", ic, message, [value]),
+    ]);
     const created = await deployAndAwaitTask(
       client,
       container,
       draft.key,
       HTTP.Task.WRITE_SCHEMAS,
     );
-    expect(created.config.endpoints[0].channel.channel).toBe(configuredCh.key);
-    expect(created.config.endpoints[1].channel.channel).toBe(storedCh.key);
+    const [first, second] = firstChannels(created.config.endpoints);
+    expect(first).not.toBe(0);
+    expect(second).toBe(first);
+  });
+
+  it("should reuse the command channel that the device stores for a method and path in a recreated task and a second task", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const first = await deployEndpoint(
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    );
+    expect(first.channel).not.toBe(0);
+    await client.tasks.delete(first.task.key);
+    const recreated = await deployEndpoint(
+      createEndpoint("ep2", "/setpoint", ic, message, [value]),
+      first.dev,
+    );
+    expect(recreated.channel).toBe(first.channel);
+    const second = await deployEndpoint(
+      createEndpoint("ep3", "/setpoint", ic, message, [value]),
+      first.dev,
+    );
+    expect(second.channel).toBe(first.channel);
+  });
+
+  it("should give a deployed endpoint new command channels when its path changes, and leave the old ones to the old path", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const first = await deployEndpoint(
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    );
+    const { container } = await renderTaskFormTab(
+      HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE],
+      { client, taskKey: first.task.key },
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    fireEvent.change(await screen.findByDisplayValue("/setpoint"), {
+      target: { value: "/speed" },
+    });
+    const deployed = await deployAndAwaitTask(
+      client,
+      container,
+      first.task.key,
+      HTTP.Task.WRITE_SCHEMAS,
+    );
+    const [moved] = firstChannels(deployed.config.endpoints);
+    expect(moved).not.toBe(0);
+    expect(moved).not.toBe(first.channel);
+    const updated = await client.devices.retrieve({
+      key: first.dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(updated.properties.write).toEqual({
+      [`PUT /setpoint#${value.key}`]: first.channel,
+      [`PUT /speed#${value.key}`]: moved,
+    });
+  });
+
+  it("should give an endpoint a new command channel when its method changes", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const put = await deployEndpoint(
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    );
+    const post = await deployEndpoint(
+      { ...createEndpoint("ep1", "/setpoint", ic, message, [value]), method: "POST" },
+      put.dev,
+    );
+    expect(post.channel).not.toBe(0);
+    expect(post.channel).not.toBe(put.channel);
+    const updated = await client.devices.retrieve({
+      key: put.dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(updated.properties.write).toEqual({
+      [`PUT /setpoint#${value.key}`]: put.channel,
+      [`POST /setpoint#${value.key}`]: post.channel,
+    });
+  });
+
+  it("should send a fixed value for a field of an endpoint set to Value", async () => {
+    const value = createField("value", "float");
+    const mode = createField("mode", "string");
+    const { ic, message } = await createFormat([value, mode]);
+    const { draft } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value, mode]),
+    ]);
+    const source = await selectField("mode");
+    fireEvent.click(source.getByRole("button", { name: "Value" }));
+    const input = await source.findByRole("textbox");
+    fireEvent.change(input, { target: { value: "auto" } });
+    fireEvent.blur(input);
+    await waitFor(async () =>
+      expect((await retrieveEndpoints(draft.key))[0].message?.bindings).toEqual([
+        { type: "channel", field: value.key, channel: 0 },
+        { type: "value", field: mode.key, value: { type: "string", value: "auto" } },
+      ]),
+    );
+  });
+
+  it("should add a field to the message of an endpoint from its pane, and open it", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    const name = await screen.findByDisplayValue("Field 2");
+    await waitFor(() => expect(document.activeElement).toBe(name));
+    await waitFor(async () => {
+      const [stored] = (await client.icds.retrieve(ic.key)).messages;
+      if (stored.payload.format !== "json") throw new Error("expected a JSON message");
+      expect(stored.payload.fields.map((f) => f.name)).toEqual(["value", "Field 2"]);
+    });
+  });
+
+  it("should duplicate an endpoint with its message, but no command channels", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const ep = createEndpoint("ep1", "/setpoint", ic, message, [value]);
+    const cmd = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    ep.message = {
+      message: message.key,
+      bindings: [{ type: "channel", field: value.key, channel: cmd.key }],
+    };
+    const { draft } = await renderWrite([ep]);
+    fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    fireEvent.click(await screen.findByText("Duplicate"));
+    await waitFor(async () => {
+      const endpoints = await retrieveEndpoints(draft.key);
+      expect(endpoints).toMatchObject([
+        { key: "ep1", message: ep.message },
+        {
+          path: "/setpoint",
+          icd: ic.key,
+          message: {
+            message: message.key,
+            bindings: [{ type: "channel", field: value.key, channel: 0 }],
+          },
+        },
+      ]);
+      expect(endpoints[1].key).not.toBe("ep1");
+    });
+  });
+
+  it("should switch an endpoint off through its checkbox", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { draft } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value]),
+    ]);
+    const item = await screen.findByRole("treeitem", { name: /\/setpoint/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
+    await waitFor(async () => {
+      expect((await retrieveEndpoints(draft.key))[0].disabled).toBe(true);
+    });
+  });
+
+  it("should send the message picked for an endpoint that sends none", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const { draft } = await renderWrite([
+      { ...http.writeEndpointZ.parse({}), key: "ep1", path: "/setpoint" },
+    ]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/setpoint/ }));
+    await pickMessageFormat("Select message format", message.name, ic.name);
+    await waitFor(async () => {
+      const [ep] = await retrieveEndpoints(draft.key);
+      expect(ep).toMatchObject({
+        icd: ic.key,
+        message: {
+          message: message.key,
+          bindings: [{ type: "channel", field: value.key, channel: 0 }],
+        },
+      });
+    });
+  });
+
+  it("should create a command channel for each field of an enabled endpoint, and store it on the device", async () => {
+    const value = createField("value", "float");
+    const open = createField("open", "boolean");
+    const { ic, message } = await createFormat([value, open]);
+    const { container, dev, draft } = await renderWrite([
+      createEndpoint("ep1", "/setpoint", ic, message, [value, open]),
+      { ...createEndpoint("ep2", "/off", ic, message, [value, open]), disabled: true },
+    ]);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.WRITE_SCHEMAS,
+    );
+    const [on, off] = created.config.endpoints;
+    const keys = (on.message?.bindings ?? []).map((b) =>
+      b.type === "channel" ? b.channel : 0,
+    );
+    const channels = await client.channels.retrieve(keys);
+    expect(channels.map(({ name }) => name)).toEqual([
+      `${channel.escapeInvalidName(dev.name)}_setpoint_value_cmd`,
+      `${channel.escapeInvalidName(dev.name)}_setpoint_open_cmd`,
+    ]);
+    expect(channels.map((ch) => ch.dataType.toString())).toEqual(["float64", "uint8"]);
+    expect(off.message?.bindings).toEqual([
+      { type: "channel", field: value.key, channel: 0 },
+      { type: "channel", field: open.key, channel: 0 },
+    ]);
     const updated = await client.devices.retrieve({
       key: dev.key,
       schemas: HTTP.Device.SCHEMAS,
     });
-    expect(updated.properties.write["/cmd"]).toBe(configuredCh.key);
-    expect(updated.properties.write["/stored"]).toBe(storedCh.key);
-  });
-});
-
-describe("Write channel names", () => {
-  const client = createTestClient();
-
-  it("should show the name deploying gives each command channel in the list", async () => {
-    const dev = await createHTTPDevice(client);
-    const config = createWriteConfig(dev.key, [
-      createWriteEndpoint("ep1", "/valve", { dataType: "uint8" }),
-      { ...createWriteEndpoint("ep2", "/off", { dataType: "uint8" }), disabled: true },
-    ]);
-    const draft = await createDraft(client, config);
-    await renderWrite({ client, taskKey: draft.key });
-    const escape = channel.escapeInvalidName;
-    const on = await findChannelListItem(`${escape(dev.name)}${escape("/valve")}_cmd`);
-    expect(within(on).getByRole("img", { name: "New channel" })).toBeTruthy();
-    const off = await findChannelListItem(`${escape(dev.name)}${escape("/off")}_cmd`);
-    expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
+    expect(updated.properties.write).toEqual({
+      [`PUT /setpoint#${value.key}`]: keys[0],
+      [`PUT /setpoint#${open.key}`]: keys[1],
+    });
   });
 });

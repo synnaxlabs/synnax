@@ -265,15 +265,10 @@ type WriteEndpoint struct {
 	// Message is the message whose document is the request body. A command on any bound
 	// channel sends one request.
 	Message *icd.WriteMessage `json:"message,omitzero" msgpack:"message,omitempty"`
-	// Channel is the command channel whose writes trigger this endpoint.
-	Channel ChannelField `json:"channel" msgpack:"channel"`
-	// Fields contains additional static or generated body fields.
-	Fields []WriteField `json:"fields" msgpack:"fields"`
 }
 
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteEndpoint) SetDefaults() {
-	w.Channel.SetDefaults()
 	w.Method = MethodPost
 }
 
@@ -303,10 +298,6 @@ func (w WriteEndpoint) Validate() error {
 	v.Ternaryf("method", !w.Method.IsValid(), "invalid method: %v", w.Method)
 	if w.Message != nil {
 		v.Exec(func() error { return validate.PathedError(w.Message.Validate(), "message") })
-	}
-	v.Exec(func() error { return validate.PathedError(w.Channel.Validate(), "channel") })
-	for i := range w.Fields {
-		v.Exec(func() error { return validate.PathedError(w.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
 	}
 	return v.Error()
 }
@@ -380,7 +371,8 @@ type WriteConfig struct {
 	Device device.Key `json:"device" msgpack:"device"`
 	// Endpoints contains the endpoints to write to.
 	Endpoints []WriteEndpoint `json:"endpoints" msgpack:"endpoints"`
-	// Inline holds the body of each endpoint of a config from before ICDs.
+	// Inline holds the body of each endpoint of a config from before ICDs. A write
+	// moves them into a new ICD and clears it.
 	Inline *InlineWrite `json:"inline,omitzero" msgpack:"inline,omitempty"`
 }
 

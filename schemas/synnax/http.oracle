@@ -208,6 +208,7 @@ ReadConfig struct extends task.PersistConfig {
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
+    @go entry            "http_read_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -251,8 +252,11 @@ ChannelField struct {
         """
     }
 
+    @cpp omit
     @doc value  "is the command channel value placed into a write endpoint's body."
     @go marshal
+    @py omit
+    @ts omit
 }
 
 BaseWriteField struct {
@@ -264,6 +268,7 @@ BaseWriteField struct {
         @doc value "is the JSON Pointer where the value is placed in the body."
     }
 
+    @cpp omit
     @doc value  "carries the fields every write body field shares."
     @go marshal
 }
@@ -292,6 +297,7 @@ WriteField union on type extends BaseWriteField {
         @doc value "places a freshly generated UUID or timestamp in the body."
     }
 
+    @cpp omit
     @doc value  """
         is an additional body field on a write endpoint. The type field selects whether
         the value is fixed or generated per request.
@@ -333,12 +339,6 @@ WriteEndpoint struct {
             channel sends one request.
         """
     }
-    channel      ChannelField = {} {
-        @doc value "is the command channel whose writes trigger this endpoint."
-    }
-    fields       WriteField[]      {
-        @doc value "contains additional static or generated body fields."
-    }
 
     @doc value  "is a single HTTP endpoint written to by a write task."
     @go marshal
@@ -355,7 +355,10 @@ WriteConfig struct extends task.StartConfig {
     }
     inline    InlineWrite?    {
         @cpp omit
-        @doc value  "holds the body of each endpoint of a config from before ICDs."
+        @doc value  """
+            holds the body of each endpoint of a config from before ICDs. A write moves
+            them into a new ICD and clears it.
+        """
         @go marshal omit
         @py omit
         @ts omit
@@ -365,6 +368,7 @@ WriteConfig struct extends task.StartConfig {
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
+    @go entry            "http_write_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -374,6 +378,7 @@ WriteConfig struct extends task.StartConfig {
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an HTTP scan task."
+    @go entry   "http_scan_config"
     @go imex    body
     @go marshal
     @go migrate

@@ -14,7 +14,7 @@ import { deep, id } from "@synnaxlabs/x";
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
 
-/** STATE is the key of the state of a new symbol, which the variant sets up. */
+/** STATE is the key of the state of a new symbol. */
 export const STATE = "active";
 
 /** At is one value of one state. */
@@ -23,6 +23,22 @@ export interface At {
   value: number;
 }
 
+/** @returns the values of the states at `at`. Every other state reads its default. */
+export const stateValues = (at: At): Schematic.Node.Custom.StateValues =>
+  new Map([[at.state, at.value]]);
+
+/**
+ * @returns `at` when its state is an enumeration state of states, else the first
+ * enumeration state at its default, else `at` on STATE.
+ */
+export const resolvePreview = (states: Spec["states"], at: At): At => {
+  const enumerations = states.filter((s) => s.type === "enumeration");
+  if (enumerations.some((s) => s.key === at.state)) return at;
+  const first = enumerations.at(0);
+  if (first != null) return { state: first.key, value: first.default };
+  return at.state === STATE ? at : { ...at, state: STATE };
+};
+
 /** Field is a field of a look that the editor sets. */
 export type Field = "fill" | "stroke" | "hidden" | "blink" | "motion";
 
@@ -30,11 +46,6 @@ const FIELDS: Field[] = ["fill", "stroke", "hidden", "blink", "motion"];
 
 /** Target is the key of a part, or undefined for the whole drawing. */
 export type Target = string | undefined;
-
-const BASE = 0;
-const ACTIVE = 1;
-const DEACTIVATE = "deactivate";
-const ACTIVATE = "activate";
 
 /**
  * edited returns whether spec differs from base. The preview viewport is where the
@@ -66,14 +77,18 @@ const only = (look: Look, target: Target, at: At): boolean =>
 const owns = (look: Look, target: Target, at?: At): boolean =>
   at == null ? look.part === target && look.when == null : only(look, target, at);
 
-// reaches is true for a look that target shows at `at`, or at every value when `at` is
-// undefined. A look of the whole drawing reaches every part.
-const reaches = (look: Look, target: Target, at?: At): boolean =>
+type States = ReadonlyMap<string, schematic.symbol.State>;
+
+const byKey = (states: Spec["states"]): States =>
+  new Map(states.map((s) => [s.key, s]));
+
+// reaches is true for a look that target shows at `at`, as the preview draws it, or at
+// every value when `at` is undefined. A look of the whole drawing reaches every part.
+const reaches = (look: Look, target: Target, states: States, at?: At): boolean =>
   (look.part == null || look.part === target) &&
-  (look.when == null ||
-    (at != null &&
-      look.when.state === at.state &&
-      look.when.values.includes(at.value)));
+  (at == null
+    ? look.when == null
+    : Schematic.Node.Custom.applies(look, states, stateValues(at)));
 
 const setsNothing = (look: Look): boolean => FIELDS.every((f) => look[f] == null);
 
@@ -105,29 +120,65 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
- * @returns the field that target shows at `at` after the looks apply in order, or at
- * every value when `at` is undefined. A look on another state does not count, and looks
- * of the whole drawing count for a part.
+ * @returns the look that gives target its field at `at` after the looks apply in order,
+ * or at every value when `at` is undefined. A look on another state counts at the
+ * default of that state, and looks of the whole drawing count for a part.
  */
+export const source = (
+  spec: Pick<Spec, "looks" | "states">,
+  target: Target,
+  field: Field,
+  at?: At,
+): Look | undefined => {
+  const states = byKey(spec.states);
+  return spec.looks.findLast((l) => reaches(l, target, states, at) && l[field] != null);
+};
+
+/** @returns the field that the look from `source` gives target. */
 export const effective = <F extends Field>(
-  spec: Pick<Spec, "looks">,
+  spec: Pick<Spec, "looks" | "states">,
   target: Target,
   field: F,
   at?: At,
-): Look[F] | undefined =>
-  spec.looks.findLast((l) => reaches(l, target, at) && l[field] != null)?.[field];
+): Look[F] | undefined => source(spec, target, field, at)?.[field];
+
+// local is true for a look of target with no condition or on the state of `at`.
+const local = (look: Look, target: Target, at?: At): boolean =>
+  look.part === target && (look.when == null || look.when.state === at?.state);
 
 /**
- * @returns the field that the looks of target give it at `at`, or at every value when
- * `at` is undefined. Looks of the whole drawing do not count for a part.
+ * @returns the field that the looks of target with no condition or on the state of `at`
+ * give it at `at`, or at every value when `at` is undefined.
  */
 export const own = <F extends Field>(
-  spec: Pick<Spec, "looks">,
+  spec: Pick<Spec, "looks" | "states">,
   target: Target,
   field: F,
   at?: At,
 ): Look[F] | undefined =>
-  effective({ looks: spec.looks.filter((l) => l.part === target) }, target, field, at);
+  effective(
+    { ...spec, looks: spec.looks.filter((l) => local(l, target, at)) },
+    target,
+    field,
+    at,
+  );
+
+/**
+ * @returns the look that gives target the field that it inherits at `at`: a look of the
+ * whole drawing for a part, or a look on another state.
+ */
+export const inheritedSource = (
+  spec: Pick<Spec, "looks" | "states">,
+  target: Target,
+  field: Field,
+  at?: At,
+): Look | undefined =>
+  source(
+    { ...spec, looks: spec.looks.filter((l) => !local(l, target, at)) },
+    target,
+    field,
+    at,
+  );
 
 /**
  * @returns spec in which target owns v for field at `at` alone, or at every value when
@@ -157,8 +208,9 @@ export const setOwn = <F extends Field>(
   // Pluto gives each part its own motion and blink, and one motion of each kind, so
   // only those looks hide v.
   const kind = field === "motion" ? (v as schematic.symbol.Motion).type : undefined;
+  const states = byKey(spec.states);
   const hides = (l: Look): boolean =>
-    reaches(l, target, at) &&
+    reaches(l, target, states, at) &&
     l[field] != null &&
     ((field !== "motion" && field !== "blink") || l.part === target) &&
     (kind == null || l.motion?.type === kind);
@@ -211,9 +263,17 @@ export const setVariesByValue = (
       cleared,
     );
   }
-  // Looks of the whole drawing stay out, so target takes no field that it did not set.
-  const mine = spec.looks.filter((l) => l.part === target);
-  const first = effective({ looks: mine }, target, field, at(values[0]));
+  // Looks of the whole drawing and of other states stay out, so target takes no field
+  // that it did not set on state.
+  const mine = spec.looks.filter(
+    (l) => l.part === target && (l.when == null || l.when.state === state),
+  );
+  const first = effective(
+    { looks: mine, states: spec.states },
+    target,
+    field,
+    at(values[0]),
+  );
   const cleared = values.reduce(
     (s, v) => setOwn(s, target, field, undefined, at(v)),
     spec,
@@ -281,11 +341,12 @@ export const nextPartName = (parts: schematic.symbol.Part[]): string =>
     parts.map((p) => p.name),
   );
 
-/** @returns spec without part and the looks on it. */
+/** @returns spec without part and the looks and clicks on it. */
 export const removePart = (spec: Spec, part: string): Spec => ({
   ...spec,
   parts: spec.parts.filter((p) => p.key !== part),
   looks: spec.looks.filter((l) => l.part !== part),
+  interactions: spec.interactions.filter((i) => i.part !== part),
 });
 
 /** Removed holds the keys of what an edit takes with the item, for its confirm. */
@@ -381,6 +442,61 @@ export const removeState = (spec: Spec, state: string): [Spec, Removed] => {
     commands,
   );
   return [next, { looks: changed, commands, interactions }];
+};
+
+/** @returns the targets that no click of spec is on: the whole drawing, then parts. */
+export const freeTargets = (spec: Pick<Spec, "parts" | "interactions">): Target[] => {
+  const taken = new Set(spec.interactions.map((i) => i.part));
+  return [undefined, ...spec.parts.map((p) => p.key)].filter((t) => !taken.has(t));
+};
+
+/**
+ * @returns spec with a new click on the first free target that sends the first command,
+ * and the key of the click.
+ * @throws when every target has a click, or spec has no command.
+ */
+export const addInteraction = (spec: Spec): [Spec, string] => {
+  const targets = freeTargets(spec);
+  const command = spec.commands.at(0);
+  if (targets.length === 0 || command == null)
+    throw new Error("a symbol with no free target or no command takes no click");
+  const click: schematic.symbol.Interaction = {
+    type: "fire",
+    key: `click-${id.create()}`,
+    part: targets[0],
+    command: command.key,
+  };
+  return [{ ...spec, interactions: [...spec.interactions, click] }, click.key];
+};
+
+/** @returns spec without the click, which takes nothing with it. */
+export const removeInteraction = (spec: Spec, key: string): [Spec, Removed] => [
+  { ...spec, interactions: spec.interactions.filter((i) => i.key !== key) },
+  { looks: [], commands: [], interactions: [] },
+];
+
+// matched returns value after the match of state, as the Core compares toggle values.
+const matched = (state: schematic.symbol.State | undefined, value: number): number =>
+  state == null ? value : Schematic.Node.Custom.matched(state, value);
+
+/**
+ * @returns the commands that a toggle can pick between with command: fixed commands on
+ * its state with another value after the state's match.
+ */
+export const nextPartners = (
+  spec: Pick<Spec, "states" | "commands">,
+  command: string,
+): schematic.symbol.Command[] => {
+  const c = spec.commands.find((o) => o.key === command);
+  if (c?.state == null || c.value.type !== "fixed") return [];
+  const state = spec.states.find((s) => s.key === c.state);
+  const value = matched(state, c.value.value);
+  return spec.commands.filter(
+    (o) =>
+      o.state === c.state &&
+      o.value.type === "fixed" &&
+      matched(state, o.value.value) !== value,
+  );
 };
 
 /**
@@ -512,71 +628,4 @@ export const toggleSelector = (
     const rest = p.selectors.filter((s) => !covered(s));
     return { ...p, selectors: p.key === part ? [...rest, selector] : rest };
   });
-};
-
-const withState = (spec: Spec, match: schematic.symbol.Matcher): Spec["states"] =>
-  withActive(spec.states).map((s) =>
-    s.key === STATE && s.type === "enumeration" ? { ...s, match } : s,
-  );
-
-/**
- * @returns looks as a static symbol draws them, with only Base: each look on Base
- * reaches every value, and the looks on other values go.
- */
-export const staticLooks = (looks: Look[]): Look[] =>
-  looks.flatMap((l): Look[] => {
-    if (l.when?.state !== STATE) return [l];
-    if (!l.when.values.includes(BASE)) return [];
-    const { when: _, ...rest } = l;
-    return [rest];
-  });
-
-/**
- * @returns spec as variant. An actuator gets the Base looks again on Active, `within`
- * 0.9 to 1.1, the commands Off and On, and a click that picks between them, as the
- * migration gives a stored actuator. A static symbol keeps its Base looks on every
- * value and loses its other looks on the state, the commands, and the clicks.
- */
-export const setVariant = (spec: Spec, variant: string): Spec => {
-  if (variant === "actuator") {
-    const copies = spec.looks
-      .filter((l) => only(l, l.part, { state: STATE, value: BASE }))
-      .map((l) => ({
-        ...l,
-        key: `look-${id.create()}`,
-        when: { type: "equals" as const, state: STATE, values: [ACTIVE] },
-      }));
-    return {
-      ...spec,
-      variant,
-      states: withState(spec, {
-        type: "within",
-        bounds: { lower: 0.9, upper: 1.1 },
-      }),
-      looks: copies.reduce((ls, c) => ls.toSpliced(slot(ls, c), 0, c), spec.looks),
-      commands: [
-        {
-          key: DEACTIVATE,
-          name: "Off",
-          state: STATE,
-          value: { type: "fixed", value: BASE },
-        },
-        {
-          key: ACTIVATE,
-          name: "On",
-          state: STATE,
-          value: { type: "fixed", value: ACTIVE },
-        },
-      ],
-      interactions: [{ type: "next", key: "next", commands: [DEACTIVATE, ACTIVATE] }],
-    };
-  }
-  return {
-    ...spec,
-    variant,
-    states: withState(spec, { type: "exact" }),
-    looks: staticLooks(spec.looks),
-    commands: [],
-    interactions: [],
-  };
 };

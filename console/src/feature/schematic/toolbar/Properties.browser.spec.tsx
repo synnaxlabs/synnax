@@ -23,6 +23,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   client,
+  createSymbolPayload,
   preloadTab,
   renderSchematic,
   TabToolbar,
@@ -39,6 +40,12 @@ import {
 
 const createValveConfig = (): Record<string, unknown> =>
   PSchematic.Node.createConfig({ variant: "valve" });
+
+const createValveNodeConfig = (): schematic.SymbolNodeConfig =>
+  schematic.symbolNodeConfigZ.parse({
+    variant: "symbol",
+    spec: { type: "builtin", name: "valve" },
+  });
 
 interface RenderPropertiesParams {
   nodeKeys: string[];
@@ -245,6 +252,25 @@ describe("Schematic toolbar Properties", () => {
       ).toBeDefined();
       expect(screen.getByText("Or create a symbol in:")).toBeDefined();
       expect(isPlutoDisabled(findButton("Create symbol"))).toBe(true);
+    });
+  });
+
+  describe("custom symbol node", () => {
+    it("opens the editor on the custom symbol that the node draws", async () => {
+      const symbol = await client.schematics.symbols.create(
+        createSymbolPayload(uniqueName("custom")),
+      );
+      const { result } = await renderProperties({
+        nodeKeys: ["n1"],
+        createConfig: () =>
+          PSchematic.Node.createConfig({
+            variant: "symbol",
+            spec: { type: "custom", key: symbol.key },
+          }),
+      });
+      const edit = await waitFor(() => getIconButton(result.baseElement, "edit"));
+      fireEvent.click(edit);
+      expect(await screen.findByDisplayValue(symbol.name)).toBeDefined();
     });
   });
 
@@ -539,13 +565,7 @@ describe("Schematic toolbar Properties", () => {
     it("recolors the node color of symbol nodes", async () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
-        createConfig: () => ({
-          ...schematic.symbolNodeConfigZ.parse({
-            variant: "symbol",
-            spec: { type: "builtin", name: "valve" },
-          }),
-          color: fixed(RED),
-        }),
+        createConfig: () => ({ ...createValveNodeConfig(), color: fixed(RED) }),
       });
       await screen.findByText("Selection");
       fireEvent.click(getSwatches("Selection")[0]);
@@ -560,6 +580,23 @@ describe("Schematic toolbar Properties", () => {
           ).map((c) => fixedHexOf(c.color)),
         )
         .toEqual([BLUE, BLUE]);
+    });
+
+    it("sets the color of every selected symbol node", async () => {
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: createValveNodeConfig,
+      });
+      await screen.findByText("Colors");
+      expect(getHexInput("Color").placeholder).toBe("Auto");
+      setRoleColor("Color", RED);
+      await expect
+        .poll(async () =>
+          (
+            await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
+          ).map((c) => fixedHexOf(c.color)),
+        )
+        .toEqual([RED, RED]);
     });
 
     it("recolors every field that holds a selection color", async () => {

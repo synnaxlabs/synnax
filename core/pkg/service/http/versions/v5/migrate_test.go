@@ -91,35 +91,19 @@ var _ = Describe("MigrateReadConfig", func() {
 		Expect(cfg.Inline).To(BeNil())
 	})
 
-	DescribeTable(
-		"Should turn on NaN fill when v4 had it or an optional field has no fill value",
-		func(ctx SpecContext, nanFill bool, field v4.ReadField, expected bool) {
+	DescribeTable("Should keep the NaN fill of v4",
+		func(ctx SpecContext, nanFill bool) {
 			old := storedConfig()
 			old.NanFillEnabled = nanFill
-			old.Endpoints[1].Fields = append(old.Endpoints[1].Fields, field)
+			old.Endpoints[1].Fields = append(
+				old.Endpoints[1].Fields,
+				v4.ReadField{Key: "o", Optional: true},
+			)
 			cfg := MustSucceed(v5.MigrateReadConfig(ctx, old))
-			Expect(cfg.NanFillEnabled).To(Equal(expected))
+			Expect(cfg.NanFillEnabled).To(Equal(nanFill))
 		},
-		Entry("NaN fill on in v4", true, v4.ReadField{Key: "r"}, true),
-		Entry(
-			"an optional field with no fill value",
-			false,
-			v4.ReadField{Key: "o", Optional: true},
-			true,
-		),
-		Entry(
-			"a disabled optional field with no fill value",
-			false,
-			v4.ReadField{Key: "o", Optional: true, Disabled: true},
-			true,
-		),
-		Entry(
-			"an optional field with a fill value",
-			false,
-			v4.ReadField{Key: "o", Optional: true, FillValue: new(any(0.0))},
-			false,
-		),
-		Entry("only required fields", false, v4.ReadField{Key: "r"}, false),
+		Entry("on", true),
+		Entry("off, with an optional field that has no fill value", false),
 	)
 })
 
@@ -185,7 +169,7 @@ var _ = Describe("ReadMigration", func() {
 			migrate(ctx, old)
 			migrated := read(ctx, old.Key)
 			Expect(migrated.Inline).To(BeNil())
-			Expect(migrated.NanFillEnabled).To(BeTrue())
+			Expect(migrated.NanFillEnabled).To(BeFalse())
 			Expect(migrated.Endpoints).To(HaveLen(2))
 			Expect(migrated.Endpoints[0].Path).To(Equal("/values"))
 			b, closer := MustSucceed2(db.Get(v5.StagedFieldsKVKey(old.Key)))
@@ -287,8 +271,6 @@ var _ = Describe("MigrateWriteConfig", func() {
 			Expect(ep.Method).To(Equal(v4.MethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
 			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
-			Expect(ep.Channel).To(Equal(old.Endpoints[0].Channel))
-			Expect(ep.Fields).To(Equal(old.Endpoints[0].Fields))
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Message).To(BeNil())
 			Expect(cfg.Endpoints[1].Disabled).To(BeTrue())
@@ -303,7 +285,7 @@ var _ = Describe("MigrateWriteConfig", func() {
 })
 
 var _ = Describe("MigrateWriteEndpoint", func() {
-	It("Should keep the request, channel, and fields of an endpoint, with no ICD",
+	It("Should keep the request of an endpoint, with no ICD",
 		func(ctx SpecContext) {
 			old := storedWriteConfig().Endpoints[0]
 			ep := MustSucceed(v5.MigrateWriteEndpoint(ctx, old))
@@ -311,8 +293,6 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 			Expect(ep.Method).To(Equal(v4.MethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
 			Expect(ep.Headers).To(Equal(old.Headers))
-			Expect(ep.Channel).To(Equal(old.Channel))
-			Expect(ep.Fields).To(Equal(old.Fields))
 			Expect(ep.Disabled).To(BeFalse())
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Message).To(BeNil())
@@ -324,35 +304,6 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 			v5.MigrateWriteEndpoint(ctx, storedWriteConfig().Endpoints[1]),
 		)
 		Expect(ep.Disabled).To(BeTrue())
-	})
-})
-
-var _ = Describe("StageWrite", func() {
-	var db *gorp.DB
-	BeforeEach(func() { db = DeferClose(gorp.Wrap(memkv.New())) })
-
-	It("Should clear Inline and return the write that stages it under the config key",
-		func(ctx SpecContext) {
-			old := storedWriteConfig()
-			cfg := MustSucceed(v5.MigrateWriteConfig(ctx, old))
-			stage := MustSucceed(v5.StageWrite(&cfg))
-			Expect(cfg.Inline).To(BeNil())
-			Expect(db.Get(v5.StagedWriteFieldsKVKey(old.Key))).Error().
-				To(MatchError(query.ErrNotFound))
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error { return stage(ctx, tx) })).
-				To(Succeed())
-			b, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(old.Key)))
-			var staged v5.InlineWrite
-			Expect(json.Unmarshal(b, &staged)).To(Succeed())
-			Expect(closer.Close()).To(Succeed())
-			Expect(staged).To(Equal(stagedWrite(old)))
-		},
-	)
-
-	It("Should return no write for a config without Inline", func() {
-		cfg := v5.WriteConfig{Key: uuid.New(), Device: "dev"}
-		Expect(v5.StageWrite(&cfg)).To(BeNil())
-		Expect(cfg.Device).To(Equal("dev"))
 	})
 })
 

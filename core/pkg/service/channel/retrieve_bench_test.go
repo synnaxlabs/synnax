@@ -61,6 +61,7 @@ func newBenchEnv(b *testing.B, count int) *benchEnv {
 	}
 	svc, err := channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,

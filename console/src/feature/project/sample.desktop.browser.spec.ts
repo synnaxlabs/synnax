@@ -151,9 +151,11 @@ describe("Sample project", () => {
       await client.schematics.retrieve({ key: sample.schematic }),
     );
     expect(configs.press_vlv).toMatchObject({
-      variant: "valve",
-      commandChannel: cmd,
-      stateChannel: state,
+      variant: "symbol",
+      spec: { type: "builtin", name: "valve" },
+      states: [
+        { key: "active", source: { type: "channel", key: state, command: cmd } },
+      ],
     });
     expect(configs.tank).toMatchObject({ variant: "tank", channel: pt });
     expect(configs.tank_pt).toMatchObject({ variant: "value", channel: pt });

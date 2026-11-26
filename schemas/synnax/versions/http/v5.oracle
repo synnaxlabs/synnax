@@ -79,6 +79,8 @@ BaseWriteField = v2.BaseWriteField
 WriteField = v4.WriteField
 
 WriteEndpoint struct extends v4.WriteEndpoint {
+    -channel
+    -fields
     query_params
     icd          icd.Key?          {
         @doc value """
@@ -118,7 +120,10 @@ InlineWrite struct {
 
 WriteConfig struct extends v4.WriteConfig {
     inline InlineWrite? {
-        @doc value  "holds the body of each endpoint of a config from before ICDs."
+        @doc value  """
+            holds the body of each endpoint of a config from before ICDs. A write moves
+            them into a new ICD and clears it.
+        """
         @go marshal omit
     }
 }

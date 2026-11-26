@@ -18,8 +18,6 @@ export const PREFIX = "http";
 
 export const READ_TYPE = `${PREFIX}_read`;
 
-export interface ReadField extends http.ReadField {}
-
 export interface ReadEndpoint extends http.ReadEndpoint {}
 
 const readMethodZ = z.enum(["GET", "POST"]);
@@ -68,108 +66,37 @@ export type ReadSchemas = typeof READ_SCHEMAS;
 
 export const WRITE_TYPE = `${PREFIX}_write`;
 
-export interface ChannelField extends http.ChannelField {}
-
-const validateEnumValues = (ctx: z.core.ParsePayload<ChannelField>) => {
-  const { enumValues } = ctx.value;
-  const seen = new Set<number>();
-  enumValues.forEach((entry, i) => {
-    if (seen.has(entry.value))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: ctx.value,
-        message: `Duplicate enum value ${entry.value}`,
-        path: ["enumValues", i, "value"],
-      });
-    else seen.add(entry.value);
-  });
-};
-
-// The form edits primitive values; the stored shape accepts any JSON.
-const staticWriteFieldZ = http.staticWriteFieldZ.extend({
-  value: json.primitiveZ,
-});
-
-const writeFieldZ = z.discriminatedUnion("type", [
-  http.staticWriteFieldZ,
-  http.generatedWriteFieldZ,
-]);
-
 const writeMethodZ = z.enum(["POST", "PUT", "PATCH"]);
 
-export const writeEndpointZ = http.writeEndpointZ.extend({
-  fields: writeFieldZ.array().default(() => []),
+export interface WriteEndpoint extends http.WriteEndpoint {}
+
+const writeConfigZ = http.writeConfigZ;
+
+const deployWriteEndpointZ = http.writeEndpointZ.extend({
+  method: writeMethodZ,
+  headers: Device.headersZ.default(() => []),
+  queryParams: Device.queryParamsZ.default(() => []),
 });
 
-export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
-
-const writeConfigZ = http.writeConfigZ.extend({
-  endpoints: writeEndpointZ.array().default(() => []),
-});
-
-const overlaps = (a: string, b: string): boolean =>
-  a !== "" && b !== "" && (a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`));
-
-const validateWriteEndpoint = (ctx: z.core.ParsePayload<WriteEndpoint>) => {
-  const { value } = ctx;
-  const { channel, fields } = value;
-  const isBarePrimitive = channel.pointer === "";
-  if (isBarePrimitive && fields.length > 0)
-    ctx.issues.push({
+/** Refuses an enabled endpoint that sends no message. */
+const validateMessages = ({
+  value,
+  issues,
+}: z.core.ParsePayload<Pick<WriteEndpoint, "disabled" | "icd" | "message">[]>) =>
+  value.forEach(({ disabled, icd, message }, i) => {
+    if (disabled || (icd != null && message != null)) return;
+    issues.push({
       continue: true,
       code: "custom",
       input: value,
-      message:
-        "An empty channel pointer sends the raw value as the body, so additional fields are not allowed",
-      path: ["channel", "pointer"],
+      message: "A message is required",
+      path: [i, "message"],
     });
-  const pointers = [channel.pointer];
-  for (const [i, field] of fields.entries()) {
-    if (field.pointer === "") {
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: "Additional field pointer cannot be empty",
-        path: ["fields", i, "pointer"],
-      });
-      continue;
-    }
-    if (pointers.some((p) => overlaps(p, field.pointer)))
-      ctx.issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: `Pointer "${field.pointer}" is already used by or overlaps another field`,
-        path: ["fields", i, "pointer"],
-      });
-    else pointers.push(field.pointer);
-  }
-};
-
-const deployPointerZ = json.pointerZ.min(1, "Pointer cannot be empty");
-
-const deployWriteFieldZ = z.discriminatedUnion("type", [
-  staticWriteFieldZ.extend({ pointer: deployPointerZ }),
-  http.generatedWriteFieldZ.extend({ pointer: deployPointerZ }),
-]);
-
-const deployWriteEndpointZ = writeEndpointZ
-  .extend({
-    method: writeMethodZ,
-    headers: Device.headersZ.default(() => []),
-    queryParams: Device.queryParamsZ.default(() => []),
-    channel: http.channelFieldZ
-      .extend({ pointer: json.pointerZ })
-      .check(validateEnumValues),
-    fields: deployWriteFieldZ.array(),
-  })
-  .check(validateWriteEndpoint);
+  });
 
 export const deployWriteConfigZ = writeConfigZ.extend({
   device: Task.deviceKeyZ,
-  endpoints: deployWriteEndpointZ.array(),
+  endpoints: deployWriteEndpointZ.array().check(validateMessages),
 });
 
 export const WRITE_SCHEMAS = {

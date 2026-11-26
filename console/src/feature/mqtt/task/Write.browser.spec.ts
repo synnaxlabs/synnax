@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  icd,
+  mqtt,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
@@ -17,18 +24,20 @@ import type { Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
 import {
+  isDimmed,
   pickMessageFormat,
   removeField,
   retype,
   selectedIn,
   setField,
+  titleOf,
 } from "@/platform/icd/testutil";
 import {
   clickDeploy,
@@ -123,12 +132,17 @@ const createWriteConfig = (
   targets,
 });
 
+interface RenderWriteOptions extends RenderTaskFormTabOptions {
+  /** The broker of the task. Absent creates one. */
+  dev?: device.Device;
+}
+
 // The form body renders against a configured broker only.
 const renderWrite = async (
   targets: MQTT.Task.WriteTarget[] = [],
-  options: RenderTaskFormTabOptions = {},
+  { dev: given, ...options }: RenderWriteOptions = {},
 ) => {
-  const dev = await createBroker(client);
+  const dev = given ?? (await createBroker(client));
   const draft = await createDraft(client, createWriteConfig(dev.key, targets));
   const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
     client,
@@ -156,6 +170,12 @@ const createField = (
   type: icd.JSONField["type"],
   rest: Partial<icd.JSONField> = {},
 ): icd.JSONField => icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type, ...rest });
+
+/** @returns the channel of each channel binding of a plain target. */
+const boundChannels = (target: MQTT.Task.WriteTarget): channel.Key[] =>
+  target.type === "plain"
+    ? target.message.bindings.flatMap((b) => (b.type === "channel" ? [b.channel] : []))
+    : [];
 
 /** Creates a plain target that sends a message of the fields, with no channels. */
 const createFormatTarget = async (fields: icd.JSONField[]) => {
@@ -248,6 +268,63 @@ describe("MQTT Write form", () => {
     expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
   });
 
+  it("should show the stored command channel that deploying keeps for a field with no channel, not a new one", async () => {
+    const setpoint = createField("setpoint", "float");
+    const { target } = await createFormatTarget([setpoint]);
+    const stored = await client.channels.create({
+      name: uniqueName("mqtt_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const dev = await createBroker(client, {
+      properties: { write: { [`${target.topic}#${setpoint.key}`]: stored.key } },
+    });
+    await renderWrite([target], { dev });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^setpoint/ }));
+    expect(await screen.findByDisplayValue(stored.name)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should give a deployed target new command channels when its topic changes, and leave the old ones to the old topic", async () => {
+    const setpoint = createField("setpoint", "float");
+    const { target } = await createFormatTarget([setpoint]);
+    const first = await renderWrite([target]);
+    const deployed = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      MQTT.Task.WRITE_SCHEMAS,
+    );
+    const [stored] = boundChannels(deployed.config.targets[0]);
+    expect(stored).not.toBe(0);
+    first.unmount();
+    const { container } = await renderTaskFormTab(
+      MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE],
+      { client, taskKey: first.draft.key },
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /plant\/valve\/set/ }));
+    fireEvent.change(await screen.findByDisplayValue("plant/valve/set"), {
+      target: { value: "plant/valve/speed" },
+    });
+    const moved = await deployAndAwaitTask(
+      client,
+      container,
+      first.draft.key,
+      MQTT.Task.WRITE_SCHEMAS,
+    );
+    const [next] = boundChannels(moved.config.targets[0]);
+    expect(next).not.toBe(0);
+    expect(next).not.toBe(stored);
+    const updated = await client.devices.retrieve({
+      key: first.dev.key,
+      schemas: MQTT.Device.SCHEMAS,
+    });
+    expect(updated.properties.write).toEqual({
+      [`plant/valve/set#${setpoint.key}`]: stored,
+      [`plant/valve/speed#${setpoint.key}`]: next,
+    });
+  });
+
   it("should bind a tag to the command channel the broker stores, and leave a plain target as it is", async () => {
     const tagCh = await client.channels.create({
       name: uniqueName("mqtt_tag_cmd"),
@@ -285,7 +362,30 @@ describe("MQTT Write form", () => {
     );
   });
 
+  it("should show the planned command channel name of a field after a rename", async () => {
+    const { target } = await createFormatTarget([createField("speed", "float")]);
+    const { dev } = await renderWrite([
+      { ...target, topic: "plant/valve-set" },
+      { ...target, key: "t2", topic: "plant/valve_set" },
+    ]);
+    const prefix = `${channel.escapeInvalidName(dev.name)}_plant_valve_set`;
+    const [, second] = await screen.findAllByRole("treeitem", { name: /^speed/ });
+    fireEvent.click(second);
+    await screen.findByDisplayValue(`${prefix}_speed_cmd_2`);
+    fireEvent.change(screen.getByDisplayValue("speed"), { target: { value: "rate" } });
+    expect(await screen.findByDisplayValue(`${prefix}_rate_cmd_2`)).toBeTruthy();
+  });
+
   describe("Sparkplug B targets", () => {
+    it("should say that deploying numbers a typed command channel name that another channel holds", async () => {
+      const name = uniqueName("mqtt_cmd");
+      await client.channels.create({ name, dataType: "float64", virtual: true });
+      await renderWrite([createTagTarget("s1", "setpoint", { name })]);
+      fireEvent.click(await screen.findByRole("treeitem", { name: /setpoint/ }));
+      expect(await screen.findByText(`Saves as ${name}_2`)).toBeTruthy();
+      expect(screen.getByDisplayValue(name)).toBeTruthy();
+    });
+
     it("should list a tag by its edge node, with its command channel in its pane", async () => {
       const ch = await client.channels.create({
         name: uniqueName("mqtt_cmd"),
@@ -772,6 +872,9 @@ describe("MQTT Write form", () => {
           new Error("channels unavailable"),
         );
         onTestFinished(() => reject.mockRestore());
+        // The plan of the command channel names fails on the same retrieval.
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+        onTestFinished(() => error.mockRestore());
         let statuses: Status.NotificationSpec[] = [];
         await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
           client,
@@ -793,6 +896,9 @@ describe("MQTT Write form", () => {
               description: "channels unavailable",
             }),
           ),
+        );
+        expect(error).toHaveBeenCalledWith(
+          expect.objectContaining({ message: "channels unavailable" }),
         );
       });
     });
@@ -871,10 +977,60 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should move the pointer of an added field when the field is renamed", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Valve Position" },
+      });
+      await screen.findByDisplayValue("/valve_position");
+    });
+
+    it("should move the pointer of an added field renamed after another item was selected", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByDisplayValue("Field 2");
+      fireEvent.click(screen.getByRole("treeitem", { name: /^setpoint/ }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^Field 2/ }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("/position");
+    });
+
+    it("should keep the pointer of an added field once the user edits it", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      fireEvent.change(await screen.findByDisplayValue("/field_2"), {
+        target: { value: "/limit" },
+      });
+      fireEvent.change(screen.getByDisplayValue("Field 2"), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("position");
+      screen.getByDisplayValue("/limit");
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { target } = await createFormatTarget([setpoint]);
+      await renderWrite([target]);
+      await fieldGroup(setpoint.name);
+      fireEvent.change(screen.getByDisplayValue(setpoint.name), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("position");
+      screen.getByDisplayValue("/setpoint");
+    });
+
     it("should add a first field to a message with no fields", async () => {
       const { target } = await createFormatTarget([]);
       await renderWrite([target]);
       await screen.findByText("Message has no fields");
+      expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       await screen.findByDisplayValue("Field 1");
       fireEvent.click(screen.getByRole("treeitem", { name: /plant\/valve\/set/ }));
@@ -928,9 +1084,14 @@ describe("MQTT Write form", () => {
     const TOPIC = {
       topic: "plant/valve/set",
       payload: '{"setpoint": 1, "mode": "auto"}',
-      fields: [
-        { pointer: "/setpoint", type: "number", sample: "1" },
-        { pointer: "/mode", type: "string", sample: '"auto"' },
+      shapes: [
+        {
+          fields: [
+            { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+            { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+          ],
+          count: 1,
+        },
       ],
       retained: true,
     };
@@ -945,7 +1106,7 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
       scanner.close();
-      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record setpoint" }));
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
       return { dialog, draft };
     };
 
@@ -962,12 +1123,8 @@ describe("MQTT Write form", () => {
       return found;
     };
 
-    it("should add a whole picked topic with a format from its last message, in an ICD named after the task", async () => {
+    it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
       const { dialog, draft } = await openOnPickedTopic();
-      const mode = dialog.getByRole<HTMLInputElement>("checkbox", {
-        name: "Record mode",
-      });
-      expect(mode.checked).toBe(true);
       dialog.getByText("1 topic selected");
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
@@ -997,6 +1154,94 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should infer the format of a topic from the shape that the most messages had, and mark it", async () => {
+      const topic = {
+        topic: "plant/pump/set",
+        payload: '{"rpm": 5, "mode": "auto"}',
+        shapes: [
+          {
+            fields: [
+              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+            ],
+            present: "/setpoint",
+            count: 1,
+          },
+          {
+            fields: [
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
+              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            ],
+            present: "/rpm",
+            count: 3,
+          },
+        ],
+        retained: true,
+      };
+      const { dev, draft } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [topic], truncated: false } });
+      scanner.close();
+      const note = await dialog.findByText("Used for the format");
+      expect(titleOf(note)).toBe("3 messages with /rpm");
+      expect(
+        ["setpoint", "rpm", "mode"].map((n) => isDimmed(dialog.getByText(n))),
+      ).toEqual([true, false, false]);
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick set" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, topic.topic);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0])).toMatchObject([
+        { name: "rpm", pointer: "/rpm", type: "float" },
+        { name: "mode", pointer: "/mode", type: "string" },
+      ]);
+    });
+
+    it("should infer the format of a picked topic from the last listen", async () => {
+      const listen = (setpoints: number, rpms: number) => ({
+        topic: "plant/pump/set",
+        payload: '{"rpm": 5, "mode": "auto"}',
+        shapes: [
+          {
+            fields: [
+              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+            ],
+            present: "/setpoint",
+            count: setpoints,
+          },
+          {
+            fields: [
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
+              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            ],
+            present: "/rpm",
+            count: rpms,
+          },
+        ],
+        retained: true,
+      });
+      const { dev, draft } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [listen(3, 1)], truncated: false } });
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      await scanner.answer({ data: { topics: [listen(1, 3)], truncated: false } });
+      scanner.close();
+      await waitFor(() =>
+        expect(titleOf(dialog.getByText("Used for the format"))).toBe(
+          "3 messages with /rpm",
+        ),
+      );
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+      const target = await retrievePlainTarget(draft.key, "plant/pump/set");
+      const [ic] = await client.icds.retrieve([target.icd]);
+      expect(ICD.jsonFields(ic.messages[0]).map((f) => f.pointer)).toEqual([
+        "/rpm",
+        "/mode",
+      ]);
+    });
+
     it("should show the fields of each target that one pick adds", async () => {
       const { dev } = await renderWrite();
       const scanner = await openScanner(client, dev.rack);
@@ -1019,9 +1264,10 @@ describe("MQTT Write form", () => {
         kind: "timestamp",
         timeFormat: "unix_ms",
       };
+      const [shape] = TOPIC.shapes;
       const { dialog, draft } = await openOnPickedTopic([], {
         ...TOPIC,
-        fields: [...TOPIC.fields, time],
+        shapes: [{ ...shape, fields: [...shape.fields, time] }],
       });
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
       const target = await retrievePlainTarget(draft.key, TOPIC.topic);
@@ -1088,13 +1334,12 @@ describe("MQTT Write form", () => {
       });
     });
 
-    it("should drop a whole picked topic when any of its fields is unticked", async () => {
+    it("should show the fields of a topic with no boxes, and drop it through its own box", async () => {
       const { dialog } = await openOnPickedTopic();
-      const box = (name: string) =>
-        dialog.getByRole<HTMLInputElement>("checkbox", { name: `Record ${name}` });
+      dialog.getByText("mode");
+      expect(dialog.queryByRole("checkbox", { name: "Record mode" })).toBeNull();
       dialog.getByText("1 topic selected");
-      fireEvent.click(box("mode"));
-      expect([box("setpoint").checked, box("mode").checked]).toEqual([false, false]);
+      fireEvent.click(dialog.getByRole("checkbox", { name: "Pick set" }));
       expect(dialog.queryByText("1 topic selected")).toBeNull();
     });
 
@@ -1160,6 +1405,38 @@ describe("MQTT Write form", () => {
       });
       expect(flow.disabled).toBe(true);
       expect(again.getByText("In task")).toBeTruthy();
+    });
+
+    it("should keep the tags of an edge node read while the broker is listened to again", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [], truncated: false } });
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      const line2 = { group: "plant", edgeNode: "line2", devices: [] };
+      await scanner.answer({ data: { nodes: [...NODES, line2], tags: [] } });
+      await scanner.answer({ data: { nodes: [], tags: [] } });
+      await dialog.findByText("0 tags");
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      const listen = await scanner.next();
+      fireEvent.click(dialog.getByText("line2"));
+      const flow = {
+        device: "",
+        name: "flow",
+        dataType: "float",
+        value: "1",
+        supported: true,
+      };
+      await scanner.answer({ data: { nodes: [], tags: [flow] } });
+      await dialog.findByRole("checkbox", { name: "Record flow" });
+      const line3 = { group: "plant", edgeNode: "line3", devices: [] };
+      await scanner.reply(listen, {
+        data: { nodes: [...NODES, line2, line3], tags: [] },
+      });
+      await dialog.findByText("line3");
+      dialog.getByRole("checkbox", { name: "Record flow" });
+      expect(dialog.queryByText("0 tags")).toBeNull();
+      scanner.close();
     });
 
     it("should list the tags of an edge node under their devices and lock an unsupported one", async () => {

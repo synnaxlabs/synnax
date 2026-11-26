@@ -197,6 +197,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Find the jobs a CI edit selects
         id: ci
@@ -477,8 +478,8 @@ jobs:
       package: console
       shards: 3
       webkit: *full
-      # Three runs hold each WebKit page under 2.3 GB, from 4.1 GB with one.
-      webkit_runs: 3
+      # A page keeps each file it runs (microsoft/playwright#44290); 4 stay under 2 GB.
+      webkit_files_per_page: 4
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -499,6 +500,7 @@ jobs:
       directory: core
       os_specific: true
       macos: *full
+      # warm.go.yaml saves a go test cache for each shard, so it sets the same count.
       shards: 3
       warmed: true
       windows: *full
@@ -841,6 +843,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Check names that are public without need
         run: uv run --project scripts scripts/check_exports_py.py
@@ -864,6 +867,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Check for Python suppressions
         run: uv run --project scripts scripts/check_suppressions_py.py
@@ -1419,6 +1423,7 @@ jobs:
       directory: x/go
       os_specific: true
       macos: *full
+      shards: 2
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

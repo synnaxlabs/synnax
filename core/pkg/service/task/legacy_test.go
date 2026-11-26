@@ -29,11 +29,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
-	httpv5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -101,6 +101,9 @@ var legacyDiscarded = map[string]set.Set[string]{
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),
 	"ni_digital_write": set.New("type"),
+	// The channel and fields of each endpoint move into a message of a new ICD, which
+	// the golden freezes.
+	"http_write": set.New("channel", "fields"),
 }
 
 // legacySecrets maps each task type whose import moves a plain value into a new secret
@@ -111,17 +114,7 @@ var legacySecrets = map[string]struct{ key, plain string }{
 
 // legacyICDs holds each task type whose import moves the fields of each endpoint into a
 // message of a new ICD, named after the task.
-var legacyICDs = set.New("http_read")
-
-// legacyStaged holds each task type whose ladder stages the fields of each endpoint in
-// inline, which the stored config does not hold.
-var legacyStaged = set.New("http_read", "http_write")
-
-// legacyKVStaged maps each task type whose import stages the inline fields of a config
-// in KV to the staging KV key of the config with a key.
-var legacyKVStaged = map[string]func(uuid.UUID) []byte{
-	"http_write": httpv5.StagedWriteFieldsKVKey,
-}
+var legacyICDs = set.New("http_read", "http_write")
 
 // legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
@@ -520,6 +513,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		}).Exec(ctx, db)).To(Succeed())
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      db,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
@@ -560,7 +554,20 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				DB:     db,
 				Status: statusSvc,
 			})).Stores(),
-			MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{DB: db})).Stores(),
+			MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
+				DB:     db,
+				Status: statusSvc,
+				Secret: secretSvc,
+				Certificate: MustOpen(
+					certificate.OpenService(ctx, certificate.ServiceConfig{
+						DB:      db,
+						Secret:  secretSvc,
+						Status:  statusSvc,
+						Rack:    rackSvc.EmbeddedKey,
+						HostKey: 1,
+					}),
+				),
+			})).Stores(),
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secretSvc,
@@ -654,7 +661,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	}
 
 	// revealICD returns ep with the key of its ICD, and the message and field keys of
-	// each read, swapped for their names in the ICD that the import made.
+	// its write or each read, swapped for their names in the ICD that the import made.
 	revealICD := func(ctx context.Context, ep map[string]any) map[string]any {
 		GinkgoHelper()
 		var ic icd.ICD
@@ -675,25 +682,33 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Expect(ok).To(BeTrue(), "key %v is not in ICD %s", key, ic.Name)
 			return n
 		}
-		revealed := maps.Clone(ep)
-		revealed["icd"] = ic.Name
-		reads := as[[]any](ep["messages"])
-		revealedReads := make([]any, len(reads))
-		for i, r := range reads {
-			read := maps.Clone(as[map[string]any](r))
-			read["message"] = name(read["message"])
-			if index, ok := read["index"]; ok {
-				read["index"] = name(index)
+		revealMessage := func(m any) map[string]any {
+			GinkgoHelper()
+			revealed := maps.Clone(as[map[string]any](m))
+			revealed["message"] = name(revealed["message"])
+			if index, ok := revealed["index"]; ok {
+				revealed["index"] = name(index)
 			}
-			bindings := as[[]any](read["bindings"])
+			bindings := as[[]any](revealed["bindings"])
 			revealedBindings := make([]any, len(bindings))
 			for j, b := range bindings {
 				binding := maps.Clone(as[map[string]any](b))
 				binding["field"] = name(binding["field"])
 				revealedBindings[j] = binding
 			}
-			read["bindings"] = revealedBindings
-			revealedReads[i] = read
+			revealed["bindings"] = revealedBindings
+			return revealed
+		}
+		revealed := maps.Clone(ep)
+		revealed["icd"] = ic.Name
+		if write, ok := ep["message"]; ok {
+			revealed["message"] = revealMessage(write)
+			return revealed
+		}
+		reads := as[[]any](ep["messages"])
+		revealedReads := make([]any, len(reads))
+		for i, r := range reads {
+			revealedReads[i] = revealMessage(r)
 		}
 		revealed["messages"] = revealedReads
 		return revealed
@@ -755,12 +770,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
-			if legacyStaged.Contains(env.Type) {
-				delete(expected, "inline")
-			}
-			// The write moves the staged fields into an ICD, fills in each read, and
-			// disables an endpoint whose fields are all disabled.
+			// The write moves the staged fields into an ICD. A read endpoint also gets
+			// its reads, and is disabled when its fields are all disabled.
 			if legacyICDs.Contains(env.Type) {
+				delete(expected, "inline")
 				for _, ep := range as[[]any](expected["endpoints"]) {
 					delete(as[map[string]any](ep), "messages")
 					delete(as[map[string]any](ep), "disabled")
@@ -768,10 +781,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			}
 			revealed := reveal(ctx, imported)
 			expectSubset("config", map[string]any(expected), revealed)
-			if stagedKey, ok := legacyKVStaged[env.Type]; ok {
-				_, closer := MustSucceed2(db.Get(stagedKey(imported.Key)))
-				Expect(closer.Close()).To(Succeed())
-			}
 
 			// The rewrite and the ladder must leave their own output unchanged. An
 			// unversioned copy of a config reads each secret key as a plain value, and
@@ -782,7 +791,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 					To(MatchError(ContainSubstring(reimportErr)))
 			}
 			_, moved := legacySecrets[env.Type]
-			if unreadable || moved || legacyStaged.Contains(env.Type) {
+			if unreadable || moved || legacyICDs.Contains(env.Type) {
 				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
