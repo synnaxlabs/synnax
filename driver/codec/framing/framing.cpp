@@ -15,9 +15,12 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
 #include "driver/codec/framing/framing.h"
@@ -365,29 +368,7 @@ public:
         return x::errors::NIL;
     }
 };
-}
 
-std::pair<std::unique_ptr<Framer>, x::errors::Error>
-delimited(std::vector<std::uint8_t> delimiter) {
-    if (delimiter.empty())
-        return {nullptr, x::errors::Error(CONFIG_ERROR, "the delimiter is empty")};
-    return {std::make_unique<Delimited>(std::move(delimiter)), x::errors::NIL};
-}
-
-std::pair<std::unique_ptr<Framer>, x::errors::Error> fixed(const std::size_t length) {
-    if (length == 0 || length > MAX_SIZE)
-        return {
-            nullptr,
-            x::errors::Error(
-                CONFIG_ERROR,
-                "the length must be from 1 to " + std::to_string(MAX_SIZE) + ", not " +
-                    std::to_string(length)
-            ),
-        };
-    return {std::make_unique<Fixed>(length), x::errors::NIL};
-}
-
-namespace {
 /// @brief returns the table of a CRC whose polynomial is not reflected.
 template<typename T>
 constexpr std::array<T, 256> table(const T poly) {
@@ -421,34 +402,25 @@ constexpr auto CCITT_TABLE = table<std::uint16_t>(0x1021);
 constexpr auto MODBUS_TABLE = reflected_table<std::uint16_t>(0xA001);
 constexpr auto CRC32_TABLE = reflected_table<std::uint32_t>(0xEDB88320);
 
-std::size_t width_of(const ChecksumAlgorithm a) {
-    return a == ChecksumAlgorithm::CRC32 ? 4 : 2;
+std::uint32_t crc16_ccitt_false(const View data) {
+    std::uint16_t c = 0xFFFF;
+    for (const auto b: data)
+        c = static_cast<std::uint16_t>((c << 8) ^ CCITT_TABLE[((c >> 8) ^ b) & 0xFF]);
+    return c;
 }
 
-std::uint32_t crc(const ChecksumAlgorithm a, const View data) {
-    switch (a) {
-        case ChecksumAlgorithm::CRC16_CCITT_FALSE: {
-            std::uint16_t c = 0xFFFF;
-            for (const auto b: data)
-                c = static_cast<std::uint16_t>(
-                    (c << 8) ^ CCITT_TABLE[((c >> 8) ^ b) & 0xFF]
-                );
-            return c;
-        }
-        case ChecksumAlgorithm::CRC16_MODBUS: {
-            std::uint16_t c = 0xFFFF;
-            for (const auto b: data)
-                c = static_cast<std::uint16_t>((c >> 8) ^ MODBUS_TABLE[(c ^ b) & 0xFF]);
-            return c;
-        }
-        case ChecksumAlgorithm::CRC32: {
-            std::uint32_t c = 0xFFFFFFFF;
-            for (const auto b: data)
-                c = (c >> 8) ^ CRC32_TABLE[(c ^ b) & 0xFF];
-            return ~c;
-        }
-    }
-    return 0;
+std::uint32_t crc16_modbus(const View data) {
+    std::uint16_t c = 0xFFFF;
+    for (const auto b: data)
+        c = static_cast<std::uint16_t>((c >> 8) ^ MODBUS_TABLE[(c ^ b) & 0xFF]);
+    return c;
+}
+
+std::uint32_t crc32(const View data) {
+    std::uint32_t c = 0xFFFFFFFF;
+    for (const auto b: data)
+        c = (c >> 8) ^ CRC32_TABLE[(c ^ b) & 0xFF];
+    return ~c;
 }
 
 std::uint64_t read_uint(const std::uint8_t *p, const std::size_t size, const bool big) {
@@ -468,8 +440,26 @@ void write_uint(
         p[big ? size - 1 - i : i] = static_cast<std::uint8_t>(v >> (8 * i));
 }
 
+/// @brief Crc is the checksum that ends a sync frame.
+struct Crc {
+    /// @brief sum returns the checksum of the bytes before it.
+    std::uint32_t (*sum)(View) = nullptr;
+    /// @brief width is the number of bytes in the checksum.
+    std::size_t width = 0;
+    /// @brief big_endian is true when the checksum puts its most significant byte
+    /// first.
+    bool big_endian = false;
+};
+
 class Sync final : public Framer {
-    SyncConfig cfg;
+    synnax::icd::SyncFraming cfg;
+    /// @brief length_size is the number of bytes in the length field.
+    std::size_t length_size;
+    /// @brief big_endian is true when the length field puts its most significant byte
+    /// first.
+    bool big_endian;
+    /// @brief crc is the checksum that ends each frame, or nothing.
+    std::optional<Crc> crc;
     /// @brief header is the number of bytes up to the end of the length field.
     std::size_t header;
     /// @brief width is the number of bytes in the checksum.
@@ -477,10 +467,18 @@ class Sync final : public Framer {
     Buffer buf;
 
 public:
-    Sync(SyncConfig config, const std::size_t width):
+    Sync(
+        synnax::icd::SyncFraming config,
+        const std::size_t size,
+        const bool big,
+        const std::optional<Crc> checksum
+    ):
         cfg(std::move(config)),
-        header(this->cfg.length_offset + this->cfg.length_size),
-        width(width) {}
+        length_size(size),
+        big_endian(big),
+        crc(checksum),
+        header(this->cfg.length_offset + size),
+        width(checksum.has_value() ? checksum->width : 0) {}
 
     void write(const View chunk) override { this->buf.append(chunk); }
 
@@ -509,8 +507,8 @@ public:
         const auto *p = bytes.data() + this->buf.head;
         const auto length = read_uint(
             p + this->cfg.length_offset,
-            this->cfg.length_size,
-            this->cfg.big_endian
+            this->length_size,
+            this->big_endian
         );
         const auto after = static_cast<std::int64_t>(length) +
                            this->cfg.length_adjustment;
@@ -529,9 +527,9 @@ public:
         const auto total = this->header + static_cast<std::size_t>(after);
         if (this->buf.pending() < total) return {std::nullopt, x::errors::NIL};
         const View frame(p, total - this->width);
-        if (const auto &c = this->cfg.checksum; c.has_value()) {
+        if (const auto &c = this->crc; c.has_value()) {
             const auto stored = read_uint(p + frame.size(), this->width, c->big_endian);
-            if (stored != crc(c->algorithm, frame)) {
+            if (stored != c->sum(frame)) {
                 this->buf.head++;
                 return {std::nullopt, invalid("dropped a frame with a bad checksum")};
             }
@@ -575,11 +573,11 @@ public:
         const auto total = frame.size() + this->width;
         const auto length = static_cast<std::int64_t>(total - this->header) -
                             this->cfg.length_adjustment;
-        const auto bits = 8 * this->cfg.length_size;
+        const auto bits = 8 * this->length_size;
         if (length < 0 || static_cast<std::uint64_t>(length) >> bits != 0)
             return invalid(
                 "the length " + std::to_string(length) + " does not fit a " +
-                std::to_string(this->cfg.length_size) + "-byte length field"
+                std::to_string(this->length_size) + "-byte length field"
             );
         const auto start = out.size();
         out.insert(out.end(), frame.begin(), frame.end());
@@ -588,11 +586,11 @@ public:
         write_uint(
             p + this->cfg.length_offset,
             static_cast<std::uint64_t>(length),
-            this->cfg.length_size,
-            this->cfg.big_endian
+            this->length_size,
+            this->big_endian
         );
-        if (const auto &c = this->cfg.checksum; c.has_value()) {
-            const auto sum = crc(c->algorithm, View(p, frame.size()));
+        if (const auto &c = this->crc; c.has_value()) {
+            const auto sum = c->sum(View(p, frame.size()));
             out.resize(out.size() + this->width);
             write_uint(
                 out.data() + start + frame.size(),
@@ -604,45 +602,96 @@ public:
         return x::errors::NIL;
     }
 };
+
+using Result = std::pair<std::unique_ptr<Framer>, x::errors::Error>;
+
+Result fail(const std::string &text) {
+    return {nullptr, x::errors::Error(CONFIG_ERROR, text)};
 }
 
-std::pair<std::unique_ptr<Framer>, x::errors::Error> sync(SyncConfig config) {
-    const auto fail = [](const std::string &text) {
-        return std::pair<std::unique_ptr<Framer>, x::errors::Error>{
-            nullptr,
-            x::errors::Error(CONFIG_ERROR, text),
+/// @brief returns true when order is big-endian.
+std::pair<bool, x::errors::Error> big_endian_of(const std::string &order) {
+    if (order == synnax::icd::BYTE_ORDER_BIG_ENDIAN) return {true, x::errors::NIL};
+    if (order == synnax::icd::BYTE_ORDER_LITTLE_ENDIAN) return {false, x::errors::NIL};
+    return {false, x::errors::Error(CONFIG_ERROR, "unknown byte order " + order)};
+}
+
+std::pair<Crc, x::errors::Error> crc_of(const synnax::icd::Checksum &c) {
+    auto [big, err] = big_endian_of(c.byte_order);
+    if (err) return {Crc{}, err};
+    if (c.algorithm == synnax::icd::CHECKSUM_ALGORITHM_CRC_16_CCITT_FALSE)
+        return {
+            Crc{.sum = crc16_ccitt_false, .width = 2, .big_endian = big},
+            x::errors::NIL
         };
+    if (c.algorithm == synnax::icd::CHECKSUM_ALGORITHM_CRC_16_MODBUS)
+        return {
+            Crc{.sum = crc16_modbus, .width = 2, .big_endian = big},
+            x::errors::NIL
+        };
+    if (c.algorithm == synnax::icd::CHECKSUM_ALGORITHM_CRC_32)
+        return {Crc{.sum = crc32, .width = 4, .big_endian = big}, x::errors::NIL};
+    return {
+        Crc{},
+        x::errors::Error(CONFIG_ERROR, "unknown checksum algorithm " + c.algorithm),
     };
-    if (config.sync.empty()) return fail("the sync sequence is empty");
-    const auto size = config.length_size;
-    if (size != 1 && size != 2 && size != 4)
-        return fail(
-            "the length field must be 1, 2, or 4 bytes, not " + std::to_string(size)
-        );
-    if (config.length_offset < config.sync.size())
+}
+
+std::pair<std::size_t, x::errors::Error> length_bytes(const std::string &size) {
+    if (size == synnax::icd::LENGTH_SIZE_ONE) return {1, x::errors::NIL};
+    if (size == synnax::icd::LENGTH_SIZE_TWO) return {2, x::errors::NIL};
+    if (size == synnax::icd::LENGTH_SIZE_FOUR) return {4, x::errors::NIL};
+    return {0, x::errors::Error(CONFIG_ERROR, "unknown length size " + size)};
+}
+
+Result sync(const synnax::icd::SyncFraming &s) {
+    auto [size, size_err] = length_bytes(s.length_size);
+    if (size_err) return {nullptr, size_err};
+    auto [big, order_err] = big_endian_of(s.byte_order);
+    if (order_err) return {nullptr, order_err};
+    std::optional<Crc> crc;
+    if (s.checksum.has_value()) {
+        auto [c, err] = crc_of(*s.checksum);
+        if (err) return {nullptr, err};
+        crc = c;
+    }
+    if (s.length_offset < s.sync.size())
         return fail("the length field overlaps the sync sequence");
-    if (config.max_length > MAX_SIZE)
+    const auto header = s.length_offset + size;
+    if (s.max_length < header)
         return fail(
-            "the maximum length must be at most " + std::to_string(MAX_SIZE) +
-            ", not " + std::to_string(config.max_length)
-        );
-    const auto header = config.length_offset + size;
-    if (config.max_length < header)
-        return fail(
-            "the maximum length of " + std::to_string(config.max_length) +
+            "the maximum length of " + std::to_string(s.max_length) +
             " is less than the " + std::to_string(header) + " bytes of the header"
         );
-    const auto width = config.checksum.has_value()
-                         ? width_of(config.checksum->algorithm)
-                         : 0;
-    return {std::make_unique<Sync>(std::move(config), width), x::errors::NIL};
+    return {std::make_unique<Sync>(s, size, big, crc), x::errors::NIL};
+}
 }
 
-std::unique_ptr<Framer> cobs() {
-    return std::make_unique<Cobs>();
-}
-
-std::unique_ptr<Framer> slip() {
-    return std::make_unique<Slip>();
+std::pair<std::unique_ptr<Framer>, x::errors::Error>
+create(const synnax::icd::Framing &framing) {
+    return std::visit(
+        [](const auto &f) -> Result {
+            using T = std::decay_t<decltype(f)>;
+            if constexpr (std::is_same_v<T, synnax::icd::DelimitedFraming>)
+                return {
+                    std::make_unique<Delimited>(std::vector<std::uint8_t>(
+                        f.delimiter.begin(),
+                        f.delimiter.end()
+                    )),
+                    x::errors::NIL,
+                };
+            else if constexpr (std::is_same_v<T, synnax::icd::FixedFraming>)
+                return {std::make_unique<Fixed>(f.length), x::errors::NIL};
+            else if constexpr (std::is_same_v<T, synnax::icd::SyncFraming>)
+                return sync(f);
+            else if constexpr (std::is_same_v<T, synnax::icd::CobsFraming>)
+                return {std::make_unique<Cobs>(), x::errors::NIL};
+            else {
+                static_assert(std::is_same_v<T, synnax::icd::SlipFraming>);
+                return {std::make_unique<Slip>(), x::errors::NIL};
+            }
+        },
+        framing
+    );
 }
 }

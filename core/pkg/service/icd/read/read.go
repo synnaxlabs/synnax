@@ -343,6 +343,9 @@ func (c Checker) checkBinding(
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
 	kind, name := f.kind, f.name
+	if err := icd.CheckScale(f.scale); err != nil {
+		return at(errors.Wrapf(err, "field %s", name), "field")
+	}
 	if f.unplaced {
 		return at(validate.Errorf(
 			"bytes field %s requires a JSON pointer", name,
@@ -389,6 +392,7 @@ type field struct {
 	// unplaced is true for a JSON bytes field with no pointer, which a read cannot
 	// find.
 	unplaced bool
+	scale    float64
 	// scaled is true for a binary field with a scale or an offset, which decodes only
 	// into a float channel.
 	scaled bool
@@ -416,6 +420,7 @@ func fieldsOf(p icd.Payload) map[icd.FieldKey]field {
 				kind:      f.Type(),
 				defaulted: isTimestamp && ts.Default != nil,
 				unplaced:  f.Type() == payload.KindBytes && b.Pointer == "",
+				scale:     b.Scale,
 			}
 		}
 	case icd.BinaryPayload:
@@ -424,13 +429,14 @@ func fieldsOf(p icd.Payload) map[icd.FieldKey]field {
 			fields[b.Key] = field{
 				name:   b.Name,
 				kind:   payload.Kind(f.Kind()),
+				scale:  b.Scale,
 				scaled: b.Scale != 1 || b.Offset != 0,
 			}
 		}
 	case icd.TextPayload:
 		for _, f := range v.Fields {
 			b := f.Base()
-			fields[b.Key] = field{name: b.Name, kind: payload.KindFloat}
+			fields[b.Key] = field{name: b.Name, kind: payload.KindFloat, scale: b.Scale}
 		}
 	default:
 		panic(errors.Newf("read: unknown payload variant %T", v))

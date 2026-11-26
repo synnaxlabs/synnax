@@ -55,6 +55,10 @@ var (
 	temp  = jsonField("temp", "/temp", icd.FloatJSONField{})
 	state = jsonField("state", "/state", icd.StringJSONField{})
 	raw   = jsonField("raw", "", icd.BytesJSONField{})
+	// flat is a float field with a zero scale.
+	flat = icd.JSONField{Variant: icd.FloatJSONField{JSONBaseField: icd.JSONBaseField{
+		Key: uuid.New(), Name: "flat", Pointer: "/flat",
+	}}}
 	stamp = telem.SecondTS
 	// defaulted is a timestamp field that takes a default.
 	defaulted = jsonField("ts", "/ts", icd.TimestampJSONField{
@@ -63,7 +67,7 @@ var (
 			Variant: icd.ConstantTimestampDefault{Value: stamp},
 		},
 	})
-	status  = jsonMessage("Status", ts, temp, state, raw)
+	status  = jsonMessage("Status", ts, temp, state, raw, flat)
 	stamped = jsonMessage("Stamped", defaulted)
 	frame   = icd.Message{
 		Key:  uuid.New(),
@@ -344,6 +348,11 @@ var _ = Describe("Read", func() {
 					readOf(status, icd.ReadBinding{Field: raw.Base().Key}),
 					"reads.0.messages.0.bindings.0.field",
 					"bytes field raw requires a JSON pointer",
+				),
+				Entry("a field with a zero scale",
+					readOf(status, bind(flat, valueKey)),
+					"reads.0.messages.0.bindings.0.field",
+					"field flat: scale must be non-zero",
 				),
 				Entry("a data type that the field kind does not suit",
 					readOf(status, icd.ReadBinding{
