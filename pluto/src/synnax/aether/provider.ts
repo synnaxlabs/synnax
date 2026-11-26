@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Synnax, synnaxParamsZ } from "@synnaxlabs/client";
+import {
+  InternalError,
+  type status as clientStatus,
+  Synnax,
+  synnaxParamsZ,
+} from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -15,6 +20,21 @@ import { aether } from "@/aether/aether";
 import { status } from "@/status/aether";
 
 const stateZ = z.object({ props: synnaxParamsZ.nullable() });
+
+/**
+ * Reports e, an internal error of the client of the Core named name, through handle. An
+ * InternalError gives its own message and description, and any other error is a failure
+ * to sync with the Core.
+ */
+export const handleInternalError = (
+  handle: (exc: unknown, heading: clientStatus.Heading) => void,
+  e: Error,
+  name: string,
+): void => {
+  if (InternalError.matchExact(e))
+    handle(e.cause, { message: e.message, name, description: e.description });
+  else handle(e, { message: "Failed to sync with Core", name });
+};
 
 export interface ContextValue {
   client: Synnax | null;
@@ -46,13 +66,10 @@ export class Provider extends aether.Composite<typeof stateZ, ContextValue> {
 
     this.closeClient();
     const handleError = status.useErrorHandler(ctx);
-    const heading = {
-      message: "Failed to sync with Core",
-      name: this.state.props.name ?? "",
-    };
+    const name = this.state.props.name ?? "";
     this.internal.client = new Synnax({
       ...this.state.props,
-      onInternalError: (e) => handleError(e, heading),
+      onInternalError: (e) => handleInternalError(handleError, e, name),
     });
     set(ctx, this.internal);
   }

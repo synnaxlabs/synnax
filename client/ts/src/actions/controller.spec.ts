@@ -1881,7 +1881,7 @@ describe("actions.Controller", () => {
       await vi.advanceTimersByTimeAsync(10_000);
       await settled;
       expect(errors.map(({ message }) => message)).toEqual([
-        "failed to apply a dispatch that the Core applied",
+        "Failed to apply a change to a document",
       ]);
       await vi.advanceTimersByTimeAsync(1_000);
       expect(fetch).toHaveBeenCalledExactlyOnceWith(["k"]);
@@ -2328,7 +2328,7 @@ describe("actions.Controller", () => {
       ]);
       expect(docs.get("j")).toEqual({ values: { a: 2 } });
       expect(errors.map(({ message }) => message)).toEqual([
-        "failed to apply a remote frame",
+        "Failed to apply a change from another session",
       ]);
       expect((errors[0].cause as Error).message).toBe("the doc cannot hold the action");
       await expect.poll(() => docs.get("k")).toEqual({ key: "k", values: { a: 7 } });

@@ -26,6 +26,7 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  InternalError,
   InvalidCredentialsError,
   MissingCredentialsError,
   MissingLicenseError,
@@ -1631,7 +1632,9 @@ describe("connection", () => {
       await expect.poll(() => probes, POLL).toBeGreaterThanOrEqual(2);
       expect(checks - checksAtDenial).toBeGreaterThanOrEqual(3);
       expect(internal).toHaveLength(1);
-      expect(AccessDeniedError.matches(internal[0])).toBe(true);
+      expect(InternalError.matches(internal[0])).toBe(true);
+      expect(internal[0].message).toBe("Live updates unavailable");
+      expect(AccessDeniedError.matches(internal[0].cause)).toBe(true);
       await client.close();
     });
 
@@ -1724,12 +1727,68 @@ describe("connection", () => {
       );
       await expect.poll(() => internal.length, POLL).toBeGreaterThan(0);
       expect(internal[0].message).toEqual(
-        "failed to reset cache after cluster replacement",
+        "Failed to clear data from the previous Core",
       );
       const cause = internal[0].cause;
       if (!(cause instanceof Error)) throw new Error("cause is not an Error");
       expect(cause.message).toEqual("cache reset failed");
       await client.close();
+    });
+
+    // replaceThen replaces the cluster of a client whose stream opens until the
+    // replacement, then fails with failure, and returns its internal errors.
+    const replaceThen = async (failure: Error): Promise<Error[]> => {
+      const internal: Error[] = [];
+      let replaced = false;
+      const unary = createScriptedUnary({ clusterKey: "first" });
+      const client = createClient(
+        unary,
+        {
+          stream: {
+            reset: async () => {},
+            ensure: async () => {
+              if (replaced) throw failure;
+            },
+          },
+          onInternalError: (error) => internal.push(error),
+        },
+        FAST_RETRY,
+        TimeSpan.milliseconds(5),
+      );
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "first",
+      );
+      replaced = true;
+      unary.setClusterKey("second");
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => s.details.clusterKey === "second",
+      );
+      await sleep.sleep(TimeSpan.milliseconds(100));
+      await client.close();
+      return internal;
+    };
+
+    it("should report a stream that fails to open after a cluster replacement", async () => {
+      const internal = await replaceThen(new Error("stream open failed"));
+      expect(internal).not.toHaveLength(0);
+      expect(internal.map(({ message }) => message)).not.toContain(
+        "Failed to clear data from the previous Core",
+      );
+      expect(internal[0].message).toEqual("Failed to start live updates");
+      const cause = internal[0].cause;
+      if (!(cause instanceof Error)) throw new Error("cause is not an Error");
+      expect(cause.message).toEqual("stream open failed");
+    });
+
+    it("should not report a denied stream after a cluster replacement", async () => {
+      const internal = await replaceThen(
+        new AccessDeniedError("no permission to stream"),
+      );
+      expect(internal).toEqual([]);
     });
   });
 

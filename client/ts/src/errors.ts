@@ -130,6 +130,94 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 export const isConnectionError = (err: unknown): boolean =>
   Unreachable.matches(err) || Timeout.matches(err) || DisconnectedError.matches(err);
 
+const DOCUMENT_REFETCHES =
+  "The document fetches its latest state from the Core. No action is needed.";
+
+// The status text of each kind of InternalError: what failed, then what the user loses
+// and what to do now.
+const INTERNAL_STATUSES = {
+  connectionCheck: {
+    message: "Stopped checking the connection to the Core",
+    description:
+      "The connection status no longer updates, and a lost connection does not " +
+      "recover on its own. Reload the window to check again.",
+  },
+  streamDenied: {
+    message: "Live updates unavailable",
+    description:
+      "This user cannot read the stream of changes, so lists and values update " +
+      "only when they are fetched again. Ask an administrator for access.",
+  },
+  previousCore: {
+    message: "Failed to clear data from the previous Core",
+    description:
+      "A different Core now runs at this address, so some values may come from the " +
+      "old one. Reload the window to clear them.",
+  },
+  liveUpdates: {
+    message: "Failed to start live updates",
+    description:
+      "Lists and values do not update until live updates start. The connection " +
+      "check tries again on its own.",
+  },
+  cacheRefresh: {
+    message: "Failed to refresh cached data",
+    description:
+      "Some lists and values may be out of date until they change again. Reload " +
+      "the window to fetch them again.",
+  },
+  notify: {
+    message: "Failed to show a change",
+    description:
+      "A view may not show the latest data. Reload the window to refresh it.",
+  },
+  viewRefresh: {
+    message: "Failed to keep a view current",
+    description:
+      "A view may show old data until it changes again. Reload the window to fetch " +
+      "it again.",
+  },
+  recordLoad: {
+    message: "Failed to load some records",
+    description:
+      "A view may leave out records that it should show. Reload the window to " +
+      "fetch them again.",
+  },
+  documentChange: {
+    message: "Failed to apply a change to a document",
+    description: DOCUMENT_REFETCHES,
+  },
+  remoteChange: {
+    message: "Failed to apply a change from another session",
+    description: DOCUMENT_REFETCHES,
+  },
+  documentFetch: {
+    message: "Failed to fetch a document",
+    description:
+      "The document may show old content until it changes again. Reload the window " +
+      "to fetch it again.",
+  },
+} as const;
+
+/**
+ * Raised for a failure of work that the client runs on its own, with no caller to
+ * return it to, such as keeping its caches current. Its message names what failed, its
+ * description says what the user loses and what to do, and its cause is the raw error.
+ */
+export class InternalError extends SynnaxError.sub("internal") {
+  readonly description: string;
+
+  constructor(kind: keyof typeof INTERNAL_STATUSES, options: ErrorOptions) {
+    const { message, description } = INTERNAL_STATUSES[kind];
+    super(message, options);
+    this.description = description;
+  }
+
+  static override matchExact(e: unknown): e is InternalError {
+    return super.matchExact(e) && "description" in e;
+  }
+}
+
 /** Raised when an edit targets a document that is not in the client's cache. */
 export class NotCachedError extends SynnaxError.sub("not_cached") {}
 

@@ -25,7 +25,13 @@ import type { z } from "zod";
 
 import type { DispatchPayload } from "@/actions/actions";
 import type { batch } from "@/batch";
-import { AuthError, isConnectionError, NotCachedError, NotFoundError } from "@/errors";
+import {
+  AuthError,
+  InternalError,
+  isConnectionError,
+  NotCachedError,
+  NotFoundError,
+} from "@/errors";
 import { query } from "@/query";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
@@ -654,9 +660,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     try {
       applied = this.params.reduce(r.base, actions);
     } catch (exc) {
-      this.params.onError(
-        new Error("failed to apply a dispatch that the Core applied", { cause: exc }),
-      );
+      this.params.onError(new InternalError("documentChange", { cause: exc }));
       this.refetch(key);
     }
     // The doc already holds the first pending entry. It changes only when the echo
@@ -1184,7 +1188,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     try {
       this.applyFrame(key, dispatchKey, actions);
     } catch (exc) {
-      this.params.onError(new Error("failed to apply a remote frame", { cause: exc }));
+      this.params.onError(new InternalError("remoteChange", { cause: exc }));
       this.refetch(key);
       return;
     }
@@ -1252,7 +1256,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         isConnectionError(exc)
       )
         return;
-      this.params.onError(new Error("failed to fetch a document", { cause: exc }));
+      this.params.onError(new InternalError("documentFetch", { cause: exc }));
     } finally {
       this.fetching.delete(key);
     }

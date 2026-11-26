@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import type { SynnaxParams } from "@synnaxlabs/client";
+import { InternalError, type SynnaxParams } from "@synnaxlabs/client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { aether } from "@/aether/aether";
@@ -137,6 +137,25 @@ describe("synnax.aether.Provider", () => {
     expect(stat.name).toBe("Lab Core");
     expect(stat.message).toBe("Failed to sync with Core");
     expect(stat.description).toBe("stream broke");
+  });
+
+  it("reports an InternalError with its own message and description", () => {
+    const key = "synnax-provider-internal-typed";
+    const agg = makeAggregator(key);
+    const provider = makeProvider(key, agg);
+    update(provider, key, { ...PARAMS, name: "Lab Core" });
+    constructed
+      .at(-1)
+      ?.onInternalError?.(
+        new InternalError("cacheRefresh", { cause: new Error("stream broke") }),
+      );
+    const [stat] = agg.state.statuses;
+    expect(stat.name).toBe("Lab Core");
+    expect(stat.message).toBe("Failed to refresh cached data");
+    expect(stat.description).toBe(
+      "Some lists and values may be out of date until they change again. Reload " +
+        "the window to fetch them again. stream broke",
+    );
   });
 
   it("closes the client when props swap to null", () => {

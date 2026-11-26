@@ -38,6 +38,7 @@ import {
   AuthError,
   DisconnectedError,
   errorsMiddleware,
+  InternalError,
 } from "@/errors";
 import { license } from "@/license";
 import { Transport } from "@/transport";
@@ -269,7 +270,7 @@ export class Client implements Handle {
     this.onInternalError = onInternalError;
     this.current = lifecycle.createInitialStatus(this.config);
     this.loop = this.run().catch((err: unknown) =>
-      this.onInternalError(new Error("connection check loop failed", { cause: err })),
+      this.onInternalError(new InternalError("connectionCheck", { cause: err })),
     );
   }
 
@@ -311,7 +312,9 @@ export class Client implements Handle {
       // every probe hits the same refusal; only the first is news
       if (!wasDenied)
         this.onInternalError(
-          new AccessDeniedError(STREAM_DENIED, { cause: event.error }),
+          new InternalError("streamDenied", {
+            cause: new AccessDeniedError(STREAM_DENIED, { cause: event.error }),
+          }),
         );
     }
     // a reopened stream may lead to a replaced cluster, and new credentials
@@ -373,19 +376,30 @@ export class Client implements Handle {
       prev.details.clusterKey !== "" &&
       next.details.clusterKey !== prev.details.clusterKey
     )
-      this.resetStream().catch((err: unknown) =>
-        this.onInternalError(
-          new Error("failed to reset cache after cluster replacement", { cause: err }),
-        ),
-      );
+      void this.resetStream();
     this.setMode(modeFor(next));
   }
 
-  /** Drops everything cached from the replaced cluster, then brings the stream up. */
+  /**
+   * Drops everything cached from the replaced cluster, then brings the stream up. Never
+   * rejects: it reports each failure as an internal error.
+   */
   private async resetStream(): Promise<void> {
-    await this.stream?.reset();
+    try {
+      await this.stream?.reset();
+    } catch (err) {
+      this.onInternalError(new InternalError("previousCore", { cause: err }));
+      return;
+    }
     // an unlicensed Core refuses the stream; the check after activation brings it up
-    if (this.current.details.license === "ok") await this.stream?.ensure();
+    if (this.current.details.license !== "ok") return;
+    try {
+      await this.stream?.ensure();
+    } catch (err) {
+      // the auth observer or the transition into denied already reported it
+      if (AuthError.matches(err)) return;
+      this.onInternalError(new InternalError("liveUpdates", { cause: err }));
+    }
   }
 
   /** Discards in-flight checks and wakes the loop for an immediate check. */
@@ -451,9 +465,7 @@ export class Client implements Handle {
         this.stream?.ensure().catch((err: unknown) => {
           // the auth observer or the transition into denied already reported it
           if (AuthError.matches(err)) return;
-          this.onInternalError(
-            new Error("failed to bring up change stream", { cause: err }),
-          );
+          this.onInternalError(new InternalError("liveUpdates", { cause: err }));
         });
       return this.current.variant === "loading";
     } catch (err) {

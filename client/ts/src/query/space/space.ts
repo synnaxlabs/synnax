@@ -21,6 +21,7 @@ import {
 import {
   AuthError,
   ExpiredLicenseError,
+  InternalError,
   MissingLicenseError,
   NotFoundError,
 } from "@/errors";
@@ -474,7 +475,7 @@ export class Space<
         try {
           handler(undefined);
         } catch (exc) {
-          this.report(exc, `failed to notify ${this.config.name} answer subscriber`);
+          this.report(exc, "notify");
         }
       });
     });
@@ -572,11 +573,11 @@ export class Space<
 
   private report(
     exc: unknown,
-    message = `failed to maintain ${this.config.name} answers`,
+    kind: "viewRefresh" | "notify" | "recordLoad" = "viewRefresh",
   ): void {
     // A closed space has no subscribers left to answer.
     if (this.closed) return;
-    this.hooks.onError(new Error(message, { cause: exc }));
+    this.hooks.onError(new InternalError(kind, { cause: exc }));
   }
 
   /**
@@ -676,7 +677,7 @@ export class Space<
       try {
         handler(result);
       } catch (exc) {
-        this.report(exc, `failed to notify ${this.config.name} answer subscriber`);
+        this.report(exc, "notify");
       }
     });
   }
@@ -1143,7 +1144,7 @@ export class Space<
     );
     results.forEach((result) => {
       if (result.status === "rejected" && !NotFoundError.matches(result.reason))
-        this.report(result.reason, `failed to hydrate ${this.config.name} answers`);
+        this.report(result.reason, "recordLoad");
     });
     this.recheckKeys(query, missing);
   }

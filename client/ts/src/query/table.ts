@@ -22,7 +22,12 @@ import {
 } from "@synnaxlabs/x";
 import z from "zod";
 
-import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/errors";
+import {
+  AccessDeniedError,
+  DisconnectedError,
+  InternalError,
+  NotFoundError,
+} from "@/errors";
 import { Deleted } from "@/query/deleted";
 import type { LookupIndex } from "@/query/indexes";
 import { isOffline } from "@/query/offline";
@@ -904,7 +909,7 @@ export class Table<
       // The reconcile after the next reconnect fetches them, and a delete tombstones a
       // vanished one.
       if (isOffline(exc) || NotFoundError.matches(exc)) return;
-      this.onError(new Error("failed to refetch entries", { cause: exc }));
+      this.onError(new InternalError("cacheRefresh", { cause: exc }));
     });
   }
 
@@ -1029,7 +1034,7 @@ export class Table<
       try {
         subscriber(events);
       } catch (exc) {
-        this.onError(new Error("failed to notify table subscriber", { cause: exc }));
+        this.onError(new InternalError("notify", { cause: exc }));
       }
   }
 
@@ -1042,7 +1047,7 @@ export class Table<
       try {
         subscriber(event);
       } catch (exc) {
-        this.onError(new Error("failed to notify table subscriber", { cause: exc }));
+        this.onError(new InternalError("notify", { cause: exc }));
       }
   }
 }
