@@ -397,11 +397,19 @@ var _ = Describe("Migration", func() {
 				{
 					Key:  "entry-b-fill",
 					Part: new("b"),
+					When: equals(0, 1),
 					Fill: &v5.Paint{Variant: v5.EntryPaint{State: "active"}},
 				},
 				{
 					Key:    "look-1",
 					Part:   new("b"),
+					When:   equals(0),
+					Stroke: colorPaint(black),
+				},
+				{
+					Key:    "look-2",
+					Part:   new("b"),
+					When:   equals(1),
 					Stroke: colorPaint(black),
 				},
 			}))
@@ -424,7 +432,8 @@ var _ = Describe("Migration", func() {
 			{Key: "2", Value: 2, Name: "off"},
 		}))
 		Expect(sym.Data.Looks).To(Equal([]v5.Look{
-			{Key: "look-1", Part: new("b"), Stroke: colorPaint(black)},
+			{Key: "look-1", Part: new("b"), When: equals(0), Stroke: colorPaint(black)},
+			{Key: "look-2", Part: new("b"), When: equals(1), Stroke: colorPaint(black)},
 		}))
 	})
 
@@ -543,4 +552,25 @@ var _ = Describe("ActuatorEntries", func() {
 		Entry("to no entries", []enumeration.Entry(nil)),
 		Entry("to entries with value 1", []enumeration.Entry{{Key: "a", Value: 1}}),
 	)
+})
+
+var _ = Describe("DrawnLooks", func() {
+	looks := []v5.Look{
+		{Key: "a", When: equals(0)},
+		{Key: "b", When: equals(0, 1)},
+		{Key: "c", When: equals(1)},
+		{Key: "d"},
+	}
+	It("Should hold the looks on value 0 at every value and drop the looks on other "+
+		"values alone, for a spec with no commands", func() {
+		Expect(v5.DrawnLooks(v5.Spec{Looks: looks})).To(Equal([]v5.Look{
+			{Key: "a"},
+			{Key: "b"},
+			{Key: "d"},
+		}))
+	})
+
+	It("Should keep every look of a spec with commands", func() {
+		Expect(v5.DrawnLooks(v5.Actuate(v5.Spec{Looks: looks}))).To(Equal(looks))
+	})
 })
