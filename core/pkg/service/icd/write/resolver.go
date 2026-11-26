@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
@@ -174,25 +175,30 @@ func (r Resolver) Hash(
 	return nil
 }
 
-// check builds the encoder of w from ic, or checks only the bindings of a framed write
-// of a binary or text message.
+// check builds the encoder of w from ic, or checks a framed write of a binary or text
+// message with the rules of the Driver's encoder.
 func check(w Write, ic icd.ICD, dataTypes map[channel.Key]telem.DataType) error {
 	if w.Framed {
 		m, ok := lo.Find(ic.Messages, func(m icd.Message) bool {
 			return m.Key == w.Message.Message
 		})
 		if _, isJSON := m.Payload.Variant.(icd.JSONPayload); ok && !isJSON {
-			return checkBindings(w.Message, m)
+			return checkBindings(w.Message, m, dataTypes)
 		}
 	}
 	_, err := newEncoder(w.Message, ic, dataTypes)
 	return err
 }
 
-// checkBindings returns a validation error when wm binds no channels, a binding names
-// no field of m, a field has two bindings, a value is not of its field's kind, or a
-// field has no binding and no default.
-func checkBindings(wm icd.WriteMessage, m icd.Message) error {
+// checkBindings returns a validation error when wm cannot send m, a binary or text
+// message. dataTypes holds the data type of each channel that the lookup finds. A field
+// that holds the identifier takes no binding. A field that a multiplexor with a fixed
+// value never selects takes no channel and needs no default.
+func checkBindings(
+	wm icd.WriteMessage,
+	m icd.Message,
+	dataTypes map[channel.Key]telem.DataType,
+) error {
 	if err := wm.Validate(); err != nil {
 		return err
 	}
@@ -201,15 +207,15 @@ func checkBindings(wm icd.WriteMessage, m icd.Message) error {
 	}) {
 		return validate.Errorf("message %s binds no channels", m.Name)
 	}
-	fields := fieldsOf(m.Payload)
-	at := make(map[icd.FieldKey]int, len(fields))
-	for i, f := range fields {
-		at[f.key] = i
-	}
+	p := m.Payload
+	fields := fieldsOf(p)
+	at := fieldIndexes(fields)
 	bound := make(set.Set[icd.FieldKey], len(wm.Bindings))
+	channels := make(map[icd.FieldKey]int, len(wm.Bindings))
 	for j, b := range wm.Bindings {
-		pathed := func(err error, segment string) error {
-			return validate.PathedError(err, "bindings", strconv.Itoa(j), segment)
+		pathed := func(err error, segments ...string) error {
+			path := slices.Concat([]string{"bindings", strconv.Itoa(j)}, segments)
+			return validate.PathedError(err, path...)
 		}
 		key := b.Base().Field
 		i, ok := at[key]
@@ -220,22 +226,90 @@ func checkBindings(wm icd.WriteMessage, m icd.Message) error {
 			return pathed(validate.Errorf(
 				"field %s has more than one binding", fields[i].name,
 			), "field")
+		case fields[i].identifier:
+			return pathed(validate.Errorf(
+				"field %s holds the identifier, so it takes no binding", fields[i].name,
+			), "field")
 		}
 		bound.Add(key)
-		if v, isValue := b.Variant.(icd.ValueWriteBinding); isValue &&
-			v.Value.Type() != fields[i].kind {
-			return pathed(validate.Errorf(
-				"field %s of kind %s needs a value of its kind",
-				fields[i].name, fields[i].kind,
-			), "value")
+		switch v := b.Variant.(type) {
+		case icd.ChannelWriteBinding:
+			channels[key] = j
+			if err := checkChannel(fields[i], v, dataTypes); err != nil {
+				return pathed(err)
+			}
+		case icd.ValueWriteBinding:
+			var err error
+			if p, err = withFieldValue(p, i, v.Value); err != nil {
+				return pathed(err, "value")
+			}
+		default:
+			panic(errors.Newf("write: unknown write binding variant %T", v))
 		}
 	}
+	return checkSelected(fieldsOf(p), at, channels)
+}
+
+// checkChannel returns a validation error when the data type of b, from the channel
+// that dataTypes holds or else from b, cannot write f.
+func checkChannel(
+	f field,
+	b icd.ChannelWriteBinding,
+	dataTypes map[channel.Key]telem.DataType,
+) error {
+	dt, found := dataTypes[b.Channel]
+	if !found && b.DataType != nil {
+		dt, found = *b.DataType, true
+	}
+	if !found {
+		return nil
+	}
+	return errors.Wrapf(codec.CheckWrite(f.kind, f.scaled, dt), "field %s", f.name)
+}
+
+// checkSelected returns a validation error when a channel sets a field that a fixed
+// multiplexor never selects, or when a field that can be selected has no channel and no
+// default. channels holds the index of the binding of each field that a channel sets.
+func checkSelected(
+	fields []field,
+	at map[icd.FieldKey]int,
+	channels map[icd.FieldKey]int,
+) error {
 	for _, f := range fields {
-		if !bound.Contains(f.key) && !f.defaulted {
+		mux, never := neverSelected(f, fields, at, channels)
+		j, channeled := channels[f.key]
+		switch {
+		case never && channeled:
+			return validate.PathedError(validate.Errorf(
+				"field %s takes a channel, but multiplexor %s never selects it",
+				f.name, mux,
+			), "bindings", strconv.Itoa(j))
+		case !never && !channeled && !f.defaulted:
 			return validate.Errorf("field %s has no binding and no default", f.name)
 		}
 	}
 	return nil
+}
+
+// neverSelected returns the name of a multiplexor of f, or of a multiplexor above it,
+// that no channel sets and whose fixed value never selects f.
+func neverSelected(
+	f field,
+	fields []field,
+	at map[icd.FieldKey]int,
+	channels map[icd.FieldKey]int,
+) (string, bool) {
+	for cur := f; cur.multiplexor != nil; {
+		mux := fields[at[*cur.multiplexor]]
+		if _, channeled := channels[mux.key]; !channeled && mux.fixed != nil &&
+			!slices.ContainsFunc(cur.multiplexValues, func(v int32) bool {
+				return int64(v) == *mux.fixed
+			}) {
+			return mux.name, true
+		}
+		cur = mux
+	}
+	return "", false
 }
 
 // field is the part of a binary or text message field that a write checks.
@@ -243,7 +317,23 @@ type field struct {
 	key       icd.FieldKey
 	name      string
 	kind      payload.Kind
+	scaled    bool
 	defaulted bool
+	// identifier is true when the field holds the identifier of its message.
+	identifier bool
+	// fixed is the raw value that an integer field sends when no channel sets it.
+	fixed           *int64
+	multiplexor     *icd.FieldKey
+	multiplexValues []int32
+}
+
+// fieldIndexes returns the index of each of fields by key.
+func fieldIndexes(fields []field) map[icd.FieldKey]int {
+	at := make(map[icd.FieldKey]int, len(fields))
+	for i, f := range fields {
+		at[f.key] = i
+	}
+	return at
 }
 
 // fieldsOf returns the fields of p, a binary or text payload, in order. A text field
@@ -251,14 +341,39 @@ type field struct {
 func fieldsOf(p icd.Payload) []field {
 	switch v := p.Variant.(type) {
 	case icd.BinaryPayload:
+		var id *icd.FieldIdentifier
+		if v.Identifier != nil {
+			if fi, ok := v.Identifier.Variant.(icd.FieldIdentifier); ok {
+				id = &fi
+			}
+		}
 		return lo.Map(v.Fields, func(f icd.BinaryField, _ int) field {
 			b := f.Base()
-			return field{
-				key:       b.Key,
-				name:      b.Name,
-				kind:      payload.Kind(f.Kind()),
-				defaulted: binaryDefaulted(f),
+			out := field{
+				key:             b.Key,
+				name:            b.Name,
+				kind:            payload.Kind(f.Kind()),
+				scaled:          b.Scale != 1 || b.Offset != 0,
+				multiplexor:     b.Multiplexor,
+				multiplexValues: b.MultiplexValues,
 			}
+			switch d := f.Variant.(type) {
+			case icd.FloatBinaryField:
+				out.defaulted = d.Default != nil
+			case icd.IntegerBinaryField:
+				if d.Default != nil {
+					out.fixed = new(int64(*d.Default))
+				}
+			case icd.UnsignedBinaryField:
+				if d.Default != nil {
+					out.fixed = new(int64(*d.Default))
+				}
+			}
+			if id != nil && id.Field == b.Key {
+				out.identifier, out.fixed = true, new(int64(id.Value))
+			}
+			out.defaulted = out.defaulted || out.fixed != nil
+			return out
 		})
 	case icd.TextPayload:
 		return lo.Map(v.Fields, func(f icd.TextField, _ int) field {
@@ -267,6 +382,7 @@ func fieldsOf(p icd.Payload) []field {
 				key:       b.Key,
 				name:      b.Name,
 				kind:      payload.KindFloat,
+				scaled:    b.Scale != 1 || b.Offset != 0,
 				defaulted: b.Default != nil,
 			}
 		})
@@ -275,15 +391,89 @@ func fieldsOf(p icd.Payload) []field {
 	}
 }
 
-// binaryDefaulted returns true when f has a default.
-func binaryDefaulted(f icd.BinaryField) bool {
-	switch v := f.Variant.(type) {
-	case icd.FloatBinaryField:
-		return v.Default != nil
-	case icd.IntegerBinaryField:
-		return v.Default != nil
-	case icd.UnsignedBinaryField:
-		return v.Default != nil
+// withFieldValue returns p, a binary or text payload, with v as the default of field i.
+// It returns a validation error when v is not of the kind of the field, or when the
+// field cannot hold v.
+func withFieldValue(p icd.Payload, i int, v icd.WriteValue) (icd.Payload, error) {
+	var (
+		name, kind string
+		ok         bool
+		err        error
+	)
+	switch pv := p.Variant.(type) {
+	case icd.BinaryPayload:
+		pv.Fields = slices.Clone(pv.Fields)
+		f := &pv.Fields[i]
+		name, kind = f.Base().Name, string(f.Kind())
+		if *f, ok = binaryWithValue(*f, v); ok {
+			err = icd.CheckBinaryDefault(*f)
+		}
+		p.Variant = pv
+	case icd.TextPayload:
+		pv.Fields = slices.Clone(pv.Fields)
+		f := &pv.Fields[i]
+		name, kind = f.Base().Name, string(payload.KindFloat)
+		if *f, ok = textWithValue(*f, v); ok {
+			err = icd.CheckTextDefault(*f)
+		}
+		p.Variant = pv
+	default:
+		panic(errors.Newf("write: payload variant %T is not binary or text", pv))
 	}
-	return false
+	if !ok {
+		return p, validate.Errorf(
+			"field %s of kind %s needs a value of its kind",
+			name,
+			kind,
+		)
+	}
+	return p, errors.Wrapf(err, "field %s", name)
+}
+
+// binaryWithValue returns f with v as its default, and false when v is not of the kind
+// of f.
+func binaryWithValue(f icd.BinaryField, v icd.WriteValue) (icd.BinaryField, bool) {
+	switch x := v.Variant.(type) {
+	case icd.FloatWriteValue:
+		fv, ok := f.Variant.(icd.FloatBinaryField)
+		if ok {
+			fv.Default = &x.Value
+			f.Variant = fv
+		}
+		return f, ok
+	case icd.IntegerWriteValue:
+		fv, ok := f.Variant.(icd.IntegerBinaryField)
+		if ok {
+			fv.Default = &x.Value
+			f.Variant = fv
+		}
+		return f, ok
+	case icd.UnsignedWriteValue:
+		fv, ok := f.Variant.(icd.UnsignedBinaryField)
+		if ok {
+			fv.Default = &x.Value
+			f.Variant = fv
+		}
+		return f, ok
+	}
+	return f, false
+}
+
+// textWithValue returns f with v as its default, and false when v is not a float.
+func textWithValue(f icd.TextField, v icd.WriteValue) (icd.TextField, bool) {
+	x, ok := v.Variant.(icd.FloatWriteValue)
+	if !ok {
+		return f, false
+	}
+	switch fv := f.Variant.(type) {
+	case icd.DelimitedTextField:
+		fv.Default = &x.Value
+		f.Variant = fv
+	case icd.TaggedTextField:
+		fv.Default = &x.Value
+		f.Variant = fv
+	default:
+		panic(errors.Newf("write: unknown text field variant %T", fv))
+	}
+	return f, true
 }
