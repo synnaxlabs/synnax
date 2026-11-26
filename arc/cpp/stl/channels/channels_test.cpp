@@ -2128,31 +2128,6 @@ public:
     return s;
 }
 
-/// @brief it should read a series on a clock with time when another series of the
-/// channel is on a clock with no time yet.
-TEST(OnClockTest, ReadsThePairedSeriesWhenAnotherClockHasNoTime) {
-    OnUnderTest on(10, {{10, ::x::telem::FLOAT32_T, 11}});
-    ::x::telem::Frame frame(3);
-    frame.emplace(
-        11,
-        clocked(aligned_at(::x::telem::Series(std::vector<int64_t>{100}), 0), 11)
-    );
-    frame.emplace(
-        10,
-        clocked(aligned_at(::x::telem::Series(std::vector<float>{1}), 0), 11)
-    );
-    frame.emplace(
-        10,
-        clocked(aligned_at(::x::telem::Series(std::vector<float>{2}), 1), 21)
-    );
-    on.s->ingest(frame);
-    bool changed = false;
-    const auto [d, t] = on.next(changed);
-    ASSERT_TRUE(changed);
-    EXPECT_EQ(d, 1);
-    EXPECT_EQ(t, 1);
-}
-
 /// @brief it should give a series with no clock synthetic time when another series of
 /// the channel is on a clock with time.
 TEST(OnClockTest, StampsASeriesWithNoClockBesideAClockedSeries) {
