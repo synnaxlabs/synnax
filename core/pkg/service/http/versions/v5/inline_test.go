@@ -11,6 +11,7 @@ package v5_test
 
 import (
 	"context"
+	"math"
 	"strconv"
 	"uuid"
 
@@ -323,6 +324,119 @@ var _ = Describe("ResolveReadConfig", func() {
 		Expect(as[icdv1.FloatJSONField](jsonFields(ic)[0].Variant).Default).
 			To(BeNil())
 	})
+
+	It("Should give an optional float field with no fill value the default NaN",
+		func(ctx SpecContext) {
+			ic, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+				Key: "ep",
+				Fields: []v4.ReadField{
+					{Key: "o", Pointer: "/o", Optional: true, DataType: telem.Float32T},
+					{Key: "r", Pointer: "/r", DataType: telem.Float64T},
+				},
+			}), nil)
+			Expect(notes).To(BeEmpty())
+			fields := jsonFields(ic)
+			d := as[icdv1.FloatJSONField](fields[0].Variant).Default
+			Expect(d).ToNot(BeNil())
+			Expect(math.IsNaN(float64(*d))).To(BeTrue())
+			Expect(as[icdv1.FloatJSONField](fields[1].Variant).Default).To(BeNil())
+		},
+	)
+
+	It("Should note an optional field with no fill value that is not a float",
+		func(ctx SpecContext) {
+			ic, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+				Key: "ep",
+				Fields: []v4.ReadField{
+					{Key: "o", Pointer: "/o", Optional: true, DataType: telem.Int32T},
+				},
+			}), nil)
+			Expect(notes).To(Equal([]string{"endpoints.0.fields.0"}))
+			Expect(as[icdv1.IntegerJSONField](jsonFields(ic)[0].Variant).Default).
+				To(BeNil())
+		},
+	)
+
+	DescribeTable("Should not note an optional field that the read never decodes",
+		func(ctx SpecContext, fields []v4.ReadField, expected []string) {
+			found := map[channel.Key]icdv0.Channel{
+				8: {Name: "count", DataType: telem.Int32T},
+			}
+			_, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+				Key:    "ep",
+				Fields: fields,
+			}), found)
+			Expect(notes).To(Equal(expected))
+		},
+		Entry("a disabled field", []v4.ReadField{
+			{
+				Key:      "o",
+				Pointer:  "/o",
+				Optional: true,
+				Disabled: true,
+				DataType: telem.Int32T,
+			},
+			{Key: "r", Pointer: "/r", DataType: telem.Float64T},
+		}, []string(nil)),
+		Entry("a field that binds no channel", []v4.ReadField{
+			{Key: "a", Channel: 8, Pointer: "/a", DataType: telem.Int32T},
+			{
+				Key:      "b",
+				Channel:  8,
+				Pointer:  "/b",
+				Optional: true,
+				DataType: telem.Int32T,
+			},
+		}, []string{"endpoints.0.fields.1"}),
+	)
+
+	It("Should turn a NaN fill value into a NaN default", func(ctx SpecContext) {
+		ic, _, notes := resolve(ctx, staged(ctx, v4.ReadEndpoint{
+			Key: "ep",
+			Fields: []v4.ReadField{{
+				Key:       "f",
+				Pointer:   "/f",
+				DataType:  telem.Float64T,
+				FillValue: new(any("NaN")),
+			}},
+		}), nil)
+		Expect(notes).To(BeEmpty())
+		def := as[icdv1.FloatJSONField](jsonFields(ic)[0].Variant).Default
+		Expect(def).ToNot(BeNil())
+		Expect(math.IsNaN(float64(*def))).To(BeTrue())
+	})
+
+	DescribeTable("Should drop an infinite fill value, which no default holds",
+		func(ctx SpecContext, fill string) {
+			cfg := staged(ctx, v4.ReadEndpoint{
+				Key: "ep",
+				Fields: []v4.ReadField{{
+					Key:       "f",
+					Pointer:   "/f",
+					DataType:  telem.Float64T,
+					FillValue: new(any(fill)),
+				}},
+			})
+			var changes []string
+			ic, ok := MustSucceed2(v5.ResolveReadConfig(
+				ctx,
+				nil,
+				channelsOf(nil),
+				"Plant",
+				&cfg,
+				func(path, change string) { changes = append(changes, path+": "+change) },
+			))
+			Expect(ok).To(BeTrue())
+			Expect(changes).To(Equal([]string{
+				"endpoints.0.fields.0: fill value was dropped: default cannot be infinite",
+			}))
+			Expect(as[icdv1.FloatJSONField](jsonFields(ic)[0].Variant).Default).
+				To(BeNil())
+		},
+		Entry("inf", "inf"),
+		Entry("Infinity", "Infinity"),
+		Entry("-Infinity", "-Infinity"),
+	)
 
 	Describe("Read check", func() {
 		found := map[channel.Key]icdv0.Channel{

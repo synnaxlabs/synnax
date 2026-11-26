@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { channel, icd, Synnax } from "@synnaxlabs/client";
+import { channel, type icd, type Synnax } from "@synnaxlabs/client";
 import { ICD as PICD } from "@synnaxlabs/pluto";
+import { DataType } from "@synnaxlabs/x";
 
 import { bindingDataType, encodes } from "@/platform/icd/dataType";
-import { formatOf, type Formats } from "@/platform/icd/Formats";
+import { formatOf, type Formats, useMessages } from "@/platform/icd/Formats";
 import { createMessage } from "@/platform/icd/inferred";
 import { jsonFields, mostRead, retrieveMessages } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
@@ -21,6 +22,12 @@ const channelBinding = (field: icd.FieldKey): icd.ChannelWriteBinding => ({
   field,
   channel: 0,
 });
+
+/** @returns the name that deploying gives the command channel of field after prefix. */
+export const commandName = (
+  prefix: string,
+  { name }: Pick<icd.JSONField, "name">,
+): string => `${prefix}_${channel.escapeInvalidName(name)}_cmd`;
 
 /** Tells the user what to do when the ICD no longer has the message of a write. */
 export const MISSING_DESCRIPTION =
@@ -88,20 +95,29 @@ export interface AddMessagesResult {
   messages: icd.Message[];
 }
 
+/** @returns field, sending the write time when it is a timestamp with no default. */
+const sendWriteTime = (field: icd.JSONField): icd.JSONField =>
+  field.type === "timestamp" && field.default == null
+    ? { ...field, default: { type: "now" } }
+    : field;
+
 const createMessages = (
   messages: AddMessagesParams["messages"],
   taken: icd.Message[],
 ): icd.Message[] => {
   const created: icd.Message[] = [];
   for (const { name, fields } of messages)
-    created.push(createMessage(name, fields, [...taken, ...created]));
+    created.push(
+      createMessage(name, fields.map(sendWriteTime), [...taken, ...created]),
+    );
   return created;
 };
 
 /**
  * Adds a JSON message for each of messages to the ICD of the most targets, through its
  * form, or to a new ICD named name when no target sends one. A message name that the
- * ICD holds gets a number.
+ * ICD holds gets a number. A timestamp field with no default sends the time of each
+ * write, so it takes no channel.
  */
 export const addMessages = async ({
   client,
@@ -132,17 +148,68 @@ export const addMessages = async ({
 /** Keys and names the command channel of each field of a write. */
 export interface ChannelNaming {
   /** @returns the key of the field's channel in the write record of the device. */
-  key: (field: icd.JSONField) => string;
+  key: (field: Pick<icd.JSONField, "key">) => string;
   /** @returns the name of a new command channel for the field. */
-  name: (field: icd.JSONField) => string;
+  name: (field: Pick<icd.JSONField, "name">) => string;
 }
 
 /**
+ * @returns each channel binding of write whose field is in fields, with what its
+ * command channel needs. A new channel takes the data type of the binding, or the
+ * default of its field when the binding names none or one that the field no longer
+ * takes.
+ */
+const commandChannels = (
+  fields: icd.JSONField[],
+  write: icd.WriteMessage,
+  naming: ChannelNaming,
+): [icd.ChannelWriteBinding, Task.CommandChannelSpec][] =>
+  write.bindings.flatMap(
+    (binding): [icd.ChannelWriteBinding, Task.CommandChannelSpec][] => {
+      if (binding.type !== "channel") return [];
+      const field = fields.find(({ key }) => key === binding.field);
+      // The Core rejects a binding to a field that the message lacks.
+      if (field == null) return [];
+      const { dataType = "" } = binding;
+      const suited = dataType !== "" && encodes(field, dataType);
+      return [
+        [
+          binding,
+          {
+            propertiesKey: naming.key(field),
+            channel: binding.channel,
+            name: naming.name(field),
+            dataType: bindingDataType(suited ? binding : {}, field),
+            dataTypes: DataType.ALL.map((dt) => dt.toString()).filter((dt) =>
+              encodes(field, dt),
+            ),
+          },
+        ],
+      ];
+    },
+  );
+
+/**
+ * @returns a function that gives what the command channel of each channel binding of a
+ * write needs, from the fields of the open ICDs, current with each edit.
+ */
+export const useCommandChannels = (): ((
+  write: { icd: icd.Key; message: icd.WriteMessage },
+  naming: ChannelNaming,
+) => Task.CommandChannelSpec[]) => {
+  const messages = useMessages();
+  return ({ icd: key, message }, naming) =>
+    commandChannels(
+      jsonFields(messages.get(key)?.find((m) => m.key === message.message)),
+      message,
+      naming,
+    ).map(([, spec]) => spec);
+};
+
+/**
  * Gives each channel binding of write a command channel that its field takes: the one
- * it has, the one that record holds at its key, or a new one. A new channel takes the
- * data type of the binding, or the default of its field when the binding names none or
- * one that the field no longer takes. Changes the bindings of write and the channels of
- * record in place.
+ * it has, the one that record holds at its key, or a new one. Changes the bindings of
+ * write and the channels of record in place.
  */
 export const configureChannels = async (
   client: Synnax,
@@ -150,26 +217,11 @@ export const configureChannels = async (
   write: { icd: icd.Key; message: icd.WriteMessage },
   naming: ChannelNaming,
 ): Promise<void> => {
-  const bindings = write.message.bindings.filter(
-    (b): b is icd.ChannelWriteBinding => b.type === "channel",
-  );
-  if (bindings.length === 0) return;
+  if (!write.message.bindings.some(({ type }) => type === "channel")) return;
   const messages = await retrieveMessages(client, [write.icd]);
   const fields = jsonFields(
     messages.get(write.icd)?.find(({ key }) => key === write.message.message),
   );
-  for (const binding of bindings) {
-    const field = fields.find(({ key }) => key === binding.field);
-    // The Core rejects a binding to a field that the message lacks.
-    if (field == null) continue;
-    const { dataType = "" } = binding;
-    const suited = dataType !== "" && encodes(field, dataType);
-    binding.channel = await Task.configureCommandChannel(client, record, {
-      propertiesKey: naming.key(field),
-      channel: binding.channel,
-      name: naming.name(field),
-      dataType: bindingDataType(suited ? binding : {}, field),
-      suits: (ch) => encodes(field, ch.dataType.toString()),
-    });
-  }
+  for (const [binding, spec] of commandChannels(fields, write.message, naming))
+    binding.channel = await Task.configureCommandChannel(client, record, spec);
 };

@@ -38,10 +38,12 @@ struct Write;
 struct StatusDetails;
 struct Where;
 struct Cursor;
+struct Configuration;
 struct SecuredChannel;
 struct RetrieveRequest;
 struct Connection;
 struct Server;
+struct Identity;
 struct RetrieveResponse;
 
 constexpr const char *SECURITY_POLICY_BASIC_128_RSA_15 = "Basic128Rsa15";
@@ -220,6 +222,17 @@ struct Cursor {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Configuration holds the server fields that the task forms own.
+struct Configuration {
+    /// @brief reads bind the nodes that read tasks sample to channels.
+    std::vector<Read> reads = {};
+    /// @brief writes bind the nodes that write tasks command to channels.
+    std::vector<Write> writes = {};
+
+    static Configuration parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief SecuredChannel holds the settings of a signed or encrypted connection.
 struct SecuredChannel {
     /// @brief policy is the security policy.
@@ -347,6 +360,20 @@ struct Server {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Identity holds the server fields that the connect form and the scanner's
+/// certificate pin own.
+struct Identity {
+    /// @brief rack is the key of the rack whose Driver connects to the server.
+    ::synnax::rack::Key rack = 0;
+    /// @brief name is a human-readable name for the server.
+    std::string name;
+    /// @brief connection holds the settings that the Driver connects with.
+    Connection connection;
+
+    static Identity parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the servers a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief servers are the servers the request selects.
@@ -355,6 +382,29 @@ struct RetrieveResponse {
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief IdentityUpdate writes the rack, name, and connection of the server.
+struct IdentityUpdate : public Identity {
+    std::string group = "identity";
+
+    static IdentityUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ConfigurationUpdate replaces the bindings of the server. A client sends the
+/// whole group, because a field it leaves out is cleared.
+struct ConfigurationUpdate : public Configuration {
+    std::string group = "configuration";
+
+    static ConfigurationUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Update is a write to one field group of a server.
+using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
+
+Update parse_update(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Update &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("opcua_server", "");
 

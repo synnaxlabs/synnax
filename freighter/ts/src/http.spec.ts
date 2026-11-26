@@ -223,6 +223,85 @@ describe("http", () => {
     expect(err).toBeInstanceOf(TypeError);
   });
 
+  describe("GOAWAY refusals", () => {
+    const refusal = (): TypeError => {
+      const cause = Object.assign(
+        new Error('HTTP/2: "GOAWAY" frame received with code 0'),
+        { code: "UND_ERR_INFO" },
+      );
+      return new TypeError("fetch failed", { cause });
+    };
+
+    const refusingClient = (refusals: number) => {
+      const bodies: unknown[] = [];
+      const c = new HTTPClient({
+        endpoint: ENDPOINT,
+        codec: new binary.JSONCodec(),
+        connector: {
+          fetch: async (target, init) => {
+            bodies.push(init.body);
+            if (bodies.length <= refusals) throw refusal();
+            return await fetch(target, init);
+          },
+          dial: async () => await Promise.reject(new Error("not used")),
+        },
+      });
+      return { c, bodies };
+    };
+
+    test("should send a refused request again", async () => {
+      const { c, bodies } = refusingClient(1);
+      const res = await c.send("/echo", { id: 1, message: "hi" }, messageZ, messageZ);
+      expect(res).toEqual({ id: 2, message: "hi" });
+      expect(bodies).toHaveLength(2);
+      expect(bodies[1]).toBe(bodies[0]);
+    });
+
+    test("should send a refused request again only once", async () => {
+      const { c, bodies } = refusingClient(2);
+      const err = await c
+        .send("/echo", { id: 1 }, messageZ, messageZ)
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(TypeError);
+      expect(bodies).toHaveLength(2);
+    });
+
+    test("should not send a refused stream upload again", async () => {
+      const { c, bodies } = refusingClient(1);
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(encodeJSON({ id: 1 }));
+          controller.close();
+        },
+      });
+      await expect(
+        c.upload("/echo", body, { encoding: "JSON" }, messageZ),
+      ).rejects.toThrow(TypeError);
+      expect(bodies).toHaveLength(1);
+    });
+
+    test("should not send a request again for a GOAWAY with an error", async () => {
+      const cause = Object.assign(
+        new Error('HTTP/2: "GOAWAY" frame received with code 2'),
+        { code: "UND_ERR_SOCKET" },
+      );
+      let calls = 0;
+      const c = new HTTPClient({
+        endpoint: ENDPOINT,
+        codec: new binary.JSONCodec(),
+        connector: {
+          fetch: async () => {
+            calls++;
+            throw new TypeError("fetch failed", { cause });
+          },
+          dial: async () => await Promise.reject(new Error("not used")),
+        },
+      });
+      await expect(c.send("/echo", {}, messageZ, messageZ)).rejects.toThrow();
+      expect(calls).toBe(1);
+    });
+  });
+
   describe("timeout", () => {
     let server: Server;
 

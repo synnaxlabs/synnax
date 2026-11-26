@@ -26,7 +26,11 @@ import { type color, TimeSpan } from "@synnaxlabs/x";
 import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { Paint } from "@/feature/schematic/symbol/edit/Paint";
-import { useValues, type Values } from "@/feature/schematic/symbol/edit/useValues";
+import {
+  useEntryColor,
+  useValues,
+  type Values,
+} from "@/feature/schematic/symbol/edit/useValues";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -36,7 +40,8 @@ type Look = schematic.symbol.Look;
 
 interface InspectorContextValue {
   part: Spec.Target;
-  preview: number;
+  /** preview is the state that the inspector edits, at the value on the canvas. */
+  preview: Spec.At;
   values: Values;
 }
 
@@ -58,14 +63,19 @@ const [FieldContext, useFieldContext] = context.create<FieldContextValue>({
 });
 
 interface Scope<F extends Spec.Field> extends InspectorContextValue, FieldContextValue {
-  /** shown is the value whose looks the control shows. */
-  shown: number;
+  /** shown is the value of a state whose looks the control shows. */
+  shown: Spec.At;
   looks: Look[];
+  states: schematic.symbol.State[];
   value: Look[F] | undefined;
-  /** inherited is what a look on the whole drawing gives the part. */
+  /** inherited is what a look of the whole drawing, or of another state, gives. */
   inherited: Look[F] | undefined;
-  /** own is what a look of the part itself gives it. */
+  /** inheritedFrom names the other state whose look gives inherited, if one does. */
+  inheritedFrom?: string;
+  /** own is what a look of the target with no condition or on the shown state gives. */
   own: Look[F] | undefined;
+  /** lock says why the control cannot change its field, if it cannot. */
+  lock?: string;
   onChange: (value: Look[F] | undefined) => void;
 }
 
@@ -74,30 +84,54 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
   const inspector = useInspectorContext(name);
   const field = useFieldContext(name);
   const looks = Form.useFieldValue(path.data.looks);
+  const states = Form.useFieldValue(path.data.states);
   const { get, set } = Form.useContext();
   const { part, preview } = inspector;
   const { at } = field;
   // A control for every value shows what the canvas draws at the preview value.
-  const shown = at ?? preview;
+  const shown: Spec.At = at == null ? preview : { ...preview, value: at };
   const f = field.field as F;
+  const symbol = { looks, states };
+  const source = Spec.source(symbol, part, f, shown);
+  const inherited = Spec.inheritedSource(symbol, part, f, shown);
+  const other = (look?: Look): string | undefined => {
+    const key = look?.when?.state;
+    return key == null || key === shown.state
+      ? undefined
+      : states.find((s) => s.key === key)?.name;
+  };
+  // An edit at every value adds a look that a look of the target on a value hides.
+  const covering = at == null && source?.part === part ? other(source) : undefined;
+  // On a state with one value, the edit goes in at that value, after the covering look.
+  const { list } = inspector.values;
+  const one = covering != null && list.length === 1 ? list[0].value : undefined;
+  const edited = at ?? one;
+  // Property offers By state only for a state with more than one value.
+  const orByState = list.length > 1 ? ", or set it by state" : "";
   return {
     ...inspector,
     ...field,
     shown,
     looks,
-    value: Spec.effective({ looks }, part, f, shown),
-    inherited:
-      part == null ? undefined : Spec.effective({ looks }, undefined, f, shown),
-    own: Spec.own({ looks }, part, f, shown),
+    states,
+    value: source?.[f],
+    inherited: inherited?.[f],
+    inheritedFrom: other(inherited),
+    own: Spec.own(symbol, part, f, shown),
+    lock:
+      covering == null || one != null
+        ? undefined
+        : `${covering} gives this. Change it there${orByState}.`,
     onChange: (v) => {
       const spec = get(path.data).value;
       // A stored static symbol can hold looks on Base, which an edit at every value
       // would not reach.
       const from =
-        spec.variant === "static"
+        spec.variant === "static" && !FLAGS.symbolNodes
           ? { ...spec, looks: Spec.staticLooks(spec.looks) }
           : spec;
-      set(path.data, Spec.setOwn(from, part, f, v, at));
+      const to = edited == null ? undefined : { ...shown, value: edited };
+      set(path.data, Spec.setOwn(from, part, f, v, to));
     },
   };
 };
@@ -122,11 +156,15 @@ const Property = ({
   const { part, values } = useInspectorContext("Property");
   const looks = Form.useFieldValue(path.data.looks);
   const { get, set } = Form.useContext();
-  const [split, setSplit] = useState(() => Spec.variesByValue({ looks }, part, field));
+  const { state } = values;
+  const [split, setSplit] = useState(() =>
+    Spec.variesByValue({ looks }, part, field, state),
+  );
   const several = values.list.length > 1;
   // A static symbol has one value, so it ends By state.
   if (split && !several) setSplit(false);
-  const varies = several && (split || Spec.variesByValue({ looks }, part, field));
+  const varies =
+    several && (split || Spec.variesByValue({ looks }, part, field, state));
   const handleVariesChange = (next: boolean) => {
     set(
       path.data,
@@ -134,6 +172,7 @@ const Property = ({
         get(path.data).value,
         part,
         field,
+        state,
         values.list.map((v) => v.value),
         next,
       ),
@@ -199,39 +238,65 @@ interface PaintControlProps {
 }
 
 const PaintControl = ({ drawingColor }: PaintControlProps): ReactElement => {
-  const { value, inherited, own, onChange, label, shown, values } = useScope<
-    "fill" | "stroke"
-  >("PaintControl");
+  const { value, inherited, inheritedFrom, own, lock, onChange, label, shown, values } =
+    useScope<"fill" | "stroke">("PaintControl");
+  // An entry paint stores its own state, which can differ from the state shown.
+  const entryColor = useEntryColor(
+    value?.type === "entry"
+      ? values.states.find((s) => s.key === value.state)
+      : undefined,
+    Spec.stateValues(shown),
+  );
   return (
     <Paint
       aria-label={label}
       value={value}
       inherited={inherited}
+      inheritedFrom={inheritedFrom}
       own={own}
+      lock={lock}
       onChange={onChange}
       entryState={values.entryState}
       drawingColor={drawingColor}
-      entryColor={values.entryColor(shown)}
+      entryColor={entryColor}
     />
   );
 };
 
 const VisibleControl = (): ReactElement => {
-  const { value, inherited, part, at, values, looks, onChange, label } =
-    useScope<"hidden">("VisibleControl");
-  // A part shown at every value stores false when the drawing hides at any value.
+  const {
+    value,
+    inherited,
+    part,
+    at,
+    values,
+    preview,
+    looks,
+    states,
+    lock,
+    onChange,
+    label,
+  } = useScope<"hidden">("VisibleControl");
+  // Showing stores false when an inherited look hides the target here, or when the
+  // drawing hides a part shown at every value at any value.
   const drawingHides =
-    part != null &&
-    (at == null
-      ? values.list.some(
-          (v) => Spec.effective({ looks }, undefined, "hidden", v.value) === true,
-        )
-      : inherited === true);
+    inherited === true ||
+    (part != null &&
+      at == null &&
+      values.list.some(
+        (v) =>
+          Spec.effective({ looks, states }, undefined, "hidden", {
+            ...preview,
+            value: v.value,
+          }) === true,
+      ));
   return (
     <Input.Checkbox
       aria-label={label}
       value={value !== true}
       onChange={(shown) => onChange(shown ? (drawingHides ? false : undefined) : true)}
+      disabled={lock != null}
+      tooltip={lock}
     />
   );
 };
@@ -239,16 +304,24 @@ const VisibleControl = (): ReactElement => {
 const BLINK: schematic.symbol.Blink = { period: TimeSpan.SECOND.nanoseconds };
 
 const BlinkControl = (): ReactElement => {
-  const { value, inherited, own, onChange, label } = useScope<"blink">("BlinkControl");
+  const { value, inherited, inheritedFrom, own, lock, onChange, label } =
+    useScope<"blink">("BlinkControl");
   // The whole drawing blinks as one shape, so a part can stop only its own blink.
   const locked = inherited != null && own == null;
+  const why =
+    lock ??
+    (!locked
+      ? undefined
+      : inheritedFrom == null
+        ? "The whole drawing blinks, and this part with it."
+        : `${inheritedFrom} blinks this part.`);
   return (
     <Input.Checkbox
       aria-label={label}
       value={value != null}
       onChange={(on) => onChange(on ? BLINK : undefined)}
-      disabled={locked}
-      tooltip={locked ? "The whole drawing blinks, and this part with it." : undefined}
+      disabled={why != null}
+      tooltip={why}
     />
   );
 };
@@ -291,9 +364,16 @@ const FOLLOWS = "Only a client can set a motion that follows a value.";
 const MOVES_WITH_DRAWING = "The whole drawing moves, and this part with it.";
 
 const MotionControl = (): ReactElement => {
-  const { value, inherited, own, onChange, label } =
+  const { value, inherited, inheritedFrom, own, lock, onChange, label } =
     useScope<"motion">("MotionControl");
   const locked = inherited != null && own == null;
+  const why =
+    lock ??
+    (!locked
+      ? undefined
+      : inheritedFrom == null
+        ? MOVES_WITH_DRAWING
+        : `${inheritedFrom} moves this part.`);
   const moving = value?.type === "spin" || value?.type === "flow" ? value : undefined;
   const handleKindChange = (kind: schematic.symbol.MotionType | "none") => {
     if (kind === "none") return onChange(undefined);
@@ -313,12 +393,7 @@ const MotionControl = (): ReactElement => {
         size="small"
         align="center"
       >
-        <Select.Item
-          itemKey="none"
-          size="small"
-          disabled={locked}
-          tooltip={locked ? MOVES_WITH_DRAWING : undefined}
-        >
+        <Select.Item itemKey="none" size="small" disabled={why != null} tooltip={why}>
           None
         </Select.Item>
         {MOTIONS.map(({ name, kinds }) => {
@@ -335,10 +410,8 @@ const MotionControl = (): ReactElement => {
                   key={k.kind}
                   itemKey={k.kind}
                   size="small"
-                  disabled={locked || !isLoop(k.kind)}
-                  tooltip={
-                    !isLoop(k.kind) ? FOLLOWS : locked ? MOVES_WITH_DRAWING : undefined
-                  }
+                  disabled={why != null || !isLoop(k.kind)}
+                  tooltip={!isLoop(k.kind) ? FOLLOWS : why}
                 >
                   {k.name}
                 </Select.Item>
@@ -353,7 +426,7 @@ const MotionControl = (): ReactElement => {
           size="small"
           value={moving.rate}
           onChange={(rate) => onChange({ ...moving, rate })}
-          disabled={locked}
+          disabled={why != null}
           showDragHandle={false}
           endContent="/s"
           className={CSS.BE("schematic-inspector", "rate")}
@@ -365,8 +438,8 @@ const MotionControl = (): ReactElement => {
 
 export interface InspectorProps {
   part: Spec.Target;
-  /** preview is the value that the canvas draws. */
-  preview: number;
+  /** preview is the state and value that the canvas draws, from Spec.resolvePreview. */
+  preview: Spec.At;
 }
 
 const LEVEL_ISSUES: Record<
@@ -431,7 +504,7 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
   const parts = Form.useFieldValue(path.data.parts);
   const drawing = Form.useFieldValue(path.data.drawing);
   const looks = Form.useFieldValue(path.data.looks);
-  const values = useValues();
+  const values = useValues(preview.state);
   const part = parts.find((p) => p.key === key);
   const drawn =
     part == null
@@ -442,7 +515,13 @@ export const Inspector = ({ part: key, preview }: InspectorProps): ReactElement 
       ? Spec.levelIssues({ drawing, parts, looks }).get(part.key)
       : undefined;
   return (
-    <InspectorContext value={{ part: part?.key, preview, values }}>
+    <InspectorContext
+      value={{
+        part: part?.key,
+        preview,
+        values,
+      }}
+    >
       <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
         <Flex.Box y gap={0}>
           <Text.Text level="h5">{part?.name ?? "Whole drawing"}</Text.Text>

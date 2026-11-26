@@ -222,6 +222,16 @@ export const writeEndpointZ = z.object({
   headers: headerZ.array().default(() => []),
   /** queryParams contains query parameters appended to the request URL. */
   queryParams: queryParamZ.array().default(() => []),
+  /**
+   * icd is the key of the ICD that holds the message of the endpoint. Absent when the
+   * endpoint sends no message.
+   */
+  icd: icd.keyZ.optional(),
+  /**
+   * message is the message whose document is the request body. A command on any bound
+   * channel sends one request.
+   */
+  message: icd.writeMessageZ.optional(),
   /** channel is the command channel whose writes trigger this endpoint. */
   channel: channelFieldZ.prefault({}),
   /** fields contains additional static or generated body fields. */

@@ -20,12 +20,13 @@ import {
   type Synnax as Client,
 } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
+import { Schematic } from "@synnaxlabs/pluto";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { createElement, type ReactElement } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
 import {
   client,
@@ -103,6 +104,29 @@ describe("Schematic toolbar Symbols", () => {
       ).toBe("valves"),
     );
     expect(await screen.findByText("Ball")).toBeDefined();
+  });
+
+  it("lists a symbol group past the first page of groups", async () => {
+    const keys: group.Key[] = [];
+    onTestFinished(async () => await client.groups.delete(keys));
+    await Promise.all(
+      Array.from({ length: 1000 }, async () => {
+        const { key } = await client.groups.create({
+          scope: "schematic_symbol",
+          name: uniqueName("filler_grp"),
+        });
+        keys.push(key);
+      }),
+    );
+    // The Core lists groups by key, so this key puts the group after every filler.
+    const last = await client.groups.create({
+      key: `ffffffff-ffff-4fff-bfff-${crypto.randomUUID().slice(-12)}`,
+      scope: "schematic_symbol",
+      name: uniqueName("last_grp"),
+    });
+    keys.push(last.key);
+    await renderSymbolsToolbar();
+    expect(await screen.findByText(last.name)).toBeTruthy();
   });
 
   it("searches static symbols across groups", async () => {
@@ -252,6 +276,85 @@ describe("Schematic toolbar Symbols", () => {
     await act(async () => {});
     expect(screen.queryByText("Rename")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  const openDuplicateTo = async (): Promise<HTMLElement> => {
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.contextMenu(await screen.findByText("Ball"));
+    fireEvent.click(await screen.findByText("Duplicate to"));
+    return await screen.findByLabelText("Duplicate to");
+  };
+
+  const findCopy = async (grp: group.Key): Promise<schematic.symbol.Symbol> =>
+    await waitFor(async () => {
+      const [copy] = await client.schematics.symbols.retrieve({ groups: [grp] });
+      if (copy == null) throw new Error("no copy yet");
+      return copy;
+    });
+
+  it("duplicates a built-in symbol into a custom group and opens the copy", async () => {
+    const { grp } = await createRemoteSymbolGroup([]);
+    const { key, store } = await renderSymbolsToolbar();
+    fireEvent.click(within(await openDuplicateTo()).getByText(grp.name));
+    const copy = await findCopy(grp.key);
+    expect(copy.name).toBe("Ball (copy)");
+    expect(copy.data).toEqual(Schematic.Node.BUILT_INS.get("ball_valve"));
+    await waitFor(() =>
+      expect(
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+          .selectedSymbolGroup,
+      ).toBe(grp.key),
+    );
+    expect(await screen.findByDisplayValue("Ball (copy)")).toBeDefined();
+  });
+
+  it("duplicates a built-in symbol into a group it creates", async () => {
+    await renderSymbolsToolbar();
+    fireEvent.click(within(await openDuplicateTo()).getByText("New group…"));
+    const input = await screen.findByPlaceholderText<HTMLInputElement>("Name");
+    const name = uniqueName("dup_grp");
+    fireEvent.change(input, { target: { value: name } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    const created = await waitFor(async () => {
+      const [found] = await client.groups.retrieve({ searchTerm: name });
+      if (found?.name !== name) throw new Error(`group ${name} not created`);
+      return found;
+    });
+    expect(created.scope).toBe("schematic_symbol");
+    expect((await findCopy(created.key)).name).toBe("Ball (copy)");
+  });
+
+  it("duplicates a built-in symbol found by search", async () => {
+    const { grp } = await createRemoteSymbolGroup([]);
+    await renderSymbolsToolbar();
+    await screen.findByText("Gauge");
+    fireEvent.change(screen.getByPlaceholderText("Search symbols..."), {
+      target: { value: "ball" },
+    });
+    fireEvent.contextMenu(await screen.findByText("Ball"));
+    fireEvent.click(await screen.findByText("Duplicate to"));
+    const menu = await screen.findByLabelText("Duplicate to");
+    fireEvent.click(within(menu).getByText(grp.name));
+    expect((await findCopy(grp.key)).name).toBe("Ball (copy)");
+  });
+
+  it("offers the remote symbol menu in search results", async () => {
+    const name = uniqueName("found_sym");
+    await createRemoteSymbolGroup([name]);
+    await renderSymbolsToolbar();
+    await screen.findByText("Gauge");
+    fireEvent.change(screen.getByPlaceholderText("Search symbols..."), {
+      target: { value: name },
+    });
+    fireEvent.contextMenu(await screen.findByText(name));
+    expect(await screen.findByText("Edit")).toBeDefined();
+  });
+
+  it("offers no Duplicate to for a built-in with no symbol spec", async () => {
+    await renderSymbolsToolbar();
+    fireEvent.contextMenu(await screen.findByText("Gauge"));
+    expect(await screen.findByText("Reload Console")).toBeDefined();
+    expect(screen.queryByText("Duplicate to")).toBeNull();
   });
 
   it("creates a new symbol group through the actions bar and selects it", async () => {
@@ -457,6 +560,25 @@ describe("schematic/toolbar/Symbols permissions", () => {
       expect(getIconButtons(result.container, "group-create")).toHaveLength(1),
     );
     expect(getIconButtons(result.container, "schematic-create")).toHaveLength(1);
+  });
+
+  it("should withhold Duplicate to from an editor who cannot add symbols", async () => {
+    await renderSymbolsToolbar(await createEditor());
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.contextMenu(await screen.findByText("Ball"));
+    expect(await screen.findByText("Reload Console")).toBeDefined();
+    expect(screen.queryByText("Duplicate to")).toBeNull();
+  });
+
+  it("should withhold New group from an editor who cannot add groups", async () => {
+    await renderSymbolsToolbar(
+      await createEditor({ create: [schematicClient.symbol.TYPE_RESOURCE_ID] }),
+    );
+    fireEvent.click(await screen.findByText("Valves"));
+    fireEvent.contextMenu(await screen.findByText("Ball"));
+    fireEvent.click(await screen.findByText("Duplicate to"));
+    await screen.findByLabelText("Duplicate to");
+    expect(screen.queryByText("New group…")).toBeNull();
   });
 
   const openSymbolMenu = async (as: Client) => {

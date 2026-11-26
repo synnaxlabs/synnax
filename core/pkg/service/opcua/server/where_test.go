@@ -16,13 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -48,19 +43,9 @@ var _ = Describe("Where", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		whereDB = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(whereDB.Run)
-		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: whereDB}))
-		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: whereDB}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: whereDB}))
-		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: whereDB}))
-		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-			DB:      whereDB,
-			HostKey: 1,
-			Status:  stat,
-			DriverRole: MustSucceed(
-				racktestutil.CreateDriverRole(ctx, whereDB, roleSvc),
-			),
-		}))
-		svc = MustOpen(server.OpenService(ctx, server.ServiceConfig{DB: whereDB}))
+		e := openEnv(ctx, whereDB, nil)
+		racks := e.racks
+		svc = e.svc
 		rackKeys := lo.Uniq(lo.MapToSlice(v.Records, func(
 			_ string,
 			d server.Server,

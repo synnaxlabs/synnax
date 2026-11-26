@@ -24,6 +24,7 @@ import {
   expectDeleted,
   expectLive,
   holdRequests,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -445,7 +446,7 @@ describe("dispatch", () => {
     await expect(fresh.labels.dispatch(lbl.key, rename("Anomaly"))).rejects.toThrow(
       NotCachedError,
     );
-    expect(send).not.toHaveBeenCalled();
+    expect(requestsTo(send, "/label/dispatch")).toEqual([]);
   });
 
   it("should drop actions the Core refuses from the cached label", async () => {
