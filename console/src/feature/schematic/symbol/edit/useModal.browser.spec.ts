@@ -1661,6 +1661,287 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    const GO: schematic.symbol.Command = {
+      key: "go",
+      name: "Go",
+      value: { type: "fixed", value: 0 },
+    };
+
+    // openFault opens a symbol with a Fault state on OK and Trip, and the command Go.
+    const openFault = async (go: schematic.symbol.Command = GO) => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
+      return await openPainted({ states: [createState(), fault], commands: [go] });
+    };
+
+    it("edits the state and the entry that a selected command sends", async () => {
+      const symbol = await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(within(getInspector()).getByText("Fault"));
+      fireEvent.click(await within(getInspector()).findByText("Trip"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([
+          { ...GO, state: "fault", value: { type: "fixed", value: 2 } },
+        ]);
+      });
+    });
+
+    it("sends 0 when the state of an ask command goes", async () => {
+      const symbol = await openFault({ ...GO, state: "fault", value: { type: "ask" } });
+      fireEvent.click(screen.getByText("Go"));
+      fireEvent.click(await within(getInspector()).findByText("None"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([GO]);
+      });
+    });
+
+    it("shows the part again on a click of the part after a command", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(getPartListItem("Body"));
+      expect(await screen.findByRole("heading", { name: "Body" })).toBeDefined();
+    });
+
+    it("previews a state that the state list picks", async () => {
+      await openFault();
+      // The state list comes before the preview bar, which also names Fault.
+      fireEvent.click(screen.getAllByText("Fault")[0]);
+      byState("Fill");
+      expect(await screen.findByLabelText("Fill while Trip")).toBeDefined();
+    });
+
+    it("keeps a command that a toggle sends fixed on its state", async () => {
+      const createCommand = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "active",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+        commands: [createCommand("off", 0), createCommand("on", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "on"] }],
+      });
+      fireEvent.click(screen.getByText("on"));
+      await screen.findByRole("heading", { name: "on" });
+      const disabled = (name: string) =>
+        within(getInspector())
+          .getByRole("button", { name })
+          .getAttribute("aria-disabled");
+      expect(disabled("Fixed")).not.toBe("true");
+      expect(disabled("None")).toBe("true");
+      expect(disabled("Fault")).toBe("true");
+      expect(disabled("Ask")).toBe("true");
+      // Off sends Base, so On cannot.
+      expect(disabled("Base")).toBe("true");
+    });
+
+    it("turns off an entry that matches the value of the other command", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          { key: "closed", value: 0, name: "Closed" },
+          { key: "open", value: 1, name: "Open" },
+          { key: "wide", value: 2, name: "Wide" },
+        ],
+      });
+      const send = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "active",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [
+          {
+            type: "enumeration",
+            key: "active",
+            name: "Active",
+            enumeration: enumeration.key,
+            match: { type: "within", bounds: { lower: 1, upper: 3 } },
+            default: 0,
+          },
+        ],
+        commands: [send("close", 0), send("open", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["close", "open"] }],
+      });
+      fireEvent.click(screen.getByText("close"));
+      await screen.findByRole("heading", { name: "close" });
+      const disabled = async (name: string) =>
+        (await within(getInspector()).findByRole("button", { name })).getAttribute(
+          "aria-disabled",
+        );
+      expect(await disabled("Closed")).not.toBe("true");
+      // Open and Wide both read as 1 on the state, and Open sends 1.
+      expect(await disabled("Wide")).toBe("true");
+    });
+
+    it("shows an error for a number that the other command sends", async () => {
+      const send = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "tank",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [
+          createState(),
+          {
+            type: "number",
+            key: "tank",
+            name: "Tank",
+            bounds: { lower: 0, upper: 100 },
+          },
+        ],
+        commands: [send("drain", 0), send("fill", 40)],
+        interactions: [{ type: "next", key: "c", commands: ["drain", "fill"] }],
+      });
+      fireEvent.click(screen.getByText("drain"));
+      await screen.findByRole("heading", { name: "drain" });
+      const input = within(getInspector()).getByRole<HTMLInputElement>("textbox");
+      fireEvent.change(input, { target: { value: "40" } });
+      fireEvent.blur(input);
+      expect(
+        await within(getInspector()).findByText(
+          "The other command of its toggle sends this value.",
+        ),
+      ).toBeDefined();
+      expect(input.value).toBe("40");
+    });
+
+    it("saves a command that asks for a value", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [
+          {
+            key: "set",
+            name: "Set",
+            state: "active",
+            value: { type: "fixed", value: 0 },
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Set"));
+      await screen.findByRole("heading", { name: "Set" });
+      fireEvent.click(within(getInspector()).getByRole("button", { name: "Ask" }));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
+          { key: "set", name: "Set", state: "active", value: { type: "ask" } },
+        ]),
+      );
+    });
+
+    it("saves the number that a command sends on a number state", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [
+          createState(),
+          {
+            type: "number",
+            key: "tank",
+            name: "Tank",
+            bounds: { lower: 0, upper: 100 },
+          },
+        ],
+        commands: [
+          {
+            key: "top",
+            name: "Top up",
+            state: "tank",
+            value: { type: "fixed", value: 0 },
+          },
+        ],
+      });
+      fireEvent.click(screen.getByText("Top up"));
+      await screen.findByRole("heading", { name: "Top up" });
+      const input = within(getInspector()).getByRole("textbox");
+      fireEvent.change(input, { target: { value: "40" } });
+      fireEvent.blur(input);
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.commands).toEqual([
+          {
+            key: "top",
+            name: "Top up",
+            state: "tank",
+            value: { type: "fixed", value: 40 },
+          },
+        ]),
+      );
+    });
+
+    it("drops the selection of a removed command", async () => {
+      await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [
+          { key: "command-1", name: "Command 1", value: { type: "fixed", value: 0 } },
+        ],
+      });
+      fireEvent.click(screen.getByText("Command 1"));
+      await screen.findByRole("heading", { name: "Command 1" });
+      fireEvent.click(screen.getByLabelText("Remove Command 1"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
+      await awaitTextEditingElement();
+      const inspector = within(getInspector());
+      expect(inspector.queryByRole("heading", { name: "Command 1" })).toBeNull();
+      expect(inspector.getByRole("heading", { name: "Whole drawing" })).toBeDefined();
+    });
+
+    it("starts a fixed value at the default of a new state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("mode"),
+        entries: [
+          { key: "one", value: 1, name: "One" },
+          { key: "two", value: 2, name: "Two" },
+        ],
+      });
+      const mode = {
+        ...createState(enumeration.key),
+        key: "mode",
+        name: "Mode",
+        default: 2,
+      };
+      const symbol = await openPainted({
+        states: [createState(), mode],
+        commands: [GO],
+      });
+      fireEvent.click(screen.getByText("Go"));
+      fireEvent.click(await within(getInspector()).findByText("Mode"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([
+          { ...GO, state: "mode", value: { type: "fixed", value: 2 } },
+        ]);
+      });
+    });
+
+    it("shows the whole drawing again on a click of it after a command", async () => {
+      await openFault();
+      fireEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      fireEvent.click(getPartListItem("Whole drawing"));
+      expect(
+        await screen.findByRole("heading", { name: "Whole drawing" }),
+      ).toBeDefined();
+    });
+
     it("saves a symbol with no click as static", async () => {
       const symbol = await openPainted({
         variant: "actuator",
