@@ -135,6 +135,7 @@ var _ = Describe("Reads on the pointer log", func() {
 		)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    telem.SecondTS,
 		}))
 		const commits = 10
@@ -189,6 +190,7 @@ var _ = Describe("Reads on the pointer log", func() {
 		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, series), nil))
@@ -217,6 +219,7 @@ var _ = Describe("Reads on the pointer log", func() {
 		)).To(Succeed())
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    telem.SecondTS,
 		}))
 		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
