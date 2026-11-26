@@ -626,13 +626,14 @@ x::errors::Error JSONEncoder::Field::append(
     const auto n = x::json::to_number(sample).value();
     const auto v = n.to_float64();
     if (!std::isfinite(v)) return invalid(n.to_string() + " is not a JSON number");
+    if (this->kind == payload::KIND_INTEGER || this->kind == payload::KIND_UNSIGNED)
+        return this->append_integer(n, out);
     const auto *narrow = std::get_if<float>(&sample);
     if (auto err = narrow != nullptr ? check_limits(this->base, *narrow)
                                      : check_limits(this->base, v))
         return err;
     if (this->kind == payload::KIND_FLOAT)
         return x::json::append_float((v - this->offset) / this->scale, out);
-    if (this->kind != payload::KIND_BOOLEAN) return this->append_integer(n, out);
     if (v != 0 && v != 1)
         return invalid(x::json::Number(v).to_string() + " is not 0 or 1");
     out += v == 1 ? "true" : "false";
@@ -642,19 +643,20 @@ x::errors::Error JSONEncoder::Field::append(
 x::errors::Error
 JSONEncoder::Field::append_integer(const x::json::Number &n, std::string &out) const {
     const bool integer = this->kind == payload::KIND_INTEGER;
-    if (!this->scaled) {
-        if (const auto v = n.to_int64(); integer && v.has_value()) {
-            out += std::to_string(*v);
-            return x::errors::NIL;
-        }
-        if (const auto v = n.to_uint64(); !integer && v.has_value()) {
-            out += std::to_string(*v);
-            return x::errors::NIL;
-        }
-    }
     auto v = n.to_float64();
     if (this->scaled) v = (v - this->offset) / this->scale;
     const auto r = std::round(v);
+    if (auto err = check_raw_limits(this->base, r)) return err;
+    if (!this->scaled) {
+        if (const auto i = n.to_int64(); integer && i.has_value()) {
+            out += std::to_string(*i);
+            return x::errors::NIL;
+        }
+        if (const auto u = n.to_uint64(); !integer && u.has_value()) {
+            out += std::to_string(*u);
+            return x::errors::NIL;
+        }
+    }
     if (integer && r >= -0x1p63 && r < 0x1p63) {
         out += std::to_string(static_cast<std::int64_t>(r));
         return x::errors::NIL;
