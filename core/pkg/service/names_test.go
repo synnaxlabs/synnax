@@ -17,11 +17,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelversions "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
@@ -74,7 +79,7 @@ func storeV062(
 		ctx,
 		n.DB,
 		"Channel",
-		channelversions.Migrations,
+		channelversions.NewMigrations(1),
 		"v63_channel_name_rule",
 	)
 	markAppliedBefore(
@@ -114,6 +119,95 @@ func storeV062(
 // folder returns a top-level channel folder named name.
 func folder(name string) groupv1.Group {
 	return groupv1.Group{Key: uuid.New(), Name: name, Scope: resource.TypeChannel}
+}
+
+// storeArcs opens the Arc table of n once, as v0.62 did, and stores an Arc with each
+// text source and one with a graph function of each body, in its root directory. It
+// returns the keys of the Arcs.
+func storeArcs(
+	ctx context.Context,
+	n testutil.Node,
+	texts, bodies []string,
+) []svcarc.Key {
+	GinkgoHelper()
+	Expect(MustSucceed(svcarc.OpenTable(ctx, svcarc.TableConfig{DB: n.DB})).Close()).
+		To(Succeed())
+	isRoot := func(_ gorp.Context, d *directory.Directory) (bool, error) {
+		return d.Parent == nil, nil
+	}
+	var root directory.Directory
+	Expect(gorp.NewRetrieve[directory.Key, directory.Directory]().
+		Where(gorp.Match(isRoot)).
+		Entry(&root).
+		Exec(ctx, n.DB)).To(Succeed())
+	arcs := make([]svcarc.Arc, 0, len(texts)+len(bodies))
+	for _, raw := range texts {
+		arcs = append(arcs, svcarc.Arc{Variant: svcarc.AutomationArc{Base: svcarc.Base{
+			Key:       uuid.New(),
+			Name:      "text",
+			Directory: &root.Key,
+			Source: svcarc.Source{Variant: svcarc.TextSource{
+				Text: text.Text{Doc: text.Create(raw)},
+			}},
+		}}})
+	}
+	for _, body := range bodies {
+		arcs = append(arcs, svcarc.Arc{Variant: svcarc.AutomationArc{Base: svcarc.Base{
+			Key:       uuid.New(),
+			Name:      "graph",
+			Directory: &root.Key,
+			Source: svcarc.Source{Variant: svcarc.GraphSource{Graph: graph.Graph{
+				Functions: ir.Functions{{Key: "f", Body: ir.Body{Raw: body}}},
+			}}},
+		}}})
+	}
+	Expect(gorp.WrapWriter[svcarc.Key, svcarc.Arc](n.DB).Set(ctx, arcs...)).
+		To(Succeed())
+	keys := make([]svcarc.Key, len(arcs))
+	for i, a := range arcs {
+		keys[i] = a.Base().Key
+	}
+	return keys
+}
+
+// sourceOf returns the text of the Arc with key, or the body of its graph function.
+func sourceOf(ctx context.Context, n testutil.Node, key svcarc.Key) string {
+	GinkgoHelper()
+	var a svcarc.Arc
+	Expect(gorp.NewRetrieve[svcarc.Key, svcarc.Arc]().
+		Where(gorp.MatchKeys[svcarc.Key, svcarc.Arc](key)).
+		Entry(&a).
+		Exec(ctx, n.DB)).To(Succeed())
+	switch src := a.Base().Source.Variant.(type) {
+	case svcarc.TextSource:
+		return src.Text.Materialize().Raw
+	case svcarc.GraphSource:
+		return src.Graph.Functions[0].Body.Raw
+	}
+	Fail("unexpected source")
+	return ""
+}
+
+// expressionOf returns the expression of the stored channel with key.
+func expressionOf(ctx context.Context, n testutil.Node, key channel.Key) string {
+	GinkgoHelper()
+	var c channel.Channel
+	Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
+		Where(gorp.MatchKeys[channel.Key, channel.Channel](key)).
+		Entry(&c).
+		Exec(ctx, n.DB)).To(Succeed())
+	return c.Expression
+}
+
+// folderName returns the name of the stored channel folder with key.
+func folderName(ctx context.Context, n testutil.Node, key group.Key) string {
+	GinkgoHelper()
+	var f group.Group
+	Expect(gorp.NewRetrieve[group.Key, group.Group]().
+		Where(gorp.MatchKeys[group.Key, group.Group](key)).
+		Entry(&f).
+		Exec(ctx, n.DB)).To(Succeed())
+	return f.Name
 }
 
 // namesOf returns the name of each stored channel by key.
@@ -223,14 +317,14 @@ var _ = Describe("Name upgrade", func() {
 			))
 			Expect(statuses["pressure_2"].Description).To(Equal(
 				`The upgrade renamed channel "pressure" to "pressure_2", because ` +
-					"another channel in the same folder held the same name. Update each " +
-					"reference to the old name outside Synnax.",
+					"another channel or a folder beside it held the same name. Update " +
+					"each reference to the old name outside Synnax.",
 			))
 			Expect(statuses["pt�"].Description).To(ContainSubstring(
 				"because the old name held bytes that are not valid text.",
 			))
 			Expect(statuses["Rigs_2"].Description).To(ContainSubstring(
-				"because another folder beside it held the same name.",
+				"because another folder or a channel beside it held the same name.",
 			))
 			Expect(MustSucceed(resourcev0.StagedRenames(n.DB))).To(BeEmpty())
 		})
@@ -267,6 +361,62 @@ var _ = Describe("Name upgrade", func() {
 			Expect(deps.Reads.Contains(bound)).To(BeTrue())
 			Expect(deps.Reads.Contains(other)).To(BeFalse())
 		})
+
+	It("Should rename a folder that holds the name of a channel beside it",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			rigs := folder("Rigs")
+			stored := storeV062(
+				ctx,
+				n,
+				[]string{"Rigs"},
+				func([]channelv1.Channel) {},
+				rigs,
+			)
+			MustOpen(svctestutil.OpenLayer(ctx, n))
+			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("Rigs"))
+			Expect(folderName(ctx, n, rigs.Key)).To(Equal("Rigs_2"))
+			Expect(renameStatuses(ctx, n)["Rigs_2"].Description).To(Equal(
+				`The upgrade renamed folder "Rigs" to "Rigs_2", because another ` +
+					"folder or a channel beside it held the same name. Update each " +
+					"reference to the old name outside Synnax.",
+			))
+		})
+
+	It("Should move a top-level channel off the name of the Metrics folder and write "+
+		"its new name into text", func(ctx SpecContext) {
+		n := testutil.NewNode(ctx)
+		metrics := folder(groupv1.MetricsFolder)
+		stored := storeV062(
+			ctx,
+			n,
+			[]string{groupv1.MetricsFolder, "doubled"},
+			func(cs []channelv1.Channel) { cs[1].Expression = "return Metrics * 2" },
+			metrics,
+		)
+		arcs := storeArcs(ctx, n, []string{"x := Metrics * 2"}, []string{"{ Metrics }"})
+		check := func() {
+			GinkgoHelper()
+			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("Metrics_2"))
+			Expect(folderName(ctx, n, metrics.Key)).To(Equal(groupv1.MetricsFolder))
+			Expect(expressionOf(ctx, n, stored[1].Key())).
+				To(Equal("return Metrics_2 * 2"))
+			Expect(sourceOf(ctx, n, arcs[0])).To(Equal("x := Metrics_2 * 2"))
+			Expect(sourceOf(ctx, n, arcs[1])).To(Equal("{ Metrics_2 }"))
+			statuses := renameStatuses(ctx, n)
+			Expect(statuses).To(HaveLen(1))
+			Expect(statuses["Metrics_2"].Description).To(Equal(
+				`The upgrade renamed channel "Metrics" to "Metrics_2", because ` +
+					"another channel or a folder beside it held the same name. Update " +
+					"each reference to the old name outside Synnax.",
+			))
+		}
+		first := MustSucceed(svctestutil.OpenLayer(ctx, n))
+		check()
+		Expect(first.Close()).To(Succeed())
+		MustOpen(svctestutil.OpenLayer(ctx, n))
+		check()
+	})
 
 	It("Should rename the storage of a renamed channel", func(ctx SpecContext) {
 		n := testutil.NewNode(ctx)

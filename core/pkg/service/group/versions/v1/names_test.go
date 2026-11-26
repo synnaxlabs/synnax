@@ -122,6 +122,25 @@ var _ = Describe("NameRuleMigration", func() {
 			Expect(names[first]).To(Equal("Caf\u00E9_2"))
 		})
 
+	It("Should leave each top-level Metrics folder to the clash pass",
+		func(ctx SpecContext) {
+			parent := groupID(third)
+			a, b := uuid.New(), uuid.New()
+			names := migrate(
+				ctx,
+				folder(first, v1.MetricsFolder, nil),
+				folder(second, v1.MetricsFolder, nil),
+				folder(third, "Rigs", nil),
+				folder(a, v1.MetricsFolder, &parent),
+				folder(b, v1.MetricsFolder, &parent),
+			)
+			Expect(names[first]).To(Equal(v1.MetricsFolder))
+			Expect(names[second]).To(Equal(v1.MetricsFolder))
+			Expect([]string{names[a], names[b]}).
+				To(ConsistOf(v1.MetricsFolder, v1.MetricsFolder+"_2"))
+			Expect(MustSucceed(resourcev0.StagedRenames(db))).To(HaveLen(1))
+		})
+
 	It("Should give a new name the first suffix that no sibling holds",
 		func(ctx SpecContext) {
 			parent := groupID(third)
