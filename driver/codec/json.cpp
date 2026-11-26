@@ -201,6 +201,7 @@ bool absent(const std::string_view raw, const x::telem::DataType &dt) {
 std::pair<JSON::Field, x::errors::Error>
 JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     auto [pointer, ptr_err] = x::json::Pointer::parse(b.pointer);
     if (ptr_err) return {Field{}, ptr_err};
     Field field;
@@ -550,6 +551,7 @@ x::errors::Error JSONEncoder::Default::append(std::string &out) const {
 std::pair<JSONEncoder::Field, x::errors::Error>
 JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     Field field;
     field.name = b.name;
     field.scaled = b.scale != 1 || b.offset != 0;

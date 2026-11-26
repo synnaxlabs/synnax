@@ -81,6 +81,7 @@ std::pair<Text::Field, x::errors::Error> Text::Field::create(
     const std::string_view delimiter
 ) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     Field field{
         .name = b.name,
         .scaled = b.scale != 1 || b.offset != 0,
@@ -329,6 +330,7 @@ std::pair<TextEncoder::Field, x::errors::Error> TextEncoder::Field::create(
             x::errors::Error(CONFIG_ERROR, "needs a channel or a default")
         };
     }
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     const auto [number, err] = number_of(*dt, x::payload::KIND_FLOAT, field.scaled);
     if (err) return {Field{}, err};
     field.number = number;

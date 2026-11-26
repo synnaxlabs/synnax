@@ -137,6 +137,11 @@ x::errors::Error write_float(const double v, const bool narrow, x::telem::Series
     return x::errors::NIL;
 }
 
+x::errors::Error check_scale(const double scale) {
+    if (scale == 0) return {CONFIG_ERROR, "scale must be non-zero"};
+    return x::errors::NIL;
+}
+
 x::errors::Error check_scaled_channel(const bool scaled, const x::telem::DataType &dt) {
     if (!scaled || kind_of(dt) == payload::KIND_FLOAT) return x::errors::NIL;
     return {CONFIG_ERROR, "a scaled field requires a float channel, not " + dt.name()};

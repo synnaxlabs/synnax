@@ -127,8 +127,8 @@ public:
     /// @returns CONFIG_ERROR when two messages have no identifier, two identifiers
     /// match the same CAN identifier or the same value of one field layout, an
     /// identifier is invalid, a binding names no field of its message, a field's
-    /// layout, default, or multiplexor is invalid, or a field does not convert to the
-    /// data type of its binding.
+    /// layout, default, or multiplexor is invalid, a bound field has a zero scale, or a
+    /// field does not convert to the data type of its binding.
     static std::pair<Binary, x::errors::Error>
     create(const std::vector<BinaryMessage> &messages);
 
@@ -214,9 +214,10 @@ public:
     /// field takes the identifier's value.
     /// @returns CONFIG_ERROR when a binding names no field, a field has two bindings, a
     /// binding names the identifier field, a field's layout, default, or multiplexor is
-    /// invalid, a field's channel does not hold numbers, a scaled field's channel does
-    /// not hold floats, a field that the multiplexors can select has no binding and no
-    /// default, or a fixed multiplexor value never selects a bound field.
+    /// invalid, a bound field has a zero scale, a field's channel does not hold
+    /// numbers, a scaled field's channel does not hold floats, a field that the
+    /// multiplexors can select has no binding and no default, or a fixed multiplexor
+    /// value never selects a bound field.
     static std::pair<BinaryEncoder, x::errors::Error>
     create(const BinaryMessage &message);
 

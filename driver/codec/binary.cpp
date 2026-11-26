@@ -209,6 +209,7 @@ x::errors::Error too_short(const std::size_t size, const std::size_t end) {
 std::pair<Binary::Field, x::errors::Error>
 Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     auto [bits, bits_err] = BitRange::create(b);
     if (bits_err) return {Field{}, bits_err};
     Field field{
@@ -550,14 +551,7 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
         .fallback = fallback,
     };
     if (!dt.has_value()) return {std::move(field), x::errors::NIL};
-    if (b.scale == 0 || !std::isfinite(b.scale))
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "cannot write with a scale of " + x::json::Number(b.scale).to_string()
-            ),
-        };
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     const auto kind = kind_of(*dt);
     if (kind == payload::KIND_FLOAT)
         field.number = Number::FLOAT;

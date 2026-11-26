@@ -50,6 +50,10 @@ number_of(const x::telem::DataType &dt, std::string_view kind, bool scaled);
 /// @returns VALIDATION when narrow and v is finite but overflows float32.
 x::errors::Error write_float(double v, bool narrow, x::telem::Series &dst);
 
+/// @brief returns CONFIG_ERROR when scale is zero, which turns every value into the
+/// offset.
+x::errors::Error check_scale(double scale);
+
 /// @brief returns CONFIG_ERROR when scaled, true for a field whose scale or offset
 /// changes its value, and dt does not hold floats.
 x::errors::Error check_scaled_channel(bool scaled, const x::telem::DataType &dt);
