@@ -161,6 +161,15 @@
         border-bottom: var(--console-divider);
     }
 
+    .console-icd-picker__section-note {
+        margin-left: auto;
+        color: var(--pluto-primary-text);
+    }
+
+    .console-icd-picker__value-list.console--dimmed .console-icd-picker__value > * {
+        color: var(--pluto-text-disabled);
+    }
+
     /* The table head already draws the line above the first section. */
     .console-icd-picker__values-head + .console-icd-picker__section {
         border-top: none;

@@ -10,7 +10,6 @@
 package http_test
 
 import (
-	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -97,7 +96,8 @@ var _ = Describe("Service", func() {
 			},
 		)
 
-		It("Should stage the channel and fields of a write task row from before 0.57",
+		It(
+			"Should move the fields of a write task row from before 0.57 into an ICD",
 			func(ctx SpecContext) {
 				db := DeferClose(gorp.Wrap(memkv.New()))
 				StartRun(db.Run)
@@ -137,9 +137,9 @@ var _ = Describe("Service", func() {
 						Configs: MustSucceed(config.NewRegistry(svc.Stores()...)),
 					})},
 				}))
-				Expect(svc.Write.Read(ctx, db, row.Key)).ToNot(HaveKey("inline"))
-				_, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(row.Key)))
-				Expect(closer.Close()).To(Succeed())
+				stored := MustSucceed(svc.Write.Read(ctx, db, row.Key))
+				Expect(stored).ToNot(HaveKey("inline"))
+				Expect(stored["endpoints"]).To(HaveExactElements(HaveKey("icd")))
 			},
 		)
 	})
@@ -304,8 +304,61 @@ var _ = Describe("Service", func() {
 			},
 		)
 
+		It("Should move the channel and fields of a v4 write config into an ICD",
+			func(ctx SpecContext) {
+				idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
+				cmd := createChannel(ctx, telem.Float64T, idx)
+				data := MustSucceed(svc.Write.Normalize(ctx, db, 4, msgpack.EncodedJSON{
+					"endpoints": []any{map[string]any{
+						"key":    "sp",
+						"method": "PUT",
+						"path":   "/setpoint",
+						"channel": map[string]any{
+							"pointer":   "/value",
+							"channel":   cmd.Key(),
+							"data_type": "float64",
+						},
+						"fields": []any{map[string]any{
+							"type":      "static",
+							"key":       "u",
+							"pointer":   "/unit",
+							"json_type": "string",
+							"value":     "psi",
+						}},
+					}},
+				}))
+				key := MustSucceed(tasks.Create(ctx, svc.Write, data))
+				stored := MustSucceed(svc.Write.Read(ctx, db, key))
+				Expect(stored).ToNot(HaveKey("inline"))
+				var cfg http.WriteConfig
+				Expect(stored.Unmarshal(&cfg)).To(Succeed())
+				Expect(cfg.Endpoints).To(HaveLen(1))
+				ep := cfg.Endpoints[0]
+				var ic icd.ICD
+				Expect(icdSvc.NewRetrieve().
+					Where(icd.MatchKeys(*ep.ICD)).
+					Entry(&ic).
+					Exec(ctx, db)).To(Succeed())
+				Expect(ic.Name).To(Equal("http_write"))
+				Expect(ic.Messages).To(HaveLen(1))
+				m := ic.Messages[0]
+				Expect(m.Name).To(Equal("PUT /setpoint"))
+				fields := as[icd.JSONPayload](m.Payload.Variant).Fields
+				Expect(fields).To(HaveLen(2))
+				Expect(ep.Message).To(Equal(&icd.WriteMessage{
+					Message: m.Key,
+					Bindings: []icd.WriteBinding{{Variant: icd.ChannelWriteBinding{
+						WriteBaseBinding: icd.WriteBaseBinding{
+							Field: fields[0].Base().Key,
+						},
+						Channel: cmd.Key(),
+					}}},
+				}))
+			},
+		)
+
 		DescribeTable(
-			"Should stage the channel and fields of a write config and return what it stores",
+			"Should return the write config it stores, with its fields in an ICD",
 			func(ctx SpecContext, version int) {
 				idx := createChannel(ctx, telem.TimestampT, channel.Channel{})
 				cmd := createChannel(ctx, telem.Float64T, idx)
@@ -334,25 +387,21 @@ var _ = Describe("Service", func() {
 					},
 				))
 				Expect(data).To(HaveKey("inline"))
-				rec := MustSucceed(svc.Write.Prepare(ctx, db, uuid.New(), "Pump", data))
+				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{}))
+				rec := MustSucceed(svc.Write.Prepare(ctx, db, key, "Pump", data))
 				returned := MustSucceed(rec.Data())
 				Expect(returned).ToNot(HaveKey("inline"))
-				key := MustSucceed(tasks.Create(ctx, svc.Write, data))
-				stored := MustSucceed(svc.Write.Read(ctx, db, key))
-				delete(returned, "key")
-				delete(stored, "key")
-				Expect(stored).To(Equal(returned))
-				b, closer := MustSucceed2(db.Get(v5.StagedWriteFieldsKVKey(key)))
-				var staged v5.InlineWrite
-				Expect(json.Unmarshal(b, &staged)).To(Succeed())
-				Expect(closer.Close()).To(Succeed())
-				Expect(staged.Endpoints).To(HaveExactElements(SatisfyAll(
-					HaveField("Key", "sp"),
-					HaveField("Channel.Channel", cmd.Key()),
-					HaveField("Fields", HaveExactElements(HaveField(
-						"Variant",
-						BeAssignableToTypeOf(v4.StaticWriteField{}),
-					))),
+				Expect(
+					db.WithTx(
+						ctx,
+						func(tx gorp.Tx) error { return rec.Write(ctx, tx) },
+					),
+				).
+					To(Succeed())
+				Expect(svc.Write.Read(ctx, db, key)).To(Equal(returned))
+				Expect(returned["endpoints"]).To(HaveExactElements(SatisfyAll(
+					HaveKey("icd"),
+					HaveKey("message"),
 				)))
 			},
 			Entry("from a v4 export", 4),

@@ -489,10 +489,11 @@ export const renderWithStatus = async (
 
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
   const core = Session.Core.useSelectSelected();
-  // The provider compares params by value, so a cached cluster key must not count.
+  // The provider compares params by value, so the cached cluster key and user must not
+  // count.
   let connParams: SynnaxParams | undefined;
   if (core != null) {
-    const { clusterKey: _, ...params } = core;
+    const { clusterKey: _, user: __, ...params } = core;
     connParams = params;
   }
   return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;

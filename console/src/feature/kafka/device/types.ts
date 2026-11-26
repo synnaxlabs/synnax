@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, kafka } from "@synnaxlabs/client";
+import { channel, type device, kafka } from "@synnaxlabs/client";
+import { caseconv } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -24,6 +25,8 @@ const propertiesZ = kafka.propertiesZ.extend({
     .array()
     .min(1, "At least one broker is required"),
   read: Task.readPropertiesZ,
+  /** The command channels of write targets, by topic, record key, and field. */
+  write: caseconv.preserveCase(z.record(z.string(), channel.keyZ).default({})),
 });
 
 export interface Properties extends z.infer<typeof propertiesZ> {}
@@ -36,6 +39,7 @@ export const ZERO_PROPERTIES: Properties = {
   caCertificate: "",
   sasl: { mechanism: "none" },
   read: {},
+  write: {},
 };
 
 export interface Device extends device.Device<

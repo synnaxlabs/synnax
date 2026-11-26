@@ -46,7 +46,7 @@ export const CommandInspector = ({
   const command = commands.find((c) => c.key === key);
   const interactions = Form.useFieldValue(path.data.interactions);
   const { get, set } = Form.useContext();
-  const values = useValues(command?.state);
+  const values = useValues(command?.state ?? NONE);
   if (command == null) return null;
   // A late commit of the number field reads the command as it is then.
   const update = (next: Partial<schematic.symbol.Command>) => {
@@ -80,9 +80,8 @@ export const CommandInspector = ({
   const taken = commands.flatMap((c) =>
     partners.includes(c.key) && c.value.type === "fixed" ? [c.value.value] : [],
   );
-  // useValues lists another state for a number state, and no values while one loads.
-  const listed =
-    command.state != null && values.state === command.state && values.list.length > 0;
+  // useValues lists no values for a number state, with no state, or while one loads.
+  const listed = values.list.length > 0;
   return (
     <Flex.Box y gap="medium" className={CSS.B("schematic-inspector")}>
       <Text.Text level="h5">{command.name}</Text.Text>
