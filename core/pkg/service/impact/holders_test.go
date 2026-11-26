@@ -58,6 +58,7 @@ func holdLabel[E gorp.Entry[string]](
 var _ = Describe("Holders", Ordered, func() {
 	var db *gorp.DB
 	BeforeAll(func(ctx SpecContext) {
+		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, heldLabel]{
