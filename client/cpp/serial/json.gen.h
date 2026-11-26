@@ -25,7 +25,7 @@ namespace synnax::serial {
 
 inline Properties Properties::parse(x::json::Parser parser) {
     return Properties{
-        .port = parser.field<std::string>("port", ""),
+        .port = parser.field<std::string>("port"),
         .baud_rate = parser.field<std::uint32_t>("baud_rate", 9600),
         .data_bits = parser.field<std::uint8_t>("data_bits", 8),
         .parity = parser.field<std::string>("parity", "none"),
