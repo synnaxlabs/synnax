@@ -20,6 +20,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/errors.h"
+#include "driver/serial/native.h"
 #include "driver/serial/posix.h"
 #include "driver/transport/errors.h"
 
@@ -44,6 +45,7 @@ Bytes strip_all(
 }
 }
 
+/// @brief it should pass bytes without marks through.
 TEST(Strip, PassesBytesWithoutMarksThrough) {
     std::uint8_t mark = 0;
     std::size_t errors = 0;
@@ -51,6 +53,7 @@ TEST(Strip, PassesBytesWithoutMarksThrough) {
     EXPECT_EQ(errors, 0);
 }
 
+/// @brief it should turn an escaped 0xFF back into one byte.
 TEST(Strip, UndoublesAnEscaped0xFF) {
     std::uint8_t mark = 0;
     std::size_t errors = 0;
@@ -58,6 +61,7 @@ TEST(Strip, UndoublesAnEscaped0xFF) {
     EXPECT_EQ(errors, 0);
 }
 
+/// @brief it should drop and count a byte with a parity or framing error.
 TEST(Strip, DropsAndCountsAByteWithAParityOrFramingError) {
     std::uint8_t mark = 0;
     std::size_t errors = 0;
@@ -65,6 +69,7 @@ TEST(Strip, DropsAndCountsAByteWithAParityOrFramingError) {
     EXPECT_EQ(errors, 1);
 }
 
+/// @brief it should count a break.
 TEST(Strip, CountsABreak) {
     std::uint8_t mark = 0;
     std::size_t errors = 0;
@@ -72,6 +77,7 @@ TEST(Strip, CountsABreak) {
     EXPECT_EQ(errors, 1);
 }
 
+/// @brief it should follow a mark that is split across reads.
 TEST(Strip, FollowsAMarkSplitAcrossReads) {
     std::uint8_t mark = 0;
     std::size_t errors = 0;
@@ -82,6 +88,30 @@ TEST(Strip, FollowsAMarkSplitAcrossReads) {
     EXPECT_EQ(errors, 1);
 }
 
+/// @brief it should drop a lone 0xFF without writing ahead of the input.
+TEST(Strip, DropsALone0xFFWithoutWritingAheadOfTheInput) {
+    std::uint8_t mark = 1;
+    Bytes chunk{0x42, 0x43};
+    const auto [size, marks] = strip(mark, chunk);
+    EXPECT_EQ(size, 2);
+    EXPECT_EQ(marks, 0);
+    EXPECT_EQ(chunk, (Bytes{0x42, 0x43}));
+    EXPECT_EQ(mark, 0);
+}
+
+#ifdef __linux__
+/// @brief it should keep the stripped bytes when the overrun count fails.
+TEST(Receive, KeepsTheBytesWhenTheOverrunCountFails) {
+    Line line;
+    Bytes chunk{1, 0xFF, 0xFF, 2};
+    const auto [received, ec] = receive(-1, line, chunk);
+    EXPECT_EQ(ec, std::errc::bad_file_descriptor);
+    EXPECT_EQ(received.size, 3);
+    EXPECT_EQ(std::span(chunk).first(received.size)[1], 0xFF);
+}
+#endif
+
+/// @brief it should start from the first count that it sees.
 TEST(Overruns, StartsFromTheFirstCountItSees) {
     std::optional<std::uint32_t> last;
     EXPECT_EQ(overruns_since(last, 17), 0);
@@ -89,12 +119,14 @@ TEST(Overruns, StartsFromTheFirstCountItSees) {
     EXPECT_EQ(overruns_since(last, 20), 3);
 }
 
+/// @brief it should count across the wrap of the 32-bit counter.
 TEST(Overruns, CountsAcrossTheWrapOfThe32BitCounter) {
     std::optional<std::uint32_t> last;
     EXPECT_EQ(overruns_since(last, 0xFFFFFFFE), 0);
     EXPECT_EQ(overruns_since(last, 1), 3);
 }
 
+/// @brief it should report no overruns for a port without counters.
 TEST(Overruns, ReportsNoneForAPortWithoutCounters) {
     std::optional<std::uint32_t> last;
     EXPECT_EQ(overruns_since(last, std::nullopt), 0);
@@ -110,6 +142,7 @@ std::error_code os(const int code) {
 }
 }
 
+/// @brief it should report a missing, gone, or closed port as unreachable.
 TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
     for (const int code: {ENOENT, ENXIO, ENODEV, EIO, EPIPE, EBADF, ETIMEDOUT}) {
         SCOPED_TRACE(os(code).message());
@@ -124,6 +157,7 @@ TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
     );
 }
 
+/// @brief it should report a busy port as in use by another program.
 TEST(Translate, ReportsABusyPortAsInUseByAnotherProgram) {
     const auto err = translate("failed to open serial port /dev/ttyUSB0", os(EBUSY));
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
@@ -134,6 +168,7 @@ TEST(Translate, ReportsABusyPortAsInUseByAnotherProgram) {
     );
 }
 
+/// @brief it should report a port that the Driver may not use as a configuration error.
 TEST(Translate, ReportsAPortTheDriverMayNotUseAsAConfigError) {
     for (const int code:
          {EACCES, EPERM, EINVAL, ENOTTY, EISDIR, ENOTDIR, ENAMETOOLONG, ENOTSUP}) {
@@ -145,6 +180,7 @@ TEST(Translate, ReportsAPortTheDriverMayNotUseAsAConfigError) {
     }
 }
 
+/// @brief it should report an exhausted host or an unknown error as critical.
 TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
     for (const int code: {EMFILE, ENFILE, ENOMEM, ENOBUFS, ENOTRECOVERABLE}) {
         SCOPED_TRACE(os(code).message());
@@ -155,6 +191,7 @@ TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
     }
 }
 
+/// @brief it should map an errno from the generic category.
 TEST(Translate, MapsErrnoFromTheGenericCategory) {
     ASSERT_OCCURRED_AS(
         translate("failed to set the line settings", {EIO, std::generic_category()}),
@@ -166,6 +203,7 @@ TEST(Translate, MapsErrnoFromTheGenericCategory) {
     );
 }
 
+/// @brief it should put the context before the system message.
 TEST(Translate, PutsTheContextBeforeTheSystemMessage) {
     EXPECT_EQ(
         translate("failed to open serial port /dev/ttyUSB0", os(ENOENT)).data,

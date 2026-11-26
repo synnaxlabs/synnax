@@ -17,6 +17,7 @@
 #include <linux/serial.h>
 #include <sys/ioctl.h>
 
+#include "driver/serial/errors.h"
 #include "driver/serial/line.h"
 #include "driver/serial/native.h"
 #include "driver/serial/posix.h"
@@ -29,6 +30,7 @@ const std::array<tcflag_t, 4> SIZES{CS5, CS6, CS7, CS8};
 
 namespace line {
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
+    if (auto err = check(props)) return err;
     if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
         return {transport::CONFIG_ERROR, "Linux does not support 1.5 stop bits"};
     settings.c_cflag &= ~(CBAUD | (CBAUD << IBSHIFT));
@@ -73,6 +75,12 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
     if (auto err = line::apply(props, settings)) return err;
     if (::ioctl(fd, TCSETS2, &settings) != 0)
         return failed("the line settings", props.port);
+    // Bytes that arrived before PARMRK carry no marks, so strip would misread them.
+    if (::ioctl(fd, TCFLSH, TCIFLUSH) != 0)
+        return translate(
+            "failed to flush the input of " + props.port,
+            {errno, std::generic_category()}
+        );
     return x::errors::NIL;
 }
 

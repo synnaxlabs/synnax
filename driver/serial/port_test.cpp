@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <cerrno>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <functional>
 #include <mutex>
@@ -19,7 +21,10 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include <fcntl.h>
+#include <sys/ioctl.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include "x/cpp/testutil/testutil.h"
 
@@ -29,6 +34,21 @@
 
 namespace driver::serial {
 namespace {
+/// @returns true when the terminal at path refuses programs other than its holder. A
+/// program without root cannot open it at all, and root can read its exclusive flag.
+bool exclusive(const std::string &path) {
+    const int fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    if (fd < 0) return errno == EBUSY;
+    int flag = 0;
+#ifdef TIOCGEXCL
+    const bool read = ::ioctl(fd, TIOCGEXCL, &flag) == 0;
+#else
+    const bool read = false;
+#endif
+    ::close(fd);
+    return read && flag != 0;
+}
+
 /// @brief expects got to be want, with its message.
 void expect_same(const x::errors::Error &got, const x::errors::Error &want) {
     EXPECT_TRUE(got.matches(want)) << got;
@@ -36,6 +56,8 @@ void expect_same(const x::errors::Error &got, const x::errors::Error &want) {
 }
 }
 
+/// @brief it should read the bytes that the device writes, stamped with the time they
+/// arrived.
 TEST_F(PtyTest, ReadsWhatThePeerWrites) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     const auto before = x::telem::TimeStamp::now();
@@ -46,6 +68,7 @@ TEST_F(PtyTest, ReadsWhatThePeerWrites) {
     EXPECT_LE(chunk.time, x::telem::TimeStamp::now());
 }
 
+/// @brief it should write a query and read the answer of the device.
 TEST_F(PtyTest, AnswersAQueryInARoundTrip) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     ASSERT_NIL(port->write(bytes("MEAS:VOLT?\n"), x::telem::SECOND));
@@ -55,6 +78,7 @@ TEST_F(PtyTest, AnswersAQueryInARoundTrip) {
     EXPECT_EQ(as_string(chunk.data), "12.5\n");
 }
 
+/// @brief it should return an empty chunk when nothing arrives before the timeout.
 TEST_F(PtyTest, ReturnsAnEmptyChunkWhenNothingArrivesBeforeTheTimeout) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     const x::telem::Stopwatch sw;
@@ -63,6 +87,7 @@ TEST_F(PtyTest, ReturnsAnEmptyChunkWhenNothingArrivesBeforeTheTimeout) {
     EXPECT_GE(sw.elapsed(), 50 * x::telem::MILLISECOND);
 }
 
+/// @brief it should read again after a read times out.
 TEST_F(PtyTest, ReadsAgainAfterATimeout) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     ASSERT_TRUE(ASSERT_NIL_P(port->read(10 * x::telem::MILLISECOND)).data.empty());
@@ -71,6 +96,7 @@ TEST_F(PtyTest, ReadsAgainAfterATimeout) {
     EXPECT_EQ(as_string(chunk.data), "late");
 }
 
+/// @brief it should read and write from different threads that take turns.
 TEST_F(PtyTest, ReadsAndWritesFromDifferentThreads) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     std::mutex mu;
@@ -104,9 +130,10 @@ TEST_F(PtyTest, ReadsAndWritesFromDifferentThreads) {
     EXPECT_EQ(got, "01234");
 }
 
+/// @brief it should fail a write that does not finish before the timeout.
 TEST_F(PtyTest, FailsAWriteThatTimesOut) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
-    const std::string data(4 * 1024 * 1024, 'x');
+    const std::string data(std::size_t{4} * 1024 * 1024, 'x');
     const auto err = port->write(bytes(data), 50 * x::telem::MILLISECOND);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
@@ -116,9 +143,11 @@ TEST_F(PtyTest, FailsAWriteThatTimesOut) {
     );
 }
 
+/// @brief it should close at once after a failed write and return its error on each
+/// later call.
 TEST_F(PtyTest, ClosesAtOnceAndKeepsTheErrorAfterAFailedWrite) {
     const auto failed = ASSERT_NIL_P(Port::open(this->props()));
-    const std::string data(4 * 1024 * 1024, 'x');
+    const std::string data(std::size_t{4} * 1024 * 1024, 'x');
     const auto err = failed->write(bytes(data), 50 * x::telem::MILLISECOND);
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     expect_same(failed->write(bytes("x"), x::telem::SECOND), err);
@@ -128,6 +157,8 @@ TEST_F(PtyTest, ClosesAtOnceAndKeepsTheErrorAfterAFailedWrite) {
     EXPECT_EQ(as_string(ASSERT_NIL_P(next->read(x::telem::SECOND)).data), "next");
 }
 
+/// @brief it should close at once after a failed read and return its error on each
+/// later call.
 TEST_F(PtyTest, ClosesAtOnceAndKeepsTheErrorAfterAFailedRead) {
     const auto failed = ASSERT_NIL_P(Port::open(this->props()));
     this->close_peer();
@@ -137,6 +168,7 @@ TEST_F(PtyTest, ClosesAtOnceAndKeepsTheErrorAfterAFailedRead) {
     expect_same(failed->write(bytes("x"), x::telem::SECOND), err);
 }
 
+/// @brief it should apply two stop bits and hardware flow control to the terminal.
 TEST_F(PtyTest, AppliesStopBitsAndHardwareFlowControl) {
     auto p = this->props();
     p.stop_bits = synnax::serial::STOP_BITS_TWO;
@@ -148,6 +180,7 @@ TEST_F(PtyTest, AppliesStopBitsAndHardwareFlowControl) {
     EXPECT_FALSE(tio.c_iflag & (IXON | IXOFF));
 }
 
+/// @brief it should apply software flow control to the terminal.
 TEST_F(PtyTest, AppliesSoftwareFlowControl) {
     auto p = this->props();
     p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
@@ -157,6 +190,7 @@ TEST_F(PtyTest, AppliesSoftwareFlowControl) {
     EXPECT_FALSE(tio.c_cflag & CRTSCTS);
 }
 
+/// @brief it should refuse 1.5 stop bits.
 TEST_F(PtyTest, RejectsOneAndAHalfStopBits) {
     auto p = this->props();
     p.stop_bits = synnax::serial::STOP_BITS_ONE_AND_HALF;
@@ -165,6 +199,7 @@ TEST_F(PtyTest, RejectsOneAndAHalfStopBits) {
     EXPECT_TRUE(err.data.ends_with(" does not support 1.5 stop bits")) << err.data;
 }
 
+/// @brief it should report the device as unreachable when it hangs up.
 TEST_F(PtyTest, ReportsTheDeviceAsUnreachableWhenThePeerCloses) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     this->close_peer();
@@ -175,6 +210,7 @@ TEST_F(PtyTest, ReportsTheDeviceAsUnreachableWhenThePeerCloses) {
     ) << err.data;
 }
 
+/// @brief it should open again through a stable link once the device returns.
 TEST_F(PtyTest, OpensAgainThroughAStableLinkOnceTheDeviceReturns) {
     const auto link = std::filesystem::path(::testing::TempDir()) / "serial-by-id";
     std::filesystem::remove(link);
@@ -197,6 +233,7 @@ TEST_F(PtyTest, OpensAgainThroughAStableLinkOnceTheDeviceReturns) {
     EXPECT_EQ(as_string(ASSERT_NIL_P(second->read(x::telem::SECOND)).data), "back");
 }
 
+/// @brief it should send the written bytes before it closes.
 TEST_F(PtyTest, SendsWrittenBytesBeforeClosing) {
     auto port = ASSERT_NIL_P(Port::open(this->props()));
     ASSERT_NIL(port->write(bytes("bye"), x::telem::SECOND));
@@ -210,6 +247,8 @@ TEST_F(PtyTest, SendsWrittenBytesBeforeClosing) {
     EXPECT_EQ(got, "bye");
 }
 
+/// @brief it should refuse a second open of a port in use and keep the first port
+/// exclusive.
 TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
     const auto first = ASSERT_NIL_P(Port::open(this->props()));
     const auto [second, err] = Port::open(this->props());
@@ -219,8 +258,20 @@ TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
         "failed to open serial port " + this->path() +
             ": the port is in use by another program"
     );
+    EXPECT_TRUE(exclusive(this->path()));
 }
 
+/// @brief it should refuse settings outside the schema and release the port.
+TEST_F(PtyTest, RefusesSettingsOutsideTheSchemaAndReleasesThePort) {
+    auto p = this->props();
+    p.data_bits = 9;
+    const auto [port, err] = Port::open(p);
+    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    EXPECT_EQ(err.data, "data bits must be 5, 6, 7, or 8, got 9");
+    ASSERT_NIL_P(Port::open(this->props()));
+}
+
+/// @brief it should open again after the first port closes.
 TEST_F(PtyTest, OpensAgainAfterTheFirstPortCloses) {
     ASSERT_NIL_P(Port::open(this->props())).reset();
     const auto second = ASSERT_NIL_P(Port::open(this->props()));
@@ -228,6 +279,15 @@ TEST_F(PtyTest, OpensAgainAfterTheFirstPortCloses) {
     EXPECT_EQ(as_string(ASSERT_NIL_P(second->read(x::telem::SECOND)).data), "again");
 }
 
+/// @brief it should drop the bytes that arrived before it applied the settings.
+TEST_F(PtyTest, FlushesBytesThatArrivedBeforeTheSettings) {
+    this->peer_write("stale");
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("fresh");
+    EXPECT_EQ(as_string(ASSERT_NIL_P(port->read(x::telem::SECOND)).data), "fresh");
+}
+
+/// @brief it should mark line errors instead of ignoring them.
 TEST_F(PtyTest, MarksLineErrorsInsteadOfIgnoringThem) {
     for (const auto *parity:
          {synnax::serial::PARITY_NONE_, synnax::serial::PARITY_EVEN_}) {
@@ -242,6 +302,7 @@ TEST_F(PtyTest, MarksLineErrorsInsteadOfIgnoringThem) {
     }
 }
 
+/// @brief it should deliver a 0xFF byte once while it marks line errors.
 TEST_F(PtyTest, DeliversA0xFFByteOnceWhileMarkingLineErrors) {
     auto p = this->props();
     p.parity = synnax::serial::PARITY_EVEN_;
@@ -258,6 +319,7 @@ TEST_F(PtyTest, DeliversA0xFFByteOnceWhileMarkingLineErrors) {
     EXPECT_EQ(errors, 0);
 }
 
+/// @brief it should report no overruns on a port that counts none.
 TEST_F(PtyTest, ReportsNoOverrunsOnAPortThatCountsNone) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     this->peer_write("x");
@@ -266,6 +328,7 @@ TEST_F(PtyTest, ReportsNoOverrunsOnAPortThatCountsNone) {
     EXPECT_EQ(chunk.overruns, 0);
 }
 
+/// @brief it should fail to open a port that does not exist.
 TEST(Port, FailsToOpenAMissingPort) {
     synnax::serial::Properties p;
     p.port = "/dev/synnax-missing-port";
@@ -275,24 +338,10 @@ TEST(Port, FailsToOpenAMissingPort) {
         << err.data;
 }
 
-TEST(Port, RejectsInvalidSettingsBeforeOpening) {
-    using P = synnax::serial::Properties;
-    const std::vector<std::pair<std::function<void(P &)>, std::string>> cases{
-        {[](P &p) { p.port = ""; }, "serial port path is required"},
-        {[](P &p) { p.baud_rate = 0; }, "baud rate must be greater than zero"},
-        {[](P &p) { p.data_bits = 9; }, "data bits must be 5, 6, 7, or 8, got 9"},
-        {[](P &p) { p.data_bits = 4; }, "data bits must be 5, 6, 7, or 8, got 4"},
-        {[](P &p) { p.parity = "bogus"; }, "unknown parity 'bogus'"},
-        {[](P &p) { p.stop_bits = "3"; }, "unknown stop bits '3'"},
-        {[](P &p) { p.flow_control = "bogus"; }, "unknown flow control 'bogus'"},
-    };
-    for (const auto &[edit, message]: cases) {
-        P p;
-        p.port = "/dev/synnax-missing-port";
-        edit(p);
-        const auto [port, err] = Port::open(p);
-        ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-        EXPECT_EQ(err.data, message);
-    }
+/// @brief it should refuse an empty port path.
+TEST(Port, RejectsAnEmptyPath) {
+    const auto [port, err] = Port::open(synnax::serial::Properties{});
+    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
+    EXPECT_EQ(err.data, "serial port path is required");
 }
 }

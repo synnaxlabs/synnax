@@ -65,7 +65,8 @@ struct Received {
 std::error_code watch(Handle handle, Line &line);
 
 /// @brief removes the bytes with line errors from data, which the port just read, and
-/// counts the errors and overruns.
+/// counts the errors and overruns. When the overrun count fails, it still returns the
+/// bytes with the error.
 std::pair<Received, std::error_code>
 receive(Handle handle, Line &line, std::span<std::uint8_t> data);
 }

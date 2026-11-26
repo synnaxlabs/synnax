@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -19,6 +20,7 @@
 #include <sys/ioctl.h>
 #include <termios.h>
 
+#include "driver/serial/errors.h"
 #include "driver/serial/line.h"
 #include "driver/serial/native.h"
 #include "driver/serial/posix.h"
@@ -44,6 +46,7 @@ const std::array<tcflag_t, 4> SIZES{CS5, CS6, CS7, CS8};
 
 namespace line {
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
+    if (auto err = check(props)) return err;
     const auto &parity = props.parity;
     if (parity == synnax::serial::PARITY_MARK_ ||
         parity == synnax::serial::PARITY_SPACE_)
@@ -84,10 +87,17 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
     if (auto err = line::apply(props, settings)) return err;
     if (::tcsetattr(fd, TCSANOW, &settings) != 0)
         return failed("the line settings", props.port);
-    if (standard_rate(props.baud_rate)) return x::errors::NIL;
-    speed_t speed = props.baud_rate;
-    if (::ioctl(fd, IOSSIOSPEED, &speed) != 0)
-        return failed("baud rate " + std::to_string(props.baud_rate), props.port);
+    if (!standard_rate(props.baud_rate)) {
+        speed_t speed = props.baud_rate;
+        if (::ioctl(fd, IOSSIOSPEED, &speed) != 0)
+            return failed("baud rate " + std::to_string(props.baud_rate), props.port);
+    }
+    // Bytes that arrived before PARMRK carry no marks, so strip would misread them.
+    if (::tcflush(fd, TCIFLUSH) != 0)
+        return translate(
+            "failed to flush the input of " + props.port,
+            {errno, std::generic_category()}
+        );
     return x::errors::NIL;
 }
 

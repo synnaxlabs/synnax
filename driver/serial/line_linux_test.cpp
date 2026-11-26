@@ -35,6 +35,8 @@ Settings dirty() {
 }
 }
 
+/// @brief it should apply seven data bits, odd parity, two stop bits, and hardware flow
+/// control.
 TEST(Line, AppliesSevenDataBitsOddParityTwoStopBitsAndHardwareFlowControl) {
     synnax::serial::Properties p;
     p.baud_rate = 19200;
@@ -55,6 +57,8 @@ TEST(Line, AppliesSevenDataBitsOddParityTwoStopBitsAndHardwareFlowControl) {
     EXPECT_EQ(s.c_ospeed, 19200u);
 }
 
+/// @brief it should clear parity, the second stop bit, and flow control for the
+/// defaults.
 TEST(Line, ClearsParityStopBitsAndFlowControlForTheDefaults) {
     auto s = dirty();
     ASSERT_NIL(apply(synnax::serial::Properties{}, s));
@@ -66,6 +70,7 @@ TEST(Line, ClearsParityStopBitsAndFlowControlForTheDefaults) {
     EXPECT_EQ(s.c_ospeed, 9600u);
 }
 
+/// @brief it should keep the flags that it does not write.
 TEST(Line, KeepsTheFlagsItDoesNotOwn) {
     auto s = dirty();
     ASSERT_NIL(apply(synnax::serial::Properties{}, s));
@@ -74,6 +79,7 @@ TEST(Line, KeepsTheFlagsItDoesNotOwn) {
     EXPECT_EQ(s.c_cc[VMIN], static_cast<cc_t>(1));
 }
 
+/// @brief it should apply each character size from 5 to 8 data bits.
 TEST(Line, AppliesEachCharacterSize) {
     const std::array<std::pair<std::uint8_t, tcflag_t>, 4> sizes{
         {{5, CS5}, {6, CS6}, {7, CS7}, {8, CS8}}
@@ -87,6 +93,7 @@ TEST(Line, AppliesEachCharacterSize) {
     }
 }
 
+/// @brief it should apply software flow control.
 TEST(Line, AppliesSoftwareFlowControl) {
     synnax::serial::Properties p;
     p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
@@ -96,6 +103,7 @@ TEST(Line, AppliesSoftwareFlowControl) {
     EXPECT_FALSE(s.c_cflag & CRTSCTS);
 }
 
+/// @brief it should apply even parity.
 TEST(Line, AppliesEvenParity) {
     synnax::serial::Properties p;
     p.parity = synnax::serial::PARITY_EVEN_;
@@ -104,6 +112,7 @@ TEST(Line, AppliesEvenParity) {
     EXPECT_EQ(s.c_cflag & (PARENB | PARODD | CMSPAR), static_cast<tcflag_t>(PARENB));
 }
 
+/// @brief it should apply mark parity.
 TEST(Line, AppliesMarkParity) {
     synnax::serial::Properties p;
     p.parity = synnax::serial::PARITY_MARK_;
@@ -116,6 +125,7 @@ TEST(Line, AppliesMarkParity) {
     EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
 }
 
+/// @brief it should apply space parity.
 TEST(Line, AppliesSpaceParity) {
     synnax::serial::Properties p;
     p.parity = synnax::serial::PARITY_SPACE_;
@@ -127,6 +137,7 @@ TEST(Line, AppliesSpaceParity) {
     );
 }
 
+/// @brief it should carry a baud rate that the termios table does not hold.
 TEST(Line, CarriesABaudRateOutsideTheTermiosTable) {
     synnax::serial::Properties p;
     p.baud_rate = 250000;
@@ -140,6 +151,7 @@ TEST(Line, CarriesABaudRateOutsideTheTermiosTable) {
     EXPECT_EQ(s.c_ospeed, 250000u);
 }
 
+/// @brief it should refuse 1.5 stop bits.
 TEST(Line, RejectsOneAndAHalfStopBits) {
     synnax::serial::Properties p;
     p.stop_bits = synnax::serial::STOP_BITS_ONE_AND_HALF;

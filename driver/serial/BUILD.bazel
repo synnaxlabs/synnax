@@ -12,7 +12,10 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "serial",
-    srcs = ["port.cpp"] + select({
+    srcs = [
+        "line.cpp",
+        "port.cpp",
+    ] + select({
         "@platforms//os:linux": [
             "linux.cpp",
             "posix.cpp",
@@ -85,7 +88,7 @@ cc_test(
 cc_test(
     name = "line_test",
     size = "small",
-    srcs = select({
+    srcs = ["line_test.cpp"] + select({
         "@platforms//os:linux": ["line_linux_test.cpp"],
         "@platforms//os:macos": ["line_macos_test.cpp"],
         "@platforms//os:windows": ["line_windows_test.cpp"],

@@ -25,7 +25,9 @@ namespace driver::serial::native {
 x::errors::Error failed(const std::string &setting, const std::string &port);
 
 /// @brief removes the parity, framing, and break marks that PARMRK puts in the input,
-/// and turns each doubled 0xFF back into one. data may end inside a mark.
+/// and turns each doubled 0xFF back into one. It drops a 0xFF that no 0x00 or 0xFF
+/// follows, which the kernel does not send once PARMRK is on. data may end inside a
+/// mark. It never writes ahead of the byte that it reads.
 /// @param marked how many bytes of a mark ended the last call. strip updates it.
 /// @returns the number of bytes left at the front of data, and the number of marks.
 std::pair<std::size_t, std::size_t>

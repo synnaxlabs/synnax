@@ -31,10 +31,10 @@ import (
 )
 
 const (
-	// ReadTaskType is the type of the task that reads ICD messages from a serial port.
-	ReadTaskType = "serial_read"
-	// WriteTaskType is the type of the task that sends ICD messages on a serial port.
-	WriteTaskType = "serial_write"
+	// readTaskType is the type of the task that reads ICD messages from a serial port.
+	readTaskType = "serial_read"
+	// writeTaskType is the type of the task that sends ICD messages on a serial port.
+	writeTaskType = "serial_write"
 )
 
 // ServiceConfig is the configuration for opening the serial task config service.
@@ -105,7 +105,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:              cfg.DB,
 			References:      readConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
-			Type:            ReadTaskType,
+			Type:            readTaskType,
 			Ladder:          versions.ReadConfigLadder,
 			SetEntryKey:     (*ReadConfig).SetKey,
 			PatchEntry:      (*ReadConfig).Patch,
@@ -123,7 +123,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:              cfg.DB,
 			References:      writeConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
-			Type:            WriteTaskType,
+			Type:            writeTaskType,
 			Ladder:          versions.WriteConfigLadder,
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,

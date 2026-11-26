@@ -32,11 +32,15 @@ using Settings = ::termios;
 using Settings = ::DCB;
 #endif
 
+/// @returns CONFIG_ERROR when props holds a baud rate of 0, data bits outside 5 to 8,
+/// or a parity, stop bits, or flow control that the serial schema does not define.
+x::errors::Error check(const synnax::serial::Properties &props);
+
 /// @brief writes the baud rate, character size, parity, stop bits, and flow control in
 /// props onto settings, and keeps its other fields. On macOS, a baud rate outside the
 /// termios table leaves the speeds unchanged, and the port sets the rate after it
-/// applies settings. props must hold data bits from 5 to 8 and a parity, stop bits, and
-/// flow control that the serial schema defines.
-/// @returns CONFIG_ERROR when the platform cannot express a setting.
+/// applies settings.
+/// @returns CONFIG_ERROR when props fails check or the platform cannot express a
+/// setting.
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings);
 }
