@@ -54,16 +54,23 @@ func Check(ic ICD) []validate.PathError {
 		names.Add(m.Name)
 		c.checkMessage(path, m, ic.Framing)
 	}
+	if ic.Framing != nil {
+		c.checkSync(*ic.Framing)
+	}
 	return c.problems
 }
 
 type checker struct{ problems []validate.PathError }
 
+func (c *checker) add(path []string, err error) {
+	c.problems = append(
+		c.problems,
+		validate.PathError{Path: slices.Clone(path), Err: err},
+	)
+}
+
 func (c *checker) addf(path []string, format string, args ...any) {
-	c.problems = append(c.problems, validate.PathError{
-		Path: slices.Clone(path),
-		Err:  validate.Errorf(format, args...),
-	})
+	c.add(path, validate.Errorf(format, args...))
 }
 
 // addSchema adds each problem that err holds as a sentence that names its field, such
@@ -171,6 +178,37 @@ func (c *checker) checkFrameLength(path []string, length uint16, framing Framing
 			)
 		}
 	}
+}
+
+// checkSync finds the problems in a sync frame header that span two fields, which the
+// schema cannot state.
+func (c *checker) checkSync(framing Framing) {
+	f, ok := framing.Variant.(SyncFraming)
+	if !ok {
+		return
+	}
+	if int(f.LengthOffset) < len(f.Sync) {
+		c.addf(
+			[]string{"framing", "length_offset"},
+			"the length field overlaps the sync sequence",
+		)
+	}
+	size, ok := lengthBytes[f.LengthSize]
+	if header := uint64(f.LengthOffset) + size; ok && uint64(f.MaxLength) < header {
+		c.addf(
+			[]string{"framing", "max_length"},
+			"the maximum length of %d is less than the %d bytes of the header",
+			f.MaxLength,
+			header,
+		)
+	}
+}
+
+// lengthBytes is the number of bytes in a length field of each size.
+var lengthBytes = map[LengthSize]uint64{
+	LengthSizeOne:  1,
+	LengthSizeTwo:  2,
+	LengthSizeFour: 4,
 }
 
 // checkTextFields adds the indices of fields with no type to untyped.
@@ -459,22 +497,25 @@ func (c *checker) checkUnscaled(path []string, b BaseField) {
 	}
 }
 
+// CheckScale returns an error wrapping validate.ErrValidation when scale is zero. A
+// field with a zero scale reads and writes every value as its offset.
+func CheckScale(scale float64) error {
+	if scale == 0 {
+		return validate.Errorf("scale must be non-zero")
+	}
+	return nil
+}
+
+// checkScaling finds the problems in the scale and limits of a number field. The schema
+// reports a value that is not finite.
 func (c *checker) checkScaling(path []string, b BaseField) {
-	if !xmath.Finite(b.Scale) || b.Scale == 0 {
-		c.addf(pathOf(path, "scale"), "scale must be finite and non-zero")
+	if err := CheckScale(b.Scale); err != nil {
+		c.add(pathOf(path, "scale"), err)
 	}
-	if !xmath.Finite(b.Offset) {
-		c.addf(pathOf(path, "offset"), "offset must be finite")
+	if b.Min == nil || b.Max == nil || !xmath.Finite(*b.Min) || !xmath.Finite(*b.Max) {
+		return
 	}
-	finite := func(name string, v *float64) bool {
-		if v != nil && !xmath.Finite(*v) {
-			c.addf(pathOf(path, name), "%s must be finite", name)
-			return false
-		}
-		return v != nil
-	}
-	if minOK, maxOK := finite("min", b.Min), finite("max", b.Max); minOK && maxOK &&
-		*b.Min > *b.Max {
+	if *b.Min > *b.Max {
 		c.addf(pathOf(path, "max"), "max must be greater than or equal to min")
 	}
 }

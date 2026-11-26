@@ -108,6 +108,7 @@ type jsonField struct {
 //   - two messages have no match rule
 //   - a binding names no field of its message
 //   - a field's kind does not convert to its binding's data type
+//   - a bound field's scale is zero
 func NewJSON(messages []JSONMessage) (*JSON, error) {
 	r, err := newRouter(messages)
 	if err != nil {
@@ -185,6 +186,9 @@ func Converts(k payload.Kind, dt telem.DataType) bool {
 
 func newJSONField(f icd.JSONField, dt telem.DataType) (jsonField, error) {
 	b := f.Base()
+	if err := icd.CheckScale(b.Scale); err != nil {
+		return jsonField{}, errors.Wrap(validate.ErrValidation, err.Error())
+	}
 	pointer, err := xjson.ParsePointer(b.Pointer)
 	if err != nil {
 		return jsonField{}, err

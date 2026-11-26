@@ -130,7 +130,7 @@ var _ = Describe("Check", func() {
 			problem{Path: "name", Message: "name is required"},
 			problem{
 				Path:    "messages.0.payload.fields.1.scale",
-				Message: "scale must be finite and non-zero",
+				Message: "scale must be non-zero",
 			},
 			problem{
 				Path:    "messages.0.payload.fields.1.multiplex_values.0",
@@ -337,11 +337,11 @@ var _ = Describe("Check", func() {
 		},
 		Entry("NaN scale",
 			func(f *icd.BinaryBaseField) { f.Scale = math.NaN() },
-			"scale", "scale must be finite and non-zero",
+			"scale", "scale must be finite",
 		),
 		Entry("infinite scale",
 			func(f *icd.BinaryBaseField) { f.Scale = math.Inf(1) },
-			"scale", "scale must be finite and non-zero",
+			"scale", "scale must be finite",
 		),
 		Entry("infinite offset",
 			func(f *icd.BinaryBaseField) { f.Offset = math.Inf(-1) },
@@ -569,4 +569,24 @@ var _ = Describe("Check", func() {
 			)).To(BeEmpty())
 		})
 	})
+})
+
+var _ = Describe("CheckScale", func() {
+	DescribeTable("Should refuse a zero scale", func(scale float64) {
+		Expect(icd.CheckScale(scale)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("scale must be non-zero"),
+		))
+	},
+		Entry("zero", 0.0),
+		Entry("negative zero", math.Copysign(0, -1)),
+	)
+
+	DescribeTable("Should accept a non-zero scale", func(scale float64) {
+		Expect(icd.CheckScale(scale)).To(Succeed())
+	},
+		Entry("one", 1.0),
+		Entry("a negative scale", -0.5),
+		Entry("the smallest positive float", math.SmallestNonzeroFloat64),
+	)
 })

@@ -262,11 +262,11 @@ class BaseField(BaseModel):
 
     key: FieldKey = Field(default_factory=uuid4)
     name: str = Field(min_length=1)
-    scale: float = 1
-    offset: float = 0
+    scale: float = Field(default=1, allow_inf_nan=False)
+    offset: float = Field(default=0, allow_inf_nan=False)
     units: str = ""
-    min: float | None = None
-    max: float | None = None
+    min: float | None = Field(default=None, allow_inf_nan=False)
+    max: float | None = Field(default=None, allow_inf_nan=False)
 
 
 class ReadBinding(BaseModel):

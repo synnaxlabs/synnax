@@ -125,14 +125,24 @@ def open_consumer() -> Iterator[Consumer]:
         consumer.close()
 
 
-def tail(consumer: Consumer, topic: str) -> list[Record]:
-    """Return the key and JSON value of each of the last 64 records of topic, oldest
-    first. Empty when the topic does not exist yet."""
+def high_watermark(consumer: Consumer, topic: str) -> int:
+    """Return the offset of the next record of topic, or 0 when the topic does not exist
+    yet."""
+    try:
+        _, high = consumer.get_watermark_offsets(TopicPartition(topic, 0), timeout=5)
+    except KafkaException:
+        return 0
+    return high
+
+
+def tail(consumer: Consumer, topic: str, start: int) -> list[Record]:
+    """Return the key and JSON value of each record of topic from offset start, oldest
+    first, and at most the last 64. Empty when the topic does not exist yet."""
     try:
         low, high = consumer.get_watermark_offsets(TopicPartition(topic, 0), timeout=5)
     except KafkaException:
         return []
-    start = max(low, high - TAIL)
+    start = max(low, start, high - TAIL)
     consumer.assign([TopicPartition(topic, 0, start)])
     records: list[Record] = []
     while start + len(records) < high:
@@ -152,27 +162,30 @@ def wait_for_record(
     consumer: Consumer,
     *,
     topic: str,
+    start: int,
     key: str | None = None,
     expected: object,
 ) -> list[Record]:
-    """Wait at most 20 seconds until the newest record of key on topic holds the JSON
-    value expected.
+    """Wait at most 20 seconds until the newest record of key on topic, from offset
+    start, holds the JSON value expected.
 
-    :returns: The tail of topic that holds the matching record.
+    :param start: The high watermark of topic before the commands went out, so that an
+        older record cannot match.
+    :returns: The records of topic from start, which hold the matching record.
     :raises AssertionError: If no record matches in time.
     """
     last: object = None
     timer = sy.Timer()
     while timer.elapsed() < WRITE_TIMEOUT:
-        records = tail(consumer, topic)
+        records = tail(consumer, topic, start)
         values = [v for k, v in records if k == key]
         if values and (last := values[-1]) == expected:
             return records
         # Blocks until the topic has a new record, for at most a second.
         consumer.poll(1)
     raise AssertionError(
-        f"The newest record of key {key} on {topic} did not match within "
-        f"{WRITE_TIMEOUT}, last value: {last}"
+        f"The newest record of key {key} on {topic} from offset {start} did not match "
+        f"within {WRITE_TIMEOUT}, last value: {last}"
     )
 
 
@@ -229,7 +242,27 @@ class KafkaReadTaskCase(KafkaCase, ReadTaskCase[kafka.ReadTask]):
 
 class KafkaWriteTaskCase(KafkaCase, WriteTaskCase[kafka.WriteTask]):
     """Base class for Kafka write task tests. A subclass checks the records of its
-    targets in assert_written."""
+    targets in assert_written, from the offsets in marks."""
+
+    # The high watermark of each target topic before the last round of commands.
+    marks: dict[str, int]
+
+    def mark(self) -> None:
+        """Record the high watermark of each target topic before a round of commands."""
+        assert self.tsk is not None
+        with open_consumer() as consumer:
+            self.marks = {
+                t.topic: high_watermark(consumer, t.topic)
+                for t in self.tsk.config.targets
+            }
+
+    def test_send_commands(self) -> None:
+        self.mark()
+        super().test_send_commands()
+
+    def test_reconfigure_name(self) -> None:
+        self.mark()
+        super().test_reconfigure_name()
 
     @staticmethod
     @abstractmethod

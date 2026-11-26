@@ -57,6 +57,7 @@ class KafkaWriteJSON(KafkaWriteTaskCase):
             wait_for_record(
                 consumer,
                 topic="plant.valve.set",
+                start=self.marks["plant.valve.set"],
                 expected={"position": 100, "source": "synnax"},
             )
 
@@ -96,16 +97,23 @@ class KafkaWriteTargets(KafkaWriteTaskCase):
             wait_for_record(
                 consumer,
                 topic="plant.commands",
+                start=self.marks["plant.commands"],
                 key="pump",
                 expected={"speed": 100},
             )
             wait_for_record(
                 consumer,
                 topic="plant.commands",
+                start=self.marks["plant.commands"],
                 key="heater",
                 expected={"power": 101},
             )
-            wait_for_record(consumer, topic="plant.alarm.set", expected={"level": 102})
+            wait_for_record(
+                consumer,
+                topic="plant.alarm.set",
+                start=self.marks["plant.alarm.set"],
+                expected={"level": 102},
+            )
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[kafka.WriteTarget]:
@@ -157,6 +165,7 @@ class KafkaWriteEachChannel(KafkaWriteTaskCase):
             wait_for_record(
                 consumer,
                 topic="plant.point.set",
+                start=self.marks["plant.point.set"],
                 expected={"x": 100, "y": 101},
             )
 
@@ -197,10 +206,12 @@ class KafkaWriteEachChannel(KafkaWriteTaskCase):
                 ([(y, 8)], {"x": 7, "y": 8}),
             ]
             for commands, expected in steps:
+                self.mark()
                 write_commands(self.client, commands)
                 wait_for_record(
                     consumer,
                     topic="plant.point.set",
+                    start=self.marks["plant.point.set"],
                     expected=expected,
                 )
 
@@ -217,6 +228,7 @@ class KafkaWriteBounds(KafkaWriteTaskCase):
             wait_for_record(
                 consumer,
                 topic="plant.limit.set",
+                start=self.marks["plant.limit.set"],
                 expected={"setpoint": 75},
             )
 
@@ -252,6 +264,7 @@ class KafkaWriteBounds(KafkaWriteTaskCase):
         assert self.tsk is not None
         self.log("Testing: Refuse commands outside the min and max")
         cmd = self.client.channels.retrieve(self._channel_keys(self.tsk)[0])
+        self.mark()
         with (
             StatusWatch(self.client, [self.tsk.key]) as watch,
             self.tsk.run(timeout=self.COMMAND_TIMEOUT),
@@ -275,6 +288,7 @@ class KafkaWriteBounds(KafkaWriteTaskCase):
             records = wait_for_record(
                 consumer,
                 topic="plant.limit.set",
+                start=self.marks["plant.limit.set"],
                 expected={"setpoint": 50},
             )
         sent = [v for _, v in records]
