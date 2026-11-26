@@ -103,7 +103,7 @@ TEST(WriterTest, HoldDelaysBusUntilControlIsRead) {
     auto states = std::make_shared<control::States>();
     auto sub = bus->subscribe({1});
     auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
-    WriterFactory factory(mock_factory, bus, states, 0);
+    WriterFactory factory(mock_factory, bus, states, 0, unindexed);
     const x::control::Subject owner{.key = "owner", .name = "owner"};
     const x::control::Subject other{.key = "other", .name = "other"};
     auto owned = ASSERT_NIL_P(factory.open_writer({.channels = {1}, .subject = owner}));
