@@ -104,9 +104,8 @@ var _ = Describe("Storage stream", func() {
 		}))
 	}
 
-	It("Should send a fixed span as one data response per chunk, then its ack", func(
-		ctx SpecContext,
-	) {
+	It("Should send each automatic span of the chunk size as one data response, "+
+		"then its ack", func(ctx SpecContext) {
 		s := DeferClose(openScenario(ctx))
 		writeStamps(ctx, s.dist, s.keys)
 		stream := openStream(ctx, s.dist, s.keys, 3)
@@ -116,20 +115,23 @@ var _ = Describe("Storage stream", func() {
 		stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
 		Eventually(responses.Outlet()).Should(Receive(HaveField("Ack", true)))
-		requests.Inlet() <- iterator.Request{
-			Command: iterator.CommandNext,
-			Span:    20 * telem.Second,
-		}
 		var lens []int64
-		for {
+		for seq := 1; ; seq++ {
+			requests.Inlet() <- iterator.Request{
+				Command: iterator.CommandNext,
+				Span:    iterator.AutoSpan,
+			}
 			var res iterator.Response
 			Eventually(responses.Outlet()).Should(Receive(&res))
-			Expect(res.SeqNum).To(Equal(1))
+			Expect(res.SeqNum).To(Equal(seq))
 			if res.Variant == iterator.ResponseVariantAck {
-				Expect(res.Ack).To(BeTrue())
+				Expect(res.Ack).To(BeFalse())
 				break
 			}
 			lens = append(lens, res.Frame.SeriesAt(0).Len())
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			Expect(res.Variant).To(Equal(iterator.ResponseVariantAck))
+			Expect(res.Ack).To(BeTrue())
 		}
 		Expect(lens).To(Equal([]int64{3, 3, 3, 1}))
 		requests.Close()
@@ -182,7 +184,10 @@ var _ = Describe("Storage stream", func() {
 				responses = confluence.NewStream[iterator.Response](1)
 			)
 			requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
-			requests.Inlet() <- iterator.Request{Command: iterator.CommandNext, Span: span}
+			requests.Inlet() <- iterator.Request{
+				Command: iterator.CommandNext,
+				Span:    span,
+			}
 			// The ack of the seek fills responses for the data of the read.
 			sCtx, cancel := signal.WithCancel(ctx)
 			defer cancel()
