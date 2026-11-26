@@ -146,21 +146,8 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	var (
-		resChannels []channel.Channel
-		q           = s.channel.NewRetrieve().Entries(&resChannels)
-		hasKeys     = len(req.Keys) > 0
-		hasNames    = len(req.Names) > 0
-	)
-	// Early return for safety if a caller passes nothing, that way there is no
-	// accidental deletion of all data.
-	if !hasKeys && !hasNames {
-		return struct{}{}, nil
-	}
-	if hasKeys {
-		q = q.Where(channel.MatchKeys(req.Keys...))
-	}
-	if hasNames {
+	keys := req.Keys
+	if len(req.Names) > 0 {
 		named, err := s.channel.KeysByNames(ctx, tx, req.Names)
 		if err != nil {
 			return struct{}{}, s.channel.DescribeAmbiguity(ctx, tx, err, func(
@@ -170,15 +157,16 @@ func (s *Service) Delete(
 					Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
 			})
 		}
-		if len(named) == 0 {
-			return struct{}{}, nil
-		}
-		q = q.Where(channel.MatchKeys(named...))
+		keys = slices.Concat(keys, named)
 	}
-	if err := q.Exec(ctx, tx); err != nil {
+	var resChannels []channel.Channel
+	if err := s.channel.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&resChannels).
+		Exec(ctx, tx); err != nil {
 		return struct{}{}, err
 	}
-	keys := channel.KeysFromChannels(resChannels)
+	keys = channel.KeysFromChannels(resChannels)
 	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionDelete,

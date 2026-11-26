@@ -283,6 +283,11 @@ func (s *Service) retrieve(
 		where := channel.NormalizeWhere(*req.Where)
 		req.Where = &where
 	}
+	if req.Strict {
+		if err := s.refuseAmbiguous(ctx, snap, req.Where); err != nil {
+			return nil, err
+		}
+	}
 	q, err := ApplyRetrieve(
 		req,
 		s.internal.NewRetrieve().AllowFolders(snap.Allowed).Entries(&res),
@@ -303,6 +308,78 @@ func (s *Service) retrieve(
 		}
 	}
 	return res, nil
+}
+
+// refuseAmbiguous returns a multiple results error when a name of the strict where is
+// held by several channels, every holder counted, with the paths that the subject can
+// see. It returns a validation error when where holds a match other than a key, name,
+// or path, at the top level or as the branches of one or.
+func (s *Service) refuseAmbiguous(
+	ctx context.Context,
+	snap bind.Snapshot,
+	where *channel.Where,
+) error {
+	names, err := strictNames(where)
+	if err != nil {
+		return err
+	}
+	_, err = s.internal.KeysByNames(ctx, snap, names)
+	return s.internal.DescribeAmbiguity(ctx, snap, err, func(
+		context.Context,
+	) (func(resource.ID) bool, error) {
+		return snap.Allowed, nil
+	})
+}
+
+// strictNames returns the names that a strict where matches, and a validation error
+// when where holds a match other than a key, name, or path.
+func strictNames(where *channel.Where) ([]string, error) {
+	refuse := validate.PathedError(
+		validate.Errorf("a strict retrieve takes only key, name, and path matches"),
+		"where",
+	)
+	if where == nil {
+		return nil, refuse
+	}
+	branches := []channel.Where{*where}
+	if len(where.Or) > 0 {
+		if !lookupsOnly(*where) || where.Key != nil || where.Name != nil ||
+			where.Path != nil {
+			return nil, refuse
+		}
+		branches = where.Or
+	}
+	var names []string
+	for _, b := range branches {
+		if !lookupsOnly(b) || len(b.Or) > 0 || !looksUp(b) {
+			return nil, refuse
+		}
+		if n := b.Name; n != nil {
+			if n.Contains != nil || n.StartsWith != nil || n.Regex != nil ||
+				n.CaseInsensitive {
+				return nil, refuse
+			}
+			names = append(names, n.In...)
+			if n.Eq != nil {
+				names = append(names, *n.Eq)
+			}
+		}
+	}
+	return names, nil
+}
+
+// looksUp reports whether w holds a key, name, or path to look up.
+func looksUp(w channel.Where) bool {
+	return w.Key != nil && (w.Key.Eq != nil || len(w.Key.In) > 0) ||
+		w.Name != nil && (w.Name.Eq != nil || len(w.Name.In) > 0) ||
+		w.Path != nil && (w.Path.Eq != nil || len(w.Path.In) > 0)
+}
+
+// lookupsOnly reports whether w holds no match but key, name, path, and or.
+func lookupsOnly(w channel.Where) bool {
+	return len(w.And) == 0 && w.Not == nil && w.Leaseholder == nil &&
+		w.DataType == nil && w.IsIndex == nil && w.Internal == nil &&
+		w.Virtual == nil && len(w.Groups) == 0 && w.Grouped == nil
 }
 
 // namedExactly reports whether the top level of where names channels by exact name or
@@ -393,7 +470,8 @@ type DeleteRequest struct {
 }
 
 // Delete deletes the channels that the request names by key or by name. Deleting an
-// internal channel, or a name that several channels hold, is a validation error.
+// internal channel is a validation error. A name that several channels hold returns a
+// query.MultipleResults error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,

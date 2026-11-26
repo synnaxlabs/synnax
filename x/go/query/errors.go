@@ -10,6 +10,7 @@
 package query
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -26,7 +27,29 @@ var (
 	ErrInvalidParameters = errors.Wrap(ErrQuery, "invalid parameters")
 	// ErrUnsupported is returned when a query targets an entity that cannot answer it.
 	ErrUnsupported = errors.Wrap(ErrQuery, "unsupported")
+	// errMultipleResults marks a lookup of one entity that matched several.
+	errMultipleResults = errors.Wrap(ErrQuery, "multiple results")
 )
+
+// MultipleResults returns the query error of a lookup of one entity that matched
+// several, sent as sy.query.multiple_results. Its message is the formatted text alone,
+// and its chain holds cause, so errors.As finds it.
+func MultipleResults(cause error, format string, args ...any) error {
+	return multipleResultsError{msg: fmt.Sprintf(format, args...), cause: cause}
+}
+
+type multipleResultsError struct {
+	msg   string
+	cause error
+}
+
+func (e multipleResultsError) Error() string { return e.msg }
+
+func (e multipleResultsError) Unwrap() error { return e.cause }
+
+func (multipleResultsError) Is(target error) bool {
+	return target == errMultipleResults || target == ErrQuery
+}
 
 const (
 	typePrefix        = "sy.query"
@@ -34,6 +57,7 @@ const (
 	notFound          = typePrefix + ".not_found"
 	invalidParameters = typePrefix + ".invalid_parameters"
 	unsupported       = typePrefix + ".unsupported"
+	multipleResults   = typePrefix + ".multiple_results"
 )
 
 // wrap decodes data into ref. The sentinel text that data ends with is not repeated.
@@ -72,6 +96,9 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 			Data: err.Error(),
 		}, true
 	}
+	if errors.CheapIs(err, errMultipleResults) {
+		return errors.Payload{Type: multipleResults, Data: err.Error()}, true
+	}
 	if errors.CheapIs(err, ErrQuery) {
 		return errors.Payload{
 			Type: typePrefix,
@@ -91,6 +118,8 @@ func decode(_ *errors.Codec, pld errors.Payload) (error, bool) {
 		return wrap(ErrInvalidParameters, pld.Data), true
 	case unsupported:
 		return wrap(ErrUnsupported, pld.Data), true
+	case multipleResults:
+		return wrap(errMultipleResults, pld.Data), true
 	}
 	if strings.HasPrefix(pld.Type, typePrefix) {
 		return wrap(ErrQuery, pld.Data), true

@@ -148,6 +148,9 @@ type RetrieveRequest struct {
 	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 	// IncludePath includes the path of each record.
 	IncludePath bool `json:"include_path" msgpack:"include_path"`
+	// Strict refuses each name that several channels hold. A strict where holds only
+	// key, name, and path matches, at the top level or as the branches of one or.
+	Strict bool `json:"strict" msgpack:"strict"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

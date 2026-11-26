@@ -217,6 +217,11 @@ var (
 			),
 		},
 		{
+			Label:  "request",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("A bool option of a filter's retrieve"),
+		},
+		{
 			Label:  "go",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Go output configuration"),

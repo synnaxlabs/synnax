@@ -231,6 +231,8 @@ class RetrieveRequest(BaseModel):
         limit: Is the most channels to return.
         include_status: Includes the status of each record.
         include_path: Includes the path of each record.
+        strict: Refuses each name that several channels hold. A strict where holds only
+            key, name, and path matches, at the top level or as the branches of one or.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -242,6 +244,7 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
     include_path: bool = False
+    strict: bool = False
 
 
 class RetrieveResponse(BaseModel):

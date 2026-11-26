@@ -357,5 +357,9 @@ Where filter Channel {
     @doc value         "is a filter that selects channels."
     @go output         "core/pkg/service/channel"
     @go request_output "core/pkg/api/channel"
+    @request strict    """
+        refuses each name that several channels hold. A strict where holds only key,
+        name, and path matches, at the top level or as the branches of one or.
+    """
     @response type     APIChannel
 }

@@ -382,7 +382,10 @@ type RetrieveRequest struct {
 	// include_status includes the status of each record.
 	IncludeStatus bool `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	// include_path includes the path of each record.
-	IncludePath   bool `protobuf:"varint,7,opt,name=include_path,json=includePath,proto3" json:"include_path,omitempty"`
+	IncludePath bool `protobuf:"varint,7,opt,name=include_path,json=includePath,proto3" json:"include_path,omitempty"`
+	// strict refuses each name that several channels hold. A strict where holds only key,
+	// name, and path matches, at the top level or as the branches of one or.
+	Strict        bool `protobuf:"varint,8,opt,name=strict,proto3" json:"strict,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -462,6 +465,13 @@ func (x *RetrieveRequest) GetIncludeStatus() bool {
 func (x *RetrieveRequest) GetIncludePath() bool {
 	if x != nil {
 		return x.IncludePath
+	}
+	return false
+}
+
+func (x *RetrieveRequest) GetStrict() bool {
+	if x != nil {
+		return x.Strict
 	}
 	return false
 }
@@ -548,7 +558,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05field\x18\x01 \x01(\x0e2\x1a.api.channel.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xda\x02\n" +
+	"descending\"\xf2\x02\n" +
 	"\x0fRetrieveRequest\x124\n" +
 	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -557,7 +567,8 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05after\x18\x04 \x01(\v2\x16.api.channel.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12%\n" +
 	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatus\x12!\n" +
-	"\finclude_path\x18\a \x01(\bR\vincludePathB\b\n" +
+	"\finclude_path\x18\a \x01(\bR\vincludePath\x12\x16\n" +
+	"\x06strict\x18\b \x01(\bR\x06strictB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +

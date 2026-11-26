@@ -552,6 +552,9 @@ func synthesizeRetrieveTypes(c *analysisCtx) {
 		return
 	}
 	request = append(request, includeFields(records)...)
+	if request, ok = addRequestOptions(c, where, request); !ok {
+		return
+	}
 	if !checkRetrieveOptions(c, where, request) {
 		return
 	}
@@ -630,6 +633,44 @@ func includeFields(records []resolution.Field) []resolution.Field {
 		}
 	}
 	return fields
+}
+
+// addRequestOptions appends to request a bool option, false by default, for the name
+// and doc of each @request of where. It reports false when an option is malformed or
+// takes the name of another retrieve option.
+func addRequestOptions(
+	c *analysisCtx, where resolution.Type, request []resolution.Field,
+) ([]resolution.Field, bool) {
+	for _, expr := range where.Domains["request"].Expressions {
+		if len(expr.Values) != 1 || expr.Values[0].Kind != resolution.ValueKindString {
+			c.report(diagnostics.Errorf(
+				filterDef(where),
+				"filter %s: @request %s takes one doc string",
+				where.Name,
+				expr.Name,
+			))
+			return nil, false
+		}
+		name := casing.FieldSnake(expr.Name)
+		if name == oneOption || lo.ContainsBy(request, func(f resolution.Field) bool {
+			return f.Name == name
+		}) {
+			c.report(diagnostics.Errorf(
+				filterDef(where),
+				"filter %s: @request %s takes the name of another retrieve option",
+				where.Name,
+				expr.Name,
+			))
+			return nil, false
+		}
+		request = append(request, defaultField(
+			expr.Name,
+			resolution.TypeRef{Name: "bool"},
+			expr.Values[0].StringValue,
+			resolution.ExpressionValue{Kind: resolution.ValueKindBool},
+		))
+	}
+	return request, true
 }
 
 // checkRetrieveOptions reports whether no line of where shares a name with a request

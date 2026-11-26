@@ -256,6 +256,7 @@ func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
 		SearchTerm:    r.SearchTerm,
 		IncludeStatus: r.IncludeStatus,
 		IncludePath:   r.IncludePath,
+		Strict:        r.Strict,
 	}
 	if r.Where != nil {
 		var err error
@@ -297,6 +298,7 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 	r.SearchTerm = pb.SearchTerm
 	r.IncludeStatus = pb.IncludeStatus
 	r.IncludePath = pb.IncludePath
+	r.Strict = pb.Strict
 	if pb.Where != nil {
 		val, err := channelpb.WhereFromPB(pb.Where)
 		if err != nil {
