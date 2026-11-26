@@ -31,6 +31,11 @@ _TIME_RANGES_ZERO_FLAG_POS = 1
 _ALL_CHANNELS_PRESENT_FLAG_POS = 0
 
 _TIME_RANGE_SIZE = 16
+_U8 = struct.Struct("<B")
+_U32 = struct.Struct("<I")
+_U64 = struct.Struct("<Q")
+_TIME_RANGE = struct.Struct("<QQ")
+_ZERO_ALIGNMENT = Alignment(0)
 _ALIGNMENT_SIZE = 8
 _MULTIPLE_SIZE = 4
 _DATA_LENGTH_SIZE = 4
@@ -42,6 +47,11 @@ _BITS_PER_BYTE = 8
 
 def _bit_packed_byte_count(n_samples: int) -> int:
     return (n_samples + _BITS_PER_BYTE - 1) // _BITS_PER_BYTE
+
+
+def _time_range_nanoseconds(tr: TimeRange | None) -> tuple[int, int]:
+    """Returns the start and end of tr in nanoseconds, with no time range as zero."""
+    return (0, 0) if tr is None else (int(tr.start), int(tr.end))
 
 
 def _series_wire_byte_length(ser: Series) -> int:
@@ -129,38 +139,42 @@ class _Plan:
 class _Reader:
     """Reads a frame, failing on any read past its end."""
 
+    __slots__ = ("buf", "end", "idx")
+
     def __init__(self, data: memoryview, offset: int) -> None:
         self.buf = data
+        self.end = len(data)
         self.idx = offset
 
     @property
     def remaining(self) -> int:
-        return len(self.buf) - self.idx
+        return self.end - self.idx
 
-    def _need(self, n: int) -> None:
-        if n > self.remaining:
+    def _advance(self, n: int) -> int:
+        """Returns the offset of the next n bytes and moves past them."""
+        i = self.idx
+        if i + n > self.end:
             raise ValidationError("remote sent a frame that ends early")
+        self.idx = i + n
+        return i
 
-    def unpack(self, fmt: str, size: int) -> tuple[int, ...]:
-        self._need(size)
-        v = struct.unpack_from(fmt, self.buf, self.idx)
-        self.idx += size
-        return v
+    def unpack(self, fmt: struct.Struct) -> tuple[int, ...]:
+        return fmt.unpack_from(self.buf, self._advance(fmt.size))
 
     def uint8(self) -> int:
-        return self.unpack("<B", 1)[0]
+        return self.buf[self._advance(1)]
 
     def uint32(self) -> int:
-        return self.unpack("<I", 4)[0]
+        v: int = _U32.unpack_from(self.buf, self._advance(4))[0]
+        return v
 
     def uint64(self) -> int:
-        return self.unpack("<Q", 8)[0]
+        v: int = _U64.unpack_from(self.buf, self._advance(8))[0]
+        return v
 
     def bytes(self, n: int) -> memoryview:
-        self._need(n)
-        b = self.buf[self.idx : self.idx + n]
-        self.idx += n
-        return b
+        i = self._advance(n)
+        return self.buf[i : i + n]
 
     def data_type(self) -> DataType:
         code = self.uint8()
@@ -237,14 +251,14 @@ class Codec:
             plan.codes = [
                 _code_of(k, dt) for k, dt in zip(state.keys, ag.data_types, strict=True)
             ]
-        overrides = any(
-            i >= 0
-            and (
-                ser.clock != ag.clocks[i]
-                or _needs_type_override(ag.data_types[i], ser.data_type)
-            )
-            for _, ser, i in entries
-        )
+        overrides = undeclared = False
+        for _, ser, i in entries:
+            if i < 0:
+                undeclared = True
+            elif ser.clock != ag.clocks[i] or _needs_type_override(
+                ag.data_types[i], ser.data_type
+            ):
+                overrides = True
         if overrides:
             plan.ext |= _OVERRIDES_PRESENT
             plan.clocks = list(ag.clocks)
@@ -258,7 +272,7 @@ class Codec:
                         kinds |= _CLOCK_KIND
                         plan.clocks[i] = ser.clock
                 plan.kinds.append(kinds)
-        if any(i < 0 for _, _, i in entries) or len(ag.declared) > 0:
+        if undeclared or len(ag.declared) > 0:
             in_frame = {k for k, _, i in entries if i < 0}
             declared = sorted(
                 in_frame
@@ -284,14 +298,14 @@ class Codec:
         eq_align = True
         multiples_present = False
         ref_len = -1
-        ref_tr = TimeRange.ZERO
+        ref_tr = (0, 0)
         ref_align = 0
         size = start_offset + _FLAGS_SIZE + _SEQ_NUM_SIZE
         all_present = [k for k, _, _ in entries] == plan.all
         if not all_present:
             size += n * _KEY_SIZE
         for _, ser, _ in entries:
-            tr = TimeRange.ZERO if ser.time_range is None else ser.time_range
+            tr = _time_range_nanoseconds(ser.time_range)
             if ser.data_type.is_variable:
                 eq_len = False
             if ser.alignment_multiple > 1:
@@ -306,7 +320,7 @@ class Codec:
                 eq_tr = False
             if int(ser.alignment) != ref_align:
                 eq_align = False
-        tr_zero = eq_tr and ref_tr == TimeRange.ZERO
+        tr_zero = eq_tr and ref_tr == (0, 0)
         zero_align = eq_align and ref_align == 0
         size += (1 if eq_len else n) * _DATA_LENGTH_SIZE
         if not tr_zero:
@@ -329,10 +343,10 @@ class Codec:
         buf = bytearray(size)
         off = start_offset
 
-        def put(fmt: str, *v: int) -> None:
+        def put(fmt: struct.Struct, *v: int) -> None:
             nonlocal off
-            struct.pack_into(fmt, buf, off, *v)
-            off += struct.calcsize(fmt)
+            fmt.pack_into(buf, off, *v)
+            off += fmt.size
 
         flags = (
             (int(plan.ext != 0) << _EXTENDED_FLAG_POS)
@@ -344,22 +358,22 @@ class Codec:
             | (int(tr_zero) << _TIME_RANGES_ZERO_FLAG_POS)
             | (int(all_present) << _ALL_CHANNELS_PRESENT_FLAG_POS)
         )
-        put("<B", flags)
-        put("<I", self._seq_num)
+        put(_U8, flags)
+        put(_U32, self._seq_num)
         if plan.ext != 0:
-            put("<B", plan.ext)
+            put(_U8, plan.ext)
             for code in plan.codes:
-                put("<B", code)
+                put(_U8, code)
         if plan.ext & _CLOCKS_DECLARED:
-            put("<I", len(plan.declared))
+            put(_U32, len(plan.declared))
             for k in plan.declared:
-                put("<I", k)
+                put(_U32, k)
         if eq_len:
-            put("<I", max(ref_len, 0) if ref_len != -1 else 0xFFFFFFFF)
+            put(_U32, max(ref_len, 0) if ref_len != -1 else 0xFFFFFFFF)
         if eq_tr and not tr_zero:
-            put("<QQ", int(ref_tr.start), int(ref_tr.end))
+            put(_TIME_RANGE, *ref_tr)
         if eq_align and not zero_align:
-            put("<Q", ref_align)
+            put(_U64, ref_align)
 
         def next_override(start: int) -> int:
             for i in range(start, len(plan.kinds)):
@@ -368,20 +382,20 @@ class Codec:
             return _NO_OVERRIDE
 
         if plan.ext & _OVERRIDES_PRESENT:
-            put("<I", next_override(0))
+            put(_U32, next_override(0))
         for i, (key, ser, _) in enumerate(entries):
             if not all_present:
-                put("<I", key)
+                put(_U32, key)
             kinds = plan.kinds[i] if i < len(plan.kinds) else 0
             if kinds:
-                put("<B", kinds)
+                put(_U8, kinds)
                 if kinds & _TYPE_KIND:
-                    put("<B", int(code_of(ser.data_type)))
+                    put(_U8, int(code_of(ser.data_type)))
                 if kinds & _CLOCK_KIND:
-                    put("<I", ser.clock)
-                put("<I", next_override(i + 1))
+                    put(_U32, ser.clock)
+                put(_U32, next_override(i + 1))
             if not eq_len:
-                put("<I", len(ser.data) if ser.data_type.is_variable else len(ser))
+                put(_U32, len(ser.data) if ser.data_type.is_variable else len(ser))
             data = (
                 _pack_bool_bits(ser.data)
                 if ser.data_type == DataType.BOOLEAN
@@ -390,12 +404,11 @@ class Codec:
             buf[off : off + len(data)] = data
             off += len(data)
             if not eq_tr:
-                tr = TimeRange.ZERO if ser.time_range is None else ser.time_range
-                put("<QQ", int(tr.start), int(tr.end))
+                put(_TIME_RANGE, *_time_range_nanoseconds(ser.time_range))
             if not eq_align:
-                put("<Q", int(ser.alignment))
+                put(_U64, int(ser.alignment))
             if multiples_present:
-                put("<I", ser.alignment_multiple)
+                put(_U32, ser.alignment_multiple)
         ag = state.enc
         ag.types_declared = True
         ag.clocks, ag.declared, ag.all = plan.clocks, plan.declared, plan.all
@@ -412,8 +425,9 @@ class Codec:
         if state is None:
             raise ValidationError(f"remote sent invalid sequence number {seq_num}")
         # The remote never encodes with an older state again.
-        for old in [s for s in self._states if s < seq_num]:
-            del self._states[old]
+        if len(self._states) > 1:
+            for old in [s for s in self._states if s < seq_num]:
+                del self._states[old]
         if state.dec.dropped:
             raise ValidationError(
                 f"remote sent a frame for state {seq_num} after a frame of it failed "
@@ -429,19 +443,16 @@ class Codec:
     def _decode(
         r: _Reader, flags: int, seq_num: int, state: CodecState
     ) -> FramePayload:
-        def bit(pos: int) -> bool:
-            return bool((flags >> pos) & 1)
-
-        eq_len = bit(_EQUAL_LENGTHS_FLAG_POS)
-        eq_tr = bit(_EQUAL_TIME_RANGES_FLAG_POS)
-        tr_zero = bit(_TIME_RANGES_ZERO_FLAG_POS)
-        eq_align = bit(_EQUAL_ALIGNMENTS_FLAG_POS)
-        zero_align = bit(_ZERO_ALIGNMENTS_FLAG_POS)
-        multiples_present = bit(_MULTIPLES_PRESENT_FLAG_POS)
-        all_present = bit(_ALL_CHANNELS_PRESENT_FLAG_POS)
+        eq_len = (flags >> _EQUAL_LENGTHS_FLAG_POS) & 1 == 1
+        eq_tr = (flags >> _EQUAL_TIME_RANGES_FLAG_POS) & 1 == 1
+        tr_zero = (flags >> _TIME_RANGES_ZERO_FLAG_POS) & 1 == 1
+        eq_align = (flags >> _EQUAL_ALIGNMENTS_FLAG_POS) & 1 == 1
+        zero_align = (flags >> _ZERO_ALIGNMENTS_FLAG_POS) & 1 == 1
+        multiples_present = (flags >> _MULTIPLES_PRESENT_FLAG_POS) & 1 == 1
+        all_present = (flags >> _ALL_CHANNELS_PRESENT_FLAG_POS) & 1 == 1
         ag = state.dec
         ext = 0
-        if bit(_EXTENDED_FLAG_POS):
+        if (flags >> _EXTENDED_FLAG_POS) & 1 == 1:
             ext = r.uint8()
             if ext == 0:
                 raise ValidationError("remote sent extension flags of 0")
@@ -484,10 +495,10 @@ class Codec:
         shared_len = r.uint32() if eq_len else 0
         tr = TimeRange.ZERO
         if eq_tr and not tr_zero:
-            start, end = r.unpack("<QQ", _TIME_RANGE_SIZE)
+            start, end = r.unpack(_TIME_RANGE)
             tr = TimeRange(start=start, end=end)
         alignment = (
-            Alignment(r.uint64()) if eq_align and not zero_align else Alignment(0)
+            Alignment(r.uint64()) if eq_align and not zero_align else _ZERO_ALIGNMENT
         )
         nxt = r.uint32() if ext & _OVERRIDES_PRESENT else _NO_OVERRIDE
         ordinal = 0
@@ -553,7 +564,7 @@ class Codec:
                 data = bytes(r.bytes(n))
             s_tr = tr
             if not eq_tr:
-                start, end = r.unpack("<QQ", _TIME_RANGE_SIZE)
+                start, end = r.unpack(_TIME_RANGE)
                 s_tr = TimeRange(start=start, end=end)
             s_align = Alignment(r.uint64()) if not eq_align else alignment
             multiple = max(r.uint32(), 1) if multiples_present else 1
