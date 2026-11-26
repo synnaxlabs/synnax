@@ -1123,7 +1123,6 @@ describe("MQTT Write form", () => {
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
-      scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
       return { dialog, draft };
     };
@@ -1199,7 +1198,6 @@ describe("MQTT Write form", () => {
       const scanner = await openScanner(client, dev.rack);
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
-      scanner.close();
       const note = await dialog.findByText("Used for the format");
       expect(titleOf(note)).toBe("3 messages with /rpm");
       expect(
@@ -1245,7 +1243,6 @@ describe("MQTT Write form", () => {
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick set" }));
       fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
       await scanner.answer({ data: { topics: [listen(1, 3)], truncated: false } });
-      scanner.close();
       await waitFor(() =>
         expect(titleOf(dialog.getByText("Used for the format"))).toBe(
           "3 messages with /rpm",
@@ -1266,7 +1263,6 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       const pump = { ...TOPIC, topic: "plant/pump/set" };
       await scanner.answer({ data: { topics: [TOPIC, pump], truncated: false } });
-      scanner.close();
       fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick plant" }));
       fireEvent.click(dialog.getByRole("button", { name: "Add 2 targets" }));
       await waitFor(() =>
@@ -1417,7 +1413,6 @@ describe("MQTT Write form", () => {
       fireEvent.click(again.getByRole("button", { name: "Sparkplug B" }));
       await scanner.answer({ data: { nodes: NODES, tags: [] } });
       await scanner.answer({ data: { nodes: [], tags } });
-      scanner.close();
       const flow = await again.findByRole<HTMLInputElement>("checkbox", {
         name: "Record flow",
       });
@@ -1454,7 +1449,6 @@ describe("MQTT Write form", () => {
       await dialog.findByText("line3");
       dialog.getByRole("checkbox", { name: "Record flow" });
       expect(dialog.queryByText("0 tags")).toBeNull();
-      scanner.close();
     });
 
     it("should list the tags of an edge node under their devices and lock an unsupported one", async () => {
@@ -1468,8 +1462,7 @@ describe("MQTT Write form", () => {
         { device: "ovenA", name: "zoneTemp", dataType: "double", value: "21.5" },
         { device: "ovenA", name: "recipe", dataType: "DataSet", value: "" },
       ].map((t) => ({ ...t, supported: t.dataType !== "DataSet" }));
-      const { dialog, scanner } = await openOnTags({ tags });
-      scanner.close();
+      const { dialog } = await openOnTags({ tags });
       const zoneTemp = await dialog.findByRole<HTMLInputElement>("checkbox", {
         name: "Record zoneTemp",
       });
@@ -1485,8 +1478,7 @@ describe("MQTT Write form", () => {
 
     it("should keep the edge nodes when one does not answer", async () => {
       const message = "edge node plant/line1 did not answer the rebirth request";
-      const { dialog, scanner } = await openOnTags({ message });
-      scanner.close();
+      const { dialog } = await openOnTags({ message });
       await dialog.findByText(message);
       expect(dialog.getByText("line1")).toBeTruthy();
     });

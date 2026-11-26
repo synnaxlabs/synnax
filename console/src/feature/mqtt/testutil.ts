@@ -55,7 +55,6 @@ export interface Scanner {
   next: () => Promise<task.Command>;
   /** Answers cmd, which next returned. */
   reply: (cmd: task.Command, reply: ScannerReply) => Promise<void>;
-  close: () => void;
 }
 
 /**
@@ -75,6 +74,7 @@ export const openScanner = async (
     config: {},
   });
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+  onTestFinished(() => streamer.close());
   const next = async () => await awaitCommand(streamer, scanTask.key);
   const reply = async (
     cmd: task.Command,
@@ -97,7 +97,6 @@ export const openScanner = async (
     },
     next,
     reply,
-    close: () => streamer.close(),
   };
 };
 

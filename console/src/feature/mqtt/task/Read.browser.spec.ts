@@ -231,7 +231,6 @@ const addField = async (rackKey: rack.Key, topic: string, name: string) => {
     retained: true,
   };
   await scanner.answer({ data: { topics: [scanned], truncated: false } });
-  scanner.close();
   fireEvent.click(await dialog.findByRole("checkbox", { name: `Record ${name}` }));
   fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
 };
@@ -339,7 +338,6 @@ const openTimedTopic = async (rackKey: rack.Key) => {
   const scanner = await openScanner(client, rackKey);
   const dialog = await openAddData();
   await scanner.answer({ data: { topics: [TIMED_TOPIC], truncated: false } });
-  scanner.close();
   return dialog;
 };
 
@@ -374,7 +372,6 @@ const openShapedTopic = async (rackKey: rack.Key) => {
       truncated: false,
     },
   });
-  scanner.close();
   return dialog;
 };
 
@@ -436,7 +433,6 @@ describe("MQTT read form", () => {
     });
     dialog = await openAddData();
     await scanner.answer({ data: { topics: TOPICS, truncated: false } });
-    scanner.close();
     fireEvent.click(await dialog.findByRole("checkbox", { name: "Record label" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
     const [temperature, label] = await waitFor(async () => {
@@ -498,7 +494,6 @@ describe("MQTT read form", () => {
         truncated: false,
       },
     });
-    scanner.close();
     fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
     await waitFor(async () =>
@@ -630,7 +625,6 @@ describe("MQTT read form", () => {
         truncated: false,
       },
     });
-    scanner.close();
     expect((await findValue(dialog, "time")).queryByText("Index")).toBeNull();
     fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
@@ -690,7 +684,6 @@ describe("MQTT read form", () => {
         truncated: false,
       },
     });
-    scanner.close();
     (await findValue(dialog, "Whole payload")).getByText("ON");
     fireEvent.click(dialog.getByRole("checkbox", { name: "Record Whole payload" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
@@ -742,7 +735,6 @@ describe("MQTT read form", () => {
           truncated: false,
         },
       });
-      scanner.close();
       return dialog;
     };
 
@@ -3016,7 +3008,6 @@ describe("MQTT read form", () => {
         ]),
       );
       dialog = await browseTag();
-      scanner.close();
       expect(dialog.getByText("In task")).toBeTruthy();
       fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -3063,7 +3054,6 @@ describe("MQTT read form", () => {
         dialog.getByRole("button", { name: "Add 1 field and 1 tag" }),
       ).toBeTruthy();
       dialog.getByText("1 value from 1 topic and 1 Sparkplug B tag selected");
-      scanner.close();
     });
 
     it("should lock the data type of a tag to that of its channel", async () => {
