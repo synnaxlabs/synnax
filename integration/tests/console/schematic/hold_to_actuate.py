@@ -139,7 +139,8 @@ class HoldToActuate(ConsoleCase):
         self.wait_for_eq(self.delay_ch, 1)
 
     def test_delay_valve(self) -> None:
-        """A valve with an activation delay only actuates after a hold."""
+        """A valve with an activation delay only actuates after a hold. Its state
+        channel has no data, so the click asks which command to send."""
         self.log("Short-clicking the delayed valve")
         self.valve.press()
         hold(1.0, reason="nothing may change")
@@ -149,4 +150,5 @@ class HoldToActuate(ConsoleCase):
         )
         self.log("Holding the delayed valve past its activation delay")
         self.valve.press_and_hold(delay=HOLD)
+        self.valve.choose_command("Open")
         self.wait_for_eq(self.valve_cmd_ch, 1)

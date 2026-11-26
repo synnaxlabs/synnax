@@ -19,6 +19,7 @@ export interface ISOCapProps extends Primitive.SVGBasedProps, Primitive.DivProps
 
 export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
   svg,
+  scale: 0.6,
   handles: [{ key: "1", position: { x: 0.5, y: 0.5 }, orientation: "left" }],
 });
 
@@ -26,7 +27,7 @@ export const ISOCap = ({
   className,
   orientation = "left",
   strokeColor,
-  scale = 1,
+  scale,
   ...rest
 }: ISOCapProps): ReactElement => (
   <Primitive.Div className={CSS.cls(CSS.B("cap"), className)} {...rest}>
@@ -35,7 +36,7 @@ export const ISOCap = ({
       builtIn
       strokeColor={strokeColor}
       orientation={orientation}
-      scale={scale * 0.6}
+      scale={scale}
     />
   </Primitive.Div>
 );

@@ -156,7 +156,9 @@ class RoleOperatorPermissions(RoleCase):
                 command_channel=VALVE_CHANNEL,
             )
         )
+        # The channel has no value yet, so the first click asks which command to send.
         valve.press()
+        valve.choose_command("Open")
         self.wait_for_eq(VALVE_CHANNEL, 1)
         valve.press()
         self.wait_for_eq(VALVE_CHANNEL, 0)

@@ -124,14 +124,8 @@ const useScope = <F extends Spec.Field>(name: string): Scope<F> => {
         : `${covering} gives this. Change it there${orByState}.`,
     onChange: (v) => {
       const spec = get(path.data).value;
-      // A stored static symbol can hold looks on Base, which an edit at every value
-      // would not reach.
-      const from =
-        spec.variant === "static" && !FLAGS.symbolNodes
-          ? { ...spec, looks: Spec.staticLooks(spec.looks) }
-          : spec;
       const to = edited == null ? undefined : { ...shown, value: edited };
-      set(path.data, Spec.setOwn(from, part, f, v, to));
+      set(path.data, Spec.setOwn(spec, part, f, v, to));
     },
   };
 };
