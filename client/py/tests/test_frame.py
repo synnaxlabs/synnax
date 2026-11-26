@@ -18,6 +18,10 @@ import pandas as pd
 import pytest
 
 import synnax as sy
+from freighter.mock import MockUnaryClient
+from synnax.channel.payload import Payload
+from synnax.channel.retrieve import Retriever
+from synnax.channel.types_gen import RetrieveResponse
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.frame import FramePayload, is_dataframe
 from synnax.telem import CrudeSeries
@@ -1221,3 +1225,24 @@ class TestFramePandasLoading:
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "False"
+
+
+@pytest.mark.framer
+class TestWriteFrameAdapterRepeatedKeys:
+    """Adapts frames without a Core."""
+
+    def test_frame_with_two_series_for_one_channel(self) -> None:
+        """It should keep every series of a channel that a frame holds twice."""
+        ch = Payload(
+            key=65537,
+            name="repeated",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            leaseholder=1,
+        )
+        client = MockUnaryClient(responses=[RetrieveResponse(channels=[ch])])
+        adapter = WriteFrameAdapter(retriever=Retriever(client=client))
+        adapter.update(ch.key)
+        o = adapter.adapt(sy.Frame([ch.key, ch.key], [[1.0], [2.0]]))
+        assert o.channels == [ch.key, ch.key]
+        assert [list(s) for s in o.series] == [[1.0], [2.0]]
