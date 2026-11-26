@@ -836,6 +836,7 @@ var _ = Describe("Stored v13 state overrides", func() {
 		static.SpecKey, static.StateOverrides = vent.Key.String(), overrides
 		var actuator v13.CustomActuatorNodeConfig
 		actuator.SpecKey, actuator.StateOverrides = vent.Key.String(), overrides
+		// The keys order the schematics in the upgrade.
 		stored := []v13.Schematic{
 			{
 				Key:   uuid.MustParse("00000000-0000-0000-0000-000000000001"),
