@@ -10,12 +10,30 @@
 package impact_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/freighter"
+	apiimpact "github.com/synnaxlabs/synnax/pkg/api/impact"
+	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// planOf returns a handler that answers as h does, with the plan of the delete that
+// the response of h carries.
+func planOf[RQ freighter.Payload](
+	h freighter.UnaryHandler[RQ, apiimpact.Response],
+) freighter.UnaryHandler[RQ, impact.Plan] {
+	return func(ctx context.Context, req RQ) (impact.Plan, error) {
+		res, err := h(ctx, req)
+		if err != nil {
+			return impact.Plan{}, err
+		}
+		return res.Variant.(apiimpact.DeleteResponse).Plan, nil
+	}
+}
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 

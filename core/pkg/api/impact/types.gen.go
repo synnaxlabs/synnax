@@ -131,6 +131,113 @@ func (u Change) Validate() error {
 	return v.Error()
 }
 
+// ResponseType is the "type" value that selects a variant of Response.
+type ResponseType string
+
+// DeleteResponseType answers a delete of records.
+const DeleteResponseType ResponseType = "delete"
+
+// ResponseVariant is implemented by every Response variant.
+type ResponseVariant interface {
+	isResponseVariant()
+}
+
+// DeleteResponse answers a delete of records.
+type DeleteResponse struct {
+	// Plan is the plan of the delete.
+	Plan serviceimpact.Plan `json:"plan" msgpack:"plan"`
+}
+
+func (DeleteResponse) isResponseVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (d DeleteResponse) Validate() error {
+	v := validate.New("DeleteResponse")
+	v.Exec(func() error { return validate.PathedError(d.Plan.Validate(), "plan") })
+	return v.Error()
+}
+
+// Response is the plan of a change, under the type of the change.
+type Response struct {
+	Variant ResponseVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Response) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case DeleteResponse:
+		return json.MarshalEncode(enc, struct {
+			Type ResponseType `json:"type"`
+			DeleteResponse
+		}{Type: DeleteResponseType, DeleteResponse: v})
+	default:
+		return errors.Newf("Response: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Response) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ResponseType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case DeleteResponseType:
+		var v struct {
+			Type ResponseType `json:"type"`
+			DeleteResponse
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DeleteResponse
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Response: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Response) Type() ResponseType {
+	switch u.Variant.(type) {
+	case DeleteResponse:
+		return DeleteResponseType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u Response) Validate() error {
+	v := validate.New("Response")
+	v.Ternary("type", u.Variant == nil, "required")
+	switch variant := u.Variant.(type) {
+	case DeleteResponse:
+		v.Exec(variant.Validate)
+	}
+	return v.Error()
+}
+
 // PlanRequest asks what a change would do with the caller's picks.
 type PlanRequest struct {
 	// Change is the change to plan.

@@ -60,8 +60,8 @@ var _ = Describe("Routes", Ordered, func() {
 			RBAC: layer.RBAC,
 			Held: apiauth.HeldTables(),
 		}))
-		plan = bind.Read(binder, svc.Plan)
-		apply = svc.ApplyHandler(binder)
+		plan = planOf(bind.Read(binder, svc.Plan))
+		apply = planOf(svc.ApplyHandler(binder))
 	})
 
 	createChannel := func(ctx SpecContext) channel.Key {

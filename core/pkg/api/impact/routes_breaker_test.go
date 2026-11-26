@@ -83,8 +83,8 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 			RBAC: layer.RBAC,
 			Held: apiauth.HeldTables(),
 		}))
-		plan = bind.Read(binder, svc.Plan)
-		apply = svc.ApplyHandler(binder)
+		plan = planOf(bind.Read(binder, svc.Plan))
+		apply = planOf(svc.ApplyHandler(binder))
 	})
 
 	create := func(ctx SpecContext, ch channel.Channel) channel.Channel {

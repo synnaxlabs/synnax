@@ -234,11 +234,11 @@ var _ = Describe("Restrict", func() {
 		// planOf returns the plan of the delete of ch that the plan route answers.
 		planOf := func() impact.Plan {
 			GinkgoHelper()
-			var p impact.Plan
+			var res apiimpact.Response
 			Expect(post(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
 				Change: deleteOf(),
-			}, &p)).To(Succeed())
-			return p
+			}, &res)).To(Succeed())
+			return res.Variant.(apiimpact.DeleteResponse).Plan
 		}
 
 		DescribeTable("Should not name the holder",

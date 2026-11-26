@@ -65,7 +65,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 )
@@ -113,9 +112,9 @@ type Transport struct {
 	ChannelRetrieve freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete   freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	// ImpactPlan returns what a change to channels would do.
-	ImpactPlan freighter.UnaryServer[apiimpact.PlanRequest, impact.Plan]
+	ImpactPlan freighter.UnaryServer[apiimpact.PlanRequest, apiimpact.Response]
 	// ImpactApply carries out a change to channels with the caller's picks.
-	ImpactApply freighter.UnaryServer[apiimpact.ApplyRequest, impact.Plan]
+	ImpactApply freighter.UnaryServer[apiimpact.ApplyRequest, apiimpact.Response]
 	// ChannelCountLimited returns how many channels count against the license channel
 	// limit.
 	ChannelCountLimited freighter.UnaryServer[

@@ -120,35 +120,41 @@ func deleted(c Change) ([]resource.ID, error) {
 }
 
 // Plan returns every record that the change touches with the subject's picks, with an
-// entry for each that the subject can retrieve and a count of the others.
+// entry for each that the subject can retrieve and a count of the others, under the
+// type of the change.
 func (s *Service) Plan(
 	ctx context.Context,
 	snap bind.Snapshot,
 	req PlanRequest,
-) (impact.Plan, error) {
+) (Response, error) {
 	records, err := deleted(req.Change)
 	if err != nil {
-		return impact.Plan{}, err
+		return Response{}, err
 	}
 	picks, err := parsePicks(req.Picks)
 	if err != nil {
-		return impact.Plan{}, err
+		return Response{}, err
 	}
-	return s.cfg.Impact.Plan(ctx, snap, records, impact.PlanOptions{
+	plan, err := s.cfg.Impact.Plan(ctx, snap, records, impact.PlanOptions{
 		Picks:   picks,
 		Hidden:  req.Hidden,
 		Visible: snap.Allowed,
 	})
+	if err != nil {
+		return Response{}, err
+	}
+	return Response{Variant: DeleteResponse{Plan: plan}}, nil
 }
 
 // ApplyHandler returns the apply route on binder: it plans and applies the change and
-// checks access on what it wrote, in one transaction. As the plan route does, it
+// checks access on what it wrote, in one transaction, and returns the plan under the
+// type of the change. As the plan route does, it
 // refuses a change that names a record the subject cannot retrieve, before it plans. A
 // denial on a record that the subject cannot retrieve and did not name names no record.
 func (s *Service) ApplyHandler(
 	binder *bind.Service,
-) freighter.UnaryHandler[ApplyRequest, impact.Plan] {
-	return func(ctx context.Context, req ApplyRequest) (impact.Plan, error) {
+) freighter.UnaryHandler[ApplyRequest, Response] {
+	return func(ctx context.Context, req ApplyRequest) (Response, error) {
 		var visible func(resource.ID) bool
 		apply := func(
 			ctx context.Context,
@@ -176,11 +182,14 @@ func (s *Service) ApplyHandler(
 			})
 		}
 		plan, err := bind.Write(binder, apply)(ctx, req)
+		if err == nil {
+			return Response{Variant: DeleteResponse{Plan: plan}}, nil
+		}
 		denied, ok := errors.AsType[access.DeniedError](err)
 		if !ok || visible == nil || visible(denied.Object) {
-			return plan, err
+			return Response{}, err
 		}
-		return impact.Plan{}, errors.Wrapf(
+		return Response{}, errors.Wrapf(
 			access.ErrDenied,
 			"%s cannot %s a record that it cannot see",
 			denied.Subject,

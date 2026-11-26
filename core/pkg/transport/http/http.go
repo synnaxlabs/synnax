@@ -53,7 +53,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/task"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/transport/http/framer"
 	"github.com/synnaxlabs/x/encoding/zip"
 )
@@ -171,11 +170,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/channel/delete",
 		),
-		ImpactPlan: unary[apiimpact.PlanRequest, impact.Plan](
+		ImpactPlan: unary[apiimpact.PlanRequest, apiimpact.Response](
 			router,
 			"/api/v1/impact/plan",
 		),
-		ImpactApply: unary[apiimpact.ApplyRequest, impact.Plan](
+		ImpactApply: unary[apiimpact.ApplyRequest, apiimpact.Response](
 			router,
 			"/api/v1/impact/apply",
 		),

@@ -114,6 +114,19 @@ Plan struct {
     @doc value "is every record that a change touches, with the picks for each."
 }
 
+Response union on type {
+    delete {
+        plan Plan {
+            @doc value "is the plan of the delete."
+        }
+
+        @doc value "answers a delete of records."
+    }
+
+    @doc value "is the plan of a change, under the type of the change."
+    @go output "core/pkg/api/impact"
+}
+
 PlanRequest struct {
     change Change              {
         @doc value "is the change to plan."

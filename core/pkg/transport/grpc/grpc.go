@@ -44,7 +44,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/table"
 	"github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
-	"github.com/synnaxlabs/synnax/pkg/service/impact"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth/apikey"
@@ -123,8 +122,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LicenseDeactivate = noop.UnaryServer[license.DeactivateRequest, license.DeactivateResponse]{}
 
 	// IMPACT
-	t.ImpactPlan = noop.UnaryServer[apiimpact.PlanRequest, impact.Plan]{}
-	t.ImpactApply = noop.UnaryServer[apiimpact.ApplyRequest, impact.Plan]{}
+	t.ImpactPlan = noop.UnaryServer[apiimpact.PlanRequest, apiimpact.Response]{}
+	t.ImpactApply = noop.UnaryServer[apiimpact.ApplyRequest, apiimpact.Response]{}
 
 	// CHANNEL
 	t.ChannelCountLimited = noop.UnaryServer[
