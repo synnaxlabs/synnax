@@ -312,7 +312,7 @@ const OVEN_SHAPE = {
   sources: ["oven-1", "oven-2"],
   fields: [
     createInferredField("/time", "timestamp", "number", "unix_ms"),
-    createInferredField("/temperature", "float64", "number"),
+    createInferredField("/temperature", "float", "number"),
     createInferredField("/state", "string", "string"),
   ],
   index: 0,
@@ -323,7 +323,7 @@ const OVEN_SHAPE = {
 /** The oven shape, with a pressure. */
 const PRESSURE_SHAPE = {
   ...OVEN_SHAPE,
-  fields: [...OVEN_SHAPE.fields, createInferredField("/pressure", "float64", "number")],
+  fields: [...OVEN_SHAPE.fields, createInferredField("/pressure", "float", "number")],
 };
 
 /** @returns a sampled JSON record of the key oven-1 that holds value. */
@@ -416,7 +416,7 @@ describe("Kafka read form", () => {
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 1,
         present: -1,
@@ -692,7 +692,7 @@ describe("Kafka read form", () => {
       const browse = browseOf(listTopic("plant"));
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 2,
         present: -1,
@@ -1041,7 +1041,7 @@ describe("Kafka read form", () => {
       sources: ["pump"],
       fields: [
         createInferredField("/time", "timestamp", "number", "unix_ms"),
-        ...pointers.map((p) => createInferredField(p, "float64", "number")),
+        ...pointers.map((p) => createInferredField(p, "float", "number")),
       ],
       index: 0,
       count: 2,
@@ -1200,9 +1200,9 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [
-          createInferredField("/count", "int64", "number"),
-          createInferredField("/id", "uint64", "number"),
-          createInferredField("/level", "float64", "number"),
+          createInferredField("/count", "integer", "number"),
+          createInferredField("/id", "unsigned", "number"),
+          createInferredField("/level", "float", "number"),
         ],
         index: -1,
         count: 2,
@@ -1231,8 +1231,8 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [
-          createInferredField("/a/b", "float64", "number"),
-          createInferredField("/a_b", "float64", "number"),
+          createInferredField("/a/b", "float", "number"),
+          createInferredField("/a_b", "float", "number"),
         ],
         index: -1,
         count: 2,
@@ -1278,7 +1278,7 @@ describe("Kafka read form", () => {
       await screen.findByRole("treeitem", { name: /^temperature/ });
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 1,
         present: -1,
@@ -1309,7 +1309,7 @@ describe("Kafka read form", () => {
       const { dev } = await renderRead();
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 2,
         present: -1,
@@ -1324,7 +1324,7 @@ describe("Kafka read form", () => {
       });
       const grown = {
         ...pump,
-        fields: [...pump.fields, createInferredField("/flow", "float64", "number")],
+        fields: [...pump.fields, createInferredField("/flow", "float", "number")],
       };
       const again = await answerCommandsUntil(client, [scan], "sample", {
         browse: { data: browseOf(listTopic(TOPIC)) },
@@ -1692,7 +1692,7 @@ describe("Kafka read form", () => {
         sources: ["oven-1"],
         fields: [
           ...OVEN_SHAPE.fields.slice(0, 2),
-          createInferredField("/pressure", "float64", "number"),
+          createInferredField("/pressure", "float", "number"),
         ],
         index: 0,
         count: 1,

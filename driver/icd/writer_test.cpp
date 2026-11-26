@@ -27,6 +27,7 @@
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "driver/codec/binary.h"
 #include "driver/codec/errors.h"
 #include "driver/errors/errors.h"
 #include "driver/icd/writer.h"
@@ -59,6 +60,12 @@ struct Config {
     /// @brief adds f to the message.
     void add(const synnax::icd::JSONField &f) {
         std::get<synnax::icd::JSONPayload>(this->ic.messages[0].payload)
+            .fields.push_back(f);
+    }
+
+    /// @brief adds f to the message.
+    void add(const synnax::icd::BinaryField &f) {
+        std::get<synnax::icd::BinaryPayload>(this->ic.messages[0].payload)
             .fields.push_back(f);
     }
 
@@ -110,6 +117,47 @@ Config json_message() {
     auto c = message();
     c.ic.messages[0].payload = synnax::icd::JSONPayload{};
     return c;
+}
+
+/// @brief returns a config whose binary message cmd has no fields.
+Config binary_message() {
+    auto c = message();
+    c.ic.messages[0].payload = synnax::icd::BinaryPayload{};
+    return c;
+}
+
+/// @brief returns a binary field of type Field named name, in the byte at offset.
+template<typename Field>
+Field byte(const std::string &name, const std::uint16_t offset) {
+    Field f;
+    f.key = x::uuid::create();
+    f.name = name;
+    f.start_bit = offset * 8;
+    return f;
+}
+
+/// @brief returns the value of each field of the binary message of c in each payload,
+/// read back by a decoder.
+std::vector<std::vector<double>>
+decoded(const Config &c, const std::vector<std::string> &payloads) {
+    codec::BinaryMessage m{
+        .name = "cmd",
+        .payload = std::get<synnax::icd::BinaryPayload>(c.ic.messages[0].payload),
+    };
+    for (const auto &f: m.payload.fields)
+        m.bindings.push_back(
+            {.field = synnax::icd::base(f).key, .data_type = x::telem::FLOAT64_T}
+        );
+    auto dec = ASSERT_NIL_P(codec::Binary::create({m}));
+    std::vector<std::vector<double>> out;
+    for (const auto &p: payloads) {
+        const std::vector<std::uint8_t> bytes(p.begin(), p.end());
+        EXPECT_EQ(ASSERT_NIL_P(dec.decode(bytes)), 0U);
+        auto &values = out.emplace_back();
+        for (const auto &s: dec.samples(0))
+            values.push_back(s.at<double>(0));
+    }
+    return out;
 }
 
 /// @brief returns a JSON field of type Field named name, at the pointer /name.
@@ -411,20 +459,14 @@ TEST(Writer, AcceptValueThatRoundsToLimit) {
     );
 }
 
-/// @brief it should refuse a write of a message that does not exist or is not text, and
-/// one that binds no channels or a channel that does not exist.
+/// @brief it should refuse a write of a message that does not exist, and one that binds
+/// no channels or a channel that does not exist.
 TEST(Writer, RefuseInvalidMessage) {
     auto missing = setpoints();
     missing.wm.message = x::uuid::create();
     assert_refuses(
         missing,
         "message " + missing.wm.message.to_string() + " does not exist in ICD valves"
-    );
-    auto binary = setpoints();
-    binary.ic.messages[0].payload = synnax::icd::BinaryPayload{};
-    assert_refuses(
-        binary,
-        "message cmd: the Driver writes only text and JSON messages"
     );
     auto unbound = message();
     auto f = at("a", 0);
@@ -622,6 +664,156 @@ TEST(Writer, DropRefusedJSONCommands) {
         frame(2, x::telem::Series(std::vector<double>{std::nan(""), 2})),
         {R"({"a":2})"},
         "message cmd: field a: NaN is not a JSON number"
+    );
+}
+
+/// @brief it should send one binary payload for each row of commands, with the last
+/// command of a channel that has fewer.
+TEST(Writer, WriteBinaryPayloads) {
+    auto c = binary_message();
+    c.bind(byte<synnax::icd::UnsignedBinaryField>("a", 0), 2);
+    c.bind(byte<synnax::icd::IntegerBinaryField>("b", 1), 3);
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        decoded(
+            c,
+            sent(
+                w,
+                frame(
+                    2,
+                    x::telem::Series(std::vector<double>{1, 2, 3}),
+                    3,
+                    x::telem::Series(-10.0)
+                )
+            )
+        ),
+        (std::vector<std::vector<double>>{{1, -10}, {2, -10}, {3, -10}})
+    );
+    EXPECT_EQ(
+        decoded(c, sent(w, frame(3, x::telem::Series(20.0)))),
+        (std::vector<std::vector<double>>{{3, 20}})
+    );
+}
+
+/// @brief it should send the default of a binary field with no command yet, and the
+/// value of a value binding of each binary kind.
+TEST(Writer, SendBinaryDefaultsAndValues) {
+    auto c = binary_message();
+    c.bind(byte<synnax::icd::UnsignedBinaryField>("a", 0), 2);
+    auto d = byte<synnax::icd::UnsignedBinaryField>("d", 1);
+    d.default_ = 5;
+    c.add(d);
+    const auto u = byte<synnax::icd::UnsignedBinaryField>("u", 2);
+    c.add(u);
+    c.fix(u.key, synnax::icd::UnsignedWriteValue{.value = 7});
+    const auto i = byte<synnax::icd::IntegerBinaryField>("i", 3);
+    c.add(i);
+    c.fix(i.key, synnax::icd::IntegerWriteValue{.value = -8});
+    auto f = byte<synnax::icd::FloatBinaryField>("f", 4);
+    f.bit_length = 32;
+    c.add(f);
+    c.fix(f.key, synnax::icd::FloatWriteValue{.value = 1.5});
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        decoded(c, sent(w, frame(2, x::telem::Series(1.0)))),
+        (std::vector<std::vector<double>>{{1, 5, 7, -8, 1.5}})
+    );
+}
+
+/// @brief it should refuse a binary value that is not of its field's kind, or that
+/// decodes outside the limits of its field.
+TEST(Writer, RefuseInvalidBinaryValues) {
+    auto kind = binary_message();
+    kind.bind(byte<synnax::icd::UnsignedBinaryField>("a", 0), 2);
+    const auto b = byte<synnax::icd::UnsignedBinaryField>("b", 1);
+    kind.add(b);
+    kind.fix(b.key, synnax::icd::FloatWriteValue{.value = 1});
+    assert_refuses(
+        kind,
+        "message cmd: field b of kind unsigned needs a value of its kind"
+    );
+    auto limits = binary_message();
+    limits.bind(byte<synnax::icd::UnsignedBinaryField>("a", 0), 2);
+    auto s = byte<synnax::icd::UnsignedBinaryField>("s", 1);
+    s.scale = 5;
+    s.max = 10;
+    limits.add(s);
+    limits.fix(s.key, synnax::icd::UnsignedWriteValue{.value = 3});
+    assert_refuses(
+        limits,
+        "message cmd: field s: 3 decodes to 15, which is above the max 10"
+    );
+    auto nan = binary_message();
+    nan.bind(byte<synnax::icd::UnsignedBinaryField>("a", 0), 2);
+    auto f = byte<synnax::icd::FloatBinaryField>("f", 1);
+    f.bit_length = 32;
+    f.max = 10;
+    nan.add(f);
+    nan.fix(f.key, synnax::icd::FloatWriteValue{.value = std::nan("")});
+    assert_refuses(nan, "message cmd: field f: NaN is outside the limits");
+}
+
+/// @brief it should drop a binary command outside the limits of its field, or one that
+/// its field cannot hold, and keep the last good command of the field.
+TEST(Writer, DropRefusedBinaryCommands) {
+    auto c = binary_message();
+    auto a = byte<synnax::icd::UnsignedBinaryField>("a", 0);
+    a.min = 0;
+    a.max = 10;
+    c.bind(a, 2);
+    c.bind(byte<synnax::icd::UnsignedBinaryField>("b", 1), 3);
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        decoded(c, sent(w, frame(2, x::telem::Series(5.0), 3, x::telem::Series(1.0)))),
+        (std::vector<std::vector<double>>{{5, 1}})
+    );
+    assert_refuses_command(
+        w,
+        frame(2, x::telem::Series(11.0)),
+        {},
+        "message cmd: field a: 11 is above the max 10"
+    );
+    std::vector<std::string> out;
+    const auto [error, refused] = w.write(
+        frame(2, x::telem::Series(-1.0), 3, x::telem::Series(256.0)),
+        [&](std::span<const std::uint8_t> p) {
+            out.emplace_back(p.begin(), p.end());
+            return x::errors::NIL;
+        }
+    );
+    EXPECT_NIL(error);
+    ASSERT_OCCURRED_AS(refused, x::errors::VALIDATION);
+    EXPECT_EQ(refused.data, "message cmd: field a: -1 is out of range for 8 bits");
+    EXPECT_TRUE(out.empty());
+    EXPECT_EQ(
+        decoded(c, sent(w, frame(3, x::telem::Series(2.0)))),
+        (std::vector<std::vector<double>>{{5, 2}})
+    );
+}
+
+/// @brief it should send a multiplexed binary message once each field that the
+/// multiplexor selects has a command, and not wait for a field that it does not select.
+TEST(Writer, WaitOnlyForSelectedBinaryFields) {
+    auto c = binary_message();
+    const auto m = byte<synnax::icd::UnsignedBinaryField>("m", 0);
+    auto a = byte<synnax::icd::UnsignedBinaryField>("a", 1);
+    a.multiplexor = m.key;
+    a.multiplex_values = {0};
+    auto b = byte<synnax::icd::UnsignedBinaryField>("b", 2);
+    b.multiplexor = m.key;
+    b.multiplex_values = {1};
+    c.bind(m, 2);
+    c.bind(a, 3);
+    c.bind(b, 4);
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        sent(w, frame(2, x::telem::Series(0.0), 3, x::telem::Series(5.0))),
+        (std::vector<std::string>{std::string("\x00\x05\x00", 3)})
+    );
+    EXPECT_TRUE(sent(w, frame(2, x::telem::Series(1.0))).empty());
+    EXPECT_EQ(
+        sent(w, frame(4, x::telem::Series(7.0))),
+        (std::vector<std::string>{std::string("\x01\x00\x07", 3)})
     );
 }
 }

@@ -308,7 +308,7 @@ var _ = Describe("Status", Ordered, func() {
 					err := w.Set(ctx, &s)
 					Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
 					Expect(err).To(MatchError(
-						"labels: label " + missing.String() + " does not exist: validation error",
+						"labels.0: label " + missing.String() + " does not exist: validation error",
 					))
 				})
 				It(
