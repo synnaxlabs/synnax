@@ -197,22 +197,47 @@ type ConfigReporter struct {
 	alamos.Instrumentation
 }
 
-// Report reports err for t, which failed to configure. It writes an error status that
-// answers cmdKey, or NoCommand at boot.
+// Report reports err for t, which failed to configure, with an error status that
+// answers cmdKey, or NoCommand at boot. When the stored status shows the task running,
+// the driver keeps the instance of its last deploy, so the status keeps the running
+// state and the config hash of that deploy.
 func (r ConfigReporter) Report(
 	ctx context.Context,
 	t task.Task,
 	cmdKey string,
 	err error,
 ) {
-	if sErr := NewStatusHandler(r.DB, r.Status, t).Send(
-		ctx,
-		cmdKey,
-		status.VariantError,
-		false,
-		"Failed to configure task",
-		err.Error(),
-	); sErr != nil {
+	if sErr := r.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		stat := task.Status{
+			Owner:       new(t.ResourceID()),
+			Name:        t.Name,
+			Variant:     status.VariantError,
+			Message:     "Failed to configure task",
+			Description: err.Error(),
+			Details:     task.NewStatusDetails(t, false),
+		}
+		var prev task.Status
+		rErr := r.Status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchOwners[task.StatusDetails](*stat.Owner)).
+			Entry(&prev).
+			Exec(ctx, tx)
+		if rErr != nil && !errors.Is(rErr, query.ErrNotFound) {
+			return rErr
+		}
+		if rErr == nil {
+			stat.Name = prev.Name
+			if prev.Details.Running {
+				stat.Details = prev.Details
+				stat.Message = "Failed to deploy changes"
+				stat.Description = "The task still runs its last deployed config. " +
+					err.Error()
+			}
+		}
+		stat.Details.Cmd = cmdKey
+		stat.Details.Data = nil
+		stat.Time = telem.Now()
+		return r.Status.NewWriter(tx).Set(ctx, &stat)
+	}); sErr != nil {
 		r.L.Error(
 			"failed to set configuration status",
 			zap.Stringer("task", t),

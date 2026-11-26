@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -360,7 +361,11 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 					tsk.Type, err,
 				))
 			case errors.Is(err, context.DeadlineExceeded):
-				d.ackFailure(ctx, tsk, cmd, "Failed to start task", err.Error())
+				ConfigReporter{
+					DB:              d.cfg.DB,
+					Status:          d.cfg.Status,
+					Instrumentation: d.cfg.Instrumentation,
+				}.Report(ctx, tsk, cmd.Key, err)
 			}
 			return
 		}
@@ -581,6 +586,9 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 		d.cfg.L.Error("failed to retrieve existing tasks", zap.Error(err))
 		return
 	}
+	if err := d.replaceInterrupted(ctx, tasks); err != nil {
+		d.cfg.L.Error("failed to replace interrupted task statuses", zap.Error(err))
+	}
 	d.cfg.L.Info("configuring existing tasks", zap.Int("count", len(tasks)))
 	sCtx, cancel := signal.WithTimeout(
 		ctx,
@@ -609,10 +617,42 @@ func (d *Driver) configureExistingTasks(ctx context.Context) {
 	}
 }
 
+// replaceInterrupted replaces the stored status of each of tasks that shows the task
+// running on this rack, since the Core stopped while the task ran.
+func (d *Driver) replaceInterrupted(ctx context.Context, tasks []task.Task) error {
+	return d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var stats []task.Status
+		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchOwners[task.StatusDetails](
+				task.ResourceIDsFromTasks(tasks)...,
+			)).
+			Entries(&stats).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		// A task moved here runs on its old rack until a start arrives.
+		stats = lo.Filter(stats, func(s task.Status, _ int) bool {
+			return s.Details.Running && s.Details.Rack == d.rack.Key
+		})
+		if len(stats) == 0 {
+			return nil
+		}
+		for i := range stats {
+			stats[i].Time = telem.Now()
+			stats[i].Variant = status.VariantWarning
+			stats[i].Message = "Task stopped"
+			stats[i].Description = "The Core restarted while the task was running. " +
+				"Start the task again."
+			stats[i].Details.Running = false
+		}
+		return d.cfg.Status.NewWriter(tx).SetMany(ctx, &stats)
+	})
+}
+
+// configure builds t and replaces the live instance of t with it. The live instance
+// runs until the build succeeds, and runs on when it fails.
 func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) error {
 	d.mu.Lock()
-	existing, hadExisting := d.mu.instances[t.Key]
-	delete(d.mu.instances, t.Key)
 	delete(d.mu.failures, t.Key)
 	stopping := d.mu.stopping[t.Key]
 	d.mu.Unlock()
@@ -621,15 +661,6 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 		case <-stopping:
 		case <-ctx.Done():
 			return ctx.Err()
-		}
-	}
-
-	if hadExisting {
-		if err := existing.task.Stop(false); err != nil {
-			d.cfg.L.Error("failed to stop existing task for reconfiguration",
-				zap.Stringer("task", t),
-				zap.Error(err),
-			)
 		}
 	}
 
@@ -650,7 +681,8 @@ func (d *Driver) configure(ctx context.Context, t task.Task, cmdKey string) erro
 	return err
 }
 
-// deploy builds t with the first factory that handles it and stores the instance.
+// deploy builds t with the first factory that handles it, stores the instance, and
+// stops the instance that it replaces.
 func (d *Driver) deploy(ctx context.Context, t task.Task, cmdKey string) error {
 	// A factory can start the task, and a canceled Open stops no task.
 	if err := ctx.Err(); err != nil {
@@ -670,12 +702,21 @@ func (d *Driver) deploy(ctx context.Context, t task.Task, cmdKey string) error {
 		exists, err := d.cfg.Task.NewRetrieve().
 			Where(task.MatchKeys(t.Key)).
 			Exists(ctx, d.cfg.DB)
+		old, replaced := d.mu.instances[t.Key]
 		if exists {
 			d.mu.instances[t.Key] = instance{task: newTask, hash: t.ConfigHash}
 		}
 		d.mu.Unlock()
 		if err != nil || !exists {
 			return errors.Combine(err, newTask.Stop(false))
+		}
+		if replaced {
+			if err := old.task.Stop(false); err != nil {
+				d.cfg.L.Error("failed to stop replaced task",
+					zap.Stringer("task", t),
+					zap.Error(err),
+				)
+			}
 		}
 		d.cfg.L.Info("configured task", zap.Stringer("task", t))
 		return nil
@@ -755,6 +796,8 @@ func (d *Driver) release(key task.Key, sendStatus bool) bool {
 	return true
 }
 
+// Close stops the driver and each live task. The stops write no status: the next boot
+// reports each task that was running.
 func (d *Driver) Close() error {
 	// The command sink drains first, so no command deploys a task after the stops.
 	err := d.closer.Close()
@@ -763,7 +806,7 @@ func (d *Driver) Close() error {
 	d.mu.instances = make(map[task.Key]instance)
 	d.mu.Unlock()
 	for key, inst := range instances {
-		if err := inst.task.Stop(!inst.deleted); err != nil {
+		if err := inst.task.Stop(false); err != nil {
 			d.cfg.L.Error(
 				"failed to stop task during shutdown",
 				zap.Stringer("task", key),

@@ -567,5 +567,36 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
 			Expect(stat.Details.Running).To(BeFalse())
 		})
+		It("should keep a running task running on its last deployed config", func(
+			ctx SpecContext,
+		) {
+			Expect(sendFirst(ctx, handler)).To(Succeed())
+			changed := t
+			changed.ConfigHash = "hash-2"
+			reporter().Report(ctx, changed, "cmd-2", cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to deploy changes"))
+			Expect(stat.Description).To(Equal(
+				"The task still runs its last deployed config. bad config",
+			))
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+			Expect(stat.Details.Running).To(BeTrue())
+			Expect(stat.Details.ConfigHash).To(Equal("hash-1"))
+		})
+		It("should report a stopped task as not configured", func(ctx SpecContext) {
+			Expect(sendFirst(ctx, handler)).To(Succeed())
+			Expect(stopSecond(ctx, handler)).To(Succeed())
+			changed := t
+			changed.ConfigHash = "hash-2"
+			reporter().Report(ctx, changed, "cmd-3", cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Description).To(Equal("bad config"))
+			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.ConfigHash).To(Equal("hash-2"))
+		})
 	})
 })
