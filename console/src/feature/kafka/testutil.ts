@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { device, Synnax, task } from "@synnaxlabs/client";
-import { payload } from "@synnaxlabs/x";
+import type { payload } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { onTestFinished } from "vitest";
 
