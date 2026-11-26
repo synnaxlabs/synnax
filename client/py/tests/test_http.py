@@ -1012,3 +1012,47 @@ class TestHTTPDevicePropertyUpdates:
 
         props = client.devices.retrieve(key=device.key).properties
         assert obj(props, "write") == {f"PUT /api/v1/setpoint#{value.key}": cmd_ch.key}
+
+    def test_write_task_keeps_stored_channel_of_unset_binding(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should keep the stored command channel of a field whose binding has no
+        channel yet."""
+        value = sy.icd.FloatJSONField(name="value", pointer="/value")
+        message = sy.icd.Message(
+            name="PUT /api/v1/setpoint", payload=sy.icd.JSONPayload(fields=[value])
+        )
+        ic = client.icds.create(name=random_name(), messages=[message])
+        stored = client.channels.create(
+            name=f"http_cmd_{random_name()}",
+            virtual=True,
+            data_type=sy.DataType.FLOAT64,
+        )
+        key = f"PUT /api/v1/setpoint#{value.key}"
+        device = sy.http.Device(
+            host="127.0.0.1:8080",
+            secure=False,
+            name="Test HTTP Stored Server",
+            rack=client.racks.retrieve_embedded_rack().key,
+        )
+        device.properties["write"] = {key: stored.key}
+        client.devices.create(device)
+        task = sy.http.WriteTask(
+            name="Test HTTP Unset Binding",
+            device=device.key,
+            endpoints=[
+                sy.http.WriteEndpoint(
+                    method="PUT",
+                    path="/api/v1/setpoint",
+                    icd=ic.key,
+                    message=sy.icd.WriteMessage(
+                        message=message.key,
+                        bindings=[sy.icd.ChannelWriteBinding(field=value.key)],
+                    ),
+                )
+            ],
+        )
+        task.update_device_properties(client.devices)
+
+        props = client.devices.retrieve(key=device.key).properties
+        assert obj(props, "write") == {key: stored.key}
