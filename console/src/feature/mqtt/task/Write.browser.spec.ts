@@ -351,6 +351,13 @@ describe("MQTT Write form", () => {
     );
   });
 
+  it("should cut a long topic at its end", async () => {
+    await renderWrite([await createPlainTarget("t1", "plant/oven/setpoint/set")]);
+    const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+    const label = within(item).getByText("plant/oven/setpoint/set");
+    expect(getComputedStyle(label).direction).toBe("ltr");
+  });
+
   it("should disable a target through its checkbox", async () => {
     const { draft } = await renderWrite([
       await createPlainTarget("t1", "plant/valve/set"),
