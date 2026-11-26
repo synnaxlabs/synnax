@@ -50,7 +50,9 @@ func MigrateSpec(ctx context.Context, old v4.Spec) (Spec, error) {
 	if err != nil {
 		return Spec{}, err
 	}
-	return m.finish(), nil
+	spec := m.finish()
+	spec.Looks = DrawnLooks(spec)
+	return spec, nil
 }
 
 // Intern returns the key of an enumeration with name and entries. It creates one in the
@@ -61,29 +63,21 @@ type Intern func(
 	entries []enumeration.Entry,
 ) (enumeration.Key, error)
 
-// Actuators returns the keys of the symbols that a custom_actuator node draws.
-type Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
-
 // MigrationConfig is the configuration for NewMigration.
 type MigrationConfig struct {
 	// Intern opens the Intern of the migration's transaction.
 	Intern func(gorp.Tx) Intern
-	// Actuators returns the symbols that a custom_actuator node draws.
-	Actuators Actuators
 }
 
 // NewMigration returns the migration that lifts stored symbols from v4 to v5 as
-// MigrateSymbol does. It gives the state of each symbol a default enumeration with an
-// entry for each old state, and turns the color looks that the entries carry into entry
-// looks. A symbol that a custom_actuator node draws gets the commands of an actuator.
+// MigrateSymbol does, but keeps every look. It gives the state of each symbol a default
+// enumeration with an entry for each old state, and turns the color looks that the
+// entries carry into entry looks. Apply DrawnLooks to each stored symbol once the
+// symbols that custom_actuator nodes draw are actuators.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	return migrate.New(
 		"v63_symbol_model",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) (err error) {
-			drawn, err := cfg.Actuators(ctx, tx)
-			if err != nil {
-				return err
-			}
 			var (
 				intern = cfg.Intern(tx)
 				reader = gorp.WrapReader[Key, v4.Symbol](tx)
@@ -100,7 +94,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					return err
 				}
 				var s Symbol
-				if s, err = migrateStored(ctx, *old, drawn, intern, ins); err != nil {
+				if s, err = migrateStored(ctx, *old, intern, ins); err != nil {
 					return errors.Wrapf(err, "symbol %v", old.Key)
 				}
 				if err = writer.Set(ctx, s); err != nil {
@@ -115,7 +109,6 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 func migrateStored(
 	ctx context.Context,
 	old v4.Symbol,
-	drawn set.Set[Key],
 	intern Intern,
 	ins alamos.Instrumentation,
 ) (Symbol, error) {
@@ -130,11 +123,11 @@ func migrateStored(
 			zap.String("selector", sel),
 		)
 	}
-	if drawn.Contains(old.Key) {
-		m.addActuator()
-	}
 	if len(old.Data.States) > 0 {
 		entries := defaultEntries(old.Data.States, m.entryLooks())
+		if m.actuator {
+			entries, _ = ActuatorEntries(entries)
+		}
 		key, err := intern(ctx, old.Name, entries)
 		if err != nil {
 			return Symbol{}, err
@@ -153,6 +146,8 @@ type specMigration struct {
 	painted []regionPaint
 	// dropped holds the selectors that select no shape.
 	dropped []string
+	// actuator is true when the spec gets the commands of an actuator.
+	actuator bool
 }
 
 // regionPaint is the stroke and fill that a region gives its part at a value.
@@ -199,9 +194,7 @@ func migrateSpec(ctx context.Context, old v4.Spec) (*specMigration, error) {
 	}
 	m.spec.Drawing = Drawing{Variant: SvgDrawing{Markup: parts.markup(old.SVG)}}
 	m.dropped = parts.dropped
-	if old.Variant == actuatorVariant {
-		m.addActuator()
-	}
+	m.actuator = old.Variant == actuatorVariant
 	return m, nil
 }
 
@@ -230,16 +223,33 @@ func (m *specMigration) addLook(part string, value float64, r v4.Region) {
 	})
 }
 
-// addActuator gives the spec the commands Off and On and a click between them.
-func (m *specMigration) addActuator() {
-	if m.state == nil {
-		m.state = &EnumerationState{Key: activeState, Name: "Active"}
+// Actuate returns spec as an actuator: the commands Off and On of the state "active", a
+// click that picks between them, and the variant actuator. It adds the state when spec
+// has none, and makes the state match within 0.9 and 1.1. When no look holds on value
+// 1, each look on value 0 holds on value 1 too. The enumeration of the state needs
+// ActuatorEntries.
+func Actuate(spec Spec) Spec {
+	spec.Variant = actuatorVariant
+	spec.Looks = activeLooks(spec.Looks)
+	spec.States = slices.Clone(spec.States)
+	st := EnumerationState{Key: activeState, Name: "Active"}
+	i := slices.IndexFunc(spec.States, func(s State) bool {
+		e, ok := s.Variant.(EnumerationState)
+		if ok && e.Key == activeState {
+			st = e
+		}
+		return ok && e.Key == activeState
+	})
+	if i < 0 {
+		i = len(spec.States)
+		spec.States = append(spec.States, State{})
 	}
-	m.state.Match = Matcher{
+	st.Match = Matcher{
 		Variant: WithinMatcher{Bounds: spatial.Bounds{Lower: 0.9, Upper: 1.1}},
 	}
+	spec.States[i] = State{Variant: st}
 	active := activeState
-	m.spec.Commands = []Command{
+	spec.Commands = []Command{
 		{
 			Key:   deactivate,
 			Name:  "Off",
@@ -253,31 +263,73 @@ func (m *specMigration) addActuator() {
 			Value: CommandValue{Variant: FixedCommandValue{Value: 1}},
 		},
 	}
-	m.spec.Interactions = []Interaction{{Variant: NextInteraction{
+	spec.Interactions = []Interaction{{Variant: NextInteraction{
 		BaseInteraction: BaseInteraction{Key: "next"},
 		Commands:        []string{deactivate, activate},
 	}}}
+	return spec
 }
 
-// finish returns the spec with the state "active" when the symbol has it. A symbol
-// with no commands draws only value 0, so its looks on value 0 reach every value, and
-// its other looks go.
+// activeLooks returns looks with each look on value 0 also on value 1, when no look
+// holds on value 1.
+func activeLooks(looks []Look) []Look {
+	if slices.ContainsFunc(looks, func(l Look) bool {
+		values, ok := activeValues(l)
+		return ok && slices.Contains(values, 1)
+	}) {
+		return looks
+	}
+	looks = slices.Clone(looks)
+	for i, l := range looks {
+		if values, ok := activeValues(l); ok && slices.Contains(values, 0) {
+			looks[i].When = equals(append(slices.Clone(values), 1)...)
+		}
+	}
+	return looks
+}
+
+// activeValues returns the values of the state "active" that the condition of l holds
+// on, and false when l has no such condition.
+func activeValues(l Look) ([]float64, bool) {
+	if l.When == nil {
+		return nil, false
+	}
+	eq, ok := l.When.Variant.(EqualsCondition)
+	return eq.Values, ok && eq.State == activeState
+}
+
+// finish returns the spec with the state "active" when the symbol has it, and with the
+// commands of an actuator when the symbol is one.
 func (m *specMigration) finish() Spec {
 	m.spec.States = []State{}
 	if m.state != nil {
 		m.spec.States = append(m.spec.States, State{Variant: *m.state})
 	}
-	if len(m.spec.Commands) == 0 {
-		looks := make([]Look, 0, len(m.spec.Looks))
-		for _, l := range m.spec.Looks {
-			if holdsBase(l.When) {
-				l.When = nil
-				looks = append(looks, l)
-			}
-		}
-		m.spec.Looks = looks
+	if m.actuator {
+		return Actuate(m.spec)
 	}
 	return m.spec
+}
+
+// DrawnLooks returns the looks that spec draws. A spec with no commands draws only
+// value 0 of the state "active", so its looks on value 0 hold at every value, and its
+// looks on other values alone go.
+func DrawnLooks(spec Spec) []Look {
+	if len(spec.Commands) > 0 {
+		return spec.Looks
+	}
+	looks := make([]Look, 0, len(spec.Looks))
+	for _, l := range spec.Looks {
+		values, ok := activeValues(l)
+		if ok && !slices.Contains(values, 0) {
+			continue
+		}
+		if ok {
+			l.When = nil
+		}
+		looks = append(looks, l)
+	}
+	return looks
 }
 
 // partMigrator turns regions into parts, one for each pair of region key and selector
@@ -347,12 +399,6 @@ func (m *partMigrator) markup(svg string) string {
 		return svg
 	}
 	return m.tree.markupWithIDs()
-}
-
-// holdsBase returns whether c holds at value 0 of the state "active".
-func holdsBase(c *Condition) bool {
-	eq, ok := c.Variant.(EqualsCondition)
-	return ok && eq.State == activeState && slices.Contains(eq.Values, 0)
 }
 
 func equals(values ...float64) *Condition {

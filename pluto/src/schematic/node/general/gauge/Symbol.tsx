@@ -16,8 +16,8 @@ import type { ReactElement } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
-import { Stale } from "@/schematic/node/common/stale";
 import { Gauge } from "@/schematic/node/general/gauge/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Gauge as BaseGauge } from "@/vis/gauge";
@@ -73,7 +73,7 @@ export const Symbol = ({
   return (
     <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      <Indicator.Slot stale={stale} />
       <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );
