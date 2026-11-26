@@ -541,14 +541,14 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    and `SyncDir` of the root. Remove a leftover file of a name that this switch will
    make. Then tell `L` that the file exists; `L` switches only after that.
 2. `L`, after the sync of the last frame of log `g`: write both header copies of log
-   `g + 1` and sync. Put one request in the state owner's queue right after the last
-   entries of log `g`. The state owner keeps a durable view, fed by acked entries in log
-   order, apart from the visible view that `Commit` publishes, and it answers with the
-   durable view, which covers exactly log `g`. In the same step it marks sealed each
-   open segment that no writer holds, so no writer takes it over, and sends those
-   segments to `L`, which logs a Seal for each in log `g + 1`. It sends the durable
-   view, as references to immutable channel states, to `C`. `L` sends later batches to
-   log `g + 1`. A crash now recovers from head `g` and both logs.
+   `g + 1` and sync. Only after that sync passes, put one request in the state owner's
+   queue right after the last entries of log `g`. The state owner keeps a durable view,
+   fed by acked entries in log order, apart from the visible view that `Commit`
+   publishes, and it answers with the durable view, which covers exactly log `g`. In the
+   same step it marks sealed each open segment that no writer holds, so no writer takes
+   it over, and sends those segments to `L`, which logs a Seal for each in log `g + 1`.
+   It sends the durable view, as references to immutable channel states, to `C`. `L`
+   sends later batches to log `g + 1`. A crash now recovers from head `g` and both logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
    `<p>.part`, write its body, sync, write its header sector, sync. A part that fails a
    read during its rewrite stays as it is, with its marks in the head.
@@ -758,28 +758,28 @@ second read. No storage fault stops a running Core: live data, streams, control,
 keep running. After a sync error on log `g`, the log owner never writes or syncs that
 log again and acks nothing. Each attempt to go on takes a fresh log file from the
 checkpointer, at the next free generation, and writes and syncs its header first: the
-end flag, the generation of the newest log that holds a synced frame, and the `crc` of
-that log's last synced frame. That log is `g`, or an earlier log when no frame of `g`
-synced, as after a failed sync of the header of `g`, so recovery finds the chain and
-skips the logs between (§5.5 step 6). Only after that sync passes does it write every
-unacked entry again, whose segments are already durable (§5.4 step 3), as the first
-frames of that log, sync, and ack. One attempt runs at a time: a `Sync` during an
-attempt returns the error at once, and the next `Sync` after a failed attempt makes the
-next one. Before it, the log owner removes the file of the failed attempt, which holds
-no acked frame, so a lasting fault adds at most one log file. Failed attempts do not
-count toward the 16 logs of §5.3. The checkpointer learns each generation that the log
-owner takes, so a due switch takes the next free generation and never writes the headers
-of a log in use, and the orphan pass keeps each log from the older head's generation on.
-Recovery goes on from the named log in the highest log whose header holds the end flag
-for it (§5.5 step 6), so a failed frame that reached the disk is neither replayed nor a
-sign of corruption. Until an attempt acks, `Sync` returns the error, `Close` returns it
-and releases its claims (§4.2), commits stay visible, and the Core raises a status that
-says storage is failing. A crash in that time loses the commits since the last durable
-entry. At start, the Core gets past damage by itself: when `Open` returns `ErrCorrupt`,
-the Core runs `cesium.Repair` (§6.0) with a confirm that accepts, raises a warning
-status that lists what repair could not save, and opens again. A repair that fails fails
-the start. The identity refusal (§9.0) is its own error, and the Core never repairs past
-it. Cesium does not panic.
+end flag, the generation of the newest log whose header synced, and the `crc` of that
+log's last synced frame or, when it holds none, the CRC of its header at 0, the link of
+a first frame (§5.2). That log is `g`, or the log before `g` when the header sync of `g`
+failed, so recovery finds the chain and skips the log between (§5.5 step 6). Only after
+that sync passes does it write every unacked entry again, whose segments are already
+durable (§5.4 step 3), as the first frames of that log, sync, and ack. One attempt runs
+at a time: a `Sync` during an attempt returns the error at once, and the next `Sync`
+after a failed attempt makes the next one. Before it, the log owner removes the file of
+the failed attempt, which holds no acked frame, so a lasting fault adds at most one log
+file. Failed attempts do not count toward the 16 logs of §5.3. The checkpointer learns
+each generation that the log owner takes, so a due switch takes the next free generation
+and never writes the headers of a log in use, and the orphan pass keeps each log from
+the older head's generation on. Recovery goes on from the named log in the highest log
+whose header holds the end flag for it (§5.5 step 6), so a failed frame that reached the
+disk is neither replayed nor a sign of corruption. Until an attempt acks, `Sync` returns
+the error, `Close` returns it and releases its claims (§4.2), commits stay visible, and
+the Core raises a status that says storage is failing. A crash in that time loses the
+commits since the last durable entry. At start, the Core gets past damage by itself:
+when `Open` returns `ErrCorrupt`, the Core runs `cesium.Repair` (§6.0) with a confirm
+that accepts, raises a warning status that lists what repair could not save, and opens
+again. A repair that fails fails the start. The identity refusal (§9.0) is its own
+error, and the Core never repairs past it. Cesium does not panic.
 
 | Fault                                                                                         | What the engine sees                                                                             | What it does                                                                                                                                                                                                                                                            |
 | --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
