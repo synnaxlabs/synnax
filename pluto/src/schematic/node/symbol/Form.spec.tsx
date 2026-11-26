@@ -34,6 +34,7 @@ const commit = (input: HTMLElement, value: string): void => {
 };
 
 const VALVE: schematic.symbol.Ref = { type: "builtin", name: "valve" };
+const LIGHT: schematic.symbol.Ref = { type: "builtin", name: "light" };
 
 describe("Symbol form", () => {
   const client = createTestClient();
@@ -281,7 +282,7 @@ describe("Symbol form", () => {
   });
 
   it.each(["telemetry", "control"] as const)(
-    "should warn on the %s tab when the symbol is missing",
+    "should warn when the symbol is missing and the open tab is %s",
     (tab) => {
       const { getByText } = renderForm(
         <Form tab={tab} onTabChange={vi.fn()} />,
@@ -297,7 +298,7 @@ describe("Symbol form", () => {
   );
 
   it.each(["telemetry", "control"] as const)(
-    "should warn on the %s tab when the symbol fails to load",
+    "should warn when the symbol fails to load and the open tab is %s",
     async (tab) => {
       // A user with no policies cannot read the symbol, so its load fails.
       const denied = await createTestClientWithPolicy(client, []);
@@ -325,6 +326,34 @@ describe("Symbol form", () => {
       );
       fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
       await waitFor(() => expect(value(path.commands)).toEqual([]));
+    });
+  });
+
+  describe("control tab", () => {
+    it("should show no Control tab for a symbol with no click or command", async () => {
+      const { findByRole, queryByRole } = await render({ spec: LIGHT });
+      await findByRole("tab", { name: "Style" });
+      expect(queryByRole("tab", { name: "Control" })).toBeNull();
+    });
+
+    it("should show the clicks of a symbol with a click", async () => {
+      const { findByLabelText } = await render({ spec: VALVE }, "control");
+      expect(await findByLabelText("Clickable")).toBeDefined();
+    });
+
+    it("should show no clicks for a symbol with commands and no click", async () => {
+      const { findByText, queryByLabelText } = await render(
+        { spec: heater },
+        "control",
+      );
+      await findByText("Reset");
+      expect(queryByLabelText("Clickable")).toBeNull();
+    });
+
+    it("should open the Telemetry tab of a light when Control was open", async () => {
+      const { findByRole, findByText } = await render({ spec: LIGHT }, "control");
+      await findByRole("tab", { name: "Telemetry", selected: true });
+      expect(await findByText("Staleness")).toBeDefined();
     });
   });
 
