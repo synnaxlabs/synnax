@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from uuid import uuid4
 
-from confluent_kafka import Consumer, KafkaException, TopicPartition
+from confluent_kafka import Consumer, KafkaError, KafkaException, TopicPartition
 from examples.kafka_sim import KafkaSim
 
 import synnax as sy
@@ -125,24 +125,27 @@ def open_consumer() -> Iterator[Consumer]:
         consumer.close()
 
 
-def high_watermark(consumer: Consumer, topic: str) -> int:
-    """Return the offset of the next record of topic, or 0 when the topic does not exist
-    yet."""
+def watermarks(consumer: Consumer, topic: str) -> tuple[int, int]:
+    """Return the low and high watermarks of topic, or 0 and 0 when the topic does not
+    exist yet.
+
+    :raises KafkaException: For any other error, such as a timeout.
+    """
     try:
-        _, high = consumer.get_watermark_offsets(TopicPartition(topic, 0), timeout=5)
-    except KafkaException:
-        return 0
-    return high
+        return consumer.get_watermark_offsets(TopicPartition(topic, 0), timeout=5)
+    except KafkaException as e:
+        if e.args[0].code() != KafkaError._UNKNOWN_PARTITION:
+            raise
+        return 0, 0
 
 
 def tail(consumer: Consumer, topic: str, start: int) -> list[Record]:
     """Return the key and JSON value of each record of topic from offset start, oldest
     first, and at most the last 64. Empty when the topic does not exist yet."""
-    try:
-        low, high = consumer.get_watermark_offsets(TopicPartition(topic, 0), timeout=5)
-    except KafkaException:
-        return []
+    low, high = watermarks(consumer, topic)
     start = max(low, start, high - TAIL)
+    if start >= high:
+        return []
     consumer.assign([TopicPartition(topic, 0, start)])
     records: list[Record] = []
     while start + len(records) < high:
@@ -252,7 +255,7 @@ class KafkaWriteTaskCase(KafkaCase, WriteTaskCase[kafka.WriteTask]):
         assert self.tsk is not None
         with open_consumer() as consumer:
             self.marks = {
-                t.topic: high_watermark(consumer, t.topic)
+                t.topic: watermarks(consumer, t.topic)[1]
                 for t in self.tsk.config.targets
             }
 
