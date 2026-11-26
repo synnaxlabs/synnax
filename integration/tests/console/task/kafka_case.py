@@ -50,16 +50,24 @@ class KafkaCase(kafka_task.KafkaCase, ConsoleTaskCase):
         return [k for k in keys if k != 0]
 
     def assert_sample_count(self, page: TaskPage, *, keys: list[int]) -> None:
-        """Hold the running task, stop it from the form, then check each channel
-        against the produce rate of the simulator."""
+        """Hold the running task, stop it from the form, then check each channel against
+        the produce rate of the simulator. The channels of one topic share an index and
+        must hold the same count. Topics produce on their own, so their counts may
+        differ."""
         start = collect_samples(
             self.client, keys, duration=self.TASK_DURATION, frame_size=1
         )
         self.stop(page)
-        assert_sample_counts_in_range(
-            self.client,
-            channel_keys=keys,
-            time_range=sy.TimeRange(start, sy.TimeStamp.now()),
-            expected_samples=int(float(self.SAMPLE_RATE) * self.TASK_DURATION.seconds),
-            task_name=page.page_name,
-        )
+        time_range = sy.TimeRange(start, sy.TimeStamp.now())
+        expected = int(float(self.SAMPLE_RATE) * self.TASK_DURATION.seconds)
+        topics: dict[int, list[int]] = {}
+        for ch in self.client.channels.retrieve(keys):
+            topics.setdefault(ch.index, []).append(ch.key)
+        for group in topics.values():
+            assert_sample_counts_in_range(
+                self.client,
+                channel_keys=group,
+                time_range=time_range,
+                expected_samples=expected,
+                task_name=page.page_name,
+            )
