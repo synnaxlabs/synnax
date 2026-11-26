@@ -723,6 +723,7 @@ var _ = Describe("Layer", func() {
 				key uuid.UUID,
 				config map[string]any,
 			) error {
+				GinkgoHelper()
 				if err := gorp.WrapWriter[taskv3.Key, taskv3.Task](db).Set(
 					ctx,
 					taskv3.Task{Key: key, Name: "Tank farm", Type: "http_read"},
@@ -743,6 +744,7 @@ var _ = Describe("Layer", func() {
 				key uuid.UUID,
 				config map[string]any,
 			) error {
+				GinkgoHelper()
 				if err := gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
 					ctx,
 					taskv4.Task{Key: key, Name: "Tank farm", Type: "http_read"},
