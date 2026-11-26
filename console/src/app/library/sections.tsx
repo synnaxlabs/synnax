@@ -21,9 +21,9 @@ import { Enumeration } from "@/feature/enumeration";
 import { ICD } from "@/feature/icd";
 import { Label } from "@/feature/label";
 import { FLAGS } from "@/flags";
-import type { Settings } from "@/platform/settings";
+import type { Page } from "@/platform/page";
 
-export const GROUPS: Settings.Group[] = [
+export const GROUPS: Page.Group[] = [
   {
     key: "core",
     name: "Core",

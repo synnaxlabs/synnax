@@ -69,7 +69,5 @@ func autoMigrateWriteEndpoint(_ context.Context, old v4.WriteEndpoint) (WriteEnd
 		Path:        old.Path,
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
-		Channel:     old.Channel,
-		Fields:      old.Fields,
 	}, nil
 }
