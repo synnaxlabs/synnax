@@ -54,29 +54,8 @@ func openExport(b *testing.B, samples int) (apiframer.ReadResponse, func()) {
 	}); err != nil {
 		b.Fatal(err)
 	}
-	stamps := make([]telem.TimeStamp, samples)
-	values := make([]float64, samples)
-	for i := range stamps {
-		stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
-	}
 	keys := svcchannel.Keys{index.Key(), data.Key()}
-	w, err := layer.Framer.OpenWriter(ctx, svcframer.WriterConfig{
-		Start: stamps[0],
-		Keys:  keys,
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-	authorized, err := w.Write(frame.NewMulti(keys, []telem.Series{
-		telem.NewSeries(stamps),
-		telem.NewSeries(values),
-	}))
-	if err != nil || !authorized {
-		b.Fatalf("write failed: %v", err)
-	}
-	if err = w.Close(); err != nil {
-		b.Fatal(err)
-	}
+	writeExportSamples(b, layer.Framer, keys, samples)
 	res := apiframer.ReadResponse{
 		Channels:   []svcchannel.Channel{data},
 		Indexes:    []svcchannel.Channel{index},
@@ -99,6 +78,39 @@ func openExport(b *testing.B, samples int) (apiframer.ReadResponse, func()) {
 		if err := node.Close(); err != nil {
 			b.Error(err)
 		}
+	}
+}
+
+// writeExportSamples writes samples float64 samples of keys' data channel and their
+// index, one second apart.
+func writeExportSamples(
+	b *testing.B,
+	fs *svcframer.Service,
+	keys svcchannel.Keys,
+	samples int,
+) {
+	b.Helper()
+	stamps := make([]telem.TimeStamp, samples)
+	values := make([]float64, samples)
+	for i := range stamps {
+		stamps[i] = telem.TimeStamp(i+1) * telem.SecondTS
+	}
+	w, err := fs.OpenWriter(b.Context(), svcframer.WriterConfig{
+		Start: stamps[0],
+		Keys:  keys,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	authorized, err := w.Write(frame.NewMulti(keys, []telem.Series{
+		telem.NewSeries(stamps),
+		telem.NewSeries(values),
+	}))
+	if err != nil || !authorized {
+		b.Fatalf("write failed: %v", err)
+	}
+	if err = w.Close(); err != nil {
+		b.Fatal(err)
 	}
 }
 
