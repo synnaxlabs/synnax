@@ -102,39 +102,34 @@ field = icd.FloatJSONField(name="temperature", pointer="/temperature")
 oven = icd.Message(name="Oven", payload=icd.JSONPayload(fields=[field]))
 plant = client.icds.create(icd.ICD(name="Plant", messages=[oven]))
 
-task = client.tasks.create(
+task = kafka.ReadTask(
     name="Oven read",
-    type="kafka_read",
-    rack=cluster.rack,
-    config=kafka.ReadConfig(
-        device=cluster.key,
-        topics=[
-            kafka.ReadTopic(
-                name="sensor-readings",
-                records=[
-                    kafka.ReadRecord(
-                        record_key="oven",
-                        icd=plant.key,
-                        messages=[
-                            icd.ReadMessage(
-                                message=oven.key,
-                                bindings=[
-                                    icd.ReadBinding(
-                                        field=field.key, channel=temperature.key
-                                    )
-                                ],
-                            )
-                        ],
-                    )
-                ],
-            )
-        ],
-    ),
+    device=cluster.key,
+    topics=[
+        kafka.ReadTopic(
+            name="sensor-readings",
+            records=[
+                kafka.ReadRecord(
+                    record_key="oven",
+                    icd=plant.key,
+                    messages=[
+                        icd.ReadMessage(
+                            message=oven.key,
+                            bindings=[
+                                icd.ReadBinding(
+                                    field=field.key, channel=temperature.key
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ],
+        )
+    ],
 )
+client.tasks.configure(task)
 task.start()
 ```
-
-Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs Kafka.
 
   </Fragment>
   <Fragment slot="typescript">
