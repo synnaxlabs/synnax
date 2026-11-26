@@ -55,6 +55,9 @@ public:
     /// @returns VALIDATION when it drops bytes.
     virtual x::errors::Error idle() = 0;
 
+    /// @brief returns the number of written bytes that no frame has read.
+    [[nodiscard]] virtual std::size_t pending() const = 0;
+
     /// @brief drops all written bytes, as after a reconnect.
     virtual void clear() = 0;
 

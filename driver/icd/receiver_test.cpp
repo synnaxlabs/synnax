@@ -917,6 +917,71 @@ TEST(Receiver, FramesInsideEachDatagram) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{7.0, 9.0}));
 }
 
+/// @brief it should drop the partial frame that ends a datagram with a delimiter
+/// framing, warn about it, and read the next datagram in step.
+TEST(Receiver, WarnsAboutPartialFrameThatEndsDatagram) {
+    const auto cfg = lines();
+    auto r = ASSERT_NIL_P(
+        Receiver::create({cfg.entry()}, {cfg.ic}, cfg.channels, true)
+    );
+    Memory t;
+    t.push("a,1\nb,2");
+    t.push("c,3\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Dropped invalid data");
+    ASSERT_EQ(
+        res.warning.description,
+        "dropped 3 bytes of a partial frame at the end of a datagram"
+    );
+    const auto next = r.read(t, fr);
+    ASSERT_NIL(next.error);
+    ASSERT_TRUE(next.warning.empty());
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{1.0, 3.0}));
+}
+
+/// @brief it should read the frames of a datagram after each partial sync frame that it
+/// drops.
+TEST(Receiver, ReadsDatagramFramesAfterPartialSyncFrames) {
+    Config cfg{
+        synnax::icd::BinaryPayload{},
+        synnax::icd::SyncFraming{.sync = {0xAA, 0x55}, .length_offset = 2}
+    };
+    cfg.bind<synnax::icd::BinaryPayload>(byte_field("v", 3), 2);
+    auto r = ASSERT_NIL_P(
+        Receiver::create({cfg.entry()}, {cfg.ic}, cfg.channels, true)
+    );
+    Memory t;
+    t.push(
+        std::vector<std::uint8_t>{
+            0xAA,
+            0x55,
+            200,
+            1,
+            2,
+            0xAA,
+            0x55,
+            1,
+            9,
+            0xAA,
+            0x55,
+            100,
+            3,
+            0xAA,
+            0x55,
+            1,
+            8
+        }
+    );
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Dropped invalid data");
+    ASSERT_EQ(res.warning.description, "dropped 5 bytes of a partial frame");
+    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{9.0, 8.0}));
+}
+
 /// @brief it should read every frame of a datagram that holds more than BATCH frames
 /// before it drops the partial frame at its end.
 TEST(Receiver, ReadsDatagramPastBatch) {

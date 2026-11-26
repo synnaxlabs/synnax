@@ -82,9 +82,15 @@ class Receiver {
         common::Warning &warning
     );
 
+    /// @brief decodes the frames of the framer into fr until n reaches BATCH, and sets
+    /// warning to the first framing or decoding error when it is empty.
+    /// @returns n plus the number of frames.
+    std::size_t drain(std::size_t n, x::telem::Frame &fr, common::Warning &warning);
+
     /// @brief decodes up to BATCH frames from the framer into fr, and sets warning to
-    /// the first framing or decoding error when it is empty. After the last frame of a
-    /// datagram, it drops the bytes left in the framer.
+    /// the first framing or decoding error when it is empty. At the end of a datagram,
+    /// the framer drops each partial frame and reads the frames after it, and then the
+    /// receiver drops the bytes left with a warning.
     /// @returns the number of frames.
     std::size_t decode(x::telem::Frame &fr, common::Warning &warning);
 

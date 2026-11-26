@@ -173,8 +173,8 @@ void Receiver::dispatch(
         warning = {.message = "Failed to decode message", .description = read_err.data};
 }
 
-std::size_t Receiver::decode(x::telem::Frame &fr, common::Warning &warning) {
-    std::size_t n = 0;
+std::size_t
+Receiver::drain(std::size_t n, x::telem::Frame &fr, common::Warning &warning) {
     while (n < BATCH) {
         const auto [frame, err] = this->framer->next();
         if (err) {
@@ -185,11 +185,28 @@ std::size_t Receiver::decode(x::telem::Frame &fr, common::Warning &warning) {
         n++;
         this->dispatch(*frame, fr, warning);
     }
-    if (this->datagram && n < BATCH) {
-        if (const auto err = this->framer->idle(); err && warning.empty())
-            warning = dropped(err);
-        this->framer->clear();
+    return n;
+}
+
+std::size_t Receiver::decode(x::telem::Frame &fr, common::Warning &warning) {
+    auto n = this->drain(0, fr, warning);
+    if (!this->datagram) return n;
+    while (n < BATCH && this->framer->pending() > 0) {
+        const auto err = this->framer->idle();
+        if (!err) break;
+        if (warning.empty()) warning = dropped(err);
+        n = this->drain(n, fr, warning);
     }
+    if (n == BATCH) return n;
+    if (const auto left = this->framer->pending(); left > 0 && warning.empty())
+        warning = dropped(
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "dropped " + std::to_string(left) +
+                    " bytes of a partial frame at the end of a datagram"
+            )
+        );
+    this->framer->clear();
     return n;
 }
 
