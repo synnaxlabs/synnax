@@ -31,11 +31,11 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -107,6 +107,12 @@ var legacyDiscarded = map[string]set.Set[string]{
 	// The channel and fields of each endpoint move into a message of a new ICD, which
 	// the golden freezes.
 	"http_write": set.New("channel", "fields"),
+	// The records of a read move into the messages of a new ICD, and its topic becomes
+	// a topic of the config.
+	"kafka_read": set.New("records", "topic"),
+	// The channels of a write move into the messages of a new ICD, and each channel
+	// gets a target that carries the topic and the record key.
+	"kafka_write": set.New("channels", "record", "record_key", "topic"),
 }
 
 // legacySecrets maps each task type whose import moves a plain value into a new secret
@@ -115,9 +121,46 @@ var legacySecrets = map[string]struct{ key, plain string }{
 	"pagerduty_alert": {key: "routing_key", plain: "plain_routing_key"},
 }
 
-// legacyICDs holds each task type whose import moves the fields of each endpoint into a
-// message of a new ICD, named after the task.
-var legacyICDs = set.New("http_read", "http_write")
+// legacyICD describes a task type whose import moves fields into the messages of a new
+// ICD, named after the task.
+type legacyICD struct {
+	// holders is the path of the lists in the config whose entries hold the ICD key.
+	holders []string
+	// rebuilt removes from a normalized config the parts that the import rebuilds
+	// around the ICD.
+	rebuilt func(config map[string]any)
+}
+
+// rebuiltEndpoints removes the staged fields and the reads of each endpoint. The import
+// moves the fields into an ICD, adds the reads of a read endpoint, and disables an
+// endpoint whose fields are all disabled.
+func rebuiltEndpoints(config map[string]any) {
+	delete(config, "inline")
+	for _, ep := range as[[]any](config["endpoints"]) {
+		delete(as[map[string]any](ep), "messages")
+		delete(as[map[string]any](ep), "disabled")
+	}
+}
+
+// rebuiltKafka returns a rebuilt function that removes the staged fields and the list
+// to which the import adds an entry for each record or channel.
+func rebuiltKafka(list string) func(config map[string]any) {
+	return func(config map[string]any) {
+		delete(config, "inline")
+		delete(config, list)
+	}
+}
+
+// legacyICDs holds the legacyICD of each task type whose import makes an ICD.
+var legacyICDs = map[string]legacyICD{
+	"http_read":  {holders: []string{"endpoints"}, rebuilt: rebuiltEndpoints},
+	"http_write": {holders: []string{"endpoints"}, rebuilt: rebuiltEndpoints},
+	"kafka_read": {
+		holders: []string{"topics", "records"},
+		rebuilt: rebuiltKafka("topics"),
+	},
+	"kafka_write": {holders: []string{"targets"}, rebuilt: rebuiltKafka("targets")},
+}
 
 // legacyReimportErrors holds, for each fixture whose current shape the legacy rewrite
 // cannot read, the error that normalizing an unversioned copy of its stored config
@@ -388,8 +431,9 @@ func rekeyed(raw []byte, keys map[float64]float64) []byte {
 }
 
 // createFixtureTargets creates the channels, devices, and statuses that the fixtures in
-// testdata reference, so an import keeps every key. It returns the key of the channel
-// created for each channel key in the fixtures.
+// testdata reference, so an import keeps every key. The channel of the index field of a
+// record is an index channel, and every other channel is virtual. It returns the key of
+// the channel created for each channel key in the fixtures.
 func createFixtureTargets(
 	ctx context.Context,
 	db *gorp.DB,
@@ -399,6 +443,7 @@ func createFixtureTargets(
 	GinkgoHelper()
 	var (
 		fixtureChannels = make(set.Set[float64])
+		indexes         = make(set.Set[float64])
 		devices         = make(set.Set[device.Key])
 		statuses        = make(set.Set[status.Key])
 		walk            func(v any)
@@ -406,6 +451,16 @@ func createFixtureTargets(
 	walk = func(v any) {
 		switch v := v.(type) {
 		case map[string]any:
+			if index, ok := v["index"].(string); ok && index != "" {
+				fields, _ := v["fields"].([]any)
+				for _, f := range fields {
+					field, _ := f.(map[string]any)
+					if ch, ok := field["channel"].(float64); ok &&
+						field["key"] == index {
+						indexes.Add(ch)
+					}
+				}
+			}
 			for k, f := range v {
 				switch key := f.(type) {
 				case float64:
@@ -444,12 +499,26 @@ func createFixtureTargets(
 		walk(stored)
 	}
 	fixtureKeys := slices.Sorted(maps.Keys(fixtureChannels))
-	created := MustSucceed(
-		channeltestutil.CreateVirtual(ctx, db, channels, len(fixtureKeys)),
-	)
-	keys := make(map[float64]float64, len(fixtureKeys))
+	created := make([]channel.Channel, len(fixtureKeys))
 	for i, key := range fixtureKeys {
-		keys[key] = float64(created[i])
+		// A fixed name keeps a golden stable when the import copies the name.
+		created[i] = channel.Channel{
+			Name:     fmt.Sprintf("fixture_%d", int64(key)),
+			DataType: telem.Float64T,
+			Virtual:  true,
+		}
+		if indexes.Contains(key) {
+			created[i].DataType = telem.TimestampT
+			created[i].Virtual = false
+			created[i].IsIndex = true
+		}
+	}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return channels.NewWriter(tx).CreateMany(ctx, &created)
+	})).To(Succeed())
+	keys := make(map[float64]float64, len(fixtureKeys))
+	for i, key := range channel.KeysFromChannels(created) {
+		keys[fixtureKeys[i]] = float64(key)
 	}
 	for d := range devices {
 		Expect(targets.CreateDevice(ctx, d)).To(Succeed())
@@ -547,6 +616,11 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Device: deviceSvc,
 			})).Stores(),
 			MustOpen(http.OpenService(ctx, http.ServiceConfig{
+				DB:      db,
+				Channel: channelSvc,
+				ICD:     icdSvc,
+			})).Stores(),
+			MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
 				DB:      db,
 				Channel: channelSvc,
 				ICD:     icdSvc,
@@ -717,19 +791,46 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		return revealed
 	}
 
+	// revealICDs returns v with each entry of the lists at path revealed by revealICD.
+	var revealICDs func(context.Context, map[string]any, []string) map[string]any
+	revealICDs = func(
+		ctx context.Context,
+		v map[string]any,
+		path []string,
+	) map[string]any {
+		GinkgoHelper()
+		if len(path) == 0 {
+			return revealICD(ctx, v)
+		}
+		entries := as[[]any](v[path[0]])
+		revealed := make([]any, len(entries))
+		for i, e := range entries {
+			revealed[i] = revealICDs(ctx, as[map[string]any](e), path[1:])
+		}
+		v = maps.Clone(v)
+		v[path[0]] = revealed
+		return v
+	}
+
 	// reveal returns the config of imported with the key of each secret it holds
 	// swapped for the value the import read, and each key of an ICD that the import
-	// made swapped for its name.
+	// made swapped for its name. The import keys the topic of a Kafka read at random,
+	// so that key becomes the topic name.
 	reveal := func(ctx context.Context, imported task.Task) map[string]any {
 		GinkgoHelper()
 		config := maps.Clone(map[string]any(imported.Config))
-		if legacyICDs.Contains(imported.Type) {
-			endpoints := as[[]any](config["endpoints"])
-			revealed := make([]any, len(endpoints))
-			for i, ep := range endpoints {
-				revealed[i] = revealICD(ctx, as[map[string]any](ep))
+		if l, ok := legacyICDs[imported.Type]; ok {
+			config = revealICDs(ctx, config, l.holders)
+		}
+		if imported.Type == "kafka_read" {
+			topics := as[[]any](config["topics"])
+			revealed := make([]any, len(topics))
+			for i, t := range topics {
+				topic := maps.Clone(as[map[string]any](t))
+				topic["key"] = topic["name"]
+				revealed[i] = topic
 			}
-			config["endpoints"] = revealed
+			config["topics"] = revealed
 		}
 		fields, ok := legacySecrets[imported.Type]
 		if !ok {
@@ -758,7 +859,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 			var fixtureBody map[string]any
 			Expect(json.Unmarshal(raw, &fixtureBody)).To(Succeed())
-			delete(fixtureBody, "type")
+			deleteEnvelope(fixtureBody)
 			expectNoDroppedKeys(
 				"config",
 				fixtureBody,
@@ -768,19 +869,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 
 			var legacy map[string]any
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
-			delete(legacy, "type")
+			deleteEnvelope(legacy)
 			store := MustBeOk(configs.Store(env.Type))
 			expected := MustSucceed(store.Normalize(ctx, db, 0, legacy))
 			// The store assigns the key on write.
 			delete(expected, "key")
-			// The write moves the staged fields into an ICD. A read endpoint also gets
-			// its reads, and is disabled when its fields are all disabled.
-			if legacyICDs.Contains(env.Type) {
-				delete(expected, "inline")
-				for _, ep := range as[[]any](expected["endpoints"]) {
-					delete(as[map[string]any](ep), "messages")
-					delete(as[map[string]any](ep), "disabled")
-				}
+			l, icds := legacyICDs[env.Type]
+			if icds {
+				l.rebuilt(expected)
 			}
 			revealed := reveal(ctx, imported)
 			expectSubset("config", map[string]any(expected), revealed)
@@ -794,7 +890,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 					To(MatchError(ContainSubstring(reimportErr)))
 			}
 			_, moved := legacySecrets[env.Type]
-			if unreadable || moved || legacyICDs.Contains(env.Type) {
+			if unreadable || moved || icds {
 				Expect(store.Normalize(ctx, db, store.Version(), imported.Config)).
 					To(Equal(imported.Config))
 			} else {
@@ -843,6 +939,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "http_read"),
 		Entry(nil, "http_read_list"),
 		Entry(nil, "http_write"),
+		Entry(nil, "kafka_read"),
+		Entry(nil, "kafka_write"),
 		Entry(nil, "labjack_read"),
 		Entry(nil, "labjack_read_py_no_scale"),
 		Entry(nil, "labjack_write"),
@@ -984,6 +1082,14 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "http_read_list"),
 	)
 })
+
+// deleteEnvelope removes from file the keys that the import reads into the task, not
+// into its config.
+func deleteEnvelope(file map[string]any) {
+	for _, k := range []string{"name", "type", "version"} {
+		delete(file, k)
+	}
+}
 
 // as returns v as a T, and fails the spec when v is not a T.
 func as[T any](v any) T {
