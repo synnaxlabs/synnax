@@ -9,6 +9,7 @@
 
 import { query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Schematic } from "@synnaxlabs/pluto";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -27,6 +28,10 @@ import { documentIn } from "@/session/window/testutil";
 
 const LOSS = "Valve loses the Active binding.";
 const SPARE_LOSS = "Spare loses the Active binding.";
+const VALUE_LOSS = "Pressure loses its Value settings.";
+const SETPOINT_LOSS = "Pressure loses its Setpoint settings.";
+const VALVE_LOSS = "Valve loses its Valve settings.";
+const VALVE_TO_VALUE_LOSS = "Valve loses the Active binding and its Valve settings.";
 
 preloadTab();
 
@@ -51,7 +56,7 @@ describe("Toolbar symbol change", () => {
       n1: createValveNode({ states: [ACTIVE_BINDING] }),
     });
     await pickSymbol("Value");
-    await screen.findByText(LOSS);
+    await screen.findByText(VALVE_TO_VALUE_LOSS);
     fireEvent.click(findLastButton("Change"));
     await waitFor(async () =>
       expect((await retrieveConfigs(key)).n1.variant).toBe("value"),
@@ -95,6 +100,46 @@ describe("Toolbar symbol change", () => {
     );
   });
 
+  it("should ask again when another client changes the item of a node", async () => {
+    const { key } = await renderSelected({
+      n1: Schematic.Node.createConfig({
+        variant: "value",
+        label: { label: "Pressure" },
+      }),
+    });
+    await pickSymbol("Ball");
+    await screen.findByText(VALUE_LOSS);
+    const remote = createTestClient();
+    await remote.schematics.retrieve(key);
+    await act(async () => {
+      await remote.schematics.dispatch(
+        key,
+        schematic.set({
+          path: ["nodes", "n1", "config"],
+          value: Schematic.Node.createConfig({
+            variant: "setpoint",
+            label: { label: "Pressure" },
+          }),
+        }),
+      );
+    });
+    await waitFor(() => {
+      const cached = client.schematics.watch({ key }).getCached();
+      if (!query.isLive(cached)) throw new Error("the schematic is not live");
+      const n1 = cached.nodes.find((n) => n.key === "n1");
+      expect(n1?.config.variant).toBe("setpoint");
+    });
+    fireEvent.click(findLastButton("Change"));
+    expect(await screen.findByText(SETPOINT_LOSS)).toBeDefined();
+    expect((await retrieveConfigs(key)).n1.variant).toBe("setpoint");
+    fireEvent.click(findLastButton("Change"));
+    await waitFor(async () =>
+      expect((await retrieveConfigs(key)).n1).toMatchObject({
+        spec: { type: "builtin", name: "ball_valve" },
+      }),
+    );
+  });
+
   it("should keep the symbol and bindings when the confirm is canceled", async () => {
     const { key, store } = await renderSelected({
       n1: createValveNode({ states: [ACTIVE_BINDING] }),
@@ -110,6 +155,48 @@ describe("Toolbar symbol change", () => {
     expect((await retrieveConfigs(key)).n1).toMatchObject({
       spec: { type: "builtin", name: "valve" },
       states: [ACTIVE_BINDING],
+    });
+  });
+
+  it("should ask before it changes a value node to a valve", async () => {
+    const { key } = await renderSelected({
+      n1: Schematic.Node.createConfig({
+        variant: "value",
+        label: { label: "Pressure" },
+        channel: 12,
+      }),
+    });
+    await pickSymbol("Ball");
+    await screen.findByText(VALUE_LOSS);
+    fireEvent.click(findLastButton("Cancel"));
+    await waitFor(() => expect(screen.queryByText(VALUE_LOSS)).toBeNull());
+    await act(async () => {});
+    expect((await retrieveConfigs(key)).n1).toMatchObject({
+      variant: "value",
+      channel: 12,
+    });
+  });
+
+  it("should show the form of the new item after the change", async () => {
+    await renderSelected({ n1: createValveNode() });
+    await screen.findByText("Style");
+    expect(screen.queryByText("Wrap width")).toBeNull();
+    await pickSymbol("Text box");
+    await screen.findByText(VALVE_LOSS);
+    fireEvent.click(findLastButton("Change"));
+    expect(await screen.findByText("Wrap width")).toBeDefined();
+  });
+
+  it("should ask before it changes a valve with no bindings to a value", async () => {
+    const { key } = await renderSelected({ n1: createValveNode() });
+    await pickSymbol("Value");
+    await screen.findByText(VALVE_LOSS);
+    fireEvent.click(findLastButton("Cancel"));
+    await waitFor(() => expect(screen.queryByText(VALVE_LOSS)).toBeNull());
+    await act(async () => {});
+    expect((await retrieveConfigs(key)).n1).toMatchObject({
+      variant: "symbol",
+      spec: { type: "builtin", name: "valve" },
     });
   });
 });

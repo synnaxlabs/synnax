@@ -182,7 +182,8 @@ const Internal = (): ReactElement => {
         value: current.symbol,
         onChange: (input, spec) => {
           handleError(async () => {
-            if (!(await confirmChange(() => changeableRef.current, spec))) return;
+            if (!(await confirmChange(() => changeableRef.current, input, spec)))
+              return;
             changeSymbol([...changeableRef.current.keys()], input, spec);
             setChanging(false);
           }, "Failed to change symbol");
