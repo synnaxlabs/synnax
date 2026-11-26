@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -171,6 +172,32 @@ func (c Checker) Claim(key channel.Key, path []string) error {
 	return nil
 }
 
+// Tag checks key, the channel of the tag at path, and claims it. takes reports whether
+// a channel of a data type can take the values of the tag. Tag returns a validation
+// error when key is an index channel or cannot take the values of the tag, or when
+// another binding or tag already writes to key.
+func (c Checker) Tag(
+	key channel.Key,
+	path []string,
+	takes func(telem.DataType) bool,
+) error {
+	if ch, ok := c.channels[key]; ok {
+		if ch.Index {
+			return validate.PathedError(
+				validate.Errorf("channel %s is an index channel", ch.Name),
+				path...,
+			)
+		}
+		if !takes(ch.DataType) {
+			return validate.PathedError(validate.Errorf(
+				"channel %s of data type %s cannot take the values of a tag",
+				ch.Name, ch.DataType,
+			), path...)
+		}
+	}
+	return c.Claim(key, path)
+}
+
 // ClaimIndexes claims, for each message of rd, each index channel of its bound channels
 // that its index field does not bind, since the task writes its timestamps. Run it
 // after Read and Claim, so that an error is at the path of the message that does not
@@ -305,29 +332,35 @@ func (c Checker) checkBinding(
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
-	kind, name := f.Type(), f.Base().Name
-	if err := icd.CheckScale(f.Base().Scale); err != nil {
+	base := f.Base()
+	kind, name := f.Type(), base.Name
+	if err := icd.CheckScale(base.Scale); err != nil {
 		return at(errors.Wrapf(err, "field %s", name), "field")
 	}
-	if kind == payload.KindBytes && f.Base().Pointer == "" {
+	if kind == payload.KindBytes && base.Pointer == "" {
 		return at(validate.Errorf(
 			"bytes field %s requires a JSON pointer", name,
 		), "field")
 	}
-	if b.DataType != "" && !codec.Converts(kind, b.DataType) {
+	scaled := base.Scale != 1 || base.Offset != 0
+	noun := "field"
+	if scaled {
+		noun = "scaled field"
+	}
+	if b.DataType != "" && !codec.Converts(kind, b.DataType, scaled) {
 		return at(validate.Errorf(
-			"field %s of kind %s cannot read into data type %s",
-			name, kind, b.DataType,
+			"%s %s of kind %s cannot read into data type %s",
+			noun, name, kind, b.DataType,
 		), "data_type")
 	}
 	ch, ok := c.channels[b.Channel]
 	if !ok {
 		return nil
 	}
-	if !codec.Converts(kind, ch.DataType) {
+	if !codec.Converts(kind, ch.DataType, scaled) {
 		return at(validate.Errorf(
-			"field %s of kind %s cannot read into channel %s of data type %s",
-			name, kind, ch.Name, ch.DataType,
+			"%s %s of kind %s cannot read into channel %s of data type %s",
+			noun, name, kind, ch.Name, ch.DataType,
 		), "channel")
 	}
 	if isIndex && !ch.Index {

@@ -59,6 +59,12 @@ var (
 	flat = icd.JSONField{Variant: icd.FloatJSONField{JSONBaseField: icd.JSONBaseField{
 		Key: uuid.New(), Name: "flat", Pointer: "/flat",
 	}}}
+	// count is a scaled integer field.
+	count = icd.JSONField{
+		Variant: icd.IntegerJSONField{JSONBaseField: icd.JSONBaseField{
+			Key: uuid.New(), Name: "count", Pointer: "/count", Scale: 2,
+		}},
+	}
 	stamp = telem.SecondTS
 	// defaulted is a timestamp field that takes a default.
 	defaulted = jsonField("ts", "/ts", icd.TimestampJSONField{
@@ -67,7 +73,7 @@ var (
 			Variant: icd.ConstantTimestampDefault{Value: stamp},
 		},
 	})
-	status  = jsonMessage("Status", ts, temp, state, raw, flat)
+	status  = jsonMessage("Status", ts, temp, state, raw, flat, count)
 	stamped = jsonMessage("Stamped", defaulted)
 	frame   = icd.Message{
 		Key:     uuid.New(),
@@ -88,6 +94,7 @@ const (
 	levelKey channel.Key = 4
 	// pressureKey is a data channel on an index channel other than timeKey.
 	pressureKey channel.Key = 5
+	countKey    channel.Key = 7
 )
 
 // held holds the channels that the channel lookup of the specs finds.
@@ -102,6 +109,7 @@ var held = map[channel.Key]icdv0.Channel{
 	stampKey:    {Name: "stamp", DataType: telem.TimestampT},
 	levelKey:    {Name: "level", DataType: telem.Float64T, IndexKey: timeKey},
 	pressureKey: {Name: "pressure", DataType: telem.Float64T, IndexKey: 6},
+	countKey:    {Name: "count", DataType: telem.Int64T, IndexKey: timeKey},
 }
 
 func bind(f icd.JSONField, key channel.Key) icd.ReadBinding {
@@ -189,6 +197,13 @@ var _ = Describe("Read", func() {
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
+			It("Should accept a scaled field on a float channel", func(
+				ctx SpecContext,
+			) {
+				rm := readOf(status, bind(count, valueKey))
+				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
 			It("Should accept a binding to a channel that the lookup does not find",
 				func(ctx SpecContext) {
 					rm := readOf(status, bind(state, 99))
@@ -249,6 +264,21 @@ var _ = Describe("Read", func() {
 					"reads.0.messages.0.bindings.0.channel",
 					"field state of kind string cannot read into channel value of "+
 						"data type float64",
+				),
+				Entry("a scaled field with an integer data type",
+					readOf(status, icd.ReadBinding{
+						Field: count.Base().Key, DataType: telem.Int64T,
+					}),
+					"reads.0.messages.0.bindings.0.data_type",
+					"scaled field count of kind integer cannot read into data type "+
+						"int64",
+				),
+				Entry(
+					"a scaled field on an integer channel",
+					readOf(status, bind(count, countKey)),
+					"reads.0.messages.0.bindings.0.channel",
+					"scaled field count of kind integer cannot read into channel count "+
+						"of data type int64",
 				),
 				Entry("an index field that is not a timestamp",
 					indexed(temp, readOf(status, bind(temp, valueKey))),
@@ -388,6 +418,63 @@ var _ = Describe("Read", func() {
 				err := c.Claim(valueKey, []string{"b", "channel"})
 				Expect(err).To(MatchError(validate.ErrValidation))
 				Expect(err).To(MatchError(
+					"b.channel: channel 2 is also written by a.channel",
+				))
+			})
+		})
+
+		Describe("Tag", func() {
+			// takes is the check of a tag that takes floats.
+			takes := func(dt telem.DataType) bool { return dt == telem.Float64T }
+
+			It("Should take a channel that can take the values of the tag", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{valueKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
+				Expect(c.Claim(valueKey, []string{"b", "channel"})).To(MatchError(
+					"b.channel: channel 2 is also written by a.channel",
+				))
+			})
+
+			It("Should take a channel that the lookup does not find", func(
+				ctx SpecContext,
+			) {
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
+				Expect(c.Tag(99, []string{"a", "channel"}, takes)).To(Succeed())
+			})
+
+			It("Should reject an index channel", func(ctx SpecContext) {
+				tags := []channel.Key{timeKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				err := c.Tag(timeKey, []string{"a", "channel"}, takes)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					"a.channel: channel time is an index channel",
+				))
+			})
+
+			It("Should reject a channel that cannot take the values of the tag", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{countKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				err := c.Tag(countKey, []string{"a", "channel"}, takes)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					"a.channel: channel count of data type int64 cannot take the " +
+						"values of a tag",
+				))
+			})
+
+			It("Should reject a channel that another binding or tag writes", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{valueKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
+				Expect(c.Tag(valueKey, []string{"b", "channel"}, takes)).To(MatchError(
 					"b.channel: channel 2 is also written by a.channel",
 				))
 			})
