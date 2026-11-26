@@ -11,6 +11,7 @@ package write_test
 
 import (
 	"context"
+	"math"
 	"slices"
 	"strconv"
 	"uuid"
@@ -70,6 +71,56 @@ var (
 	}
 )
 
+// valve sends an opening or a rate, as its selector picks, and names itself with id.
+var (
+	valveID = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "id", Scale: 1},
+			BitLength: 8,
+		},
+	}}
+	selector = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "selector", Scale: 1},
+			StartBit:  8,
+			BitLength: 8,
+		},
+	}}
+	opening = icd.BinaryField{Variant: icd.UnsignedBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField:       icd.BaseField{Key: uuid.New(), Name: "opening", Scale: 1},
+			StartBit:        16,
+			BitLength:       8,
+			Multiplexor:     new(selector.Base().Key),
+			MultiplexValues: []int32{0},
+		},
+	}}
+	rate = icd.BinaryField{Variant: icd.FloatBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{
+				Key: uuid.New(), Name: "rate", Scale: 2, Max: new(100.0),
+			},
+			StartBit:        16,
+			BitLength:       32,
+			Multiplexor:     new(selector.Base().Key),
+			MultiplexValues: []int32{1},
+		},
+	}}
+	valve = icd.Message{
+		Key:  uuid.New(),
+		Name: "Valve",
+		Payload: icd.Payload{Variant: icd.BinaryPayload{
+			Fields: []icd.BinaryField{valveID, selector, opening, rate},
+			Identifier: &icd.Identifier{Variant: icd.FieldIdentifier{
+				Field: valveID.Base().Key, Value: 7,
+			}},
+		}},
+	}
+)
+
+// unheldKey is the key of a channel that the channel lookup does not find.
+const unheldKey channel.Key = 9
+
 func textField(name string, fallback *payload.Float) icd.TextField {
 	return icd.TextField{Variant: icd.DelimitedTextField{
 		TextBaseField: icd.TextBaseField{
@@ -120,7 +171,7 @@ var _ = Describe("Resolver", func() {
 	Describe("Check", func() {
 		given := plant
 		given.Key = uuid.New()
-		given.Messages = append(slices.Clone(plant.Messages), counts, line)
+		given.Messages = append(slices.Clone(plant.Messages), counts, line, valve)
 		// check checks writes with given as the only ICD that the caller holds.
 		check := func(ctx context.Context, writes ...write.Write) error {
 			GinkgoHelper()
@@ -241,6 +292,26 @@ var _ = Describe("Resolver", func() {
 			)).To(Succeed())
 		})
 
+		It("Should not ask a binding of the identifier or of a field that a fixed "+
+			"multiplexor never selects", func(ctx SpecContext) {
+			Expect(check(ctx, framed(writeAt(0, given.Key, writeOf(
+				valve,
+				channelOf(opening.Base().Key, valueKey, nil),
+				valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 0}),
+			))))).To(Succeed())
+		})
+
+		It("Should take the data type of a framed binding from the channel that the "+
+			"lookup finds", func(ctx SpecContext) {
+			held[modeKey] = icdv0.Channel{Name: "mode", DataType: telem.StringT}
+			Expect(check(ctx, framed(writeAt(0, given.Key, writeOf(
+				counts, channelOf(gain.Base().Key, modeKey, new(telem.Float64T)),
+			))))).To(MatchError(
+				"targets.0.message.bindings.0: field gain: cannot write string " +
+					"channels to float fields: validation error",
+			))
+		})
+
 		It("Should refuse a write of a binary message that is not framed", func(
 			ctx SpecContext,
 		) {
@@ -303,6 +374,76 @@ var _ = Describe("Resolver", func() {
 			Entry("a field with no binding and no default",
 				writeOf(line, channelOf(trim.Base().Key, valueKey, nil)),
 				"targets.0.message: field volts has no binding and no default",
+			),
+			Entry(
+				"a channel data type that cannot write its field",
+				writeOf(
+					line,
+					channelOf(volts.Base().Key, unheldKey, new(telem.StringT)),
+				),
+				"targets.0.message.bindings.0: field volts: cannot write string "+
+					"channels to float fields: validation error",
+			),
+			Entry("a channel that is not a float on a scaled field",
+				writeOf(
+					valve,
+					valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 1}),
+					channelOf(rate.Base().Key, unheldKey, new(telem.Int32T)),
+				),
+				"targets.0.message.bindings.1: field rate: a scaled field requires "+
+					"a float channel, not int32: validation error",
+			),
+			Entry("a value that the bits of its field cannot hold",
+				writeOf(
+					counts,
+					channelOf(gain.Base().Key, valueKey, nil),
+					valueOf(unit.Base().Key, icd.UnsignedWriteValue{Value: 300}),
+				),
+				"targets.0.message.bindings.1.value: field unit: 300 does not fit "+
+					"the field: validation error",
+			),
+			Entry("an infinite value",
+				writeOf(
+					line,
+					channelOf(volts.Base().Key, valueKey, nil),
+					valueOf(trim.Base().Key, icd.FloatWriteValue{
+						Value: payload.Float(math.Inf(1)),
+					}),
+				),
+				"targets.0.message.bindings.1.value: field trim: cannot be "+
+					"infinite: validation error",
+			),
+			Entry("a value that decodes outside the min and max of its field",
+				writeOf(
+					valve,
+					channelOf(selector.Base().Key, valueKey, nil),
+					valueOf(rate.Base().Key, icd.FloatWriteValue{Value: 60}),
+				),
+				"targets.0.message.bindings.1.value: field rate: 60 decodes to 120, "+
+					"which is above the max 100: validation error",
+			),
+			Entry("a binding to the field that holds the identifier",
+				writeOf(valve, channelOf(valveID.Base().Key, valueKey, nil)),
+				"targets.0.message.bindings.0.field: field id holds the identifier, "+
+					"so it takes no binding",
+			),
+			Entry("a channel on a field that a fixed multiplexor never selects",
+				writeOf(
+					valve,
+					valueOf(selector.Base().Key, icd.UnsignedWriteValue{Value: 1}),
+					channelOf(opening.Base().Key, valueKey, nil),
+				),
+				"targets.0.message.bindings.1: field opening takes a channel, but "+
+					"multiplexor selector never selects it",
+			),
+			Entry("no binding or default for a field that a multiplexor set by a "+
+				"channel can select",
+				writeOf(
+					valve,
+					channelOf(selector.Base().Key, valueKey, nil),
+					channelOf(opening.Base().Key, valueKey, nil),
+				),
+				"targets.0.message: field rate has no binding and no default",
 			),
 		)
 

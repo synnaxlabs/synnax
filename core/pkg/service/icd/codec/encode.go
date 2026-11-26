@@ -283,6 +283,24 @@ func arrayIndex(token string) bool {
 	return true
 }
 
+// CheckWrite returns an error wrapping validate.ErrValidation when samples of dt cannot
+// write a field of kind k, or when the field is scaled and dt is not a float.
+func CheckWrite(k payload.Kind, scaled bool, dt telem.DataType) error {
+	if !writes(k, dt) {
+		return errors.Wrapf(
+			validate.ErrValidation, "cannot write %s channels to %s fields", dt, k,
+		)
+	}
+	if scaled && dt != telem.Float32T && dt != telem.Float64T {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"a scaled field requires a float channel, not %s",
+			dt,
+		)
+	}
+	return nil
+}
+
 // writes reports whether samples of dt write to a field of kind k.
 func writes(k payload.Kind, dt telem.DataType) bool {
 	dk, ok := payload.KindOf(dt)
@@ -315,17 +333,8 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 	if err != nil {
 		return encodeField{}, err
 	}
-	if !writes(kind, dt) {
-		return encodeField{}, errors.Wrapf(
-			validate.ErrValidation, "cannot write %s channels to %s fields", dt, kind,
-		)
-	}
-	if f.scaled && dt != telem.Float32T && dt != telem.Float64T {
-		return encodeField{}, errors.Wrapf(
-			validate.ErrValidation,
-			"a scaled field requires a float channel, not %s",
-			dt,
-		)
+	if err = CheckWrite(kind, f.scaled, dt); err != nil {
+		return encodeField{}, err
 	}
 	bounded := b.Min != nil || b.Max != nil
 	f.kind, f.converted = kind, converted(kind, dt, f.scaled, bounded)

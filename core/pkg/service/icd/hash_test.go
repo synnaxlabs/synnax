@@ -62,3 +62,32 @@ var _ = Describe("HashMessage", func() {
 		Expect(sum(icd.ICD{})).ToNot(Equal(unwritten.Sum()))
 	})
 })
+
+var _ = Describe("HashFraming", func() {
+	sum := func(framing *icd.Framing) string {
+		GinkgoHelper()
+		h := content.NewHash()
+		Expect(icd.HashFraming(&h, icd.ICD{Framing: framing})).To(Succeed())
+		return h.Sum()
+	}
+	delimited := func(delimiter string) *icd.Framing {
+		return &icd.Framing{Variant: icd.DelimitedFraming{Delimiter: delimiter}}
+	}
+
+	It("Should give the same sum for the same framing", func() {
+		Expect(sum(delimited("\n"))).To(Equal(sum(delimited("\n"))))
+	})
+
+	It("Should change when the framing changes", func() {
+		Expect(sum(delimited("\n"))).ToNot(Equal(sum(delimited("\r\n"))))
+	})
+
+	It("Should change when an ICD gains a framing", func() {
+		Expect(sum(nil)).ToNot(Equal(sum(delimited("\n"))))
+	})
+
+	It("Should mark an ICD with no framing", func() {
+		unwritten := content.NewHash()
+		Expect(sum(nil)).ToNot(Equal(unwritten.Sum()))
+	})
+})
