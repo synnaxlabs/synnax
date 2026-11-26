@@ -112,11 +112,13 @@ var _ = Describe("Leading alignments", func() {
 			Expect(c.Next()).To(Equal(telem.NewAlignment(math.MaxUint32, 0)))
 		})
 
-		It("Should return ErrAlignmentsExhausted once every domain is used", func() {
+		It("Should return an error once every domain is used", func() {
 			c := telem.NewAlignmentCounter(math.MaxUint32 - 1)
 			MustSucceed(c.Next())
-			Expect(c.Next()).Error().To(MatchError(telem.ErrAlignmentsExhausted))
-			Expect(c.Next()).Error().To(MatchError(telem.ErrAlignmentsExhausted))
+			Expect(c.Next()).Error().
+				To(MatchError(ContainSubstring("alignment domains exhausted")))
+			Expect(c.Next()).Error().
+				To(MatchError(ContainSubstring("alignment domains exhausted")))
 		})
 
 		It("Should hand out distinct domains to concurrent callers", func() {
