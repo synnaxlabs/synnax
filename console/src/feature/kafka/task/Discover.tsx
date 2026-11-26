@@ -10,6 +10,7 @@
 import "@/feature/kafka/task/Discover.css";
 
 import { type icd, type kafka, status } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
@@ -591,11 +592,9 @@ const Content = ({
     const sample = sampleOf(topic);
     const entry = entries.find(({ name }) => name === topic);
     let data = sample?.variant === "success" ? sample.data : null;
-    if (data == null && (entry == null || sampleable(entry))) {
+    // A failed read still picks the topic, so the user can add a target offline.
+    if (data == null && (entry == null || sampleable(entry)))
       data = await loadSample(topic);
-      // A failed read shows its error and leaves the topic unpicked.
-      if (data == null) return;
-    }
     const shape =
       data == null ? null : ICD.Write.mostCommon(data.shapes, (shape) => shape.count);
     setWholePicks((prev) => withWhole(prev, topic, true, shape));
@@ -674,7 +673,20 @@ const Content = ({
     pane = <ICD.Picker.Notice message={`${NO_RECORDS} ${fill}`} />;
   else if (activeSample == null || activeSample.variant === "loading")
     pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeEntry.name} />;
-  else if (activeSample.variant === "error")
+  else if (activeSample.variant === "error" && whole) {
+    const topic = activeEntry.name;
+    pane = (
+      <Flex.Box center>
+        <Flex.Box y align="start" gap="medium">
+          <Status.Summary center={false} status={activeSample.status} />
+          <Button.Button variant="outlined" onClick={() => void loadSample(topic)}>
+            <Icon.Refresh />
+            Retry
+          </Button.Button>
+        </Flex.Box>
+      </Flex.Box>
+    );
+  } else if (activeSample.variant === "error")
     pane = <Status.Summary center status={activeSample.status} />;
   else if (activeSample.data.shapes.length > 0) {
     const topic = activeEntry.name;
