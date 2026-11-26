@@ -90,34 +90,21 @@ func NormalizeNames(names []string) []string {
 	return out
 }
 
-// normalizeNameActions returns acts with each name that they set in NFC, so the Core
+// normalizeNameActions returns acts with the name of each rename in NFC, so the Core
 // stores and broadcasts one form.
 func normalizeNameActions(acts []Action) []Action {
 	var out []Action
-	set := func(i int, a Action) {
-		if out == nil {
-			out = slices.Clone(acts)
-		}
-		out[i] = a
-	}
 	for i, a := range acts {
-		if a.Rename != nil {
-			if nfc := validate.NormalizeName(a.Rename.Name); nfc != a.Rename.Name {
-				p := *a.Rename
-				p.Name = nfc
-				a.Rename = &p
-				set(i, a)
-			}
+		if a.Rename == nil {
+			continue
 		}
-		if a.Set != nil && slices.Equal(a.Set.Path, []string{"name"}) {
-			if name, ok := a.Set.Value.(string); ok {
-				if nfc := validate.NormalizeName(name); nfc != name {
-					p := *a.Set
-					p.Value = nfc
-					a.Set = &p
-					set(i, a)
-				}
+		if nfc := validate.NormalizeName(a.Rename.Name); nfc != a.Rename.Name {
+			if out == nil {
+				out = slices.Clone(acts)
 			}
+			p := *a.Rename
+			p.Name = nfc
+			out[i].Rename = &p
 		}
 	}
 	if out == nil {

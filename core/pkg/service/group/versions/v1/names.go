@@ -91,7 +91,13 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			return taken.Contains(sibling{parent: parent, name: name})
 		})
 		taken.Add(sibling{parent: parent, name: name})
-		if err := resource.StageRename(ctx, tx, g.ResourceID(), g.Name); err != nil {
+		if err := resource.StageRename(
+			ctx,
+			tx,
+			g.ResourceID(),
+			g.Name,
+			resource.RenameReason(g.Name),
+		); err != nil {
 			return err
 		}
 		g.Name = name

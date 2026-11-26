@@ -1156,7 +1156,7 @@ func (w Writer) renameStored(ctx context.Context, count int) error {
 	for _, r := range renames {
 		names[r.key] = r.name
 	}
-	return w.svc.renameStorage(ctx, names)
+	return w.svc.RenameStorage(ctx, names)
 }
 
 // positions maps each value in vals to the positions that hold it, in ascending order.

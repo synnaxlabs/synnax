@@ -97,7 +97,13 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		}
 		name := resource.FreeName(base, taken.Contains)
 		taken.Add(name)
-		if err := resource.StageRename(ctx, tx, c.ResourceID(), c.Name); err != nil {
+		if err := resource.StageRename(
+			ctx,
+			tx,
+			c.ResourceID(),
+			c.Name,
+			resource.RenameReason(c.Name),
+		); err != nil {
 			return err
 		}
 		c.Name = name
