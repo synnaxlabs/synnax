@@ -502,6 +502,43 @@ TEST(Decoder, TruncatesFractionOfNanosecond) {
     );
 }
 
+/// @brief it should convert Unix seconds in hex with whitespace.
+TEST(Decoder, ConvertsHexUnixSecondsWithWhitespace) {
+    ASSERT_EQ(
+        decode(
+            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            R"(" 0x10\t")"
+        )
+            .at<std::int64_t>(0),
+        16000000000
+    );
+}
+
+/// @brief it should keep every digit of Unix seconds in a string with whitespace.
+TEST(Decoder, ConvertsTrimmedUnixSecondsToNanosecond) {
+    ASSERT_EQ(
+        decode(
+            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            R"(" 1767323045.123456789 ")"
+        )
+            .at<std::int64_t>(0),
+        1767323045123456789
+    );
+}
+
+/// @brief it should truncate a hex float of nanoseconds toward zero.
+TEST(Decoder, TruncatesHexFloatNanoseconds) {
+    ASSERT_EQ(
+        decode(
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = TimeFormat::UnixNanosecond},
+            R"("-0x1.8")"
+        )
+            .at<std::int64_t>(0),
+        -1
+    );
+}
+
 /// @brief it should convert a NaN enum.
 TEST(Decoder, ConvertsNaNEnum) {
     const auto s = decode(
@@ -838,6 +875,36 @@ TEST(Decoder, RejectsUnixSecondsPastTimestamp) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "1e12 is out of range for a unix_sec timestamp");
+}
+
+/// @brief it should reject infinity in Unix seconds.
+TEST(Decoder, RejectsInfiniteUnixSeconds) {
+    const auto err = decode_error(
+        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        R"("inf")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "inf is out of range for a unix_sec timestamp");
+}
+
+/// @brief it should reject hex Unix seconds past the range of a timestamp.
+TEST(Decoder, RejectsHexUnixSecondsPastTimestamp) {
+    const auto err = decode_error(
+        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        R"("0x7fffffffffffffff")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "0x7fffffffffffffff is out of range for a unix_sec timestamp");
+}
+
+/// @brief it should reject hex Unix nanoseconds below an int64.
+TEST(Decoder, RejectsHexUnixNanosecondsBelowInt64) {
+    const auto err = decode_error(
+        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixNanosecond},
+        R"("-0x8000000000000001")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "-0x8000000000000001 is out of range for a unix_ns timestamp");
 }
 
 /// @brief it should reject JSON that repeats a member name.
