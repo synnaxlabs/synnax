@@ -12,6 +12,7 @@ import {
   createTestClient,
   createTestClientWithPolicy,
 } from "@synnaxlabs/client/testutil";
+import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { ReactFlowProvider } from "@xyflow/react";
 import type { FC, PropsWithChildren } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
@@ -94,6 +95,32 @@ const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
     ...config,
   });
   return await vi.waitUntil(() => container.querySelector(".lamp"));
+};
+
+const BuiltInWrapper = createSynnaxWrapper({
+  client: null,
+  additionalRegistry: symbolNode.REGISTRY,
+});
+
+// The theme gives the colors that a drawing with no node color falls back to.
+const renderSolid = async (name: string, color?: string): Promise<Element> => {
+  const { container } = await renderThemed(
+    <BuiltInWrapper>
+      <ReactFlowProvider>
+        <Node.REGISTRY.symbol.Node
+          nodeKey="s1"
+          selected={false}
+          onConfigChange={vi.fn()}
+          config={schematic.symbolNodeConfigZ.parse({
+            variant: "symbol",
+            spec: { type: "builtin", name },
+            color: color == null ? undefined : { type: "fixed", value: color },
+          })}
+        />
+      </ReactFlowProvider>
+    </BuiltInWrapper>,
+  );
+  return await vi.waitUntil(() => container.querySelector(".pluto--solid"));
 };
 
 // renderValve renders a valve whose active state has source, and returns its button.
@@ -415,4 +442,30 @@ describe("Symbol node", () => {
       .toBeVisible();
     expect(page.getByRole("menuitem").elements()).toHaveLength(0);
   });
+
+  // A shape body, and a letter in a span of a text.
+  it.each(["t_junction", "flowmeter_orifice"])(
+    "should fill the solid shapes of %s with the node color",
+    async (name) => {
+      const solid = await renderSolid(name, "#ff0000");
+      await vi.waitFor(() =>
+        expect(getComputedStyle(solid).fill).toBe("rgb(255, 0, 0)"),
+      );
+    },
+  );
+
+  // The theme draws a body in the stroke color of the drawing, and a letter in the
+  // color of its text.
+  it.each([
+    ["t_junction", ".lyra-symbol-colored", "stroke"],
+    ["flowmeter_orifice", "text", "fill"],
+  ] as const)(
+    "should fill the solid shapes of %s as the theme draws them with no node color",
+    async (name, selector, property) => {
+      const solid = await renderSolid(name);
+      const theme = solid.closest(selector);
+      assert(theme != null);
+      expect(getComputedStyle(solid).fill).toBe(getComputedStyle(theme)[property]);
+    },
+  );
 });
