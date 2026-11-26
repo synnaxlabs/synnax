@@ -48,11 +48,6 @@ type Index[K Key, E Entry[K]] interface {
 	// signal readiness to readers blocked in Filter; skipping finish leaks
 	// the lock and deadlocks every blocked reader.
 	populate() (func(entry *E), func(error))
-	// set records entry in committed index state, keyed by entry.GorpKey(),
-	// replacing any prior mapping for the same key.
-	set(entry *E)
-	// delete removes any committed mapping for key.
-	delete(key K)
 	// stageSet records a pending insert or update of entry against tx's
 	// per-tx delta, keyed by entry.GorpKey(). Committed index state is
 	// not modified until tx commits. When tx has no per-tx identity (a
@@ -161,7 +156,8 @@ type LookupIndex[K Key, E Entry[K], V comparable] struct {
 
 // NewLookupIndex constructs a LookupIndex over a comparable primary key K. The returned
 // index is empty; register it on a Table through TableConfig.Indexes to populate it
-// from the existing table contents and keep it in sync with future writes.
+// from the existing table contents and keep it in sync with future writes. extract
+// reads the stored entry and must not change it.
 func NewLookupIndex[K Key, E Entry[K], V comparable](
 	name string,
 	extract func(e *E) V,
@@ -181,12 +177,6 @@ func (l *LookupIndex[K, E, V]) populate() (func(*E), func(error)) {
 	return func(entry *E) { insert((*entry).GorpKey(), l.extract(entry)) },
 		func(err error) { finish(populateErr(l.name, err)) }
 }
-
-func (l *LookupIndex[K, E, V]) set(entry *E) {
-	l.store.Set((*entry).GorpKey(), l.extract(entry))
-}
-
-func (l *LookupIndex[K, E, V]) delete(key K) { l.store.Delete(key) }
 
 func (l *LookupIndex[K, E, V]) stageSet(tx Tx, entry *E) {
 	l.store.Stage(tx.txIdentity(), (*entry).GorpKey(), l.extract(entry))
@@ -246,7 +236,7 @@ type SortedIndex[K Key, E Entry[K], V cmp.Ordered] struct {
 
 // NewSortedIndex constructs a SortedIndex index over the provided extract function. V
 // must satisfy cmp.Ordered (any built-in ordered primitive: signed and unsigned
-// integers, floats, or strings).
+// integers, floats, or strings). extract reads the stored entry and must not change it.
 func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
 	name string,
 	extract func(e *E) V,
@@ -266,12 +256,6 @@ func (s *SortedIndex[K, E, V]) populate() (func(*E), func(error)) {
 	return func(entry *E) { insert((*entry).GorpKey(), s.extract(entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
-
-func (s *SortedIndex[K, E, V]) set(entry *E) {
-	s.store.Set((*entry).GorpKey(), s.extract(entry))
-}
-
-func (s *SortedIndex[K, E, V]) delete(key K) { s.store.Delete(key) }
 
 func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry *E) {
 	s.store.Stage(tx.txIdentity(), (*entry).GorpKey(), s.extract(entry))
