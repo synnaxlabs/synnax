@@ -440,8 +440,8 @@ jobs:
           if ((PAGE_FILES > 0)); then
             files=$(cd "$DIRECTORY" && pnpm exec vitest list --filesOnly \
               --project '*webkit' "${specs[@]}" | grep -c '\.spec\.')
-            # Vitest opens one page per worker, one worker per core but one.
-            pages=$(node -p 'os.availableParallelism() - 1')
+            # Vitest opens one page per worker: one per core but one, and at least one.
+            pages=$(node -p 'Math.max(os.availableParallelism() - 1, 1)')
             per_run=$((SHARDS * pages * PAGE_FILES))
             runs=$(((files + per_run - 1) / per_run))
             echo "$files WebKit spec files in $((SHARDS * runs)) runs"
