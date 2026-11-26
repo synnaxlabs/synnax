@@ -51,13 +51,14 @@ TEST_F(JSONTest, CreateNewFile) {
 TEST_F(JSONTest, OpenBareFileName) {
     const auto dir = std::filesystem::path(temp_path).parent_path();
     std::filesystem::create_directories(dir);
-    const auto previous = std::filesystem::current_path();
+    struct CwdGuard {
+        std::filesystem::path previous = std::filesystem::current_path();
+        ~CwdGuard() { std::filesystem::current_path(previous); }
+    } guard;
     std::filesystem::current_path(dir);
     JSONFileConfig config;
     config.path = "bare.json";
-    const auto result = JSONFile::open_file(config);
-    std::filesystem::current_path(previous);
-    ASSERT_NIL(result.second);
+    auto kv = ASSERT_NIL_P(JSONFile::open_file(config));
     ASSERT_TRUE(std::filesystem::exists(dir / "bare.json"));
 }
 
