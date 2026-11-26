@@ -10,9 +10,8 @@
  */
 
 .pluto-arrow {
-    /* Symbol containers unfill every svg. Restore fill-based icons. */
+    /* Symbol containers give each svg a 2px stroke. A fill-based icon draws none. */
     .lyra-icon[fill="currentColor"] {
-        fill: currentcolor;
         stroke-width: 0;
     }
 

@@ -131,7 +131,6 @@ var _ = Describe("Service", func() {
 						Name: "concurrent-write",
 						Data: symbol.Spec{
 							Drawing: svg("<svg>...</svg>"),
-							Variant: "valve",
 						},
 					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -33,21 +33,18 @@ var _ = Describe("Retrieve", func() {
 			Name: "symbol-1",
 			Data: symbol.Spec{
 				Drawing: svg("<svg>1</svg>"),
-				Variant: "valve",
 			},
 		})
 		sym2 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-2",
 			Data: symbol.Spec{
 				Drawing: svg("<svg>2</svg>"),
-				Variant: "valve",
 			},
 		})
 		sym3 = defaults.Fill(symbol.Symbol{
 			Name: "symbol-3",
 			Data: symbol.Spec{
 				Drawing: svg("<svg>3</svg>"),
-				Variant: "valve",
 			},
 		})
 		Expect(svc.NewWriter(tx).Create(ctx, &sym1)).To(Succeed())
@@ -103,7 +100,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should execute without transaction", func(ctx SpecContext) {
 			symNoTx := defaults.Fill(symbol.Symbol{
 				Name: "no-tx-symbol",
-				Data: symbol.Spec{Drawing: svg("<svg>no-tx</svg>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg>no-tx</svg>")},
 			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &symNoTx)
@@ -142,7 +139,6 @@ var _ = Describe("Retrieve", func() {
 		It("Should handle large data correctly", func(ctx SpecContext) {
 			largeData := symbol.Spec{
 				Drawing: svg("<svg>" + string(make([]byte, 10000)) + "</svg>"),
-				Variant: "valve",
 			}
 			for i := range 100 {
 				largeData.Parts = append(largeData.Parts, symbol.Part{

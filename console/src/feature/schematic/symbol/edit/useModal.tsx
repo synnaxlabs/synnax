@@ -175,7 +175,6 @@ const Editor = ({
       parts: [],
       previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
       handles: [],
-      variant: "static",
       strokeScaled: false,
       states: [Spec.createState()],
       commands: [],
@@ -318,8 +317,6 @@ const Editor = ({
       const [part] = Spec.levelIssues(spec).keys();
       if (part != null) return selectPart(part);
     }
-    // Placement reads the variant, so a symbol with a click saves as an actuator.
-    form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const next = form.get(path.data).value;
