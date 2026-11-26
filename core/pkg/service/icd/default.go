@@ -11,6 +11,7 @@ package icd
 
 import (
 	"encoding/json/jsontext"
+	"fmt"
 	"math"
 
 	xjson "github.com/synnaxlabs/x/json"
@@ -49,6 +50,58 @@ func defaultProblem(f JSONField) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// CheckBinaryDefault returns an error wrapping validate.ErrValidation when f, a field
+// of a valid bit length, has a default that it cannot hold: an infinite float, a value
+// that its bits cannot hold, or a number that decodes outside the min and max of f. The
+// error does not name the default.
+func CheckBinaryDefault(f BinaryField) error {
+	return problemError(binaryDefaultProblem(f))
+}
+
+// CheckTextDefault returns an error wrapping validate.ErrValidation when the default of
+// f is infinite or decodes outside the min and max of f. The error does not name the
+// default.
+func CheckTextDefault(f TextField) error {
+	return problemError(textDefaultProblem(f))
+}
+
+func binaryDefaultProblem(f BinaryField) (string, bool) {
+	n := f.Base().BitLength
+	switch v := f.Variant.(type) {
+	case FloatBinaryField:
+		if v.Default == nil {
+			return "", false
+		}
+		d := float64(*v.Default)
+		switch {
+		case math.IsInf(d, 0):
+			return "cannot be infinite", true
+		case n == 32 && math.Abs(d) > math.MaxFloat32:
+			return fmt.Sprintf("%g does not fit a 32-bit float", d), true
+		}
+		return defaultRangeProblem(v.BaseField, v.Default)
+	case IntegerBinaryField:
+		if v.Default != nil && !fits(int64(*v.Default), f) {
+			return fmt.Sprintf("%d does not fit the field", *v.Default), true
+		}
+		return defaultRangeProblem(v.BaseField, v.Default)
+	case UnsignedBinaryField:
+		if v.Default != nil && n < 64 && uint64(*v.Default) >= 1<<n {
+			return fmt.Sprintf("%d does not fit the field", *v.Default), true
+		}
+		return defaultRangeProblem(v.BaseField, v.Default)
+	}
+	return "", false
+}
+
+func textDefaultProblem(f TextField) (string, bool) {
+	b := f.Base()
+	if b.Default != nil && math.IsInf(float64(*b.Default), 0) {
+		return "cannot be infinite", true
+	}
+	return defaultRangeProblem(b.BaseField, b.Default)
 }
 
 // defaultRangeProblem returns how the finite default d of a number field with base b

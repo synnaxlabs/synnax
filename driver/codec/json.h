@@ -247,7 +247,7 @@ class JSONEncoder {
         [[nodiscard]] x::errors::Error
         append(const x::telem::Series &s, std::size_t i, std::string &out) const;
         /// @brief appends JSON text to out: n, unscaled and rounded to the nearest
-        /// integer.
+        /// integer. It checks the limits against the value that the integer decodes to.
         [[nodiscard]] x::errors::Error
         append_integer(const x::json::Number &n, std::string &out) const;
     };

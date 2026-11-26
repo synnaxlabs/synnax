@@ -144,7 +144,7 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
                 msg += ": " + req_err.data;
             else {
                 msg += " returned " + std::to_string(resp.status_code);
-                if (!resp.body.empty()) msg += ": " + resp.body;
+                if (!resp.body.empty()) msg += ": " + resp.body_excerpt();
             }
             error_msgs.push_back(std::move(msg));
             queue.clear();
