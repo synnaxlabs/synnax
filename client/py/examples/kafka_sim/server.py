@@ -46,7 +46,7 @@ from examples.simulators.device_sim import DeviceSim
 from synnax import kafka
 
 # The topics of the plant. The simulator is ready once each one has a leader.
-TOPICS = ("plant.sensors",)
+TOPICS = ("plant.sensors", "plant.scalar", "plant.timed", "plant.events", "plant.mixed")
 
 
 async def run_server(
