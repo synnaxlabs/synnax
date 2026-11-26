@@ -503,7 +503,7 @@ class TestICD:
         problems = client.icds.check(ic)
         assert problems_of(problems) == [
             ("messages.1.name", 'duplicate message name "Mode"'),
-            ("messages.1.payload.fields.0.scale", "scale must be finite and non-zero"),
+            ("messages.1.payload.fields.0.scale", "scale must be non-zero"),
         ]
         assert all(isinstance(p.error, sy.ValidationError) for p in problems)
 

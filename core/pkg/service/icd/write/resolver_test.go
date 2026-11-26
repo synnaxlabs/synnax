@@ -98,6 +98,26 @@ var _ = Describe("Resolver", func() {
 			)).To(MatchError("targets.1.message: message Tagged binds no channels"))
 		})
 
+		It("Should refuse a write of a field with a zero scale", func(ctx SpecContext) {
+			flat := jsonField("flat", icd.FloatJSONField{})
+			b := flat.Base()
+			b.Scale = 0
+			flat.SetBase(b)
+			valve := jsonMessage("Valve", flat)
+			ic := icd.ICD{
+				Key: uuid.New(), Name: "Valves", Messages: []icd.Message{valve},
+			}
+			Expect(resolver.Check(
+				ctx,
+				db,
+				[]write.Write{writeAt(0, ic.Key, writeOf(valve, bind(flat)))},
+				map[icd.Key]icd.ICD{ic.Key: ic},
+			)).To(MatchError(
+				"targets.0.message: message Valve: field flat: " +
+					"scale must be non-zero: validation error",
+			))
+		})
+
 		It("Should take the data type of each channel that the lookup finds", func(
 			ctx SpecContext,
 		) {

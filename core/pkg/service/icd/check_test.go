@@ -130,7 +130,7 @@ var _ = Describe("Check", func() {
 			problem{Path: "name", Message: "name is required"},
 			problem{
 				Path:    "messages.0.payload.fields.1.scale",
-				Message: "scale must be finite and non-zero",
+				Message: "scale must be non-zero",
 			},
 			problem{
 				Path:    "messages.0.payload.fields.1.multiplex_values.0",
@@ -337,11 +337,11 @@ var _ = Describe("Check", func() {
 		},
 		Entry("NaN scale",
 			func(f *icd.BinaryBaseField) { f.Scale = math.NaN() },
-			"scale", "scale must be finite and non-zero",
+			"scale", "scale must be finite",
 		),
 		Entry("infinite scale",
 			func(f *icd.BinaryBaseField) { f.Scale = math.Inf(1) },
-			"scale", "scale must be finite and non-zero",
+			"scale", "scale must be finite",
 		),
 		Entry("infinite offset",
 			func(f *icd.BinaryBaseField) { f.Offset = math.Inf(-1) },

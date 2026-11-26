@@ -119,6 +119,7 @@ func (f *encodeField) atLimit(v float64) float64 {
 // field rounds it to the nearest integer. A number channel writes to any number or
 // boolean field, and a boolean field takes only 0 and 1 from one. NewJSONEncoder
 // returns an error wrapping validate.ErrValidation when:
+//   - a field's scale is zero
 //   - a field has no binding and no default
 //   - a field has no binding and a default that JSON cannot hold, such as NaN
 //   - a field's default is not valid or is outside its min and max, bound or not
@@ -218,6 +219,10 @@ func (e *JSONEncoder) templateField(
 	bound map[icd.FieldKey]int,
 ) (xjson.TemplateField, int, generator, error) {
 	b := f.Base()
+	if err := icd.CheckScale(b.Scale); err != nil {
+		err = errors.Wrap(validate.ErrValidation, err.Error())
+		return xjson.TemplateField{}, 0, nil, err
+	}
 	pointer, err := memberPointer(b.Pointer)
 	if err != nil {
 		return xjson.TemplateField{}, 0, nil, err
