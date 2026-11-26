@@ -342,7 +342,7 @@ func (c Checker) checkBinding(
 	at := func(err error, segment string) error {
 		return validate.PathedError(err, slices.Concat(path, []string{segment})...)
 	}
-	kind, name := f.kind, f.name
+	name := f.name
 	if err := icd.CheckScale(f.scale); err != nil {
 		return at(errors.Wrapf(err, "field %s", name), "field")
 	}
@@ -351,21 +351,18 @@ func (c Checker) checkBinding(
 			"bytes field %s requires a JSON pointer", name,
 		), "field")
 	}
-	if b.DataType != "" && !f.converts(b.DataType) {
-		return at(validate.Errorf(
-			"field %s of kind %s cannot read into data type %s",
-			name, kind, b.DataType,
-		), "data_type")
+	if b.DataType != "" {
+		if err := f.check(b.DataType, "data type "+string(b.DataType)); err != nil {
+			return at(err, "data_type")
+		}
 	}
 	ch, ok := c.channels[b.Channel]
 	if !ok {
 		return nil
 	}
-	if !f.converts(ch.DataType) {
-		return at(validate.Errorf(
-			"field %s of kind %s cannot read into channel %s of data type %s",
-			name, kind, ch.Name, ch.DataType,
-		), "channel")
+	target := "channel " + ch.Name + " of data type " + string(ch.DataType)
+	if err := f.check(ch.DataType, target); err != nil {
+		return at(err, "channel")
 	}
 	if isIndex && !ch.Index {
 		return at(validate.Errorf(
@@ -396,15 +393,34 @@ type field struct {
 	// scaled is true for a binary field with a scale or an offset, which decodes only
 	// into a float channel.
 	scaled bool
+	// bitLength is the width of a binary field, and zero for other fields.
+	bitLength uint8
 }
 
-// converts returns true when f decodes into a channel of data type dt.
-func (f field) converts(dt telem.DataType) bool {
-	if !codec.Converts(f.kind, dt) {
-		return false
-	}
+// check returns a validation error when f cannot decode into target, a channel of data
+// type dt.
+func (f field) check(dt telem.DataType, target string) error {
 	k, _ := payload.KindOf(dt)
-	return !f.scaled || k == payload.KindFloat
+	if !codec.Converts(f.kind, dt) || (f.scaled && k != payload.KindFloat) {
+		return validate.Errorf(
+			"field %s of kind %s cannot read into %s", f.name, f.kind, target,
+		)
+	}
+	if f.bitLength == 0 || (k != payload.KindInteger && k != payload.KindUnsigned) {
+		return nil
+	}
+	// A signed channel takes one more bit for the sign of an unsigned field.
+	needed := int(f.bitLength)
+	if k == payload.KindInteger && f.kind == payload.KindUnsigned {
+		needed++
+	}
+	if needed > int(dt.Density())*8 {
+		return validate.Errorf(
+			"field %s of kind %d-bit %s cannot read into %s",
+			f.name, f.bitLength, f.kind, target,
+		)
+	}
+	return nil
 }
 
 // fieldsOf returns the fields of p by key. A text field decodes as a float.
@@ -427,10 +443,11 @@ func fieldsOf(p icd.Payload) map[icd.FieldKey]field {
 		for _, f := range v.Fields {
 			b := f.Base()
 			fields[b.Key] = field{
-				name:   b.Name,
-				kind:   payload.Kind(f.Kind()),
-				scale:  b.Scale,
-				scaled: b.Scale != 1 || b.Offset != 0,
+				name:      b.Name,
+				kind:      payload.Kind(f.Kind()),
+				scale:     b.Scale,
+				scaled:    b.Scale != 1 || b.Offset != 0,
+				bitLength: b.BitLength,
 			}
 		}
 	case icd.TextPayload:
