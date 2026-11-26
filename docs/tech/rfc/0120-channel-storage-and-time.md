@@ -1075,12 +1075,12 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
     script that sends two time series. Rejected: a map in each frame, which every codec
     must carry.
 21. **Pause moves for adaptive groups only, at a commit**: Rejected: moves in declared
-    groups, whose layout the producer knows, and a move inside a commit, which splits a
-    run.
+    groups, whose layout the producer knows, and a move inside a commit, which splits
+    one commit across two clocks.
 22. **The old holder commits first at a handoff**: It supersedes D-313 and D-389, and
     D-458's "`Pending` and adopt stay", on the pointer log. D-311 stays for the old
-    layout. Rejected: samples that wait across the move, which need parked runs, and the
-    drop of uncommitted samples that the storage branch does today.
+    layout. Rejected: samples that wait across the move, which need parked samples, and
+    the drop of uncommitted samples that the storage branch does today.
 23. **Takeover at open, and a variable type rebuilds its cursor**: Per D-475, which
     amends D-080. Rejected: a seal at every open, which makes one file per channel and
     clock per session, and a seal for variable types, which still does so for text
