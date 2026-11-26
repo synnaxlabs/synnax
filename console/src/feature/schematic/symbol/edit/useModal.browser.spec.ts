@@ -1802,6 +1802,35 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       ).toBeDefined();
     });
 
+    it("rings the selected item of a focused list, or the list with none", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO, { ...GO, key: "stop", name: "Stop" }],
+      });
+      await userEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      await userEvent.keyboard("{ArrowDown}");
+      await screen.findByRole("heading", { name: "Stop" });
+      const listOf = (option: RegExp): HTMLElement => {
+        const list = screen
+          .getByRole("option", { name: option })
+          .closest<HTMLElement>(".console-schematic__list");
+        assertDefined(list);
+        return list;
+      };
+      const commands = listOf(/^Stop/);
+      expect(document.activeElement).toBe(commands);
+      expect(getComputedStyle(commands).outlineStyle).toBe("none");
+      const selected = within(commands).getByRole("option", { selected: true });
+      const ring = getComputedStyle(selected, "::before");
+      expect([ring.borderTopStyle, ring.borderTopWidth]).toEqual(["solid", "1px"]);
+      const states = listOf(/^Active/);
+      // A focus by script after a key press matches :focus-visible.
+      states.focus();
+      const outline = getComputedStyle(states);
+      expect([outline.outlineStyle, outline.outlineWidth]).toEqual(["solid", "1px"]);
+    });
+
     it("lights only the item that the inspector shows", async () => {
       await openPainted({
         states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
