@@ -349,6 +349,11 @@ class TestHTTPReadTask:
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
+        temperature = sy.icd.FloatJSONField(name="temperature", pointer="/temperature")
+        data = sy.icd.Message(
+            name="Data", payload=sy.icd.JSONPayload(fields=[temperature])
+        )
+        ic = client.icds.create(name=random_name(), messages=[data])
         task = sy.http.ReadTask(
             name="test-http-read-task",
             device="some-device-key",
@@ -358,13 +363,14 @@ class TestHTTPReadTask:
                     key="ep-1",
                     method="GET",
                     path="/api/v1/data",
-                    fields=[
-                        sy.http.ReadField(
-                            key="f-1",
-                            pointer="/temperature",
-                            channel=1234,
-                            data_type=sy.DataType.FLOAT64,
-                        ),
+                    icd=ic.key,
+                    messages=[
+                        sy.icd.ReadMessage(
+                            message=data.key,
+                            bindings=[
+                                sy.icd.ReadBinding(field=temperature.key, channel=1234)
+                            ],
+                        )
                     ],
                 ),
             ],
@@ -991,6 +997,47 @@ class TestHTTPDevicePropertyUpdates:
         assert channels["/temperature"] == temp_ch.key
         assert channels["/pressure"] == pres_ch.key
         assert ep_props["index"] == 0
+
+    def test_read_task_skips_endpoint_with_no_fields(self, client: sy.Synnax) -> None:
+        """An endpoint with no fields stores no channels under its path."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.http.Device(
+            host="127.0.0.1:8080",
+            secure=False,
+            name="Test HTTP Read Messages Device",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        suffix = random_name()
+        time_ch = client.channels.create(
+            name=f"http_time_{suffix}",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        temp_ch = client.channels.create(
+            name=f"http_temp_{suffix}",
+            data_type=sy.DataType.FLOAT64,
+            index=time_ch.key,
+        )
+        task = sy.http.ReadTask(
+            name="Test HTTP Read Messages",
+            device=device.key,
+            rate=1.0,
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/api/v1/data",
+                    fields=[
+                        sy.http.ReadField(pointer="/temperature", channel=temp_ch.key)
+                    ],
+                ),
+                sy.http.ReadEndpoint(path="/api/v1/status"),
+            ],
+        )
+        task.update_device_properties(client.devices)
+
+        read = obj(client.devices.retrieve(key=device.key).properties, "read")
+        assert "/api/v1/data" in read
+        assert "/api/v1/status" not in read
 
     def test_read_task_stores_index_channel_key(self, client: sy.Synnax) -> None:
         """A value-timed endpoint stores its index field's channel key."""

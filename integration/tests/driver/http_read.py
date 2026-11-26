@@ -14,7 +14,7 @@ from examples.http_sim import STATS_PATH, HTTPSlowSim
 
 import synnax as sy
 from synnax import http
-from tests.driver.http_task import HTTPReadTaskCase
+from tests.driver.http_task import HTTPReadTaskCase, create_read_endpoint
 from tests.driver.task import create_channel, create_index
 
 
@@ -39,19 +39,19 @@ class HTTPReadFloat(HTTPReadTaskCase):
             index=idx.key,
         )
         endpoints = [
-            http.ReadEndpoint(
+            create_read_endpoint(
+                client,
                 path="/api/v1/data",
-                method="GET",
-                fields=[
-                    http.ReadField(
-                        pointer="/temperature",
-                        channel=temp_key,
-                        data_type=sy.DataType.FLOAT64,
+                bindings=[
+                    (
+                        sy.icd.FloatJSONField(
+                            name="temperature", pointer="/temperature"
+                        ),
+                        temp_key,
                     ),
-                    http.ReadField(
-                        pointer="/pressure",
-                        channel=pressure_key,
-                        data_type=sy.DataType.FLOAT64,
+                    (
+                        sy.icd.FloatJSONField(name="pressure", pointer="/pressure"),
+                        pressure_key,
                     ),
                 ],
             ),
@@ -81,26 +81,28 @@ class HTTPReadMultipleEndpoints(HTTPReadTaskCase):
             index=idx2.key,
         )
         endpoints = [
-            http.ReadEndpoint(
+            create_read_endpoint(
+                client,
                 path="/api/v1/data",
-                method="GET",
-                fields=[
-                    http.ReadField(
-                        pointer="/temperature",
-                        channel=temp_key,
-                        data_type=sy.DataType.FLOAT64,
-                    ),
+                bindings=[
+                    (
+                        sy.icd.FloatJSONField(
+                            name="temperature", pointer="/temperature"
+                        ),
+                        temp_key,
+                    )
                 ],
             ),
-            http.ReadEndpoint(
+            create_read_endpoint(
+                client,
                 path="/api/v1/metrics",
-                method="GET",
-                fields=[
-                    http.ReadField(
-                        pointer="/sensors/sensor_0",
-                        channel=sensor_key,
-                        data_type=sy.DataType.FLOAT64,
-                    ),
+                bindings=[
+                    (
+                        sy.icd.FloatJSONField(
+                            name="sensor_0", pointer="/sensors/sensor_0"
+                        ),
+                        sensor_key,
+                    )
                 ],
             ),
         ]
@@ -160,12 +162,15 @@ class HTTPReadCappedFanOut(HTTPReadTaskCase):
             )
             keys.append(key)
             endpoints.append(
-                http.ReadEndpoint(
+                create_read_endpoint(
+                    client,
                     path=path,
-                    method="GET",
-                    fields=[
-                        http.ReadField(
-                            pointer=pointer, channel=key, data_type=sy.DataType.FLOAT64
+                    bindings=[
+                        (
+                            sy.icd.FloatJSONField(
+                                name=pointer.rsplit("/", 1)[-1], pointer=pointer
+                            ),
+                            key,
                         )
                     ],
                 )
