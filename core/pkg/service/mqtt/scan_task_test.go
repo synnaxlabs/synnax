@@ -70,7 +70,7 @@ var _ = Describe("Scan task", func() {
 	scan := func(ctx context.Context) (driver.Task, task.Task) {
 		GinkgoHelper()
 		t := newTask(ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
-		return configure(ctx, factory, t), t
+		return boot(ctx, factory, t), t
 	}
 
 	// configureRead configures a read task on dev, which opens the shared connection
@@ -116,9 +116,19 @@ var _ = Describe("Scan task", func() {
 			t := newTask(
 				ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"disabled": true},
 			)
-			configure(ctx, factory, t)
+			boot(ctx, factory, t)
 			Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
 		})
+
+		It("Should leave the start of a scan task to its start command",
+			func(ctx SpecContext) {
+				t := newTask(
+					ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50},
+				)
+				configure(ctx, factory, t)
+				Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
+			},
+		)
 	})
 
 	Describe("Device status", func() {

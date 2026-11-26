@@ -498,6 +498,31 @@ var _ = Describe("Upload", func() {
 			Expect(server.Points("stand", ch.Name)).To(HaveLen(4))
 		})
 
+	It("Should end a claim at its deadline while the last scan task stops", func(
+		ctx SpecContext,
+	) {
+		server.Pause()
+		DeferCleanup(server.Resume)
+		upload(ctx)
+		Eventually(server.Streams).Should(Equal(1))
+		last := dt
+		stopped := make(chan error, 1)
+		go func() { stopped <- last.Stop(false) }()
+		Consistently(stopped, 50*time.Millisecond).ShouldNot(Receive())
+		scan := newTask(ctx, sift.ScanTaskType, msgpack.EncodedJSON{"rate": 1})
+		claimCtx, cancel := context.WithTimeout(ctx, 100*time.Millisecond)
+		defer cancel()
+		configured := make(chan error, 1)
+		go func() {
+			_, err := f.ConfigureTask(claimCtx, scan, driver.NoCommand)
+			configured <- err
+		}()
+		Eventually(configured).Should(Receive(MatchError(context.DeadlineExceeded)))
+		server.Resume()
+		Eventually(stopped).WithTimeout(10 * time.Second).Should(Receive(Succeed()))
+		dt = MustSucceed(f.ConfigureTask(ctx, scan, driver.NoCommand))
+	})
+
 	It("Should fail an upload that Sift rejects", func(ctx SpecContext) {
 		dev = createDevice(ctx, sift.Properties{
 			URI:    server.Address(),

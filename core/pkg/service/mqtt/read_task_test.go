@@ -997,7 +997,22 @@ var _ = Describe("Read task", func() {
 			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
 		})
 
-		It("Should answer the command when the task fails to start",
+		It("Should leave the start to the start command of a deploy", func(
+			ctx SpecContext,
+		) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			cfg := readConfig(
+				ctx,
+				dev,
+				plainEntry("plant/auto", field("v", data[0], "")),
+			)
+			cfg["auto_start"] = true
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
+			configure(ctx, factory, t)
+			Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
+		})
+
+		It("Should report a task that fails to start at boot",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
 				port := broker.port
@@ -1013,14 +1028,15 @@ var _ = Describe("Read task", func() {
 				)
 				cfg["auto_start"] = true
 				t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
-				Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
-					ContainSubstring("refused the subscription to plant/denied"),
-				))
+				Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().To(
+					MatchError(
+						ContainSubstring("refused the subscription to plant/denied"),
+					),
+				)
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Details.Running).To(BeFalse())
-				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 			},
 		)
 	})
