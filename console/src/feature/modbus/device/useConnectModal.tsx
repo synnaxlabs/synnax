@@ -326,6 +326,7 @@ export const Connect = ({
         variant={variant}
         message={stat.description}
         onConnect={() => save()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -344,13 +345,17 @@ const SECTIONS_CLASS = CSS.BE("modbus-connect", "sections");
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "Modbus server",
+  placeholder: "Server name",
   "aria-label": "Name",
 } as const;
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
 
-const PORT_INPUT_PROPS = { bounds: { lower: 1, upper: 65535 }, integer: true } as const;
+const PORT_INPUT_PROPS = {
+  bounds: { lower: 1, upper: 65535 },
+  integer: true,
+  showDragHandle: false,
+} as const;
 
 const SERIAL_PORT_INPUT_PROPS = {
   autoFocus: true,

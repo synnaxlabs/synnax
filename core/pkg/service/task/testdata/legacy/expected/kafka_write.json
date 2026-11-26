@@ -1,0 +1,31 @@
+{
+  "auto_start": false,
+  "device": "kafka-plant",
+  "targets": [
+    {
+      "disabled": false,
+      "icd": "kafka_write",
+      "key": "32418470-74ed-456d-a3bb-96014cd307bb",
+      "message": {
+        "bindings": [
+          {
+            "channel": 1048586,
+            "field": "value",
+            "type": "channel"
+          },
+          {
+            "field": "channel",
+            "type": "value",
+            "value": {
+              "type": "string",
+              "value": "fixture_1048586"
+            }
+          }
+        ],
+        "message": "fixture_1048586"
+      },
+      "record_key": "fixture_1048586",
+      "topic": "plant.setpoints"
+    }
+  ]
+}

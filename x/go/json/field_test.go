@@ -35,17 +35,20 @@ func text(s string) []byte { return telem.MarshalVariableSample([]byte(s)) }
 var id = uuid.MustParse("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 var _ = Describe("Field", func() {
-	Describe("ParseType", func() {
+	Describe("Type", func() {
 		DescribeTable("Should round trip the config form",
 			func(text string) {
-				Expect(MustSucceed(xjson.ParseType(text)).String()).To(Equal(text))
+				var t xjson.Type
+				Expect(t.UnmarshalText([]byte(text))).To(Succeed())
+				Expect(t.String()).To(Equal(text))
 			},
 			Entry("number", "number"),
 			Entry("string", "string"),
 			Entry("boolean", "boolean"),
 		)
 		It("Should reject an unknown type", func() {
-			Expect(xjson.ParseType("object")).Error().To(SatisfyAll(
+			var t xjson.Type
+			Expect(t.UnmarshalText([]byte("object"))).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(`unknown JSON type "object"`)),
 			))
@@ -206,7 +209,10 @@ var _ = Describe("Field", func() {
 			Entry("empty bytes", xjson.Field{DataType: telem.BytesT}, `""`, text("")),
 			Entry(
 				"an ISO 8601 timestamp",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.ISO8601},
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("iso8601")),
+				},
 				`"2026-01-02T03:04:05.000000006Z"`,
 				sample(
 					telem.NewTimeStamp(time.Date(2026, 1, 2, 3, 4, 5, 6, time.UTC)),
@@ -214,47 +220,73 @@ var _ = Describe("Field", func() {
 			),
 			Entry(
 				"an ISO 8601 timestamp with a space and a lowercase zone",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.ISO8601},
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("iso8601")),
+				},
 				`"2026-01-02 03:04:05z"`,
 				sample(
 					telem.NewTimeStamp(time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)),
 				),
 			),
-			Entry("Unix seconds with every digit to the nanosecond",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				`1767323045.123456789`, sample(telem.TimeStamp(1767323045123456789))),
+			Entry(
+				"Unix seconds with every digit to the nanosecond",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`1767323045.123456789`,
+				sample(telem.TimeStamp(1767323045123456789)),
+			),
 			Entry("Unix milliseconds in a string",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixMillisecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_ms")),
 				},
 				`"1767323045123"`, sample(telem.TimeStamp(1767323045123000000))),
 			Entry("Unix microseconds with an exponent",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixMicrosecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_us")),
 				},
 				`1.5e3`, sample(telem.TimeStamp(1500000))),
-			Entry("negative Unix seconds",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				`-1.5`, sample(telem.TimeStamp(-1500000000))),
+			Entry(
+				"negative Unix seconds",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`-1.5`,
+				sample(telem.TimeStamp(-1500000000)),
+			),
 			Entry("a fraction of a nanosecond, truncated",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixNanosecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_ns")),
 				},
 				`10.9`, sample(telem.TimeStamp(10))),
-			Entry("Unix seconds in hex with whitespace",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				`" 0x10\t"`, sample(telem.TimeStamp(16000000000))),
-			Entry("Unix seconds with every digit in a string with whitespace",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
+			Entry(
+				"Unix seconds in hex with whitespace",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`" 0x10\t"`,
+				sample(telem.TimeStamp(16000000000)),
+			),
+			Entry(
+				"Unix seconds with every digit in a string with whitespace",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
 				`" 1767323045.123456789 "`,
-				sample(telem.TimeStamp(1767323045123456789))),
+				sample(telem.TimeStamp(1767323045123456789)),
+			),
 			Entry("a hex float of nanoseconds, truncated",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixNanosecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_ns")),
 				},
 				`"-0x1.8"`, sample(telem.TimeStamp(-1))),
 			Entry("an integer in range into a float",
@@ -323,43 +355,99 @@ var _ = Describe("Field", func() {
 				`18446744073709551616`, "is out of range for uint64"),
 			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
 				`1e39`, "1e39 overflows float32"),
+			Entry("a quoted decimal past the smallest exponent",
+				xjson.Field{DataType: telem.Float64T}, `"1e-1048577"`,
+				`invalid number "1e-1048577"`),
+			Entry("a quoted hex past the smallest exponent",
+				xjson.Field{DataType: telem.Float64T}, `"0x1p-1048577"`,
+				`invalid number "0x1p-1048577"`),
 			Entry("an object into a UUID", xjson.Field{DataType: telem.UUIDT}, `{}`,
 				"expected a UUID string, got an object"),
 			Entry("text that is not a UUID", xjson.Field{DataType: telem.UUIDT},
 				`"x"`, `invalid UUID "x"`),
-			Entry("a number in ISO 8601",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.ISO8601}, `1`,
-				"expected an ISO 8601 string, got a number"),
-			Entry("text that is not ISO 8601",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.ISO8601},
-				`"now"`, `invalid ISO 8601 timestamp "now"`),
-			Entry("a boolean in Unix seconds",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				`true`, "expected a number, got a boolean"),
-			Entry("text that is not a number in Unix seconds",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				`"soon"`, `invalid number "soon"`),
-			Entry("Unix seconds past the range of a timestamp",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				`1e12`, "1e12 is out of range for a unix_sec timestamp"),
-			Entry("infinity in Unix seconds",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				`"inf"`, "inf is out of range for a unix_sec timestamp"),
-			Entry("hex Unix seconds past the range of a timestamp",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
+			Entry(
+				"a number in ISO 8601",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("iso8601")),
+				},
+				`1`,
+				"expected an ISO 8601 string, got a number",
+			),
+			Entry(
+				"text that is not ISO 8601",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("iso8601")),
+				},
+				`"now"`,
+				`invalid ISO 8601 timestamp "now"`,
+			),
+			Entry(
+				"a boolean in Unix seconds",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`true`,
+				"expected a number, got a boolean",
+			),
+			Entry(
+				"text that is not a number in Unix seconds",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`"soon"`,
+				`invalid number "soon"`,
+			),
+			Entry(
+				"Unix seconds past the range of a timestamp",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`1e12`,
+				"1e12 is out of range for a unix_sec timestamp",
+			),
+			Entry(
+				"Unix seconds past the smallest exponent",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`1e-1048577`,
+				`invalid number "1e-1048577"`,
+			),
+			Entry(
+				"infinity in Unix seconds",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`"inf"`,
+				"inf is out of range for a unix_sec timestamp",
+			),
+			Entry(
+				"hex Unix seconds past the range of a timestamp",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
 				`"0x7fffffffffffffff"`,
-				"0x7fffffffffffffff is out of range for a unix_sec timestamp"),
+				"0x7fffffffffffffff is out of range for a unix_sec timestamp",
+			),
 			Entry("hex Unix nanoseconds below an int64",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixNanosecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_ns")),
 				},
 				`"-0x8000000000000001"`,
 				"-0x8000000000000001 is out of range for a unix_ns timestamp"),
 			Entry("hex Unix nanoseconds past an int64",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixNanosecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_ns")),
 				},
 				`"0x8000000000000000"`,
 				"0x8000000000000000 is out of range for a unix_ns timestamp"),
@@ -658,26 +746,43 @@ var _ = Describe("Field", func() {
 			Entry("empty bytes",
 				xjson.Field{DataType: telem.BytesT, Type: xjson.String},
 				[]byte{}, `""`),
-			Entry("an ISO 8601 timestamp",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.ISO8601},
+			Entry(
+				"an ISO 8601 timestamp",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("iso8601")),
+				},
 				sample(telem.TimeStamp(1500000006)),
-				`"1970-01-01T00:00:01.500000006Z"`),
-			Entry("Unix seconds with every digit",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				sample(telem.TimeStamp(1767323045123456789)), "1767323045.123456789"),
+				`"1970-01-01T00:00:01.500000006Z"`,
+			),
+			Entry(
+				"Unix seconds with every digit",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				sample(telem.TimeStamp(1767323045123456789)),
+				"1767323045.123456789",
+			),
 			Entry("whole Unix milliseconds",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixMillisecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_ms")),
 				},
 				sample(telem.TimeStamp(5000000)), "5"),
-			Entry("negative Unix seconds",
-				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
-				sample(telem.TimeStamp(-500000000)), "-0.5"),
+			Entry(
+				"negative Unix seconds",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				sample(telem.TimeStamp(-500000000)),
+				"-0.5",
+			),
 			Entry("Unix nanoseconds",
 				xjson.Field{
 					DataType:   telem.TimestampT,
-					TimeFormat: xjson.UnixNanosecond,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_ns")),
 				},
 				sample(telem.TimeStamp(math.MinInt64)), "-9223372036854775808"),
 		)

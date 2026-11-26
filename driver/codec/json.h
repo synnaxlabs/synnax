@@ -247,7 +247,7 @@ class JSONEncoder {
         [[nodiscard]] x::errors::Error
         append(const x::telem::Series &s, std::size_t i, std::string &out) const;
         /// @brief appends JSON text to out: n, unscaled and rounded to the nearest
-        /// integer.
+        /// integer. It checks the limits against the value that the integer decodes to.
         [[nodiscard]] x::errors::Error
         append_integer(const x::json::Number &n, std::string &out) const;
     };
@@ -302,10 +302,13 @@ public:
     [[nodiscard]] x::errors::Error
     check(std::size_t binding, const x::telem::Series &s, std::size_t i);
 
-    /// @brief returns true when the field of binding has a default, which encode writes
-    /// for an empty series.
-    [[nodiscard]] bool has_default(const std::size_t binding) const {
-        return this->fields[binding].fallback.defined();
+    /// @brief returns true when each field has a sample or a default, so encode has a
+    /// value for it.
+    /// @param samples is as in encode.
+    [[nodiscard]] bool ready(const std::span<const x::telem::Series> samples) const {
+        for (std::size_t b = 0; b < samples.size(); b++)
+            if (samples[b].empty() && !this->fields[b].fallback.defined()) return false;
+        return true;
     }
 };
 }

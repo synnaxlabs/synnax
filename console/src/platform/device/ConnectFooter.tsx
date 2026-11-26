@@ -13,6 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
+import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import type { ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";
@@ -24,6 +25,7 @@ export interface ConnectFooterProps {
   variant: status.Variant;
   message?: string;
   onConnect: () => void;
+  onCancel: () => void;
   onBack?: () => void;
 }
 
@@ -32,6 +34,7 @@ export const ConnectFooter = ({
   variant,
   message,
   onConnect,
+  onCancel,
   onBack,
 }: ConnectFooterProps): ReactElement => {
   const busy = variant === "loading";
@@ -51,7 +54,15 @@ export const ConnectFooter = ({
         )}
         {summary}
       </Nav.Bar.Start>
-      <Nav.Bar.End>
+      <Nav.Bar.End x align="center">
+        <Button.Button
+          variant="outlined"
+          onClick={onCancel}
+          disabled={busy}
+          triggerIndicator={PTriggers.ESCAPE}
+        >
+          Cancel
+        </Button.Button>
         <Button.Button
           status={status.keepVariants(variant, "loading")}
           onClick={onConnect}

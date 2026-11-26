@@ -21,6 +21,8 @@ QueryParam = v2.QueryParam
 ReadField = v4.ReadField
 
 ReadEndpoint struct extends v4.ReadEndpoint {
+    -fields
+    -index
     key
     disabled bool = false {
         @doc value "is true when the endpoint is excluded from the task."
