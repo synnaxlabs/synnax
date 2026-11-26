@@ -44,6 +44,24 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "receiver",
+    srcs = ["receiver.cpp"],
+    hdrs = ["receiver.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":icd",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//driver/codec/framing",
+        "//driver/common",
+        "//driver/errors",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
 cc_test(
     name = "icd_test",
     srcs = [
@@ -74,6 +92,25 @@ cc_test(
         "//client/cpp/channel",
         "//client/cpp/icd",
         "//client/cpp/testutil",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "receiver_test",
+    srcs = ["receiver_test.cpp"],
+    deps = [
+        ":icd",
+        ":receiver",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//driver/codec/framing",
+        "//driver/errors",
+        "//driver/transport",
+        "//x/cpp/errors",
         "//x/cpp/telem",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
