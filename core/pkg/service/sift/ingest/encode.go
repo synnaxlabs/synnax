@@ -15,9 +15,7 @@ import (
 	"uuid"
 
 	ingestv1 "github.com/sift-stack/sift/go/gen/sift/ingest/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -32,29 +30,14 @@ type column struct {
 	variable [][]byte
 }
 
-// newColumn returns the column of the series of ch. It fails when a series is not on
-// the clock of index, the flow's clock, so its samples cannot pair with the flow's
-// timestamps.
-func newColumn(series []telem.Series, ch, index channel.Channel) (*column, error) {
-	clock := uint32(index.Key())
-	for _, s := range series {
-		if s.Clock != clock {
-			return nil, errors.Newf(
-				"channel %s has samples that do not pair with the time of its index "+
-					"channel %s",
-				ch.Name,
-				index.Name,
-			)
-		}
-	}
-	return &column{series: series, cur: -1}, nil
+func newColumn(series []telem.Series) *column {
+	return &column{series: series, cur: -1}
 }
 
 // encode calls send with one request per timestamp of f in fr at or after from that has
-// a value. A data sample pairs with a timestamp of the same alignment, on the flow's
-// clock, and a sample on another clock fails the encode. It returns the timestamp after
-// the last one it read and the number of values it sent. It sets each element of last
-// that has a value to the time after the last value of its channel.
+// a value. It returns the timestamp after the last one it read and the number of values
+// it sent. It sets each element of last that has a value to the time after the last
+// value of its channel.
 func encode(
 	configID string,
 	f flow,
@@ -69,14 +52,7 @@ func encode(
 		columns = make([]*column, len(f.channels))
 	)
 	for i, ch := range f.channels {
-		var err error
-		if columns[i], err = newColumn(
-			fr.Get(ch.Key()).Series,
-			ch,
-			f.index,
-		); err != nil {
-			return from, 0, err
-		}
+		columns[i] = newColumn(fr.Get(ch.Key()).Series)
 	}
 	for _, idx := range fr.Get(f.index.Key()).Series {
 		for j := range int(idx.Len()) {
