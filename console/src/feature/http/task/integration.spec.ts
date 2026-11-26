@@ -20,26 +20,24 @@ vi.mock("@/flags/flags", async (importOriginal) => ({
 }));
 
 describe("plotChannels with the ICD flag off", () => {
-  it("should find the enabled fields of an endpoint that reads an ICD", () => {
+  it("should find the bound channels of the messages of each enabled endpoint", () => {
     const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
-    const config = {
-      endpoints: [
+    const read = (...channels: number[]) => ({
+      icd: uuid.create(),
+      messages: [
         {
-          icd: uuid.create(),
-          messages: [
-            {
-              message: uuid.create(),
-              bindings: [{ field: uuid.create(), channel: 1 }],
-            },
-          ],
-          fields: [
-            { channel: 2, disabled: false },
-            { channel: 3, disabled: true },
-          ],
+          message: uuid.create(),
+          bindings: channels.map((channel) => ({ field: uuid.create(), channel })),
         },
       ],
+    });
+    const config = {
+      endpoints: [
+        { ...read(1, 0, 4), fields: [{ channel: 2, disabled: false }] },
+        { ...read(5), disabled: true },
+      ],
     };
-    expect(plotChannels(config)).toEqual([2]);
+    expect(plotChannels(config)).toEqual([1, 4]);
   });
 });
