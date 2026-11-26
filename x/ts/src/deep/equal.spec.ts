@@ -231,7 +231,7 @@ describe("deepEqual", () => {
     });
 
     it("should return false for an undefined partial over an object", () => {
-      expect(deep.partialEqual<unknown>({ a: 1 }, undefined)).toBe(false);
+      expect(deep.partialEqual<unknown>({ a: 1 }, undefined as never)).toBe(false);
     });
   });
 
