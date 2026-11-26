@@ -96,6 +96,26 @@ jobs:
           version: latest-known
           cache-dependency-glob: uv.lock
 
+      # The Kafka simulator runs a real Apache Kafka broker, which needs Java. The Kafka
+      # cases run in the driver suite or in a run of custom flags, and skip on Windows.
+      - name: Install Java (Ubuntu)
+        if: >-
+          runner.os == 'Linux' && (matrix.target == '' || contains(matrix.target,
+          'driver'))
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # The release download can take minutes, which must not count against a test
+      # timeout. The simulator reuses the cached release.
+      - name: Install Kafka (Ubuntu)
+        if: >-
+          runner.os == 'Linux' && (matrix.target == '' || contains(matrix.target,
+          'driver'))
+        working-directory: integration
+        run: uv run python -c "from examples.kafka_sim import install; install()"
+
       # The Console cases use only Chromium. On Windows, --with-deps adds the Media
       # Foundation feature that only WebKit needs, which takes 3 minutes.
       - name: Install Playwright
