@@ -268,6 +268,48 @@ describe("Symbol form", () => {
     });
   });
 
+  describe("state commands", () => {
+    it("should store the command channel of a state in its source", async () => {
+      const { findByLabelText, value } = await render(
+        {
+          spec: VALVE,
+          states: [
+            schematic.stateBindingZ.parse({
+              key: "active",
+              source: { type: "channel", key: ch.key, command: ch.key },
+            }),
+          ],
+        },
+        "control",
+      );
+      fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
+      await waitFor(() =>
+        expect(value(path.states)).toEqual([
+          schematic.stateBindingZ.parse({
+            key: "active",
+            source: { type: "channel", key: ch.key },
+          }),
+        ]),
+      );
+    });
+
+    it("should tell that the commands of a local state set its value", async () => {
+      const { findByText } = await render(
+        {
+          spec: VALVE,
+          states: [
+            schematic.stateBindingZ.parse({
+              key: "active",
+              source: { type: "local", value: 0 },
+            }),
+          ],
+        },
+        "control",
+      );
+      expect(await findByText("Commands set the local value")).toBeDefined();
+    });
+  });
+
   describe("control tab", () => {
     it("should show no Control tab for a symbol with no click or command", async () => {
       const { findByRole, queryByRole } = await render({ spec: LIGHT });

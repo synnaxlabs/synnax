@@ -793,6 +793,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
     });
 
+    it("closes at once on Cancel with no edits", async () => {
+      await openStored();
+      fireEvent.click(findButton("Cancel"));
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before Cancel drops unsaved edits", async () => {
+      await openStored();
+      fireEvent.change(findNameInput(), { target: { value: uniqueName("renamed") } });
+      fireEvent.click(findButton("Cancel"));
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+      expect(findNameInput()).toBeDefined();
+    });
+
     it("closes at once on Escape after a zoom of the preview", async () => {
       await openStored();
       const fit = await fitZoom();
@@ -1649,6 +1666,32 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
       return await openPainted({ states: [createState(), fault], commands: [go] });
     };
+
+    it("names an enumeration for a selected state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("pump"),
+        entries: [
+          { key: "off", value: 0, name: "Off" },
+          { key: "on", value: 1, name: "On" },
+        ],
+      });
+      const symbol = await openPainted({
+        states: [{ ...createState(), key: "fault", name: "Fault" }],
+      });
+      fireEvent.click(screen.getByText("Fault"));
+      await screen.findByRole("heading", { name: "Fault" });
+      const options = await openSelect("Enumeration");
+      fireEvent.change(screen.getByPlaceholderText("Search enumerations..."), {
+        target: { value: enumeration.name },
+      });
+      fireEvent.click(await options.findByRole("option", { name: enumeration.name }));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.states).toEqual([
+          expect.objectContaining({ key: "fault", enumeration: enumeration.key }),
+        ]),
+      );
+    });
 
     it("edits the state and the entry that a selected command sends", async () => {
       const symbol = await openFault();

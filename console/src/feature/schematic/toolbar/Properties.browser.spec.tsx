@@ -254,9 +254,14 @@ describe("Schematic toolbar Properties", () => {
             spec: { type: "custom", key: symbol.key },
           }),
       });
-      const edit = await waitFor(() => getIconButton(result.baseElement, "edit"));
-      fireEvent.click(edit);
+      fireEvent.click(await within(result.baseElement).findByLabelText("Edit symbol"));
       expect(await screen.findByDisplayValue(symbol.name)).toBeDefined();
+    });
+
+    it("offers no edit for a built-in symbol", async () => {
+      await renderProperties({ nodeKeys: ["n1"], createConfig: createValveNodeConfig });
+      await screen.findByRole("tab", { name: "Style" });
+      expect(screen.queryByLabelText("Edit symbol")).toBeNull();
     });
   });
 

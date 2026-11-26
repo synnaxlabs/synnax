@@ -46,16 +46,16 @@ export const Field = ({
               onChange({ ...value, orientation })
             }
           >
-            <Base.Item itemKey="left" tooltip="Left">
+            <Base.Item itemKey="left" tooltip="Left" aria-label="Left">
               <Icon.Arrow.Left />
             </Base.Item>
-            <Base.Item itemKey="top" tooltip="Top">
+            <Base.Item itemKey="top" tooltip="Top" aria-label="Top">
               <Icon.Arrow.Up />
             </Base.Item>
-            <Base.Item itemKey="right" tooltip="Right">
+            <Base.Item itemKey="right" tooltip="Right" aria-label="Right">
               <Icon.Arrow.Right />
             </Base.Item>
-            <Base.Item itemKey="bottom" tooltip="Bottom">
+            <Base.Item itemKey="bottom" tooltip="Bottom" aria-label="Bottom">
               <Icon.Arrow.Down />
             </Base.Item>
           </Base.Buttons>

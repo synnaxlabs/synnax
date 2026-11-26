@@ -56,11 +56,18 @@ const PUMP: schematic.New["nodes"] = [
 interface RenderOptions {
   editable?: boolean;
   registry?: aether.ComponentRegistry;
+  selected?: string[];
+  onSelectionChange?: (keys: string[]) => void;
 }
 
 const renderSchematic = async (
   nodes: schematic.New["nodes"] = PUMP,
-  { editable = true, registry = {} }: RenderOptions = {},
+  {
+    editable = true,
+    registry = {},
+    selected = [],
+    onSelectionChange = () => {},
+  }: RenderOptions = {},
 ): Promise<{
   key: string;
   utils: ReturnType<typeof render>;
@@ -92,8 +99,8 @@ const renderSchematic = async (
             setFitViewOnResize={() => {}}
             viewportMode="zoom"
             onViewportModeChange={() => {}}
-            selected={[]}
-            onSelectionChange={() => {}}
+            selected={selected}
+            onSelectionChange={onSelectionChange}
           />
         </Schematic.Suspended>
       </Errors.SuspenseBoundary>
@@ -172,6 +179,79 @@ describe("Schematic", () => {
         { label: { label: "Valve" } },
       ),
     );
+  });
+
+  describe("canvas menu", () => {
+    const node = (utils: ReturnType<typeof render>): HTMLElement => {
+      const el = utils.container.querySelector<HTMLElement>(
+        ".react-flow__node[data-id='n1']",
+      );
+      if (el == null) throw new Error("the canvas drew no node n1");
+      return el;
+    };
+
+    const pane = (utils: ReturnType<typeof render>): HTMLElement => {
+      const el = utils.container.querySelector<HTMLElement>(".react-flow__pane");
+      if (el == null) throw new Error("the canvas drew no pane");
+      return el;
+    };
+
+    it("should delete the selected nodes", async () => {
+      const onSelectionChange = vi.fn();
+      const { key, utils } = await renderSchematic(PUMP, {
+        selected: ["n1"],
+        onSelectionChange,
+      });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(node(utils));
+      fireEvent.click(
+        await utils.findByRole("menuitem", { name: /^Delete/, hidden: true }),
+      );
+      expect(onSelectionChange).toHaveBeenLastCalledWith([]);
+      await waitFor(async () =>
+        expect((await client.schematics.retrieve({ key })).nodes).toEqual([]),
+      );
+    });
+
+    it("should show no Delete with nothing selected", async () => {
+      const { utils } = await renderSchematic();
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(pane(utils));
+      await utils.findAllByRole("menuitem", { hidden: true });
+      expect(
+        utils.queryByRole("menuitem", { name: /^Delete/, hidden: true }),
+      ).toBeNull();
+    });
+
+    it("should select a node outside the selection on a right click", async () => {
+      const onSelectionChange = vi.fn();
+      const { utils } = await renderSchematic(PUMP, { onSelectionChange });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(node(utils));
+      expect(onSelectionChange).toHaveBeenCalledWith(["n1"]);
+    });
+
+    it("should keep the selection on a right click of a selected node", async () => {
+      const onSelectionChange = vi.fn();
+      const { utils } = await renderSchematic(PUMP, {
+        selected: ["n1"],
+        onSelectionChange,
+      });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(node(utils));
+      expect(onSelectionChange).not.toHaveBeenCalled();
+    });
+
+    it("should clear the selection on a right click of the empty canvas", async () => {
+      const onSelectionChange = vi.fn();
+      const { utils } = await renderSchematic(PUMP, {
+        selected: ["n1"],
+        onSelectionChange,
+      });
+      await utils.findByText("Pump");
+      fireEvent.contextMenu(pane(utils));
+      expect(onSelectionChange).toHaveBeenCalledWith([]);
+    });
   });
 
   it("should size a group box from the nodes it holds", async () => {
