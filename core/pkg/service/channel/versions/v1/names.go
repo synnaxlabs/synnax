@@ -25,10 +25,11 @@ import (
 // NameRuleMigration renames each stored channel whose name a path cannot hold
 // (resource.NeedsRename), or whose name in NFC an earlier channel in the same group
 // holds, and stages each rename (resource.StageRename). Built-ins come first and keep
-// their names, then names in NFC, then the rest, each by key. A new name is
-// resource.SanitizeName of the old one, or "channel_<key>" when that is empty, with the
-// first suffix (_2, _3) that no other channel holds. It runs after the step that names
-// each unnamed channel.
+// their names, then names in NFC, then the rest, each from the highest key down,
+// because a v0.62 Core bound a repeated name to its last channel in key order. A new
+// name is resource.SanitizeName of the old one, or "channel_<key>" when that is empty,
+// with the first suffix (_2, _3) that no other channel holds. It runs after the step
+// that names each unnamed channel.
 var NameRuleMigration = migrate.New("v63_channel_name_rule", migrateNameRule)
 
 // sibling is a name in a group, or in no group when group is zero.
@@ -58,7 +59,7 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 			}
 			return 1
 		}
-		return cmp.Compare(a.Key(), b.Key())
+		return cmp.Compare(b.Key(), a.Key())
 	})
 	var (
 		claimed = make(set.Set[sibling], len(channels))
