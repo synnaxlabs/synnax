@@ -152,6 +152,60 @@ var _ = Describe("Filter Combinators", func() {
 		})
 	})
 
+	Describe("MatchKeysChecked", func() {
+		checked := func(keys []int32, check func(*entry) bool) gorp.Filter[int32, entry] {
+			return gorp.MatchKeysChecked[int32, entry](
+				func(gorp.Context) ([]int32, func(*entry) bool, error) {
+					return keys, check, nil
+				},
+			)
+		}
+		retrieve := func(ctx SpecContext, f gorp.Filter[int32, entry]) []entry {
+			GinkgoHelper()
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(f).
+				Exec(ctx, tx)).To(Succeed())
+			return res
+		}
+
+		It("Should keep the entries of the keys that pass the check", func(
+			ctx SpecContext,
+		) {
+			Expect(retrieve(ctx, checked(
+				[]int32{1, 2, 5, 2},
+				func(e *entry) bool { return e.ID != 2 },
+			))).To(Equal([]entry{entries[1], entries[5]}))
+		})
+
+		It("Should keep every entry of the keys with no check", func(ctx SpecContext) {
+			Expect(retrieve(ctx, checked([]int32{3}, nil))).
+				To(Equal([]entry{entries[3]}))
+		})
+
+		It("Should check the entries under And and Or", func(ctx SpecContext) {
+			odd := checked([]int32{1, 2, 3}, func(e *entry) bool { return e.ID%2 == 1 })
+			Expect(retrieve(ctx, gorp.And(idLT(4), odd))).
+				To(Equal([]entry{entries[1], entries[3]}))
+			Expect(retrieve(ctx, gorp.Or(odd, checked([]int32{4}, nil)))).
+				To(ConsistOf(entries[1], entries[3], entries[4]))
+		})
+
+		It("Should return the error of the function", func(ctx SpecContext) {
+			f := gorp.MatchKeysChecked[int32, entry](
+				func(gorp.Context) ([]int32, func(*entry) bool, error) {
+					return nil, nil, errFilter
+				},
+			)
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(f).
+				Exec(ctx, tx)).To(MatchError(errFilter))
+		})
+	})
+
 	Describe("MatchKeysFunc", func() {
 		It(
 			"Should keep the entries whose keys the function returns",
