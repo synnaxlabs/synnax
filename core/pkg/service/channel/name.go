@@ -69,8 +69,7 @@ func normalizePtr(s *string) *string {
 }
 
 // NormalizeNames returns names, each in NFC, the form in which the Core stores names.
-// It
-// returns names itself when every name is in NFC, so the caller must not change the
+// It returns names itself when every name is in NFC, so the caller must not change the
 // result.
 func NormalizeNames(names []string) []string {
 	var out []string
