@@ -138,6 +138,14 @@ describe("Series", () => {
       derived.forEach((d) => expect(d.clock).toEqual(5));
     });
 
+    it("should carry the clock into a compacted series", () => {
+      const s = Series.alloc({ capacity: 4, dataType: DataType.FLOAT32, clock: 5 });
+      s.write(new Series({ data: new Float32Array([1, 2]) }));
+      const compacted = s.compact();
+      expect(compacted).not.toBe(s);
+      expect(compacted.clock).toEqual(5);
+    });
+
     it("should carry the clock through its crude form", () => {
       const s = Series.z.parse({
         dataType: "float32",
