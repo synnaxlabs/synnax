@@ -26,8 +26,8 @@ class Properties(BaseModel):
         port: Is the TCP port of the server.
     """
 
-    host: str = Field(min_length=1, default="")
-    port: int = Field(default=0, ge=1, le=65535)
+    host: str = Field(min_length=1)
+    port: int = Field(ge=1, le=65535)
 
 
 class ReadConfig(task.PersistConfig):

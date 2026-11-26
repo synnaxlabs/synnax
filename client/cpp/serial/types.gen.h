@@ -67,7 +67,7 @@ struct WriteConfig : public ::synnax::task::StartConfig {
 /// @brief Properties configures the serial port of a serial device.
 struct Properties {
     /// @brief port is the path of the port, such as /dev/ttyUSB0 or COM3.
-    std::string port = "";
+    std::string port;
     /// @brief baud_rate is the speed of the port, in bits per second.
     std::uint32_t baud_rate = 9600;
     /// @brief data_bits is the number of data bits in each character, from 5 to 8.
