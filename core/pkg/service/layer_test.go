@@ -637,6 +637,7 @@ var _ = Describe("Layer", func() {
 			ctx SpecContext,
 			lastApplied string,
 			store func(context.Context, *gorp.DB, uuid.UUID) error,
+			refusal string,
 		) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
@@ -669,6 +670,14 @@ var _ = Describe("Layer", func() {
 				Exec(ctx, db)).To(Succeed())
 			Expect(upgraded.ConfigHash).
 				To(Equal(MustSucceed(layer.HTTP.Write.Hash(ctx, db, key))))
+			By("Checking the migrated config on its next save")
+			stored := MustSucceed(layer.HTTP.Write.Read(ctx, db, key))
+			saved := Expect(layer.HTTP.Write.Prepare(ctx, db, key, "Valves", stored))
+			if refusal == "" {
+				saved.Error().ToNot(HaveOccurred())
+			} else {
+				saved.Error().To(MatchError(refusal))
+			}
 		},
 		Entry(
 			"from Core v0.61, which stored task v3 and HTTP write v2",
@@ -689,12 +698,14 @@ var _ = Describe("Layer", func() {
 							Path:   "/setpoint",
 							Channel: httpv2.ChannelField{
 								Pointer:  "/value",
+								JSONType: "number",
 								DataType: "float64",
 							},
 						},
 					}},
 				)
 			},
+			"",
 		),
 		Entry(
 			"from Core v0.62, which stored task v4 and HTTP write v4",
@@ -715,12 +726,91 @@ var _ = Describe("Layer", func() {
 							Path:   "/setpoint",
 							Channel: httpv4.ChannelField{
 								Pointer:  "/value",
+								JSONType: "number",
 								DataType: "float64",
 							},
 						},
 					}},
 				)
 			},
+			"",
+		),
+		// The lifted message of these does not build: its empty channel pointer
+		// overlaps the pointer of its field. A user save refuses it, but every stored
+		// task migrates.
+		Entry(
+			"from Core v0.62, with a channel pointer that overlaps a field",
+			"v62_task_drop_snapshot",
+			func(ctx context.Context, db *gorp.DB, key uuid.UUID) error {
+				if err := gorp.WrapWriter[taskv4.Key, taskv4.Task](db).Set(
+					ctx,
+					taskv4.Task{Key: key, Name: "Valves", Type: "http_write"},
+				); err != nil {
+					return err
+				}
+				return gorp.WrapWriter[uuid.UUID, httpv4.WriteConfig](db).Set(
+					ctx,
+					httpv4.WriteConfig{Key: key, Endpoints: []httpv4.WriteEndpoint{
+						{
+							Key:    "sp",
+							Method: httpv4.MethodPut,
+							Path:   "/setpoint",
+							Channel: httpv4.ChannelField{
+								Pointer:  "",
+								JSONType: "number",
+								DataType: "float64",
+							},
+							Fields: []httpv4.WriteField{{
+								Variant: httpv4.StaticWriteField{
+									BaseWriteField: httpv4.BaseWriteField{
+										Key:     "u",
+										Pointer: "/unit",
+									},
+									JSONType: "string",
+									Value:    "psi",
+								},
+							}},
+						},
+					}},
+				)
+			},
+			`endpoints.0.message: message PUT /setpoint: field value "" and field unit `+
+				`"/unit" overlap: validation error`,
+		),
+		Entry(
+			"from Core v0.56, which stored the config in the task, with a channel "+
+				"pointer that overlaps a field",
+			"v56_task_uuid_key",
+			func(ctx context.Context, db *gorp.DB, key uuid.UUID) error {
+				return gorp.WrapWriter[taskv2.Key, taskv2.Task](db).Set(
+					ctx,
+					taskv2.Task{
+						Key:  key,
+						Name: "Valves",
+						Type: "http_write",
+						Config: msgpack.EncodedJSON{"endpoints": []any{map[string]any{
+							"enabled": true,
+							"key":     "sp",
+							"method":  "PUT",
+							"path":    "/setpoint",
+							"channel": map[string]any{
+								"pointer":  "",
+								"jsonType": "number",
+								"dataType": "float64",
+							},
+							"fields": []any{map[string]any{
+								"type":     "static",
+								"key":      "u",
+								"pointer":  "/unit",
+								"jsonType": "string",
+								"value":    "psi",
+							}},
+						}}},
+					},
+				)
+			},
+			`endpoints.0.message: message PUT /setpoint: field value "" and field unit `+
+				`"/unit" overlap: validation error`,
 		),
 	)
 
