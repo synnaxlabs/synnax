@@ -276,6 +276,21 @@ var _ = Describe("Discover", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Description).To(HavePrefix("retrieving device missing: "))
 		})
+
+		It("Should name the broker of a cluster that it cannot reach",
+			func(ctx SpecContext) {
+				addr := closedAddress()
+				dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
+				stat := command(ctx, "browse", map[string]any{"device": dev.Key}, nil)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal("Failed to reach broker"))
+				Expect(stat.Description).To(And(
+					HavePrefix("Could not reach "+addr+": "),
+					HaveSuffix(" Check the address and port of each broker, and that "+
+						"the network of the Core can reach them."),
+				))
+			},
+		)
 	})
 
 	Describe("Sample", func() {

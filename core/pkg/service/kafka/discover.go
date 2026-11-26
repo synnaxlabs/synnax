@@ -92,8 +92,16 @@ type browseResult struct {
 }
 
 // browseTopics returns the topics of the cluster of props, other than internal topics,
-// sorted by name.
+// sorted by name. It fails as the connect test does when no seed broker answers.
 func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error) {
+	// The client does not name the brokers that it cannot reach.
+	conn, _, err := dialSeed(ctx, props.Brokers)
+	if err != nil {
+		return nil, err
+	}
+	if err = conn.Close(); err != nil {
+		return nil, err
+	}
 	cl, err := openClient(props)
 	if err != nil {
 		return nil, err
