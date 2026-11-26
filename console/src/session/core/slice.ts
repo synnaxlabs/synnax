@@ -9,7 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { synnaxParamsZ } from "@synnaxlabs/client";
-import { array, uuid } from "@synnaxlabs/x";
+import { array, compare, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 // Picked rather than omitted: the client's params carry behavioral fields a session
@@ -39,6 +39,11 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
    * stored state before a connection is up; absent until the first connection.
    */
   clusterKey: z.string().optional(),
+  /**
+   * The display name of the user whose session last opened on the Core. It stays after
+   * a logout, so two records at one address show whose each one is.
+   */
+  user: z.string().optional(),
 });
 export interface Core extends z.infer<typeof coreZ> {}
 
@@ -77,12 +82,23 @@ export const sliceStateZ = z
     version: z.literal(0).default(0),
     selected: z.string().optional(),
     cores: z.record(z.string(), coreZ).default({ [LOCAL_KEY]: LOCAL }),
+    /** The key of every Core in the order the list shows them. */
+    order: z.string().array().default([]),
   })
   .transform((state) => {
-    const { [RETIRED_DEMO_KEY]: demo, ...cores } = state.cores;
-    if (demo?.host !== RETIRED_DEMO_HOST) return state;
-    const selected = state.selected === RETIRED_DEMO_KEY ? undefined : state.selected;
-    return { ...state, selected, cores };
+    const { [RETIRED_DEMO_KEY]: demo, ...rest } = state.cores;
+    const retired = demo?.host === RETIRED_DEMO_HOST;
+    const cores = retired ? rest : state.cores;
+    const selected =
+      retired && state.selected === RETIRED_DEMO_KEY ? undefined : state.selected;
+    // Releases through 0.62 stored no order and an older Console drops this one, so a
+    // Core missing from it joins at the end, in name order.
+    const kept = state.order.filter((key) => key in cores);
+    const missing = Object.values(cores)
+      .filter(({ key }) => !kept.includes(key))
+      .sort(compare.by(({ name }) => name))
+      .map(({ key }) => key);
+    return { ...state, selected, cores, order: [...kept, ...missing] };
   });
 
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
@@ -95,7 +111,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export interface SetPayload extends Omit<Core, "key" | "clusterKey"> {
+export interface SetPayload extends Omit<Core, "key" | "clusterKey" | "user"> {
   /** The key to store under. A Core the user has just added gets a generated one. */
   key?: string;
 }
@@ -107,6 +123,17 @@ export type RemovePayload = string | string[];
 export interface RenamePayload {
   key: string;
   name: string;
+}
+
+export interface ReorderPayload {
+  key: string;
+  /** The place in the order that the Core takes. */
+  index: number;
+}
+
+export interface SetUserPayload {
+  key: string;
+  user: string;
 }
 
 export interface RecordLoginPayload {
@@ -129,19 +156,23 @@ const { actions, reducer } = createSlice({
         payload: { ...core, key: key ?? uuid.create() },
       }),
       reducer: (state, { payload }: PayloadAction<Core>) => {
-        // The cached cluster is the last one this record reached, not a claim about
-        // where its current address points. A repointed record keeps it until a
-        // connection answers for the new address, so nothing drops that cluster's
-        // stored state on a guess.
+        // The cached cluster and user are the last ones this record reached, not a
+        // claim about where its current address points. A repointed record keeps them
+        // until a connection answers for the new address, so nothing drops that
+        // cluster's stored state on a guess.
+        const prev = state.cores[payload.key];
+        if (prev == null) state.order.push(payload.key);
         state.cores[payload.key] = {
           ...payload,
-          clusterKey: state.cores[payload.key]?.clusterKey,
+          clusterKey: prev?.clusterKey,
+          user: prev?.user,
         };
       },
     },
     remove: (state, { payload: keys }: PayloadAction<RemovePayload>) => {
       const removed = array.toArray(keys);
       removed.forEach((key) => delete state.cores[key]);
+      state.order = state.order.filter((key) => !removed.includes(key));
       if (state.selected != null && removed.includes(state.selected))
         state.selected = undefined;
     },
@@ -155,6 +186,12 @@ const { actions, reducer } = createSlice({
       const core = state.cores[key];
       if (core != null) core.name = name;
     },
+    reorder: (state, { payload: { key, index } }: PayloadAction<ReorderPayload>) => {
+      const from = state.order.indexOf(key);
+      if (from === -1) return;
+      state.order.splice(from, 1);
+      state.order.splice(index, 0, key);
+    },
     // a removed Core stays removed; the record keeps any edit made during the login
     recordLogin: (
       state,
@@ -167,6 +204,10 @@ const { actions, reducer } = createSlice({
       core.oidc = undefined;
       core.lastLogin = at;
       state.selected = key;
+    },
+    setUser: (state, { payload: { key, user } }: PayloadAction<SetUserPayload>) => {
+      const core = state.cores[key];
+      if (core != null) core.user = user;
     },
     setClusterKey: (
       state,
@@ -184,8 +225,10 @@ export const {
   clearSelected,
   remove,
   rename,
+  reorder,
   recordLogin,
   setClusterKey,
+  setUser,
 } = actions;
 
 const purgeSecrets = <S extends StoreState>(state: S): S => ({
