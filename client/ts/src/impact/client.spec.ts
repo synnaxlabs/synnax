@@ -74,12 +74,14 @@ describe("impact", () => {
   it("should plan a delete and apply it with the plan's token", async () => {
     const ch = await createChannel();
     const plot = await createPlot(ch.key);
-    const plan = await client.impact.plan(deleteOf(ch.key));
+    const { plan } = await client.impact.plan(deleteOf(ch.key));
     expect(plan.entries).toEqual([
       { record: lineplot.resourceID(plot.key), effect: "detach", choices: [] },
     ]);
     expect(plan.hidden).toEqual({ restrict: 0, cascade: 0, detach: 0 });
-    const applied = await client.impact.apply(deleteOf(ch.key), { token: plan.token });
+    const { plan: applied } = await client.impact.apply(deleteOf(ch.key), {
+      token: plan.token,
+    });
     expect(applied.entries).toEqual(plan.entries);
     await expect
       .poll(
@@ -91,7 +93,7 @@ describe("impact", () => {
   it("should apply a delete with no token and return its records", async () => {
     const ch = await createChannel();
     await createPlot(ch.key);
-    const applied = await client.impact.apply(deleteOf(ch.key));
+    const { plan: applied } = await client.impact.apply(deleteOf(ch.key));
     expect(applied.records).toEqual([channel.resourceID(ch.key)]);
     expect(applied.entries).toEqual([]);
     await expect
@@ -103,7 +105,7 @@ describe("impact", () => {
 
   it("should refuse a stale token with the plan as it is now", async () => {
     const ch = await createChannel();
-    const stale = await client.impact.plan(deleteOf(ch.key));
+    const { plan: stale } = await client.impact.plan(deleteOf(ch.key));
     const plot = await createPlot(ch.key);
     const err = await client.impact
       .apply(deleteOf(ch.key), { token: stale.token })
@@ -121,7 +123,7 @@ describe("impact", () => {
     const ch = await createChannel();
     const tsk = await createReadTask(ch.key);
     const record = resource.idToString(task.resourceID(tsk.key));
-    const plan = await client.impact.plan(deleteOf(ch.key), {
+    const { plan } = await client.impact.plan(deleteOf(ch.key), {
       picks: { [record]: "delete" },
     });
     await client.impact.apply(deleteOf(ch.key), {
@@ -149,7 +151,7 @@ describe("impact", () => {
       objects: [channel.resourceID(ch.key)],
       actions: ["retrieve", "delete"],
     });
-    const plan = await userClient.impact.plan(deleteOf(ch.key));
+    const { plan } = await userClient.impact.plan(deleteOf(ch.key));
     expect(plan.entries).toEqual([]);
     expect(plan.hidden).toEqual({ restrict: 1, cascade: 0, detach: 0 });
   });

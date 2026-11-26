@@ -18,6 +18,8 @@ import {
   type Plan,
   planRequestZ,
   planZ,
+  type Response,
+  responseZ,
 } from "@/impact/types.gen";
 
 /** The picks of {@link Client.plan}. */
@@ -45,32 +47,32 @@ export class Client {
   }
 
   /**
-   * Returns every record that change touches with the picks of options: an entry for
-   * each record that the caller can see, a count of the others, and the token that
-   * {@link Client.apply} checks. A delete pick on a channel adds the records that hold
-   * it. Writes nothing.
+   * Returns every record that change touches with the picks of options, under the type
+   * of change: an entry for each record that the caller can see, a count of the
+   * others, and the token that {@link Client.apply} checks. A delete pick on a channel
+   * adds the records that hold it. Writes nothing.
    */
-  async plan(change: Change, options: PlanOptions = {}): Promise<Plan> {
+  async plan(change: Change, options: PlanOptions = {}): Promise<Response> {
     return await this.unary.send(
       "/impact/plan",
       { ...options, change },
       planRequestZ,
-      planZ,
+      responseZ,
     );
   }
 
   /**
    * Carries out change with the picks of options and returns the entries that it
-   * applied. With a token, it throws a {@link PlanChangedError} before any write when
-   * the plan is no longer the one that the token names. It makes one attempt, so a
-   * caller waits for at most one request.
+   * applied, under the type of change. With a token, it throws a
+   * {@link PlanChangedError} before any write when the plan is no longer the one that
+   * the token names. It makes one attempt, so a caller waits for at most one request.
    */
-  async apply(change: Change, options: ApplyOptions = {}): Promise<Plan> {
+  async apply(change: Change, options: ApplyOptions = {}): Promise<Response> {
     return await this.unaryNoRetry.send(
       "/impact/apply",
       { ...options, change },
       applyRequestZ,
-      planZ,
+      responseZ,
     );
   }
 }

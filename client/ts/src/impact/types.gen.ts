@@ -118,3 +118,25 @@ export const applyRequestZ = z.object({
   hidden: choiceZ.optional(),
 });
 export interface ApplyRequest extends z.infer<typeof applyRequestZ> {}
+
+/** DeleteResponse answers a delete of records. */
+export const deleteResponseZ = z.object({
+  type: z.literal("delete"),
+  /** plan is the plan of the delete. */
+  plan: planZ,
+});
+export interface DeleteResponse extends z.infer<typeof deleteResponseZ> {}
+
+export const RESPONSE_TYPES = ["delete"] as const;
+export const responseTypeZ = z.enum(RESPONSE_TYPES);
+export type ResponseType = z.infer<typeof responseTypeZ>;
+
+/** Response is the plan of a change, under the type of the change. */
+export const responseZ = z.discriminatedUnion("type", [deleteResponseZ]);
+export type Response = DeleteResponse;
+
+export const RESPONSE_SCHEMAS: {
+  [K in ResponseType]: z.ZodType<Extract<Response, { type: K }>>;
+} = {
+  delete: deleteResponseZ,
+};
