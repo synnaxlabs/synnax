@@ -209,13 +209,15 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 
 	ok := i.internal.SeekLE(ctx, ts)
 
-	if i.internal.TimeRange().OverlapsWith(ts.SpanRange(0)) {
-		// If the provided ts is in the seeked domain, set the view to be ts.
+	tr := i.internal.TimeRange().BoundBy(i.bounds)
+	if tr.OverlapsWith(ts.SpanRange(0)) {
+		// If the provided ts is in the seeked domain within the bounds, set the view to
+		// be ts.
 		i.seekReset(ts)
 	} else {
 		// Otherwise, set the view to the end of the seeked domain or bounds, whichever
 		// one is earlier.
-		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).End)
+		i.seekReset(tr.End)
 	}
 	return ok
 }
@@ -228,13 +230,15 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 
 	ok := i.internal.SeekGE(ctx, ts)
 
-	if i.internal.TimeRange().OverlapsWith(ts.SpanRange(0)) {
-		// If the provided ts is in the seeked domain, set the view to be ts.
+	tr := i.internal.TimeRange().BoundBy(i.bounds)
+	if tr.OverlapsWith(ts.SpanRange(0)) {
+		// If the provided ts is in the seeked domain within the bounds, set the view to
+		// be ts.
 		i.seekReset(ts)
 	} else {
 		// Otherwise, set the view to the start of the seeked domain or bounds,
 		// whichever one is later.
-		i.seekReset(i.internal.TimeRange().BoundBy(i.bounds).Start)
+		i.seekReset(tr.Start)
 	}
 	return ok
 }
