@@ -40,12 +40,15 @@ class Port final : public transport::Transport {
     );
     /// @brief failure is the error that closed the port.
     x::errors::Error failure;
+    /// @brief locked is true once this port holds the lock of the device. Only then
+    /// does closing it release the lock, which another holder can own.
+    bool locked = false;
 
     explicit Port(std::string path): path(std::move(path)) {}
 
     [[nodiscard]] native::Handle handle();
 
-    /// @brief lets other programs open the port, then closes it.
+    /// @brief releases the lock when this port holds it, then closes the port.
     void close();
 
     /// @brief closes the port, and returns and keeps err.
@@ -59,8 +62,8 @@ public:
     static std::pair<std::unique_ptr<Port>, x::errors::Error>
     open(const synnax::serial::Properties &props);
 
-    /// @brief waits up to one second for written bytes to leave a port that has not
-    /// failed, then closes it.
+    /// @brief waits up to one second for written bytes to leave a locked port that has
+    /// not failed, then closes it.
     ~Port() override;
 
     Port(const Port &) = delete;

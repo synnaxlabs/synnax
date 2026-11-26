@@ -17,7 +17,8 @@
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
-/// A pty has no IOSSIOSPEED, so a rate outside the termios table must fail loud.
+/// @brief it should refuse a baud rate outside the termios table on a terminal that
+/// cannot set it.
 TEST_F(PtyTest, RejectsACustomBaudRateThePortCannotSet) {
     auto p = this->props();
     p.baud_rate = 250000;
@@ -28,6 +29,7 @@ TEST_F(PtyTest, RejectsACustomBaudRateThePortCannotSet) {
     ) << err.data;
 }
 
+/// @brief it should apply the line settings to the terminal.
 TEST_F(PtyTest, AppliesTheLineSettings) {
     auto p = this->props();
     p.baud_rate = 19200;
@@ -46,6 +48,7 @@ TEST_F(PtyTest, AppliesTheLineSettings) {
     EXPECT_FALSE(tio.c_iflag & (IXON | IXOFF));
 }
 
+/// @brief it should apply software flow control and no parity to the terminal.
 TEST_F(PtyTest, AppliesSoftwareFlowControlAndNoParity) {
     auto p = this->props();
     p.baud_rate = 115200;
