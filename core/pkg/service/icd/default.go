@@ -53,8 +53,7 @@ func defaultProblem(f JSONField) (string, bool) {
 }
 
 // CheckBinaryDefault returns an error wrapping validate.ErrValidation when f, a field
-// of
-// a valid bit length, has a default that it cannot hold: an infinite float, a value
+// of a valid bit length, has a default that it cannot hold: an infinite float, a value
 // that its bits cannot hold, or a number that decodes outside the min and max of f. The
 // error does not name the default.
 func CheckBinaryDefault(f BinaryField) error {
