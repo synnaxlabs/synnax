@@ -142,28 +142,11 @@ func newRenameReport(
 				stored = make(map[cesium.ChannelKey]string)
 			)
 			for _, r := range renames {
-				noun := "channel"
-				if r.ID.Type == resource.TypeGroup {
-					noun = "folder"
-				}
 				name, ok := names[r.ID]
 				if !ok {
 					return errors.Newf("staged rename of %s names no record", r.ID)
 				}
-				s := status.Status[any]{
-					Name:    name,
-					Variant: status.VariantWarning,
-					Message: "Renamed " + noun,
-					Description: fmt.Sprintf(
-						"The upgrade renamed %s %q to %q, because %s. Update each "+
-							"reference to the old name outside Synnax.",
-						noun,
-						r.From,
-						name,
-						renameReason(r.From, noun),
-					),
-					Time: telem.Now(),
-				}
+				s := renameStatus(r, name)
 				if err = w.Set(ctx, &s); err != nil {
 					return err
 				}
@@ -185,6 +168,29 @@ func newRenameReport(
 			return resourcev0.ClearRenames(ctx, tx)
 		},
 	)
+}
+
+// renameStatus returns the warning status that reports the rename r of a resource that
+// now holds name.
+func renameStatus(r resourcev0.Rename, name string) status.Status[any] {
+	noun := "channel"
+	if r.ID.Type == resource.TypeGroup {
+		noun = "folder"
+	}
+	return status.Status[any]{
+		Name:    name,
+		Variant: status.VariantWarning,
+		Message: "Renamed " + noun,
+		Description: fmt.Sprintf(
+			"The upgrade renamed %s %q to %q, because %s. Update each reference to "+
+				"the old name outside Synnax.",
+			noun,
+			r.From,
+			name,
+			renameReason(r.From, noun),
+		),
+		Time: telem.Now(),
+	}
 }
 
 // renameReason returns why the name passes renamed a noun that held the name from.
