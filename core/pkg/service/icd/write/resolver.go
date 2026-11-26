@@ -251,8 +251,7 @@ func checkBindings(
 }
 
 // checkChannel returns a validation error when f has a zero scale, or when the data
-// type
-// of b, from the channel that dataTypes holds or else from b, cannot write f.
+// type of b, from the channel that dataTypes holds or else from b, cannot write f.
 func checkChannel(
 	f field,
 	b icd.ChannelWriteBinding,

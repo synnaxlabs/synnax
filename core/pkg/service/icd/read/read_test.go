@@ -73,7 +73,7 @@ var (
 		Key:  uuid.New(),
 		Name: "Frame",
 		Payload: icd.Payload{Variant: icd.BinaryPayload{Fields: []icd.BinaryField{
-			count, level,
+			count, level, wide,
 		}}},
 	}
 	count = icd.BinaryField{Variant: icd.UnsignedBinaryField{
@@ -88,6 +88,13 @@ var (
 			BaseField: icd.BaseField{Key: uuid.New(), Name: "level", Scale: 2},
 			StartBit:  8,
 			BitLength: 32,
+		},
+	}}
+	wide = icd.BinaryField{Variant: icd.IntegerBinaryField{
+		BinaryBaseField: icd.BinaryBaseField{
+			BaseField: icd.BaseField{Key: uuid.New(), Name: "wide", Scale: 1},
+			StartBit:  40,
+			BitLength: 16,
 		},
 	}}
 	volts = icd.TextField{Variant: icd.DelimitedTextField{
@@ -118,6 +125,7 @@ const (
 	// pressureKey is a data channel on an index channel other than timeKey.
 	pressureKey channel.Key = 5
 	totalKey    channel.Key = 7
+	smallKey    channel.Key = 8
 )
 
 // held holds the channels that the channel lookup of the specs finds.
@@ -133,6 +141,7 @@ var held = map[channel.Key]icdv0.Channel{
 	levelKey:    {Name: "level", DataType: telem.Float64T, IndexKey: timeKey},
 	pressureKey: {Name: "pressure", DataType: telem.Float64T, IndexKey: 6},
 	totalKey:    {Name: "total", DataType: telem.Int64T, IndexKey: timeKey},
+	smallKey:    {Name: "small", DataType: telem.Int8T, IndexKey: timeKey},
 }
 
 func bind(f icd.JSONField, key channel.Key) icd.ReadBinding {
@@ -257,7 +266,12 @@ var _ = Describe("Read", func() {
 					readOf(
 						frame,
 						icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
+						icd.ReadBinding{
+							Field:    count.Base().Key,
+							DataType: telem.Uint8T,
+						},
 						icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
+						icd.ReadBinding{Field: wide.Base().Key, DataType: telem.Int16T},
 					),
 					readOf(line, icd.ReadBinding{
 						Field: volts.Base().Key, Channel: levelKey,
@@ -286,6 +300,23 @@ var _ = Describe("Read", func() {
 					}),
 					"reads.0.messages.0.bindings.0.data_type",
 					"field count of kind unsigned cannot read into data type string",
+				),
+				Entry(
+					"an unsigned binary field into a signed type with no bit for "+
+						"the sign",
+					readOf(frame, icd.ReadBinding{
+						Field: count.Base().Key, DataType: telem.Int8T,
+					}),
+					"reads.0.messages.0.bindings.0.data_type",
+					"field count of kind 8-bit unsigned cannot read into data type int8",
+				),
+				Entry("a binary field into a channel narrower than the field",
+					readOf(frame, icd.ReadBinding{
+						Field: wide.Base().Key, Channel: smallKey,
+					}),
+					"reads.0.messages.0.bindings.0.channel",
+					"field wide of kind 16-bit integer cannot read into channel small "+
+						"of data type int8",
 				),
 				Entry("a text field into a channel that is not a float",
 					readOf(line, icd.ReadBinding{
