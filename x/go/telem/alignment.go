@@ -73,9 +73,9 @@ func (a Alignment) AddSamples(samples uint32) Alignment {
 // stored data.
 const LeadingDomain uint32 = 1 << 31
 
-// ErrAlignmentsExhausted is returned by AlignmentCounter.Next when no domain index is
+// errAlignmentsExhausted is returned by AlignmentCounter.Next when no domain index is
 // left above the counter's start.
-var ErrAlignmentsExhausted = errors.New("alignment domains exhausted, restart to reset")
+var errAlignmentsExhausted = errors.New("alignment domains exhausted, restart to reset")
 
 // AlignmentCounter hands out alignment domains in increasing order. It is safe for
 // concurrent use.
@@ -88,12 +88,12 @@ func NewAlignmentCounter(start uint32) *AlignmentCounter {
 	return c
 }
 
-// Next returns the alignment of the first sample in the next domain. It returns
-// ErrAlignmentsExhausted once the domain index would pass math.MaxUint32.
+// Next returns the alignment of the first sample in the next domain. It returns an
+// error once the domain index would pass math.MaxUint32.
 func (c *AlignmentCounter) Next() (Alignment, error) {
 	domainIdx := c.last.Add(1)
 	if domainIdx > math.MaxUint32 {
-		return 0, ErrAlignmentsExhausted
+		return 0, errAlignmentsExhausted
 	}
 	return NewAlignment(uint32(domainIdx), 0), nil
 }
