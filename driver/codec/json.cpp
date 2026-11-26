@@ -646,7 +646,9 @@ JSONEncoder::Field::append_integer(const x::json::Number &n, std::string &out) c
     auto v = n.to_float64();
     if (this->scaled) v = (v - this->offset) / this->scale;
     const auto r = std::round(v);
-    if (auto err = check_raw_limits(this->base, r)) return err;
+    if (auto err = this->scaled ? check_raw_limits(this->base, r)
+                                : check_limits(this->base, r))
+        return err;
     if (!this->scaled) {
         if (const auto i = n.to_int64(); integer && i.has_value()) {
             out += std::to_string(*i);

@@ -673,7 +673,13 @@ func (f *encodeField) appendInteger(dst []byte, n xjson.ParsedNumber) ([]byte, e
 		v = (v - f.offset) / f.scale
 	}
 	r := math.Round(v)
-	if err := icd.CheckRawRange(f.base, r); err != nil {
+	var err error
+	if f.scaled {
+		err = icd.CheckRawRange(f.base, r)
+	} else {
+		err = icd.CheckRange(f.base, r)
+	}
+	if err != nil {
 		return nil, err
 	}
 	if !f.scaled {
