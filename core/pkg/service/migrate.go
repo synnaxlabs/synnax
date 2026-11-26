@@ -13,17 +13,21 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	resourcev0 "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -104,6 +108,98 @@ func newGroupRemovalReport(
 			return nil
 		},
 	)
+}
+
+// newRenameReport returns a migration that writes a warning status for each rename that
+// the name passes staged, renames the storage of each renamed channel in ts, and then
+// deletes the staged renames.
+func newRenameReport(
+	res *resource.Service,
+	statuses *status.Service,
+	ts *cesium.DB,
+) gorp.Migration {
+	return migrate.New(
+		"v63_report_renames",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			renames, err := resourcev0.StagedRenames(tx)
+			if err != nil || len(renames) == 0 {
+				return err
+			}
+			ids := make([]resource.ID, len(renames))
+			for i, r := range renames {
+				ids[i] = r.ID
+			}
+			found, err := res.Retrieve(ctx, tx, ids...)
+			if err != nil {
+				return err
+			}
+			names := make(map[resource.ID]string, len(found))
+			for _, r := range found {
+				names[r.ID] = r.Name
+			}
+			var (
+				w      = statuses.NewWriter(tx)
+				stored = make(map[cesium.ChannelKey]string)
+			)
+			for _, r := range renames {
+				noun := "channel"
+				if r.ID.Type == resource.TypeGroup {
+					noun = "folder"
+				}
+				name, ok := names[r.ID]
+				if !ok {
+					return errors.Newf("staged rename of %s names no record", r.ID)
+				}
+				s := status.Status[any]{
+					Name:    name,
+					Variant: status.VariantWarning,
+					Message: "Renamed " + noun,
+					Description: fmt.Sprintf(
+						"The upgrade renamed %s %q to %q, because %s. Update each "+
+							"reference to the old name outside Synnax.",
+						noun,
+						r.From,
+						name,
+						renameReason(r.From, noun),
+					),
+					Time: telem.Now(),
+				}
+				if err = w.Set(ctx, &s); err != nil {
+					return err
+				}
+				if r.ID.Type != resource.TypeChannel {
+					continue
+				}
+				key, err := channel.ParseKey(r.ID.Key)
+				if err != nil {
+					return err
+				}
+				// A free channel has no storage.
+				if !key.Free() {
+					stored[cesium.ChannelKey(key)] = name
+				}
+			}
+			if err = ts.RenameChannels(ctx, stored); err != nil {
+				return err
+			}
+			return resourcev0.ClearRenames(ctx, tx)
+		},
+	)
+}
+
+// renameReason returns why the name passes renamed a noun that held the name from.
+func renameReason(from, noun string) string {
+	switch {
+	case !utf8.ValidString(from):
+		return "the old name held bytes that are not valid text"
+	case strings.Contains(from, "."):
+		return "a '.' now separates the folders of a path, so a name cannot hold one"
+	case from == "":
+		return "the old name was empty"
+	case noun == "folder":
+		return "another folder beside it held the same name"
+	}
+	return "another channel in the same folder held the same name"
 }
 
 // rangeAliasDropMigration deletes the range aliases that an upgraded store holds.
