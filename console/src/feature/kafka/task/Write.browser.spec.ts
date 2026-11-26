@@ -31,7 +31,7 @@ import {
   sampleOfTopic,
 } from "@/feature/kafka/testutil";
 import { ICD } from "@/platform/icd";
-import { pickMessageFormat } from "@/platform/icd/testutil";
+import { pickMessageFormat, setField } from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -751,6 +751,55 @@ describe("Kafka Write form", () => {
       fireEvent.change(await screen.findByDisplayValue("/field_2"), {
         target: { value: "/limit" },
       });
+      fireEvent.change(screen.getByDisplayValue("Field 2"), {
+        target: { value: "pressure" },
+      });
+      await screen.findByDisplayValue("pressure");
+      screen.getByDisplayValue("/limit");
+    });
+
+    it("should number the pointer of an added field renamed onto the pointer of another field", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Speed" },
+      });
+      await screen.findByDisplayValue("/speed_2");
+    });
+
+    it("should move the numbered pointer of an added field when it is renamed again", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Speed" },
+      });
+      fireEvent.change(await screen.findByDisplayValue("Speed"), {
+        target: { value: "Speedometer" },
+      });
+      await screen.findByDisplayValue("/speedometer");
+    });
+
+    it("should keep the pointer of an added field once the ICD editor edits it", async () => {
+      const { target, ic, message } = await createTarget([
+        createField("speed", "float"),
+      ]);
+      await renderWrite([target]);
+      await addField();
+      const added = await waitFor(async () => {
+        const found = (await retrieveFields(ic, message)).find(
+          (f) => f.name === "Field 2",
+        );
+        if (found == null) throw new Error("the added field is not in the ICD");
+        return found;
+      });
+      await setField(
+        client,
+        { icd: ic.key, message: message.key },
+        { ...added, pointer: "/limit" },
+      );
+      await screen.findByDisplayValue("/limit");
       fireEvent.change(screen.getByDisplayValue("Field 2"), {
         target: { value: "pressure" },
       });

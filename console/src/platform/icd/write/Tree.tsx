@@ -95,16 +95,13 @@ export interface UseTreeReturn {
   addField: (target: string) => void;
   /**
    * @returns how the details of a field edit it: the name of the field that addField
-   * added last takes the focus, and a rename of a field that addField added moves its
-   * pointer until the user edits the pointer.
+   * added last takes the focus, and a rename of a field that addField added can move
+   * its pointer.
    */
   fieldProps: (field: icd.FieldKey) => FieldProps;
 }
 
-export type FieldProps = Pick<
-  FieldDetailsProps,
-  "autoFocus" | "pointerLinked" | "onPointerChange"
->;
+export type FieldProps = Pick<FieldDetailsProps, "autoFocus" | "created">;
 
 const groupKey = (name: string): string => `group/${name}`;
 
@@ -178,7 +175,7 @@ export const useTree = <T extends Target>({
   const ctx = PForm.useContext();
   const formats = useFormats();
   const [added, setAdded] = useState<icd.FieldKey>();
-  const [linked, setLinked] = useState<icd.FieldKey[]>([]);
+  const [created, setCreated] = useState<icd.FieldKey[]>([]);
   const structure = ICDTree.useStructure(formats, (): Structure =>
     ctx.get(path).value.map((t): Structure[number] => {
       const sent = messageOf(t);
@@ -285,7 +282,7 @@ export const useTree = <T extends Target>({
       fields.at(-1)?.key,
     );
     setAdded(field.key);
-    setLinked((prev) => [...prev, field.key]);
+    setCreated((prev) => [...prev, field.key]);
     const mark = openKey(target);
     onExpand((prev) =>
       unique.unique([...prev, ...(marks.has(mark) ? [mark] : []), target]),
@@ -469,8 +466,7 @@ export const useTree = <T extends Target>({
     addField,
     fieldProps: (field) => ({
       autoFocus: field === added,
-      pointerLinked: linked.includes(field),
-      onPointerChange: () => setLinked((prev) => prev.filter((k) => k !== field)),
+      created: created.includes(field),
     }),
   };
 };

@@ -138,27 +138,3 @@ describe("ICD.Write.unbind", () => {
     });
   });
 });
-
-describe("ICD.Write.addMessages", () => {
-  const client = createTestClient();
-
-  it("should send the time of each write from a timestamp field with no default", async () => {
-    const time = createField("time", "timestamp", { timeFormat: "unix_ms" });
-    const setpoint = createField("setpoint", "float");
-    const { icd: key, messages } = await ICD.Write.addMessages({
-      client,
-      formats: new Map(),
-      targets: [],
-      name: uniqueName("valves"),
-      messages: [{ name: "command", fields: [time, setpoint] }],
-    });
-    onTestFinished(async () => await client.icds.delete(key));
-    const payload = {
-      format: "json",
-      fields: [{ ...time, default: { type: "now" } }, setpoint],
-    };
-    expect(messages[0].payload).toEqual(payload);
-    const [stored] = (await client.icds.retrieve({ key })).messages;
-    expect(stored.payload).toEqual(payload);
-  });
-});

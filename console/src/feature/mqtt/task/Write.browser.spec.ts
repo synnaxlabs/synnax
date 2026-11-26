@@ -902,6 +902,55 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should move the pointer of an added field when the field is renamed", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Valve Position" },
+      });
+      await screen.findByDisplayValue("/valve_position");
+    });
+
+    it("should move the pointer of an added field renamed after another item was selected", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByDisplayValue("Field 2");
+      fireEvent.click(screen.getByRole("treeitem", { name: /^setpoint/ }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^Field 2/ }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("/position");
+    });
+
+    it("should keep the pointer of an added field once the user edits it", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      fireEvent.change(await screen.findByDisplayValue("/field_2"), {
+        target: { value: "/limit" },
+      });
+      fireEvent.change(screen.getByDisplayValue("Field 2"), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("position");
+      screen.getByDisplayValue("/limit");
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { target } = await createFormatTarget([setpoint]);
+      await renderWrite([target]);
+      await fieldGroup(setpoint.name);
+      fireEvent.change(screen.getByDisplayValue(setpoint.name), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("position");
+      screen.getByDisplayValue("/setpoint");
+    });
+
     it("should add a first field to a message with no fields", async () => {
       const { target } = await createFormatTarget([]);
       await renderWrite([target]);

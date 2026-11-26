@@ -363,9 +363,13 @@ const namePointer = (name: string): string => {
   return `/${token.replaceAll("~", "~0").replaceAll("/", "~1")}`;
 };
 
+/** @returns whether a field at one of pointers reads the value at pointer or in it. */
+const pointerTaken = (pointers: string[], pointer: string): boolean =>
+  pointers.some((p) => p === pointer || p.startsWith(`${pointer}/`));
+
 /**
- * @returns a numbered name that no field takes, and the pointer of the same number. No
- * field at one of pointers reads the value at that pointer or a value in it.
+ * @returns a numbered name that no field takes, and the pointer of the same number,
+ * which no field at one of pointers takes.
  */
 const freeNameAndPointer = (
   names: string[],
@@ -375,9 +379,34 @@ const freeNameAndPointer = (
   for (let i = names.length + 1; ; i++) {
     const name = `Field ${i}`;
     const pointer = namePointer(name);
-    const used = pointers.some((p) => p === pointer || p.startsWith(`${pointer}/`));
-    if (!taken.has(name) && !used) return { name, pointer };
+    if (!taken.has(name) && !pointerTaken(pointers, pointer)) return { name, pointer };
   }
+};
+
+/** @returns whether pointer is the pointer of name, perhaps numbered "_n" from 2. */
+const isNamePointer = (pointer: string, name: string): boolean => {
+  const base = namePointer(name);
+  if (pointer === base) return true;
+  const n = pointer.startsWith(`${base}_`) ? pointer.slice(base.length + 1) : "";
+  return /^\d+$/.test(n) && Number(n) >= 2;
+};
+
+/**
+ * @returns the pointer that a rename of field to name moves it to, or undefined when
+ * the pointer of field is not the pointer of its name. A pointer that another of fields
+ * takes gets the lowest free suffix "_n", from 2.
+ */
+export const renamedPointer = (
+  field: icd.JSONField,
+  name: string,
+  fields: icd.JSONField[],
+): string | undefined => {
+  if (!isNamePointer(field.pointer, field.name)) return undefined;
+  const others = fields.filter(({ key }) => key !== field.key).map((f) => f.pointer);
+  const base = namePointer(name);
+  if (!pointerTaken(others, base)) return base;
+  for (let n = 2; ; n++)
+    if (!pointerTaken(others, `${base}_${n}`)) return `${base}_${n}`;
 };
 
 /** @returns a float field named apart from fields, at a pointer none of them reads. */
@@ -599,10 +628,8 @@ export interface JSONFieldProps {
   actions?: ReactNode;
   /** Name takes focus when the field mounts. */
   autoFocus?: boolean;
-  /** A rename moves the pointer to the pointer of the new name. */
-  pointerLinked?: boolean;
-  /** Called when the user edits the pointer. */
-  onPointerChange?: () => void;
+  /** Called with each new name, while the form still holds the old one. */
+  onNameChange?: (name: string) => void;
 }
 
 /**
@@ -613,8 +640,7 @@ export const JSONField = ({
   path,
   actions,
   autoFocus = false,
-  pointerLinked = false,
-  onPointerChange,
+  onNameChange,
 }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -629,16 +655,13 @@ export const JSONField = ({
         label="Name"
         padHelpText={false}
         inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
-        onChange={
-          pointerLinked ? (name) => set(path.pointer, namePointer(name)) : undefined
-        }
+        onChange={onNameChange}
       />
       <Form.TextField
         path={path.pointer}
         label="Pointer"
         padHelpText={false}
         inputProps={POINTER_INPUT_PROPS}
-        onChange={onPointerChange}
       />
       <Input.Item label="Type" padHelpText={false}>
         <Select.Simple<JSONType>
