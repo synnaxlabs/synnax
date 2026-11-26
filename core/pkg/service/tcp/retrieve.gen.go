@@ -13,6 +13,7 @@ package tcp
 
 import (
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -59,6 +60,14 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t icd.Key) []string {
+				for i4, v5 := range e.Entries {
+					if v5.ICD == t {
+						return []string{"entries", strconv.Itoa(i4), "icd"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t icd.Key) {
 				e.Entries = slices.DeleteFunc(e.Entries, func(v2 icd.ReadEntry) bool {
 					if v2.ICD == t {
@@ -92,6 +101,18 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i10, v11 := range e.Entries {
+					for i12, v13 := range v11.Messages {
+						for i14, v15 := range v13.Bindings {
+							if v15.Channel == t {
+								return []string{"entries", strconv.Itoa(i10), "messages", strconv.Itoa(i12), "bindings", strconv.Itoa(i14), "channel"}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i4 := range e.Entries {
@@ -157,6 +178,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t icd.Key) []string {
+				for i4, v5 := range e.Targets {
+					if v5.ICD == t {
+						return []string{"targets", strconv.Itoa(i4), "icd"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t icd.Key) {
 				e.Targets = slices.DeleteFunc(e.Targets, func(v2 icd.WriteTarget) bool {
 					if v2.ICD == t {
@@ -191,6 +220,19 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i10, v11 := range e.Targets {
+					for i12, v13 := range v11.Message.Bindings {
+						switch v14 := v13.Variant.(type) {
+						case icd.ChannelWriteBinding:
+							if v14.Channel == t {
+								return []string{"targets", strconv.Itoa(i10), "message", "bindings", strconv.Itoa(i12), "channel"}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i4 := range e.Targets {

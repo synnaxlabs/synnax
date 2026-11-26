@@ -677,6 +677,7 @@ var _ = Describe("Scan task", func() {
 			Expect(a.Count).To(Equal(1))
 			Expect(a.Rate).To(BeZero())
 			Expect(a.LastSeen).ToNot(BeZero())
+			Expect(a.Format).To(Equal(payload.FormatJSON))
 			Expect(b.Count).To(BeNumerically(">", 1))
 			Expect(b.Rate).To(BeNumerically(">", 0))
 			Expect(b.Format).To(Equal(payload.FormatText))
@@ -1013,6 +1014,8 @@ var _ = Describe("Scan task", func() {
 				Expect(ok).To(BeTrue())
 				Expect(topics).To(HaveLen(2))
 				Expect(topics[0]).To(HaveKeyWithValue("payload", ""))
+				Expect(topics[0]).
+					To(HaveKeyWithValue("format", string(payload.FormatBinary)))
 				Expect(topics[1]).
 					To(HaveKeyWithValue("payload", strings.Repeat("é", 128)))
 			},

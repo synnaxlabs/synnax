@@ -277,11 +277,13 @@ var _ = Describe("Service", func() {
 				key := MustSucceed(tasks.Create(ctx, svc.Read, data))
 				stored := MustSucceed(svc.Read.Read(ctx, db, key))
 				Expect(stored).ToNot(HaveKey("inline"))
+				Expect(
+					stored["endpoints"],
+				).To(HaveExactElements(Not(HaveKey("fields"))))
 				var cfg http.ReadConfig
 				Expect(stored.Unmarshal(&cfg)).To(Succeed())
 				Expect(cfg.Endpoints).To(HaveLen(1))
 				ep := cfg.Endpoints[0]
-				Expect(ep.Fields).To(HaveLen(2))
 				var ic icd.ICD
 				Expect(icdSvc.NewRetrieve().
 					Where(icd.MatchKeys(*ep.ICD)).

@@ -142,7 +142,7 @@ const MISSING: kafka.SampledTopic = {
 /** @returns a shape of count records that hold the fields, sent by the keys. */
 const createShape = (sources: string[], count: number, ...pointers: string[]) => ({
   sources,
-  fields: pointers.map((p) => createInferredField(p, "float64", "number")),
+  fields: pointers.map((p) => createInferredField(p, "float", "number")),
   index: -1,
   count,
   present: -1,

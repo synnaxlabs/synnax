@@ -93,6 +93,8 @@ RecordKey enum {
     }
 
     @doc value "is the source of the key placed on every record a write task produces."
+    @py omit
+    @ts omit
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -214,6 +216,8 @@ WriteChannel struct {
 
     @doc value  "is a channel whose samples a write task produces as records."
     @go marshal
+    @py omit
+    @ts omit
 }
 
 Record struct {
@@ -240,30 +244,20 @@ Record struct {
 
     @doc value  "is the shape of every record a write task produces."
     @go marshal
+    @py omit
+    @ts omit
 }
 
 WriteConfig struct extends task.StartConfig {
-    device     device.Key = "" {
+    device  device.Key = "" {
         @doc value     "is the key of the Kafka cluster device to produce to."
         @ref kind      use
         @ref on_delete restrict
     }
-    topic      string = "" {
-        @doc value "is the topic the task produces to."
-    }
-    record_key RecordKey = channel_name {
-        @doc value "is the source of the key placed on every record."
-    }
-    record     Record = {} {
-        @doc value "is the shape of every record."
-    }
-    channels   WriteChannel[] {
-        @doc value "contains the channels whose samples are produced."
-    }
-    targets    WriteTarget[]  {
+    targets WriteTarget[] {
         @doc value "contains the topics and ICD messages to produce."
     }
-    inline     InlineWrite?   {
+    inline  InlineWrite?  {
         @doc value  """
             holds the channels of a config from before ICDs. A write moves them into a
             new ICD, adds a target for each, and clears it.
@@ -274,8 +268,8 @@ WriteConfig struct extends task.StartConfig {
     }
 
     @doc value           """
-        configures a Kafka write task, which produces one record per sample of each
-        channel to a topic.
+        configures a Kafka write task that produces the ICD message of each target to
+        its topic.
     """
     @go entry            "kafka_write_config"
     @go imex             body
