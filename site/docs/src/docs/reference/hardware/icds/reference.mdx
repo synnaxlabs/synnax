@@ -90,13 +90,15 @@ These properties are the same for each message format.
 <Field.Item label="Min" field="min" type="number">
   The smallest value, after the scale and offset, that a write task accepts. Empty
   leaves the limit to the bits or the type of the field. Only a number field can have a
-  min. The Console edits it in the options of a JSON field only.
+  min. The grid of a binary or text message has a Min column, and a JSON field sets it
+  in its options.
 </Field.Item>
 
 <Field.Item label="Max" field="max" type="number">
   The largest value, after the scale and offset, that a write task accepts. It cannot be
   less than the min. Empty leaves the limit to the bits or the type of the field. Only a
-  number field can have a max. The Console edits it in the options of a JSON field only.
+  number field can have a max. The grid of a binary or text message has a Max column,
+  and a JSON field sets it in its options.
 </Field.Item>
 
 </Field.List>
