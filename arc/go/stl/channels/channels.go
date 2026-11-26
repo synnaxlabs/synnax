@@ -214,6 +214,7 @@ func tail(s telem.Series, from int) telem.Series {
 		Data:              s.Data[offset:],
 		Alignment:         s.Alignment + telem.Alignment(uint32(from)*s.Multiple()),
 		AlignmentMultiple: s.AlignmentMultiple,
+		Clock:             s.Clock,
 	}
 }
 
