@@ -138,8 +138,7 @@ func AddFlags(cmd *cobra.Command) {
 	cmd.Flags().Bool(
 		FlagDisableChannelNameValidation,
 		false,
-		"Read a dashed name in Arc as one channel name (for programs written before "+
-			"quoted names)",
+		"Disable channel name validation (allows special characters, spaces, etc.)",
 	)
 	cmd.Flags().String(
 		FlagSecretsKey,

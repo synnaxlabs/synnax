@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -390,7 +392,7 @@ func (w Writer) create(
 			return err
 		}
 	}
-	if err = checkCreatedNames(channels, stored); err != nil {
+	if err = checkCreatedNames(channels, stored, *w.svc.cfg.ValidateNames); err != nil {
 		return err
 	}
 	// Auto-create index channels for calculated channels that do not yet have one (both
@@ -456,17 +458,21 @@ func (w Writer) validateCreate(ctx context.Context, channels []Channel) error {
 // checks it against the name rule. A channel at a position in stored keeps the name of
 // its stored record, which a Core that ran with the old flag may have made. The name
 // index refuses a name that another channel holds when the create writes.
-func checkCreatedNames(channels []Channel, stored set.Set[int]) error {
+func checkCreatedNames(
+	channels []Channel,
+	stored set.Set[int],
+	identifiers bool,
+) error {
 	for i := range channels {
 		if stored.Contains(i) {
 			continue
 		}
 		channels[i].Name = validate.NormalizeName(channels[i].Name)
-		if err := checkNameRule(channels[i].Name); err != nil {
+		if err := checkNameRule(channels[i].Name, identifiers); err != nil {
 			return validate.PathedError(err, strconv.Itoa(i), "name")
 		}
 	}
-	return checkRepeatedNames(Names(channels))
+	return validateRepeatedNames(Names(channels))
 }
 
 // prepareCreate sets the leaseholder of each channel. A calculated channel is virtual
@@ -960,22 +966,33 @@ func indexesFirst(a, b Channel) int {
 	}
 }
 
-// checkNameRule returns a validation error when name breaks the name rule
-// (validate.IsPathSegment). It leaves an empty name to Channel.Validate.
-func checkNameRule(name string) error {
-	if name == "" || validate.IsPathSegment(name) {
+// checkNameRule returns a validation error when name breaks the name rule. A Core that
+// validates names takes identifiers only. Otherwise it takes any name but one that
+// holds a '.' or invalid UTF-8, which a path cannot hold. It leaves an empty name to
+// Channel.Validate.
+func checkNameRule(name string, identifiers bool) error {
+	switch {
+	case name == "":
 		return nil
+	case identifiers && !validate.IsIdentifier(name):
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel name '%s' contains invalid characters. Only letters, digits, and "+
+				"underscores are allowed, and it cannot start with a digit",
+			name,
+		)
+	case !identifiers && (strings.ContainsRune(name, '.') || !utf8.ValidString(name)):
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel name '%s' cannot hold a '.' or invalid UTF-8",
+			name,
+		)
 	}
-	return errors.Wrapf(
-		validate.ErrValidation,
-		"channel name '%s' must hold a visible character, and no '.' or invisible "+
-			"character",
-		name,
-	)
+	return nil
 }
 
-// checkRepeatedNames rejects a request that names one channel name twice.
-func checkRepeatedNames(names []string) error {
+// validateRepeatedNames rejects a request that names one channel name twice.
+func validateRepeatedNames(names []string) error {
 	namesSeen := make(set.Set[string], len(names))
 	for i, name := range names {
 		if namesSeen.Contains(name) {
@@ -1062,7 +1079,7 @@ func (w Writer) rename(
 			"keys and names must be the same length",
 		)
 	}
-	if err := checkRepeatedNames(names); err != nil {
+	if err := validateRepeatedNames(names); err != nil {
 		return err
 	}
 	renameMap := make(map[Key]string, len(keys))
@@ -1083,7 +1100,7 @@ func (w Writer) rename(
 			// A stored name that the rule refuses stays writable while a rename keeps
 			// it.
 			if next := renameMap[c.Key()]; next != c.Name {
-				if err := checkNameRule(next); err != nil {
+				if err := checkNameRule(next, *w.svc.cfg.ValidateNames); err != nil {
 					return Channel{}, err
 				}
 				c.Name = next
