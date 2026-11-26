@@ -370,6 +370,13 @@ const CommandField = ({ command }: CommandFieldProps): ReactElement => {
 
 const useSymbol = (): Resolved => useResolved(Base.useFieldValue(path.spec));
 
+// A symbol that has not resolved keeps every control field, since the node stores them.
+const clickable = (spec?: schematic.symbol.Spec): boolean =>
+  spec == null || spec.interactions.length > 0;
+
+const commanded = (spec?: schematic.symbol.Spec): boolean =>
+  spec == null || spec.commands.length > 0;
+
 // WarningSection tells why a tab shows no states or commands.
 const WarningSection = ({
   missing,
@@ -414,15 +421,21 @@ const ControlForm = (): ReactElement => {
           ))}
         </Base.Section>
       )}
-      <Base.Section title="Clicks">
-        <NodeForm.NegatedSwitchField
-          path={path.disabled}
-          label="Clickable"
-          padHelpText={false}
-        />
-        <NodeForm.ActivationDelayField />
-        <NodeForm.ControlChipField />
-      </Base.Section>
+      {clickable(spec) ? (
+        <Base.Section title="Clicks">
+          <NodeForm.NegatedSwitchField
+            path={path.disabled}
+            label="Clickable"
+            padHelpText={false}
+          />
+          <NodeForm.ActivationDelayField />
+          <NodeForm.ControlChipField />
+        </Base.Section>
+      ) : (
+        <Base.Section title="Control">
+          <NodeForm.ControlChipField />
+        </Base.Section>
+      )}
     </Base.Sections>
   );
 };
@@ -447,23 +460,30 @@ const StyleForm = (): ReactElement => (
 
 /**
  * Edits a symbol node: the source, format, and overrides of each state of its symbol,
- * the channel of each command with no state, its clicks, and its style.
+ * the channel of each command with no state, its clicks, and its style. The Control
+ * tab shows only for a symbol with a click or a command.
  */
-export const Form = ({ actions, tab, onTabChange }: FormProps): ReactElement => (
-  <Properties.Tabs
-    tabs={["telemetry", "control", "style"]}
-    tab={tab}
-    onTabChange={onTabChange}
-    actions={actions}
-  >
-    <Tabs.Content itemKey="telemetry">
-      <TelemetryForm />
-    </Tabs.Content>
-    <Tabs.Content itemKey="control">
-      <ControlForm />
-    </Tabs.Content>
-    <Tabs.Content itemKey="style">
-      <StyleForm />
-    </Tabs.Content>
-  </Properties.Tabs>
-);
+export const Form = ({ actions, tab, onTabChange }: FormProps): ReactElement => {
+  const { spec } = useSymbol();
+  const control = clickable(spec) || commanded(spec);
+  return (
+    <Properties.Tabs
+      tabs={control ? ["telemetry", "control", "style"] : ["telemetry", "style"]}
+      tab={tab}
+      onTabChange={onTabChange}
+      actions={actions}
+    >
+      <Tabs.Content itemKey="telemetry">
+        <TelemetryForm />
+      </Tabs.Content>
+      {control && (
+        <Tabs.Content itemKey="control">
+          <ControlForm />
+        </Tabs.Content>
+      )}
+      <Tabs.Content itemKey="style">
+        <StyleForm />
+      </Tabs.Content>
+    </Properties.Tabs>
+  );
+};

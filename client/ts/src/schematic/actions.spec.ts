@@ -18,7 +18,7 @@ const nodeCfg = (raw: unknown): schematic.NodeConfig =>
 const edgeCfg = (raw: unknown): schematic.EdgeConfig =>
   schematic.edgeConfigZ.parse(raw);
 
-const vent = (): schematic.NodeConfig => nodeCfg({ variant: "vent" });
+const box = (): schematic.NodeConfig => nodeCfg({ variant: "box" });
 
 const pipe = (): schematic.EdgeConfig => edgeCfg({ variant: "pipe" });
 
@@ -26,7 +26,7 @@ const node = (
   key: string,
   x: number,
   y: number,
-  config: schematic.NodeConfig = vent(),
+  config: schematic.NodeConfig = box(),
 ): schematic.Node => ({ key, position: { x, y }, zIndex: 0, config });
 
 const edge = (
@@ -533,7 +533,10 @@ describe("schematic reducer", () => {
 
     it("should replace the config when the symbol changes variant", () => {
       const base = tank("Pump");
-      const next = nodeCfg({ variant: "valve" });
+      const next = nodeCfg({
+        variant: "symbol",
+        spec: { type: "builtin", name: "valve" },
+      });
       const state = empty({ nodes: [node("n1", 0, 0, base)] });
       const actions = schematic.setChanged({ key: "n1", base, next });
       expect(apply(state, ...encoded(state, actions)).nodes[0].config).toEqual(next);
@@ -631,11 +634,7 @@ describe("schematic reducer", () => {
         schematic.addEdge({ edge: edge("e1", "pump", "out", "valve", "in") }),
         schematic.addEdge({ edge: edge("e2", "valve", "out", "tank", "in", electric) }),
       );
-      expect(out.nodes.map((n) => n.config)).toEqual([
-        tank("Main Pump"),
-        vent(),
-        vent(),
-      ]);
+      expect(out.nodes.map((n) => n.config)).toEqual([tank("Main Pump"), box(), box()]);
       expect(out.edges.map((e) => e.config)).toEqual([pipe(), electric]);
     });
 
@@ -692,8 +691,8 @@ describe("schematic reducer", () => {
         "tank",
         "tank",
         "tank",
-        "vent",
-        "vent",
+        "box",
+        "box",
       ]);
       expect(out.edges.map((e) => e.config.variant)).toEqual([
         "pipe",

@@ -48,16 +48,24 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
     level: "h4",
     inlineSize,
   });
-  const valve = (variant: "valve" | "solenoid_valve", text: string, ch: string) =>
-    ({
-      variant,
-      label: label(text),
-      scale: SCALE,
-      strokeColor: PURPLE,
-      stateChannel: key(`${ch}_state`),
-      commandChannel: key(`${ch}_cmd`),
-      control: {},
-    }) as Config;
+  const valve = (
+    name: "valve" | "solenoid_valve",
+    text: string,
+    ch: string,
+  ): Config => ({
+    variant: "symbol",
+    spec: { type: "builtin", name },
+    label: label(text),
+    scale: SCALE,
+    color: FIXED_PURPLE,
+    states: [
+      {
+        key: "active",
+        source: { type: "channel", key: key(`${ch}_state`), command: key(`${ch}_cmd`) },
+      },
+    ],
+    control: {},
+  });
   const nodes: Array<[string, { x: number; y: number }, Config]> = [
     ["supply", { x: 0, y: 120 }, tank],
     ["supply-pt", { x: 33, y: 290 }, value("Supply PT", "supply_pt", "psi", 100)],
@@ -66,10 +74,11 @@ const feed = (key: (name: string) => channel.Key): schematic.New => {
       "booster",
       { x: 530, y: 252.7 },
       {
-        variant: "piston_pump",
+        variant: "symbol",
+        spec: { type: "builtin", name: "piston_pump" },
         label: label("Gas Booster"),
         scale: SCALE,
-        strokeColor: PURPLE,
+        color: FIXED_PURPLE,
       },
     ],
     ["press", { x: 740, y: 120 }, tank],

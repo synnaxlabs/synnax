@@ -135,7 +135,7 @@ class LayoutClient:
     MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
     SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
     LIBRARY_NAV_SELECTOR = "nav[aria-label='Library']"
-    SETTINGS_CREATE_SELECTOR = ".console-settings-table__create"
+    SETTINGS_CREATE_SELECTOR = ".console-collection-table__create"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
     EDITABLE_SELECTOR = ".lyra-text--editable[contenteditable='true']"
@@ -170,6 +170,15 @@ class LayoutClient:
             title, exact=True
         )
         return self.page.locator(".lyra-form-section").filter(has=header)
+
+    def form_item(self, section: str, label: str) -> Locator:
+        """The input item with the given label in the form section with the given
+        title.
+        """
+        name = self.page.locator(".lyra-input-label").filter(
+            has_text=re.compile(rf"^\s*{re.escape(label)}\s*$")
+        )
+        return self.form_section(section).locator(".lyra-input__item").filter(has=name)
 
     def command_palette(self, command: str) -> None:
         """Execute a command via the command palette."""

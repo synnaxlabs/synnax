@@ -51,11 +51,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({
   deviceKey,
   config,
 }) => {
-  const cfg = WRITE_SCHEMAS.config.parse(
-    config ?? {
-      record: { channelPointer: "/channel", timestampPointer: "/timestamp" },
-    },
-  );
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
   return { name: DEFAULT_WRITE_NAME, type: WRITE_TYPE, config: cfg };
 };

@@ -22,14 +22,6 @@ import (
 // Key is a unique identifier for a schematic symbol.
 type Key = versions.Key
 
-// Region is a visual styling area within a symbol state, targeting specific SVG
-// elements for dynamic coloring.
-type Region = versions.Region
-
-// StateOverride is a node's replacement for the region colors of one value that it
-// draws.
-type StateOverride = versions.StateOverride
-
 // Handle is a connection point on a symbol for linking to other diagram elements.
 type Handle = versions.Handle
 

@@ -31,3 +31,23 @@ export const BUILT_INS: ReadonlyMap<string, schematic.symbol.Spec> = new Map(
     ...Vessels.BUILT_INS,
   }),
 );
+
+/** Names holds the name that the symbols toolbar shows and the label of a new node. */
+export interface Names {
+  name: string;
+  label: string;
+}
+
+/** NAMES maps the name of each built-in symbol to its names. */
+export const NAMES: ReadonlyMap<string, Names> = new Map(
+  Object.entries({
+    ...Fittings.NAMES,
+    ...Flowmeters.NAMES,
+    ...General.NAMES,
+    ...Process.NAMES,
+    ...Pumps.NAMES,
+    ...Safety.NAMES,
+    ...Valves.NAMES,
+    ...Vessels.NAMES,
+  }),
+);

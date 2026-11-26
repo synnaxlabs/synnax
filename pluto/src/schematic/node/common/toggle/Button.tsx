@@ -20,8 +20,6 @@ export interface ButtonBaseProps extends Omit<
   ComponentPropsWithRef<"button">,
   "value"
 > {
-  triggered?: boolean;
-  enabled?: boolean;
   onClickDelay?: CrudeTimeSpan;
 }
 
@@ -29,8 +27,6 @@ export interface ButtonProps extends ButtonBaseProps, Primitive.OrientableProps 
 
 export const Button = ({
   className,
-  enabled = false,
-  triggered = false,
   orientation = "left",
   onClickDelay = 0,
   onClick,
@@ -59,8 +55,6 @@ export const Button = ({
         CSS.B("symbol-primitive-toggle"),
         delayed && CSS.BM("symbol-primitive-toggle", "delayed"),
         orientation != null && CSS.loc(orientation),
-        enabled && CSS.M("enabled"),
-        triggered && CSS.M("triggered"),
         hold.pressed && CSS.M("pressed"),
         className,
       )}

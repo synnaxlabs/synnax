@@ -44,7 +44,7 @@ describe("Kafka.Task create", () => {
     expect(tsk.config.topics.map(({ name }) => name)).toEqual(["pressure"]);
   });
 
-  it("should create a write task that publishes the channel and timestamp", async () => {
+  it("should create a write task on the given device", async () => {
     const dev = await createTestDevice(client);
     const tsk = await createWithHook(
       Kafka.Task.useCreateWrite,
@@ -53,19 +53,15 @@ describe("Kafka.Task create", () => {
     );
     expect(tsk.name).toBe("Kafka write task");
     expect(tsk.config.device).toBe(dev.key);
-    expect(tsk.config.record).toMatchObject({
-      channelPointer: "/channel",
-      timestampPointer: "/timestamp",
-    });
   });
 
   it("should create a write task with the given config", async () => {
-    const config = Kafka.Task.WRITE_SCHEMAS.config.parse({ topic: "valves" });
+    const config = Kafka.Task.WRITE_SCHEMAS.config.parse({ autoStart: true });
     const tsk = await createWithHook(
       Kafka.Task.useCreateWrite,
       Kafka.Task.WRITE_SCHEMAS,
       { config },
     );
-    expect(tsk.config.topic).toBe("valves");
+    expect(tsk.config.autoStart).toBe(true);
   });
 });

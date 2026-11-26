@@ -60,7 +60,6 @@ func fire(key string, part *string, command string) symbol.Interaction {
 func valveSpec() symbol.Spec {
 	return symbol.Spec{
 		Drawing: svg(`<svg><rect id="body"/></svg>`),
-		Variant: "static",
 		Scale:   1,
 		Parts: []symbol.Part{{
 			Key:  "body",
