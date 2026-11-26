@@ -673,36 +673,63 @@ message IteratorRequest { repeated uint32 untimed_keys = 7; }
 
 ### 4.9 Tasks and devices
 
-**The rule**: A hardware task config holds ports, hardware facts, scales, and clock
-keys. It holds no channel name, no channel data type, and no index key. The typed device
-holds the link from a hardware address to a channel key. A clock key in a config is a
-plain field, `clock uint32 = 0`, with no `@ref`: a clock has no record. A config holds
-one clock key per sample clock of the task, each in the unique space.
+**The rule**: A hardware task config holds ports, hardware facts, and scales. It holds
+no channel name, no channel data type, no index key, and no clock key. The typed device
+holds the link from a hardware address to a channel key. Each task writer derives its
+groups from its config at open and stores none, and it finds its clock again through
+continuation. A partial group from a task fails loud, as a partial index group does on
+`main`. Every Driver integration and both ICD readers change in the same release as the
+Core (§5).
+
+| Producer                                                   | Groups                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------------------ |
+| Driver read task: NI, LabJack, Modbus, EtherCAT, OPC UA    | One group of every enabled stored channel                          |
+| Driver state writer (`driver/common/write_task.h:144-155`) | One group of every state channel                                   |
+| HTTP read, Kafka read, MQTT plain topics, both ICD readers | One group per message read                                         |
+| MQTT Sparkplug                                             | One group per tag. A history fill writes the tag's group           |
+| Sparkplug edge commands                                    | One writer for the task's life, with one group per command channel |
+| Arc, Pluto control, the Python `Controller`                | §4.8                                                               |
+| The metrics service, scripts                               | None: one adaptive group                                           |
+| Calculations, signals, statuses, task commands             | None: free or virtual channels                                     |
+
+- **Time fields**: A message read takes its time from its time field, else the record
+  time (Kafka) or arrival (MQTT, HTTP). The ICD field `ReadMessage.index` becomes `time`
+  in a new schema version (`schemas/synnax/icd.oracle:702-707`), and the checks that the
+  index field writes an index channel go (`core/pkg/service/icd/read/read.go:329-340`).
+  An OPC UA read task has one task-level `time` node (NEW `ReadConfig.time`), in place
+  of `is_index` on a read channel (`schemas/synnax/opcua.oracle:52-54`); with none, the
+  Driver stamps the samples. A time field may also bind a timestamp data channel.
+- **Replay floors**: A Kafka or MQTT replay drops what is at or before the latest last
+  stamp of its group's channels, in place of the last stamp of its index channel
+  (`core/pkg/service/kafka/read_task.go:529-545`,
+  `core/pkg/service/mqtt/read_task.go:220-252`). With whole groups the two are equal.
+- **The bypass bus**: Driver frames on the local bus carry the clock of each series, so
+  a local reader pairs within a group and never by bus alignment across groups.
+- **Console forms**: Task forms make data channels only, with no `_time` channels
+  (`console/src/feature/ni/task/AnalogRead.tsx:211-215` and its siblings). OPC UA's "Use
+  as index" becomes "Use as time".
 
 **Port maps**: Every channel field of a typed device carries a tracked link,
 `@ref kind use` with `@ref on_delete restrict`, map values included, as `main` has them
 (`schemas/synnax/ni_device.oracle:117-154`). A channel appears once across the port maps
-of a device, which the save checks. Phase 9 drops every index field of a typed device in
-a new schema version of each: the five of the NI device (`ni_device.oracle:134`, `:157`,
-`:178`, `:194`, `:210`), `read_index` and `write_state_index` of the LabJack device
-(`labjack_device.oracle:125-130`, `:186-191`), and `index` of an OPC UA read binding
-(`opcua_server.oracle:178-183`). For a channel on two ports, the migration keeps the
-first in the order of the port maps in the schema, then of port numbers, drops the
-others, and writes a warning status.
+of a device, which the save checks. The phase of each integration drops every index
+field of its typed device in a new schema version: the five of the NI device
+(`ni_device.oracle:134`, `:157`, `:178`, `:194`, `:210`), `read_index` and
+`write_state_index` of the LabJack device (`labjack_device.oracle:125-130`, `:186-191`),
+and `index` of an OPC UA read binding (`opcua_server.oracle:178-183`). For a channel on
+two ports, the migration keeps the first in the order of the port maps in the schema,
+then of port numbers, drops the others, and writes a warning status.
 
 **Amendments to RFC 0081:**
 
 1. **§4.1**: No typed device stores an index key, and a channel appears once across the
    port maps of a device.
 2. **Task configs** (RFC 0081 Phase 22): A config holds the typed device key, ports,
-   hardware facts, scales, and one `clock` per sample clock. Each takes one index key of
-   the integration. Where several configs name one index key, as v0.62 analog tasks on
-   one NI device do, the config with the lowest task key keeps it. Each other config
-   holds no clock until Phase 9, whose migration allocates one (§4.0). Until Phase 9 of
-   this RFC the Console still makes channels.
-3. **Provisioning** (Phase 9 of this RFC): Saving a hardware task makes the channels and
-   clock keys it lacks in the same transaction. An injected proposer per integration
-   gives names (the port) and a folder (named after the device).
+   hardware facts, and scales, and no clock. Until Phase 43 of this RFC the Console
+   still makes data channels.
+3. **Provisioning** (Phase 43 of this RFC): Saving a hardware task makes the channels it
+   lacks in the same transaction. An injected proposer per integration gives names (the
+   port) and a folder (named after the device).
 4. **§4.0 and §7**: MQTT and Kafka get typed devices. The hardware address is a topic
    plus a field, whose identity follows the interface control document design. Their
    migrations start from what `core/v0.62.0` shipped: mqtt v2, whose plain entries bind
@@ -716,27 +743,68 @@ others, and writes a warning status.
    lookup and names both, so a new device named like a channel folder can break a lookup
    that worked.
 
-**Retiring index channels**: Phase 9 has a fixed order. RFC 0081 Phase 22 has moved
-every integration's index keys into its task config. The migration then applies, to
-every holder of an index channel key, the rule for its holder in the table below, and
-deletes the index channel records last, with no storage delete: each key lives on as the
-clock that its producer config holds. A key that no producer config holds, such as the
-index channel of a script or of a task deleted before Phase 9, gets a pending-drop note
-in the same transaction, so the next start deletes its clock. Storage still keeps its
-stamps while a stored segment of another key names them.
+### 4.10 Migration
 
-| Holder                                                  | Rule                                                                                                  |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Line plot and log channel lists                         | Detach: the key leaves the list. A line plot axis then shows time                                     |
-| Schematic symbol, table cell, Arc key list, calculation | Keeps a weak link. An Arc program and a calculation name the deleted channel at compile               |
-| Task config                                             | The key is already in `clock` (RFC 0081 Phase 22). A config with no clock gets a new one              |
-| Sift stream config                                      | The index key leaves `channels` (sift v1) before the index record goes, since the list is `restrict`  |
-| Sift progress status                                    | A stored position keyed by an index channel reads as a position on its clock: keys keep their numbers |
+Stored data and imports always migrate, and only what `core/v0.62.0` shipped is owed.
+The migration changes metadata only and runs at the first start, before any writer opens
+(D-460).
 
-The channel record drops `is_index`, `local_index`, and `concurrency` in schema v3
-(`schemas/synnax/channel.oracle:114-147`) and keeps `data_type` as the declared type.
+1. **Cesium**: The conversion of RFC 0121 §9 makes each old domain a sealed version 0
+   segment with the old index key as its clock key. No byte format changes, since a
+   clock is a `uint32` key in every record of RFC 0121.
+2. **Channel table**: A new last step of the chain
+   (`core/pkg/service/channel/versions/migrations.go:19-26`), with Cesium's `Keys`
+   injected, deletes an index record when Cesium holds data for one of the stored data
+   channels that name it, with no storage delete (D-464). It keeps every other index
+   record as a timestamp channel, which times itself. It mints channel v3, which drops
+   `is_index`, `local_index`, and `concurrency`, keeps `data_type` as the declared type,
+   and stores `key` whole (RFC 0119 §4.0).
+3. **Start check**: After the migrations, a clock that has a Core record fails the start
+   with an error that names it. It is the one check that Gorp and Cesium agree.
+4. **Holders**: Every holder of an index key migrates in its own chain, in the same
+   release:
 
-### 4.10 Package boundaries
+| Holder                                                    | Rule                                                                                                                                                                                                              |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NI, LabJack, and OPC UA server devices                    | A new schema version drops the index fields (§4.9)                                                                                                                                                                |
+| EtherCAT devices, `core/v0.62.0` LabJack and HTTP devices | A composition step drops the index keys from untyped JSON, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1180`)                                                                                      |
+| HTTP, Kafka, MQTT, and ICD messages                       | The index field becomes the time field, and its channel binding drops                                                                                                                                             |
+| OPC UA read                                               | A read channel with `is_index` becomes the task's time node, and its binding drops                                                                                                                                |
+| Sift                                                      | sift v1 drops index keys from `channels` before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock                                                               |
+| Line plot, log                                            | A new `gorp.DanglingMigration` step detaches the key. A line plot axis with x 0 shows time (`schemas/synnax/lineplot.oracle:230`)                                                                                 |
+| Arc and calculation text                                  | A read of an index channel becomes `time.of` of its first data channel by key, through the text pass of RFC 0119 §4.5. The step drops `authority` entries for index channels, and a write to one fails at compile |
+| Schematic symbol, table cell                              | Keeps a weak link, and the Console shows a missing channel                                                                                                                                                        |
+
+- **Order**: The channel chain runs before the holder chains, and Gorp checks no
+  `restrict` link inside a migration. So no holder may keep an index field past the
+  release.
+- **Imports**: An old file goes through the same chains and the import's `DropDangling`,
+  so an old plot that names an index channel draws against time.
+- **Specs**: Each step copies the Kafka three-layer specs
+  (`core/pkg/service/kafka/versions/v1/migrate_test.go`,
+  `core/pkg/service/kafka/migrate_test.go`), one per holder.
+- **Cost**: An index channel's stamps that no data sample uses stay stored and no longer
+  show, since the index is now a clock.
+
+### 4.11 Hard rules
+
+Each rule closes a way to pair data with the wrong stamps and give no error.
+
+1. **The Arc grouping rule**: The compiler groups outputs only by the rule of §4.8. No
+   runtime check stands in for it.
+2. **The join before any clock move**: Phases 18 to 21 land before Phase 23, the first
+   in which a channel can change clocks. Until the join, a calculation pairs inputs on
+   two clocks by position (`arc/go/stl/wasm/node.go:316-333`).
+3. **One alignment space per clock**: The TypeScript cache and Pluto keep one alignment
+   space per clock in each block and check the clock of each pair (Phases 14 and 16)
+   before Phase 23.
+4. **A user's channel is never a group's clock**: Continuation drops a candidate that is
+   a key of the group (§4.0). An index channel kept as a timestamp channel names itself
+   as its clock, and no other key names it, so the rule keeps every group's stamps out
+   of it. It needs no stored flag, which has no home once RFC 0121 Phase 7 removes
+   Cesium's channel file.
+
+### 4.12 Package boundaries
 
 | Concern                                                       | Owner                                                                        | May import                                                                       | Must not                                                    |
 | ------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
@@ -766,7 +834,7 @@ Two shallow packages change. `core/pkg/storage/ts` holds only Cesium aliases
 `core/pkg/service/channel`. The key types and the key allocator stay, below the framer,
 which allocates clock keys from it.
 
-### 4.11 Performance gate
+### 4.13 Performance gate
 
 - **Method**: Each gate benchmark runs 10 rounds, base and head interleaved on one quiet
   host, after one run of `main` against `main` that measures the noise.
