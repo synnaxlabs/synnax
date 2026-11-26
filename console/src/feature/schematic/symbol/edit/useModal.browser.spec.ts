@@ -1785,6 +1785,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(await screen.findByText("Sends Trip")).toBeDefined();
     });
 
+    it("moves the selection of a list with the arrow keys", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO, { ...GO, key: "stop", name: "Stop" }],
+      });
+      await userEvent.click(screen.getByText("Go"));
+      await screen.findByRole("heading", { name: "Go" });
+      await userEvent.keyboard("{ArrowDown}");
+      expect(await screen.findByRole("heading", { name: "Stop" })).toBeDefined();
+      await userEvent.click(getPartListItem("Body"));
+      await screen.findByRole("heading", { name: "Body" });
+      await userEvent.keyboard("{ArrowUp}");
+      expect(
+        await screen.findByRole("heading", { name: "Whole drawing" }),
+      ).toBeDefined();
+    });
+
     it("lights only the item that the inspector shows", async () => {
       await openPainted({
         states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
