@@ -114,6 +114,7 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	values := make([]float64, sc.samples)
 
 	period := time.Duration(sc.channels*sc.samples) * writeBenchRecordPeriod
+	written := telem.Now()
 	profile := startBenchProfile(sc.name())
 	start := time.Now()
 	for k := range sc.frames {
@@ -138,7 +139,7 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	records := consumeAll(ctx, topic, total)
 	elapsed := time.Since(start)
 	profile.stop()
-	checkWriteRecords(records, byName, len(data), sc.samples, sc.fields, stamp)
+	checkWriteRecords(records, byName, len(data), sc.samples, sc.fields, stamp, written)
 	GinkgoWriter.Printf("BENCH %s %d records in %s\n", sc.name(), len(records), elapsed)
 }
 
@@ -213,13 +214,15 @@ func liftWrite(ctx context.Context, in kafka.InlineWrite) []kafka.WriteTarget {
 // checkWriteRecords asserts that records hold every sample of each of channels in
 // order, with its exact value and with the stamp that stamp gives it as the record
 // time. byName maps a channel name to its position, and samples is the sample count of
-// a frame. fields checks the static and generated fields.
+// a frame. fields checks the static and generated fields. The time of the write in each
+// record must be no earlier than written.
 func checkWriteRecords(
 	records []*kgo.Record,
 	byName map[string]int,
 	channels, samples int,
 	fields bool,
 	stamp func(frameI, sampleI int) telem.TimeStamp,
+	written telem.TimeStamp,
 ) {
 	GinkgoHelper()
 	seen := make([]int, channels)
@@ -242,7 +245,7 @@ func checkWriteRecords(
 		seen[c]++
 		Expect(math.Float64bits(doc.Value)).
 			To(Equal(math.Float64bits(benchValue(c, i))))
-		Expect(doc.Timestamp).ToNot(BeZero())
+		Expect(doc.Timestamp).To(BeNumerically(">=", written))
 		Expect(rec.Timestamp.UnixMilli()).
 			To(Equal(stamp(i/samples, i%samples).Time().UnixMilli()))
 		if fields {
