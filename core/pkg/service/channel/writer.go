@@ -1066,9 +1066,9 @@ func (w Writer) rename(
 	if err := w.checkChainedRenames(ctx, keys, names); err != nil {
 		return err
 	}
-	renameMap := make(map[Key]string, len(keys))
+	at := make(map[Key]int, len(keys))
 	for i, key := range keys {
-		renameMap[key] = names[i]
+		at[key] = i
 	}
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
@@ -1083,11 +1083,11 @@ func (w Writer) rename(
 			}
 			// A stored name that the rule refuses stays writable while a rename keeps
 			// it, in any normal form.
-			next := renameMap[c.Key()]
+			i := at[c.Key()]
+			next := names[i]
 			if next != validate.NormalizeName(c.Name) {
 				if err := checkNameRule(next, *w.svc.cfg.ValidateNames); err != nil {
-					i := strconv.Itoa(slices.Index(keys, c.Key()))
-					return Channel{}, validate.PathedError(err, i, "name")
+					return Channel{}, validate.PathedError(err, strconv.Itoa(i), "name")
 				}
 			}
 			c.Name = next
