@@ -9,6 +9,7 @@
 
 import type { http } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import type { Tree } from "@synnaxlabs/lyra/tree";
 import type { deep } from "@synnaxlabs/x";
 
 import { Task } from "@/platform/task";
@@ -39,5 +40,25 @@ export const EndpointLabel = ({ path }: EndpointLabelProps) => {
     >
       {epPath === "" ? "New endpoint" : epPath}
     </Task.Views.ItemLabel>
+  );
+};
+
+export interface EndpointItemProps extends Tree.ItemRenderProps<string> {
+  /** The endpoint's form path. */
+  path: deep.Path<{ method: http.Method; path: string; disabled: boolean }>;
+}
+
+/** An endpoint in the tree of a task, with the checkbox that switches it on and off. */
+export const EndpointItem = ({ path, ...props }: EndpointItemProps) => {
+  const disabled = PForm.useFieldValue(path.disabled, { optional: true });
+  if (disabled == null) return null;
+  return (
+    <Task.Views.TreeGroupItem
+      {...props}
+      label={<EndpointLabel path={path} />}
+      off={disabled}
+    >
+      <Task.EnabledCheckbox path={path.disabled} />
+    </Task.Views.TreeGroupItem>
   );
 };

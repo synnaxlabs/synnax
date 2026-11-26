@@ -83,4 +83,15 @@ TEST(testFreighter, testMiddlewareCollectorRepeatedNext) {
     ASSERT_EQ(res, 2);
     ASSERT_EQ(count->calls, 2);
 }
+
+/// @brief it should replace the params of the target when assigning a context.
+TEST(testFreighter, testContextAssignReplacesParams) {
+    auto target = freighter::Context("test", x::url::URL("1"), freighter::UNARY);
+    target.set("stale", "1");
+    auto source = freighter::Context("test", x::url::URL("1"), freighter::UNARY);
+    source.set("fresh", "2");
+    target = source;
+    ASSERT_FALSE(target.has("stale"));
+    ASSERT_TRUE(target.has("fresh"));
+}
 }

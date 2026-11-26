@@ -10,6 +10,8 @@
 import type { ReactElement } from "react";
 
 import { GROUPS } from "@/app/settings/sections";
-import { Settings as PlatformSettings } from "@/platform/settings";
+import { Page } from "@/platform/page";
 
-export const Settings = (): ReactElement => <PlatformSettings.Frame groups={GROUPS} />;
+export const Settings = (): ReactElement => (
+  <Page.Frame page="settings" name="Settings" groups={GROUPS} />
+);

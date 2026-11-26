@@ -187,7 +187,8 @@ func (f *factory) ConfigureTask(
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
-		if len(cfg.Targets) > 0 {
+		// Only a config from before ICDs has channels, and it has no targets.
+		if len(cfg.Targets) > 0 || len(cfg.Channels) == 0 {
 			wt, err := f.configureTargets(ctx, t, cfg)
 			if err != nil {
 				f.reporter().Report(ctx, t, cmdKey, err)

@@ -11,9 +11,9 @@ package iterator
 
 import (
 	"context"
+	"github.com/synnaxlabs/cesium"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
@@ -26,7 +26,7 @@ import (
 type storage struct {
 	confluence.UnarySink[Request]
 	confluence.AbstractUnarySource[Response]
-	iter *ts.Iterator
+	iter *cesium.Iterator
 	// seqNum is the sequence number of the next request.
 	seqNum int
 }
@@ -36,9 +36,9 @@ var validateCommand = validate.NewInclusiveBoundsChecker(CommandNext, CommandSet
 func (s *Service) newStorage(
 	cfg Config,
 ) (confluence.Segment[Request, Response], error) {
-	iter, err := s.cfg.TS.OpenIterator(ts.IteratorConfig{
+	iter, err := s.cfg.TS.OpenIterator(cesium.IteratorConfig{
 		Bounds:        cfg.Bounds,
-		Channels:      cfg.Keys.Storage(),
+		Channels:      cfg.Keys.Uint32(),
 		AutoChunkSize: cfg.ChunkSize,
 		Reduction:     cfg.Reduction,
 	})
@@ -82,7 +82,7 @@ func (s *storage) exec(ctx context.Context, req Request, seqNum int) (bool, erro
 	if err := validateCommand(req.Command); err != nil {
 		return false, err
 	}
-	emit := func(fr ts.Frame) error {
+	emit := func(fr cesium.Frame) error {
 		return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{
 			Variant: ResponseVariantData,
 			Command: CommandNext,

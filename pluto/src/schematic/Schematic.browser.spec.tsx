@@ -10,7 +10,8 @@
 import { DataType, type schematic } from "@synnaxlabs/client";
 import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
-import { id, uuid, xy } from "@synnaxlabs/x";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { id, TimeSpan, uuid, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -24,9 +25,10 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
+import { setpoint } from "@/vis/setpoint/aether";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
-import { toggle } from "@/vis/toggle/aether";
+import { value } from "@/vis/value/aether";
 
 const client = createTestClient();
 
@@ -75,24 +77,27 @@ const renderSchematic = async (
     renderContext: canvasTest.record(),
     telemFactories: [],
   });
+  // A tooltip that shows again does so at once, so a spec sees it before it settles.
   const View = (): ReactElement => (
-    <Errors.SuspenseBoundary loading={null}>
-      <Schematic.Suspended schematicKey={key}>
-        <Schematic.Schematic
-          editable={editable}
-          visible
-          viewport={{ position: xy.ZERO, zoom: 1 }}
-          onViewportChange={() => {}}
-          onEditableChange={() => {}}
-          fitViewOnResize={false}
-          setFitViewOnResize={() => {}}
-          viewportMode="zoom"
-          onViewportModeChange={() => {}}
-          selected={[]}
-          onSelectionChange={() => {}}
-        />
-      </Schematic.Suspended>
-    </Errors.SuspenseBoundary>
+    <Tooltip.Config skipDelay={TimeSpan.HOUR}>
+      <Errors.SuspenseBoundary loading={null}>
+        <Schematic.Suspended schematicKey={key}>
+          <Schematic.Schematic
+            editable={editable}
+            visible
+            viewport={{ position: xy.ZERO, zoom: 1 }}
+            onViewportChange={() => {}}
+            onEditableChange={() => {}}
+            fitViewOnResize={false}
+            setFitViewOnResize={() => {}}
+            viewportMode="zoom"
+            onViewportModeChange={() => {}}
+            selected={[]}
+            onSelectionChange={() => {}}
+          />
+        </Schematic.Suspended>
+      </Errors.SuspenseBoundary>
+    </Tooltip.Config>
   );
   let utils!: ReturnType<typeof render>;
   await act(async () => {
@@ -101,7 +106,7 @@ const renderSchematic = async (
   return { key, utils };
 };
 
-// Stand in for the worker components of a toggle tooltip.
+// Stand in for the worker components of a setpoint readback and tooltip.
 const looseZ = z.object({}).loose();
 
 class StubLatestSample extends aether.Leaf<typeof looseZ> {
@@ -110,7 +115,8 @@ class StubLatestSample extends aether.Leaf<typeof looseZ> {
 }
 
 const STALE_REGISTRY: aether.ComponentRegistry = {
-  ...stalenessTest.createRegistry(toggle.Toggle.TYPE, toggle.toggleStateZ),
+  ...setpoint.REGISTRY,
+  ...stalenessTest.createRegistry(value.Value.TYPE, value.Value.z),
   ...controlTest.createRegistry(),
   [StubLatestSample.TYPE]: StubLatestSample,
 };
@@ -211,17 +217,23 @@ describe("Schematic", () => {
   });
 
   it("should keep the tooltip over the stale badge and close it over the chip", async () => {
-    const command = await client.channels.create({
-      name: id.create(),
-      dataType: DataType.UINT8,
-      virtual: true,
-    });
+    const [command, state] = await client.channels.create(
+      [id.create(), id.create()].map((name) => ({
+        name,
+        dataType: DataType.UINT8,
+        virtual: true,
+      })),
+    );
     const { utils } = await renderSchematic(
       [
         {
           key: "v1",
           position: xy.ZERO,
-          config: { variant: "valve", commandChannel: command.key },
+          config: {
+            variant: "setpoint",
+            commandChannel: command.key,
+            stateChannel: state.key,
+          },
         },
       ],
       { editable: false, registry: STALE_REGISTRY },
@@ -239,6 +251,57 @@ describe("Schematic", () => {
     fireEvent.mouseMove(within(slot).getAllByRole("button", { hidden: true })[0]);
     await waitFor(() => expect(utils.queryByText(command.name)).toBeNull());
   });
+
+  it.each([
+    ["off", false, "all"],
+    ["on", true, "none"],
+  ])(
+    "should give a part with a click pointer events %s edit mode",
+    async (_, editable, pointerEvents) => {
+      const symbol = await client.schematics.symbols.create({
+        name: "Lamp",
+        data: {
+          drawing: {
+            type: "svg",
+            markup:
+              '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+              '<rect class="lamp" width="10" height="10" /></svg>',
+          },
+          parts: [{ key: "lamp", name: "Lamp", selectors: [".lamp"] }],
+          states: [{ type: "number", key: "level", name: "Level" }],
+          commands: [
+            {
+              key: "on",
+              name: "On",
+              state: "level",
+              value: { type: "fixed", value: 1 },
+            },
+          ],
+          interactions: [{ type: "fire", key: "lamp", part: "lamp", command: "on" }],
+        },
+      });
+      const { utils } = await renderSchematic(
+        [
+          {
+            key: "l1",
+            position: xy.ZERO,
+            config: {
+              variant: "symbol",
+              spec: { type: "custom", key: symbol.key },
+              states: [{ key: "level", source: { type: "local", value: 0 } }],
+            },
+          },
+        ],
+        { editable, registry: symbolNode.REGISTRY },
+      );
+      const lamp = await waitFor(() => {
+        const el = utils.container.querySelector(".pluto-symbol__part--clickable");
+        if (el == null) throw new Error("no clickable part yet");
+        return el;
+      });
+      expect(getComputedStyle(lamp).pointerEvents).toBe(pointerEvents);
+    },
+  );
 
   it("should hide the tooltip while a node shows its command menu", async () => {
     const { utils } = await renderSchematic(
@@ -274,6 +337,44 @@ describe("Schematic", () => {
     const close = await utils.findByRole("menuitem", { name: "Close", hidden: true });
     expect(utils.queryByText("Stale timeout")).toBeNull();
     fireEvent.click(close);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+  });
+
+  it("should keep the tooltip hidden after a pick off the node", async () => {
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "v1",
+          position: xy.ZERO,
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            states: [
+              {
+                key: "active",
+                source: { type: "local", value: 3 },
+                match: { type: "exact" },
+              },
+            ],
+          },
+        },
+      ],
+      { editable: false, registry: symbolNode.REGISTRY },
+    );
+    const button = await waitFor(() => {
+      const el = utils.container.querySelector<HTMLElement>(".react-flow__node button");
+      if (el == null) throw new Error("no symbol button yet");
+      return el;
+    });
+    fireEvent.mouseMove(button);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+    fireEvent.click(button);
+    const close = await utils.findByRole("menuitem", { name: "Close", hidden: true });
+    fireEvent.mouseMove(close);
+    fireEvent.click(close);
+    await act(async () => {});
+    expect(utils.queryByText("Stale timeout")).toBeNull();
+    fireEvent.mouseMove(button);
     await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
   });
 });

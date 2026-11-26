@@ -10,40 +10,27 @@
 import "@/feature/kafka/task/Task.css";
 
 import { channel, DisconnectedError, type icd, kafka } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
-import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { Channel as PChannel, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, id, primitive, unique } from "@synnaxlabs/x";
-import {
-  type Dispatch,
-  type FC,
-  type ReactNode,
-  type SetStateAction,
-  useState,
-} from "react";
+import { Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { deep, id, type json, unique } from "@synnaxlabs/x";
+import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
 import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
+import { createDiscoverModal, type Format } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
-  deployICDWriteConfigZ,
   deployWriteConfigZ,
-  isString,
-  type RecordKey,
-  type TimeFormat,
   WRITE_SCHEMAS,
   WRITE_TYPE,
-  type WriteChannel,
   type WriteSchemas,
   type WriteTarget,
 } from "@/feature/kafka/task/types";
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { ICD } from "@/platform/icd";
@@ -51,217 +38,8 @@ import { Task } from "@/platform/task";
 
 const root = deep.path<Task.Values<WriteSchemas>>();
 
-const SELECT_TRIGGER_PROPS = { className: CSS.BE("kafka-select", "trigger") };
-
-const TEXT_FIELD_CLASS = CSS.BE("kafka-properties", "text");
-
-const SELECT_DIALOG_PROPS = { className: CSS.BE("kafka-select", "dialog") };
-
-const SelectRecordKey = (
-  p: Omit<Select.SingleSimpleProps<RecordKey>, "children" | "resourceName">,
-) => (
-  <Select.Simple<RecordKey>
-    {...p}
-    resourceName="record key"
-    triggerProps={SELECT_TRIGGER_PROPS}
-    dialogProps={SELECT_DIALOG_PROPS}
-  >
-    <Select.Item itemKey="channel_name">Channel name</Select.Item>
-    <Select.Item itemKey="none">None</Select.Item>
-  </Select.Simple>
-);
-
-const renderRecordKeySelect = Component.renderProp(SelectRecordKey);
-
-const SelectTimeFormat = (
-  p: Omit<Select.SingleSimpleProps<TimeFormat>, "children" | "resourceName">,
-) => (
-  <Select.Simple<TimeFormat>
-    {...p}
-    resourceName="time format"
-    triggerProps={SELECT_TRIGGER_PROPS}
-    dialogProps={SELECT_DIALOG_PROPS}
-  >
-    <Select.Item itemKey="iso8601">ISO 8601</Select.Item>
-    <Select.Item itemKey="unix_sec">Unix (s)</Select.Item>
-    <Select.Item itemKey="unix_ms">Unix (ms)</Select.Item>
-    <Select.Item itemKey="unix_us">Unix (µs)</Select.Item>
-    <Select.Item itemKey="unix_ns">Unix (ns)</Select.Item>
-  </Select.Simple>
-);
-
-const renderTimeFormatSelect = Component.renderProp(SelectTimeFormat);
-
-const Properties = () => (
-  <>
-    <Device.Select />
-    <Flex.Box x grow wrap>
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.topic}
-        label="Topic"
-        inputProps={TOPIC_INPUT_PROPS}
-        grow
-      />
-      <PForm.Field path={root.config.recordKey} label="Record key">
-        {renderRecordKeySelect}
-      </PForm.Field>
-    </Flex.Box>
-    <Flex.Box x grow wrap>
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.record.valuePointer}
-        label="Value pointer"
-        inputProps={VALUE_POINTER_INPUT_PROPS}
-        grow
-      />
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.record.channelPointer}
-        label="Channel pointer"
-        inputProps={CHANNEL_POINTER_INPUT_PROPS}
-        grow
-      />
-      <PForm.TextField
-        className={TEXT_FIELD_CLASS}
-        path={root.config.record.timestampPointer}
-        label="Timestamp pointer"
-        inputProps={TIMESTAMP_POINTER_INPUT_PROPS}
-        grow
-      />
-      <PForm.Field path={root.config.record.timeFormat} label="Time format">
-        {renderTimeFormatSelect}
-      </PForm.Field>
-    </Flex.Box>
-  </>
-);
-
 const TOPIC_INPUT_PROPS = { placeholder: "synnax-samples" } as const;
 
-const VALUE_POINTER_INPUT_PROPS = { placeholder: "/value" } as const;
-
-const CHANNEL_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
-
-const TIMESTAMP_POINTER_INPUT_PROPS = { placeholder: "Omitted" } as const;
-
-const ChannelListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = root.config.channels[itemKey];
-  const { channel: key, jsonType, disabled } = PForm.useFieldValue(path);
-  return (
-    <Select.Item
-      {...props}
-      justify="between"
-      align="center"
-      x
-      className={CSS.cls(CSS.B("kafka-item"), disabled && CSS.M("off"))}
-    >
-      <Flex.Box x align="center" gap="small" className={CSS.BE("kafka-item", "label")}>
-        <Task.ChannelName
-          channel={key}
-          picked
-          level="p"
-          weight={500}
-          color={10}
-          className={CSS.BE("kafka-item", "name")}
-        />
-        <Text.Text level="small" color={9}>
-          {jsonType}
-        </Text.Text>
-      </Flex.Box>
-      <Task.EnabledCheckbox path={path.disabled} />
-    </Select.Item>
-  );
-};
-
-const listItem = Component.renderProp(ChannelListItem);
-
-const SelectChannel = (p: Pick<PChannel.SelectSingleProps, "value" | "onChange">) => (
-  <PChannel.SelectSingle {...p} />
-);
-
-const renderSelectChannel = Component.renderProp(SelectChannel);
-
-const JSON_TYPE_ITEMS = (
-  <>
-    <Select.Item itemKey="number">Number</Select.Item>
-    <Select.Item itemKey="string">String</Select.Item>
-    <Select.Item itemKey="boolean">Boolean</Select.Item>
-  </>
-);
-
-const SelectJSONType = (
-  p: Omit<Select.SingleSimpleProps<string>, "children" | "resourceName">,
-) => (
-  <Select.Simple<string> {...p} resourceName="JSON type">
-    {JSON_TYPE_ITEMS}
-  </Select.Simple>
-);
-
-const renderSelectJSONType = Component.renderProp(SelectJSONType);
-
-const ChannelDetails = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
-  const { channel: key, jsonType } = PForm.useFieldValue(path);
-  const query = primitive.isNonZero(key) ? { key } : null;
-  const { data: dataType } = PChannel.useResultDataType(query);
-  const isTimestamp = dataType != null && DataType.TIMESTAMP.equals(dataType);
-  // A string, JSON, or UUID channel always goes out as a string, and the time format
-  // alone encodes a timestamp channel, so neither has a JSON type.
-  const typed = dataType == null || (!isString(dataType) && !isTimestamp);
-  return (
-    <PForm.Sections className={CSS.B("kafka-details")}>
-      <PForm.Section title="Channel">
-        <PForm.Field path={path.channel} label="Channel" required>
-          {renderSelectChannel}
-        </PForm.Field>
-        {typed && (
-          <PForm.Field path={path.jsonType} label="JSON type" padHelpText={false}>
-            {renderSelectJSONType}
-          </PForm.Field>
-        )}
-        {isTimestamp && (
-          <Task.Payload.TimeFormatField path={path.timeFormat} label="Time format" />
-        )}
-      </PForm.Section>
-      {jsonType === "string" && typed && (
-        <Task.Payload.EnumMappingSection path={path.enumValues} valueFirst />
-      )}
-    </PForm.Sections>
-  );
-};
-
-const details = Component.renderProp(ChannelDetails);
-
-const ChannelTitle = ({ path }: Task.Views.DetailsProps<WriteChannel>) => {
-  const key = PForm.useFieldValue(path.channel);
-  return <Task.ChannelName channel={key} picked level="p" weight={500} color={10} />;
-};
-
-const detailsTitle = Component.renderProp(ChannelTitle);
-
-const createChannel = (channels: WriteChannel[], keyToCopy?: string): WriteChannel => {
-  const source = channels.find((c) => c.key === keyToCopy);
-  return {
-    ...(source != null ? { ...source, channel: 0 } : kafka.writeChannelZ.parse({})),
-    key: id.create(),
-  };
-};
-
-/** The channels are chosen in the form, so the device binds none. */
-const resolveNothing = () => null;
-
-const Form: FC = () => (
-  <Task.Views.ListAndDetails<WriteChannel>
-    path={root.config.channels}
-    listItem={listItem}
-    details={details}
-    detailsTitle={detailsTitle}
-    createChannel={createChannel}
-    resolve={resolveNothing}
-  />
-);
-
-/** The prefix of the names of the command channels that deploying gives a target. */
 const commandPrefix = (
   deviceName: string,
   { topic, recordKey }: Pick<WriteTarget, "topic" | "recordKey">,
@@ -288,11 +66,8 @@ const namingOf = (deviceName: string, target: WriteTarget): ICD.Write.ChannelNam
 };
 
 /**
- * A cleared pointer is omitted from the record instead of placed at "". A string,
- * JSON, or UUID channel goes out as a string, and a timestamp channel by its time
- * format, whatever JSON type the form holds. Disabled rows are left alone, so a
- * deleted channel on one cannot block the deploy. Each channel binding of an enabled
- * target gets a command channel, which the device keeps for the next deploy.
+ * Each channel binding of an enabled target gets a command channel, which the device
+ * keeps for the next deploy.
  */
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
@@ -302,25 +77,6 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: Device.SCHEMAS,
   });
-  const chs = await client.channels.retrieve(
-    config.channels
-      .filter((c) => !c.disabled)
-      .map((c) => c.channel)
-      .filter((k) => k !== 0),
-  );
-  const stringOnly = new Set(chs.filter((c) => isString(c.dataType)).map((c) => c.key));
-  const timestamps = new Set(
-    chs.filter((c) => DataType.TIMESTAMP.equals(c.dataType)).map((c) => c.key),
-  );
-  config.channels.forEach((c) => {
-    if (stringOnly.has(c.channel)) c.jsonType = "string";
-    if (timestamps.has(c.channel)) {
-      c.jsonType = "number";
-      c.enumValues = [];
-    }
-  });
-  if (config.record.channelPointer === "") delete config.record.channelPointer;
-  if (config.record.timestampPointer === "") delete config.record.timestampPointer;
   const before = deep.copy(dev.properties);
   try {
     for (const target of config.targets) {
@@ -338,7 +94,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   return [config, dev.rack];
 };
 
-const ICDProperties = () => <Device.Select />;
+const Properties = () => <Device.Select />;
 
 /** Stands in for the record key of a target whose records have no key. */
 const NO_KEY = "No key";
@@ -385,6 +141,7 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
+  const handleAddressChange = () => set(path.message, ICD.Write.unbind(target.message));
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
@@ -394,12 +151,14 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
             label="Topic"
             padHelpText={false}
             inputProps={TOPIC_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
           <PForm.TextField
             path={path.recordKey}
             label="Record key"
             padHelpText={false}
             inputProps={RECORD_KEY_INPUT_PROPS}
+            onChange={handleAddressChange}
           />
         </PForm.Section>
         <PForm.Section
@@ -417,11 +176,11 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
             onChange={handleFormatChange}
             preview={isPreview}
           />
+          <ICD.MessageWarning
+            message={message}
+            missingDescription={ICD.Write.MISSING_DESCRIPTION}
+          />
         </PForm.Section>
-        <ICD.MessageStatus
-          message={message}
-          missingDescription={ICD.Write.MISSING_DESCRIPTION}
-        />
       </PForm.Sections>
     </Flex.Box>
   );
@@ -431,20 +190,24 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
+const keyLabel = (recordKey: string): string => (recordKey === "" ? NO_KEY : recordKey);
+
+/** @returns the key that sent every record of shape, or "" for none or several. */
+const recordKeyOf = (shape: json.Shape | null): string =>
+  shape?.sources.length === 1 ? shape.sources[0] : "";
+
+const useAddTargetsModal = createDiscoverModal({
+  title: "Add targets",
+  hint: "Select the topics to write. Each one becomes a target.",
+  noun: "target",
+  verb: "Write",
+  whole: true,
+});
+
 const duplicate = (target: WriteTarget): WriteTarget => ({
   ...target,
   key: id.create(),
   message: ICD.Write.unbind(target.message),
-});
-
-const messageOf = ({
-  key,
-  icd: icdKey,
-  message,
-}: WriteTarget): ICD.Write.TargetMessage => ({
-  icd: icdKey,
-  message: message.message,
-  bindings: root.config.targets[key].message.bindings,
 });
 
 interface TargetsProps {
@@ -463,105 +226,89 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const formats = ICD.useFormats();
   const targets = PForm.useFieldListUtils(root.config.targets);
   const all = PForm.useFieldValue(root.config.targets);
-  const {
-    tree,
-    handleSelect,
-    contextMenu,
-    renderItem,
-    current,
-    currentGroup,
-    addField,
-    added,
-  } = ICD.Write.useTree<WriteTarget>({
-    path: root.config.targets,
-    messageOf,
-    groups: TOPICS,
-    TargetItem,
-    duplicate,
-    selected,
-    onSelect,
-    expanded,
-    onExpand,
-  });
+  const addTargets = useAddTargetsModal();
   const commandChannelsOf = ICD.Write.useCommandChannels();
   const specs = all
     .filter(({ disabled }) => !disabled)
     .flatMap((t) => commandChannelsOf(t, namingOf(device.name, t)));
-  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
+  const messageOf = (target: WriteTarget): ICD.Write.TargetMessage => {
+    const naming = namingOf(device.name, target);
+    return {
+      icd: target.icd,
+      message: target.message.message,
+      path: root.config.targets[target.key].message,
+      naming,
+    };
+  };
+  const { tree, handleSelect, contextMenu, renderItem, pane, currentGroup } =
+    ICD.Write.useTree<WriteTarget>({
+      path: root.config.targets,
+      messageOf,
+      plans,
+      groups: TOPICS,
+      TargetItem,
+      targetPane: (target, onAddField) => ({
+        path: root.config.targets[target.key],
+        title: <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />,
+        details: (
+          <TargetDetails
+            key={target.key}
+            path={root.config.targets[target.key]}
+            onAddField={onAddField}
+          />
+        ),
+      }),
+      duplicate,
+      selected,
+      onSelect,
+      expanded,
+      onExpand,
+    });
 
   const add = async () => {
     if (client == null) throw new DisconnectedError();
-    const {
-      icd: icdKey,
-      messages: [message],
-    } = await ICD.Write.addMessages({
-      client,
-      formats,
-      targets: targets.value(),
-      name: icdName(ctx.get(root.name).value),
-      messages: [{ name: "", fields: [] }],
+    const result = await addTargets({
+      device,
+      topic: currentGroup ?? "",
+      topics: targets.value().map(({ topic }) => topic),
+      label: keyLabel,
     });
-    const target = kafka.writeTargetZ.parse({
-      icd: icdKey,
-      message: ICD.Write.create(message),
-    });
-    targets.push([target]);
-    onSelect([target.key]);
+    if (result == null || result.whole.length === 0) return;
+    const { whole, format } = result;
+    let sent: Format[];
+    if (format != null) sent = whole.map(() => format);
+    else {
+      const { icd: icdKey, messages } = await ICD.Write.addMessages({
+        client,
+        formats,
+        targets: targets.value(),
+        name: icdName(ctx.get(root.name).value),
+        messages: whole.map(({ topic, shape }) => ({
+          name: topic,
+          fields: ICD.createFields(shape?.fields ?? []),
+        })),
+      });
+      sent = messages.map((message) => ({ icd: icdKey, message }));
+    }
+    const added = whole.map(({ topic, shape }, i) =>
+      kafka.writeTargetZ.parse({
+        topic,
+        recordKey: recordKeyOf(shape),
+        icd: sent[i].icd,
+        message: ICD.Write.create(sent[i].message),
+      }),
+    );
+    targets.push(added);
+    onSelect([added[0].key]);
     onExpand((prev) =>
-      unique.unique([...prev, ...ICD.Write.expandedOf([target], TOPICS)]),
+      unique.unique([...prev, ...ICD.Write.expandedOf(added, TOPICS)]),
     );
   };
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
-  const handleAdd = () => handleError(addExclusive, "Failed to add a target");
+  const handleAdd = () => handleError(addExclusive, "Failed to add targets");
 
-  const target =
-    current == null ? undefined : all.find(({ key }) => key === current.target);
-  const path = target == null ? null : root.config.targets[target.key];
-  let title: ReactNode = null;
-  let details: ReactNode = null;
-  let detailsPath: deep.Target<unknown> | null = null;
-  if (currentGroup != null) {
-    title = <TopicLabel name={currentGroup} />;
-    details = (
-      <Flex.Box y grow align="center" justify="center">
-        <Text.Text status="disabled">Select a record key of the topic</Text.Text>
-      </Flex.Box>
-    );
-  } else if (path != null && target != null && current?.kind === "field") {
-    const i = target.message.bindings.findIndex(
-      ({ field }) => field === current.field.key,
-    );
-    detailsPath = i < 0 ? path.message : path.message.bindings[i];
-    const naming = namingOf(device.name, target);
-    title = (
-      <Text.Text level="p" weight={500} overflow="fade">
-        {current.field.name}
-      </Text.Text>
-    );
-    details = (
-      <ICD.Write.FieldDetails
-        key={selected[0]}
-        path={path.message.bindings}
-        icdKey={target.icd}
-        message={target.message.message}
-        field={current.field.key}
-        channelName={names.get(naming.key(current.field)) ?? naming.name(current.field)}
-        skipped={target.disabled}
-        autoFocus={current.field.key === added}
-      />
-    );
-  } else if (path != null && target != null) {
-    detailsPath = path;
-    title = <RecordLabel recordKey={target.recordKey} emptyLabel={NO_KEY} />;
-    details = (
-      <TargetDetails
-        key={target.key}
-        path={path}
-        onAddField={() => addField(target.key)}
-      />
-    );
-  }
   return (
     <Task.Views.Panes
       listTitle="Topics"
@@ -571,19 +318,24 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
           onSelect={handleSelect}
           menu={contextMenu}
           emptyMessage="No targets"
-          addLabel="Add target"
+          addLabel="Add targets"
           onAdd={handleAdd}
         >
           {renderItem}
         </Task.Views.TreeList>
       }
-      detailsPath={detailsPath}
-      title={title ?? undefined}
+      detailsPath={pane?.path ?? null}
+      title={
+        pane?.title ??
+        (currentGroup == null ? null : <TopicLabel name={currentGroup} />)
+      }
     >
-      {details ?? (
+      {pane?.details ?? (
         <Flex.Box y grow align="center" justify="center">
           <Text.Text status="disabled">
-            Add a target to send records to a topic
+            {currentGroup == null
+              ? "Add a target to send records to a topic"
+              : "Select a record key of the topic"}
           </Text.Text>
         </Flex.Box>
       )}
@@ -598,7 +350,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   );
 };
 
-const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
+const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => {
   const targets = PForm.useFieldValue(root.config.targets);
   const [selected, setSelected] = useState<string[]>([]);
   const [expanded, setExpanded] = useState<string[]>(() =>
@@ -617,18 +369,18 @@ const ICDContent = ({ device }: PlatformDevice.TaskFormContentProps<Device.Devic
   );
 };
 
-const ICDForm = PlatformDevice.wrapTaskForm({
+const Form = PlatformDevice.wrapTaskForm({
   use: Device.use,
   useConfigure: Device.useConnectModal,
   useNoneSelected: Device.useNoneSelected,
-  Content: ICDContent,
+  Content,
 });
 
 export const Write = Task.wrapForm({
-  Properties: FLAGS.icds ? ICDProperties : Properties,
-  Form: FLAGS.icds ? ICDForm : Form,
+  Properties,
+  Form,
   schemas: WRITE_SCHEMAS,
-  deployConfigZ: FLAGS.icds ? deployICDWriteConfigZ : deployWriteConfigZ,
+  deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
   onConfigure,
 });

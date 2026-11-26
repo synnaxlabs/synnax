@@ -19,11 +19,11 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, Flux, User } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { Settings as PlatformSettings } from "@/platform/settings";
 import { User as PlatformUser } from "@/platform/user";
 
 const COLUMNS: List.Column[] = [
@@ -34,7 +34,7 @@ const COLUMNS: List.Column[] = [
 const Member = (props: List.ItemProps<user.Key>): ReactElement | null => {
   const { itemKey } = props;
   const item = List.useItem<user.Key, user.User>(itemKey);
-  const itemClass = PlatformSettings.useItemClass(itemKey);
+  const itemClass = Collection.useItemClass(itemKey);
   const { data: selfKey } = User.useResultKey({});
   const canUpdate = Access.useUpdateGranted(user.resourceID(itemKey));
   const canSetRole = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
@@ -143,7 +143,7 @@ export const Members = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
   const canCreate = PlatformUser.useRegisterGranted();
   return (
-    <PlatformSettings.Table<user.Key, user.User>
+    <Collection.Table<user.Key, user.User>
       list={list}
       columns={COLUMNS}
       noun="users"
@@ -152,6 +152,6 @@ export const Members = (): ReactElement => {
       onCreate={() => openRegister()}
     >
       {({ key, ...p }) => <Member key={key} {...p} />}
-    </PlatformSettings.Table>
+    </Collection.Table>
   );
 };
