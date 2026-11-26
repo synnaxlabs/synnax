@@ -77,18 +77,16 @@ func (t *throttle) flush(sCtx signal.Context) error {
 }
 
 // handle forwards acks, missed markers, and the first empty response, and buffers the
-// frame of any other response. It returns false when the inlet is closed.
+// frame of any other response. It flushes the buffer before an ack, a missed marker, or
+// a response that counts a key update, so a frame from before the update never takes
+// its Applied. It returns false when the inlet is closed.
 func (t *throttle) handle(
 	sCtx signal.Context,
 	res Response,
 	ok bool,
 	first *bool,
 ) (bool, error) {
-	if ok && res.Ack {
-		return true, signal.SendUnderContext(sCtx, t.Out.Inlet(), res)
-	}
-	// The buffered frame came before the drops that the marker reports.
-	if ok && res.Missed {
+	if ok && (res.Ack || res.Missed) {
 		if err := t.flush(sCtx); err != nil {
 			return false, err
 		}
@@ -102,6 +100,11 @@ func (t *throttle) handle(
 	}
 	if !ok {
 		return false, nil
+	}
+	if res.Applied > 0 {
+		if err := t.flush(sCtx); err != nil {
+			return false, err
+		}
 	}
 	t.fr = t.fr.Extend(res.Frame)
 	t.applied += res.Applied

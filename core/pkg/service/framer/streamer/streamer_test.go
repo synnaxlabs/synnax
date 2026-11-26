@@ -11,6 +11,7 @@ package streamer_test
 
 import (
 	"fmt"
+	"slices"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -238,19 +239,134 @@ var _ = Describe("Streamer", Ordered, func() {
 			return res
 		}
 
-		DescribeTable("Should carry a key update to the first response after it",
+		DescribeTable(
+			"Should carry a key update to the first response after it and to no later one",
 			func(ctx SpecContext, cfg streamer.Config) {
 				key, w, inlet, outlet := open(ctx, cfg)
 				inlet.Inlet() <- streamer.Config{Keys: []channel.Key{key}}
 				res := receive(w, key, outlet)
 				Expect(res.Applied).To(Equal(1))
 				Expect(res.Frame.Get(key).Series).ToNot(BeEmpty())
+				Expect(receive(w, key, outlet).Applied).To(BeZero())
 			},
 			Entry("no throttle", streamer.Config{}),
 			Entry("a throttle", streamer.Config{ThrottleRate: telem.Rate(5)}),
 			// With a factor of 64, the downsampler drops nearly every frame before
 			// the one it sends, so the count rides past the frames it drops.
 			Entry("a downsampler", streamer.Config{DownsampleFactor: 64}),
+		)
+	})
+
+	Describe("Applied order under a throttle", func() {
+		// open opens a throttled streamer of a, with a writer of a and b. It takes
+		// the open response and one flush, so the next flush is one period away.
+		open := func(ctx SpecContext) (
+			channel.Key,
+			channel.Key,
+			*framer.Writer,
+			confluence.Inlet[streamer.Config],
+			confluence.Outlet[streamer.Response],
+		) {
+			GinkgoHelper()
+			chs := []channel.Channel{
+				{Name: UniqueChannelName(), DataType: telem.Float32T, Virtual: true},
+				{Name: UniqueChannelName(), DataType: telem.Float32T, Virtual: true},
+			}
+			Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &chs)
+			})).To(Succeed())
+			a, b := chs[0].Key(), chs[1].Key()
+			w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Start: telem.Now(),
+				Keys:  []channel.Key{a, b},
+			}))
+			DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
+				Keys:         []channel.Key{a},
+				SendOpenAck:  true,
+				ThrottleRate: telem.Rate(1),
+			}))
+			sCtx, cancel := signal.Isolated()
+			DeferCleanup(cancel)
+			inlet, outlet := confluence.Attach(s)
+			s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			Eventually(outlet.Outlet()).Should(Receive())
+			Expect(w.Write(frame.NewUnary(a, telem.NewSeriesV[float32](1)))).
+				To(BeTrue())
+			Eventually(outlet.Outlet(), 3*time.Second).Should(Receive())
+			DeferCleanup(func() {
+				inlet.Close()
+				Eventually(outlet.Outlet()).Should(BeClosed())
+			})
+			return a, b, w, inlet, outlet
+		}
+
+		// collect returns the responses that outlet sends in the next 2.5 seconds.
+		collect := func(
+			outlet confluence.Outlet[streamer.Response],
+		) []streamer.Response {
+			var got []streamer.Response
+			deadline := time.After(2500 * time.Millisecond)
+			for {
+				select {
+				case res := <-outlet.Outlet():
+					got = append(got, res)
+				case <-deadline:
+					return got
+				}
+			}
+		}
+
+		// expectBefore checks that the frame of key comes before the response that
+		// applies the key update. From that response on, frames pass only the keys
+		// of the update.
+		expectBefore := func(got []streamer.Response, key channel.Key) {
+			GinkgoHelper()
+			holds := slices.IndexFunc(got, func(res streamer.Response) bool {
+				return slices.Contains(res.Frame.KeysSlice(), key)
+			})
+			applied := slices.IndexFunc(got, func(res streamer.Response) bool {
+				return res.Applied > 0
+			})
+			Expect(holds).ToNot(Equal(-1))
+			Expect(applied).ToNot(Equal(-1))
+			Expect(holds).To(BeNumerically("<", applied))
+		}
+
+		It(
+			"Should send a frame from before a key update before the ack that applies "+
+				"the update",
+			func(ctx SpecContext) {
+				a, b, w, inlet, outlet := open(ctx)
+				Expect(w.Write(frame.NewUnary(a, telem.NewSeriesV[float32](2)))).
+					To(BeTrue())
+				// The frame of a reaches the throttle's buffer.
+				time.Sleep(100 * time.Millisecond)
+				inlet.Inlet() <- streamer.Config{
+					Keys:         []channel.Key{b},
+					AckRequested: true,
+				}
+				expectBefore(collect(outlet), a)
+			},
+		)
+
+		It(
+			"Should not merge a frame from before a key update into the response that "+
+				"applies the update",
+			func(ctx SpecContext) {
+				a, b, w, inlet, outlet := open(ctx)
+				Expect(w.Write(frame.NewUnary(a, telem.NewSeriesV[float32](2)))).
+					To(BeTrue())
+				// The frame of a reaches the throttle's buffer.
+				time.Sleep(100 * time.Millisecond)
+				inlet.Inlet() <- streamer.Config{Keys: []channel.Key{b}}
+				for range 4 {
+					time.Sleep(50 * time.Millisecond)
+					Expect(w.Write(frame.NewUnary(b, telem.NewSeriesV[float32](3)))).
+						To(BeTrue())
+				}
+				expectBefore(collect(outlet), a)
+			},
 		)
 	})
 
