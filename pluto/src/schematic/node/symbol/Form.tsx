@@ -432,8 +432,8 @@ const ControlForm = (): ReactElement => {
           <NodeForm.ControlChipField />
         </Base.Section>
       ) : (
-        <Base.Section title="Control chip">
-          <NodeForm.ControlChipField label="Visible" />
+        <Base.Section title="Control">
+          <NodeForm.ControlChipField />
         </Base.Section>
       )}
     </Base.Sections>

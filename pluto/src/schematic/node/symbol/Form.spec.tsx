@@ -350,7 +350,7 @@ describe("Symbol form", () => {
         { spec: heater },
         "control",
       );
-      expect(await findByLabelText("Visible")).toBeDefined();
+      expect(await findByLabelText("Control chip")).toBeDefined();
       expect(queryByLabelText("Clickable")).toBeNull();
     });
 
@@ -374,7 +374,7 @@ describe("Symbol form", () => {
         { spec: { type: "custom", key: symbol.key } },
         "control",
       );
-      expect(await findByLabelText("Visible")).toBeDefined();
+      expect(await findByLabelText("Control chip")).toBeDefined();
     });
 
     it("should open the Telemetry tab of a light when Control was open", async () => {
