@@ -203,7 +203,7 @@ const resolvePaints = (
  * @returns a region for each part of spec, with the colors that its looks give it at
  * ctx.value, before the theme band.
  */
-export const resolveRegions = (
+const resolveRegions = (
   spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks">,
   ctx: PaintContext,
 ): schematic.symbol.Region[] => {
@@ -244,7 +244,7 @@ const enumerationKeys = (
  * while the enumerations of its states load. An entry with no color draws nodeColor,
  * else the theme gray. An enumeration that fails to load gives its entries no color.
  */
-export const usePaintContext = (
+const usePaintContext = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
