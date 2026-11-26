@@ -71,20 +71,24 @@ interface RenderListOptions extends Pick<RenderOptions, "onCaughtError"> {
   as?: Client;
 }
 
+/** Renders the list, and returns a function that renders it again with other props. */
 const renderList = async (
   props: UsedBy.ListProps,
   { items = {}, as = client, onCaughtError }: RenderListOptions = {},
-): Promise<void> => {
+): Promise<(next: UsedBy.ListProps) => Promise<void>> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
+  const tree = (p: UsedBy.ListProps) => (
+    <Tree.Provider items={items}>
+      <UsedBy.List {...p} />
+    </Tree.Provider>
+  );
   // A suspension mounted under a sync act never retries when its promise resolves.
-  await act(async () => {
-    render(
-      <Tree.Provider items={items}>
-        <UsedBy.List {...props} />
-      </Tree.Provider>,
-      { wrapper, onCaughtError },
-    );
-  });
+  const { rerender } = await act(async () =>
+    render(tree(props), { wrapper, onCaughtError }),
+  );
+  return async (next) => {
+    await act(async () => rerender(tree(next)));
+  };
 };
 
 const headings = (): (string | null)[] =>
@@ -221,6 +225,21 @@ describe("UsedBy.List", () => {
     expect(await screen.findByText("Failed to load the uses")).toBeTruthy();
     expect(screen.getByText(/cannot retrieve range.*access denied/)).toBeTruthy();
     expect(onCaughtError).toHaveBeenCalledOnce();
+  });
+
+  it("should read again when the uses change after a failed read", async () => {
+    const [denied, granted] = await Promise.all([createRange(), createRange()]);
+    const limited = await createTestClientWithGrants(client, {
+      retrieve: [ranger.resourceID(granted.key)],
+    });
+    const rerender = await renderList(
+      { kind: "channel", uses: [{ id: ranger.resourceID(denied.key) }] },
+      { as: limited, onCaughtError: vi.fn() },
+    );
+    await screen.findByText("Failed to load the uses");
+    await rerender({ kind: "channel", uses: [{ id: ranger.resourceID(granted.key) }] });
+    expect(await screen.findByText(granted.name)).toBeTruthy();
+    expect(screen.queryByText("Failed to load the uses")).toBeNull();
   });
 
   it("should read the uses again on Retry and keep the focus in the list", async () => {

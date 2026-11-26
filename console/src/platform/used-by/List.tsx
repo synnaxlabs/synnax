@@ -200,6 +200,8 @@ interface Retry {
   retrying: boolean;
   /** Ends a retry once its read fails or the list shows. */
   settle: () => void;
+  /** Names the uses the list reads, so a failure on other uses reads again. */
+  usesKey: string;
 }
 
 const RetryContext = createContext<Retry | null>(null);
@@ -208,11 +210,16 @@ RetryContext.displayName = "UsedBy.Retry";
 const Failed = ({ error, resetErrorBoundary }: Errors.FallbackProps): ReactElement => {
   const ctx = use(RetryContext);
   const button = useRef<HTMLButtonElement>(null);
+  const [failedKey] = useState(ctx?.usesKey);
   useEffect(() => {
     if (ctx?.retrying !== true) return;
     button.current?.focus();
     ctx.settle();
   }, [ctx]);
+  // The failure is of the uses it read, so new uses read again.
+  useEffect(() => {
+    if (ctx != null && ctx.usesKey !== failedKey) resetErrorBoundary();
+  }, [ctx, failedKey, resetErrorBoundary]);
   if (ctx == null) throw new Error("Failed must be inside a used-by list");
   // A read wraps the error of the Core, which says why the read failed.
   const cause = Array.from(errors.causes(error)).at(-1);
@@ -296,7 +303,14 @@ const Uses = (props: ListProps): ReactElement => {
   };
   return (
     <Flex.Box y empty ref={root} tabIndex={-1} className={CSS.BE("used-by", "list")}>
-      <RetryContext value={{ retry, retrying, settle: () => setRetrying(false) }}>
+      <RetryContext
+        value={{
+          retry,
+          retrying,
+          settle: () => setRetrying(false),
+          usesKey: props.uses.map(({ id }) => resource.idToString(id)).join(","),
+        }}
+      >
         <Errors.SuspenseBoundary
           FallbackComponent={Failed}
           loading={<Loading uses={props.uses} />}
