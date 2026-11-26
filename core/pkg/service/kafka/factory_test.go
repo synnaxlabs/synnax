@@ -89,6 +89,25 @@ var _ = Describe("Factory", func() {
 			Entry("an explicit zero", 0.0),
 		)
 
+		It("Should start a scan task at boot", func(ctx SpecContext) {
+			t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": 2})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
+		})
+
+		It("Should leave the start of a scan task to the start command of a deploy",
+			func(ctx SpecContext) {
+				t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": 2})
+				dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+				DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+					Entry(&task.Status{}).
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
 		It("Should write an error status for an invalid config at boot",
 			func(ctx SpecContext) {
 				dev := createDevice(ctx, clusterProperties())
