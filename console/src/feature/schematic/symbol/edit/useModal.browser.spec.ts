@@ -695,7 +695,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByLabelText("Remove Vent"));
       fireEvent.click(findButton("Save"));
       await screen.findByText("Vessel 1 loses the Vent binding.");
-      fireEvent.click(findButton("Cancel"));
+      fireEvent.click(findLastButton("Cancel"));
       await waitFor(() =>
         expect(screen.queryByText("Vessel 1 loses the Vent binding.")).toBeNull(),
       );
@@ -1592,7 +1592,8 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("keeps a state and its looks on a cancel", async () => {
       const symbol = await openFaulted();
       fireEvent.click(screen.getByLabelText("Remove Fault"));
-      fireEvent.click(await screen.findByText("Cancel"));
+      await screen.findByText("Its uses go with it: 1 look, 1 command, and 1 click.");
+      fireEvent.click(findLastButton("Cancel"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await retrieveStored(symbol.key);
