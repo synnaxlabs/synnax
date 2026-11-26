@@ -46,42 +46,8 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	slices.SortFunc(channels, func(a, b Channel) int {
-		if a.Internal != b.Internal {
-			if a.Internal {
-				return -1
-			}
-			return 1
-		}
-		// On a tie in NFC, the name that is in NFC keeps it.
-		if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
-			if aNFC {
-				return -1
-			}
-			return 1
-		}
-		return cmp.Compare(b.Key(), a.Key())
-	})
-	var (
-		claimed = make(set.Set[sibling], len(channels))
-		moves   = make([]bool, len(channels))
-		taken   = make(set.Set[string], len(channels))
-	)
-	for i, c := range channels {
-		if !c.Internal && resource.NeedsRename(c.Name) {
-			moves[i] = true
-			continue
-		}
-		at := sibling{name: resource.NormalizeName(c.Name)}
-		if c.Group != nil {
-			at.group = *c.Group
-		}
-		moves[i] = !c.Internal && claimed.Contains(at)
-		claimed.Add(at)
-		if !moves[i] {
-			taken.Add(at.name)
-		}
-	}
+	slices.SortFunc(channels, claimOrder)
+	moves, taken := markMoves(channels)
 	var changed []Channel
 	for i, c := range channels {
 		if !moves[i] {
@@ -110,4 +76,49 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		changed = append(changed, c)
 	}
 	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, changed...)
+}
+
+// claimOrder puts internal channels first, then names in NFC, then the highest key, so
+// each channel claims its name before the channels after it.
+func claimOrder(a, b Channel) int {
+	if a.Internal != b.Internal {
+		if a.Internal {
+			return -1
+		}
+		return 1
+	}
+	// On a tie in NFC, the name that is in NFC keeps it.
+	if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
+		if aNFC {
+			return -1
+		}
+		return 1
+	}
+	return cmp.Compare(b.Key(), a.Key())
+}
+
+// markMoves reports which of channels, in claim order, take a new name, and returns the
+// names that the others keep.
+func markMoves(channels []Channel) ([]bool, set.Set[string]) {
+	var (
+		claimed = make(set.Set[sibling], len(channels))
+		moves   = make([]bool, len(channels))
+		taken   = make(set.Set[string], len(channels))
+	)
+	for i, c := range channels {
+		if !c.Internal && resource.NeedsRename(c.Name) {
+			moves[i] = true
+			continue
+		}
+		at := sibling{name: resource.NormalizeName(c.Name)}
+		if c.Group != nil {
+			at.group = *c.Group
+		}
+		moves[i] = !c.Internal && claimed.Contains(at)
+		claimed.Add(at)
+		if !moves[i] {
+			taken.Add(at.name)
+		}
+	}
+	return moves, taken
 }

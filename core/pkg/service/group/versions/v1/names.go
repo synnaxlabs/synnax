@@ -46,33 +46,8 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	slices.SortFunc(groups, func(a, b Group) int {
-		// On a tie in NFC, the name that is in NFC keeps it.
-		if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
-			if aNFC {
-				return -1
-			}
-			return 1
-		}
-		return a.Key.Compare(b.Key)
-	})
-	var (
-		claimed = make(set.Set[sibling], len(groups))
-		moves   = make([]bool, len(groups))
-		taken   = make(set.Set[sibling], len(groups))
-	)
-	for i, g := range groups {
-		if resource.NeedsRename(g.Name) {
-			moves[i] = true
-			continue
-		}
-		at := sibling{parent: parentOf(g), name: resource.NormalizeName(g.Name)}
-		moves[i] = claimed.Contains(at)
-		claimed.Add(at)
-		if !moves[i] {
-			taken.Add(at)
-		}
-	}
+	slices.SortFunc(groups, claimOrder)
+	moves, taken := markMoves(groups)
 	var changed []Group
 	for i, g := range groups {
 		if !moves[i] {
@@ -104,6 +79,42 @@ func migrateNameRule(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) 
 		changed = append(changed, g)
 	}
 	return gorp.WrapWriter[Key, Group](tx).Set(ctx, changed...)
+}
+
+// claimOrder puts names in NFC first, then each by key, so each folder claims its name
+// before the folders after it.
+func claimOrder(a, b Group) int {
+	// On a tie in NFC, the name that is in NFC keeps it.
+	if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
+		if aNFC {
+			return -1
+		}
+		return 1
+	}
+	return a.Key.Compare(b.Key)
+}
+
+// markMoves reports which of groups, in claim order, take a new name, and returns the
+// names that the others keep in each parent.
+func markMoves(groups []Group) ([]bool, set.Set[sibling]) {
+	var (
+		claimed = make(set.Set[sibling], len(groups))
+		moves   = make([]bool, len(groups))
+		taken   = make(set.Set[sibling], len(groups))
+	)
+	for i, g := range groups {
+		if resource.NeedsRename(g.Name) {
+			moves[i] = true
+			continue
+		}
+		at := sibling{parent: parentOf(g), name: resource.NormalizeName(g.Name)}
+		moves[i] = claimed.Contains(at)
+		claimed.Add(at)
+		if !moves[i] {
+			taken.Add(at)
+		}
+	}
+	return moves, taken
 }
 
 func parentOf(g Group) resource.ID {
