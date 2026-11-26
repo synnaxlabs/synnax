@@ -14,12 +14,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
@@ -35,6 +37,7 @@ var _ = Describe("Writer take over on the pointer log", func() {
 	}
 	var (
 		fs               xfs.FS
+		opens            *segmentOpens
 		db               *cesium.DB
 		logs             *observer.ObservedLogs
 		stop             func()
@@ -56,7 +59,8 @@ var _ = Describe("Writer take over on the pointer log", func() {
 		stop = StartRun(db.Run)
 	}
 	BeforeEach(func(ctx SpecContext) {
-		fs, written = xfs.NewMem(), nil
+		opens, written = &segmentOpens{}, nil
+		fs = segmentOpenFS{FS: xfs.NewMem(), opens: opens}
 		open(ctx)
 		idx, fixed, text = GenerateChannelKey(), GenerateChannelKey(),
 			GenerateChannelKey()
@@ -178,4 +182,64 @@ var _ = Describe("Writer take over on the pointer log", func() {
 		Expect(sealed.All()[0].ContextMap()["error"]).To(ContainSubstring("corrupt"))
 		expectWritten(ctx, 3)
 	})
+
+	It("Should close the segments it took over when a later take over fails", func(
+		ctx SpecContext,
+	) {
+		session(ctx, 10*telem.SecondTS, 100)
+		before := opens.open.Load()
+		opens.err = xerrors.New("open failed")
+		opens.resumes.Store(0)
+		opens.failAt.Store(int64(len(keys)))
+		Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: keys,
+			Start:    20 * telem.SecondTS,
+		})).Error().To(MatchError(opens.err))
+		Expect(opens.open.Load()).To(Equal(before))
+	})
 })
+
+// segmentOpens counts the open segment files of a segmentOpenFS, and the opens of
+// existing segment files, the open numbered failAt of which fails with err.
+type segmentOpens struct {
+	open, resumes, failAt atomic.Int64
+	err                   error
+}
+
+type segmentOpenFS struct {
+	xfs.FS
+	opens *segmentOpens
+}
+
+func (f segmentOpenFS) Sub(name string) (xfs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return segmentOpenFS{FS: sub, opens: f.opens}, nil
+}
+
+func (f segmentOpenFS) Open(name string, flag int) (xfs.File, error) {
+	if !strings.HasSuffix(name, ".seg") {
+		return f.FS.Open(name, flag)
+	}
+	if flag&os.O_CREATE == 0 && f.opens.resumes.Add(1) == f.opens.failAt.Load() {
+		return nil, f.opens.err
+	}
+	file, err := f.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	f.opens.open.Add(1)
+	return segmentOpenFile{File: file, opens: f.opens}, nil
+}
+
+type segmentOpenFile struct {
+	xfs.File
+	opens *segmentOpens
+}
+
+func (f segmentOpenFile) Close() error {
+	f.opens.open.Add(-1)
+	return f.File.Close()
+}
