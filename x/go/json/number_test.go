@@ -11,7 +11,6 @@ package json_test
 
 import (
 	"math"
-	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -75,6 +74,8 @@ var _ = Describe("ParseNumber", func() {
 			integer[int64]{}, integer[uint64]{}, 0.3),
 		Entry("a number below the smallest float", "1e-400", integer[int64]{},
 			integer[uint64]{}, 0.0),
+		Entry("the smallest exponent", "1e-1048576", integer[int64]{},
+			integer[uint64]{}, 0.0),
 	)
 
 	DescribeTable("Should reject text that is not a number",
@@ -90,14 +91,11 @@ var _ = Describe("ParseNumber", func() {
 		Entry("two points", "1.2.3", `invalid number "1.2.3"`),
 		Entry("an exponent with no digits", "1e", `invalid number "1e"`),
 		Entry("a number past a float64", "1e999", `invalid number "1e999"`),
+		Entry("an exponent past 2^20", "1e1048577", `invalid number "1e1048577"`),
+		Entry("an exponent below -2^20", "1e-1048577", `invalid number "1e-1048577"`),
+		Entry("zero with an exponent past 2^20", "0e1048577",
+			`invalid number "0e1048577"`),
 	)
-
-	It("Should read a number with a clamped exponent as strconv does", func() {
-		// The exponent clamps to the length of the fraction, which then cancels it.
-		text := "0." + strings.Repeat("0", 1<<20-1) + "15e9999999"
-		n := MustSucceed(xjson.ParseNumber([]byte(text)))
-		Expect(n.Float64()).To(BeZero())
-	})
 })
 
 var _ = Describe("AppendFloat", func() {

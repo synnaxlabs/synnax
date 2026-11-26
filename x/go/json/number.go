@@ -260,8 +260,8 @@ type decimal struct {
 	overflow bool
 }
 
-// maxExponent bounds the exponent parseDecimal reads. Any larger one overflows or
-// truncates to zero.
+// maxExponent bounds the exponent of a number. A number with a larger one is not valid,
+// as it overflows or truncates to zero.
 const maxExponent = 1 << 20
 
 // parseDecimal returns the decimal number text times 10^scale. ok is false when text is
@@ -359,10 +359,6 @@ var exactPowers = [...]float64{
 // float returns the float64 nearest to t. exact is false when t has more digits or a
 // larger exponent than one float64 operation rounds correctly, and then f is zero.
 func (t decimalText) float() (f float64, exact bool) {
-	// A clamped exponent no longer gives the value.
-	if t.exp <= -maxExponent || t.exp >= maxExponent {
-		return 0, false
-	}
 	var m uint64
 	digits := 0
 	for _, part := range [...][]byte{t.whole, t.frac} {
@@ -394,9 +390,9 @@ func (t decimalText) float() (f float64, exact bool) {
 	return f, true
 }
 
-// parseExponent parses the signed decimal exponent of a number, clamped to
-// ±maxExponent.
-func parseExponent(text []byte) (int, bool) {
+// parseExponent parses the signed decimal exponent of a number. ok is false when the
+// exponent is not valid or is past ±maxExponent.
+func parseExponent(text []byte) (e int, ok bool) {
 	negative := false
 	if len(text) > 0 && (text[0] == '-' || text[0] == '+') {
 		negative, text = text[0] == '-', text[1:]
@@ -404,9 +400,10 @@ func parseExponent(text []byte) (int, bool) {
 	if len(text) == 0 || !isDigits(text) {
 		return 0, false
 	}
-	e := 0
 	for _, c := range text {
-		e = min(e*10+int(c-'0'), maxExponent)
+		if e = e*10 + int(c-'0'); e > maxExponent {
+			return 0, false
+		}
 	}
 	if negative {
 		return -e, true
