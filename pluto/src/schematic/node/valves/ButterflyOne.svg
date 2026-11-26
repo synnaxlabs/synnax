@@ -18,7 +18,6 @@
         cx="43.5"
         cy="21"
         r="10"
-        fill="currentColor"
-        style="color: var(--pluto-symbol-display)"
+        fill="var(--pluto-symbol-display)"
     />
 </svg>

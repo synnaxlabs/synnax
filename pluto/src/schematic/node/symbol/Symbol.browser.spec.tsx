@@ -458,18 +458,25 @@ describe("Symbol node", () => {
     },
   );
 
-  it.each(["t_junction", "flowmeter_orifice"])(
-    "should fill the solid shapes of %s with no node color",
-    async (name) => {
+  // The theme draws a body in the stroke color of the drawing, and a letter in the
+  // color of its text.
+  it.each([
+    ["t_junction", ".lyra-symbol-colored", "stroke"],
+    ["flowmeter_orifice", "text", "fill"],
+  ] as const)(
+    "should fill the solid shapes of %s as the theme draws them with no node color",
+    async (name, selector, property) => {
       const solid = await renderBuiltIn(name, ".pluto--solid");
-      expect(getComputedStyle(solid).fill).not.toBe("none");
+      const theme = solid.closest(selector);
+      assert(theme != null);
+      expect(getComputedStyle(solid).fill).toBe(getComputedStyle(theme)[property]);
     },
   );
 
   it("should stroke a built-in in the theme color with no node color", async () => {
     const path = await renderBuiltIn("filter", "path");
     const root = path.closest(".lyra-symbol-colored");
-    if (root == null) throw new Error("the drawing has no symbol color root");
+    assert(root != null);
     expect(path.style.stroke).toBe("");
     expect(getComputedStyle(path).stroke).toBe(getComputedStyle(root).stroke);
   });
