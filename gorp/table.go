@@ -142,7 +142,7 @@ func OpenTable[K Key, E Entry[K]](
 		return t, nil
 	}
 	var (
-		inserts   []func(E)
+		inserts   []func(*E)
 		finishes  []func(error)
 		locked    = make(chan struct{})
 		closing   = make(chan struct{})
@@ -178,7 +178,7 @@ func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	closing <-chan struct{},
 	ins alamos.Instrumentation,
-	inserts []func(E),
+	inserts []func(*E),
 	finishes []func(error),
 ) {
 	var scanErr error
@@ -212,7 +212,7 @@ func (t *Table[K, E]) runPopulate(
 		default:
 		}
 		for _, insert := range inserts {
-			insert(e)
+			insert(&e)
 		}
 	}
 }

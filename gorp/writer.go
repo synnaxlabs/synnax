@@ -185,7 +185,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		if _, ok := idx.(Reference[K, E]); ok && current {
 			continue
 		}
-		idx.stageSet(w.tx, entry)
+		idx.stageSet(w.tx, &entry)
 	}
 	links, indexed := s.indexedBefore()
 	if !current || !indexed {
