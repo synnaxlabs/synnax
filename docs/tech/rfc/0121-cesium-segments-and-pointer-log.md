@@ -1284,8 +1284,8 @@ as several pieces, grouped into pull requests of about 2,000 hand-written lines.
     names, which every task config must then store, and a `Line` flag in the channel
     file, which Phase 7 removes.
 13. **The old holder commits first at a handoff**: Rejected: a `Pending` that waits for
-    the new clock's stamps, with `adopt` across handoffs (D-458), which parks samples
-    across a move and drops them at `Close`.
+    the new clock's stamps, with `adopt` across handoffs (D-313, D-389), which parks
+    samples across a move and drops them at `Close`.
 14. **Continued stretches in memory only**: Rejected: a durable clean flag, a new record
     for one number per clock per restart.
 15. **The Core ends a clock**: Rejected: a `Delete` that ends each clock with no user on
