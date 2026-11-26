@@ -14,7 +14,6 @@ import (
 	"context"
 	"encoding/json/v2"
 	"fmt"
-	"io"
 	"math"
 	"math/rand/v2"
 	"runtime"
@@ -483,24 +482,11 @@ var _ = Describe("Codec", func() {
 
 	Describe("Error Handling", func() {
 		It(
-			"Should return a validation error when a series has the wrong data type",
-			func(ctx SpecContext) {
-				c := codec.NewStatic(
-					[]channel.Key{1},
-					[]telem.DataType{telem.Uint8T},
-				)
-				fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
-				encoded, err := c.Encode(ctx, fr)
-				Expect(encoded).To(BeEmpty())
-				Expect(err).To(MatchError(validate.ErrValidation))
-			},
-		)
-		It(
 			"Should reject a frame with a key the decoder does not know",
 			func(ctx SpecContext) {
 				dataTypes := []telem.DataType{telem.Int32T, telem.Int32T, telem.Int32T}
-				enc := codec.NewStatic(channel.Keys{1, 2, 3}, dataTypes)
-				dec := codec.NewStatic(channel.Keys{1, 2}, dataTypes[:2])
+				enc := codec.NewStatic(channel.Keys{1, 3, 4}, dataTypes)
+				dec := codec.NewStatic(channel.Keys{1, 2, 4}, dataTypes)
 				encoded := MustSucceed(enc.Encode(ctx, frame.NewMulti(
 					channel.Keys{1, 3},
 					[]telem.Series{
@@ -518,12 +504,17 @@ var _ = Describe("Codec", func() {
 		DescribeTable("Should fail without allocating a length the frame does not hold",
 			func(ctx SpecContext, dataType telem.DataType, series telem.Series) {
 				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+				MustSucceed(
+					c.Decode(MustSucceed(c.Encode(ctx, frame.NewUnary(1, series)))),
+				)
 				encoded := MustSucceed(c.Encode(ctx, frame.NewUnary(1, series)))
-				// The flags byte and the sequence number come before the length.
+				// In a frame after the first of its state, the flags byte and the
+				// sequence number come before the length.
 				telem.ByteOrder.PutUint32(encoded[5:9], math.MaxUint32)
 				var before, after runtime.MemStats
 				runtime.ReadMemStats(&before)
-				Expect(c.Decode(encoded)).Error().To(MatchError(io.ErrUnexpectedEOF))
+				Expect(c.Decode(encoded)).Error().
+					To(invalid("remote sent a frame that ends early"))
 				runtime.ReadMemStats(&after)
 				Expect(after.TotalAlloc - before.TotalAlloc).
 					To(BeNumerically("<", 8<<20))
@@ -655,25 +646,6 @@ var _ = Describe("Codec", func() {
 				telem.BooleanT,
 				telem.Series{DataType: telem.BooleanT, Data: alternating(9<<20 + 3)},
 			),
-		)
-	})
-
-	Describe("Extended Flags", func() {
-		It(
-			"Should reject a frame that sets the extended flags bit",
-			func(ctx SpecContext) {
-				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
-				encoded := MustSucceed(
-					c.Encode(ctx, frame.NewUnary(1, telem.NewSeriesV[int32](1))),
-				)
-				encoded[0] |= 1 << 7
-				Expect(c.Decode(encoded)).Error().To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(
-						"remote sent an extended flags byte, which this codec does not support: validation error",
-					),
-				))
-			},
 		)
 	})
 
@@ -988,7 +960,15 @@ var _ = Describe("Codec", func() {
 						}
 						encodeMu.Lock()
 						buf.Reset()
-						encodeErr = enc.EncodeStream(ctx, &buf, framer.Frame{})
+						// Every frame of a state reaches the decoder in order, as on a
+						// stream, since the first frame of a state declares its types.
+						if encodeErr = enc.EncodeStream(
+							ctx,
+							&buf,
+							framer.Frame{},
+						); encodeErr == nil {
+							_, encodeErr = dec.Decode(buf.Bytes())
+						}
 						encodeMu.Unlock()
 					}
 				}()
@@ -998,16 +978,15 @@ var _ = Describe("Codec", func() {
 					if i%2 == 0 {
 						keys = both
 					}
-					Expect(enc.Update(ctx, keys)).To(Succeed())
 					Expect(dec.Update(ctx, keys)).To(Succeed())
+					Expect(enc.Update(ctx, keys)).To(Succeed())
 					checking.Store(true)
-					encoded := func() []byte {
+					decoded := func() framer.Frame {
 						encodeMu.Lock()
 						defer encodeMu.Unlock()
-						return MustSucceed(enc.Encode(ctx, fr))
+						return MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
 					}()
 					checking.Store(false)
-					decoded := MustSucceed(dec.Decode(encoded))
 					if (decoded.Get(idxCh).Len() > 0) != (len(keys) == 2) {
 						mismatches++
 					}
@@ -1726,10 +1705,10 @@ var _ = Describe("Codec", func() {
 
 		Describe("Name Resolution", func() {
 			It(
-				"Should include the resolved channel name in a data type mismatch error",
+				"Should include the resolved channel name in a missing type code error",
 				func(ctx SpecContext) {
 					c := codec.NewDynamic(configResolver{
-						dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+						dataTypes: map[channel.Key]telem.DataType{777: telem.UnknownT},
 						name:      "my-channel",
 					})
 					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
@@ -1745,7 +1724,7 @@ var _ = Describe("Codec", func() {
 				"Should fall back to the key string when the resolver returns an empty name",
 				func(ctx SpecContext) {
 					c := codec.NewDynamic(configResolver{
-						dataTypes: map[channel.Key]telem.DataType{777: telem.Uint8T},
+						dataTypes: map[channel.Key]telem.DataType{777: telem.UnknownT},
 						name:      "",
 					})
 					Expect(c.Update(ctx, []channel.Key{777})).To(Succeed())
@@ -1859,6 +1838,24 @@ func BenchmarkJSONEncode(b *testing.B) {
 	}
 }
 
+// steadyFrame returns fr encoded after the first frame of the state, which cd has
+// decoded, so a decode benchmark measures the frame that a stream sends most.
+func steadyFrame(b *testing.B, cd *codec.Codec, fr framer.Frame) []byte {
+	b.Helper()
+	first, err := cd.Encode(b.Context(), fr)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if _, err = cd.Decode(first); err != nil {
+		b.Fatal(err)
+	}
+	encoded, err := cd.Encode(b.Context(), fr)
+	if err != nil {
+		b.Fatal(err)
+	}
+	return encoded
+}
+
 func BenchmarkDecode(b *testing.B) {
 	var (
 		dataTypes = []telem.DataType{"int32"}
@@ -1869,11 +1866,7 @@ func BenchmarkDecode(b *testing.B) {
 		)
 		cd = codec.NewStatic(keys, dataTypes)
 	)
-	encoded, err := cd.Encode(b.Context(), fr)
-	if err != nil {
-		b.Fatal(err)
-	}
-	r := bytes.NewReader(encoded)
+	r := bytes.NewReader(steadyFrame(b, cd, fr))
 	for b.Loop() {
 		if _, err := r.Seek(0, 0); err != nil {
 			b.Fatalf("failed to seek: %v", err)
@@ -1881,6 +1874,60 @@ func BenchmarkDecode(b *testing.B) {
 		if fr, err := cd.DecodeStream(r); err != nil || fr.Empty() {
 			b.Fatalf("failed to decode stream: %v", err)
 		}
+	}
+}
+
+// gateShapes are the [channels, samples per channel] frame shapes of the codec gate.
+var gateShapes = [][2]int{{1, 3}, {100, 10}, {1000, 1}}
+
+// shapeOf returns a codec of n float32 channels and a frame with a series of the given
+// number of samples for each.
+func shapeOf(n, samples int) (*codec.Codec, framer.Frame) {
+	keys := make(channel.Keys, n)
+	dataTypes := make([]telem.DataType, n)
+	series := make([]telem.Series, n)
+	for i := range keys {
+		keys[i] = channel.Key(i + 1)
+		dataTypes[i] = telem.Float32T
+		series[i] = telem.NewSeries(make([]float32, samples))
+	}
+	return codec.NewStatic(keys, dataTypes), frame.NewMulti(keys, series)
+}
+
+// BenchmarkEncodeShapes encodes a steady frame at each gate shape.
+func BenchmarkEncodeShapes(b *testing.B) {
+	for _, sh := range gateShapes {
+		b.Run(fmt.Sprintf("%dx%d", sh[0], sh[1]), func(b *testing.B) {
+			cd, fr := shapeOf(sh[0], sh[1])
+			steadyFrame(b, cd, fr)
+			w := bytes.NewBuffer(nil)
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+					b.Fatal(err)
+				}
+				w.Reset()
+			}
+		})
+	}
+}
+
+// BenchmarkDecodeShapes decodes a steady frame at each gate shape.
+func BenchmarkDecodeShapes(b *testing.B) {
+	for _, sh := range gateShapes {
+		b.Run(fmt.Sprintf("%dx%d", sh[0], sh[1]), func(b *testing.B) {
+			cd, fr := shapeOf(sh[0], sh[1])
+			r := bytes.NewReader(steadyFrame(b, cd, fr))
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := r.Seek(0, 0); err != nil {
+					b.Fatal(err)
+				}
+				if _, err := cd.DecodeStream(r); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
 	}
 }
 
@@ -2176,11 +2223,7 @@ func BenchmarkStreamerFrame_Decode(b *testing.B) {
 		b.Run(fmt.Sprintf("channels=%d/allFull", nc), func(b *testing.B) {
 			keys, dataTypes, fr := makeStreamerFrame(nc, nc, 100)
 			cd := codec.NewStatic(keys, dataTypes)
-			encoded, err := cd.Encode(b.Context(), fr)
-			if err != nil {
-				b.Fatalf("encode: %v", err)
-			}
-			r := bytes.NewReader(encoded)
+			r := bytes.NewReader(steadyFrame(b, cd, fr))
 			b.ReportAllocs()
 			for b.Loop() {
 				if _, err := r.Seek(0, 0); err != nil {
@@ -2250,11 +2293,7 @@ func BenchmarkIteratorFrame_Decode(b *testing.B) {
 		b.Run(name, func(b *testing.B) {
 			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
 			cd := codec.NewStatic(keys, dataTypes)
-			encoded, err := cd.Encode(b.Context(), fr)
-			if err != nil {
-				b.Fatalf("encode: %v", err)
-			}
-			r := bytes.NewReader(encoded)
+			r := bytes.NewReader(steadyFrame(b, cd, fr))
 			b.ReportAllocs()
 			for b.Loop() {
 				if _, err := r.Seek(0, 0); err != nil {

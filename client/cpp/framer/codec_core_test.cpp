@@ -138,7 +138,6 @@ TEST(CodecTests, DecodeWhileUpdating) {
         x::telem::Series(x::telem::TimeStamp(x::telem::SECOND))
     );
     std::vector<uint8_t> encoded;
-    ASSERT_NIL(encoder.encode(frame, encoded));
     std::atomic updating = true;
     x::errors::Error update_err;
     std::thread updater([&] {
@@ -148,7 +147,13 @@ TEST(CodecTests, DecodeWhileUpdating) {
     });
     x::telem::Frame decoded;
     x::errors::Error decode_err;
+    // Each pass decodes the next frame of the stream, since the first frame of a state
+    // declares its types once.
     do {
+        if (const auto err = encoder.encode(frame, encoded); err) {
+            decode_err = err;
+            break;
+        }
         std::tie(decoded, decode_err) = decoder.decode(encoded);
     } while (updating && !decode_err);
     updater.join();

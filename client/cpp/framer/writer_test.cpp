@@ -232,7 +232,8 @@ TEST(WriterTests, testAutoIndexMixedUserProvidedAndGenerated) {
 }
 
 /// @brief it should return a validation error when attempting to write a frame with
-/// a series that does not match the data type of the channel.
+/// a series that does not match the data type of the channel. The Core judges the data
+/// type, so the error arrives at the next commit.
 TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
@@ -247,7 +248,7 @@ TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
     auto frame = x::telem::Frame(2);
     frame.emplace(time.key, x::telem::Series(x::telem::TimeStamp::now()));
     frame.emplace(data.key, x::telem::Series(std::vector<uint32_t>{1}));
-    ASSERT_OCCURRED_AS(writer.write(frame), x::errors::VALIDATION);
+    ASSERT_NIL(writer.write(frame));
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS(writer.close(), x::errors::VALIDATION);
 }
@@ -653,7 +654,7 @@ TEST(WriterTests, testErrorCommunication) {
     auto frame = x::telem::Frame(2);
     frame.emplace(time.key, x::telem::Series(x::telem::TimeStamp::now()));
     frame.emplace(data.key, x::telem::Series(std::vector<uint32_t>{1}));
-    ASSERT_OCCURRED_AS(writer.write(frame), x::errors::VALIDATION);
+    ASSERT_NIL(writer.write(frame));
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
     ASSERT_OCCURRED_AS_P(writer.commit(), x::errors::VALIDATION);
