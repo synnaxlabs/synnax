@@ -478,7 +478,7 @@ jobs:
       package: console
       shards: 3
       webkit: *full
-      # A page keeps every file (microsoft/playwright#44290), so 4 stay under 1.5 GB.
+      # A page keeps each file it runs (microsoft/playwright#44290); 4 stay under 2 GB.
       webkit_files_per_page: 4
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
