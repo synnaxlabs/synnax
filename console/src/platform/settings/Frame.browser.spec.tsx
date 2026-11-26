@@ -42,7 +42,9 @@ describe("Settings.Frame", () => {
         sections: [createSection("Alpha"), createSection("Beta")],
       },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     expect(screen.getByText("Alpha page")).toBeTruthy();
     fireEvent.click(screen.getByRole("menuitem", { name: "Beta" }));
     expect(screen.getByText("Beta page")).toBeTruthy();
@@ -53,7 +55,9 @@ describe("Settings.Frame", () => {
     const groups: Settings.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     const heading = screen.getByRole("heading", { name: "Alpha" });
     expect(heading.querySelector("svg")).not.toBeNull();
   });
@@ -67,7 +71,9 @@ describe("Settings.Frame", () => {
       },
       { key: "second", name: "Second", sections: [createSection("Gone", false)] },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     expect(screen.getByText("Shown page")).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "Hidden" })).toBeNull();
     expect(screen.queryByRole("menuitem", { name: "Gone" })).toBeNull();
@@ -83,11 +89,14 @@ describe("Settings.Frame", () => {
       },
     ];
     const { store, unmount } = await renderWithConsole(
-      <Settings.Frame groups={groups} />,
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Beta" }));
     unmount();
-    await renderWithConsole(<Settings.Frame groups={groups} />, { store });
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      { store },
+    );
     expect(screen.getByText("Beta page")).toBeTruthy();
   });
 
@@ -100,9 +109,12 @@ describe("Settings.Frame", () => {
       },
     ];
     const { store, unmount } = await renderWithConsole(<p />);
-    store.dispatch(Session.Nav.selectSettingsSection({ section: "hidden" }));
+    store.dispatch(Session.Nav.selectSection({ page: "settings", section: "hidden" }));
     unmount();
-    await renderWithConsole(<Settings.Frame groups={groups} />, { store });
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      { store },
+    );
     expect(screen.getByText("Shown page")).toBeTruthy();
   });
 
@@ -110,7 +122,9 @@ describe("Settings.Frame", () => {
     const groups: Settings.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     const nav = screen.getByRole("navigation", { name: "Settings" });
     expect(nav.classList.contains(RAIL)).toBe(false);
     width.set(600);
@@ -123,7 +137,9 @@ describe("Settings.Frame", () => {
     const groups: Settings.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     const nav = screen.getByRole("navigation", { name: "Settings" });
     width.set(0);
     expect(nav.classList.contains(RAIL)).toBe(false);
@@ -133,7 +149,9 @@ describe("Settings.Frame", () => {
     const groups: Settings.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     const nav = screen.getByRole("navigation", { name: "Settings" });
     fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
     expect(nav.classList.contains(RAIL)).toBe(true);
@@ -145,7 +163,9 @@ describe("Settings.Frame", () => {
     const groups: Settings.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeTruthy();
     width.set(600);
     expect(screen.queryByRole("button", { name: "Collapse sidebar" })).toBeNull();
@@ -155,7 +175,9 @@ describe("Settings.Frame", () => {
     const groups: Settings.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
-    await renderWithConsole(<Settings.Frame groups={groups} />);
+    await renderWithConsole(
+      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+    );
     width.set(600);
     fireEvent.pointerOver(screen.getByRole("menuitem", { name: "Alpha" }), {
       pointerType: "mouse",

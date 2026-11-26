@@ -487,7 +487,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
     current,
     currentGroup,
     addField,
-    added,
+    fieldProps,
   } = ICD.Write.useTree<WriteTarget>({
     path: root.config.targets,
     messageOf,
@@ -581,7 +581,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         field={current.field.key}
         channelName={names.get(naming.key(current.field)) ?? naming.name(current.field)}
         skipped={target.disabled}
-        autoFocus={current.field.key === added}
+        {...fieldProps(current.field.key)}
       />
     );
   } else if (path != null && target != null) {

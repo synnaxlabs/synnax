@@ -34,8 +34,6 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "3", position: { x: 0.5, y: 0.03125 }, orientation: "top" },
     { key: "4", position: { x: 0.5, y: 0.9675 }, orientation: "bottom" },
   ],
-  // The lamp keeps the stroke of the node.
-  looks: [Custom.createFillLook(1)],
 });
 
 const ON_COLOR = CSS.variable("light-on-color");

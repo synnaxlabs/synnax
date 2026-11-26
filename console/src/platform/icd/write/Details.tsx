@@ -18,8 +18,8 @@ import type { FC } from "react";
 
 import { CSS } from "@/platform/css";
 import { defaultDataType, encodes } from "@/platform/icd/dataType";
-import { JSONField } from "@/platform/icd/Fields";
-import { formatOf, useFormats } from "@/platform/icd/Formats";
+import { JSONField, renamedPointer } from "@/platform/icd/Fields";
+import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { formatDefault } from "@/platform/icd/Options";
 import { rawBounds } from "@/platform/icd/range";
@@ -81,6 +81,11 @@ export interface FieldDetailsProps {
   skipped?: boolean;
   /** The name of the field takes the focus on mount. */
   autoFocus?: boolean;
+  /**
+   * The task form created the field, so a rename moves its pointer while the pointer
+   * is the pointer of its name.
+   */
+  created?: boolean;
 }
 
 /**
@@ -95,10 +100,12 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   channelName,
   skipped = false,
   autoFocus = false,
+  created = false,
 }) => {
   const { set } = PForm.useContext();
   const isPreview = Task.useIsPreview();
-  const format = formatOf(useFormats(), icdKey);
+  const formats = useFormats();
+  const format = formatOf(formats, icdKey);
   const fieldPath = fieldsPath(message)[key];
   const field = PForm.useFieldValue(fieldPath, { ctx: format });
   const bindings = PForm.useFieldValue(path);
@@ -120,6 +127,10 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         ? { type: "channel", field: key, channel: 0 }
         : { type: "value", field: key, value: INITIAL_VALUES[field.type](field) };
     set(path, bound ? bindings.with(i, next) : [...bindings, next]);
+  };
+  const handleRename = (name: string) => {
+    const pointer = renamedPointer(field, name, fieldsOf(formats, icdKey, message));
+    if (pointer != null) format.set(fieldPath.pointer, pointer);
   };
   const modes = (
     <Select.Buttons<Mode>
@@ -154,6 +165,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
           <JSONField
             path={fieldPath}
             autoFocus={autoFocus}
+            onNameChange={created ? handleRename : undefined}
             actions={<OpenInEditor icdKey={icdKey} message={message} />}
           />
         </PForm.Form>

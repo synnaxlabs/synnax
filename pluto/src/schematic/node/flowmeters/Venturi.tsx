@@ -24,6 +24,7 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "3", position: { x: 0.5, y: 0.05714 }, orientation: "top" },
     { key: "4", position: { x: 0.5, y: 0.94386 }, orientation: "bottom" },
   ],
+  ...Custom.SOLID_SHAPES,
 });
 
 export const Venturi = ({
