@@ -1070,7 +1070,7 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
 19. **Time groups are declared at open and never stored**: A group is a partition of a
     writer's stored channels. Rejected: one writer per time source (a bridge over 100
     topics would hold 100 writers), groups in task configs, which copy what the config
-    already says, and K2's name `slots`, a second word for one idea.
+    already says, and the name `slots`, a second word for one idea.
 20. **A channel keeps its group for its session**: It closes the per-frame map of a
     script that sends two time series. Rejected: a map in each frame, which every codec
     must carry.
@@ -1083,13 +1083,13 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
     storage branch does today.
 23. **Takeover at open, and a variable type rebuilds its cursor**: Per D-475, which
     amends D-080. Rejected: a seal at every open, which makes one file per channel and
-    clock per session, and K4's seal for variable types, which still does so for text
+    clock per session, and a seal for variable types, which still does so for text
     channels.
 24. **A new alignment number per clock after a restart**: The continuation of a stretch
     lives in memory. Rejected: a durable clean flag. 5,000 clocks and one restart per
     day use 2^31 numbers in 1,176 years.
 25. **No stored flag marks a clock**: Continuation drops a key of the group (hard rule
-    4). Rejected: K4's `Line` flag in Cesium's channel file, which RFC 0121 Phase 7
+    4). Rejected: a `Line` flag in Cesium's channel file, which RFC 0121 Phase 7
     removes.
 26. **A clock ends with its last user's delete**: Rejected: a kept-key warning that only
     `synnax purge` clears, and a delete on absence (D-469).
@@ -1097,9 +1097,9 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
     which keeps a record that acts as an index channel and shows it to users.
 28. **An index channel that times no stored data stays a timestamp channel**:
     `core/v0.62.0` lets users write and read an index channel alone, so its samples are
-    user data. The test is Cesium's, not the records': K4's test (a data record names
-    the index) deletes an index whose data channels are empty, and keeps one that times
-    data of a kept key, which then fails the start check.
+    user data. The test is Cesium's, not the records': a test of records (a data record
+    names the index) deletes an index whose data channels are empty, and keeps one that
+    times data of a kept key, which then fails the start check.
 29. **`time.of(channel)` and a text rewrite**: Arc and calculations read a channel's
     stamps with one builtin. Rejected: a hidden alias, and a compile error with no
     rewrite, which breaks stored programs.
@@ -1109,17 +1109,17 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
 31. **`clock` in code and on the wire, "time" for users**: Rejected: `line` in code, a
     rename of the shipped series field for no user gain. So the open response field is
     `clocks`, and the read caches are per clock.
-32. **C++ names a group by its position**: Rejected: K1's `Writer::time_key(g)`, a clock
-    key on a documented return (D-141) that a Driver source cannot know before the open.
+32. **C++ names a group by its position**: Rejected: `Writer::time_key(g)`, a clock key
+    on a documented return (D-141) that a Driver source cannot know before the open.
 33. **Task time sources**: OPC UA has one task-level `time` node, the ICD field
     `ReadMessage.index` becomes `time`, and a replay floor is the latest last stamp of a
     group's channels. Rejected: a time flag per OPC UA channel, which allows two.
 34. **Continuation picks by most keys**: Then by the latest last stamp, then by the
-    lowest key. Rejected: K4's latest stamp first, under which one key's new clock pulls
+    lowest key. Rejected: the latest stamp first, under which one key's new clock pulls
     a whole group. A clock whose last stamp is not before the start is no candidate, so
     a backfill takes a new clock instead of failing on another session's stamps.
 35. **A reserved `time`, with stored names kept**: A new channel whose path is `time`
-    fails at create. Rejected: K1's rename of stored ones, against D-448, and no rule,
+    fails at create. Rejected: a rename of stored ones, against D-448, and no rule,
     which lets a write by name meet a channel and the reserved key at once.
 36. **`frame.time(channel)` is the only time read**: Rejected: a `"time"` column, which
     holds only while every channel of a frame shares one clock, and time on each
@@ -1133,13 +1133,13 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
 39. **The read prototype decides R2 before hidden clocks**: It changes no format. A
     chunk that spans a handoff or a move may cost up to 2 times (a rare-path bar under
     R2), with its own benchmark.
-40. **Holder migrations land per integration, in one release**: Rejected: K4's one PR
-    with the channel step, over 2,000 lines. The channel step lands last, so `main`
-    never holds a dangling link.
+40. **Holder migrations land per integration, in one release**: Rejected: one PR with
+    the channel step, over 2,000 lines. The channel step lands last, so `main` never
+    holds a dangling link.
 41. **A stretch continues only across a gap of at most 3 steps**: A line plot draws one
-    line through a stretch. Rejected: K's continuation at every clean close, which draws
-    a straight line across a task stop of any length, and a new number per session,
-    which uses 2^31 numbers in 6.8 years for one 10 Hz `client.write` loop (F §7.3).
+    line through a stretch. Rejected: continuation at every clean close, which draws a
+    straight line across a task stop of any length, and a new number per session, which
+    uses 2^31 numbers in 6.8 years for one 10 Hz `client.write` loop.
 
 ## 8 Open questions
 
