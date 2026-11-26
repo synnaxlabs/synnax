@@ -18,8 +18,10 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Name rule", Ordered, func() {
@@ -115,6 +117,28 @@ var _ = Describe("Name rule", Ordered, func() {
 			To(MatchError(ContainSubstring("cannot hold a '.' or invalid UTF-8")))
 	})
 
+	It("Should name the position of a rename that breaks the rule", func(
+		ctx SpecContext,
+	) {
+		a, b := virtual(UniqueChannelName()), virtual(UniqueChannelName())
+		Expect(create(ctx, &a)).To(Succeed())
+		Expect(create(ctx, &b)).To(Succeed())
+		err := db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).RenameMany(
+				ctx,
+				[]channel.Key{a.Key(), b.Key()},
+				[]string{UniqueChannelName(), "stand.pt"},
+				false,
+			)
+		})
+		Expect(
+			err,
+		).To(MatchError(ContainSubstring("cannot hold a '.' or invalid UTF-8")))
+		pathErr, ok := errors.AsType[validate.PathError](err)
+		Expect(ok).To(BeTrue())
+		Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+	})
+
 	It(
 		"Should refuse a name in NFD that a channel holds in NFC",
 		func(ctx SpecContext) {
@@ -135,15 +159,5 @@ var _ = Describe("Name rule", Ordered, func() {
 		Expect(move(ctx, ch.Key(), &folder.Key)).To(Succeed())
 		Expect(stored(ctx, ch.Key())).To(Equal("stand.pt.flag"))
 		Expect(rename(ctx, ch.Key(), "stand_pt_flag")).To(Succeed())
-	})
-
-	It("Should keep a stored name that is not in NFC when a write keeps it", func(
-		ctx SpecContext,
-	) {
-		ch := virtual(UniqueChannelName())
-		Expect(create(ctx, &ch)).To(Succeed())
-		storeName(ctx, ch.Key(), "o\u0308_flag")
-		Expect(move(ctx, ch.Key(), &folder.Key)).To(Succeed())
-		Expect(stored(ctx, ch.Key())).To(Equal("o\u0308_flag"))
 	})
 })

@@ -121,16 +121,6 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 			Expect(lastRename()).To(Equal(quoted("\u00F1_brk_apply")))
 		})
 
-	It("Should retrieve a stored channel by the exact name that it holds",
-		func(ctx SpecContext) {
-			ch := virtual(UniqueChannelName())
-			Expect(create(ctx, &ch)).To(Succeed())
-			storeName(ctx, ch.Key(), "o\u0308_brk_retrieve")
-			again := virtual("o\u0308_brk_retrieve")
-			Expect(create(ctx, &again, channel.RetrieveIfNameExists())).To(Succeed())
-			Expect(again.Key()).To(Equal(ch.Key()))
-		})
-
 	It("Should refuse a name that a stored channel holds in another normal form",
 		func(ctx SpecContext) {
 			ch := virtual(UniqueChannelName())

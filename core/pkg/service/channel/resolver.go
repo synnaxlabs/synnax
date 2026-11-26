@@ -10,7 +10,9 @@
 package channel
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"strconv"
 	"sync"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -53,23 +56,31 @@ func (r *symbolResolver) retrieve() Retrieve {
 	return q
 }
 
-// Resolve resolves a single cluster channel by name or numeric key.
+// Resolve resolves a single cluster channel by name, compared in NFC, or by numeric
+// key. Of channels in two folders with the name, it resolves the one with the highest
+// key, as a v0.62 Core did.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
 ) (*symbol.Symbol, error) {
-	key, err := strconv.ParseUint(name, 10, 32)
-	var ch Channel
-	q := r.retrieve().Entry(&ch)
-	if err == nil {
+	var (
+		matches []Channel
+		q       = r.retrieve().Entries(&matches)
+	)
+	if key, err := strconv.ParseUint(name, 10, 32); err == nil {
 		q = q.Where(MatchKeys(Key(key)))
 	} else {
-		q = q.Where(MatchNames(name))
+		q = q.Where(MatchNames(validate.NormalizeName(name)))
 	}
-	if err = q.Exec(ctx, r.snap); err != nil {
+	if err := q.Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	return toSymbol(ch), nil
+	if len(matches) == 0 {
+		return nil, errors.Wrapf(query.ErrNotFound, "no channel named %q", name)
+	}
+	return toSymbol(slices.MaxFunc(matches, func(a, b Channel) int {
+		return cmp.Compare(a.Key(), b.Key())
+	})), nil
 }
 
 // Search fuzzy-searches non-internal cluster channels by name.

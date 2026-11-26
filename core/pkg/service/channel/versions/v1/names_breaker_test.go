@@ -72,7 +72,11 @@ var _ = Describe("NameRuleMigration breaker", func() {
 		names := run(ctx)
 		Expect(names[9]).To(Equal("cafe\u0301"))
 		Expect(MustSucceed(resource.StagedRenames(db))).To(Equal([]resource.Rename{
-			{ID: channel(1, "", false).ResourceID(), From: "caf\u00E9"},
+			{
+				ID:     channel(1, "", false).ResourceID(),
+				From:   "caf\u00E9",
+				Reason: resource.ReasonRepeat,
+			},
 		}))
 		Expect(names[1]).To(
 			Equal("caf\u00E9_2"),

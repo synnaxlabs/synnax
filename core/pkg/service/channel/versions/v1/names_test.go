@@ -89,8 +89,12 @@ var _ = Describe("NameRuleMigration", func() {
 		Entry("a control character", "pt\x00a"),
 		Entry("a zero-width space", "pt\u200B01"),
 		Entry("a no-break space", "pt\u00A001"),
-		Entry("a name not in NFC", "cafe\u0301"),
 	)
+
+	It("Should write a kept name in NFC with no staged rename", func(ctx SpecContext) {
+		Expect(migrate(ctx, channel(1, "cafe\u0301", nil))[1]).To(Equal("caf\u00E9"))
+		Expect(staged()).To(BeEmpty())
+	})
 
 	It("Should name a channel channel_<key> when its name is empty",
 		func(ctx SpecContext) {

@@ -163,9 +163,12 @@ func (r *registry) addReferences(refs []registeredReference) {
 	}
 }
 
-func (r *registry) unregister(name string, prefix []byte) {
+// unregister removes the table named name and its references from r, and calls leave
+// with the lock of r held.
+func (r *registry) unregister(name string, prefix []byte, leave func(*registry)) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	leave(r)
 	delete(r.tables, name)
 	delete(r.names, string(prefix))
 	for target, refs := range r.referencing {
