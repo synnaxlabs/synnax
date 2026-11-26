@@ -33,7 +33,9 @@ var _ = Describe("Renames", func() {
 		Expect(v0.StageRename(ctx, kv, pressure, "pt.01", v0.ReasonSeparator)).
 			To(Succeed())
 		Expect(v0.StageRename(ctx, kv, stand, "Stand A", v0.ReasonRepeat)).To(Succeed())
-		Expect(v0.StageRename(ctx, kv, pressure, "pt_01", v0.ReasonClash)).To(Succeed())
+		Expect(
+			v0.StageRename(ctx, kv, pressure, "pt_01", v0.ReasonRepeat),
+		).To(Succeed())
 		Expect(MustSucceed(v0.StagedRenames(kv))).To(Equal([]v0.Rename{
 			{ID: pressure, From: "pt.01", Reason: v0.ReasonSeparator},
 			{ID: stand, From: "Stand A", Reason: v0.ReasonRepeat},
