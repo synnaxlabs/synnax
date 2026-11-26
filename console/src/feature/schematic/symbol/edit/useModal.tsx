@@ -43,7 +43,6 @@ import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
-import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -320,8 +319,7 @@ const Editor = ({
       if (part != null) return selectPart(part);
     }
     // Placement reads the variant, so a symbol with a click saves as an actuator.
-    if (FLAGS.symbolNodes)
-      form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
+    form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const next = form.get(path.data).value;
@@ -365,75 +363,56 @@ const Editor = ({
                   />
                 </Flex.Box>
                 <Divider.Divider x />
-                {FLAGS.symbolNodes ? (
-                  <>
-                    <ItemList
-                      title="States"
-                      noun="state"
-                      items={states}
-                      label={(s) => s.name}
-                      name={(key) => path.data.states[key].name}
-                      detail={(s) => STATE_TYPES[s.type]}
-                      add={Spec.addState}
-                      remove={Spec.removeState}
-                      // The inspector shows no state, so no state looks selected.
-                      value={undefined}
-                      onChange={(key) => {
-                        // The preview shows enumeration states alone.
-                        const state = states.find((s) => s.key === key);
-                        if (state?.type !== "enumeration") return;
-                        setPreview({
-                          state: state.key,
-                          value: state.default,
-                        });
-                      }}
-                    />
-                    <Divider.Divider x />
-                    <ItemList
-                      title="Commands"
-                      noun="command"
-                      items={commands}
-                      label={(c) => c.name}
-                      name={(key) => path.data.commands[key].name}
-                      detail={(c) => <CommandDetail command={c} />}
-                      add={Spec.addCommand}
-                      remove={Spec.removeCommand}
-                      value={shown?.type === "command" ? shown.key : undefined}
-                      onChange={selectItem("command")}
-                    />
-                    <Divider.Divider x />
-                    <ItemList
-                      title="Clicks"
-                      noun="click"
-                      items={interactions}
-                      label={(i) => targetName(parts, i.part)}
-                      removeLabel={(i) =>
-                        `Remove the click on ${targetPhrase(parts, i.part)}`
-                      }
-                      detail={describeClick}
-                      add={Spec.addInteraction}
-                      addDisabledReason={clickDisabledReason}
-                      remove={Spec.removeInteraction}
-                      value={shown?.type === "click" ? shown.key : undefined}
-                      onChange={selectItem("click")}
-                    />
-                  </>
-                ) : (
-                  <Flex.Box y>
-                    <Header.Header level="p" bordered={false}>
-                      <Header.Title level="p" weight={500}>
-                        States
-                      </Header.Title>
-                    </Header.Header>
-                    <Flex.Box className={CSS.BE("schematic", "states")}>
-                      <SelectVariantField
-                        onSelectValue={(value) =>
-                          setPreview({ state: Spec.STATE, value })
-                        }
-                      />
-                    </Flex.Box>
-                  </Flex.Box>
-                )}
+                <ItemList
+                  title="States"
+                  noun="state"
+                  items={states}
+                  label={(s) => s.name}
+                  name={(key) => path.data.states[key].name}
+                  detail={(s) => STATE_TYPES[s.type]}
+                  add={Spec.addState}
+                  remove={Spec.removeState}
+                  // The inspector shows no state, so no state looks selected.
+                  value={undefined}
+                  onChange={(key) => {
+                    // The preview shows enumeration states alone.
+                    const state = states.find((s) => s.key === key);
+                    if (state?.type !== "enumeration") return;
+                    setPreview({
+                      state: state.key,
+                      value: state.default,
+                    });
+                  }}
+                />
+                <Divider.Divider x />
+                <ItemList
+                  title="Commands"
+                  noun="command"
+                  items={commands}
+                  label={(c) => c.name}
+                  name={(key) => path.data.commands[key].name}
+                  detail={(c) => <CommandDetail command={c} />}
+                  add={Spec.addCommand}
+                  remove={Spec.removeCommand}
+                  value={shown?.type === "command" ? shown.key : undefined}
+                  onChange={selectItem("command")}
+                />
+                <Divider.Divider x />
+                <ItemList
+                  title="Clicks"
+                  noun="click"
+                  items={interactions}
+                  label={(i) => targetName(parts, i.part)}
+                  removeLabel={(i) =>
+                    `Remove the click on ${targetPhrase(parts, i.part)}`
+                  }
+                  detail={describeClick}
+                  add={Spec.addInteraction}
+                  addDisabledReason={clickDisabledReason}
+                  remove={Spec.removeInteraction}
+                  value={shown?.type === "click" ? shown.key : undefined}
+                  onChange={selectItem("click")}
+                />
                 <Divider.Divider x />
                 <PartList
                   value={shown == null ? selectedPart : null}

@@ -30,7 +30,5 @@ export const compare =
 // Owner: Patrick Dotson. Umbrella: SY-5127. Removed in 0.63. Reads NI devices from
 // their typed tables. Turns on when the Driver writes them.
 export const typedNIDevices = false;
-// Owner: Emiliano Bonilla. Umbrella: SY-6745. Removed in 0.64.
-export const symbolNodes = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
 // Owner: Emiliano Bonilla. Umbrella: SY-6757. Removed in 0.64.
 export const symbolMotion = IS_DEV || import.meta.env.VITE_FLAGS_ENABLED === "true";
