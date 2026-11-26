@@ -79,6 +79,7 @@ export type Where = {
   isIndex?: filter.Bool;
   internal?: filter.Bool;
   virtual?: boolean;
+  path?: filter.Set<z.ZodString>;
   groups?: group.Key[];
   grouped?: boolean;
 };
@@ -112,6 +113,11 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
    * when false.
    */
   virtual: z.boolean().optional(),
+  /**
+   * path matches the channels at full paths: the names of the folders from the top,
+   * then the channel's name, joined by '.'.
+   */
+  path: filter.setZ(z.string()).optional(),
   /** groups matches the channels in any of the given groups. */
   groups: zod.nullToUndefined(group.keyZ.array()),
   /** grouped matches the channels in a group, or in no group when false. */

@@ -205,7 +205,8 @@ func (r RetrieveRequest) Named() []resource.ID {
 }
 
 // Retrieve retrieves the channels that the request selects and that the subject can
-// retrieve. A channel that the top level of Where names by exact name needs retrieve,
+// retrieve. A channel that the top level of Where names by exact name or path needs
+// retrieve,
 // as a named key does.
 func (s *Service) Retrieve(
 	ctx context.Context,
@@ -243,11 +244,14 @@ func (s *Service) retrieve(
 		where := channel.NormalizeWhere(*req.Where)
 		req.Where = &where
 	}
-	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res))
+	q, err := ApplyRetrieve(
+		req,
+		s.internal.NewRetrieve().AllowFolders(snap.Allowed).Entries(&res),
+	)
 	if err != nil {
 		return nil, err
 	}
-	named := namesByName(req.Where)
+	named := namedExactly(req.Where)
 	if !named {
 		q = q.Where(bind.Filter(snap, channel.Match))
 	}
@@ -262,11 +266,15 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// namesByName reports whether the top level of where names channels by exact name.
-// Clients name channels by name as they do by key, so each match needs retrieve.
-func namesByName(where *channel.Where) bool {
-	return where != nil && where.Name != nil &&
-		(where.Name.Eq != nil || len(where.Name.In) > 0)
+// namedExactly reports whether the top level of where names channels by exact name or
+// path. Clients name channels by name or path as they do by key, so each match needs
+// retrieve.
+func namedExactly(where *channel.Where) bool {
+	if where == nil {
+		return false
+	}
+	return where.Name != nil && (where.Name.Eq != nil || len(where.Name.In) > 0) ||
+		where.Path != nil && (where.Path.Eq != nil || len(where.Path.In) > 0)
 }
 
 func translateChannelsForward(channels []channel.Channel) []Channel {

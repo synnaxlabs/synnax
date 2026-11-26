@@ -194,19 +194,19 @@ Channel struct {
     }
 
     @cpp hand
-    @doc value     """
+    @doc value       """
         is an internal representation of a channel containing all storage and
         cluster-routing metadata. This type is used internally by the server; clients
         should use APIChannel instead.
     """
     @go marshal
     @go migrate
-    @go output     "core/pkg/service/channel"
+    @go output       "core/pkg/service/channel"
     @pb
     @py hand
-    @resource type "channel"
-    @retrieve
-    @retrieve key  "Key"
+    @resource type   "channel"
+    @retrieve custom
+    @retrieve key    "Key"
     @ts hand
 }
 
@@ -324,17 +324,24 @@ Where filter Channel {
     data_type
     is_index
     internal
-    virtual     bool        {
+    virtual     bool               {
         @doc value """
             matches virtual channels that are not calculated, or every other channel
             when false.
         """
     }
-    groups      group.Key[] {
+    path        filter.Set<string> {
+        @doc value """
+            matches the channels at full paths: the names of the folders from the top,
+            then the channel's name, joined by '.'.
+        """
+        @go match  "MatchPathSet"
+    }
+    groups      group.Key[]        {
         @cpp omit
         @doc value "matches the channels in any of the given groups."
     }
-    grouped     bool        {
+    grouped     bool               {
         @cpp omit
         @doc value "matches the channels in a group, or in no group when false."
     }

@@ -101,6 +101,11 @@ telem_data_type_set_to_proto(const ::x::filter::Set<::x::telem::DataType> &self)
 inline std::pair<::x::filter::Set<::x::telem::DataType>, x::errors::Error>
 telem_data_type_set_from_proto(const ::service::channel::pb::TelemDataTypeSet &pb);
 
+inline std::pair<::service::channel::pb::StringSet, x::errors::Error>
+string_set_to_proto(const ::x::filter::Set<std::string> &self);
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+string_set_from_proto(const ::service::channel::pb::StringSet &pb);
+
 inline std::pair<::service::channel::pb::KeySet, x::errors::Error>
 key_set_to_proto(const ::x::filter::Set<Key> &self) {
     ::service::channel::pb::KeySet pb;
@@ -171,6 +176,30 @@ telem_data_type_set_from_proto(const ::service::channel::pb::TelemDataTypeSet &p
         for (const auto &item: pb.in().values()) {
             cpp.in->push_back(::x::telem::DataType::from_proto(item));
         }
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::channel::pb::StringSet, x::errors::Error>
+string_set_to_proto(const ::x::filter::Set<std::string> &self) {
+    ::service::channel::pb::StringSet pb;
+    if (self.eq.has_value()) pb.set_eq(*self.eq);
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in)
+            wrapper->add_values(item);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+string_set_from_proto(const ::service::channel::pb::StringSet &pb) {
+    ::x::filter::Set<std::string> cpp;
+    if (pb.has_eq()) cpp.eq = pb.eq();
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values())
+            cpp.in->push_back(item);
     }
     return {cpp, x::errors::NIL};
 }
@@ -308,6 +337,11 @@ Where::to_proto() const {
         *pb.mutable_internal() = v;
     }
     if (this->virtual_.has_value()) pb.set_virtual_(*this->virtual_);
+    if (this->path.has_value()) {
+        auto [v, err] = string_set_to_proto(*this->path);
+        if (err) return {{}, err};
+        *pb.mutable_path() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -360,6 +394,11 @@ Where::from_proto(const ::service::channel::pb::Where &pb) {
         cpp.internal = v;
     }
     if (pb.has_virtual_()) cpp.virtual_ = pb.virtual_();
+    if (pb.has_path()) {
+        auto [v, err] = string_set_from_proto(pb.path());
+        if (err) return {{}, err};
+        cpp.path = v;
+    }
     return {cpp, x::errors::NIL};
 }
 

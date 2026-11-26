@@ -150,6 +150,42 @@ func (u *UniqueIndex[K, E, V]) check(ctx context.Context, tx Tx, e *E) error {
 	return nil
 }
 
+// Holder returns the entry of any table of the space of u that holds v, as seen by
+// snap, and false when none does. It waits for every index of the space to populate.
+func (u *UniqueIndex[K, E, V]) Holder(
+	ctx context.Context,
+	snap Snapshot,
+	v V,
+) (Target, bool, error) {
+	scope := scopeOf(snap)
+	for _, m := range *u.members.members.Load() {
+		if holder, found, err := m.holder(ctx, scope, v); err != nil || found {
+			return holder, found, err
+		}
+	}
+	return Target{}, false, nil
+}
+
+// Key returns the key of the entry of the table of u that holds v, as seen by snap, and
+// false when no entry of that table does. Holder returns a holder in any table of the
+// space.
+func (u *UniqueIndex[K, E, V]) Key(
+	ctx context.Context,
+	snap Snapshot,
+	v V,
+) (K, bool, error) {
+	var none K
+	if err := u.store.Wait(ctx); err != nil {
+		return none, false, err
+	}
+	return u.store.Holder(scopeOf(snap), v, nil)
+}
+
+// Committing returns the keys of the table of u that a transaction in its commit maps
+// to v. Holder misses them until the commit flushes. The commit can fail, so a caller
+// checks each key against storage.
+func (u *UniqueIndex[K, E, V]) Committing(v V) []K { return u.store.Committing(v) }
+
 // clash returns err, or else the UniqueError for holder and v.
 func (u *UniqueIndex[K, E, V]) clash(holder Target, v V, err error) error {
 	if err != nil {

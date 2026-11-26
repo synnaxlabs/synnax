@@ -104,6 +104,7 @@ inline Where Where::parse(x::json::Parser parser) {
         .is_index = parser.field<std::optional<::x::filter::Bool>>("is_index"),
         .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
         .virtual_ = parser.field<std::optional<bool>>("virtual"),
+        .path = parser.field<std::optional<::x::filter::Set<std::string>>>("path"),
     };
 }
 
@@ -119,6 +120,7 @@ inline x::json::json Where::to_json() const {
     if (this->is_index.has_value()) j["is_index"] = this->is_index->to_json();
     if (this->internal.has_value()) j["internal"] = this->internal->to_json();
     if (this->virtual_.has_value()) j["virtual"] = *this->virtual_;
+    if (this->path.has_value()) j["path"] = this->path->to_json();
     return j;
 }
 

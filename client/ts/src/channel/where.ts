@@ -11,8 +11,12 @@ import { isCalculated } from "@/channel/payload";
 import type { Lines } from "@/channel/where.gen";
 import { group } from "@/group";
 
-/** The typed lines of a channel Where. */
+/**
+ * The typed lines of a channel Where. Only the Core checks a path, since it holds the
+ * names of the folders.
+ */
 export const LINES: Lines = {
   ...group.MEMBER_LINES,
   virtual: (ch, value) => (ch.virtual && !isCalculated(ch)) === value,
+  path: null,
 };

@@ -343,6 +343,59 @@ func TelemDataTypeSetsFromPB(pbs []*TelemDataTypeSet) ([]filter.Set[telem.DataTy
 	return result, nil
 }
 
+// StringSetToPB converts filter.Set[string] to StringSet.
+func StringSetToPB(r filter.Set[string]) (*StringSet, error) {
+	pb := &StringSet{}
+	if r.Eq != nil {
+		pb.Eq = r.Eq
+	}
+	if r.In != nil {
+		pb.In = &StringList{Values: r.In}
+	}
+	return pb, nil
+}
+
+// StringSetFromPB converts StringSet to filter.Set[string].
+func StringSetFromPB(pb *StringSet) (filter.Set[string], error) {
+	var r filter.Set[string]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		r.Eq = pb.Eq
+	}
+	if pb.In != nil {
+		r.In = xpb.ListValues(pb.In.Values)
+	}
+	return r, nil
+}
+
+// StringSetsToPB converts a slice of filter.Set[string] to StringSet.
+func StringSetsToPB(rs []filter.Set[string]) ([]*StringSet, error) {
+	result := make([]*StringSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StringSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StringSetsFromPB converts a slice of StringSet to filter.Set[string].
+func StringSetsFromPB(pbs []*StringSet) ([]filter.Set[string], error) {
+	result := make([]filter.Set[string], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StringSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // WhereToPB converts Where to Where.
 func WhereToPB(r channel.Where) (*Where, error) {
 	pb := &Where{}
@@ -411,6 +464,13 @@ func WhereToPB(r channel.Where) (*Where, error) {
 	}
 	if r.Virtual != nil {
 		pb.Virtual = r.Virtual
+	}
+	if r.Path != nil {
+		var err error
+		pb.Path, err = StringSetToPB(*r.Path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if r.Groups != nil {
 		pb.Groups = &GroupKeyList{Values: lo.Map(r.Groups, func(u group.Key, _ int) string { return uuid.UUID(u).String() })}
@@ -492,6 +552,13 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 	}
 	if pb.Virtual != nil {
 		r.Virtual = pb.Virtual
+	}
+	if pb.Path != nil {
+		val, err := StringSetFromPB(pb.Path)
+		if err != nil {
+			return channel.Where{}, err
+		}
+		r.Path = &val
 	}
 	if pb.Groups != nil {
 		vals, err := func() ([]group.Key, error) {

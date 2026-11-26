@@ -83,6 +83,9 @@ type Where struct {
 	// Virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
 	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
+	// Path matches the channels at full paths: the names of the folders from the top,
+	// then the channel's name, joined by '.'.
+	Path *filter.Set[string] `json:"path,omitzero" msgpack:"path,omitempty"`
 	// Groups matches the channels in any of the given groups.
 	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
 	// Grouped matches the channels in a group, or in no group when false.
