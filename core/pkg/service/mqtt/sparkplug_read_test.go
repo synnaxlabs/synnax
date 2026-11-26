@@ -916,7 +916,8 @@ var _ = Describe("Sparkplug B read entries", func() {
 						"plant", "line1", "", "temperature", channel.Channel{},
 					)
 					entry["channel"] = 999999
-					return readConfig(ctx, dev, entry), "channel 999999 does not exist"
+					return readConfig(ctx, dev, entry),
+						"entries.0.channel: channel 999999 does not exist"
 				},
 			),
 		)

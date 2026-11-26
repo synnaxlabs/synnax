@@ -71,7 +71,7 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 
 // NewChecker returns the Checker of reads and of tags, the channels that Tag takes
 // beyond the bindings of reads. It holds each ICD from icds or else retrieved through
-// snap, and the channels of the bindings and the tags. The Checker skips an ICD or a
+// snap, and the channels of the bindings and the tags. Read and Tag skip an ICD or a
 // channel that does not exist, which the reference check of the write reports.
 func (r Resolver) NewChecker(
 	ctx context.Context,
@@ -173,9 +173,9 @@ func (r Resolver) Check(
 	return nil
 }
 
-// Checker checks the reads of one task config. It passes a read of an ICD or a binding
-// to a channel that it does not hold, which the reference check of the write reports.
-// It is not safe for concurrent use.
+// Checker checks the reads of one task config. Read passes a read of an ICD or a
+// binding to a channel that it does not hold, which the reference check of the write
+// reports. It is not safe for concurrent use.
 type Checker struct {
 	icds     map[icd.Key]icd.ICD
 	channels map[channel.Key]icdv0.Channel
@@ -239,48 +239,83 @@ func (c Checker) Tag(
 	return c.claim(key, path)
 }
 
-// ClaimIndexes claims, for each message of rd, each index channel of its bound channels
-// that its index field does not bind, since the task writes its timestamps. Run it
-// after Read and Tag, so that an error is at the path of the message that does not
-// bind it.
-func (c Checker) ClaimIndexes(rd Read) error {
+// Bind returns the Source of rd, a read that passes Read and is not framed, and claims
+// each index channel whose timestamps rd writes. Run it after Read and Tag of the whole
+// config, so that a claim error is at the path of the message that does not bind the
+// index channel. Bind returns a validation error at the path of the problem when the
+// ICD of rd or the channel of a binding does not exist, a binding has no channel, rd
+// reads no messages, a message binds no fields, or the decoder cannot tell two messages
+// apart.
+func (c Checker) Bind(rd Read) (*Source, error) {
+	ic, ok := c.icds[rd.ICD]
+	if !ok {
+		return nil, validate.PathedError(
+			validate.Errorf("ICD %s does not exist", rd.ICD),
+			slices.Concat(rd.Path, []string{"icd"})...,
+		)
+	}
+	if len(rd.Messages) == 0 {
+		return nil, validate.PathedError(
+			validate.Errorf("reads no messages"),
+			rd.Path...,
+		)
+	}
 	for j, rm := range rd.Messages {
 		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
-		var (
-			// indexes holds each index channel of the bound channels, in binding order.
-			indexes []channel.Key
-			// indexChannel is the channel of the index field.
-			indexChannel channel.Key
-		)
-		for _, b := range rm.Bindings {
-			if rm.Index != nil && *rm.Index == b.Field {
-				indexChannel = b.Channel
-			}
-			ch, ok := c.channels[b.Channel]
-			if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
-				indexes = append(indexes, ch.IndexKey)
-			}
+		if err := c.claimIndexes(rm, path); err != nil {
+			return nil, err
 		}
-		for _, key := range indexes {
-			if key == indexChannel {
-				continue
-			}
-			if err := c.claim(key, path); err != nil {
-				return err
-			}
+	}
+	return newSource(rd, ic, c.channels)
+}
+
+// claimIndexes claims, for rm at path, each index channel of its bound channels that
+// its index field does not bind, since the task writes its timestamps.
+func (c Checker) claimIndexes(rm icd.ReadMessage, path []string) error {
+	var (
+		// indexes holds each index channel of the bound channels, in binding order.
+		indexes []channel.Key
+		// indexChannel is the channel of the index field.
+		indexChannel channel.Key
+	)
+	for _, b := range rm.Bindings {
+		if rm.Index != nil && *rm.Index == b.Field {
+			indexChannel = b.Channel
+		}
+		ch, ok := c.channels[b.Channel]
+		if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
+			indexes = append(indexes, ch.IndexKey)
+		}
+	}
+	for _, key := range indexes {
+		if key == indexChannel {
+			continue
+		}
+		if err := c.claim(key, path); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-// ClaimIndex claims the index channel of key, the channel of the tag at path, whose
-// timestamps the task writes. It returns a validation error when another binding or
-// tag already writes to it.
-func (c Checker) ClaimIndex(key channel.Key, path []string) error {
-	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 {
-		return c.claim(ch.IndexKey, path)
+// BindTag returns the channel of the tag at path, and claims its index channel, whose
+// timestamps the task writes. Run it after Tag. It returns a validation error at path
+// when the channel does not exist or another binding or tag already writes to its index
+// channel.
+func (c Checker) BindTag(key channel.Key, path []string) (icdv0.Channel, error) {
+	ch, ok := c.channels[key]
+	if !ok {
+		return icdv0.Channel{}, validate.PathedError(
+			validate.Errorf("channel %d does not exist", key),
+			path...,
+		)
 	}
-	return nil
+	if ch.IndexKey != 0 {
+		if err := c.claim(ch.IndexKey, path); err != nil {
+			return icdv0.Channel{}, err
+		}
+	}
+	return ch, nil
 }
 
 // message checks rm, at path, against its message in ic and the channels of its

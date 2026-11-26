@@ -11,11 +11,13 @@ package read
 
 import (
 	"slices"
+	"strconv"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -24,7 +26,8 @@ import (
 // Group is the channels of a read that a document writes or drops together: the
 // channels on one index channel, or one virtual channel.
 type Group struct {
-	// Read is the position in the reads of NewSource of the read of the group.
+	// Read is the position of the read message of the group in the messages of its
+	// Read.
 	Read int
 	// Message is the name of the ICD message of the read.
 	Message string
@@ -91,23 +94,22 @@ type sourceRead struct {
 	first, end int
 }
 
-// NewSource returns the Source of reads, messages of ic that pass Checker.Read and
-// share one source of payloads. channels holds the channel of each binding. A field on
-// an index channel and the fields on its data channels make one group. Each field on a
-// virtual channel is a group of its own. NewSource returns a validation error when a
-// read binds no fields, a channel does not exist, or the decoder rejects reads.
-func NewSource(
-	reads []icd.ReadMessage,
+// newSource returns the Source of rd, a read of ic that passes Checker.Read. channels
+// holds the channels of the bindings. A field on an index channel and the fields on its
+// data channels make one group. Each field on a virtual channel is a group of its own.
+func newSource(
+	rd Read,
 	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
+	channels map[channel.Key]icdv0.Channel,
 ) (*Source, error) {
 	s := &Source{
-		reads:   make([]sourceRead, len(reads)),
-		samples: make([][][]byte, len(reads)),
+		reads:   make([]sourceRead, len(rd.Messages)),
+		samples: make([][][]byte, len(rd.Messages)),
 		last:    -1,
 	}
-	decoded := make([]codec.JSONMessage, len(reads))
-	for r, rm := range reads {
+	decoded := make([]codec.JSONMessage, len(rd.Messages))
+	for r, rm := range rd.Messages {
+		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(r)})
 		i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
 			return m.Key == rm.Message
 		})
@@ -120,13 +122,14 @@ func NewSource(
 			panic(errors.Newf("read: message %s is not a JSON message", msg.Name))
 		}
 		if len(rm.Bindings) == 0 {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "message %s binds no fields", msg.Name,
+			return nil, validate.PathedError(
+				validate.Errorf("message %s binds no fields", msg.Name),
+				path...,
 			)
 		}
-		bindings, err := s.add(r, rm, msg.Name, channels)
+		bindings, err := s.add(r, rm, msg.Name, payload, channels)
 		if err != nil {
-			return nil, errors.Wrapf(err, "message %s", msg.Name)
+			return nil, validate.PathedError(err, path...)
 		}
 		decoded[r] = codec.JSONMessage{
 			Name:     msg.Name,
@@ -142,33 +145,47 @@ func NewSource(
 	s.dropped = make([]bool, most)
 	var err error
 	if s.decoder, err = codec.NewJSON(decoded); err != nil {
-		return nil, err
+		return nil, validate.PathedError(err, rd.Path...)
 	}
 	return s, nil
 }
 
 // add groups the bindings of rm, read r of the message named message, and returns the
-// codec binding of each.
+// codec binding of each. It returns a validation error at the path of a binding that
+// has no channel, or whose channel does not exist.
 func (s *Source) add(
 	r int,
 	rm icd.ReadMessage,
 	message string,
-	channels map[channel.Key]channel.Channel,
+	payload icd.JSONPayload,
+	channels map[channel.Key]icdv0.Channel,
 ) ([]codec.Binding, error) {
 	rd := sourceRead{groups: make([]int, len(rm.Bindings)), first: len(s.groups)}
 	bindings := make([]codec.Binding, len(rm.Bindings))
 	for i, b := range rm.Bindings {
+		at := []string{"bindings", strconv.Itoa(i), "channel"}
+		if b.Channel == 0 {
+			f := payload.Fields[slices.IndexFunc(
+				payload.Fields,
+				func(f icd.JSONField) bool { return f.Base().Key == b.Field },
+			)]
+			return nil, validate.PathedError(
+				validate.Errorf("field %s has no channel", f.Base().Name),
+				at...,
+			)
+		}
 		ch, ok := channels[b.Channel]
 		if !ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "channel %d does not exist", b.Channel,
+			return nil, validate.PathedError(
+				validate.Errorf("channel %d does not exist", b.Channel),
+				at...,
 			)
 		}
 		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
 		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		index := ch.Index()
+		index := ch.IndexKey
 		if isIndexField {
-			index = ch.Key()
+			index = b.Channel
 		}
 		g := -1
 		if index != 0 {

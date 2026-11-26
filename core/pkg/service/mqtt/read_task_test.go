@@ -856,7 +856,8 @@ var _ = Describe("Read task", func() {
 						"pointer": "",
 					}
 					return readConfig(ctx, dev, plainEntry("plant/x", missing)),
-						"message plant/x: channel 4000000 does not exist"
+						"entries.0.messages.0.bindings.0.channel: channel 4000000 " +
+							"does not exist"
 				},
 			),
 			Entry("an enum value that does not fit the channel",

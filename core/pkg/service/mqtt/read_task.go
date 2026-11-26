@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
@@ -84,14 +83,8 @@ type readTopic struct {
 	text []byte
 }
 
-// newReadTopic validates entry against ic, the ICD it names, and channels, which holds
-// every channel that a binding of the entry names. The messages of entry must pass
-// check.
-func newReadTopic(
-	entry PlainReadEntry,
-	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
-) (*readTopic, error) {
+// newReadTopic validates entry, whose documents source decodes.
+func newReadTopic(entry PlainReadEntry, source *read.Source) (*readTopic, error) {
 	qos, err := qosLevel(entry.Qos)
 	if err != nil {
 		return nil, err
@@ -100,19 +93,12 @@ func newReadTopic(
 		topic:           entry.Topic,
 		qos:             qos,
 		retainedIgnored: entry.RetainedIgnored,
+		source:          source,
+		groups:          source.Groups(),
 	}
 	if err = validateTopic(entry.Topic); err != nil {
 		return nil, err
 	}
-	if len(entry.Messages) == 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "topic %s reads no messages", entry.Topic,
-		)
-	}
-	if t.source, err = read.NewSource(entry.Messages, ic, channels); err != nil {
-		return nil, errors.Wrapf(err, "topic %s", entry.Topic)
-	}
-	t.groups = t.source.Groups()
 	return t, nil
 }
 

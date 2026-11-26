@@ -2040,6 +2040,9 @@ var _ = Describe("Read task", func() {
 			)
 		})
 
+		// missingICD is an ICD that the Core does not hold.
+		missingICD := icd.ICD{Key: uuid.New()}
+
 		DescribeTable("Should reject an invalid config",
 			func(
 				ctx SpecContext,
@@ -2087,6 +2090,23 @@ var _ = Describe("Read task", func() {
 				},
 				"does not exist in ICD Plant",
 			),
+			Entry(
+				"an ICD that does not exist",
+				func(_ context.Context, index, data channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					return []kafka.ReadRecord{
+						record("", missingICD, read(m, index, data)),
+					}
+				},
+				"topics.0.records.0.icd: ICD "+missingICD.Key.String()+" does not exist",
+			),
+			Entry("a record that reads no messages",
+				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					return []kafka.ReadRecord{record("", createICD(ctx, m))}
+				},
+				"topics.0.records.0: reads no messages",
+			),
 			Entry("a binding with no channel",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
@@ -2095,21 +2115,23 @@ var _ = Describe("Read task", func() {
 						Field: fieldKey(m, 1), DataType: telem.Float64T,
 					}
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
-				}, "message Reading: channel 0 does not exist"),
+				}, "topics.0.records.0.messages.0.bindings.1.channel: field v has no "+
+					"channel"),
 			Entry("a channel that does not exist",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
 					rm := read(m, index, index)
 					rm.Bindings[1].Channel = 999999
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
-				}, "message Reading: channel 999999 does not exist"),
+				}, "topics.0.records.0.messages.0.bindings.1.channel: channel 999999 "+
+					"does not exist"),
 			Entry("a message that binds no fields",
 				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
 					return []kafka.ReadRecord{record(
 						"", createICD(ctx, m), icd.ReadMessage{Message: m.Key},
 					)}
-				}, "message Reading binds no fields"),
+				}, "topics.0.records.0.messages.0: message Reading binds no fields"),
 			Entry("a field whose kind does not convert to its channel",
 				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
 					m := jsonMessage("Reading", nil,

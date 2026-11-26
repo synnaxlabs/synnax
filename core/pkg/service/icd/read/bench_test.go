@@ -11,14 +11,18 @@ package read_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
 	"testing"
+	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -29,20 +33,18 @@ import (
 // to a virtual channel of its own.
 func benchSource(b *testing.B, n int, stamped bool) (*read.Source, []byte) {
 	b.Helper()
-	const leaseholder = 1
+	const index channel.Key = 1
 	ts := jsonField(
 		"ts", "/ts", icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixNs},
 	)
 	fields := append(make([]icd.JSONField, 0, n+1), ts)
-	channels := map[channel.Key]channel.Channel{}
+	channels := map[channel.Key]icdv0.Channel{}
 	bindings := make([]icd.ReadBinding, 0, n+1)
 	if stamped {
-		index := channel.Channel{
-			Leaseholder: leaseholder, LocalKey: 1, LocalIndex: 1, IsIndex: true,
-			DataType: telem.TimestampT,
+		channels[index] = icdv0.Channel{
+			Name: "ts", DataType: telem.TimestampT, Index: true, IndexKey: index,
 		}
-		channels[index.Key()] = index
-		bindings = append(bindings, bind(ts, index.Key()))
+		bindings = append(bindings, bind(ts, index))
 	}
 	var doc strings.Builder
 	doc.WriteString(`{"ts":1767323045123456789`)
@@ -50,18 +52,13 @@ func benchSource(b *testing.B, n int, stamped bool) (*read.Source, []byte) {
 		name := "f" + strconv.Itoa(i)
 		f := jsonField(name, "/"+name, icd.FloatJSONField{})
 		fields = append(fields, f)
-		ch := channel.Channel{
-			Leaseholder: leaseholder,
-			LocalKey:    channel.LocalKey(i + 2),
-			DataType:    telem.Float64T,
-		}
+		key := channel.Key(i + 2)
+		ch := icdv0.Channel{Name: name, DataType: telem.Float64T}
 		if stamped {
-			ch.LocalIndex = 1
-		} else {
-			ch.Virtual = true
+			ch.IndexKey = index
 		}
-		channels[ch.Key()] = ch
-		bindings = append(bindings, bind(f, ch.Key()))
+		channels[key] = ch
+		bindings = append(bindings, bind(f, key))
 		fmt.Fprintf(&doc, ",%q:1234.5678", name)
 	}
 	doc.WriteByte('}')
@@ -70,8 +67,25 @@ func benchSource(b *testing.B, n int, stamped bool) (*read.Source, []byte) {
 	if stamped {
 		rm = indexed(ts, rm)
 	}
-	ic := icd.ICD{Name: "bench", Messages: []icd.Message{m}}
-	s, err := read.NewSource([]icd.ReadMessage{rm}, ic, channels)
+	ic := icd.ICD{Key: uuid.New(), Name: "bench", Messages: []icd.Message{m}}
+	rd := readAt(0, ic.Key, rm)
+	resolver := read.NewResolver(nil, func(
+		context.Context,
+		gorp.Snapshot,
+		[]channel.Key,
+	) (map[channel.Key]icdv0.Channel, error) {
+		return channels, nil
+	})
+	c, err := resolver.NewChecker(
+		b.Context(), nil, []read.Read{rd}, nil, map[icd.Key]icd.ICD{ic.Key: ic},
+	)
+	if err != nil {
+		b.Fatal(err)
+	}
+	if err = c.Read(rd); err != nil {
+		b.Fatal(err)
+	}
+	s, err := c.Bind(rd)
 	if err != nil {
 		b.Fatal(err)
 	}
