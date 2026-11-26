@@ -7,21 +7,24 @@
 ## 0 Summary
 
 A channel today has one data type and one index channel for life. This RFC removes the
-index channel from the user model and lets a channel change its data type and its time
-source. A **clock** is the list of times at which one source took samples; it has a key
-and no Core record. Each series names the clock that timed it, and a series whose type
-differs from the stream's agreed type carries a 1-byte type code. Every frame the Core
-sends brings the times of its data, unless the request marks a key untimed. Readers pair
-values with times by clock key and alignment, accept mixed types, and pair calculation
-inputs across clocks by sample time. Writers send time under the reserved key `"time"`.
-The typed device links a port to a channel, and the Core makes missing channels at task
-save.
+index channel from the user model and lets a channel change its data type. Storage keeps
+time in **clocks**: stamp series that it picks and that no user sees. A writer sends
+time under the reserved key `"time"`, and it may declare at open the groups of channels
+that share one time. Storage gives each group a clock, continues the clock that the
+group's channels used last, and moves a script's channel that often pauses to a clock of
+its own. Each series names its clock, and a series whose type differs from the stream's
+agreed type carries a 1-byte type code. Every frame the Core sends holds the time of its
+data, unless the request marks a key untimed. A reader gets a channel's time with
+`frame.time(channel)`, and calculation inputs on two clocks pair by sample time. Each
+index channel becomes a clock at the upgrade, and the typed device links a port to a
+channel.
 
 ## 1 Motivation
 
 - **The index channel does five jobs**: It is a time column, a shared position space, a
   write group, a time source, and a fixed reference on the channel record. Users must
-  create it first and write it in every frame.
+  create it first and write it with every channel of its group in each frame
+  (`cesium/writer_stream.go:951-970`).
 - **A type change breaks every stream**: The frame codec fails the encode of a series
   whose type differs from its key's
   (`core/pkg/distribution/framer/codec/codec.go:625-643`), and the TypeScript cache
@@ -35,12 +38,14 @@ save.
 
 ## 2 Vocabulary
 
-- **Clock**: The list of times at which one source took samples. It has a key and no
-  Core record.
-- **Clock key**: A `uint32` from the channel key allocator. No value is both a channel
-  key and a clock key. Key 0 means no clock.
-- **Time series**: The times of a clock, a `timestamp` series under the clock key.
-- **Producer**: What writes a clock (§4.0). A clock belongs to one producer.
+- **Clock**: The stamps that storage keeps for one time group. It has a `uint32` key
+  from the clock counter (§4.0) and no Core record. No user surface shows a clock or its
+  key. Key 0 means no clock.
+- **Time group**: The stored channels of a writer that share one time (§4.8). A writer
+  declares its groups at open, or it has one group of all its stored channels.
+- **Time series**: The stamps of a clock, a `timestamp` series under the clock key.
+- **Pause**: A frame that holds no sample of a channel of an adaptive group. The
+  channel's next sample starts a new pointer on the same clock.
 - **Declared type**: The `data_type` on the channel record: the type of new writes.
 - **Agreed type**, **agreed clock**: The defaults that both sides of one codec state
   hold for a key. A **steady-state** frame holds only series that match both, and the
@@ -51,14 +56,15 @@ save.
 
 ## 3 Principles
 
-1. **Information is stored once**: The channel record names no clock. Cesium records
-   type and clock per segment. The producer holds its clock key.
+1. **Information is stored once**: No channel record, task config, or client holds a
+   clock key. Cesium records type and clock per segment.
 2. **No new work per sample in the codec**: Every codec cost is per frame or per series,
    and a steady-state frame does not grow by one byte.
 3. **One side picks a default, the other reads the wire**: Two reads of a record that
    can change never have to agree.
-4. **Fail loud**: An unknown type code, flag bit, or codec version is an error. No
-   reader falls back to alignment alone.
+4. **Fail loud**: An unknown type code, flag bit, or codec version is an error, and so
+   is a write whose time does not fit its groups. No reader falls back to alignment
+   alone.
 5. **Any type change is legal**: Every reader accepts mixed types; the Core never casts.
 6. **A fast input never waits on a slow one**: The live wait budget is 0.
 
