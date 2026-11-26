@@ -10,6 +10,7 @@
 package serial_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -100,6 +101,16 @@ var _ = Describe("Service", func() {
 		valve = createChannel(ctx, telem.Uint8T, idx)
 	})
 
+	// set applies value at path of the ICD.
+	set := func(ctx context.Context, path []string, value any) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return icdSvc.NewWriter(tx).Apply(ctx, ic.Key, icd.NewSetAction(
+				icd.SetPayload{Path: path, Value: value},
+			))
+		})).To(Succeed())
+	}
+
 	Describe("Read", func() {
 		// entry returns an entry that reads the level of reading into the level
 		// channel, with poll when it is not nil.
@@ -133,6 +144,39 @@ var _ = Describe("Service", func() {
 					HaveKeyWithValue("rate", BeEquivalentTo(5)),
 				)),
 			)))
+		})
+
+		It("Should change the hash when a message that an entry reads changes", func(
+			ctx SpecContext,
+		) {
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"entries": []any{entry(nil)},
+			}))
+			before := MustSucceed(svc.Read.Hash(ctx, db, key))
+			set(ctx, []string{
+				"messages", reading.Key.String(),
+				"payload", "fields", levelField.Base().Key.String(),
+				"start_bit",
+			}, 8)
+			Expect(svc.Read.Hash(ctx, db, key)).ToNot(Equal(before))
+		})
+
+		It("Should decode an entry that a save refuses", func(ctx SpecContext) {
+			e := entry(nil)
+			gone := uuid.New()
+			e["messages"] = []any{map[string]any{"message": gone}}
+			data := MustSucceed(svc.Read.Normalize(
+				ctx, db, svc.Read.Version(), msgpack.EncodedJSON{"entries": []any{e}},
+			))
+			Expect(data["entries"]).To(HaveExactElements(HaveKeyWithValue(
+				"messages",
+				HaveExactElements(HaveKeyWithValue("message", gone.String())),
+			)))
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "Pump", data)).Error().
+				To(MatchError(ContainSubstring(
+					"entries.0.messages.0.message: message " + gone.String() +
+						" does not exist in ICD Pump",
+				)))
 		})
 
 		DescribeTable("Should refuse an entry at the path of the problem",
@@ -207,6 +251,21 @@ var _ = Describe("Service", func() {
 				HaveKeyWithValue("icd", ic.Key.String()),
 				HaveKeyWithValue("period", "100000000"),
 			)))
+		})
+
+		It("Should change the hash when the message of a target changes", func(
+			ctx SpecContext,
+		) {
+			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+				"targets": []any{target(nil)},
+			}))
+			before := MustSucceed(svc.Write.Hash(ctx, db, key))
+			set(ctx, []string{
+				"messages", command.Key.String(),
+				"payload", "fields", unitField.Base().Key.String(),
+				"start_bit",
+			}, 16)
+			Expect(svc.Write.Hash(ctx, db, key)).ToNot(Equal(before))
 		})
 
 		DescribeTable("Should refuse a target at the path of the problem",
