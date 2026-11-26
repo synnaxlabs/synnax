@@ -451,13 +451,11 @@ func (c *Codec) panicIfNotUpdated(opName string) {
 }
 
 // mergeable returns true when s2 can join s1 in one series: both have the same clock,
-// data type, and alignment multiple, s2 starts at the alignment where s1 ends, and
-// their data together fits a length field. A type with no density never merges, since
-// its alignment bounds cannot be computed.
+// data type, and alignment multiple, and s2 starts at the alignment where s1 ends. A
+// type with no density never merges, since its alignment bounds cannot be computed.
 func mergeable(s1, s2 telem.Series) bool {
 	return s1.Clock == s2.Clock &&
 		s1.DataType == s2.DataType &&
-		uint64(len(s1.Data))+uint64(len(s2.Data)) <= math.MaxUint32 &&
 		(s1.DataType.IsVariable() || s1.DataType.Density() != telem.UnknownDensity) &&
 		s1.Multiple() == s2.Multiple() &&
 		s1.AlignmentBounds().Upper == s2.AlignmentBounds().Lower
@@ -526,17 +524,20 @@ func (c *Codec) mergeContiguousSeries(
 }
 
 // contiguousRunEnd returns the exclusive end of the run that starts at runStart, where
-// each series is mergeable with the one before it.
+// each series is mergeable with the one before it and the run's data fits a length
+// field.
 func contiguousRunEnd(
 	sortedIndices []int,
 	src framer.Frame,
 	runStart, groupEnd int,
 ) int {
 	runEnd := runStart + 1
+	size := uint64(len(src.RawSeriesAt(sortedIndices[runStart]).Data))
 	for runEnd < groupEnd {
 		prevSeries := src.RawSeriesAt(sortedIndices[runEnd-1])
 		currSeries := src.RawSeriesAt(sortedIndices[runEnd])
-		if !mergeable(prevSeries, currSeries) {
+		size += uint64(len(currSeries.Data))
+		if size > math.MaxUint32 || !mergeable(prevSeries, currSeries) {
 			break
 		}
 		runEnd++
