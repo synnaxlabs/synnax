@@ -10,6 +10,7 @@
 package mqtt
 
 import (
+	"bytes"
 	"context"
 	"encoding/json/jsontext"
 	"fmt"
@@ -135,15 +136,26 @@ func (t *readTopic) convert(payload []byte) ([]read.Sample, error) {
 }
 
 // batch gathers the samples of many messages into one frame, with one series for each
-// channel.
+// channel. It keeps its buffers from one frame to the next.
 type batch struct {
-	keys   channel.Keys
-	series []telem.Series
 	// ended holds the indexes whose domains end after the samples of the batch. The
 	// batch takes no more samples once it holds any.
 	ended channel.Keys
-	// at is the position in series of each channel.
-	at map[channel.Key]int
+	// at is the position in staged of each channel that the batch has held.
+	at     map[channel.Key]int
+	staged []stagedSeries
+	// order holds the positions in staged of the channels with samples, in the order
+	// of their first samples.
+	order []int
+}
+
+// stagedSeries holds the samples of one channel until the batch builds its frame.
+type stagedSeries struct {
+	key      channel.Key
+	dataType telem.DataType
+	data     []byte
+	// held is true when data holds samples of the current frame.
+	held bool
 }
 
 // append adds data, samples of the data type dt, to the series of key.
@@ -153,19 +165,49 @@ func (b *batch) append(key channel.Key, dt telem.DataType, data []byte) {
 		if b.at == nil {
 			b.at = make(map[channel.Key]int)
 		}
-		i, b.at[key] = len(b.series), len(b.series)
-		b.keys = append(b.keys, key)
-		b.series = append(b.series, telem.Series{DataType: dt})
+		i, b.at[key] = len(b.staged), len(b.staged)
+		b.staged = append(b.staged, stagedSeries{key: key})
 	}
-	b.series[i].Data = append(b.series[i].Data, data...)
+	s := &b.staged[i]
+	if !s.held {
+		s.dataType, s.held = dt, true
+		b.order = append(b.order, i)
+	}
+	s.data = append(s.data, data...)
 }
 
+// result returns the batch, and empties it.
 func (b *batch) result() driver.Batch {
-	res := driver.Batch{EndDomains: b.ended}
-	if len(b.keys) > 0 {
-		res.Frame = frame.NewMulti(b.keys, b.series)
-	}
+	res := driver.Batch{EndDomains: b.ended, Frame: b.frame()}
+	*b = batch{at: b.at, staged: b.staged, order: b.order[:0]}
 	return res
+}
+
+// frame returns the samples of the batch in one frame, which holds the data of all of
+// its series in one allocation.
+func (b *batch) frame() frame.Frame {
+	if len(b.order) == 0 {
+		return frame.Frame{}
+	}
+	size := 0
+	for _, i := range b.order {
+		size += len(b.staged[i].data)
+	}
+	var (
+		keys   = make(channel.Keys, len(b.order))
+		series = make([]telem.Series, len(b.order))
+		data   = make([]byte, size)
+		start  = 0
+	)
+	for j, i := range b.order {
+		s := &b.staged[i]
+		end := start + copy(data[start:], s.data)
+		keys[j] = s.key
+		series[j] = telem.Series{DataType: s.dataType, Data: data[start:end:end]}
+		start = end
+		s.data, s.held = s.data[:0], false
+	}
+	return frame.NewMulti(keys, series)
 }
 
 // readSource is the driver.Source of an MQTT read task.
@@ -268,6 +310,10 @@ type reader struct {
 	offlineErr error
 	// skips counts the messages on plain topics that the task reads and skips.
 	skips *driver.Skips
+	// batch holds the samples of the next Read.
+	batch batch
+	// sample is scratch space for the sample of a Sparkplug B metric.
+	sample []byte
 	// degraded is the other data loss that the task currently warns about.
 	degraded struct {
 		err   error
@@ -360,8 +406,8 @@ func (r *reader) Read(ctx context.Context) (driver.Batch, error) {
 		}
 		return driver.Batch{}, err
 	}
-	var b batch
-	r.apply(now, msg, &b)
+	b := &r.batch
+	r.apply(now, msg, b)
 	for range r.queueSize - 1 {
 		if len(b.ended) > 0 {
 			break
@@ -370,7 +416,7 @@ func (r *reader) Read(ctx context.Context) (driver.Batch, error) {
 		if !ok {
 			break
 		}
-		r.apply(now, msg, &b)
+		r.apply(now, msg, b)
 	}
 	if dropped := r.attachment.dropped.Load(); dropped != r.dropped {
 		r.dropped = dropped
@@ -614,13 +660,15 @@ func (r *reader) appendMetric(
 	if !ok || m.Value == nil {
 		return
 	}
-	data, err := sparkplug.AppendSample(nil, t.dataType, m.Value)
+	data, err := sparkplug.AppendSample(r.sample[:0], t.dataType, m.Value)
 	if err != nil {
 		r.degrade(now, errors.Wrapf(err, "rejected a value of %s", t))
 		return
 	}
+	r.sample = data
 	if m.Historical {
-		if err = r.history.add(now, t, m.Timestamp, data); err != nil {
+		// The history keeps the sample until it writes it.
+		if err = r.history.add(now, t, m.Timestamp, bytes.Clone(data)); err != nil {
 			r.degrade(now, err)
 		}
 		return
@@ -660,10 +708,11 @@ func (r *reader) appendIndex(
 	if err := r.history.live(now, t.index, stamp); err != nil {
 		r.degrade(now, err)
 	}
+	var data [8]byte
 	b.append(
 		t.index,
 		telem.TimestampT,
-		telem.ByteOrder.AppendUint64(nil, uint64(stamp)),
+		telem.ByteOrder.AppendUint64(data[:0], uint64(stamp)),
 	)
 	return true
 }
