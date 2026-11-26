@@ -795,13 +795,14 @@ var _ = Describe("Framer", func() {
 			return out
 		}
 		// open runs in each spec, since a BeforeEach's context ends with the
-		// BeforeEach.
-		open := func(ctx SpecContext) {
+		// BeforeEach. With an index, the record channel stores its samples on it.
+		open := func(ctx SpecContext, index channel.Channel) {
 			GinkgoHelper()
 			records = channel.Channel{
-				Name:     UniqueChannelName(),
-				DataType: telem.JSONT,
-				Virtual:  true,
+				Name:       UniqueChannelName(),
+				DataType:   telem.JSONT,
+				Virtual:    index.LocalKey == 0,
+				LocalIndex: index.LocalKey,
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Channel.NewWriter(tx).Create(ctx, &records)
@@ -848,6 +849,9 @@ var _ = Describe("Framer", func() {
 			})
 			Expect(client.Send(apiframer.StreamerRequest{Keys: keys})).To(Succeed())
 			Expect(MustSucceed(client.Receive()).Frame.Empty()).To(BeTrue())
+			if index.LocalKey != 0 {
+				keys = append(keys, index.Key())
+			}
 			writer = MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
 				Start: telem.SecondTS,
 				Keys:  keys,
@@ -858,7 +862,7 @@ var _ = Describe("Framer", func() {
 		It(
 			"Should send only the samples that the subject can read",
 			func(ctx SpecContext) {
-				open(ctx)
+				open(ctx, channel.Channel{})
 				Expect(writer.Write(frame.NewUnary(
 					records.Key(), samples(denied, readable, denied),
 				))).To(BeTrue())
@@ -869,7 +873,7 @@ var _ = Describe("Framer", func() {
 		It("Should send no frame when the subject can read none of its samples", func(
 			ctx SpecContext,
 		) {
-			open(ctx)
+			open(ctx, channel.Channel{})
 			Expect(writer.Write(frame.NewUnary(
 				records.Key(), samples(denied),
 			))).To(BeTrue())
@@ -879,8 +883,31 @@ var _ = Describe("Framer", func() {
 			Expect(received()).To(Equal([]string{readable.String()}))
 		})
 
+		It("Should keep the clock of a series that it filters", func(ctx SpecContext) {
+			index := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
+			open(ctx, index)
+			Expect(writer.Write(frame.NewMulti(
+				channel.Keys{index.Key(), records.Key()},
+				[]telem.Series{
+					telem.NewSeriesSecondsTSV(1, 2),
+					samples(denied, readable),
+				},
+			))).To(BeTrue())
+			series := MustSucceed(client.Receive()).Frame.Get(records.Key()).Series
+			Expect(series).To(HaveLen(1))
+			Expect(series[0].Len()).To(BeEquivalentTo(1))
+			Expect(series[0].Clock).To(Equal(uint32(index.Key())))
+		})
+
 		It("Should keep the other channels of a frame", func(ctx SpecContext) {
-			open(ctx)
+			open(ctx, channel.Channel{})
 			Expect(writer.Write(frame.NewMulti(
 				channel.Keys{records.Key(), other.Key()},
 				[]telem.Series{samples(denied), telem.NewSeriesV[float32](1)},
@@ -893,7 +920,7 @@ var _ = Describe("Framer", func() {
 		It(
 			"Should leave a frame with no record channel as it is",
 			func(ctx SpecContext) {
-				open(ctx)
+				open(ctx, channel.Channel{})
 				Expect(writer.Write(frame.NewUnary(
 					other.Key(), telem.NewSeriesV[float32](1, 2),
 				))).To(BeTrue())
