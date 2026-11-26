@@ -55,13 +55,13 @@ SYNNAX_TEST_PORT=9190 bazel test //client/cpp/channel:all
 ### Dev Console on a free port
 
 ```bash
-SYNNAX_TEST_PORT=9190 SYNNAX_CONSOLE_PORT=5190 pnpm dev:console-vite
+SYNNAX_CONSOLE_PORT=5190 pnpm dev:console-vite
 ```
 
-`SYNNAX_TEST_PORT` names the Core, and `SYNNAX_CONSOLE_PORT` names the Vite port
-(default 5173). Vite exits if its port is taken. A Core that the browser already
-selected wins over `SYNNAX_TEST_PORT`, so a new `SYNNAX_CONSOLE_PORT` gives a clean
-start.
+`SYNNAX_CONSOLE_PORT` names the Vite port (default 5173). Vite exits if its port is
+taken. The dev Console starts on the Cores list like the desktop build: add the Core
+there. To pin it to one Core, as the browser build is, set the
+`synnax-dev-connection-port` local storage key to that Core's port.
 
 `pnpm dev:console` stays on 5173, and its single-instance plugin blocks a second one.
 Use `pnpm dev:console-vite` for parallel work.
