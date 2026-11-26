@@ -29,7 +29,7 @@ struct WriteConfig;
 /// @brief Properties configures the server that a TCP device connects to.
 struct Properties {
     /// @brief host is the host name or IP address of the server.
-    std::string host = "";
+    std::string host;
     /// @brief port is the TCP port of the server.
     std::uint16_t port = 0;
 
