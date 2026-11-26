@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -394,7 +393,7 @@ var _ = Describe("Writer", func() {
 				fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:  keys,
 					Start: 12 * telem.SecondTS,
-					Mode:  ts.WriterModePersistOnly,
+					Mode:  cesium.WriterModePersistOnly,
 					Sync:  new(true),
 				}))
 				Expect(fill.Write(frameAt(12, 13))).To(BeTrue())
@@ -462,7 +461,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             ts.WriterModePersistOnly,
+				Mode:             cesium.WriterModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))
@@ -532,7 +531,7 @@ var _ = Describe("Writer", func() {
 			fill := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 				Keys:             keys,
 				Start:            1 * telem.SecondTS,
-				Mode:             ts.WriterModePersistOnly,
+				Mode:             cesium.WriterModePersistOnly,
 				EnableAutoCommit: new(false),
 				Sync:             new(true),
 			}))
@@ -579,7 +578,7 @@ var _ = Describe("Writer", func() {
 				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:             keys,
 					Start:            10 * telem.SecondTS,
-					Mode:             ts.WriterModePersistOnly,
+					Mode:             cesium.WriterModePersistOnly,
 					EnableAutoCommit: new(false),
 				}))
 				Expect(w.Write(frame.NewMulti(keys, []telem.Series{
@@ -616,7 +615,7 @@ var _ = Describe("Writer", func() {
 				w := MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
 					Keys:             keys,
 					Start:            10 * telem.SecondTS,
-					Mode:             ts.WriterModePersistOnly,
+					Mode:             cesium.WriterModePersistOnly,
 					EnableAutoCommit: new(false),
 				}))
 				Expect(w.Write(frame.NewMulti(keys, []telem.Series{

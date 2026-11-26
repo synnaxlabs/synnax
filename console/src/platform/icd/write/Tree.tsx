@@ -26,6 +26,7 @@ import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
 import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
 import { Tree as ICDTree } from "@/platform/icd/tree";
+import type { FieldDetailsProps } from "@/platform/icd/write/Details";
 import { Task } from "@/platform/task";
 
 /** A target of a write task, in the task's form. */
@@ -92,9 +93,15 @@ export interface UseTreeReturn {
    * Suit of the target binds it.
    */
   addField: (target: string) => void;
-  /** The field that addField added last, until the next click in the tree. */
-  added?: icd.FieldKey;
+  /**
+   * @returns how the details of a field edit it: the name of the field that addField
+   * added last takes the focus, and a rename of a field that addField added can move
+   * its pointer.
+   */
+  fieldProps: (field: icd.FieldKey) => FieldProps;
 }
+
+export type FieldProps = Pick<FieldDetailsProps, "autoFocus" | "created">;
 
 const groupKey = (name: string): string => `group/${name}`;
 
@@ -168,6 +175,7 @@ export const useTree = <T extends Target>({
   const ctx = PForm.useContext();
   const formats = useFormats();
   const [added, setAdded] = useState<icd.FieldKey>();
+  const [created, setCreated] = useState<icd.FieldKey[]>([]);
   const structure = ICDTree.useStructure(formats, (): Structure =>
     ctx.get(path).value.map((t): Structure[number] => {
       const sent = messageOf(t);
@@ -274,6 +282,7 @@ export const useTree = <T extends Target>({
       fields.at(-1)?.key,
     );
     setAdded(field.key);
+    setCreated((prev) => [...prev, field.key]);
     const mark = openKey(target);
     onExpand((prev) =>
       unique.unique([...prev, ...(marks.has(mark) ? [mark] : []), target]),
@@ -455,6 +464,9 @@ export const useTree = <T extends Target>({
     current: first == null ? undefined : byKey.get(first),
     currentGroup: first == null ? undefined : groupNames.get(first),
     addField,
-    added,
+    fieldProps: (field) => ({
+      autoFocus: field === added,
+      created: created.includes(field),
+    }),
   };
 };

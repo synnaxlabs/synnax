@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
@@ -118,7 +117,7 @@ func DefaultConfig() Config {
 		ControlSubject:           control.Subject{Key: uuid.New().String()},
 		Authorities:              []control.Authority{control.AuthorityAbsolute},
 		ErrOnUnauthorized:        new(false),
-		Mode:                     ts.WriterModePersistStream,
+		Mode:                     cesium.WriterModePersistStream,
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
@@ -147,10 +146,10 @@ func (c Config) splitFree() (stored Config, free channel.Keys) {
 	return stored, free
 }
 
-func (c Config) toStorage() ts.WriterConfig {
-	return ts.WriterConfig{
+func (c Config) toStorage() cesium.WriterConfig {
+	return cesium.WriterConfig{
 		ControlSubject:           c.ControlSubject,
-		Channels:                 c.Keys.Storage(),
+		Channels:                 c.Keys.Uint32(),
 		Start:                    c.Start,
 		Authorities:              c.Authorities,
 		ErrOnUnauthorized:        c.ErrOnUnauthorized,
@@ -218,7 +217,7 @@ type ServiceConfig struct {
 	// TS is the local time series store to write to.
 	//
 	// [REQUIRED]
-	TS *ts.DB
+	TS *cesium.DB
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.

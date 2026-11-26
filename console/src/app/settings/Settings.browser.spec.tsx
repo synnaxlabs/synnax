@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { certificate, label, user } from "@synnaxlabs/client";
+import { certificate, user } from "@synnaxlabs/client";
 import {
   CERTIFICATE,
   createTestClient,
@@ -67,15 +67,7 @@ describe("Settings", () => {
   it("should open the page of each section", async () => {
     await renderSettings();
     const sections = ["Profile", "API keys", "Appearance", "Storage", "About"];
-    for (const name of [
-      ...sections,
-      "Users",
-      "Labels",
-      "Colors",
-      "Secrets",
-      "Certificates",
-      "License",
-    ]) {
+    for (const name of [...sections, "Users", "Secrets", "Certificates", "License"]) {
       fireEvent.click(await screen.findByRole("menuitem", { name }));
       expect(await screen.findByRole("heading", { name })).toBeTruthy();
     }
@@ -84,14 +76,7 @@ describe("Settings", () => {
   it("should hide the sections that a user cannot use", async () => {
     await renderSettings(await createLimitedClient());
     expect(await screen.findByRole("menuitem", { name: "Appearance" })).toBeTruthy();
-    for (const name of [
-      "License",
-      "Users",
-      "Labels",
-      "Colors",
-      "Secrets",
-      "Certificates",
-    ])
+    for (const name of ["License", "Users", "Secrets", "Certificates"])
       expect(screen.queryByRole("menuitem", { name })).toBeNull();
   });
 
@@ -115,7 +100,7 @@ describe("Settings", () => {
     const privateKey = await client.secrets.retrieve(c.privateKey);
     try {
       const { wrapper } = await renderSettings();
-      const pick = renderHook(Session.Nav.useSelectSettingsItem, { wrapper });
+      const pick = renderHook(() => Session.Nav.useSelectItem("settings"), { wrapper });
       fireEvent.click(await screen.findByRole("menuitem", { name: "Secrets" }));
       const item = await screen.findByRole("option", { name: privateKey.name });
       const count = await within(item).findByText("Used by 1");
@@ -133,29 +118,6 @@ describe("Settings", () => {
       await client.certificates.delete(c.key);
       await client.secrets.delete(c.privateKey);
     }
-  });
-
-  it("should show the Labels page when Edit labels runs", async () => {
-    const existing = await createServerPanel(client, {
-      variant: "leaf",
-      tabs: [{ variant: "view", key: uuid.create(), type: "other" }],
-    });
-    const { wrapper, store } = await createPanelWrapper({
-      client,
-      panelKey: existing.key,
-    });
-    await primePanel(wrapper, existing.key);
-    const { Content } = Settings.TABS.settings;
-    await renderLazy(<Content />, { wrapper });
-    expect(await screen.findByRole("heading", { name: "Profile" })).toBeTruthy();
-    const { openCommandPalette, selectCommand } = await renderPalette({
-      commands: Settings.COMMANDS,
-      client,
-      store,
-    });
-    await openCommandPalette();
-    await selectCommand("Edit labels");
-    expect(await screen.findByRole("heading", { name: "Labels" })).toBeTruthy();
   });
 
   it("should show the License page when Show license info runs", async () => {
@@ -207,28 +169,5 @@ describe("Settings", () => {
     });
     await openCommandPalette();
     expect(await screen.findByText("Open settings")).toBeTruthy();
-  });
-
-  it("should offer Edit labels to an Engineer", async () => {
-    const visible = findCommand(Settings.COMMANDS, "Edit labels").useVisible;
-    assertDefined(visible);
-    const { result } = await renderHookWithConsole(visible, {
-      client: await roles.get("Engineer"),
-    });
-    await waitFor(() => expect(result.current).toBe(true));
-  });
-
-  it("should withhold Edit labels from a Viewer", async () => {
-    const visible = findCommand(Settings.COMMANDS, "Edit labels").useVisible;
-    assertDefined(visible);
-    const { result } = await renderHookWithConsole(
-      () => ({
-        visible: visible(),
-        loaded: Access.useRetrieveGranted(label.TYPE_RESOURCE_ID),
-      }),
-      { client: await roles.get("Viewer") },
-    );
-    await waitFor(() => expect(result.current.loaded).toBe(true));
-    expect(result.current.visible).toBe(false);
   });
 });
