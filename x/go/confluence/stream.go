@@ -25,15 +25,6 @@ func NewStream[V Value](buffer ...int) *Stream[V] {
 	}
 }
 
-func Attach[I, O Value](seg Segment[I, O], buffer ...int) (Inlet[I], Outlet[O]) {
-	buf := parseBuffer(buffer)
-	req := NewStream[I](buf)
-	res := NewStream[O](buf)
-	seg.InFrom(req)
-	seg.OutTo(res)
-	return req, res
-}
-
 // Stream represents a stream of values. Each stream has an addressable Outlet and an
 // addressable Inlet. These addresses are best represented as unique locations where
 // values are received from (Inlet) and sent to (Outlet). It is also generally OK to
