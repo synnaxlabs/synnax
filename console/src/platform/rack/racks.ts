@@ -10,9 +10,7 @@
 import type { rack } from "@synnaxlabs/client";
 import { Rack } from "@synnaxlabs/pluto";
 
-/** Whether the rack's Driver is running. */
-export const isRunning = (r: rack.Payload): boolean =>
-  r.status?.details.running === true;
+const isRunning = (r: rack.Payload): boolean => r.status?.details.running === true;
 
 /** Whether the rack's Driver is running and reports no error, so it can run tasks. */
 export const isReady = (r: rack.Payload): boolean =>

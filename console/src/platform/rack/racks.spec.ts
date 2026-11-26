@@ -41,17 +41,15 @@ const createRackWithStatus = (variant: status.Variant, running: boolean) =>
     }),
   });
 
-describe("isRunning", () => {
+describe("isReady", () => {
   it("should return true for a warning from a running Driver", () => {
-    expect(Rack.isRunning(createRackWithStatus("warning", true))).toBe(true);
+    expect(Rack.isReady(createRackWithStatus("warning", true))).toBe(true);
   });
 
   it("should return false for a success without a running Driver", () => {
-    expect(Rack.isRunning(createRackWithStatus("success", false))).toBe(false);
+    expect(Rack.isReady(createRackWithStatus("success", false))).toBe(false);
   });
-});
 
-describe("isReady", () => {
   it("should return false for an error from a running Driver", () => {
     expect(Rack.isReady(createRackWithStatus("error", true))).toBe(false);
   });
