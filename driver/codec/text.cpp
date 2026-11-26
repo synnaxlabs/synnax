@@ -13,7 +13,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <map>
 #include <optional>
 #include <span>
@@ -114,17 +113,7 @@ std::pair<Text::Field, x::errors::Error> Text::Field::create(
 
 x::errors::Error Text::Field::append_float(double v, x::telem::Series &dst) const {
     if (this->scaled) v = v * this->scale + this->offset;
-    if (!this->narrow) {
-        dst.write(v);
-        return x::errors::NIL;
-    }
-    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            x::json::Number(v).to_string() + " overflows float32"
-        );
-    dst.write(static_cast<float>(v));
-    return x::errors::NIL;
+    return write_float(v, this->narrow, dst);
 }
 
 x::errors::Error Text::Field::decode(

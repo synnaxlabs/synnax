@@ -232,14 +232,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
                     " channels"
             ),
         };
-    if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "a scaled field requires a float channel, not " + dt.name()
-            ),
-        };
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     if (const auto w = width_of(dt); w.has_value()) {
         const bool is_signed = field.encoding == Encoding::SIGNED;
         const unsigned needed = b.bit_length + (w->is_signed && !is_signed ? 1U : 0U);
@@ -291,17 +284,7 @@ Binary::Field::append(const std::uint64_t raw, x::telem::Series &dst) const {
 
 x::errors::Error Binary::Field::append_float(double v, x::telem::Series &dst) const {
     if (this->scaled) v = v * this->scale + this->offset;
-    if (!this->narrow) {
-        dst.write(v);
-        return x::errors::NIL;
-    }
-    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            x::json::Number(v).to_string() + " overflows float32"
-        );
-    dst.write(static_cast<float>(v));
-    return x::errors::NIL;
+    return write_float(v, this->narrow, dst);
 }
 
 x::errors::Error Binary::Field::decode(
@@ -589,14 +572,7 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
                     std::string(field_kind(encoding)) + " fields"
             ),
         };
-    if (field.scaled && field.number != Number::FLOAT)
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "a scaled field requires a float channel, not " + dt->name()
-            ),
-        };
+    if (auto err = check_scaled_channel(field.scaled, *dt)) return {Field{}, err};
     return {std::move(field), x::errors::NIL};
 }
 
@@ -673,17 +649,8 @@ BinaryEncoder::create(const BinaryMessage &m) {
     Multiplexors::Layout by_key;
     for (const auto &f: m.payload.fields)
         by_key[icd::base(f).key] = &f;
-    std::map<icd::FieldKey, std::size_t> bound;
-    for (std::size_t i = 0; i < m.bindings.size(); i++) {
-        const auto &key = m.bindings[i].field;
-        const auto found = by_key.find(key);
-        if (found == by_key.end())
-            return refuse("field " + key.to_string() + " does not exist");
-        if (!bound.try_emplace(key, i).second)
-            return refuse(
-                "field " + icd::base(*found->second).name + " has more than one binding"
-            );
-    }
+    auto [bound, bind_err] = index_bindings(m.bindings, by_key);
+    if (bind_err) return {BinaryEncoder{}, as_config(bind_err, "message " + m.name)};
     const icd::FieldIdentifier *id = nullptr;
     if (m.payload.identifier.has_value())
         id = std::get_if<icd::FieldIdentifier>(&*m.payload.identifier);

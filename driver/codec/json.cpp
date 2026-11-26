@@ -222,15 +222,8 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
             ),
         };
     field.scaled = field.scale != 1 || field.offset != 0;
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     if (field.scaled) {
-        if (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-            return {
-                Field{},
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "a scaled field requires a float channel, not " + dt.name()
-                ),
-            };
         // The enums of number fail a string that is no label as an unknown label. A
         // label itself goes to sample.
         auto [number, err] = x::json::Decoder::create({
@@ -574,11 +567,7 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
                 " fields"
             ),
         };
-    if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-        return {
-            Field{},
-            invalid("a scaled field requires a float channel, not " + dt.name()),
-        };
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     field.converted = needs_conversion(
         v.kind,
         dt,
@@ -677,17 +666,8 @@ JSONEncoder::create(const JSONMessage &message) {
     std::map<icd::FieldKey, const icd::JSONField *> by_key;
     for (const auto &f: message.payload.fields)
         by_key[icd::base(f).key] = &f;
-    std::map<icd::FieldKey, std::size_t> bound;
-    for (std::size_t i = 0; i < message.bindings.size(); i++) {
-        const auto &key = message.bindings[i].field;
-        const auto found = by_key.find(key);
-        if (found == by_key.end())
-            return fail(invalid("field " + key.to_string() + " does not exist"));
-        if (!bound.try_emplace(key, i).second)
-            return fail(invalid(
-                "field " + icd::base(*found->second).name + " has more than one binding"
-            ));
-    }
+    auto [bound, bind_err] = index_bindings(message.bindings, by_key);
+    if (bind_err) return fail(bind_err);
     JSONEncoder e;
     e.name = message.name;
     e.fields.resize(message.bindings.size());
