@@ -61,7 +61,7 @@ class Properties(BaseModel):
         flow_control: Is how the port stops a sender that is too fast.
     """
 
-    port: str = Field(min_length=1, default="")
+    port: str = Field(min_length=1)
     baud_rate: int = Field(default=9600, gt=0, le=4294967295)
     data_bits: int = Field(default=8, ge=5, le=8)
     parity: Parity = "none"

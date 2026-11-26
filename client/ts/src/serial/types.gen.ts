@@ -31,7 +31,7 @@ export type FlowControl = z.infer<typeof flowControlZ>;
 /** Properties configures the serial port of a serial device. */
 export const propertiesZ = z.object({
   /** port is the path of the port, such as /dev/ttyUSB0 or COM3. */
-  port: z.string().min(1).default(""),
+  port: z.string().min(1),
   /** baudRate is the speed of the port, in bits per second. */
   baudRate: z.uint32().gt(0).default(9600),
   /** dataBits is the number of data bits in each character, from 5 to 8. */
