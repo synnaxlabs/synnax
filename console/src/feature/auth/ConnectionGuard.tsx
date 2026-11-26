@@ -144,8 +144,11 @@ const Trouble = (): ReactElement => {
   const activeKey = Session.Core.useSelectSelectedKey();
   const logout = Core.useLogout();
   const openConnect = Core.useConnectModal();
-  // A browser Console only talks to the Core that served it.
-  const editable = activeKey != null && Session.Runtime.ENGINE === "tauri";
+  // a pinned dev Console logs in to its pinned Core, which would undo an edit
+  const editable =
+    activeKey != null &&
+    Session.Runtime.CORE_SELECTABLE &&
+    Core.detectConnection() == null;
   return (
     <Flex.Box y gap="large" full="x">
       <Connection.Target />

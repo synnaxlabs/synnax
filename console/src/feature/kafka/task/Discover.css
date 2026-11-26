@@ -14,3 +14,9 @@
     padding: 0 3rem 2rem;
     overflow-wrap: anywhere;
 }
+
+.console-kafka-discover__format {
+    flex-shrink: 0;
+    padding: 2rem 2rem 1rem;
+    border-top: var(--console-divider);
+}

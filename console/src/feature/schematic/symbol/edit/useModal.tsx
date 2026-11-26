@@ -31,7 +31,10 @@ import {
   ClickInspector,
   targetName,
 } from "@/feature/schematic/symbol/edit/ClickInspector";
-import { CommandInspector } from "@/feature/schematic/symbol/edit/CommandInspector";
+import {
+  CommandInspector,
+  NONE,
+} from "@/feature/schematic/symbol/edit/CommandInspector";
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { ItemList } from "@/feature/schematic/symbol/edit/ItemList";
@@ -75,13 +78,10 @@ interface CommandDetailProps {
 // CommandDetail names the value that a command sends, by the enumeration of its state
 // when it has one.
 const CommandDetail = ({ command }: CommandDetailProps): ReactNode => {
-  const values = useValues(command.state);
+  const values = useValues(command.state ?? NONE);
   if (command.value.type === "ask") return "Asks for a value";
   const { value } = command.value;
-  const named =
-    values.state === command.state
-      ? values.list.find((v) => v.value === value)?.name
-      : undefined;
+  const named = values.list.find((v) => v.value === value)?.name;
   return `Sends ${named ?? value}`;
 };
 
@@ -282,6 +282,7 @@ const Editor = ({
     selectPart(owner.key);
   };
   const states = Form.useFieldValue(path.data.states, { ctx: form });
+  const previewed = Spec.resolvePreview(states, preview);
   const commands = Form.useFieldValue(path.data.commands, { ctx: form });
   const interactions = Form.useFieldValue(path.data.interactions, { ctx: form });
   const parts = Form.useFieldValue(path.data.parts, { ctx: form });
@@ -385,21 +386,6 @@ const Editor = ({
                           value: state.default,
                         });
                       }}
-                      onRemove={() => {
-                        // The preview moves to the first state left if its state goes.
-                        const left = form
-                          .get(path.data.states)
-                          .value.filter(
-                            (s): s is schematic.symbol.EnumerationState =>
-                              s.type === "enumeration",
-                          );
-                        if (left.some((s) => s.key === preview.state)) return;
-                        const first = left.at(0);
-                        setPreview({
-                          state: first?.key ?? Spec.STATE,
-                          value: first?.default ?? 0,
-                        });
-                      }}
                     />
                     <Divider.Divider x />
                     <ItemList
@@ -498,7 +484,7 @@ const Editor = ({
               >
                 {({ onChange }) => (
                   <Preview
-                    value={new Map([[preview.state, preview.value]])}
+                    value={Spec.stateValues(previewed)}
                     selectedHandle={selectedHandle}
                     selectedPart={selectedPart}
                     onElementClick={handleElementClick}
@@ -508,7 +494,7 @@ const Editor = ({
                   />
                 )}
               </Form.Field>
-              {hasSVG && <ValueBar value={preview} onChange={setPreview} />}
+              {hasSVG && <ValueBar value={previewed} onChange={setPreview} />}
             </Flex.Box>
             {hasSVG && (
               <Flex.Box
@@ -525,9 +511,9 @@ const Editor = ({
                   <ClickInspector key={shown.key} click={shown.key} />
                 ) : (
                   <Inspector
-                    key={`${selectedPart ?? ""}/${preview.state}`}
+                    key={`${selectedPart ?? ""}/${previewed.state}`}
                     part={selectedPart}
-                    preview={preview}
+                    preview={previewed}
                   />
                 )}
               </Flex.Box>
