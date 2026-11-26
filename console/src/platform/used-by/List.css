@@ -9,11 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A list in a box with a max height scrolls below what sits above it. The list takes
+/* A list in a box with a max height scrolls below what sits above it. Its padding
+   leaves room for the focus ring of a heading at its top or bottom. The list takes
    focus only while a retry reads again, and shows no ring for it. */
 .console-used-by__list {
     min-height: 0;
     overflow-y: auto;
+    padding-block: 0.5rem;
 
     &:focus-visible {
         outline: none;
@@ -28,10 +30,14 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* An entry spans the scroll box, which would clip a ring drawn outside it. */
 .console-used-by__resource {
     min-width: 0;
+}
 
+/* An entry spans the scroll box, and Retry sits on its left edge, so the box would clip
+   a ring drawn outside them. */
+.console-used-by__resource,
+.console-used-by__retry {
     --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 }
 

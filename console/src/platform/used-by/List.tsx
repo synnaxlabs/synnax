@@ -231,6 +231,7 @@ const Failed = ({ error, resetErrorBoundary }: Errors.FallbackProps): ReactEleme
         ref={button}
         variant="text"
         size="small"
+        className={CSS.BE("used-by", "retry")}
         onClick={() => ctx.retry(resetErrorBoundary)}
       >
         Retry
