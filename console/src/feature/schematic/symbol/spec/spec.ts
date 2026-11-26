@@ -9,7 +9,7 @@
 
 import type { schematic } from "@synnaxlabs/client";
 import { Schematic } from "@synnaxlabs/pluto";
-import { bounds, deep, id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 
 type Spec = schematic.symbol.Spec;
 type Look = schematic.symbol.Look;
@@ -481,10 +481,8 @@ export const removeInteraction = (spec: Spec, key: string): [Spec, Removed] => [
 ];
 
 // matched returns value after the match of state, as the Core compares toggle values.
-const matched = (state: schematic.symbol.State | undefined, value: number): number => {
-  if (state?.type !== "enumeration" || state.match.type !== "within") return value;
-  return bounds.contains(state.match.bounds, value) ? 1 : 0;
-};
+const matched = (state: schematic.symbol.State | undefined, value: number): number =>
+  state == null ? value : Schematic.Node.Custom.matched(state, value);
 
 /**
  * @returns the commands that a toggle can pick between with command: fixed commands on
