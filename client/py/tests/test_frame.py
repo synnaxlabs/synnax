@@ -1243,6 +1243,8 @@ class TestWriteFrameAdapterRepeatedKeys:
         client = MockUnaryClient(responses=[RetrieveResponse(channels=[ch])])
         adapter = WriteFrameAdapter(retriever=Retriever(client=client))
         adapter.update(ch.key)
-        o = adapter.adapt(sy.Frame([ch.key, ch.key], [[1.0], [2.0]]))
+        o = adapter.adapt(
+            sy.Frame([ch.key, ch.key], [sy.Series([1.0]), sy.Series([2.0])])
+        )
         assert o.channels == [ch.key, ch.key]
         assert [list(s) for s in o.series] == [[1.0], [2.0]]
