@@ -38,7 +38,8 @@ type MigrationConfig struct {
 // on color enumerations. Each symbol that a custom_actuator node draws becomes an
 // actuator. A custom node with state overrides gets an enumeration or a copy of its
 // symbol. A symbol node whose custom symbol is gone gets a missing ref, and a node
-// drops each state binding that its symbol lacks. The stored symbols must be v5.
+// drops each state binding that its symbol lacks. Then each symbol with no commands
+// drops the looks that it never draws. The stored symbols must be v5.
 func NewMigration(cfg MigrationConfig) gorp.Migration {
 	const key = "v63_color_ref"
 	return migrate.New(
@@ -57,7 +58,7 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 				retrievable: func(resource.ID) bool { return true },
 				copies:      map[string]symbol.Key{},
 			}
-			return migrate.NewInstrumentedEntry(
+			if err := migrate.NewInstrumentedEntry(
 				key,
 				func(
 					ctx context.Context,
@@ -86,7 +87,10 @@ func NewMigration(cfg MigrationConfig) gorp.Migration {
 					warnEmptyThresholds(old, ins)
 					return s, nil
 				},
-			).Run(ctx, tx, ins)
+			).Run(ctx, tx, ins); err != nil {
+				return err
+			}
+			return dropUndrawnLooks(ctx, tx)
 		},
 	)
 }

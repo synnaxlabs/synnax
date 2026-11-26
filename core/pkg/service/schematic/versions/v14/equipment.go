@@ -312,6 +312,24 @@ func retrieveEnumeration(
 	return e, err
 }
 
+// dropUndrawnLooks gives each stored symbol with no commands its symbol.DrawnLooks.
+func dropUndrawnLooks(ctx context.Context, tx gorp.Tx) error {
+	var syms []symbol.Symbol
+	if err := gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+		Entries(&syms).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	static := make([]symbol.Symbol, 0, len(syms))
+	for _, sym := range syms {
+		if len(sym.Data.Commands) == 0 {
+			sym.Data.Looks = symbol.DrawnLooks(sym.Data)
+			static = append(static, sym)
+		}
+	}
+	return gorp.NewCreate[symbol.Key, symbol.Symbol]().Entries(&static).Exec(ctx, tx)
+}
+
 // resolveSymbols gives each symbol node of s whose custom symbol the store does not
 // hold a missing ref, and drops each state binding that names no state of its symbol.
 func resolveSymbols(ctx context.Context, tx gorp.Tx, s *Schematic) error {
