@@ -329,7 +329,7 @@ x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> pay
                 return mux.bits.end() > payload.size();
             }
         );
-        return wrap(too_short(payload.size(), m.bits.end()), "field " + m.name);
+        return too_short(payload.size(), m.bits.end()).wrap("field " + m.name);
     }
     for (std::size_t i = 0; i < this->muxes.all().size(); i++) {
         const auto &m = this->muxes.all()[i];
@@ -345,8 +345,7 @@ x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> pay
             if (f.fallback.has_value()) dst.write(*f.fallback);
             continue;
         }
-        if (const auto err = f.decode(payload, dst))
-            return wrap(err, "field " + f.name);
+        if (const auto err = f.decode(payload, dst)) return err.wrap("field " + f.name);
     }
     return x::errors::NIL;
 }
@@ -499,7 +498,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Binary::decode_as(
     if (!i.has_value()) return {std::nullopt, x::errors::NIL};
     auto &m = this->messages[*i];
     if (auto err = m.decode(payload)) {
-        if (this->messages.size() > 1) err = wrap(err, "message " + m.name);
+        if (this->messages.size() > 1) err = err.wrap("message " + m.name);
         return {std::nullopt, err};
     }
     return {i, x::errors::NIL};
@@ -775,13 +774,13 @@ x::errors::Error BinaryEncoder::encode(
         if (!this->muxes.selected(muxes[i].condition, this->raw)) continue;
         const auto &f = this->fields[this->mux_fields[i]];
         const auto [r, err] = f.raw(samples);
-        if (err) return wrap(err, "field " + f.name);
+        if (err) return err.wrap("field " + f.name);
         this->raw[i] = static_cast<std::int64_t>(r);
     }
     for (const auto &f: this->fields) {
         if (!this->muxes.selected(f.condition, this->raw)) continue;
         const auto [r, err] = f.raw(samples);
-        if (err) return wrap(err, "field " + f.name);
+        if (err) return err.wrap("field " + f.name);
         f.bits.write(payload.data(), r);
     }
     return x::errors::NIL;
@@ -790,7 +789,7 @@ x::errors::Error BinaryEncoder::encode(
 x::errors::Error
 BinaryEncoder::check(const std::size_t binding, const x::telem::SampleValue &v) const {
     const auto &f = this->fields[this->bound[binding]];
-    if (const auto err = f.raw(v).second) return wrap(err, "field " + f.name);
+    if (const auto err = f.raw(v).second) return err.wrap("field " + f.name);
     return x::errors::NIL;
 }
 }

@@ -80,9 +80,6 @@ index_bindings(
     return {std::move(indices), x::errors::NIL};
 }
 
-/// @brief returns the error err with context before its text.
-x::errors::Error wrap(const x::errors::Error &err, const std::string &context);
-
 /// @brief returns err as a CONFIG_ERROR with context before its text.
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context);
 

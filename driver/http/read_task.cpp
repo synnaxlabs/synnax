@@ -96,7 +96,7 @@ std::pair<Readers, x::errors::Error> build_readers(
             *ic,
             readers.channels
         );
-        if (err) return {Readers{}, x::errors::Error(err, name + ": " + err.data)};
+        if (err) return {Readers{}, err.wrap(name)};
         for (const auto key: reader.channels()) {
             const auto [other, claimed] = writers.try_emplace(key, name);
             if (!claimed)

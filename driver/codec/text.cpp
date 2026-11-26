@@ -263,8 +263,8 @@ Text::decode(const std::string_view line) {
         auto &dst = m.samples[i];
         dst.clear();
         if (auto err = m.fields[i].decode(this->items, dst)) {
-            err = wrap(err, "field " + m.fields[i].name);
-            if (this->messages.size() > 1) err = wrap(err, "message " + m.name);
+            err = err.wrap("field " + m.fields[i].name);
+            if (this->messages.size() > 1) err = err.wrap("message " + m.name);
             return {std::nullopt, err};
         }
     }
@@ -440,14 +440,14 @@ x::errors::Error TextEncoder::encode(
         }
         const auto &f = this->fields[static_cast<std::size_t>(item.field)];
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "message " + this->name + ": field " + f.base.name);
+            return err.wrap("message " + this->name + ": field " + f.base.name);
     }
     for (const auto i: this->tagged) {
         next();
         const auto &f = this->fields[i];
         this->line += f.tag;
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "message " + this->name + ": field " + f.base.name);
+            return err.wrap("message " + this->name + ": field " + f.base.name);
     }
     payload.assign(this->line.begin(), this->line.end());
     return x::errors::NIL;
@@ -466,7 +466,7 @@ x::errors::Error TextEncoder::check(
         err = f.number == Number::FLOAT32
                 ? check_limits(f.base, x::telem::cast<float>(v))
                 : check_limits(f.base, x::telem::cast<double>(v));
-    if (err) return wrap(err, "message " + this->name + ": field " + f.base.name);
+    if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
     return x::errors::NIL;
 }
 }

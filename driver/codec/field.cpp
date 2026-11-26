@@ -132,12 +132,8 @@ std::pair<Number, x::errors::Error> number_of(
     return {n, x::errors::NIL};
 }
 
-x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
-    return {err, context + ": " + err.data};
-}
-
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
-    return {CONFIG_ERROR, context + ": " + err.data};
+    return {CONFIG_ERROR, err.wrap(context).data};
 }
 
 x::errors::Error check_limits(const icd::BaseField &b, const double v) {

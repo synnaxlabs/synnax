@@ -284,11 +284,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
                 keys.push_back(idx.key);
             err = check_selections(rm, *p, m.groups, keys);
         }
-        if (err)
-            return {
-                Reader{},
-                x::errors::Error(err, "message " + name + ": " + err.data)
-            };
+        if (err) return {Reader{}, err.wrap("message " + name)};
         for (const auto &idx: m.indexes)
             if (auto claim_err = claim(writers, idx.key, name))
                 return {Reader{}, claim_err};
