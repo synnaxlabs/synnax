@@ -51,7 +51,14 @@ setpoint_cmd = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Create the HTTP Write Task
+# Create an ICD whose message holds the request body: a number at /value
+value = sy.icd.FloatJSONField(name="value", pointer="/value")
+message = sy.icd.Message(
+    name="PUT /api/v1/setpoint", payload=sy.icd.JSONPayload(fields=[value])
+)
+ic = client.icds.create(name="HTTP Server", messages=[message])
+
+# Create the HTTP Write Task. A command on setpoint_cmd sends the message.
 tsk = http.WriteTask(
     name="HTTP Py - Write Task",
     device=dev.key,
@@ -59,12 +66,14 @@ tsk = http.WriteTask(
         http.WriteEndpoint(
             method="PUT",
             path="/api/v1/setpoint",
-            channel=http.ChannelField(
-                pointer="/value",
-                json_type="number",
-                channel=setpoint_cmd.key,
-                name="Setpoint",
-                data_type=sy.DataType.FLOAT64,
+            icd=ic.key,
+            message=sy.icd.WriteMessage(
+                message=message.key,
+                bindings=[
+                    sy.icd.ChannelWriteBinding(
+                        field=value.key, channel=setpoint_cmd.key
+                    )
+                ],
             ),
         ),
     ],

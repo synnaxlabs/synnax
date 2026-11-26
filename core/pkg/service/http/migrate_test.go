@@ -382,22 +382,20 @@ var _ = Describe("WriteICDMigration", func() {
 	stage := func(ctx SpecContext, name string) uuid.UUID {
 		GinkgoHelper()
 		key := uuid.New()
-		ep := http.WriteEndpoint{
-			Key:    "sp",
-			Method: "PUT",
-			Path:   "/setpoint",
-			Channel: http.ChannelField{
-				Pointer:  "/value",
-				Name:     "setpoint_cmd",
-				DataType: telem.Float64T,
-			},
-		}
+		ep := http.WriteEndpoint{Key: "sp", Method: "PUT", Path: "/setpoint"}
 		Expect(gorp.WrapWriter[uuid.UUID, http.WriteConfig](db).Set(
 			ctx,
 			http.WriteConfig{Key: key, Endpoints: []http.WriteEndpoint{ep}},
 		)).To(Succeed())
 		b := MustSucceed(json.Marshal(http.InlineWrite{
-			Endpoints: []http.InlineWriteEndpoint{{Key: "sp", Channel: ep.Channel}},
+			Endpoints: []http.InlineWriteEndpoint{{
+				Key: "sp",
+				Channel: http.ChannelField{
+					Pointer:  "/value",
+					Name:     "setpoint_cmd",
+					DataType: telem.Float64T,
+				},
+			}},
 		}))
 		Expect(db.Set(ctx, v5.StagedWriteFieldsKVKey(key), b)).To(Succeed())
 		names[key] = name
