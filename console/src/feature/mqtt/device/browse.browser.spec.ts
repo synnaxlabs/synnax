@@ -48,8 +48,10 @@ describe("MQTT.Device browse", () => {
   it("should fail a browse whose reply is not a browse reply", async () => {
     const { dev, scanner } = await createScannedBroker();
     const browsed = MQTT.Device.browseTopics(client, dev, "plant/#");
-    await scanner.answer({ data: { topics: [] } });
-    await expect(browsed).rejects.toThrow(ZodError);
+    await Promise.all([
+      expect(browsed).rejects.toThrow(ZodError),
+      scanner.answer({ data: { topics: [] } }),
+    ]);
   });
 
   it("should fail a Sparkplug B browse whose reply is not a Sparkplug B reply", async () => {
@@ -58,7 +60,9 @@ describe("MQTT.Device browse", () => {
       group: "plant",
       edgeNode: "line_1",
     });
-    await scanner.answer({ data: { nodes: [] } });
-    await expect(browsed).rejects.toThrow(ZodError);
+    await Promise.all([
+      expect(browsed).rejects.toThrow(ZodError),
+      scanner.answer({ data: { nodes: [] } }),
+    ]);
   });
 });
