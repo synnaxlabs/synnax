@@ -268,7 +268,8 @@ type KeyReferenceConfig[K Key, E Entry[K], T Key] struct {
 	// to its start. Table must be the table the reference is registered on.
 	Acyclic bool
 	// Check returns an error when e may not hold target. A write of e calls it for each
-	// target that e holds after the write, and fails with its error under Name.
+	// target that e holds after the write, and fails with its error at the path that
+	// Locate returns, or under Name when Locate is nil.
 	Check func(ctx context.Context, tx Tx, e *E, target T) error
 }
 

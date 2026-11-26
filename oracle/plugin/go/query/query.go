@@ -1091,7 +1091,7 @@ func newIndexes() indexes {
 {{- if $ref.IsSlice}}
 			Locate: func(e *{{$ret.GoName}}, t {{$ref.TargetType}}) []string {
 				for i, v := range e.{{$ref.GoName}} {
-					if {{if $ref.IsID}}({{$ref.TargetOf "v"}}){{else}}{{$ref.TargetOf "v"}}{{end}} == t {
+					if {{$ref.TargetOf "v"}} == t {
 						return []string{"{{$ref.FieldName}}", strconv.Itoa(i)}
 					}
 				}

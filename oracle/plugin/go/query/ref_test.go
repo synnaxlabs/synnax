@@ -444,6 +444,26 @@ var _ = Describe("@ref", func() {
 			ToBeValidGoSource()
 	})
 
+	It("Should locate a resource ID in an array by its index", func() {
+		resp := MustGenerate(device(`
+			owners resource.ID[] {
+				@ref {
+					on_delete detach
+					kind      use
+					types     rack
+				}
+			}
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain(
+				"Locate: func(e *Device, t gorp.Target) []string {",
+				"for i, v := range e.Owners {",
+				"if resourceTarget(v) == t {",
+				`return []string{"owners", strconv.Itoa(i)}`,
+			).
+			ToBeValidGoSource()
+	})
+
 	It("Should detach an optional field and write it", func() {
 		resp := MustGenerate(device(`
 			shelf rack.Key? @ref on_delete detach @ref kind use
@@ -1347,6 +1367,31 @@ var _ = Describe("@ref", func() {
 				"for i5, k6 := range e.Axes.Y1 {",
 				"if k6 == t {",
 				`return []string{"axes", "y1", strconv.Itoa(i5)}`,
+			}),
+			Entry("an optional key in an array of structs", `
+				Entry struct {
+					channel channel.Key? @ref on_delete detach @ref kind use
+				}
+			`, `
+				entries Entry[]
+			`, []string{
+				"for i4, v5 := range e.Entries {",
+				"if v5.Channel != nil && *v5.Channel == t {",
+				`return []string{"entries", strconv.Itoa(i4), "channel"}`,
+			}),
+			Entry("a map key of a map of keys", `
+				Ports struct {
+					channels map<uint16, channel.Key> = {} {
+						@ref on_delete restrict
+						@ref kind      use
+					}
+				}
+			`, `
+				ports Ports
+			`, []string{
+				"for k6, v7 := range e.Ports.Channels {",
+				"if v7 == t {",
+				`return []string{"ports", "channels", fmt.Sprint(k6)}`,
 			}),
 			Entry("a map key, through each variant of a union", `
 				Base struct {
