@@ -18,25 +18,37 @@ response in channels. Before you start,
 
 <Divider.Divider x />
 
-## Endpoints and fields
+## Message formats
 
-An endpoint is one request. A field is one value in its JSON response, found by a
-[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901) such as `/temperature`,
-and recorded in one channel.
+An [interface control document (ICD)](/reference/hardware/icds) holds the messages that
+a system sends, and the format of each one. For an HTTP endpoint, a message is the
+format of a JSON response: a list of fields. A field finds one value by a
+[JSON pointer](https://datatracker.ietf.org/doc/html/rfc6901), such as `/temperature`,
+and gives its type.
 
-- **Numbers** -> recorded as they are.
-- **Booleans** -> recorded as 1 and 0.
-- **Strings** -> converted with the **Enum mapping**, else read as a number. A string
-  channel records the text.
+The task reads each response of an endpoint as a message of an ICD. You choose the
+fields that the task reads and the channel that records each one. The task does not read
+a field with no channel.
 
-A field cannot record into a channel with the `uuid`, `json`, or `bytes` data type. The
-task fails to start with an error that names the channel.
+- **Strings** -> a numeric field reads a number in a string, such as `"23.5"`. An
+  [enum mapping](#set-a-default-or-an-enum-mapping) maps a text label to a value.
+- **Several messages** -> an endpoint can read more than one message. Each message has a
+  match rule under **Responses** that selects the responses it reads.
+- **Shared formats** -> an ICD is not part of a task, so more than one task can read it.
+  You cannot delete an ICD while a task reads it.
+- **New endpoints** -> the message of a new endpoint goes into the ICD that most
+  endpoints of the task read. A task with no endpoints creates an ICD named after the
+  task.
 
-The **Source** of an endpoint sets its timestamps:
+The **Source** under **Timestamp** of a message sets its timestamps:
 
 - **Poll time** -> the time halfway through the request.
-- **Response value** -> a time in the response, at a **Pointer**, in a **Format**: ISO
-  8601, or Unix time in seconds, milliseconds, microseconds, or nanoseconds.
+- **Payload value** -> the value of a timestamp **Field** of the message, in the format
+  of that field: ISO 8601, or Unix time in seconds, milliseconds, microseconds, or
+  nanoseconds. A field with a default cannot give the timestamps.
+
+When you upgrade the Core, it moves the fields of each read task from an earlier version
+into a new ICD named after the task, with one message for each endpoint.
 
 <Divider.Divider x />
 
@@ -47,20 +59,24 @@ The **Source** of an endpoint sets its timestamps:
 
 1. In the devices toolbar, right-click the server and select **Create read task**.
 2. Set **Rate**, the number of requests per second to each endpoint.
-3. Click **Add endpoint**, then set **Method** and **Path**, such as `/api/data`.
-4. Click **Add field** on the endpoint, then set **Pointer** and **Data type**.
-5. Click <Icon.Play /> (**Start**).
+3. Click **Add endpoint**, then set **Method** and **Path**, such as `/api/data`, under
+   **Request**.
+4. Click **Add field**. Select the field, and under **Field**, set its **Pointer** and
+   **Type**.
+5. Under **Channel**, set the **Data type** of the field's channel.
+6. Select the endpoint, and under **Timestamp**, set the **Source**.
+7. Click <Icon.Play /> (**Start**).
 
-The Console creates a channel for each field and an index channel for each endpoint,
-named from the server, path, and pointer. To choose a name, set **Channel** before you
-start.
+The Console creates a channel for each field that the task reads, and an index channel
+for each message. It names them after the server, the path, and the field. To change the
+name of a new channel, rename its field.
 
 <Video id="hardware/http/read-task" label="Create and start an HTTP read task" />
 
   </Fragment>
   <Fragment slot="python">
 
-Python does not create channels. Create one index channel for each endpoint first.
+Python does not create channels. Create the channels and the ICD first.
 
 ```python
 import synnax as sy
@@ -74,6 +90,16 @@ temperature = client.channels.create(
     name="weather_temperature", index=time.key, data_type=sy.DataType.FLOAT64
 )
 
+# The response of GET /api/data is {"temperature": 23.5}
+temperature_field = sy.icd.FloatJSONField(
+    name="temperature", pointer="/temperature"
+)
+data = sy.icd.Message(
+    name="GET /api/data",
+    payload=sy.icd.JSONPayload(fields=[temperature_field]),
+)
+station = client.icds.create(name="Weather station", messages=[data])
+
 task = http.ReadTask(
     name="Weather station read",
     device=server.key,
@@ -82,8 +108,16 @@ task = http.ReadTask(
         http.ReadEndpoint(
             method="GET",
             path="/api/data",
-            fields=[
-                http.ReadField(pointer="/temperature", channel=temperature.key)
+            icd=station.key,
+            messages=[
+                sy.icd.ReadMessage(
+                    message=data.key,
+                    bindings=[
+                        sy.icd.ReadBinding(
+                            field=temperature_field.key, channel=temperature.key
+                        )
+                    ],
+                )
             ],
         )
     ],
@@ -95,10 +129,10 @@ task.start()
   </Fragment>
   <Fragment slot="typescript">
 
-TypeScript does not create channels. Create one index channel for each endpoint first.
+TypeScript does not create channels. Create the channels and the ICD first.
 
 ```typescript
-import { http } from "@synnaxlabs/client";
+import { http, icd } from "@synnaxlabs/client";
 
 const [server] = await client.devices.retrieve({
   where: { name: { eq: "Weather station" } },
@@ -114,6 +148,18 @@ const temperature = await client.channels.create({
   dataType: "float64",
 });
 
+// The response of GET /api/data is {"temperature": 23.5}
+const temperatureField = icd.floatJSONFieldZ.parse({
+  type: "float",
+  name: "temperature",
+  pointer: "/temperature",
+});
+const data = icd.messageZ.parse({
+  name: "GET /api/data",
+  payload: { format: "json", fields: [temperatureField] },
+});
+const station = await client.icds.create({ name: "Weather station", messages: [data] });
+
 const task = await client.tasks.create({
   name: "Weather station read",
   rack: server.rack,
@@ -125,7 +171,13 @@ const task = await client.tasks.create({
       {
         method: "GET",
         path: "/api/data",
-        fields: [{ pointer: "/temperature", channel: temperature.key }],
+        icd: station.key,
+        messages: [
+          {
+            message: data.key,
+            bindings: [{ field: temperatureField.key, channel: temperature.key }],
+          },
+        ],
       },
     ],
   }),
@@ -135,6 +187,35 @@ await task.start();
 
   </Fragment>
 </Client.Tabs>
+
+To take the timestamps from the response in code, add a timestamp field to the message,
+bind it to the index channel, and set `index` of the read message to the `key` of that
+field.
+
+<Divider.Divider x />
+
+## Set a default or an enum mapping
+
+The options of a field read values that its type alone cannot:
+
+- **Default** -> the task writes the default when the response has no value for the
+  field. No value means that the pointer finds nothing. Except on a JSON channel, `null`
+  is also no value, and so is `""` on a channel that is not a string or bytes channel.
+  With no default, the task skips the fields of the response on the field's index
+  channel. See [task options](#task-options) for **NaN fill**.
+- **Enum mapping** -> maps a text label in the response, such as `ON`, to a value of the
+  field's type, such as `1`.
+
+Number, string, and boolean fields have options.
+
+1. Select the field.
+2. To set a default, turn on **Optional**, then enter the **Default**.
+3. To map a label, click **Add mapping** next to **Enum mapping**, then enter the
+   **Label** and the **Value**.
+
+A value that is not valid, such as text in a number field, still sends a warning. If a
+request fails, the task records nothing from the endpoint, so an outage does not look
+like a real reading.
 
 <Divider.Divider x />
 
@@ -167,47 +248,21 @@ to the Core at once.
 
 <Divider.Divider x />
 
-## Endpoint and field reference
+## Endpoint reference
 
-Each setting shows its Console label, then its Python field. An endpoint has these
-settings:
+Each setting shows its Console label, then its Python field.
 
-| Setting                                        | Default | Notes                                                                     |
-| ---------------------------------------------- | ------- | ------------------------------------------------------------------------- |
-| Method <small>`method`</small>                 | `GET`   | `GET` or `POST` in the Console. Code accepts any method.                  |
-| Path <small>`path`</small>                     |         | Added to the base address of the server.                                  |
-| Query parameters <small>`query_params`</small> | None    | A list of `{parameter, value}`.                                           |
-| Headers <small>`headers`</small>               | None    | A list of `{name, value}`.                                                |
-| Body <small>`body`</small>                     | Empty   | Sent only with methods that take a body, as `application/json`.           |
-| Source <small>`index`</small>                  | Empty   | The key of the field that gives the timestamps. Empty uses the poll time. |
+| Setting                                         | Default | Notes                                                                                               |
+| ----------------------------------------------- | ------- | --------------------------------------------------------------------------------------------------- |
+| Method <small>`method`</small>                  | `GET`   | `GET` or `POST` in the Console. Code accepts any method.                                            |
+| Path <small>`path`</small>                      |         | Added to the base address of the server.                                                            |
+| Query parameters <small>`query_params`</small>  | None    | A list of `{parameter, value}`.                                                                     |
+| Headers <small>`headers`</small>                | None    | A list of `{name, value}`.                                                                          |
+| Body <small>`body`</small>                      | Empty   | Sent only with methods that take a body, as `application/json`.                                     |
+| Message format <small>`icd`, `messages`</small> |         | The ICD of the endpoint, the messages of it that the endpoint reads, and the channel of each field. |
 
-A field has these settings:
-
-| Setting                                   | Default   | Notes                                                                                                                      |
-| ----------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Pointer <small>`pointer`</small>          |           | The JSON pointer to the value.                                                                                             |
-| Data type <small>`data_type`</small>      | `float64` | Used only when the Console creates the channel.                                                                            |
-| Channel <small>`channel`</small>          |           | The channel that records the value.                                                                                        |
-| Enum mapping <small>`enum_values`</small> | None      | Maps text labels in the response to numbers.                                                                               |
-| Optional <small>`optional`</small>        | Off       | A missing value is normal for this field.                                                                                  |
-| Fill value <small>`fill_value`</small>    | None      | Written when an optional value is missing.                                                                                 |
-| Format <small>`time_format`</small>       | None      | The encoding of a time value: `iso8601`, `unix_sec`, `unix_ms`, `unix_us`, or `unix_ns`. Required for a timestamp channel. |
-
-For **Source** set to **Response value** in code, add a field that records into the
-index channel, with the **Pointer** and the `time_format` of the time in the response.
-Then set `index` of the endpoint to the `key` of that field.
-
-Turn on **Optional** for a value that can be missing as a normal state of the device,
-such as a sensor that is off. A value is missing when its pointer is absent, or when it
-is `null` or an empty string. On a string channel, an empty string is a real value.
-
-The task then writes the **Fill value** with no warning, so the other fields on its
-index channel keep writing. With no fill value, it writes `NaN`, so a non-float channel
-needs one. An index channel cannot be optional.
-
-A wrong pointer on an optional field also sends no warning. Other invalid values still
-warn. If a request fails, the task skips the field, so an outage does not look like a
-real reading.
+The [ICD reference](/reference/hardware/icds/reference) describes the settings of a
+field.
 
 <Divider.Divider x />
 
