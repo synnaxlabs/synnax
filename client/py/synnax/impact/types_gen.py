@@ -129,3 +129,17 @@ class ApplyRequest(BaseModel):
     token: str = ""
     picks: dict[str, Choice] = Field(default_factory=dict)
     hidden: Choice | None = None
+
+
+class DeleteResponse(BaseModel):
+    """Answers a delete of records."""
+
+    type: Literal["delete"] = "delete"
+    plan: Plan
+
+
+# Is the plan of a change, under the type of the change.
+Response = Annotated[
+    DeleteResponse,
+    Field(discriminator="type"),
+]

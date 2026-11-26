@@ -22,12 +22,12 @@ from freighter.url import URL
 from synnax.exceptions import create_registry
 from x.codec import JSONCodec
 
-# What core/pkg/service/impact.Apply returns with no token, picks, or hidden pick,
-# encoded by the Core's JSON codec: a plan of the change with no entries.
+# What the apply route returns with no token, picks, or hidden pick, encoded by the
+# Core's JSON codec: a plan of the delete with no entries.
 EMPTY_APPLIED_PLAN = (
-    '{"entries":[],"kept":0,"hidden":{"restrict":0,"cascade":0,"detach":0},'
-    '"token":"",'
-    '"records":[{"type":"channel","key":"1048577"}]}'
+    '{"type":"delete","plan":{"entries":[],"kept":0,'
+    '"hidden":{"restrict":0,"cascade":0,"detach":0},"token":"",'
+    '"records":[{"type":"channel","key":"1048577"}]}}'
 )
 
 
@@ -35,9 +35,9 @@ EMPTY_APPLIED_PLAN = (
 CHANGE = sy.impact.delete_channels([1048577])
 
 
-def applied_plan(applied: sy.impact.Plan) -> sy.impact.Plan:
+def applied_plan(applied: sy.impact.Response) -> sy.impact.Plan:
     """Returns the plan that an apply returned."""
-    return applied
+    return applied.plan
 
 
 class FakeCore:

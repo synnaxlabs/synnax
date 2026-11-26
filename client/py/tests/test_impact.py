@@ -63,13 +63,13 @@ class TestImpact:
         """Should plan a delete with a pick and apply it with the plan's token"""
         task = create_read_task(client, virtual_channel)
         record = task_resource_id(task.key)
-        plan = client.impact.plan(delete_of(virtual_channel))
+        plan = client.impact.plan(delete_of(virtual_channel)).plan
         assert [(str(e.record), e.effect) for e in plan.entries] == [
             (str(record), "restrict")
         ]
         assert plan.entries[0].default == "cancel"
         picks: dict[str, sy.impact.Choice] = {str(record): "delete"}
-        picked = client.impact.plan(delete_of(virtual_channel), picks=picks)
+        picked = client.impact.plan(delete_of(virtual_channel), picks=picks).plan
         client.impact.apply(delete_of(virtual_channel), token=picked.token, picks=picks)
         assert_eventually(
             lambda: assert_gone(lambda: client.channels.retrieve(virtual_channel.key))
@@ -82,7 +82,7 @@ class TestImpact:
         self, client: sy.Synnax, virtual_channel: sy.Channel
     ) -> None:
         """Should apply a delete with no token and return its records"""
-        applied = client.impact.apply(delete_of(virtual_channel))
+        applied = client.impact.apply(delete_of(virtual_channel)).plan
         assert applied.records == delete_of(virtual_channel).records
         assert applied.entries == []
         assert_eventually(
@@ -91,7 +91,7 @@ class TestImpact:
 
     def test_stale_token(self, client: sy.Synnax, virtual_channel: sy.Channel) -> None:
         """Should refuse a stale token with the plan as it is now"""
-        stale = client.impact.plan(delete_of(virtual_channel))
+        stale = client.impact.plan(delete_of(virtual_channel)).plan
         task = create_read_task(client, virtual_channel)
         with pytest.raises(sy.impact.PlanChangedError) as raised:
             client.impact.apply(delete_of(virtual_channel), token=stale.token)
@@ -120,6 +120,6 @@ class TestImpact:
         user_client = sy.Synnax(
             host=HOST, port=PORT, username=username, password=password, secure=False
         )
-        plan = user_client.impact.plan(delete_of(virtual_channel))
+        plan = user_client.impact.plan(delete_of(virtual_channel)).plan
         assert plan.entries == []
         assert plan.hidden == sy.impact.Hidden(restrict=1, cascade=0, detach=0)

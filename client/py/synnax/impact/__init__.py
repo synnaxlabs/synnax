@@ -14,11 +14,13 @@ from synnax.impact.types_gen import (
     Change,
     Choice,
     DeleteChange,
+    DeleteResponse,
     Effect,
     Entry,
     Hidden,
     Plan,
     PlanRequest,
+    Response,
 )
 
 __all__ = [
@@ -28,11 +30,13 @@ __all__ = [
     "Choice",
     "Client",
     "DeleteChange",
+    "DeleteResponse",
     "Effect",
     "Entry",
     "Hidden",
     "Plan",
     "PlanChangedError",
     "PlanRequest",
+    "Response",
     "delete_channels",
 ]

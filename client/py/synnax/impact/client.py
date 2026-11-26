@@ -14,8 +14,9 @@ from synnax.impact.types_gen import (
     Change,
     Choice,
     DeleteChange,
-    Plan,
+    DeleteResponse,
     PlanRequest,
+    Response,
 )
 
 
@@ -38,14 +39,14 @@ class Client:
         *,
         picks: dict[str, Choice] | None = None,
         hidden: Choice | None = None,
-    ) -> Plan:
-        """Returns every record that change touches with the picks: an entry for each
-        record that the caller can see, a count of the others, and the token that
-        apply checks. A delete pick on a channel adds the records that hold it. Writes
-        nothing.
+    ) -> Response:
+        """Returns every record that change touches with the picks, under the type of
+        change: an entry for each record that the caller can see, a count of the
+        others, and the token that apply checks. A delete pick on a channel adds the
+        records that hold it. Writes nothing.
         """
         req = PlanRequest(change=change, picks=picks or {}, hidden=hidden)
-        return self._client.send("/impact/plan", req, Plan)
+        return self._client.send("/impact/plan", req, DeleteResponse)
 
     def apply(
         self,
@@ -54,10 +55,10 @@ class Client:
         token: str = "",
         picks: dict[str, Choice] | None = None,
         hidden: Choice | None = None,
-    ) -> Plan:
-        """Carries out change with the picks and returns the entries that it applied.
-        With a token, it raises PlanChangedError before any write when the plan is no
-        longer the one that the token names.
+    ) -> Response:
+        """Carries out change with the picks and returns the entries that it applied,
+        under the type of change. With a token, it raises PlanChangedError before any
+        write when the plan is no longer the one that the token names.
         """
         req = ApplyRequest(change=change, token=token, picks=picks or {}, hidden=hidden)
-        return self._client.send("/impact/apply", req, Plan)
+        return self._client.send("/impact/apply", req, DeleteResponse)
