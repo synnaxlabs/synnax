@@ -801,6 +801,7 @@ WriteBinding union on type extends WriteBaseBinding {
                 is the command channel whose values the field sends. 0 means that a
                 client creates the channel on configure.
             """
+            @ref direction read
             @ref kind      use
             @ref on_delete restrict
         }

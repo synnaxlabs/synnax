@@ -112,6 +112,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				if e.AnalogInput.Index != 0 {
@@ -135,6 +136,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				if e.AnalogInput.Temperature != 0 {
@@ -158,6 +160,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, k1 := range e.AnalogInput.Channels {
@@ -186,6 +189,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.AnalogOutput {
@@ -217,6 +221,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.AnalogOutput {
@@ -248,6 +253,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.AnalogOutput {
@@ -279,6 +285,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.CounterInput {
@@ -310,6 +317,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.CounterInput {
@@ -341,6 +349,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.DigitalInput {
@@ -372,6 +381,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.DigitalInput {
@@ -408,6 +418,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.DigitalOutput {
@@ -439,6 +450,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.DigitalOutput {
@@ -478,6 +490,7 @@ func newIndexes() indexes {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      2, // direction write
 			Targets: func(e *Device) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.DigitalOutput {

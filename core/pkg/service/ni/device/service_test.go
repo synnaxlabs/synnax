@@ -626,6 +626,31 @@ var _ = Describe("Service", func() {
 				To(MatchError(ContainSubstring("channel 99999 does not exist")))
 		})
 
+		It("Should make the device a use of each channel it binds, by direction", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			chs := createChannels(ctx, 2)
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.AnalogInput.Channels = map[uint16]channel.Key{0: chs[0]}
+					d.DigitalOutput = map[uint16]device.DigitalOutputChannels{
+						1: {Lines: map[uint8]device.CommandStatePair{
+							2: {Command: chs[1]},
+						}},
+					}
+					return d, nil
+				},
+			)).To(Succeed())
+			holder := gorp.Target{Table: "ni_device", Key: gorp.FormatKey(d.Key)}
+			Expect(channelSvc.Uses(ctx, tx, chs)).To(Equal([][]channel.Use{
+				{{Holder: holder, Direction: channel.DirectionWrite}},
+				{{Holder: holder, Direction: channel.DirectionRead}},
+			}))
+		})
+
 		It("Should keep a channel that a device binds from being deleted", func(
 			ctx SpecContext,
 		) {
