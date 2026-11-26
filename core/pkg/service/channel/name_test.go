@@ -127,6 +127,30 @@ var _ = Describe("Unique names", Ordered, func() {
 		))
 	})
 
+	It("Should refuse a rename to the name that another channel of the request holds",
+		func(ctx SpecContext) {
+			a, b := virtual(UniqueChannelName()), virtual(UniqueChannelName())
+			Expect(create(ctx, &a)).To(Succeed())
+			Expect(create(ctx, &b)).To(Succeed())
+			for _, order := range [][]channel.Channel{{a, b}, {b, a}} {
+				err := db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).RenameMany(
+						ctx,
+						[]channel.Key{order[0].Key(), order[1].Key()},
+						[]string{UniqueChannelName(), order[0].Name},
+						false,
+					)
+				})
+				Expect(err).To(MatchError(ContainSubstring(fmt.Sprintf(
+					"channel with name '%s' already exists",
+					order[0].Name,
+				))))
+				pathErr, ok := errors.AsType[validate.PathError](err)
+				Expect(ok).To(BeTrue())
+				Expect(pathErr.Path).To(Equal([]string{"1", "name"}))
+			}
+		})
+
 	It("Should name the position of a clashing channel in a create of many", func(
 		ctx SpecContext,
 	) {
