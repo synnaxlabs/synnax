@@ -242,6 +242,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				var targets []icd.Key
 				for _, v1 := range e.Endpoints {
 					if v1.ICD != nil {
+						if targets == nil {
+							targets = make([]icd.Key, 0, len(e.Endpoints))
+						}
 						targets = append(targets, *v1.ICD)
 					}
 				}
@@ -275,6 +278,9 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 							switch v3 := v2.Variant.(type) {
 							case icd.ChannelWriteBinding:
 								if v3.Channel != 0 {
+									if targets == nil {
+										targets = make([]channel.Key, 0, len(e.Endpoints))
+									}
 									targets = append(targets, v3.Channel)
 								}
 							}
@@ -352,6 +358,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				if e.Inline != nil {

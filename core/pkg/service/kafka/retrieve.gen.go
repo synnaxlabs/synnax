@@ -324,6 +324,7 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 			Table:    "channel",
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
+			Tag:      1, // direction read
 			Targets: func(e *WriteConfig) []channel.Key {
 				var targets []channel.Key
 				if e.Inline != nil {
