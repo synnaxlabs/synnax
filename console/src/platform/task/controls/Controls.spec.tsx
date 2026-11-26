@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { task } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
@@ -70,6 +70,7 @@ describe("Controls.Controls", () => {
       },
     );
     expect(await screen.findByText("No running Driver has Acme enabled")).toBeTruthy();
+    expect(screen.getByText("Start a Driver with Acme enabled.")).toBeTruthy();
     const play = await findIconButton(container, "play");
     expect(play.getAttribute("aria-disabled")).toBe("true");
   });

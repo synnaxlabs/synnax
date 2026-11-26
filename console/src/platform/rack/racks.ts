@@ -42,21 +42,46 @@ export const getDefault = (
   return usable.length === 1 ? usable[0].key : undefined;
 };
 
+/** Status text for why no rack can run an integration. */
+export interface BlockedReason {
+  /** What blocks it, such as "Node 1 is not running". */
+  message: string;
+  /** What to do now. */
+  description?: string;
+}
+
 /** Returns why no rack can run the integration, or null if one can. */
 export const getBlockedReason = (
   racks: rack.Payload[],
   { integration, name, rack: key }: BlockedReasonArgs,
-): string | null => {
+): BlockedReason | null => {
   if (key == null)
     return racks.some((r) => canConnect(r, integration))
       ? null
-      : `No running Driver has ${name} enabled`;
+      : {
+          message: `No running Driver has ${name} enabled`,
+          description: `Start a Driver with ${name} enabled.`,
+        };
   const r = racks.find((r) => r.key === key);
-  if (r == null) return "This Driver no longer exists";
-  if (r.status?.variant === "error") return r.status.message;
-  if (!isRunning(r)) return `${r.name} is not running`;
+  if (r == null)
+    return {
+      message: "This Driver no longer exists",
+      description: "Pick another Driver.",
+    };
+  if (r.status?.variant === "error")
+    return { message: r.status.message, description: r.status.description };
+  if (!isRunning(r))
+    return {
+      message: `${r.name} is not running`,
+      description: `Start the Driver on ${r.name}.`,
+    };
   if (!r.integrations.includes(integration))
-    return `${r.name} does not have ${name} enabled`;
+    return {
+      message: `${r.name} does not have ${name} enabled`,
+      description:
+        `Enable ${name} in the Driver config on ${r.name}, ` +
+        "then restart the Driver.",
+    };
   return null;
 };
 
@@ -69,7 +94,9 @@ export interface UseBlockedReasonArgs extends Omit<BlockedReasonArgs, "rack"> {
  * Returns {@link getBlockedReason} for the Core's racks, or null until they resolve.
  * Null args check nothing.
  */
-export const useBlockedReason = (args: UseBlockedReasonArgs | null): string | null => {
+export const useBlockedReason = (
+  args: UseBlockedReasonArgs | null,
+): BlockedReason | null => {
   const { data } = Rack.useResultMultiple({});
   if (args == null || data == null) return null;
   const { rack: key, ...rest } = args;

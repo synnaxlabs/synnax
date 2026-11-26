@@ -83,9 +83,6 @@ const Settings = () => {
   );
 };
 
-const blockedDescription = (integration: string): string =>
-  `Only a running Driver with ${integration} enabled can run this task.`;
-
 /** A deploy that failed before the task took its start command. */
 export interface DeployFailure {
   status: status.Status;
@@ -148,12 +145,11 @@ export const Controls = ({
     failure.taskStatusTime?.valueOf() === taskStatus?.time.valueOf()
   )
     shownStatus = failure.status;
-  else if (blocked != null && integration != null && !running)
+  else if (blocked != null && !running)
     shownStatus = status.create({
       name: taskStatus?.name ?? "",
       variant: "warning",
-      message: blocked,
-      description: blockedDescription(integration.name),
+      ...blocked,
     });
   let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
   // On a running task, a loading variant disables Redeploy and keeps Stop enabled.
