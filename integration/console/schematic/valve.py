@@ -12,7 +12,7 @@ from playwright.sync_api import Locator
 
 from console.schematic.symbol import Properties, Symbol
 
-ACTIVE = "Active"
+_ACTIVE = "Active"
 
 
 class Valve(Symbol):
@@ -67,7 +67,7 @@ class Valve(Symbol):
     ) -> None:
         """Set the channels of the valve's Active state and its click settings."""
         if state_channel is not None or command_channel is not None:
-            self.bind_state(ACTIVE, channel=state_channel, command=command_channel)
+            self.bind_state(_ACTIVE, channel=state_channel, command=command_channel)
         if show_control_chip is None and activation_delay is None:
             return
         self.open_form_tab("control")
@@ -81,7 +81,7 @@ class Valve(Symbol):
 
     def get_properties(self, *, tab: str = "Control") -> Properties:
         """Get the channels of the valve's Active state and its control chip."""
-        state_channel, command_channel = self.state_channels(ACTIVE)
+        state_channel, command_channel = self.state_channels(_ACTIVE)
         self.open_form_tab("control")
         return {
             "state_channel": state_channel,
