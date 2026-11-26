@@ -23,6 +23,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -240,8 +241,9 @@ var _ = Describe("Reads on the pointer log", func() {
 		Expect(fs.Exists(dir)).To(BeFalse())
 	})
 
-	It("Should read nothing at an automatic Next after a seek that finds no range, "+
-		"once a Drop took the data of the key", func(ctx SpecContext) {
+	It("Should keep reading the frozen load of a read across a Drop of its key", func(
+		ctx SpecContext,
+	) {
 		db := mustOpenDBOnFS(ctx, xfs.NewMem(), cesium.WithPointerLog())
 		idx, data := GenerateChannelKey(), GenerateChannelKey()
 		keys := []cesium.ChannelKey{idx, data}
@@ -270,9 +272,10 @@ var _ = Describe("Reads on the pointer log", func() {
 		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
 		Expect(iter.SeekFirst()).To(BeTrue())
 		Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
-		Expect(iter.SeekGE(10 * telem.SecondTS)).To(BeFalse())
-		iter.Next(cesium.AutoSpan)
-		Expect(iter.Value().Get(data).Series).To(BeEmpty())
+		Expect(iter.SeekGE(10 * telem.SecondTS)).To(BeTrue())
+		Expect(iter.Next(cesium.AutoSpan)).To(BeTrue())
+		Expect(iter.Value().Get(data).Series).To(HaveLen(1))
+		Expect(iter.Value().Get(data).Series[0]).To(MatchSeriesDataV[int64](10, 11))
 		Expect(iter.Error()).ToNot(HaveOccurred())
 	})
 })
