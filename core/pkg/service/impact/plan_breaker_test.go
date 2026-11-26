@@ -145,6 +145,10 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 			impact.PlanOptions{Visible: visible},
 		))
 	}
+	// withPicks returns the apply options that make picks.
+	withPicks := func(picks map[string]impact.Choice) impact.ApplyOptions {
+		return impact.ApplyOptions{Picks: picks}
+	}
 	apply := func(
 		ctx SpecContext,
 		opts impact.ApplyOptions,
@@ -315,9 +319,11 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		ch := create(ctx, channel.Channel{})
 		tsk := createTask(ctx, ch.Key())
 		id := task.ResourceID(tsk.Key)
-		Expect(apply(ctx, impact.ApplyOptions{
-			Picks: map[string]impact.Choice{id.String(): "bogus"},
-		}, ch.Key())).Error().To(MatchError(validate.ErrValidation))
+		Expect(apply(
+			ctx,
+			withPicks(map[string]impact.Choice{id.String(): "bogus"}),
+			ch.Key(),
+		)).Error().To(MatchError(validate.ErrValidation))
 		Expect(exists(ctx, ch.Key())).To(BeTrue())
 	})
 
