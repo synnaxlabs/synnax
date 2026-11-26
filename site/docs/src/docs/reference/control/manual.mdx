@@ -19,9 +19,9 @@ the only place in the Console where you control hardware by hand.
 
 Before you start:
 
-- Add actuator symbols, such as valves and buttons, to a schematic. In the
-  [control tab](/reference/visualize/schematics#control-tab) of each symbol, set its
-  command channel and its state channel.
+- Add actuator symbols, such as valves and buttons, to a schematic, and set the command
+  channel and state channel of each. See
+  [connect a valve to hardware](/reference/visualize/schematics#connect-a-valve-to-hardware).
 - Make sure that a [write task](/reference/hardware/tasks#write-tasks) listens on each
   command channel.
 
@@ -137,8 +137,12 @@ option that matches the value. When no new sample arrives within the staleness
 | Select                         | The number mapped to the option you choose, not its label    | When you click **Set** |
 | Text input                     | The text you type                                            | When you click **Set** |
 
-A toggle shows as active when its state channel has a value from 0.9 to 1.1. A toggle
-with no state channel always shows inactive, so each click writes `1`.
+A toggle shows as active when its state channel has a value from 0.9 to 1.1. When the
+toggle cannot tell its state, a click opens a menu of its two commands, such as
+**Close** and **Open**. It does so when the state channel has no data, or when the last
+value on the command channel does not match the state. A toggle with no state channel
+always shows inactive. A click writes `1` while the command channel does not hold `1`.
+After that, each click opens the menu.
 
 If the **Delay** field of a symbol is set, you must press and hold the symbol for that
 duration, such as `500ms`, before it writes. **Momentary** buttons have no delay. Set
