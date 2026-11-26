@@ -234,16 +234,16 @@ Click <Icon.Expand /> (**Fit view to contents**) to show every symbol. Hold **Ct
 
 The **Properties** tab shows different tabs for each kind of symbol.
 
-| Tabs                      | Symbols                                                                                               |
-| ------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Telemetry, Control, Style | Valves, pumps, switches, lights, fittings, flowmeters, process and safety symbols, and custom symbols |
-| Telemetry, Style, Redline | Value                                                                                                 |
-| Telemetry, Style          | Gauge, text display, scale                                                                            |
-| Telemetry, Style, Options | State indicator                                                                                       |
-| Control, Style            | Buttons, setpoints, text inputs                                                                       |
-| Control, Style, Options   | Select                                                                                                |
-| Style, Fill               | Tanks                                                                                                 |
-| No tabs                   | Shapes, such as lines and text boxes                                                                  |
+| Tabs                      | Symbols                                                                                                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Telemetry, Control, Style | Valves other than check valves and regulators, pumps, compressors, agitators, rotary mixers, switches, the thruster, and custom symbols with a click or a command                                |
+| Telemetry, Style, Redline | Value                                                                                                                                                                                            |
+| Telemetry, Style          | Gauge, text display, scale, lights, check valves, regulators, flowmeters, heat exchangers, static mixers, junctions, safety symbols, other fittings, and custom symbols with no click or command |
+| Telemetry, Style, Options | State indicator                                                                                                                                                                                  |
+| Control, Style            | Buttons, setpoints, text inputs                                                                                                                                                                  |
+| Control, Style, Options   | Select                                                                                                                                                                                           |
+| Style, Fill               | Tanks                                                                                                                                                                                            |
+| No tabs                   | Shapes, such as lines and text boxes                                                                                                                                                             |
 
 ### Style tab
 
@@ -284,7 +284,8 @@ symbol.
 
 ### Control tab
 
-A valve, pump, switch, light, or custom symbol has these fields:
+A symbol with a click or a command has a **Control** tab: the symbols in the first row
+of the [Properties tabs](#properties-tabs) table. It has these fields:
 
 | Section  | Field        | Description                                                                                 |
 | -------- | ------------ | ------------------------------------------------------------------------------------------- |
@@ -293,7 +294,9 @@ A valve, pump, switch, light, or custom symbol has these fields:
 | Clicks   | Delay        | The time that an operator must press and hold before the symbol writes.                     |
 | Clicks   | Control chip | Shows the chip that tells who has control of the channel.                                   |
 
-Its state and command channels are on the [Telemetry tab](#telemetry-tab).
+A symbol with a command but no click, such as the thruster, shows only a **Control
+chip** section with one switch, **Visible**. Its state and command channels are on the
+[Telemetry tab](#telemetry-tab).
 
 Setpoints, text inputs, and selects have these fields:
 
