@@ -1749,6 +1749,79 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(disabled("Base")).toBe("true");
     });
 
+    it("turns off an entry that matches the value of the other command", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          { key: "closed", value: 0, name: "Closed" },
+          { key: "open", value: 1, name: "Open" },
+          { key: "wide", value: 2, name: "Wide" },
+        ],
+      });
+      const send = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "active",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [
+          {
+            type: "enumeration",
+            key: "active",
+            name: "Active",
+            enumeration: enumeration.key,
+            match: { type: "within", bounds: { lower: 1, upper: 3 } },
+            default: 0,
+          },
+        ],
+        commands: [send("close", 0), send("open", 1)],
+        interactions: [{ type: "next", key: "c", commands: ["close", "open"] }],
+      });
+      fireEvent.click(screen.getByText("close"));
+      await screen.findByRole("heading", { name: "close" });
+      const disabled = async (name: string) =>
+        (await within(getInspector()).findByRole("button", { name })).getAttribute(
+          "aria-disabled",
+        );
+      expect(await disabled("Closed")).not.toBe("true");
+      // Open and Wide both read as 1 on the state, and Open sends 1.
+      expect(await disabled("Wide")).toBe("true");
+    });
+
+    it("shows an error for a number that the other command sends", async () => {
+      const send = (key: string, value: number): schematic.symbol.Command => ({
+        key,
+        name: key,
+        state: "tank",
+        value: { type: "fixed", value },
+      });
+      await openPainted({
+        states: [
+          createState(),
+          {
+            type: "number",
+            key: "tank",
+            name: "Tank",
+            bounds: { lower: 0, upper: 100 },
+          },
+        ],
+        commands: [send("drain", 0), send("fill", 40)],
+        interactions: [{ type: "next", key: "c", commands: ["drain", "fill"] }],
+      });
+      fireEvent.click(screen.getByText("drain"));
+      await screen.findByRole("heading", { name: "drain" });
+      const input = within(getInspector()).getByRole<HTMLInputElement>("textbox");
+      fireEvent.change(input, { target: { value: "40" } });
+      fireEvent.blur(input);
+      expect(
+        await within(getInspector()).findByText(
+          "The other command of its toggle sends this value.",
+        ),
+      ).toBeDefined();
+      expect(input.value).toBe("40");
+    });
+
     it("saves a command that asks for a value", async () => {
       const symbol = await openPainted({
         variant: "actuator",
