@@ -189,6 +189,75 @@ var _ = Describe("Stored v4 symbols", func() {
 		Expect(retrieve(static.Key).Data.Commands).To(BeEmpty())
 	})
 
+	It("Should keep the value 1 looks of a static symbol that a custom_actuator node "+
+		"draws, and drop them from one that no node draws", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		red, green := color.Color{R: 255, A: 255}, color.Color{G: 255, A: 255}
+		black, white := color.Color{A: 255}, color.Color{R: 255, G: 255, B: 255, A: 255}
+		region := func(fill, stroke color.Color) []v4.Region {
+			return []v4.Region{{
+				Key:         "b",
+				Name:        "b",
+				Selectors:   []string{"#b"},
+				FillColor:   &fill,
+				StrokeColor: &stroke,
+			}}
+		}
+		spec := v4.Spec{
+			SVG:     `<svg><rect id="b"/></svg>`,
+			Variant: "static",
+			Scale:   1,
+			States: []v4.State{
+				{Key: "off", Name: "Off", Regions: region(red, black)},
+				{Key: "on", Name: "On", Regions: region(green, white)},
+			},
+		}
+		drawn := v4.Symbol{Key: uuid.New(), Name: "Drawn", Data: spec}
+		plain := v4.Symbol{Key: uuid.New(), Name: "Plain", Data: spec}
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().
+			Entries(&[]v4.Symbol{drawn, plain}).
+			Exec(ctx, db)).To(Succeed())
+		sc := v13.Schematic{
+			Key:  uuid.New(),
+			Name: "Schematic",
+			Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{
+				Variant: v13.CustomActuatorNodeConfig{SpecKey: drawn.Key.String()},
+			}}},
+		}
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entry(&sc).Exec(ctx, db)).
+			To(Succeed())
+		openService(ctx, db)
+		looks := func(key symbol.Key) []symbol.Look {
+			GinkgoHelper()
+			var sym symbol.Symbol
+			Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+				Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](key)).
+				Entry(&sym).
+				Exec(ctx, db)).To(Succeed())
+			return sym.Data.Looks
+		}
+		when := func(values ...float64) *symbol.Condition {
+			return &symbol.Condition{
+				Variant: symbol.EqualsCondition{State: "active", Values: values},
+			}
+		}
+		fill := func(c color.Color) *symbol.Paint {
+			return &symbol.Paint{Variant: symbol.ColorPaint{
+				Value: servicecolor.Ref{Variant: servicecolor.FixedRef{Value: c}},
+			}}
+		}
+		entry := &symbol.Paint{Variant: symbol.EntryPaint{State: "active"}}
+		Expect(looks(drawn.Key)).To(Equal([]symbol.Look{
+			{Key: "entry-b-stroke", Part: new("b"), When: when(0, 1), Stroke: entry},
+			{Key: "look-1", Part: new("b"), When: when(0), Fill: fill(red)},
+			{Key: "look-2", Part: new("b"), When: when(1), Fill: fill(green)},
+		}))
+		Expect(looks(plain.Key)).To(Equal([]symbol.Look{
+			{Key: "entry-b-stroke", Part: new("b"), Stroke: entry},
+			{Key: "look-1", Part: new("b"), Fill: fill(red)},
+		}))
+	})
+
 	Describe("A symbol with one state that a custom_actuator node draws", func() {
 		var db *gorp.DB
 		BeforeEach(func(ctx SpecContext) { db = openShipped(ctx) })
@@ -260,7 +329,12 @@ var _ = Describe("Stored v4 symbols", func() {
 			sym := retrieve(ctx, tank.Key)
 			Expect(sym.Data.Variant).To(Equal("actuator"))
 			Expect(sym.Data.Looks).To(HaveLen(1))
-			Expect(sym.Data.Looks[0].When).To(BeNil())
+			Expect(sym.Data.Looks[0].When).To(Equal(&symbol.Condition{
+				Variant: symbol.EqualsCondition{
+					State:  "active",
+					Values: []float64{0, 1},
+				},
+			}))
 			Expect(
 				enumerationOf(ctx, sym).Entries,
 			).To(Equal([]enumeration.Entry{base, on}))
