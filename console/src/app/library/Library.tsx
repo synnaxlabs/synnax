@@ -10,8 +10,8 @@
 import type { ReactElement } from "react";
 
 import { GROUPS } from "@/app/library/sections";
-import { Settings } from "@/platform/settings";
+import { Page } from "@/platform/page";
 
 export const Library = (): ReactElement => (
-  <Settings.Frame page="library" name="Library" groups={GROUPS} />
+  <Page.Frame page="library" name="Library" groups={GROUPS} />
 );

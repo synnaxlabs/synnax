@@ -19,12 +19,12 @@ import type { ReactElement } from "react";
 
 import { useCreate } from "@/feature/icd/useCreate";
 import { useImport } from "@/feature/icd/useImport";
+import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { Link } from "@/platform/link";
 import { Modals } from "@/platform/modals";
 import { Panel } from "@/platform/panel";
-import { Settings as PlatformSettings } from "@/platform/settings";
 
 const COLUMNS: List.Column[] = [
   { name: "Name", width: "minmax(24rem, 1fr)" },
@@ -41,7 +41,7 @@ const Item = (props: List.ItemProps<icd.Key>): ReactElement | null => {
   const item = List.useItem<icd.Key, icd.ICD>(itemKey);
   const canRename = Access.useUpdateGranted(icd.resourceID(itemKey));
   const { update: rename } = ICD.useRename();
-  const itemClass = PlatformSettings.useItemClass(itemKey);
+  const itemClass = Collection.useItemClass(itemKey);
   const open = useOpen();
   if (item == null) return null;
   return (
@@ -139,7 +139,7 @@ export const Settings = (): ReactElement => {
   const canCreate = Access.useCreateGranted(icd.TYPE_RESOURCE_ID);
   const create = useCreate();
   return (
-    <PlatformSettings.Table<icd.Key, icd.ICD>
+    <Collection.Table<icd.Key, icd.ICD>
       list={list}
       columns={COLUMNS}
       noun="ICDs"
@@ -148,6 +148,6 @@ export const Settings = (): ReactElement => {
       onCreate={create}
     >
       {({ key, ...p }) => <Item key={key} {...p} />}
-    </PlatformSettings.Table>
+    </Collection.Table>
   );
 };

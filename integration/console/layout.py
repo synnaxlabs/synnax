@@ -135,7 +135,7 @@ class LayoutClient:
     MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
     SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
     LIBRARY_NAV_SELECTOR = "nav[aria-label='Library']"
-    SETTINGS_CREATE_SELECTOR = ".console-settings-table__create"
+    SETTINGS_CREATE_SELECTOR = ".console-collection-table__create"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
     EDITABLE_SELECTOR = ".lyra-text--editable[contenteditable='true']"
