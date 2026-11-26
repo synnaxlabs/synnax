@@ -196,18 +196,28 @@ var _ = Describe("Reader", func() {
 				func(c segment.Config, stream []byte, ranges [][2]int) {
 					com := write(c, stream)
 					stored := segment.NewReader(false)
-					for _, r := range ranges {
-						lr := &lengthReader{ReaderAt: h}
-						p := make([]byte, r[1]-r[0])
-						Expect(stored.Read(lr, com, p, int64(r[0]))).To(Succeed())
-						Expect(p).To(Equal(stream[r[0]:r[1]]), "range %v", r)
-						read := 0
-						for _, n := range lr.lengths {
-							read += n
+					reads := map[string]func(r io.ReaderAt, p []byte, off int64) error{
+						"Reader.Read": func(r io.ReaderAt, p []byte, off int64) error {
+							return stored.Read(r, com, p, off)
+						},
+						"ReadStored": func(r io.ReaderAt, p []byte, off int64) error {
+							return com.ReadStored(r, p, off)
+						},
+					}
+					for name, read := range reads {
+						for _, r := range ranges {
+							lr := &lengthReader{ReaderAt: h}
+							p := make([]byte, r[1]-r[0])
+							Expect(read(lr, p, int64(r[0]))).To(Succeed())
+							Expect(p).To(Equal(stream[r[0]:r[1]]), "%s %v", name, r)
+							n := 0
+							for _, l := range lr.lengths {
+								n += l
+							}
+							Expect(n).To(Equal(r[1]-r[0]), "%s %v", name, r)
+							blocks := (r[1]-1)/segment.BlockSize - r[0]/segment.BlockSize + 1
+							Expect(lr.lengths).To(HaveLen(blocks), "%s %v", name, r)
 						}
-						Expect(read).To(Equal(r[1]-r[0]), "range %v", r)
-						blocks := (r[1]-1)/segment.BlockSize - r[0]/segment.BlockSize + 1
-						Expect(lr.lengths).To(HaveLen(blocks), "range %v", r)
 					}
 				},
 				Entry("fixed, one stamp", cfg, pattern(3*segment.BlockSize+77),
