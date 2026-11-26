@@ -2051,7 +2051,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					DescribeTable(
 						"Should read nothing outside the bounds after a seek to a "+
 							"stamp outside them, in a domain that holds the stamp",
-						func(ctx SpecContext, seek func(*unary.Iterator) bool, back bool) {
+						func(
+							ctx SpecContext,
+							seek func(context.Context, *unary.Iterator) bool,
+							move func(*unary.Iterator, context.Context, telem.TimeSpan) bool,
+						) {
 							stamps := make([]telem.TimeStamp, 100)
 							for i := range stamps {
 								stamps[i] = telem.TimeStamp(i + 1)
@@ -2070,21 +2074,25 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							iter.SetBounds(
 								(40 * telem.SecondTS).Range(50 * telem.SecondTS),
 							)
-							Expect(seek(iter)).To(BeTrue())
-							if back {
-								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeFalse())
-							} else {
-								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
-							}
+							Expect(seek(ctx, iter)).To(BeTrue())
+							Expect(move(iter, ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Error()).ToNot(HaveOccurred())
 							Expect(iter.Close()).To(Succeed())
 						},
-						Entry("SeekLE after the end", func(i *unary.Iterator) bool {
-							return i.SeekLE(context.Background(), 80*telem.SecondTS)
-						}, false),
-						Entry("SeekGE before the start", func(i *unary.Iterator) bool {
-							return i.SeekGE(context.Background(), 20*telem.SecondTS)
-						}, true),
+						Entry(
+							"SeekLE after the end, then Next",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+						),
+						Entry(
+							"SeekGE before the start, then Prev",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+						),
 					)
 
 					// This spec was added due to a bug in the line plotting mechanics
