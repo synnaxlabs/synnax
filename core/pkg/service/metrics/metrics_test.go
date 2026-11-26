@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -350,7 +351,7 @@ var _ = Describe("Metrics", func() {
 			}))
 			sCtx, cancel := signal.WithCancel(ctx)
 			DeferCleanup(cancel)
-			requests, responses = confluence.Attach(streamer)
+			requests, responses = confluencetestutil.Attach(streamer)
 			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 		})
 		AfterEach(func() {

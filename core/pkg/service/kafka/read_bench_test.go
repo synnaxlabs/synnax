@@ -39,6 +39,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
@@ -549,7 +550,7 @@ func openBenchStreamer(
 		SendOpenAck: true,
 	}))
 	sCtx, cancel := signal.Isolated()
-	requests, responses := confluence.Attach(streamer, 1000)
+	requests, responses := confluencetestutil.Attach(streamer, 1000)
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	// A streamer left open blocks the relay's close at suite teardown.
 	DeferCleanup(func() {

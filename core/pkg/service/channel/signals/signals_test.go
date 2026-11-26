@@ -19,6 +19,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +46,7 @@ func openStreamer(
 		Keys:        channel.Keys{sigCh.Key()},
 		SendOpenAck: true,
 	}))
-	requests, responses := confluence.Attach(streamer, 2)
+	requests, responses := confluencetestutil.Attach(streamer, 2)
 	sCtx, cancel := signal.Isolated()
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	DeferClose(signal.NewHardShutdown(sCtx, cancel))

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/control"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -65,7 +66,7 @@ func openControlStreamer(ctx SpecContext) confluence.Outlet[framer.StreamerRespo
 		Keys:        channel.Keys{ch.Key()},
 		SendOpenAck: true,
 	}))
-	requests, responses := confluence.Attach(streamer, 10)
+	requests, responses := confluencetestutil.Attach(streamer, 10)
 	sCtx, cancel := signal.Isolated()
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	DeferCleanup(func() {

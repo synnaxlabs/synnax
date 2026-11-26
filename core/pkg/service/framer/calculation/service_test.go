@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
@@ -114,7 +115,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				},
 			),
 		)
-		_, sOutlet := confluence.Attach(streamer, 1, 1)
+		_, sOutlet := confluencetestutil.Attach(streamer, 1, 1)
 		streamer.Flow(sCtx)
 		Eventually(sOutlet.Outlet()).Should(Receive())
 		return w, sOutlet, calcs, func() {
@@ -721,7 +722,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Keys:        channel.Keys{calc.Key()},
 					SendOpenAck: new(true),
 				}))
-				_, sOutlet := confluence.Attach(strm, 1, 1)
+				_, sOutlet := confluencetestutil.Attach(strm, 1, 1)
 				strm.Flow(sCtx)
 				Eventually(sOutlet.Outlet()).Should(Receive())
 
@@ -845,7 +846,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluence.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				rm := c.OpenRequestManager()
@@ -890,7 +891,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluence.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				repeated := c.OpenRequestManager()
@@ -975,7 +976,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluence.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				heldRM := svc.OpenRequestManager()
@@ -1054,7 +1055,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				}))
 				sCtx, cancel := signal.Isolated()
 				defer cancel()
-				_, outlet := confluence.Attach(s, 1, 1)
+				_, outlet := confluencetestutil.Attach(s, 1, 1)
 				s.Flow(sCtx)
 				Eventually(outlet.Outlet()).Should(Receive())
 				heldRM := svc.OpenRequestManager()
@@ -1714,7 +1715,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Keys:        keys,
 				SendOpenAck: new(true),
 			}))
-			_, sOutlet := confluence.Attach(streamer, 1, 1)
+			_, sOutlet := confluencetestutil.Attach(streamer, 1, 1)
 			streamer.Flow(sCtx)
 			Eventually(sOutlet.Outlet()).Should(Receive())
 			write := func() {
@@ -1827,7 +1828,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Keys:        channel.Keys{calc.Key()},
 					SendOpenAck: new(true),
 				}))
-				_, sOutlet := confluence.Attach(streamer, 1, 1)
+				_, sOutlet := confluencetestutil.Attach(streamer, 1, 1)
 				streamer.Flow(sCtx)
 				Eventually(sOutlet.Outlet()).Should(Receive())
 

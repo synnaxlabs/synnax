@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
@@ -228,7 +229,7 @@ var _ = Describe("Delete", func() {
 								sCtx, cancel := signal.WithCancel(ctx)
 
 								By("Start streaming")
-								i, _ := confluence.Attach(s, 1)
+								i, _ := confluencetestutil.Attach(s, 1)
 								s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 								By(
@@ -257,7 +258,7 @@ var _ = Describe("Delete", func() {
 								sCtx, cancel := signal.WithCancel(ctx)
 
 								By("Start streaming")
-								i, _ := confluence.Attach(s, 1)
+								i, _ := confluencetestutil.Attach(s, 1)
 								s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 
 								By(
@@ -294,7 +295,7 @@ var _ = Describe("Delete", func() {
 									).To(MatchError(ContainSubstring("1 unclosed writers")))
 
 									sCtx, cancel := signal.Isolated()
-									i, _ := confluence.Attach(it, 1)
+									i, _ := confluencetestutil.Attach(it, 1)
 									it.Flow(sCtx)
 
 									i.Close()
@@ -336,8 +337,8 @@ var _ = Describe("Delete", func() {
 									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
 
 									sCtx, cancel := signal.Isolated()
-									i1, _ := confluence.Attach(it1, 1)
-									i2, _ := confluence.Attach(it2, 1)
+									i1, _ := confluencetestutil.Attach(it1, 1)
+									i2, _ := confluencetestutil.Attach(it2, 1)
 									it1.Flow(sCtx)
 									it2.Flow(sCtx)
 

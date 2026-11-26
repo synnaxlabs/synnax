@@ -46,6 +46,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
@@ -616,7 +617,7 @@ func streamCommands(ctx SpecContext) <-chan task.Command {
 		Keys:        channel.Keys{svc.Task.CommandChannelKey()},
 		SendOpenAck: true,
 	}))
-	requests, responses := confluence.Attach(streamer, 2)
+	requests, responses := confluencetestutil.Attach(streamer, 2)
 	sCtx, cancel := signal.Isolated()
 	shutdown := signal.NewHardShutdown(sCtx, cancel)
 	streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
@@ -668,7 +669,7 @@ func stallWrites(ctx SpecContext) {
 		streamer := MustSucceed(node.Storage.TS.NewStreamer(cesium.StreamerConfig{
 			Channels: []cesium.ChannelKey{uint32(ch.Key())},
 		}))
-		requests[i], responses[i] = confluence.Attach(streamer, 1)
+		requests[i], responses[i] = confluencetestutil.Attach(streamer, 1)
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 	}
 	var (

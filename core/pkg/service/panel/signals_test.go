@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -41,7 +42,7 @@ var _ = Describe("Signals", func() {
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
 		}))
-		requests, responses := confluence.Attach(streamer, 2)
+		requests, responses := confluencetestutil.Attach(streamer, 2)
 		sCtx, cancel := signal.Isolated()
 		shutdown := signal.NewHardShutdown(sCtx, cancel)
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())

@@ -53,6 +53,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -300,7 +301,7 @@ var _ = Describe("Task", Ordered, func() {
 			Keys:        keys,
 			SendOpenAck: true,
 		}))
-		requests, res := confluence.Attach(streamer, bufferSize)
+		requests, res := confluencetestutil.Attach(streamer, bufferSize)
 		sCtx, cancel := signal.Isolated()
 		closer := signal.NewHardShutdown(sCtx, cancel)
 		streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())

@@ -88,6 +88,7 @@ import (
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -274,7 +275,7 @@ var _ = Describe("Layer", func() {
 						SendOpenAck: true,
 					},
 				))
-				requests, responses := confluence.Attach(streamer, 2)
+				requests, responses := confluencetestutil.Attach(streamer, 2)
 				sCtx, cancel := signal.Isolated()
 				shutdown := signal.NewHardShutdown(sCtx, cancel)
 				streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/confluence"
+	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -245,7 +246,7 @@ var _ = Describe("Writer", func() {
 					Keys:        s.keys,
 					SendOpenAck: new(true),
 				}))
-				_, out := confluence.Attach(streamer, 10)
+				_, out := confluencetestutil.Attach(streamer, 10)
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				streamer.Flow(sCtx)
@@ -277,7 +278,7 @@ var _ = Describe("Writer", func() {
 					Keys:        s.keys,
 					SendOpenAck: new(true),
 				}))
-				_, out := confluence.Attach(streamer, 10)
+				_, out := confluencetestutil.Attach(streamer, 10)
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				streamer.Flow(sCtx)
@@ -311,7 +312,7 @@ var _ = Describe("Writer", func() {
 					Keys:        s.keys,
 					SendOpenAck: new(true),
 				}))
-				_, out := confluence.Attach(streamer, 10)
+				_, out := confluencetestutil.Attach(streamer, 10)
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				streamer.Flow(sCtx)
@@ -721,7 +722,7 @@ var _ = Describe("Writer", func() {
 					Keys:        keys,
 					SendOpenAck: new(true),
 				}))
-				_, out := confluence.Attach(streamer, 10)
+				_, out := confluencetestutil.Attach(streamer, 10)
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				streamer.Flow(sCtx)
@@ -790,7 +791,7 @@ var _ = Describe("Writer", func() {
 					Keys:        keys,
 					SendOpenAck: new(true),
 				}))
-				_, out := confluence.Attach(streamer, 10)
+				_, out := confluencetestutil.Attach(streamer, 10)
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				streamer.Flow(sCtx)
@@ -835,7 +836,7 @@ var _ = Describe("Writer", func() {
 					Keys:        keys,
 					SendOpenAck: new(true),
 				}))
-				_, out := confluence.Attach(streamer, 10)
+				_, out := confluencetestutil.Attach(streamer, 10)
 				sCtx, cancel := signal.WithCancel(ctx)
 				defer cancel()
 				streamer.Flow(sCtx)
