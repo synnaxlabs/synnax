@@ -27,7 +27,7 @@ type LosingNode =
       key: string;
       config: schematic.SymbolNodeConfig;
       lost: schematic.Orphans;
-      settings: boolean;
+      settingsLost: boolean;
     }
   | { key: string; config: Schematic.Node.Config; lost: null };
 
@@ -57,12 +57,12 @@ const itemLoss = (config: Schematic.Node.Config): string => {
 interface LossProps {
   config: schematic.SymbolNodeConfig;
   lost: schematic.Orphans;
-  settings: boolean;
+  settingsLost: boolean;
   spec: Bindable;
 }
 
 /** What a symbol node loses in the change, with the names that its old symbol gives. */
-const Loss = ({ config, lost, settings, spec }: LossProps): ReactElement => {
+const Loss = ({ config, lost, settingsLost, spec }: LossProps): ReactElement => {
   const ref = config.spec;
   const custom = Schematic.Symbol.useResolved(ref.type === "custom" ? ref.key : null);
   const before =
@@ -75,7 +75,7 @@ const Loss = ({ config, lost, settings, spec }: LossProps): ReactElement => {
       : custom.symbol?.name;
   const names = [
     ...Symbol.losses(lost, before ?? NO_SPEC, spec),
-    ...(settings ? [`its ${name ?? "symbol"} settings`] : []),
+    ...(settingsLost ? [`its ${name ?? "symbol"} settings`] : []),
   ];
   return (
     <Text.Text level="small" color={9}>
@@ -109,7 +109,7 @@ const ConfirmChange = ({
             key={n.key}
             config={n.config}
             lost={n.lost}
-            settings={n.settings}
+            settingsLost={n.settingsLost}
             spec={spec}
           />
         ),
@@ -126,12 +126,12 @@ const losing = (
   spec: Bindable,
 ): LosingNode[] =>
   [...configs].flatMap(([key, config]): LosingNode[] => {
-    const settings = config.variant !== variant;
+    const settingsLost = config.variant !== variant;
     if (config.variant !== "symbol")
-      return settings ? [{ key, config, lost: null }] : [];
+      return settingsLost ? [{ key, config, lost: null }] : [];
     const lost = schematic.orphans(config, spec.states, spec.commands);
     const count = lost.states.length + lost.overrides.length + lost.commands.length;
-    return settings || count > 0 ? [{ key, config, lost, settings }] : [];
+    return settingsLost || count > 0 ? [{ key, config, lost, settingsLost }] : [];
   });
 
 const sameLosses = (a: LosingNode[], b: LosingNode[]): boolean =>
