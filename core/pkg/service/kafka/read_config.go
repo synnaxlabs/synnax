@@ -23,23 +23,10 @@ import (
 	"github.com/synnaxlabs/x/content"
 )
 
-// createICD returns the v1.CreateICD that lifts an ICD to the current shape and creates
-// it with svc.
-func createICD(svc *icd.Service) v1.CreateICD {
-	return func(ctx context.Context, tx gorp.Tx, old icdv0.ICD) error {
-		ic, err := icdv1.MigrateICD(ctx, old)
-		if err != nil {
-			return err
-		}
-		return svc.NewWriter(tx).Create(ctx, &ic)
-	}
-}
-
 // readResolver resolves read configs against the ICDs and channels they read.
 type readResolver struct {
 	icds     *icd.Service
 	channels icdv0.Channels
-	create   v1.CreateICD
 	reads    read.Resolver
 	ins      alamos.Instrumentation
 }
