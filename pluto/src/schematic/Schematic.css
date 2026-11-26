@@ -80,6 +80,7 @@
         }
 
         & .pluto-symbol-primitive,
+        & .pluto-symbol__part--clickable,
         .pluto-control-chip {
             pointer-events: none;
         }

@@ -1033,6 +1033,218 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
+    const RED = color.construct("#ff0000");
+
+    // PAINTED gives Body the entry color of Active, and a red stroke at Active 0.
+    const PAINTED: schematic.symbol.Look[] = [
+      { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+      {
+        key: "base",
+        part: "body",
+        when: { type: "equals", state: "active", values: [0] },
+        stroke: { type: "color", value: { type: "fixed", value: RED } },
+      },
+    ];
+
+    // previewFault opens a symbol with looks, then previews Fault at Trip (2). Active
+    // also has an entry at 2, which a preview that gave 2 to every state would draw.
+    const previewFault = async (
+      faultEntries: { key: string; value: number; name: string }[] = [
+        { key: "ok", value: 0, name: "OK" },
+        { key: "trip", value: 2, name: "Trip" },
+      ],
+      looks: schematic.symbol.Look[] = PAINTED,
+    ) => {
+      const active = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+          {
+            key: "jammed",
+            value: 2,
+            name: "Jammed",
+            color: { type: "fixed", value: color.construct("#3366ff") },
+          },
+        ],
+      });
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: faultEntries,
+      });
+      await openPainted({
+        variant: "actuator",
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          createState(active.key),
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks,
+      });
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+    };
+
+    it("draws every other state at its default while it previews a state", async () => {
+      await previewFault();
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
+        expect(getComputedStyle(shape).stroke).toBe("rgb(255, 0, 0)");
+      });
+      expect(screen.getByLabelText("Fill").style.getPropertyValue("--pluto-bg")).toBe(
+        color.cssString(GREEN),
+      );
+    });
+
+    it("locks a control for every value on a look of another state", async () => {
+      await previewFault();
+      const stroke = screen.getByLabelText("Stroke");
+      await waitFor(() =>
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
+      );
+      expect(stroke.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.pointerEnter(stroke);
+      expect((await screen.findByRole("tooltip")).textContent).toBe(
+        "Active gives this. Change it there, or set it by state.",
+      );
+    });
+
+    const hiddenAtActive = (part?: string): schematic.symbol.Look[] => [
+      {
+        key: "hide",
+        part,
+        when: { type: "equals", state: "active", values: [0] },
+        hidden: true,
+      },
+    ];
+
+    const bodyDisplay = (): string => {
+      const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+      assertDefined(shape);
+      return getComputedStyle(shape).display;
+    };
+
+    it("shows a part on a state with one value over a look that hides it", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        hiddenAtActive("body"),
+      );
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("shows the drawing on a state with one value over a look that hides it", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }], hiddenAtActive());
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("locks Blink on a state with one value under a blink of another state", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        [
+          {
+            key: "blink",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            blink: { period: 1e9 },
+          },
+        ],
+      );
+      const blink = screen.getByLabelText<HTMLInputElement>("Blink");
+      await waitFor(() => expect(blink.checked).toBe(true));
+      expect(blink.disabled).toBe(true);
+    });
+
+    it("edits a state with one value over a look of another state", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }]);
+      const stroke = screen.getByLabelText("Stroke");
+      await waitFor(() =>
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
+      );
+      expect(stroke.getAttribute("aria-disabled")).toBeNull();
+      fireEvent.click(stroke);
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const drawn = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(drawn)).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("draws an edit by state over a look of another state", async () => {
+      await previewFault();
+      fireEvent.click(screen.getByLabelText("Stroke by state"));
+      fireEvent.click(await screen.findByLabelText("Stroke while Trip"));
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const stroke = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(stroke)).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("previews the first state of a symbol with no Active state at its default", async () => {
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: RED } },
+          {
+            key: "trip",
+            value: 2,
+            name: "Trip",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks: [{ key: "fill", part: "body", fill: { type: "entry", state: "fault" } }],
+      });
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
+      });
+    });
+
     it("saves a contrast paint on the state", async () => {
       const enumeration = await createEnumeration();
       const symbol = await openPainted({

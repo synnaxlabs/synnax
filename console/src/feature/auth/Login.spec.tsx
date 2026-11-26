@@ -148,6 +148,7 @@ const renderLogin = async (
       [Session.Core.SLICE_NAME]: {
         ...Session.Core.ZERO_SLICE_STATE,
         cores: { [alpha.key]: alpha, [BETA.key]: BETA },
+        order: [alpha.key, BETA.key],
         selected: undefined,
       },
     },
@@ -412,6 +413,7 @@ describe("Auth login", () => {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
           cores: { [ALPHA.key]: ALPHA },
+          order: [ALPHA.key],
           selected: ALPHA.key,
         },
       },
@@ -471,6 +473,7 @@ describe("Auth login", () => {
         [Session.Core.SLICE_NAME]: {
           ...Session.Core.ZERO_SLICE_STATE,
           cores: { [core.key]: core },
+          order: [core.key],
           selected: core.key,
         },
       },
