@@ -146,8 +146,8 @@ func (c FactoryConfig) Validate() error {
 type Factory struct {
 	cfg FactoryConfig
 	mu  sync.Mutex
-	// uploaders holds the scan task that runs the uploads of each rack.
-	uploaders map[rack.Key]task.Key
+	// uploads holds the uploads of each rack.
+	uploads map[rack.Key]*rackUploads
 	// stopping holds, for each rack whose scan task stops, a channel that closes when
 	// the task releases the rack.
 	stopping map[rack.Key]chan struct{}
@@ -167,10 +167,10 @@ func OpenFactory(cfgs ...FactoryConfig) (*Factory, error) {
 		return nil, err
 	}
 	f := &Factory{
-		cfg:       cfg,
-		uploaders: make(map[rack.Key]task.Key),
-		stopping:  make(map[rack.Key]chan struct{}),
-		wake:      make(chan struct{}, 1),
+		cfg:      cfg,
+		uploads:  make(map[rack.Key]*rackUploads),
+		stopping: make(map[rack.Key]chan struct{}),
+		wake:     make(chan struct{}, 1),
 	}
 	f.disconnect = cfg.Task.Observe().OnChange(f.onTaskChange)
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
@@ -319,7 +319,7 @@ func (f *Factory) configureStreamTask(
 	if err != nil {
 		return nil, err
 	}
-	if cfg.AutoStart {
+	if cfg.AutoStart && cmdKey == driver.NoCommand {
 		if err = st.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
@@ -340,30 +340,42 @@ func (f *Factory) configureScanTask(
 		f.reporter().Report(ctx, t, cmdKey, err)
 		return nil, err
 	}
-	if autoStart {
+	if autoStart && cmdKey == driver.NoCommand {
 		if err = st.Start(ctx, cmdKey); err != nil {
-			f.release(t)
-			return nil, err
+			return nil, errors.Combine(err, f.release(t))
 		}
 	}
 	return scanTask{
 		ScanTask:  st,
-		uploads:   openUploader(f.cfg, t.Rack),
 		releasing: func() { f.releasing(t) },
-		release:   func() { f.release(t) },
+		release:   func() error { return f.release(t) },
 	}, nil
 }
 
-// claim makes t the scan task that runs the uploads of its rack. It waits for a scan
-// task that stops to release the rack, and fails when another scan task runs the
-// uploads, since two would send each upload twice.
+// rackUploads is the uploader of a rack and the scan task that runs it. Each instance
+// of the task holds a reference, so an instance built while another still runs shares
+// its uploader.
+type rackUploads struct {
+	task     task.Key
+	uploader *uploader
+	refs     int
+}
+
+// claim makes t the scan task that runs the uploads of its rack, and opens the uploader
+// of the rack when no instance of t holds it. It waits for a scan task that stops to
+// release the rack, and fails when another scan task runs the uploads, since two would
+// send each upload twice.
 func (f *Factory) claim(ctx context.Context, t task.Task) error {
 	for {
 		f.mu.Lock()
-		key, held := f.uploaders[t.Rack]
+		u, held := f.uploads[t.Rack]
 		released := f.stopping[t.Rack]
-		if !held || key == t.Key {
-			f.uploaders[t.Rack] = t.Key
+		if !held {
+			u = &rackUploads{task: t.Key, uploader: openUploader(f.cfg, t.Rack)}
+			f.uploads[t.Rack] = u
+		}
+		if u.task == t.Key {
+			u.refs++
 			f.mu.Unlock()
 			return nil
 		}
@@ -379,42 +391,51 @@ func (f *Factory) claim(ctx context.Context, t task.Task) error {
 	}
 }
 
-// releasing makes claim wait for t to release its rack instead of failing.
+// releasing makes claim wait for the last instance of t to release its rack instead of
+// failing.
 func (f *Factory) releasing(t task.Task) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.uploaders[t.Rack] == t.Key && f.stopping[t.Rack] == nil {
+	u, ok := f.uploads[t.Rack]
+	if ok && u.task == t.Key && u.refs == 1 && f.stopping[t.Rack] == nil {
 		f.stopping[t.Rack] = make(chan struct{})
 	}
 }
 
-func (f *Factory) release(t task.Task) {
+// release drops the reference of an instance of t to the uploads of its rack. The last
+// one closes the uploader and releases the rack.
+func (f *Factory) release(t task.Task) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.uploaders[t.Rack] != t.Key {
-		return
+	u, ok := f.uploads[t.Rack]
+	if !ok || u.task != t.Key {
+		return nil
 	}
-	delete(f.uploaders, t.Rack)
+	var err error
+	u.refs--
+	if u.refs == 0 {
+		err = u.uploader.Close()
+		delete(f.uploads, t.Rack)
+	}
 	if released, ok := f.stopping[t.Rack]; ok {
 		close(released)
 		delete(f.stopping, t.Rack)
 	}
+	return err
 }
 
 // scanTask is the sift_scan task. Besides checking devices, it runs the uploads of
 // its rack whether or not scanning is on.
 type scanTask struct {
 	*driver.ScanTask
-	uploads   *uploader
 	releasing func()
-	release   func()
+	release   func() error
 }
 
 // Stop implements driver.Task.
 func (t scanTask) Stop(sendStatus bool) error {
 	t.releasing()
-	defer t.release()
-	return errors.Combine(t.uploads.Close(), t.ScanTask.Stop(sendStatus))
+	return errors.Combine(t.ScanTask.Stop(sendStatus), t.release())
 }
 
 func validateScanConfig(cfg *ScanConfig) error {

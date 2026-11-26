@@ -161,8 +161,8 @@ func (f *factory) ConfigureTask(
 			return nil, err
 		}
 		// Start writes its own status when it fails.
-		if autoStart {
-			if err := st.Start(ctx, driver.NoCommand); err != nil {
+		if autoStart && cmdKey == driver.NoCommand {
+			if err := st.Start(ctx, cmdKey); err != nil {
 				return nil, err
 			}
 		}
@@ -173,9 +173,8 @@ func (f *factory) ConfigureTask(
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
-		// A successful configure writes no status, so a start answers the command. An
-		// auto-start that fails must answer it too, since no start follows.
-		if rt.cfg.AutoStart {
+		// A successful configure writes no status, so a start answers the command.
+		if rt.cfg.AutoStart && cmdKey == driver.NoCommand {
 			if err := errors.Combine(rt.start(ctx, cmdKey)); err != nil {
 				return nil, err
 			}
@@ -194,7 +193,7 @@ func (f *factory) ConfigureTask(
 				f.reporter().Report(ctx, t, cmdKey, err)
 				return nil, err
 			}
-			if cfg.AutoStart {
+			if cfg.AutoStart && cmdKey == driver.NoCommand {
 				if err = wt.Start(ctx, cmdKey); err != nil {
 					return nil, err
 				}
@@ -206,7 +205,7 @@ func (f *factory) ConfigureTask(
 			f.reporter().Report(ctx, t, cmdKey, err)
 			return nil, err
 		}
-		if wt.cfg.AutoStart {
+		if wt.cfg.AutoStart && cmdKey == driver.NoCommand {
 			if err := errors.Combine(wt.start(ctx, cmdKey)); err != nil {
 				return nil, err
 			}

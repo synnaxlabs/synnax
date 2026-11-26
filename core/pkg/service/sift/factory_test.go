@@ -155,6 +155,22 @@ var _ = Describe("Factory", func() {
 			dt = MustSucceed(f.ConfigureTask(ctx, second, driver.NoCommand))
 			Expect(dt.Stop(false)).To(Succeed())
 		})
+
+		It("Should keep the rack for a scan task built while it still runs",
+			func(ctx SpecContext) {
+				cfg := msgpack.EncodedJSON{"rate": 50}
+				first := newTask(ctx, sift.ScanTaskType, cfg)
+				second := newTask(ctx, sift.ScanTaskType, cfg)
+				old := MustSucceed(f.ConfigureTask(ctx, first, driver.NoCommand))
+				built := MustSucceed(f.ConfigureTask(ctx, first, driver.NoCommand))
+				Expect(old.Stop(false)).To(Succeed())
+				Expect(f.ConfigureTask(ctx, second, driver.NoCommand)).Error().
+					To(MatchError(ContainSubstring("the rack already has a Sift scan task")))
+				Expect(built.Stop(false)).To(Succeed())
+				By("Releasing the rack when the last instance stops")
+				dt := MustSucceed(f.ConfigureTask(ctx, second, driver.NoCommand))
+				Expect(dt.Stop(false)).To(Succeed())
+			})
 	})
 
 	Describe("Scan task", func() {
