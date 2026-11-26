@@ -46,6 +46,8 @@ type Documents struct {
 	next [][]byte
 	// commands holds the commands of each binding in one frame.
 	commands [][][]byte
+	// size is the length of the longest document, which sizes each new one.
+	size int
 }
 
 // NewDocuments returns the Documents of wm, the message of ic that a task sends.
@@ -126,11 +128,12 @@ func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq2[int, []
 			if !good || !d.fill() {
 				continue
 			}
-			doc, err := d.encoder.Encode(nil, d.next)
+			doc, err := d.encoder.Encode(make([]byte, 0, d.size), d.next)
 			if err != nil {
 				d.skip(skips, err)
 				continue
 			}
+			d.size = max(d.size, len(doc))
 			if !yield(i, doc) {
 				return
 			}
