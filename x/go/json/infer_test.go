@@ -712,9 +712,15 @@ var _ = Describe("Inferrer", func() {
 
 	It("Should add nothing for data that is not JSON", func() {
 		inf := xjson.NewInferrer()
-		inf.Add([]byte("not json"), t0)
-		inf.Add([]byte(`{"v":1} {"v":2}`), t0)
+		Expect(inf.Add([]byte("not json"), t0)).To(BeFalse())
+		Expect(inf.Add([]byte(`{"v":1} {"v":2}`), t0)).To(BeFalse())
 		Expect(inf.Shapes()).To(BeEmpty())
+	})
+
+	It("Should report that it added a JSON value", func() {
+		inf := xjson.NewInferrer()
+		Expect(inf.Add([]byte(`{"v":1}`), t0)).To(BeTrue())
+		Expect(inf.Add([]byte(`42`), t0)).To(BeTrue())
 	})
 
 	DescribeTable("Should sample the newest value of each field of a shape",

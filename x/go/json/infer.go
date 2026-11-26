@@ -296,13 +296,15 @@ func NewInferrer() *Inferrer {
 	return &Inferrer{src: newInferSource("", maxInferredFields)}
 }
 
-// Add adds data, written at t. Data that is not one JSON value adds nothing.
-func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
+// Add adds data, written at t, and returns true if data is one JSON value. Data that
+// is not adds nothing.
+func (i *Inferrer) Add(data []byte, t telem.TimeStamp) bool {
 	leaves, err := parseLeaves(data)
 	if err != nil {
-		return
+		return false
 	}
 	i.src.add(parsedDocument{leaves: leaves, time: t})
+	return true
 }
 
 // Shapes returns the shapes of the documents added, with no sources.
