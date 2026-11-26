@@ -67,8 +67,8 @@ type UndefinedSymbolError struct {
 	scope *Symbol
 	// channel is true when only a channel could have matched Name.
 	channel bool
-	// keyword is true for a dotted name with a keyword segment, which Arc cannot read as
-	// the path of a channel.
+	// keyword is true for a dotted name with a keyword segment, which Arc cannot read
+	// as the path of a channel.
 	keyword bool
 }
 
@@ -91,7 +91,10 @@ func keywordHint(path string) string {
 			name,
 		)
 	}
-	return fmt.Sprintf("channel name %q cannot be read in Arc yet. rename the channel", name)
+	return fmt.Sprintf(
+		"channel name %q cannot be read in Arc yet. rename the channel",
+		name,
+	)
 }
 
 func isUndefined(err error) bool {

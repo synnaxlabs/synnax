@@ -131,7 +131,8 @@ func generate(k diagnostics.Kind) (kind, error) {
 					!strings.HasPrefix(d.Message, k.Message+": ") &&
 					!strings.HasSuffix(d.Message, " "+k.Message) {
 					return kind{}, errors.Newf(
-						"the message of %s neither starts nor ends with its headline %q: %s",
+						"the message of %s neither starts nor ends with its "+
+							"headline %q: %s",
 						k.Code,
 						k.Message,
 						d.Message,

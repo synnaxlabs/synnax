@@ -604,7 +604,8 @@ const fmtStrDelimLen = 1
 func fmtStrSegments(text string) (int, []literal.FmtStrSegment, bool) {
 	body, flags, ok := literal.StripQuotes(text)
 	prefixLen := 0
-	for prefixLen < 2 && prefixLen < len(text) && (text[prefixLen] == 'r' || text[prefixLen] == 'f') {
+	for prefixLen < 2 && prefixLen < len(text) &&
+		(text[prefixLen] == 'r' || text[prefixLen] == 'f') {
 		prefixLen++
 	}
 	if !ok || !flags.Format {
