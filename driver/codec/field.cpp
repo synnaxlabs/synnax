@@ -154,6 +154,7 @@ x::errors::Error
 check_raw_limits(const icd::BaseField &b, const double raw, const bool narrow) {
     const double scaled = raw * b.scale;
     const double decoded = scaled + b.offset;
+    if (std::isinf(decoded)) return out_of_range(b, raw, decoded, 0);
     if (narrow)
         for (const auto &limit: {b.min, b.max})
             if (limit.has_value() &&

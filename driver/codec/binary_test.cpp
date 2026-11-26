@@ -1205,4 +1205,23 @@ TEST(BinaryEncoder, ReadyForSelectedFields) {
         enc.ready(series_of(x::telem::Series(std::uint8_t{1}), five(), none()))
     );
 }
+
+/// @brief it should refuse an infinite sample for a float field with a min and a max.
+TEST(BinaryEncoder, CheckInfiniteSampleLimits) {
+    for (const std::uint8_t bits: {32, 64}) {
+        auto v = field<icd::FloatBinaryField>("v", 0, bits);
+        v.min = -10;
+        v.max = 10;
+        const auto enc = ASSERT_NIL_P(
+            BinaryEncoder::create(frame(v, x::telem::FLOAT64_T))
+        );
+        constexpr double inf = std::numeric_limits<double>::infinity();
+        auto err = enc.check(0, x::telem::Series(inf), 0);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "message frame: field v: Infinity is above the max 10");
+        err = enc.check(0, x::telem::Series(-inf), 0);
+        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+        EXPECT_EQ(err.data, "message frame: field v: -Infinity is below the min -10");
+    }
+}
 }
