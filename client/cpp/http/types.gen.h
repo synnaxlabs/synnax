@@ -15,19 +15,16 @@
 #include <string>
 #include <vector>
 
-#include "client/cpp/channel/types.gen.h"
 #include "client/cpp/device/key.h"
 #include "client/cpp/icd/types.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::http {
 
 struct Header;
 struct QueryParam;
-struct ReadField;
 struct ScanConfig;
 struct ReadEndpoint;
 struct WriteEndpoint;
@@ -66,36 +63,6 @@ struct QueryParam {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief ReadField is a single value extracted from an endpoint's JSON response.
-struct ReadField {
-    /// @brief key uniquely identifies the field within the endpoint.
-    std::string key;
-    /// @brief name is the human-readable field name.
-    std::string name = "";
-    /// @brief disabled is true when the field is excluded from polling.
-    bool disabled = false;
-    /// @brief optional is true when a missing value is normal for this field. The task
-    /// writes fill_value, or NaN on a float channel, and sends no warning.
-    bool optional = false;
-    /// @brief fill_value is the value written when an optional field is missing, typed
-    /// by the channel. Unset writes NaN, which needs a float channel.
-    std::optional<x::json::json> fill_value;
-    /// @brief channel is the Synnax channel the extracted value is written to.
-    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
-    /// @brief pointer is the JSON Pointer to the value within the response body.
-    std::string pointer = "";
-    /// @brief data_type is the data type of the extracted value.
-    ::x::telem::DataType data_type = ::x::telem::DataType("float64");
-    /// @brief time_format is the encoding of the JSON value when the target channel
-    /// holds timestamps. Required for timestamp channels.
-    std::optional<std::string> time_format;
-    /// @brief enum_values maps string labels in the response to numeric channel values.
-    std::vector<::x::payload::EnumEntry> enum_values;
-
-    static ReadField parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
 /// @brief ScanConfig configures an HTTP scan task.
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
@@ -124,11 +91,6 @@ struct ReadEndpoint {
     std::optional<::synnax::icd::Key> icd;
     /// @brief messages are the messages that the response body is read as.
     std::vector<::synnax::icd::ReadMessage> messages = {};
-    /// @brief fields contains the values to extract from the response.
-    std::vector<ReadField> fields;
-    /// @brief index is the key of the field whose channel indexes the others. Empty
-    /// when the task stamps samples on arrival.
-    std::string index = "";
 
     static ReadEndpoint parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

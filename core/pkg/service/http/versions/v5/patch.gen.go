@@ -185,10 +185,6 @@ func (re *ReadEndpoint) Patch(c patch.Cursor) error {
 		return patch.OptionalValue(&re.ICD, c.Next())
 	case "messages":
 		return patch.Value(&re.Messages, c.Next())
-	case "fields":
-		return patch.List(&re.Fields, c.Next())
-	case "index":
-		return patch.Value(&re.Index, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -221,11 +217,6 @@ func (re *ReadEndpoint) HashContent(h *content.Hash) {
 	for i0 := range re.Messages {
 		re.Messages[i0].HashContent(h)
 	}
-	h.Len(len(re.Fields))
-	for i0 := range re.Fields {
-		re.Fields[i0].HashContent(h)
-	}
-	h.String(re.Index)
 }
 
 // Patch applies the path action at c, which is not done, to the value.

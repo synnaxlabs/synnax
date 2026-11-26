@@ -191,38 +191,24 @@ var _ = Describe("Service", func() {
 			)))
 		})
 
-		It("Should apply write config schema defaults to absent fields", func(
-			ctx SpecContext,
-		) {
-			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
-				"channels": []any{map[string]any{"key": "ch-1"}},
-			}))
-			data := MustSucceed(svc.Write.Read(ctx, db, key))
-			Expect(data["record_key"]).To(Equal("channel_name"))
-			Expect(data["record"]).To(And(
-				HaveKeyWithValue("value_pointer", "/value"),
-				HaveKeyWithValue("time_format", "unix_ns"),
-				Not(HaveKey("channel_pointer")),
-				Not(HaveKey("timestamp_pointer")),
-			))
-			Expect(data["channels"]).To(HaveExactElements(
-				HaveKeyWithValue("json_type", "number"),
-			))
-		})
-
-		It("Should keep the record pointers the caller sets", func(ctx SpecContext) {
-			key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
-				"record": map[string]any{
-					"channel_pointer":   "/name",
-					"timestamp_pointer": "/time",
-				},
-			}))
-			data := MustSucceed(svc.Write.Read(ctx, db, key))
-			Expect(data["record"]).To(And(
-				HaveKeyWithValue("channel_pointer", "/name"),
-				HaveKeyWithValue("timestamp_pointer", "/time"),
-			))
-		})
+		It("Should drop the record shape and channels of a config from before ICDs",
+			func(ctx SpecContext) {
+				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+					"topic":      "plant",
+					"record_key": "channel_name",
+					"record":     map[string]any{"channel_pointer": "/name"},
+					"channels":   []any{map[string]any{"key": "ch-1"}},
+				}))
+				data := MustSucceed(svc.Write.Read(ctx, db, key))
+				Expect(data).To(SatisfyAll(
+					Not(HaveKey("topic")),
+					Not(HaveKey("record_key")),
+					Not(HaveKey("record")),
+					Not(HaveKey("channels")),
+					Not(HaveKey("inline")),
+				))
+			},
+		)
 
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
@@ -237,14 +223,6 @@ var _ = Describe("Service", func() {
 				Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 					"start_offset": "bogus",
 				})).Error().To(MatchError(ContainSubstring("invalid start_offset: bogus")))
-			},
-		)
-
-		It("Should return the write validation error for an invalid record key",
-			func(ctx SpecContext) {
-				Expect(svc.Write.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
-					"record_key": "bogus",
-				})).Error().To(MatchError(ContainSubstring("invalid record_key: bogus")))
 			},
 		)
 	})
@@ -687,14 +665,6 @@ var _ = Describe("Service", func() {
 				Expect(err).To(MatchError(validate.ErrValidation))
 				Expect(err).To(MatchError(ContainSubstring(expected)))
 			},
-			Entry("both channels and targets", func() kafka.WriteConfig {
-				return kafka.WriteConfig{
-					Channels: []kafka.WriteChannel{{Key: "c1", Channel: value.Key()}},
-					Targets: []kafka.WriteTarget{
-						writeTarget("plant", ic, setpoint, command(setpoint, 0, value)),
-					},
-				}
-			}, "targets: a task cannot have both channels and targets"),
 			Entry("a message that does not build", func() kafka.WriteConfig {
 				return kafka.WriteConfig{Targets: []kafka.WriteTarget{writeTarget(
 					"plant", ic, setpoint,
@@ -728,9 +698,9 @@ var _ = Describe("Service", func() {
 					key := MustSucceed(tasks.Create(ctx, svc.Write, data))
 					stored := MustSucceed(svc.Write.Read(ctx, db, key))
 					Expect(stored).ToNot(HaveKey("inline"))
+					Expect(stored).ToNot(HaveKey("channels"))
 					var cfg kafka.WriteConfig
 					Expect(stored.Unmarshal(&cfg)).To(Succeed())
-					Expect(cfg.Channels).To(BeEmpty())
 					Expect(cfg.Targets).To(HaveLen(1))
 					t := cfg.Targets[0]
 					Expect(t.Key).To(Equal("c1"))
