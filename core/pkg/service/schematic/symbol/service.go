@@ -26,7 +26,6 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -57,11 +56,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Enumeration *enumeration.Service
-	// Actuators returns the keys of the symbols that a custom_actuator node draws, for
-	// the migration that gives them the commands of an actuator.
-	//
-	// [REQUIRED]
-	Actuators func(ctx context.Context, tx gorp.Tx) (set.Set[Key], error)
 	// RemoveOrphans removes, in tx, the node bindings and overrides that the states and
 	// commands of sym orphan.
 	//
@@ -79,7 +73,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Enumeration = override.Nil(c.Enumeration, other.Enumeration)
-	c.Actuators = override.Nil(c.Actuators, other.Actuators)
 	c.RemoveOrphans = override.Nil(c.RemoveOrphans, other.RemoveOrphans)
 	return c
 }
@@ -91,7 +84,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("imex", c.ImEx)
 	v.NotNil("enumeration", c.Enumeration)
-	v.NotNil("actuators", c.Actuators)
 	v.NotNil("remove_orphans", c.RemoveOrphans)
 	return v.Error()
 }
@@ -129,7 +121,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Intern: func(tx gorp.Tx) v5.Intern {
 				return cfg.Enumeration.NewWriter(tx).NewInterner().Intern
 			},
-			Actuators: cfg.Actuators,
 		}),
 		// A named color delete or an enumeration retarget rewrites the symbol outside
 		// any symbol write, so the service sends it as a create.

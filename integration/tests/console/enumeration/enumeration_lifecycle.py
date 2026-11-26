@@ -19,7 +19,7 @@ _BUILTIN_ENTRIES = [("off", "Off", 0.0), ("on", "On", 1.0)]
 
 
 class EnumerationLifecycle(ConsoleCase):
-    """Test creating, editing, restoring, and deleting enumerations in Settings."""
+    """Test creating, editing, restoring, and deleting enumerations in the Library."""
 
     name: str
     entries: list[str]

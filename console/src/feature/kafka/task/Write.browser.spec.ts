@@ -31,7 +31,7 @@ import {
   sampleOfTopic,
 } from "@/feature/kafka/testutil";
 import { ICD } from "@/platform/icd";
-import { pickMessageFormat } from "@/platform/icd/testutil";
+import { pickMessageFormat, setField } from "@/platform/icd/testutil";
 import {
   answerCommand,
   answerCommandsUntil,
@@ -620,16 +620,6 @@ describe("Kafka Write form", () => {
     expect(await screen.findByDisplayValue(`${prefix}_rate_cmd_2`)).toBeTruthy();
   });
 
-  it("should add a first field to a message with no fields", async () => {
-    const { target } = await createTarget([]);
-    await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
-    await screen.findByText("Message has no fields");
-    fireEvent.click(screen.getByRole("button", { name: "Add field" }));
-    await screen.findByRole("treeitem", { name: /^Field 1/ });
-    screen.getByDisplayValue("Field 1");
-  });
-
   it("should name the topic in the details header when a topic is selected", async () => {
     const { target } = await createTarget([createField("speed", "float")], {
       recordKey: "pump-1",
@@ -692,6 +682,153 @@ describe("Kafka Write form", () => {
     await clickDeploy(container);
     await screen.findByText("Topic is required");
   });
+  describe("adding fields", () => {
+    const retrieveFields = async (ic: icd.ICD, message: icd.Message) => {
+      const [retrieved] = await client.icds.retrieve([ic.key]);
+      return ICD.jsonFields(retrieved.messages.find(({ key }) => key === message.key));
+    };
+
+    const addField = async () => {
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    };
+
+    it("should add a field to the message in its ICD, with the focus on its name, then put it on a channel", async () => {
+      const speed = createField("speed", "float");
+      const { target, ic, message } = await createTarget([speed]);
+      const { draft } = await renderWrite([target]);
+      await addField();
+      const name = await screen.findByDisplayValue("Field 2");
+      await waitFor(() => expect(document.activeElement).toBe(name));
+      screen.getByDisplayValue("/field_2");
+      fireEvent.change(screen.getByPlaceholderText("/temperature"), {
+        target: { value: "/limit" },
+      });
+      let added: icd.JSONField | undefined;
+      await waitFor(async () => {
+        added = (await retrieveFields(ic, message)).find((f) => f.pointer === "/limit");
+        expect(added).toBeDefined();
+      });
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          message: {
+            bindings: [
+              { type: "channel", field: speed.key },
+              { type: "channel", field: added?.key, channel: 0 },
+            ],
+          },
+        }),
+      );
+    });
+
+    it("should move the pointer of an added field when the field is renamed", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Pump Pressure" },
+      });
+      await screen.findByDisplayValue("/pump_pressure");
+    });
+
+    it("should move the pointer of an added field renamed after another item was selected", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      await screen.findByDisplayValue("Field 2");
+      fireEvent.click(screen.getByRole("treeitem", { name: /^speed/ }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^Field 2/ }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "pressure" },
+      });
+      await screen.findByDisplayValue("/pressure");
+    });
+
+    it("should keep the pointer of an added field once the user edits it", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("/field_2"), {
+        target: { value: "/limit" },
+      });
+      fireEvent.change(screen.getByDisplayValue("Field 2"), {
+        target: { value: "pressure" },
+      });
+      await screen.findByDisplayValue("pressure");
+      screen.getByDisplayValue("/limit");
+    });
+
+    it("should number the pointer of an added field renamed onto the pointer of another field", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Speed" },
+      });
+      await screen.findByDisplayValue("/speed_2");
+    });
+
+    it("should move the numbered pointer of an added field when it is renamed again", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      await addField();
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Speed" },
+      });
+      fireEvent.change(await screen.findByDisplayValue("Speed"), {
+        target: { value: "Speedometer" },
+      });
+      await screen.findByDisplayValue("/speedometer");
+    });
+
+    it("should keep the pointer of an added field once the ICD editor edits it", async () => {
+      const { target, ic, message } = await createTarget([
+        createField("speed", "float"),
+      ]);
+      await renderWrite([target]);
+      await addField();
+      const added = await waitFor(async () => {
+        const found = (await retrieveFields(ic, message)).find(
+          (f) => f.name === "Field 2",
+        );
+        if (found == null) throw new Error("the added field is not in the ICD");
+        return found;
+      });
+      await setField(
+        client,
+        { icd: ic.key, message: message.key },
+        { ...added, pointer: "/limit" },
+      );
+      await screen.findByDisplayValue("/limit");
+      fireEvent.change(screen.getByDisplayValue("Field 2"), {
+        target: { value: "pressure" },
+      });
+      await screen.findByDisplayValue("pressure");
+      screen.getByDisplayValue("/limit");
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const { target } = await createTarget([createField("speed", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^speed/ }));
+      fireEvent.change(await screen.findByDisplayValue("speed"), {
+        target: { value: "pressure" },
+      });
+      await screen.findByDisplayValue("pressure");
+      screen.getByDisplayValue("/speed");
+    });
+
+    it("should add a first field to a message with no fields", async () => {
+      const { target } = await createTarget([]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+      await screen.findByText("Message has no fields");
+      fireEvent.click(screen.getByRole("button", { name: "Add field" }));
+      await screen.findByRole("treeitem", { name: /^Field 1/ });
+      screen.getByDisplayValue("Field 1");
+    });
+  });
+
   describe("deploying against a live Core", () => {
     it("should create a command channel for each channel binding and keep it in the cluster", async () => {
       const speed = createField("speed", "float");
