@@ -57,6 +57,11 @@ export interface ItemListProps<T extends Item> extends Input.Control<
   label: (item: T) => string;
   /** name returns the path of the name of an item, which makes the name editable. */
   name?: (key: string) => deep.Target<string>;
+  /**
+   * removeLabel returns the label of the remove button and confirm of an item. It
+   * defaults to Remove and the label.
+   */
+  removeLabel?: (item: T) => string;
   /** detail returns the second line of an item. */
   detail: (item: T) => ReactNode;
   /** add returns spec with a new item, and the key of the item. */
@@ -80,6 +85,7 @@ export const ItemList = <T extends Item>({
   items,
   label,
   name,
+  removeLabel,
   detail,
   add,
   addDisabledReason,
@@ -89,13 +95,14 @@ export const ItemList = <T extends Item>({
 }: ItemListProps<T>): ReactElement => {
   const { get, set } = Form.useContext();
   const confirm = Modals.useConfirm();
+  const removeText = (item: T) => removeLabel?.(item) ?? `Remove ${label(item)}`;
   const handleRemove = async (item: T) => {
     const [next, removed] = remove(get(path.data).value, item.key);
     const uses = describeUses(removed);
     if (
       uses.length > 0 &&
       (await confirm({
-        message: `Remove ${label(item)}?`,
+        message: `${removeText(item)}?`,
         description: `Its uses go with it: ${uses}.`,
         confirm: { label: "Remove", variant: "error" },
       })) !== true
@@ -173,8 +180,8 @@ export const ItemList = <T extends Item>({
                     }}
                     size="small"
                     variant="text"
-                    tooltip={`Remove ${label(item)}`}
-                    aria-label={`Remove ${label(item)}`}
+                    tooltip={removeText(item)}
+                    aria-label={removeText(item)}
                     reveal
                   >
                     <Icon.Close />

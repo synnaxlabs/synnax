@@ -30,6 +30,7 @@ import type { z } from "zod";
 import {
   ClickInspector,
   targetName,
+  targetPhrase,
 } from "@/feature/schematic/symbol/edit/ClickInspector";
 import {
   CommandInspector,
@@ -406,6 +407,9 @@ const Editor = ({
                       noun="click"
                       items={interactions}
                       label={(i) => targetName(parts, i.part)}
+                      removeLabel={(i) =>
+                        `Remove the click on ${targetPhrase(parts, i.part)}`
+                      }
                       detail={describeClick}
                       add={Spec.addInteraction}
                       addDisabledReason={clickDisabledReason}

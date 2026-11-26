@@ -1855,7 +1855,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       await screen.findByRole("heading", { name: "Go" });
       expect(lit()).toEqual([expect.stringMatching(/^Go/)]);
       await userEvent.click(screen.getByText("Sends Go"));
-      await screen.findByRole("heading", { name: "Whole drawing" });
+      await screen.findByRole("heading", { name: "Click on the whole drawing" });
       expect(lit()).toEqual([expect.stringMatching(/Sends Go$/)]);
       await userEvent.click(getPartListItem("Body"));
       await screen.findByRole("heading", { name: "Body" });
@@ -2208,12 +2208,25 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         commands: [GO],
         interactions: [{ type: "fire", key: "c", command: "go" }],
       });
-      fireEvent.click(screen.getByLabelText("Remove Whole drawing"));
+      fireEvent.click(screen.getByLabelText("Remove the click on the whole drawing"));
       fireEvent.click(findButton("Save"));
       await waitFor(async () => {
         const saved = await client.schematics.symbols.retrieve(symbol.key);
         expect(saved.data.interactions).toEqual([]);
       });
+    });
+
+    it("names the click on a part in its heading and its remove button", async () => {
+      await openPainted({
+        states: [createState()],
+        commands: [GO],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "go" }],
+      });
+      fireEvent.click(screen.getByText("Sends Go"));
+      expect(
+        await screen.findByRole("heading", { name: "Click on Body" }),
+      ).toBeDefined();
+      expect(screen.getByLabelText("Remove the click on Body")).toBeDefined();
     });
 
     it("removes the click on a part with the part", async () => {
@@ -2274,6 +2287,23 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         const saved = await client.schematics.symbols.retrieve(symbol.key);
         expect(saved.data.interactions).toEqual([
           { type: "next", key: "c", commands: ["on", "off"] },
+        ]);
+      });
+    });
+
+    it("keeps the second command when it pairs with a new first command", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [on("off", 0), on("on", 1), on("full", 2)],
+        interactions: [{ type: "next", key: "c", commands: ["off", "full"] }],
+      });
+      fireEvent.click(screen.getByText("Toggles off and full"));
+      await pick("First command", "on");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.interactions).toEqual([
+          { type: "next", key: "c", commands: ["on", "full"] },
         ]);
       });
     });
