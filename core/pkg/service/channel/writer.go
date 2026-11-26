@@ -1124,17 +1124,17 @@ func (w Writer) rename(
 	if err := w.checkChainedRenames(ctx, keys, names); err != nil {
 		return err
 	}
-	renameMap := make(map[Key]string, len(keys))
+	at := make(map[Key]int, len(keys))
 	for i, key := range keys {
-		renameMap[key] = names[i]
+		at[key] = i
 	}
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			next := renameMap[c.Key()]
+			i := at[c.Key()]
+			next := names[i]
 			if err := w.checkRename(c, next, allowInternal); err != nil {
-				i := strconv.Itoa(slices.Index(keys, c.Key()))
-				return Channel{}, validate.PathedError(err, i)
+				return Channel{}, validate.PathedError(err, strconv.Itoa(i))
 			}
 			c.Name = next
 			if err := c.Validate(); err != nil {
