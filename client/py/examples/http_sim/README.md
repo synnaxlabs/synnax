@@ -67,7 +67,8 @@ This example:
 
 - Creates channels for temperature, pressure, and humidity
 - Configures a read task polling GET `/api/v1/data` at 1 Hz
-- Uses JSON Pointers (`/temperature`, `/pressure`, `/humidity`) to extract fields
+- Reads each response as a message of an ICD, with JSON pointers (`/temperature`,
+  `/pressure`, `/humidity`) for its fields
 - Displays live values
 - Press Ctrl+C to stop
 
@@ -145,76 +146,103 @@ health_check = sy.http.HealthCheck(
 
 ## Read task fields
 
+The task reads each response as a message of an ICD. Each field of the message names a
+value in the response, and the task binds each field to a channel.
+
 ### JSON pointers
 
 Fields use [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) syntax to
 extract values from the response body:
 
 ```python
-sy.http.ReadField(pointer="/temperature", channel=temp_ch.key)
-sy.http.ReadField(pointer="/sensors/sensor_0", channel=sensor_ch.key)
+temperature = sy.icd.FloatJSONField(name="temperature", pointer="/temperature")
+sensor = sy.icd.FloatJSONField(name="sensor_0", pointer="/sensors/sensor_0")
+data = sy.icd.Message(
+    name="Data", payload=sy.icd.JSONPayload(fields=[temperature, sensor])
+)
+server = client.icds.create(name="HTTP Server", messages=[data])
+endpoint = sy.http.ReadEndpoint(
+    path="/api/v1/data",
+    icd=server.key,
+    messages=[
+        sy.icd.ReadMessage(
+            message=data.key,
+            bindings=[
+                sy.icd.ReadBinding(field=temperature.key, channel=temp_ch.key),
+                sy.icd.ReadBinding(field=sensor.key, channel=sensor_ch.key),
+            ],
+        )
+    ],
+)
 ```
 
 ### Timestamp fields
 
-For hardware-timed data, configure a timestamp field and set it as the endpoint's index:
+For hardware-timed data, add a timestamp field to the message, bind it to the index
+channel, and put its key in `index` on the message:
 
 ```python
-ts_field = sy.http.ReadField(
+stamp = sy.icd.TimestampJSONField(
+    name="timestamp",
     pointer="/timestamp",
-    channel=time_ch.key,
-    data_type="timestamp",
-    timestamp_format="unix_sec",  # iso8601, unix_sec, unix_ms, unix_us, unix_ns
+    time_format="unix_sec",  # iso8601, unix_sec, unix_ms, unix_us, unix_ns
 )
-endpoint = sy.http.ReadEndpoint(
-    path="/api/data",
-    index=ts_field.key,  # Use this field for timing
-    fields=[ts_field, data_field],
+read = sy.icd.ReadMessage(
+    message=data.key,
+    index=stamp.key,
+    bindings=[
+        sy.icd.ReadBinding(field=stamp.key, channel=time_ch.key),
+        sy.icd.ReadBinding(field=temperature.key, channel=temp_ch.key),
+    ],
 )
 ```
 
 ### Enum fields
 
-Map string values to numbers:
+Map text labels to numbers:
 
 ```python
-sy.http.ReadField(
+from x import payload
+
+status = sy.icd.UnsignedJSONField(
+    name="status",
     pointer="/status",
-    channel=status_ch.key,
-    enum_values={"OFF": 0, "ON": 1, "ERROR": 2},
+    enum_values=[
+        payload.UnsignedEntry(label="OFF", value=payload.Unsigned(0)),
+        payload.UnsignedEntry(label="ON", value=payload.Unsigned(1)),
+        payload.UnsignedEntry(label="ERROR", value=payload.Unsigned(2)),
+    ],
 )
 ```
 
-## Write task fields
+## Write task messages
 
-### Channel field
-
-Each write endpoint has one channel field that provides the dynamic value:
+Each write endpoint sends a message of an ICD. A binding fills each field of the message
+from a command channel or a fixed value. A field with no binding sends its default.
 
 ```python
-sy.http.ChannelField(
-    pointer="/value",  # Where to place the value in the request body
-    json_type="number",  # JSON type: "number", "string", "boolean"
-    channel=cmd_ch.key,
+value = sy.icd.FloatJSONField(name="value", pointer="/value")
+source = sy.icd.StringJSONField(name="source", pointer="/source")
+message = sy.icd.Message(
+    name="PUT /api/v1/setpoint",
+    payload=sy.icd.JSONPayload(fields=[value, source]),
 )
-```
+ic = client.icds.create(name="HTTP Server", messages=[message])
 
-### Static fields
-
-Add fixed values to the request body:
-
-```python
-sy.http.StaticWriteField(pointer="/source", json_type="string", value="python-client")
-sy.http.StaticWriteField(pointer="/priority", json_type="number", value=1)
-```
-
-### Generated fields
-
-Add auto-generated values (UUIDs or timestamps):
-
-```python
-sy.http.GeneratedWriteField(pointer="/id", generator="uuid")
-sy.http.GeneratedWriteField(pointer="/ts", generator="timestamp", time_format="iso8601")
+sy.http.WriteEndpoint(
+    method="PUT",
+    path="/api/v1/setpoint",
+    icd=ic.key,
+    message=sy.icd.WriteMessage(
+        message=message.key,
+        bindings=[
+            sy.icd.ChannelWriteBinding(field=value.key, channel=cmd_ch.key),
+            sy.icd.ValueWriteBinding(
+                field=source.key, value=sy.icd.StringWriteValue(value="python-client")
+            ),
+        ],
+    ),
+)
 ```
 
 ## Troubleshooting

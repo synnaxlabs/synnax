@@ -102,32 +102,6 @@ class ReadField(BaseModel):
         return hash(self.key)
 
 
-class ChannelField(BaseModel):
-    """Is the command channel value placed into a write endpoint's body.
-
-    Attributes:
-        pointer: Is the JSON Pointer where the channel value is placed in the body. An
-            empty pointer sends the bare value as the entire body, in which case the
-            endpoint may not declare any additional fields.
-        json_type: Is the JSON type the channel value is serialized as.
-        channel: Is the Synnax command channel that triggers the request.
-        name: Is the human-readable name of the command channel.
-        data_type: Is the data type of the command channel.
-        time_format: Is the output encoding when the command channel holds timestamps.
-            An unset format is ISO 8601.
-        enum_values: Maps numeric channel values to string labels. Only valid when
-            json_type is 'string'.
-    """
-
-    pointer: str = ""
-    json_type: payload.JSONType = "number"
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    name: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-
 class BaseWriteField(BaseModel):
     """Carries the fields every write body field shares.
 
@@ -146,6 +120,36 @@ class BaseWriteField(BaseModel):
 
 class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class WriteEndpoint(BaseModel):
+    """Is a single HTTP endpoint written to by a write task.
+
+    Attributes:
+        key: Uniquely identifies the endpoint within the task.
+        disabled: Is true when the endpoint is excluded from the task.
+        method: Is the HTTP method used to send the request.
+        path: Is the URL path appended to the device's base URL.
+        headers: Contains additional headers merged into the request.
+        query_params: Contains query parameters appended to the request URL.
+        icd: Is the key of the ICD that holds the message of the endpoint. Absent when
+            the endpoint sends no message.
+        message: Is the message whose document is the request body. A command on any
+            bound channel sends one request.
+    """
+
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    disabled: bool = False
+    method: Method = "POST"
+    path: str = ""
+    headers: list[Header] = Field(default_factory=list)
+    query_params: list[QueryParam] = Field(default_factory=list)
+    icd: icd_.Key | None = None
+    message: icd_.WriteMessage | None = None
 
     @_override
     def __hash__(self) -> int:
@@ -212,6 +216,23 @@ WriteField = Annotated[
 ]
 
 
+class WriteConfig(task.StartConfig):
+    """Configures an HTTP write task, which sends an HTTP request whenever a value is
+    written to an endpoint's command channel.
+
+    Attributes:
+        device: Is the key of the HTTP server device to write to.
+        endpoints: Contains the endpoints to write to.
+    """
+
+    device: device_.Key = ""
+    endpoints: list[WriteEndpoint] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
 class ReadConfig(task.PersistConfig):
     """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
     device and writes extracted JSON values to Synnax channels.
@@ -229,57 +250,6 @@ class ReadConfig(task.PersistConfig):
     rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class WriteEndpoint(BaseModel):
-    """Is a single HTTP endpoint written to by a write task.
-
-    Attributes:
-        key: Uniquely identifies the endpoint within the task.
-        disabled: Is true when the endpoint is excluded from the task.
-        method: Is the HTTP method used to send the request.
-        path: Is the URL path appended to the device's base URL.
-        headers: Contains additional headers merged into the request.
-        query_params: Contains query parameters appended to the request URL.
-        icd: Is the key of the ICD that holds the message of the endpoint. Absent when
-            the endpoint sends no message.
-        message: Is the message whose document is the request body. A command on any
-            bound channel sends one request.
-        channel: Is the command channel whose writes trigger this endpoint.
-        fields: Contains additional static or generated body fields.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    disabled: bool = False
-    method: Method = "POST"
-    path: str = ""
-    headers: list[Header] = Field(default_factory=list)
-    query_params: list[QueryParam] = Field(default_factory=list)
-    icd: icd_.Key | None = None
-    message: icd_.WriteMessage | None = None
-    channel: ChannelField = Field(default_factory=lambda: ChannelField())
-    fields: list[WriteField] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class WriteConfig(task.StartConfig):
-    """Configures an HTTP write task, which sends an HTTP request whenever a value is
-    written to an endpoint's command channel.
-
-    Attributes:
-        device: Is the key of the HTTP server device to write to.
-        endpoints: Contains the endpoints to write to.
-    """
-
-    device: device_.Key = ""
-    endpoints: list[WriteEndpoint] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

@@ -27,6 +27,7 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "3", position: { x: 0.5, y: 0.072916 }, orientation: "top" },
     { key: "4", position: { x: 0.5, y: 0.926084 }, orientation: "bottom" },
   ],
+  ...Custom.ACTIVE_SOLID_SHAPES,
 });
 
 export const FourWay = ({

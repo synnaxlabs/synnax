@@ -26,21 +26,6 @@
         color: inherit;
     }
 
-    /* The add button stays quiet until the group is hovered or chosen, so a long list
-       reads as data rather than a column of buttons. */
-    .console-group-item__add {
-        opacity: 0;
-    }
-
-    .console-group-item:is(:hover, :focus-within, .lyra--selected)
-        .console-group-item__add {
-        opacity: 1;
-    }
-
-    .console-adder-item .lyra-icon {
-        color: var(--pluto-gray-l9);
-    }
-
     .console-field-item.console--off .console-field-pointer {
         color: var(--pluto-gray-l8);
         text-decoration: line-through;

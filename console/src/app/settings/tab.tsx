@@ -23,9 +23,6 @@ const TAB = {
 
 export const TABS = { [TAB_TYPE]: TAB } satisfies Panel.Tabs;
 
-/** The key of the Labels section. */
-export const LABELS_SECTION = "labels";
-
 /** The key of the License section. */
 export const LICENSE_SECTION = "license";
 
@@ -38,7 +35,8 @@ export const useOpen = (section?: string): (() => void) => {
   const openTab = Panel.useOpenTab();
   const dispatch = Session.useDispatch();
   return () => {
-    if (section != null) dispatch(Session.Nav.selectSettingsSection({ section }));
+    if (section != null)
+      dispatch(Session.Nav.selectSection({ page: "settings", section }));
     openTab(
       { variant: "view", type: TAB_TYPE },
       { singleton: true, draft: { name: "Settings" } },

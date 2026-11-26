@@ -26,6 +26,15 @@
           { "key": "a", "name": "Off", "value": 0, "color": "#ff0000" }
         ]
       }
+    },
+    {
+      "key": "pump",
+      "position": { "x": 0, "y": 0 },
+      "config": {
+        "variant": "light",
+        "label": { "label": "Pump" },
+        "on_color": "#0000ff"
+      }
     }
   ],
   "edges": []

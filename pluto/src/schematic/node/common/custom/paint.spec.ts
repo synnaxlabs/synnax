@@ -62,6 +62,35 @@ describe("Custom.listValues", () => {
   });
 });
 
+describe("Custom.applies", () => {
+  const fault: schematic.symbol.State = {
+    type: "enumeration",
+    key: "fault",
+    name: "Fault",
+    match: { type: "exact" },
+    default: 2,
+  };
+  const states = new Map([[fault.key, fault]]);
+  const onFault = (value: number): schematic.symbol.Look => ({
+    key: "look",
+    when: { type: "equals", state: fault.key, values: [value] },
+  });
+
+  it("should apply a look with no condition at every value", () => {
+    expect(Custom.applies({ key: "look" }, new Map(), 5)).toBe(true);
+  });
+
+  it("should apply a look on a state with no value at the default of the state", () => {
+    const values = new Map([["active", 1]]);
+    expect(Custom.applies(onFault(2), states, values)).toBe(true);
+    expect(Custom.applies(onFault(1), states, values)).toBe(false);
+  });
+
+  it("should not apply a look on a state that the symbol lacks", () => {
+    expect(Custom.applies(onFault(2), new Map(), 2)).toBe(false);
+  });
+});
+
 describe("Custom.usePaints state values", () => {
   const RED = color.construct("#ff0000");
   const BLUE = color.construct("#0000ff");

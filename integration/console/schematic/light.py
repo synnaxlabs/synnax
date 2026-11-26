@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from console.notifications import click_past
 from console.schematic.symbol import Symbol
 
 
@@ -26,7 +25,4 @@ class Light(Symbol):
         self.channel_name = channel_name
 
     def _apply_properties(self) -> None:
-        self.click()
-        self.open_properties_tab()
-        click_past(self.page.get_by_text("Telemetry"))
-        self.set_channel(section="State", channel_name=self.channel_name)
+        self.bind_state("Active", channel=self.channel_name)

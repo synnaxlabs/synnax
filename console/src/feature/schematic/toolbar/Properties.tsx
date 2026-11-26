@@ -50,6 +50,7 @@ import { Session } from "@/session";
 const path = deep.path<{
   variant: Schematic.ElementConfig["variant"];
   specKey?: schematic.symbol.Key;
+  spec?: schematic.symbol.Ref;
 }>();
 
 export const Properties = (): ReactElement => {
@@ -87,15 +88,17 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
   const variant = Form.useFieldValue(path.variant, { ctx: form });
   const specKey = Form.useFieldValue(path.specKey, { ctx: form, optional: true });
   const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
+  const spec = Form.useFieldValue(path.spec, { ctx: form, optional: true });
+  const editKey = isCustom ? specKey : spec?.type === "custom" ? spec.key : null;
   const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;
-  if (isCustom)
+  if (editKey != null)
     actions = (
       <Button.Button
         variant="filled"
         size="tiny"
         className={CSS.BE("schematic", "properties", "edit")}
-        onClick={() => openEditModal({ symbolKey: specKey })}
+        onClick={() => openEditModal({ symbolKey: editKey })}
       >
         <Icon.Edit />
       </Button.Button>
@@ -379,7 +382,9 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const hasStroke = selection.has("strokeColor");
   const hasFill = selection.has("fillColor");
   const hasText = selection.has("textColor");
-  const hasColors = hasStroke || hasFill || hasText || selectionRefs.length > 0;
+  const hasColor = selection.has("color");
+  const hasColors =
+    hasStroke || hasFill || hasText || hasColor || selectionRefs.length > 0;
 
   return (
     <Form.Sections x>
@@ -506,6 +511,15 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
               )}
               onChange={(c) => selection.setColor("textColor", c)}
               palettesHidden={selection.valueOnly("textColor")}
+            />
+          )}
+          {hasColor && (
+            <MultiEdit.ColorField
+              label="Color"
+              values={selection.colors("color", () =>
+                Schematic.Node.Form.defaultFallback(theme),
+              )}
+              onChange={(c) => selection.setColor("color", c)}
             />
           )}
           <MultiEdit.SelectionColors

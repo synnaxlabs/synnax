@@ -10,7 +10,6 @@
 package v5_test
 
 import (
-	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +21,6 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	color "github.com/synnaxlabs/x/color/versions/v2"
-	"github.com/synnaxlabs/x/set"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -341,16 +339,13 @@ var _ = Describe("Migration", func() {
 			To(Succeed())
 		return sym
 	}
-	migrate := func(ctx SpecContext, actuators ...v4.Key) {
+	migrate := func(ctx SpecContext) {
 		GinkgoHelper()
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v5.Key, v5.Symbol]{
 			DB: db,
 			Migrations: []gorp.Migration{v5.NewMigration(v5.MigrationConfig{
 				Intern: func(tx gorp.Tx) v5.Intern {
 					return enumSvc.NewWriter(tx).NewInterner().Intern
-				},
-				Actuators: func(context.Context, gorp.Tx) (set.Set[v5.Key], error) {
-					return set.New(actuators...), nil
 				},
 			})},
 		}))
@@ -402,11 +397,19 @@ var _ = Describe("Migration", func() {
 				{
 					Key:  "entry-b-fill",
 					Part: new("b"),
+					When: equals(0, 1),
 					Fill: &v5.Paint{Variant: v5.EntryPaint{State: "active"}},
 				},
 				{
 					Key:    "look-1",
 					Part:   new("b"),
+					When:   equals(0),
+					Stroke: colorPaint(black),
+				},
+				{
+					Key:    "look-2",
+					Part:   new("b"),
+					When:   equals(1),
 					Stroke: colorPaint(black),
 				},
 			}))
@@ -429,7 +432,8 @@ var _ = Describe("Migration", func() {
 			{Key: "2", Value: 2, Name: "off"},
 		}))
 		Expect(sym.Data.Looks).To(Equal([]v5.Look{
-			{Key: "look-1", Part: new("b"), Stroke: colorPaint(black)},
+			{Key: "look-1", Part: new("b"), When: equals(0), Stroke: colorPaint(black)},
+			{Key: "look-2", Part: new("b"), When: equals(1), Stroke: colorPaint(black)},
 		}))
 	})
 
@@ -447,15 +451,24 @@ var _ = Describe("Migration", func() {
 		Expect(enumerationOf(ctx, retrieve(ctx, other.Key)).Key).ToNot(Equal(shared))
 	})
 
-	It("Should give a symbol that an actuator node draws the commands of an actuator",
+	It("Should give an actuator with one state the entry On and its looks on value 1",
 		func(ctx SpecContext) {
-			drawn, plain := create(ctx, valve()), create(ctx, valve())
-			migrate(ctx, drawn.Key)
-			Expect(retrieve(ctx, drawn.Key).Data.Commands).To(HaveLen(2))
-			Expect(retrieve(ctx, drawn.Key).Data.Interactions).To(HaveLen(1))
-			Expect(retrieve(ctx, drawn.Key).Data.Looks[0].When).To(Equal(equals(0, 1)))
-			Expect(retrieve(ctx, plain.Key).Data.Commands).To(BeEmpty())
-			Expect(retrieve(ctx, plain.Key).Data.Looks[0].When).To(BeNil())
+			old := create(ctx, v4.Spec{
+				SVG: `<svg><rect id="b"/></svg>`, Variant: "actuator",
+				States: []v4.State{state("off", filled(region("b", "#b"), red))},
+			})
+			migrate(ctx)
+			sym := retrieve(ctx, old.Key)
+			Expect(enumerationOf(ctx, sym).Entries).To(Equal([]enumeration.Entry{
+				{Key: "off", Value: 0, Name: "off"},
+				{Key: "on", Value: 1, Name: "On"},
+			}))
+			Expect(sym.Data.Looks).To(Equal([]v5.Look{{
+				Key:  "look-1",
+				Part: new("b"),
+				When: equals(0, 1),
+				Fill: colorPaint(red),
+			}}))
 		},
 	)
 
@@ -463,5 +476,131 @@ var _ = Describe("Migration", func() {
 		old := create(ctx, v4.Spec{SVG: "<svg/>", Variant: "static"})
 		migrate(ctx)
 		Expect(retrieve(ctx, old.Key).Data.States).To(BeEmpty())
+	})
+})
+
+var _ = Describe("Actuate", func() {
+	within := v5.Matcher{Variant: v5.WithinMatcher{
+		Bounds: spatial.Bounds{Lower: 0.9, Upper: 1.1},
+	}}
+	It("Should give a spec with no states the state active", func() {
+		spec := v5.Actuate(v5.Spec{})
+		Expect(spec.States).To(Equal([]v5.State{{Variant: v5.EnumerationState{
+			BaseState: v5.BaseState{Key: "active", Name: "Active"},
+			Match:     within,
+		}}}))
+		Expect(spec.Commands).To(HaveLen(2))
+		Expect(spec.Interactions).To(HaveLen(1))
+	})
+
+	It("Should keep the enumeration of the state active", func() {
+		e := uuid.New()
+		in := v5.Spec{States: []v5.State{{Variant: v5.EnumerationState{
+			BaseState:   v5.BaseState{Key: "active", Name: "Active"},
+			Enumeration: &e,
+			Match:       v5.Matcher{Variant: v5.ExactMatcher{}},
+		}}}}
+		spec := v5.Actuate(in)
+		Expect(spec.States).To(Equal([]v5.State{{Variant: v5.EnumerationState{
+			BaseState:   v5.BaseState{Key: "active", Name: "Active"},
+			Enumeration: &e,
+			Match:       within,
+		}}}))
+		st, ok := in.States[0].Variant.(v5.EnumerationState)
+		Expect(ok).To(BeTrue())
+		Expect(st.Match).To(Equal(v5.Matcher{Variant: v5.ExactMatcher{}}))
+	})
+
+	It("Should make a spec an actuator that holds its looks on value 0 on value 1, "+
+		"when no look holds on value 1", func() {
+		spec := v5.Actuate(v5.Spec{Variant: "static", Looks: []v5.Look{
+			{Key: "a", When: equals(0)},
+			{Key: "b", When: equals(2)},
+			{Key: "c"},
+		}})
+		Expect(spec.Variant).To(Equal("actuator"))
+		Expect(spec.Looks).To(Equal([]v5.Look{
+			{Key: "a", When: equals(0, 1)},
+			{Key: "b", When: equals(2)},
+			{Key: "c"},
+		}))
+	})
+
+	It("Should keep the looks when a look holds on value 1", func() {
+		looks := []v5.Look{{Key: "a", When: equals(0)}, {Key: "b", When: equals(1)}}
+		Expect(v5.Actuate(v5.Spec{Looks: looks}).Looks).To(Equal(looks))
+	})
+})
+
+var _ = Describe("ActuatorEntries", func() {
+	It("Should add the entry On with a free key when no entry has value 1", func() {
+		entries, added := v5.ActuatorEntries([]enumeration.Entry{
+			{Key: "on", Value: 0, Name: "Base"},
+		})
+		Expect(added).To(BeTrue())
+		Expect(entries).To(Equal([]enumeration.Entry{
+			{Key: "on", Value: 0, Name: "Base"},
+			{Key: "1", Value: 1, Name: "On"},
+		}))
+	})
+
+	DescribeTable("Should add no entry", func(entries []enumeration.Entry) {
+		next, added := v5.ActuatorEntries(entries)
+		Expect(added).To(BeFalse())
+		Expect(next).To(Equal(entries))
+	},
+		Entry("to no entries", []enumeration.Entry(nil)),
+		Entry("to entries with value 1", []enumeration.Entry{{Key: "a", Value: 1}}),
+	)
+})
+
+var _ = Describe("ResolveRegion", func() {
+	It("Should keep a selector that names shapes", func() {
+		sels, markup := v5.ResolveRegion(`<svg><rect class="a"/></svg>`, []string{".a"})
+		Expect(sels).To(Equal([]string{".a"}))
+		Expect(markup).To(Equal(`<svg><rect class="a"/></svg>`))
+	})
+
+	It("Should name a shape that a selector picks by position", func() {
+		sels, markup := v5.ResolveRegion(
+			`<svg><rect data-region-id="region-1"/><rect/></svg>`,
+			[]string{"rect:nth-of-type(2)", "rect:nth-of-type(1)"},
+		)
+		Expect(sels).To(Equal([]string{
+			`[data-region-id="region-2"]`,
+			`[data-region-id="region-1"]`,
+		}))
+		Expect(markup).To(Equal(
+			`<svg><rect data-region-id="region-1"/><rect data-region-id="region-2"/></svg>`,
+		))
+	})
+
+	It("Should drop a selector that picks no shape", func() {
+		sels, _ := v5.ResolveRegion(
+			`<svg><rect/></svg>`,
+			[]string{"circle:nth-of-type(1)"},
+		)
+		Expect(sels).To(BeEmpty())
+	})
+})
+
+var _ = Describe("DrawnLooks", func() {
+	looks := []v5.Look{
+		{Key: "a", When: equals(0)},
+		{Key: "b", When: equals(0, 1)},
+		{Key: "c", When: equals(1)},
+		{Key: "d"},
+	}
+	It("Should hold the looks on value 0 at every value and drop the looks on other "+
+		"values alone, for a spec with no commands", func() {
+		Expect(v5.DrawnLooks(v5.Spec{Looks: looks})).To(Equal([]v5.Look{
+			{Key: "a"},
+			{Key: "b"},
+			{Key: "d"},
+		}))
+	})
+
+	It("Should keep every look of a spec with commands", func() {
+		Expect(v5.DrawnLooks(v5.Actuate(v5.Spec{Looks: looks}))).To(Equal(looks))
 	})
 })

@@ -24,9 +24,18 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Schematic } from "@synnaxlabs/pluto";
 import { type bounds, id, type xy } from "@synnaxlabs/x";
-import { type ReactElement, useRef, useState } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 import type { z } from "zod";
 
+import {
+  ClickInspector,
+  targetName,
+  targetPhrase,
+} from "@/feature/schematic/symbol/edit/ClickInspector";
+import {
+  CommandInspector,
+  NONE,
+} from "@/feature/schematic/symbol/edit/CommandInspector";
 import { HandleList } from "@/feature/schematic/symbol/edit/HandleList";
 import { Inspector } from "@/feature/schematic/symbol/edit/Inspector";
 import { ItemList } from "@/feature/schematic/symbol/edit/ItemList";
@@ -34,7 +43,6 @@ import { PartList } from "@/feature/schematic/symbol/edit/PartList";
 import { Preview } from "@/feature/schematic/symbol/edit/Preview";
 import { useConfirmSave } from "@/feature/schematic/symbol/edit/useConfirmSave";
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
-import { SelectVariantField } from "@/feature/schematic/symbol/SelectVariant";
 import { Spec } from "@/feature/schematic/symbol/spec";
 import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
@@ -63,8 +71,25 @@ const STATE_TYPES: Record<schematic.symbol.StateType, string> = {
   number: "Number",
 };
 
-const describeCommand = ({ value }: schematic.symbol.Command): string =>
-  value.type === "fixed" ? `Sends ${value.value}` : "Asks for a value";
+interface CommandDetailProps {
+  command: schematic.symbol.Command;
+}
+
+// CommandDetail names the value that a command sends, by the enumeration of its state
+// when it has one.
+const CommandDetail = ({ command }: CommandDetailProps): ReactNode => {
+  const values = useValues(command.state ?? NONE);
+  if (command.value.type === "ask") return "Asks for a value";
+  const { value } = command.value;
+  const named = values.list.find((v) => v.value === value)?.name;
+  return `Sends ${named ?? value}`;
+};
+
+// Item is a command or a click that the inspector edits.
+interface Item {
+  type: "command" | "click";
+  key: string;
+}
 
 interface ValueBarProps {
   value: Spec.At;
@@ -84,31 +109,33 @@ const ValueBar = ({ value, onChange }: ValueBarProps): ReactElement | null => {
         Preview
       </Text.Text>
       {states.length > 1 && (
-        <Select.Buttons<string>
+        <Select.Simple<string>
+          resourceName="state"
           value={state}
           onChange={handleStateChange}
-          size="small"
-          variant="outlined"
+          allowNone={false}
+          triggerProps={{ "aria-label": "Preview state" }}
         >
           {states.map((s) => (
-            <Select.Item<string> key={s.key} itemKey={s.key} size="small">
+            <Select.Item<string> key={s.key} itemKey={s.key}>
               {s.name}
             </Select.Item>
           ))}
-        </Select.Buttons>
+        </Select.Simple>
       )}
-      <Select.Buttons<number>
+      <Select.Simple<number>
+        resourceName="value"
         value={value.value}
         onChange={(v: number) => onChange({ state, value: v })}
-        size="small"
-        variant="outlined"
+        allowNone={false}
+        triggerProps={{ "aria-label": "Preview value" }}
       >
         {list.map((v) => (
-          <Select.Item<number> key={v.value} itemKey={v.value} size="small">
+          <Select.Item<number> key={v.value} itemKey={v.value}>
             {v.name}
           </Select.Item>
         ))}
-      </Select.Buttons>
+      </Select.Simple>
     </Flex.Box>
   );
 };
@@ -178,6 +205,16 @@ const Editor = ({
   const [selectedPart, setSelectedPart, selectedPartRef] =
     useCombinedStateAndRef<Spec.Target>(undefined);
   const [selectedHandle, setSelectedHandle] = useState<string | undefined>(undefined);
+  const [selectedItem, setSelectedItem] = useState<Item | undefined>(undefined);
+  // A part and an item share the inspector, so picking one drops the other.
+  const selectPart = (key: Spec.Target) => {
+    setSelectedPart(key);
+    setSelectedItem(undefined);
+  };
+  const selectItem = (type: Item["type"]) => (key: string | undefined) => {
+    setSelectedItem(key == null ? undefined : { type, key });
+    setSelectedPart(undefined);
+  };
 
   // addPart adds a part, with the shape of selector when one is given, and selects it.
   const addPart = (selector?: string) => {
@@ -195,7 +232,7 @@ const Editor = ({
         ? next
         : Spec.toggleSelector({ drawing, parts: next }, part.key, selector),
     );
-    setSelectedPart(part.key);
+    selectPart(part.key);
   };
 
   const addNewHandle = () => {
@@ -242,10 +279,32 @@ const Editor = ({
       return form.set(path.data.parts, Spec.toggleSelector(spec, part, selector));
     const owner = part == null ? Spec.owner(spec, selector) : holder;
     if (owner == null) return addPart(selector);
-    setSelectedPart(owner.key);
+    selectPart(owner.key);
   };
   const states = Form.useFieldValue(path.data.states, { ctx: form });
+  const previewed = Spec.resolvePreview(states, preview);
   const commands = Form.useFieldValue(path.data.commands, { ctx: form });
+  const interactions = Form.useFieldValue(path.data.interactions, { ctx: form });
+  const parts = Form.useFieldValue(path.data.parts, { ctx: form });
+  const shown =
+    selectedItem != null &&
+    (selectedItem.type === "command" ? commands : interactions).some(
+      (i) => i.key === selectedItem.key,
+    )
+      ? selectedItem
+      : undefined;
+  const describeClick = (click: schematic.symbol.Interaction): string => {
+    const name = (key: string) => commands.find((c) => c.key === key)?.name ?? key;
+    return click.type === "fire"
+      ? `Sends ${name(click.command)}`
+      : `Toggles ${click.commands.map(name).join(" and ")}`;
+  };
+  const clickDisabledReason =
+    commands.length === 0
+      ? "Add a command first"
+      : Spec.freeTargets({ parts, interactions }).length === 0
+        ? "Every part and the whole drawing have a click"
+        : undefined;
   const hasSVG =
     Form.useFieldValue(path.data.drawing.markup, {
       ctx: form,
@@ -257,11 +316,10 @@ const Editor = ({
     // inspector shows why. The inspector shows the issues only with the flag on.
     if (FLAGS.symbolMotion) {
       const [part] = Spec.levelIssues(spec).keys();
-      if (part != null) return setSelectedPart(part);
+      if (part != null) return selectPart(part);
     }
     // Placement reads the variant, so a symbol with a click saves as an actuator.
-    if (FLAGS.symbolNodes)
-      form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
+    form.set(path.data.variant, spec.interactions.length > 0 ? "actuator" : "static");
     const uses = stored.data?.uses ?? [];
     if (stored.data != null && uses.length > 0) {
       const next = form.get(path.data).value;
@@ -305,64 +363,61 @@ const Editor = ({
                   />
                 </Flex.Box>
                 <Divider.Divider x />
-                {FLAGS.symbolNodes ? (
-                  <>
-                    <ItemList
-                      title="States"
-                      noun="state"
-                      items={states}
-                      name={(key) => path.data.states[key].name}
-                      detail={(s) => STATE_TYPES[s.type]}
-                      add={Spec.addState}
-                      remove={Spec.removeState}
-                      onRemove={() => {
-                        // The preview moves to the first state left if its state goes.
-                        const left = form
-                          .get(path.data.states)
-                          .value.filter(
-                            (s): s is schematic.symbol.EnumerationState =>
-                              s.type === "enumeration",
-                          );
-                        if (left.some((s) => s.key === preview.state)) return;
-                        const first = left.at(0);
-                        setPreview({
-                          state: first?.key ?? Spec.STATE,
-                          value: first?.default ?? 0,
-                        });
-                      }}
-                    />
-                    <Divider.Divider x />
-                    <ItemList
-                      title="Commands"
-                      noun="command"
-                      items={commands}
-                      name={(key) => path.data.commands[key].name}
-                      detail={describeCommand}
-                      add={Spec.addCommand}
-                      remove={Spec.removeCommand}
-                    />
-                  </>
-                ) : (
-                  <Flex.Box y>
-                    <Header.Header level="p" bordered={false}>
-                      <Header.Title level="p" weight={500}>
-                        States
-                      </Header.Title>
-                    </Header.Header>
-                    <Flex.Box className={CSS.BE("schematic", "states")}>
-                      <SelectVariantField
-                        onSelectValue={(value) =>
-                          setPreview({ state: Spec.STATE, value })
-                        }
-                      />
-                    </Flex.Box>
-                  </Flex.Box>
-                )}
+                <ItemList
+                  title="States"
+                  noun="state"
+                  items={states}
+                  label={(s) => s.name}
+                  name={(key) => path.data.states[key].name}
+                  detail={(s) => STATE_TYPES[s.type]}
+                  add={Spec.addState}
+                  remove={Spec.removeState}
+                  // The inspector shows no state, so no state looks selected.
+                  value={undefined}
+                  onChange={(key) => {
+                    // The preview shows enumeration states alone.
+                    const state = states.find((s) => s.key === key);
+                    if (state?.type !== "enumeration") return;
+                    setPreview({
+                      state: state.key,
+                      value: state.default,
+                    });
+                  }}
+                />
+                <Divider.Divider x />
+                <ItemList
+                  title="Commands"
+                  noun="command"
+                  items={commands}
+                  label={(c) => c.name}
+                  name={(key) => path.data.commands[key].name}
+                  detail={(c) => <CommandDetail command={c} />}
+                  add={Spec.addCommand}
+                  remove={Spec.removeCommand}
+                  value={shown?.type === "command" ? shown.key : undefined}
+                  onChange={selectItem("command")}
+                />
+                <Divider.Divider x />
+                <ItemList
+                  title="Clicks"
+                  noun="click"
+                  items={interactions}
+                  label={(i) => targetName(parts, i.part)}
+                  removeLabel={(i) =>
+                    `Remove the click on ${targetPhrase(parts, i.part)}`
+                  }
+                  detail={describeClick}
+                  add={Spec.addInteraction}
+                  addDisabledReason={clickDisabledReason}
+                  remove={Spec.removeInteraction}
+                  value={shown?.type === "click" ? shown.key : undefined}
+                  onChange={selectItem("click")}
+                />
                 <Divider.Divider x />
                 <PartList
-                  value={selectedPart}
+                  value={shown == null ? selectedPart : null}
                   onChange={(value) => {
-                    setSelectedPart(value);
+                    selectPart(value);
                     setSelectedHandle(undefined);
                   }}
                   onAdd={() => addPart()}
@@ -412,7 +467,7 @@ const Editor = ({
               >
                 {({ onChange }) => (
                   <Preview
-                    selectedValue={preview.value}
+                    value={Spec.stateValues(previewed)}
                     selectedHandle={selectedHandle}
                     selectedPart={selectedPart}
                     onElementClick={handleElementClick}
@@ -422,7 +477,7 @@ const Editor = ({
                   />
                 )}
               </Form.Field>
-              {hasSVG && <ValueBar value={preview} onChange={setPreview} />}
+              {hasSVG && <ValueBar value={previewed} onChange={setPreview} />}
             </Flex.Box>
             {hasSVG && (
               <Flex.Box
@@ -433,11 +488,17 @@ const Editor = ({
                 bordered
                 borderColor={6}
               >
-                <Inspector
-                  key={`${selectedPart ?? ""}/${preview.state}`}
-                  part={selectedPart}
-                  preview={preview}
-                />
+                {shown?.type === "command" ? (
+                  <CommandInspector key={shown.key} command={shown.key} />
+                ) : shown?.type === "click" ? (
+                  <ClickInspector key={shown.key} click={shown.key} />
+                ) : (
+                  <Inspector
+                    key={`${selectedPart ?? ""}/${previewed.state}`}
+                    part={selectedPart}
+                    preview={previewed}
+                  />
+                )}
               </Flex.Box>
             )}
           </Flex.Box>

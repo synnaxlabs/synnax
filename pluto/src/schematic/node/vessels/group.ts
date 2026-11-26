@@ -16,5 +16,5 @@ export const GROUP: Group = {
   scope: "schematic_symbol",
   name: "Vessels",
   Icon: Icon.Tank,
-  symbols: ["tank", "cylinder", "t_junction", "cross_junction"],
+  symbols: ["cross_junction", "cylinder", "tank", "t_junction"],
 };

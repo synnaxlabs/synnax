@@ -42,8 +42,13 @@ export interface PickedFile {
 /** Reads a picked file's contents into raw bytes. */
 export const toBytes = async (
   data: Uint8Array<ArrayBuffer> | File,
-): Promise<Uint8Array<ArrayBuffer>> =>
-  data instanceof Uint8Array ? data : new Uint8Array(await data.arrayBuffer());
+): Promise<Uint8Array<ArrayBuffer>> => {
+  if (data instanceof Uint8Array) return data;
+  // WebKit can settle File.arrayBuffer() inside a ResizeObserver callback, so a render
+  // that waits on the bytes resizes elements the observer already passed. A read
+  // through the file's stream settles outside the callback.
+  return new Uint8Array(await new Response(data.stream()).arrayBuffer());
+};
 
 /** Wraps bytes in a stream, for a download. */
 export const toStream = (bytes: Uint8Array): ReadableStream<Uint8Array> =>

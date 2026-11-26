@@ -41,7 +41,8 @@ var _ = Describe("Writer", func() {
 				var s schematic.Schematic
 				Expect(json.Unmarshal([]byte(
 					`{"name":"valves","nodes":[{"key":"v1","config":`+
-						`{"variant":"valve"`+scale+`}}]}`,
+						`{"variant":"symbol",`+
+						`"spec":{"type":"builtin","name":"valve"}`+scale+`}}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(matcher)
@@ -243,7 +244,8 @@ var _ = Describe("Writer", func() {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
 				`{"name":"valves","nodes":[{"key":"v1",`+
-					`"config":{"variant":"valve"}}]}`,
+					`"config":{"variant":"symbol",`+
+					`"spec":{"type":"builtin","name":"valve"}}}]}`,
 			), &s)).To(Succeed())
 			s.Project = &proj.Key
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -268,7 +270,8 @@ var _ = Describe("Writer", func() {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
 				`{"name":"valves","nodes":[{"key":"v1",`+
-					`"config":{"variant":"valve"}}]}`,
+					`"config":{"variant":"symbol",`+
+					`"spec":{"type":"builtin","name":"valve"}}}]}`,
 			), &s)).To(Succeed())
 			s.Project = &proj.Key
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -277,7 +280,8 @@ var _ = Describe("Writer", func() {
 			var edited schematic.Schematic
 			Expect(json.Unmarshal([]byte(
 				`{"name":"valves","nodes":[{"key":"v1",`+
-					`"config":{"variant":"valve","scale":0}}]}`,
+					`"config":{"variant":"symbol",`+
+					`"spec":{"type":"builtin","name":"valve"},"scale":0}}]}`,
 			), &edited)).To(Succeed())
 			edited.Key = s.Key
 			edited.Project = &proj.Key
@@ -331,7 +335,8 @@ var _ = Describe("Writer", func() {
 				Expect(json.Unmarshal([]byte(
 					`{"name":"valves","nodes":[`+
 						`{"key":"v0","config":{"variant":"tank"}},`+
-						`{"key":"v1","config":{"variant":"valve"}}]}`,
+						`{"key":"v1","config":{"variant":"symbol",`+
+						`"spec":{"type":"builtin","name":"valve"}}}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -378,8 +383,10 @@ var _ = Describe("Writer", func() {
 				s = schematic.Schematic{}
 				Expect(json.Unmarshal([]byte(
 					`{"name":"edges","nodes":[`+
-						`{"key":"a","config":{"variant":"cap"}},`+
-						`{"key":"b","config":{"variant":"cap"}}],"edges":[`+
+						`{"key":"a","config":{"variant":"symbol",`+
+						`"spec":{"type":"builtin","name":"cap"}}},`+
+						`{"key":"b","config":{"variant":"symbol",`+
+						`"spec":{"type":"builtin","name":"cap"}}}],"edges":[`+
 						`{"key":"e1","source":{"node":"a","param":"o"},`+
 						`"target":{"node":"b","param":"i"},`+
 						`"config":{"variant":"pipe",`+
@@ -458,7 +465,8 @@ var _ = Describe("Writer", func() {
 					`{"name":"groups","nodes":[`+
 						`{"key":"g1","config":{"variant":"group_box"}},`+
 						`{"key":"g2","config":{"variant":"group_box"},"parent":"g1"},`+
-						`{"key":"v1","config":{"variant":"valve"}}]}`,
+						`{"key":"v1","config":{"variant":"symbol",`+
+						`"spec":{"type":"builtin","name":"valve"}}}]}`,
 				), &s)).To(Succeed())
 				s.Project = &proj.Key
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
@@ -531,8 +539,10 @@ var _ = Describe("Writer", func() {
 			var s schematic.Schematic
 			Expect(json.Unmarshal([]byte(
 				`{"name":"valves","nodes":[`+
-					`{"key":"v0","config":{"variant":"valve"}},`+
-					`{"key":"v1","config":{"variant":"valve"},"parent":"v0"}]}`,
+					`{"key":"v0","config":{"variant":"symbol",`+
+					`"spec":{"type":"builtin","name":"valve"}}},`+
+					`{"key":"v1","config":{"variant":"symbol",`+
+					`"spec":{"type":"builtin","name":"valve"}},"parent":"v0"}]}`,
 			), &s)).To(Succeed())
 			s.Project = &proj.Key
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -193,6 +193,62 @@ class Symbol(ABC):
                 channel_name, placeholder="Search", exact=True
             )
 
+    def open_form_tab(self, tab: str) -> None:
+        """Select the symbol and open a tab of its form.
+
+        :param tab: The key of the tab, such as "telemetry", "control", or "style".
+        """
+        self.click()
+        self.open_properties_tab()
+        # The toolbar has its own Control tab, which renders before the form's.
+        click_past(self.page.locator(f"[data-tab-key='{tab}']").last)
+
+    def bind_state(
+        self, state: str, *, channel: str | None = None, command: str | None = None
+    ) -> None:
+        """Bind a state of a symbol node to a channel and a command channel.
+
+        :param state: The name of the state, such as "Active".
+        :param channel: The name of the channel that the state reads.
+        :param command: The name of the channel that its commands write.
+        """
+        self.open_form_tab("telemetry")
+        source = self.layout.form_item(state, "Source")
+        click_past(source.get_by_role("button", name="Channel", exact=True))
+        for label, name in (("Channel", channel), ("Command channel", command)):
+            if name is None:
+                continue
+            item = self.layout.form_item(state, label)
+            click_past(item.locator(".pluto-channel__trigger"))
+            self.layout.select_from_dropdown(name, placeholder="Search", exact=True)
+
+    def state_channels(self, state: str) -> tuple[str, str]:
+        """Return the names of the channel and the command channel that a state of a
+        symbol node is bound to.
+
+        :param state: The name of the state, such as "Active".
+        """
+        self.open_form_tab("telemetry")
+        return (
+            self._channel_name(state, "Channel"),
+            self._channel_name(state, "Command channel"),
+        )
+
+    def choose_command(self, name: str) -> None:
+        """Pick a command in the menu that a click opens while the symbol's state is
+        unknown.
+
+        :param name: The name of the command, such as "Open".
+        """
+        menu = self.page.get_by_label("Commands", exact=True)
+        click_past(menu.get_by_role("menuitem", name=name, exact=True))
+
+    def _channel_name(self, section: str, label: str) -> str:
+        trigger = self.layout.form_item(section, label).locator(
+            ".pluto-channel__trigger"
+        )
+        return trigger.inner_text().strip()
+
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
 
@@ -250,6 +306,11 @@ class Symbol(ABC):
     def colored(self) -> Locator:
         """The element that carries the symbol's `--pluto-symbol-color` style."""
         return self.locator.locator(".lyra-symbol-colored").first
+
+    @property
+    def stroked(self) -> Locator:
+        """The first shape of a symbol node's drawing that a paint gives a stroke."""
+        return self.locator.locator(".pluto-symbol__drawing [style*='stroke']").first
 
     @property
     def stale_indicator(self) -> Locator:

@@ -18,7 +18,6 @@ from synnax.http.types import (
 )
 from synnax.http.types_gen import (
     BaseWriteField,
-    ChannelField,
     GeneratedWriteField,
     Header,
     Method,
@@ -37,7 +36,6 @@ __all__ = [
     "MAKE",
     "MODEL",
     "BaseWriteField",
-    "ChannelField",
     "Device",
     "ExpectedResponse",
     "GeneratedWriteField",

@@ -346,7 +346,6 @@ var _ = Describe("Orphan removal", func() {
 			),
 			ImEx:        imex.NewService(),
 			Enumeration: openEnumerations(ctx, orphanDB),
-			Actuators:   noActuators,
 			RemoveOrphans: func(_ context.Context, _ gorp.Tx, s symbol.Symbol) error {
 				saved = append(saved, s)
 				return refusal
