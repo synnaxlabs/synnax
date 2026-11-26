@@ -16,6 +16,7 @@ import (
 	"io"
 	"net"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -674,7 +675,13 @@ func (t *readTask) consume(ctx context.Context) error {
 			if errors.Is(err, context.DeadlineExceeded) {
 				return
 			}
-			err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
+			// franz-go reports an error of the whole consumer, such as a failed group
+			// join, with no topic.
+			if topic == "" {
+				err = errors.Wrapf(err, "consuming %s", strings.Join(t.topics, ", "))
+			} else {
+				err = errors.Wrapf(err, "fetching %s/%d", topic, partition)
+			}
 			if isConnectionErr(err) {
 				transient = cmp.Or(transient, err)
 			} else {

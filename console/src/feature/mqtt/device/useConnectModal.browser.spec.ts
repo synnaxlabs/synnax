@@ -144,7 +144,6 @@ describe("MQTT.Device.useConnectModal", () => {
     fillHost();
     pressSaveTrigger();
     await scanner.answer({});
-    scanner.close();
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     expect((await client.devices.retrieve({ key })).rack).toBe(rack.key);
@@ -156,7 +155,6 @@ describe("MQTT.Device.useConnectModal", () => {
     fillHost();
     pressSaveTrigger();
     await scanner.answer({});
-    scanner.close();
     const key = await result();
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, includeStatus: true });
@@ -174,7 +172,6 @@ describe("MQTT.Device.useConnectModal", () => {
     fillHost();
     pressSaveTrigger();
     const cmd = await scanner.answer({});
-    scanner.close();
     expect(cmd.args.properties).not.toHaveProperty("port");
     expect(cmd.args.properties).not.toHaveProperty("keep_alive");
     await waitFor(() =>
@@ -202,7 +199,6 @@ describe("MQTT.Device.useConnectModal", () => {
     }
     pressSaveTrigger();
     const cmd = await scanner.answer({});
-    scanner.close();
     expect(cmd.args.properties).not.toHaveProperty("port");
     expect(cmd.args.properties).not.toHaveProperty("keep_alive");
   });
@@ -219,7 +215,6 @@ describe("MQTT.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     pressSaveTrigger();
     await scanner.answer({});
-    scanner.close();
     await waitFor(() => expect(screen.queryByDisplayValue(dev.name)).toBeNull());
     expect(analytics.capture).not.toHaveBeenCalled();
   });
@@ -230,7 +225,6 @@ describe("MQTT.Device.useConnectModal", () => {
     fillHost();
     pressSaveTrigger();
     await scanner.answer({ variant: "error", message: "Connection refused" });
-    scanner.close();
     expect(await screen.findByText("Connection refused")).toBeTruthy();
   });
 

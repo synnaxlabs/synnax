@@ -93,6 +93,15 @@ var _ = Describe("Discover", func() {
 		return stat
 	}
 
+	// expectAnswered checks that stat answers a command that succeeded. It checks the
+	// description first, so a failed command shows why it failed.
+	expectAnswered := func(stat task.Status) {
+		GinkgoHelper()
+		Expect(stat.Description).To(BeEmpty())
+		Expect(stat.Message).To(Equal("Command executed successfully"))
+		Expect(stat.Variant).To(Equal(status.VariantSuccess))
+	}
+
 	Describe("Browse", func() {
 		// browse returns the topics of the cluster of props.
 		browse := func(ctx context.Context, props kafka.Properties) []browsedTopic {
@@ -102,7 +111,7 @@ var _ = Describe("Discover", func() {
 			}
 			dev := createDevice(ctx, props)
 			stat := command(ctx, "browse", map[string]any{"device": dev.Key}, &res)
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			expectAnswered(stat)
 			return res.Topics
 		}
 
@@ -287,7 +296,7 @@ var _ = Describe("Discover", func() {
 				"topics": topics,
 				"count":  count,
 			}, &res)
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			expectAnswered(stat)
 			return res.Topics, res.Truncated
 		}
 
@@ -416,7 +425,7 @@ var _ = Describe("Discover", func() {
 					"device": dev.Key,
 					"topics": []string{topic},
 				}, &res)
-				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				expectAnswered(stat)
 				Expect(res.Topics[0].Records).To(BeEmpty())
 				Expect(res.Topics[0].Error).To(Equal(kerr.LeaderNotAvailable.Error()))
 			},
@@ -434,7 +443,7 @@ var _ = Describe("Discover", func() {
 					"device": dev.Key,
 					"topics": []string{topic},
 				}, &res)
-				Expect(stat.Variant).To(Equal(status.VariantSuccess))
+				expectAnswered(stat)
 				Expect(res.Topics[0].Records).To(BeEmpty())
 				Expect(res.Topics[0].Error).
 					To(Equal("The cluster did not send every record within 3s."))

@@ -13,6 +13,7 @@ package sift
 
 import (
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -59,6 +60,14 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *StreamConfig, t channel.Key) []string {
+				for i5, k6 := range e.Channels {
+					if k6 == t {
+						return []string{"channels", strconv.Itoa(i5)}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *StreamConfig, t channel.Key) {
 				e.Channels = slices.DeleteFunc(e.Channels, func(k2 channel.Key) bool {
 					return k2 == t
@@ -91,6 +100,14 @@ func streamConfigReferences() []gorp.Reference[uuid.UUID, StreamConfig] {
 					targets = append(targets, k1)
 				}
 				return targets
+			},
+			Locate: func(e *StreamConfig, t label.Key) []string {
+				for i5, k6 := range e.Labels {
+					if k6 == t {
+						return []string{"labels", strconv.Itoa(i5)}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *StreamConfig, t label.Key) {
 				e.Labels = slices.DeleteFunc(e.Labels, func(k2 label.Key) bool {
