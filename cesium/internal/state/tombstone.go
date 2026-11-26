@@ -45,7 +45,7 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 			continue
 		}
 		for _, p := range s.dur.pointers {
-			if overlaps(p, gone) {
+			if hits(p, gone) {
 				return refuse(
 					"tombstone of clock %d from %d to %d, which "+
 						"key %d uses from %d to %d",
@@ -160,8 +160,8 @@ func removed(ch *chanState, t *log.Tombstone) []span {
 	return out
 }
 
-// overlaps reports whether p holds a sample in one of spans.
-func overlaps(p Pointer, spans []span) bool {
+// hits reports whether p holds a sample in one of spans.
+func hits(p Pointer, spans []span) bool {
 	lo, hi := p.Alignment, p.Alignment.AddSamples(p.Samples)
 	return slices.ContainsFunc(spans, func(sp span) bool {
 		return lo < sp.hi && hi > sp.lo
