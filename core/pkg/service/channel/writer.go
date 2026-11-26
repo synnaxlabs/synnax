@@ -285,14 +285,29 @@ func (w Writer) DeletePlanned(
 func (w Writer) DeleteManyByNames(
 	ctx context.Context, names []string, allowInternal bool,
 ) error {
-	var res []Channel
-	if err := w.svc.newRetrieve().
-		Where(MatchNames(names...)).
-		Entries(&res).
-		Exec(ctx, w.tx); err != nil {
+	keys, err := w.svc.KeysByNames(ctx, w.tx, names...)
+	if err != nil {
 		return err
 	}
-	return w.deleteMany(ctx, KeysFromChannels(res), allowInternal)
+	return w.deleteMany(ctx, keys, allowInternal)
+}
+
+// KeysByNames returns the keys of the channels with names, as snap sees them. Unlike
+// NewRetrieve, it finds a channel past the license limit, so a delete can name it. A
+// name that no channel has adds no key.
+func (s *Service) KeysByNames(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	names ...string,
+) (Keys, error) {
+	var res []Channel
+	if err := s.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&res).
+		Exec(ctx, snap); err != nil {
+		return nil, err
+	}
+	return KeysFromChannels(res), nil
 }
 
 // deletion returns the keys of the channels that a delete of keys removes, as snap

@@ -402,8 +402,9 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
-// Delete deletes the channels that the request names by key, then by name, with the
-// default of each record that holds them. Deleting an internal channel is a validation
+// Delete deletes the channels that the request names by key, then those it names by
+// name, in two impact deletes with the default of each record that holds them. A name
+// that no channel has deletes nothing. Deleting an internal channel is a validation
 // error, and a task that uses a channel refuses the delete.
 func (s *Service) Delete(
 	ctx context.Context,
@@ -421,8 +422,18 @@ func (s *Service) Delete(
 		}
 	}
 	if len(req.Names) > 0 {
-		return struct{}{}, s.internal.NewWriter(tx).
-			DeleteManyByNames(ctx, req.Names, false)
+		keys, err := s.internal.KeysByNames(ctx, tx, req.Names...)
+		if err != nil || len(keys) == 0 {
+			return struct{}{}, err
+		}
+		if _, err = s.impact.Apply(
+			ctx,
+			tx,
+			channel.ResourceIDsFromKeys(keys),
+			impact.ApplyOptions{},
+		); err != nil {
+			return struct{}{}, err
+		}
 	}
 	return struct{}{}, nil
 }

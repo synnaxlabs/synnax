@@ -57,6 +57,19 @@ var _ = Describe("Planned delete", Ordered, func() {
 		Expect(exists(ctx, keys...)).To(BeFalse())
 	})
 
+	It("Should find the keys of named channels and skip an unknown name", func(
+		ctx SpecContext,
+	) {
+		a := create(ctx, channel.Channel{
+			Name: UniqueChannelName(), DataType: telem.Float32T, Virtual: true,
+		})
+		b := create(ctx, channel.Channel{
+			Name: UniqueChannelName(), DataType: telem.Float32T, Virtual: true,
+		})
+		Expect(svc.KeysByNames(ctx, db, a.Name, UniqueChannelName(), b.Name)).
+			To(ConsistOf(a.Key(), b.Key()))
+	})
+
 	It("Should refuse to plan the delete of a built-in channel", func(ctx SpecContext) {
 		builtIn := channel.Channel{
 			Name:        UniqueChannelName(),
