@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
@@ -509,6 +510,7 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		}).Exec(ctx, db)).To(Succeed())
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      db,
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
@@ -549,7 +551,20 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				DB:     db,
 				Status: statusSvc,
 			})).Stores(),
-			MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{DB: db})).Stores(),
+			MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
+				DB:     db,
+				Status: statusSvc,
+				Secret: secretSvc,
+				Certificate: MustOpen(
+					certificate.OpenService(ctx, certificate.ServiceConfig{
+						DB:      db,
+						Secret:  secretSvc,
+						Status:  statusSvc,
+						Rack:    rackSvc.EmbeddedKey,
+						HostKey: 1,
+					}),
+				),
+			})).Stores(),
 			MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{
 				DB:     db,
 				Secret: secretSvc,

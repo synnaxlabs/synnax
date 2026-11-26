@@ -10,9 +10,9 @@
 import type { schematic } from "@synnaxlabs/client";
 import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type dimensions, location, type xy } from "@synnaxlabs/x";
+import { color, type dimensions, location, TimeSpan, type xy } from "@synnaxlabs/x";
 import type { FC, ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
@@ -427,6 +427,116 @@ const findMaskSource = (fill: Element): Element | null => {
   const href = doc.getElementById(maskID)?.querySelector("use")?.getAttribute("href");
   return doc.getElementById(href?.slice(1) ?? "");
 };
+
+describe("Custom.Drawing part clicks", () => {
+  it("should take a click on a part with no fill after its markup changes", async () => {
+    // The part has no fill, so only its click mark lets a press inside it land.
+    const markup = (x: number) =>
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+      `<rect class="main" x="${x}" width="5" height="5" /></svg>`;
+    const spec = {
+      ...createSpec(markup(0)),
+      parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+    };
+    const clicks = { main: vi.fn() };
+    const Clickable = ({ s }: { s: schematic.symbol.Spec }): ReactElement => (
+      <Wrapper>
+        <Primitive.Div>
+          <Custom.Drawing spec={s} partClicks={clicks} />
+        </Primitive.Div>
+      </Wrapper>
+    );
+    const { container, rerender } = await render(<Clickable s={spec} />);
+    await rerender(
+      <Clickable s={{ ...spec, drawing: { type: "svg", markup: markup(5) } }} />,
+    );
+    const rect = container.querySelector("rect[x='5']");
+    if (rect == null) throw new Error("new markup not mounted");
+    await userEvent.click(rect);
+    expect(clicks.main).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [
+      "inside a closed shape",
+      '<path class="main" d="M0 0 H10 V10 Z" fill="none" />',
+      true,
+    ],
+    [
+      "no inside of an open shape",
+      '<path class="main" d="M0 0 H10 V10" fill="none" />',
+      false,
+    ],
+    [
+      "no inside of a polyline",
+      '<polyline class="main" points="0,0 10,0 10,10" fill="none" />',
+      false,
+    ],
+  ])(
+    "should tint %s of a part while the pointer is on it",
+    async (_, shape, filled) => {
+      const spec = {
+        ...createSpec(
+          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${shape}</svg>`,
+        ),
+        parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+      };
+      const { container } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>
+          <div className={CSS.BE("symbol", "container")}>
+            <Primitive.Div>
+              <Custom.Drawing spec={spec} partClicks={{ main: vi.fn() }} />
+            </Primitive.Div>
+          </div>
+        </Theming.Provider>,
+      );
+      const rect = container.querySelector(".main");
+      if (rect == null) throw new Error("drawing not mounted");
+      const rest = computed(rect, "stroke");
+      expect(computed(rect, "fill")).toBe("none");
+      await userEvent.hover(rect);
+      await expect.poll(() => computed(rect, "stroke")).not.toBe(rest);
+      expect(computed(rect, "fill") !== "none").toBe(filled);
+    },
+  );
+
+  it("should darken an open part more when its press is delayed", async () => {
+    const spec = {
+      ...createSpec(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+          '<polyline class="main" points="0,0 10,0 10,10" fill="none" /></svg>',
+      ),
+      parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+    };
+    // Specs run with transitions off, so a held part shows the end of its hold at once.
+    const pressedStroke = async (delay?: TimeSpan): Promise<string> => {
+      const { container, unmount } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>
+          <div className={CSS.BE("symbol", "container")}>
+            <Primitive.Div>
+              <Custom.Drawing
+                spec={spec}
+                partClicks={{ main: vi.fn() }}
+                onClickDelay={delay}
+              />
+            </Primitive.Div>
+          </div>
+        </Theming.Provider>,
+      );
+      const line = container.querySelector(".main");
+      if (line == null) throw new Error("drawing not mounted");
+      line.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      await expect
+        .poll(() => line.classList.contains(CSS.BEM("symbol", "part", "pressed")))
+        .toBe(true);
+      const stroke = computed(line, "stroke");
+      line.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+      await unmount();
+      return stroke;
+    };
+    expect(await pressedStroke(TimeSpan.seconds(10))).not.toBe(await pressedStroke());
+  });
+});
 
 describe("Custom.Drawing hold fill", () => {
   it("should fill the drawing while held, as a built-in symbol does", async () => {

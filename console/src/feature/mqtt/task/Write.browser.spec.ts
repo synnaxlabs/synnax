@@ -902,10 +902,60 @@ describe("MQTT Write form", () => {
       );
     });
 
+    it("should move the pointer of an added field when the field is renamed", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "Valve Position" },
+      });
+      await screen.findByDisplayValue("/valve_position");
+    });
+
+    it("should move the pointer of an added field renamed after another item was selected", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByDisplayValue("Field 2");
+      fireEvent.click(screen.getByRole("treeitem", { name: /^setpoint/ }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^Field 2/ }));
+      fireEvent.change(await screen.findByDisplayValue("Field 2"), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("/position");
+    });
+
+    it("should keep the pointer of an added field once the user edits it", async () => {
+      const { target } = await createFormatTarget([createField("setpoint", "float")]);
+      await renderWrite([target]);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      fireEvent.change(await screen.findByDisplayValue("/field_2"), {
+        target: { value: "/limit" },
+      });
+      fireEvent.change(screen.getByDisplayValue("Field 2"), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("position");
+      screen.getByDisplayValue("/limit");
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { target } = await createFormatTarget([setpoint]);
+      await renderWrite([target]);
+      await fieldGroup(setpoint.name);
+      fireEvent.change(screen.getByDisplayValue(setpoint.name), {
+        target: { value: "position" },
+      });
+      await screen.findByDisplayValue("position");
+      screen.getByDisplayValue("/setpoint");
+    });
+
     it("should add a first field to a message with no fields", async () => {
       const { target } = await createFormatTarget([]);
       await renderWrite([target]);
       await screen.findByText("Message has no fields");
+      expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       await screen.findByDisplayValue("Field 1");
       fireEvent.click(screen.getByRole("treeitem", { name: /plant\/valve\/set/ }));
@@ -1280,6 +1330,38 @@ describe("MQTT Write form", () => {
       });
       expect(flow.disabled).toBe(true);
       expect(again.getByText("In task")).toBeTruthy();
+    });
+
+    it("should keep the tags of an edge node read while the broker is listened to again", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [], truncated: false } });
+      fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+      const line2 = { group: "plant", edgeNode: "line2", devices: [] };
+      await scanner.answer({ data: { nodes: [...NODES, line2], tags: [] } });
+      await scanner.answer({ data: { nodes: [], tags: [] } });
+      await dialog.findByText("0 tags");
+      fireEvent.click(dialog.getByRole("button", { name: "Listen again" }));
+      const listen = await scanner.next();
+      fireEvent.click(dialog.getByText("line2"));
+      const flow = {
+        device: "",
+        name: "flow",
+        dataType: "float",
+        value: "1",
+        supported: true,
+      };
+      await scanner.answer({ data: { nodes: [], tags: [flow] } });
+      await dialog.findByRole("checkbox", { name: "Record flow" });
+      const line3 = { group: "plant", edgeNode: "line3", devices: [] };
+      await scanner.reply(listen, {
+        data: { nodes: [...NODES, line2, line3], tags: [] },
+      });
+      await dialog.findByText("line3");
+      dialog.getByRole("checkbox", { name: "Record flow" });
+      expect(dialog.queryByText("0 tags")).toBeNull();
+      scanner.close();
     });
 
     it("should list the tags of an edge node under their devices and lock an unsupported one", async () => {

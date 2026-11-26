@@ -14,9 +14,9 @@ import type { ReactElement } from "react";
 import { Color } from "@/color";
 import { Border } from "@/schematic/node/common/border";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Scale } from "@/schematic/node/common/scale";
-import { Stale } from "@/schematic/node/common/stale";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Tank } from "@/schematic/node/vessels/tank/Primitive";
 import { Scale as VisScale } from "@/vis/scale";
@@ -74,7 +74,7 @@ const Body = ({
       onResize={(dimensions) => onConfigChange({ dimensions })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {staleIndicated && <Stale.Indicator />}
+      <Indicator.Slot stale={staleIndicated} />
       <Tank
         strokeColor={resolve(strokeColor)}
         dimensions={dimensions}
