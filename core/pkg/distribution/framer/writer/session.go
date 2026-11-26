@@ -47,8 +47,10 @@ type session struct {
 	lastSync        time.Time
 	// writes is where the session sends each written frame when mode streams.
 	writes confluence.Inlet[relay.Response]
-	mode   Mode
-	group  uint32
+	// relayStopped closes when the relay stops. Writes then skip the relay.
+	relayStopped <-chan struct{}
+	mode         Mode
+	group        uint32
 	// err is the first error that the session raised itself. The Cesium writer keeps
 	// its own first error and returns it from every later call.
 	err     error
@@ -71,6 +73,7 @@ func (s *Service) newSession(
 		stamper:         newUnindexedStamper(virtual),
 		autoIndex:       autoIndex,
 		writes:          s.cfg.Writes,
+		relayStopped:    s.cfg.RelayStopped,
 		autoCommit:      *cfg.EnableAutoCommit,
 		persistInterval: cfg.AutoIndexPersistInterval,
 		clock:           s.cfg.Clock,
@@ -218,7 +221,7 @@ func (s *session) relay(ctx context.Context, fr cesium.Frame) error {
 	if !s.mode.Stream() {
 		return nil
 	}
-	return signal.SendUnderContext(ctx, s.writes.Inlet(), relay.Response{
+	return sendWrite(ctx, s.writes, s.relayStopped, relay.Response{
 		Frame: frame.NewFromStorage(fr),
 		Group: s.group,
 	})

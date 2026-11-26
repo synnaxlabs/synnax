@@ -189,6 +189,9 @@ func (r *Relay) Run(ctx context.Context) error {
 
 // Close fails streamers that wait for a Run that has not started, and makes a later
 // Run fail. Close while Run runs returns an error. Close after Run returns does
+// Stopped returns a channel that closes when Run returns, or at a Close with no Run.
+func (r *Relay) Stopped() <-chan struct{} { return r.stopped }
+
 // nothing.
 func (r *Relay) Close() error {
 	r.lifecycle.Lock()

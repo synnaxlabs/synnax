@@ -213,6 +213,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Writes confluence.Inlet[relay.Response]
+	// RelayStopped closes when the relay stops. Writes then skip the relay.
+	RelayStopped <-chan struct{}
 	// TS is the local time series store to write to.
 	//
 	// [REQUIRED]
@@ -233,6 +235,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
 	v.NotNil("writes", cfg.Writes)
+	v.NotNil("relay_stopped", cfg.RelayStopped)
 	v.NotNil("ts", cfg.TS)
 	v.NotNil("clock", cfg.Clock)
 	return v.Error()
@@ -241,6 +244,7 @@ func (cfg ServiceConfig) Validate() error {
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.Writes = override.Nil(cfg.Writes, other.Writes)
+	cfg.RelayStopped = override.Nil(cfg.RelayStopped, other.RelayStopped)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.Clock = override.Nil(cfg.Clock, other.Clock)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
@@ -455,4 +459,22 @@ func newSegment(
 	lo.Must0(seg.RouteInletTo(sequencerAddr))
 	lo.Must0(seg.RouteOutletFrom(synchronizerAddr))
 	return seg
+}
+
+// sendWrite sends res to writes, and skips it once relayStopped closes, so a write
+// never waits on a relay that stopped.
+func sendWrite(
+	ctx context.Context,
+	writes confluence.Inlet[relay.Response],
+	relayStopped <-chan struct{},
+	res relay.Response,
+) error {
+	select {
+	case writes.Inlet() <- res:
+		return nil
+	case <-relayStopped:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }

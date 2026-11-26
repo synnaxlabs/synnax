@@ -101,6 +101,7 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Child("writer"),
 		TS:              cfg.TS,
 		Writes:          writes,
+		RelayStopped:    s.relay.Stopped(),
 	}); err != nil {
 		return nil, err
 	}
