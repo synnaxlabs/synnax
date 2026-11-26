@@ -74,7 +74,7 @@ func (u Update[K, E]) exec(ctx context.Context, tx Tx) (err error) {
 		}
 	}
 	if u.table != nil {
-		w := u.table.writer(tx, true)
+		w := u.table.writer(tx, checkAll)
 		return w.Set(ctx, entries...)
 	}
 	w := wrapWriter[K, E](tx, "", u.retrieve.keyPrefix, nil)
