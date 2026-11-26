@@ -24,7 +24,6 @@ export const {
   selected,
   symbolColored,
   variable,
-  visible,
 } = Base;
 
 export type VarProperties = Base.VarProperties;

@@ -167,6 +167,11 @@ describe("Symbol node", () => {
     expect(getComputedStyle(lamp).strokeWidth).toBe("1px");
   });
 
+  it("should draw no fill on a shape that sets none", async () => {
+    const lamp = await renderLamp();
+    expect(getComputedStyle(lamp).fill).toBe("none");
+  });
+
   it("should draw a copy of a built-in as wide as the built-in", async () => {
     const client = createTestClient();
     const data = Node.BUILT_INS.get("ball_valve");

@@ -15,7 +15,7 @@ import {
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
-import { color, location, TimeSpan, uuid } from "@synnaxlabs/x";
+import { color, location, TimeSpan } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -28,15 +28,9 @@ import {
   renderSchematic,
   TabToolbar,
 } from "@/feature/schematic/testutil";
-import { findButton } from "@/platform/modals/testutil";
 import { getHexInput, getSwatches } from "@/platform/multiedit/testutil";
 import { Session } from "@/session";
-import {
-  CaptureStatuses,
-  getIconButton,
-  getInputByItemLabel,
-  isPlutoDisabled,
-} from "@/testutil";
+import { CaptureStatuses, getIconButton, getInputByItemLabel } from "@/testutil";
 
 // No spec draws a valve node, so createConfig refuses one; the schema still parses it.
 const createValveConfig = (): Record<string, unknown> =>
@@ -112,9 +106,6 @@ const clearRoleColor = (label: string): void => {
   fireEvent.click(swatch);
   fireEvent.click(screen.getByLabelText("Auto"));
 };
-
-const hexOf = (value: unknown): string | undefined =>
-  value == null ? undefined : color.hex(color.colorZ.parse(value));
 
 // fixedHexOf reads a color that a reference field stores as a fixed reference.
 const fixedHexOf = (value: unknown): string | undefined => {
@@ -247,26 +238,6 @@ describe("Schematic toolbar Properties", () => {
     });
   });
 
-  describe("missing custom symbol", () => {
-    it("shows the missing symbol form when the referenced spec does not exist", async () => {
-      await renderProperties({
-        nodeKeys: ["n1"],
-        createConfig: () =>
-          PSchematic.Node.createConfig({
-            variant: "custom_static",
-            specKey: uuid.create(),
-          }),
-      });
-      expect(
-        await screen.findByText(
-          "The custom symbol referenced by this node was not found.",
-        ),
-      ).toBeDefined();
-      expect(screen.getByText("Or create a symbol in:")).toBeDefined();
-      expect(isPlutoDisabled(findButton("Create symbol"))).toBe(true);
-    });
-  });
-
   describe("custom symbol node", () => {
     it("opens the editor on the custom symbol that the node draws", async () => {
       const symbol = await client.schematics.symbols.create(
@@ -359,16 +330,17 @@ describe("Schematic toolbar Properties", () => {
     it("skips a locked group's members when setting a role color", async () => {
       const { key } = await renderProperties({
         nodeKeys,
-        createConfig: createLockedConfig,
+        createConfig: (key) =>
+          key === "g1" ? createLockedConfig(key) : createValveNodeConfig(),
         parents,
         sessionState: { selected: nodeKeys },
       });
       await screen.findByText("Colors");
-      setRoleColor("Stroke", RED);
+      setRoleColor("Color", RED);
       await expect
-        .poll(async () => hexOf((await retrieveConfig(key, "n3")).strokeColor))
+        .poll(async () => fixedHexOf((await retrieveConfig(key, "n3")).color))
         .toBe(RED);
-      expect((await retrieveConfig(key, "n1")).strokeColor).toBeUndefined();
+      expect((await retrieveConfig(key, "n1")).color).toBeUndefined();
     });
 
     it("routes a group selected with its members to the multi form", async () => {
@@ -385,7 +357,10 @@ describe("Schematic toolbar Properties", () => {
 
   describe("multi-element colors", () => {
     it("sets a stroke on every selected symbol whose stroke is auto", async () => {
-      const { key } = await renderProperties({ nodeKeys: ["n1", "n2"] });
+      const { key } = await renderProperties({
+        nodeKeys: ["n1", "n2"],
+        createConfig: createBoxConfig,
+      });
       await screen.findByText("Colors");
       expect(getHexInput("Stroke").placeholder).toBe("Auto");
       setRoleColor("Stroke", RED);
@@ -393,13 +368,13 @@ describe("Schematic toolbar Properties", () => {
         .poll(async () =>
           (
             await Promise.all([retrieveConfig(key, "n1"), retrieveConfig(key, "n2")])
-          ).map((c) => hexOf(c.strokeColor)),
+          ).map((c) => fixedHexOf(c.strokeColor)),
         )
         .toEqual([RED, RED]);
     });
 
     it("sends only the field that the edit changes", async () => {
-      await renderProperties({ nodeKeys: ["n1", "n2"] });
+      await renderProperties({ nodeKeys: ["n1", "n2"], createConfig: createBoxConfig });
       await screen.findByText("Colors");
       const send = spyOnSend(client);
       setRoleColor("Stroke", RED);
@@ -420,8 +395,8 @@ describe("Schematic toolbar Properties", () => {
         nodeKeys: ["n1", "n2"],
         createConfig: (key) =>
           key === "n1"
-            ? { ...createValveConfig(), strokeColor: RED }
-            : createValveConfig(),
+            ? { ...createBoxConfig(), strokeColor: fixed(RED) }
+            : createBoxConfig(),
       });
       await screen.findByText("Colors");
       expect(getHexInput("Stroke").placeholder).toBe("Mixed");
@@ -431,7 +406,7 @@ describe("Schematic toolbar Properties", () => {
     it("shows the shared stroke when every selected symbol has it", async () => {
       await renderProperties({
         nodeKeys: ["n1", "n2"],
-        createConfig: () => ({ ...createValveConfig(), strokeColor: RED }),
+        createConfig: () => ({ ...createBoxConfig(), strokeColor: fixed(RED) }),
       });
       await screen.findByText("Colors");
       expect(getHexInput("Stroke").value).toBe("ff0000");
@@ -441,8 +416,8 @@ describe("Schematic toolbar Properties", () => {
       const { key } = await renderProperties({
         nodeKeys: ["n1", "n2"],
         createConfig: (key) => ({
-          ...createValveConfig(),
-          strokeColor: key === "n1" ? RED : GREEN,
+          ...createBoxConfig(),
+          strokeColor: fixed(key === "n1" ? RED : GREEN),
         }),
       });
       await screen.findByText("Colors");
@@ -544,23 +519,6 @@ describe("Schematic toolbar Properties", () => {
         ]);
     });
 
-    it("stores a stroke as each symbol stores it", async () => {
-      const { key } = await renderProperties({
-        nodeKeys: ["n1", "n2"],
-        createConfig: (key) => (key === "n1" ? createBoxConfig() : createValveConfig()),
-      });
-      await screen.findByText("Colors");
-      setRoleColor("Stroke", BLUE);
-      await expect
-        .poll(async () => {
-          const [box, valve] = await Promise.all(
-            ["n1", "n2"].map(async (k) => await retrieveConfig(key, k)),
-          );
-          return [fixedHexOf(box.strokeColor), hexOf(valve.strokeColor)];
-        })
-        .toEqual([BLUE, BLUE]);
-    });
-
     it("hides the roles that no selected symbol has", async () => {
       await renderProperties({ nodeKeys: ["n1", "n2"] });
       await screen.findByText("Colors");
@@ -616,7 +574,7 @@ describe("Schematic toolbar Properties", () => {
         nodeKeys: ["n1", "n2", "n3"],
         createConfig: (key) => {
           if (key === "n1") return { ...createBoxConfig(), strokeColor: fixed(RED) };
-          if (key === "n2") return { ...createValveConfig(), strokeColor: RED };
+          if (key === "n2") return { ...createValveNodeConfig(), color: fixed(RED) };
           return { ...createBoxConfig(), fillColor: fixed(GREEN) };
         },
       });
@@ -635,7 +593,7 @@ describe("Schematic toolbar Properties", () => {
           );
           return [
             fixedHexOf(n1.strokeColor),
-            hexOf(n2.strokeColor),
+            fixedHexOf(n2.color),
             fixedHexOf(n3.fillColor),
           ];
         })

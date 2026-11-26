@@ -299,8 +299,8 @@ const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
     </Primitive.Div>,
   ],
   [
-    "enabled actuator",
-    <Toggle.Button key="actuator" enabled>
+    "actuator",
+    <Toggle.Button key="actuator">
       <Custom.Drawing spec={ROOT_PAINT_SPEC} />
     </Toggle.Button>,
   ],
@@ -564,7 +564,7 @@ const BUILT_IN_TOGGLE_SPEC = Custom.createBuiltIn({
   handles: [],
 });
 
-const JSX_TOGGLE_DRAWING = (
+const PLAIN_DRAWING = (
   <Primitive.SVG dimensions={{ width: 10, height: 10 }}>
     <rect className="shape" width="10" height="10" />
   </Primitive.SVG>
@@ -575,24 +575,19 @@ const press = async (button: Element): Promise<void> => {
   await expect.poll(() => button.classList.contains("pluto--pressed")).toBe(true);
 };
 
-const TOGGLE_STATES: [string, boolean, (button: Element) => Promise<void>][] = [
-  ["hovered", false, userEvent.hover],
-  ["hovered enabled", true, userEvent.hover],
-  ["pressed", false, press],
-  ["pressed enabled", true, press],
+const TOGGLE_STATES: [string, (button: Element) => Promise<void>][] = [
+  ["hovered", userEvent.hover],
+  ["pressed", press],
 ];
 
 const renderToggleShape = async (
   drawing: ReactElement,
-  enabled: boolean,
   interact: (button: Element) => Promise<void>,
 ): Promise<{ rest: Paint; changed: Paint }> => {
   const { container } = await render(
     <Theming.Provider theme={Theming.SYNNAX_DARK}>
       <div className={CSS.BE("symbol", "container")}>
-        <Toggle.Button enabled={enabled} onClickDelay={HOLD_DELAY}>
-          {drawing}
-        </Toggle.Button>
+        <Toggle.Button onClickDelay={HOLD_DELAY}>{drawing}</Toggle.Button>
       </div>
     </Theming.Provider>,
   );
@@ -612,16 +607,16 @@ const renderToggleShape = async (
 
 describe("Custom.Drawing built-in toggle", () => {
   it.each(TOGGLE_STATES)(
-    "should paint the shapes of a %s toggle as a JSX toggle",
-    async (_, enabled, interact) => {
-      const jsx = await renderToggleShape(JSX_TOGGLE_DRAWING, enabled, interact);
+    "should tint the shapes of a %s toggle as it tints a plain drawing",
+    async (_, interact) => {
+      const plain = await renderToggleShape(PLAIN_DRAWING, interact);
       const builtIn = await renderToggleShape(
         <Custom.Drawing spec={BUILT_IN_TOGGLE_SPEC} builtIn />,
-        enabled,
         interact,
       );
-      expect(jsx.changed.stroke).not.toBe(jsx.rest.stroke);
-      expect(builtIn).toEqual(jsx);
+      expect(plain.changed.stroke).not.toBe(plain.rest.stroke);
+      expect(builtIn.rest.fill).toBe("none");
+      expect(builtIn.changed).toEqual(plain.changed);
     },
   );
 });

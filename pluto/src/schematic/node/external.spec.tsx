@@ -42,16 +42,6 @@ describe("symbol forms that wrap a shared form", () => {
     });
     expect(screen.getByRole("tab", { name: "Fill" }).ariaSelected).toBe("true");
   });
-
-  it("should pass the selected tab and actions through the switch form", () => {
-    const { Form: SwitchForm } = Node.REGISTRY.switch;
-    render(
-      <SwitchForm tab="style" onTabChange={vi.fn()} actions={<button>Swap</button>} />,
-      { wrapper: createFormWrapper("switch") },
-    );
-    expect(screen.getByRole("tab", { name: "Style" }).ariaSelected).toBe("true");
-    expect(screen.getByRole("button", { name: "Swap" })).toBeDefined();
-  });
 });
 
 // The symbols toolbar draws each grouped symbol that is not a built-in with its

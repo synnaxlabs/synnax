@@ -89,12 +89,7 @@ const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName 
   const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
   const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
   const ref = shared?.variant === "symbol" ? shared.spec : undefined;
-  const specKey =
-    shared != null && Schematic.Node.isCustomConfig(shared)
-      ? shared.specKey
-      : ref?.type === "custom"
-        ? ref.key
-        : null;
+  const specKey = ref?.type === "custom" ? ref.key : null;
   const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
   if (shared == null) return { name: "Mixed" };
   const symbol = Schematic.Node.symbolKey(shared);
