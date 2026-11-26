@@ -79,16 +79,16 @@ describe("Schematic.Node.BUILT_INS", () => {
     const paintable = (el: Element): boolean =>
       el.tagName === "text"
         ? el.querySelector(":scope > tspan.pluto--solid") != null
-        : el.matches(".pluto--solid[fill='currentColor']");
+        : el.matches(".pluto--solid");
     for (const [name, spec] of Node.BUILT_INS) {
       const svg = new DOMParser().parseFromString(spec.drawing.markup, "image/svg+xml");
-      const reads = [...svg.querySelectorAll("[style*='--pluto-symbol']")];
-      expect({
+      const reads = [
+        ...svg.querySelectorAll("[fill*='--pluto-symbol'], [style*='--pluto-symbol']"),
+      ];
+      expect({ name, unpaintable: reads.filter((el) => !paintable(el)) }).toEqual({
         name,
-        unpaintable: reads.filter((el) => !paintable(el)),
-        // A browser ignores a variable in a fill attribute.
-        variable: svg.querySelector("[fill*='var(']"),
-      }).toEqual({ name, unpaintable: [], variable: null });
+        unpaintable: [],
+      });
       if (reads.length > 0)
         expect({ name, parts: spec.parts.map((p) => p.key) }).toEqual({
           name,

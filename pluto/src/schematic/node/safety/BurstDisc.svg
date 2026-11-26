@@ -15,8 +15,7 @@
   <path
         class="pluto--solid"
         d="M37.9706 23.2076C38.4906 23.6079 38.4906 24.3921 37.9706 24.7924L33.86 27.9568C33.2024 28.463 32.25 27.9942 32.25 27.1644V20.8356C32.25 20.0058 33.2024 19.537 33.86 20.0432L37.9706 23.2076Z"
-        fill="currentColor"
-        style="color: var(--pluto-symbol-display)"
+        fill="var(--pluto-symbol-display)"
     />
   <path d="M33 24H2" stroke-linecap="round" />
 </svg>

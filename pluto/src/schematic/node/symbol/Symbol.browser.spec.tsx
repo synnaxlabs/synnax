@@ -454,11 +454,18 @@ describe("Symbol node", () => {
     },
   );
 
-  it.each(["t_junction", "flowmeter_orifice"])(
-    "should fill the solid shapes of %s with no node color",
-    async (name) => {
+  // The theme draws a body in the stroke color of the drawing, and a letter in the
+  // color of its text.
+  it.each([
+    ["t_junction", ".lyra-symbol-colored", "stroke"],
+    ["flowmeter_orifice", "text", "fill"],
+  ] as const)(
+    "should fill the solid shapes of %s as the theme draws them with no node color",
+    async (name, selector, property) => {
       const solid = await renderSolid(name);
-      expect(getComputedStyle(solid).fill).not.toBe("none");
+      const theme = solid.closest(selector);
+      assert(theme != null);
+      expect(getComputedStyle(solid).fill).toBe(getComputedStyle(theme)[property]);
     },
   );
 });
