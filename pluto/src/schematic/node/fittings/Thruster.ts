@@ -22,6 +22,6 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "4", position: { x: 0.253, y: 0.9524 }, orientation: "bottom" },
   ],
   // The thruster draws as a static picture and takes no clicks.
-  looks: [],
+  looks: [Custom.NODE_STROKE_LOOK],
   interactions: [],
 });

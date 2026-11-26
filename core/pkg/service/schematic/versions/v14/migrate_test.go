@@ -443,7 +443,9 @@ var _ = Describe("MigrateSchematic", func() {
 			orientations := lo.Map(
 				out.Nodes,
 				func(n v14.Node, _ int) spatial.OuterLocation {
-					return n.Config.Variant.(v14.SymbolNodeConfig).Orientation
+					cfg, ok := n.Config.Variant.(v14.SymbolNodeConfig)
+					Expect(ok).To(BeTrue())
+					return cfg.Orientation
 				},
 			)
 			Expect(orientations).To(Equal([]spatial.OuterLocation{
