@@ -31,7 +31,9 @@ func planOf[RQ freighter.Payload](
 		if err != nil {
 			return impact.Plan{}, err
 		}
-		return res.Variant.(apiimpact.DeleteResponse).Plan, nil
+		deleted, ok := res.Variant.(apiimpact.DeleteResponse)
+		Expect(ok).To(BeTrue())
+		return deleted.Plan, nil
 	}
 }
 

@@ -238,7 +238,9 @@ var _ = Describe("Restrict", func() {
 			Expect(post(token, "/api/v1/impact/plan", apiimpact.PlanRequest{
 				Change: deleteOf(),
 			}, &res)).To(Succeed())
-			return res.Variant.(apiimpact.DeleteResponse).Plan
+			deleted, ok := res.Variant.(apiimpact.DeleteResponse)
+			Expect(ok).To(BeTrue())
+			return deleted.Plan
 		}
 
 		DescribeTable("Should not name the holder",
