@@ -101,6 +101,9 @@ var legacyDiscarded = map[string]set.Set[string]{
 	// Digital channels carried a type tag with one possible value.
 	"ni_digital_read":  set.New("type"),
 	"ni_digital_write": set.New("type"),
+	// The fields and index of each endpoint move into a message of a new ICD, which
+	// the golden freezes.
+	"http_read": set.New("fields", "index"),
 	// The channel and fields of each endpoint move into a message of a new ICD, which
 	// the golden freezes.
 	"http_write": set.New("channel", "fields"),
@@ -910,6 +913,75 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "v0.59.2", "opc_read_array"),
 		Entry(nil, "v0.59.2", "opc_write"),
 		Entry(nil, "v0.59.2", "pagerduty_alert"),
+		Entry(nil, "v0.62.0", "http_read"),
+		Entry(nil, "v0.62.0", "http_read_list"),
+	)
+
+	// A 0.62 Core exported the fields of each HTTP read endpoint inline. The import
+	// must move each one into the message of the endpoint's ICD under its name, and
+	// bind the channel of each enabled field.
+	DescribeTable("moves the fields of a released 0.62 HTTP read endpoint into an ICD",
+		func(ctx SpecContext, fixture string) {
+			type binding struct {
+				field   string
+				channel float64
+			}
+			raw := rekeyed(MustSucceed(fs.ReadFile(
+				os.DirFS("testdata"), "released/v0.62.0/"+fixture+".json",
+			)), toCreated)
+			var exported map[string]any
+			Expect(json.Unmarshal(raw, &exported)).To(Succeed())
+			_, imported := importFile(ctx, raw, fixture)
+			endpoints := as[[]any](imported.Config["endpoints"])
+			for i, ep := range as[[]any](exported["endpoints"]) {
+				exportedFields := as[[]any](as[map[string]any](ep)["fields"])
+				names := make([]string, 0, len(exportedFields))
+				bound := make([]binding, 0, len(exportedFields))
+				for _, f := range exportedFields {
+					field := as[map[string]any](f)
+					names = append(names, as[string](field["name"]))
+					if !as[bool](field["disabled"]) {
+						bound = append(bound, binding{
+							field:   as[string](field["name"]),
+							channel: as[float64](field["channel"]),
+						})
+					}
+				}
+				stored := as[map[string]any](endpoints[i])
+				var ic icd.ICD
+				Expect(icdSvc.NewRetrieve().
+					Where(icd.MatchKeys(uuid.MustParse(as[string](stored["icd"])))).
+					Entry(&ic).
+					Exec(ctx, db)).To(Succeed())
+				reads := as[[]any](stored["messages"])
+				Expect(reads).To(HaveLen(1))
+				read := as[map[string]any](reads[0])
+				at := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
+					return m.Key.String() == read["message"]
+				})
+				Expect(at).ToNot(Equal(-1))
+				fields := as[icd.JSONPayload](ic.Messages[at].Payload.Variant).Fields
+				fieldNames := make([]string, 0, len(fields))
+				nameOf := make(map[string]string, len(fields))
+				for _, f := range fields {
+					fieldNames = append(fieldNames, f.Base().Name)
+					nameOf[f.Base().Key.String()] = f.Base().Name
+				}
+				Expect(fieldNames).To(Equal(names))
+				bindings := as[[]any](read["bindings"])
+				got := make([]binding, 0, len(bindings))
+				for _, b := range bindings {
+					entry := as[map[string]any](b)
+					got = append(got, binding{
+						field:   nameOf[as[string](entry["field"])],
+						channel: as[float64](entry["channel"]),
+					})
+				}
+				Expect(got).To(Equal(bound))
+			}
+		},
+		Entry(nil, "http_read"),
+		Entry(nil, "http_read_list"),
 	)
 })
 

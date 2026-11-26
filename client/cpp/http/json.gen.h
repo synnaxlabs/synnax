@@ -14,13 +14,11 @@
 #include <string>
 #include <vector>
 
-#include "client/cpp/channel/json.gen.h"
 #include "client/cpp/device/key.h"
 #include "client/cpp/http/types.gen.h"
 #include "client/cpp/icd/json.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/payload/json.gen.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -54,45 +52,6 @@ inline x::json::json QueryParam::to_json() const {
     return j;
 }
 
-inline ReadField ReadField::parse(x::json::Parser parser) {
-    return ReadField{
-        .key = parser.field<std::string>("key", x::uuid::create().to_string()),
-        .name = parser.field<std::string>("name", ""),
-        .disabled = parser.field<bool>("disabled", false),
-        .optional = parser.field<bool>("optional", false),
-        .fill_value = parser.field<std::optional<x::json::json>>("fill_value"),
-        .channel = parser.field<::synnax::channel::Key>(
-            "channel",
-            ::synnax::channel::Key(0)
-        ),
-        .pointer = parser.field<std::string>("pointer", ""),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("float64")
-        ),
-        .time_format = parser.field<std::optional<std::string>>("time_format"),
-        .enum_values = parser.field<std::vector<::x::payload::EnumEntry>>(
-            "enum_values",
-            std::vector<::x::payload::EnumEntry>{}
-        ),
-    };
-}
-
-inline x::json::json ReadField::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["key"] = this->key;
-    j["name"] = this->name;
-    j["disabled"] = this->disabled;
-    j["optional"] = this->optional;
-    if (this->fill_value.has_value()) j["fill_value"] = *this->fill_value;
-    j["channel"] = this->channel;
-    j["pointer"] = this->pointer;
-    j["data_type"] = this->data_type;
-    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
-    j["enum_values"] = x::json::to_array(this->enum_values);
-    return j;
-}
-
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
@@ -110,11 +69,6 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
             "messages",
             std::vector<::synnax::icd::ReadMessage>{}
         ),
-        .fields = parser.field<std::vector<ReadField>>(
-            "fields",
-            std::vector<ReadField>{}
-        ),
-        .index = parser.field<std::string>("index", ""),
     };
 }
 
@@ -129,8 +83,6 @@ inline x::json::json ReadEndpoint::to_json() const {
     j["body"] = this->body;
     if (this->icd.has_value()) j["icd"] = this->icd->to_json();
     j["messages"] = x::json::to_array(this->messages);
-    j["fields"] = x::json::to_array(this->fields);
-    j["index"] = this->index;
     return j;
 }
 
