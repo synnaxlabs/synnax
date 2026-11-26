@@ -349,6 +349,11 @@ class TestHTTPReadTask:
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
+        temperature = sy.icd.FloatJSONField(name="temperature", pointer="/temperature")
+        data = sy.icd.Message(
+            name="Data", payload=sy.icd.JSONPayload(fields=[temperature])
+        )
+        ic = client.icds.create(name=random_name(), messages=[data])
         task = sy.http.ReadTask(
             name="test-http-read-task",
             device="some-device-key",
@@ -358,13 +363,14 @@ class TestHTTPReadTask:
                     key="ep-1",
                     method="GET",
                     path="/api/v1/data",
-                    fields=[
-                        sy.http.ReadField(
-                            key="f-1",
-                            pointer="/temperature",
-                            channel=1234,
-                            data_type=sy.DataType.FLOAT64,
-                        ),
+                    icd=ic.key,
+                    messages=[
+                        sy.icd.ReadMessage(
+                            message=data.key,
+                            bindings=[
+                                sy.icd.ReadBinding(field=temperature.key, channel=1234)
+                            ],
+                        )
                     ],
                 ),
             ],

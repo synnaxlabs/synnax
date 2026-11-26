@@ -283,6 +283,21 @@ Give each endpoint its own channels and its own index channel.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"... an endpoint no longer reads fields ..."}>
+<Problem.Cause>
+
+The config sets `fields` on an endpoint, as code for an earlier version of Synnax does.
+The task reads each response as an ICD message, so the Core refuses to save it.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Create an ICD with a message for the response, then set `icd` and `messages` of the
+endpoint, as the [examples](#create-an-http-read-task) do.
+
+</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={"Failed to read the response from ..."}>
 <Problem.Cause>
 

@@ -148,6 +148,22 @@ var _ = Describe("Read config", func() {
 		)))
 	})
 
+	It("Should refuse an endpoint that sets fields and reads no messages",
+		func(ctx SpecContext) {
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"key":    "ep",
+					"path":   "/values",
+					"fields": []any{map[string]any{"key": "f", "pointer": "/temp"}},
+				}},
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError("endpoints.0.fields: an endpoint no longer reads fields. "+
+					"Set icd and messages to read the response as ICD messages"),
+			))
+		},
+	)
+
 	It("Should save an endpoint that reads its ICD", func(ctx SpecContext) {
 		f := createFormat(ctx)
 		key := MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(
