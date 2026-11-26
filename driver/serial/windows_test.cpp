@@ -25,8 +25,14 @@ namespace {
 std::error_code os(const DWORD code) {
     return {static_cast<int>(code), asio::system_category()};
 }
+
+/// @returns the message that translate puts after the context for code.
+std::string message(const DWORD code) {
+    return std::system_category().message(static_cast<int>(code));
+}
 }
 
+/// @brief it should report a missing, gone, or closed port as unreachable.
 TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
     for (const DWORD code:
          {ERROR_FILE_NOT_FOUND,
@@ -42,7 +48,7 @@ TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
           ERROR_COUNTER_TIMEOUT,
           ERROR_DEVICE_NOT_CONNECTED,
           ERROR_DEVICE_REMOVED}) {
-        SCOPED_TRACE(os(code).message());
+        SCOPED_TRACE(message(code));
         ASSERT_OCCURRED_AS(
             translate("failed to read", os(code)),
             transport::UNREACHABLE_ERROR
@@ -58,10 +64,11 @@ TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
     );
 }
 
-TEST(Translate, ReportsADeniedPortAsInUseByAnotherProgram) {
+/// @brief it should report a denied open as a port in use by another program.
+TEST(TranslateOpen, ReportsADeniedPortAsInUseByAnotherProgram) {
     for (const DWORD code: {ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION}) {
-        SCOPED_TRACE(os(code).message());
-        const auto err = translate("failed to open serial port COM3", os(code));
+        SCOPED_TRACE(message(code));
+        const auto err = translate_open("COM3", os(code));
         ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
         EXPECT_EQ(
             err.data,
@@ -70,6 +77,30 @@ TEST(Translate, ReportsADeniedPortAsInUseByAnotherProgram) {
     }
 }
 
+/// @brief it should map every other open error through translate.
+TEST(TranslateOpen, MapsEveryOtherErrorThroughTranslate) {
+    const auto err = translate_open("COM3", os(ERROR_FILE_NOT_FOUND));
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to open serial port COM3: " + message(ERROR_FILE_NOT_FOUND)
+    );
+}
+
+/// @brief it should report access denied outside an open with the system message.
+TEST(Translate, ReportsADeniedPortOutsideAnOpenWithTheSystemMessage) {
+    const auto err = translate(
+        "failed to read from serial port COM3",
+        os(ERROR_ACCESS_DENIED)
+    );
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to read from serial port COM3: " + message(ERROR_ACCESS_DENIED)
+    );
+}
+
+/// @brief it should report a port that the Driver may not use as a configuration error.
 TEST(Translate, ReportsAPortTheDriverMayNotUseAsAConfigError) {
     for (const DWORD code:
          {ERROR_INVALID_FUNCTION,
@@ -77,7 +108,7 @@ TEST(Translate, ReportsAPortTheDriverMayNotUseAsAConfigError) {
           ERROR_INVALID_PARAMETER,
           ERROR_INVALID_NAME,
           ERROR_BAD_PATHNAME}) {
-        SCOPED_TRACE(os(code).message());
+        SCOPED_TRACE(message(code));
         ASSERT_OCCURRED_AS(
             translate("failed to open", os(code)),
             transport::CONFIG_ERROR
@@ -85,6 +116,7 @@ TEST(Translate, ReportsAPortTheDriverMayNotUseAsAConfigError) {
     }
 }
 
+/// @brief it should report an exhausted host or an unknown error as critical.
 TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
     for (const DWORD code:
          {ERROR_TOO_MANY_OPEN_FILES,
@@ -92,7 +124,7 @@ TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
           ERROR_OUTOFMEMORY,
           ERROR_NO_SYSTEM_RESOURCES,
           ERROR_INVALID_DATA}) {
-        SCOPED_TRACE(os(code).message());
+        SCOPED_TRACE(message(code));
         ASSERT_OCCURRED_AS(
             translate("failed to open", os(code)),
             transport::CRITICAL_ERROR
@@ -100,13 +132,15 @@ TEST(Translate, ReportsAnExhaustedHostOrAnUnknownErrorAsCritical) {
     }
 }
 
+/// @brief it should put the context before the system message.
 TEST(Translate, PutsTheContextBeforeTheSystemMessage) {
     EXPECT_EQ(
         translate("failed to open serial port COM3", os(ERROR_FILE_NOT_FOUND)).data,
-        "failed to open serial port COM3: " + os(ERROR_FILE_NOT_FOUND).message()
+        "failed to open serial port COM3: " + message(ERROR_FILE_NOT_FOUND)
     );
 }
 
+/// @brief it should map a Win32 error from the system category.
 TEST(Translate, MapsWin32ErrorsFromTheSystemCategory) {
     ASSERT_OCCURRED_AS(
         translate(

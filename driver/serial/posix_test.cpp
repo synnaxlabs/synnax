@@ -157,14 +157,37 @@ TEST(Translate, ReportsAMissingGoneOrClosedPortAsUnreachable) {
     );
 }
 
-/// @brief it should report a busy port as in use by another program.
-TEST(Translate, ReportsABusyPortAsInUseByAnotherProgram) {
-    const auto err = translate("failed to open serial port /dev/ttyUSB0", os(EBUSY));
+/// @brief it should report a busy port at open as in use by another program.
+TEST(TranslateOpen, ReportsABusyPortAsInUseByAnotherProgram) {
+    const auto err = translate_open("/dev/ttyUSB0", os(EBUSY));
     ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
     EXPECT_EQ(
         err.data,
         "failed to open serial port /dev/ttyUSB0: the port is in use by another "
         "program"
+    );
+}
+
+/// @brief it should map every other open error through translate.
+TEST(TranslateOpen, MapsEveryOtherErrorThroughTranslate) {
+    const auto err = translate_open("/dev/ttyUSB0", os(ENOENT));
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to open serial port /dev/ttyUSB0: " + os(ENOENT).message()
+    );
+}
+
+/// @brief it should report a busy port outside an open with the system message.
+TEST(Translate, ReportsABusyPortOutsideAnOpenWithTheSystemMessage) {
+    const auto err = translate(
+        "failed to read from serial port /dev/ttyUSB0",
+        os(EBUSY)
+    );
+    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "failed to read from serial port /dev/ttyUSB0: " + os(EBUSY).message()
     );
 }
 

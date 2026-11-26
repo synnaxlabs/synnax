@@ -39,31 +39,29 @@ std::error_code last_error() {
 
 x::errors::Error
 translate(const std::string &context, const std::error_code &reported) {
+    // Asio reports its own codes, such as a closed port, in its own category.
+    if (reported == asio::error::eof || reported == asio::error::bad_descriptor)
+        return transport::error(transport::UNREACHABLE_ERROR, context, reported);
     const auto ec = transport::from_asio(reported);
-    // Windows opens a port for one program at a time and denies access to the rest.
-    if (win32(ec, {ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION}))
-        return x::errors::Error(
-            transport::UNREACHABLE_ERROR,
-            context + ": the port is in use by another program"
-        );
-    if (ec == asio::error::eof || ec == asio::error::bad_descriptor ||
-        ec == std::errc::timed_out ||
-        win32(
-            ec,
-            {ERROR_FILE_NOT_FOUND,
-             ERROR_PATH_NOT_FOUND,
-             ERROR_INVALID_HANDLE,
-             ERROR_BAD_COMMAND,
-             ERROR_GEN_FAILURE,
-             ERROR_DEV_NOT_EXIST,
-             ERROR_SEM_TIMEOUT,
-             ERROR_NO_SUCH_DEVICE,
-             ERROR_OPERATION_ABORTED,
-             ERROR_IO_DEVICE,
-             ERROR_COUNTER_TIMEOUT,
-             ERROR_DEVICE_NOT_CONNECTED,
-             ERROR_DEVICE_REMOVED}
-        ))
+    // A USB adapter that goes away fails its open handle with access denied.
+    if (ec == std::errc::timed_out || win32(
+                                          ec,
+                                          {ERROR_FILE_NOT_FOUND,
+                                           ERROR_PATH_NOT_FOUND,
+                                           ERROR_ACCESS_DENIED,
+                                           ERROR_SHARING_VIOLATION,
+                                           ERROR_INVALID_HANDLE,
+                                           ERROR_BAD_COMMAND,
+                                           ERROR_GEN_FAILURE,
+                                           ERROR_DEV_NOT_EXIST,
+                                           ERROR_SEM_TIMEOUT,
+                                           ERROR_NO_SUCH_DEVICE,
+                                           ERROR_OPERATION_ABORTED,
+                                           ERROR_IO_DEVICE,
+                                           ERROR_COUNTER_TIMEOUT,
+                                           ERROR_DEVICE_NOT_CONNECTED,
+                                           ERROR_DEVICE_REMOVED}
+                                      ))
         return transport::error(transport::UNREACHABLE_ERROR, context, ec);
     if (win32(
             ec,
@@ -77,8 +75,28 @@ translate(const std::string &context, const std::error_code &reported) {
     return transport::error(transport::CRITICAL_ERROR, context, ec);
 }
 
+x::errors::Error translate_open(const std::string &port, const std::error_code &ec) {
+    const auto context = "failed to open serial port " + port;
+    // Windows opens a port for one program at a time and denies access to the rest.
+    if (win32(transport::from_asio(ec), {ERROR_ACCESS_DENIED, ERROR_SHARING_VIOLATION}))
+        return x::errors::Error(
+            transport::UNREACHABLE_ERROR,
+            context + ": the port is in use by another program"
+        );
+    return translate(context, ec);
+}
+
 namespace line {
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
+    if (auto err = check(props)) return err;
+    const bool five = props.data_bits == 5;
+    if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF && !five)
+        return {transport::CONFIG_ERROR, "Windows needs 5 data bits for 1.5 stop bits"};
+    if (props.stop_bits == synnax::serial::STOP_BITS_TWO && five)
+        return {
+            transport::CONFIG_ERROR,
+            "Windows does not support 2 stop bits with 5 data bits"
+        };
     settings.BaudRate = props.baud_rate;
     settings.ByteSize = props.data_bits;
     const auto &parity = props.parity;
@@ -156,7 +174,7 @@ std::pair<Received, std::error_code>
 receive(const Handle handle, Line &, const std::span<std::uint8_t> data) {
     DWORD errors = 0;
     if (!::ClearCommError(reinterpret_cast<HANDLE>(handle), &errors, nullptr))
-        return {{}, last_error()};
+        return {{.size = data.size()}, last_error()};
     const auto count = [errors](const std::initializer_list<DWORD> flags) {
         return static_cast<std::size_t>(std::ranges::count_if(flags, [errors](DWORD f) {
             return (errors & f) != 0;

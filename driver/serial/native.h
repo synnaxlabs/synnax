@@ -56,8 +56,10 @@ struct Received {
     /// @brief size is the number of bytes left at the front of the read.
     std::size_t size = 0;
     /// @brief errors is the number of bytes received with a parity or framing error.
+    /// Windows counts each kind of error once.
     std::size_t errors = 0;
-    /// @brief overruns is the number of receive overruns since the last read.
+    /// @brief overruns is the number of receive overruns since the last read. Windows
+    /// counts each kind of overrun once.
     std::size_t overruns = 0;
 };
 
@@ -65,8 +67,8 @@ struct Received {
 std::error_code watch(Handle handle, Line &line);
 
 /// @brief removes the bytes with line errors from data, which the port just read, and
-/// counts the errors and overruns. When the overrun count fails, it still returns the
-/// bytes with the error.
+/// counts the errors and overruns. Windows leaves the bytes in data. When the overrun
+/// count fails, it still returns the bytes with the error.
 std::pair<Received, std::error_code>
 receive(Handle handle, Line &line, std::span<std::uint8_t> data);
 }

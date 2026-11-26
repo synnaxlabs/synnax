@@ -35,17 +35,13 @@ std::error_code last_error() {
 x::errors::Error
 translate(const std::string &context, const std::error_code &reported) {
     const auto ec = transport::from_asio(reported);
-    if (ec == std::errc::device_or_resource_busy)
-        return x::errors::Error(
-            transport::UNREACHABLE_ERROR,
-            context + ": the port is in use by another program"
-        );
     // A tty reads end of file once its device hangs up.
     if (ec == asio::error::eof)
         return transport::error(transport::UNREACHABLE_ERROR, context, ec);
     if (transport::matches(
             ec,
             {std::errc::no_such_file_or_directory,
+             std::errc::device_or_resource_busy,
              std::errc::no_such_device_or_address,
              std::errc::no_such_device,
              std::errc::io_error,
@@ -69,6 +65,16 @@ translate(const std::string &context, const std::error_code &reported) {
     return transport::error(transport::CRITICAL_ERROR, context, ec);
 }
 
+x::errors::Error translate_open(const std::string &port, const std::error_code &ec) {
+    const auto context = "failed to open serial port " + port;
+    if (transport::from_asio(ec) == std::errc::device_or_resource_busy)
+        return x::errors::Error(
+            transport::UNREACHABLE_ERROR,
+            context + ": the port is in use by another program"
+        );
+    return translate(context, ec);
+}
+
 namespace native {
 x::errors::Error failed(const std::string &setting, const std::string &port) {
     return translate("failed to set " + setting + " on " + port, last_error());
@@ -82,10 +88,9 @@ x::errors::Error lock(const Handle handle, const std::string &port) {
         auto ec = last_error();
         if (ec == std::errc::operation_would_block)
             ec = std::make_error_code(std::errc::device_or_resource_busy);
-        return translate("failed to open serial port " + port, ec);
+        return translate_open(port, ec);
     }
-    if (::ioctl(fd, TIOCEXCL) != 0)
-        return translate("failed to open serial port " + port, last_error());
+    if (::ioctl(fd, TIOCEXCL) != 0) return translate_open(port, last_error());
     return x::errors::NIL;
 }
 

@@ -58,7 +58,7 @@ Port::open(const synnax::serial::Properties &props) {
     auto port = std::unique_ptr<Port>(new Port(props.port));
     std::error_code ec;
     if (port->device.open(props.port, ec))
-        return {nullptr, translate("failed to open serial port " + props.port, ec)};
+        return {nullptr, translate_open(props.port, ec)};
     if (auto err = native::lock(port->handle(), props.port)) return {nullptr, err};
     port->locked = true;
     if (auto err = native::configure(port->handle(), props)) return {nullptr, err};
