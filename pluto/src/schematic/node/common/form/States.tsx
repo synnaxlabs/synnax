@@ -46,7 +46,7 @@ const UsedBy = ({ enumeration: key }: UsedByProps): ReactElement | null => {
   );
 };
 
-interface EnumerationFieldProps {
+export interface EnumerationFieldProps {
   /** The enumeration that the field names. */
   value?: enumeration.Key;
   onChange: (next?: enumeration.Key) => void;
@@ -61,7 +61,7 @@ interface EnumerationFieldProps {
  * entries. Creating one with no search text asks for its name. A field that names an
  * enumeration gets a new empty one.
  */
-const EnumerationField = ({
+export const EnumerationField = ({
   value,
   onChange,
   draft,

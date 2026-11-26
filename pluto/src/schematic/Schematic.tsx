@@ -181,12 +181,14 @@ export const Schematic = ({
     BaseDiagram.DiagramProps["onNodeMouseMove"]
   > = (e, node) => {
     const { target, currentTarget: anchor } = e;
+    // Moves over a dialog of the node reach it, though the dialog portals out of it.
+    const inside = target instanceof Element && anchor.contains(target);
     const overControl =
-      target instanceof Element &&
+      inside &&
       target.closest(CONTROL_STATE_SELECTOR) != null &&
       target.closest(STALE_BADGE_SELECTOR) == null;
     setHovered((prev) => {
-      if (overControl || !(anchor instanceof HTMLElement)) return null;
+      if (!inside || overControl || !(anchor instanceof HTMLElement)) return null;
       if (prev?.nodeKey === node.id) return prev;
       return { nodeKey: node.id, anchor };
     });

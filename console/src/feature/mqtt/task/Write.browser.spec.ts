@@ -906,6 +906,7 @@ describe("MQTT Write form", () => {
       const { target } = await createFormatTarget([]);
       await renderWrite([target]);
       await screen.findByText("Message has no fields");
+      expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
       fireEvent.click(screen.getByRole("button", { name: "Add field" }));
       await screen.findByDisplayValue("Field 1");
       fireEvent.click(screen.getByRole("treeitem", { name: /plant\/valve\/set/ }));
