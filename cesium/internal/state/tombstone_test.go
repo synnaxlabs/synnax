@@ -77,7 +77,75 @@ var _ = Describe("Tombstone", func() {
 			}),
 		Entry("the whole pointer, which keeps its open segment",
 			&log.Tombstone{Key: 6, Start: 0, End: 100}, []state.Pointer{}),
+		Entry("the samples past a left cut of a pointer that the range holds whole",
+			&log.Tombstone{Key: 6, Start: 0, End: 100, Left: cutOf(1, 10)},
+			[]state.Pointer{pointer(1, 0, 10, 10, 0, 4, 1)}),
 	)
+
+	// clockCut returns a cut of segment 2 of clock 5 in sample() at sample index i,
+	// with
+	// stamp.
+	clockCut := func(i uint32, stamp int64) *log.Cut {
+		return &log.Cut{
+			Segment:   2,
+			Offset:    8 * i,
+			Alignment: uint64(telem.NewAlignment(1, i)),
+			Stamp:     stamp,
+		}
+	}
+	// stamped opens s on sample() with the stamps of the first pointer of clock 5 and
+	// of key 6 bounded by first and last.
+	stamped := func(first, last int64) {
+		snap := sample()
+		for _, ch := range snap.Channels[:2] {
+			ch.Segments[0].Pointers[0].First = telem.TimeStamp(first)
+			ch.Segments[0].Pointers[0].Last = telem.TimeStamp(last)
+		}
+		s = MustSucceed(state.Open(config(&appended{}), snap))
+	}
+
+	DescribeTable("Should cut the samples of a clock and of a key that it times by "+
+		"alignment where their stamps repeat",
+		func(first, last int64, at uint32, clock, data []state.Pointer) {
+			stamped(first, last)
+			Expect(s.Replay(10, []log.Record{
+				&log.Tombstone{
+					Key:   6,
+					Start: last,
+					End:   last + 1,
+					Left:  cutOf(at, last),
+				},
+				&log.Tombstone{
+					Key: 5, Start: last, End: last + 1,
+					Left: clockCut(at, last),
+				},
+			})).To(Succeed())
+			run(s)
+			MustSucceed(s.Snapshot())
+			Expect(s.Channel(5).Segments[0].Pointers).To(Equal(clock))
+			Expect(s.Channel(6).Segments[0].Pointers).To(Equal(data))
+		},
+		Entry("a repeat of the last stamp", int64(10), int64(20), uint32(2),
+			[]state.Pointer{pointer(1, 0, 10, 20, 0, 16, 2)},
+			[]state.Pointer{pointer(1, 0, 10, 20, 0, 8, 2)}),
+		Entry("a pointer whose samples all share one stamp, which keeps one",
+			int64(10), int64(10), uint32(1),
+			[]state.Pointer{pointer(1, 0, 10, 10, 0, 8, 1)},
+			[]state.Pointer{pointer(1, 0, 10, 10, 0, 4, 1)}),
+	)
+
+	It("Should refuse a clock tombstone that leaves a sample of a key that it times "+
+		"past its cut by alignment", func() {
+		stamped(10, 20)
+		Expect(s.Replay(10, []log.Record{&log.Tombstone{
+			Key: 5, Start: 20, End: 21,
+			Left: clockCut(2, 20),
+		}})).To(SatisfyAll(
+			refused(),
+			MatchError(ContainSubstring("clock 5 from 20 to 21, which key 6 uses "+
+				"from 10 to 20")),
+		))
+	})
 
 	It("Should remove a sealed segment that no live pointer is left in", func() {
 		Expect(s.Replay(10, []log.Record{
@@ -148,8 +216,8 @@ var _ = Describe("Tombstone", func() {
 				Stamp: 10,
 			},
 		}, "stale left cut in segment 7"),
-		Entry("a cut where no pointer holds the end",
-			&log.Tombstone{Key: 6, Start: 0, End: 100, Left: cutOf(1, 10)},
+		Entry("a cut in a pointer outside the range",
+			&log.Tombstone{Key: 6, Start: 40, End: 100, Left: cutOf(1, 10)},
 			"stale left cut in segment 3"),
 		Entry("a cut at the first sample", &log.Tombstone{
 			Key: 6, Start: 15, End: 100,
@@ -174,6 +242,7 @@ var _ = Describe("Tombstone", func() {
 			Expect(d.Left.Segment.ID).To(Equal(uint64(3)))
 			Expect(d.Left.Pointer).To(Equal(pointer(1, 0, 10, 30, 0, 12, 3)))
 			Expect(d.Right).To(Equal(d.Left))
+			Expect(d.Reached).To(Equal([]state.Edge{*d.Left}))
 			Expect(d.Check(&log.Tombstone{
 				Key: 6, Start: 15, End: 25,
 				Left: cutOf(1, 10), Right: cutOf(2, 30),
@@ -184,6 +253,8 @@ var _ = Describe("Tombstone", func() {
 			d = MustSucceed(s.BeginDelete(6, 0, 100))
 			Expect(d.Left).To(BeNil())
 			Expect(d.Right).To(BeNil())
+			Expect(d.Reached).To(HaveLen(1))
+			Expect(d.Reached[0].Pointer).To(Equal(pointer(1, 0, 10, 30, 0, 12, 3)))
 			Expect(d.Release()).To(Succeed())
 			Expect(MustSucceed(s.BeginDelete(6, 100, 200)).Empty).To(BeTrue())
 		})

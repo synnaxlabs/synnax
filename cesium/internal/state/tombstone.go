@@ -24,12 +24,14 @@ type cutAt struct {
 }
 
 // checkTombstone checks t against the durable view: the key is live, no live pointer
-// of another key on the key's clock lies in the range, and each cut names the live
-// pointer that holds an end of the range, inside it.
+// of another key on the key's clock keeps a sample at an alignment that t takes out of
+// the clock, and each cut names a live pointer that the range reaches, inside it. A
+// pointer that holds an end of the range by time must be the one that the cut of that
+// end names.
 func (c *core) checkTombstone(t *log.Tombstone) error {
 	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
 	ch := c.channels[t.Key]
-	var left, right cutAt
+	var left, right, leftEnd, rightEnd cutAt
 	switch {
 	case start >= end:
 		return refuse("tombstone of key %d from %d to %d is empty", t.Key,
@@ -37,12 +39,13 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 	case ch == nil:
 		return refuse("tombstone of key %d, which holds no segment", t.Key)
 	}
+	gone := removed(ch, t)
 	for _, s := range c.segments {
 		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created {
 			continue
 		}
 		for _, p := range s.dur.pointers {
-			if p.First < end && p.Last >= start {
+			if overlaps(p, gone) {
 				return refuse(
 					"tombstone of clock %d from %d to %d, which "+
 						"key %d uses from %d to %d",
@@ -59,17 +62,25 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 	for _, s := range ch.segs {
 		for i, p := range s.dur.pointers {
 			if p.First < start && p.Last >= start {
-				left = cutAt{s, i}
+				leftEnd = cutAt{s, i}
 			}
 			if p.First < end && p.Last >= end {
-				right = cutAt{s, i}
+				rightEnd = cutAt{s, i}
+			}
+			if p.First < end && p.Last >= start {
+				if names(t.Left, s.vis.ID, p) {
+					left = cutAt{s, i}
+				}
+				if names(t.Right, s.vis.ID, p) {
+					right = cutAt{s, i}
+				}
 			}
 		}
 	}
-	if err := checkCut(t.Key, "left", t.Left, left); err != nil {
+	if err := checkCut(t.Key, "left", t.Left, leftEnd, left); err != nil {
 		return err
 	}
-	if err := checkCut(t.Key, "right", t.Right, right); err != nil {
+	if err := checkCut(t.Key, "right", t.Right, rightEnd, right); err != nil {
 		return err
 	}
 	if l, r := t.Left, t.Right; l != nil && r != nil && left == right &&
@@ -80,20 +91,21 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 	return nil
 }
 
-// checkCut checks that cut names the pointer at, which holds an end of the range, and
-// lies inside it.
-func checkCut(key uint32, side string, cut *log.Cut, at cutAt) error {
+// checkCut checks that cut names the pointer at, the pointer of the range that holds
+// the alignment of cut, and lies inside it. end is the pointer that holds that end of
+// the range by time, which cut must name.
+func checkCut(key uint32, side string, cut *log.Cut, end, at cutAt) error {
 	switch {
-	case cut == nil && at.seg == nil:
+	case cut == nil && end.seg == nil:
 		return nil
 	case cut == nil:
 		return refuse(
 			"tombstone of key %d has no %s cut, but segment %d holds that end",
 			key,
 			side,
-			at.seg.vis.ID,
+			end.seg.vis.ID,
 		)
-	case at.seg == nil || at.seg.vis.ID != cut.Segment:
+	case at.seg == nil || (end.seg != nil && end != at):
 		return refuse("tombstone of key %d has a stale %s cut in segment %d", key, side,
 			cut.Segment)
 	}
@@ -111,6 +123,51 @@ func checkCut(key uint32, side string, cut *log.Cut, at cutAt) error {
 	return nil
 }
 
+// names reports whether cut names p, a pointer of segment seg: whether the sample at
+// its alignment lies in p.
+func names(cut *log.Cut, seg uint64, p Pointer) bool {
+	if cut == nil || cut.Segment != seg {
+		return false
+	}
+	a, first := telem.Alignment(cut.Alignment), p.Alignment.SampleIndex()
+	return a.DomainIndex() == p.Alignment.DomainIndex() && a.SampleIndex() >= first &&
+		a.SampleIndex() < first+p.Samples
+}
+
+// span is the samples from alignment lo up to hi.
+type span struct{ lo, hi telem.Alignment }
+
+// removed returns the samples of ch, the channel of the key of t, that t takes out.
+func removed(ch *chanState, t *log.Tombstone) []span {
+	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
+	var out []span
+	for _, s := range ch.segs {
+		for _, p := range s.dur.pointers {
+			left, right := names(t.Left, s.vis.ID, p), names(t.Right, s.vis.ID, p)
+			if !left && !right && (p.Last < start || p.First >= end) {
+				continue
+			}
+			sp := span{lo: p.Alignment, hi: p.Alignment.AddSamples(p.Samples)}
+			if left {
+				sp.lo = telem.Alignment(t.Left.Alignment)
+			}
+			if right {
+				sp.hi = telem.Alignment(t.Right.Alignment)
+			}
+			out = append(out, sp)
+		}
+	}
+	return out
+}
+
+// overlaps reports whether p holds a sample in one of spans.
+func overlaps(p Pointer, spans []span) bool {
+	lo, hi := p.Alignment, p.Alignment.AddSamples(p.Samples)
+	return slices.ContainsFunc(spans, func(sp span) bool {
+		return lo < sp.hi && hi > sp.lo
+	})
+}
+
 // tombstone applies t to both views, which a durable Tombstone changes at once, and
 // buries each sealed segment that no live pointer is left in.
 func (c *core) tombstone(t *log.Tombstone) error {
@@ -119,26 +176,28 @@ func (c *core) tombstone(t *log.Tombstone) error {
 	}
 	ch := c.channels[t.Key]
 	for _, s := range slices.Clone(ch.segs) {
-		s.vis.Pointers = cut(s.vis.Pointers, t)
-		s.dur.pointers = cut(s.dur.pointers, t)
+		s.vis.Pointers = cut(s.vis.ID, s.vis.Pointers, t)
+		s.dur.pointers = cut(s.vis.ID, s.dur.pointers, t)
 		c.bury(s)
 	}
 	ch.publish()
 	return nil
 }
 
-// cut returns a new slice of ptrs with the samples of t's range taken out. An open
-// writer's claim keeps a delete from the range of its visible commits, so the same cut
-// applies to the visible and the durable view.
-func cut(ptrs []Pointer, t *log.Tombstone) []Pointer {
+// cut returns a new slice of ptrs, the pointers of segment seg, with the samples of t's
+// range taken out. A pointer that a cut names keeps its samples on the far side of the
+// cut. An open writer's claim keeps a delete from the range of its visible commits, so
+// the same cut applies to the visible and the durable view.
+func cut(seg uint64, ptrs []Pointer, t *log.Tombstone) []Pointer {
 	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
 	out := make([]Pointer, 0, len(ptrs)+1)
 	for _, p := range ptrs {
-		if p.Last < start || p.First >= end {
+		left, right := names(t.Left, seg, p), names(t.Right, seg, p)
+		if !left && !right && (p.Last < start || p.First >= end) {
 			out = append(out, p)
 			continue
 		}
-		if p.First < start {
+		if left {
 			l := t.Left
 			kept := telem.Alignment(l.Alignment).
 				SampleIndex() -
@@ -152,7 +211,7 @@ func cut(ptrs []Pointer, t *log.Tombstone) []Pointer {
 				Samples:   kept,
 			})
 		}
-		if p.Last >= end {
+		if right {
 			r := t.Right
 			gone := telem.Alignment(r.Alignment).
 				SampleIndex() -
@@ -188,6 +247,9 @@ type Delete struct {
 	// Left and Right are the durable pointers that hold the start and the end of the
 	// range, or nil when no pointer holds that end.
 	Left, Right *Edge
+	// Reached holds each durable pointer of the key that the range reaches, so a caller
+	// can cut one by alignment.
+	Reached []Edge
 	// Empty is true when no durable pointer of the key lies in the range.
 	Empty bool
 }
@@ -222,6 +284,7 @@ func (r *beginDeleteRequest) run(s *State) {
 				continue
 			}
 			r.d.Empty = false
+			r.d.Reached = append(r.d.Reached, Edge{Segment: seg.vis, Pointer: p})
 			if p.First < r.start {
 				r.d.Left = &Edge{Segment: seg.vis, Pointer: p}
 			}
