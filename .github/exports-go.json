@@ -27,6 +27,57 @@
       "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
       "name": "Writeback",
       "caller": "https://linear.app/synnax/issue/SY-6385"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Config",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Run",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Output",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "receiver": "Output",
+      "name": "Reset",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "Join",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "name": "New",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "receiver": "Join",
+      "name": "Push",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/stl/join",
+      "receiver": "Join",
+      "name": "Next",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     }
   ]
 }
