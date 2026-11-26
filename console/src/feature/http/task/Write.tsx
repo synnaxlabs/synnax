@@ -350,28 +350,26 @@ const MessageDetails = ({ epKey, onAddField }: ICDDetailsProps) => {
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...ep, icd: icdKey, message: ICD.Write.create(picked) });
   return (
-    <>
-      <PForm.Section
-        title="Message"
-        actions={
-          <ICD.AddField
-            onClick={onAddField}
-            disabled={message?.payload.format !== "json"}
-          />
-        }
-      >
-        <ICD.MessageFormatField
-          icdKey={ep.icd}
-          message={ep.message.message}
-          onChange={handleFormatChange}
-          preview={isPreview}
+    <PForm.Section
+      title="Message"
+      actions={
+        <ICD.AddField
+          onClick={onAddField}
+          disabled={message?.payload.format !== "json"}
         />
-      </PForm.Section>
-      <ICD.MessageStatus
+      }
+    >
+      <ICD.MessageFormatField
+        icdKey={ep.icd}
+        message={ep.message.message}
+        onChange={handleFormatChange}
+        preview={isPreview}
+      />
+      <ICD.MessageWarning
         message={message}
         missingDescription={ICD.Write.MISSING_DESCRIPTION}
       />
-    </>
+    </PForm.Section>
   );
 };
 

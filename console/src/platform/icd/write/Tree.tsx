@@ -102,7 +102,7 @@ export interface UseTreeReturn {
    * target the pane that targetPane gives. Undefined for a group or no selection.
    */
   pane?: Pane;
-  /** The name of the first selected node, when it is a group. */
+  /** The group of the first selected node, or the node itself when it is a group. */
   currentGroup?: string;
 }
 
@@ -463,9 +463,7 @@ export const useTree = <T extends Target>({
   };
 
   const [first] = selected;
-  const paneOf = (node: Node): Pane => {
-    const target = all.find(({ key }) => key === node.target);
-    if (target == null) throw new Error(`The task has no target ${node.target}`);
+  const paneOf = (node: Node, target: T): Pane => {
     if (node.kind === "target") return targetPane(target, () => addField(target.key));
     const sent = sending(node.target);
     const i = ctx
@@ -493,12 +491,17 @@ export const useTree = <T extends Target>({
     };
   };
   const node = first == null ? undefined : byKey.get(first);
+  const target = node == null ? undefined : all.find(({ key }) => key === node.target);
+  if (node != null && target == null)
+    throw new Error(`The task has no target ${node.target}`);
   return {
     tree,
     handleSelect,
     contextMenu,
     renderItem,
-    pane: node == null ? undefined : paneOf(node),
-    currentGroup: first == null ? undefined : groupNames.get(first),
+    pane: node == null || target == null ? undefined : paneOf(node, target),
+    currentGroup:
+      (target == null ? undefined : groups?.of(target)) ??
+      (first == null ? undefined : groupNames.get(first)),
   };
 };
