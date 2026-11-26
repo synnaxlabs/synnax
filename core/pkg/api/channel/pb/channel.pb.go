@@ -118,7 +118,11 @@ type Channel struct {
 	// status is the current operational status of the channel.
 	Status *pb2.Status `protobuf:"bytes,12,opt,name=status,proto3,oneof" json:"status,omitempty"`
 	// group is the group the channel sits in, if any.
-	Group         *string `protobuf:"bytes,13,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	Group *string `protobuf:"bytes,13,opt,name=group,proto3,oneof" json:"group,omitempty"`
+	// path is the names of the channel's folders from the top, then its name, joined by
+	// '.'. It is filled only when a retrieve request asks for it, and only when the
+	// caller can retrieve every folder on it.
+	Path          *string `protobuf:"bytes,14,opt,name=path,proto3,oneof" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -240,6 +244,13 @@ func (x *Channel) GetStatus() *pb2.Status {
 func (x *Channel) GetGroup() string {
 	if x != nil && x.Group != nil {
 		return *x.Group
+	}
+	return ""
+}
+
+func (x *Channel) GetPath() string {
+	if x != nil && x.Path != nil {
+		return *x.Path
 	}
 	return ""
 }
@@ -370,6 +381,8 @@ type RetrieveRequest struct {
 	Limit *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// include_status includes the status of each record.
 	IncludeStatus bool `protobuf:"varint,6,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	// include_path includes the path of each record.
+	IncludePath   bool `protobuf:"varint,7,opt,name=include_path,json=includePath,proto3" json:"include_path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -446,6 +459,13 @@ func (x *RetrieveRequest) GetIncludeStatus() bool {
 	return false
 }
 
+func (x *RetrieveRequest) GetIncludePath() bool {
+	if x != nil {
+		return x.IncludePath
+	}
+	return false
+}
+
 // RetrieveResponse holds the channels a RetrieveRequest selects.
 type RetrieveResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -496,7 +516,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xd9\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xfb\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -515,9 +535,11 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"operations\x12;\n" +
 	"\vconcurrency\x18\v \x01(\x0e2\x19.x.control.pb.ConcurrencyR\vconcurrency\x126\n" +
 	"\x06status\x18\f \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\x19\n" +
-	"\x05group\x18\r \x01(\tH\x01R\x05group\x88\x01\x01B\t\n" +
+	"\x05group\x18\r \x01(\tH\x01R\x05group\x88\x01\x01\x12\x17\n" +
+	"\x04path\x18\x0e \x01(\tH\x02R\x04path\x88\x01\x01B\t\n" +
 	"\a_statusB\b\n" +
-	"\x06_group\"<\n" +
+	"\x06_groupB\a\n" +
+	"\x05_path\"<\n" +
 	"\x06Cursor\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x17\n" +
 	"\x04name\x18\x02 \x01(\tH\x00R\x04name\x88\x01\x01B\a\n" +
@@ -526,7 +548,7 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05field\x18\x01 \x01(\x0e2\x1a.api.channel.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xb7\x02\n" +
+	"descending\"\xda\x02\n" +
 	"\x0fRetrieveRequest\x124\n" +
 	"\x05where\x18\x01 \x01(\v2\x19.service.channel.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -534,7 +556,8 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\x05order\x18\x03 \x01(\v2\x15.api.channel.pb.OrderH\x01R\x05order\x88\x01\x01\x121\n" +
 	"\x05after\x18\x04 \x01(\v2\x16.api.channel.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12%\n" +
-	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatusB\b\n" +
+	"\x0einclude_status\x18\x06 \x01(\bR\rincludeStatus\x12!\n" +
+	"\finclude_path\x18\a \x01(\bR\vincludePathB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +

@@ -13,11 +13,11 @@ import (
 	"context"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -66,19 +66,6 @@ func MatchPaths(paths ...string) Filter {
 			return keys, func(ch *Channel) bool { return wanted.Contains(siblingOf(ch)) }, nil
 		})
 	}
-}
-
-// MatchPathSet returns the filter of the path line of a Where: the channels at the path
-// set.Eq and at a path in set.In, for each operator that is set.
-func MatchPathSet(set filter.Set[string]) Filter {
-	var fs []Filter
-	if set.Eq != nil {
-		fs = append(fs, MatchPaths(*set.Eq))
-	}
-	if set.In != nil {
-		fs = append(fs, MatchPaths(set.In...))
-	}
-	return And(fs...)
 }
 
 // siblingOf returns the folder and the name in NFC of ch.
@@ -130,4 +117,67 @@ func (r Retrieve) siblingAt(ctx context.Context, snap gorp.Snapshot, path string
 		}
 		path = path[i+1:]
 	}
+}
+
+// Path is where a channel sits: the folders from the top down to its folder, then its
+// name.
+type Path struct {
+	Folders group.Path
+	Name    string
+}
+
+// PathTexts returns the text of each of paths: the names of its folders and of its
+// channel, joined by validate.PathSeparator. The texts share one allocation.
+func PathTexts(paths []Path) []string {
+	n := 0
+	for _, p := range paths {
+		n += len(p.Name) + len(p.Folders)
+		for _, g := range p.Folders {
+			n += len(g.Name)
+		}
+	}
+	var b strings.Builder
+	b.Grow(n)
+	ends := make([]int, len(paths))
+	for i, p := range paths {
+		for _, g := range p.Folders {
+			b.WriteString(g.Name)
+			b.WriteByte(validate.PathSeparator)
+		}
+		b.WriteString(p.Name)
+		ends[i] = b.Len()
+	}
+	all, start := b.String(), 0
+	texts := make([]string, len(paths))
+	for i, end := range ends {
+		texts[i], start = all[start:end], end
+	}
+	return texts
+}
+
+// Paths returns the path of each of channels, as seen by snap. Channels in one folder
+// share one group.Path.
+func Paths(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	channels []Channel,
+) ([]Path, error) {
+	var keys []group.Key
+	for _, ch := range channels {
+		if ch.Group != nil {
+			keys = append(keys, *ch.Group)
+		}
+	}
+	folders, err := group.Paths(ctx, snap, lo.Uniq(keys)...)
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]Path, len(channels))
+	for i, ch := range channels {
+		paths[i].Name = ch.Name
+		if ch.Group != nil {
+			paths[i].Folders = folders[*ch.Group]
+		}
+	}
+	return paths, nil
 }

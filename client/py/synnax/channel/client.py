@@ -75,6 +75,7 @@ class Channel(Payload):
         concurrency: control.Concurrency = control.Concurrency.exclusive,
         status: Status | None = None,
         group: group_.Key | None = None,
+        path: str | None = None,
         _frame_client: framer.Client | None = None,
         _client: Client | None = None,
     ) -> None:
@@ -101,6 +102,8 @@ class Channel(Payload):
         include aggregations like min, max, avg over a time duration or triggered by
         a reset channel.
         :param group: The group the channel sits in, if any.
+        :param path: The names of the channel's folders from the top, then its name,
+            joined by '.', set only when a retrieve asks for it.
         :returns: The created channel.
         :param _frame_client: The backing client for reading and writing data to and
         from the channel. This is provided by the Synnax py during calls to
@@ -124,6 +127,7 @@ class Channel(Payload):
             concurrency=concurrency,
             status=status,
             group=group,
+            path=path,
         )
         self._cached_frame_client = _frame_client
         self._client = _client

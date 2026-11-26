@@ -191,53 +191,6 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-// Ancestors returns every group above the groups with keys that is not one of them,
-// each once. The walk stops at a parent that is not a group.
-func (s *Service) Ancestors(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	keys ...Key,
-) ([]Group, error) {
-	var (
-		out     []Group
-		level   []Group
-		visited = set.New(keys...)
-	)
-	if err := s.NewRetrieve().
-		Where(MatchKeys(keys...)).
-		Entries(&level).
-		Exec(ctx, snap); err != nil {
-		return nil, err
-	}
-	for {
-		var parents []Key
-		for _, g := range level {
-			if g.Parent == nil || g.Parent.Type != resource.TypeGroup {
-				continue
-			}
-			key, err := KeyFromResourceID(*g.Parent)
-			if err != nil {
-				return nil, err
-			}
-			if !visited.Contains(key) {
-				visited.Add(key)
-				parents = append(parents, key)
-			}
-		}
-		if len(parents) == 0 {
-			return out, nil
-		}
-		level = nil
-		if err := s.NewRetrieve().
-			Where(MatchKeys(parents...)).
-			Entries(&level).
-			Exec(ctx, snap); err != nil {
-			return nil, err
-		}
-		out = append(out, level...)
-	}
-}
-
 // Children returns the ID of every record and group that sits in the group with key, as
 // seen by snap.
 func (s *Service) Children(

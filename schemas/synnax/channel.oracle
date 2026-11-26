@@ -287,6 +287,14 @@ APIChannel struct {
         @cpp omit
         @doc value "is the group the channel sits in, if any."
     }
+    path        string?             {
+        @doc value """
+            is the names of the channel's folders from the top, then its name, joined by
+            '.'. It is filled only when a retrieve request asks for it, and only when
+            the caller can retrieve every folder on it.
+        """
+        @include
+    }
 
     @cpp name      "Channel"
     @create
@@ -335,7 +343,7 @@ Where filter Channel {
             matches the channels at full paths: the names of the folders from the top,
             then the channel's name, joined by '.'.
         """
-        @go match  "MatchPathSet"
+        @go match  "MatchPaths"
     }
     groups      group.Key[]        {
         @cpp omit

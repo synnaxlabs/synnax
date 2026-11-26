@@ -128,7 +128,15 @@ func MatchWhere(w Where) (Filter, error) {
 		fs = append(fs, MatchVirtual(*l))
 	}
 	if l := w.Path; l != nil {
-		fs = append(fs, MatchPathSet(*l))
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "path")
+		}
+		if l.Eq != nil {
+			fs = append(fs, MatchPaths(*l.Eq))
+		}
+		if l.In != nil {
+			fs = append(fs, MatchPaths(l.In...))
+		}
 	}
 	if l := w.Groups; l != nil {
 		fs = append(fs, MatchGroups(l...))

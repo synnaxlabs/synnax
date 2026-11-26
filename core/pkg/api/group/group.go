@@ -157,7 +157,7 @@ func (s *Service) RetrieveAncestors(
 	if len(req.Keys) == 0 {
 		return RetrieveAncestorsResponse{}, nil
 	}
-	ancestors, err := s.internal.Ancestors(ctx, snap, req.Keys...)
+	ancestors, err := group.Ancestors(ctx, snap, req.Keys...)
 	if err != nil {
 		return RetrieveAncestorsResponse{}, err
 	}

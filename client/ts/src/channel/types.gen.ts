@@ -210,6 +210,12 @@ export const payloadZ = z.object({
   status: statusZ.optional(),
   /** group is the group the channel sits in, if any. */
   group: group.keyZ.optional(),
+  /**
+   * path is the names of the channel's folders from the top, then its name, joined by
+   * '.'. It is filled only when a retrieve request asks for it, and only when the
+   * caller can retrieve every folder on it.
+   */
+  path: z.string().optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
 
@@ -227,6 +233,8 @@ export const retrieveRequestZ = z.strictObject({
   limit: z.uint32().optional(),
   /** includeStatus includes the status of each record. */
   includeStatus: z.boolean().optional(),
+  /** includePath includes the path of each record. */
+  includePath: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof payloadZ> {}
