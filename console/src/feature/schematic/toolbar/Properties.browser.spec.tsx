@@ -153,7 +153,7 @@ describe("Schematic toolbar Properties", () => {
         createConfig: createValveNodeConfig,
       });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
-      const input = getInputByItemLabel(result.container, "Label");
+      const input = getInputByItemLabel(result.container, "Text");
       fireEvent.change(input, { target: { value: "Main Valve" } });
       await waitFor(async () => {
         const config = await retrieveConfig(key, "n1");
@@ -180,7 +180,7 @@ describe("Schematic toolbar Properties", () => {
         );
       });
       await waitFor(() =>
-        expect(getInputByItemLabel(result.container, "Label").value).toBe("Remote"),
+        expect(getInputByItemLabel(result.container, "Text").value).toBe("Remote"),
       );
     });
 

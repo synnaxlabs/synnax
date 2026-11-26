@@ -10,7 +10,13 @@
 import { type enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, render, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  type RenderResult,
+  waitFor,
+} from "@testing-library/react";
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -123,8 +129,14 @@ describe("Enumeration select", () => {
         />
       );
     };
-    const c = render(<Harness />, { wrapper });
-    fireEvent.click(await c.findByRole("button", { name: "Enumeration" }));
+    let c!: RenderResult;
+    // The harness suspends until the permissions load.
+    await act(async () => {
+      c = render(<Harness />, { wrapper });
+    });
+    fireEvent.click(
+      await c.findByRole("button", { name: "Enumeration" }, { timeout: 5000 }),
+    );
     const option = (await c.findByText(e.name)).closest("[role=option]");
     if (option == null) throw new Error("expected an option");
     fireEvent.contextMenu(option);

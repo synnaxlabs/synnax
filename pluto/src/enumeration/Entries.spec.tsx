@@ -492,13 +492,13 @@ describe("Enumeration.Table", () => {
       renderTable({
         initial: [createEntry("Fault", 0, { color: fixed, abnormal: true })],
       });
-      expect(screen.queryByLabelText(/alarm color/)).toBeNull();
+      expect(screen.queryByLabelText(/reads as an alarm/)).toBeNull();
     });
 
     it("should warn about an alarm color on an entry that is not abnormal", () => {
       const fixed = { type: "fixed" as const, value: ALARM };
       renderTable({ initial: [createEntry("Locked out", 0, { color: fixed })] });
-      expect(screen.getByLabelText(/alarm color/)).toBeTruthy();
+      expect(screen.getByLabelText(/reads as an alarm/)).toBeTruthy();
     });
   });
 

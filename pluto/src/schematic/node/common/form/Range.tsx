@@ -57,7 +57,6 @@ export const RangeInput = ({
     onChange(next);
   };
   const status = holding ? "error" : undefined;
-  const tooltip = holding ? INVALID : undefined;
   return (
     <Flex.Box x align="center" gap="small" className={CSS.B("range-input")}>
       <Input.Numeric
@@ -65,7 +64,9 @@ export const RangeInput = ({
         value={shown.lower}
         onChange={handleChange("lower")}
         status={status}
-        tooltip={tooltip}
+        // A hidden tooltip keeps the element tree, so the input keeps focus on a hold.
+        tooltip={INVALID}
+        hideTooltip={!holding}
       />
       <Text.Text level="small" color={9} className={CSS.BE("range-input", "to")}>
         to
@@ -75,7 +76,8 @@ export const RangeInput = ({
         value={shown.upper}
         onChange={handleChange("upper")}
         status={status}
-        tooltip={tooltip}
+        tooltip={INVALID}
+        hideTooltip={!holding}
       />
     </Flex.Box>
   );
