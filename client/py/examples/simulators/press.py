@@ -114,6 +114,13 @@ class PressSimDAQ(SimDAQ):
                 self.press_pt.key: [0.0],
             },
         )
+        # A schematic asks before it toggles a valve whose newest command disagrees
+        # with its state, so the commands start closed too.
+        for index, command in (
+            (self.press_vlv_cmd_time, self.press_vlv_cmd),
+            (self.vent_vlv_cmd_time, self.vent_vlv_cmd),
+        ):
+            client.write(now, {index.key: [now], command.key: [0]})
         self.log("Channels created successfully")
 
     @override
