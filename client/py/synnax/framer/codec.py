@@ -80,6 +80,18 @@ _CLOCK_KIND = 1 << 1
 _RESERVED_KINDS = 0b1111_1100
 # The next override ordinal that ends the chain.
 _NO_OVERRIDE = 0xFFFFFFFF
+# The largest sample count or byte size that a frame length field holds.
+_MAX_LENGTH = 0xFFFFFFFF
+
+
+def _length_error(key: channel.Key, length: int, variable: bool) -> ValidationError:
+    """Returns the error for a series of key whose length, a sample count or a byte size
+    for a variable type, a frame length field cannot hold."""
+    unit = "bytes" if variable else "samples"
+    return ValidationError(
+        f"series of channel {key} holds {length} {unit}, more than a frame length "
+        "field holds"
+    )
 
 
 def _is_int64_like(dt: DataType) -> bool:
@@ -226,17 +238,24 @@ class Codec:
         pld: FramePayload, state: CodecState
     ) -> list[tuple[channel.Key, Series, int]]:
         entries = []
+        unrequested = False
         for key, ser in zip(pld.keys, pld.series, strict=True):
             i = state.index.get(key)
             if i is not None:
                 entries.append((key, ser, i))
             elif ser.clock == key and _is_int64_like(ser.data_type):
                 entries.append((key, ser, -1))
+                unrequested = True
             else:
                 raise ValidationError(
                     f"encoder was provided a key {key} that is not in the codec state."
                 )
-        # A stable sort keeps the producer's order within a key.
+        # An unrequested time series under its own clock stays only when a requested
+        # series names it as its clock. A stable sort keeps the producer's order
+        # within a key.
+        if unrequested:
+            named = {ser.clock for _, ser, i in entries if i >= 0}
+            entries = [e for e in entries if e[2] >= 0 or e[0] in named]
         entries.sort(key=lambda e: e[0])
         return entries
 
@@ -304,17 +323,21 @@ class Codec:
         all_present = [k for k, _, _ in entries] == plan.all
         if not all_present:
             size += n * _KEY_SIZE
-        for _, ser, _ in entries:
+        for key, ser, _ in entries:
             tr = _time_range_nanoseconds(ser.time_range)
-            if ser.data_type.is_variable:
+            variable = ser.data_type.is_variable
+            length = len(ser.data) if variable else len(ser)
+            if length > _MAX_LENGTH:
+                raise _length_error(key, length, variable)
+            if variable:
                 eq_len = False
             if ser.alignment_multiple > 1:
                 multiples_present = True
             size += _series_wire_byte_length(ser)
             if ref_len == -1:
-                ref_len, ref_tr, ref_align = len(ser), tr, int(ser.alignment)
+                ref_len, ref_tr, ref_align = length, tr, int(ser.alignment)
                 continue
-            if len(ser) != ref_len:
+            if length != ref_len:
                 eq_len = False
             if tr != ref_tr:
                 eq_tr = False
