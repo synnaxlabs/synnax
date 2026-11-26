@@ -308,6 +308,11 @@ class Symbol(ABC):
         return self.locator.locator(".lyra-symbol-colored").first
 
     @property
+    def stroked(self) -> Locator:
+        """The first shape of a symbol node's drawing that a paint gives a stroke."""
+        return self.locator.locator(".pluto-symbol__drawing [style*='stroke']").first
+
+    @property
     def stale_indicator(self) -> Locator:
         """The indicator the symbol shows while its data is stale."""
         return self.locator.get_by_role("img", name="Stale")
