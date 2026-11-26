@@ -23,6 +23,10 @@ const storeWith = (slice: LinePlot.SliceState) =>
   });
 
 const KEY = "plot-1";
+const ZERO_VIEWPORT = {
+  zoom: { width: 1, height: 1 },
+  pan: { x: 0, y: 0 },
+};
 const AUX_WINDOW = "aux-window";
 
 describe("LinePlot Slice", () => {
@@ -225,6 +229,22 @@ describe("LinePlot Slice", () => {
       const viewport = viewportOf();
       expect(viewport.zoom).toEqual({ width: 3, height: 3 });
       expect(viewport.pan).toEqual({ x: 1, y: 1 });
+    });
+  });
+
+  describe("window key", () => {
+    it("should not store the window key in the viewport or selection", () => {
+      act(() => {
+        store.dispatch(LinePlot.create({ key: KEY }));
+        store.dispatch(LinePlot.setViewport({ key: KEY, pan: { x: 1, y: 1 } }));
+        store.dispatch(LinePlot.storeViewport({ key: KEY, ...ZERO_VIEWPORT }));
+        store.dispatch(
+          LinePlot.setSelection({ key: KEY, box: box.construct(0, 0, 1, 1) }),
+        );
+      });
+      const doc = docOf();
+      expect(doc?.viewport).not.toHaveProperty("windowKey");
+      expect(doc?.selection).not.toHaveProperty("windowKey");
     });
   });
 
