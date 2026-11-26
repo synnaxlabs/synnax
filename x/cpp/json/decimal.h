@@ -31,6 +31,10 @@ struct Decimal {
 /// decimal number.
 std::optional<Decimal> parse_decimal(std::string_view text, int scale);
 
+/// @brief returns text without spaces, tabs, line feeds, vertical tabs, form feeds, or
+/// carriage returns at either end.
+std::string_view trim_space(std::string_view text);
+
 /// @brief returns the VALIDATION error for text that is not a number.
 errors::Error invalid_number(std::string_view text);
 }

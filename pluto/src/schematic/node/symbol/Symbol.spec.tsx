@@ -21,21 +21,27 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
+import { queryButton } from "@/schematic/node/common/toggle/testutil";
 import { createChannelTelem } from "@/schematic/node/testutil";
 import type { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
+import { control } from "@/telem/control/aether";
+import { controlTest } from "@/telem/control/aether/testutil";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
 
+// A node with a command channel mounts the control chip.
+const REGISTRY = { ...symbolNode.REGISTRY, ...controlTest.createRegistry() };
+
 const LocalWrapper = createSynnaxWrapper({
   client: null,
-  additionalRegistry: symbolNode.REGISTRY,
+  additionalRegistry: REGISTRY,
 });
 
 const createCoreWrapper = (core: SyntheticCore): FC<PropsWithChildren> =>
   createSynnaxWrapper({
     client: null,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
     telemFactories: [telemTest.createRemoteFactory(core)],
   });
 
@@ -84,7 +90,7 @@ const createCustomSymbol = async (
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
     telemFactories,
   });
   return { key, client, Wrapper };
@@ -124,7 +130,7 @@ describe("Symbol node", () => {
         LocalWrapper,
         onConfigChange,
       );
-      const button = container.querySelector("button");
+      const button = queryButton(container);
       assert(button != null);
       fireEvent.click(button);
       expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
@@ -148,11 +154,11 @@ describe("Symbol node", () => {
       },
       createSynnaxWrapper({
         client: null,
-        additionalRegistry: symbolNode.REGISTRY,
+        additionalRegistry: REGISTRY,
         telemFactories: [factory],
       }),
     );
-    const button = container.querySelector("button");
+    const button = queryButton(container);
     assert(button != null);
     await act(async () => await vi.waitFor(() => expect(sinks.has(7)).toBe(true)));
     await vi.waitFor(() => expect(container.querySelector(FILLED)).not.toBeNull());
@@ -174,10 +180,59 @@ describe("Symbol node", () => {
       { spec: { type: "custom", key }, commands: [{ key: "vent", channel: 9 }] },
       Wrapper,
     );
-    const button = await vi.waitUntil(() => container.querySelector("button"));
+    const button = await vi.waitUntil(() => queryButton(container));
     await vi.waitUntil(() => sinks.has(9));
     fireEvent.click(button);
     await expect.poll(() => sinks.get(9)?.values).toEqual([1]);
+  });
+
+  it("should acquire control of every command channel through one chip", async () => {
+    const client = createTestClient();
+    const state = (key: string): schematic.symbol.State => ({
+      type: "enumeration",
+      key,
+      name: key,
+      match: { type: "exact" },
+      default: 0,
+    });
+    const open = (key: string, s?: string): schematic.symbol.Command => ({
+      key,
+      name: key,
+      state: s,
+      value: { type: "fixed", value: 1 },
+    });
+    const { key } = await client.schematics.symbols.create({
+      name: "Pair",
+      data: {
+        drawing: { type: "svg", markup: MARKUP },
+        variant: "static",
+        states: [state("a"), state("b")],
+        commands: [open("openA", "a"), open("openB", "b"), open("vent")],
+      },
+    });
+    const chipSinks = vi.fn();
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: {
+        ...symbolNode.REGISTRY,
+        ...controlTest.createRegistry(chipSinks),
+      },
+      telemFactories: [createChannelTelem().factory],
+    });
+    renderNode(
+      {
+        spec: { type: "custom", key },
+        states: [
+          { key: "a", source: { type: "channel", command: 2 } },
+          { key: "b", source: { type: "channel", command: 4 } },
+        ],
+        commands: [{ key: "vent", channel: 5 }],
+      },
+      Wrapper,
+    );
+    const all = control.acquireChannelControl({ channels: [2, 4, 5], authority: 255 });
+    await vi.waitFor(() => expect(chipSinks).toHaveBeenCalledWith(all));
+    for (const [sink] of chipSinks.mock.calls) expect(sink).toEqual(all);
   });
 
   it("should compare each command value after the symbol's match", async () => {
@@ -217,7 +272,7 @@ describe("Symbol node", () => {
       Wrapper,
       onConfigChange,
     );
-    fireEvent.click(await vi.waitUntil(() => container.querySelector("button")));
+    fireEvent.click(await vi.waitUntil(() => queryButton(container)));
     expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
       states: [
         schematic.stateBindingZ.parse({
@@ -250,7 +305,7 @@ describe("Symbol node", () => {
       Wrapper,
       onConfigChange,
     );
-    const button = await vi.waitUntil(() => container.querySelector("button"));
+    const button = await vi.waitUntil(() => queryButton(container));
     fireEvent.click(button);
     expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
       states: [
@@ -280,7 +335,174 @@ describe("Symbol node", () => {
       ...config,
     });
     expect(container.querySelector(".pluto-symbol")).not.toBeNull();
-    expect(container.querySelector("button")).toBeNull();
+    expect(queryButton(container)).toBeNull();
+  });
+
+  describe("clicks on parts", () => {
+    // The left part is a group of two shapes. The body is in no part.
+    const PARTS_MARKUP =
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 10">' +
+      '<rect class="body" width="10" height="10" />' +
+      '<g class="left"><rect x="10" width="10" height="10" />' +
+      '<rect x="10" width="5" height="5" /></g>' +
+      '<rect class="right" x="20" width="10" height="10" /></svg>';
+    const HOVERED = "pluto-symbol__part--hovered";
+    const PRESSED = "pluto-symbol__part--pressed";
+
+    const renderParts = async (
+      interactions: schematic.symbol.Interaction[],
+      config: Partial<Config> = {},
+      telemFactories?: telem.Factory[],
+    ) => {
+      const { key, Wrapper } = await createCustomSymbol(
+        PARTS_MARKUP,
+        {
+          parts: [
+            { key: "left", name: "Left", selectors: [".left"] },
+            { key: "right", name: "Right", selectors: [".right"] },
+          ],
+          states: [{ type: "number", key: "level", name: "Level" }],
+          commands: [
+            {
+              key: "open",
+              name: "Open",
+              state: "level",
+              value: { type: "fixed", value: 1 },
+            },
+            {
+              key: "close",
+              name: "Close",
+              state: "level",
+              value: { type: "fixed", value: 0 },
+            },
+          ],
+          interactions,
+        },
+        telemFactories,
+      );
+      const onConfigChange = vi.fn();
+      const { container, queryByRole } = renderNode(
+        {
+          spec: { type: "custom", key },
+          states: [{ key: "level", source: { type: "local", value: 0.5 } }],
+          ...config,
+        },
+        Wrapper,
+        onConfigChange,
+      );
+      const shape = async (selector: string): Promise<Element> =>
+        await vi.waitUntil(() => container.querySelector(selector));
+      const sent = (value: number) => ({
+        states: [
+          schematic.stateBindingZ.parse({
+            key: "level",
+            source: { type: "local", value },
+          }),
+        ],
+      });
+      return { container, queryByRole, onConfigChange, shape, sent };
+    };
+
+    const PART_CLICKS: schematic.symbol.Interaction[] = [
+      { type: "fire", key: "left", part: "left", command: "open" },
+      { type: "fire", key: "right", part: "right", command: "close" },
+    ];
+
+    it.each([
+      [".left rect", 1],
+      [".right", 0],
+    ])("should send the command of the part that holds %s", async (selector, value) => {
+      const { onConfigChange, shape, sent } = await renderParts(PART_CLICKS);
+      fireEvent.click(await shape(selector));
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(value));
+    });
+
+    it("should take no click outside its parts", async () => {
+      const { container, onConfigChange, shape } = await renderParts(PART_CLICKS);
+      fireEvent.click(await shape(".body"));
+      expect(onConfigChange).not.toHaveBeenCalled();
+      expect(container.querySelector("button")).toBeNull();
+    });
+
+    it("should send only the command of a part inside a drawing that takes clicks", async () => {
+      const { onConfigChange, shape, sent } = await renderParts([
+        { type: "fire", key: "body", command: "close" },
+        { type: "fire", key: "left", part: "left", command: "open" },
+      ]);
+      fireEvent.click(await shape(".left rect"));
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(1));
+      fireEvent.click(await shape(".body"));
+      expect(onConfigChange).toHaveBeenLastCalledWith(sent(0));
+    });
+
+    it("should send nothing for a press on a part released off it", async () => {
+      const { onConfigChange, shape, sent } = await renderParts([
+        { type: "fire", key: "body", command: "close" },
+        { type: "fire", key: "left", part: "left", command: "open" },
+      ]);
+      const body = await shape(".body");
+      fireEvent.mouseDown(await shape(".left rect"));
+      fireEvent.mouseUp(body);
+      fireEvent.click(body);
+      expect(onConfigChange).not.toHaveBeenCalled();
+      await vi.waitFor(() => {
+        fireEvent.click(body);
+        expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(0));
+      });
+    });
+
+    it("should tint each shape of the part under the pointer", async () => {
+      const { container, shape } = await renderParts(PART_CLICKS);
+      fireEvent.mouseOver(await shape(".left rect"));
+      const tinted = () =>
+        Array.from(container.querySelectorAll(`.${HOVERED}`), (el) =>
+          el.parentElement?.getAttribute("class"),
+        );
+      expect(tinted()).toEqual(["left", "left"]);
+      fireEvent.mouseOver(await shape(".body"));
+      expect(tinted()).toEqual([]);
+    });
+
+    it("should change no class of a part shape on a value update", async () => {
+      const { sources, factory } = createChannelTelem();
+      const { queryByRole, shape } = await renderParts(
+        PART_CLICKS,
+        { states: [{ key: "level", source: { type: "channel", key: 5, command: 7 } }] },
+        [factory],
+      );
+      const drawing = (await shape(".pluto-symbol__part--clickable")).closest("svg");
+      assert(drawing != null);
+      await vi.waitUntil(() => queryByRole("img", { name: "Unknown" }));
+      const changes: MutationRecord[] = [];
+      const observer = new MutationObserver((records) => changes.push(...records));
+      observer.observe(drawing, { subtree: true, attributeFilter: ["class"] });
+      act(() => sources.get(5)?.setValue(1));
+      await vi.waitFor(() =>
+        expect(queryByRole("img", { name: "Unknown" })).toBeNull(),
+      );
+      changes.push(...observer.takeRecords());
+      expect(changes).toEqual([]);
+      observer.disconnect();
+    });
+
+    it("should run the click of a part after the hold delay of the node", async () => {
+      const { onConfigChange, shape, sent } = await renderParts(PART_CLICKS, {
+        onClickDelay: Number(TimeSpan.milliseconds(500).valueOf()),
+      });
+      const right = await shape(".right");
+      fireEvent.click(right);
+      expect(onConfigChange).not.toHaveBeenCalled();
+      vi.useFakeTimers();
+      fireEvent.mouseDown(right);
+      expect(right.classList).toContain(PRESSED);
+      vi.advanceTimersByTime(499);
+      expect(onConfigChange).not.toHaveBeenCalled();
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(onConfigChange).toHaveBeenCalledExactlyOnceWith(sent(0));
+      expect(right.classList).not.toContain(PRESSED);
+    });
   });
 
   it.each(["filter", "light", "thruster"])(
@@ -558,7 +780,7 @@ describe("Symbol node", () => {
     });
     const Wrapper = await createAsyncSynnaxWrapper({
       client,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const { findByRole } = renderNode(
       {
@@ -681,7 +903,7 @@ describe("Symbol node", () => {
     const denied = await createTestClientWithPolicy(client, []);
     const Wrapper = await createAsyncSynnaxWrapper({
       client: denied,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const { findByText } = renderNode({ spec: { type: "custom", key } }, Wrapper);
     await findByText("Failed to load symbol");

@@ -21,10 +21,15 @@ import { render } from "vitest-browser-react";
 import type { z } from "zod";
 
 import { Node } from "@/schematic/node";
+import { queryButton } from "@/schematic/node/common/toggle/testutil";
 import { createChannelTelem } from "@/schematic/node/testutil";
 import type { telem } from "@/telem/aether";
+import { controlTest } from "@/telem/control/aether/testutil";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
+
+// A node with a command channel mounts the control chip.
+const REGISTRY = { ...symbolNode.REGISTRY, ...controlTest.createRegistry() };
 
 const MARKUP =
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
@@ -82,7 +87,7 @@ const renderLamp = async (config: Pick<Config, "motionDisabled"> = {}) => {
   });
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
   });
   const { container } = await renderNode(Wrapper, {
     spec: { type: "custom", key: symbol.key },
@@ -129,14 +134,14 @@ const renderValve = async (
 ): Promise<HTMLButtonElement> => {
   const Wrapper = createSynnaxWrapper({
     client: null,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
     telemFactories: [factory],
   });
   const { container } = await renderNode(Wrapper, {
     spec: { type: "builtin", name: "valve" },
     states: [{ key: "active", source }],
   });
-  return await vi.waitUntil(() => container.querySelector("button"));
+  return await vi.waitUntil(() => queryButton(container));
 };
 
 // createAsk creates a symbol whose click asks for a value of state.
@@ -157,7 +162,7 @@ const createAsk = async (client: Synnax, state: schematic.symbol.State) =>
 const renderAsk = async (client: Synnax, symbol: schematic.symbol.Symbol) => {
   const Wrapper = await createAsyncSynnaxWrapper({
     client,
-    additionalRegistry: symbolNode.REGISTRY,
+    additionalRegistry: REGISTRY,
   });
   const onConfigChange = vi.fn();
   const { container } = await renderNode(
@@ -168,7 +173,7 @@ const renderAsk = async (client: Synnax, symbol: schematic.symbol.Symbol) => {
     },
     onConfigChange,
   );
-  const button = await vi.waitUntil(() => container.querySelector("button"));
+  const button = await vi.waitUntil(() => queryButton(container));
   await page.elementLocator(button).click();
   return { onConfigChange, button };
 };
@@ -200,7 +205,7 @@ describe("Symbol node", () => {
     const copy = await client.schematics.symbols.create({ name: "Ball (copy)", data });
     const Wrapper = await createAsyncSynnaxWrapper({
       client,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const widthOf = async (spec: Config["spec"]) => {
       const { container } = await renderNode(Wrapper, { spec });
@@ -249,7 +254,7 @@ describe("Symbol node", () => {
     const onConfigChange = vi.fn();
     const Wrapper = createSynnaxWrapper({
       client: null,
-      additionalRegistry: symbolNode.REGISTRY,
+      additionalRegistry: REGISTRY,
     });
     const { container } = await renderNode(
       Wrapper,
@@ -265,7 +270,7 @@ describe("Symbol node", () => {
       },
       onConfigChange,
     );
-    const button = await vi.waitUntil(() => container.querySelector("button"));
+    const button = await vi.waitUntil(() => queryButton(container));
     await page.elementLocator(button).click();
     expect(onConfigChange).not.toHaveBeenCalled();
     await page.getByRole("menuitem", { name: "Open" }).click();
@@ -275,6 +280,60 @@ describe("Symbol node", () => {
           key: "active",
           source: { type: "local", value: 1 },
           match: { type: "exact" },
+        }),
+      ],
+    });
+  });
+
+  it("should ask which command to send for a click on a part", async () => {
+    const client = createTestClient();
+    const symbol = await client.schematics.symbols.create({
+      name: "Lamp switch",
+      data: {
+        drawing: { type: "svg", markup: MARKUP },
+        variant: "static",
+        ...DATA,
+        commands: [
+          {
+            key: "off",
+            name: "Off",
+            state: "active",
+            value: { type: "fixed", value: 0 },
+          },
+          {
+            key: "on",
+            name: "On",
+            state: "active",
+            value: { type: "fixed", value: 1 },
+          },
+        ],
+        interactions: [
+          { type: "next", key: "switch", part: "lamp", commands: ["off", "on"] },
+        ],
+      },
+    });
+    const Wrapper = await createAsyncSynnaxWrapper({
+      client,
+      additionalRegistry: symbolNode.REGISTRY,
+    });
+    const onConfigChange = vi.fn();
+    const { container } = await renderNode(
+      Wrapper,
+      {
+        spec: { type: "custom", key: symbol.key },
+        states: [{ key: "active", source: { type: "local", value: 3 } }],
+      },
+      onConfigChange,
+    );
+    const lamp = await vi.waitUntil(() => container.querySelector(".lamp"));
+    await page.elementLocator(lamp).click();
+    expect(onConfigChange).not.toHaveBeenCalled();
+    await page.getByRole("menuitem", { name: "On" }).click();
+    expect(onConfigChange).toHaveBeenCalledExactlyOnceWith({
+      states: [
+        schematic.stateBindingZ.parse({
+          key: "active",
+          source: { type: "local", value: 1 },
         }),
       ],
     });
