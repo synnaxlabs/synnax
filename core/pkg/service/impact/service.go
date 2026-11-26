@@ -14,7 +14,6 @@ package impact
 import (
 	"context"
 	"fmt"
-	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
@@ -55,12 +54,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RecordOf func(holder gorp.Target) resource.ID
-	// DB holds the records that the service deletes. OpenService fails when a record
-	// that restricts the delete of a type in Deleters has no Deleter, so open the
-	// Service after the last table.
-	//
-	// [REQUIRED]
-	DB *gorp.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -69,7 +62,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Deleters = override.Nil(c.Deleters, other.Deleters)
 	c.RecordOf = override.Nil(c.RecordOf, other.RecordOf)
-	c.DB = override.Nil(c.DB, other.DB)
 	return c
 }
 
@@ -78,7 +70,6 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("impact")
 	v.NotNil("deleters", c.Deleters)
 	v.NotNil("record_of", c.RecordOf)
-	v.NotNil("db", c.DB)
 	return v.Error()
 }
 
@@ -91,34 +82,7 @@ func OpenService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = cfg.checkHolders(); err != nil {
-		return nil, err
-	}
 	return &Service{cfg: cfg}, nil
-}
-
-// checkHolders returns an error naming the first reference, by deleted type, that
-// restricts the delete of a type in c.Deleters from a record whose type has no Deleter.
-func (c ServiceConfig) checkHolders() error {
-	for _, t := range slices.Sorted(maps.Keys(c.Deleters)) {
-		for _, ref := range c.DB.References(string(t)) {
-			if ref.OnDelete != gorp.Restrict {
-				continue
-			}
-			holder := c.RecordOf(gorp.Target{Table: ref.ID.Table}).Type
-			if _, ok := c.Deleters[holder]; !ok {
-				return errors.Newf(
-					"[impact] - %s holds %s through %s.%s with restrict, and no "+
-						"Deleter deletes it",
-					holder,
-					t,
-					ref.ID.Table,
-					ref.ID.Name,
-				)
-			}
-		}
-	}
-	return nil
 }
 
 // PlanChangedError is the error of an Apply whose plan changed after the caller

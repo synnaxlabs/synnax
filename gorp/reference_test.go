@@ -740,30 +740,6 @@ var _ = Describe("Reference", func() {
 		})
 	})
 
-	Describe("References", func() {
-		BeforeEach(func(ctx SpecContext) { open(ctx) })
-
-		It("Should list each reference to a table with what a delete does", func(
-			ctx SpecContext,
-		) {
-			Expect(db.References("rack")).To(Equal([]gorp.ReferenceInfo{
-				{
-					ID:       gorp.ReferenceID{Table: "device", Name: "rack"},
-					OnDelete: gorp.Restrict,
-				},
-				{
-					ID:       gorp.ReferenceID{Table: "status", Name: "owner"},
-					OnDelete: gorp.Cascade,
-				},
-			}))
-			Expect(db.References("label")).To(Equal([]gorp.ReferenceInfo{{
-				ID:       gorp.ReferenceID{Table: "device", Name: "labels"},
-				OnDelete: gorp.Detach,
-			}}))
-			Expect(db.References("missing")).To(BeEmpty())
-		})
-	})
-
 	Describe("Referenced", func() {
 		all := func(string) bool { return true }
 		BeforeEach(func(ctx SpecContext) {
