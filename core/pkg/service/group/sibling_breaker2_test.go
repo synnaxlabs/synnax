@@ -31,6 +31,28 @@ var _ = Describe("Sibling breaker 2", func() {
 		}
 	}
 
+	DescribeTable(
+		"Should refuse a channel folder under a parent that is not a group "+
+			"before it reaches the sibling index",
+		func(ctx SpecContext, parent resource.ID, parentScope string) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			StartRun(db.Run)
+			svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			g := group.Group{Name: "pt", Scope: resource.TypeChannel, Parent: &parent}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &g)
+			})).To(MatchError(ContainSubstring(
+				"a channel group cannot sit under a " + parentScope + " parent",
+			)))
+		},
+		Entry(
+			"a project",
+			resource.ID{Type: resource.TypeProject, Key: "p"},
+			"project",
+		),
+		Entry("a rack", resource.ID{Type: resource.TypeRack, Key: "1"}, "device"),
+	)
+
 	It("Should not panic on a raw write of a channel folder with a bad parent key",
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
