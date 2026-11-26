@@ -974,7 +974,7 @@ export const writeTargetZ = z.object({
    * period is how often the target sends the message, with the last command of each
    * bound channel. Absent when the target sends one message for each command.
    */
-  period: telem.timeSpanZ.check(z.gt(0)).optional(),
+  period: telem.numericTimeSpanZ.check(z.gt(0)).optional(),
 });
 export interface WriteTarget extends z.infer<typeof writeTargetZ> {}
 
