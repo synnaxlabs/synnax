@@ -15,7 +15,7 @@ import { Button } from "@/schematic/node/general/button";
 import { Circle } from "@/schematic/node/general/circle";
 import { Gauge } from "@/schematic/node/general/gauge";
 import { Input } from "@/schematic/node/general/input";
-import { Light } from "@/schematic/node/general/light";
+import { SYMBOL as LIGHT } from "@/schematic/node/general/light/Light";
 import { Line } from "@/schematic/node/general/line";
 import { OffPageReference } from "@/schematic/node/general/offPageReference";
 import { Polygon } from "@/schematic/node/general/polygon";
@@ -24,7 +24,7 @@ import { Select } from "@/schematic/node/general/select";
 import { Setpoint } from "@/schematic/node/general/setpoint";
 import { StateIndicator } from "@/schematic/node/general/stateIndicator";
 import { StringDisplay } from "@/schematic/node/general/stringDisplay";
-import { Switch } from "@/schematic/node/general/switch";
+import { SYMBOL as SWITCH } from "@/schematic/node/general/switch/Switch";
 import { TextBox } from "@/schematic/node/general/textBox";
 import { Value } from "@/schematic/node/general/value";
 
@@ -34,7 +34,6 @@ export const REGISTRY = {
   circle: Circle.spec,
   gauge: Gauge.spec,
   input: Input.spec,
-  light: Light.spec,
   line: Line.spec,
   off_page_reference: OffPageReference.spec,
   polygon: Polygon.spec,
@@ -43,15 +42,14 @@ export const REGISTRY = {
   setpoint: Setpoint.spec,
   state_indicator: StateIndicator.spec,
   string_display: StringDisplay.spec,
-  switch: Switch.spec,
   text_box: TextBox.spec,
   value: Value.spec,
 } as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;
 
 /** BUILT_INS maps the name of each built-in symbol to its spec. */
 export const BUILT_INS = {
-  light: Light.SYMBOL,
-  switch: Switch.SYMBOL,
+  light: LIGHT,
+  switch: SWITCH,
 } as const satisfies Record<string, schematic.symbol.Spec>;
 
 /** NAMES maps the name of each built-in symbol to its names. */

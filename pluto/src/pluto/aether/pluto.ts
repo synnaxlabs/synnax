@@ -28,7 +28,6 @@ import { eraser } from "@/vis/eraser/aether";
 import { gauge } from "@/vis/gauge/aether";
 import { input } from "@/vis/input/aether";
 import { latestSample } from "@/vis/latestSample/aether";
-import { light } from "@/vis/light/aether";
 import { line } from "@/vis/line/aether";
 import { scale } from "@/vis/scale/aether";
 import { setpoint } from "@/vis/setpoint/aether";
@@ -36,7 +35,6 @@ import { staleness } from "@/vis/staleness/aether";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 import { stringValue } from "@/vis/stringValue/aether";
 import { symbolNode } from "@/vis/symbolNode/aether";
-import { toggle } from "@/vis/toggle/aether";
 import { value } from "@/vis/value/aether";
 
 export const render = (): void => {
@@ -49,7 +47,6 @@ export const render = (): void => {
     ...eraser.REGISTRY,
     ...input.REGISTRY,
     ...latestSample.REGISTRY,
-    ...light.REGISTRY,
     ...line.REGISTRY,
     ...lineplot.REGISTRY,
     ...range.REGISTRY,
@@ -64,7 +61,6 @@ export const render = (): void => {
     ...synnax.REGISTRY,
     ...telem.createRegistry((client) => new LogFactory(client)),
     ...theming.REGISTRY,
-    ...toggle.REGISTRY,
     ...value.REGISTRY,
     ...log.REGISTRY,
     ...table.REGISTRY,

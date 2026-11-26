@@ -34,14 +34,10 @@ import {
   type text,
   xy,
 } from "@synnaxlabs/x";
-import type { FC, ReactElement, ReactNode } from "react";
-import { z } from "zod";
+import type { ReactElement, ReactNode } from "react";
 
 import { Symbol } from "@/feature/schematic/symbol";
-import {
-  COLOR_FIELDS,
-  VALUE_COLOR_FIELDS,
-} from "@/feature/schematic/toolbar/colorFields";
+import { COLOR_FIELDS } from "@/feature/schematic/toolbar/colorFields";
 import { CSS } from "@/platform/css";
 import { Enumeration } from "@/platform/enumeration";
 import { MultiEdit } from "@/platform/multiedit";
@@ -49,7 +45,6 @@ import { Session } from "@/session";
 
 const path = deep.path<{
   variant: Schematic.ElementConfig["variant"];
-  specKey?: schematic.symbol.Key;
   spec?: schematic.symbol.Ref;
 }>();
 
@@ -86,10 +81,8 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
     sessionDispatch(Session.Schematic.setPropertiesTab({ key: schematicKey, tab }));
   const { form } = Schematic.useConfigForm({ elKey });
   const variant = Form.useFieldValue(path.variant, { ctx: form });
-  const specKey = Form.useFieldValue(path.specKey, { ctx: form, optional: true });
-  const isCustom = z.validate(schematic.symbol.keyZ, specKey) && specKey != null;
   const spec = Form.useFieldValue(path.spec, { ctx: form, optional: true });
-  const editKey = isCustom ? specKey : spec?.type === "custom" ? spec.key : null;
+  const editKey = spec?.type === "custom" ? spec.key : null;
   const openEditModal = Symbol.Edit.useModal();
   let actions: ReactNode = null;
   if (editKey != null)
@@ -116,38 +109,11 @@ const IndividualConfig = ({ elKey }: IndividualConfigProps): ReactElement => {
     <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...form}>
         <Enumeration.CreatePromptProvider>
-          {isCustom ? (
-            <CustomVariantForm
-              specKey={specKey}
-              elKey={elKey}
-              formProps={formProps}
-              VariantForm={C.Form}
-            />
-          ) : (
-            <C.Form key={elKey} {...formProps} />
-          )}
+          <C.Form key={elKey} {...formProps} />
         </Enumeration.CreatePromptProvider>
       </Form.Form>
     </Flex.Box>
   );
-};
-
-interface CustomVariantFormProps {
-  specKey: string;
-  elKey: string;
-  formProps: Schematic.Node.FormProps;
-  VariantForm: FC<Schematic.Node.FormProps>;
-}
-
-const CustomVariantForm = ({
-  specKey,
-  elKey,
-  formProps,
-  VariantForm,
-}: CustomVariantFormProps): ReactElement => {
-  const { missing } = Schematic.Symbol.useResolved(specKey);
-  if (missing) return <Symbol.MissingForm />;
-  return <VariantForm key={elKey} {...formProps} />;
 };
 
 const FIELDS = MultiEdit.fieldsByVariant(schematic.ELEMENT_CONFIG_SCHEMAS);
@@ -199,12 +165,11 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selection = MultiEdit.selection({
     configs: editableByKey,
     fields: FIELDS,
-    valueColorFields: VALUE_COLOR_FIELDS,
     onChange: (updates) => dispatch(updates.flatMap(schematic.setChanged)),
   });
 
   const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
-    MultiEdit.colorRefs(key, cfg, COLOR_FIELDS, VALUE_COLOR_FIELDS[cfg.variant]),
+    MultiEdit.colorRefs(key, cfg, COLOR_FIELDS),
   );
 
   const handleLayouts = (
@@ -491,7 +456,6 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
                 Schematic.colorFallback("strokeColor", c.variant, theme, seriesColors),
               )}
               onChange={(c) => selection.setColor("strokeColor", c)}
-              palettesHidden={selection.valueOnly("strokeColor")}
             />
           )}
           {hasFill && (
@@ -501,7 +465,6 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
                 Schematic.colorFallback("fillColor", c.variant, theme, seriesColors),
               )}
               onChange={(c) => selection.setColor("fillColor", c)}
-              palettesHidden={selection.valueOnly("fillColor")}
             />
           )}
           {hasText && (
@@ -511,7 +474,6 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
                 Schematic.colorFallback("textColor", c.variant, theme, seriesColors),
               )}
               onChange={(c) => selection.setColor("textColor", c)}
-              palettesHidden={selection.valueOnly("textColor")}
             />
           )}
           {hasColor && (

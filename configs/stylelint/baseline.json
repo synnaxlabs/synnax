@@ -172,7 +172,6 @@
     ],
     "pluto/src/schematic/node/general/select/select.css": [
       "lyra-btn",
-      "lyra-caret-animated",
       "lyra-dialog__frame",
       "lyra-dialog__trigger",
       "lyra-input"

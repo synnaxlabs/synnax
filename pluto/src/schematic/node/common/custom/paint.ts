@@ -203,7 +203,7 @@ const resolvePaints = (
  * @returns a region for each part of spec, with the colors that its looks give it at
  * ctx.value, before the theme band.
  */
-export const resolveRegions = (
+const resolveRegions = (
   spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks">,
   ctx: PaintContext,
 ): schematic.symbol.Region[] => {
@@ -226,23 +226,11 @@ export interface Value {
   name: string;
 }
 
-const UNNAMED: Value[] = [
+/** UNNAMED_VALUES are the values of a state with no enumeration. */
+export const UNNAMED_VALUES: readonly Value[] = [
   { key: "base", value: 0, name: "Base" },
   { key: "active", value: 1, name: "Active" },
 ];
-
-/**
- * @returns the values that the node of spec draws: Base and Active for an actuator, and
- * Base for a static symbol. A value takes the key and name of its entry in entries.
- */
-export const listValues = (
-  spec: Pick<schematic.symbol.Spec, "variant">,
-  entries: enumeration.Entry[] = [],
-): Value[] =>
-  UNNAMED.slice(0, spec.variant === "actuator" ? 2 : 1).map((v) => {
-    const entry = entries.find((e) => e.value === v.value);
-    return entry == null ? v : { key: entry.key, value: v.value, name: entry.name };
-  });
 
 const enumerationKeys = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
@@ -256,7 +244,7 @@ const enumerationKeys = (
  * while the enumerations of its states load. An entry with no color draws nodeColor,
  * else the theme gray. An enumeration that fails to load gives its entries no color.
  */
-export const usePaintContext = (
+const usePaintContext = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
