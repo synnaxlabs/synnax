@@ -688,6 +688,29 @@ TEST(Receiver, GivesFrameThatIsNotJSONToLaterEntry) {
     ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
 }
 
+/// @brief it should warn about a frame that no entry matches with the error of the
+/// first entry that cannot parse it.
+TEST(Receiver, WarnsAboutFrameThatNoEntryMatches) {
+    const auto a = documents(std::nullopt, 2, 1, "first");
+    const auto b = lines("T", 3, 4, "second");
+    auto r = ASSERT_NIL_P(
+        Receiver::create(
+            {a.entry(), b.entry()},
+            {a.ic, b.ic},
+            merged(a.channels, b.channels),
+            false
+        )
+    );
+    Memory t;
+    t.push("not json\n");
+    x::telem::Frame fr;
+    const auto res = r.read(t, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Failed to decode message");
+    ASSERT_EQ(res.warning.description, "invalid character 'o' after offset 1");
+    ASSERT_TRUE(fr.empty());
+}
+
 /// @brief it should give a binary frame to the entry with a message whose identifier it
 /// meets.
 TEST(Receiver, GivesBinaryFrameToEntryWithMatchingIdentifier) {

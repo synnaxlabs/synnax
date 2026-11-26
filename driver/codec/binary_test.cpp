@@ -544,6 +544,16 @@ TEST(Binary, MatchCANExact) {
     EXPECT_FALSE(ASSERT_NIL_P(dec.decode(0x300, false, PAYLOAD)).has_value());
 }
 
+/// @brief it should reject a CAN frame too short for a field of its message, and return
+/// the message.
+TEST(Binary, RejectShortCANPayload) {
+    auto dec = ASSERT_NIL_P(Binary::create({identified("a", can(0x100))}));
+    const auto [message, err] = dec.decode(0x100, false, std::vector<std::uint8_t>{1});
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "field v: the payload has 1 bytes and the field needs 2");
+    EXPECT_EQ(message, std::size_t{0});
+}
+
 /// @brief it should match a CAN frame by the bits of its identifier under a mask, and
 /// give other frames to the message with no identifier.
 TEST(Binary, MatchCANMasked) {
