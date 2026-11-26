@@ -175,7 +175,7 @@ func (c Config) walkTo(
 		}
 		if x+lengthSize > hi {
 			n := min(int64(len(buf)), length-x)
-			if err := c.ReadAt(r, buf[:n], x); err != nil {
+			if err := c.ReadStored(r, buf[:n], x); err != nil {
 				return 0, 0, err
 			}
 			lo, hi = x, x+n

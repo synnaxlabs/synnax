@@ -14,7 +14,6 @@ package segment
 
 import (
 	"encoding/binary"
-	"io"
 	"math"
 
 	"github.com/synnaxlabs/cesium/internal/place"
@@ -40,6 +39,8 @@ const (
 // Config is the identity of a segment, which every checksum of its blocks binds, and
 // the layout of its blocks.
 type Config struct {
+	// Key is the key whose samples the segment holds. Errors name it.
+	Key uint32
 	// DB is the identity of the database.
 	DB uint64
 	// ID is the identity of the segment.
@@ -66,19 +67,6 @@ func (c Config) trailer() int64 {
 
 // FileOffset returns the file offset of stream offset x of the segment.
 func (c Config) FileOffset(x int64) int64 { return x + c.trailer()*(x/BlockSize) }
-
-// ReadAt reads len(p) stream bytes from stream offset off of the segment in r, with no
-// check, and leaves out the trailers.
-func (c Config) ReadAt(r io.ReaderAt, p []byte, off int64) error {
-	for len(p) > 0 {
-		n := min(BlockSize-int(off%BlockSize), len(p))
-		if _, err := r.ReadAt(p[:n], c.FileOffset(off)); err != nil {
-			return errors.Wrapf(err, "read of %d bytes at stream offset %d", n, off)
-		}
-		p, off = p[n:], off+int64(n)
-	}
-	return nil
-}
 
 // cursor is the position of a writer in its stream.
 type cursor struct {

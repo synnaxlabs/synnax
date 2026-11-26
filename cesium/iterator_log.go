@@ -366,13 +366,25 @@ func (c *logCursor) Size() telem.Size { return telem.Size(c.cur.ptr.Length) }
 // OpenReader implements domain.Ranges.
 func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 	r := c.cur
+	cfg := c.e.segmentConfig(*r.seg)
+	cfg.Key = c.key
 	h := c.e.handle(c.key, r.seg.ID)
 	file, err := h.Hold()
 	if err != nil {
 		return nil, err
 	}
+	var rd *segment.Reader
+	if c.e.readsChecked {
+		rd = c.e.reader()
+	}
 	return &logReader{
-		cfg:    c.e.segmentConfig(*r.seg),
+		e:  c.e,
+		rd: rd,
+		seg: segment.Committed{
+			Config:  cfg,
+			Length:  int64(r.seg.Length),
+			TailCRC: r.seg.TailCRC,
+		},
 		h:      h,
 		file:   file,
 		offset: int64(r.ptr.Offset),
@@ -396,9 +408,13 @@ func (c *logCursor) Close() error {
 
 // logReader reads the bytes of one pointer from its segment file, which it holds open
 // until Close. It takes no pin: its cursor's pins and its view's pins keep the segment
-// for the call that opens and closes it.
+// for the call that opens and closes it. When data reads are checked, it checks each
+// block that it reads with a segment reader from the pool of the engine. Otherwise it
+// reads the bytes as stored.
 type logReader struct {
-	cfg    segment.Config
+	e      *engine
+	rd     *segment.Reader
+	seg    segment.Committed
 	h      *segment.Handle
 	file   io.ReaderAt
 	offset int64
@@ -408,13 +424,20 @@ type logReader struct {
 var _ domain.RangeReader = (*logReader)(nil)
 
 // ReadAt implements domain.RangeReader. A read past the end of the pointer returns the
-// bytes before it with io.EOF.
+// bytes before it with io.EOF. A block that fails its check on two reads returns an
+// error that wraps place.ErrCorrupt.
 func (r *logReader) ReadAt(p []byte, off int64) (int, error) {
 	if off >= r.size {
 		return 0, io.EOF
 	}
 	n := int(min(int64(len(p)), r.size-off))
-	if err := r.cfg.ReadAt(r.file, p[:n], r.offset+off); err != nil {
+	var err error
+	if r.rd == nil {
+		err = r.seg.ReadStored(r.file, p[:n], r.offset+off)
+	} else {
+		err = r.rd.Read(r.file, r.seg, p[:n], r.offset+off)
+	}
+	if err != nil {
 		return 0, err
 	}
 	if n < len(p) {
@@ -428,6 +451,9 @@ func (r *logReader) Size() telem.Size { return telem.Size(r.size) }
 
 // Close implements domain.RangeReader.
 func (r *logReader) Close() error {
+	if r.rd != nil {
+		r.e.readers.Put(r.rd)
+	}
 	r.h.Release()
 	return nil
 }

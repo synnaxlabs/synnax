@@ -52,6 +52,10 @@ type engine struct {
 	log    *log.Log
 	ckpt   *checkpoint.Checkpointer
 	budget *segment.Budget
+	// readers pools the segment readers of checked iterators, each of which holds a
+	// block. readsChecked is true when data reads check their blocks.
+	readers      sync.Pool
+	readsChecked bool
 	// handles holds the read handle of each segment file that a read opened, by key and
 	// segment ID, until the file is removed or the engine closes.
 	handles struct {
@@ -121,6 +125,8 @@ func openEngine(o *options) (*engine, error) {
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
+	e.readsChecked = o.readsChecked
+	e.readers.New = func() any { return segment.NewReader(o.readsChecked) }
 	e.cover.advanced = make(chan struct{})
 	e.handles.m = make(map[ChannelKey]map[uint64]*segment.Handle)
 	if snapshot == nil {
@@ -583,6 +589,17 @@ func (e *engine) cut(name string, size int64) error {
 		return err
 	}
 	return errors.Join(f.Truncate(size), f.Close())
+}
+
+// reader returns a segment reader from the pool, with no block held from an earlier
+// read.
+func (e *engine) reader() *segment.Reader {
+	rd, ok := e.readers.Get().(*segment.Reader)
+	if !ok {
+		panic("cesium: the segment reader pool holds another type")
+	}
+	rd.Reset()
+	return rd
 }
 
 // segmentConfig returns the identity and block layout of seg.

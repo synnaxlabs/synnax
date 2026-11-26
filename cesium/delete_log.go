@@ -290,7 +290,7 @@ func (r *stampReader) load(s int, off int64) error {
 	to := min(max(start+segment.BlockSize, off+8), sp.off+int64(sp.hi-sp.lo)*8)
 	r.buf = slices.Grow(r.buf[:0], int(to-from))[:to-from]
 	r.span = -1
-	if err := r.e.segmentConfig(sp.seg).ReadAt(r.h, r.buf, from); err != nil {
+	if err := r.e.segmentConfig(sp.seg).ReadStored(r.h, r.buf, from); err != nil {
 		return err
 	}
 	r.span, r.from = s, from

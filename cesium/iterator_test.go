@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -2132,8 +2133,12 @@ var _ = Describe("Iterator Behavior", func() {
 var _ = Describe("Iterator index lookups", func() {
 	DescribeTable("Should read the index once for every channel on it", func(
 		ctx SpecContext,
-		opts ...cesium.Option,
+		pointerLog bool,
 	) {
+		var opts []cesium.Option
+		if pointerLog {
+			opts = append(opts, cesium.WithPointerLog())
+		}
 		rec := NewRecorder(fs.NewMem())
 		db := mustOpenDBOnFS(ctx, rec, opts...)
 		idxKey := GenerateChannelKey()
@@ -2162,20 +2167,32 @@ var _ = Describe("Iterator index lookups", func() {
 		}
 		Expect(write(ctx, db, 0, telem.MultiFrame(keys, series))).To(Succeed())
 		tr := (100 * telem.SecondTS).Range(900 * telem.SecondTS)
-		// Index probes are the only 8-byte reads, since data reads span many samples.
+		// On the old layout, index probes are the only 8-byte reads, since data reads
+		// span many samples. The pointer log reads whole checked blocks, so there the
+		// reads of the files of the index count.
+		dir := strconv.FormatUint(uint64(idxKey), 10) + "/"
 		indexReads := func(keys ...cesium.ChannelKey) int {
 			GinkgoHelper()
 			rec.Reset()
 			fr := MustSucceed(db.Read(ctx, tr, keys...))
 			Expect(fr.Count()).To(Equal(len(keys)))
-			return rec.Count(MatchOp(OpReadAt), MatchLength(8))
+			if !pointerLog {
+				return rec.Count(MatchOp(OpReadAt), MatchLength(8))
+			}
+			return rec.Count(MatchOp(OpReadAt), func(e Event) bool {
+				return strings.HasPrefix(e.Name, dir)
+			})
 		}
-		// 48 is main's count for one channel.
-		Expect(indexReads(keys[1])).To(Equal(48))
-		Expect(indexReads(keys[1:]...)).To(Equal(48))
+		one := indexReads(keys[1])
+		if !pointerLog {
+			// 48 is main's count for one channel.
+			Expect(one).To(Equal(48))
+		}
+		Expect(one).To(BeNumerically(">", 0))
+		Expect(indexReads(keys[1:]...)).To(Equal(one))
 	},
-		Entry("on the old layout"),
-		Entry("on the pointer log", cesium.WithPointerLog()),
+		Entry("on the old layout", false),
+		Entry("on the pointer log", true),
 	)
 
 	It("Should see an index rewritten between commands", func(ctx SpecContext) {

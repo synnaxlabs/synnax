@@ -11,8 +11,6 @@ package segment_test
 
 import (
 	"encoding/binary"
-	"io"
-	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,17 +19,6 @@ import (
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// countingReader counts the reads of a segment file.
-type countingReader struct {
-	io.ReaderAt
-	reads atomic.Int64
-}
-
-func (r *countingReader) ReadAt(p []byte, off int64) (int, error) {
-	r.reads.Add(1)
-	return r.ReaderAt.ReadAt(p, off)
-}
 
 var _ = Describe("Seek", func() {
 	for fsName, makeFS := range fstestutil.FileSystems {
