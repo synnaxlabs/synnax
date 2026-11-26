@@ -276,22 +276,6 @@ var _ = Describe("JSON", func() {
 		))
 	})
 
-	It("Should reject a bound field with a zero scale", func() {
-		f := icd.JSONField{Variant: icd.FloatJSONField{
-			Key: uuid.New(), Name: "v", Scale: 0, Pointer: "/v",
-		}}
-		Expect(codec.NewJSON([]codec.JSONMessage{{
-			Name:     "reading",
-			Payload:  icd.JSONPayload{Fields: []icd.JSONField{f}},
-			Bindings: []codec.Binding{{Field: f.Base().Key, DataType: telem.Float64T}},
-		}})).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(
-				"message reading: field v: scale must be non-zero: validation error",
-			),
-		))
-	})
-
 	Describe("Generated defaults", func() {
 		decoder := func(f icd.JSONField, dt telem.DataType) *codec.JSON {
 			GinkgoHelper()

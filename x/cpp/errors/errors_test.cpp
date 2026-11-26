@@ -108,6 +108,20 @@ TEST(TestXErrors, testReparentMethod) {
     ASSERT_EQ(unchanged.data, "data");
 }
 
+/// @brief it should put context before the data of an error and keep its type.
+TEST(TestXErrors, testWrapMethod) {
+    const auto wrapped = Error("a.b", "data").wrap("outer").wrap("outermost");
+    ASSERT_EQ(wrapped.type, "a.b");
+    ASSERT_EQ(wrapped.data, "outermost: outer: data");
+}
+
+/// @brief it should return NIL when it wraps NIL.
+TEST(TestXErrors, testWrapNil) {
+    const auto wrapped = NIL.wrap("context");
+    ASSERT_EQ(wrapped.type, TYPE_NIL);
+    ASSERT_TRUE(wrapped.data.empty());
+}
+
 /// @brief it should return true for ok() on nil errors and false otherwise.
 TEST(TestXErrors, testOkMethod) {
     const auto nil_err = Error(TYPE_NIL, "");

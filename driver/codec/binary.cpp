@@ -225,6 +225,7 @@ x::errors::Error too_short(const std::size_t size, const std::size_t end) {
 std::pair<Binary::Field, x::errors::Error>
 Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     auto [bits, bits_err] = BitRange::create(b);
     if (bits_err) return {Field{}, bits_err};
     Field field{
@@ -248,14 +249,7 @@ Binary::Field::create(const icd::BinaryField &f, const x::telem::DataType &dt) {
                     " channels"
             ),
         };
-    if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "a scaled field requires a float channel, not " + dt.name()
-            ),
-        };
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     if (const auto w = width_of(dt); w.has_value()) {
         const bool is_signed = field.encoding == Encoding::SIGNED;
         const unsigned needed = b.bit_length + (w->is_signed && !is_signed ? 1U : 0U);
@@ -292,17 +286,7 @@ Binary::Field::append(const std::uint64_t raw, x::telem::Series &dst) const {
 
 x::errors::Error Binary::Field::append_float(double v, x::telem::Series &dst) const {
     if (this->scaled) v = v * this->scale + this->offset;
-    if (!this->narrow) {
-        dst.write(v);
-        return x::errors::NIL;
-    }
-    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            x::json::Number(v).to_string() + " overflows float32"
-        );
-    dst.write(static_cast<float>(v));
-    return x::errors::NIL;
+    return write_float(v, this->narrow, dst);
 }
 
 x::errors::Error Binary::Field::decode(
@@ -330,7 +314,7 @@ x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> pay
                 return mux.bits.end() > payload.size();
             }
         );
-        return wrap(too_short(payload.size(), m.bits.end()), "field " + m.name);
+        return too_short(payload.size(), m.bits.end()).wrap("field " + m.name);
     }
     for (std::size_t i = 0; i < this->muxes.all().size(); i++) {
         const auto &m = this->muxes.all()[i];
@@ -346,8 +330,7 @@ x::errors::Error Binary::Message::decode(const std::span<const std::uint8_t> pay
             if (f.fallback.has_value()) dst.write(*f.fallback);
             continue;
         }
-        if (const auto err = f.decode(payload, dst))
-            return wrap(err, "field " + f.name);
+        if (const auto err = f.decode(payload, dst)) return err.wrap("field " + f.name);
     }
     return x::errors::NIL;
 }
@@ -500,7 +483,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Binary::decode_as(
     if (!i.has_value()) return {std::nullopt, x::errors::NIL};
     auto &m = this->messages[*i];
     if (auto err = m.decode(payload)) {
-        if (this->messages.size() > 1) err = wrap(err, "message " + m.name);
+        if (this->messages.size() > 1) err = err.wrap("message " + m.name);
         return {std::nullopt, err};
     }
     return {i, x::errors::NIL};
@@ -569,14 +552,7 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
         .fallback = fallback,
     };
     if (!dt.has_value()) return {std::move(field), x::errors::NIL};
-    if (b.scale == 0 || !std::isfinite(b.scale))
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "cannot write with a scale of " + x::json::Number(b.scale).to_string()
-            ),
-        };
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     const auto kind = kind_of(*dt);
     if (kind == payload::KIND_FLOAT)
         field.number = Number::FLOAT;
@@ -591,14 +567,7 @@ std::pair<BinaryEncoder::Field, x::errors::Error> BinaryEncoder::Field::create(
                     std::string(field_kind(encoding)) + " fields"
             ),
         };
-    if (field.scaled && field.number != Number::FLOAT)
-        return {
-            Field{},
-            x::errors::Error(
-                CONFIG_ERROR,
-                "a scaled field requires a float channel, not " + dt->name()
-            ),
-        };
+    if (auto err = check_scaled_channel(field.scaled, *dt)) return {Field{}, err};
     return {std::move(field), x::errors::NIL};
 }
 
@@ -682,17 +651,8 @@ BinaryEncoder::create(const BinaryMessage &m) {
     Multiplexors::Layout by_key;
     for (const auto &f: m.payload.fields)
         by_key[icd::base(f).key] = &f;
-    std::map<icd::FieldKey, std::size_t> bound;
-    for (std::size_t i = 0; i < m.bindings.size(); i++) {
-        const auto &key = m.bindings[i].field;
-        const auto found = by_key.find(key);
-        if (found == by_key.end())
-            return refuse("field " + key.to_string() + " does not exist");
-        if (!bound.try_emplace(key, i).second)
-            return refuse(
-                "field " + icd::base(*found->second).name + " has more than one binding"
-            );
-    }
+    auto [bound, bind_err] = index_bindings(m.bindings, by_key);
+    if (bind_err) return {BinaryEncoder{}, as_config(bind_err, "message " + m.name)};
     const icd::FieldIdentifier *id = nullptr;
     if (m.payload.identifier.has_value())
         id = std::get_if<icd::FieldIdentifier>(&*m.payload.identifier);
@@ -784,13 +744,13 @@ x::errors::Error BinaryEncoder::encode(
         if (!this->muxes.selected(muxes[i].condition, this->raw)) continue;
         const auto &f = this->fields[this->mux_fields[i]];
         const auto [r, err] = f.raw(samples);
-        if (err) return wrap(err, "message " + this->name + ": field " + f.base.name);
+        if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
         this->raw[i] = static_cast<std::int64_t>(r);
     }
     for (const auto &f: this->fields) {
         if (!this->muxes.selected(f.condition, this->raw)) continue;
         const auto [r, err] = f.raw(samples);
-        if (err) return wrap(err, "message " + this->name + ": field " + f.base.name);
+        if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
         f.bits.write(payload.data(), r);
     }
     return x::errors::NIL;
@@ -826,7 +786,7 @@ x::errors::Error BinaryEncoder::check(
             raw_value(f.encoding, r),
             s.data_type() == x::telem::FLOAT32_T || f.encoding == Encoding::FLOAT32
         );
-    if (err) return wrap(err, "message " + this->name + ": field " + f.base.name);
+    if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
     return x::errors::NIL;
 }
 }

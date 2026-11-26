@@ -9,7 +9,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -455,15 +454,14 @@ TEST(Reader, DropsOnlyVirtualChannelWhoseValueDoesNotConvert) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
 }
 
-/// @brief it should write the fill value for a float field that does not decode, and
-/// keep its index group.
+/// @brief it should write NaN for a float field that does not decode, and keep its
+/// index group.
 TEST(Reader, FillsFloatFieldThatDoesNotDecode) {
     auto e = reading();
     e.bind(float_field("w"), channel(3, x::telem::FLOAT32_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(4);
-    const auto nan = std::numeric_limits<double>::quiet_NaN();
-    ASSERT_NIL_P(r.read(bytes(R"({"v": {}})"), RECEIVED, fr, 1, nan));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": {}})"), RECEIVED, fr, 1, true));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3}));
     ASSERT_TRUE(std::isnan(fr.at<double>(2, 0)));
     ASSERT_TRUE(std::isnan(fr.at<float>(3, 0)));
@@ -471,7 +469,7 @@ TEST(Reader, FillsFloatFieldThatDoesNotDecode) {
 }
 
 /// @brief it should drop the index group of a field on a channel that is not a float
-/// when the field does not decode, even with a fill value.
+/// when the field does not decode, even with NaN fill.
 TEST(Reader, DropsGroupOfNonFloatFieldWithFill) {
     auto e = reading();
     synnax::icd::IntegerJSONField w;
@@ -481,7 +479,7 @@ TEST(Reader, DropsGroupOfNonFloatFieldWithFill) {
     e.bind(w, channel(3, x::telem::INT64_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(4);
-    ASSERT_NIL_P(r.read(bytes(R"({"v": 1})"), RECEIVED, fr, 1, 0.0));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1})"), RECEIVED, fr, 1, true));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(r.failures()[0].channel, 3U);
     ASSERT_TRUE(r.failures()[0].missing);

@@ -13,7 +13,6 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
-#include <limits>
 #include <map>
 #include <optional>
 #include <span>
@@ -82,6 +81,7 @@ std::pair<Text::Field, x::errors::Error> Text::Field::create(
     const std::string_view delimiter
 ) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     Field field{
         .name = b.name,
         .scaled = b.scale != 1 || b.offset != 0,
@@ -114,17 +114,7 @@ std::pair<Text::Field, x::errors::Error> Text::Field::create(
 
 x::errors::Error Text::Field::append_float(double v, x::telem::Series &dst) const {
     if (this->scaled) v = v * this->scale + this->offset;
-    if (!this->narrow) {
-        dst.write(v);
-        return x::errors::NIL;
-    }
-    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
-        return x::errors::Error(
-            x::errors::VALIDATION,
-            x::json::Number(v).to_string() + " overflows float32"
-        );
-    dst.write(static_cast<float>(v));
-    return x::errors::NIL;
+    return write_float(v, this->narrow, dst);
 }
 
 x::errors::Error Text::Field::decode(
@@ -263,8 +253,8 @@ Text::decode(const std::string_view line) {
         auto &dst = m.samples[i];
         dst.clear();
         if (auto err = m.fields[i].decode(this->items, dst)) {
-            err = wrap(err, "field " + m.fields[i].name);
-            if (this->messages.size() > 1) err = wrap(err, "message " + m.name);
+            err = err.wrap("field " + m.fields[i].name);
+            if (this->messages.size() > 1) err = err.wrap("message " + m.name);
             return {std::nullopt, err};
         }
     }
@@ -340,6 +330,7 @@ std::pair<TextEncoder::Field, x::errors::Error> TextEncoder::Field::create(
             x::errors::Error(CONFIG_ERROR, "needs a channel or a default")
         };
     }
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     const auto [number, err] = number_of(*dt, x::payload::KIND_FLOAT, field.scaled);
     if (err) return {Field{}, err};
     field.number = number;
@@ -440,14 +431,14 @@ x::errors::Error TextEncoder::encode(
         }
         const auto &f = this->fields[static_cast<std::size_t>(item.field)];
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "message " + this->name + ": field " + f.base.name);
+            return err.wrap("message " + this->name + ": field " + f.base.name);
     }
     for (const auto i: this->tagged) {
         next();
         const auto &f = this->fields[i];
         this->line += f.tag;
         if (auto err = f.append(samples, this->line))
-            return wrap(err, "message " + this->name + ": field " + f.base.name);
+            return err.wrap("message " + this->name + ": field " + f.base.name);
     }
     payload.assign(this->line.begin(), this->line.end());
     return x::errors::NIL;
@@ -466,7 +457,7 @@ x::errors::Error TextEncoder::check(
         err = f.number == Number::FLOAT32
                 ? check_limits(f.base, x::telem::cast<float>(v))
                 : check_limits(f.base, x::telem::cast<double>(v));
-    if (err) return wrap(err, "message " + this->name + ": field " + f.base.name);
+    if (err) return err.wrap("message " + this->name + ": field " + f.base.name);
     return x::errors::NIL;
 }
 }
