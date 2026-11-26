@@ -17,7 +17,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Flux, Ranger, View as PView } from "@synnaxlabs/pluto";
+import { Access, Flux, Ranger } from "@synnaxlabs/pluto";
 import { binary, location, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
@@ -118,31 +118,11 @@ const isCapped = (
   flat: boolean,
 ): boolean => (term !== "" || where != null) && !flat;
 
-/**
- * The sort or the layout of the open view. A stored view reads it from the view and
- * saves a change to it. A static view holds it here.
- */
-const useViewField = <F extends "sort" | "layout">(
-  field: F,
-): [view.RangeView[F], (next: view.RangeView[F]) => void] => {
-  const { selected, staticViews, getInitialView } = View.useContext();
-  const stored = !staticViews.includes(selected);
-  const [local, setLocal] = useState(() => (getInitialView() as view.RangeView)[field]);
-  const live = PView.useResult(stored ? { key: selected } : null).data;
-  const { update } = PView.useSetFields();
-  if (!stored) return [local, setLocal];
-  const value = live?.type === "range" ? live[field] : local;
-  return [
-    value,
-    (next) =>
-      update({ key: selected, actions: view.set({ path: [field], value: next }) }),
-  ];
-};
-
 const Internal = (): ReactElement => {
-  const { getInitialView, editable } = View.useContext();
+  const { editable } = View.useContext();
   const { term: searchTerm } = View.useSearch();
-  const [where, setWhere] = useState(() => getInitialView().where);
+  const initial = View.useInitialView("range");
+  const [where, setWhere] = useState(initial.where);
   // The Core reads stages and recent spans at the time of a read, so the list reads at
   // a held instant and reads again when a range it holds could cross the filter.
   const [at, setAt] = useState(() => TimeStamp.now());
@@ -150,8 +130,8 @@ const Internal = (): ReactElement => {
   // The term that the list reads. The query follows it, so the list never reads a
   // search page without the term, or the term without a search page.
   const [term, setTerm] = useState("");
-  const [sort, setSort] = useViewField("sort");
-  const [layout, setLayout] = useViewField("layout");
+  const [sort, setSort] = View.useField("range", "sort");
+  const [layout, setLayout] = View.useField("range", "layout");
   const flat = layout === "list";
   const searching = isCapped(term, where, flat);
   const scoped: ranger.Where | undefined =
@@ -239,7 +219,7 @@ const Internal = (): ReactElement => {
       // A search in a tree reads its first page only.
       more={searching ? NO_MORE : root.more}
       search={handleSearch}
-      onWhereChange={(next) => {
+      onWhereChange={(next: ranger.Where | undefined) => {
         setWhere(next);
         setAt(TimeStamp.now());
       }}

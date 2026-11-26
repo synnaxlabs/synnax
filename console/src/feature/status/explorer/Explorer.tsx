@@ -36,7 +36,7 @@ export const Explorer: Panel.Content = () => (
 );
 
 const Internal = () => {
-  const [where, setWhere] = useState(View.useContext().getInitialView().where);
+  const [where, setWhere] = useState(View.useInitialView("status").where);
   const listProps = Flux.useList((client) => client.statuses, {
     name: "statuses",
     query: { where },

@@ -24,20 +24,23 @@ import { FormContext, useContext, useSearchContext } from "@/platform/view/conte
 
 const path = PView.formPath;
 
-export interface FormProps<K extends record.Key, E extends record.Keyed<K>>
+export interface FormProps<K extends record.Key, E extends record.Keyed<K>, W>
   extends
     PropsWithChildren,
     Pick<
       Flux.UseListReturn<K, E>,
       "data" | "getItem" | "subscribe" | "answered" | "more" | "search"
     > {
-  /** Called with the filter of the view each time the selected view changes it. */
-  onWhereChange: (where: view.View["where"]) => void;
+  /**
+   * Called with the filter of the view each time the selected view changes it. W is the
+   * filter of the frame's resource type.
+   */
+  onWhereChange: (where: W | undefined) => void;
   /** The height of each item in pixels. The list renders only the items in view. */
   itemHeight: number;
 }
 
-export const Form = <K extends record.Key, E extends record.Keyed<K>>({
+export const Form = <K extends record.Key, E extends record.Keyed<K>, W>({
   children,
   data,
   getItem,
@@ -47,8 +50,11 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>>({
   search,
   onWhereChange,
   itemHeight,
-}: FormProps<K, E>): ReactElement | null => {
+}: FormProps<K, E, W>): ReactElement | null => {
   const { staticViews, getInitialView } = useContext("View.Form");
+  // A frame shows the views of one resource type, so each filter is a W.
+  const changeWhere = (where: view.View["where"]) =>
+    onWhereChange(where as W | undefined);
   const { term } = useSearchContext("View.Form");
   // The list of a new view starts with no term.
   const searchedRef = useRef("");
@@ -68,14 +74,14 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>>({
       // if this is a static view we need to handle it here. Otherwise, the
       // useSetSynchronizer will handle it as it also needs to handle remote updates.
       if (key == null || !staticViews.includes(key)) return true;
-      onWhereChange(where);
+      changeWhere(where);
       return false;
     },
   });
   const { get: getField } = form;
   const handleSet = (view: view.View) => {
     if (view.key !== getField(path.key).value) return;
-    onWhereChange(view.where);
+    changeWhere(view.where);
   };
   PView.useSetSynchronizer(handleSet);
   const [selected, setSelected] = useState<K[]>([]);
