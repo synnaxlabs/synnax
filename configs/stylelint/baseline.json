@@ -119,7 +119,6 @@
     ],
     "console/src/platform/task/views/Panes.css": ["lyra-divider", "lyra-header"],
     "console/src/platform/task/views/Tree.css": [
-      "lyra--selected",
       "lyra-btn",
       "lyra-icon",
       "lyra-tree__item"

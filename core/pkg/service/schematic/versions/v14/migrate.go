@@ -33,6 +33,13 @@ func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error)
 	return s, nil
 }
 
+// upright maps each orientation that the old switch node did not draw to the one it
+// drew.
+var upright = map[spatial.OuterLocation]spatial.OuterLocation{
+	spatial.OuterLocationRight:  spatial.OuterLocationLeft,
+	spatial.OuterLocationBottom: spatial.OuterLocationTop,
+}
+
 // uprightSwitches turns a switch that faced right to face left, and one that faced
 // bottom to face top, as the old switch node drew it. The old node turned its handles
 // with the stored orientation, so each edge end at a turned switch swaps handles 1 and
@@ -44,14 +51,11 @@ func uprightSwitches(s *Schematic, old v13.Schematic) {
 			continue
 		}
 		cfg := as[SymbolNodeConfig](s.Nodes[i].Config.Variant)
-		switch cfg.Orientation {
-		case spatial.OuterLocationRight:
-			cfg.Orientation = spatial.OuterLocationLeft
-		case spatial.OuterLocationBottom:
-			cfg.Orientation = spatial.OuterLocationTop
-		default:
+		o, ok := upright[cfg.Orientation]
+		if !ok {
 			continue
 		}
+		cfg.Orientation = o
 		s.Nodes[i].Config.Variant = cfg
 		turned.Add(n.Key)
 	}

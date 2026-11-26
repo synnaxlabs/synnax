@@ -19,7 +19,7 @@ describe("Custom.createBuiltIn", () => {
       parts: [],
       states: [],
       commands: [],
-      looks: [],
+      looks: [Custom.NODE_STROKE_LOOK],
       interactions: [],
     });
   });

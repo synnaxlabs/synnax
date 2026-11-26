@@ -19,4 +19,5 @@ export const SYMBOL: schematic.symbol.Spec = Custom.createBuiltIn({
     { key: "1", position: { x: 0.318182, y: 0.98 }, orientation: "bottom" },
     { key: "2", position: { x: 0.956061, y: 0.555185 }, orientation: "right" },
   ],
+  ...Custom.ACTIVE_SOLID_SHAPES,
 });

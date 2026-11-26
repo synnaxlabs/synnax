@@ -898,9 +898,14 @@ describe("symbol editor spec", () => {
   });
 
   describe("clicks", () => {
-    const send = (key: string, value: number): schematic.symbol.Command => ({
+    const send = (
+      key: string,
+      value: number,
+      state?: string,
+    ): schematic.symbol.Command => ({
       key,
       name: key,
+      state,
       value: { type: "fixed", value },
     });
 
@@ -955,6 +960,40 @@ describe("symbol editor spec", () => {
         { ...spec, interactions: [] },
         { looks: [], commands: [], interactions: [] },
       ]);
+    });
+
+    it("should pair a command with others on its state that send other values", () => {
+      const spec = createSpec({
+        commands: [
+          send("off", 0, STATE),
+          send("on", 1, STATE),
+          send("again", 0, STATE),
+          send("trip", 1, FAULT.key),
+          { key: "ask", name: "Ask", state: STATE, value: { type: "ask" } },
+        ],
+      });
+      expect(Spec.nextPartners(spec, "off").map((c) => c.key)).toEqual(["on"]);
+    });
+
+    it("should pair commands whose values differ after a within match", () => {
+      const active: schematic.symbol.State = {
+        type: "enumeration",
+        key: STATE,
+        name: "Active",
+        match: { type: "within", bounds: { lower: 0.9, upper: 1.1 } },
+        default: 0,
+      };
+      const spec = createSpec({
+        states: [active],
+        commands: [
+          send("off", 0, STATE),
+          send("on", 1, STATE),
+          send("near", 1.05, STATE),
+          send("half", 0.5, STATE),
+        ],
+      });
+      expect(Spec.nextPartners(spec, "off").map((c) => c.key)).toEqual(["on", "near"]);
+      expect(Spec.nextPartners(spec, "on").map((c) => c.key)).toEqual(["off", "half"]);
     });
   });
 
