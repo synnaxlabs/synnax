@@ -21,9 +21,10 @@ import (
 )
 
 // register validates the table's references and adds the table to its DB's registry.
-// A table with no references joins the registry only when named is true.
+// A table with no references and no unique index joins the registry only when named is
+// true.
 func (t *Table[K, E]) register(named bool) error {
-	if !named && len(t.references) == 0 {
+	if !named && len(t.references) == 0 && len(t.uniques) == 0 {
 		return nil
 	}
 	for i, r := range t.references {
@@ -88,10 +89,11 @@ func (t *Table[K, E]) unregister() {
 	if !t.registered {
 		return
 	}
-	for _, u := range t.uniques {
-		u.leave()
-	}
-	t.db.registry.unregister(t.name, t.keyPrefix)
+	t.db.registry.unregister(t.name, t.keyPrefix, func(r *registry) {
+		for _, u := range t.uniques {
+			u.leave(r)
+		}
+	})
 	t.registered = false
 }
 
