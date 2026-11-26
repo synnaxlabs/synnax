@@ -21,16 +21,27 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test (${{ matrix.os }})
-    # A fork's run gets no license for the Core, so the merge queue runs this job.
+  build:
+    name: Build
+    # A fork's run gets no license for the Core, so the merge queue runs these jobs.
     if:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/build.core.cross.yaml
+
+  test:
+    name: Test (${{ matrix.os }})
+    needs: build
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            goos: darwin
+          - os: ubuntu-latest
+            goos: linux
+          - os: windows-latest
+            goos: windows
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
     env:
@@ -73,15 +84,30 @@ jobs:
             echo "CA=$RUNNER_TEMP/certs/ca.crt"
           } >> "$GITHUB_ENV"
 
+      # A re-run of failed jobs after the artifact expires builds the Core instead.
+      - name: Download the Core
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ${{ needs.build.outputs.artifact }}${{ matrix.goos }}
+          path: ${{ runner.temp }}
+
       - name: Set up Go
+        if: steps.download.outcome == 'failure'
         uses: actions/setup-go@d8cbb8045d7f43706b9177cceb36c1f91a6644d5 # v7.1.0
         with:
           go-version-file: core/go.mod
-          cache-dependency-path: core/go.sum
+          cache: false
 
       - name: Build Core
+        if: steps.download.outcome == 'failure'
         working-directory: core
         run: go build -o "$CORE" .
+
+      # An artifact does not keep the file mode.
+      - name: Make the Core executable
+        run: chmod +x "$CORE"
 
       # The Core makes a throwaway CA and signs its certificate for localhost with it.
       - name: Start Core
@@ -128,6 +154,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Set up pnpm
         uses: ./.github/actions/setup-pnpm

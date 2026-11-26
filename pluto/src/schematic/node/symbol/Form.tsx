@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, schematic } from "@synnaxlabs/client";
+import { type channel, type enumeration, query, schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,6 +19,8 @@ import { bounds, deep, notation } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Channel } from "@/channel";
+import { CSS } from "@/css";
+import { Enumeration } from "@/enumeration";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
@@ -26,6 +28,7 @@ import { Orientation } from "@/schematic/node/common/orientation";
 import { Telem } from "@/schematic/node/common/telem";
 import type { FormProps } from "@/schematic/node/spec";
 import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
+import { Synnax } from "@/synnax";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
@@ -49,13 +52,12 @@ const upsert = <T extends { key: string }>(entries: T[], next: T): T[] =>
 
 interface BindingProps {
   binding: Binding;
-  onChange: (next: Binding) => void;
+  onChange: (patch: Partial<Binding>) => void;
 }
 
 const SourceFields = ({ binding, onChange }: BindingProps): ReactElement => {
   const { source } = binding;
-  const setSource = (next?: schematic.Source): void =>
-    onChange({ ...binding, source: next });
+  const setSource = (next?: schematic.Source): void => onChange({ source: next });
   return (
     <>
       <Input.Item label="Source" padHelpText={false}>
@@ -109,13 +111,13 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
     <Input.Item label="Notation" padHelpText={false}>
       <Notation.Select
         value={binding.notation ?? "standard"}
-        onChange={(n: notation.Notation) => onChange({ ...binding, notation: n })}
+        onChange={(n: notation.Notation) => onChange({ notation: n })}
       />
     </Input.Item>
     <Input.Item label="Precision" padHelpText={false}>
       <Input.Numeric
         value={binding.precision ?? 2}
-        onChange={(precision) => onChange({ ...binding, precision })}
+        onChange={(precision) => onChange({ precision })}
         integer
         bounds={notation.PRECISION_BOUNDS}
       />
@@ -123,9 +125,7 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
     <Input.Item label="Units" padHelpText={false}>
       <Input.Text
         value={binding.units ?? ""}
-        onChange={(units) =>
-          onChange({ ...binding, units: units === "" ? undefined : units })
-        }
+        onChange={(units) => onChange({ units: units === "" ? undefined : units })}
       />
     </Input.Item>
   </>
@@ -186,6 +186,37 @@ const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => {
   );
 };
 
+interface DefaultEntryProps {
+  enumeration: enumeration.Key;
+  value: number;
+  onChange: (next: number) => void;
+}
+
+const DefaultEntry = ({
+  enumeration: key,
+  value,
+  onChange,
+}: DefaultEntryProps): ReactElement => {
+  const { data } = Enumeration.useResult({ key });
+  const unmatched = data != null && !data.entries.some((e) => e.value === value);
+  return (
+    <Input.Item
+      label="Default"
+      padHelpText={false}
+      status={unmatched ? "warning" : undefined}
+      helpText={unmatched ? `No entry has the value ${value}.` : undefined}
+    >
+      <Select.Simple<number> value={value} onChange={onChange} resourceName="entry">
+        {data?.entries.map((e) => (
+          <Select.Item<number> key={e.value} itemKey={e.value}>
+            {e.name}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </Input.Item>
+  );
+};
+
 interface EnumerationOverridesProps extends BindingProps {
   state: schematic.symbol.EnumerationState;
 }
@@ -198,8 +229,19 @@ const EnumerationOverrides = ({
   const match = binding.match ?? state.match;
   const within =
     state.match.type === "within" ? state.match.bounds : Telem.DEFAULT_THRESHOLD;
-  const setMatch = (next: schematic.symbol.Matcher): void =>
-    onChange({ ...binding, match: next });
+  const setMatch = (next: schematic.symbol.Matcher): void => onChange({ match: next });
+  const enumerationKey = binding.enumeration ?? state.enumeration;
+  const value = binding.default ?? state.default;
+  const setDefault = (next: number): void => onChange({ default: next });
+  const client = Synnax.use();
+  // A new enumeration starts with the entries that the state draws.
+  const draft = (): Enumeration.CreatePromptParams => {
+    const drawn =
+      state.enumeration == null
+        ? undefined
+        : client?.enumerations.watch({ key: state.enumeration }).getCached();
+    return { name: state.name, entries: query.isLive(drawn) ? drawn.entries : [] };
+  };
   return (
     <>
       <Input.Item label="Match" padHelpText={false}>
@@ -219,12 +261,29 @@ const EnumerationOverrides = ({
           onChange={(b) => setMatch({ ...match, bounds: b })}
         />
       )}
-      <Input.Item label="Default" padHelpText={false}>
-        <Input.Numeric
-          value={binding.default ?? state.default}
-          onChange={(d) => onChange({ ...binding, default: d })}
+      <NodeForm.EnumerationField
+        value={binding.enumeration}
+        onChange={(next) => onChange({ enumeration: next })}
+        draft={draft}
+        fallback={
+          state.enumeration == null ? (
+            <Text.Text level="p">The symbol names no enumeration.</Text.Text>
+          ) : (
+            <Enumeration.Entries enumeration={state.enumeration} />
+          )
+        }
+      />
+      {enumerationKey == null ? (
+        <Input.Item label="Default" padHelpText={false}>
+          <Input.Numeric value={value} onChange={setDefault} />
+        </Input.Item>
+      ) : (
+        <DefaultEntry
+          enumeration={enumerationKey}
+          value={value}
+          onChange={setDefault}
         />
-      </Input.Item>
+      )}
     </>
   );
 };
@@ -238,20 +297,29 @@ interface StateSectionProps {
 
 // A state with no binding shows the defaults, and its first edit adds the binding.
 const StateSection = ({ state }: StateSectionProps): ReactElement => {
-  const { value, onChange } = Base.useField(path.states);
-  const binding =
-    value.find((b) => b.key === state.key) ??
+  const { get, set } = Base.useContext();
+  const find = (states: Binding[]): Binding =>
+    states.find((b) => b.key === state.key) ??
     schematic.stateBindingZ.parse({ key: state.key });
-  const handleChange = (next: Binding): void => onChange(upsert(value, next));
+  const binding = find(Base.useFieldValue(path.states));
+  // A change reads the states when it applies, so the link of an enumeration that
+  // resolves late keeps the edits made while it ran.
+  const handleChange = (patch: Partial<Binding>): void => {
+    const states = get<Binding[]>(path.states).value;
+    set(path.states, upsert(states, { ...find(states), ...patch }));
+  };
   return (
-    <Base.Section title={state.name}>
+    <Base.Section
+      title={state.name}
+      className={state.type === "enumeration" ? CSS.B("states") : undefined}
+    >
       <SourceFields binding={binding} onChange={handleChange} />
       {state.type === "number" ? (
         <>
           <FormatFields binding={binding} onChange={handleChange} />
           <BoundsInputs
             value={binding.bounds ?? state.bounds}
-            onChange={(b) => handleChange({ ...binding, bounds: b })}
+            onChange={(b) => handleChange({ bounds: b })}
           />
         </>
       ) : (
@@ -262,7 +330,6 @@ const StateSection = ({ state }: StateSectionProps): ReactElement => {
           variant="text"
           onClick={() =>
             handleChange({
-              ...binding,
               enumeration: undefined,
               match: undefined,
               bounds: undefined,

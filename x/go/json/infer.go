@@ -155,9 +155,6 @@ type inference struct {
 	groups []*inferGroup
 	// present holds the position of the present field of each group, or -1.
 	present []int
-	// clusters holds the clusters of each source, and of holds the group of each.
-	clusters [][]cluster
-	of       [][]int
 }
 
 // infer returns the groups of the documents of sources.
@@ -170,12 +167,7 @@ func infer(sources []*inferSource) inference {
 		groups, of := group(sources, clusters)
 		present := presentFields(groups, of)
 		if !mergeUnmarked(sources, clusters, of, present) {
-			return inference{
-				groups:   groups,
-				present:  present,
-				clusters: clusters,
-				of:       of,
-			}
+			return inference{groups: groups, present: present}
 		}
 	}
 }
@@ -185,17 +177,6 @@ func (inf inference) shape(i int) Shape {
 	s := inf.groups[i].shape()
 	s.Present = inf.present[i]
 	return s
-}
-
-// groupOf returns the position of the group that takes the documents of the set at k of
-// the source at i, or -1 when the set joins no cluster.
-func (inf inference) groupOf(i, k int) int {
-	for c, cl := range inf.clusters[i] {
-		if slices.Contains(cl.sets, k) {
-			return inf.of[i][c]
-		}
-	}
-	return -1
 }
 
 // group returns the groups of clusters, where the clusters that hold the same fields
@@ -308,15 +289,11 @@ func mergeUnmarked(
 // shape. It keeps counts and the start of the last value of each field, not documents,
 // so its memory does not grow with the number of documents. It is not safe for
 // concurrent use.
-type Inferrer struct {
-	src *inferSource
-	// last is the position in src.sets of the set of the last document added, or -1.
-	last int
-}
+type Inferrer struct{ src *inferSource }
 
 // NewInferrer returns an Inferrer that holds no documents.
 func NewInferrer() *Inferrer {
-	return &Inferrer{src: newInferSource("", maxInferredFields), last: -1}
+	return &Inferrer{src: newInferSource("", maxInferredFields)}
 }
 
 // Add adds data, written at t. Data that is not one JSON value adds nothing.
@@ -325,23 +302,18 @@ func (i *Inferrer) Add(data []byte, t telem.TimeStamp) {
 	if err != nil {
 		return
 	}
-	i.last = i.src.add(parsedDocument{leaves: leaves, time: t})
+	i.src.add(parsedDocument{leaves: leaves, time: t})
 }
 
-// Shapes returns the shapes of the documents added, with no sources, and the position
-// in them of the shape of the last JSON document added. The position is -1 when no JSON
-// document was added, or when the last one joins no shape.
-func (i *Inferrer) Shapes() ([]SampledShape, int) {
+// Shapes returns the shapes of the documents added, with no sources.
+func (i *Inferrer) Shapes() []SampledShape {
 	inf := infer([]*inferSource{i.src})
 	shapes := make([]SampledShape, len(inf.groups))
 	for k, g := range inf.groups {
 		shapes[k] = SampledShape{Shape: inf.shape(k), Samples: g.samples()}
 		shapes[k].Sources = nil
 	}
-	if i.last < 0 {
-		return shapes, -1
-	}
-	return shapes, inf.groupOf(0, i.last)
+	return shapes
 }
 
 type inferSource struct {
@@ -394,8 +366,7 @@ type cluster struct {
 	sets []int
 }
 
-// add adds doc and returns the position in sets of the set that takes it.
-func (src *inferSource) add(doc parsedDocument) int {
+func (src *inferSource) add(doc parsedDocument) {
 	fields := make(set.Set[string], len(doc.leaves))
 	for _, l := range doc.leaves {
 		fields.Add(l.key)
@@ -407,7 +378,6 @@ func (src *inferSource) add(doc parsedDocument) int {
 	for _, l := range doc.leaves {
 		src.recordDisorder(k, l.key)
 	}
-	return k
 }
 
 // setOf returns the position in sets of the set that takes the documents that hold
