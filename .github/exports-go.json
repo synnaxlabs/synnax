@@ -5,6 +5,12 @@
   ],
   "pending": [
     {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/confluence",
+      "name": "Attach",
+      "caller": "sy-6397-confluence-attach-testutil"
+    },
+    {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
       "name": "ErrChannelNotFound",
