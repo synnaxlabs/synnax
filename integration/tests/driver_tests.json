@@ -54,7 +54,12 @@
     },
     {
       "sequence_name": "Kafka",
-      "tests": [{ "case": "driver/kafka_read" }, { "case": "driver/kafka_write" }]
+      "tests": [
+        { "case": "driver/kafka_read" },
+        { "case": "driver/kafka_write" },
+        { "case": "driver/kafka_invalid" },
+        { "case": "driver/kafka_edge" }
+      ]
     },
     {
       "sequence_name": "HTTP",
