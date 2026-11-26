@@ -1,0 +1,280 @@
+{
+  "cases": [
+    {
+      "name": "worked example",
+      "keys": [6, 8],
+      "data_types": ["float32", "uint8"],
+      "frames": [
+        {
+          "name": "first frame of the state",
+          "series": [
+            {
+              "key": 5,
+              "data_type": "timestamp",
+              "data": "e803000000000000d007000000000000",
+              "clock": 5
+            },
+            {
+              "key": 6,
+              "data_type": "float64",
+              "data": "000000000000f03f0000000000000040",
+              "clock": 5
+            },
+            { "key": 8, "data_type": "uint8", "data": "0100" }
+          ],
+          "encoded": "bf010000000b090101000000050000000200000001000000e803000000000000d007000000000000030a05000000ffffffff000000000000f03f00000000000000400100"
+        },
+        {
+          "name": "steady",
+          "series": [
+            {
+              "key": 5,
+              "data_type": "timestamp",
+              "data": "e803000000000000d007000000000000",
+              "clock": 5
+            },
+            {
+              "key": 6,
+              "data_type": "float32",
+              "data": "0000803f00000040",
+              "clock": 5
+            },
+            { "key": 8, "data_type": "uint8", "data": "0100" }
+          ],
+          "encoded": "3f0100000002000000e803000000000000d0070000000000000000803f000000400100"
+        }
+      ]
+    },
+    {
+      "name": "clock move",
+      "keys": [6],
+      "data_types": ["float32"],
+      "frames": [
+        {
+          "name": "first frame of the state",
+          "series": [
+            {
+              "key": 5,
+              "data_type": "timestamp",
+              "data": "0100000000000000",
+              "clock": 5
+            },
+            { "key": 6, "data_type": "float32", "data": "0000803f", "clock": 5 }
+          ],
+          "encoded": "bf010000000b090100000005000000010000000100000001000000000000000205000000ffffffff0000803f"
+        },
+        {
+          "name": "steady",
+          "series": [
+            {
+              "key": 5,
+              "data_type": "timestamp",
+              "data": "0200000000000000",
+              "clock": 5
+            },
+            { "key": 6, "data_type": "float32", "data": "00000040", "clock": 5 }
+          ],
+          "encoded": "3f0100000001000000020000000000000000000040"
+        },
+        {
+          "name": "move to clock 7",
+          "series": [
+            { "key": 6, "data_type": "float32", "data": "00004040", "clock": 7 },
+            {
+              "key": 7,
+              "data_type": "timestamp",
+              "data": "0300000000000000",
+              "clock": 7
+            }
+          ],
+          "encoded": "bf010000000a010000000700000001000000000000000207000000ffffffff000040400300000000000000"
+        },
+        {
+          "name": "steady",
+          "series": [
+            { "key": 6, "data_type": "float32", "data": "00008040", "clock": 7 },
+            {
+              "key": 7,
+              "data_type": "timestamp",
+              "data": "0400000000000000",
+              "clock": 7
+            }
+          ],
+          "encoded": "3f0100000001000000000080400400000000000000"
+        }
+      ]
+    },
+    {
+      "name": "one key on two clocks in one frame",
+      "keys": [6],
+      "data_types": ["float32"],
+      "frames": [
+        {
+          "name": "first frame of the state",
+          "series": [
+            {
+              "key": 5,
+              "data_type": "timestamp",
+              "data": "0100000000000000",
+              "clock": 5
+            },
+            { "key": 6, "data_type": "float32", "data": "0000803f", "clock": 5 }
+          ],
+          "encoded": "bf010000000b090100000005000000010000000100000001000000000000000205000000ffffffff0000803f"
+        },
+        {
+          "name": "two clocks",
+          "series": [
+            {
+              "key": 5,
+              "data_type": "timestamp",
+              "data": "0200000000000000",
+              "clock": 5
+            },
+            { "key": 6, "data_type": "float32", "data": "00000040", "clock": 5 },
+            { "key": 6, "data_type": "float32", "data": "00004040", "clock": 7 },
+            {
+              "key": 7,
+              "data_type": "timestamp",
+              "data": "0300000000000000",
+              "clock": 7
+            }
+          ],
+          "encoded": "be010000000a02000000050000000700000001000000020000000500000002000000000000000600000000000040060000000207000000ffffffff00004040070000000300000000000000"
+        },
+        {
+          "name": "shorter list",
+          "series": [
+            { "key": 6, "data_type": "float32", "data": "00008040", "clock": 7 },
+            {
+              "key": 7,
+              "data_type": "timestamp",
+              "data": "0400000000000000",
+              "clock": 7
+            }
+          ],
+          "encoded": "bf0100000008010000000700000001000000000080400400000000000000"
+        },
+        {
+          "name": "steady",
+          "series": [
+            { "key": 6, "data_type": "float32", "data": "0000a040", "clock": 7 },
+            {
+              "key": 7,
+              "data_type": "timestamp",
+              "data": "0500000000000000",
+              "clock": 7
+            }
+          ],
+          "encoded": "3f01000000010000000000a0400500000000000000"
+        }
+      ]
+    },
+    {
+      "name": "type override",
+      "keys": [6],
+      "data_types": ["float32"],
+      "frames": [
+        {
+          "name": "first frame of the state",
+          "series": [{ "key": 6, "data_type": "float64", "data": "000000000000f03f" }],
+          "encoded": "bf0100000003090100000000000000010affffffff000000000000f03f"
+        },
+        {
+          "name": "override again",
+          "series": [{ "key": 6, "data_type": "float64", "data": "0000000000000040" }],
+          "encoded": "bf01000000020100000000000000010affffffff0000000000000040"
+        },
+        {
+          "name": "steady",
+          "series": [{ "key": 6, "data_type": "float32", "data": "00004040" }],
+          "encoded": "3f010000000100000000004040"
+        }
+      ]
+    },
+    {
+      "name": "data channel without its time series",
+      "keys": [6],
+      "data_types": ["float32"],
+      "frames": [
+        {
+          "name": "first frame of the state",
+          "series": [
+            { "key": 6, "data_type": "float32", "data": "0000803f", "clock": 5 }
+          ],
+          "encoded": "bf01000000030901000000000000000205000000ffffffff0000803f"
+        },
+        {
+          "name": "steady",
+          "series": [
+            { "key": 6, "data_type": "float32", "data": "00000040", "clock": 5 }
+          ],
+          "encoded": "3f010000000100000000000040"
+        }
+      ]
+    },
+    {
+      "name": "series shapes",
+      "keys": [1, 2, 3],
+      "data_types": ["string", "boolean", "timestamp"],
+      "frames": [
+        {
+          "name": "first frame of the state",
+          "series": [
+            {
+              "key": 1,
+              "data_type": "string",
+              "data": "020000006869",
+              "time_range": [10, 20],
+              "alignment": 8589934597
+            },
+            {
+              "key": 2,
+              "data_type": "boolean",
+              "data": "01",
+              "time_range": [30, 40],
+              "alignment": 8589934598
+            },
+            {
+              "key": 3,
+              "data_type": "int64",
+              "decoded_data_type": "timestamp",
+              "data": "0700000000000000",
+              "time_range": [50, 60],
+              "alignment": 12884901888
+            }
+          ],
+          "encoded": "8101000000010d100b060000000200000068690a000000000000001400000000000000050000000200000001000000011e000000000000002800000000000000060000000200000001000000070000000000000032000000000000003c000000000000000000000003000000"
+        },
+        {
+          "name": "steady",
+          "series": [
+            {
+              "key": 1,
+              "data_type": "string",
+              "data": "020000006869",
+              "time_range": [10, 20],
+              "alignment": 8589934597
+            },
+            {
+              "key": 2,
+              "data_type": "boolean",
+              "data": "01",
+              "time_range": [30, 40],
+              "alignment": 8589934598
+            },
+            {
+              "key": 3,
+              "data_type": "int64",
+              "decoded_data_type": "timestamp",
+              "data": "0700000000000000",
+              "time_range": [50, 60],
+              "alignment": 12884901888
+            }
+          ],
+          "encoded": "0101000000060000000200000068690a000000000000001400000000000000050000000200000001000000011e000000000000002800000000000000060000000200000001000000070000000000000032000000000000003c000000000000000000000003000000"
+        }
+      ]
+    }
+  ]
+}
