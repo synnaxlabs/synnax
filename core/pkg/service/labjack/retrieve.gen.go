@@ -12,6 +12,7 @@
 package labjack
 
 import (
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -69,6 +70,25 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case AnalogReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case DigitalReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					case ThermocoupleReadChannel:
+						if v9.Channel == t {
+							return []string{"channels", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i3 := range e.Channels {
@@ -163,6 +183,21 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case AnalogWriteChannel:
+						if v9.CmdChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "cmd_channel"}
+						}
+					case DigitalWriteChannel:
+						if v9.CmdChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "cmd_channel"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Channels {
 					switch v4 := e.Channels[i3].Variant.(type) {
@@ -216,6 +251,21 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i7, v8 := range e.Channels {
+					switch v9 := v8.Variant.(type) {
+					case AnalogWriteChannel:
+						if v9.StateChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "state_channel"}
+						}
+					case DigitalWriteChannel:
+						if v9.StateChannel == t {
+							return []string{"channels", strconv.Itoa(i7), "state_channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Channels {

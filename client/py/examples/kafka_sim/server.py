@@ -9,10 +9,17 @@
 
 """A mock Kafka plant: an Apache Kafka broker plus a producer that simulates sensors.
 
-Topics:
+Each topic gets one record of each kind at the given rate. Records have no key unless
+a topic says so.
 
-- ``plant.sensors``: JSON ``{"temperature", "pressure", "count", "state"}`` records with
-  no key, at the given rate.
+- ``plant.sensors``: JSON ``{"temperature", "pressure", "count", "state"}``.
+- ``plant.scalar``: A bare number.
+- ``plant.timed``: JSON ``{"value", "timestamp"}``, where the timestamp is in
+  nanoseconds since the epoch.
+- ``plant.events``: Two kinds with the key ``pump``, JSON ``{"speed"}`` and
+  ``{"fault"}``, and JSON ``{"speed"}`` with the key ``valve``.
+- ``plant.mixed``: JSON ``{"count", "value"}``, where the value of every tenth record
+  is the string ``"ERR"``.
 
 Run it directly for the examples in this directory:
 
@@ -40,7 +47,7 @@ from examples.simulators.device_sim import DeviceSim
 from synnax import kafka
 
 # The topics of the plant. The simulator is ready once each one has a leader.
-TOPICS = ("plant.sensors",)
+TOPICS = ("plant.sensors", "plant.scalar", "plant.timed", "plant.events", "plant.mixed")
 
 
 async def run_server(
@@ -62,6 +69,10 @@ async def run_server(
     try:
         await broker.start()
         producer = Producer({"bootstrap.servers": f"{host}:{port}"})
+
+        def send(topic: str, value: object, key: str | None = None) -> None:
+            producer.produce(topic, json.dumps(value), key=key)
+
         count = 0
         start = time.monotonic()
         while True:
@@ -72,17 +83,22 @@ async def run_server(
                 )
             t = time.monotonic() - start
             count += 1
-            producer.produce(
+            send(
                 "plant.sensors",
-                json.dumps(
-                    {
-                        "temperature": 23.5 + 5 * math.sin(t),
-                        "pressure": 101.3 + 2 * math.cos(t / 2),
-                        "count": count,
-                        "state": "running" if count % 20 < 10 else "idle",
-                    }
-                ),
+                {
+                    "temperature": 23.5 + 5 * math.sin(t),
+                    "pressure": 101.3 + 2 * math.cos(t / 2),
+                    "count": count,
+                    "state": "running" if count % 20 < 10 else "idle",
+                },
             )
+            send("plant.scalar", round(50 + 10 * math.sin(t), 3))
+            send("plant.timed", {"value": math.sin(t), "timestamp": time.time_ns()})
+            send("plant.events", {"speed": 1500 + 100 * math.cos(t)}, key="pump")
+            send("plant.events", {"fault": count % 4}, key="pump")
+            send("plant.events", {"speed": 20 + math.sin(t)}, key="valve")
+            value = "ERR" if count % 10 == 0 else math.cos(t)
+            send("plant.mixed", {"count": count, "value": value})
             producer.poll(0)
             # A fixed grid of ticks keeps the rate when a tick runs late.
             await asyncio.sleep(start + count / rate_hz - time.monotonic())

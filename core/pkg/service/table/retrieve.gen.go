@@ -13,6 +13,7 @@ package table
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
@@ -118,6 +119,33 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Table, t color.Key) []string {
+				for i21, v22 := range e.Rows {
+					for i23, v24 := range v22.Cells {
+						switch v25 := v24.Config.Variant.(type) {
+						case TextCellConfig:
+							if v25.FillColor != nil {
+								switch v26 := v25.FillColor.Variant.(type) {
+								case color.NamedRef:
+									if v26.Key == t {
+										return []string{"rows", strconv.Itoa(i21), "cells", strconv.Itoa(i23), "config", "fill_color", "key"}
+									}
+								}
+							}
+						case ValueCellConfig:
+							if v25.FillColor != nil {
+								switch v27 := v25.FillColor.Variant.(type) {
+								case color.NamedRef:
+									if v27.Key == t {
+										return []string{"rows", strconv.Itoa(i21), "cells", strconv.Itoa(i23), "config", "fill_color", "key"}
+									}
+								}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Table, t color.Key) {
 				for i11 := range e.Rows {
@@ -236,6 +264,33 @@ func newIndexes() indexes {
 				}
 				return targets
 			},
+			Locate: func(e *Table, t color.Key) []string {
+				for i21, v22 := range e.Rows {
+					for i23, v24 := range v22.Cells {
+						switch v25 := v24.Config.Variant.(type) {
+						case TextCellConfig:
+							if v25.TextColor != nil {
+								switch v26 := v25.TextColor.Variant.(type) {
+								case color.NamedRef:
+									if v26.Key == t {
+										return []string{"rows", strconv.Itoa(i21), "cells", strconv.Itoa(i23), "config", "text_color", "key"}
+									}
+								}
+							}
+						case ValueCellConfig:
+							if v25.TextColor != nil {
+								switch v27 := v25.TextColor.Variant.(type) {
+								case color.NamedRef:
+									if v27.Key == t {
+										return []string{"rows", strconv.Itoa(i21), "cells", strconv.Itoa(i23), "config", "text_color", "key"}
+									}
+								}
+							}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *Table, t color.Key) {
 				for i11 := range e.Rows {
 					for i12 := range e.Rows[i11].Cells {
@@ -345,6 +400,24 @@ func newIndexes() indexes {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *Table, t color.Key) []string {
+				for i17, v18 := range e.Rows {
+					for i19, v20 := range v18.Cells {
+						switch v21 := v20.Config.Variant.(type) {
+						case ValueCellConfig:
+							if v21.StalenessColor != nil {
+								switch v22 := v21.StalenessColor.Variant.(type) {
+								case color.NamedRef:
+									if v22.Key == t {
+										return []string{"rows", strconv.Itoa(i17), "cells", strconv.Itoa(i19), "config", "staleness_color", "key"}
+									}
+								}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *Table, t color.Key) {
 				for i9 := range e.Rows {

@@ -274,8 +274,13 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			}
 			p := m.Payload()
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
-			t.Payload, t.Format = payloadSample(p), driver.FormatOf(p)
-			t.inferrer.Add(p, t.LastSeen)
+			t.Format, t.Payload = payload.FormatJSON, ""
+			if !t.inferrer.Add(p, t.LastSeen) {
+				t.Format = driver.FormatOf(p)
+			}
+			if t.Format != payload.FormatBinary {
+				t.Payload = driver.CutText(p, browsePayloadLimit)
+			}
 			return false
 		},
 	); err != nil {
