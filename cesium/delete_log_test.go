@@ -268,6 +268,31 @@ var _ = Describe("Delete on the pointer log", func() {
 		})
 	})
 
+	It("Should read no sample that a delete took at an automatic Next after a seek "+
+		"that finds no range", func(ctx SpecContext) {
+		write(ctx, 10, 11)
+		write(ctx, 20, 21)
+		// holder keeps the file of the segment that the delete empties.
+		holder := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   telem.TimeRangeMax,
+			Channels: []cesium.ChannelKey{data},
+		}))
+		DeferCleanup(func() { Expect(holder.Close()).To(Succeed()) })
+		Expect(holder.SeekFirst()).To(BeTrue())
+		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   span(0, 15),
+			Channels: []cesium.ChannelKey{data},
+		}))
+		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{data}, span(0, 15))).
+			To(Succeed())
+		Expect(iter.SeekGE(12 * telem.SecondTS)).To(BeFalse())
+		iter.Next(cesium.AutoSpan)
+		Expect(iter.Value().Get(data).Series).To(BeEmpty())
+		Expect(iter.Error()).ToNot(HaveOccurred())
+	})
+
 	It("Should delete a range from the middle of the data of a key", func(
 		ctx SpecContext,
 	) {
