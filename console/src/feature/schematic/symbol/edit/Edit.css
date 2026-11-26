@@ -26,6 +26,26 @@
     inherits: false;
 }
 
+/* A list holds the focus for its items, so the selected item carries the ring. With no
+   selected item, the list carries it. */
+.console-schematic__list:focus-visible {
+    outline: none;
+
+    &:not(:has([role="option"][aria-selected="true"])) {
+        outline: 1px solid var(--pluto-primary-z);
+        outline-offset: -1px;
+    }
+
+    & [role="option"][aria-selected="true"]::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border: 1px solid var(--pluto-primary-z);
+        border-radius: inherit;
+        pointer-events: none;
+    }
+}
+
 /* Fixed dimensions matching the original symbol-create window (1200x800). The 2-class
  * selector overrides pluto's global modal min-width floor, which is wider than 1200px. */
 .lyra-modal.console-schematic__symbol-create-layout {
