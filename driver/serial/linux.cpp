@@ -9,7 +9,11 @@
 
 #include <array>
 
+#include <sys/ioctl.h>
+
 #include "driver/serial/line.h"
+#include "driver/serial/native.h"
+#include "driver/serial/posix.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
@@ -45,6 +49,20 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
         settings.c_iflag |= IXON | IXOFF;
     if (props.flow_control == synnax::serial::FLOW_CONTROL_HARDWARE)
         settings.c_cflag |= CRTSCTS;
+    return x::errors::NIL;
+}
+}
+
+namespace native {
+x::errors::Error
+configure(const Handle handle, const synnax::serial::Properties &props) {
+    const int fd = static_cast<int>(handle);
+    line::Settings settings{};
+    if (::ioctl(fd, TCGETS2, &settings) != 0)
+        return failed("the line settings", props.port);
+    if (auto err = line::apply(props, settings)) return err;
+    if (::ioctl(fd, TCSETS2, &settings) != 0)
+        return failed("the line settings", props.port);
     return x::errors::NIL;
 }
 }

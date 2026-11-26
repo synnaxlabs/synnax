@@ -12,11 +12,20 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "serial",
-    srcs = select({
+    srcs = [
+        "port.cpp",
+        "posix.cpp",
+    ] + select({
         "@platforms//os:linux": ["linux.cpp"],
         "@platforms//os:macos": ["macos.cpp"],
     }),
-    hdrs = ["line.h"],
+    hdrs = [
+        "errors.h",
+        "line.h",
+        "native.h",
+        "port.h",
+        "posix.h",
+    ],
     target_compatible_with = select({
         "@platforms//os:windows": ["@platforms//:incompatible"],
         "//conditions:default": [],
@@ -26,6 +35,40 @@ cc_library(
         "//client/cpp/serial",
         "//driver/transport",
         "//x/cpp/errors",
+        "//x/cpp/telem",
+        "@asio//:asio_no_openssl",
+    ],
+)
+
+cc_test(
+    name = "port_test",
+    size = "small",
+    srcs = [
+        "port_test.cpp",
+        "pty.h",
+    ] + select({
+        "@platforms//os:macos": ["macos_test.cpp"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":serial",
+        "//driver/transport",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "native_test",
+    size = "small",
+    srcs = ["posix_test.cpp"],
+    deps = [
+        ":serial",
+        "//driver/transport",
+        "//x/cpp/testutil",
+        "@asio//:asio_no_openssl",
+        "@googletest//:gtest_main",
     ],
 )
 
