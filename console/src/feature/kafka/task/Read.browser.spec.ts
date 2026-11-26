@@ -963,7 +963,7 @@ describe("Kafka read form", () => {
       { name: "gone", note: "Message not found", change: removeMessage },
       {
         name: "not JSON",
-        note: "The format of this message is not JSON. Open it in the editor to change its format.",
+        note: "Message is not JSON",
         change: async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
           await client.icds.dispatch(
             key,
@@ -982,7 +982,9 @@ describe("Kafka read form", () => {
         await renderRead({ records: [rec], beforeRender: () => change(rec) });
         await screen.findByText(note);
         expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
-        fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /Any key/ }));
+        const item = await screen.findByRole("treeitem", { name: /Any key/ });
+        within(item).getByRole("img", { name: note });
+        fireEvent.contextMenu(item);
         await screen.findByRole("menuitem", { name: "Add message" });
         expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
       },

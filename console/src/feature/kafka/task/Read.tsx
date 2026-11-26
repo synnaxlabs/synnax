@@ -197,19 +197,33 @@ const TopicItem = (props: Tree.ItemRenderProps<string>) => {
   return <Task.Views.TreeGroupItem {...props} label={<TopicLabel name={name} />} />;
 };
 
+const MISSING_DESCRIPTION =
+  "The ICD no longer has this message. Add a message to the record, then remove this one.";
+
 const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   const ctx = PForm.useContext();
   const topic = topicOf(ctx.get(root.config.topics).value, props.itemKey);
   const path = recordPath(topic, props.itemKey);
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
-  if (disabled == null || recordKey == null) return null;
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const message = PForm.useFieldValue(deep.present(path.messages)[0].message, {
+    optional: true,
+  });
+  if (disabled == null || recordKey == null || icdKey == null) return null;
   return (
     <Task.Views.TreeGroupItem
       {...props}
       label={<RecordLabel recordKey={recordKey} emptyLabel={ANY_KEY} />}
       off={disabled}
     >
+      {message != null && (
+        <ICD.MessageMark
+          icdKey={icdKey}
+          message={message}
+          missingDescription={MISSING_DESCRIPTION}
+        />
+      )}
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
   );
@@ -231,8 +245,7 @@ const useMessageProps = (
     // A new index field keeps the channel of the old one.
     indexChannel: bindings.find(({ field }) => field === index)?.channel ?? 0,
     sourceLabel: "Kafka timestamp",
-    missingDescription:
-      "The ICD no longer has this message. Add a message to the record, then remove this one.",
+    missingDescription: MISSING_DESCRIPTION,
   };
 };
 

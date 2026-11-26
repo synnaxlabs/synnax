@@ -31,6 +31,7 @@ import { createBroker, openScanner } from "@/feature/mqtt/testutil";
 import { Device } from "@/platform/device";
 import { ICD } from "@/platform/icd";
 import {
+  focusedIn,
   isDimmed,
   pickMessageFormat,
   removeField,
@@ -194,6 +195,37 @@ const createFormatTarget = async (fields: icd.JSONField[]) => {
 const openAddTargets = async () => {
   fireEvent.click(await screen.findByRole("button", { name: "Add targets" }));
   return within(await screen.findByRole("dialog"));
+};
+
+const TOPIC_PLACEHOLDER = "plant/line1/valve/set";
+
+const addTopic = async (): Promise<void> => {
+  const dialog = await openAddTargets();
+  fireEvent.click(await dialog.findByRole("button", { name: "Add a topic by name" }));
+  await screen.findByText("Publish");
+};
+
+const setTopic = async (topic: string): Promise<void> => {
+  const input = await screen.findByPlaceholderText(TOPIC_PLACEHOLDER);
+  fireEvent.change(input, { target: { value: topic } });
+  fireEvent.blur(input);
+};
+
+/** @returns the plain targets of the task, once it has one. */
+const waitForPlain = async (key: task.Key): Promise<MQTT.Task.PlainWriteTarget[]> => {
+  let plain: MQTT.Task.PlainWriteTarget[] = [];
+  await waitFor(async () => {
+    plain = (await retrieveTargets(key)).filter((t) => t.type === "plain");
+    expect(plain).toHaveLength(1);
+  });
+  return plain;
+};
+
+/** @returns the name of the message of the first plain target of the task. */
+const messageNameOf = async (key: task.Key): Promise<string | undefined> => {
+  const [target] = await waitForPlain(key);
+  const [ic] = await client.icds.retrieve([target.icd]);
+  return ic.messages.find((m) => m.key === target.message.message)?.name;
 };
 
 const addTag = async (): Promise<void> => {
@@ -381,6 +413,60 @@ describe("MQTT Write form", () => {
     await screen.findByDisplayValue(`${prefix}_speed_cmd_2`);
     fireEvent.change(screen.getByDisplayValue("speed"), { target: { value: "rate" } });
     expect(await screen.findByDisplayValue(`${prefix}_rate_cmd_2`)).toBeTruthy();
+  });
+
+  describe("the topic of a plain target", () => {
+    it("should take focus when the target is added by name", async () => {
+      await renderWrite();
+      await addTopic();
+      const topic = await screen.findByPlaceholderText(TOPIC_PLACEHOLDER);
+      await waitFor(() => expect(document.activeElement).toBe(topic));
+    });
+
+    it("should name the message of a target added by name", async () => {
+      const { draft } = await renderWrite();
+      await addTopic();
+      await setTopic("plant/kiln/set");
+      await waitFor(async () =>
+        expect(await messageNameOf(draft.key)).toBe("plant/kiln/set"),
+      );
+    });
+
+    it("should keep the name that a user gave the message", async () => {
+      const { draft } = await renderWrite();
+      await addTopic();
+      const [target] = await waitForPlain(draft.key);
+      await client.icds.dispatch(
+        target.icd,
+        icd.set({
+          path: ["messages", target.message.message, "name"],
+          value: "Kiln command",
+        }),
+      );
+      await screen.findByRole("button", { name: /Kiln command/ });
+      await setTopic("plant/kiln/set");
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          topic: "plant/kiln/set",
+        }),
+      );
+      expect(await messageNameOf(draft.key)).toBe("Kiln command");
+    });
+
+    it("should keep the name of a message that the form did not make", async () => {
+      const { target, message } = await createFormatTarget([
+        createField("setpoint", "float"),
+      ]);
+      const { draft } = await renderWrite([target]);
+      await screen.findByText("Publish");
+      await setTopic("plant/kiln/set");
+      await waitFor(async () =>
+        expect((await retrieveTargets(draft.key))[0]).toMatchObject({
+          topic: "plant/kiln/set",
+        }),
+      );
+      expect(await messageNameOf(draft.key)).toBe(message.name);
+    });
   });
 
   describe("Sparkplug B targets", () => {
@@ -601,6 +687,18 @@ describe("MQTT Write form", () => {
       const messageOf = ({ icd: key, message }: MQTT.Task.PlainWriteTarget) => ({
         icd: key,
         message: message.message,
+      });
+
+      it("should mark the target when the last field leaves the message", async () => {
+        const setpoint = createField("setpoint", "float");
+        const { target } = await createFormatTarget([setpoint]);
+        await renderWrite([target]);
+        const item = await screen.findByRole("treeitem", { name: /plant\/valve\/set/ });
+        expect(
+          within(item).queryByRole("img", { name: "Message has no fields" }),
+        ).toBeNull();
+        await removeField(client, messageOf(target), setpoint);
+        await within(item).findByRole("img", { name: "Message has no fields" });
       });
 
       it("should warn when the last field leaves the message", async () => {
@@ -1085,6 +1183,17 @@ describe("MQTT Write form", () => {
       const { store } = await renderWrite([target]);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, ic.key)).toEqual([message.key]);
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should open the editor at the selected field", async () => {
+      const setpoint = createField("setpoint", "float");
+      const { target, ic, message } = await createFormatTarget([setpoint]);
+      const { store } = await renderWrite([target]);
+      await fieldGroup(setpoint.name);
+      fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
+      expect(selectedIn(store, ic.key)).toEqual([message.key]);
+      expect(focusedIn(store, ic.key)).toBe(setpoint.key);
     });
   });
 

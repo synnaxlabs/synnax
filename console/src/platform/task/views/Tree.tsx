@@ -14,7 +14,9 @@ import { Button } from "@synnaxlabs/lyra/button";
 import type { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { Channel } from "@synnaxlabs/pluto";
@@ -75,6 +77,23 @@ export const ChannelIcon = ({
     </Message>
   );
 };
+
+export interface TreeWarningProps {
+  message: string;
+  description: string;
+}
+
+/** Marks a tree item with a warning, which its tooltip explains. */
+export const TreeWarning = ({
+  message,
+  description,
+}: TreeWarningProps): ReactElement => (
+  <Message variant="warning" message={message} description={description}>
+    <Status.Indicator variant="warning" role="img" aria-label={message}>
+      <Icon.Warning />
+    </Status.Indicator>
+  </Message>
+);
 
 export interface TreeGroupItemProps extends Tree.ItemRenderProps<string> {
   /** Names the group. */

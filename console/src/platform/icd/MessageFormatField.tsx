@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/MessageFormatField.css";
+
 import type { icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -23,6 +25,7 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import type { destructor, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
+import { CSS } from "@/platform/css";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 
 /** A message of an ICD, as one option of the field. */
@@ -46,13 +49,17 @@ const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
   const choice = List.useItem<string, Choice>(props.itemKey);
   return (
     <Select.Item {...props}>
-      <Text.Text>{choice?.name}</Text.Text>
-      <Text.Text color={9}>{choice?.icdName}</Text.Text>
+      <Text.Text overflow="fade">{choice?.name}</Text.Text>
+      <Text.Text color={9} overflow="fade">
+        {choice?.icdName}
+      </Text.Text>
     </Select.Item>
   );
 };
 
 const choiceRenderProp = Component.renderProp(ChoiceItem);
+
+const DIALOG_PROPS = { className: CSS.BE("message-format", "dialog") };
 
 export interface MessageFormatFieldProps extends Pick<
   Input.ItemProps,
@@ -164,6 +171,7 @@ export const MessageFormatField = ({
           allowNone={false}
           preview={preview}
           disabled={disabled}
+          dialogProps={DIALOG_PROPS}
           footer={
             onClear != null && (
               <>

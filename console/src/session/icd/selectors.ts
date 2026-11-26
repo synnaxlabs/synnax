@@ -20,11 +20,13 @@ import { Window } from "@/session/window";
 
 const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
+const selectState = (state: StoreState, key: icd.Key) =>
+  Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
+
 /** @returns the keys of the messages selected in this window's editor of the ICD. */
 export const useSelectSelected = (key: icd.Key): icd.MessageKey[] =>
-  Select.useMemo(
-    (state: StoreState) =>
-      (Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE)
-        .selected,
-    [key],
-  );
+  Select.useMemo((state: StoreState) => selectState(state, key).selected, [key]);
+
+/** @returns the field that this window's editor of the ICD focuses next, if any. */
+export const useSelectFocused = (key: icd.Key): icd.FieldKey | undefined =>
+  Select.useMemo((state: StoreState) => selectState(state, key).focused, [key]);

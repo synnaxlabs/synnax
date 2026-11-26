@@ -16,13 +16,15 @@ import { useExclusiveCallback } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import { Synnax as PSynnax } from "@synnaxlabs/pluto";
+import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { deep, id, primitive, unique } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
   type ReactElement,
+  type RefObject,
   type SetStateAction,
+  useRef,
   useState,
 } from "react";
 
@@ -137,19 +139,49 @@ const SparkplugTargetPane: FC<SparkplugTargetPaneProps> = ({
   );
 };
 
+/** The name that the form gave each message that it made, by message key. */
+type Made = RefObject<Map<icd.MessageKey, string>>;
+
 interface PlainTargetPaneProps {
   path: deep.Path<PlainWriteTarget>;
   onAddField: () => void;
+  made: Made;
 }
 
-const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactElement => {
-  const { set } = PForm.useContext();
+const PlainTargetPane = ({
+  path,
+  onAddField,
+  made,
+}: PlainTargetPaneProps): ReactElement => {
+  const { set, get } = PForm.useContext();
   const isPreview = Task.useIsPreview();
+  const formats = ICD.useFormats();
   const target = PForm.useFieldValue(path);
   const message = ICD.useMessage(target.icd, target.message.message);
   const handleFormatChange = (icdKey: icd.Key, picked: icd.Message) =>
     set(path, { ...target, icd: icdKey, message: ICD.Write.create(picked) });
-  const handleAddressChange = () => set(path.message, ICD.Write.unbind(target.message));
+  // A message that the form made follows the topic until a user renames it.
+  const follow = (topic: string) => {
+    const key = target.message.message;
+    const given = made.current.get(key);
+    const format = ICD.formatOf(formats, target.icd);
+    const messages = format.value().messages;
+    if (given == null || messages.find((m) => m.key === key)?.name !== given) return;
+    const shared = get(root.config.targets).value.some(
+      (t) => t.key !== target.key && t.type === "plain" && t.message.message === key,
+    );
+    if (shared) return;
+    const name = ICD.messageName(
+      topic,
+      messages.filter((m) => m.key !== key),
+    );
+    format.set(PICD.formPath.messages[key].name, name);
+    made.current.set(key, name);
+  };
+  const handleTopicChange = (topic: string) => {
+    set(path.message, ICD.Write.unbind(target.message));
+    follow(topic);
+  };
   return (
     <PForm.Sections>
       <PForm.Section title="Publish">
@@ -157,8 +189,8 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
           path={path.topic}
           label="Topic"
           padHelpText={false}
-          inputProps={TOPIC_INPUT_PROPS}
-          onChange={handleAddressChange}
+          inputProps={target.topic === "" ? EMPTY_TOPIC_INPUT_PROPS : TOPIC_INPUT_PROPS}
+          onChange={handleTopicChange}
         />
         <QoSField path={path.qos} />
         <PForm.CheckboxField path={path.retained} label="Retain" padHelpText={false} />
@@ -188,17 +220,21 @@ const PlainTargetPane = ({ path, onAddField }: PlainTargetPaneProps): ReactEleme
 };
 
 const TOPIC_INPUT_PROPS = { placeholder: "plant/line1/valve/set" } as const;
+// A topic added by name has no topic yet, so its details open on the topic.
+const EMPTY_TOPIC_INPUT_PROPS = { ...TOPIC_INPUT_PROPS, autoFocus: true } as const;
 
 interface TargetPaneProps
-  extends PaneProps<WriteTarget>, Pick<SparkplugTargetPaneProps, "plannedName"> {
-  onAddField: () => void;
-}
+  extends
+    PaneProps<WriteTarget>,
+    Pick<SparkplugTargetPaneProps, "plannedName">,
+    Pick<PlainTargetPaneProps, "onAddField" | "made"> {}
 
 const TargetPane: FC<TargetPaneProps> = ({
   path,
   deviceName,
   plannedName,
   onAddField,
+  made,
 }) => {
   const type = PForm.useFieldValue(path.type);
   return (
@@ -207,6 +243,7 @@ const TargetPane: FC<TargetPaneProps> = ({
         <PlainTargetPane
           path={deep.variant(path, "type", "plain")}
           onAddField={onAddField}
+          made={made}
         />
       ) : (
         <SparkplugTargetPane
@@ -306,10 +343,18 @@ interface TargetsProps {
   onSelect: Dispatch<SetStateAction<string[]>>;
   expanded: string[];
   onExpand: Dispatch<SetStateAction<string[]>>;
+  made: Made;
 }
 
 /** The targets of the task as a tree, beside the details of the selected item. */
-const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProps) => {
+const Targets = ({
+  device,
+  selected,
+  onSelect,
+  expanded,
+  onExpand,
+  made,
+}: TargetsProps) => {
   const client = PSynnax.use();
   const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
@@ -350,6 +395,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
           key={target.key}
           path={root.config.targets[target.key]}
           deviceName={device.name}
+          made={made}
           plannedName={
             target.type === "sparkplug"
               ? Task.newCommandChannelName(plans.get(sparkplugPropertiesKey(target)))
@@ -374,7 +420,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
     });
     if (additions == null || additions.length === 0) return;
     const inferred = additions.filter(isDraft).filter(({ format }) => format == null);
-    const made: Format[] = [];
+    const formatsMade: Format[] = [];
     if (inferred.length > 0) {
       const { icd: key, messages } = await ICD.Write.addMessages({
         client,
@@ -383,11 +429,14 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         name: icdName(ctx.get(root.name).value),
         messages: inferred.map(({ topic, fields }) => ({ name: topic, fields })),
       });
-      made.push(...messages.map((message) => ({ icd: key, message })));
+      for (const message of messages) {
+        made.current.set(message.key, message.name);
+        formatsMade.push({ icd: key, message });
+      }
     }
     const created = additions.map((a) =>
       isDraft(a)
-        ? createPlainTarget(a.topic, a.format ?? made[inferred.indexOf(a)])
+        ? createPlainTarget(a.topic, a.format ?? formatsMade[inferred.indexOf(a)])
         : a,
     );
     list.push(created);
@@ -436,6 +485,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
   const [expanded, setExpanded] = useState<string[]>(() =>
     ICD.Write.expandedOf(targets),
   );
+  const made: Made = useRef(new Map());
   const icds = targets.flatMap((t) => (t.type === "plain" ? [t.icd] : []));
   const resolve = (target: WriteTarget): Partial<WriteTarget> | null =>
     target.type === "sparkplug"
@@ -450,6 +500,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>)
           onSelect={setSelected}
           expanded={expanded}
           onExpand={setExpanded}
+          made={made}
         />
       </ICD.WithFormats>
       <Task.BindChannels path={root.config.targets} resolve={resolve} />

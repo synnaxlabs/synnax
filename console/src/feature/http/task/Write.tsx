@@ -145,8 +145,24 @@ const namedBy = (name: string, request: RequestLine): boolean => {
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_WRITE_NAME : name;
 
+const MessageMark = ({ itemKey }: { itemKey: string }) => {
+  const path = icdPath(itemKey);
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const message = PForm.useFieldValue(path.message.message, { optional: true });
+  if (icdKey == null || message == null) return null;
+  return (
+    <ICD.MessageMark
+      icdKey={icdKey}
+      message={message}
+      missingDescription={ICD.Write.MISSING_DESCRIPTION}
+    />
+  );
+};
+
 const TargetItem = (props: Tree.ItemRenderProps<string>) => (
-  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]}>
+    <MessageMark itemKey={props.itemKey} />
+  </EndpointItem>
 );
 
 const duplicate = (ep: WriteEndpoint): WriteEndpoint => ({

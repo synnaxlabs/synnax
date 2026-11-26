@@ -49,7 +49,11 @@ import {
   type TopicPick,
 } from "@/feature/mqtt/task/discover/Topics";
 import { createSparkplugEntry, namePrefix } from "@/feature/mqtt/task/entries";
-import { EntryItem, EntryLabel } from "@/feature/mqtt/task/EntryLabel";
+import {
+  EntryItem,
+  EntryLabel,
+  TOPIC_MISSING_DESCRIPTION,
+} from "@/feature/mqtt/task/EntryLabel";
 import type { Leaf } from "@/feature/mqtt/task/leaves";
 import { QoSField } from "@/feature/mqtt/task/QoSField";
 import {
@@ -439,7 +443,7 @@ const useMessageProps = (
     sourceLabel: "Arrival time",
     missingDescription:
       read === 0
-        ? "The ICD has no message for this topic. Add data to make one."
+        ? TOPIC_MISSING_DESCRIPTION
         : "The ICD no longer has this message. Remove it from the topic.",
   };
 };

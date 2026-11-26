@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, payload, type record, uuid } from "@synnaxlabs/x";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
@@ -46,6 +46,7 @@ type Cell<F extends Field> = (
 ) => ReactElement;
 
 type Render<F extends Field> =
+  | "name"
   | "text"
   | "number"
   | "optional"
@@ -66,7 +67,7 @@ interface Column<F extends Field> {
 
 const name = <F extends Field>(): Column<F> => ({
   name: "Name",
-  render: "text",
+  render: "name",
   width: 24,
   get: ({ name }) => name,
   set: (f, cell) => ({ ...f, name: String(cell) }),
@@ -514,10 +515,25 @@ const selectColumn = (
   </Input.TableColumn>
 );
 
+interface NameCellProps extends Input.TableCellProps<string> {
+  path: deep.Target<string>;
+}
+
+/** The name of a field, which takes focus when the form asks it to. */
+const NameCell = ({ path, ...rest }: NameCellProps): ReactElement => {
+  const ref = useRef<HTMLInputElement>(null);
+  Form.useFocusHandler(path, () => {
+    ref.current?.focus();
+    ref.current?.select();
+  });
+  return <Input.Text ref={ref} {...rest} />;
+};
+
 const renderColumn = (
   column: Column<Field>,
   index: number,
   fields: Field[],
+  own: Field[],
   path: deep.Target<Field[]>,
 ): ReactElement<Input.TableColumnProps> => {
   const { name, render, width } = column;
@@ -532,6 +548,22 @@ const renderColumn = (
       </Input.TableColumn>
     );
   switch (render) {
+    // A custom column gives the row, and so the path of the field.
+    case "name":
+      return (
+        <Input.TableColumn<string>
+          key={index}
+          name={name}
+          width={width}
+          type="custom"
+          empty=""
+          parse={(text) => text}
+        >
+          {({ row, ...props }) => (
+            <NameCell {...props} path={deep.widen(path)[own[row].key].name} />
+          )}
+        </Input.TableColumn>
+      );
     case "number":
       return <Input.TableColumn key={index} name={name} width={width} />;
     case "text":
@@ -611,7 +643,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         rowKey={(i) => own[i].key}
         preview={ctx.mode === "preview"}
       >
-        {columns.map((column, i) => renderColumn(column, i, fields, path))}
+        {columns.map((column, i) => renderColumn(column, i, fields, own, path))}
       </Input.Table>
       {helpText != null && (
         <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>

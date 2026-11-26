@@ -17,6 +17,8 @@ import { Window } from "@/session/window";
 const stateZ = z.object({
   /** The keys of the selected messages. The editor shows the first. */
   selected: z.array(z.string()).default([]),
+  /** The field that the editor focuses once it shows it. The editor then clears it. */
+  focused: z.string().optional(),
 });
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -38,6 +40,12 @@ export interface StoreState extends Drift.StoreState {
 export interface SetSelectedPayload extends Window.OptionalKeyParams {
   key: icd.Key;
   selected: icd.MessageKey[];
+  /** A field of the first selected message for the editor to focus. */
+  focused?: icd.FieldKey;
+}
+
+export interface ClearFocusedPayload extends Window.OptionalKeyParams {
+  key: icd.Key;
 }
 
 export interface RemovePayload {
@@ -51,10 +59,14 @@ export const { actions, reducer } = createSlice({
   initialState: ZERO_SLICE_STATE,
   reducers: {
     setSelected: withSelectedState<SetSelectedPayload, SliceState>(
-      (state, { payload: { selected } }) => {
+      (state, { payload: { selected, focused } }) => {
         state.selected = selected;
+        state.focused = focused;
       },
     ),
+    clearFocused: withSelectedState<ClearFocusedPayload, SliceState>((state) => {
+      delete state.focused;
+    }),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -62,8 +74,10 @@ export const { actions, reducer } = createSlice({
   extraReducers: Window.handleRemoved,
 });
 
-export const { setSelected, remove } = actions;
+export const { setSelected, clearFocused, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-export const MIDDLEWARE = [Window.createInjectKeyMiddleware([setSelected])];
+export const MIDDLEWARE = [
+  Window.createInjectKeyMiddleware([setSelected, clearFocused]),
+];

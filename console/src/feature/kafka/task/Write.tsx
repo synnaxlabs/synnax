@@ -116,13 +116,21 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
   const path = root.config.targets[props.itemKey];
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
-  if (disabled == null || recordKey == null) return null;
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const message = PForm.useFieldValue(path.message.message, { optional: true });
+  if (disabled == null || recordKey == null || icdKey == null || message == null)
+    return null;
   return (
     <Task.Views.TreeGroupItem
       {...props}
       label={<RecordLabel recordKey={recordKey} emptyLabel={NO_KEY} />}
       off={disabled}
     >
+      <ICD.MessageMark
+        icdKey={icdKey}
+        message={message}
+        missingDescription={ICD.Write.MISSING_DESCRIPTION}
+      />
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
   );

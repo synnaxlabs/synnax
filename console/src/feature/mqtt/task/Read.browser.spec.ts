@@ -22,6 +22,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
 import {
+  focusedIn,
   pickMessageFormat,
   removeField,
   retype,
@@ -202,8 +203,7 @@ const setTextFormat = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =
     }),
   );
 
-const NOT_JSON_NOTE =
-  "The format of this message is not JSON. Open it in the editor to change its format.";
+const NOT_JSON_NOTE = "Message is not JSON";
 
 /** @returns the ICD and key of the first message that the entry reads. */
 const messageOf = ({ icd: key, messages }: MQTT.Task.PlainReadEntry) => ({
@@ -1254,6 +1254,40 @@ describe("MQTT read form", () => {
   });
 
   it.each([
+    { name: "gone", mark: "Message not found", change: removeMessage },
+    { name: "not JSON", mark: NOT_JSON_NOTE, change: setTextFormat },
+  ])(
+    "should mark a topic whose message is $name in the tree",
+    async ({ mark, change }) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry], beforeRender: () => change(entry) });
+      const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+      await within(item).findByRole("img", { name: mark });
+    },
+  );
+
+  it("should drop the mark of a topic once its message has a field", async () => {
+    const entry = await createEntry({ fields: [] });
+    await renderRead({ entries: [entry] });
+    const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+    await within(item).findByRole("img", { name: "Message has no fields" });
+    await client.icds.dispatch(
+      entry.icd,
+      icd.set({
+        path: ["messages", entry.messages[0].message, "payload"],
+        value: { format: "json", fields: [createField("temperature", "float")] },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        within(item).queryByRole("img", { name: "Message has no fields" }),
+      ).toBeNull(),
+    );
+  });
+
+  it.each([
     { name: "gone", note: "Message not found", change: removeMessage },
     { name: "not JSON", note: NOT_JSON_NOTE, change: setTextFormat },
   ])(
@@ -1476,6 +1510,7 @@ describe("MQTT read form", () => {
       await screen.findByText(NOT_JSON_NOTE);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([entry.messages[0].message]);
+      expect(focusedIn(store, entry.icd)).toBeUndefined();
     });
 
     it("should open the editor at a later message that is not JSON", async () => {
@@ -1520,6 +1555,7 @@ describe("MQTT read form", () => {
       fireEvent.click(await screen.findByRole("treeitem", { name: /^mode/ }));
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
+      expect(focusedIn(store, entry.icd)).toBe(status.payload.fields[0].key);
     });
 
     it("should add a message that matches at the pointer of the others", async () => {

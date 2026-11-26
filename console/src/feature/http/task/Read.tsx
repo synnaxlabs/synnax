@@ -269,8 +269,29 @@ const icdName = (name: string): string =>
 const usePrefix = (deviceName: string, path: deep.Path<ICDEndpoint>): string =>
   endpointPrefix(deviceName, PForm.useFieldValue(path.path));
 
+const MISSING_DESCRIPTION =
+  "The ICD no longer has this message. Add a message to the endpoint, then remove this one.";
+
+const MessageMark = ({ itemKey }: { itemKey: string }) => {
+  const path = icdPath(itemKey);
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const message = PForm.useFieldValue(deep.present(path.messages)[0].message, {
+    optional: true,
+  });
+  if (icdKey == null || message == null) return null;
+  return (
+    <ICD.MessageMark
+      icdKey={icdKey}
+      message={message}
+      missingDescription={MISSING_DESCRIPTION}
+    />
+  );
+};
+
 const SourceItem = (props: Tree.ItemRenderProps<string>) => (
-  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]}>
+    <MessageMark itemKey={props.itemKey} />
+  </EndpointItem>
 );
 
 /** @returns the props that the panels of a message of an endpoint share. */
@@ -288,8 +309,7 @@ const useMessageProps = (
     // A new index field keeps the channel of the old one.
     indexChannel: bindings.find(({ field }) => field === index)?.channel ?? 0,
     sourceLabel: "Poll time",
-    missingDescription:
-      "The ICD no longer has this message. Add a message to the endpoint, then remove this one.",
+    missingDescription: MISSING_DESCRIPTION,
   };
 };
 
