@@ -62,12 +62,12 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 	// value returns the value of an entry, and false when the entry holds none.
 	value func(e *E) (V, bool)
 	store *index.Lookup[*txState, K, V]
-	// members is the space of the index on the DB of its table, registry is the
-	// registry of that DB, and table is the name of that table. All are set when the
-	// index joins its space.
-	members  *uniqueSpace[V]
-	registry *registry
-	table    string
+	// members is the space of the index on the DB of its table, and table is the name
+	// of that table. Both are set when the index joins its space. joined is true from
+	// then until the index leaves.
+	members *uniqueSpace[V]
+	table   string
+	joined  bool
 }
 
 // NewUniqueIndex constructs a UniqueIndex named name in the space named space. value
@@ -214,17 +214,14 @@ func (u *UniqueIndex[K, E, V]) join(r *registry, table string) {
 	}
 	joined := append(slices.Clone(*space.members.Load()), uniqueMember[V](u))
 	space.members.Store(&joined)
-	u.members, u.registry, u.table = space, r, table
+	u.members, u.table, u.joined = space, table, true
 }
 
 // leave implements checkedIndex.
-func (u *UniqueIndex[K, E, V]) leave() {
-	r := u.registry
-	if r == nil {
+func (u *UniqueIndex[K, E, V]) leave(r *registry) {
+	if !u.joined {
 		return
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	kept := slices.DeleteFunc(
 		slices.Clone(*u.members.members.Load()),
 		func(o uniqueMember[V]) bool { return o == uniqueMember[V](u) },
@@ -233,7 +230,7 @@ func (u *UniqueIndex[K, E, V]) leave() {
 		delete(r.spaces, u.space)
 	}
 	u.members.members.Store(&kept)
-	u.registry = nil
+	u.joined = false
 }
 
 // checkedIndex is an index whose value a write of its Table checks.
@@ -253,9 +250,9 @@ type checkedIndex[K Key, E Entry[K]] interface {
 	// join adds the index, on the table named table, to its space in r. Call it with
 	// the lock of r held, after canJoin.
 	join(r *registry, table string)
-	// leave removes the index from its space, and drops the space when the index was
-	// its last member.
-	leave()
+	// leave removes the index from its space in r, and drops the space when the index
+	// was its last member. Call it with the lock of r held.
+	leave(r *registry)
 }
 
 // uniqueMember is a UniqueIndex of a space, as other indexes of the space reach it.

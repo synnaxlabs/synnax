@@ -21,9 +21,10 @@ import (
 )
 
 // register validates the table's references and adds the table to its DB's registry.
-// A table with no references joins the registry only when named is true.
+// A table with no references and no unique index joins the registry only when named is
+// true.
 func (t *Table[K, E]) register(named bool) error {
-	if !named && len(t.references) == 0 {
+	if !named && len(t.references) == 0 && len(t.uniques) == 0 {
 		return nil
 	}
 	for i, r := range t.references {
@@ -39,18 +40,22 @@ func (t *Table[K, E]) register(named bool) error {
 	return nil
 }
 
-// registerIndexes adds the table's references to its indexes and to its DB's
-// registry, and its unique indexes to their spaces. Call it after the table's
-// migrations: a delete that follows a reference waits for its index to populate, which
-// starts only after them.
+// registerIndexes adds the table's unique indexes to their spaces, and then its
+// references to its indexes and to its DB's registry. A failed join adds no reference,
+// so no delete waits for the reference index of a table that failed to open. Call it
+// after the table's migrations: a delete that follows a reference waits for its index
+// to populate, which starts only after them.
 func (t *Table[K, E]) registerIndexes() error {
+	if err := t.joinSpaces(); err != nil {
+		return err
+	}
 	refs := make([]registeredReference, len(t.references))
 	for i, r := range t.references {
 		refs[i] = r
 		t.indexes = append(t.indexes, r)
 	}
 	t.db.registry.addReferences(refs)
-	return t.joinSpaces()
+	return nil
 }
 
 // joinSpaces adds the table's unique indexes to their spaces, all of them or none, so
@@ -84,10 +89,11 @@ func (t *Table[K, E]) unregister() {
 	if !t.registered {
 		return
 	}
-	for _, u := range t.uniques {
-		u.leave()
-	}
-	t.db.registry.unregister(t.name, t.keyPrefix)
+	t.db.registry.unregister(t.name, t.keyPrefix, func(r *registry) {
+		for _, u := range t.uniques {
+			u.leave(r)
+		}
+	})
 	t.registered = false
 }
 
