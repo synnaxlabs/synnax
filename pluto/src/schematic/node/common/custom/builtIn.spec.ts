@@ -14,7 +14,7 @@ import { Custom } from "@/schematic/node/common/custom";
 const svg = "<svg/>";
 
 describe("Custom.createBuiltIn", () => {
-  it("should make a symbol with no family static", () => {
+  it("should give a symbol with no family no states or clicks", () => {
     expect(Custom.createBuiltIn({ svg, handles: [] })).toMatchObject({
       parts: [],
       states: [],

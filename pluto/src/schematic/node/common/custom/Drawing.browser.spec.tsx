@@ -292,14 +292,14 @@ const ROOT_PAINT_SPEC = createSpec(
 
 const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
   [
-    "static symbol",
-    <Primitive.Div key="static">
+    "symbol with no click",
+    <Primitive.Div key="unclickable">
       <Custom.Drawing spec={ROOT_PAINT_SPEC} />
     </Primitive.Div>,
   ],
   [
-    "actuator",
-    <Toggle.Button key="actuator">
+    "symbol with a click",
+    <Toggle.Button key="clickable">
       <Custom.Drawing spec={ROOT_PAINT_SPEC} />
     </Toggle.Button>,
   ],
@@ -546,7 +546,7 @@ describe("Custom.Drawing hold fill", () => {
     expect(source?.querySelector("rect[stroke=red]")).not.toBeNull();
   });
 
-  it("should not draw a box over a held custom actuator", async () => {
+  it("should not draw a box over a held custom symbol", async () => {
     const builtIn = await renderHeld(BUILT_IN_HOLD);
     const custom = await renderCustomHeld();
     expect(getComputedStyle(custom, "::after").content).toBe(
@@ -654,8 +654,8 @@ interface ContainerProps {
 }
 
 const CONTAINERS: [string, FC<ContainerProps>][] = [
-  ["static", Primitive.Div],
-  ["actuator", Toggle.Button],
+  ["unclickable", Primitive.Div],
+  ["clickable", Toggle.Button],
 ];
 
 const renderMarkerCenter = async (

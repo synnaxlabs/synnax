@@ -1465,7 +1465,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     it("lists many states in order in the preview bar", async () => {
       const names = ["Active", "B", "C", "D", "E", "F", "G", "H"];
       await openPainted({
-        variant: "actuator",
         states: names.map((name, i) => ({
           ...createState(),
           key: i === 0 ? "active" : name.toLowerCase(),

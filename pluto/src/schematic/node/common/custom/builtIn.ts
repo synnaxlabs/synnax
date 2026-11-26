@@ -187,8 +187,8 @@ export interface BuiltInParams
 }
 
 /**
- * @returns the spec of a built-in symbol, static and stroked in the node color unless
- * family says otherwise. Its scale is the shrink Primitive.SVG gives a built-in
+ * @returns the spec of a built-in symbol, with no states and stroked in the node color
+ * unless family says otherwise. Its scale is the shrink Primitive.SVG gives a built-in
  * drawing, times the scale in the params.
  */
 export const createBuiltIn = ({

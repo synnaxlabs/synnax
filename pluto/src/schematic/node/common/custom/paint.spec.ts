@@ -29,7 +29,6 @@ const createSpec = (
 ): schematic.symbol.Spec =>
   schematic.symbol.specZ.parse({
     drawing: { type: "svg", markup: "<svg/>" },
-    variant: "static",
     parts: [{ key: "body", name: "Body", selectors: [".body"] }],
     ...spec,
   });
