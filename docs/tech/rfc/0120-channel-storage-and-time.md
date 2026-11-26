@@ -1093,8 +1093,11 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
     `synnax purge` clears, and a delete on absence (D-469).
 27. **Every stored reference migrates**: Rejected: a hidden alias of each index channel,
     which keeps a record that acts as an index channel and shows it to users.
-28. **An index channel with no stored data stays a timestamp channel**: `core/v0.62.0`
-    lets users write and read an index channel alone, so its samples are user data.
+28. **An index channel that times no stored data stays a timestamp channel**:
+    `core/v0.62.0` lets users write and read an index channel alone, so its samples are
+    user data. The test is Cesium's, not the records': K4's test (a data record names
+    the index) deletes an index whose data channels are empty, and keeps one that times
+    data of a kept key, which then fails the start check.
 29. **`time.of(channel)` and a text rewrite**: Arc and calculations read a channel's
     stamps with one builtin. Rejected: a hidden alias, and a compile error with no
     rewrite, which breaks stored programs.
