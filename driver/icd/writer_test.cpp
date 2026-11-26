@@ -331,6 +331,47 @@ TEST(Writer, StopOnSendError) {
     );
 }
 
+/// @brief it should keep the last good command of each field with no send, and drop a
+/// command that its field refuses.
+TEST(Writer, KeepCommands) {
+    auto c = message();
+    auto a = at("a", 0);
+    a.max = 10;
+    c.bind(a, 2);
+    c.bind(at("b", 1), 3);
+    auto w = ASSERT_NIL_P(c.create());
+    ASSERT_NIL(w.keep(frame(2, x::telem::Series(std::vector<double>{1, 2}))));
+    const auto refused = w.keep(frame(2, x::telem::Series(11.0)));
+    ASSERT_OCCURRED_AS(refused, x::errors::VALIDATION);
+    EXPECT_EQ(refused.data, "message cmd: field a: 11 is above the max 10");
+    EXPECT_EQ(
+        sent(w, frame(3, x::telem::Series(5.0))),
+        (std::vector<std::string>{"2,5"})
+    );
+}
+
+/// @brief it should encode the last good command of each field, and send nothing until
+/// each field with no default has a command.
+TEST(Writer, EncodeLastCommands) {
+    auto c = message();
+    c.bind(at("a", 0), 2);
+    auto b = at("b", 1);
+    b.default_ = 5;
+    c.bind(b, 3);
+    auto w = ASSERT_NIL_P(c.create());
+    std::vector<std::string> out;
+    const auto send = [&](std::span<const std::uint8_t> p) {
+        out.emplace_back(p.begin(), p.end());
+        return x::errors::NIL;
+    };
+    ASSERT_NIL(w.encode(send));
+    EXPECT_TRUE(out.empty());
+    ASSERT_NIL(w.keep(frame(2, x::telem::Series(1.0))));
+    ASSERT_NIL(w.encode(send));
+    ASSERT_NIL(w.encode(send));
+    EXPECT_EQ(out, (std::vector<std::string>{"1,5", "1,5"}));
+}
+
 /// @brief it should refuse a value that decodes outside the limits of its field.
 TEST(Writer, RefuseValueOutsideLimits) {
     auto c = message();

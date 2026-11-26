@@ -36,6 +36,9 @@ namespace driver::transport {
 /// datagram.
 constexpr std::size_t BUFFER_SIZE = std::size_t{64} * 1024;
 
+/// @brief WRITE_TIMEOUT is the longest that one write to a device waits.
+const x::telem::TimeSpan WRITE_TIMEOUT = x::telem::SECOND;
+
 /// @brief Chunk is the bytes that one read gives.
 struct Chunk {
     /// @brief data is the bytes that arrived, valid until the next call on the

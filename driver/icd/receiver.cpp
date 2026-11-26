@@ -217,7 +217,8 @@ Receiver::send(transport::Transport &t) {
     const auto now = this->now();
     for (auto &p: this->polls) {
         if (now >= p.next) {
-            if (auto err = t.write(p.query, WRITE_TIMEOUT)) return {wait, err};
+            if (auto err = t.write(p.query, transport::WRITE_TIMEOUT))
+                return {wait, err};
             p.next += p.period.chrono();
             if (p.next <= now) p.next = now + p.period.chrono();
         }

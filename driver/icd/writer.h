@@ -60,6 +60,13 @@ class Writer {
     /// nothing when binding has fewer.
     [[nodiscard]] std::optional<Command>
     command(std::size_t binding, std::size_t i) const;
+    /// @brief points commands at the series of each binding in fr.
+    /// @returns the number of rows of commands in fr.
+    std::size_t sort(const x::telem::Frame &fr);
+    /// @brief keeps the good commands of row, and sets refused to the error of the
+    /// first command that it drops when refused is nil.
+    /// @returns true when row holds a good command.
+    bool apply(std::size_t row, x::errors::Error &refused);
 
 public:
     /// @brief Send sends one payload.
@@ -96,5 +103,15 @@ public:
     /// dropped. A row with no good command sends nothing. After an error, the write
     /// sends nothing more, but each field still keeps its last good command in fr.
     [[nodiscard]] Result write(const x::telem::Frame &fr, const Send &send);
+
+    /// @brief keeps the last good command of each field in fr, as write does, and sends
+    /// nothing.
+    /// @returns the VALIDATION error of the first command that it dropped.
+    [[nodiscard]] x::errors::Error keep(const x::telem::Frame &fr);
+
+    /// @brief encodes one payload of the last good command of each field, and passes it
+    /// to send. It sends nothing until each field with no default has a command.
+    /// @returns the error of the encode or of send.
+    [[nodiscard]] x::errors::Error encode(const Send &send);
 };
 }

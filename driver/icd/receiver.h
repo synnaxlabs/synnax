@@ -39,9 +39,6 @@ constexpr std::size_t BATCH = 1024;
 /// after which the framer drops a partial frame.
 const x::telem::TimeSpan READ_TIMEOUT = 50 * x::telem::MILLISECOND;
 
-/// @brief WRITE_TIMEOUT is the longest that sending a poll query waits.
-const x::telem::TimeSpan WRITE_TIMEOUT = x::telem::SECOND;
-
 /// @brief Receiver reads the messages that the entries of a task receive on one
 /// transport into their channels. Each frame goes to the first entry, in task order,
 /// with a message that matches it, and later entries never see it. A frame that is not
