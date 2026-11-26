@@ -177,6 +177,10 @@ InlineWrite struct {
 }
 
 WriteConfig struct extends v0.WriteConfig {
+    -topic
+    -record_key
+    -record
+    -channels
     targets WriteTarget[] {
         @doc value "contains the topics and ICD messages to produce."
     }
@@ -187,4 +191,9 @@ WriteConfig struct extends v0.WriteConfig {
         """
         @go marshal omit
     }
+
+    @doc value """
+        configures a Kafka write task that produces the ICD message of each target to
+        its topic.
+    """
 }
