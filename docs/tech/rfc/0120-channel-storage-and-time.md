@@ -1027,16 +1027,19 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
    never draws. The option is per key, not per stream, because the Console shares one
    stream across every display. Rejected: time always (it costs every value display),
    and an option per stream (one plot in the shared stream would turn time on for every
-   readout). An index channel's policy no longer denies times.
-9. **A clock belongs to a producer, not to a session or a record**: A clock per session
-   makes one clock per `client.write` call
-   (`client/py/synnax/framer/client.py:241-256`): 864,000 per day at 10 Hz. A clock
-   record would store what the producer already holds. For a script, the framer keeps
-   the clock by subject and client ID. A client that kept and named its own clock would
-   add one more concept to every client library. It would also show keys to users.
-10. **Time is a key in the write, not a `time=` argument**: One reserved key keeps a
-    write one mapping. The first write fixes the kind, so a write that forgets its time
-    fails.
+   readout). Untimed keys ship in the same PR as closed frames, which would otherwise
+   double the stream bytes of a value display. A read that returns a bare series is
+   untimed.
+9. **Storage picks each clock, and nothing stores it**: Rejected: a clock per producer,
+   named in task configs and kept per client ID in the framer (D-057, D-464, D-467,
+   D-469, D-472, D-047), which needs owner lookups, pending-drop notes, and a unique
+   space of clock keys; and a clock per session, which makes 864,000 clocks per day for
+   a 10 Hz `client.write` loop. Continuation keeps one clock where a producer kept one.
+10. **Time is a key in the write, and the kind is fixed at open**: One reserved key
+    keeps a write one mapping. `arrival_timed` and `time_of` name the other kinds, so a
+    write that forgets its time fails. Rejected: a `time=` argument and a constant key,
+    which change every write call, and a kind fixed by the first write (D-059), which
+    turns a forgotten `"time"` into arrival stamps with no error.
 11. **No Core cast on read, and NumPy widening in clients**: A cast to the declared type
     would hide stored data. Widening loses integers above 2^53 in a read of a whole
     channel. Rejected: an error on `int64` with `float64`.
@@ -1052,14 +1055,81 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
     device path of two channels fails and names both. Rejected: device paths that
     resolve only in search and pickers, which never break a lookup.
 16. **`int64` and `timestamp` stay equal**: Arc writes times as either (SY-4150).
-17. **Clock keys take their own range until the v3 record**: One counter from Phase 6
+17. **Clock keys take their own range until the v3 record**: One counter from Phase 22
     was rejected: a key above 2^20 does not fit a v2 channel record.
 18. **The hold limit is computed, not stored**: 3 times the median of the last 16
     intervals, the same live and in history. Rejected: a limit picked at save, which
     goes stale as a rate changes, and a steady rate judged by the largest interval,
     which one late sample decides.
+19. **Time groups are declared at open and never stored**: A group is a partition of a
+    writer's stored channels. Rejected: one writer per time source (a bridge over 100
+    topics would hold 100 writers), groups in task configs, which copy what the config
+    already says, and K2's name `slots`, a second word for one idea.
+20. **A channel keeps its group for its session**: It closes the per-frame map of a
+    script that sends two time series. Rejected: a map in each frame, which every codec
+    must carry.
+21. **Pause moves for adaptive groups only, at a commit**: Rejected: moves in declared
+    groups, whose layout the producer knows, and a move inside a commit, which splits a
+    run.
+22. **The old holder commits first at a handoff**: It supersedes D-311, D-313, and
+    D-458's `Pending` and adopt on the pointer log. Rejected: samples that wait across
+    the move, which need parked runs, and the drop of uncommitted samples that the
+    storage branch does today.
+23. **Takeover at open, and a variable type rebuilds its cursor**: Per D-475, which
+    amends D-080. Rejected: a seal at every open, which makes one file per channel and
+    clock per session, and K4's seal for variable types, which still does so for text
+    channels.
+24. **A new alignment number per clock after a restart**: The continuation of a stretch
+    lives in memory. Rejected: a durable clean flag. 5,000 clocks and one restart per
+    day use 2^31 numbers in 1,176 years.
+25. **No stored flag marks a clock**: Continuation drops a key of the group (hard rule
+    4). Rejected: K4's `Line` flag in Cesium's channel file, which RFC 0121 Phase 7
+    removes.
+26. **A clock ends with its last user's delete**: Rejected: a kept-key warning that only
+    `synnax purge` clears, and a delete on absence (D-469).
+27. **Every stored reference migrates**: Rejected: a hidden alias of each index channel,
+    which keeps a record that acts as an index channel and shows it to users.
+28. **An index channel with no stored data stays a timestamp channel**: `core/v0.62.0`
+    lets users write and read an index channel alone, so its samples are user data.
+29. **`time.of(channel)` and a text rewrite**: Arc and calculations read a channel's
+    stamps with one builtin. Rejected: a hidden alias, and a compile error with no
+    rewrite, which breaks stored programs.
+30. **One group per command channel, stamped on arrival**: Rejected: client stamps in
+    the `Controller`, which can fall behind a Pluto stamp on the same channel and fail
+    the commit.
+31. **`clock` in code and on the wire, "time" for users**: Rejected: `line` in code, a
+    rename of the shipped series field for no user gain. So the open response field is
+    `clocks`, and the read caches are per clock.
+32. **C++ names a group by its position**: Rejected: K1's `Writer::time_key(g)`, a clock
+    key on a documented return (D-141) that a Driver source cannot know before the open.
+33. **Task time sources**: OPC UA has one task-level `time` node, the ICD field
+    `ReadMessage.index` becomes `time`, and a replay floor is the latest last stamp of a
+    group's channels. Rejected: a time flag per OPC UA channel, which allows two.
+34. **Continuation picks by most keys**: Then by the latest last stamp, then by the
+    lowest key. Rejected: K4's latest stamp first, under which one key's new clock pulls
+    a whole group. A clock whose last stamp is not before the start is no candidate, so
+    a backfill takes a new clock instead of failing on another session's stamps.
+35. **A reserved `time`, with stored names kept**: A new channel whose path is `time`
+    fails at create. Rejected: K1's rename of stored ones, against D-448, and no rule,
+    which lets a write by name meet a channel and the reserved key at once.
+36. **`frame.time(channel)` is the only time read**: Rejected: a `"time"` column, which
+    holds only while every channel of a frame shares one clock, and time on each
+    `Series`, which every slice and cast must carry.
+37. **One `time` column in CSV and TDMS exports**: The merge of
+    `core/pkg/transport/http/framer/csv.go:158-187` already orders rows. Rejected: a
+    column per clock, which shows storage's layout in the header.
+38. **The additive parts first, the removals as one break**: Users get one release to
+    move writes and reads. The client cache rewrite and the per-segment read view are
+    charged here, since any clock move needs them.
+39. **The read prototype decides R2 before hidden clocks**: It changes no format. A
+    chunk that spans a handoff or a move may cost up to 2 times (a rare-path bar under
+    R2), with its own benchmark.
+40. **Holder migrations land per integration, in one release**: Rejected: K4's one PR
+    with the channel step, over 2,000 lines. The channel step lands last, so `main`
+    never holds a dangling link.
 
 ## 8 Open questions
 
-- **Status text**: The stale status of a calculation.
-- **Arrival stamp spacing**: The step between the arrival stamps of one frame.
+Each is a parameter with a default: P, the pauses per open segment before a move (64,
+measured by §4.13); the clock keys per lease (256); the rare-path read bar (2 times);
+and the step between the arrival stamps of one frame.
