@@ -285,8 +285,9 @@ class SymbolEditor:
         self.layout.select_from_dropdown(value, exact=True)
 
     def add_toggle_click(self) -> None:
-        """Add a click on the whole drawing that toggles between the first command and
-        the other command on its state.
+        """Add a click that toggles between the first command and the other command on
+        its state. The click goes on the first free target: the whole drawing, when no
+        click holds it.
         """
         self._add_item("Clicks")
         self._inspector.get_by_role("button", name="Toggle", exact=True).click()
