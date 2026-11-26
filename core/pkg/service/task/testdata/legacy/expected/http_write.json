@@ -20,7 +20,7 @@
         "bindings": [
           {
             "channel": 10110,
-            "field": "command/modeCode",
+            "field": "command_modeCode",
             "type": "channel"
           }
         ],

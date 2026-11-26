@@ -134,6 +134,7 @@ class LayoutClient:
 
     MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
     SETTINGS_NAV_SELECTOR = "nav[aria-label='Settings']"
+    LIBRARY_NAV_SELECTOR = "nav[aria-label='Library']"
     SETTINGS_CREATE_SELECTOR = ".console-settings-table__create"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
@@ -667,8 +668,19 @@ class LayoutClient:
             nav.wait_for(state="visible", timeout=5000)
         return nav
 
+    def open_library(self) -> Locator:
+        """Open the Library tab, or show it if it is already open.
+
+        :returns: The section list of the Library.
+        """
+        nav = self.page.locator(self.LIBRARY_NAV_SELECTOR)
+        if not nav.is_visible():
+            self.command_palette("Open library")
+            nav.wait_for(state="visible", timeout=5000)
+        return nav
+
     def open_settings_create(self, button: str) -> Locator:
-        """Open the create item of the shown Settings page.
+        """Open the create item of the shown Settings or Library page.
 
         :param button: The name of the page's create button, such as "Create label".
         :returns: The create item.
