@@ -13,13 +13,12 @@ from examples.mqtt_sim import MQTTSim
 import synnax as sy
 from synnax import mqtt
 from tests.driver.mqtt_task import (
-    CORE_RACK_NAME,
     create_plain_entry,
     create_plain_target,
     run_reader,
     write_until,
 )
-from tests.driver.simulator_case import SimulatorCase
+from tests.driver.simulator_case import CORE_RACK_NAME, SimulatorCase
 from tests.driver.task import WriteTaskCase, create_channel, create_index
 
 GROUP = "Plant"
