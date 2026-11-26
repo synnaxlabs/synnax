@@ -118,8 +118,8 @@ func (o *overrides) node(
 
 // copy creates c, a copy of the symbol with key src, with an enumeration of entries on
 // its first state, and returns its key. Nodes share a copy when they have the same
-// source symbol and the same overrides states. The copy gets the next copyName of c in
-// schematic.
+// source symbol and overrides states, and their copies either both have commands or
+// both lack them. The copy gets the next copyName of c in schematic.
 func (o *overrides) copy(
 	ctx context.Context,
 	src symbol.Key,
@@ -132,7 +132,7 @@ func (o *overrides) copy(
 	if err != nil {
 		return uuid.Nil(), err
 	}
-	id := src.String() + string(b)
+	id := src.String() + strconv.FormatBool(len(c.Data.Commands) > 0) + string(b)
 	if key, ok := o.copies[id]; ok {
 		return key, nil
 	}

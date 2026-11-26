@@ -819,6 +819,56 @@ var _ = Describe("Stored v13 state overrides", func() {
 		},
 	)
 
+	It("Should give an actuator node its own copy when a static node of an earlier "+
+		"schematic has the same symbol and overrides", func(ctx SpecContext) {
+		db := openShipped(ctx)
+		vent := decodeReleased[v4.Symbol]("symbol_vent_valve.hex")
+		vent.Data.Variant = "static"
+		Expect(gorp.NewCreate[v4.Key, v4.Symbol]().Entry(&vent).Exec(ctx, db)).
+			To(Succeed())
+		c := []color.Color{red, yellow}
+		overrides := paint(vent, c, []color.Color{white, white})[:1]
+		var static v13.CustomStaticNodeConfig
+		static.SpecKey, static.StateOverrides = vent.Key.String(), overrides
+		var actuator v13.CustomActuatorNodeConfig
+		actuator.SpecKey, actuator.StateOverrides = vent.Key.String(), overrides
+		stored := []v13.Schematic{
+			{
+				Key:   uuid.MustParse("00000000-0000-0000-0000-000000000001"),
+				Name:  "Panel",
+				Nodes: []v13.Node{{Key: "a", Config: v13.NodeConfig{Variant: static}}},
+			},
+			{
+				Key:  uuid.MustParse("00000000-0000-0000-0000-000000000002"),
+				Name: "Panel",
+				Nodes: []v13.Node{
+					{Key: "a", Config: v13.NodeConfig{Variant: actuator}},
+				},
+			},
+		}
+		Expect(gorp.NewCreate[v13.Key, v13.Schematic]().Entries(&stored).Exec(ctx, db)).
+			To(Succeed())
+		openService(ctx, db)
+		commands := lo.Map(stored, func(old v13.Schematic, _ int) int {
+			var sc schematic.Schematic
+			Expect(gorp.NewRetrieve[schematic.Key, schematic.Schematic]().
+				Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](old.Key)).
+				Entry(&sc).
+				Exec(ctx, db)).To(Succeed())
+			ref := as[symbol.CustomRef](
+				as[schematic.SymbolNodeConfig](sc.Nodes[0].Config.Variant).Spec.Variant,
+			)
+			Expect(ref.Key).ToNot(Equal(vent.Key))
+			var copied symbol.Symbol
+			Expect(gorp.NewRetrieve[symbol.Key, symbol.Symbol]().
+				Where(gorp.MatchKeys[symbol.Key, symbol.Symbol](ref.Key)).
+				Entry(&copied).
+				Exec(ctx, db)).To(Succeed())
+			return len(copied.Data.Commands)
+		})
+		Expect(commands).To(Equal([]int{0, 2}))
+	})
+
 	It("Should give a custom_static node no record for overrides of states that it "+
 		"never draws", func(ctx SpecContext) {
 		db := openShipped(ctx)
