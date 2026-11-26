@@ -26,8 +26,7 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-// issuedChannel stands in for a channel, whose table a weak link of a table cell
-// points at.
+// issuedChannel stands in for the channel table that a table cell's weak link needs.
 type issuedChannel struct{ Key channel.Key }
 
 func (c issuedChannel) GorpKey() channel.Key { return c.Key }

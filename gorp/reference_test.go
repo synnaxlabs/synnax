@@ -2416,8 +2416,7 @@ var _ = Describe("DropDangling", func() {
 			"Should ask an issued function in place of a weak target's table",
 			func(ctx SpecContext) {
 				// The table's own answer is the opposite of issued's, so the result
-				// shows
-				// which one the migration asked.
+				// shows which one the migration asked.
 				MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uint32, refIssuer]{
 					DB:     db,
 					Name:   "issuer",
