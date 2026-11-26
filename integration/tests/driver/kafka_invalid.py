@@ -113,5 +113,5 @@ class KafkaInvalidConfig(KafkaCase):
         assert_text(
             label,
             assert_create_refused(self.client, task, label),
-            "targets.message.bindings.channel: channel 999999999 does not exist",
+            "targets.0.message.bindings.0.channel: channel 999999999 does not exist",
         )
