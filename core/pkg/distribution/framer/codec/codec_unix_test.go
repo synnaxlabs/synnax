@@ -12,6 +12,7 @@
 package codec_test
 
 import (
+	"io"
 	"math"
 	"syscall"
 
@@ -51,6 +52,33 @@ var _ = Describe("Series over 4 GiB", func() {
 						"frame length field holds",
 				)),
 			))
+		},
+	)
+
+	It(
+		"Should encode two adjacent series of one key that each fit the length field",
+		func(ctx SpecContext) {
+			const half = 1 << 31
+			// A read-only anonymous mapping takes no memory until a page is read.
+			data := MustSucceed(syscall.Mmap(
+				-1,
+				0,
+				2*half,
+				syscall.PROT_READ,
+				syscall.MAP_ANON|syscall.MAP_PRIVATE,
+			))
+			DeferCleanup(func() { Expect(syscall.Munmap(data)).To(Succeed()) })
+			c := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Uint8T})
+			// Each series holds 2^31 samples. Their alignments are contiguous, so the
+			// encoder merges them into one series of 2^32 samples.
+			Expect(c.EncodeStream(ctx, io.Discard, multi(
+				keyed{6, telem.Series{DataType: telem.Uint8T, Data: data[:half]}},
+				keyed{6, telem.Series{
+					DataType:  telem.Uint8T,
+					Data:      data[half:],
+					Alignment: half,
+				}},
+			))).To(Succeed())
 		},
 	)
 })
