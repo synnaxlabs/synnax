@@ -209,6 +209,30 @@ var _ = Describe("Read", func() {
 		return err
 	}
 
+	Describe("Check", func() {
+		icds := map[icd.Key]icd.ICD{plant.Key: plant}
+		It("Should accept reads whose fields suit their channels", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+			}, icds)).To(Succeed())
+		})
+
+		It("Should return the error of the first read that it refuses", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+				readAt(1, plant.Key, readOf(status, bind(state, valueKey))),
+				readAt(2, plant.Key, icd.ReadMessage{Message: uuid.New()}),
+			}, icds)).To(MatchError(
+				"reads.1.messages.0.bindings.0.channel: field state of kind string " +
+					"cannot read into channel value of data type float64",
+			))
+		})
+	})
+
 	Describe("Checker", func() {
 		Describe("Read", func() {
 			It("Should accept a read whose fields suit their channels", func(
@@ -698,5 +722,24 @@ var _ = Describe("Read", func() {
 			Expect(resolver.Hash(ctx, db, &h, []read.Read{readAt(0, uuid.New())})).
 				To(MatchError(query.ErrNotFound))
 		})
+	})
+})
+
+var _ = Describe("Entries", func() {
+	It("Should give the framed read of each entry at its path", func() {
+		first, second := uuid.New(), uuid.New()
+		rm := readOf(status, bind(temp, valueKey))
+		Expect(read.Entries([]icd.ReadEntry{
+			{ICD: first},
+			{ICD: second, Messages: []icd.ReadMessage{rm}},
+		})).To(Equal([]read.Read{
+			{Path: []string{"entries", "0"}, ICD: first, Framed: true},
+			{
+				Path:     []string{"entries", "1"},
+				ICD:      second,
+				Messages: []icd.ReadMessage{rm},
+				Framed:   true,
+			},
+		}))
 	})
 })

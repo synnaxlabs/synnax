@@ -674,3 +674,17 @@ var _ = Describe("Resolver", func() {
 		})
 	})
 })
+
+var _ = Describe("Targets", func() {
+	It("Should give the framed write of each target at its path", func() {
+		first, second := uuid.New(), uuid.New()
+		wm := writeOf(counts, channelOf(gain.Base().Key, valueKey, nil))
+		Expect(write.Targets([]icd.WriteTarget{
+			{ICD: first, Message: wm},
+			{ICD: second, Message: wm},
+		})).To(Equal([]write.Write{
+			{Path: []string{"targets", "0"}, ICD: first, Message: wm, Framed: true},
+			{Path: []string{"targets", "1"}, ICD: second, Message: wm, Framed: true},
+		}))
+	})
+})

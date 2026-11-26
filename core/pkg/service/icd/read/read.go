@@ -45,6 +45,18 @@ type Read struct {
 	Framed bool
 }
 
+// Entries returns the framed read of each of entries, at entries.i of a config.
+func Entries(entries []icd.ReadEntry) []Read {
+	return lo.Map(entries, func(e icd.ReadEntry, i int) Read {
+		return Read{
+			Path:     []string{"entries", strconv.Itoa(i)},
+			ICD:      e.ICD,
+			Messages: e.Messages,
+			Framed:   true,
+		}
+	})
+}
+
 // Resolver checks and hashes reads against the ICDs and the channels that they name.
 type Resolver struct {
 	icds     *icd.Service
@@ -136,6 +148,26 @@ func (r Resolver) Hash(
 			if err = icd.HashMessage(h, icds[rd.ICD], rm.Message); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+// Check checks each of reads, in order, against its ICD, from icds or else retrieved
+// through snap, and its channels. It returns the validation error of the first problem.
+func (r Resolver) Check(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	reads []Read,
+	icds map[icd.Key]icd.ICD,
+) error {
+	c, err := r.NewChecker(ctx, snap, reads, nil, icds)
+	if err != nil {
+		return err
+	}
+	for _, rd := range reads {
+		if err = c.Read(rd); err != nil {
+			return err
 		}
 	}
 	return nil
