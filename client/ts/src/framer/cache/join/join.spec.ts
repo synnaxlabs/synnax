@@ -312,8 +312,8 @@ describe("Joins", () => {
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(2).add(1));
     });
 
-    // D-111 as amended and D-141: a series on another clock fails, and the status
-    // names the channels and no clock key.
+    // A data series on another clock than its index fails, and the status names the
+    // channels and no clock key.
     const unpaired = {
       variant: "error",
       name: "pressure",

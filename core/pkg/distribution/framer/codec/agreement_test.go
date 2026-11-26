@@ -27,6 +27,7 @@ import (
 
 // frameBytes decodes hex with spaces between its bytes.
 func frameBytes(h string) []byte {
+	GinkgoHelper()
 	return MustSucceed(hex.DecodeString(strings.ReplaceAll(h, " ", "")))
 }
 

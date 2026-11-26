@@ -57,6 +57,7 @@ type vectorSeries struct {
 }
 
 func (s vectorSeries) series(dt telem.DataType) telem.Series {
+	GinkgoHelper()
 	return telem.Series{
 		DataType: dt,
 		Data:     MustSucceed(hex.DecodeString(s.Data)),
