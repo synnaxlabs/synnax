@@ -94,8 +94,10 @@ writer opens. No channel record, task config, or client library keeps it.
   key on it, once the earlier commits are durable, and appends at the committed length
   (RFC 0121 §5.8).
 - **Stretches**: A session takes one alignment number per clock. A clean next session
-  continues the stretch of its clock (RFC 0121 §5.7), so a loop of sessions takes no new
-  number.
+  whose first stamp comes within 3 steps of the clock's last stamp continues the stretch
+  of its clock (RFC 0121 §5.7). So a loop of sessions draws one line and takes no new
+  number, and a task stop still breaks the line, as it does today
+  (`pluto/src/vis/line/aether/draw.ts:94-96`).
 - **Pauses**: A pause costs one pointer on the clock. In an adaptive group, a key that
   reaches P pauses (64) in its open segment moves to a clock of its own at the next
   commit, and moves back at the next open (§4.8).
@@ -1134,9 +1136,14 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
 40. **Holder migrations land per integration, in one release**: Rejected: K4's one PR
     with the channel step, over 2,000 lines. The channel step lands last, so `main`
     never holds a dangling link.
+41. **A stretch continues only across a gap of at most 3 steps**: A line plot draws one
+    line through a stretch. Rejected: K's continuation at every clean close, which draws
+    a straight line across a task stop of any length, and a new number per session,
+    which uses 2^31 numbers in 6.8 years for one 10 Hz `client.write` loop (F §7.3).
 
 ## 8 Open questions
 
 Each is a parameter with a default: P, the pauses per open segment before a move (64,
 measured by §4.13); the clock keys per lease (256); the rare-path read bar (2 times);
-and the step between the arrival stamps of one frame.
+the gap, in steps, across which a stretch continues (3); and the step between the
+arrival stamps of one frame.
