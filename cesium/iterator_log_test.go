@@ -400,6 +400,9 @@ var _ = Describe("Reads on the pointer log", func() {
 	It("Should allocate no range reader at a seek and a step of an open read", func(
 		ctx SpecContext,
 	) {
+		if raceEnabled {
+			Skip("the race detector adds allocations of its own")
+		}
 		db := mustOpenDBOnFS(ctx, xfs.NewMem(), cesium.WithPointerLog())
 		idx, data := GenerateChannelKey(), GenerateChannelKey()
 		keys := []cesium.ChannelKey{idx, data}
