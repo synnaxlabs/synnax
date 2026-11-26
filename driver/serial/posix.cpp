@@ -120,7 +120,6 @@ strip(std::uint8_t &marked, const std::span<std::uint8_t> data) {
             marked = 0;
             continue;
         }
-        if (marked == 1 && b != 0xFF) data[size++] = 0xFF;
         marked = 0;
         data[size++] = b;
     }
@@ -146,14 +145,13 @@ std::error_code watch(const Handle handle, Line &line) {
 
 std::pair<Received, std::error_code>
 receive(const Handle handle, Line &line, const std::span<std::uint8_t> data) {
-    const auto [count, ec] = overrun_count(static_cast<int>(handle));
-    if (ec) return {{}, ec};
     const auto [size, errors] = strip(line.marked, data);
+    const auto [count, ec] = overrun_count(static_cast<int>(handle));
     return {
         {.size = size,
          .errors = errors,
-         .overruns = overruns_since(line.overruns, count)},
-        {}
+         .overruns = ec ? 0 : overruns_since(line.overruns, count)},
+        ec
     };
 }
 }

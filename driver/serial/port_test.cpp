@@ -279,6 +279,15 @@ TEST_F(PtyTest, OpensAgainAfterTheFirstPortCloses) {
     EXPECT_EQ(as_string(ASSERT_NIL_P(second->read(x::telem::SECOND)).data), "again");
 }
 
+/// @brief it should drop the bytes that arrived before it applied the settings.
+TEST_F(PtyTest, FlushesBytesThatArrivedBeforeTheSettings) {
+    this->peer_write("stale");
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("fresh");
+    EXPECT_EQ(as_string(ASSERT_NIL_P(port->read(x::telem::SECOND)).data), "fresh");
+}
+
+/// @brief it should mark line errors instead of ignoring them.
 TEST_F(PtyTest, MarksLineErrorsInsteadOfIgnoringThem) {
     for (const auto *parity:
          {synnax::serial::PARITY_NONE_, synnax::serial::PARITY_EVEN_}) {
@@ -293,6 +302,7 @@ TEST_F(PtyTest, MarksLineErrorsInsteadOfIgnoringThem) {
     }
 }
 
+/// @brief it should deliver a 0xFF byte once while it marks line errors.
 TEST_F(PtyTest, DeliversA0xFFByteOnceWhileMarkingLineErrors) {
     auto p = this->props();
     p.parity = synnax::serial::PARITY_EVEN_;
@@ -309,6 +319,7 @@ TEST_F(PtyTest, DeliversA0xFFByteOnceWhileMarkingLineErrors) {
     EXPECT_EQ(errors, 0);
 }
 
+/// @brief it should report no overruns on a port that counts none.
 TEST_F(PtyTest, ReportsNoOverrunsOnAPortThatCountsNone) {
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     this->peer_write("x");

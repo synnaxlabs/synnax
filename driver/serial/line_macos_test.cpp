@@ -93,7 +93,7 @@ TEST(Line, AppliesSoftwareFlowControl) {
     auto s = dirty();
     ASSERT_NIL(apply(p, s));
     EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | IXON | IXOFF | ICRNL));
-    EXPECT_EQ(s.c_cflag & CRTSCTS, static_cast<tcflag_t>(INPCK | PARMRK));
+    EXPECT_EQ(s.c_cflag & CRTSCTS, static_cast<tcflag_t>(0));
 }
 
 /// @brief it should apply even parity.

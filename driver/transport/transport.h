@@ -39,7 +39,7 @@ constexpr std::size_t BUFFER_SIZE = std::size_t{64} * 1024;
 /// @brief Chunk is the bytes that one read gives.
 struct Chunk {
     /// @brief data is the bytes that arrived, valid until the next call on the
-    /// transport. It is empty when nothing arrived before the timeout.
+    /// transport. It is empty only when the timeout elapsed first.
     std::span<const std::uint8_t> data;
     /// @brief time is the host time at which the bytes arrived.
     x::telem::TimeStamp time;

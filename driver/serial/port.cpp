@@ -87,33 +87,42 @@ Port::~Port() {
 std::pair<transport::Chunk, x::errors::Error>
 Port::read(const x::telem::TimeSpan timeout) {
     if (this->failure) return {{}, this->failure};
-    const auto done = transport::run_for(
-        this->ctx,
-        timeout,
-        [this](transport::Handler handler) {
-            this->device.async_read_some(
-                asio::buffer(this->buffer.data(), this->buffer.size()),
-                std::move(handler)
-            );
-        },
-        [this] { cancel(this->device); }
-    );
-    if (done.timed_out()) return {{}, x::errors::NIL};
     const auto context = "failed to read from serial port " + this->path;
-    if (done.ec) return {{}, this->fail(translate(context, done.ec))};
-    const auto [received, ec] = native::receive(
-        this->handle(),
-        this->line,
-        {this->buffer.data(), done.size}
-    );
-    if (ec) return {{}, this->fail(translate(context, ec))};
-    return {
-        {.data = {this->buffer.data(), received.size},
-         .time = done.time,
-         .errors = received.errors,
-         .overruns = received.overruns},
-        x::errors::NIL,
-    };
+    const x::telem::Stopwatch sw;
+    transport::Chunk chunk;
+    // Empty data means that the timeout elapsed, so the port reads again after a read
+    // whose bytes were all line errors.
+    while (chunk.data.empty()) {
+        const auto done = transport::run_for(
+            this->ctx,
+            timeout - sw.elapsed(),
+            [this](transport::Handler handler) {
+                this->device.async_read_some(
+                    asio::buffer(this->buffer.data(), this->buffer.size()),
+                    std::move(handler)
+                );
+            },
+            [this] { cancel(this->device); }
+        );
+        if (done.timed_out()) return {chunk, x::errors::NIL};
+        if (done.ec) return {{}, this->fail(translate(context, done.ec))};
+        const auto [received, ec] = native::receive(
+            this->handle(),
+            this->line,
+            {this->buffer.data(), done.size}
+        );
+        chunk.data = {this->buffer.data(), received.size};
+        chunk.time = done.time;
+        chunk.errors += received.errors;
+        chunk.overruns += received.overruns;
+        // The bytes that arrived come back now, and the next call returns the error.
+        if (ec) {
+            this->fail(translate(context, ec));
+            if (chunk.data.empty()) return {{}, this->failure};
+            break;
+        }
+    }
+    return {chunk, x::errors::NIL};
 }
 
 x::errors::Error Port::write(
