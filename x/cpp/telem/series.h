@@ -550,7 +550,7 @@ public:
     [[nodiscard]] bool empty() const { return this->sample_count == 0; }
 
     /// @brief returns the data type of the series.
-    [[nodiscard]] DataType data_type() const { return this->type; }
+    [[nodiscard]] const DataType &data_type() const { return this->type; }
 
     /// @brief returns the capacity of the series in number of samples. If the
     /// series was not pre-allocated, this is the same as size().
