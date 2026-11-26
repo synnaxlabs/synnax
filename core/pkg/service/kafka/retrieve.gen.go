@@ -13,6 +13,7 @@ package kafka
 
 import (
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -61,6 +62,16 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t icd.Key) []string {
+				for i7, v8 := range e.Topics {
+					for i9, v10 := range v8.Records {
+						if v10.ICD == t {
+							return []string{"topics", strconv.Itoa(i7), "records", strconv.Itoa(i9), "icd"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t icd.Key) {
 				for i3 := range e.Topics {
 					e.Topics[i3].Records = slices.DeleteFunc(e.Topics[i3].Records, func(v4 ReadRecord) bool {
@@ -100,6 +111,20 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i13, v14 := range e.Topics {
+					for i15, v16 := range v14.Records {
+						for i17, v18 := range v16.Messages {
+							for i19, v20 := range v18.Bindings {
+								if v20.Channel == t {
+									return []string{"topics", strconv.Itoa(i13), "records", strconv.Itoa(i15), "messages", strconv.Itoa(i17), "bindings", strconv.Itoa(i19), "channel"}
+								}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i5 := range e.Topics {
@@ -171,6 +196,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i4, v5 := range e.Channels {
+					if v5.Channel == t {
+						return []string{"channels", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i2 := range e.Channels {
 					if e.Channels[i2].Channel == t {
@@ -197,6 +230,14 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					targets = append(targets, v1.ICD)
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t icd.Key) []string {
+				for i4, v5 := range e.Targets {
+					if v5.ICD == t {
+						return []string{"targets", strconv.Itoa(i4), "icd"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t icd.Key) {
 				e.Targets = slices.DeleteFunc(e.Targets, func(v2 WriteTarget) bool {
@@ -232,6 +273,19 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i10, v11 := range e.Targets {
+					for i12, v13 := range v11.Message.Bindings {
+						switch v14 := v13.Variant.(type) {
+						case icd.ChannelWriteBinding:
+							if v14.Channel == t {
+								return []string{"targets", strconv.Itoa(i10), "message", "bindings", strconv.Itoa(i12), "channel"}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i4 := range e.Targets {
@@ -275,6 +329,16 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				if e.Inline != nil {
+					for i4, v5 := range e.Inline.Channels {
+						if v5.Channel == t {
+							return []string{"inline", "channels", strconv.Itoa(i4), "channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				if e.Inline != nil {

@@ -13,6 +13,7 @@ package mqtt
 
 import (
 	"slices"
+	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -62,6 +63,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *ReadConfig, t icd.Key) []string {
+				for i7, v8 := range e.Entries {
+					switch v9 := v8.Variant.(type) {
+					case PlainReadEntry:
+						if v9.ICD == t {
+							return []string{"entries", strconv.Itoa(i7), "icd"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *ReadConfig, t icd.Key) {
 				e.Entries = slices.DeleteFunc(e.Entries, func(v3 ReadEntry) bool {
 					switch v4 := v3.Variant.(type) {
@@ -105,6 +117,21 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i13, v14 := range e.Entries {
+					switch v15 := v14.Variant.(type) {
+					case PlainReadEntry:
+						for i16, v17 := range v15.Messages {
+							for i18, v19 := range v17.Bindings {
+								if v19.Channel == t {
+									return []string{"entries", strconv.Itoa(i13), "messages", strconv.Itoa(i16), "bindings", strconv.Itoa(i18), "channel"}
+								}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i5 := range e.Entries {
@@ -153,6 +180,17 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *ReadConfig, t channel.Key) []string {
+				for i7, v8 := range e.Entries {
+					switch v9 := v8.Variant.(type) {
+					case SparkplugReadEntry:
+						if v9.Channel == t {
+							return []string{"entries", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *ReadConfig, t channel.Key) {
 				for i3 := range e.Entries {
@@ -221,6 +259,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *WriteConfig, t icd.Key) []string {
+				for i7, v8 := range e.Targets {
+					switch v9 := v8.Variant.(type) {
+					case PlainWriteTarget:
+						if v9.ICD == t {
+							return []string{"targets", strconv.Itoa(i7), "icd"}
+						}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *WriteConfig, t icd.Key) {
 				e.Targets = slices.DeleteFunc(e.Targets, func(v3 WriteTarget) bool {
 					switch v4 := v3.Variant.(type) {
@@ -265,6 +314,22 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i13, v14 := range e.Targets {
+					switch v15 := v14.Variant.(type) {
+					case PlainWriteTarget:
+						for i16, v17 := range v15.Message.Bindings {
+							switch v18 := v17.Variant.(type) {
+							case icd.ChannelWriteBinding:
+								if v18.Channel == t {
+									return []string{"targets", strconv.Itoa(i13), "message", "bindings", strconv.Itoa(i16), "channel"}
+								}
+							}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i5 := range e.Targets {
@@ -317,6 +382,17 @@ func writeConfigReferences() []gorp.Reference[uuid.UUID, WriteConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *WriteConfig, t channel.Key) []string {
+				for i7, v8 := range e.Targets {
+					switch v9 := v8.Variant.(type) {
+					case SparkplugWriteTarget:
+						if v9.Channel == t {
+							return []string{"targets", strconv.Itoa(i7), "channel"}
+						}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *WriteConfig, t channel.Key) {
 				for i3 := range e.Targets {
@@ -384,6 +460,14 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 				}
 				return targets
 			},
+			Locate: func(e *EdgeConfig, t channel.Key) []string {
+				for i4, v5 := range e.Tags {
+					if v5.Channel == t {
+						return []string{"tags", strconv.Itoa(i4), "channel"}
+					}
+				}
+				return nil
+			},
 			Detach: func(e *EdgeConfig, t channel.Key) {
 				for i2 := range e.Tags {
 					if e.Tags[i2].Channel == t {
@@ -412,6 +496,14 @@ func edgeConfigReferences() []gorp.Reference[uuid.UUID, EdgeConfig] {
 					}
 				}
 				return targets
+			},
+			Locate: func(e *EdgeConfig, t channel.Key) []string {
+				for i4, v5 := range e.Tags {
+					if v5.CommandChannel == t {
+						return []string{"tags", strconv.Itoa(i4), "command_channel"}
+					}
+				}
+				return nil
 			},
 			Detach: func(e *EdgeConfig, t channel.Key) {
 				for i2 := range e.Tags {
