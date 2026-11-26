@@ -764,4 +764,14 @@ describe("reduce.Reducer", () => {
       expect(refCounts(r)).toEqual([0, 0]);
     });
   });
+  it.each<Aggregation>(["min_max", "average"])(
+    "should keep the clock of the source series under %s",
+    (aggregation) => {
+      const x = new Series({ data: new Float32Array([0, 1, 2, 3]), clock: 5 });
+      const y = new Series({ data: new Float32Array([3, 1, 4, 1]), clock: 5 });
+      const [r] = reduceOne(op(x, y), aggregation, 2);
+      expect(r.x.clock).toBe(5);
+      expect(r.y.clock).toBe(5);
+    },
+  );
 });
