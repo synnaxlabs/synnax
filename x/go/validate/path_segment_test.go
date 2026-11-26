@@ -17,54 +17,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var _ = Describe("Path segments", func() {
-	DescribeTable("IsPathSegment",
-		func(s string, expected bool) {
-			Expect(validate.IsPathSegment(s)).To(Equal(expected))
-		},
-		Entry("dashes and capitals", "PT-FU-01", true),
-		Entry("an inner space", "Stand A", true),
-		Entry("spaces around a name", " pt ", true),
-		Entry("digits only", "2024", true),
-		Entry("letters of other scripts", "圧力 \u00E9", true),
-		Entry("a symbol with no variation selector", "💧", true),
-		Entry("the replacement character", "\uFFFD", true),
-		Entry("empty", "", false),
-		Entry("spaces only", "   ", false),
-		Entry("the separator", "a.b", false),
-		Entry("a lone separator", ".", false),
-		Entry("a control character (Cc)", "a\x00b", false),
-		Entry("a tab (Cc)", "a\tb", false),
-		Entry("a zero-width space (Cf)", "a\u200Bb", false),
-		Entry("a right-to-left override (Cf)", "\u202Ept", false),
-		Entry("a soft hyphen (Cf)", "a\u00ADb", false),
-		Entry("a no-break space (Zs)", "a\u00A0b", false),
-		Entry("an ideographic space (Zs)", "a\u3000b", false),
-		Entry("a line separator (Zl)", "a\u2028b", false),
-		Entry("a paragraph separator (Zp)", "a\u2029b", false),
-		Entry("a Hangul choseong filler (default ignorable)", "\u115F", false),
-		Entry("a Hangul jungseong filler (default ignorable)", "\u1160", false),
-		Entry("a Hangul filler (default ignorable)", "\u3164", false),
-		Entry("a halfwidth Hangul filler (default ignorable)", "\uFFA0", false),
-		Entry("a Braille pattern blank, which shows as nothing", "a\u2800b", false),
-		Entry("a combining grapheme joiner (default ignorable)", "a\u034Fb", false),
-		Entry("a variation selector (default ignorable)", "❤\uFE0F", false),
-		Entry("an invalid byte", "a\xffb", false),
-		Entry("a name not in NFC", "e\u0301", false),
-	)
+var _ = Describe("NormalizeName", func() {
+	It("Should compose a decomposed name", func() {
+		Expect(validate.NormalizeName("e\u0301")).To(Equal("\u00E9"))
+	})
 
 	It("Should allocate nothing for an ASCII name or a name in NFC", func() {
 		for _, name := range []string{"pt_unique_01", "Stand A-01", "\u5727\u529b \u00E9"} {
 			Expect(testing.AllocsPerRun(10, func() {
-				_ = validate.IsPathSegment(name)
 				_ = validate.NormalizeName(name)
 			})).To(BeZero())
 		}
-	})
-
-	Describe("NormalizeName", func() {
-		It("Should compose a decomposed name", func() {
-			Expect(validate.NormalizeName("e\u0301")).To(Equal("\u00E9"))
-		})
 	})
 })

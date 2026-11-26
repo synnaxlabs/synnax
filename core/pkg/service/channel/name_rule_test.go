@@ -112,7 +112,7 @@ var _ = Describe("Name rule", Ordered, func() {
 	It("Should refuse a name that breaks the rule", func(ctx SpecContext) {
 		ch := virtual("stand.pt")
 		Expect(create(ctx, &ch)).
-			To(MatchError(ContainSubstring("no '.' or invisible character")))
+			To(MatchError(ContainSubstring("cannot hold a '.' or invalid UTF-8")))
 	})
 
 	It(

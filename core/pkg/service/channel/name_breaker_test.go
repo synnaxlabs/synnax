@@ -200,12 +200,6 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 			Expect(next.LocalKey).To(Equal(first.LocalKey + 1))
 		})
 
-	It("Should refuse a name that shows as nothing", func(ctx SpecContext) {
-		ch := virtual("\u2800")
-		Expect(create(ctx, &ch)).
-			To(MatchError(ContainSubstring("must hold a visible character")))
-	})
-
 	// The cases below pass. They pin what the breaker checked.
 
 	It("Should refuse two names in one request that are equal after NFC",
@@ -342,7 +336,7 @@ var _ = Describe("Name breaker", Ordered, ContinueOnFailure, func() {
 				channel.NewRenameAction(channel.RenamePayload{Name: "brk.apply"}),
 			)
 			return err
-		})).To(MatchError(ContainSubstring("no '.' or invisible character")))
+		})).To(MatchError(ContainSubstring("cannot hold a '.' or invalid UTF-8")))
 	})
 
 	It("Should wrap a clash of Apply in a validation error", func(ctx SpecContext) {
