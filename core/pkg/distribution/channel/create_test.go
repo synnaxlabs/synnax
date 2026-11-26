@@ -148,6 +148,9 @@ var _ = Describe("Issued", Ordered, func() {
 		Entry("a key leased to another node", func() channel.Key {
 			return channel.NewKey(node.Key(99), leased.LocalKey+1000)
 		}, true),
+		Entry("a key of lease 0, which names no node", func() channel.Key {
+			return channel.NewKey(0, 42)
+		}, false),
 	)
 })
 

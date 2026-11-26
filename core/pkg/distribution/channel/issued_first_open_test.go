@@ -52,4 +52,13 @@ var _ = Describe("IssuedAtFirstOpen", func() {
 			Expect(reopened.IssuedAtFirstOpen(ch.Key())).To(BeFalse())
 		}
 	})
+
+	It("Should report a key of lease 0 as never issued", func(ctx SpecContext) {
+		store := DeferClose(storagetestutil.OpenLayer(ctx))
+		svc := MustSucceed(channel.NewService(ctx, channel.ServiceConfig{
+			HostKey: node.Key(1),
+			KV:      store.KV,
+		}))
+		Expect(svc.IssuedAtFirstOpen(channel.NewKey(0, 42))).To(BeFalse())
+	})
 })
