@@ -116,7 +116,7 @@ const FORMAT_NAMES: Record<kafka.Format, string> = {
 };
 
 interface Listing extends kafka.BrowseResult {
-  /** Names the browse, so each one opens a fresh tree and drops the earlier samples. */
+  /** Names the browse, so each one opens a fresh tree. */
   key: string;
   /** When the browse answered. */
   listedAt: TimeStamp;
@@ -133,14 +133,6 @@ type Sample =
   | { variant: "loading" }
   | { variant: "success"; data: kafka.SampledTopic }
   | { variant: "error"; status: status.Status };
-
-interface ListingSamples {
-  listing: string | null;
-  /** The samples read since the current listen started. Its listing keeps them. */
-  topics: Map<string, Sample>;
-  /** The samples of an earlier listing, shown until the current listen answers. */
-  before: Map<string, Sample>;
-}
 
 const NO_TOPICS: kafka.Topic[] = [];
 
@@ -468,12 +460,7 @@ const Content = ({
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
   const [wholePicks, setWholePicks] = useState<WholePicks>(() => new Map());
   const [format, setFormat] = useState<Format | null>(null);
-  const [samples, setSamples] = useState<ListingSamples>(() => ({
-    listing: null,
-    topics: new Map(),
-    before: new Map(),
-  }));
-  const { result, listen, follow } = ICD.Picker.useListen<Listing>(
+  const { result, listen, follow, reads } = ICD.Picker.useListen<Listing, Sample>(
     async (client) => {
       const answer = await browseTopics(client, device);
       return { ...answer, key: id.create(), listedAt: TimeStamp.now() };
@@ -481,30 +468,13 @@ const Content = ({
     [device.key],
   );
   const listing = result.data;
-  if (listing != null && samples.listing !== listing.key)
-    setSamples({ listing: listing.key, topics: samples.topics, before: new Map() });
-  const sampleOf = (topic: string): Sample | undefined =>
-    samples.topics.get(topic) ?? samples.before.get(topic);
-  const handleListen = () => {
-    setSamples((prev) => ({
-      listing: prev.listing,
-      topics: new Map(),
-      before: new Map([...prev.before, ...prev.topics]),
-    }));
-    listen();
-  };
 
   const loadSample = async (topic: string): Promise<kafka.SampledTopic | null> => {
-    const set = (sample: Sample) =>
-      setSamples((prev) => ({
-        ...prev,
-        topics: new Map(prev.topics).set(topic, sample),
-      }));
-    set({ variant: "loading" });
+    reads.set(topic, { variant: "loading" });
     try {
       const data = await follow((client) => sampleTopic(client, device, topic));
       if (data == null) return null;
-      set({ variant: "success", data });
+      reads.set(topic, { variant: "success", data });
       setPicks((prev) => rebase(prev, topic, data.shapes));
       setWholePicks((prev) =>
         prev.has(topic)
@@ -518,7 +488,7 @@ const Content = ({
       );
       return data;
     } catch (e) {
-      set({
+      reads.set(topic, {
         variant: "error",
         status: status.fromException(e, {
           message: "Failed to read records",
@@ -547,7 +517,7 @@ const Content = ({
           ?.name ?? null);
   const active = selected ?? firstActive;
   const activeEntry = entries.find(({ name }) => name === active) ?? null;
-  const activeSample = active == null ? undefined : sampleOf(active);
+  const activeSample = active == null ? undefined : reads.get(active);
   useEffect(() => {
     if (activeEntry != null && sampleable(activeEntry) && activeSample == null)
       void loadSample(activeEntry.name);
@@ -557,7 +527,7 @@ const Content = ({
   const visible = entries.filter(({ name }) => search.matches(name, trimmed));
   const items = visible.map((entry): ICD.Picker.TreeItem => {
     const { name, listed: topic } = entry;
-    const sample = sampleOf(name);
+    const sample = reads.get(name);
     let picked = countOf(picks.get(name)?.picks);
     let free =
       sample?.variant === "success"
@@ -589,7 +559,7 @@ const Content = ({
       setWholePicks((prev) => withWhole(prev, topic, false, null));
       return;
     }
-    const sample = sampleOf(topic);
+    const sample = reads.get(topic);
     const entry = entries.find(({ name }) => name === topic);
     let data = sample?.variant === "success" ? sample.data : null;
     // A failed read still picks the topic, so the user can add a target offline.
@@ -606,7 +576,7 @@ const Content = ({
       await pickWhole(topic);
       return;
     }
-    const sample = sampleOf(topic);
+    const sample = reads.get(topic);
     const data = sample?.variant === "success" ? sample.data : await loadSample(topic);
     if (data == null) return;
     const defaults = defaultsOf(data.shapes, readsOf(topic));
@@ -626,7 +596,7 @@ const Content = ({
 
   const browsing = result.variant === "loading";
   const browseFailed = result.variant === "error";
-  const reading = entries.find(({ name }) => sampleOf(name)?.variant === "loading");
+  const reading = entries.find(({ name }) => reads.get(name)?.variant === "loading");
   // The write dialog counts the topics it can write that the cluster does not list.
   let statusText = pluralize("topic", whole ? entries.length : listed.length, true);
   if (browsing) statusText = "Listing topics";
@@ -709,7 +679,7 @@ const Content = ({
     pane =
       whole && shape != null ? (
         <WholeValues
-          key={`${samples.listing}/${topic}`}
+          key={`${listing?.key}/${topic}`}
           name={topic}
           note={note}
           warning={warning === "" ? null : warning}
@@ -719,7 +689,7 @@ const Content = ({
         />
       ) : (
         <TopicValues
-          key={`${samples.listing}/${topic}`}
+          key={`${listing?.key}/${topic}`}
           name={topic}
           note={note}
           warning={warning === "" ? null : warning}
@@ -792,7 +762,7 @@ const Content = ({
         <ICD.Picker.Status
           status={statusText}
           loading={browsing || reading != null}
-          onListen={handleListen}
+          onListen={listen}
         />
         <ICD.Picker.Side>
           <ICD.Picker.Search

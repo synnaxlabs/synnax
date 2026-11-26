@@ -133,7 +133,7 @@ func (o *overrides) node(
 		}
 		c := symbol.Symbol{Name: src.Name, Group: src.Group}
 		c.Data = *drawn
-		key, err := o.copy(ctx, src.Key, states, actuated, schematic, c, recolored)
+		key, err := o.copy(ctx, src.Key, states, schematic, c, recolored)
 		if err != nil {
 			return SymbolNodeConfig{}, err
 		}
@@ -170,13 +170,13 @@ func nodeEntries(
 
 // copy creates c, a copy of the symbol with key src, and returns its key. When entries
 // is not empty, the first state of c gets an enumeration of entries. A scale that is
-// not positive becomes 1. Nodes share a copy when they have the same source symbol,
-// overrides states, and actuated. The copy gets the next copyName of c in schematic.
+// not positive becomes 1. Nodes share a copy when they have the same source symbol and
+// overrides states, and their copies either both have commands or both lack them. The
+// copy gets the next copyName of c in schematic.
 func (o *overrides) copy(
 	ctx context.Context,
 	src symbol.Key,
 	states []symbolv4.State,
-	actuated bool,
 	schematic string,
 	c symbol.Symbol,
 	entries []enumeration.Entry,
@@ -185,7 +185,7 @@ func (o *overrides) copy(
 	if err != nil {
 		return uuid.Nil(), err
 	}
-	id := src.String() + strconv.FormatBool(actuated) + string(b)
+	id := src.String() + strconv.FormatBool(len(c.Data.Commands) > 0) + string(b)
 	if key, ok := o.copies[id]; ok {
 		return key, nil
 	}
