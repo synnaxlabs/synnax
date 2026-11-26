@@ -10,7 +10,8 @@
 import { DataType, type schematic } from "@synnaxlabs/client";
 import { createTestClient, spyOnSend } from "@synnaxlabs/client/testutil";
 import { mockBoundingClientRect } from "@synnaxlabs/lyra/testutil";
-import { id, uuid, xy } from "@synnaxlabs/x";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
+import { id, TimeSpan, uuid, xy } from "@synnaxlabs/x";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -75,24 +76,27 @@ const renderSchematic = async (
     renderContext: canvasTest.record(),
     telemFactories: [],
   });
+  // A tooltip that shows again does so at once, so a spec sees it before it settles.
   const View = (): ReactElement => (
-    <Errors.SuspenseBoundary loading={null}>
-      <Schematic.Suspended schematicKey={key}>
-        <Schematic.Schematic
-          editable={editable}
-          visible
-          viewport={{ position: xy.ZERO, zoom: 1 }}
-          onViewportChange={() => {}}
-          onEditableChange={() => {}}
-          fitViewOnResize={false}
-          setFitViewOnResize={() => {}}
-          viewportMode="zoom"
-          onViewportModeChange={() => {}}
-          selected={[]}
-          onSelectionChange={() => {}}
-        />
-      </Schematic.Suspended>
-    </Errors.SuspenseBoundary>
+    <Tooltip.Config skipDelay={TimeSpan.HOUR}>
+      <Errors.SuspenseBoundary loading={null}>
+        <Schematic.Suspended schematicKey={key}>
+          <Schematic.Schematic
+            editable={editable}
+            visible
+            viewport={{ position: xy.ZERO, zoom: 1 }}
+            onViewportChange={() => {}}
+            onEditableChange={() => {}}
+            fitViewOnResize={false}
+            setFitViewOnResize={() => {}}
+            viewportMode="zoom"
+            onViewportModeChange={() => {}}
+            selected={[]}
+            onSelectionChange={() => {}}
+          />
+        </Schematic.Suspended>
+      </Errors.SuspenseBoundary>
+    </Tooltip.Config>
   );
   let utils!: ReturnType<typeof render>;
   await act(async () => {
@@ -326,6 +330,44 @@ describe("Schematic", () => {
     const close = await utils.findByRole("menuitem", { name: "Close", hidden: true });
     expect(utils.queryByText("Stale timeout")).toBeNull();
     fireEvent.click(close);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+  });
+
+  it("should keep the tooltip hidden after a pick off the node", async () => {
+    const { utils } = await renderSchematic(
+      [
+        {
+          key: "v1",
+          position: xy.ZERO,
+          config: {
+            variant: "symbol",
+            spec: { type: "builtin", name: "valve" },
+            states: [
+              {
+                key: "active",
+                source: { type: "local", value: 3 },
+                match: { type: "exact" },
+              },
+            ],
+          },
+        },
+      ],
+      { editable: false, registry: symbolNode.REGISTRY },
+    );
+    const button = await waitFor(() => {
+      const el = utils.container.querySelector<HTMLElement>(".react-flow__node button");
+      if (el == null) throw new Error("no symbol button yet");
+      return el;
+    });
+    fireEvent.mouseMove(button);
+    await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
+    fireEvent.click(button);
+    const close = await utils.findByRole("menuitem", { name: "Close", hidden: true });
+    fireEvent.mouseMove(close);
+    fireEvent.click(close);
+    await act(async () => {});
+    expect(utils.queryByText("Stale timeout")).toBeNull();
+    fireEvent.mouseMove(button);
     await utils.findByText("Stale timeout", undefined, { timeout: 3000 });
   });
 });
