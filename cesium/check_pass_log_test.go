@@ -610,7 +610,7 @@ var _ = Describe("Check pass on the pointer log", func() {
 			cesium.WithInstrumentation(ins),
 			parted,
 		)).Close()).To(Succeed())
-		want := old.without(2, int(p.size/8))
+		want := old.without(2, 3)
 		segs := segmentsOf()
 		// finished waits up to 30 seconds for the pass on fs to give each version 0
 		// segment its check file. It runs inside an event of the DB, so it returns an
