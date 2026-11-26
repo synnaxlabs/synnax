@@ -1,0 +1,74 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/device"
+import "schemas/synnax/icd"
+import "schemas/synnax/task"
+
+@cpp output "client/cpp/tcp"
+@go output  "core/pkg/service/tcp"
+@py output  "client/py/synnax/tcp"
+@ts output  "client/ts/src/tcp"
+
+Properties struct {
+    host string = "" {
+        @doc value           "is the host name or IP address of the server."
+        @validate min_length 1
+    }
+    port uint16 = 0 {
+        @doc value    "is the TCP port of the server."
+        @validate min 1
+    }
+
+    @doc value "configures the server that a TCP device connects to."
+}
+
+ReadConfig struct extends task.PersistConfig {
+    device  device.Key = "" {
+        @doc value     "is the key of the TCP device to read from."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    entries icd.ReadEntry[] {
+        @doc value "contains the devices on the connection and the messages they send."
+    }
+
+    @doc value           """
+        configures a TCP read task, which reads the frames of a TCP connection as ICD
+        messages and writes their fields to channels.
+    """
+    @go entry            "tcp_read_config"
+    @go imex             body
+    @go marshal
+    @go migrate
+    @patch
+    @retrieve references
+}
+
+WriteConfig struct extends task.StartConfig {
+    device  device.Key = "" {
+        @doc value     "is the key of the TCP device to write to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    targets icd.WriteTarget[] {
+        @doc value "contains the messages the task sends on the connection."
+    }
+
+    @doc value           """
+        configures a TCP write task, which sends ICD messages on a TCP connection from
+        the commands of channels.
+    """
+    @go entry            "tcp_write_config"
+    @go imex             body
+    @go marshal
+    @go migrate
+    @patch
+    @retrieve references
+}
