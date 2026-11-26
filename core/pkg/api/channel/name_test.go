@@ -29,7 +29,7 @@ import (
 )
 
 var _ = Describe("Names", func() {
-	It("Should find a channel by the decomposed form of its name", func(
+	It("Should find a channel by the decomposed form of its stored name", func(
 		ctx SpecContext,
 	) {
 		u := MustSucceed(rbactestutil.CreateUser(
@@ -41,11 +41,17 @@ var _ = Describe("Names", func() {
 			[]access.Action{access.ActionRetrieve},
 			resource.ID{Type: resource.TypeChannel},
 		)
-		decomposed := UniqueChannelName() + "_e\u0301"
-		ch := channel.Channel{Name: decomposed, DataType: telem.Float32T, Virtual: true}
+		name := UniqueChannelName()
+		ch := channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
+		// A Core with name validation off stored a name in NFC outside the rule.
+		stored := ch
+		stored.Name = name + "_\u00E9"
+		Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, stored)).
+			To(Succeed())
+		decomposed := name + "_e\u0301"
 		for _, where := range []channel.Where{
 			{Name: &filter.String{Eq: &decomposed}},
 			{Or: []channel.Where{{Name: &filter.String{In: []string{decomposed}}}}},

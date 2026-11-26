@@ -759,15 +759,20 @@ var _ = Describe("Framer", func() {
 		It("Should delete the data of the channel that holds the name in NFC", func(
 			ctx SpecContext,
 		) {
-			name := UniqueChannelName() + "_e\u0301"
 			index := channel.Channel{
-				Name:     name,
+				Name:     UniqueChannelName(),
 				DataType: telem.TimestampT,
 				IsIndex:  true,
 			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.Channel.NewWriter(tx).Create(ctx, &index)
 			})).To(Succeed())
+			// A Core with name validation off stored a name in NFC outside the rule.
+			stored := index
+			stored.Name = index.Name + "_\u00E9"
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, stored)).
+				To(Succeed())
+			name := index.Name + "_e\u0301"
 			keys := channel.Keys{index.Key()}
 			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
 				Start: telem.SecondTS,

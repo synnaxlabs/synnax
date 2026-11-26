@@ -36,14 +36,19 @@ var _ = Describe("Name checks", func() {
 		return channel.Channel{Name: name, DataType: telem.Float32T, Virtual: true}
 	}
 
-	It("Should find a channel by the decomposed form of its name", func(
+	It("Should find a channel by the decomposed form of its stored name", func(
 		ctx SpecContext,
 	) {
-		decomposed := UniqueChannelName() + "_é"
-		ch := virtual(decomposed)
+		ch := virtual(UniqueChannelName())
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
+		// A Core with name validation off stored a name in NFC outside the rule.
+		stored := ch
+		stored.Name = ch.Name + "_\u00E9"
+		Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, stored)).
+			To(Succeed())
+		decomposed := ch.Name + "_e\u0301"
 		// A lookup enters through a Where, which the API puts in NFC.
 		lookup := MustSucceed(channel.MatchWhere(channel.NormalizeWhere(
 			channel.Where{Name: &filter.String{Eq: &decomposed}},
