@@ -16,7 +16,7 @@ from playwright.sync_api import Locator, expect
 from console.page import PageType
 from console.task_page import TaskPage
 
-CLUSTER_FIELD_LABEL = "Kafka cluster"
+_CLUSTER_FIELD_LABEL = "Kafka cluster"
 _DETAILS_SELECTOR = ".console-details__form"
 _LIST_SELECTOR = ".console-panes__list"
 _TOPIC_SELECTOR = '[role="treeitem"][aria-level="1"]'
@@ -95,7 +95,7 @@ class KafkaTask(TaskPage):
 
         :param name: Name of the cluster device.
         """
-        self.select_device(CLUSTER_FIELD_LABEL, name=name)
+        self.select_device(_CLUSTER_FIELD_LABEL, name=name)
         self._add_button().wait_for(state="visible", timeout=10000)
 
     def add_topics(self, topics: list[str]) -> None:
