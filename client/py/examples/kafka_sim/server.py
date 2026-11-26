@@ -37,12 +37,16 @@ from pathlib import Path
 from typing import override
 from uuid import uuid4
 
-from confluent_kafka import Producer
+from confluent_kafka import KafkaException, Producer
+from confluent_kafka.admin import AdminClient
 
 import synnax as sy
 from examples.kafka_sim.broker import Broker, install
 from examples.simulators.device_sim import DeviceSim
 from synnax import kafka
+
+# The topics of the plant. The simulator is ready once each one has a leader.
+TOPICS = ("plant.sensors",)
 
 
 async def run_server(
@@ -53,12 +57,13 @@ async def run_server(
     main = asyncio.current_task()
     assert main is not None
     asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, main.cancel)
+    data_dir = Path(tempfile.gettempdir()) / f"synnax-kafka-sim-{port}"
     broker = Broker(
         install(),
         host=host,
         port=port,
         controller_port=controller_port,
-        data_dir=Path(tempfile.gettempdir()) / f"synnax-kafka-sim-{port}",
+        data_dir=data_dir,
     )
     try:
         await broker.start()
@@ -70,6 +75,11 @@ async def run_server(
         count = 0
         start = time.monotonic()
         while True:
+            if broker.returncode is not None:
+                raise RuntimeError(
+                    f"The Kafka broker exited with code {broker.returncode}. Its logs "
+                    f"are in {data_dir / 'logs'}."
+                )
             t = time.monotonic() - start
             count += 1
             send(
@@ -89,7 +99,8 @@ async def run_server(
             value = "ERR" if count % 10 == 0 else math.cos(t)
             send("plant.mixed", {"count": count, "value": value})
             producer.poll(0)
-            await asyncio.sleep(1 / rate_hz)
+            # A fixed grid of ticks keeps the rate when a tick runs late.
+            await asyncio.sleep(start + count / rate_hz - time.monotonic())
     finally:
         await broker.stop()
 
@@ -113,6 +124,34 @@ class KafkaSim(DeviceSim):
     @override
     def stop(self, timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND) -> None:
         super().stop(timeout)
+
+    @override
+    def _wait_for_ready(self) -> None:
+        """Poll until the broker lists each topic of the plant with a leader."""
+        super()._wait_for_ready()
+        admin = AdminClient({"bootstrap.servers": f"{self.host}:{self.port}"})
+        timer = sy.Timer()
+        while True:
+            if self.process is None or not self.process.is_alive():
+                raise RuntimeError("Server process died during startup")
+            try:
+                topics = admin.list_topics(timeout=1).topics
+            except KafkaException:
+                topics = {}
+            if all(
+                (topic := topics.get(name)) is not None
+                and topic.error is None
+                and len(topic.partitions) > 0
+                and all(p.leader >= 0 for p in topic.partitions.values())
+                for name in TOPICS
+            ):
+                return
+            if timer.elapsed() > self.startup_timeout:
+                raise RuntimeError(
+                    f"Kafka broker on {self.host}:{self.port} has no leader for each "
+                    f"of {TOPICS} after {self.startup_timeout}"
+                )
+            sy.sleep(0.1)
 
     @override
     async def _run_server(self) -> None:

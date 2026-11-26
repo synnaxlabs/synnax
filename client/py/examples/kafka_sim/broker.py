@@ -58,7 +58,12 @@ def install(cache: Path = CACHE) -> Path:
             raise RuntimeError(f"{URL} does not match its pinned SHA-512")
         with tarfile.open(archive) as tar:
             tar.extractall(tmp, filter="data")
-        (Path(tmp) / RELEASE).rename(home)
+        try:
+            (Path(tmp) / RELEASE).rename(home)
+        except OSError:
+            # Another process installed the release first.
+            if not home.is_dir():
+                raise
     return home
 
 
@@ -121,6 +126,11 @@ class Broker:
                 stdout=console,
                 stderr=console,
             )
+
+    @property
+    def returncode(self) -> int | None:
+        """The exit code of the broker, or None before it starts and while it runs."""
+        return None if self._process is None else self._process.returncode
 
     async def stop(self) -> None:
         """Stop the broker. Kill it if it does not stop within 20 seconds."""
