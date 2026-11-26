@@ -65,11 +65,6 @@ var _ = Describe("Options", func() {
 				To(MatchError(ContainSubstring(message)))
 		},
 		Entry(
-			"a non-positive slow consumer timeout",
-			cesium.WithSlowConsumerTimeout(0),
-			"slow_consumer_timeout: must be positive",
-		),
-		Entry(
 			"a non-positive chunk size",
 			cesium.WithChunkSize(0),
 			"chunk_size: must be positive",
@@ -273,32 +268,32 @@ var _ = Describe("Open after a crash", func() {
 					},
 				))).To(Succeed())
 				w := DeferClose(MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
-					Channels:                 keys,
-					Start:                    10 * telem.SecondTS,
-					Mode:                     cesium.WriterModePersistStream,
-					Sync:                     new(true),
-					AutoIndexPersistInterval: telem.Hour,
+					Channels: keys,
+					Start:    10 * telem.SecondTS,
+					Mode:     cesium.WriterModePersistStream,
 				})))
-				MustSucceed(w.Write(telem.MultiFrame(
+				MustSucceed(w.Write(ctx, telem.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(10, 11, 12),
 						newSeries(10, 11, 12),
 					},
 				)))
+				MustSucceed(w.Commit(ctx))
 				By("Saving the domain of both channels")
 				Expect(db.DeleteTimeRange(
 					ctx,
 					keys,
 					(1 * telem.SecondTS).Range(2*telem.SecondTS),
 				)).To(Succeed())
-				MustSucceed(w.Write(telem.MultiFrame(
+				MustSucceed(w.Write(ctx, telem.MultiFrame(
 					keys,
 					[]telem.Series{
 						telem.NewSeriesSecondsTSV(13, 14, 15),
 						newSeries(13, 14, 15),
 					},
 				)))
+				MustSucceed(w.Commit(ctx))
 				By("Saving the domain of only the data channel")
 				Expect(db.DeleteTimeRange(
 					ctx,

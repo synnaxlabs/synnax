@@ -17,13 +17,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/x/confluence"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,20 +40,6 @@ var _ = Describe("storage", func() {
 				InMemory: new(true),
 			}))
 			StartRun(l.Run)
-			streamer := MustSucceed(l.TS.NewStreamer(cesium.StreamerConfig{
-				SendOpenAck: true,
-			}))
-			requests := confluence.NewStream[cesium.StreamerRequest]()
-			responses := confluence.NewStream[cesium.StreamerResponse](1)
-			streamer.InFrom(requests)
-			streamer.OutTo(responses)
-			sCtx, cancel := signal.WithCancel(ctx)
-			DeferCleanup(cancel)
-			streamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-			// The streamer acknowledges its open only once the relay runs.
-			Eventually(responses.Outlet()).Should(Receive())
-			requests.Close()
-			Eventually(sCtx.Stopped()).Should(BeClosed())
 		})
 
 		It("Should run the Gorp DB until its context ends", func(ctx SpecContext) {

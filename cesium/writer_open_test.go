@@ -436,11 +436,11 @@ var _ = Describe("Writer open", func() {
 			finishDelete()
 			var w *cesium.Writer
 			Eventually(opened).Should(Receive(&w))
-			Expect(MustSucceed(w.Write(telem.UnaryFrame(
+			MustSucceed(w.Write(ctx, telem.UnaryFrame(
 				idxKey,
 				telem.NewSeriesSecondsTSV(10, 11),
-			)))).To(BeTrue())
-			MustSucceed2(w.Commit())
+			)))
+			MustSucceed(w.Commit(ctx))
 			Expect(w.Close()).To(Succeed())
 		})
 	})

@@ -20,7 +20,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -917,8 +916,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							db.OpenWriter(
 								ctx,
 								domain.WriterConfig{
-									Start:                    10 * telem.SecondTS,
-									AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
+									Start: 10 * telem.SecondTS,
+									// -1 persists every commit. 0 takes the 1s default.
+									AutoIndexPersistInterval: -1,
 								},
 							),
 						)

@@ -236,11 +236,41 @@ var _ = Describe("Writer", func() {
 		)
 	})
 
-	Describe("Free Write Group Propagation", func() {
-		It(
+	Describe("Requests", func() {
+		It("Should reject an unknown command", func(ctx SpecContext) {
+			host := testutil.NewNode(ctx)
+			keys := channel.KeysFromChannels(
+				MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:     "unknown_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}})),
+			)
+			w := MustSucceed(host.Framer.NewStreamWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			in, out := confluence.Attach(w, 1)
+			w.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			in.Inlet() <- writer.Request{Command: writer.Command(9)}
+			var res writer.Response
+			Eventually(out.Outlet()).Should(Receive(&res))
+			Expect(res.Err).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("invalid writer command")),
+			))
+			in.Close()
+			Expect(sCtx.Wait()).To(MatchError(validate.ErrValidation))
+		})
+	})
+
+	Describe("Write Group Propagation", func() {
+		DescribeTable(
 			"Should propagate the writer's group to the streamer response",
-			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -268,11 +298,13 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Group).To(Equal(uint32(42)))
 			},
+			Entry("Storage", storageScenario),
+			Entry("Free", freeWriterScenario),
 		)
-		It(
+		DescribeTable(
 			"Should set group to zero when the writer has no group",
-			func(ctx SpecContext) {
-				s := DeferClose(freeWriterScenario(ctx))
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
 				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
 					Keys:        s.keys,
 					SendOpenAck: new(true),
@@ -299,6 +331,8 @@ var _ = Describe("Writer", func() {
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Group).To(Equal(uint32(0)))
 			},
+			Entry("Storage", storageScenario),
+			Entry("Free", freeWriterScenario),
 		)
 	})
 
@@ -559,6 +593,124 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Control", func() {
+		DescribeTable(
+			"Should report a refused write once and keep the end of a commit with control",
+			func(ctx SpecContext, sync bool) {
+				host := testutil.NewNode(ctx)
+				keys := channel.KeysFromChannels(
+					MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+						Name:     "refused_time",
+						IsIndex:  true,
+						DataType: telem.TimestampT,
+					}})),
+				)
+				open := func(key string, authority control.Authority) *writer.Writer {
+					GinkgoHelper()
+					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject:   control.Subject{Key: key},
+						Keys:             keys,
+						Start:            10 * telem.SecondTS,
+						Authorities:      []control.Authority{authority},
+						EnableAutoCommit: new(false),
+						Sync:             new(sync),
+					}))
+				}
+				frameAt := func(second telem.TimeStamp) frame.Frame {
+					return frame.NewMulti(
+						keys,
+						[]telem.Series{telem.NewSeriesSecondsTSV(second)},
+					)
+				}
+				low := open("low", 1)
+				Expect(low.Write(frameAt(10))).To(BeTrue())
+				Expect(MustCommit(low)).To(Equal(10*telem.SecondTS + 1))
+				high := open("high", 2)
+				Expect(low.Write(frameAt(11))).To(Equal(!sync))
+				// A synchronous command orders the write before control returns.
+				Expect(low.SetAuthority(writer.Config{
+					Authorities: []control.Authority{1},
+				})).To(Succeed())
+				Expect(high.Close()).To(Succeed())
+				Expect(low.Write(frameAt(12))).To(BeTrue())
+				end, authorized := MustSucceed2(low.Commit())
+				Expect(authorized).To(BeFalse())
+				Expect(end).To(Equal(12*telem.SecondTS + 1))
+				Expect(low.Write(frameAt(13))).To(BeTrue())
+				Expect(MustCommit(low)).To(Equal(13*telem.SecondTS + 1))
+				Expect(low.Close()).To(Succeed())
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   keys,
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+				Expect(iter.Value().SeriesAt(0).Len()).To(Equal(int64(3)))
+				Expect(iter.Close()).To(Succeed())
+			},
+			Entry("sync", true),
+			Entry("async", false),
+		)
+		It(
+			"Should hand off control to a waiting writer when a writer's context is canceled",
+			func(ctx SpecContext) {
+				host := testutil.NewNode(ctx)
+				idx := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:     "handoff_time",
+					IsIndex:  true,
+					DataType: telem.TimestampT,
+				}}))[0]
+				data := MustSucceed(host.CreateChannels(ctx, []channel.Channel{{
+					Name:       "handoff",
+					DataType:   telem.Int16T,
+					LocalIndex: idx.LocalKey,
+				}}))[0]
+				keys := channel.Keys{idx.Key(), data.Key()}
+				frameAt := func(values []int16, seconds ...telem.TimeStamp) frame.Frame {
+					return frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesSecondsTSV(seconds...),
+						telem.NewSeries(values),
+					})
+				}
+				open := func(
+					ctx context.Context,
+					key string,
+					authority control.Authority,
+				) *writer.Writer {
+					GinkgoHelper()
+					return MustSucceed(host.Framer.OpenWriter(ctx, writer.Config{
+						ControlSubject: control.Subject{Key: key},
+						Keys:           keys,
+						Start:          10 * telem.SecondTS,
+						Authorities:    []control.Authority{authority},
+						Sync:           new(true),
+					}))
+				}
+				firstCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				first := open(firstCtx, "first", control.AuthorityAbsolute-2)
+				second := open(ctx, "second", control.AuthorityAbsolute-3)
+				Expect(first.Write(frameAt([]int16{1, 2, 3}, 10, 11, 12))).To(BeTrue())
+				cancel()
+				Expect(first.Close()).To(Succeed())
+				Expect(second.Write(frameAt([]int16{4, 5, 6}, 13, 14, 15))).To(BeTrue())
+				Expect(MustCommit(second)).To(Equal(15*telem.SecondTS + 1))
+				Expect(second.Close()).To(Succeed())
+				iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{
+					Keys:   channel.Keys{data.Key()},
+					Bounds: telem.TimeRangeMax,
+				}))
+				Expect(iter.SeekFirst()).To(BeTrue())
+				Expect(iter.Next(telem.TimeSpanMax)).To(BeTrue())
+				Expect(iter.Value().Count()).To(Equal(1))
+				Expect(iter.Value().SeriesAt(0).Data).To(Equal(
+					telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data,
+				))
+				Expect(iter.Close()).To(Succeed())
+			},
+		)
+	})
+
 	Describe("Persist Only", func() {
 		It(
 			"Should commit a writer of stored and free channels that is not sync",
@@ -634,6 +786,38 @@ var _ = Describe("Writer", func() {
 				Eventually(committed).Should(BeClosed())
 				Expect(w.Close()).To(MatchError(ContainSubstring("index out of order")))
 			},
+		)
+		DescribeTable(
+			"Should not stream the writes of a persist-only writer",
+			func(ctx SpecContext, open func(context.Context) scenario) {
+				s := DeferClose(open(ctx))
+				streamer := MustSucceed(s.dist.Framer.NewStreamer(framer.StreamerConfig{
+					Keys:        s.keys,
+					SendOpenAck: new(true),
+				}))
+				_, out := confluence.Attach(streamer, 10)
+				sCtx, cancel := signal.WithCancel(ctx)
+				defer cancel()
+				streamer.Flow(sCtx)
+				Eventually(out.Outlet()).Should(Receive())
+				w := MustOpen(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Mode:  cesium.WriterModePersistOnly,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesV[int64](1, 2, 3),
+						telem.NewSeriesV[int64](3, 4, 5),
+						telem.NewSeriesV[int64](5, 6, 7),
+					},
+				))).To(BeTrue())
+				Consistently(out.Outlet()).ShouldNot(Receive())
+			},
+			Entry("Storage", storageScenario),
+			Entry("Free", freeWriterScenario),
 		)
 	})
 

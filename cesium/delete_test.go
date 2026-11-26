@@ -153,6 +153,26 @@ var _ = Describe("Delete", func() {
 								Expect(w.Close()).To(Succeed())
 								Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
 							})
+							Specify(
+								"Two writers on a unary channel",
+								func(ctx SpecContext) {
+									Expect(
+										db.CreateChannel(ctx, uChannel),
+									).To(Succeed())
+									cfg := cesium.WriterConfig{
+										Start:    10 * telem.SecondTS,
+										Channels: []cesium.ChannelKey{uChannelKey},
+									}
+									w1 := MustSucceed(db.OpenWriter(ctx, cfg))
+									w2 := MustSucceed(db.OpenWriter(ctx, cfg))
+									Expect(
+										db.DeleteChannel(uChannelKey),
+									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
+									Expect(w1.Close()).To(Succeed())
+									Expect(w2.Close()).To(Succeed())
+									Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
+								},
+							)
 						},
 					)
 					Describe(
@@ -214,64 +234,6 @@ var _ = Describe("Delete", func() {
 					Describe(
 						"Deleting a channel that is being streamed from should error",
 						func() {
-							Specify("Virtual Channel", func(ctx SpecContext) {
-								By("Creating a channel")
-								Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
-								By("Opening a streamer on the channel")
-								s := MustSucceed(
-									db.NewStreamer(
-										cesium.StreamerConfig{
-											Channels: []cesium.ChannelKey{vChannelKey},
-										},
-									),
-								)
-								sCtx, cancel := signal.WithCancel(ctx)
-
-								By("Start streaming")
-								i, _ := confluence.Attach(s, 1)
-								s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-
-								By(
-									"Expecting delete channel to fail because there is an open streamer",
-								)
-								Expect(db.DeleteChannel(vChannelKey)).To(Succeed())
-
-								By(
-									"All other operations should still happen without error",
-								)
-								cancel()
-								i.Close()
-							})
-
-							Specify("Unary Channel", func(ctx SpecContext) {
-								By("Creating a channel")
-								Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
-								By("Opening a streamer on the channel")
-								s := MustSucceed(
-									db.NewStreamer(
-										cesium.StreamerConfig{
-											Channels: []cesium.ChannelKey{uChannelKey},
-										},
-									),
-								)
-								sCtx, cancel := signal.WithCancel(ctx)
-
-								By("Start streaming")
-								i, _ := confluence.Attach(s, 1)
-								s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
-
-								By(
-									"Expecting delete channel to fail because there is an open streamer",
-								)
-								Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
-
-								By(
-									"All other operations should still happen without error",
-								)
-								cancel()
-								i.Close()
-							})
-
 							Describe("StreamIterator", func() {
 								Specify("Unary", func(ctx SpecContext) {
 									Expect(
@@ -304,83 +266,6 @@ var _ = Describe("Delete", func() {
 								})
 							})
 
-							Describe("StreamWriter", func() {
-								Specify("Virtual", func(ctx SpecContext) {
-									Expect(
-										db.CreateChannel(ctx, vChannel),
-									).To(Succeed())
-									it := MustSucceed(
-										db.NewStreamWriter(
-											ctx,
-											cesium.WriterConfig{
-												Start: 10 * telem.SecondTS,
-												Channels: []cesium.ChannelKey{
-													vChannelKey,
-												},
-											},
-										),
-									)
-
-									Expect(
-										db.DeleteChannel(vChannelKey),
-									).To(MatchError(ContainSubstring("1 unclosed writers")))
-
-									sCtx, cancel := signal.Isolated()
-									i, _ := confluence.Attach(it, 1)
-									it.Flow(sCtx)
-
-									i.Close()
-									Expect(sCtx.Wait()).To(Succeed())
-									cancel()
-
-									Expect(db.DeleteChannel(vChannelKey)).To(Succeed())
-								})
-
-								Specify("Unary", func(ctx SpecContext) {
-									Expect(
-										db.CreateChannel(ctx, uChannel),
-									).To(Succeed())
-									it1 := MustSucceed(
-										db.NewStreamWriter(
-											ctx,
-											cesium.WriterConfig{
-												Start: 10 * telem.SecondTS,
-												Channels: []cesium.ChannelKey{
-													uChannelKey,
-												},
-											},
-										),
-									)
-									it2 := MustSucceed(
-										db.NewStreamWriter(
-											ctx,
-											cesium.WriterConfig{
-												Start: 10 * telem.SecondTS,
-												Channels: []cesium.ChannelKey{
-													uChannelKey,
-												},
-											},
-										),
-									)
-
-									Expect(
-										db.DeleteChannel(uChannelKey),
-									).To(MatchError(ContainSubstring("1 unclosed writers/iterators")))
-
-									sCtx, cancel := signal.Isolated()
-									i1, _ := confluence.Attach(it1, 1)
-									i2, _ := confluence.Attach(it2, 1)
-									it1.Flow(sCtx)
-									it2.Flow(sCtx)
-
-									i1.Close()
-									i2.Close()
-									Expect(sCtx.Wait()).To(Succeed())
-									cancel()
-
-									Expect(db.DeleteChannel(uChannelKey)).To(Succeed())
-								})
-							})
 							Specify(
 								"Deleting an index channel that other channels rely on should error",
 								func(ctx SpecContext) {
@@ -460,7 +345,7 @@ var _ = Describe("Delete", func() {
 								}))
 
 								By("Writing data to the channel")
-								MustSucceed(w.Write(telem.MultiFrame(
+								MustSucceed(w.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{
 										dataChannelKey,
 										indexChannelKey,
@@ -471,7 +356,7 @@ var _ = Describe("Delete", func() {
 									},
 								),
 								))
-								MustCommit(w)
+								MustSucceed(w.Commit(ctx))
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:
@@ -965,7 +850,7 @@ var _ = Describe("Delete", func() {
 						}))
 
 						By("Writing data to the channel")
-						MustSucceed(w.Write(telem.MultiFrame(
+						MustSucceed(w.Write(ctx, telem.MultiFrame(
 							[]cesium.ChannelKey{basic1, basic1Index},
 							[]telem.Series{
 								telem.NewSeriesV[int64](0, 1, 2, 3, 4, 5, 6, 7, 8, 9),
@@ -984,7 +869,7 @@ var _ = Describe("Delete", func() {
 							},
 						),
 						))
-						MustCommit(w)
+						MustSucceed(w.Commit(ctx))
 						Expect(w.Close()).To(Succeed())
 
 						// Before deletion:
@@ -1059,7 +944,7 @@ var _ = Describe("Delete", func() {
 							}))
 
 							By("Writing data to the channel")
-							MustSucceed(w.Write(telem.MultiFrame(
+							MustSucceed(w.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{basic2Index},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(
@@ -1077,7 +962,7 @@ var _ = Describe("Delete", func() {
 								},
 							),
 							))
-							MustCommit(w)
+							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
 
 							// Before deletion:
@@ -1163,7 +1048,7 @@ var _ = Describe("Delete", func() {
 								}))
 
 								By("Writing data to the channel")
-								MustSucceed(w.Write(telem.MultiFrame(
+								MustSucceed(w.Write(ctx, telem.MultiFrame(
 									[]cesium.ChannelKey{basic3, basic3Index},
 									[]telem.Series{
 										telem.NewSeriesV[int64](100, 101, 102),
@@ -1171,7 +1056,7 @@ var _ = Describe("Delete", func() {
 									},
 								),
 								))
-								MustCommit(w)
+								MustSucceed(w.Commit(ctx))
 								Expect(w.Close()).To(Succeed())
 
 								// Before deletion:
@@ -1228,7 +1113,7 @@ var _ = Describe("Delete", func() {
 							}))
 
 							By("Writing data to the channel")
-							MustSucceed(w.Write(telem.MultiFrame(
+							MustSucceed(w.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14),
@@ -1237,6 +1122,7 @@ var _ = Describe("Delete", func() {
 								},
 							),
 							))
+							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
 
 							By("Deleting channel data")
@@ -1313,7 +1199,7 @@ var _ = Describe("Delete", func() {
 								Channels: []cesium.ChannelKey{index1, basic1, basic2},
 								Start:    11 * telem.SecondTS,
 							}))
-							MustSucceed(w.Write(telem.MultiFrame(
+							MustSucceed(w.Write(ctx, telem.MultiFrame(
 								[]cesium.ChannelKey{index1, basic1, basic2},
 								[]telem.Series{
 									telem.NewSeriesSecondsTSV(11, 12, 13, 14),
@@ -1322,6 +1208,7 @@ var _ = Describe("Delete", func() {
 								},
 							),
 							))
+							MustSucceed(w.Commit(ctx))
 							Expect(w.Close()).To(Succeed())
 
 							Expect(w.Close()).To(Succeed())
