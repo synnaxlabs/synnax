@@ -111,6 +111,104 @@ func NewWriter(h *Handle, cfg Config) *Writer {
 	return w
 }
 
+// Resume returns the writer of the open segment of cfg in h, at its committed stream
+// length, whose unfinished last block has the running checksum tailCRC. It reads that
+// block's committed bytes back, and returns an error that wraps place.ErrCorrupt when
+// their checksum is not tailCRC. For a variable-density type, it then counts the sample
+// starts back from the last block trailer that names one.
+func Resume(h *Handle, cfg Config, length int64, tailCRC uint32) (*Writer, error) {
+	block := length - length%BlockSize
+	tail := make([]byte, length-block)
+	if err := cfg.ReadAt(h, tail, block); err != nil {
+		return nil, err
+	}
+	crc := place.Update(cfg.place(cfg.FileOffset(block)).Start(), tail)
+	if crc != tailCRC {
+		return nil, errors.Wrapf(
+			place.ErrCorrupt,
+			"tail of segment %d at stream offset %d has checksum %d, not %d",
+			cfg.ID,
+			block,
+			crc,
+			tailCRC,
+		)
+	}
+	at := cursor{length: length, crc: tailCRC, blockOff: NoStart}
+	if cfg.Variable {
+		if err := resumeStarts(h, cfg, &at); err != nil {
+			return nil, err
+		}
+	}
+	return &Writer{cfg: cfg, handle: h, at: at, committed: at}, nil
+}
+
+// resumeStarts sets the sample counts of at, whose length lies on a sample boundary. It
+// walks the samples from the first start in the last full block that has one, or from
+// the stream start when none has one. It checks that block and its trailer, since the
+// walk reads sample lengths there, and returns an error that wraps place.ErrCorrupt
+// when either fails.
+func resumeStarts(h *Handle, cfg Config, at *cursor) error {
+	tail := at.length - at.length%BlockSize
+	var base uint32
+	next := int64(0)
+	for k := tail/BlockSize - 1; k >= 0; k-- {
+		start := k * BlockSize
+		trailer := make([]byte, VariableTrailer)
+		end := cfg.FileOffset(start + BlockSize)
+		if _, err := h.ReadAt(trailer, end-VariableTrailer); err != nil {
+			return err
+		}
+		off := binary.LittleEndian.Uint32(trailer[4:])
+		if off == NoStart {
+			continue
+		}
+		if err := checkBlock(h, cfg, start, trailer, end); err != nil {
+			return err
+		}
+		base, next = binary.LittleEndian.Uint32(trailer), start+int64(off)
+		break
+	}
+	var before, total uint32
+	size := make([]byte, lengthSize)
+	for next < at.length {
+		if next >= tail && at.blockOff == NoStart {
+			at.blockOff = uint32(next - tail)
+		}
+		if next < tail {
+			before++
+		}
+		total++
+		if err := cfg.ReadAt(h, size, next); err != nil {
+			return err
+		}
+		next += lengthSize + int64(binary.LittleEndian.Uint32(size))
+	}
+	at.blockPos, at.samples = base+before, base+total
+	return nil
+}
+
+// checkBlock checks the full block of cfg in h at stream offset start against its
+// trailer, which ends at file offset end, and the trailer against its own checksum.
+func checkBlock(h *Handle, cfg Config, start int64, trailer []byte, end int64) error {
+	body := VariableTrailer - 4
+	tcrc := cfg.place(end - VariableTrailer).Sum(trailer[:body])
+	data := make([]byte, BlockSize)
+	if err := cfg.ReadAt(h, data, start); err != nil {
+		return err
+	}
+	crc := place.Update(cfg.place(cfg.FileOffset(start)).Start(), data)
+	if tcrc != binary.LittleEndian.Uint32(trailer[body:]) ||
+		crc != binary.LittleEndian.Uint32(trailer[8:]) {
+		return errors.Wrapf(
+			place.ErrCorrupt,
+			"block of segment %d at stream offset %d fails its trailer",
+			cfg.ID,
+			start,
+		)
+	}
+	return nil
+}
+
 // Write appends p to the stream, with the trailer of each block that p fills, and no
 // sync. p holds whole samples. Write stages at most one block and its trailer, so a
 // large write takes one write call per block. A failed write puts the writer back to
