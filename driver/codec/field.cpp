@@ -150,12 +150,19 @@ x::errors::Error check_limits(const icd::BaseField &b, const float v) {
     return check_limits(b, static_cast<double>(v));
 }
 
-x::errors::Error check_raw_limits(const icd::BaseField &b, const double raw) {
+x::errors::Error
+check_raw_limits(const icd::BaseField &b, const double raw, const bool narrow) {
     const double scaled = raw * b.scale;
+    const double decoded = scaled + b.offset;
+    if (narrow)
+        for (const auto &limit: {b.min, b.max})
+            if (limit.has_value() &&
+                static_cast<float>(*limit) == static_cast<float>(decoded))
+                return x::errors::NIL;
     return out_of_range(
         b,
         raw,
-        scaled + b.offset,
+        decoded,
         DECODE_ROUNDING * (std::abs(scaled) + std::abs(b.offset))
     );
 }

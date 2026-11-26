@@ -96,8 +96,10 @@ x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
 
 /// @brief returns VALIDATION when raw, a value before the scale and offset of b,
 /// decodes outside the min and max of b. It allows the float64 rounding of the decode,
-/// so a value that decodes to a limit passes.
-x::errors::Error check_raw_limits(const synnax::icd::BaseField &b, double raw);
+/// so a value that decodes to a limit passes. When narrow, a value that decodes to a
+/// limit at float32 precision is at that limit.
+x::errors::Error
+check_raw_limits(const synnax::icd::BaseField &b, double raw, bool narrow = false);
 
 /// @brief reports whether inner is outer or a pointer into the value at outer.
 bool within(const x::json::Pointer &inner, const x::json::Pointer &outer);

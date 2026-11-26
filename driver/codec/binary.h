@@ -189,6 +189,9 @@ class BinaryEncoder {
             const synnax::icd::BinaryField &f,
             const std::optional<x::telem::DataType> &dt
         );
+        /// @brief returns true when samples hold the field's sample, or the field has
+        /// a default.
+        [[nodiscard]] bool has_value(std::span<const x::telem::Series> samples) const;
         /// @brief returns the raw bits of the field's sample in samples, or of its
         /// default.
         [[nodiscard]] std::pair<std::uint64_t, x::errors::Error>
@@ -236,16 +239,16 @@ public:
     );
 
     /// @brief returns the error that encode returns when binding holds sample i of s
-    /// and its field is selected, or VALIDATION when the sample is outside the min and
-    /// max of the field of binding. A float32 sample that equals a limit at float32
-    /// precision is at that limit.
+    /// and its field is selected, or VALIDATION when the raw value of the sample
+    /// decodes outside the min and max of the field of binding. When the sample or the
+    /// field is float32, a value that decodes to a limit at float32 precision is at
+    /// that limit.
     [[nodiscard]] x::errors::Error
     check(std::size_t binding, const x::telem::Series &s, std::size_t i) const;
 
-    /// @brief returns true when the field of binding has a default, which encode writes
-    /// for an empty series.
-    [[nodiscard]] bool has_default(std::size_t binding) const {
-        return this->fields[this->bound[binding]].fallback.has_value();
-    }
+    /// @brief returns true when each field that the multiplexors select in samples has
+    /// a sample or a default, so encode has a value for it.
+    /// @param samples is as in encode.
+    [[nodiscard]] bool ready(std::span<const x::telem::Series> samples);
 };
 }

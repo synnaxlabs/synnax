@@ -246,14 +246,6 @@ std::pair<Writer, x::errors::Error> Writer::create(
     return {std::move(w), x::errors::NIL};
 }
 
-bool Writer::ready() const {
-    for (std::size_t b = 0; b < this->last.size(); b++)
-        if (this->last[b].empty() &&
-            !std::visit([b](const auto &e) { return e.has_default(b); }, this->encoder))
-            return false;
-    return true;
-}
-
 std::optional<Writer::Command>
 Writer::command(const std::size_t binding, std::size_t i) const {
     for (const auto *s: this->commands[binding]) {
@@ -292,7 +284,9 @@ Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
             keep(this->last[b], *cmd->series, cmd->index);
             good = true;
         }
-        if (result.error || !good || !this->ready()) continue;
+        if (result.error || !good ||
+            !std::visit([this](auto &e) { return e.ready(this->last); }, this->encoder))
+            continue;
         if (auto err = std::visit(
                 [&](auto &e) { return e.encode(this->last, this->payload); },
                 this->encoder

@@ -33,9 +33,9 @@ namespace driver::icd {
 /// @brief Writer encodes the commands of the channels of one ICD message into payloads
 /// of that message. Payload i of a frame holds command i of each bound channel, and the
 /// last good command of a channel with fewer. A field with no command yet sends its
-/// default, and the writer encodes nothing until each field with no default has a
-/// command. A command that its field refuses is dropped, and the field keeps its last
-/// good command. It is not safe for concurrent use.
+/// default, and the writer encodes nothing until each field that the multiplexors
+/// select has a command or a default. A command that its field refuses is dropped, and
+/// the field keeps its last good command. It is not safe for concurrent use.
 class Writer {
     std::variant<codec::BinaryEncoder, codec::TextEncoder, codec::JSONEncoder> encoder;
     /// @brief channels holds the command channel of each binding.
@@ -55,8 +55,6 @@ class Writer {
         std::size_t index;
     };
 
-    /// @brief returns true when each field with no default has a command.
-    [[nodiscard]] bool ready() const;
     /// @brief returns command i of binding in the frame of the current write, or
     /// nothing when binding has fewer.
     [[nodiscard]] std::optional<Command>

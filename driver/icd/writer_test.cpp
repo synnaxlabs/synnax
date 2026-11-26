@@ -741,4 +741,30 @@ TEST(Writer, DropRefusedBinaryCommands) {
         (std::vector<std::vector<double>>{{5, 2}})
     );
 }
+
+/// @brief it should send a multiplexed binary message once each field that the
+/// multiplexor selects has a command, and not wait for a field that it does not select.
+TEST(Writer, WaitOnlyForSelectedBinaryFields) {
+    auto c = binary_message();
+    const auto m = byte<synnax::icd::UnsignedBinaryField>("m", 0);
+    auto a = byte<synnax::icd::UnsignedBinaryField>("a", 1);
+    a.multiplexor = m.key;
+    a.multiplex_values = {0};
+    auto b = byte<synnax::icd::UnsignedBinaryField>("b", 2);
+    b.multiplexor = m.key;
+    b.multiplex_values = {1};
+    c.bind(m, 2);
+    c.bind(a, 3);
+    c.bind(b, 4);
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        sent(w, frame(2, x::telem::Series(0.0), 3, x::telem::Series(5.0))),
+        (std::vector<std::string>{std::string("\x00\x05\x00", 3)})
+    );
+    EXPECT_TRUE(sent(w, frame(2, x::telem::Series(1.0))).empty());
+    EXPECT_EQ(
+        sent(w, frame(4, x::telem::Series(7.0))),
+        (std::vector<std::string>{std::string("\x01\x00\x07", 3)})
+    );
+}
 }
