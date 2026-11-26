@@ -184,7 +184,7 @@ func (p picks) sees(r resource.ID) bool { return p.visible == nil || p.visible(r
 
 // pickOf returns the pick for e, or its default, or nothing when e allows no pick. A
 // pick that names a hidden entry does not reach it, so it answers as a pick for no
-// entry does.
+// entry does, and the hidden pick reaches only a hidden entry that allows it.
 func (p picks) pickOf(e Entry) (Choice, error) {
 	var (
 		pick    Choice
@@ -194,7 +194,7 @@ func (p picks) pickOf(e Entry) (Choice, error) {
 	switch {
 	case visible:
 		pick, ok = p.named[e.Record]
-	case p.hidden != nil && len(e.Choices) > 0:
+	case p.hidden != nil && slices.Contains(e.Choices, *p.hidden):
 		pick, ok = *p.hidden, true
 	}
 	if !ok {

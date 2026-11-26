@@ -150,7 +150,8 @@ func (s *Service) orderBatches(p *planned, removed map[resource.ID]int) error {
 // addEntries gives each record that holds a record of p.batches one entry, for the
 // first of its effects in the order restrict, cascade, detach, and counts in p.Kept
 // each other record that keeps a weak link. A holder in removed gets neither, since p
-// deletes it.
+// deletes it. A restrict entry offers cancel, and delete only when the service has a
+// Deleter for the type of its record.
 func (s *Service) addEntries(p *planned, removed map[resource.ID]int) {
 	var restricts, cascades, detaches int
 	for _, b := range p.batches {
@@ -173,7 +174,10 @@ func (s *Service) addEntries(p *planned, removed map[resource.ID]int) {
 		effectOf[record] = effect
 		entry := Entry{Record: record, Effect: effect}
 		if effect == EffectRestrict {
-			entry.Choices = []Choice{ChoiceCancel, ChoiceDelete}
+			entry.Choices = []Choice{ChoiceCancel}
+			if _, ok := s.cfg.Deleters[record.Type]; ok {
+				entry.Choices = append(entry.Choices, ChoiceDelete)
+			}
 			entry.Default = new(ChoiceCancel)
 		}
 		p.Entries = append(p.Entries, entry)
