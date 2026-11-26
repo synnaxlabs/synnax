@@ -135,16 +135,43 @@ describe("symbol editor spec", () => {
     });
   });
 
+  describe("inheritedSource", () => {
+    it("should return a look of the part on another state", () => {
+      const fault: schematic.symbol.Look = {
+        key: "fault",
+        part: "body",
+        when: onFault(0),
+        fill: fixed(RED),
+      };
+      const looks: schematic.symbol.Look[] = [
+        { key: "whole", fill: fixed(BLUE) },
+        fault,
+        { key: "own", part: "body", when: equals(0), fill: fixed(GREEN) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.inheritedSource(spec, "body", "fill", at(0))).toBe(fault);
+    });
+
+    it("should not return a look that the part has on the shown state", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "own", part: "body", when: equals(0), fill: fixed(GREEN) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.inheritedSource(spec, "body", "fill", at(0))).toBeUndefined();
+    });
+  });
+
   describe("resolvePreview", () => {
     it("should keep a state that the symbol has", () => {
       const fault = { state: FAULT.key, value: 2 };
       expect(Spec.resolvePreview(STATES, fault)).toBe(fault);
     });
 
-    it("should move to the first enumeration state when the symbol lacks the state", () => {
-      expect(Spec.resolvePreview([FAULT], at(1))).toEqual({
+    it("should move to the first enumeration state at its default", () => {
+      const tripped = { ...FAULT, default: 2 };
+      expect(Spec.resolvePreview([tripped], at(1))).toEqual({
         state: FAULT.key,
-        value: 1,
+        value: 2,
       });
     });
 
@@ -172,6 +199,15 @@ describe("symbol editor spec", () => {
       expect(
         Spec.own({ looks: looks.slice(1), states: STATES }, "body", "fill", at(0)),
       ).toBeUndefined();
+    });
+
+    it("should not count a look of the part on another state", () => {
+      const looks: schematic.symbol.Look[] = [
+        { key: "a", part: "body", when: onFault(0), fill: fixed(RED) },
+      ];
+      const spec = { looks, states: STATES };
+      expect(Spec.effective(spec, "body", "fill", at(0))).toEqual(fixed(RED));
+      expect(Spec.own(spec, "body", "fill", at(0))).toBeUndefined();
     });
 
     it("should return the look of the whole drawing for the whole drawing", () => {
@@ -569,6 +605,18 @@ describe("symbol editor spec", () => {
   });
 
   describe("setVariesByValue", () => {
+    it("should keep a look on another state out of the look on every value", () => {
+      const spec = createSpec({
+        states: STATES,
+        looks: [
+          { key: "base", part: "body", when: equals(0), fill: fixed(RED) },
+          { key: "fault", part: "body", when: onFault(0), fill: fixed(GREEN) },
+        ],
+      });
+      const next = Spec.setVariesByValue(spec, "body", "fill", STATE, [0, 1], false);
+      expect(Spec.own(next, "body", "fill")).toEqual(fixed(RED));
+    });
+
     it("should put each value of another state on that state alone", () => {
       const looks: schematic.symbol.Look[] = [
         { key: "a", part: "body", fill: fixed(RED) },

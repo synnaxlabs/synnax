@@ -59,8 +59,6 @@ export interface ItemListProps<T extends Item> {
     spec: schematic.symbol.Spec,
     key: string,
   ) => [schematic.symbol.Spec, Spec.Removed];
-  /** onRemove is called after an item goes. */
-  onRemove?: () => void;
 }
 
 /**
@@ -75,7 +73,6 @@ export const ItemList = <T extends Item>({
   detail,
   add,
   remove,
-  onRemove,
 }: ItemListProps<T>): ReactElement => {
   const { get, set } = Form.useContext();
   const confirm = Modals.useConfirm();
@@ -92,7 +89,6 @@ export const ItemList = <T extends Item>({
     )
       return;
     set(path.data, next);
-    onRemove?.();
   };
   const nameID = (key: string) => `symbol-${noun}-${key}`;
   const handleAdd = () => {

@@ -28,15 +28,15 @@ export const stateValues = (at: At): Schematic.Node.Custom.StateValues =>
   new Map([[at.state, at.value]]);
 
 /**
- * @returns `at` on a state that states has: its own state when that is an enumeration
- * state of states, else the first enumeration state, else STATE.
+ * @returns `at` when its state is an enumeration state of states, else the first
+ * enumeration state at its default, else `at` on STATE.
  */
 export const resolvePreview = (states: Spec["states"], at: At): At => {
   const enumerations = states.filter((s) => s.type === "enumeration");
-  const state = enumerations.some((s) => s.key === at.state)
-    ? at.state
-    : (enumerations.at(0)?.key ?? STATE);
-  return state === at.state ? at : { ...at, state };
+  if (enumerations.some((s) => s.key === at.state)) return at;
+  const first = enumerations.at(0);
+  if (first != null) return { state: first.key, value: first.default };
+  return at.state === STATE ? at : { ...at, state: STATE };
 };
 
 /** Field is a field of a look that the editor sets. */
@@ -125,25 +125,35 @@ const withActive = (states: Spec["states"]): Spec["states"] =>
   states.some((s) => s.key === STATE) ? states : [...states, createState()];
 
 /**
- * @returns the field that target shows at `at` after the looks apply in order, or at
- * every value when `at` is undefined. A look on another state counts at the default of
- * that state, and looks of the whole drawing count for a part.
+ * @returns the look that gives target its field at `at` after the looks apply in order,
+ * or at every value when `at` is undefined. A look on another state counts at the
+ * default of that state, and looks of the whole drawing count for a part.
  */
+export const source = (
+  spec: Pick<Spec, "looks" | "states">,
+  target: Target,
+  field: Field,
+  at?: At,
+): Look | undefined => {
+  const states = byKey(spec.states);
+  return spec.looks.findLast((l) => reaches(l, target, states, at) && l[field] != null);
+};
+
+/** @returns the field that the look from `source` gives target. */
 export const effective = <F extends Field>(
   spec: Pick<Spec, "looks" | "states">,
   target: Target,
   field: F,
   at?: At,
-): Look[F] | undefined => {
-  const states = byKey(spec.states);
-  return spec.looks.findLast(
-    (l) => reaches(l, target, states, at) && l[field] != null,
-  )?.[field];
-};
+): Look[F] | undefined => source(spec, target, field, at)?.[field];
+
+// local is true for a look of target with no condition or on the state of `at`.
+const local = (look: Look, target: Target, at?: At): boolean =>
+  look.part === target && (look.when == null || look.when.state === at?.state);
 
 /**
- * @returns the field that the looks of target give it at `at`, or at every value when
- * `at` is undefined. Looks of the whole drawing do not count for a part.
+ * @returns the field that the looks of target with no condition or on the state of `at`
+ * give it at `at`, or at every value when `at` is undefined.
  */
 export const own = <F extends Field>(
   spec: Pick<Spec, "looks" | "states">,
@@ -152,7 +162,24 @@ export const own = <F extends Field>(
   at?: At,
 ): Look[F] | undefined =>
   effective(
-    { ...spec, looks: spec.looks.filter((l) => l.part === target) },
+    { ...spec, looks: spec.looks.filter((l) => local(l, target, at)) },
+    target,
+    field,
+    at,
+  );
+
+/**
+ * @returns the look that gives target the field that it inherits at `at`: a look of the
+ * whole drawing for a part, or a look on another state.
+ */
+export const inheritedSource = (
+  spec: Pick<Spec, "looks" | "states">,
+  target: Target,
+  field: Field,
+  at?: At,
+): Look | undefined =>
+  source(
+    { ...spec, looks: spec.looks.filter((l) => !local(l, target, at)) },
     target,
     field,
     at,
@@ -241,8 +268,11 @@ export const setVariesByValue = (
       cleared,
     );
   }
-  // Looks of the whole drawing stay out, so target takes no field that it did not set.
-  const mine = spec.looks.filter((l) => l.part === target);
+  // Looks of the whole drawing and of other states stay out, so target takes no field
+  // that it did not set on state.
+  const mine = spec.looks.filter(
+    (l) => l.part === target && (l.when == null || l.when.state === state),
+  );
   const first = effective(
     { looks: mine, states: spec.states },
     target,

@@ -1106,21 +1106,40 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
     });
 
-    it("shows a look of another state that the preview draws", async () => {
+    it("locks a control for every value on a look of another state", async () => {
       await previewFault();
+      const stroke = screen.getByLabelText("Stroke");
       await waitFor(() =>
-        expect(
-          screen.getByLabelText("Stroke").style.getPropertyValue("--pluto-bg"),
-        ).toBe(color.cssString(RED)),
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
       );
+      expect(stroke.getAttribute("aria-disabled")).toBe("true");
     });
 
-    it("previews the first state of a symbol with no Active state", async () => {
+    it("draws an edit by state over a look of another state", async () => {
+      await previewFault();
+      fireEvent.click(screen.getByLabelText("Stroke by state"));
+      fireEvent.click(await screen.findByLabelText("Stroke while Trip"));
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const stroke = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(stroke)).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("previews the first state of a symbol with no Active state at its default", async () => {
       const faults = await client.enumerations.create({
         name: uniqueName("fault"),
         entries: [
-          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: GREEN } },
-          { key: "trip", value: 2, name: "Trip", color: { type: "fixed", value: RED } },
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: RED } },
+          {
+            key: "trip",
+            value: 2,
+            name: "Trip",
+            color: { type: "fixed", value: GREEN },
+          },
         ],
       });
       await openPainted({
@@ -1139,7 +1158,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         looks: [{ key: "fill", part: "body", fill: { type: "entry", state: "fault" } }],
       });
       await waitFor(() =>
-        expect(findButton("OK").classList.contains("lyra--selected")).toBe(true),
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
       );
       await waitFor(() => {
         const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
