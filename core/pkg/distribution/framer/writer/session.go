@@ -56,7 +56,8 @@ type session struct {
 	// writeRefused is true when a write was refused for no control since the last
 	// commit.
 	writeRefused bool
-	sync         bool
+	// synchronous is true when every write gets a response.
+	synchronous bool
 }
 
 func (s *Service) newSession(
@@ -76,7 +77,7 @@ func (s *Service) newSession(
 		lastSync:        s.cfg.Clock.Now(),
 		mode:            cfg.Mode,
 		group:           cfg.ControlSubject.Group,
-		sync:            *cfg.Sync,
+		synchronous:     *cfg.Sync,
 	}
 }
 
@@ -232,7 +233,7 @@ func (s *session) respond(
 	authorized bool,
 	err error,
 ) error {
-	if req.Command == CommandWrite && !s.sync && (err == nil || s.errSent) {
+	if req.Command == CommandWrite && !s.synchronous && (err == nil || s.errSent) {
 		return nil
 	}
 	if err != nil {

@@ -114,7 +114,7 @@ func (st *indexStamper) stamp(fr cesium.Frame) cesium.Frame {
 	}
 	var toAdd int
 	for _, g := range st.groups {
-		if g.stamped() {
+		if g.unstamped() {
 			toAdd++
 		}
 	}
@@ -124,14 +124,14 @@ func (st *indexStamper) stamp(fr cesium.Frame) cesium.Frame {
 	fr = fr.Grow(toAdd)
 	now := telem.Now()
 	for _, g := range st.groups {
-		if g.stamped() {
+		if g.unstamped() {
 			fr = fr.Append(g.index, g.next(now))
 		}
 	}
 	return fr
 }
 
-func (g *stampGroup) stamped() bool { return !g.indexPresent && g.dataLen > 0 }
+func (g *stampGroup) unstamped() bool { return !g.indexPresent && g.dataLen > 0 }
 
 // next returns the next dataLen stamps of the index, from now or after its last stamp.
 func (g *stampGroup) next(now telem.TimeStamp) telem.Series {
