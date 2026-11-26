@@ -80,15 +80,7 @@ public:
     }
 
     /// @brief Copy assignment
-    Context &operator=(const Context &other) {
-        protocol = other.protocol;
-        target = other.target;
-        id = other.id;
-        variant = other.variant;
-        deadline = other.deadline;
-        params = other.params;
-        return *this;
-    }
+    Context &operator=(const Context &other) = default;
 
     /// @brief Gets the parameter with the given key.
     std::string get(const std::string &key) { return params[key]; }
