@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import type { color } from "@synnaxlabs/client";
-import { Color as Base } from "@synnaxlabs/lyra/color";
 import type { theme } from "@synnaxlabs/lyra/theme";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, deep } from "@synnaxlabs/x";
@@ -40,21 +39,6 @@ export const ColorField = ({
   const theme = Theming.use();
   const series = Color.useSeriesValues();
   return <Color.Field fallback={fallback(theme, series)} {...rest} />;
-};
-
-export interface ColorValueFieldProps extends Omit<Base.FieldProps, "fallback"> {
-  /** The color the symbol paints while the field is absent. */
-  fallback?: ColorFallback;
-}
-
-/** Edits an optional symbol color that stores a color value. */
-export const ColorValueField = ({
-  fallback = defaultFallback,
-  ...rest
-}: ColorValueFieldProps): ReactElement => {
-  const theme = Theming.use();
-  const series = Color.useSeriesValues();
-  return <Base.Field fallback={fallback(theme, series)} {...rest} />;
 };
 
 /** @returns no fill, the fill most symbols paint while their fill color is absent. */

@@ -330,7 +330,8 @@ describe("Schematic toolbar Properties", () => {
     it("skips a locked group's members when setting a role color", async () => {
       const { key } = await renderProperties({
         nodeKeys,
-        createConfig: createLockedConfig,
+        createConfig: (key) =>
+          key === "g1" ? createLockedConfig(key) : createValveNodeConfig(),
         parents,
         sessionState: { selected: nodeKeys },
       });

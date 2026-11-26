@@ -299,8 +299,8 @@ const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
     </Primitive.Div>,
   ],
   [
-    "enabled actuator",
-    <Toggle.Button key="actuator" enabled>
+    "actuator",
+    <Toggle.Button key="actuator">
       <Custom.Drawing spec={ROOT_PAINT_SPEC} />
     </Toggle.Button>,
   ],
