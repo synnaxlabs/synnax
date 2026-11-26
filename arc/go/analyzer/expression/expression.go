@@ -703,34 +703,48 @@ func inDeclaredFunction(scope *symbol.Symbol) bool {
 	return ok
 }
 
+func analyzeNamedPrimary(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	n parser.Name,
+) {
+	resolved, err := ctx.ResolveName(n)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
+		resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
+		*ctx.VarReads = append(
+			*ctx.VarReads,
+			context.VarRead{Var: resolved, Site: ctx.AST},
+		)
+	}
+	if tracksChannelRead(resolved) {
+		recordChannelRead(ctx.Scope, resolved)
+	}
+}
+
+// recordChannelRead records that the function that encloses scope reads the channel
+// resolved.
+func recordChannelRead(scope, resolved *symbol.Symbol) {
+	fn, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+		panic(fnErr)
+	}
+	if fn == nil {
+		return
+	}
+	// Use SourceID if available, otherwise use symbol's own ID
+	readID := uint32(resolved.ID)
+	if resolved.SourceID != nil {
+		readID = uint32(*resolved.SourceID)
+	}
+	fn.Channels.Read[readID] = resolved.Name
+}
+
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if n := parser.PrimaryName(ctx.AST); n.Head != "" {
-		resolved, err := ctx.ResolveName(n)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return
-		}
-		if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
-			resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
-			*ctx.VarReads = append(
-				*ctx.VarReads,
-				context.VarRead{Var: resolved, Site: ctx.AST},
-			)
-		}
-		if tracksChannelRead(resolved) {
-			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				panic(fnErr)
-			}
-			if fn != nil {
-				// Use SourceID if available, otherwise use symbol's own ID
-				readID := uint32(resolved.ID)
-				if resolved.SourceID != nil {
-					readID = uint32(*resolved.SourceID)
-				}
-				fn.Channels.Read[readID] = resolved.Name
-			}
-		}
+		analyzeNamedPrimary(ctx, n)
 		return
 	}
 	if lit := ctx.AST.Literal(); lit != nil {
