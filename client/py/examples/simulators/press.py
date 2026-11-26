@@ -115,12 +115,12 @@ class PressSimDAQ(SimDAQ):
             },
         )
         # A schematic asks before it toggles a valve whose newest command disagrees
-        # with its state, so the commands start closed too.
-        for index, command in (
-            (self.press_vlv_cmd_time, self.press_vlv_cmd),
-            (self.vent_vlv_cmd_time, self.vent_vlv_cmd),
-        ):
-            client.write(now, {index.key: [now], command.key: [0]})
+        # with its state, so the commands start closed too. At authority 1, the
+        # writer leaves the commands of a running controller alone.
+        indexes = [self.press_vlv_cmd_time.key, self.vent_vlv_cmd_time.key]
+        commands = [self.press_vlv_cmd.key, self.vent_vlv_cmd.key]
+        with client.open_writer(now, indexes + commands, authorities=1) as writer:
+            writer.write({**{k: [now] for k in indexes}, **{k: [0] for k in commands}})
         self.log("Channels created successfully")
 
     @override
