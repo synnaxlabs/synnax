@@ -7,35 +7,51 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type enumeration, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { color, deep } from "@synnaxlabs/x";
+import { color, deep, id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, type Mock, vi } from "vitest";
 
+import { Enumeration } from "@/enumeration";
+import { Node } from "@/schematic/node";
 import { Form } from "@/schematic/node/symbol/Form";
-import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
+import { createAsyncSynnaxWrapper, pickOption, renderFormSuspended } from "@/testutil";
 
 const path = deep.path<schematic.SymbolNodeConfig>();
 
-describe("Symbol form style", () => {
+const VALVE: schematic.symbol.Ref = { type: "builtin", name: "valve" };
+
+describe("Symbol form", () => {
   const client = createTestClient();
+  let prompt: Mock<Enumeration.CreatePrompt>;
   let wrapper: FC<PropsWithChildren>;
   beforeAll(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client });
+    prompt = vi.fn();
+    const Base = await createAsyncSynnaxWrapper({ client });
+    wrapper = ({ children }) => (
+      <Base>
+        <Enumeration.CreatePromptProvider value={(params) => prompt(params)}>
+          {children}
+        </Enumeration.CreatePromptProvider>
+      </Base>
+    );
+  });
+  beforeEach(() => {
+    prompt.mockReset();
   });
 
-  it("should store a custom color as the node color", async () => {
-    const { container, value } = renderForm(
-      <Form tab="style" onTabChange={vi.fn()} />,
-      schematic.symbolNodeConfigZ.parse({
-        variant: "symbol",
-        spec: { type: "builtin", name: "valve" },
-      }),
+  const render = async (tab: "telemetry" | "style" = "telemetry") =>
+    await renderFormSuspended(
+      <Form tab={tab} onTabChange={vi.fn()} />,
+      schematic.symbolNodeConfigZ.parse({ variant: "symbol", spec: VALVE }),
       schematic.symbolNodeConfigZ,
       wrapper,
     );
+
+  it("should store a custom color as the node color", async () => {
+    const { container, value } = await render("style");
     const swatch = container.querySelector<HTMLElement>(".lyra-color-swatch");
     if (swatch == null) throw new Error("no swatch rendered");
     fireEvent.click(swatch);
@@ -46,6 +62,69 @@ describe("Symbol form style", () => {
         type: "fixed",
         value: color.construct("#0000ff"),
       }),
+    );
+  });
+
+  it("should name an enumeration for an enumeration state", async () => {
+    const created = await client.enumerations.create({
+      name: `Valve ${id.create()}`,
+      entries: [{ key: "shut", value: 0, name: "Shut" }],
+    });
+    const { findByRole, value } = await render();
+    fireEvent.click(await findByRole("button", { name: /^Enumeration/ }));
+    await pickOption(created.name, "Search enumerations...");
+    await waitFor(() =>
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({ key: "active", enumeration: created.key }),
+      ]),
+    );
+  });
+
+  it("should pick the default from the entries of the enumeration", async () => {
+    const { findByText, value } = await render();
+    fireEvent.click(await findByText("Closed"));
+    fireEvent.click(await screen.findByRole("option", { name: "Open" }));
+    await waitFor(() =>
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({ key: "active", default: 1 }),
+      ]),
+    );
+  });
+
+  it("should keep the edits made while a new enumeration is created", async () => {
+    let link: (key: enumeration.Key) => void = () => {};
+    prompt.mockImplementationOnce(
+      async () => await new Promise((resolve) => (link = resolve)),
+    );
+    const { findByRole, findByText, value } = await render();
+    fireEvent.click(await findByRole("button", { name: /^Enumeration/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "New enumeration" }));
+    fireEvent.click(await findByText("Exact"));
+    const created = await client.enumerations.create({ name: `Valve ${id.create()}` });
+    link(created.key);
+    await waitFor(() =>
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({
+          key: "active",
+          match: { type: "exact" },
+          enumeration: created.key,
+        }),
+      ]),
+    );
+  });
+
+  it("should start a new enumeration with the entries that the state draws", async () => {
+    const { findByRole, findByText } = await render();
+    // The default menu loads the entries of the symbol's enumeration.
+    await findByText("Closed");
+    fireEvent.click(await findByRole("button", { name: /^Enumeration/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "New enumeration" }));
+    const [state] = Node.BUILT_INS.get("valve")?.states ?? [];
+    if (state?.type !== "enumeration" || state.enumeration == null)
+      throw new Error("expected the valve to draw an enumeration");
+    const drawn = await client.enumerations.retrieve({ key: state.enumeration });
+    await waitFor(() =>
+      expect(prompt).toHaveBeenCalledWith({ name: "Active", entries: drawn.entries }),
     );
   });
 });
