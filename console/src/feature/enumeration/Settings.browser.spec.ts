@@ -84,21 +84,21 @@ describe("Enumeration.Settings", () => {
     return await screen.findByRole("region", { name: `${name} entries` });
   };
 
-  it("should open a new enumeration with Add entry focused", async () => {
+  it("should open a new enumeration with its first entry focused", async () => {
     await renderEnumerations();
     const name = uniqueName("enumeration");
     const entries = await createThroughForm(name);
-    const add = within(entries).getByRole("button", { name: "Add entry" });
-    await waitFor(() => expect(document.activeElement).toBe(add));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(entries).getByLabelText("Name 1")),
+    );
     expect(screen.getByRole("option", { name }).getAttribute("aria-expanded")).toBe(
       "true",
     );
-    // jsdom gives a focused button no native Enter activation, so a click stands in.
     await act(async () => {
-      fireEvent.click(add);
+      fireEvent.click(within(entries).getByRole("button", { name: "Add entry" }));
     });
     await waitFor(() =>
-      expect(document.activeElement).toBe(within(entries).getByLabelText("Name 1")),
+      expect(document.activeElement).toBe(within(entries).getByLabelText("Name 2")),
     );
   });
 
@@ -132,8 +132,9 @@ describe("Enumeration.Settings", () => {
     await renderEnumerations();
     const name = uniqueName("enumeration");
     const entries = await createThroughForm(name);
-    const add = within(entries).getByRole("button", { name: "Add entry" });
-    await waitFor(() => expect(document.activeElement).toBe(add));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(entries).getByLabelText("Name 1")),
+    );
     const search = screen.getByPlaceholderText("Search enumerations");
     act(() => search.focus());
     // One word: the Core lists the partial matches of a term with several words.
@@ -173,11 +174,13 @@ describe("Enumeration.Settings", () => {
   it("should focus the entries of each new enumeration", async () => {
     await renderEnumerations();
     const first = await createThroughForm(uniqueName("enumeration"));
-    const firstAdd = within(first).getByRole("button", { name: "Add entry" });
-    await waitFor(() => expect(document.activeElement).toBe(firstAdd));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(first).getByLabelText("Name 1")),
+    );
     const second = await createThroughForm(uniqueName("enumeration"));
-    const add = within(second).getByRole("button", { name: "Add entry" });
-    await waitFor(() => expect(document.activeElement).toBe(add));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(within(second).getByLabelText("Name 1")),
+    );
   });
 
   it("should count the schematics that use an enumeration as they change", async () => {
@@ -230,7 +233,7 @@ describe("Enumeration.Settings", () => {
     if (created == null) throw new Error(`the Core holds no ${name}`);
     await expect
       .poll(async () => (await stored(created.key)).map((e) => e.value))
-      .toEqual([0, 1]);
+      .toEqual([0, 1, 2]);
   });
 
   it("should save an entry edited under its enumeration", async () => {

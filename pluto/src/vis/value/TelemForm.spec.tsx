@@ -34,7 +34,7 @@ const typePrecision = (value: string): void => {
 const renderTelemForm = () =>
   renderForm(
     <Value.TelemForm />,
-    { precision: 2 },
+    { precision: 2, units: "" },
     schema,
     createSynnaxWrapper({ client: null }),
   );

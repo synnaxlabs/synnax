@@ -14,7 +14,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Schematic } from "@synnaxlabs/pluto";
+import { Enumeration as PEnumeration, Schematic } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
 import { useValues } from "@/feature/schematic/symbol/edit/useValues";
@@ -36,7 +36,10 @@ const EnumerationFields = ({ state, update }: EnumerationFieldsProps): ReactElem
         <Schematic.Node.Form.EnumerationSelect
           value={state.enumeration}
           onChange={(next) => update({ enumeration: next })}
-          draft={() => ({ name: state.name, entries: [] })}
+          draft={() => ({
+            name: state.name,
+            entries: PEnumeration.createEntries(),
+          })}
         />
       </Input.Item>
       <Input.Item label="Default" padHelpText={false}>

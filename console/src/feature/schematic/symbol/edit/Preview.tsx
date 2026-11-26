@@ -134,17 +134,17 @@ export const Preview = ({
     form.set(path.data.previewViewport, { ...current, ...change(current) });
   };
 
-  // Fit zooms so the drawing fills a share of the preview, at its center.
+  // Fit zooms so the drawing fills a share of the preview, at its center. It reads the
+  // size of the drawing itself, which a zoom still in transition does not change.
   const fit = () => {
     if (svg == null || themeContainer == null) return;
-    const zoom =
-      form.get(path.data.previewViewport, { optional: true })?.value?.zoom ?? 1;
-    const drawn = svg.getBoundingClientRect();
+    const width = svg.width.baseVal.value;
+    const height = svg.height.baseVal.value;
+    if (width === 0 || height === 0) return;
     const room = themeContainer.getBoundingClientRect();
-    if (drawn.width === 0 || drawn.height === 0) return;
     const scale = Math.min(
-      (room.width * FIT_SHARE) / (drawn.width / zoom),
-      (room.height * FIT_SHARE) / (drawn.height / zoom),
+      (room.width * FIT_SHARE) / width,
+      (room.height * FIT_SHARE) / height,
     );
     form.set(path.data.previewViewport, {
       zoom: bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, scale),

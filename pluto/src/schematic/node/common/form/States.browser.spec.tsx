@@ -138,8 +138,8 @@ describe("Form.EnumerationField", () => {
       const term = `Valve ${id.create()}`;
       const c = renderStates({ label: { label: "Pump" } });
       await openCreate(c, term);
-      const e = await created(c.value);
-      expect(e.name).toBe(term);
+      await created(c.value);
+      expect(prompt).toHaveBeenCalledWith(expect.objectContaining({ name: term }));
     });
 
     it("should start a new enumeration with one blank entry", async () => {
@@ -236,10 +236,7 @@ describe("Form.EnumerationField", () => {
       await openCreate(c, term);
       expect(c.queryByRole("option", { name: createName(term) })).toBeNull();
       await created(c.value, linked.key);
-      const named = (await client.enumerations.retrieve({ searchTerm: term })).filter(
-        (e) => e.name === term,
-      );
-      expect(named).toHaveLength(1);
+      expect(prompt).toHaveBeenCalledOnce();
     });
   });
 

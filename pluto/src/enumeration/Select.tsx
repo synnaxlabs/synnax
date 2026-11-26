@@ -30,8 +30,9 @@ const ListItem = ({
 }: List.ItemRenderProps<enumeration.Key>): ReactElement | null => {
   const item = List.useItem<enumeration.Key, enumeration.Enumeration>(itemKey);
   if (item == null) return null;
+  // The entries are a preview, so the option takes the name of the enumeration alone.
   return (
-    <Select.Item itemKey={itemKey} {...rest} align="center">
+    <Select.Item itemKey={itemKey} {...rest} align="center" aria-label={item.name}>
       <Icon.Enumeration />
       <Text.Text el="span" overflow="fade" grow>
         {item.name}

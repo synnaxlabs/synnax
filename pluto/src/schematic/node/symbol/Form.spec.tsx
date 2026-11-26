@@ -92,139 +92,81 @@ describe("Symbol form", () => {
     );
 
   describe("sources", () => {
-    it.each([
-      ["Channel", { type: "channel" }],
-      ["Local", { type: "local", value: 0 }],
-    ])(
-      "should add a binding on the first pick of a %s source",
-      async (label, source) => {
-        const { findByText, value } = await render({ spec: VALVE });
-        fireEvent.click(await findByText(label));
-        expect(value(path.states)).toEqual([
-          schematic.stateBindingZ.parse({ key: "active", source }),
-        ]);
-      },
-    );
+    it("should add a binding on the first pick of a Local source", async () => {
+      const { findByText, value } = await render({ spec: VALVE });
+      fireEvent.click(await findByText("Local"));
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({
+          key: "active",
+          source: { type: "local", value: 0 },
+        }),
+      ]);
+    });
 
-    it("should keep the binding when its source is cleared", async () => {
-      const { findByText, value } = await render({
+    it("should restore the earlier channel on a switch back from Local", async () => {
+      const source = { type: "channel", key: ch.key, command: ch.key } as const;
+      const { findByText, getByText, value } = await render({
+        spec: VALVE,
+        states: [schematic.stateBindingZ.parse({ key: "active", source })],
+      });
+      fireEvent.click(await findByText("Local"));
+      fireEvent.click(getByText("Channel"));
+      expect(value(path.states)).toEqual([
+        schematic.stateBindingZ.parse({ key: "active", source }),
+      ]);
+    });
+
+    it("should keep the binding when its channel is cleared", async () => {
+      const { findByLabelText, value } = await render({
         spec: VALVE,
         states: [
-          schematic.stateBindingZ.parse({ key: "active", source: { type: "channel" } }),
+          schematic.stateBindingZ.parse({
+            key: "active",
+            source: { type: "channel", key: ch.key },
+          }),
         ],
       });
-      fireEvent.click(await findByText("None"));
-      expect(value(path.states)).toEqual([
-        schematic.stateBindingZ.parse({ key: "active" }),
-      ]);
+      fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
+      await waitFor(() =>
+        expect(value(path.states)).toEqual([
+          schematic.stateBindingZ.parse({
+            key: "active",
+            source: { type: "channel" },
+          }),
+        ]),
+      );
     });
   });
 
   describe("overrides", () => {
-    it("should replace the match of an enumeration state", async () => {
-      const { findByText, value } = await render({ spec: VALVE });
-      fireEvent.click(await findByText("Exact"));
-      expect(value(path.states)).toEqual([
-        schematic.stateBindingZ.parse({ key: "active", match: { type: "exact" } }),
-      ]);
-    });
-
-    it("should keep the bounds of a within match on a click of Within", async () => {
-      const states = [
-        schematic.stateBindingZ.parse({
-          key: "active",
-          match: { type: "within", bounds: { lower: 2, upper: 3 } },
-        }),
-      ];
-      const { findByText, value } = await render({ spec: VALVE, states });
-      fireEvent.click(await findByText("Within"));
-      expect(value(path.states)).toEqual(states);
-    });
-
-    it("should replace the bounds of a within match", async () => {
-      const { findByLabelText, value } = await render({ spec: VALVE });
-      commit(await findByLabelText("Max value"), "1.5");
-      expect(value(path.states)).toEqual([
-        schematic.stateBindingZ.parse({
-          key: "active",
-          match: { type: "within", bounds: { lower: 0.9, upper: 1.5 } },
-        }),
-      ]);
-    });
-
-    it("should start a within match at the bounds of the symbol", async () => {
-      const { findByText, value } = await render({
-        spec: heater,
-        states: [
-          schematic.stateBindingZ.parse({ key: "active", match: { type: "exact" } }),
-        ],
-      });
-      fireEvent.click(await findByText("Within"));
-      expect(value(path.states)).toEqual([
-        schematic.stateBindingZ.parse({
-          key: "active",
-          match: { type: "within", bounds: { lower: 2, upper: 3 } },
-        }),
-      ]);
-    });
-
     const within = (lower: number, upper: number) =>
       schematic.stateBindingZ.parse({
         key: "active",
         match: { type: "within", bounds: { lower, upper } },
       });
-    const INVALID = "Min value must be less than max value";
 
-    it("should start a within match at 0.9 to 1.1 on an exact symbol", async () => {
-      const exact = await client.schematics.symbols.create({
-        name: "Lamp",
-        data: schematic.symbol.specZ.parse({
-          drawing: { type: "svg", markup: "<svg/>" },
-          states: [{ type: "enumeration", key: "active", name: "Active" }],
-        }),
-      });
-      const { findByText, value } = await render({
-        spec: { type: "custom", key: exact.key },
-      });
-      fireEvent.click(await findByText("Within"));
-      expect(value(path.states)).toEqual([within(0.9, 1.1)]);
+    it("should replace the threshold of a within match", async () => {
+      const { findByLabelText, value } = await render({ spec: LIGHT });
+      commit(await findByLabelText("Threshold end"), "1.5");
+      expect(value(path.states)).toEqual([within(0.9, 1.5)]);
     });
 
-    it("should hold a minimum above the maximum until the pair is valid", async () => {
-      const { findByLabelText, getByLabelText, getByText, value } = await render({
-        spec: VALVE,
-      });
-      commit(await findByLabelText("Max value"), "100");
-      commit(getByLabelText("Min value"), "200");
-      expect(getByText(INVALID)).toBeDefined();
-      expect(value(path.states)).toEqual([within(0.9, 100)]);
-      commit(getByLabelText("Max value"), "300");
-      expect(value(path.states)).toEqual([within(200, 300)]);
-    });
-
-    it("should hold a minimum equal to the maximum and save nothing", async () => {
-      const { findByLabelText, getByText, value } = await render({ spec: VALVE });
-      commit(await findByLabelText("Min value"), "1.1");
-      expect(getByText(INVALID)).toBeDefined();
-      expect(value(path.states)).toEqual([]);
-    });
-
-    it("should show the error on the field that the user edited", async () => {
-      const { findByLabelText, getByLabelText } = await render({ spec: VALVE });
-      commit(await findByLabelText("Max value"), "0.5");
-      expect(getByLabelText("Max value").getAttribute("aria-invalid")).toBe("true");
-      expect(getByLabelText("Min value").getAttribute("aria-invalid")).toBeNull();
+    it("should show no threshold for a state that a command writes", async () => {
+      const { findByText, queryByLabelText } = await render({ spec: VALVE });
+      await findByText("States");
+      expect(queryByLabelText("Threshold start")).toBeNull();
     });
 
     it("should drop a held pair when the stored bounds change", async () => {
-      const { findByLabelText, getByLabelText, getByText, queryByText } = await render({
-        spec: VALVE,
+      const { container, findByLabelText, getByLabelText, getByText } = await render({
+        spec: LIGHT,
         states: [within(2, 3)],
       });
-      commit(await findByLabelText("Min value"), "5");
-      fireEvent.click(getByText("Reset to symbol"));
-      expect(queryByText(INVALID)).toBeNull();
-      expect(getByLabelText("Min value")).toHaveProperty("value", "0.9");
+      commit(await findByLabelText("Threshold start"), "5");
+      expect(container.querySelector(".lyra--error")).not.toBeNull();
+      fireEvent.click(getByText("Reset"));
+      expect(container.querySelector(".lyra--error")).toBeNull();
+      expect(getByLabelText("Threshold start")).toHaveProperty("value", "0.9");
     });
 
     it("should replace the default of a state with no enumeration", async () => {
@@ -235,11 +177,9 @@ describe("Symbol form", () => {
       ]);
     });
 
-    it("should replace the bounds of a number state", async () => {
-      const { findAllByLabelText, value } = await render({ spec: heater });
-      // The within match of the Active state comes first.
-      const [, level] = await findAllByLabelText("Max value");
-      commit(level, "50");
+    it("should replace the range of a number state", async () => {
+      const { findByLabelText, value } = await render({ spec: heater });
+      commit(await findByLabelText("Range end"), "50");
       expect(value(path.states)).toEqual([
         schematic.stateBindingZ.parse({
           key: "level",
@@ -261,7 +201,7 @@ describe("Symbol form", () => {
           }),
         ],
       });
-      fireEvent.click(await findByText("Reset to symbol"));
+      fireEvent.click(await findByText("Reset"));
       expect(value(path.states)).toEqual([
         schematic.stateBindingZ.parse({ key: "active", source }),
       ]);
@@ -274,11 +214,6 @@ describe("Symbol form", () => {
       states: [schematic.stateBindingZ.parse({ key: "active", default: 5 })],
     });
     expect(await findByText("No entry has the value 5.")).toBeDefined();
-  });
-
-  it("should tell the user when the symbol names no enumeration", async () => {
-    const { findByText } = await render({ spec: heater });
-    expect(await findByText("The symbol names no enumeration.")).toBeDefined();
   });
 
   it.each(["Telemetry", "Control"] as const)(

@@ -267,7 +267,7 @@ class SymbolEditor:
         """Add a command that sends a fixed value on a state.
 
         :param name: Name of the command, such as "On".
-        :param state: Name of the state that the command changes, such as "Active",
+        :param state: Name of the state that the command changes, such as "State",
             which a new symbol has.
         :param value: Name of the value that the command sends, such as "Active". A
             state with no enumeration names 0 "Base" and 1 "Active".
