@@ -298,8 +298,8 @@ describe("Kafka Write form", () => {
     ]);
   });
 
-  it("should leave a topic unpicked when its records fail to read", async () => {
-    const { dev } = await renderWrite();
+  it("should take the shape of a topic whose read failed once Retry reads it", async () => {
+    const { dev, draft } = await renderWrite();
     const scan = await createScanTask(client, dev);
     const failed = {
       variant: "error",
@@ -315,15 +315,54 @@ describe("Kafka Write form", () => {
     const second = await answerNextCommand(client, scan, { type: "sample", ...failed });
     fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
     await second.answered;
-    await dialog.findByText("1 topic");
-    expect(dialog.queryByRole("button", { name: "Add 1 target" })).toBeNull();
+    await dialog.findByRole("button", { name: "Add 1 target" });
     const third = await answerNextCommand(client, scan, {
       type: "sample",
       data: sampleOfTopic(TOPIC, createShape(["pump-1"], 2, "/speed")),
     });
-    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(await dialog.findByRole("button", { name: "Retry" }));
     await third.answered;
-    await dialog.findByRole("button", { name: "Add 1 target" });
+    await dialog.findByText("/speed");
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    const target = await waitFor(async () => {
+      const [t] = await retrieveTargets(draft.key);
+      expect(t).toBeDefined();
+      return t;
+    });
+    const [ic] = await client.icds.retrieve([target.icd]);
+    expect(ic.messages).toMatchObject([
+      { name: TOPIC, payload: { fields: [{ pointer: "/speed" }] } },
+    ]);
+  });
+
+  it("should add a target for a typed topic while the cluster cannot be reached", async () => {
+    const { dev, draft } = await renderWrite();
+    const failed = {
+      variant: "error",
+      message: "Failed to reach the cluster",
+    } as const;
+    const { answered } = await answerScan(dev, "sample", {
+      browse: failed,
+      sample: failed,
+    });
+    const dialog = await clickAddTargets();
+    await dialog.findByText("Failed to list topics");
+    fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
+      target: { value: TOPIC },
+    });
+    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    await answered;
+    fireEvent.click(await dialog.findByRole("button", { name: "Add 1 target" }));
+    const target = await waitFor(async () => {
+      const [t] = await retrieveTargets(draft.key);
+      expect(t).toBeDefined();
+      return t;
+    });
+    expect(target.topic).toBe(TOPIC);
+    const [ic] = await client.icds.retrieve([target.icd]);
+    expect(ic.messages).toMatchObject([
+      { name: TOPIC, payload: { format: "json", fields: [] } },
+    ]);
   });
 
   it("should add a target for a topic that the cluster does not let Synnax read", async () => {
