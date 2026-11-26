@@ -169,10 +169,8 @@ export const changeConfig = <V extends Variant>(
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
 
-/// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol
-/// variant. Used by the symbols toolbar to render the built-in catalog.
-// groupBox and symbol are excluded by key: grouping alone creates a group box, and a
-// symbol node needs the symbol that it draws.
+/// STATIC_SPECS lists every Spec in the registry that is NOT a custom-symbol variant,
+/// the group box, or the symbol variant.
 export const STATIC_SPECS: readonly Spec[] = (Object.values(REGISTRY) as Spec[]).filter(
   (s) =>
     !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT && s.key !== SYMBOL_VARIANT,
