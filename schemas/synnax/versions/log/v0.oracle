@@ -31,6 +31,7 @@ Log struct {
         records of events, system messages, and audit trails with filtering and
         formatting capabilities.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "log"

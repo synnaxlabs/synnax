@@ -9,11 +9,13 @@
 
 import { DataType, type group, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { theming } from "@synnaxlabs/pluto/ether";
 import { color, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { createElement, type ReactElement } from "react";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { page, server, userEvent } from "vitest/browser";
 
@@ -40,6 +42,7 @@ import {
   getOverlayHandles,
   getPartListItem,
   getPreviewTransformWrapper,
+  getValueBar,
   SYMBOL_FILE_DROP_PROMPT,
   symbolNames,
 } from "@/feature/schematic/testutil";
@@ -51,6 +54,9 @@ import {
   renderModalOpener,
 } from "@/platform/modals/testutil";
 import {
+  awaitTextEditingElement,
+  CaptureStatuses,
+  commitTextEdit,
   fakePickedFile,
   getIconButton,
   interceptFilePicker,
@@ -79,15 +85,30 @@ const createParentGroup = async (): Promise<group.Group> =>
     name: uniqueName("edit_grp"),
   });
 
-const openCreateModal = async (createKey?: string) => {
+interface OpenCreateModalParams {
+  createKey?: string;
+  extra?: ReactElement;
+}
+
+const openCreateModal = async ({ createKey, extra }: OpenCreateModalParams = {}) => {
   const grp = await createParentGroup();
   const picker = interceptFilePicker();
   const handle = await renderModalOpener(
     Schematic.Symbol.Edit.useModal,
     [{ group: grp.key, createKey }],
-    { client, additionalRegistry: theming.REGISTRY },
+    { client, additionalRegistry: theming.REGISTRY, extra },
   );
   return { grp, picker, handle };
+};
+
+const pickFile = async (
+  picker: ReturnType<typeof interceptFilePicker>,
+  fileName: string,
+  contents: string,
+) => {
+  fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
+  await waitFor(() => expect(picker.lastInput()).toBeDefined());
+  picker.selectFiles([fakePickedFile(fileName, contents)]);
 };
 
 const loadSVG = async (
@@ -95,9 +116,7 @@ const loadSVG = async (
   fileName = "flow_meter.svg",
   contents = SHAPELESS_SVG,
 ) => {
-  fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
-  await waitFor(() => expect(picker.lastInput()).toBeDefined());
-  picker.selectFiles([fakePickedFile(fileName, contents)]);
+  await pickFile(picker, fileName, contents);
   await screen.findByText("Parts");
 };
 
@@ -114,6 +133,27 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Handles")).toBeDefined();
       expect(screen.getByText("Properties")).toBeDefined();
       expect(screen.getByText("Scale stroke")).toBeDefined();
+    });
+
+    it.each([
+      ["notes.txt", SHAPELESS_SVG, "The file is not an SVG."],
+      ["empty.svg", "", "The file is empty."],
+    ])("reports %s, which it cannot read, by its name", async (name, contents, why) => {
+      let statuses: Status.NotificationSpec[] = [];
+      const { picker } = await openCreateModal({
+        extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
+      });
+      await pickFile(picker, name, contents);
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            name,
+            message: "Failed to read file",
+            description: why,
+          }),
+        ),
+      );
     });
 
     it("creates the symbol under the parent group on save", async () => {
@@ -139,7 +179,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("persists the symbol under a forced key when createKey is provided", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       const name = uniqueName("healed_symbol");
       fireEvent.change(findNameInput(), { target: { value: name } });
@@ -163,7 +203,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves a part stroke picked in the inspector", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
@@ -190,7 +230,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
 
     it("saves the node color as the fill of the whole drawing", async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       expect(
         await screen.findByText(
@@ -214,8 +254,9 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves a fill for one state of an actuator", async () => {
+      mocks.symbolNodes = false;
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(await screen.findByText("Actuator"));
       fireEvent.click(getEditSectionHeaderButton("Parts"));
@@ -247,7 +288,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     // createWithPart opens the editor on a new drawing with one new part, Part 1.
     const createWithPart = async () => {
       const createKey = uuid.create();
-      const { picker } = await openCreateModal(createKey);
+      const { picker } = await openCreateModal({ createKey });
       await loadSVG(picker);
       fireEvent.click(getEditSectionHeaderButton("Parts"));
       await screen.findByRole("heading", { name: "Part 1" });
@@ -408,6 +449,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("adds an active state when the variant switches to actuator", async () => {
+      mocks.symbolNodes = false;
       const { picker } = await openCreateModal();
       await loadSVG(picker);
       fireEvent.click(await screen.findByText("Actuator"));
@@ -415,11 +457,26 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(screen.getByText("Active")).toBeDefined();
     });
 
+    it("closes at once with no drawing", async () => {
+      await openCreateModal();
+      await screen.findByText(SYMBOL_FILE_DROP_PROMPT);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      await waitFor(() =>
+        expect(screen.queryByText(SYMBOL_FILE_DROP_PROMPT)).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops a loaded drawing on close", async () => {
+      const { picker } = await openCreateModal();
+      await loadSVG(picker);
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+    });
+
     it("rejects a non-SVG file without opening the editor", async () => {
       const { picker } = await openCreateModal();
-      fireEvent.click(await screen.findByText(SYMBOL_FILE_DROP_PROMPT));
-      await waitFor(() => expect(picker.lastInput()).toBeDefined());
-      picker.selectFiles([fakePickedFile("not_an_svg.txt", "hello")]);
+      await pickFile(picker, "not_an_svg.txt", "hello");
       await waitFor(() => expect(screen.queryByText("Parts")).toBeNull());
       expect(screen.getByText(SYMBOL_FILE_DROP_PROMPT)).toBeDefined();
     });
@@ -517,6 +574,33 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       return { symbol, used, unbound };
     };
 
+    it("zooms and saves the preview of a symbol with no preview viewport", async () => {
+      const grp = await createParentGroup();
+      const payload = createSymbolPayload(uniqueName("unzoomed"));
+      const { previewViewport: _, ...data } = payload.data;
+      const symbol = await client.schematics.symbols.create({
+        ...payload,
+        data,
+        group: grp.key,
+      });
+      expect(symbol.data.previewViewport).toBeUndefined();
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      expect(await screen.findByText("100%")).toBeDefined();
+      pressKey("Equal");
+      expect(await screen.findByText("120%")).toBeDefined();
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.previewViewport).toEqual({
+          zoom: 1.2,
+          position: { x: 0, y: 0 },
+        }),
+      );
+    });
+
     it("saves a new part and its stroke on a symbol with no state", async () => {
       const { symbol } = await openEditModal();
       fireEvent.click(screen.getByLabelText("Stroke"));
@@ -538,11 +622,6 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("bands a stroke in the theme of the preview", async () => {
-      // The preview's theme leaf loads fonts on this thread, which has no self.fonts.
-      vi.stubGlobal("fonts", document.fonts);
-      onTestFinished(() => {
-        vi.unstubAllGlobals();
-      });
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("banded"));
       const symbol = await client.schematics.symbols.create({
@@ -608,6 +687,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("asks before a save removes bindings from a schematic that uses the symbol", async () => {
+      mocks.symbolNodes = false;
       const { used, unbound } = await openUsedSymbol();
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
@@ -623,6 +703,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("keeps the symbol and its bindings when the save confirm is canceled", async () => {
+      mocks.symbolNodes = false;
       const { symbol, used } = await openUsedSymbol();
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
@@ -681,6 +762,80 @@ describe("Schematic.Symbol.Edit.useModal", () => {
         const retrieved = await client.schematics.symbols.retrieve(symbol.key);
         expect(retrieved.name).toBe(renamed);
       });
+    });
+
+    // openStored opens the editor on a new symbol, and edits nothing.
+    const openStored = async () => {
+      const grp = await createParentGroup();
+      const symbol = await client.schematics.symbols.create({
+        ...createSymbolPayload(uniqueName("stored")),
+        group: grp.key,
+      });
+      await renderModalOpener(
+        Schematic.Symbol.Edit.useModal,
+        [{ symbolKey: symbol.key, group: grp.key }],
+        { client, additionalRegistry: theming.REGISTRY },
+      );
+      await waitFor(() => expect(findNameInput().value).toBe(symbol.name), {
+        timeout: 5000,
+      });
+      return symbol;
+    };
+
+    const closeEditor = (): void => {
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    };
+
+    it("closes at once when nothing changed", async () => {
+      await openStored();
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("closes at once when an edit is undone", async () => {
+      const symbol = await openStored();
+      fireEvent.change(findNameInput(), { target: { value: uniqueName("renamed") } });
+      fireEvent.change(findNameInput(), { target: { value: symbol.name } });
+      closeEditor();
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("closes at once on Escape after a zoom of the preview", async () => {
+      await openStored();
+      pressKey("Equal");
+      // A modal takes an Escape only from an element inside it.
+      const zoom = await screen.findByText("120%");
+      fireEvent.keyDown(zoom, { code: "Escape", key: "Escape" });
+      fireEvent.keyUp(zoom, { code: "Escape", key: "Escape" });
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect(screen.queryByText("Discard unsaved edits?")).toBeNull();
+    });
+
+    it("asks before it drops unsaved edits on close", async () => {
+      const symbol = await openStored();
+      const renamed = uniqueName("renamed");
+      fireEvent.change(findNameInput(), { target: { value: renamed } });
+      closeEditor();
+      expect(await screen.findByText("Discard unsaved edits?")).toBeDefined();
+      fireEvent.click(findButton("Keep editing"));
+      await waitFor(() =>
+        expect(screen.queryByText("Discard unsaved edits?")).toBeNull(),
+      );
+      expect(findNameInput().value).toBe(renamed);
+      closeEditor();
+      fireEvent.click(await waitFor(() => findButton("Discard")));
+      await waitFor(() =>
+        expect(screen.queryByPlaceholderText("Symbol name")).toBeNull(),
+      );
+      expect((await retrieveStored(symbol.key)).name).toBe(symbol.name);
     });
 
     const BODY: schematic.symbol.Part = {
@@ -760,6 +915,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("gives an overriding part the paint of the whole drawing back", async () => {
+      mocks.symbolNodes = false;
       const node: schematic.symbol.Look = { key: "node", fill: { type: "node" } };
       const symbol = await openPainted({
         states: [createState()],
@@ -825,12 +981,13 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("saves the state color and shows the default entry where no entry matches", async () => {
+      mocks.symbolNodes = false;
       const enumeration = await createEnumeration();
       const symbol = await openPainted({
         variant: "actuator",
         states: [createState(enumeration.key)],
       });
-      fireEvent.click(await screen.findByText("Active"));
+      fireEvent.click(await within(getValueBar()).findByText("Active"));
       const fill = screen.getByLabelText("Fill");
       fireEvent.click(fill);
       fireEvent.click(await screen.findByText("State color"));
@@ -847,6 +1004,244 @@ describe("Schematic.Symbol.Edit.useModal", () => {
             fill: { type: "entry", state: "active" },
           },
         ]);
+      });
+    });
+
+    it("shows an entry paint in the color of its own state", async () => {
+      const active = await createEnumeration();
+      const red = color.construct("#d64545");
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: red } },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        states: [
+          createState(active.key),
+          { ...createState(faults.key), key: "fault", name: "Fault" },
+        ],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+        ],
+      });
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      const fill = await screen.findByLabelText("Fill");
+      await waitFor(() =>
+        expect(fill.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(GREEN)),
+      );
+    });
+
+    const RED = color.construct("#ff0000");
+
+    // PAINTED gives Body the entry color of Active, and a red stroke at Active 0.
+    const PAINTED: schematic.symbol.Look[] = [
+      { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+      {
+        key: "base",
+        part: "body",
+        when: { type: "equals", state: "active", values: [0] },
+        stroke: { type: "color", value: { type: "fixed", value: RED } },
+      },
+    ];
+
+    // previewFault opens a symbol with looks, then previews Fault at Trip (2). Active
+    // also has an entry at 2, which a preview that gave 2 to every state would draw.
+    const previewFault = async (
+      faultEntries: { key: string; value: number; name: string }[] = [
+        { key: "ok", value: 0, name: "OK" },
+        { key: "trip", value: 2, name: "Trip" },
+      ],
+      looks: schematic.symbol.Look[] = PAINTED,
+    ) => {
+      const active = await client.enumerations.create({
+        name: uniqueName("valve"),
+        entries: [
+          {
+            key: "closed",
+            value: 0,
+            name: "Closed",
+            color: { type: "fixed", value: GREEN },
+          },
+          {
+            key: "jammed",
+            value: 2,
+            name: "Jammed",
+            color: { type: "fixed", value: color.construct("#3366ff") },
+          },
+        ],
+      });
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: faultEntries,
+      });
+      await openPainted({
+        variant: "actuator",
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          createState(active.key),
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks,
+      });
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+    };
+
+    it("draws every other state at its default while it previews a state", async () => {
+      await previewFault();
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
+        expect(getComputedStyle(shape).stroke).toBe("rgb(255, 0, 0)");
+      });
+      expect(screen.getByLabelText("Fill").style.getPropertyValue("--pluto-bg")).toBe(
+        color.cssString(GREEN),
+      );
+    });
+
+    it("locks a control for every value on a look of another state", async () => {
+      await previewFault();
+      const stroke = screen.getByLabelText("Stroke");
+      await waitFor(() =>
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
+      );
+      expect(stroke.getAttribute("aria-disabled")).toBe("true");
+      fireEvent.pointerEnter(stroke);
+      expect((await screen.findByRole("tooltip")).textContent).toBe(
+        "Active gives this. Change it there, or set it by state.",
+      );
+    });
+
+    const hiddenAtActive = (part?: string): schematic.symbol.Look[] => [
+      {
+        key: "hide",
+        part,
+        when: { type: "equals", state: "active", values: [0] },
+        hidden: true,
+      },
+    ];
+
+    const bodyDisplay = (): string => {
+      const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+      assertDefined(shape);
+      return getComputedStyle(shape).display;
+    };
+
+    it("shows a part on a state with one value over a look that hides it", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        hiddenAtActive("body"),
+      );
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("shows the drawing on a state with one value over a look that hides it", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }], hiddenAtActive());
+      fireEvent.click(screen.getByText("Whole drawing"));
+      await screen.findByRole("heading", { name: "Whole drawing" });
+      await waitFor(() => expect(bodyDisplay()).toBe("none"));
+      fireEvent.click(screen.getByLabelText("Visible"));
+      await waitFor(() => expect(bodyDisplay()).not.toBe("none"));
+    });
+
+    it("locks Blink on a state with one value under a blink of another state", async () => {
+      await previewFault(
+        [{ key: "trip", value: 2, name: "Trip" }],
+        [
+          {
+            key: "blink",
+            part: "body",
+            when: { type: "equals", state: "active", values: [0] },
+            blink: { period: 1e9 },
+          },
+        ],
+      );
+      const blink = screen.getByLabelText<HTMLInputElement>("Blink");
+      await waitFor(() => expect(blink.checked).toBe(true));
+      expect(blink.disabled).toBe(true);
+    });
+
+    it("edits a state with one value over a look of another state", async () => {
+      await previewFault([{ key: "trip", value: 2, name: "Trip" }]);
+      const stroke = screen.getByLabelText("Stroke");
+      await waitFor(() =>
+        expect(stroke.style.getPropertyValue("--pluto-bg")).toBe(color.cssString(RED)),
+      );
+      expect(stroke.getAttribute("aria-disabled")).toBeNull();
+      fireEvent.click(stroke);
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const drawn = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(drawn)).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("draws an edit by state over a look of another state", async () => {
+      await previewFault();
+      fireEvent.click(screen.getByLabelText("Stroke by state"));
+      fireEvent.click(await screen.findByLabelText("Stroke while Trip"));
+      fireEvent.click(await screen.findByText("Node color"));
+      const { primary } = Theming.themeZ.parse(Theming.SYNNAX_DARK).colors;
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        const stroke = color.construct(getComputedStyle(shape).stroke);
+        expect(color.hex(stroke)).toBe(color.hex(primary.z));
+      });
+    });
+
+    it("previews the first state of a symbol with no Active state at its default", async () => {
+      const faults = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK", color: { type: "fixed", value: RED } },
+          {
+            key: "trip",
+            value: 2,
+            name: "Trip",
+            color: { type: "fixed", value: GREEN },
+          },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        parts: [{ ...BODY, selectors: ["#body"] }],
+        states: [
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: faults.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+        looks: [{ key: "fill", part: "body", fill: { type: "entry", state: "fault" } }],
+      });
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+      await waitFor(() => {
+        const shape = getPreviewTransformWrapper(document.body).querySelector("#body");
+        assertDefined(shape);
+        expect(getComputedStyle(shape).fill).toBe("rgb(47, 179, 107)");
       });
     });
 
@@ -879,6 +1274,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("shows a part that the whole drawing hides", async () => {
+      mocks.symbolNodes = false;
       const symbol = await openPainted({ looks: [{ key: "hide", hidden: true }] });
       const visible = screen.getByLabelText<HTMLInputElement>("Visible");
       expect(visible.checked).toBe(false);
@@ -1003,6 +1399,280 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       });
     });
 
+    it("hides a part at a value of the state picked in the preview bar", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState(), fault],
+      });
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      byState("Visible");
+      fireEvent.click(await screen.findByLabelText("Visible while Active"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () =>
+        expect((await retrieveStored(symbol.key)).data.looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ]),
+      );
+    });
+
+    it("edits the first enumeration state of a symbol with no active state", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      const symbol = await openPainted({ variant: "static", states: [fault] });
+      byState("Visible");
+      fireEvent.click(await screen.findByLabelText("Visible while Active"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { looks, states } = (await retrieveStored(symbol.key)).data;
+        expect(looks).toEqual([
+          {
+            key: expect.any(String),
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ]);
+        expect(states).toEqual([fault]);
+      });
+    });
+
+    it("moves the preview to the default of a picked state", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      await openPainted({
+        variant: "actuator",
+        states: [
+          createState(),
+          {
+            type: "enumeration",
+            key: "fault",
+            name: "Fault",
+            enumeration: enumeration.key,
+            match: { type: "exact" },
+            default: 2,
+          },
+        ],
+      });
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      await waitFor(() =>
+        expect(findButton("Trip").classList.contains("lyra--selected")).toBe(true),
+      );
+      expect(findButton("OK").classList.contains("lyra--selected")).toBe(false);
+    });
+
+    it("turns By state off when the preview picks another state", async () => {
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+      });
+      byState("Fill");
+      expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
+        "true",
+      );
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      expect(screen.getByLabelText("Fill by state").getAttribute("aria-pressed")).toBe(
+        "false",
+      );
+    });
+
+    it("lists the entries of a picked state and the values of its looks", async () => {
+      const enumeration = await client.enumerations.create({
+        name: uniqueName("fault"),
+        entries: [
+          { key: "ok", value: 0, name: "OK" },
+          { key: "warn", value: 1, name: "Warn" },
+          { key: "trip", value: 2, name: "Trip" },
+        ],
+      });
+      const fault = { ...createState(enumeration.key), key: "fault", name: "Fault" };
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), fault],
+        looks: [
+          {
+            key: "odd",
+            part: "body",
+            when: { type: "equals", state: "fault", values: [5] },
+            hidden: true,
+          },
+        ],
+      });
+      fireEvent.click(within(getValueBar()).getByText("Fault"));
+      expect(await screen.findByLabelText("Visible while Trip")).toBeDefined();
+      expect(screen.getByLabelText("Visible while Warn")).toBeDefined();
+      expect(screen.getByLabelText<HTMLInputElement>("Visible while 5").checked).toBe(
+        false,
+      );
+    });
+
+    it("adds a state that the preview bar can pick", async () => {
+      await openPainted({ variant: "actuator", states: [createState()] });
+      fireEvent.click(getEditSectionHeaderButton("States"));
+      expect(await within(getValueBar()).findByText("State 2")).toBeDefined();
+    });
+
+    // openFaulted opens a symbol with a Fault state, which one look hides Body on, one
+    // command sets, and one click on Body sends that command.
+    const openFaulted = async () =>
+      await openPainted({
+        variant: "actuator",
+        states: [createState(), { ...createState(), key: "fault", name: "Fault" }],
+        looks: [
+          {
+            key: "odd",
+            part: "body",
+            when: { type: "equals", state: "fault", values: [1] },
+            hidden: true,
+          },
+        ],
+        commands: [
+          {
+            key: "trip",
+            name: "Trip",
+            state: "fault",
+            value: { type: "fixed", value: 1 },
+          },
+        ],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "trip" }],
+      });
+
+    it("removes a state and its looks after a confirm", async () => {
+      const symbol = await openFaulted();
+      fireEvent.click(screen.getByLabelText("Remove Fault"));
+      expect(
+        await screen.findByText("Its uses go with it: 1 look, 1 command, and 1 click."),
+      ).toBeDefined();
+      fireEvent.click(findButton("Remove"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.states.map((st) => st.key)).toEqual(["active"]);
+        expect(saved.data.looks).toEqual([]);
+        expect(saved.data.commands).toEqual([]);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("removes a state with no uses at once", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      fireEvent.click(screen.getByLabelText("Remove Fault"));
+      await waitFor(() => expect(screen.queryByText("Fault")).toBeNull());
+      expect(screen.queryByText(/Its uses go with it/)).toBeNull();
+    });
+
+    it("opens the name of a new state for edit, and a rename keeps its key", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(getEditSectionHeaderButton("States"));
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Mode");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const [, state] = (await retrieveStored(symbol.key)).data.states;
+        expect(state.name).toBe("Mode");
+        expect(name.id).toBe(`symbol-state-${state.key}`);
+      });
+    });
+
+    it("keeps a state and its looks on a cancel", async () => {
+      const symbol = await openFaulted();
+      fireEvent.click(screen.getByLabelText("Remove Fault"));
+      fireEvent.click(await screen.findByText("Cancel"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.states.map((st) => st.key)).toEqual(["active", "fault"]);
+        expect(saved.data.looks).toHaveLength(1);
+        expect(saved.data.interactions).toHaveLength(1);
+      });
+    });
+
+    it("moves the preview to a state left when its state goes", async () => {
+      const fault = { ...createState(), key: "fault", name: "Fault" };
+      await openPainted({ variant: "actuator", states: [createState(), fault] });
+      byState("Fill");
+      expect(screen.getByLabelText("Fill while Base")).toBeDefined();
+      fireEvent.click(screen.getByLabelText("Remove Active"));
+      await waitFor(() =>
+        expect(screen.queryByLabelText("Fill while Base")).toBeNull(),
+      );
+    });
+
+    it("saves a symbol with a click as an actuator", async () => {
+      const symbol = await openPainted({
+        states: [createState()],
+        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
+      });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.variant).toBe("actuator");
+      });
+    });
+
+    it("adds a command that sends 0 and opens its name for edit", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(getEditSectionHeaderButton("Commands"));
+      expect(await screen.findByText("Sends 0")).toBeDefined();
+      const name = await awaitTextEditingElement();
+      commitTextEdit(name, "Open");
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const { commands } = (await retrieveStored(symbol.key)).data;
+        expect(commands).toEqual([
+          { key: expect.any(String), name: "Open", value: { type: "fixed", value: 0 } },
+        ]);
+        expect(name.id).toBe(`symbol-command-${commands[0].key}`);
+      });
+    });
+
+    it("removes a command and its click after a confirm", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+        commands: [{ key: "on", name: "On", value: { type: "fixed", value: 1 } }],
+        interactions: [{ type: "fire", key: "c", part: "body", command: "on" }],
+      });
+      fireEvent.click(screen.getByLabelText("Remove On"));
+      expect(await screen.findByText("Its uses go with it: 1 click.")).toBeDefined();
+      fireEvent.click(findButton("Remove"));
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(saved.data.commands).toEqual([]);
+        expect(saved.data.interactions).toEqual([]);
+      });
+    });
+
+    it("saves a symbol with no click as static", async () => {
+      const symbol = await openPainted({
+        variant: "actuator",
+        states: [createState()],
+      });
+      fireEvent.click(findButton("Save"));
+      await waitFor(async () => {
+        const saved = await retrieveStored(symbol.key);
+        expect(saved.data.variant).toBe("static");
+      });
+    });
+
     it("clears the hide of a part at a value and keeps the values shown", async () => {
       const symbol = await openPainted({
         variant: "actuator",
@@ -1088,6 +1758,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("edits the paint at Base of a static symbol with one control", async () => {
+      mocks.symbolNodes = false;
       const symbol = await openPainted({
         states: [createState()],
         looks: [
@@ -1138,6 +1809,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("leaves By state when the symbol turns static", async () => {
+      mocks.symbolNodes = false;
       await openPainted({ variant: "actuator", states: [createState()] });
       byState("Fill");
       expect(screen.getByLabelText("Fill while Base")).toBeDefined();
@@ -1149,6 +1821,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("stays out of By state when the symbol turns static and back", async () => {
+      mocks.symbolNodes = false;
       await openPainted({ variant: "actuator", states: [createState()] });
       byState("Fill");
       fireEvent.click(screen.getByText("Static"));
@@ -1220,14 +1893,15 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       expect(findButton("Save").getAttribute("aria-disabled")).toBeNull();
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Spin"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
     });
 
     it("selects the part before it asks to save a symbol in use", async () => {
+      mocks.symbolNodes = false;
       const grp = await createParentGroup();
       const payload = createSymbolPayload(uniqueName("tank"));
       const symbol = await client.schematics.symbols.create({
@@ -1262,7 +1936,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       fireEvent.click(screen.getByText("Actuator"));
       fireEvent.click(findButton("Save"));
       await screen.findByRole("heading", { name: "Body" });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       expect(screen.queryByText(`Save the changes to ${symbol.name}?`)).toBeNull();
     });
 
@@ -1310,6 +1984,26 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       assertDefined(shape);
       return shape;
     };
+
+    it("draws no fill on a shape that has none, and fills it from a fill look", async () => {
+      await openPainted({
+        drawing: { type: "svg", markup: TWO_RECTS },
+        looks: [
+          {
+            key: "red",
+            part: "body",
+            fill: {
+              type: "color",
+              value: { type: "fixed", value: color.construct("#ff0000") },
+            },
+          },
+        ],
+      });
+      await waitFor(() =>
+        expect(getComputedStyle(findShape("a")).fill).toBe("rgb(255, 0, 0)"),
+      );
+      expect(getComputedStyle(findShape("b")).fill).toBe("none");
+    });
 
     it("marks the shapes of the selected part in the preview", async () => {
       await openPainted({ drawing: { type: "svg", markup: TWO_RECTS } });
@@ -1595,10 +2289,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
           },
         ],
       });
-      expect(screen.getByText("Fill motion needs one shape")).toBeDefined();
+      expect(screen.getByText("Fill motion needs one shape or group")).toBeDefined();
       fireEvent.click(screen.getByText("Select parent group"));
       await waitFor(() =>
-        expect(screen.queryByText("Fill motion needs one shape")).toBeNull(),
+        expect(screen.queryByText("Fill motion needs one shape or group")).toBeNull(),
       );
       // The group sits in no group, so the action turns off.
       await waitFor(() =>
@@ -1717,7 +2411,10 @@ describe("Schematic.Symbol.Edit.useModal", () => {
     });
 
     it("counts the looks of a part beside its shapes", async () => {
-      await openPainted({ looks: [{ key: "l", part: "body", hidden: true }] });
+      await openPainted({
+        drawing: { type: "svg", markup: TWO_RECTS },
+        looks: [{ key: "l", part: "body", hidden: true }],
+      });
       expect(await screen.findByText("1 shape · 1 look")).toBeDefined();
     });
 
@@ -1731,7 +2428,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       const symbol = await client.schematics.symbols.create({
         ...payload,
         group: grp.key,
-        data: { ...payload.data, parts },
+        data: { ...payload.data, drawing: { type: "svg", markup: TWO_RECTS }, parts },
       });
       await renderModalOpener(
         Schematic.Symbol.Edit.useModal,
@@ -1740,6 +2437,17 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       expect(await screen.findByText("1 shape")).toBeDefined();
       expect(screen.getByText("2 shapes")).toBeDefined();
+    });
+
+    it("counts each shape in a group that a part holds, and a text as one", async () => {
+      await openPainted({
+        drawing: {
+          type: "svg",
+          markup: GROUPED.replace("</g>", '<text id="t"><tspan>T</tspan></text></g>'),
+        },
+        parts: [{ ...BODY, selectors: ["#g"] }],
+      });
+      expect(getPartListItem("Body").textContent).toContain("3 shapes");
     });
   });
 });

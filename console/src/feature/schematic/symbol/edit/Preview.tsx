@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming } from "@synnaxlabs/pluto";
-import { bounds, type color, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
+import { bounds, type color, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -54,14 +54,16 @@ const MAX_ZOOM = 5;
 const ZOOM_STEP = 1.2;
 const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 
-const VIEWPORT_PATH = deep.present(path.data.previewViewport);
-const ZOOM_PATH = VIEWPORT_PATH.zoom;
+type Viewport = NonNullable<schematic.symbol.Spec["previewViewport"]>;
+
+// A stored symbol can have no preview viewport, so the preview starts from this one.
+const DEFAULT_VIEWPORT: Viewport = { zoom: 1, position: { x: 0, y: 0 } };
 
 const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
 
 interface PreviewProps {
-  /** selectedValue is the value of the state that the preview draws. */
-  selectedValue: number;
+  /** value holds the state values. A state with no value draws at its default. */
+  value: Schematic.Node.Custom.StateValues;
   selectedHandle?: string;
   /** selectedPart is the part whose shapes the preview marks. */
   selectedPart?: string;
@@ -77,7 +79,7 @@ interface PreviewProps {
 
 interface DrawingProps {
   spec: schematic.symbol.Spec;
-  value: number;
+  value: Schematic.Node.Custom.StateValues;
   nodeColor: color.Crude;
   onMount: (drawing: SVGGElement) => void;
 }
@@ -91,7 +93,7 @@ const Drawing = ({ spec, value, nodeColor, onMount }: DrawingProps): ReactElemen
 };
 
 export const Preview = ({
-  selectedValue,
+  value,
   selectedHandle,
   selectedPart,
   onElementClick,
@@ -106,8 +108,9 @@ export const Preview = ({
   // after the first render would never re-render it into place.
   const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
   const spec = Form.useFieldValue(path.data);
-  const pan = Form.useField(VIEWPORT_PATH.position);
-  const zoom = Form.useField(ZOOM_PATH);
+  const viewport =
+    Form.useFieldValue(path.data.previewViewport, { optional: true }) ??
+    DEFAULT_VIEWPORT;
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const { dark: isDark, colors } = Base.use();
@@ -119,20 +122,21 @@ export const Preview = ({
   const [svg, setSVG] = useState<SVGSVGElement | null>(null);
   const form = Form.useContext();
 
-  const resetViewport = () => {
-    zoom.onChange(1);
-    pan.onChange({ x: 0, y: 0 });
+  // A held chord steps on an interval, so a change reads the live viewport from the
+  // form rather than the one captured when the hold started.
+  const setViewport = (change: (current: Viewport) => Partial<Viewport>) => {
+    const current =
+      form.get(path.data.previewViewport, { optional: true })?.value ??
+      DEFAULT_VIEWPORT;
+    form.set(path.data.previewViewport, { ...current, ...change(current) });
   };
 
-  // A held chord steps on an interval, so the step reads the live zoom from the form
-  // rather than the one captured when the hold started.
-  const stepZoom = (factor: number) => {
-    const current = form.get<number>(ZOOM_PATH).value;
-    form.set(
-      ZOOM_PATH,
-      bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, current * factor),
-    );
-  };
+  const resetViewport = () => form.set(path.data.previewViewport, DEFAULT_VIEWPORT);
+
+  const stepZoom = (factor: number) =>
+    setViewport(({ zoom }) => ({
+      zoom: bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, zoom * factor),
+    }));
 
   const handleZoomIn = () => stepZoom(ZOOM_STEP);
   const handleZoomOut = () => stepZoom(1 / ZOOM_STEP);
@@ -148,15 +152,17 @@ export const Preview = ({
       e.preventDefault();
       setIsDragging(true);
       setDragStart({
-        x: e.clientX - pan.value.x,
-        y: e.clientY - pan.value.y,
+        x: e.clientX - viewport.position.x,
+        y: e.clientY - viewport.position.y,
       });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging)
-      pan.onChange({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+      setViewport(() => ({
+        position: { x: e.clientX - dragStart.x, y: e.clientY - dragStart.y },
+      }));
   };
 
   const handleMouseUp = () => setIsDragging(false);
@@ -262,7 +268,9 @@ export const Preview = ({
   const fileDropEnabled = spec.drawing.markup.length === 0;
 
   const svgWrapperStyle = {
-    transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
+    transform:
+      `translate(${viewport.position.x}px, ${viewport.position.y}px) ` +
+      `scale(${viewport.zoom})`,
     transition: isDragging ? "none" : "transform 0.2s ease-out",
     cursor: isDragging ? "grabbing" : "default",
   };
@@ -294,7 +302,7 @@ export const Preview = ({
           {spec.drawing.markup.length > 0 && (
             <Flex.Box x className={CSS.B("schematic-preview-controls")}>
               <Text.Text level="small" color={9}>
-                {Math.round(zoom.value * 100)}%
+                {Math.round(viewport.zoom * 100)}%
               </Text.Text>
               <Button.Button
                 variant="text"
@@ -355,7 +363,7 @@ export const Preview = ({
                   >
                     <Drawing
                       spec={spec}
-                      value={selectedValue}
+                      value={value}
                       nodeColor={nodeColor}
                       onMount={onMount}
                     />

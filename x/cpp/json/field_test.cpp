@@ -239,6 +239,37 @@ TEST(Decoder, ConvertsEscapedEnumLabel) {
     );
 }
 
+/// @brief it should report an enum label, escaped or not, as a label.
+TEST(Decoder, ReportsLabel) {
+    auto d = ASSERT_NIL_P(
+        Decoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    ASSERT_TRUE(d.labeled(R"("ON")"));
+    ASSERT_TRUE(d.labeled(R"("\u004fN")"));
+}
+
+/// @brief it should not report a string that is no enum label as a label.
+TEST(Decoder, DoesNotReportOtherStringAsLabel) {
+    auto d = ASSERT_NIL_P(
+        Decoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    ASSERT_FALSE(d.labeled(R"("1")"));
+}
+
+/// @brief it should not report a string as a label for a field with no enums.
+TEST(Decoder, DoesNotReportLabelOfFieldWithNoEnums) {
+    auto d = ASSERT_NIL_P(Decoder::create({.data_type = telem::FLOAT64_T}));
+    ASSERT_FALSE(d.labeled(R"("ON")"));
+}
+
+/// @brief it should not report a value that is not a string as a label.
+TEST(Decoder, DoesNotReportValueThatIsNotStringAsLabel) {
+    auto d = ASSERT_NIL_P(
+        Decoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    ASSERT_FALSE(d.labeled("1"));
+}
+
 /// @brief it should convert an int64 enum past 2^53.
 TEST(Decoder, ConvertsInt64EnumPast2To53) {
     ASSERT_EQ(
@@ -471,6 +502,43 @@ TEST(Decoder, TruncatesFractionOfNanosecond) {
     );
 }
 
+/// @brief it should convert Unix seconds in hex with whitespace.
+TEST(Decoder, ConvertsHexUnixSecondsWithWhitespace) {
+    ASSERT_EQ(
+        decode(
+            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            R"(" 0x10\t")"
+        )
+            .at<std::int64_t>(0),
+        16000000000
+    );
+}
+
+/// @brief it should keep every digit of Unix seconds in a string with whitespace.
+TEST(Decoder, ConvertsTrimmedUnixSecondsToNanosecond) {
+    ASSERT_EQ(
+        decode(
+            {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+            R"(" 1767323045.123456789 ")"
+        )
+            .at<std::int64_t>(0),
+        1767323045123456789
+    );
+}
+
+/// @brief it should truncate a hex float of nanoseconds toward zero.
+TEST(Decoder, TruncatesHexFloatNanoseconds) {
+    ASSERT_EQ(
+        decode(
+            {.data_type = telem::TIMESTAMP_T,
+             .time_format = TimeFormat::UnixNanosecond},
+            R"("-0x1.8")"
+        )
+            .at<std::int64_t>(0),
+        -1
+    );
+}
+
 /// @brief it should convert a NaN enum.
 TEST(Decoder, ConvertsNaNEnum) {
     const auto s = decode(
@@ -593,11 +661,74 @@ TEST(Decoder, ConvertsObjectToStringAsCompactedJSONText) {
     ASSERT_EQ(s.strings(), std::vector<std::string>{R"({"a":[1,2]})"});
 }
 
-/// @brief it should reject a string that is no enum label for a number.
-TEST(Decoder, RejectsStringForNumber) {
-    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("1")");
+/// @brief it should reject a string that holds no number for a number.
+TEST(Decoder, RejectsStringOfNoNumberForNumber) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("x")");
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "unknown enum label \"1\"");
+    ASSERT_EQ(err.data, "invalid number \"x\"");
+}
+
+/// @brief it should convert a number in a string with whitespace and a sign.
+TEST(Decoder, ConvertsNumberInStringWithWhitespaceAndSign) {
+    const auto s = decode({.data_type = telem::FLOAT64_T}, R"(" +1.5e1\n")");
+    ASSERT_EQ(s.at<double>(0), 15.0);
+}
+
+/// @brief it should convert a hex integer in a string past the precision of a float.
+TEST(Decoder, ConvertsHexIntegerInStringPastFloatPrecision) {
+    const auto s = decode({.data_type = telem::INT64_T}, R"("0x20000000000001")");
+    ASSERT_EQ(s.at<std::int64_t>(0), 9007199254740993);
+}
+
+/// @brief it should convert a hex float in a string.
+TEST(Decoder, ConvertsHexFloatInString) {
+    ASSERT_EQ(
+        decode({.data_type = telem::FLOAT64_T}, R"("-0x1.8p1")").at<double>(0),
+        -3.0
+    );
+}
+
+/// @brief it should convert infinity in a string.
+TEST(Decoder, ConvertsInfinityInString) {
+    const auto s = decode({.data_type = telem::FLOAT64_T}, R"("-Infinity")");
+    ASSERT_EQ(s.at<double>(0), -std::numeric_limits<double>::infinity());
+}
+
+/// @brief it should convert NaN in a string.
+TEST(Decoder, ConvertsNaNInString) {
+    const auto s = decode({.data_type = telem::FLOAT64_T}, R"json("nan(1)")json");
+    ASSERT_TRUE(std::isnan(s.at<double>(0)));
+}
+
+/// @brief it should reject a string that holds two numbers for a number.
+TEST(Decoder, RejectsStringOfTwoNumbersForNumber) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("1 2")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid number \"1 2\"");
+}
+
+/// @brief it should reject a hex prefix with no digits for a number.
+TEST(Decoder, RejectsHexPrefixWithNoDigitsForNumber) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("0x")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid number \"0x\"");
+}
+
+/// @brief it should reject NaN in a string for an integer.
+TEST(Decoder, RejectsNaNInStringForInteger) {
+    const auto err = decode_error({.data_type = telem::INT32_T}, R"("NaN")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "NaN is not an integer");
+}
+
+/// @brief it should reject a string that is no label for a number with enums.
+TEST(Decoder, RejectsStringOfNoLabelForNumberWithEnums) {
+    const auto err = decode_error(
+        {.data_type = telem::UINT8_T, .enums = on_off()},
+        R"("1x")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "unknown enum label \"1x\"");
 }
 
 /// @brief it should reject null for a number.
@@ -744,6 +875,36 @@ TEST(Decoder, RejectsUnixSecondsPastTimestamp) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "1e12 is out of range for a unix_sec timestamp");
+}
+
+/// @brief it should reject infinity in Unix seconds.
+TEST(Decoder, RejectsInfiniteUnixSeconds) {
+    const auto err = decode_error(
+        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        R"("inf")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "inf is out of range for a unix_sec timestamp");
+}
+
+/// @brief it should reject hex Unix seconds past the range of a timestamp.
+TEST(Decoder, RejectsHexUnixSecondsPastTimestamp) {
+    const auto err = decode_error(
+        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        R"("0x7fffffffffffffff")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "0x7fffffffffffffff is out of range for a unix_sec timestamp");
+}
+
+/// @brief it should reject hex Unix nanoseconds below an int64.
+TEST(Decoder, RejectsHexUnixNanosecondsBelowInt64) {
+    const auto err = decode_error(
+        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixNanosecond},
+        R"("-0x8000000000000001")"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "-0x8000000000000001 is out of range for a unix_ns timestamp");
 }
 
 /// @brief it should reject JSON that repeats a member name.
@@ -1128,6 +1289,17 @@ TEST(Encoder, WritesAnyNaNAsNaNEnum) {
     );
 }
 
+/// @brief it should find the enum label of a sample, and no label for any other.
+TEST(Encoder, FindsEnumLabel) {
+    const auto enc = ASSERT_NIL_P(
+        Encoder::create({.data_type = telem::FLOAT64_T, .enums = on_off()})
+    );
+    const auto *on = enc.label(1.0);
+    ASSERT_NE(on, nullptr);
+    ASSERT_EQ(*on, R"("ON")");
+    ASSERT_EQ(enc.label(2.0), nullptr);
+}
+
 /// @brief it should write text, UUIDs, and bytes as JSON strings.
 TEST(Encoder, WritesString) {
     const auto id = ASSERT_NIL_P(
@@ -1241,5 +1413,27 @@ TEST(Encoder, RejectsEnumLabelThatIsNotUTF8) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "enum label \"a\\xff\": invalid UTF-8");
+}
+
+/// @brief it should accept one JSON value in which no object repeats a member name.
+TEST(Valid, AcceptsValueWithNoRepeatedName) {
+    for (const auto *text:
+         {R"({"a":1,"b":{"a":2}})", R"([{"a":1},{"a":2}])", R"( "a" )", "1", "null"})
+        ASSERT_TRUE(valid(text)) << text;
+}
+
+/// @brief it should refuse an object that repeats a member name, nested or not.
+TEST(Valid, RefusesRepeatedName) {
+    for (const auto *text:
+         {R"({"a":1,"a":2})",
+          R"({"o":[{"a":1,"\u0061":2}]})",
+          R"([{"b":{"a":1,"a":2}}])"})
+        ASSERT_FALSE(valid(text)) << text;
+}
+
+/// @brief it should refuse text that is not one JSON value.
+TEST(Valid, RefusesTextThatIsNotJSON) {
+    for (const auto *text: {"", R"({"a":)", "1 2", "{'a':1}"})
+        ASSERT_FALSE(valid(text)) << text;
 }
 }

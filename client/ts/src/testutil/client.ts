@@ -104,6 +104,15 @@ export const createProxiedTestClient = async (
 export const spyOnSend = (client: Synnax, field: "transport" = "transport") =>
   vi.spyOn(client[field].unary, "send");
 
+/**
+ * @returns the request bodies that send carried to target. The client sends requests
+ * of its own in the background, so specs check one target, not every call.
+ */
+export const requestsTo = (
+  send: ReturnType<typeof spyOnSend>,
+  target: string,
+): unknown[] => send.mock.calls.filter(([t]) => t === target).map(([, req]) => req);
+
 /** Records each response to target from now on, as the promise the caller awaits. */
 export const recordResponses = (
   client: Synnax,

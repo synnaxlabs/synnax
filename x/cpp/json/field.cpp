@@ -17,6 +17,8 @@
 #include <variant>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/field.h"
@@ -76,24 +78,6 @@ std::string kind_name(const std::string_view raw) {
 bool convertible(const telem::DataType &dt) {
     return dt == telem::TIMESTAMP_T || dt == telem::STRING_T || dt == telem::JSON_T ||
            dt == telem::UUID_T || dt == telem::BYTES_T || numeric(dt);
-}
-
-/// @brief returns v as a Number, or nothing when it is not numeric.
-std::optional<Number> to_number(const telem::SampleValue &v) {
-    return std::visit(
-        [](const auto &s) -> std::optional<Number> {
-            using T = std::decay_t<decltype(s)>;
-            if constexpr (std::is_floating_point_v<T>)
-                return Number(static_cast<double>(s));
-            else if constexpr (std::is_integral_v<T> && std::is_signed_v<T>)
-                return Number(static_cast<std::int64_t>(s));
-            else if constexpr (std::is_integral_v<T>)
-                return Number(static_cast<std::uint64_t>(s));
-            else
-                return std::nullopt;
-        },
-        v
-    );
 }
 
 /// @brief checks that the value of e converts to a sample of dt.
@@ -170,6 +154,14 @@ errors::Error compact(
     }
     return errors::NIL;
 }
+}
+
+bool valid(const std::string_view text) {
+    if (!nlohmann::json::accept(text.begin(), text.end())) return false;
+    std::string dst;
+    std::vector<std::size_t> open;
+    std::vector<std::unordered_set<std::string>> names;
+    return !compact(text, dst, open, names);
 }
 
 std::pair<Decoder, errors::Error> Decoder::create(Field field) {
@@ -258,10 +250,15 @@ errors::Error Decoder::append_numeric(const std::string_view raw, telem::Series 
     switch (kind_of(raw)) {
         case '"': {
             if (const auto err = unquote(raw, this->text)) return err;
-            const auto *l = this->find_label(this->text);
-            if (l == nullptr) return invalid("unknown enum label " + quote(this->text));
-            this->write_number(l->number, dst);
-            return errors::NIL;
+            if (const auto *l = this->find_label(this->text); l != nullptr) {
+                this->write_number(l->number, dst);
+                return errors::NIL;
+            }
+            const auto [n, err] = Number::parse_quoted(this->text);
+            if (err && !this->labels.empty())
+                return invalid("unknown enum label " + quote(this->text));
+            if (err) return err;
+            return this->append_number(n, dst);
         }
         case 't':
             return this->append_number(Number(std::int64_t{1}), dst);
@@ -275,6 +272,12 @@ errors::Error Decoder::append_numeric(const std::string_view raw, telem::Series 
         default:
             return invalid("expected a number or boolean, got " + kind_name(raw));
     }
+}
+
+bool Decoder::labeled(const std::string_view raw) {
+    if (this->labels.empty() || kind_of(raw) != '"' || unquote(raw, this->text))
+        return false;
+    return this->find_label(this->text) != nullptr;
 }
 
 errors::Error
@@ -363,6 +366,12 @@ std::pair<Encoder, errors::Error> Encoder::create(Field field) {
     return {std::move(e), errors::NIL};
 }
 
+const std::string *Encoder::label(const telem::SampleValue &v) const {
+    for (const auto &l: this->labels)
+        if (l.sample == v || (is_nan(l.sample) && is_nan(v))) return &l.text;
+    return nullptr;
+}
+
 errors::Error
 Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) const {
     const auto &dt = this->field.data_type;
@@ -386,11 +395,10 @@ Encoder::append(const telem::Series &s, const std::size_t i, std::string &out) c
     auto sample = s.at(index);
     // A boolean matches and writes as 0 or 1.
     if (dt == telem::BOOLEAN_T) sample = dt.cast(sample);
-    for (const auto &l: this->labels)
-        if (l.sample == sample || (is_nan(l.sample) && is_nan(sample))) {
-            out += l.text;
-            return errors::NIL;
-        }
+    if (const auto *l = this->label(sample)) {
+        out += *l;
+        return errors::NIL;
+    }
     if (!numeric(dt)) return append_quoted(std::get<std::string>(sample), out);
     const auto n = to_number(sample).value();
     if (this->field.type == Type::Boolean) {

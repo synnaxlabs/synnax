@@ -278,6 +278,32 @@ var _ = Describe("LiftWrite", func() {
 		Expect(write.Bindings).To(HaveLen(1))
 	})
 
+	It("Should bind each value field to its value and give it no default",
+		func(ctx SpecContext) {
+			f, write, notes := lift(
+				ctx,
+				valueChannel(),
+				icd.ValueInlineField{Pointer: "/channel", Value: "valve_cmd"},
+			)
+			Expect(f).To(HaveLen(2))
+			Expect(f[1].Variant).To(Equal(icd.StringJSONField{
+				JSONBaseField: f[1].Base(),
+			}))
+			Expect(f[1].Base().Name).To(Equal("channel"))
+			Expect(f[1].Base().Pointer).To(Equal("/channel"))
+			Expect(write.Bindings).To(Equal([]icd.WriteBinding{
+				{Variant: icd.ChannelWriteBinding{Field: f[0].Base().Key, Channel: 7}},
+				{Variant: icd.ValueWriteBinding{
+					Field: f[1].Base().Key,
+					Value: icd.WriteValue{
+						Variant: icd.StringWriteValue{Value: "valve_cmd"},
+					},
+				}},
+			}))
+			Expect(notes).To(BeEmpty())
+		},
+	)
+
 	It("Should give each generated field a generator default", func(ctx SpecContext) {
 		format := payload.TimeFormatUnixNs
 		f, write, _ := lift(

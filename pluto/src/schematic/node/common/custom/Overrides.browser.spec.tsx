@@ -22,6 +22,7 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 const formSchema = z.object({
   specKey: z.string(),
   stateOverrides: schematic.symbol.stateOverrideZ.array(),
+  strokeColor: color.colorZ.optional(),
 });
 
 const path = deep.path<z.infer<typeof formSchema>>();
@@ -73,11 +74,11 @@ describe("StateOverrideForm", () => {
     });
   };
 
-  const renderForm = (specKey: string) => {
+  const renderForm = (specKey: string, strokeColor?: color.Color) => {
     let form!: Form.UseReturn<typeof formSchema>;
     const Container = (): ReactElement => {
       form = Form.use<typeof formSchema>({
-        values: { specKey, stateOverrides: [] },
+        values: { specKey, stateOverrides: [], strokeColor },
         schema: formSchema,
       });
       return (
@@ -124,6 +125,37 @@ describe("StateOverrideForm", () => {
         ],
       ],
     ]);
+  });
+
+  it("should give an entry with no color the stroke color of the node", async () => {
+    const e = await client.enumerations.create({
+      name: "Uncolored",
+      entries: [
+        { key: "base", value: 0, name: "Base" },
+        { key: "active", value: 1, name: "Active" },
+      ],
+    });
+    const symbol = await client.schematics.symbols.create({
+      name: "uncolored",
+      data: {
+        drawing: { type: "svg", markup: '<svg><rect class="main" /></svg>' },
+        parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+        states: [
+          { type: "enumeration", key: "active", name: "Active", enumeration: e.key },
+        ],
+        looks: [
+          { key: "fill", part: "main", fill: { type: "entry", state: "active" } },
+        ],
+        variant: "actuator",
+      },
+    });
+    const node = color.construct("#ff0000");
+    const { getByText, form } = renderForm(symbol.key, node);
+    await waitFor(() => expect(getByText("Main")).toBeTruthy());
+    const fills = form()
+      .value()
+      .stateOverrides.map(({ regions }) => regions[0].fillColor);
+    expect(fills).toEqual([node, node]);
   });
 
   it("should override Base and Active on an actuator with no enumeration", async () => {

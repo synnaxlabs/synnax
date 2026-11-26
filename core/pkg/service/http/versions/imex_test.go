@@ -62,7 +62,7 @@ var _ = Describe("WriteConfigLadder", func() {
 })
 
 var _ = Describe("ReadConfigLadder", func() {
-	It("Should stage the fields of a v4 body and apply the NaN fill rule",
+	It("Should stage the fields of a v4 body and leave NaN fill off",
 		func(ctx SpecContext) {
 			cfg := MustSucceed(versions.ReadConfigLadder.Decode(
 				ctx,
@@ -86,7 +86,7 @@ var _ = Describe("ReadConfigLadder", func() {
 					}},
 				},
 			))
-			Expect(cfg.NanFillEnabled).To(BeTrue())
+			Expect(cfg.NanFillEnabled).To(BeFalse())
 			Expect(cfg.Endpoints).To(HaveLen(1))
 			Expect(cfg.Endpoints[0].Path).To(Equal("/values"))
 			Expect(cfg.Endpoints[0].ICD).To(BeNil())

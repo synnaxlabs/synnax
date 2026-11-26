@@ -20,6 +20,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
 #include "x/cpp/json/decimal.h"
+#include "x/cpp/json/number.h"
 #include "x/cpp/json/text.h"
 #include "x/cpp/json/timestamp.h"
 #include "x/cpp/telem/telem.h"
@@ -130,6 +131,15 @@ int nanos_exponent(const TimeFormat format) {
     return 0;
 }
 
+/// @brief returns the number of nanoseconds in one unit of format, which is not
+/// ISO8601.
+std::int64_t nanos_per_unit(const TimeFormat format) {
+    std::int64_t n = 1;
+    for (int i = 0; i < nanos_exponent(format); i++)
+        n *= 10;
+    return n;
+}
+
 /// @brief appends v to out in decimal, with leading zeros up to width digits.
 void append_digits(std::string &out, const std::int64_t v, const int width = 0) {
     std::array<char, 24> buf{};
@@ -189,12 +199,22 @@ std::pair<telem::TimeStamp, errors::Error> parse_iso8601(std::string &text) {
 }
 
 std::pair<telem::TimeStamp, errors::Error>
-parse_unix(const std::string_view text, const TimeFormat format) {
-    const auto d = parse_decimal(text, nanos_exponent(format));
-    if (!d.has_value()) return {telem::TimeStamp(0), invalid_number(text)};
-    std::uint64_t limit = MAX_NANOS;
-    if (d->negative) limit++;
-    if (d->overflow || d->magnitude > limit)
+parse_unix(std::string_view text, const TimeFormat format) {
+    text = trim_space(text);
+    std::optional<std::int64_t> nanos;
+    if (const auto d = parse_decimal(text, nanos_exponent(format)); d.has_value()) {
+        std::uint64_t limit = MAX_NANOS;
+        if (d->negative) limit++;
+        if (!d->overflow && d->magnitude <= limit)
+            nanos = static_cast<std::int64_t>(
+                d->negative ? 0 - d->magnitude : d->magnitude
+            );
+    } else {
+        const auto [n, err] = Number::parse_quoted(text);
+        if (err) return {telem::TimeStamp(0), err};
+        nanos = n.to_int64_times(nanos_per_unit(format));
+    }
+    if (!nanos.has_value())
         return {
             telem::TimeStamp(0),
             errors::Error(
@@ -203,12 +223,7 @@ parse_unix(const std::string_view text, const TimeFormat format) {
                     " timestamp"
             ),
         };
-    if (d->negative)
-        return {
-            telem::TimeStamp(static_cast<std::int64_t>(0 - d->magnitude)),
-            errors::NIL
-        };
-    return {telem::TimeStamp(static_cast<std::int64_t>(d->magnitude)), errors::NIL};
+    return {telem::TimeStamp(*nanos), errors::NIL};
 }
 
 void append_timestamp(
@@ -238,12 +253,7 @@ void append_timestamp(
         out += "Z\"";
         return;
     }
-    const int digits = nanos_exponent(format);
-    std::int64_t unit = 1;
-    for (int e = 0; e < digits; e++)
-        unit *= 10;
-    std::int64_t whole = ns / unit;
-    std::int64_t frac = ns % unit;
+    auto [whole, frac] = split_unix(ts, format);
     if (frac == 0) {
         append_digits(out, whole);
         return;
@@ -255,6 +265,6 @@ void append_timestamp(
     }
     append_digits(out, whole);
     out += '.';
-    append_fraction(out, frac, digits);
+    append_fraction(out, frac, nanos_exponent(format));
 }
 }

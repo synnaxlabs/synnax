@@ -220,6 +220,8 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
             "query_params",
             std::vector<QueryParam>{}
         ),
+        .icd = parser.field<std::optional<::synnax::icd::Key>>("icd"),
+        .message = parser.field<std::optional<::synnax::icd::WriteMessage>>("message"),
         .channel = parser.field<ChannelField>("channel", ChannelField{}),
         .fields = [&] {
             std::vector<WriteField> result;
@@ -240,6 +242,8 @@ inline x::json::json WriteEndpoint::to_json() const {
     j["path"] = this->path;
     j["headers"] = x::json::to_array(this->headers);
     j["query_params"] = x::json::to_array(this->query_params);
+    if (this->icd.has_value()) j["icd"] = this->icd->to_json();
+    if (this->message.has_value()) j["message"] = this->message->to_json();
     j["channel"] = this->channel.to_json();
     {
         auto arr = x::json::json::array();

@@ -23,14 +23,17 @@ namespace x::json {
 /// @returns VALIDATION when text is not RFC 3339, or is past the range of a timestamp.
 std::pair<telem::TimeStamp, errors::Error> parse_iso8601(std::string &text);
 
-/// @brief parses text, a decimal number, as a count of the units of format, which is
-/// not ISO8601. It keeps every digit down to the nanosecond.
+/// @brief parses text, the text of a JSON number or the content of a JSON string, as a
+/// count of the units of format, which is not ISO8601. It takes what
+/// Number::parse_quoted takes, and keeps every digit of a decimal down to the
+/// nanosecond.
 /// @returns VALIDATION when text is not a number, or is past the range of a timestamp.
 std::pair<telem::TimeStamp, errors::Error>
 parse_unix(std::string_view text, TimeFormat format);
 
 /// @brief appends JSON text to out: ts in format. ISO8601 writes an RFC 3339 string in
-/// UTC with the shortest fraction of a second, and a Unix format writes a number with
-/// every digit of ts.
+/// UTC with the shortest fraction of a second. UnixSecond and UnixNanosecond write a
+/// number with every digit of ts. UnixMillisecond and UnixMicrosecond write a whole
+/// number of their unit, rounded toward negative infinity.
 void append_timestamp(telem::TimeStamp ts, TimeFormat format, std::string &out);
 }

@@ -38,6 +38,9 @@ var (
 	db   *gorp.DB
 )
 
+// secretsKey encrypts the secrets of every spec, which share db.
+var secretsKey = secret.NewEncryptionKey()
+
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)

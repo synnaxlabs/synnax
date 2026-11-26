@@ -74,7 +74,8 @@ export class Canvas extends aether.Composite<typeof canvasStateZ> {
         upper2dCanvas: undefined,
         framePort: undefined,
       }));
-    } else this.renderCtx.update(ctx);
+    }
+    this.renderCtx?.update(ctx);
     this.renderCtx?.resize(this.state.region, this.state.dpr);
   }
 
