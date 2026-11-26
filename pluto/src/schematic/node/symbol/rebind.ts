@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 
 type Bindings = Pick<schematic.SymbolNodeConfig, "states" | "commands">;
 
@@ -15,16 +15,20 @@ type Bindings = Pick<schematic.SymbolNodeConfig, "states" | "commands">;
  * @returns the bindings of a symbol node whose spec changes from `from` to `to`. A
  * state binding stays whole when `to` has a state of its key and type, and keeps only
  * its channel source when the type differs or `from` is missing. A command binding
- * stays when `to` has its command. Every other binding is dropped.
+ * stays when `to` has its command and that command writes no state. Every other
+ * binding is dropped.
  */
 export const rebind = (
-  { states, commands }: Bindings,
+  bindings: Bindings,
   from: schematic.symbol.Spec | undefined,
   to: schematic.symbol.Spec,
 ): Bindings => {
+  const { states, commands } = bindings;
   const fromTypes = new Map(from?.states.map((s) => [s.key, s.type]));
   const toTypes = new Map(to.states.map((s) => [s.key, s.type]));
-  const toCommands = new Set(to.commands.map((c) => c.key));
+  const orphaned = new Set(
+    schematic.orphans(bindings, to.states, to.commands).commands,
+  );
   return {
     states: states.flatMap((binding) => {
       const type = toTypes.get(binding.key);
@@ -33,6 +37,6 @@ export const rebind = (
       const { key, source } = binding;
       return source?.type === "channel" ? [{ key, source }] : [];
     }),
-    commands: commands.filter(({ key }) => toCommands.has(key)),
+    commands: commands.filter(({ key }) => !orphaned.has(key)),
   };
 };

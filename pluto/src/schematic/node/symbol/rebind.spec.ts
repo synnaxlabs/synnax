@@ -95,4 +95,13 @@ describe("Schematic.Node.rebind", () => {
       { key: "open", channel: 7 },
     ]);
   });
+
+  it("should drop a command binding when the new command writes a state", () => {
+    const to = createSpec(
+      [{ type: "number", key: "mode", name: "Mode" }],
+      [{ key: "open", name: "Open", state: "mode", value: FIXED }],
+    );
+    const commands = [{ key: "open", channel: 7 }];
+    expect(Node.rebind({ states: [], commands }, NUMBER, to).commands).toEqual([]);
+  });
 });
