@@ -38,12 +38,6 @@ interface NodeTags {
   error?: status.Status;
 }
 
-/** The tags of each edge node, asked for after the listen that found the nodes. */
-interface ListingTags {
-  listing: string | null;
-  nodes: Map<string, NodeTags>;
-}
-
 const ALL_NODES = { group: "", edgeNode: "" };
 
 const NO_NODES: Device.BrowsedSparkplugNode[] = [];
@@ -108,13 +102,9 @@ export const TagPicker = ({
   onAddByName,
 }: TagPickerProps) => {
   const [selected, setSelected] = useState<string | null>(null);
-  const [tags, setTags] = useState<ListingTags>(() => ({
-    listing: null,
-    nodes: new Map(),
-  }));
   // handlePick reads the picks made while it waits for tags.
   const valueRef = useSyncedRef(value);
-  const { result, listen, follow } = ICD.Picker.useListen<Listing>(
+  const { result, listen, follow, reads } = ICD.Picker.useListen<Listing, NodeTags>(
     async (client) => {
       const { nodes } = await Device.browseSparkplug(client, device, ALL_NODES);
       return { key: id.create(), nodes };
@@ -122,25 +112,21 @@ export const TagPicker = ({
     [device],
   );
   const listing = result.data;
-  if (listing != null && tags.listing !== listing.key)
-    setTags({ listing: listing.key, nodes: new Map() });
 
   const loadTags = async (
     node: Device.BrowsedSparkplugNode,
   ): Promise<Device.BrowsedSparkplugTag[] | null> => {
     const key = nodeKey(node);
-    const set = (state: NodeTags) =>
-      setTags((prev) => ({ ...prev, nodes: new Map(prev.nodes).set(key, state) }));
-    set({ tags: null, loading: true });
+    reads.set(key, { tags: null, loading: true });
     try {
       const answer = await follow((client) =>
         Device.browseSparkplug(client, device, node),
       );
       if (answer == null) return null;
-      set({ tags: answer.tags, loading: false });
+      reads.set(key, { tags: answer.tags, loading: false });
       return answer.tags;
     } catch (e) {
-      set({
+      reads.set(key, {
         tags: null,
         loading: false,
         error: status.fromException(e, {
@@ -156,7 +142,7 @@ export const TagPicker = ({
   const first = nodes.at(0);
   const active = selected ?? (first == null ? null : nodeKey(first));
   const activeNode = nodes.find((n) => nodeKey(n) === active) ?? null;
-  const activeTags = active == null ? undefined : tags.nodes.get(active);
+  const activeTags = active == null ? undefined : reads.get(active);
   useEffect(() => {
     if (activeNode != null && activeTags == null) void loadTags(activeNode);
   }, [activeNode, activeTags, loadTags]);
@@ -188,7 +174,7 @@ export const TagPicker = ({
     },
     ...members.map((node): ICD.Picker.TreeItem => {
       const key = nodeKey(node);
-      const state = tags.nodes.get(key);
+      const state = reads.get(key);
       const picked = pickedIn(value, node).length;
       const free = state?.tags == null ? null : freeTags(node, state.tags).length;
       let meta = "";
@@ -209,7 +195,7 @@ export const TagPicker = ({
     const node = byKey.get(key);
     if (node == null) throw new Error(`No edge node at ${key}`);
     setSelected(key);
-    const list = tags.nodes.get(key)?.tags ?? (await loadTags(node));
+    const list = reads.get(key)?.tags ?? (await loadTags(node));
     if (list == null) return;
     const free = freeTags(node, list);
     const picks = valueRef.current;
@@ -221,7 +207,7 @@ export const TagPicker = ({
   };
 
   const loading = result.variant === "loading";
-  const asking = nodes.find((n) => tags.nodes.get(nodeKey(n))?.loading === true);
+  const asking = nodes.find((n) => reads.get(nodeKey(n))?.loading === true);
   let statusText = pluralize("edge node", nodes.length, true);
   if (loading) statusText = Device.LISTENING;
   else if (asking != null) statusText = `Asking ${asking.edgeNode} for its tags`;
