@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, icd, mqtt, type Synnax, type task } from "@synnaxlabs/client";
+import {
+  channel,
+  type device,
+  icd,
+  mqtt,
+  type Synnax,
+  type task,
+} from "@synnaxlabs/client";
 import {
   createTestClient,
   holdResponses,
@@ -125,12 +132,17 @@ const createWriteConfig = (
   targets,
 });
 
+interface RenderWriteOptions extends RenderTaskFormTabOptions {
+  /** The broker of the task. Absent creates one. */
+  dev?: device.Device;
+}
+
 // The form body renders against a configured broker only.
 const renderWrite = async (
   targets: MQTT.Task.WriteTarget[] = [],
-  options: RenderTaskFormTabOptions = {},
+  { dev: given, ...options }: RenderWriteOptions = {},
 ) => {
-  const dev = await createBroker(client);
+  const dev = given ?? (await createBroker(client));
   const draft = await createDraft(client, createWriteConfig(dev.key, targets));
   const result = await renderTaskFormTab(MQTT.Task.FORMS[MQTT.Task.WRITE_TYPE], {
     client,
@@ -248,6 +260,23 @@ describe("MQTT Write form", () => {
     expect(within(on).getByRole("img", { name: "New channel" })).toBeTruthy();
     const off = screen.getByRole("treeitem", { name: /^mode/ });
     expect(within(off).queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
+  it("should show the stored command channel that deploying keeps for a field with no channel, not a new one", async () => {
+    const setpoint = createField("setpoint", "float");
+    const { target } = await createFormatTarget([setpoint]);
+    const stored = await client.channels.create({
+      name: uniqueName("mqtt_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const dev = await createBroker(client, {
+      properties: { write: { [`${target.topic}#${setpoint.key}`]: stored.key } },
+    });
+    await renderWrite([target], { dev });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^setpoint/ }));
+    expect(await screen.findByDisplayValue(stored.name)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
   });
 
   it("should bind a tag to the command channel the broker stores, and leave a plain target as it is", async () => {

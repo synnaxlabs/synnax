@@ -467,20 +467,21 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
   const specs = all
     .filter(({ disabled }) => !disabled)
     .flatMap((t) => commandChannelsOf(t, namingOf(device.name, t)));
-  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
   const messageOf = (target: WriteTarget): ICD.Write.TargetMessage => {
     const naming = namingOf(device.name, target);
     return {
       icd: target.icd,
       message: target.message.message,
       path: root.config.targets[target.key].message,
-      channelName: (field) => names.get(naming.key(field)) ?? naming.name(field),
+      naming,
     };
   };
   const { tree, handleSelect, contextMenu, renderItem, pane, currentGroup } =
     ICD.Write.useTree<WriteTarget>({
       path: root.config.targets,
       messageOf,
+      plans,
       groups: TOPICS,
       TargetItem,
       targetPane: (target, onAddField) => ({

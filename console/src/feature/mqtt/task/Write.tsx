@@ -324,7 +324,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         ? commandChannelsOf(t, plainNaming(device.name, t))
         : [sparkplugCommand(device.name, t)],
     );
-  const names = Task.useCommandChannelNames(device.properties.write, specs);
+  const plans = Task.useCommandChannelPlans(device.properties.write, specs);
   const messageOf = (target: WriteTarget): ICD.Write.TargetMessage | null => {
     if (target.type !== "plain") return null;
     const naming = plainNaming(device.name, target);
@@ -332,12 +332,13 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
       icd: target.icd,
       message: target.message.message,
       path: plainPath(target.key).message,
-      channelName: (field) => names.get(naming.key(field)) ?? naming.name(field),
+      naming,
     };
   };
   const { tree, handleSelect, contextMenu, renderItem, pane } = ICD.Write.useTree({
     path: root.config.targets,
     messageOf,
+    plans,
     TargetItem,
     targetPane: (target, onAddField) => ({
       path: root.config.targets[target.key],
@@ -349,7 +350,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
           deviceName={device.name}
           plannedName={
             target.type === "sparkplug"
-              ? names.get(sparkplugPropertiesKey(target))
+              ? Task.newCommandChannelName(plans.get(sparkplugPropertiesKey(target)))
               : undefined
           }
           onAddField={onAddField}

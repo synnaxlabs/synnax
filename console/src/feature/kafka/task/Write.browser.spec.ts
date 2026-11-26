@@ -604,6 +604,24 @@ describe("Kafka Write form", () => {
     expect(await screen.findByDisplayValue(name)).toBeTruthy();
   });
 
+  it("should show the stored command channel that deploying keeps for a field with no channel, not a new one", async () => {
+    const setpoint = createField("setpoint", "float");
+    const { target } = await createTarget([setpoint]);
+    const stored = await client.channels.create({
+      name: uniqueName("kafka_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const key = `${target.topic}#${target.recordKey}#${setpoint.key}`;
+    const dev = await createKafkaDevice(client, {
+      properties: { write: { [key]: stored.key } },
+    });
+    await renderWrite([target], { dev });
+    fireEvent.click(await screen.findByRole("treeitem", { name: /^setpoint/ }));
+    expect(await screen.findByDisplayValue(stored.name)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
   it("should show the planned command channel name of a field after a rename", async () => {
     const { target } = await createTarget([createField("speed", "float")], {
       recordKey: "pump-1",

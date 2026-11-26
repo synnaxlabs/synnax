@@ -235,6 +235,23 @@ describe("Write", () => {
     expect(await screen.findByText(message.name)).toBeTruthy();
   });
 
+  it("should show the stored command channel that deploying keeps for a field with no channel, not a new one", async () => {
+    const value = createField("value", "float");
+    const { ic, message } = await createFormat([value]);
+    const stored = await client.channels.create({
+      name: uniqueName("http_cmd"),
+      dataType: "float64",
+      virtual: true,
+    });
+    const dev = await createHTTPDevice(client, {
+      properties: { write: { [`PUT /setpoint#${value.key}`]: stored.key } },
+    });
+    await renderWrite([createEndpoint("ep1", "/setpoint", ic, message, [value])], dev);
+    await selectField("value");
+    expect(await screen.findByDisplayValue(stored.name)).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "New channel" })).toBeNull();
+  });
+
   it("should open a field under its endpoint with the name of its new command channel", async () => {
     const value = createField("value", "float");
     const { ic, message } = await createFormat([value]);
