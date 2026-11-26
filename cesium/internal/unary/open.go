@@ -38,11 +38,13 @@ var errVirtual = errors.New("cannot open a unary database on a virtual channel")
 type Config struct {
 	alamos.Instrumentation
 	// MetaCodec is used to encode and decode metadata about the channel.
+	//
 	// [REQUIRED]
 	MetaCodec encoding.Codec
 	// FS is the filesystem that the DB will use to store its data. DB will write to the
 	// root of the filesystem, so this should probably be a subdirectory. DB should have
 	// exclusive access, and it should be empty when the DB is first opened.
+	//
 	// [REQUIRED]
 	FS fs.FS
 	// Channel that the database will store data for. This only needs to be set when
@@ -52,20 +54,24 @@ type Config struct {
 	// FileSize is the maximum size, in bytes, for a writer to be created on a file.
 	// Note while that a file's size may still exceed this value, it is not likely to
 	// exceed by much with frequent commits.
+	//
 	// [OPTIONAL] Default: 1GB
 	FileSize telem.Size
 	// GCThreshold is the minimum tombstone proportion of the FileSize to trigger a GC.
 	// Must be in (0, 1].
 	// Note: Setting this value to 0 will have NO EFFECT as it is the default value.
 	// instead, set it to a very small number greater than 0.
+	//
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
 	// OnHistoryChange receives the time range of each delete and of each write before
 	// the channel's newest data. It runs inline under the DB's locks, so it must not
 	// block or call back into the DB.
+	//
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
 	// Clock times the AutoIndexPersistInterval of each writer. See domain.Config.Clock.
+	//
 	// [OPTIONAL] Default: xtime.Real
 	Clock xtime.Clock
 }
@@ -135,6 +141,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		controller:       c,
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
+		pending:          &atomic.Int32{},
 		leadingAlignment: alignment.NewCounter(alignment.ZeroLeading),
 		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}

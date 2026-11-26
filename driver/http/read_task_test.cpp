@@ -7,10 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -18,7 +21,6 @@
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -30,15 +32,104 @@
 
 namespace driver::http {
 using ::synnax::http::ReadEndpoint;
-using ::synnax::http::ReadField;
-
-namespace {
 using x::testutil::bytes;
 
-/// @brief helper to build a ReadTaskSource from config and a mock server URL.
-/// Each call creates its own Processor so tests have independent lifecycles.
+namespace {
+/// @brief returns a JSON field of kind F at pointer, named after it.
+template<typename F>
+F field(const std::string &pointer) {
+    F f;
+    f.key = x::uuid::create();
+    f.name = pointer.substr(1);
+    f.pointer = pointer;
+    return f;
+}
+
+/// @brief Endpoint is a read endpoint and the channel of each field of its message.
+struct Endpoint {
+    ReadEndpoint endpoint;
+    /// @brief index indexes every channel of the message.
+    synnax::channel::Channel index;
+    std::vector<synnax::channel::Channel> channels;
+};
+
+/// @brief creates a GET endpoint at path whose ICD holds one JSON message of fields.
+/// Each field writes a new channel of the data type beside it, and one new index
+/// channel indexes them all.
+Endpoint create_endpoint(
+    const synnax::Synnax &client,
+    const std::string &path,
+    const std::vector<std::pair<synnax::icd::JSONField, x::telem::DataType>> &fields,
+    const std::optional<synnax::icd::JSONMatch> &match = std::nullopt
+) {
+    Endpoint ep;
+    ep.index = ASSERT_NIL_P(
+        client.channels
+            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    );
+    synnax::icd::JSONPayload payload{.match = match};
+    synnax::icd::Message m;
+    m.key = x::uuid::create();
+    m.name = "Status";
+    synnax::icd::ReadMessage rm{.message = m.key};
+    for (const auto &[f, data_type]: fields) {
+        const auto &base = synnax::icd::base(f);
+        auto ch = ASSERT_NIL_P(client.channels.create(
+            make_unique_channel_name(base.name),
+            data_type,
+            ep.index.key,
+            false
+        ));
+        payload.fields.push_back(f);
+        rm.bindings.push_back({.field = base.key, .channel = ch.key});
+        ep.channels.push_back(std::move(ch));
+    }
+    m.payload = std::move(payload);
+    synnax::icd::ICD ic;
+    ic.key = x::uuid::create();
+    ic.name = "Plant";
+    ic.messages = {m};
+    EXPECT_NIL(client.icds.create(ic));
+    ep.endpoint.key = path;
+    ep.endpoint.method = "GET";
+    ep.endpoint.path = path;
+    ep.endpoint.icd = ic.key;
+    ep.endpoint.messages = {rm};
+    return ep;
+}
+
+/// @brief creates a GET endpoint at path that reads the float at pointer.
+Endpoint create_float_endpoint(
+    const synnax::Synnax &client,
+    const std::string &path,
+    const std::string &pointer = "/value"
+) {
+    return create_endpoint(
+        client,
+        path,
+        {{field<synnax::icd::FloatJSONField>(pointer), x::telem::FLOAT64_T}}
+    );
+}
+
+/// @brief returns the config of a task that reads endpoints at rate.
+ReadTaskConfig create_config(
+    const std::vector<Endpoint> &endpoints,
+    const x::telem::Rate rate = x::telem::Rate(10000)
+) {
+    ReadTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.data_saving_disabled = true;
+    cfg.rate = rate;
+    for (const auto &ep: endpoints)
+        cfg.endpoints.push_back(ep.endpoint);
+    return cfg;
+}
+
+/// @brief builds the source of cfg against the server at base_url the way
+/// configure_read does. Each call creates its own Processor.
 std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_source(
-    ReadTaskConfig &cfg,
+    const synnax::Synnax &client,
+    ReadTaskConfig cfg,
     const std::string &base_url,
     const x::json::json &conn_extra = x::json::json::object()
 ) {
@@ -49,1133 +140,233 @@ std::pair<std::unique_ptr<ReadTaskSource>, std::shared_ptr<Processor>> make_sour
     };
     conn_json.update(conn_extra);
     auto conn_parser = x::json::Parser(conn_json);
-    auto conn = device::ConnectionConfig(conn_parser);
-
-    auto requests = build_requests(conn, cfg.endpoints);
-
+    auto requests = build_requests(
+        device::ConnectionConfig(conn_parser),
+        cfg.endpoints
+    );
+    auto readers = ASSERT_NIL_P(build_readers(client, cfg.endpoints));
     auto processor = std::make_shared<Processor>();
     return {
         std::make_unique<ReadTaskSource>(
-            ReadTaskConfig(cfg),
+            std::move(cfg),
             processor,
-            std::move(requests)
+            std::move(requests),
+            std::move(readers)
         ),
         std::move(processor),
     };
+}
+
+/// @brief polls cfg once against the server at base_url.
+std::pair<x::telem::Frame, common::ReadResult> read_once(
+    const synnax::Synnax &client,
+    ReadTaskConfig cfg,
+    const std::string &base_url,
+    const x::json::json &conn_extra = x::json::json::object()
+) {
+    auto [source, processor] = make_source(
+        client,
+        std::move(cfg),
+        base_url,
+        conn_extra
+    );
+    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
+    breaker.start();
+    x::telem::Frame fr;
+    auto res = source->read(breaker, fr);
+    breaker.stop();
+    return {std::move(fr), std::move(res)};
+}
+
+/// @brief returns a GET route at path that answers with status_code and body after
+/// delay.
+testutil::Route route(
+    const std::string &path,
+    const std::string &body,
+    const int status_code = 200,
+    const x::telem::TimeSpan delay = x::telem::TimeSpan::ZERO()
+) {
+    return {
+        .method = Method::GET,
+        .path = path,
+        .status_code = status_code,
+        .response_body = body,
+        .delay = delay,
+    };
+}
+
+/// @brief returns a GET route at path that answers {"value": 1.0} after delay.
+testutil::Route value_route(const std::string &path, const x::telem::TimeSpan delay) {
+    return route(path, R"({"value": 1.0})", 200, delay);
+}
+
+/// @brief returns a task whose config reads endpoints from device.
+synnax::task::Task
+create_task(const x::json::json &endpoints, const std::string &device = "dev-001") {
+    synnax::task::Task task;
+    task.name = "read";
+    task.config = {{"device", device}, {"rate", 1.0}, {"endpoints", endpoints}};
+    return task;
 }
 }
 
 /// @brief it should fail to parse config when endpoints array is empty.
 TEST(HTTPReadTask, ParseConfigEmptyEndpoints) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints", x::json::json::array()},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto [_, err] = ReadTaskConfig::parse(create_task(x::json::json::array()));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(
+        err.data.find("at least one enabled endpoint is required"),
+        std::string::npos
+    ) << err.data;
 }
 
 /// @brief it should fail to parse config when device field is missing.
 TEST(HTTPReadTask, ParseConfigMissingDevice) {
-    synnax::task::Task task;
-    task.config = {
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/temp"},
-                  {"channel", 1},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+    auto task = create_task({{{"method", "GET"}, {"path", "/api/data"}}});
+    task.config.erase("device");
+    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(task), x::errors::VALIDATION);
 }
 
-/// @brief it should fail to parse config when a channel is used multiple times.
-TEST(HTTPReadTask, ParseConfigDuplicateChannel) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {
-                  {{"pointer", "/temp"}, {"channel", 1}},
-                  {{"pointer", "/humidity"}, {"channel", 1}},
-              }},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
+/// @brief it should drop a disabled endpoint without checking its request.
+TEST(HTTPReadTask, ParseConfigDisabledEndpointSkipped) {
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(create_task({
+            {{"method", "GET"}, {"path", "/api/temp"}},
+            {{"method", "GET"},
+             {"path", "/api/off"},
+             {"disabled", true},
+             {"headers",
+              {{{"name", "A"}, {"value", "1"}}, {{"name", "A"}, {"value", "2"}}}}},
+        }))
+    );
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    EXPECT_EQ(cfg.endpoints[0].path, "/api/temp");
+}
+
+/// @brief it should fail to parse config when every endpoint is disabled.
+TEST(HTTPReadTask, ParseConfigAllEndpointsDisabled) {
+    auto [_, err] = ReadTaskConfig::parse(
+        create_task({{{"method", "GET"}, {"path", "/api/off"}, {"disabled", true}}})
+    );
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(
+        err.data.find("at least one enabled endpoint is required"),
+        std::string::npos
+    ) << err.data;
 }
 
 /// @brief it should fail when a query_params entry is missing the parameter field.
 TEST(HTTPReadTask, ParseConfigQueryParamMissingParameterErrors) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"query_params", {{{"value", "10"}}}},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", 1},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_, err] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
+    auto [_, err] = ReadTaskConfig::parse(create_task({{
+        {"method", "GET"},
+        {"path", "/api/data"},
+        {"query_params", {{{"value", "10"}}}},
+    }}));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_NE(err.data.find("parameter"), std::string::npos);
 }
 
 /// @brief a query_params entry may omit the value field; it defaults to an empty
 /// string.
 TEST(HTTPReadTask, ParseConfigQueryParamMissingValueDefaultsEmpty) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(create_task({{
+            {"method", "GET"},
+            {"path", "/api/data"},
+            {"query_params", {{{"parameter", "limit"}}}},
+        }}))
     );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"query_params", {{{"parameter", "limit"}}}},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
     ASSERT_EQ(cfg.endpoints[0].query_params.size(), 1);
     EXPECT_EQ(cfg.endpoints[0].query_params.at(0).parameter, "limit");
     EXPECT_EQ(cfg.endpoints[0].query_params.at(0).value, "");
 }
 
-namespace {
-/// @brief a data channel and its index on a live Core.
-struct FieldChannels {
-    std::shared_ptr<synnax::Synnax> client;
-    synnax::channel::Channel index;
-    synnax::channel::Channel data;
-};
-
-/// @brief creates an indexed channel of the given data type.
-/// @param data_type the data type of the data channel.
-/// @returns the client and the created channels.
-FieldChannels create_field_channels(const x::telem::DataType &data_type) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto index = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto data = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("value"), data_type, index.key, false)
-    );
-    return {std::move(client), std::move(index), std::move(data)};
-}
-
-/// @brief creates a read task with one field on one endpoint.
-/// @param field the JSON config of the field.
-/// @returns the task.
-synnax::task::Task create_field_task(const x::json::json &field) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields", x::json::json::array({field})},
-         }}},
-    };
-    return task;
-}
-
-/// @brief asserts that a task with the given field fails to parse.
-/// @param client the client that the parse retrieves channels with.
-/// @param field the JSON config of the field.
-/// @param message text that the error must hold.
-void expect_field_rejected(
-    const std::shared_ptr<synnax::Synnax> &client,
-    const x::json::json &field,
-    const std::string &message
-) {
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto [_, err] = ReadTaskConfig::parse(ctx, create_field_task(field));
-    ASSERT_TRUE(err.matches(x::errors::VALIDATION));
-    EXPECT_NE(err.data.find(message), std::string::npos) << err.data;
-}
-}
-
-/// @brief it should reject a fill value on a field that is not optional.
-TEST(HTTPReadTask, ParseConfigFillValueWithoutOptionalErrors) {
-    expect_field_rejected(
-        nullptr,
-        {{"pointer", "/value"}, {"channel", 1}, {"fill_value", 0}},
-        "needs an optional field"
-    );
-}
-
-/// @brief it should reject an optional non-float field with no fill value.
-TEST(HTTPReadTask, ParseConfigOptionalIntegerNeedsFillValue) {
-    const auto [client, _, data] = create_field_channels(x::telem::INT32_T);
-    expect_field_rejected(
-        client,
-        {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}},
-        "needs a fill value"
-    );
-}
-
-/// @brief it should reject an optional string field with no fill value.
-TEST(HTTPReadTask, ParseConfigOptionalStringNeedsFillValue) {
-    const auto [client, _, data] = create_field_channels(x::telem::STRING_T);
-    expect_field_rejected(
-        client,
-        {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}},
-        "needs a fill value"
-    );
-}
-
-/// @brief it should reject a fill value that does not convert to the channel type.
-TEST(HTTPReadTask, ParseConfigFillValueUnconvertibleErrors) {
-    const auto [client, _, data] = create_field_channels(x::telem::INT32_T);
-    expect_field_rejected(
-        client,
-        {{"pointer", "/value"},
-         {"channel", data.key},
-         {"optional", true},
-         {"fill_value", "OFF"}},
-        "cannot convert"
-    );
-}
-
-/// @brief it should reject numeric enum values on a string channel.
-TEST(HTTPReadTask, ParseConfigStringEnumValuesErrors) {
-    const auto [client, _, data] = create_field_channels(x::telem::STRING_T);
-    expect_field_rejected(
-        client,
-        {{"pointer", "/value"},
-         {"channel", data.key},
-         {"enum_values", {{{"label", "ON"}, {"value", 1}}}}},
-        "string channel"
-    );
-}
-
-/// @brief it should reject an optional index channel, even with a fill value, because
-/// a filled timestamp would corrupt the index.
-TEST(HTTPReadTask, ParseConfigOptionalIndexErrors) {
-    const auto [client, index, _] = create_field_channels(x::telem::FLOAT64_T);
-    expect_field_rejected(
-        client,
-        {{"pointer", "/time"},
-         {"channel", index.key},
-         {"time_format", "unix_sec"},
-         {"optional", true},
-         {"fill_value", 0}},
-        "index channel"
-    );
-}
-
-/// @brief it should accept an optional float field that sets no fill value.
-TEST(HTTPReadTask, ParseConfigOptionalFloatNeedsNoFillValue) {
-    const auto [client, _, data] = create_field_channels(x::telem::FLOAT64_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
-    const auto cfg = ASSERT_NIL_P(
-        ReadTaskConfig::parse(
-            ctx,
-            create_field_task(
-                {{"pointer", "/value"}, {"channel", data.key}, {"optional", true}}
-            )
-        )
-    );
-    EXPECT_TRUE(cfg.fill_values.empty());
-}
-
-/// @brief it should convert a fill value of 0 to the data type of the channel.
-TEST(HTTPReadTask, ParseConfigFillValueConverts) {
-    const auto [client, _, data] = create_field_channels(x::telem::FLOAT32_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
-    const auto cfg = ASSERT_NIL_P(
-        ReadTaskConfig::parse(
-            ctx,
-            create_field_task(
-                {{"pointer", "/value"},
-                 {"channel", data.key},
-                 {"optional", true},
-                 {"fill_value", 0}}
-            )
-        )
-    );
-    EXPECT_EQ(std::get<float>(cfg.fill_values.at(data.key)), 0.0F);
-}
-
-/// @brief it should accept an enum label as a fill value.
-TEST(HTTPReadTask, ParseConfigFillValueEnumLabel) {
-    const auto [client, _, data] = create_field_channels(x::telem::UINT8_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
-    const auto cfg = ASSERT_NIL_P(
-        ReadTaskConfig::parse(
-            ctx,
-            create_field_task(
-                {{"pointer", "/value"},
-                 {"channel", data.key},
-                 {"optional", true},
-                 {"fill_value", "OFF"},
-                 {"enum_values", {{{"label", "OFF"}, {"value", 3}}}}}
-            )
-        )
-    );
-    EXPECT_EQ(std::get<uint8_t>(cfg.fill_values.at(data.key)), 3);
-}
-
-/// @brief it should convert a fill value with the time format of the field.
-TEST(HTTPReadTask, ParseConfigFillValueTimeFormat) {
-    const auto [client, _, data] = create_field_channels(x::telem::TIMESTAMP_T);
-    auto ctx = std::make_shared<task::MockContext>(client);
-    const auto cfg = ASSERT_NIL_P(
-        ReadTaskConfig::parse(
-            ctx,
-            create_field_task(
-                {{"pointer", "/value"},
-                 {"channel", data.key},
-                 {"time_format", "unix_sec"},
-                 {"optional", true},
-                 {"fill_value", 2}}
-            )
-        )
-    );
-    EXPECT_EQ(
-        std::get<x::telem::TimeStamp>(cfg.fill_values.at(data.key)),
-        x::telem::TimeStamp(2 * x::telem::SECOND)
-    );
-}
-
-/// @brief it should fail when an enum_values entry is missing the label field.
-TEST(HTTPReadTask, ParseConfigEnumValueMissingLabelErrors) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/status"},
-                  {"channel", 1},
-                  {"enum_values", {{{"value", 1.0}}}},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_1, err1] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err1.matches(x::errors::VALIDATION));
-    EXPECT_NE(err1.data.find("label"), std::string::npos);
-}
-
-/// @brief an enum_values entry may omit the value field; it defaults to 0.
-TEST(HTTPReadTask, ParseConfigEnumValueMissingValueDefaultsZero) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("status"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/status"},
-                  {"channel", ch.key},
-                  {"enum_values", {{{"label", "ON"}}}},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    const auto &field = cfg.endpoints[0].fields[0];
-    ASSERT_EQ(field.enum_values.size(), 1);
-    EXPECT_EQ(field.enum_values.at(0).label, "ON");
-    EXPECT_EQ(field.enum_values.at(0).value, 0.0);
-}
-
 /// @brief it should fail when duplicate header names exist.
 TEST(HTTPReadTask, ParseConfigDuplicateHeaderErrors) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"headers",
-              {
-                  {{"name", "Accept"}, {"value", "text/plain"}},
-                  {{"name", "Accept"}, {"value", "application/json"}},
-              }},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", 1},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_3, err3] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err3.matches(x::errors::VALIDATION));
-    EXPECT_NE(err3.data.find("duplicate header"), std::string::npos);
-}
-
-/// @brief it should parse an endpoint that omits query parameters, leaving it
-/// with none.
-TEST(HTTPReadTask, ParseConfigOmittedQueryParamsDefaultsEmpty) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    ASSERT_EQ(cfg.endpoints.size(), 1);
-    ASSERT_TRUE(cfg.endpoints[0].query_params.empty());
-}
-
-/// @brief it should parse an endpoint that omits headers, leaving it with none.
-TEST(HTTPReadTask, ParseConfigOmittedHeadersDefaultsEmpty) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    ASSERT_EQ(cfg.endpoints.size(), 1);
-    ASSERT_TRUE(cfg.endpoints[0].headers.empty());
-}
-
-/// @brief an endpoint that omits body should parse to an empty body.
-TEST(HTTPReadTask, ParseConfigOmittedBodyDefaultsEmpty) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    ASSERT_EQ(cfg.endpoints.size(), 1);
-    ASSERT_TRUE(cfg.endpoints[0].body.empty());
-}
-
-/// @brief an endpoint that omits index should parse to an empty index.
-TEST(HTTPReadTask, ParseConfigOmittedIndexDefaultsEmpty) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    ASSERT_EQ(cfg.endpoints.size(), 1);
-    ASSERT_TRUE(cfg.endpoints[0].index.empty());
-}
-
-/// @brief a field that omits enum_values should parse to an empty list.
-TEST(HTTPReadTask, ParseConfigOmittedEnumValuesDefaultsEmpty) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(client);
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    ASSERT_EQ(cfg.endpoints.size(), 1);
-    ASSERT_EQ(cfg.endpoints[0].fields.size(), 1);
-    ASSERT_TRUE(cfg.endpoints[0].fields[0].enum_values.empty());
+    auto [_, err] = ReadTaskConfig::parse(create_task({{
+        {"method", "GET"},
+        {"path", "/api/data"},
+        {"headers",
+         {
+             {{"name", "Accept"}, {"value", "text/plain"}},
+             {{"name", "Accept"}, {"value", "application/json"}},
+         }},
+    }}));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(err.data.find("duplicate header"), std::string::npos);
 }
 
 /// @brief it should fail when duplicate query parameter names exist.
 TEST(HTTPReadTask, ParseConfigDuplicateQueryParamErrors) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"query_params",
-              {
-                  {{"parameter", "limit"}, {"value", "10"}},
-                  {{"parameter", "limit"}, {"value", "20"}},
-              }},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", 1},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_4, err4] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err4.matches(x::errors::VALIDATION));
-    EXPECT_NE(err4.data.find("duplicate query parameter"), std::string::npos);
+    auto [_, err] = ReadTaskConfig::parse(create_task({{
+        {"method", "GET"},
+        {"path", "/api/data"},
+        {"query_params",
+         {
+             {{"parameter", "limit"}, {"value", "10"}},
+             {{"parameter", "limit"}, {"value", "20"}},
+         }},
+    }}));
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(err.data.find("duplicate query parameter"), std::string::npos);
 }
 
-/// @brief it should fail when duplicate enum labels exist in a read field.
-TEST(HTTPReadTask, ParseConfigDuplicateEnumLabelErrors) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/status"},
-                  {"channel", 1},
-                  {"enum_values",
-                   {
-                       {{"label", "ON"}, {"value", 1.0}},
-                       {{"label", "ON"}, {"value", 2.0}},
-                   }},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    auto [_5, err5] = ReadTaskConfig::parse(ctx, task);
-    ASSERT_TRUE(err5.matches(x::errors::VALIDATION));
-    EXPECT_NE(err5.data.find("duplicate enum label"), std::string::npos);
+/// @brief it should parse an endpoint that omits query parameters, headers, and a
+/// body, leaving it with none.
+TEST(HTTPReadTask, ParseConfigOmittedRequestPartsDefaultEmpty) {
+    const auto cfg = ASSERT_NIL_P(
+        ReadTaskConfig::parse(create_task({{{"method", "GET"}, {"path", "/api/data"}}}))
+    );
+    ASSERT_EQ(cfg.endpoints.size(), 1);
+    EXPECT_TRUE(cfg.endpoints[0].query_params.empty());
+    EXPECT_TRUE(cfg.endpoints[0].headers.empty());
+    EXPECT_TRUE(cfg.endpoints[0].body.empty());
 }
 
-/// @brief it should extract a numeric field from a single GET endpoint.
+/// @brief it should read the fields of a message from a single GET endpoint.
 TEST(HTTPReadTask, SingleEndpointGETNumericField) {
     testutil::Server server(
         testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temperature": 23.5, "humidity": 80})",
-            }},
+            .routes = {route("/api/data", R"({"temperature": 23.5, "humidity": 80})")},
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temperature";
-    temp_field.channel = 1;
-
-    ReadField humidity_field;
-    humidity_field.pointer = "/humidity";
-    humidity_field.channel = 2;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {temp_field, humidity_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {
-        .key = 1,
-        .name = "temperature",
-        .data_type = x::telem::FLOAT64_T,
-    };
-    cfg.channels[2] = {.key = 2, .name = "humidity", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto ep = create_endpoint(
+        client,
+        "/api/data",
+        {
+            {field<synnax::icd::FloatJSONField>("/temperature"), x::telem::FLOAT64_T},
+            {field<synnax::icd::FloatJSONField>("/humidity"), x::telem::FLOAT64_T},
+        }
+    );
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
     ASSERT_NIL(res.error);
     EXPECT_TRUE(res.warning.empty());
-    EXPECT_EQ(fr.size(), 2);
-    EXPECT_NEAR(fr.at<double>(1, 0), 23.5, 0.001);
-    EXPECT_NEAR(fr.at<double>(2, 0), 80.0, 0.001);
-}
-
-/// @brief it should extract nested JSON fields using JSON Pointer paths.
-TEST(HTTPReadTask, NestedJSONPointerPaths) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/sensors",
-                .status_code = 200,
-                .response_body =
-                    R"({"data":{"sensors":[{"value":42.0},{"value":99.0}]}})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/data/sensors/0/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/sensors";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "sensor_0", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
-}
-
-/// @brief a missing JSON pointer should produce a warning, not a hard error.
-TEST(HTTPReadTask, MissingJSONFieldWarning) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temperature": 23.5})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/nonexistent";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "missing", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief it should convert JSON types correctly (bool to uint8, string to string).
-TEST(HTTPReadTask, TypeConversions) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body =
-                    R"({"active": true, "label": "sensor-1", "count": 42})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField bool_field;
-    bool_field.pointer = "/active";
-    bool_field.channel = 1;
-
-    ReadField string_field;
-    string_field.pointer = "/label";
-    string_field.channel = 2;
-
-    ReadField int_field;
-    int_field.pointer = "/count";
-    int_field.channel = 3;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {bool_field, string_field, int_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "active", .data_type = x::telem::UINT8_T};
-    cfg.channels[2] = {.key = 2, .name = "label", .data_type = x::telem::STRING_T};
-    cfg.channels[3] = {.key = 3, .name = "count", .data_type = x::telem::INT32_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
     EXPECT_EQ(fr.size(), 3);
-    EXPECT_EQ(fr.at<uint8_t>(1, 0), 1);
-    EXPECT_EQ(fr.at<int32_t>(3, 0), 42);
+    EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 23.5, 0.001);
+    EXPECT_NEAR(fr.at<double>(ep.channels[1].key, 0), 80.0, 0.001);
 }
 
-/// @brief it should extract a string field from a JSON response.
-TEST(HTTPReadTask, StringField) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body =
-                    R"({"name": "sensor-42", "status": "online", "value": 3.14})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField name_field;
-    name_field.pointer = "/name";
-    name_field.channel = 1;
-
-    ReadField status_field;
-    status_field.pointer = "/status";
-    status_field.channel = 2;
-
-    ReadField value_field;
-    value_field.pointer = "/value";
-    value_field.channel = 3;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {name_field, status_field, value_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "name", .data_type = x::telem::STRING_T};
-    cfg.channels[2] = {.key = 2, .name = "status", .data_type = x::telem::STRING_T};
-    cfg.channels[3] = {.key = 3, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 3);
-    EXPECT_EQ(std::get<std::string>(fr.at(1, 0)), "sensor-42");
-    EXPECT_EQ(std::get<std::string>(fr.at(2, 0)), "online");
-    EXPECT_NEAR(fr.at<double>(3, 0), 3.14, 0.001);
-}
-
-/// @brief decimal values for integer channels should produce a warning, not a
-/// hard error.
-TEST(HTTPReadTask, DecimalToIntegerWarns) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 3.7})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::INT32_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief negative values for unsigned integer channels should produce a
-/// warning, not a hard error.
-TEST(HTTPReadTask, NegativeForUnsignedWarns) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": -5})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "count", .data_type = x::telem::UINT32_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief it should use software timing (midpoint) for index channels when the
-/// index channel is not listed as a field.
+/// @brief it should write the midpoint of the request to the index channel of a
+/// message with no index field.
 TEST(HTTPReadTask, SoftwareTimingIndex) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 42.0})",
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/data", R"({"value": 42.0})")}}
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] =
-        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
-    cfg.software_timed_indexes[100] = 0;
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto ep = create_float_endpoint(client, "/api/data");
+    const auto before = x::telem::TimeStamp::now();
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
+    const auto after = x::telem::TimeStamp::now();
     ASSERT_NIL(res.error);
     EXPECT_EQ(fr.size(), 2);
-    // The index channel should have a timestamp (non-zero).
-    auto ts = fr.at<int64_t>(100, 0);
-    EXPECT_GT(ts, 0);
-}
-
-/// @brief it should extract timestamps from the JSON response when the index
-/// channel is listed as an explicit field with a time_format.
-TEST(HTTPReadTask, ExplicitIndexFieldTimestamp) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 42.0, "timestamp": 1700000000})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField data_field;
-    data_field.pointer = "/value";
-    data_field.channel = 1;
-
-    ReadField index_field;
-    index_field.pointer = "/timestamp";
-    index_field.channel = 100;
-    index_field.time_format = "unix_sec";
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {data_field, index_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] =
-        {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T, .index = 100};
-    cfg.channels[100] = {
-        .key = 100,
-        .name = "time",
-        .data_type = x::telem::TIMESTAMP_T,
-        .is_index = true,
-    };
-    // No index_sources needed — index channel is an explicit field.
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 2);
-    // 1700000000 seconds = 1700000000000000000 nanoseconds
-    auto ts = fr.at<int64_t>(100, 0);
-    EXPECT_EQ(ts, 1700000000000000000LL);
+    const auto ts = fr.at<std::int64_t>(ep.index.key, 0);
+    EXPECT_GE(ts, before.nanoseconds());
+    EXPECT_LE(ts, after.nanoseconds());
 }
 
 /// @brief it should poll multiple endpoints in parallel.
@@ -1183,69 +374,28 @@ TEST(HTTPReadTask, MultipleEndpoints) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/temp",
-                    .status_code = 200,
-                    .response_body = R"({"temp": 25.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/pressure",
-                    .status_code = 200,
-                    .response_body = R"({"pressure": 1013.25})",
-                },
+                route("/api/temp", R"({"temp": 25.0})"),
+                route("/api/pressure", R"({"pressure": 1013.25})"),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadField pressure_field;
-    pressure_field.pointer = "/pressure";
-    pressure_field.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/temp";
-    ep1.body = "";
-    ep1.fields = {temp_field};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/pressure";
-    ep2.body = "";
-    ep2.fields = {pressure_field};
-
-    cfg.endpoints = {ep1, ep2};
-
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto temp = create_float_endpoint(client, "/api/temp", "/temp");
+    const auto pressure = create_float_endpoint(client, "/api/pressure", "/pressure");
+    const auto [fr, res] = read_once(
+        client,
+        create_config({temp, pressure}),
+        server.base_url()
+    );
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 2);
-    EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
-    EXPECT_NEAR(fr.at<double>(2, 0), 1013.25, 0.001);
+    EXPECT_EQ(fr.size(), 4);
+    EXPECT_NEAR(fr.at<double>(temp.channels[0].key, 0), 25.0, 0.001);
+    EXPECT_NEAR(fr.at<double>(pressure.channels[0].key, 0), 1013.25, 0.001);
 }
 
-/// @brief it should send POST body and extract response fields.
+/// @brief it should send POST body and read the response.
 TEST(HTTPReadTask, POSTWithBody) {
     testutil::Server server(
         testutil::ServerConfig{
@@ -1259,480 +409,82 @@ TEST(HTTPReadTask, POSTWithBody) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/result";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "POST";
-    ep.path = "/api/query";
-    ep.body = R"({"query": "latest"})";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    auto ep = create_float_endpoint(client, "/api/query", "/result");
+    ep.endpoint.method = "POST";
+    ep.endpoint.body = R"({"query": "latest"})";
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 99.9, 0.001);
-}
-
-/// @brief test fixture for parse tests that need a real Synnax client with pre-created
-/// channels and device.
-class HTTPReadTaskParseTest : public ::testing::Test {
-protected:
-    std::shared_ptr<synnax::Synnax> client;
-    std::shared_ptr<task::MockContext> ctx;
-    std::string device_key;
-
-    void SetUp() override {
-        client = std::make_shared<synnax::Synnax>(new_test_client());
-        auto rack = ASSERT_NIL_P(
-            client->racks.create(make_unique_channel_name("http_read_test_rack"))
-        );
-        device_key = make_unique_channel_name("http_read_test_device");
-        x::json::json props = {
-            {"secure", false},
-            {"timeout_ms", 1000},
-            {"verify_ssl", false},
-        };
-        synnax::device::Device dev{
-            .key = device_key,
-            .rack = rack.key,
-            .location = "localhost:0",
-            .make = "http",
-            .model = "HTTP Device",
-            .name = "HTTP Read Test Device",
-            .properties = props.get<x::json::json::object_t>(),
-        };
-        ASSERT_NIL(client->devices.create(dev));
-        ctx = std::make_shared<task::MockContext>(client);
-    }
-};
-
-/// @brief it should error when a TIMESTAMP_T channel has no time_format.
-TEST_F(HTTPReadTaskParseTest, TimestampChannelMissingFormat) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ts_ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("ts_data"),
-        x::telem::TIMESTAMP_T,
-        idx.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/ts"},
-                  {"channel", ts_ch.key},
-              }}},
-         }}},
-    };
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
-/// @brief it should error when channels on different endpoints share the same
-/// index channel — we wouldn't know which endpoint's response time to use for
-/// software timing.
-TEST_F(HTTPReadTaskParseTest, CrossEndpointSharedIndex) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("temp"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("humidity"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {
-             {
-                 {"method", "GET"},
-                 {"path", "/api/temp"},
-                 {"fields", {{{"pointer", "/temp"}, {"channel", ch1.key}}}},
-             },
-             {
-                 {"method", "GET"},
-                 {"path", "/api/humidity"},
-                 {"fields", {{{"pointer", "/humidity"}, {"channel", ch2.key}}}},
-             },
-         }},
-    };
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
-/// @brief it should succeed when two fields on the same endpoint share an index
-/// channel and the index is listed as an explicit field.
-TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexAsField) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("temp"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("humidity"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {
-                  {{"pointer", "/temp"}, {"channel", ch1.key}},
-                  {{"pointer", "/humidity"}, {"channel", ch2.key}},
-                  {
-                      {"pointer", "/timestamp"},
-                      {"channel", idx.key},
-                      {"time_format", "unix_sec"},
-                  },
-              }},
-         }}},
-    };
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    // Index channel is a field, so no software-timed indexes needed.
-    EXPECT_TRUE(cfg.software_timed_indexes.empty());
-}
-
-/// @brief it should succeed when two fields on the same endpoint share an index
-/// channel and the index is NOT listed as a field (software timing).
-TEST_F(HTTPReadTaskParseTest, SameEndpointSharedIndexSoftwareTiming) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("temp"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("humidity"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {
-                  {{"pointer", "/temp"}, {"channel", ch1.key}},
-                  {{"pointer", "/humidity"}, {"channel", ch2.key}},
-              }},
-         }}},
-    };
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    EXPECT_EQ(cfg.software_timed_indexes.size(), 1);
-    EXPECT_TRUE(cfg.software_timed_indexes.count(idx.key));
-}
-
-/// @brief it should silently ignore time_format on a non-timestamp channel.
-TEST_F(HTTPReadTaskParseTest, TimestampFormatOnNonTimestamp) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("value"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/value"},
-                  {"channel", ch.key},
-                  {"time_format", "unix_sec"},
-              }}},
-         }}},
-    };
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-}
-
-/// @brief parse() should drop endpoints where every field is disabled and only
-/// keep endpoints that have at least one enabled field.
-TEST_F(HTTPReadTaskParseTest, DisabledEndpointFilteredOut) {
-    auto idx1 = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx1"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto idx2 = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx2"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto idx3 = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx3"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch1 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("temp"),
-        x::telem::FLOAT64_T,
-        idx1.key,
-        false
-    ));
-    auto ch2 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("humidity"),
-        x::telem::FLOAT64_T,
-        idx2.key,
-        false
-    ));
-    auto ch3 = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("pressure"),
-        x::telem::FLOAT64_T,
-        idx3.key,
-        false
-    ));
-
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {
-             {
-                 {"method", "GET"},
-                 {"path", "/api/temp"},
-                 {"fields", {{{"pointer", "/temp"}, {"channel", ch1.key}}}},
-             },
-             {
-                 {"method", "GET"},
-                 {"path", "/api/humidity"},
-                 {"fields",
-                  {{
-                      {"pointer", "/humidity"},
-                      {"channel", ch2.key},
-                      {"disabled", true},
-                  }}},
-             },
-             {
-                 {"method", "GET"},
-                 {"path", "/api/pressure"},
-                 {"fields", {{{"pointer", "/pressure"}, {"channel", ch3.key}}}},
-             },
-         }},
-    };
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    EXPECT_EQ(cfg.endpoints.size(), 2);
-    EXPECT_EQ(cfg.endpoints[0].path, "/api/temp");
-    EXPECT_EQ(cfg.endpoints[1].path, "/api/pressure");
-}
-
-/// @brief parse() should drop a disabled endpoint without checking its fields.
-TEST_F(HTTPReadTaskParseTest, DisabledEndpointSkipped) {
-    auto idx = ASSERT_NIL_P(
-        client->channels
-            .create(make_unique_channel_name("idx"), x::telem::TIMESTAMP_T, 0, true)
-    );
-    auto ch = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("temp"),
-        x::telem::FLOAT64_T,
-        idx.key,
-        false
-    ));
-    synnax::task::Task task;
-    task.config = {
-        {"device", device_key},
-        {"rate", 1.0},
-        {"endpoints",
-         {
-             {
-                 {"method", "GET"},
-                 {"path", "/api/temp"},
-                 {"fields", {{{"pointer", "/temp"}, {"channel", ch.key}}}},
-             },
-             {
-                 {"method", "GET"},
-                 {"path", "/api/off"},
-                 {"disabled", true},
-                 {"fields", {{{"pointer", "off"}, {"channel", 0}}}},
-             },
-         }},
-    };
-    auto cfg = ASSERT_NIL_P(ReadTaskConfig::parse(ctx, task));
-    ASSERT_EQ(cfg.endpoints.size(), 1);
-    EXPECT_EQ(cfg.endpoints[0].path, "/api/temp");
+    EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 99.9, 0.001);
+    const auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].body, R"({"query": "latest"})");
 }
 
 /// @brief it should successfully read 10 times in succession from the same endpoint.
 TEST(HTTPReadTask, RepeatedReads) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 42.0})",
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/data", R"({"value": 42.0})")}}
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
+    const auto client = new_test_client();
+    const auto ep = create_float_endpoint(client, "/api/data");
+    auto [source, processor] = make_source(
+        client,
+        create_config({ep}),
+        server.base_url()
+    );
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
     for (int i = 0; i < 10; i++) {
         x::telem::Frame fr;
         auto res = source->read(breaker, fr);
         ASSERT_NIL(res.error);
-        EXPECT_EQ(fr.size(), 1);
-        EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
+        EXPECT_EQ(fr.size(), 2);
+        EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 42.0, 0.001);
     }
     breaker.stop();
+}
+
+/// @brief it should write each channel of each endpoint, index channels included,
+/// and tare only the channels of the bindings.
+TEST(HTTPReadTask, WriterConfigHoldsEachChannelOfEachEndpoint) {
+    const auto client = new_test_client();
+    const auto a = create_float_endpoint(client, "/a");
+    const auto b = create_float_endpoint(client, "/b");
+    auto [source, processor] = make_source(
+        client,
+        create_config({a, b}),
+        "http://localhost:0"
+    );
+    EXPECT_EQ(
+        source->writer_config().channels,
+        std::vector<synnax::channel::Key>(
+            {a.channels[0].key, a.index.key, b.channels[0].key, b.index.key}
+        )
+    );
+    std::vector<synnax::channel::Key> tared;
+    for (const auto &ch: source->channels())
+        tared.push_back(ch.key);
+    std::ranges::sort(tared);
+    EXPECT_EQ(
+        tared,
+        std::vector<synnax::channel::Key>({a.channels[0].key, b.channels[0].key})
+    );
 }
 
 namespace {
-/// @brief builds a config with one numeric field per path, all on channel keys 1..N.
-ReadTaskConfig make_multi_endpoint_cfg(
-    const std::vector<std::string> &paths,
-    const x::telem::Rate rate
+/// @brief creates an endpoint at each path that reads the float at /value.
+std::vector<Endpoint> create_value_endpoints(
+    const synnax::Synnax &client,
+    const std::vector<std::string> &paths
 ) {
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = rate;
-    for (std::size_t i = 0; i < paths.size(); i++) {
-        const auto key = static_cast<synnax::channel::Key>(i + 1);
-        ReadField field;
-        field.pointer = "/value";
-        field.channel = key;
-        ReadEndpoint ep;
-        ep.method = "GET";
-        ep.path = paths[i];
-        ep.body = "";
-        ep.fields = {field};
-        cfg.endpoints.push_back(ep);
-        cfg.channels[key] = {
-            .key = key,
-            .name = "value" + std::to_string(key),
-            .data_type = x::telem::FLOAT64_T,
-        };
-    }
-    return cfg;
-}
-
-testutil::Route value_route(const std::string &path, const x::telem::TimeSpan &delay) {
-    return {
-        .method = Method::GET,
-        .path = path,
-        .status_code = 200,
-        .response_body = R"({"value": 1.0})",
-        .delay = delay,
-    };
-}
-
-/// @brief builds a GET route that answers with the given status and body.
-/// @param path the route path.
-/// @param status_code the HTTP status code to answer with.
-/// @param body the response body to answer with.
-/// @returns the route.
-testutil::Route
-status_route(const std::string &path, const int status_code, const std::string &body) {
-    return {
-        .method = Method::GET,
-        .path = path,
-        .status_code = status_code,
-        .response_body = body,
-    };
-}
-
-/// @brief polls the config once against the server.
-common::ReadResult
-read_once(ReadTaskConfig &cfg, const testutil::Server &server, x::telem::Frame &fr) {
-    auto [source, processor] = make_source(cfg, server.base_url());
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    return res;
+    std::vector<Endpoint> eps;
+    eps.reserve(paths.size());
+    for (const auto &path: paths)
+        eps.push_back(create_float_endpoint(client, path));
+    return eps;
 }
 }
 
@@ -1742,17 +494,19 @@ TEST(HTTPReadTask, AllEndpoints4xxBacksOff) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                status_route("/a", 401, "unauthorized"),
-                status_route("/b", 403, "forbidden"),
+                route("/a", "unauthorized", 401),
+                route("/b", "forbidden", 403),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
-    x::telem::Frame fr;
-    const auto res = read_once(cfg, server, fr);
+    const auto client = new_test_client();
+    const auto [fr, res] = read_once(
+        client,
+        create_config(create_value_endpoints(client, {"/a", "/b"})),
+        server.base_url()
+    );
     ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
     EXPECT_FALSE(res.error.matches(errors::UNREACHABLE_ERROR));
     EXPECT_FALSE(res.error.matches(errors::CRITICAL_ERROR));
@@ -1768,17 +522,19 @@ TEST(HTTPReadTask, AllEndpoints5xxBacksOff) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                status_route("/a", 503, "unavailable"),
-                status_route("/b", 503, "unavailable"),
+                route("/a", "unavailable", 503),
+                route("/b", "unavailable", 503),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
-    x::telem::Frame fr;
-    const auto res = read_once(cfg, server, fr);
+    const auto client = new_test_client();
+    const auto [fr, res] = read_once(
+        client,
+        create_config(create_value_endpoints(client, {"/a", "/b"})),
+        server.base_url()
+    );
     ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
     EXPECT_FALSE(res.error.matches(errors::UNREACHABLE_ERROR));
     EXPECT_EQ(fr.size(), 0);
@@ -1792,17 +548,19 @@ TEST(HTTPReadTask, MixedStatusFailuresBackOff) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                status_route("/a", 401, "unauthorized"),
-                status_route("/b", 503, "unavailable"),
+                route("/a", "unauthorized", 401),
+                route("/b", "unavailable", 503),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
-    x::telem::Frame fr;
-    const auto res = read_once(cfg, server, fr);
+    const auto client = new_test_client();
+    const auto [fr, res] = read_once(
+        client,
+        create_config(create_value_endpoints(client, {"/a", "/b"})),
+        server.base_url()
+    );
     ASSERT_OCCURRED_AS(res.error, errors::TEMPORARY_ERROR);
     EXPECT_EQ(fr.size(), 0);
     EXPECT_NE(res.error.data.find("401"), std::string::npos);
@@ -1820,20 +578,19 @@ TEST(HTTPReadTask, PartialStatusFailureWarnsWithOneLineBody) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                status_route("/a", 401, body),
+                route("/a", body, 401),
                 value_route("/b", x::telem::TimeSpan::ZERO()),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    auto cfg = make_multi_endpoint_cfg({"/a", "/b"}, x::telem::Rate(10000));
-    x::telem::Frame fr;
-    const auto res = read_once(cfg, server, fr);
+    const auto client = new_test_client();
+    const auto eps = create_value_endpoints(client, {"/a", "/b"});
+    const auto [fr, res] = read_once(client, create_config(eps), server.base_url());
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(2, 0), 1.0, 0.001);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(eps[1].channels[0].key, 0), 1.0, 0.001);
     EXPECT_NE(
         res.warning.description.find(
             "/a returned 401: <html>\\n  <body>\\n    <p>line 0</p>"
@@ -1859,19 +616,13 @@ TEST(HTTPReadTask, SkippedEndpointsCollapseIntoOneLine) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    auto cfg = make_multi_endpoint_cfg({"/slow", "/a", "/b"}, x::telem::Rate(10000));
-    auto [source, processor] = make_source(
-        cfg,
+    const auto client = new_test_client();
+    const auto [fr, res] = read_once(
+        client,
+        create_config(create_value_endpoints(client, {"/slow", "/a", "/b"})),
         server.base_url(),
         {{"timeout_ms", 100}, {"max_concurrent_requests", 1}}
     );
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
     ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
     EXPECT_EQ(fr.size(), 0);
     EXPECT_NE(res.error.data.find("/slow"), std::string::npos);
@@ -1895,21 +646,18 @@ TEST(HTTPReadTask, CapWarningWhenPollOverrunsPeriod) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    auto cfg = make_multi_endpoint_cfg({"/a", "/b", "/c"}, x::telem::Rate(100));
-    auto [source, processor] = make_source(
-        cfg,
+    const auto client = new_test_client();
+    const auto [fr, res] = read_once(
+        client,
+        create_config(
+            create_value_endpoints(client, {"/a", "/b", "/c"}),
+            x::telem::Rate(100)
+        ),
         server.base_url(),
         {{"max_concurrent_requests", 1}}
     );
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 3);
+    EXPECT_EQ(fr.size(), 6);
     EXPECT_EQ(res.warning.message, "Falling behind poll rate");
     EXPECT_EQ(
         res.warning.description,
@@ -1932,564 +680,110 @@ TEST(HTTPReadTask, NoCapWarningWithinPeriod) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    auto cfg = make_multi_endpoint_cfg({"/a", "/b", "/c"}, x::telem::Rate(2));
-    auto [source, processor] = make_source(
-        cfg,
+    const auto client = new_test_client();
+    const auto [fr, res] = read_once(
+        client,
+        create_config(
+            create_value_endpoints(client, {"/a", "/b", "/c"}),
+            x::telem::Rate(2)
+        ),
         server.base_url(),
         {{"max_concurrent_requests", 1}}
     );
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 3);
+    EXPECT_EQ(fr.size(), 6);
     EXPECT_TRUE(res.warning.empty());
 }
 
-/// @brief it should skip disabled fields and only return enabled ones.
-TEST(HTTPReadTask, DisabledFieldsSkipped) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body =
-                    R"({"temperature": 23.5, "humidity": 80, "pressure": 1013})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temperature";
-    temp_field.channel = 1;
-    temp_field.disabled = false;
-
-    ReadField humidity_field;
-    humidity_field.pointer = "/humidity";
-    humidity_field.channel = 2;
-    humidity_field.disabled = true;
-
-    ReadField pressure_field;
-    pressure_field.pointer = "/pressure";
-    pressure_field.channel = 3;
-    pressure_field.disabled = false;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {temp_field, humidity_field, pressure_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {
-        .key = 1,
-        .name = "temperature",
-        .data_type = x::telem::FLOAT64_T,
+namespace {
+/// @brief returns the config of an HTTPS test server with routes.
+testutil::ServerConfig secure(std::vector<testutil::Route> routes) {
+    return {
+        .routes = std::move(routes),
+        .secure = true,
+        .cert_path = "driver/http/testutil/test_cert.pem",
+        .key_path = "driver/http/testutil/test_key.pem",
     };
-    cfg.channels[3] = {.key = 3, .name = "pressure", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 2);
-    EXPECT_NEAR(fr.at<double>(1, 0), 23.5, 0.001);
-    EXPECT_NEAR(fr.at<double>(3, 0), 1013.0, 0.001);
 }
-
-/// @brief it should not include disabled fields in the writer config.
-TEST(HTTPReadTask, DisabledFieldsExcludedFromWriterConfig) {
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField enabled_field;
-    enabled_field.pointer = "/temp";
-    enabled_field.channel = 1;
-    enabled_field.disabled = false;
-
-    ReadField disabled_field;
-    disabled_field.pointer = "/humidity";
-    disabled_field.channel = 2;
-    disabled_field.disabled = true;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {enabled_field, disabled_field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {
-        .key = 1,
-        .name = "temperature",
-        .data_type = x::telem::FLOAT64_T,
-    };
-
-    auto conn_parser = x::json::Parser(
-        x::json::json{
-            {"base_url", "http://localhost:9999"},
-            {"timeout_ms", 100},
-            {"verify_ssl", false},
-        }
-    );
-    auto conn = device::ConnectionConfig(conn_parser);
-
-    std::vector<Request> requests;
-    for (const auto &e: cfg.endpoints) {
-        auto req = device::build_request(conn, request_config(e));
-        req.body = e.body;
-        requests.push_back(std::move(req));
-    }
-
-    auto processor = std::make_shared<Processor>();
-    ReadTaskSource source(std::move(cfg), processor, std::move(requests));
-    auto wc = source.writer_config();
-    EXPECT_EQ(wc.channels.size(), 1);
-    EXPECT_EQ(wc.channels[0], 1);
-}
-
-/// @brief it should fail to parse config when all fields are disabled.
-TEST(HTTPReadTask, ParseConfigAllFieldsDisabled) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields",
-              {{
-                  {"pointer", "/temp"},
-                  {"channel", 1},
-                  {"disabled", true},
-              }}},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
-/// @brief an endpoint with no fields at all should produce a validation error.
-TEST(HTTPReadTask, ParseConfigEndpointWithNoFields) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {{
-             {"method", "GET"},
-             {"path", "/api/data"},
-             {"fields", x::json::json::array()},
-         }}},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
-/// @brief when all fields on every endpoint are disabled, parsing should fail
-/// because the task has no enabled fields at all.
-TEST(HTTPReadTask, ParseConfigAllEndpointsAllFieldsDisabled) {
-    synnax::task::Task task;
-    task.config = {
-        {"device", "dev-001"},
-        {"rate", 1.0},
-        {"endpoints",
-         {
-             {
-                 {"method", "GET"},
-                 {"path", "/api/temp"},
-                 {"fields",
-                  {{
-                      {"pointer", "/temp"},
-                      {"channel", 1},
-                      {"disabled", true},
-                  }}},
-             },
-             {
-                 {"method", "GET"},
-                 {"path", "/api/pressure"},
-                 {"fields",
-                  {{
-                      {"pointer", "/pressure"},
-                      {"channel", 2},
-                      {"disabled", true},
-                  }}},
-             },
-         }},
-    };
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
-    ASSERT_OCCURRED_AS_P(ReadTaskConfig::parse(ctx, task), x::errors::VALIDATION);
-}
-
-/// @brief when only the second of three endpoints has all fields disabled, the
-/// disabled endpoint should be skipped and the other two should be requested.
-TEST(HTTPReadTask, MiddleEndpointAllFieldsDisabledSkipped) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/temp",
-                    .status_code = 200,
-                    .response_body = R"({"temp": 25.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/pressure",
-                    .status_code = 200,
-                    .response_body = R"({"pressure": 1013.25})",
-                },
-            },
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-    temp_field.disabled = false;
-
-    ReadField pressure_field;
-    pressure_field.pointer = "/pressure";
-    pressure_field.channel = 3;
-    pressure_field.disabled = false;
-
-    // ep1 and ep3 have enabled fields; ep2 (middle) is entirely disabled and
-    // excluded from the config — parse() would filter it out.
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/temp";
-    ep1.body = "";
-    ep1.fields = {temp_field};
-
-    ReadEndpoint ep3;
-    ep3.method = "GET";
-    ep3.path = "/api/pressure";
-    ep3.body = "";
-    ep3.fields = {pressure_field};
-
-    cfg.endpoints = {ep1, ep3};
-
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[3] = {.key = 3, .name = "pressure", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 2);
-    EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
-    EXPECT_NEAR(fr.at<double>(3, 0), 1013.25, 0.001);
-}
-
-/// @brief disabled fields should not cause a missing-field error even if the
-/// JSON pointer would not match the response.
-TEST(HTTPReadTask, DisabledFieldMissingPointerNoError) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temperature": 23.5})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField enabled_field;
-    enabled_field.pointer = "/temperature";
-    enabled_field.channel = 1;
-    enabled_field.disabled = false;
-
-    ReadField disabled_field;
-    disabled_field.pointer = "/nonexistent";
-    disabled_field.channel = 2;
-    disabled_field.disabled = true;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {enabled_field, disabled_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {
-        .key = 1,
-        .name = "temperature",
-        .data_type = x::telem::FLOAT64_T,
-    };
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 23.5, 0.001);
 }
 
 /// @brief it should read from an HTTPS server with SSL verification disabled.
 TEST(HTTPReadTask, HTTPSReadSingleEndpoint) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 77.7})",
-            }},
-            .secure = true,
-            .cert_path = "driver/http/testutil/test_cert.pem",
-            .key_path = "driver/http/testutil/test_key.pem",
-        }
-    );
+    testutil::Server server(secure({route("/api/data", R"({"value": 77.7})")}));
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto ep = create_float_endpoint(client, "/api/data");
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 77.7, 0.001);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 77.7, 0.001);
 }
 
 /// @brief it should read multiple endpoints over HTTPS.
 TEST(HTTPReadTask, HTTPSMultipleEndpoints) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes =
-                {
-                    {
-                        .method = Method::GET,
-                        .path = "/api/temp",
-                        .status_code = 200,
-                        .response_body = R"({"temp": 22.5})",
-                    },
-                    {
-                        .method = Method::GET,
-                        .path = "/api/pressure",
-                        .status_code = 200,
-                        .response_body = R"({"pressure": 1015.0})",
-                    },
-                },
-            .secure = true,
-            .cert_path = "driver/http/testutil/test_cert.pem",
-            .key_path = "driver/http/testutil/test_key.pem",
-        }
-    );
+    testutil::Server server(secure({
+        route("/api/temp", R"({"temp": 22.5})"),
+        route("/api/pressure", R"({"pressure": 1015.0})"),
+    }));
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadField pressure_field;
-    pressure_field.pointer = "/pressure";
-    pressure_field.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/temp";
-    ep1.body = "";
-    ep1.fields = {temp_field};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/pressure";
-    ep2.body = "";
-    ep2.fields = {pressure_field};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto temp = create_float_endpoint(client, "/api/temp", "/temp");
+    const auto pressure = create_float_endpoint(client, "/api/pressure", "/pressure");
+    const auto [fr, res] = read_once(
+        client,
+        create_config({temp, pressure}),
+        server.base_url()
+    );
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 2);
-    EXPECT_NEAR(fr.at<double>(1, 0), 22.5, 0.001);
-    EXPECT_NEAR(fr.at<double>(2, 0), 1015.0, 0.001);
+    EXPECT_EQ(fr.size(), 4);
+    EXPECT_NEAR(fr.at<double>(temp.channels[0].key, 0), 22.5, 0.001);
+    EXPECT_NEAR(fr.at<double>(pressure.channels[0].key, 0), 1015.0, 0.001);
 }
 
 /// @brief it should read repeated times from HTTPS endpoints.
 TEST(HTTPReadTask, HTTPSRepeatedReads) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 55.5})",
-            }},
-            .secure = true,
-            .cert_path = "driver/http/testutil/test_cert.pem",
-            .key_path = "driver/http/testutil/test_key.pem",
-        }
-    );
+    testutil::Server server(secure({route("/api/data", R"({"value": 55.5})")}));
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
+    const auto client = new_test_client();
+    const auto ep = create_float_endpoint(client, "/api/data");
+    auto [source, processor] = make_source(
+        client,
+        create_config({ep}),
+        server.base_url()
+    );
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
     for (int i = 0; i < 5; i++) {
         x::telem::Frame fr;
         auto res = source->read(breaker, fr);
         ASSERT_NIL(res.error);
-        EXPECT_EQ(fr.size(), 1);
-        EXPECT_NEAR(fr.at<double>(1, 0), 55.5, 0.001);
+        EXPECT_EQ(fr.size(), 2);
+        EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 55.5, 0.001);
     }
     breaker.stop();
 }
 
-/// @brief it should POST to an HTTPS endpoint and extract response fields.
+/// @brief it should POST to an HTTPS endpoint and read the response.
 TEST(HTTPReadTask, HTTPSPOSTWithBody) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::POST,
-                .path = "/api/query",
-                .status_code = 200,
-                .response_body = R"({"result": 88.8})",
-            }},
-            .secure = true,
-            .cert_path = "driver/http/testutil/test_cert.pem",
-            .key_path = "driver/http/testutil/test_key.pem",
-        }
-    );
+    testutil::Server server(secure({{
+        .method = Method::POST,
+        .path = "/api/query",
+        .status_code = 200,
+        .response_body = R"({"result": 88.8})",
+    }}));
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/result";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "POST";
-    ep.path = "/api/query";
-    ep.body = R"({"query": "latest"})";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "result", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    auto ep = create_float_endpoint(client, "/api/query", "/result");
+    ep.endpoint.method = "POST";
+    ep.endpoint.body = R"({"query": "latest"})";
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 88.8, 0.001);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 88.8, 0.001);
 }
 
 /// @brief a timeout on every endpoint should return an unreachable error with the full
@@ -2497,48 +791,18 @@ TEST(HTTPReadTask, HTTPSPOSTWithBody) {
 TEST(HTTPReadTask, TransportErrorTimeoutUnreachable) {
     testutil::Server server(
         testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/slow",
-                .status_code = 200,
-                .response_body = R"({"value": 1.0})",
-                .delay = 2 * x::telem::SECOND,
-            }},
+            .routes = {value_route("/api/slow", 2 * x::telem::SECOND)},
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/slow";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "val", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(
-        cfg,
+    const auto client = new_test_client();
+    const auto [fr, res] = read_once(
+        client,
+        create_config({create_float_endpoint(client, "/api/slow")}),
         server.base_url(),
         {{"timeout_ms", 100}}
     );
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
     ASSERT_OCCURRED_AS(res.error, errors::UNREACHABLE_ERROR);
     EXPECT_NE(res.error.data.find("GET"), std::string::npos);
     EXPECT_NE(res.error.data.find("/api/slow"), std::string::npos);
@@ -2552,135 +816,53 @@ TEST(HTTPReadTask, TransportErrorPartialTimeout) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/fast",
-                    .status_code = 200,
-                    .response_body = R"({"value": 42.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/slow",
-                    .status_code = 200,
-                    .response_body = R"({"value": 1.0})",
-                    .delay = 2 * x::telem::SECOND,
-                },
+                route("/api/fast", R"({"value": 42.0})"),
+                value_route("/api/slow", 2 * x::telem::SECOND),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField fast_field;
-    fast_field.pointer = "/value";
-    fast_field.channel = 1;
-
-    ReadField slow_field;
-    slow_field.pointer = "/value";
-    slow_field.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/fast";
-    ep1.body = "";
-    ep1.fields = {fast_field};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/slow";
-    ep2.body = "";
-    ep2.fields = {slow_field};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "fast", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "slow", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(
-        cfg,
+    const auto client = new_test_client();
+    const auto eps = create_value_endpoints(client, {"/api/fast", "/api/slow"});
+    const auto [fr, res] = read_once(
+        client,
+        create_config(eps),
         server.base_url(),
         {{"timeout_ms", 500}}
     );
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
     ASSERT_NIL(res.error);
     EXPECT_NE(res.warning.description.find("/api/slow"), std::string::npos);
     EXPECT_NE(res.warning.description.find("failed"), std::string::npos);
-    // Fast endpoint succeeded, slow endpoint timed out.
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(eps[0].channels[0].key, 0), 42.0, 0.001);
 }
 
-/// @brief when the first endpoint returns 5xx, its groups should be skipped but the
+/// @brief when the first endpoint returns 5xx, it should write nothing, but the
 /// second endpoint's data should still come through.
 TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/failing",
-                    .status_code = 500,
-                    .response_body = R"({"error":"internal"})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/ok",
-                    .status_code = 200,
-                    .response_body = R"({"value": 42.0})",
-                },
+                route("/api/failing", R"({"error":"internal"})", 500),
+                route("/api/ok", R"({"value": 42.0})"),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field1;
-    field1.pointer = "/error";
-    field1.channel = 1;
-
-    ReadField field2;
-    field2.pointer = "/value";
-    field2.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/failing";
-    ep1.body = "";
-    ep1.fields = {field1};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/ok";
-    ep2.body = "";
-    ep2.fields = {field2};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "error_msg", .data_type = x::telem::STRING_T};
-    cfg.channels[2] = {.key = 2, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto failing = create_endpoint(
+        client,
+        "/api/failing",
+        {{field<synnax::icd::StringJSONField>("/error"), x::telem::STRING_T}}
+    );
+    const auto ok = create_float_endpoint(client, "/api/ok");
+    const auto [fr, res] = read_once(
+        client,
+        create_config({failing, ok}),
+        server.base_url()
+    );
     ASSERT_NIL(res.error);
     EXPECT_EQ(res.warning.message, "Failed to read some data");
     EXPECT_NE(res.warning.description.find("GET"), std::string::npos);
@@ -2690,72 +872,35 @@ TEST(HTTPReadTask, PartialFailureFirstEndpoint5xx) {
         res.warning.description.find(R"({"error":"internal"})"),
         std::string::npos
     );
-    // Second endpoint succeeded.
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(2, 0), 42.0, 0.001);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(ok.channels[0].key, 0), 42.0, 0.001);
 }
 
-/// @brief when the second endpoint returns 4xx, its groups should be skipped but the
+/// @brief when the second endpoint returns 4xx, it should write nothing, but the
 /// first endpoint's data should still come through.
 TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/ok",
-                    .status_code = 200,
-                    .response_body = R"({"value": 42.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/failing",
-                    .status_code = 400,
-                    .response_body = R"({"error":"bad request"})",
-                },
+                route("/api/ok", R"({"value": 42.0})"),
+                route("/api/failing", R"({"error":"bad request"})", 400),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field1;
-    field1.pointer = "/value";
-    field1.channel = 1;
-
-    ReadField field2;
-    field2.pointer = "/error";
-    field2.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/ok";
-    ep1.body = "";
-    ep1.fields = {field1};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/failing";
-    ep2.body = "";
-    ep2.fields = {field2};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "error_msg", .data_type = x::telem::STRING_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto ok = create_float_endpoint(client, "/api/ok");
+    const auto failing = create_endpoint(
+        client,
+        "/api/failing",
+        {{field<synnax::icd::StringJSONField>("/error"), x::telem::STRING_T}}
+    );
+    const auto [fr, res] = read_once(
+        client,
+        create_config({ok, failing}),
+        server.base_url()
+    );
     ASSERT_NIL(res.error);
     EXPECT_NE(res.warning.description.find("GET"), std::string::npos);
     EXPECT_NE(res.warning.description.find("/api/failing"), std::string::npos);
@@ -2764,939 +909,178 @@ TEST(HTTPReadTask, PartialFailureSecondEndpointCritical4xx) {
         res.warning.description.find(R"({"error":"bad request"})"),
         std::string::npos
     );
-    // First endpoint succeeded.
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(ok.channels[0].key, 0), 42.0, 0.001);
 }
 
-/// @brief when one endpoint has a missing field pointer, the other endpoint's
-/// data should still come through with a warning.
+/// @brief when the response of one endpoint lacks a field, that endpoint should write
+/// nothing and warn, and the other endpoint's data should still come through.
 TEST(HTTPReadTask, PartialFailureMissingFieldInSecondEndpoint) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/temp",
-                    .status_code = 200,
-                    .response_body = R"({"temp": 25.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/pressure",
-                    .status_code = 200,
-                    .response_body = R"({"psi": 14.7})",
-                },
+                route("/api/temp", R"({"temp": 25.0})"),
+                route("/api/pressure", R"({"psi": 14.7})"),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadField pressure_field;
-    // Pointer that doesn't exist in the response.
-    pressure_field.pointer = "/pressure";
-    pressure_field.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/temp";
-    ep1.body = "";
-    ep1.fields = {temp_field};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/pressure";
-    ep2.body = "";
-    ep2.fields = {pressure_field};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto temp = create_float_endpoint(client, "/api/temp", "/temp");
+    const auto pressure = create_float_endpoint(client, "/api/pressure", "/pressure");
+    const auto [fr, res] = read_once(
+        client,
+        create_config({temp, pressure}),
+        server.base_url()
+    );
     ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // First endpoint succeeded, second endpoint's field was missing.
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
+    EXPECT_EQ(res.warning.message, "Failed to read some data");
+    EXPECT_EQ(
+        res.warning.description,
+        "Field /pressure not found in response from /api/pressure"
+    );
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(temp.channels[0].key, 0), 25.0, 0.001);
 }
 
-/// @brief when one endpoint returns invalid JSON, the other endpoint's data
-/// should still come through with a warning.
+/// @brief when one endpoint returns invalid JSON, the other endpoint's data should
+/// still come through with a warning.
 TEST(HTTPReadTask, PartialFailureInvalidJSONInOneEndpoint) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/ok",
-                    .status_code = 200,
-                    .response_body = R"({"value": 42.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/broken",
-                    .status_code = 200,
-                    .response_body = "not valid json{{{",
-                },
+                route("/api/ok", R"({"value": 42.0})"),
+                route("/api/broken", "not valid json{{{"),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field1;
-    field1.pointer = "/value";
-    field1.channel = 1;
-
-    ReadField field2;
-    field2.pointer = "/data";
-    field2.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/ok";
-    ep1.body = "";
-    ep1.fields = {field1};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/broken";
-    ep2.body = "";
-    ep2.fields = {field2};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "data", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto ok = create_float_endpoint(client, "/api/ok");
+    const auto broken = create_float_endpoint(client, "/api/broken", "/data");
+    const auto [fr, res] = read_once(
+        client,
+        create_config({ok, broken}),
+        server.base_url()
+    );
     ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // First endpoint parsed, second was invalid JSON.
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
+    EXPECT_TRUE(res.warning.description.starts_with(
+        "Failed to read the response from /api/broken: "
+    )) << res.warning.description;
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(ok.channels[0].key, 0), 42.0, 0.001);
 }
 
-/// @brief when one endpoint has a type conversion error, the other endpoint's
+/// @brief when one endpoint has a value that does not convert, the other endpoint's
 /// data should still come through with a warning.
 TEST(HTTPReadTask, PartialFailureTypeConversionError) {
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/good",
-                    .status_code = 200,
-                    .response_body = R"({"value": 42.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/bad",
-                    .status_code = 200,
-                    .response_body = R"({"count": 3.7})",
-                },
+                route("/api/good", R"({"value": 42.0})"),
+                route("/api/bad", R"({"count": 3.7})"),
             },
         }
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field1;
-    field1.pointer = "/value";
-    field1.channel = 1;
-
-    ReadField field2;
-    field2.pointer = "/count";
-    field2.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/good";
-    ep1.body = "";
-    ep1.fields = {field1};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/bad";
-    ep2.body = "";
-    ep2.fields = {field2};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-    // INT32_T will fail on 3.7 (decimal truncation) — produces warning.
-    cfg.channels[2] = {.key = 2, .name = "count", .data_type = x::telem::INT32_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto client = new_test_client();
+    const auto good = create_float_endpoint(client, "/api/good");
+    const auto bad = create_endpoint(
+        client,
+        "/api/bad",
+        {{field<synnax::icd::IntegerJSONField>("/count"), x::telem::INT32_T}}
+    );
+    const auto [fr, res] = read_once(
+        client,
+        create_config({good, bad}),
+        server.base_url()
+    );
     ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // First endpoint parsed fine, second had conversion error.
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
+    EXPECT_EQ(
+        res.warning.description,
+        "Failed to convert /count for channel " + bad.channels[0].name +
+            ": field count: 3.7 is not an integer"
+    );
+    EXPECT_EQ(fr.size(), 2);
+    EXPECT_NEAR(fr.at<double>(good.channels[0].key, 0), 42.0, 0.001);
 }
 
 /// @brief the sample clock should regulate the read rate so that multiple reads
 /// take at least the expected duration.
 TEST(HTTPReadTask, SampleClockRegulatesRate) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 1.0})",
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/data", R"({"value": 1.0})")}}
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(20); // 20 Hz → 50ms period
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
+    const auto client = new_test_client();
+    auto [source, processor] = make_source(
+        client,
+        create_config({create_float_endpoint(client, "/api/data")}, x::telem::Rate(20)),
+        server.base_url()
+    );
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
-
-    const int n_reads = 5;
     const auto start = x::telem::TimeStamp::now();
-    for (int i = 0; i < n_reads; i++) {
+    for (int i = 0; i < 5; i++) {
         x::telem::Frame fr;
-        auto res = source->read(breaker, fr);
-        ASSERT_NIL(res.error);
+        ASSERT_NIL(source->read(breaker, fr).error);
     }
     const auto elapsed = x::telem::TimeStamp::now() - start;
     breaker.stop();
-
-    // 5 reads at 20 Hz = 5 × 50ms = 250ms minimum. Allow some tolerance.
+    // 5 reads at 20 Hz take at least 250ms. Allow some tolerance.
     EXPECT_GE(elapsed, 200 * x::telem::MILLISECOND);
 }
 
 /// @brief the sample clock should not prevent data from being read correctly.
 TEST(HTTPReadTask, SampleClockDoesNotAffectData) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 99.9})",
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/data", R"({"value": 99.9})")}}
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(50); // 50 Hz → 20ms period
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
+    const auto client = new_test_client();
+    const auto ep = create_float_endpoint(client, "/api/data");
+    auto [source, processor] = make_source(
+        client,
+        create_config({ep}, x::telem::Rate(50)),
+        server.base_url()
+    );
     auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
     breaker.start();
     for (int i = 0; i < 3; i++) {
         x::telem::Frame fr;
-        auto res = source->read(breaker, fr);
-        ASSERT_NIL(res.error);
-        EXPECT_EQ(fr.size(), 1);
-        EXPECT_NEAR(fr.at<double>(1, 0), 99.9, 0.001);
+        ASSERT_NIL(source->read(breaker, fr).error);
+        EXPECT_EQ(fr.size(), 2);
+        EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 99.9, 0.001);
     }
     breaker.stop();
 }
 
-/// @brief it should pass connection-level query parameters to every request.
+/// @brief it should pass the query parameters of an endpoint to its request.
 TEST(HTTPReadTask, EndpointQueryParams) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 42.0})",
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/data", R"({"value": 42.0})")}}
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.query_params = std::vector<::synnax::http::QueryParam>{
+    const auto client = new_test_client();
+    auto ep = create_float_endpoint(client, "/api/data");
+    ep.endpoint.query_params = std::vector<::synnax::http::QueryParam>{
         {"api_key", "abc123"},
         {"format", "json"}
     };
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
     ASSERT_NIL(res.error);
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 42.0, 0.001);
-
-    auto requests = server.received_requests();
+    EXPECT_NEAR(fr.at<double>(ep.channels[0].key, 0), 42.0, 0.001);
+    const auto requests = server.received_requests();
     ASSERT_EQ(requests.size(), 1);
-    auto &params = requests[0].query_params;
+    const auto &params = requests[0].query_params;
     EXPECT_EQ(params.find("api_key")->second, "abc123");
     EXPECT_EQ(params.find("format")->second, "json");
-}
-
-/// @brief string values should be converted to numbers using the enum map.
-TEST(HTTPReadTask, EnumValuesMapStringsToNumbers) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/device",
-                .status_code = 200,
-                .response_body =
-                    R"({"power": "ON", "mode": "STANDBY", "temperature": 22.5})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField power_field;
-    power_field.pointer = "/power";
-    power_field.channel = 1;
-    power_field.enum_values = std::vector<::x::payload::EnumEntry>{
-        {"ON", 1.0},
-        {"OFF", 0.0}
-    };
-
-    ReadField mode_field;
-    mode_field.pointer = "/mode";
-    mode_field.channel = 2;
-    mode_field.enum_values = std::vector<::x::payload::EnumEntry>{
-        {"AUTO", 0},
-        {"MANUAL", 1},
-        {"STANDBY", 2}
-    };
-
-    ReadField temp_field;
-    temp_field.pointer = "/temperature";
-    temp_field.channel = 3;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/device";
-    ep.body = "";
-    ep.fields = {power_field, mode_field, temp_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {
-        .key = 1,
-        .name = "power",
-        .data_type = x::telem::FLOAT64_T,
-    };
-    cfg.channels[2] = {
-        .key = 2,
-        .name = "mode",
-        .data_type = x::telem::INT32_T,
-    };
-    cfg.channels[3] = {
-        .key = 3,
-        .name = "temperature",
-        .data_type = x::telem::FLOAT64_T,
-    };
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.empty());
-    EXPECT_EQ(fr.size(), 3);
-    EXPECT_NEAR(fr.at<double>(1, 0), 1.0, 0.001);
-    EXPECT_EQ(fr.at<int32_t>(2, 0), 2);
-    EXPECT_NEAR(fr.at<double>(3, 0), 22.5, 0.001);
-}
-
-/// @brief a string not in the enum map and not numeric should produce a warning.
-TEST(HTTPReadTask, EnumValuesMissingKeyWarns) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/device",
-                .status_code = 200,
-                .response_body = R"({"power": "UNKNOWN"})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField power_field;
-    power_field.pointer = "/power";
-    power_field.channel = 1;
-    power_field.enum_values = std::vector<::x::payload::EnumEntry>{
-        {"ON", 1.0},
-        {"OFF", 0.0}
-    };
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/device";
-    ep.body = "";
-    ep.fields = {power_field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {
-        .key = 1,
-        .name = "power",
-        .data_type = x::telem::FLOAT64_T,
-    };
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief fields without enum_values should still parse numeric strings normally.
-TEST(HTTPReadTask, EnumValuesEmptyMapFallsBackToNumericParsing) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": "42.5"})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-    // no enum_values set — should use normal string-to-numeric
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-
-    cfg.channels[1] = {
-        .key = 1,
-        .name = "value",
-        .data_type = x::telem::FLOAT64_T,
-    };
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.empty());
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 42.5, 0.001);
-}
-
-/// @brief when two fields share the same index channel (same sampling group)
-/// and one field has a missing pointer, neither field should be written.
-TEST(HTTPReadTask, SamplingGroupAtomicityMissingPointer) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temp": 25.0})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadField missing_field;
-    missing_field.pointer = "/humidity";
-    missing_field.channel = 2;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {temp_field, missing_field};
-
-    cfg.endpoints = {ep};
-    // Both channels share the same index — same sampling group.
-    cfg.channels[1] =
-        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
-    cfg.channels[2] = {
-        .key = 2,
-        .name = "humidity",
-        .data_type = x::telem::FLOAT64_T,
-        .index = 10,
-    };
-    cfg.software_timed_indexes[10] = 0;
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // Entire group skipped — no data fields, no index timestamp.
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief when two fields share an index and one has a type conversion error, the
-/// entire sampling group should be skipped.
-TEST(HTTPReadTask, SamplingGroupAtomicityConversionError) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temp": 25.0, "count": 3.7})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadField count_field;
-    count_field.pointer = "/count";
-    count_field.channel = 2;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {temp_field, count_field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] =
-        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
-    // INT32_T will fail on 3.7 — conversion error.
-    cfg.channels[2] =
-        {.key = 2, .name = "count", .data_type = x::telem::INT32_T, .index = 10};
-    cfg.software_timed_indexes[10] = 0;
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // Entire group skipped — temp was OK but count failed, so both are dropped.
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief two sampling groups on the same endpoint: if one group fails, the other
-/// should still succeed independently.
-TEST(HTTPReadTask, SamplingGroupIndependentOnSameEndpoint) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temp": 25.0, "pressure": 1013.25})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    // Group A: temp + missing humidity (index 10) — will fail.
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadField humidity_field;
-    humidity_field.pointer = "/humidity";
-    humidity_field.channel = 2;
-
-    // Group B: pressure (index 20) — will succeed.
-    ReadField pressure_field;
-    pressure_field.pointer = "/pressure";
-    pressure_field.channel = 3;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {temp_field, humidity_field, pressure_field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] =
-        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
-    cfg.channels[2] = {
-        .key = 2,
-        .name = "humidity",
-        .data_type = x::telem::FLOAT64_T,
-        .index = 10,
-    };
-    cfg.channels[3] = {
-        .key = 3,
-        .name = "pressure",
-        .data_type = x::telem::FLOAT64_T,
-        .index = 20,
-    };
-    cfg.software_timed_indexes[10] = 0;
-    cfg.software_timed_indexes[20] = 0;
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // Group A (temp + humidity) skipped due to missing humidity pointer.
-    // Group B (pressure) succeeded with its software-timed index.
-    EXPECT_EQ(fr.size(), 2);
-    EXPECT_NEAR(fr.at<double>(3, 0), 1013.25, 0.001);
-    // Index 20 should have a timestamp.
-    EXPECT_GT(fr.at<int64_t>(20, 0), 0);
-}
-
-/// @brief two sampling groups on different endpoints: if one endpoint's group fails,
-/// the other endpoint's group should still succeed.
-TEST(HTTPReadTask, SamplingGroupIndependentAcrossEndpoints) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {
-                {
-                    .method = Method::GET,
-                    .path = "/api/temp",
-                    .status_code = 200,
-                    .response_body = R"({"temp": 25.0})",
-                },
-                {
-                    .method = Method::GET,
-                    .path = "/api/pressure",
-                    .status_code = 200,
-                    .response_body = R"({"psi": 14.7})",
-                },
-            },
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    // Pointer doesn't exist in the response — this group will fail.
-    ReadField pressure_field;
-    pressure_field.pointer = "/pressure";
-    pressure_field.channel = 2;
-
-    ReadEndpoint ep1;
-    ep1.method = "GET";
-    ep1.path = "/api/temp";
-    ep1.body = "";
-    ep1.fields = {temp_field};
-
-    ReadEndpoint ep2;
-    ep2.method = "GET";
-    ep2.path = "/api/pressure";
-    ep2.body = "";
-    ep2.fields = {pressure_field};
-
-    cfg.endpoints = {ep1, ep2};
-    cfg.channels[1] = {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T};
-    cfg.channels[2] = {.key = 2, .name = "pressure", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // ep1's group succeeded, ep2's group failed (wrong pointer).
-    EXPECT_EQ(fr.size(), 1);
-    EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
-}
-
-/// @brief when a sampling group fails, its software-timed index timestamp should NOT be
-/// written to the frame.
-TEST(HTTPReadTask, SamplingGroupFailureNoIndexTimestamp) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temp": "not_a_number"})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {temp_field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] =
-        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
-    cfg.software_timed_indexes[10] = 0;
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // Field conversion failed — no data and no index timestamp.
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief when one sampling group succeeds and another fails on the same endpoint, only
-/// the successful group's software-timed index should be written.
-TEST(HTTPReadTask, SamplingGroupPartialIndexTimestamp) {
-    testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"temp": 25.0, "count": "not_a_number"})",
-            }},
-        }
-    );
-    ASSERT_NIL(server.start());
-    x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField temp_field;
-    temp_field.pointer = "/temp";
-    temp_field.channel = 1;
-
-    ReadField count_field;
-    count_field.pointer = "/count";
-    count_field.channel = 2;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = "";
-    ep.fields = {temp_field, count_field};
-
-    cfg.endpoints = {ep};
-    // Group A: temp with index 10 — will succeed.
-    cfg.channels[1] =
-        {.key = 1, .name = "temp", .data_type = x::telem::FLOAT64_T, .index = 10};
-    // Group B: count with index 20 — conversion will fail.
-    cfg.channels[2] =
-        {.key = 2, .name = "count", .data_type = x::telem::FLOAT64_T, .index = 20};
-    cfg.software_timed_indexes[10] = 0;
-    cfg.software_timed_indexes[20] = 0;
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    EXPECT_FALSE(res.warning.empty());
-    // Group A succeeded: temp data + index 10 timestamp = 2 entries.
-    // Group B failed: no count data, no index 20 timestamp.
-    EXPECT_EQ(fr.size(), 2);
-    EXPECT_NEAR(fr.at<double>(1, 0), 25.0, 0.001);
-    EXPECT_GT(fr.at<int64_t>(10, 0), 0);
 }
 
 /// @brief POST requests should include Content-Type: application/json.
@@ -3713,38 +1097,14 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "POST";
-    ep.path = "/api/query";
-    ep.body = R"({"query": "latest"})";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-
-    auto reqs = server.received_requests();
+    const auto client = new_test_client();
+    auto ep = create_float_endpoint(client, "/api/query");
+    ep.endpoint.method = "POST";
+    ep.endpoint.body = R"({"query": "latest"})";
+    ASSERT_NIL(read_once(client, create_config({ep}), server.base_url()).second.error);
+    const auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
-    auto ct = reqs[0].headers.find("Content-Type");
+    const auto ct = reqs[0].headers.find("Content-Type");
     ASSERT_NE(ct, reqs[0].headers.end());
     EXPECT_EQ(ct->second, "application/json");
 }
@@ -3753,47 +1113,15 @@ TEST(HTTPReadTask, POSTSetsContentTypeJSON) {
 /// set a content type for it.
 TEST(HTTPReadTask, GETDropsStoredBody) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 42.0})",
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/data", R"({"value": 42.0})")}}
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.body = R"({"query": "latest"})";
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-
-    auto reqs = server.received_requests();
+    const auto client = new_test_client();
+    auto ep = create_float_endpoint(client, "/api/data");
+    ep.endpoint.body = R"({"query": "latest"})";
+    ASSERT_NIL(read_once(client, create_config({ep}), server.base_url()).second.error);
+    const auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
     EXPECT_EQ(reqs[0].body, "");
     EXPECT_EQ(reqs[0].headers.count("Content-Type"), 0u);
@@ -3802,333 +1130,150 @@ TEST(HTTPReadTask, GETDropsStoredBody) {
 /// @brief it should include per-endpoint headers in the HTTP request.
 TEST(HTTPReadTask, EndpointHeaders) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/data",
-                .status_code = 200,
-                .response_body = R"({"value": 1.0})",
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/data", R"({"value": 1.0})")}}
     );
     ASSERT_NIL(server.start());
     x::defer::defer stop_server([&server] { server.stop(); });
-
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-
-    ReadField field;
-    field.pointer = "/value";
-    field.channel = 1;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/data";
-    ep.headers = std::vector<::synnax::http::Header>{{"Accept", "application/json"}};
-    ep.fields = {field};
-
-    cfg.endpoints = {ep};
-    cfg.channels[1] = {.key = 1, .name = "value", .data_type = x::telem::FLOAT64_T};
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-
-    auto reqs = server.received_requests();
+    const auto client = new_test_client();
+    auto ep = create_float_endpoint(client, "/api/data");
+    ep.endpoint.headers = std::vector<::synnax::http::Header>{
+        {"Accept", "application/json"}
+    };
+    ASSERT_NIL(read_once(client, create_config({ep}), server.base_url()).second.error);
+    const auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 1);
-    auto accept = reqs[0].headers.find("Accept");
+    const auto accept = reqs[0].headers.find("Accept");
     ASSERT_NE(accept, reqs[0].headers.end());
     EXPECT_EQ(accept->second, "application/json");
 }
 
 namespace {
-/// @brief reads once from an endpoint whose p2 and p3 fields share a software-timed
-/// index channel.
-/// @param body the JSON body the endpoint returns.
-/// @param p2_type the data type of the p2 channel.
-/// @param filled whether NaN fill is enabled.
-/// @param optional whether the p2 field is optional.
-/// @param fill the fill value of the p2 field.
-/// @returns the frame and the read result.
-std::pair<x::telem::Frame, common::ReadResult> read_shared_index_group(
+/// @brief Pressures is one read of an endpoint whose message holds a field p2 and a
+/// float field p3 on one index channel.
+struct Pressures {
+    Endpoint endpoint;
+    x::telem::Frame frame;
+    common::ReadResult result;
+};
+
+/// @brief reads body once from /api/pressures, where p2 is the field beside it.
+Pressures read_pressures(
     const std::string &body,
-    const x::telem::DataType &p2_type,
-    const bool filled,
-    const bool optional = false,
-    const std::optional<x::telem::SampleValue> &fill = std::nullopt
+    const std::pair<synnax::icd::JSONField, x::telem::DataType> &p2,
+    const bool nan_filled
 ) {
     testutil::Server server(
-        testutil::ServerConfig{
-            .routes = {{
-                .method = Method::GET,
-                .path = "/api/pressures",
-                .status_code = 200,
-                .response_body = body,
-            }},
-        }
+        testutil::ServerConfig{.routes = {route("/api/pressures", body)}}
     );
     if (const auto err = server.start(); err)
-        return {x::telem::Frame(), common::ReadResult{.error = err}};
+        return {.result = common::ReadResult{.error = err}};
     x::defer::defer stop_server([&server] { server.stop(); });
+    const auto client = new_test_client();
+    auto ep = create_endpoint(
+        client,
+        "/api/pressures",
+        {p2, {field<synnax::icd::FloatJSONField>("/p3"), x::telem::FLOAT64_T}}
+    );
+    auto cfg = create_config({ep});
+    cfg.nan_fill_enabled = nan_filled;
+    auto [fr, res] = read_once(client, std::move(cfg), server.base_url());
+    return {
+        .endpoint = std::move(ep),
+        .frame = std::move(fr),
+        .result = std::move(res)
+    };
+}
 
-    ReadTaskConfig cfg;
-    cfg.device = "test-device";
-    cfg.data_saving_disabled = true;
-    cfg.auto_start = false;
-    cfg.rate = x::telem::Rate(10000);
-    cfg.nan_fill_enabled = filled;
-
-    ReadField p2;
-    p2.pointer = "/p2";
-    p2.channel = 2;
-    p2.optional = optional;
-    ReadField p3;
-    p3.pointer = "/p3";
-    p3.channel = 3;
-
-    ReadEndpoint ep;
-    ep.method = "GET";
-    ep.path = "/api/pressures";
-    ep.fields = {p2, p3};
-    cfg.endpoints = {ep};
-
-    cfg.channels[2] = {.key = 2, .name = "p2", .data_type = p2_type, .index = 100};
-    cfg.channels[3] =
-        {.key = 3, .name = "p3", .data_type = x::telem::FLOAT64_T, .index = 100};
-    cfg.software_timed_indexes[100] = 0;
-    if (fill.has_value()) cfg.fill_values[2] = *fill;
-
-    auto [source, processor] = make_source(cfg, server.base_url());
-    auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-    breaker.start();
-    x::telem::Frame fr;
-    auto res = source->read(breaker, fr);
-    breaker.stop();
-    return {std::move(fr), std::move(res)};
+/// @brief returns a float field at /p2 on a channel of data_type.
+std::pair<synnax::icd::JSONField, x::telem::DataType>
+float_p2(const x::telem::DataType &data_type = x::telem::FLOAT64_T) {
+    return {field<synnax::icd::FloatJSONField>("/p2"), data_type};
 }
 }
 
-/// @brief it should skip the whole group when a float field is missing and invalid
-/// floats are not filled.
-TEST(HTTPReadTask, MissingFloatSkipsGroupByDefault) {
-    auto [fr, res] = read_shared_index_group(
+/// @brief it should write nothing for the index group of a float field that the
+/// response lacks when NaN fill is off.
+TEST(HTTPReadTask, MissingFloatDropsGroupByDefault) {
+    const auto p = read_pressures(
         R"({"p3": 1.5})",
-        x::telem::FLOAT32_T,
+        float_p2(x::telem::FLOAT32_T),
         false
     );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.description.starts_with("Field /p2 not found"));
-    EXPECT_EQ(fr.size(), 0);
+    ASSERT_NIL(p.result.error);
+    EXPECT_EQ(
+        p.result.warning.description,
+        "Field /p2 not found in response from /api/pressures"
+    );
+    EXPECT_EQ(p.frame.size(), 0);
 }
 
 /// @brief it should write NaN for a missing float field and keep the rest of the
-/// group when NaN fill is enabled.
+/// message when NaN fill is on.
 TEST(HTTPReadTask, MissingFloatFilledWithNaN) {
-    auto [fr, res] = read_shared_index_group(
+    const auto p = read_pressures(
         R"({"p3": 1.5})",
-        x::telem::FLOAT32_T,
+        float_p2(x::telem::FLOAT32_T),
         true
     );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.description.starts_with("Field /p2 not found"));
-    ASSERT_EQ(fr.size(), 3);
-    EXPECT_TRUE(std::isnan(fr.at<float>(2, 0)));
-    EXPECT_EQ(fr.at<double>(3, 0), 1.5);
-    EXPECT_GT(fr.at<int64_t>(100, 0), 0);
+    ASSERT_NIL(p.result.error);
+    EXPECT_EQ(p.result.warning.message, "Failed to read some data");
+    EXPECT_EQ(
+        p.result.warning.description,
+        "Field /p2 not found in response from /api/pressures"
+    );
+    const auto &chs = p.endpoint.channels;
+    ASSERT_EQ(p.frame.size(), 3);
+    EXPECT_TRUE(std::isnan(p.frame.at<float>(chs[0].key, 0)));
+    EXPECT_EQ(p.frame.at<double>(chs[1].key, 0), 1.5);
+    EXPECT_GT(p.frame.at<std::int64_t>(p.endpoint.index.key, 0), 0);
 }
 
 /// @brief it should write NaN for a float field that fails to convert when NaN fill
-/// is enabled.
+/// is on, and name the field and its channel.
 TEST(HTTPReadTask, UnconvertibleFloatFilledWithNaN) {
-    auto [fr, res] = read_shared_index_group(
+    const auto p = read_pressures(R"({"p2": "INVALID", "p3": 1.5})", float_p2(), true);
+    ASSERT_NIL(p.result.error);
+    const auto &chs = p.endpoint.channels;
+    EXPECT_EQ(
+        p.result.warning.description,
+        "Failed to convert /p2 for channel " + chs[0].name +
+            R"(: field p2: invalid number "INVALID")"
+    );
+    ASSERT_EQ(p.frame.size(), 3);
+    EXPECT_TRUE(std::isnan(p.frame.at<double>(chs[0].key, 0)));
+    EXPECT_EQ(p.frame.at<double>(chs[1].key, 0), 1.5);
+}
+
+/// @brief it should write the default of a missing field with no warning.
+TEST(HTTPReadTask, FieldWithDefaultDoesNotWarn) {
+    auto p2 = field<synnax::icd::FloatJSONField>("/p2");
+    p2.default_ = 5.0;
+    const auto p = read_pressures(R"({"p3": 1.5})", {p2, x::telem::FLOAT64_T}, true);
+    ASSERT_NIL(p.result.error);
+    EXPECT_TRUE(p.result.warning.empty());
+    EXPECT_EQ(p.frame.at<double>(p.endpoint.channels[0].key, 0), 5.0);
+}
+
+/// @brief it should write nothing for the index group of a non-float field that fails
+/// to convert, even when NaN fill is on.
+TEST(HTTPReadTask, InvalidIntegerDropsGroupWhenFilled) {
+    const auto p = read_pressures(
         R"({"p2": "INVALID", "p3": 1.5})",
-        x::telem::FLOAT64_T,
+        {field<synnax::icd::IntegerJSONField>("/p2"), x::telem::INT32_T},
         true
     );
-    ASSERT_NIL(res.error);
-    EXPECT_NE(
-        res.warning.description.find(
-            "Failed to convert /p2 for channel p2: cannot convert \"INVALID\" to "
-            "float64"
-        ),
-        std::string::npos
+    ASSERT_NIL(p.result.error);
+    EXPECT_EQ(
+        p.result.warning.description,
+        "Failed to convert /p2 for channel " + p.endpoint.channels[0].name +
+            R"(: field p2: invalid number "INVALID")"
     );
-    ASSERT_EQ(fr.size(), 3);
-    EXPECT_TRUE(std::isnan(fr.at<double>(2, 0)));
-    EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+    EXPECT_EQ(p.frame.size(), 0);
 }
 
-/// @brief it should write NaN with no warning for an optional field whose value is
-/// missing, null, or an empty string, and keep the rest of the group.
-TEST(HTTPReadTask, AbsentOptionalFieldFilledWithoutWarning) {
-    for (const auto *body:
-         {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})", R"({"p2": "", "p3": 1.5})"}) {
-        auto [fr, res] = read_shared_index_group(
-            body,
-            x::telem::FLOAT32_T,
-            false,
-            true
-        );
-        ASSERT_NIL(res.error);
-        EXPECT_TRUE(res.warning.empty());
-        ASSERT_EQ(fr.size(), 3);
-        EXPECT_TRUE(std::isnan(fr.at<float>(2, 0)));
-        EXPECT_EQ(fr.at<double>(3, 0), 1.5);
-    }
-}
-
-/// @brief it should write the value of an optional field that is present.
-TEST(HTTPReadTask, PresentOptionalFieldWritesValue) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p2": 2.5, "p3": 1.5})",
-        x::telem::FLOAT32_T,
-        false,
-        true
-    );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.empty());
-    EXPECT_EQ(fr.at<float>(2, 0), 2.5F);
-}
-
-/// @brief it should still warn and skip the group when an optional field holds a value
-/// that does not convert.
-TEST(HTTPReadTask, InvalidOptionalFieldWarns) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p2": "INVALID", "p3": 1.5})",
-        x::telem::FLOAT32_T,
-        false,
-        true
-    );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief it should write the fill value with no warning for an optional field whose
-/// value is missing, null, or an empty string.
-TEST(HTTPReadTask, AbsentOptionalFieldWritesFillValue) {
-    for (const auto *body:
-         {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})", R"({"p2": "", "p3": 1.5})"}) {
-        auto [fr, res] = read_shared_index_group(
-            body,
-            x::telem::FLOAT64_T,
-            false,
-            true,
-            0.0
-        );
-        ASSERT_NIL(res.error);
-        EXPECT_TRUE(res.warning.empty());
-        ASSERT_EQ(fr.size(), 3);
-        EXPECT_EQ(fr.at<double>(2, 0), 0.0);
-        EXPECT_EQ(fr.at<double>(3, 0), 1.5);
-    }
-}
-
-/// @brief it should prefer a value that is present over the fill value.
-TEST(HTTPReadTask, PresentOptionalFieldIgnoresFillValue) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p2": 2.5, "p3": 1.5})",
-        x::telem::FLOAT64_T,
-        false,
-        true,
-        0.0
-    );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.empty());
-    EXPECT_EQ(fr.at<double>(2, 0), 2.5);
-}
-
-/// @brief it should still warn and skip the group when a field with a fill value holds
-/// a value that does not convert.
-TEST(HTTPReadTask, InvalidFieldWithFillValueWarns) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p2": "INVALID", "p3": 1.5})",
-        x::telem::FLOAT64_T,
-        false,
-        true,
-        0.0
-    );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
-    EXPECT_EQ(fr.size(), 0);
-}
-
-/// @brief it should keep an empty string on a string channel as a real value.
-TEST(HTTPReadTask, EmptyStringIsPresentOnStringChannel) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p2": "", "p3": 1.5})",
-        x::telem::STRING_T,
-        false,
-        true,
-        std::string("off")
-    );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.empty());
-    ASSERT_EQ(fr.size(), 3);
-    EXPECT_EQ(std::get<std::string>(fr.at(2, 0)), "");
-}
-
-/// @brief it should write the fill value of a string channel when the value is missing
-/// or null.
-TEST(HTTPReadTask, AbsentStringFieldWritesFillValue) {
-    for (const auto *body: {R"({"p3": 1.5})", R"({"p2": null, "p3": 1.5})"}) {
-        auto [fr, res] = read_shared_index_group(
-            body,
-            x::telem::STRING_T,
-            false,
-            true,
-            std::string("off")
-        );
-        ASSERT_NIL(res.error);
-        EXPECT_TRUE(res.warning.empty());
-        ASSERT_EQ(fr.size(), 3);
-        EXPECT_EQ(std::get<std::string>(fr.at(2, 0)), "off");
-    }
-}
-
-/// @brief it should write the fill value of an integer channel when the value is
-/// missing.
-TEST(HTTPReadTask, AbsentIntegerFieldWritesFillValue) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p3": 1.5})",
-        x::telem::INT32_T,
-        false,
-        true,
-        static_cast<int32_t>(7)
-    );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.empty());
-    ASSERT_EQ(fr.size(), 3);
-    EXPECT_EQ(fr.at<int32_t>(2, 0), 7);
-}
-
-/// @brief it should write the fill value of a timestamp channel that is not an index
-/// when the value is missing.
-TEST(HTTPReadTask, AbsentTimestampFieldWritesFillValue) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p3": 1.5})",
-        x::telem::TIMESTAMP_T,
-        false,
-        true,
-        x::telem::TimeStamp(5)
-    );
-    ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.empty());
-    ASSERT_EQ(fr.size(), 3);
-    EXPECT_EQ(fr.at<int64_t>(2, 0), 5);
-}
-
-/// @brief it should write no fill value when a request fails, so an outage can never
-/// look like a real reading.
-TEST(HTTPReadTask, FailedRequestSkipsFillValue) {
+/// @brief it should write no NaN when a request fails, so an outage can never look
+/// like a real reading.
+TEST(HTTPReadTask, FailedRequestWritesNothingWhenFilled) {
     for (const auto &[status, body]: std::vector<std::pair<int, std::string>>{
              {500, "{}"},
              {200, "not json"},
@@ -4136,172 +1281,85 @@ TEST(HTTPReadTask, FailedRequestSkipsFillValue) {
         testutil::Server server(
             testutil::ServerConfig{
                 .routes = {
-                    {
-                        .method = Method::GET,
-                        .path = "/api/down",
-                        .status_code = status,
-                        .response_body = body,
-                    },
-                    {
-                        .method = Method::GET,
-                        .path = "/api/up",
-                        .status_code = 200,
-                        .response_body = R"({"up": 1.5})",
-                    },
+                    route("/api/down", body, status),
+                    route("/api/up", R"({"up": 1.5})"),
                 },
             }
         );
         ASSERT_NIL(server.start());
         x::defer::defer stop_server([&server] { server.stop(); });
-
-        ReadTaskConfig cfg;
-        cfg.device = "test-device";
-        cfg.data_saving_disabled = true;
-        cfg.auto_start = false;
-        cfg.rate = x::telem::Rate(10000);
-
-        ReadField down;
-        down.pointer = "/speed";
-        down.channel = 2;
-        down.optional = true;
-        ReadEndpoint down_ep;
-        down_ep.method = "GET";
-        down_ep.path = "/api/down";
-        down_ep.fields = {down};
-
-        ReadField up;
-        up.pointer = "/up";
-        up.channel = 3;
-        ReadEndpoint up_ep;
-        up_ep.method = "GET";
-        up_ep.path = "/api/up";
-        up_ep.fields = {up};
-        cfg.endpoints = {down_ep, up_ep};
-
-        cfg.channels[2] = {
-            .key = 2,
-            .name = "speed",
-            .data_type = x::telem::FLOAT64_T,
-            .index = 100,
-        };
-        cfg.channels[3] = {
-            .key = 3,
-            .name = "up",
-            .data_type = x::telem::FLOAT64_T,
-            .index = 101,
-        };
-        cfg.software_timed_indexes[100] = 0;
-        cfg.software_timed_indexes[101] = 1;
-        cfg.fill_values[2] = 0.0;
-
-        auto [source, processor] = make_source(cfg, server.base_url());
-        auto breaker = x::breaker::Breaker(x::breaker::Config{.name = "test"});
-        breaker.start();
-        x::telem::Frame fr;
-        auto res = source->read(breaker, fr);
-        breaker.stop();
+        const auto client = new_test_client();
+        const auto down = create_float_endpoint(client, "/api/down", "/speed");
+        const auto up = create_float_endpoint(client, "/api/up", "/up");
+        auto cfg = create_config({down, up});
+        cfg.nan_fill_enabled = true;
+        const auto [fr, res] = read_once(client, std::move(cfg), server.base_url());
         ASSERT_NIL(res.error);
         EXPECT_FALSE(res.warning.empty());
-        EXPECT_FALSE(fr.contains(2));
-        EXPECT_EQ(fr.at<double>(3, 0), 1.5);
+        EXPECT_FALSE(fr.contains(down.channels[0].key));
+        EXPECT_FALSE(fr.contains(down.index.key));
+        EXPECT_EQ(fr.at<double>(up.channels[0].key, 0), 1.5);
     }
 }
 
-/// @brief it should skip the whole group when a non-float field is invalid, even when
-/// NaN fill is enabled.
-TEST(HTTPReadTask, InvalidIntegerSkipsGroupWhenFilled) {
-    auto [fr, res] = read_shared_index_group(
-        R"({"p2": "INVALID", "p3": 1.5})",
-        x::telem::INT32_T,
-        true
+/// @brief it should warn and write nothing for a response that matches no message.
+TEST(HTTPReadTask, ResponseMatchingNoMessageWarns) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {route("/api/data", R"({"type": "other", "value": 1.0})")},
+        }
     );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    const auto client = new_test_client();
+    synnax::icd::StringJSONMatch match;
+    match.pointer = "/type";
+    match.value = "status";
+    const auto ep = create_endpoint(
+        client,
+        "/api/data",
+        {{field<synnax::icd::FloatJSONField>("/value"), x::telem::FLOAT64_T}},
+        match
+    );
+    const auto [fr, res] = read_once(client, create_config({ep}), server.base_url());
     ASSERT_NIL(res.error);
-    EXPECT_TRUE(res.warning.description.starts_with("Failed to convert /p2"));
+    EXPECT_EQ(res.warning.message, "Failed to read some data");
+    EXPECT_EQ(
+        res.warning.description,
+        "The response from /api/data matches no message"
+    );
     EXPECT_EQ(fr.size(), 0);
-}
-
-namespace {
-/// @brief creates an ICD whose message Status holds a float field v at /v.
-/// @returns a GET endpoint at path that reads v into ch.
-::synnax::http::ReadEndpoint create_icd_endpoint(
-    const synnax::Synnax &client,
-    const std::string &path,
-    const synnax::channel::Channel &ch
-) {
-    synnax::icd::FloatJSONField v;
-    v.key = x::uuid::create();
-    v.name = "v";
-    v.pointer = "/v";
-    synnax::icd::Message m;
-    m.key = x::uuid::create();
-    m.name = "Status";
-    m.payload = synnax::icd::JSONPayload{.fields = {v}};
-    synnax::icd::ICD ic;
-    ic.key = x::uuid::create();
-    ic.name = "Plant";
-    ic.messages = {m};
-    EXPECT_NIL(client.icds.create(ic));
-    ::synnax::http::ReadEndpoint ep;
-    ep.key = path;
-    ep.path = path;
-    ep.icd = ic.key;
-    ep.messages = {{
-        .message = m.key,
-        .bindings = {{.field = v.key, .channel = ch.key}},
-    }};
-    return ep;
-}
 }
 
 /// @brief it should build the reader of each endpoint from the messages of its ICD.
 TEST(HTTPReadTask, BuildReadersReadsEachEndpoint) {
-    const auto first = create_field_channels(x::telem::FLOAT64_T);
-    const auto second = create_field_channels(x::telem::FLOAT64_T);
-    const auto &client = *first.client;
-    auto readers = ASSERT_NIL_P(build_readers(
-        client,
-        {create_icd_endpoint(client, "/a", first.data),
-         create_icd_endpoint(client, "/b", second.data)}
-    ));
-    ASSERT_EQ(readers.size(), 2);
+    const auto client = new_test_client();
+    const auto a = create_float_endpoint(client, "/a", "/v");
+    const auto b = create_float_endpoint(client, "/b", "/v");
+    auto readers = ASSERT_NIL_P(build_readers(client, {a.endpoint, b.endpoint}));
+    ASSERT_EQ(readers.endpoints.size(), 2);
+    EXPECT_EQ(readers.pointers.at(b.channels[0].key), "/v");
+    EXPECT_EQ(readers.channels.at(b.channels[0].key).name, b.channels[0].name);
     const x::telem::TimeStamp received(1000);
     x::telem::Frame fr;
-    ASSERT_EQ(ASSERT_NIL_P(readers[1].read(bytes(R"({"v": 2.5})"), received, fr)), 0U);
-    EXPECT_EQ(fr.at<double>(second.data.key, 0), 2.5);
-    EXPECT_EQ(fr.at<std::int64_t>(second.index.key, 0), received.nanoseconds());
-    EXPECT_FALSE(fr.contains(first.data.key));
-}
-
-/// @brief it should build no reader for a disabled endpoint and skip its checks.
-TEST(HTTPReadTask, BuildReadersSkipsDisabledEndpoint) {
-    const auto ch = create_field_channels(x::telem::FLOAT64_T);
-    const auto &client = *ch.client;
-    auto disabled = create_icd_endpoint(client, "/b", ch.data);
-    disabled.disabled = true;
-    disabled.icd = x::uuid::create();
-    auto readers = ASSERT_NIL_P(
-        build_readers(client, {create_icd_endpoint(client, "/a", ch.data), disabled})
-    );
-    ASSERT_EQ(readers.size(), 1);
-    x::telem::Frame fr;
     ASSERT_EQ(
-        ASSERT_NIL_P(
-            readers[0].read(bytes(R"({"v": 2.5})"), x::telem::TimeStamp(1000), fr)
-        ),
+        ASSERT_NIL_P(readers.endpoints[1].read(bytes(R"({"v": 2.5})"), received, fr)),
         0U
     );
-    EXPECT_EQ(fr.at<double>(ch.data.key, 0), 2.5);
+    EXPECT_EQ(fr.at<double>(b.channels[0].key, 0), 2.5);
+    EXPECT_EQ(fr.at<std::int64_t>(b.index.key, 0), received.nanoseconds());
+    EXPECT_FALSE(fr.contains(a.channels[0].key));
 }
 
 /// @brief it should reject an endpoint with no ICD or no messages, and name it.
 TEST(HTTPReadTask, BuildReadersRejectsEndpointWithNoMessages) {
-    const auto ch = create_field_channels(x::telem::FLOAT64_T);
-    ::synnax::http::ReadEndpoint no_icd;
+    const auto client = new_test_client();
+    ReadEndpoint no_icd;
     no_icd.path = "/a";
-    auto no_messages = create_icd_endpoint(*ch.client, "/a", ch.data);
+    auto no_messages = create_float_endpoint(client, "/a").endpoint;
     no_messages.messages.clear();
     for (const auto &ep: {no_icd, no_messages}) {
-        const auto err = build_readers(*ch.client, {ep}).second;
+        const auto err = build_readers(client, {ep}).second;
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         EXPECT_EQ(
             err.data,
@@ -4313,49 +1371,45 @@ TEST(HTTPReadTask, BuildReadersRejectsEndpointWithNoMessages) {
 
 /// @brief it should reject two endpoints that write to one channel, and name both.
 TEST(HTTPReadTask, BuildReadersRejectsChannelOfTwoEndpoints) {
-    const auto ch = create_field_channels(x::telem::FLOAT64_T);
-    const auto &client = *ch.client;
-    const std::vector endpoints{
-        create_icd_endpoint(client, "/a", ch.data),
-        create_icd_endpoint(client, "/b", ch.data)
-    };
-    const auto err = build_readers(client, endpoints).second;
+    const auto client = new_test_client();
+    const auto a = create_float_endpoint(client, "/a");
+    auto b = create_float_endpoint(client, "/b");
+    b.endpoint.messages[0].bindings[0].channel = a.channels[0].key;
+    const auto err = build_readers(client, {a.endpoint, b.endpoint}).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
         err.data,
         "endpoint GET /a and endpoint GET /b write to the same channel " +
-            std::to_string(ch.data.key)
+            std::to_string(a.channels[0].key)
     );
 }
 
 /// @brief it should reject two endpoints whose channels share one index channel, since
 /// each would write it with its own arrival time.
 TEST(HTTPReadTask, BuildReadersRejectsIndexOfTwoEndpoints) {
-    const auto first = create_field_channels(x::telem::FLOAT64_T);
-    const auto &client = *first.client;
-    const auto second = ASSERT_NIL_P(client.channels.create(
+    const auto client = new_test_client();
+    const auto a = create_float_endpoint(client, "/a");
+    const auto beside = ASSERT_NIL_P(client.channels.create(
         make_unique_channel_name("value"),
         x::telem::FLOAT64_T,
-        first.index.key,
+        a.index.key,
         false
     ));
-    const std::vector endpoints{
-        create_icd_endpoint(client, "/a", first.data),
-        create_icd_endpoint(client, "/b", second)
-    };
-    const auto err = build_readers(client, endpoints).second;
+    auto b = create_float_endpoint(client, "/b");
+    b.endpoint.messages[0].bindings[0].channel = beside.key;
+    const auto err = build_readers(client, {a.endpoint, b.endpoint}).second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     EXPECT_EQ(
         err.data,
         "endpoint GET /a and endpoint GET /b write to the same channel " +
-            std::to_string(first.index.key)
+            std::to_string(a.index.key)
     );
 }
 
 /// @brief it should reject an endpoint whose ICD does not exist.
 TEST(HTTPReadTask, BuildReadersRejectsMissingICD) {
     const auto client = new_test_client();
-    ::synnax::http::ReadEndpoint ep;
+    ReadEndpoint ep;
     ep.path = "/a";
     ep.icd = x::uuid::create();
     ep.messages = {{.message = x::uuid::create()}};
@@ -4368,23 +1422,54 @@ TEST(HTTPReadTask, BuildReadersRejectsMissingICD) {
 }
 
 /// @brief it should name the endpoint in an error that the reader of its messages
-/// returns.
+/// returns, and reject a binding to a channel that does not exist.
 TEST(HTTPReadTask, BuildReadersNamesEndpointOfMessageError) {
     const auto client = new_test_client();
-    const auto ep = create_icd_endpoint(client, "/a", synnax::channel::Channel{});
-    const auto err = build_readers(client, {ep}).second;
-    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(err.data, "endpoint GET /a: message Status: channel 0 does not exist");
+    for (const synnax::channel::Key key: {0U, 1U}) {
+        auto ep = create_float_endpoint(client, "/a").endpoint;
+        ep.messages[0].bindings[0].channel = key;
+        const auto err = build_readers(client, {ep}).second;
+        ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "endpoint GET /a: message Status: channel " + std::to_string(key) +
+                " does not exist"
+        );
+    }
 }
 
-/// @brief it should reject an endpoint that binds a channel that does not exist.
-TEST(HTTPReadTask, BuildReadersRejectsMissingChannel) {
-    const auto client = new_test_client();
-    synnax::channel::Channel missing;
-    missing.key = 1;
-    const auto err = build_readers(client, {create_icd_endpoint(client, "/a", missing)})
+/// @brief it should fail to configure a task whose endpoint reads no messages, and
+/// tell the user what to do.
+TEST(HTTPReadTask, ConfigureRejectsEndpointWithNoMessages) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("http_read_test_rack"))
+    );
+    const x::json::json props = {
+        {"secure", false},
+        {"timeout_ms", 1000},
+        {"verify_ssl", false},
+    };
+    synnax::device::Device dev{
+        .key = make_unique_channel_name("http_read_test_device"),
+        .rack = rack.key,
+        .location = "localhost:0",
+        .make = "http",
+        .model = "HTTP Device",
+        .name = "HTTP Read Test Device",
+        .properties = props.get<x::json::json::object_t>(),
+    };
+    ASSERT_NIL(client->devices.create(dev));
+    const auto err = configure_read(
+                         std::make_shared<task::MockContext>(client),
+                         create_task({{{"method", "GET"}, {"path", "/a"}}}, dev.key),
+                         std::make_shared<Processor>()
+    )
                          .second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    EXPECT_EQ(err.data, "endpoint GET /a: message Status: channel 1 does not exist");
+    EXPECT_EQ(
+        err.data,
+        "endpoint GET /a reads no messages. Open the task and pick a message for it."
+    );
 }
 }

@@ -33,6 +33,7 @@ Password struct {
     }
 
     @doc value  "is a stored password. A subject holds at most one."
+    @go entry
     @go marshal
     @go migrate
 }

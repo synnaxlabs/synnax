@@ -18,12 +18,10 @@ import {
 } from "@/feature/http/task/types";
 import { Task } from "@/platform/task";
 
-const endpointChannels = ({ icd, fields, messages }: ReadEndpoint): Task.PlotEntry[] =>
-  icd == null
-    ? fields
-    : messages.flatMap(({ bindings }) =>
-        bindings.map(({ channel }) => ({ channel, disabled: false })),
-      );
+const endpointChannels = ({ messages }: ReadEndpoint): Task.PlotEntry[] =>
+  messages.flatMap(({ bindings }) =>
+    bindings.map(({ channel }) => ({ channel, disabled: false })),
+  );
 
 const readPlotChannels: Task.PlotChannels = (config) =>
   Task.enabledChannels(

@@ -349,6 +349,11 @@ class TestHTTPReadTask:
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
+        temperature = sy.icd.FloatJSONField(name="temperature", pointer="/temperature")
+        data = sy.icd.Message(
+            name="Data", payload=sy.icd.JSONPayload(fields=[temperature])
+        )
+        ic = client.icds.create(name=random_name(), messages=[data])
         task = sy.http.ReadTask(
             name="test-http-read-task",
             device="some-device-key",
@@ -358,13 +363,14 @@ class TestHTTPReadTask:
                     key="ep-1",
                     method="GET",
                     path="/api/v1/data",
-                    fields=[
-                        sy.http.ReadField(
-                            key="f-1",
-                            pointer="/temperature",
-                            channel=1234,
-                            data_type=sy.DataType.FLOAT64,
-                        ),
+                    icd=ic.key,
+                    messages=[
+                        sy.icd.ReadMessage(
+                            message=data.key,
+                            bindings=[
+                                sy.icd.ReadBinding(field=temperature.key, channel=1234)
+                            ],
+                        )
                     ],
                 ),
             ],
@@ -387,163 +393,67 @@ class TestHTTPWriteTask:
         "test_data",
         [
             {
-                "name": "basic_post_endpoint",
+                "name": "channel_binding",
                 "data": {
                     "device": "http-device-key",
                     "auto_start": False,
                     "endpoints": [
                         {
                             "key": "ep-1",
-                            "method": "POST",
-                            "path": "/api/v1/control",
-                            "channel": {
-                                "pointer": "/power",
-                                "json_type": "string",
-                                "channel": 1234,
-                                "name": "Power",
-                                "data_type": "string",
+                            "method": "PUT",
+                            "path": "/api/v1/setpoint",
+                            "icd": "6b0a4a52-3f0e-4d8e-9a43-2f1c0b7d5e01",
+                            "message": {
+                                "message": "6b0a4a52-3f0e-4d8e-9a43-2f1c0b7d5e02",
+                                "bindings": [
+                                    {
+                                        "type": "channel",
+                                        "field": "6b0a4a52-3f0e-4d8e-9a43-2f1c0b7d5e03",
+                                        "channel": 5678,
+                                    },
+                                ],
                             },
                         },
                     ],
                 },
             },
             {
-                "name": "put_endpoint_with_number",
+                "name": "value_binding",
                 "data": {
                     "device": "http-device-key",
                     "auto_start": True,
                     "endpoints": [
                         {
                             "key": "ep-1",
-                            "method": "PUT",
-                            "path": "/api/v1/setpoint",
-                            "channel": {
-                                "pointer": "/value",
-                                "json_type": "number",
-                                "channel": 5678,
-                                "name": "Setpoint",
-                                "data_type": "float64",
-                            },
-                        },
-                    ],
-                },
-            },
-            {
-                "name": "patch_endpoint",
-                "data": {
-                    "device": "http-device-key",
-                    "auto_start": False,
-                    "endpoints": [
-                        {
-                            "key": "ep-1",
                             "method": "PATCH",
                             "path": "/api/v1/config",
-                            "channel": {
-                                "pointer": "/mode",
-                                "json_type": "string",
-                                "channel": 9012,
-                                "name": "Mode",
-                                "data_type": "string",
+                            "icd": "6b0a4a52-3f0e-4d8e-9a43-2f1c0b7d5e01",
+                            "message": {
+                                "message": "6b0a4a52-3f0e-4d8e-9a43-2f1c0b7d5e02",
+                                "bindings": [
+                                    {
+                                        "type": "channel",
+                                        "field": "6b0a4a52-3f0e-4d8e-9a43-2f1c0b7d5e03",
+                                        "channel": 9012,
+                                    },
+                                    {
+                                        "type": "value",
+                                        "field": "6b0a4a52-3f0e-4d8e-9a43-2f1c0b7d5e04",
+                                        "value": {"type": "string", "value": "AUTO"},
+                                    },
+                                ],
                             },
                         },
                     ],
                 },
             },
             {
-                "name": "endpoint_with_static_fields",
+                "name": "no_message",
                 "data": {
                     "device": "http-device-key",
                     "auto_start": False,
                     "endpoints": [
-                        {
-                            "key": "ep-1",
-                            "method": "POST",
-                            "path": "/api/v1/control",
-                            "channel": {
-                                "pointer": "/value",
-                                "json_type": "number",
-                                "channel": 1234,
-                            },
-                            "fields": [
-                                {
-                                    "key": "sf-1",
-                                    "pointer": "/source",
-                                    "json_type": "string",
-                                    "type": "static",
-                                    "value": {"source": "python-client"},
-                                },
-                                {
-                                    "key": "sf-2",
-                                    "pointer": "/priority",
-                                    "json_type": "number",
-                                    "type": "static",
-                                    "value": {"priority": 1},
-                                },
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "name": "endpoint_with_generated_fields",
-                "data": {
-                    "device": "http-device-key",
-                    "auto_start": False,
-                    "endpoints": [
-                        {
-                            "key": "ep-1",
-                            "method": "POST",
-                            "path": "/api/v1/events",
-                            "channel": {
-                                "pointer": "/value",
-                                "json_type": "number",
-                                "channel": 1234,
-                            },
-                            "fields": [
-                                {
-                                    "key": "gf-1",
-                                    "pointer": "/id",
-                                    "type": "generated",
-                                    "generator": "uuid",
-                                },
-                                {
-                                    "key": "gf-2",
-                                    "pointer": "/timestamp",
-                                    "type": "generated",
-                                    "generator": "timestamp",
-                                    "time_format": "iso8601",
-                                },
-                            ],
-                        },
-                    ],
-                },
-            },
-            {
-                "name": "multiple_endpoints",
-                "data": {
-                    "device": "http-device-key",
-                    "auto_start": False,
-                    "endpoints": [
-                        {
-                            "key": "ep-1",
-                            "method": "PUT",
-                            "path": "/api/v1/setpoint",
-                            "channel": {
-                                "pointer": "/value",
-                                "json_type": "number",
-                                "channel": 1000,
-                            },
-                        },
-                        {
-                            "key": "ep-2",
-                            "method": "POST",
-                            "path": "/api/v1/control",
-                            "channel": {
-                                "pointer": "/power",
-                                "json_type": "string",
-                                "channel": 2000,
-                            },
-                        },
+                        {"key": "ep-1", "method": "POST", "path": "/api/v1/control"},
                     ],
                 },
             },
@@ -554,49 +464,23 @@ class TestHTTPWriteTask:
         sy.http.WriteConfig.model_validate(test_data["data"])
 
     def test_write_endpoint_auto_key_generation(self) -> None:
-        """Test that the WriteTask assigns keys to endpoints and fields missing one."""
+        """Test that the WriteTask assigns keys to endpoints missing one."""
         task = sy.http.WriteTask(
             name="test",
             device="dev-key",
-            endpoints=[
-                sy.http.WriteEndpoint(
-                    path="/api/v1/control",
-                    channel=sy.http.ChannelField(pointer="/value", channel=1),
-                    fields=[
-                        sy.http.GeneratedWriteField(
-                            type="generated",
-                            pointer="/id",
-                            generator="uuid",
-                        ),
-                    ],
-                ),
-            ],
+            endpoints=[sy.http.WriteEndpoint(path="/api/v1/control")],
         )
-        ep = task.config.endpoints[0]
-        assert ep.key != ""
-        assert len(ep.key) > 0
-        assert ep.fields[0].key != ""
-        assert len(ep.fields[0].key) > 0
+        assert task.config.endpoints[0].key != ""
 
     def test_write_endpoint_defaults(self) -> None:
         """Test that WriteEndpoint has correct defaults."""
-        ep = sy.http.WriteEndpoint(
-            path="/control",
-            channel=sy.http.ChannelField(pointer="/value", channel=1),
-        )
+        ep = sy.http.WriteEndpoint(path="/control")
         assert ep.disabled is False
         assert ep.method == "POST"
         assert ep.headers == []
         assert ep.query_params == []
-        assert ep.fields == []
-
-    def test_channel_field_defaults(self) -> None:
-        """Test that ChannelField has correct defaults."""
-        cf = sy.http.ChannelField(pointer="/value", channel=1234)
-        assert cf.json_type == "number"
-        assert cf.data_type == "float64"
-        assert cf.name == ""
-        assert cf.time_format is None
+        assert ep.icd is None
+        assert ep.message is None
 
     def test_static_field_type(self) -> None:
         """Test that StaticWriteField carries the static discriminator."""
@@ -622,18 +506,14 @@ class TestHTTPWriteTask:
         task = sy.http.WriteTask(
             name="test",
             device="dev-key",
-            endpoints=[
-                sy.http.WriteEndpoint(
-                    path="/control",
-                    channel=sy.http.ChannelField(pointer="/value", channel=1),
-                ),
-            ],
+            endpoints=[sy.http.WriteEndpoint(path="/control")],
         )
         payload = task.to_payload()
         ep = obj(arr(payload.config, "endpoints")[0])
         assert ep["headers"] == []
         assert ep["query_params"] == []
-        assert "time_format" not in obj(ep, "channel")
+        assert "icd" not in ep
+        assert "message" not in ep
 
     def test_create_and_retrieve_write_task(
         self, client: sy.Synnax, task_targets: TaskTargets
@@ -644,14 +524,7 @@ class TestHTTPWriteTask:
             device="some-device-key",
             endpoints=[
                 sy.http.WriteEndpoint(
-                    key="ep-1",
-                    method="PUT",
-                    path="/api/v1/setpoint",
-                    channel=sy.http.ChannelField(
-                        pointer="/value",
-                        json_type="number",
-                        channel=5678,
-                    ),
+                    key="ep-1", method="PUT", path="/api/v1/setpoint"
                 ),
             ],
         )
@@ -668,6 +541,13 @@ class TestHTTPWriteTask:
         self, client: sy.Synnax, task_targets: TaskTargets
     ) -> None:
         """Test that task can be serialized and deserialized correctly."""
+        value = sy.icd.FloatJSONField(name="value", pointer="/value")
+        source = sy.icd.StringJSONField(name="source", pointer="/source")
+        message = sy.icd.Message(
+            name="PUT /api/v1/setpoint",
+            payload=sy.icd.JSONPayload(fields=[value, source]),
+        )
+        ic = client.icds.create(name=random_name(), messages=[message])
         original = sy.http.WriteTask(
             name="test-round-trip",
             device="some-device-key",
@@ -676,21 +556,17 @@ class TestHTTPWriteTask:
                     key="ep-1",
                     method="PUT",
                     path="/api/v1/setpoint",
-                    channel=sy.http.ChannelField(
-                        pointer="/value",
-                        json_type="number",
-                        channel=5678,
-                        name="Setpoint",
+                    icd=ic.key,
+                    message=sy.icd.WriteMessage(
+                        message=message.key,
+                        bindings=[
+                            sy.icd.ChannelWriteBinding(field=value.key, channel=5678),
+                            sy.icd.ValueWriteBinding(
+                                field=source.key,
+                                value=sy.icd.StringWriteValue(value="python"),
+                            ),
+                        ],
                     ),
-                    fields=[
-                        sy.http.StaticWriteField(
-                            type="static",
-                            key="sf-1",
-                            pointer="/source",
-                            json_type="string",
-                            value={"source": "python"},
-                        ),
-                    ],
                 ),
             ],
         )
@@ -709,8 +585,8 @@ class TestHTTPWriteTask:
         assert retr_ep.key == orig_ep.key
         assert retr_ep.method == orig_ep.method
         assert retr_ep.path == orig_ep.path
-        assert retr_ep.channel.pointer == orig_ep.channel.pointer
-        assert retr_ep.channel.channel == orig_ep.channel.channel
+        assert retr_ep.icd == orig_ep.icd
+        assert retr_ep.message == orig_ep.message
 
 
 @pytest.mark.http
@@ -990,6 +866,47 @@ class TestHTTPDevicePropertyUpdates:
         assert channels["/pressure"] == pres_ch.key
         assert ep_props["index"] == 0
 
+    def test_read_task_skips_endpoint_with_no_fields(self, client: sy.Synnax) -> None:
+        """An endpoint with no fields stores no channels under its path."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.http.Device(
+            host="127.0.0.1:8080",
+            secure=False,
+            name="Test HTTP Read Messages Device",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        suffix = random_name()
+        time_ch = client.channels.create(
+            name=f"http_time_{suffix}",
+            data_type=sy.DataType.TIMESTAMP,
+            is_index=True,
+        )
+        temp_ch = client.channels.create(
+            name=f"http_temp_{suffix}",
+            data_type=sy.DataType.FLOAT64,
+            index=time_ch.key,
+        )
+        task = sy.http.ReadTask(
+            name="Test HTTP Read Messages",
+            device=device.key,
+            rate=1.0,
+            endpoints=[
+                sy.http.ReadEndpoint(
+                    path="/api/v1/data",
+                    fields=[
+                        sy.http.ReadField(pointer="/temperature", channel=temp_ch.key)
+                    ],
+                ),
+                sy.http.ReadEndpoint(path="/api/v1/status"),
+            ],
+        )
+        task.update_device_properties(client.devices)
+
+        read = obj(client.devices.retrieve(key=device.key).properties, "read")
+        assert "/api/v1/data" in read
+        assert "/api/v1/status" not in read
+
     def test_read_task_stores_index_channel_key(self, client: sy.Synnax) -> None:
         """A value-timed endpoint stores its index field's channel key."""
         rack = client.racks.retrieve_embedded_rack()
@@ -1036,7 +953,8 @@ class TestHTTPDevicePropertyUpdates:
         assert obj(props, "read", "/api/v1/data")["index"] == time_ch.key
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
-        """Test that configuring a WriteTask updates device properties."""
+        """Test that configuring a WriteTask records the command channel of each field
+        of each enabled endpoint in device properties."""
         rack = client.racks.retrieve_embedded_rack()
         device = sy.http.Device(
             host="127.0.0.1:8080",
@@ -1057,25 +975,40 @@ class TestHTTPDevicePropertyUpdates:
             data_type=sy.DataType.FLOAT64,
             index=cmd_time.key,
         )
+        value = sy.icd.FloatJSONField(name="value", pointer="/value")
+        mode = sy.icd.StringJSONField(name="mode", pointer="/mode")
+        message = sy.icd.Message(
+            name="PUT /api/v1/setpoint",
+            payload=sy.icd.JSONPayload(fields=[value, mode]),
+        )
+        ic = client.icds.create(name=random_name(), messages=[message])
+
+        def endpoint(path: str, *, disabled: bool = False) -> sy.http.WriteEndpoint:
+            return sy.http.WriteEndpoint(
+                method="PUT",
+                path=path,
+                disabled=disabled,
+                icd=ic.key,
+                message=sy.icd.WriteMessage(
+                    message=message.key,
+                    bindings=[
+                        sy.icd.ChannelWriteBinding(field=value.key, channel=cmd_ch.key),
+                        sy.icd.ValueWriteBinding(
+                            field=mode.key, value=sy.icd.StringWriteValue(value="AUTO")
+                        ),
+                    ],
+                ),
+            )
 
         task = sy.http.WriteTask(
             name="Test HTTP Write",
             device=device.key,
             endpoints=[
-                sy.http.WriteEndpoint(
-                    method="PUT",
-                    path="/api/v1/setpoint",
-                    channel=sy.http.ChannelField(
-                        pointer="/value",
-                        channel=cmd_ch.key,
-                    ),
-                ),
+                endpoint("/api/v1/setpoint"),
+                endpoint("/api/v1/off", disabled=True),
             ],
         )
         task.update_device_properties(client.devices)
 
-        updated = client.devices.retrieve(key=device.key)
-        props = updated.properties
-        assert "write" in props
-        assert "/api/v1/setpoint" in obj(props, "write")
-        assert obj(props, "write")["/api/v1/setpoint"] == cmd_ch.key
+        props = client.devices.retrieve(key=device.key).properties
+        assert obj(props, "write") == {f"PUT /api/v1/setpoint#{value.key}": cmd_ch.key}

@@ -13,6 +13,9 @@ import { Primitive } from "@/schematic/node/common/primitive";
 
 const ACTIVE = "active";
 
+// The root of each built-in drawing carries its stroke width, so a copy draws as wide.
+const STROKE_WIDTH = 2;
+
 interface Family {
   enumeration: enumeration.Key;
   /** commands name the deactivate and activate commands of a family that clicks. */
@@ -81,6 +84,41 @@ export const DETAIL_LINES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
   ],
 };
 
+const SOLID_PART: schematic.symbol.Part = {
+  key: "solid",
+  name: "Solid",
+  selectors: [".pluto--solid"],
+};
+
+const createSolidLook = (fill: schematic.symbol.Paint): schematic.symbol.Look => ({
+  key: "solid",
+  part: SOLID_PART.key,
+  fill,
+});
+
+const NODE: schematic.symbol.Paint = { type: "node" };
+
+/** NODE_STROKE_LOOK strokes the whole drawing with the node color. */
+export const NODE_STROKE_LOOK: schematic.symbol.Look = { key: "stroke", stroke: NODE };
+
+/**
+ * SOLID_SHAPES fills the `.pluto--solid` shapes of a static drawing with the node
+ * color. It keeps the default stroke look.
+ */
+export const SOLID_SHAPES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
+  parts: [SOLID_PART],
+  looks: [NODE_STROKE_LOOK, createSolidLook(NODE)],
+};
+
+/**
+ * ACTIVE_SOLID_SHAPES fills the `.pluto--solid` shapes of a drawing with the color of
+ * the active entry, as its stroke draws. It keeps the default stroke and fill looks.
+ */
+export const ACTIVE_SOLID_SHAPES: Pick<schematic.symbol.Spec, "parts" | "looks"> = {
+  parts: [SOLID_PART],
+  looks: [...ACTIVE_LOOKS, createSolidLook(ENTRY)],
+};
+
 type Behavior = Pick<
   schematic.symbol.Spec,
   "states" | "commands" | "looks" | "interactions" | "variant"
@@ -89,7 +127,7 @@ type Behavior = Pick<
 const STATIC: Behavior = {
   states: [],
   commands: [],
-  looks: [],
+  looks: [NODE_STROKE_LOOK],
   interactions: [],
   variant: "static",
 };
@@ -106,7 +144,8 @@ const createBehavior = (key: FamilyKey): Behavior => {
       default: 0,
     },
   ];
-  if (family.commands == null) return { ...STATIC, states, looks: ACTIVE_LOOKS };
+  if (family.commands == null)
+    return { ...STATIC, states, looks: [NODE_STROKE_LOOK, createFillLook(1)] };
   const [deactivate, activate] = family.commands;
   return {
     states,
@@ -140,16 +179,17 @@ export interface BuiltInParams
   svg: string;
   /**
    * family gives the symbol its active state, and the commands and click of a family
-   * that clicks. Looks default to a stroke of the whole drawing and a fill of it while
-   * active. Looks and interactions in the params replace those of the family.
+   * that clicks. Looks default to a fill of the drawing while active, and a stroke in
+   * the active entry color for a family that clicks, else in the node color. Looks and
+   * interactions in the params replace those of the family.
    */
   family?: FamilyKey;
 }
 
 /**
- * @returns the spec of a built-in symbol, static unless family says otherwise. Its
- * scale is the shrink Primitive.SVG gives a built-in drawing, so Drawing draws it at
- * the size of that drawing.
+ * @returns the spec of a built-in symbol, static and stroked in the node color unless
+ * family says otherwise. Its scale is the shrink Primitive.SVG gives a built-in
+ * drawing, so Drawing draws it at the size of that drawing.
  */
 export const createBuiltIn = ({
   svg,
@@ -158,7 +198,10 @@ export const createBuiltIn = ({
   parts = [],
   ...overrides
 }: BuiltInParams): schematic.symbol.Spec => ({
-  drawing: { type: "svg", markup: svg },
+  drawing: {
+    type: "svg",
+    markup: svg.replace(/<svg\b/, `<svg stroke-width="${STROKE_WIDTH}"`),
+  },
   parts,
   handles,
   ...(family == null ? STATIC : createBehavior(family)),

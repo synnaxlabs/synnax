@@ -9,6 +9,7 @@
 
 import type { ReactElement } from "react";
 
+import { Library } from "@/app/library";
 import { Settings } from "@/app/settings";
 import { Account } from "@/feature/account";
 import { Arc } from "@/feature/arc";
@@ -60,6 +61,7 @@ const COMMANDS: Command.Command[] = [
   ...Status.COMMANDS,
   ...Theme.COMMANDS,
   ...Settings.COMMANDS,
+  ...Library.COMMANDS,
 ];
 
 export const List = (props: Palette.ListProps<Command.Command>): ReactElement => (

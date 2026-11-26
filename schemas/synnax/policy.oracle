@@ -72,6 +72,7 @@ Policy struct {
         resources. Each policy belongs to one role, and a subject holds the policies of
         each role in its roles.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type   "policy"

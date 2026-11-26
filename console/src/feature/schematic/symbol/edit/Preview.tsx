@@ -62,8 +62,8 @@ const DEFAULT_VIEWPORT: Viewport = { zoom: 1, position: { x: 0, y: 0 } };
 const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
 
 interface PreviewProps {
-  /** selectedValue is the value of the state that the preview draws. */
-  selectedValue: number;
+  /** value holds the state values. A state with no value draws at its default. */
+  value: Schematic.Node.Custom.StateValues;
   selectedHandle?: string;
   /** selectedPart is the part whose shapes the preview marks. */
   selectedPart?: string;
@@ -79,7 +79,7 @@ interface PreviewProps {
 
 interface DrawingProps {
   spec: schematic.symbol.Spec;
-  value: number;
+  value: Schematic.Node.Custom.StateValues;
   nodeColor: color.Crude;
   onMount: (drawing: SVGGElement) => void;
 }
@@ -93,7 +93,7 @@ const Drawing = ({ spec, value, nodeColor, onMount }: DrawingProps): ReactElemen
 };
 
 export const Preview = ({
-  selectedValue,
+  value,
   selectedHandle,
   selectedPart,
   onElementClick,
@@ -363,7 +363,7 @@ export const Preview = ({
                   >
                     <Drawing
                       spec={spec}
-                      value={selectedValue}
+                      value={value}
                       nodeColor={nodeColor}
                       onMount={onMount}
                     />

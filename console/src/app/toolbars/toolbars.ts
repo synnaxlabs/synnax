@@ -10,7 +10,6 @@
 import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
-import { ICD } from "@/feature/icd";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
@@ -27,7 +26,6 @@ export const LEFT: Nav.Toolbar[] = [
   Device.TOOLBAR,
   Task.TOOLBAR,
   Arc.TOOLBAR,
-  ICD.TOOLBAR,
   Status.TOOLBAR,
 ];
 

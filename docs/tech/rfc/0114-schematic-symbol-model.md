@@ -254,29 +254,32 @@ no data has arrived, for NaN, and, when it has an enumeration, for a value that 
 no entry after its match. Pluto then adds the unknown indicator. `within` 0.9 to 1.1
 reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as today. A state with
 no source, or with a `channel` source that has no `key`, draws its default entry, or
-fraction 0 for a number state, with no indicator. The binding holds the number format,
+fraction 0 for a number state, with no indicator. An `entry` paint whose entry has no
+color draws the node `color`, else the theme gray. The binding holds the number format,
 as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
 `core/v0.62.0`).
 
-Looks apply in order, and a later look wins on each field it sets. On `motion`, a later
-look wins on each motion kind, so motions of different kinds on one part all apply, such
-as a `move` and a `spin`, or a `level` and a `flow`. Pluto moves an element by its
-`move`, then turns it by its `rotate` and its `spin`, each about the pivot of its part.
-When parts select one element, a later look wins on each motion kind of the element, as
-it does on paint. Look fields are optional, so an absent field, such as `hidden`, means
-that the look does not set it, as `switched bool?` does in `schemas/x/color.oracle`.
-Stale data keeps the last state's looks and adds the stale indicator. Pluto then draws
-pending, hover, pressed, and the hold fill. A symbol stores no indicators: Pluto draws
-the stale, unknown, and other indicators on top of the looks. Only a number state drives
-motion, and the Core refuses a motion whose `state` names an enumeration state. A number
-state drives motion as a fraction of its bounds, clamped to 0 to 1. A number state is
-unknown for no data and NaN, but not for a value outside its bounds. `spin`, `flow`, and
-`blink` stop while a state that their look reads, in `when` or `state`, is stale or
-unknown, under the operating system's Reduce motion setting, and on a node with
-`motion_disabled`. Under these two settings, a `level`, `rotate`, or `move` jumps to
-each new fraction with no transition. While its state is stale, it keeps its last
-fraction. While it is unknown, it draws fraction 0, which is `from` or an empty `level`,
-with the unknown indicator. A blink stays under three flashes per second.
+Looks apply in order, and a later look wins on each field it sets. A look with no part
+does not stroke a shape with no visible stroke in its markup, such as `stroke="none"`,
+but a look on the part of that shape does. On `motion`, a later look wins on each motion
+kind, so motions of different kinds on one part all apply, such as a `move` and a
+`spin`, or a `level` and a `flow`. Pluto moves an element by its `move`, then turns it
+by its `rotate` and its `spin`, each about the pivot of its part. When parts select one
+element, a later look wins on each motion kind of the element, as it does on paint. Look
+fields are optional, so an absent field, such as `hidden`, means that the look does not
+set it, as `switched bool?` does in `schemas/x/color.oracle`. Stale data keeps the last
+state's looks and adds the stale indicator. Pluto then draws pending, hover, pressed,
+and the hold fill. A symbol stores no indicators: Pluto draws the stale, unknown, and
+other indicators on top of the looks. Only a number state drives motion, and the Core
+refuses a motion whose `state` names an enumeration state. A number state drives motion
+as a fraction of its bounds, clamped to 0 to 1. A number state is unknown for no data
+and NaN, but not for a value outside its bounds. `spin`, `flow`, and `blink` stop while
+a state that their look reads, in `when` or `state`, is stale or unknown, under the
+operating system's Reduce motion setting, and on a node with `motion_disabled`. Under
+these two settings, a `level`, `rotate`, or `move` jumps to each new fraction with no
+transition. While its state is stale, it keeps its last fraction. While it is unknown,
+it draws fraction 0, which is `from` or an empty `level`, with the unknown indicator. A
+blink stays under three flashes per second.
 
 A part with no `pivot` turns as one, about the center of the box around all its shapes
 at rest. A `level` fills each element of a part by the element's own box. A part can
@@ -436,7 +439,10 @@ follow the parts. A selector that is not a name resolves against the drawing, an
 match gets a `data-region-id`. A stored actuator, and a static symbol that a
 `custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
 `deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
-whole drawing.
+whole drawing. A static symbol that no `custom_actuator` node uses keeps only its value
+0 looks, with no condition. The schematic upgrade removes the other looks after it gives
+commands to each symbol that a `custom_actuator` node uses. A symbol file import removes
+them at once.
 
 ## 5 What this RFC does not cover
 
@@ -478,16 +484,16 @@ The pump and agitator specs draw their detail lines with the `contrast` paint, w
 phase 4 adds to the schema, the clients, the Core checks, and Pluto. The `switch` spec
 has looks that only a `symbol` node draws: the track fills while on, and a far knob
 takes the place of the near one. The old switch draws as phase 2 does. The `thruster`
-spec has no looks and no `next`, because today it draws as a static picture and takes no
-clicks. Phase 6 adds the node variant with the whole shape of §4.1 and its checks with
-the Core list of built-ins. Phase 7 removes the bindings and overrides that a symbol
-save orphans, and phase 8 adds the save confirm of §4.4, before the migration gives any
-node a binding that a save can remove. Phase 9 draws the node with its indicators and
-sends its commands. A `switch` node draws its spec as any other `symbol` node does, so
-its knob does not slide. While on, the near knob hides and the far knob shows. Phase 10
-adds the form with the enumeration picker. Phase 11 adds the Core migration, the symbol
-import that keeps keys by §4.4, and "Change symbol". Phase 12 deletes the old variants
-from the schema, the clients, Pluto, and the Console.
+spec has no `next`, because today it takes no clicks. Phase 6 adds the node variant with
+the whole shape of §4.1 and its checks with the Core list of built-ins. Phase 7 removes
+the bindings and overrides that a symbol save orphans, and phase 8 adds the save confirm
+of §4.4, before the migration gives any node a binding that a save can remove. Phase 9
+draws the node with its indicators and sends its commands. A `switch` node draws its
+spec as any other `symbol` node does, so its knob does not slide. While on, the near
+knob hides and the far knob shows. Phase 10 adds the form with the enumeration picker.
+Phase 11 adds the Core migration, the symbol import that keeps keys by §4.4, and "Change
+symbol". Phase 12 deletes the old variants from the schema, the clients, Pluto, and the
+Console.
 
 A Console flag hides the `symbol` variant until phase 11 moves every node and removes
 the flag. The Core and the clients accept the variant from phase 6. Phase 6 stores the

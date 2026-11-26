@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/legacy"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -30,12 +31,15 @@ import (
 // ServiceConfig is the configuration for opening the HTTP task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Channel holds the channels that config fields read from and write to.
+	//
 	// [REQUIRED]
 	Channel *channel.Service
 	// ICD holds the ICDs whose messages read configs read.
+	//
 	// [REQUIRED]
 	ICD *icd.Service
 	alamos.Instrumentation
@@ -70,6 +74,7 @@ type Service struct {
 	// Scan stores http_scan task configuration records.
 	Scan     *config.Service[ScanConfig]
 	resolver readResolver
+	writes   writeResolver
 	closer   xio.MultiCloser
 }
 
@@ -86,6 +91,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		icds:     cfg.ICD,
 		channels: channels,
 		reads:    read.NewResolver(cfg.ICD, channels),
+		ins:      cfg.Instrumentation,
+	}, writes: writeResolver{
+		icds:     cfg.ICD,
+		channels: channels,
+		writes:   write.NewResolver(cfg.ICD, channels),
 		ins:      cfg.Instrumentation,
 	}}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
@@ -117,12 +127,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			References:      writeConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
 			Type:            "http_write",
+			Migrations:      versions.WriteMigrations,
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.WriteConfigLadder,
 			Legacy:          &legacy.Write,
 			SetEntryKey:     (*WriteConfig).SetKey,
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
+			HashReferences:  s.writes.hash,
+			HashedTables:    []string{"icd"},
+			ResolveEntry:    s.writes.resolve,
+			ReconcileEntry:  detachMessages,
 			ValidateEntry:   (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {

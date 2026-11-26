@@ -57,10 +57,21 @@ public:
     /// double.
     static std::pair<Number, errors::Error> parse(std::string_view text);
 
+    /// @brief parses text, the content of a JSON string, as C's strtod reads a whole
+    /// string: a decimal or 0x hex number, inf, infinity, nan, or nan(chars) in any
+    /// case, each with an optional sign. It also trims whitespace from each end. A hex
+    /// integer that 64 bits hold stays exact.
+    /// @returns VALIDATION when the trimmed text is none of these, or is past the range
+    /// of a double.
+    static std::pair<Number, errors::Error> parse_quoted(std::string_view text);
+
     /// @brief returns the number when it is an integer that an int64 holds.
     [[nodiscard]] std::optional<std::int64_t> to_int64() const;
     /// @brief returns the number when it is an integer that a uint64 holds.
     [[nodiscard]] std::optional<std::uint64_t> to_uint64() const;
+    /// @brief returns the number times factor, which is positive, truncated toward
+    /// zero, when an int64 holds the result.
+    [[nodiscard]] std::optional<std::int64_t> to_int64_times(std::int64_t factor) const;
     /// @brief returns the double nearest to the number.
     [[nodiscard]] double to_float64() const;
 

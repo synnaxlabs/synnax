@@ -123,52 +123,39 @@ describe("Kafka Task Types", () => {
   });
 
   describe("deployWriteConfigZ", () => {
-    const valid = { device: "dev", topic: "t", channels: [{ key: "c1", channel: 1 }] };
+    const createTarget = (topic: string, disabled = false) => ({
+      key: topic === "" ? "empty" : topic,
+      topic,
+      disabled,
+      icd: "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+      message: { message: "8d6a1ec4-7c8e-4f0a-9b8e-0c7f0d5c1a02", bindings: [] },
+    });
+    const issuesOf = (targets: ReturnType<typeof createTarget>[]) =>
+      (
+        Kafka.Task.deployWriteConfigZ.safeParse({ device: "dev", targets }).error
+          ?.issues ?? []
+      ).map(({ message, path }) => ({ message, path: path.join(".") }));
 
-    it("should accept a complete config and fill the record shape", () => {
-      const result = Kafka.Task.deployWriteConfigZ.parse(valid);
-      expect(result.record.valuePointer).toBe("/value");
-      expect(result.record.timeFormat).toBe("unix_ns");
-      expect(result.recordKey).toBe("channel_name");
+    it("should accept a target with a topic", () => {
+      expect(issuesOf([createTarget("plant.pumps")])).toEqual([]);
     });
 
-    it("should reject a channel that is not selected", () => {
-      const result = Kafka.Task.deployWriteConfigZ.safeParse({
-        ...valid,
-        channels: [{ key: "c1", channel: 0 }],
-      });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe("Channel is required");
+    it("should reject an enabled target with no topic", () => {
+      expect(issuesOf([createTarget("plant.pumps"), createTarget("")])).toEqual([
+        { message: "Topic is required", path: "targets.1.topic" },
+      ]);
     });
 
-    it("should accept a disabled channel that is not selected", () => {
-      const result = Kafka.Task.deployWriteConfigZ.safeParse({
-        ...valid,
-        channels: [...valid.channels, { key: "c2", channel: 0, disabled: true }],
-      });
-      expect(result.success).toBe(true);
+    it("should reject a config whose targets are all disabled", () => {
+      expect(issuesOf([createTarget("plant.pumps", true)])).toEqual([
+        { message: "At least one target must be enabled", path: "targets" },
+      ]);
     });
 
-    it("should reject an empty value pointer", () => {
-      const result = Kafka.Task.deployWriteConfigZ.safeParse({
-        ...valid,
-        record: { valuePointer: "" },
-      });
-      expect(result.success).toBe(false);
-      expect(result.error?.issues[0].message).toBe("Value pointer is required");
+    it("should accept a disabled target with no topic", () => {
+      expect(issuesOf([createTarget("plant.pumps"), createTarget("", true)])).toEqual(
+        [],
+      );
     });
-  });
-
-  describe("isString", () => {
-    it.each(["string", "json", "uuid"])("should send %s as a string", (dt) => {
-      expect(Kafka.Task.isString(dt)).toBe(true);
-    });
-
-    it.each(["float64", "uint8", "timestamp"])(
-      "should not send %s as a string",
-      (dt) => {
-        expect(Kafka.Task.isString(dt)).toBe(false);
-      },
-    );
   });
 });

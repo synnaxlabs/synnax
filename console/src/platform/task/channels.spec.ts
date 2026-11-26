@@ -435,6 +435,46 @@ describe("channels", () => {
     });
   });
 
+  describe("planCommandChannels", () => {
+    it("should plan the name that deploying gives each new command channel, in deploy order", async () => {
+      const held = uniqueName("cmd");
+      await client.channels.create({ name: held, dataType: "float64", virtual: true });
+      const free = uniqueName("cmd");
+      const specs = ["/a", "/b", "/c"].map((propertiesKey, i) => ({
+        propertiesKey,
+        channel: 0,
+        name: i === 0 ? held : free,
+        dataType: "float64",
+      }));
+      const planned = await Task.planCommandChannels(client, {}, specs);
+      expect(planned).toEqual(
+        new Map([
+          ["/a", { creates: `${held}_2` }],
+          ["/b", { creates: free }],
+          ["/c", { creates: `${free}_2` }],
+        ]),
+      );
+      const write: Record<string, number> = {};
+      for (const spec of specs) await Task.configureCommandChannel(client, write, spec);
+      for (const [key, plan] of planned)
+        expect((await client.channels.retrieve(write[key])).name).toBe(
+          Task.newCommandChannelName(plan),
+        );
+    });
+
+    it("should plan to keep the stored channel of a target with no channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("cmd"),
+        dataType: "string",
+        virtual: true,
+      });
+      const planned = await Task.planCommandChannels(client, { "/cmd": ch.key }, [
+        { propertiesKey: "/cmd", channel: 0, name: ch.name, dataType: "string" },
+      ]);
+      expect(planned).toEqual(new Map([["/cmd", { keeps: ch.key }]]));
+    });
+  });
+
   describe("configureCommandChannel", () => {
     it("should adopt the channel of the target and store it", async () => {
       const ch = await client.channels.create({
@@ -486,6 +526,27 @@ describe("channels", () => {
       expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_time`);
     });
 
+    it("should give a new channel the first free number when another target holds its name", async () => {
+      const name = uniqueName("cmd");
+      const held = await Task.configureCommandChannel(
+        client,
+        {},
+        { propertiesKey: "/a", channel: 0, name, dataType: "float64" },
+      );
+      const write: Record<string, number> = {};
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/b",
+        channel: 0,
+        name,
+        dataType: "float64",
+      });
+      expect(key).not.toBe(held);
+      expect(write).toEqual({ "/b": key });
+      const ch = await client.channels.retrieve(key);
+      expect(ch.name).toBe(`${name}_2`);
+      expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_2_time`);
+    });
+
     it("should replace a channel that does not suit the target, and move it", async () => {
       const name = uniqueName("cmd");
       const write: Record<string, number> = {};
@@ -502,7 +563,7 @@ describe("channels", () => {
         channel: old.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(old.key);
       expect(write).toEqual({ "/cmd": key });
@@ -525,7 +586,7 @@ describe("channels", () => {
         channel: 0,
         name: uniqueName("cmd"),
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(stored.key);
       expect(write).toEqual({ "/cmd": key });
@@ -554,7 +615,7 @@ describe("channels", () => {
         channel: picked.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect((await client.channels.retrieve(key)).name).toBe(name);
       const [moved, movedIndex, kept] = await client.channels.retrieve([
@@ -587,7 +648,7 @@ describe("channels", () => {
         channel: old.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(old.key);
       expect(write).toEqual({ "/cmd": key });
@@ -613,7 +674,7 @@ describe("channels", () => {
           channel: current.key,
           name: "unused",
           dataType: "float64",
-          suits: (ch) => ch.dataType.isFloat,
+          dataTypes: ["float32", "float64"],
         }),
       ).toBe(stored.key);
     });

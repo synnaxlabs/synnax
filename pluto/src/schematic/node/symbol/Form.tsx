@@ -7,23 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, schematic } from "@synnaxlabs/client";
+import { type channel, type enumeration, query, schematic } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, notation } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import { bounds, deep, notation } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { Channel } from "@/channel";
+import { CSS } from "@/css";
+import { Enumeration } from "@/enumeration";
 import { Notation } from "@/notation";
 import { Form as NodeForm } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
+import { Telem } from "@/schematic/node/common/telem";
 import type { FormProps } from "@/schematic/node/spec";
 import { type Resolved, useResolved } from "@/schematic/node/symbol/resolve";
+import { Synnax } from "@/synnax";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
@@ -47,13 +52,12 @@ const upsert = <T extends { key: string }>(entries: T[], next: T): T[] =>
 
 interface BindingProps {
   binding: Binding;
-  onChange: (next: Binding) => void;
+  onChange: (patch: Partial<Binding>) => void;
 }
 
 const SourceFields = ({ binding, onChange }: BindingProps): ReactElement => {
   const { source } = binding;
-  const setSource = (next?: schematic.Source): void =>
-    onChange({ ...binding, source: next });
+  const setSource = (next?: schematic.Source): void => onChange({ source: next });
   return (
     <>
       <Input.Item label="Source" padHelpText={false}>
@@ -107,13 +111,13 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
     <Input.Item label="Notation" padHelpText={false}>
       <Notation.Select
         value={binding.notation ?? "standard"}
-        onChange={(n: notation.Notation) => onChange({ ...binding, notation: n })}
+        onChange={(n: notation.Notation) => onChange({ notation: n })}
       />
     </Input.Item>
     <Input.Item label="Precision" padHelpText={false}>
       <Input.Numeric
         value={binding.precision ?? 2}
-        onChange={(precision) => onChange({ ...binding, precision })}
+        onChange={(precision) => onChange({ precision })}
         integer
         bounds={notation.PRECISION_BOUNDS}
       />
@@ -121,13 +125,171 @@ const FormatFields = ({ binding, onChange }: BindingProps): ReactElement => (
     <Input.Item label="Units" padHelpText={false}>
       <Input.Text
         value={binding.units ?? ""}
-        onChange={(units) =>
-          onChange({ ...binding, units: units === "" ? undefined : units })
-        }
+        onChange={(units) => onChange({ units: units === "" ? undefined : units })}
       />
     </Input.Item>
   </>
 );
+
+interface BoundsInputsProps {
+  value: bounds.Bounds;
+  onChange: (next: bounds.Bounds) => void;
+}
+
+type Edge = keyof bounds.Bounds;
+
+interface Held {
+  typed: bounds.Bounds;
+  /** The stored bounds when the hold started. */
+  stored: bounds.Bounds;
+  /** The field that the user edited, which shows the error. */
+  edge: Edge;
+}
+
+const INVALID_BOUNDS = "Min value must be less than max value";
+
+/**
+ * Edits a pair of bounds. The Core refuses bounds whose lower is not below its upper,
+ * so the fields hold such a pair with an error and save nothing until it is valid. A
+ * change to the stored bounds drops the held pair.
+ */
+const BoundsInputs = ({ value, onChange }: BoundsInputsProps): ReactElement => {
+  const [held, setHeld] = useState<Held>();
+  const stale = held != null && !bounds.equals(held.stored, value);
+  if (stale) setHeld(undefined);
+  const holding = held != null && !stale;
+  const shown = holding ? held.typed : value;
+  const handleChange = (edge: Edge) => (v: number) => {
+    const next = { ...shown, [edge]: v };
+    if (next.lower >= next.upper) return setHeld({ typed: next, stored: value, edge });
+    setHeld(undefined);
+    onChange(next);
+  };
+  const field = (edge: Edge, label: string): ReactElement => {
+    const invalid = holding && held.edge === edge;
+    return (
+      <Input.Item
+        label={label}
+        padHelpText={false}
+        status={invalid ? "error" : undefined}
+        helpText={invalid ? INVALID_BOUNDS : undefined}
+      >
+        <Input.Numeric value={shown[edge]} onChange={handleChange(edge)} />
+      </Input.Item>
+    );
+  };
+  return (
+    <>
+      {field("lower", "Min value")}
+      {field("upper", "Max value")}
+    </>
+  );
+};
+
+interface DefaultEntryProps {
+  enumeration: enumeration.Key;
+  value: number;
+  onChange: (next: number) => void;
+}
+
+const DefaultEntry = ({
+  enumeration: key,
+  value,
+  onChange,
+}: DefaultEntryProps): ReactElement => {
+  const { data } = Enumeration.useResult({ key });
+  const unmatched = data != null && !data.entries.some((e) => e.value === value);
+  return (
+    <Input.Item
+      label="Default"
+      padHelpText={false}
+      status={unmatched ? "warning" : undefined}
+      helpText={unmatched ? `No entry has the value ${value}.` : undefined}
+    >
+      <Select.Simple<number> value={value} onChange={onChange} resourceName="entry">
+        {data?.entries.map((e) => (
+          <Select.Item<number> key={e.value} itemKey={e.value}>
+            {e.name}
+          </Select.Item>
+        ))}
+      </Select.Simple>
+    </Input.Item>
+  );
+};
+
+interface EnumerationOverridesProps extends BindingProps {
+  state: schematic.symbol.EnumerationState;
+}
+
+const EnumerationOverrides = ({
+  state,
+  binding,
+  onChange,
+}: EnumerationOverridesProps): ReactElement => {
+  const match = binding.match ?? state.match;
+  const within =
+    state.match.type === "within" ? state.match.bounds : Telem.DEFAULT_THRESHOLD;
+  const setMatch = (next: schematic.symbol.Matcher): void => onChange({ match: next });
+  const enumerationKey = binding.enumeration ?? state.enumeration;
+  const value = binding.default ?? state.default;
+  const setDefault = (next: number): void => onChange({ default: next });
+  const client = Synnax.use();
+  // A new enumeration starts with the entries that the state draws.
+  const draft = (): Enumeration.CreatePromptParams => {
+    const drawn =
+      state.enumeration == null
+        ? undefined
+        : client?.enumerations.watch({ key: state.enumeration }).getCached();
+    return { name: state.name, entries: query.isLive(drawn) ? drawn.entries : [] };
+  };
+  return (
+    <>
+      <Input.Item label="Match" padHelpText={false}>
+        <Select.Buttons
+          value={match.type}
+          onChange={(type: schematic.symbol.MatcherType) =>
+            setMatch(type === "exact" ? { type } : { type, bounds: within })
+          }
+        >
+          <Select.Item itemKey="exact">Exact</Select.Item>
+          <Select.Item itemKey="within">Within</Select.Item>
+        </Select.Buttons>
+      </Input.Item>
+      {match.type === "within" && (
+        <BoundsInputs
+          value={match.bounds}
+          onChange={(b) => setMatch({ ...match, bounds: b })}
+        />
+      )}
+      <NodeForm.EnumerationField
+        value={binding.enumeration}
+        onChange={(next) => onChange({ enumeration: next })}
+        draft={draft}
+        fallback={
+          state.enumeration == null ? (
+            <Text.Text level="p">The symbol names no enumeration.</Text.Text>
+          ) : (
+            <Enumeration.Entries enumeration={state.enumeration} />
+          )
+        }
+      />
+      {enumerationKey == null ? (
+        <Input.Item label="Default" padHelpText={false}>
+          <Input.Numeric value={value} onChange={setDefault} />
+        </Input.Item>
+      ) : (
+        <DefaultEntry
+          enumeration={enumerationKey}
+          value={value}
+          onChange={setDefault}
+        />
+      )}
+    </>
+  );
+};
+
+const overridden = (b: Binding): boolean =>
+  b.enumeration != null || b.match != null || b.bounds != null || b.default != null;
 
 interface StateSectionProps {
   state: schematic.symbol.State;
@@ -135,16 +297,49 @@ interface StateSectionProps {
 
 // A state with no binding shows the defaults, and its first edit adds the binding.
 const StateSection = ({ state }: StateSectionProps): ReactElement => {
-  const { value, onChange } = Base.useField(path.states);
-  const binding =
-    value.find((b) => b.key === state.key) ??
+  const { get, set } = Base.useContext();
+  const find = (states: Binding[]): Binding =>
+    states.find((b) => b.key === state.key) ??
     schematic.stateBindingZ.parse({ key: state.key });
-  const handleChange = (next: Binding): void => onChange(upsert(value, next));
+  const binding = find(Base.useFieldValue(path.states));
+  // A change reads the states when it applies, so the link of an enumeration that
+  // resolves late keeps the edits made while it ran.
+  const handleChange = (patch: Partial<Binding>): void => {
+    const states = get<Binding[]>(path.states).value;
+    set(path.states, upsert(states, { ...find(states), ...patch }));
+  };
   return (
-    <Base.Section title={state.name}>
+    <Base.Section
+      title={state.name}
+      className={state.type === "enumeration" ? CSS.B("states") : undefined}
+    >
       <SourceFields binding={binding} onChange={handleChange} />
-      {state.type === "number" && (
-        <FormatFields binding={binding} onChange={handleChange} />
+      {state.type === "number" ? (
+        <>
+          <FormatFields binding={binding} onChange={handleChange} />
+          <BoundsInputs
+            value={binding.bounds ?? state.bounds}
+            onChange={(b) => handleChange({ bounds: b })}
+          />
+        </>
+      ) : (
+        <EnumerationOverrides state={state} binding={binding} onChange={handleChange} />
+      )}
+      {overridden(binding) && (
+        <Button.Button
+          variant="text"
+          onClick={() =>
+            handleChange({
+              enumeration: undefined,
+              match: undefined,
+              bounds: undefined,
+              default: undefined,
+            })
+          }
+        >
+          <Icon.Reset />
+          Reset to symbol
+        </Button.Button>
       )}
     </Base.Section>
   );
@@ -251,8 +446,8 @@ const StyleForm = (): ReactElement => (
 );
 
 /**
- * Edits a symbol node: the source and format of each state of its symbol, the channel
- * of each command with no state, its clicks, and its style.
+ * Edits a symbol node: the source, format, and overrides of each state of its symbol,
+ * the channel of each command with no state, its clicks, and its style.
  */
 export const Form = ({ actions, tab, onTabChange }: FormProps): ReactElement => (
   <Properties.Tabs

@@ -11,7 +11,8 @@
 # request or a merge group must pass runs from here. Nightly and Release call it with
 # full, which runs every job whatever changed, on every OS the job supports. A pull
 # request and a merge group skip the macOS C++ tests, because the two macOS bots cannot
-# keep up with them.
+# keep up with them. They also skip the WebKit and Firefox tests, which add six minutes
+# to the Console and client jobs.
 
 name: CI
 
@@ -196,6 +197,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Find the jobs a CI edit selects
         id: ci
@@ -448,10 +450,12 @@ jobs:
       examples_package: "@synnaxlabs/client-examples"
       macos: *full
       node_lts: true
+      node_projects: client provided-core
       package: client
       packed: true
       runtimes: true
       ubuntu_arm: *full
+      webkit: *full
       windows: *full
       windows_arm: *full
     secrets:
@@ -473,8 +477,9 @@ jobs:
       directory: console
       package: console
       shards: 3
-      # Three runs hold each WebKit page under 2.3 GB, from 4.1 GB with one.
-      webkit_runs: 3
+      webkit: *full
+      # A page keeps each file it runs (microsoft/playwright#44290); 4 stay under 2 GB.
+      webkit_files_per_page: 4
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -495,6 +500,7 @@ jobs:
       directory: core
       os_specific: true
       macos: *full
+      # warm.go.yaml saves a go test cache for each shard, so it sets the same count.
       shards: 3
       warmed: true
       windows: *full
@@ -514,6 +520,7 @@ jobs:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
       unused_by_forks: true
+      prebuilt: true
 
   # Fails a pull request that adds a runtime or development dependency with a high or
   # critical advisory. A merge group has no diff to review, so the job skips it. The
@@ -632,6 +639,7 @@ jobs:
       directory: site/docs
       macos: *full
       package: docs
+      webkit: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -835,6 +843,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Check names that are public without need
         run: uv run --project scripts scripts/check_exports_py.py
@@ -858,6 +867,7 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          cache-dependency-glob: uv.lock
 
       - name: Check for Python suppressions
         run: uv run --project scripts scripts/check_suppressions_py.py
@@ -1109,6 +1119,7 @@ jobs:
       directory: lyra
       macos: *full
       package: lyra
+      webkit: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1166,6 +1177,7 @@ jobs:
       coverage_flag: pluto
       directory: pluto
       package: pluto
+      webkit: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1183,6 +1195,7 @@ jobs:
       directory: site/portal
       macos: *full
       package: portal
+      webkit: *full
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1410,6 +1423,7 @@ jobs:
       directory: x/go
       os_specific: true
       macos: *full
+      shards: 2
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

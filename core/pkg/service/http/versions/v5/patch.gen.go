@@ -61,6 +61,55 @@ func (ir *InlineRead) HashContent(h *content.Hash) {
 }
 
 // Patch applies the path action at c, which is not done, to the value.
+func (iw *InlineWrite) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "endpoints":
+		return patch.List(&iw.Endpoints, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (iw *InlineWrite) HashContent(h *content.Hash) {
+	h.Len(len(iw.Endpoints))
+	for i0 := range iw.Endpoints {
+		iw.Endpoints[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (iwe *InlineWriteEndpoint) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&iwe.Key, c.Next())
+	case "channel":
+		if c = c.Next(); c.Done() {
+			return patch.Defaulted(&iwe.Channel, c, func(def *InlineWriteEndpoint) {
+				iwe.Channel = def.Channel
+			})
+		}
+		return iwe.Channel.Patch(c)
+	case "fields":
+		return patch.List(&iwe.Fields, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (iwe *InlineWriteEndpoint) PatchKey() string { return iwe.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (iwe *InlineWriteEndpoint) HashContent(h *content.Hash) {
+	iwe.Channel.HashContent(h)
+	h.Len(len(iwe.Fields))
+	for i0 := range iwe.Fields {
+		iwe.Fields[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
@@ -177,4 +226,110 @@ func (re *ReadEndpoint) HashContent(h *content.Hash) {
 		re.Fields[i0].HashContent(h)
 	}
 	h.String(re.Index)
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wc *WriteConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&wc.StartConfig.KeyedConfig.Key, c.Next())
+	case "auto_start":
+		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
+	case "device":
+		return patch.Value(&wc.Device, c.Next())
+	case "endpoints":
+		return patch.List(&wc.Endpoints, c.Next())
+	case "inline":
+		if c = c.Next(); c.Done() || wc.Inline == nil {
+			return patch.OptionalValue(&wc.Inline, c)
+		}
+		next := *wc.Inline
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		wc.Inline = &next
+		return nil
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wc *WriteConfig) HashContent(h *content.Hash) {
+	h.Bool(wc.StartConfig.AutoStart)
+	h.String(wc.Device)
+	h.Len(len(wc.Endpoints))
+	for i0 := range wc.Endpoints {
+		wc.Endpoints[i0].HashContent(h)
+	}
+	if wc.Inline == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		wc.Inline.HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (we *WriteEndpoint) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&we.Key, c.Next())
+	case "disabled":
+		return patch.Value(&we.Disabled, c.Next())
+	case "method":
+		return patch.Defaulted(&we.Method, c.Next(), func(def *WriteEndpoint) {
+			we.Method = def.Method
+		})
+	case "path":
+		return patch.Value(&we.Path, c.Next())
+	case "headers":
+		return patch.Value(&we.Headers, c.Next())
+	case "query_params":
+		return patch.Value(&we.QueryParams, c.Next())
+	case "icd":
+		return patch.OptionalValue(&we.ICD, c.Next())
+	case "message":
+		if c = c.Next(); c.Done() || we.Message == nil {
+			return patch.OptionalValue(&we.Message, c)
+		}
+		next := *we.Message
+		if err := next.Patch(c); err != nil {
+			return err
+		}
+		we.Message = &next
+		return nil
+	default:
+		return c.UnknownField()
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (we *WriteEndpoint) PatchKey() string { return we.Key }
+
+// HashContent writes the content of the value to h, without its keys.
+func (we *WriteEndpoint) HashContent(h *content.Hash) {
+	h.Bool(we.Disabled)
+	h.String(string(we.Method))
+	h.String(we.Path)
+	h.Len(len(we.Headers))
+	for i0 := range we.Headers {
+		we.Headers[i0].HashContent(h)
+	}
+	h.Len(len(we.QueryParams))
+	for i0 := range we.QueryParams {
+		we.QueryParams[i0].HashContent(h)
+	}
+	if we.ICD == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.Bytes((*we.ICD)[:])
+	}
+	if we.Message == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		we.Message.HashContent(h)
+	}
 }

@@ -35,7 +35,7 @@ import {
 
 import { Device } from "@/feature/http/device";
 import { DEFAULT_READ_NAME } from "@/feature/http/task/create";
-import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
+import { EndpointItem, EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployReadConfigZ,
   READ_SCHEMAS,
@@ -162,20 +162,6 @@ const readsICD = (ep: ReadEndpoint): ep is ICDEndpoint => ep.icd != null;
 const icdPath = (key: string) => root.config.endpoints[key] as deep.Path<ICDEndpoint>;
 
 /**
- * The prefix of the names of the channels that deploying creates for a message. A
- * message after the first adds its name to the prefix of the endpoint.
- */
-const messagePrefix = (
-  deviceName: string,
-  path: string,
-  read: number,
-  name: string,
-): string => {
-  const prefix = endpointPrefix(deviceName, path);
-  return read === 0 ? prefix : `${prefix}_${channel.escapeInvalidName(name)}`;
-};
-
-/**
  * @returns where the device stores the channels of the messages of an endpoint. An
  * older Console stored them under the bare path.
  */
@@ -279,37 +265,13 @@ const messageName = (
 const icdName = (name: string): string =>
   name.trim() === "" ? DEFAULT_READ_NAME : name;
 
-/** @returns the prefix of the channel names of a message, current with its name. */
-const usePrefix = (
-  deviceName: string,
-  path: deep.Path<ICDEndpoint>,
-  read: number,
-): string => {
-  const formats = ICD.useFormats();
-  const epPath = PForm.useFieldValue(path.path);
-  const icdKey = PForm.useFieldValue(path.icd);
-  const message = PForm.useFieldValue(path.messages[read].message);
-  const name = PForm.useFieldValue(PICD.formPath.messages[message].name, {
-    optional: true,
-    ctx: formats.get(icdKey),
-  });
-  return messagePrefix(deviceName, epPath, read, name ?? "");
-};
+/** @returns the prefix of the channel names of the messages of an endpoint. */
+const usePrefix = (deviceName: string, path: deep.Path<ICDEndpoint>): string =>
+  endpointPrefix(deviceName, PForm.useFieldValue(path.path));
 
-const EndpointItem = (props: Tree.ItemRenderProps<string>) => {
-  const path = root.config.endpoints[props.itemKey];
-  const disabled = PForm.useFieldValue(path.disabled, { optional: true });
-  if (disabled == null) return null;
-  return (
-    <Task.Views.TreeGroupItem
-      {...props}
-      label={<EndpointLabel path={path} />}
-      off={disabled}
-    >
-      <Task.EnabledCheckbox path={path.disabled} />
-    </Task.Views.TreeGroupItem>
-  );
-};
+const SourceItem = (props: Tree.ItemRenderProps<string>) => (
+  <EndpointItem {...props} path={root.config.endpoints[props.itemKey]} />
+);
 
 /** @returns the props that the panels of a message of an endpoint share. */
 const useMessageProps = (
@@ -318,7 +280,7 @@ const useMessageProps = (
   read: number,
 ): Omit<ICD.MessageSectionsProps, "format"> => {
   const { index, bindings } = PForm.useFieldValue(path.messages[read]);
-  const prefix = usePrefix(device.name, path, read);
+  const prefix = usePrefix(device.name, path);
   return {
     path,
     read,
@@ -375,7 +337,7 @@ interface ICDFieldDetailsProps extends MessagePanelProps {
 }
 
 const ICDFieldDetails = ({ device, ...rest }: ICDFieldDetailsProps) => {
-  const prefix = usePrefix(device.name, rest.path, rest.read);
+  const prefix = usePrefix(device.name, rest.path);
   return <ICD.FieldDetails {...rest} prefix={prefix} />;
 };
 
@@ -497,7 +459,7 @@ const Endpoints: FC<EndpointsProps> = ({
     sources: root.config.endpoints,
     sourceOf: (ep) => (readsICD(ep) ? ep : null),
     pathOf: icdPath,
-    SourceItem: EndpointItem,
+    SourceItem,
     tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an endpoint reads it, another endpoint owns its message, or it no longer
@@ -690,10 +652,6 @@ const storedPropsOf = (
     ? ICD.Stored.of(stored, storedSource(b.source), b.read)
     : undefined;
 
-/** @returns the prefix of the names of the channels that a message creates. */
-const prefixOf = (deviceName: string, { source, read, message }: BoundMessage) =>
-  messagePrefix(deviceName, source.path, read, message.name);
-
 /**
  * Plans the channels of each message of endpoints in bound, in deploy order with one
  * namer. A message plans with the channels that earlier ones keep, so it leaves a
@@ -717,9 +675,10 @@ const planMessages = async (
       client,
       namer,
       b,
-      prefixOf(dev.name, b),
+      endpointPrefix(dev.name, b.source.path),
       storedPropsOf(stored, endpoints, b),
       written,
+      bound,
     );
     ICD.keptChannels(plan).forEach((ch) => written.add(ch));
     plans.push(plan);
@@ -755,7 +714,7 @@ const MessagePlans = ({ device, children }: MessagePlansProps): ReactElement => 
     position: b.read,
     read: b.source.messages[b.read],
     message: b.message,
-    prefix: prefixOf(device.name, b),
+    prefix: endpointPrefix(device.name, b.source.path),
     props: storedPropsOf(stored, endpoints, b),
   }));
   const plans = Task.useChannelPlans(
