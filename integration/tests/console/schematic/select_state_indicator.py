@@ -10,6 +10,7 @@
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import Schematic, Select, StateIndicator
+from synnax import enumeration
 from x import random_name
 
 
@@ -20,6 +21,15 @@ class SelectStateIndicator(ConsoleCase):
     channel, sends a value via Select, and verifies both the channel value and
     the State Indicator label update correctly.
     """
+
+    states: enumeration.Enumeration | None = None
+
+    def teardown(self) -> None:
+        # The Core refuses to delete an enumeration that a schematic uses, so the
+        # schematic goes first.
+        super().teardown()
+        if self.states is not None:
+            self.client.enumerations.delete([self.states.key])
 
     def run(self) -> None:
         console = self.console
@@ -41,11 +51,14 @@ class SelectStateIndicator(ConsoleCase):
             retrieve_if_name_exists=True,
         )
 
-        options = [
-            sy.schematic.StateMapping(key="open", name="Open", value=1),
-            sy.schematic.StateMapping(key="closed", name="Closed", value=2),
-            sy.schematic.StateMapping(key="standby", name="Standby", value=3),
-        ]
+        self.states = client.enumerations.create(
+            name=f"state_{random_name()}",
+            entries=[
+                enumeration.Entry(key="open", name="Open", value=1),
+                enumeration.Entry(key="closed", name="Closed", value=2),
+                enumeration.Entry(key="standby", name="Standby", value=3),
+            ],
+        )
 
         self.log("Creating schematic")
         schematic = console.pages.create(Schematic, "select_state_indicator")
@@ -55,7 +68,7 @@ class SelectStateIndicator(ConsoleCase):
         select = Select(
             label="State Control",
             channel_name=CHANNEL_NAME,
-            options=options,
+            enumeration=self.states.name,
         )
         schematic.create_symbol(select)
         select.move(delta_x=-200, delta_y=0)
@@ -64,7 +77,7 @@ class SelectStateIndicator(ConsoleCase):
         indicator = StateIndicator(
             label="State Display",
             channel_name=CHANNEL_NAME,
-            options=options,
+            enumeration=self.states.name,
         )
         schematic.create_symbol(indicator)
         indicator.move(delta_x=200, delta_y=0)

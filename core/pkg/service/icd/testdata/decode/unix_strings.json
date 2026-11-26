@@ -1,0 +1,164 @@
+{
+  "description": "A Unix timestamp in a string takes what strtod reads whole after trimming whitespace. A decimal keeps every digit, a hex float truncates toward zero, and NaN, infinity, and an integer that a timestamp does not hold fail.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "sec",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/sec",
+            "type": "timestamp",
+            "time_format": "unix_sec"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "ns",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/ns",
+            "type": "timestamp",
+            "time_format": "unix_ns"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "timestamp"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "timestamp"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "sec": " \t1.5\n",
+        "ns": " 7 "
+      },
+      "message": "reading",
+      "samples": [1500000000, 7]
+    },
+    {
+      "document": {
+        "sec": " 1767323045.123456789 ",
+        "ns": "3"
+      },
+      "message": "reading",
+      "samples": [1767323045123456789, 3]
+    },
+    {
+      "document": {
+        "sec": "+2",
+        "ns": "+3"
+      },
+      "message": "reading",
+      "samples": [2000000000, 3]
+    },
+    {
+      "document": {
+        "sec": "0x10",
+        "ns": "0X1f"
+      },
+      "message": "reading",
+      "samples": [16000000000, 31]
+    },
+    {
+      "document": {
+        "sec": "-0x2",
+        "ns": "-0x8000000000000000"
+      },
+      "message": "reading",
+      "samples": [-2000000000, -9223372036854775808]
+    },
+    {
+      "document": {
+        "sec": "0x1.8p1",
+        "ns": "0x10p-1"
+      },
+      "message": "reading",
+      "samples": [3000000000, 8]
+    },
+    {
+      "document": {
+        "sec": "0x.8",
+        "ns": "-0x1.8"
+      },
+      "message": "reading",
+      "samples": [500000000, -1]
+    },
+    {
+      "document": {
+        "sec": "inf",
+        "ns": 1
+      },
+      "error": "field sec: inf is out of range for a unix_sec timestamp: validation error"
+    },
+    {
+      "document": {
+        "sec": 1,
+        "ns": " -Infinity "
+      },
+      "error": "field ns: -Infinity is out of range for a unix_ns timestamp: validation error"
+    },
+    {
+      "document": {
+        "sec": "nan",
+        "ns": 1
+      },
+      "error": "field sec: nan is out of range for a unix_sec timestamp: validation error"
+    },
+    {
+      "document": {
+        "sec": 1,
+        "ns": "0x8000000000000000"
+      },
+      "error": "field ns: 0x8000000000000000 is out of range for a unix_ns timestamp: validation error"
+    },
+    {
+      "document": {
+        "sec": 1,
+        "ns": "-0x8000000000000001"
+      },
+      "error": "field ns: -0x8000000000000001 is out of range for a unix_ns timestamp: validation error"
+    },
+    {
+      "document": {
+        "sec": "0x7fffffffffffffff",
+        "ns": 1
+      },
+      "error": "field sec: 0x7fffffffffffffff is out of range for a unix_sec timestamp: validation error"
+    },
+    {
+      "document": {
+        "sec": "0x1p62",
+        "ns": 1
+      },
+      "error": "field sec: 0x1p62 is out of range for a unix_sec timestamp: validation error"
+    },
+    {
+      "document": {
+        "sec": "0x",
+        "ns": 1
+      },
+      "error": "field sec: invalid number \"0x\": validation error"
+    },
+    {
+      "document": {
+        "sec": "1 2",
+        "ns": 1
+      },
+      "error": "field sec: invalid number \"1 2\": validation error"
+    }
+  ]
+}

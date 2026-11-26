@@ -104,6 +104,7 @@ ReadConfig struct extends task.ReadConfig {
     }
 
     @doc value           "configures an OPC UA read task."
+    @go entry            "opc_read_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -117,6 +118,7 @@ WriteConfig struct extends task.WriteConfig {
     }
 
     @doc value           "configures an OPC UA write task."
+    @go entry            "opc_write_config"
     @go imex             body
     @go marshal
     @go migrate
@@ -126,6 +128,7 @@ WriteConfig struct extends task.WriteConfig {
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an OPC UA scan task."
+    @go entry   "opc_scan_config"
     @go imex    body
     @go marshal
     @go migrate

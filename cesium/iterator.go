@@ -24,7 +24,7 @@ const AutoSpan = unary.AutoSpan
 
 var ErrIteratorClosed = resource.NewClosedError("cesium.iterator")
 
-type iterator struct {
+type Iterator struct {
 	inlet    confluence.Inlet[IteratorRequest]
 	outlet   confluence.Outlet[IteratorResponse]
 	wg       signal.WaitGroup
@@ -33,7 +33,7 @@ type iterator struct {
 	closed   bool
 }
 
-func wrapStreamIterator(internal *streamIterator) *iterator {
+func wrapStreamIterator(internal *streamIterator) *Iterator {
 	ctx, cancel := signal.Isolated()
 	req, res := confluence.Attach(internal, 1)
 	internal.Flow(
@@ -41,7 +41,7 @@ func wrapStreamIterator(internal *streamIterator) *iterator {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	return &iterator{
+	return &Iterator{
 		inlet:    req,
 		outlet:   res,
 		shutdown: cancel,
@@ -55,57 +55,57 @@ func wrapStreamIterator(internal *streamIterator) *iterator {
 // ending at different times. For example, if the iterator on channel 1 has view [00:01,
 // 00:02) while the iterator on channel 2 has view [00:03, 00:04), then they will read
 // [00:02, 00:07) and [00:04, 00:09), respectively, after a call to Next(5).
-func (i *iterator) Next(span telem.TimeSpan) bool {
+func (i *Iterator) Next(span telem.TimeSpan) bool {
 	return i.exec(IteratorRequest{Command: IteratorCommandNext, Span: span}).Ack
 }
 
 // Prev implements Iterator.
-func (i *iterator) Prev(span telem.TimeSpan) bool {
+func (i *Iterator) Prev(span telem.TimeSpan) bool {
 	return i.exec(IteratorRequest{Command: IteratorCommandPrev, Span: span}).Ack
 }
 
 // SeekFirst implements Iterator.
-func (i *iterator) SeekFirst() bool {
+func (i *Iterator) SeekFirst() bool {
 	return i.exec(IteratorRequest{Command: IteratorCommandSeekFirst}).Ack
 }
 
 // SeekLast implements Iterator.
-func (i *iterator) SeekLast() bool {
+func (i *Iterator) SeekLast() bool {
 	return i.exec(IteratorRequest{Command: IteratorCommandSeekLast}).Ack
 }
 
 // SeekLE implements Iterator.
-func (i *iterator) SeekLE(ts telem.TimeStamp) bool {
+func (i *Iterator) SeekLE(ts telem.TimeStamp) bool {
 	return i.exec(IteratorRequest{Command: IterCommandSeekLE, Stamp: ts}).Ack
 }
 
 // SeekGE implements Iterator.
-func (i *iterator) SeekGE(ts telem.TimeStamp) bool {
+func (i *Iterator) SeekGE(ts telem.TimeStamp) bool {
 	return i.exec(IteratorRequest{Command: IteratorCommandSeekGE, Stamp: ts}).Ack
 }
 
 // Error implements Iterator.
-func (i *iterator) Error() error {
+func (i *Iterator) Error() error {
 	return i.exec(IteratorRequest{Command: IteratorCommandError}).Err
 }
 
 // Valid implements Iterator.
-func (i *iterator) Valid() bool {
+func (i *Iterator) Valid() bool {
 	return i.exec(IteratorRequest{Command: IteratorCommandValid}).Ack
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
-func (i *iterator) SetBounds(bounds telem.TimeRange) {
+func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 	i.exec(IteratorRequest{Command: IteratorCommandSetBounds, Bounds: bounds})
 }
 
 // Value implements Iterator.
-func (i *iterator) Value() Frame { return i.frame }
+func (i *Iterator) Value() Frame { return i.frame }
 
 // Close closes the iterator and returns the error that stopped it, unless a seek or
 // SetBounds has cleared that error since. Closing a closed iterator returns nil.
-func (i *iterator) Close() error {
+func (i *Iterator) Close() error {
 	if i.closed {
 		return nil
 	}
@@ -117,7 +117,7 @@ func (i *iterator) Close() error {
 }
 
 // exec sends req and returns its acknowledgement.
-func (i *iterator) exec(req IteratorRequest) IteratorResponse {
+func (i *Iterator) exec(req IteratorRequest) IteratorResponse {
 	if i.closed {
 		return IteratorResponse{
 			Variant: IteratorResponseVariantAck,

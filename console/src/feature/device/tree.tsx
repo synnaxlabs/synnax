@@ -60,14 +60,16 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
-  const { data: selected } = Device.useResultMultiple(
-    ids.length === 0 ? null : { where: { key: { in: ids.map((id) => id.key) } } },
-  );
+  const { data: selected, variant } = Device.useResultMultiple({
+    where: { key: { in: ids.map((id) => id.key) } },
+  });
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
-  if (ids.length === 0) return null;
+  // The menu stays empty and hidden until the devices load, so it opens with the items
+  // of their integration instead of growing when they arrive.
+  if (variant === "loading") return null;
   const integration = getIntegration(sharedMake(selected, ids.length));
   const customMenuItems =
     integration == null ? null : (

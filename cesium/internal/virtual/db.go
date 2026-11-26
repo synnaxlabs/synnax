@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/meta"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/config"
@@ -39,7 +40,7 @@ type controlResource struct {
 	alignment atomic.Uint64
 }
 
-func (r *controlResource) Key() channel.Key { return r.ck }
+func (r *controlResource) ChannelKey() channel.Key { return r.ck }
 
 func (r *controlResource) loadAlignment() telem.Alignment {
 	return telem.Alignment(r.alignment.Load())
@@ -50,7 +51,7 @@ func (r *controlResource) storeAlignment(a telem.Alignment) {
 }
 
 type DB struct {
-	controller       *xcontrol.Controller[channel.Key, *controlResource]
+	controller       *control.Controller[*controlResource]
 	wrapError        func(error) error
 	closed           *atomic.Bool
 	leadingAlignment *alignment.Counter
@@ -69,9 +70,11 @@ var (
 type Config struct {
 	alamos.Instrumentation
 	// MetaCodec is used to encode and decode the channel metadata.
+	//
 	// [REQUIRED]
 	MetaCodec encoding.Codec
 	// FS is the filesystem that the DB will use to store metadata about the channel.
+	//
 	// [REQUIRED]
 	FS fs.FS
 	// Channel that the database will operate on. This only needs to be set when
@@ -114,7 +117,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 	if !cfg.Channel.Virtual {
 		return nil, wrapError(ErrNotVirtual)
 	}
-	c, err := xcontrol.New[channel.Key, *controlResource](xcontrol.Config{
+	c, err := control.New[*controlResource](control.Config{
 		Concurrency:     xcontrol.ConcurrencyShared,
 		Instrumentation: cfg.Instrumentation,
 	})
@@ -136,7 +139,7 @@ func (db *DB) Channel() channel.Channel {
 	return db.cfg.Channel
 }
 
-func (db *DB) LeadingControlState() *xcontrol.State[channel.Key] {
+func (db *DB) LeadingControlState() *control.State {
 	return db.controller.LeadingState()
 }
 

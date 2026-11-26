@@ -41,9 +41,9 @@ uv run --project scripts scripts/compare_benchmarks.py --base main --head HEAD
 
 Client (TS/Python/C++) tests, Pluto and Console live-Core specs, and Driver tests
 connect to a Core (login `synnax`/`seldon`). They read `SYNNAX_TEST_HOST` and
-`SYNNAX_TEST_PORT`, and default to `localhost:9090`. A browser has no environment, so a
-browser project passes that address to its specs as `synnaxTestCore` (Vitest `provide`),
-as `console/vite.config.ts` does.
+`SYNNAX_TEST_PORT`, and default to `localhost:9090`. TS specs never read them: the
+Vitest config reads them with `testCore()` from `@synnaxlabs/vite-plugin` and provides
+the address to every project as `synnaxTestCore`, as `console/vite.config.ts` does.
 
 Parallel sessions share this machine. Build a Core from your worktree and run it on a
 free port. Never use, stop, or replace a Core that you did not start.
@@ -80,13 +80,13 @@ SYNNAX_TEST_PORT=9190 bazel test //client/cpp/channel:all
 ### Dev Console on a free port
 
 ```bash
-SYNNAX_TEST_PORT=9190 SYNNAX_CONSOLE_PORT=5190 pnpm dev:console-vite
+SYNNAX_CONSOLE_PORT=5190 pnpm dev:console-vite
 ```
 
-`SYNNAX_TEST_PORT` names the Core, and `SYNNAX_CONSOLE_PORT` names the Vite port
-(default 5173). Vite exits if its port is taken. A Core that the browser already
-selected wins over `SYNNAX_TEST_PORT`, so a new `SYNNAX_CONSOLE_PORT` gives a clean
-start.
+`SYNNAX_CONSOLE_PORT` names the Vite port (default 5173). Vite exits if its port is
+taken. The dev Console starts on the Cores list like the desktop build: add the Core
+there. To pin it to one Core, as the browser build is, set the
+`synnax-dev-connection-port` local storage key to that Core's port.
 
 `pnpm dev:console` stays on 5173, and its single-instance plugin blocks a second one.
 Use `pnpm dev:console-vite` for parallel work.

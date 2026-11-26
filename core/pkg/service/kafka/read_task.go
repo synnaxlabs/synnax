@@ -14,7 +14,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"maps"
 	"net"
 	"slices"
 	"sync/atomic"
@@ -22,13 +21,14 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/control"
@@ -44,25 +44,20 @@ import (
 	"go.uber.org/zap"
 )
 
-// readGroup holds the samples of one ICD message in the records of one key. It has one
-// index and one set of channels in the writer.
+// readGroup holds the samples of one group of an ICD message in the records of one key.
+// It has one set of channels in the writer. A group that is not stamped takes the Kafka
+// timestamps of its records.
 type readGroup struct {
+	read.Group
 	// name names the message and its record key in errors.
 	name string
-	// data[i] holds the current poll's samples of binding i. The decoder of the record
-	// appends to it.
+	// data[i] holds the current poll's samples of channel i.
 	data [][]byte
-	// columns[i] places the samples of binding i in data[i].
+	// columns[i] places the samples of channel i in data[i].
 	columns []column
 	// rows are the current poll's records, which columns hold in arrival order.
 	rows []row
-	// stamp is the position in columns of the binding of the index field, or -1 when
-	// records are stamped with their Kafka timestamp.
-	stamp int
-	// index is the group's index channel, zero when its channels are virtual.
-	index channel.Key
-	// keys are the group's channels in the writer: the index first when no binding
-	// writes it.
+	// keys are the group's channels in the writer: the index first, when there is one.
 	keys channel.Keys
 	// last is the last timestamp written, seeded with the last stored one at start.
 	last telem.TimeStamp
@@ -72,11 +67,16 @@ type readGroup struct {
 
 // readRecord reads the records of one Kafka key as the messages of an ICD.
 type readRecord struct {
-	decoder *codec.JSON
-	// groups[i] holds the samples of message i of decoder.
+	source *read.Source
+	// groups[i] holds the samples of group i of source.
 	groups []*readGroup
-	// samples[i] is the data of groups[i], which decoder appends to.
-	samples [][][]byte
+}
+
+// recordID locates a record.
+type recordID struct {
+	topic     string
+	partition int32
+	offset    int64
 }
 
 // row is one record converted into a group's samples.
@@ -84,10 +84,7 @@ type row struct {
 	ts telem.TimeStamp
 	// pos is the record's position in the group's columns.
 	pos int
-	// topic, partition, and offset locate the record.
-	topic     string
-	partition int32
-	offset    int64
+	recordID
 }
 
 // readTask consumes topics and writes the fields of ICD messages into channels.
@@ -117,6 +114,9 @@ type readTask struct {
 	failed atomic.Bool
 	// skips counts the records of the current run that the task reads and skips.
 	skips *driver.Skips
+	// skipped holds the records of the current poll that count as skipped, so that a
+	// record that loses several groups counts once.
+	skipped set.Set[recordID]
 	// reassigned is set when the group assigns partitions, which replay from the last
 	// committed offset.
 	reassigned atomic.Bool
@@ -189,14 +189,22 @@ func (f *factory) buildReadRecords(
 			}
 		}
 	}
-	channels, err := f.readChannels(ctx, lo.Uniq(keys))
+	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(keys))
 	if err != nil {
+		return nil, nil, err
+	}
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, icds)
+		if err != nil {
+			return err
+		}
+		return claimIndexes(c, &cfg)
+	}); err != nil {
 		return nil, nil, err
 	}
 	var (
 		records = make(map[string]map[string]*readRecord, len(cfg.Topics))
 		groups  []*readGroup
-		w       = writers{channels: channels, names: make(map[channel.Key]string)}
 	)
 	for _, rec := range enabled {
 		keys, ok := records[rec.topic]
@@ -216,11 +224,6 @@ func (f *factory) buildReadRecords(
 			return nil, nil, errors.Wrapf(
 				err, "topic %q: record key %q", rec.topic, rec.RecordKey,
 			)
-		}
-		for _, g := range rd.groups {
-			if err = w.claim(g); err != nil {
-				return nil, nil, err
-			}
 		}
 		keys[rec.RecordKey] = rd
 		groups = append(groups, rd.groups...)
@@ -268,64 +271,9 @@ func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 	return enabled, nil
 }
 
-// readChannels returns the channels of keys and the index channel of each, so that an
-// error can name an index channel that no binding names.
-func (f *factory) readChannels(
-	ctx context.Context,
-	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
-	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys)
-	if err != nil {
-		return nil, err
-	}
-	var indexes channel.Keys
-	for _, ch := range channels {
-		if _, ok := channels[ch.Index()]; !ok && !ch.IsIndex && ch.Index() != 0 {
-			indexes = append(indexes, ch.Index())
-		}
-	}
-	if len(indexes) == 0 {
-		return channels, nil
-	}
-	found, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(indexes))
-	if err != nil {
-		return nil, err
-	}
-	maps.Copy(channels, found)
-	return channels, nil
-}
-
-// writers holds the channels that the groups of a read task write to.
-type writers struct {
-	channels map[channel.Key]channel.Channel
-	// names names the group that writes to each channel.
-	names map[channel.Key]string
-}
-
-// claim takes the channels of g. Two groups on one index would write frames that lack
-// the channels of the other.
-func (w writers) claim(g *readGroup) error {
-	for _, key := range g.keys {
-		other, ok := w.names[key]
-		if !ok {
-			w.names[key] = g.name
-			continue
-		}
-		what := "channel"
-		if key == g.index {
-			what = "index channel"
-		}
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"records: %s and %s write to the same %s %s",
-			other, g.name, what, w.channels[key].Name,
-		)
-	}
-	return nil
-}
-
 // newReadRecord validates rec, a record of topic, against ic, the ICD it names, and
-// channels, which holds every channel that a binding of rec names.
+// channels, which holds every channel that a binding of rec names. The messages of rec
+// must pass check.
 func newReadRecord(
 	topic string,
 	rec ReadRecord,
@@ -335,137 +283,34 @@ func newReadRecord(
 	if len(rec.Messages) == 0 {
 		return nil, errors.Wrap(validate.ErrValidation, "reads no messages")
 	}
-	var (
-		decoded = make([]codec.JSONMessage, len(rec.Messages))
-		rd      = &readRecord{
-			groups:  make([]*readGroup, len(rec.Messages)),
-			samples: make([][][]byte, len(rec.Messages)),
-		}
-		err error
-	)
-	for i, rm := range rec.Messages {
-		if rd.groups[i], err = newReadGroup(
-			topic, rec.RecordKey, rm, ic, channels, &decoded[i],
-		); err != nil {
-			return nil, err
-		}
-		rd.samples[i] = rd.groups[i].data
-	}
-	if rd.decoder, err = codec.NewJSON(decoded); err != nil {
+	source, err := read.NewSource(rec.Messages, ic, channels)
+	if err != nil {
 		return nil, err
 	}
+	rd := &readRecord{source: source}
+	for _, g := range source.Groups() {
+		i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
+			return m.Key == rec.Messages[g.Read].Message
+		})
+		rg := &readGroup{
+			Group: g,
+			name: fmt.Sprintf(
+				"message %s of key %q of topic %q",
+				ic.Messages[i].Name, rec.RecordKey, topic,
+			),
+			data: make([][]byte, len(g.Channels)),
+			columns: lo.Map(g.DataTypes, func(dt telem.DataType, _ int) column {
+				return newColumn(dt)
+			}),
+			replaying: true,
+		}
+		if g.Index != 0 {
+			rg.keys = append(rg.keys, g.Index)
+		}
+		rg.keys = append(rg.keys, g.Channels...)
+		rd.groups = append(rd.groups, rg)
+	}
 	return rd, nil
-}
-
-// newReadGroup validates rm, a message of the record of topic with recordKey, and fills
-// decoded with what the decoder needs to read it.
-func newReadGroup(
-	topic string,
-	recordKey string,
-	rm icd.ReadMessage,
-	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
-	decoded *codec.JSONMessage,
-) (*readGroup, error) {
-	i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
-		return m.Key == rm.Message
-	})
-	if i < 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"message %s does not exist in ICD %s", rm.Message, ic.Name,
-		)
-	}
-	msg := ic.Messages[i]
-	payload, ok := msg.Payload.Variant.(icd.JSONPayload)
-	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s is not a JSON message", msg.Name,
-		)
-	}
-	if len(rm.Bindings) == 0 {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "message %s binds no fields", msg.Name,
-		)
-	}
-	g := &readGroup{
-		name: fmt.Sprintf(
-			"message %s of key %q of topic %q", msg.Name, recordKey, topic,
-		),
-		data:      make([][]byte, len(rm.Bindings)),
-		columns:   make([]column, len(rm.Bindings)),
-		stamp:     -1,
-		replaying: true,
-	}
-	bindings, err := g.bind(rm, channels)
-	if err != nil {
-		return nil, errors.Wrapf(err, "message %s", msg.Name)
-	}
-	*decoded = codec.JSONMessage{Name: msg.Name, Payload: payload, Bindings: bindings}
-	if g.index != 0 && g.stamp == -1 {
-		g.keys = append(g.keys, g.index)
-	}
-	for _, b := range rm.Bindings {
-		g.keys = append(g.keys, b.Channel)
-	}
-	return g, nil
-}
-
-// bind sets the columns, the index channel, and the stamp of g from the bindings of rm
-// and their channels. It returns the codec binding of each.
-func (g *readGroup) bind(
-	rm icd.ReadMessage,
-	channels map[channel.Key]channel.Channel,
-) ([]codec.Binding, error) {
-	bindings := make([]codec.Binding, len(rm.Bindings))
-	for i, b := range rm.Bindings {
-		ch, ok := channels[b.Channel]
-		switch {
-		case b.Channel == 0:
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "binding %d has no channel", i,
-			)
-		case !ok:
-			return nil, errors.Wrapf(
-				validate.ErrValidation, "channel %d does not exist", b.Channel,
-			)
-		}
-		bindings[i] = codec.Binding{Field: b.Field, DataType: ch.DataType}
-		g.columns[i] = newColumn(ch.DataType)
-		index := ch.Index()
-		if ch.IsIndex {
-			index = ch.Key()
-		}
-		if i == 0 {
-			g.index = index
-		} else if index != g.index {
-			return nil, errors.Wrap(
-				validate.ErrValidation, "every channel must share one index channel",
-			)
-		}
-		isIndexField := rm.Index != nil && *rm.Index == b.Field
-		switch {
-		case isIndexField && !ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"the index field must write to an index channel",
-			)
-		case !isIndexField && ch.IsIndex:
-			return nil, errors.Wrap(
-				validate.ErrValidation,
-				"only the index field can write to an index channel",
-			)
-		case isIndexField:
-			g.stamp = i
-		}
-	}
-	if rm.Index != nil && g.stamp == -1 {
-		return nil, errors.Wrap(
-			validate.ErrValidation,
-			"the index field has no binding",
-		)
-	}
-	return bindings, nil
 }
 
 // Exec implements driver.Task. Start and stop answer the command with a status,
@@ -651,6 +496,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 	t.sCtx = sCtx
 	t.failed.Store(false)
 	t.skips = driver.NewSkips("record", driver.SkipHold)
+	t.skipped = make(set.Set[recordID])
 	t.disconnected = false
 	stopConsumer := signal.NewHardShutdown(sCtx, cancel)
 	t.closer = xio.MultiCloser{
@@ -685,11 +531,11 @@ func (t *readTask) resetGroups(ctx context.Context) error {
 	for _, g := range t.groups {
 		g.last = 0
 		g.replaying = false
-		if g.index == 0 {
+		if g.Index == 0 {
 			continue
 		}
 		var err error
-		if g.last, err = t.lastStored(ctx, g.index); err != nil {
+		if g.last, err = t.lastStored(ctx, g.Index); err != nil {
 			return err
 		}
 		g.replaying = true
@@ -922,12 +768,13 @@ func isConnectionErr(err error) bool {
 func (t *readTask) process(ctx context.Context, fetches kgo.Fetches) error {
 	if t.reassigned.Swap(false) {
 		for _, g := range t.groups {
-			g.replaying = g.index != 0
+			g.replaying = g.Index != 0
 		}
 	}
 	for _, g := range t.groups {
 		g.reset()
 	}
+	clear(t.skipped)
 	for _, marks := range t.marks {
 		clear(marks)
 	}
@@ -984,8 +831,9 @@ func (t *readTask) frame(keyCount, size int) frame.Frame {
 	return frame.NewMulti(keys, series)
 }
 
-// convert decodes rec into the samples of the group of its message. A record that is
-// not addressed to this task leaves nothing, and neither does one that is skipped.
+// convert decodes rec into the samples of the groups of its message. A record that is
+// not addressed to this task leaves nothing, and a group that loses a field leaves
+// nothing in that group.
 func (t *readTask) convert(rec *kgo.Record) {
 	keys := t.records[rec.Topic]
 	rd, ok := keys[string(rec.Key)]
@@ -1001,31 +849,25 @@ func (t *readTask) convert(rec *kgo.Record) {
 		partition: rec.Partition,
 		offset:    rec.Offset,
 	}
-	m, ok, failures, err := rd.decoder.Decode(rec.Value, rd.samples)
+	samples, ok, err := rd.source.Decode(rec.Value)
 	if err != nil {
 		t.skip(r, "Record value: "+err.Error())
-		return
-	}
-	if !ok {
+	} else if !ok {
 		t.skip(r, "Record value matches no message")
-		return
 	}
-	g := rd.groups[m]
-	if failures != nil {
-		for i := range g.data {
-			g.data[i] = g.data[i][:g.columns[i].end(len(g.rows))]
+	for _, s := range samples {
+		g := rd.groups[s.Group]
+		gr := r
+		gr.pos = len(g.rows)
+		for i, data := range s.Data {
+			g.data[i] = append(g.data[i], data...)
+			g.columns[i].appended(g.data[i])
 		}
-		t.skip(r, "Record value: "+failures[0].Err.Error())
-		return
+		if g.Stamped {
+			gr.ts = s.Stamp
+		}
+		g.rows = append(g.rows, gr)
 	}
-	r.pos = len(g.rows)
-	for i := range g.columns {
-		g.columns[i].appended(g.data[i])
-	}
-	if g.stamp >= 0 {
-		r.ts = telem.TimeStamp(telem.ByteOrder.Uint64(g.sample(g.stamp, r.pos)))
-	}
-	g.rows = append(g.rows, r)
 }
 
 // keep sorts the group's rows by timestamp and drops the replay. An indexed group drops
@@ -1039,9 +881,9 @@ func (t *readTask) keep(g *readGroup) {
 			if g.replaying {
 				continue
 			}
-			tie := g.stamp == -1 &&
+			tie := !g.Stamped &&
 				r.ts/telem.MillisecondTS == g.last/telem.MillisecondTS
-			if g.index != 0 && !tie {
+			if g.Index != 0 && !tie {
 				t.skip(r, fmt.Sprintf(
 					"Record stamped %s is not after the last written %s for %s",
 					r.ts, g.last, g.name,
@@ -1065,17 +907,14 @@ func (g *readGroup) reset() {
 	}
 }
 
-// sample returns the sample of binding i at pos.
+// sample returns the sample of channel i at pos.
 func (g *readGroup) sample(i, pos int) []byte {
 	return g.columns[i].sample(g.data[i], pos)
 }
 
-// stamped returns true when the group's index samples come from Kafka timestamps.
-func (g *readGroup) stamped() bool { return g.index != 0 && g.stamp == -1 }
-
 func (g *readGroup) size() int {
 	var n int
-	if g.stamped() {
+	if g.Index != 0 {
 		n = len(g.rows) * int(telem.TimestampT.Density())
 	}
 	for i := range g.columns {
@@ -1090,7 +929,7 @@ func (g *readGroup) appendSeries(
 	series []telem.Series,
 	data []byte,
 ) ([]telem.Series, []byte) {
-	if g.stamped() {
+	if g.Index != 0 {
 		start := len(data)
 		for _, r := range g.rows {
 			data = telem.ByteOrder.AppendUint64(data, uint64(r.ts))
@@ -1113,8 +952,12 @@ func (g *readGroup) appendSeries(
 	return series, data
 }
 
-// skip counts the record of r as skipped. reason says why.
+// skip counts the record of r as skipped, once in a poll. reason says why.
 func (t *readTask) skip(r row, reason string) {
+	if t.skipped.Contains(r.recordID) {
+		return
+	}
+	t.skipped.Add(r.recordID)
 	t.skips.Skip(time.Now(), fmt.Sprintf(
 		"%s (topic %s, partition %d, offset %d).",
 		reason,

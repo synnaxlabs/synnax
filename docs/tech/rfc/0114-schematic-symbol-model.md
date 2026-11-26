@@ -254,7 +254,8 @@ no data has arrived, for NaN, and, when it has an enumeration, for a value that 
 no entry after its match. Pluto then adds the unknown indicator. `within` 0.9 to 1.1
 reads 0.5 as 0, so a valve at 0.5 shows Closed with no indicator, as today. A state with
 no source, or with a `channel` source that has no `key`, draws its default entry, or
-fraction 0 for a number state, with no indicator. The binding holds the number format,
+fraction 0 for a number state, with no indicator. An `entry` paint whose entry has no
+color draws the node `color`, else the theme gray. The binding holds the number format,
 as each readout does today (`schemas/synnax/schematic.oracle:1224-1249` at
 `core/v0.62.0`).
 
@@ -321,21 +322,21 @@ shipped key never changes, and a shipped built-in name never changes.
 
 A save that changes the spec of a symbol in use, such as its looks, parts, drawing,
 states, commands, or interactions, lists the schematics that use the symbol
-(`core/pkg/service/resource/resource.go:59-68`) and shows which of them are under
-control, then asks to confirm. The save carries the list that the user confirmed, and
-the Core refuses the save when the list, or which of them are under control, changed, so
-the dialog asks again. The custom `symbol.Ref` uses `@ref on_delete restrict`, so a
-custom symbol in use refuses the delete, and the dialog lists its schematics. A built-in
-file is never edited: a node changes a built-in through its label, color, size,
-rotation, enumeration, match, and default, and a site through RFC 0112 enumerations and
-named colors. "Duplicate as custom" copies a built-in into a new custom symbol, and
-"Change symbol" moves nodes to another symbol by binding key. Its confirm lists the
-bindings whose key the new symbol lacks, the overrides that do not fit the new type, and
-the `CommandBinding`s of commands that have a state there, and the move removes them, as
-a symbol save does. A later step that maps old keys to new ones is UI alone, with no
-shape change. A channel delete keeps the key in each binding, so the channel plan's link
-tracking can later show it as a deleted channel or link it again (§6). A schematic
-import keeps every channel key the same way.
+(`core/pkg/service/resource/resource.go:70-79`) and what the save removes from each
+node, then asks to confirm. Until phase 11, the list holds only schematics with `symbol`
+nodes. It holds only the schematics that the user can read. The save does not carry the
+confirm, and the Core does not check it. The custom `symbol.Ref` uses
+`@ref on_delete restrict`, so a custom symbol in use refuses the delete, and the dialog
+lists its schematics. A built-in file is never edited: a node changes a built-in through
+its label, color, size, rotation, enumeration, match, and default, and a site through
+RFC 0112 enumerations and named colors. "Duplicate as custom" copies a built-in into a
+new custom symbol, and "Change symbol" moves nodes to another symbol by binding key. Its
+confirm lists the bindings whose key the new symbol lacks, the overrides that do not fit
+the new type, and the `CommandBinding`s of commands that have a state there, and the
+move removes them, as a symbol save does. A later step that maps old keys to new ones is
+UI alone, with no shape change. A channel delete keeps the key in each binding, so the
+channel plan's link tracking can later show it as a deleted channel or link it again
+(§6). A schematic import keeps every channel key the same way.
 
 The Core checks every save. It refuses a symbol with a duplicate key in a list, a key
 that names no part, state, or command, an `entry` or `contrast` paint or `equals`
@@ -422,9 +423,9 @@ Each built-in gets the enumeration and command names of its family. A normally o
 
 A schematic import carries no symbols. The migration and a schematic import give a node
 whose custom symbol is not in the Core `missing` with the old key, and keep its
-bindings. Pluto draws today's "Missing custom symbol" look, and "Change symbol" moves
-the node to another symbol. A node stays `missing` until "Change symbol" moves it, also
-after a symbol import adds a symbol with its key.
+bindings. Pluto draws today's "Missing symbol" look, and "Change symbol" moves the node
+to another symbol. A node stays `missing` until "Change symbol" moves it, also after a
+symbol import adds a symbol with its key.
 
 In a stored custom symbol, `svg` becomes an `svg` drawing, each distinct pair of region
 key and selector set becomes a part, state `i` becomes value `i` of one state `active`
@@ -436,7 +437,10 @@ follow the parts. A selector that is not a name resolves against the drawing, an
 match gets a `data-region-id`. A stored actuator, and a static symbol that a
 `custom_actuator` node uses, get `within` 0.9 to 1.1 on `active`, the `fixed` commands
 `deactivate` for value 0 and `activate` for value 1, named Off and On, and `next` on the
-whole drawing.
+whole drawing. A static symbol that no `custom_actuator` node uses keeps only its value
+0 looks, with no condition. The schematic upgrade removes the other looks after it gives
+commands to each symbol that a `custom_actuator` node uses. A symbol file import removes
+them at once.
 
 ## 5 What this RFC does not cover
 
@@ -476,14 +480,15 @@ variant, and each merges on its own. Phase 5 gives each built-in spec its `activ
 state, its commands, its `entry` looks, and its `next` click, with no visible change.
 The pump and agitator specs draw their detail lines with the `contrast` paint, which
 phase 4 adds to the schema, the clients, the Core checks, and Pluto. The `switch` spec
-has no looks, because its wrapper keeps the colors that phase 2 draws. The `thruster`
+has looks that only a `symbol` node draws: the track fills while on, and a far knob
+takes the place of the near one. The old switch draws as phase 2 does. The `thruster`
 spec has no looks and no `next`, because today it draws as a static picture and takes no
 clicks. Phase 6 adds the node variant with the whole shape of §4.1 and its checks with
 the Core list of built-ins. Phase 7 removes the bindings and overrides that a symbol
 save orphans, and phase 8 adds the save confirm of §4.4, before the migration gives any
 node a binding that a save can remove. Phase 9 draws the node with its indicators and
-sends its commands. The `switch` keeps its own wrapper around the `symbol` drawing,
-which turns it only to stand upright and slides its knob, as phase 2 draws it. Phase 10
+sends its commands. A `switch` node draws its spec as any other `symbol` node does, so
+its knob does not slide. While on, the near knob hides and the far knob shows. Phase 10
 adds the form with the enumeration picker. Phase 11 adds the Core migration, the symbol
 import that keeps keys by §4.4, and "Change symbol". Phase 12 deletes the old variants
 from the schema, the clients, Pluto, and the Console.

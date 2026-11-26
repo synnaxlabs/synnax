@@ -704,6 +704,72 @@ var _ = Describe("Service", func() {
 				"channels to string fields"),
 		)
 
+		Describe("Import", func() {
+			It(
+				"Should move the channels of a v0 config into an ICD named after its task",
+				func(ctx SpecContext) {
+					data := MustSucceed(
+						svc.Write.Normalize(ctx, db, 0, msgpack.EncodedJSON{
+							"topic":      "plant",
+							"record_key": "channel_name",
+							"record": map[string]any{
+								"value_pointer":   "/value",
+								"channel_pointer": "/channel",
+								"time_format":     "unix_ms",
+								"fields":          []any{},
+							},
+							"channels": []any{map[string]any{
+								"key":       "c1",
+								"channel":   value.Key(),
+								"json_type": "number",
+							}},
+						}),
+					)
+					key := MustSucceed(tasks.Create(ctx, svc.Write, data))
+					stored := MustSucceed(svc.Write.Read(ctx, db, key))
+					Expect(stored).ToNot(HaveKey("inline"))
+					var cfg kafka.WriteConfig
+					Expect(stored.Unmarshal(&cfg)).To(Succeed())
+					Expect(cfg.Channels).To(BeEmpty())
+					Expect(cfg.Targets).To(HaveLen(1))
+					t := cfg.Targets[0]
+					Expect(t.Key).To(Equal("c1"))
+					Expect(t.Topic).To(Equal("plant"))
+					Expect(t.RecordKey).To(Equal(value.Name))
+					var created icd.ICD
+					Expect(icds.NewRetrieve().
+						Where(icd.MatchKeys(t.ICD)).
+						Entry(&created).
+						Exec(ctx, db)).To(Succeed())
+					Expect(created.Name).To(Equal(kafka.WriteTaskType))
+					Expect(created.Messages).To(HaveLen(1))
+					m := created.Messages[0]
+					Expect(m.Name).To(Equal(value.Name))
+					fields := jsonFields(m)
+					Expect(fields).To(HaveLen(2))
+					Expect(fields[0].Type()).To(Equal(payload.KindFloat))
+					Expect(fields[1].Variant).To(Equal(icd.StringJSONField{
+						JSONBaseField: fields[1].Base(),
+					}))
+					Expect(t.Message).To(Equal(icd.WriteMessage{
+						Message: m.Key,
+						Bindings: []icd.WriteBinding{
+							{Variant: icd.ChannelWriteBinding{
+								Field:   fieldKey(m, 0),
+								Channel: value.Key(),
+							}},
+							{Variant: icd.ValueWriteBinding{
+								Field: fieldKey(m, 1),
+								Value: icd.WriteValue{
+									Variant: icd.StringWriteValue{Value: value.Name},
+								},
+							}},
+						},
+					}))
+				},
+			)
+		})
+
 		Describe("Config hash", func() {
 			var key task.Key
 			hash := func(ctx context.Context) string {

@@ -28,7 +28,12 @@ describe("MQTT Scan Task", () => {
         {
           topic: "plant/temp",
           payload: "21.5",
-          fields: [{ pointer: "", type: "number", sample: "21.5" }],
+          shapes: [
+            {
+              fields: [{ pointer: "", type: "number", kind: "float", sample: "21.5" }],
+              count: 1,
+            },
+          ],
           retained: true,
         },
       ],
@@ -72,11 +77,17 @@ describe("MQTT Scan Task", () => {
   });
 
   it("should keep the shapes of a sample reply with no topics", () => {
-    const shape = { sources: ["plant/temp"], fields: [], index: -1, count: 1 };
+    const shape = {
+      sources: ["plant/temp"],
+      fields: [],
+      index: -1,
+      present: -1,
+      count: 1,
+    };
     const data = { topics: [], shapes: [shape], truncated: false };
     expect(MQTT.Device.SCAN_SCHEMAS.statusData.parse(data)).toEqual({
       ...data,
-      shapes: [{ ...shape, index: undefined }],
+      shapes: [{ ...shape, index: undefined, present: undefined }],
     });
   });
 

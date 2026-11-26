@@ -11,10 +11,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import (
     certificate as certificate_,
@@ -24,7 +24,7 @@ from synnax import (
     status as status_,
 )
 from synnax.resource import ID
-from x import telem
+from x import filter, telem
 
 SECURITY_POLICY_BASIC128_RSA15: Literal["Basic128Rsa15"] = "Basic128Rsa15"
 
@@ -153,6 +153,66 @@ class StatusDetails(BaseModel):
     connected: bool = False
 
 
+class Where(BaseModel):
+    """Is a filter that selects OPC UA servers.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        rack: Selects by rack.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    rack: filter.Set[rack_.Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+    },
+    total=False,
+)
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of servers: the sort value and the key of a server.
+
+    Attributes:
+        key: Is the key of the server at the position.
+    """
+
+    key: Key
+
+
+class Configuration(BaseModel):
+    """Holds the server fields that the task forms own.
+
+    Attributes:
+        reads: Bind the nodes that read tasks sample to channels.
+        writes: Bind the nodes that write tasks command to channels.
+    """
+
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
+
+
 class SecuredChannel(BaseModel):
     """Holds the settings of a signed or encrypted connection.
 
@@ -171,6 +231,26 @@ class SecuredChannel(BaseModel):
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve servers.
+
+    Attributes:
+        where: Selects the servers to retrieve. An absent where selects all of them.
+        search_term: Keeps the servers that match the term, closest match first.
+        after: Starts the servers strictly past this position in their order.
+        limit: Is the most servers to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class NoneSecurity(BaseModel):
@@ -248,6 +328,55 @@ class Server(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Identity(BaseModel):
+    """Holds the server fields that the connect form and the scanner's certificate pin
+    own.
+
+    Attributes:
+        rack: Is the key of the rack whose Driver connects to the server.
+        name: Is a human-readable name for the server.
+        connection: Holds the settings that the Driver connects with.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    connection: Connection
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the servers a RetrieveRequest selects.
+
+    Attributes:
+        servers: Are the servers the request selects.
+    """
+
+    servers: list[Server] = Field(default_factory=list)
+
+
+class IdentityUpdate(Identity):
+    """Writes the rack, name, and connection of the server."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the bindings of the server. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a server.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="opcua_server")

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, TimeSpan, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -94,10 +94,9 @@ describe("Table", () => {
       const proj = await client.projects.create({ name: "Table" });
       const v = await client.tables.create({ project: proj.key, name: "Table" });
       await client.projects.delete(proj.key);
-      await vi.waitFor(
-        async () =>
-          await expect(client.tables.retrieve(v.key)).rejects.toThrow(NotFoundError),
-      );
+      await expect
+        .poll(async () => await client.tables.retrieve(v.key).catch((e: unknown) => e))
+        .toBeInstanceOf(NotFoundError);
     });
   });
 

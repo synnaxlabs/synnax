@@ -77,8 +77,8 @@ colors of the plot are close to. The Core picks the color when the range joins t
 and saves it on the plot. Rejected: an exact match only, which lets a range's red sit
 next to the series red.
 
-A user adds a series color in Settings, where they set its value. The Series palette in
-a color picker has no "+".
+A user adds a series color in the Library, where they set its value. The Series palette
+in a color picker has no "+".
 
 ### Shape and size
 
@@ -126,6 +126,8 @@ a color picker has no "+".
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
 - Numbers that change, or that people compare, use `font-variant-numeric: tabular-nums`.
+- Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
+  tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
 ### Focus and motion
 
@@ -150,9 +152,13 @@ a color picker has no "+".
 ### Top bar
 
 - The right end of the top bar holds what applies to the whole Console. It ends with
-  docs ("?"), the Settings gear, then the Core badge, the order Jira and Confluence use.
-- The left bar holds toolbars only. Settings is a tab, not a toolbar, so its gear never
-  goes in the left bar.
+  docs ("?"), the Library, the Settings gear, then the Core badge, the order Jira and
+  Confluence use.
+- The left bar holds toolbars only. Settings and the Library are tabs, not toolbars, so
+  their buttons never go in the left bar.
+- The Library holds what users make to use again: labels, colors, and enumerations.
+  Settings holds who gets in and with what: preferences, users, secrets, certificates,
+  and the license.
 - The islands of a pre-workspace surface, such as login or the project splash, are not
   the top bar. Their right end is the Core island, then the island of the theme toggle.
   On the project splash, the Settings gear shares the island of the theme toggle.
@@ -380,16 +386,16 @@ bound, a log precision, or the line plot X channel.
 
 - A shared item is a record that many places use: a named color, an enumeration, a
   label, or an ICD message.
-- A user never needs to leave the field to create or edit a shared item. Settings is
+- A user never needs to leave the field to create or edit a shared item. The Library is
   still a full editor for every type: create, edit, find, and delete, and, where the
   type supports them, see what uses an item and Replace with.
-- Each type has one form and one save path. The field and Settings may lay out its
+- Each type has one form and one save path. The field and the Library may lay out its
   fields differently, such as a Light and Dark switch in a picker and two columns in a
   table.
 - The field's picker creates in place, as every select of things users make does. A
   group in the picker, such as a palette, ends with a "+" text button that adds an item
   to that group. The Series palette is the one exception: it has no "+", because a user
-  adds a series color in Settings.
+  adds a series color in the Library.
 - A right click on an item in a picker opens its menu, with Edit. Shift+F10 and the Menu
   key open it on a focused item. Edit opens the type's editor in place. A picker has no
   hover edit button.
@@ -440,6 +446,14 @@ bound, a log precision, or the line plot X channel.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
   icon. Hex codes use the code font, so every code takes the same width and fits.
+
+### Symbol motion
+
+- The symbol editor groups the motion kinds. "Follow a value" holds Fill, Rotation, and
+  Position. "Loop" holds Spin and Flow. Blink has its own control.
+- The editor shows the `level` motion as Fill. The stored name stays `level`.
+- Until number states arrive, the picker offers only None, Spin, and Flow. Keep the
+  groups ready for the other kinds.
 
 ### Menus and selects
 
@@ -769,15 +783,15 @@ bound, a log precision, or the line plot X channel.
 - The Users page of Settings is a record table with checkable items, like the range
   explorer: the name, then a role select in place. A right click opens the menu of the
   selected users. A "You" badge follows the current user's name.
-- The Labels page of Settings is a record table with checkable items, like the range
+- The Labels page of the Library is a record table with checkable items, like the range
   explorer: a color swatch, then the name. Click the swatch to recolor. A right click
   opens the menu of the selected labels. You create a label from the page or from any
   label field.
 - Secrets and certificates are two record tables in Settings, not a toolbar. A secret
   shows where its value comes from and a "Used by" count that opens what uses it. A
   certificate shows when it is valid.
-- The Settings lists share `Settings.Table`: search and a filled create button above,
-  headings, checkable items, and a right-click menu.
+- The lists of Settings and the Library share `Settings.Table`: search and a filled
+  create button above, headings, checkable items, and a right-click menu.
 - Create in place when every field you set is a column, such as a label or a secret. The
   create item opens at the top with check and X buttons, and Enter and Esc. It stays
   open and empty after each create, and the new item fades in under it.
@@ -913,8 +927,8 @@ says why in a sentence, then gives the raw error.
   The name is in the range hue, centered on its cap height, and fades at its end. A side
   cut by the plot edge has square corners and fades out over 40 px, and the name stays
   at the edge. A fade means only "more of this range is outside the view".
-- The time sits at the bar's end in the code font: `T+h:mm:ss` for a running range, and
-  the short length (`10min`) for any other. The name gets the room first.
+- The time sits at the bar's end with tabular digits: `T+h:mm:ss` for a running range,
+  and the short length (`10min`) for any other. The name gets the room first.
 - A running bar ends at the newest sample of a live plot, or at now. Its end is a 2 px
   cap in the range color that bends around the corners, with a glow that pulses every
   1.6 s, drawn at 15 Hz. 30 Hz doubled the CPU cost for no visible gain. Rejected: a

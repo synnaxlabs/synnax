@@ -80,11 +80,13 @@ Device struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a physical piece of hardware connected to Synnax through the Driver system.
         Devices represent external equipment like LabJack, National Instruments, OPC UA
         servers, or Modbus devices.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "device"
 }

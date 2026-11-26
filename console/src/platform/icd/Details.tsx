@@ -181,7 +181,7 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
             plan,
             indexBinding.field,
             indexBinding.channel,
-            `${prefix}_time`,
+            `${prefix}_${index == null ? "time" : channel.escapeInvalidName(index.name)}`,
           )}
           skipped={sourceDisabled}
         />
@@ -270,53 +270,67 @@ export interface MessageSectionsProps extends Omit<
   missingDescription: string;
 }
 
-export interface MessageStatusProps {
+export interface MessageWarningProps {
   /** The message in the ICD, or null when the ICD has no message with its key. */
   message: icd.Message | null;
   /** Says why the ICD has no such message, and what to do now. */
   missingDescription: string;
+}
+
+interface MessageStatusProps extends MessageWarningProps {
   /** Actions beside the note on a message that is not JSON. */
   actions?: ReactNode;
 }
 
-/**
- * Warns when the ICD has no such message, when the message is not JSON, or when it has
- * no fields.
- */
-export const MessageStatus = ({
+const warningOf = ({
   message,
   missingDescription,
-  actions,
-}: MessageStatusProps): ReactElement | null => {
+}: MessageWarningProps): ReactElement | null => {
   if (message == null)
     return (
-      <PForm.Section title="Message">
-        <Status.Summary
-          variant="warning"
-          message="Message not found"
-          description={missingDescription}
-          center={false}
-        />
-      </PForm.Section>
+      <Status.Summary
+        variant="warning"
+        message="Message not found"
+        description={missingDescription}
+        center={false}
+      />
     );
   if (message.payload.format !== "json")
     return (
-      <PForm.Section title="Message" actions={actions}>
-        <Text.Text color={9}>
-          The format of this message is not JSON.
-          {FLAGS.icds && " Open it in the editor to change its format."}
-        </Text.Text>
-      </PForm.Section>
+      <Text.Text color={9}>
+        The format of this message is not JSON.
+        {FLAGS.icds && " Open it in the editor to change its format."}
+      </Text.Text>
     );
   if (message.payload.fields.length > 0) return null;
   return (
-    <PForm.Section title="Message">
-      <Status.Summary
-        variant="warning"
-        message="Message has no fields"
-        description="A task cannot deploy a message with no fields. Add a field to the message."
-        center={false}
-      />
+    <Status.Summary
+      variant="warning"
+      message="Message has no fields"
+      description="A task cannot deploy a message with no fields. Add a field to the message."
+      center={false}
+    />
+  );
+};
+
+/**
+ * Warns when the ICD has no such message, when the message is not JSON, or when it has
+ * no fields. Place it in the section that holds the message.
+ */
+export const MessageWarning = (props: MessageWarningProps): ReactElement | null =>
+  warningOf(props);
+
+/** Shows the warning of {@link MessageWarning} in a section of its own. */
+const MessageStatus = ({
+  actions,
+  ...rest
+}: MessageStatusProps): ReactElement | null => {
+  const warning = warningOf(rest);
+  if (warning == null) return null;
+  const notJSON = rest.message != null && rest.message.payload.format !== "json";
+  return (
+    <PForm.Section title="Message" actions={notJSON ? actions : undefined}>
+      {warning}
     </PForm.Section>
   );
 };

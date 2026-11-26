@@ -60,7 +60,18 @@
           "value": "fixture-write-key-456"
         }
       ],
+      "icd": "http_write",
       "key": "ep-write-put",
+      "message": {
+        "bindings": [
+          {
+            "channel": 10110,
+            "field": "command_modeCode",
+            "type": "channel"
+          }
+        ],
+        "message": "PUT /api/v1/fixtureCommand"
+      },
       "method": "PUT",
       "path": "/api/v1/fixtureCommand",
       "query_params": [
@@ -88,7 +99,18 @@
           "value": "fixture-trace"
         }
       ],
+      "icd": "http_write",
       "key": "ep-write-patch",
+      "message": {
+        "bindings": [
+          {
+            "channel": 10120,
+            "field": "value",
+            "type": "channel"
+          }
+        ],
+        "message": "PATCH /api/v1/fixtureState"
+      },
       "method": "PATCH",
       "path": "/api/v1/fixtureState",
       "query_params": [

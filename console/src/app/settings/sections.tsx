@@ -7,25 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  certificate,
-  color,
-  enumeration,
-  label,
-  license,
-  secret,
-  user,
-} from "@synnaxlabs/client";
+import { certificate, license, secret, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
-import { LABELS_SECTION, LICENSE_SECTION } from "@/app/settings/tab";
+import { LICENSE_SECTION } from "@/app/settings/tab";
 import { Account } from "@/feature/account";
-import { Color } from "@/feature/color";
 import { Core } from "@/feature/core";
-import { Enumeration } from "@/feature/enumeration";
-import { Label } from "@/feature/label";
 import { License } from "@/feature/license";
 import { Persist } from "@/feature/persist";
 import { Secret } from "@/feature/secret";
@@ -37,13 +26,6 @@ import { Session } from "@/session";
 
 const useUsersVisible = (): boolean => Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
 
-const useLabelsVisible = (): boolean => Access.useUpdateGranted(label.TYPE_RESOURCE_ID);
-
-const useColorsVisible = (): boolean => Access.useUpdateGranted(color.TYPE_RESOURCE_ID);
-
-const useEnumerationsVisible = (): boolean =>
-  Access.useUpdateGranted(enumeration.TYPE_RESOURCE_ID);
-
 const CERTIFICATES_SECTION = "certificates";
 
 const Secrets = (): ReactElement => {
@@ -52,7 +34,11 @@ const Secrets = (): ReactElement => {
     <Secret.Secrets
       onSelectCertificate={(item) =>
         dispatch(
-          Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION, item }),
+          Session.Nav.selectSection({
+            page: "settings",
+            section: CERTIFICATES_SECTION,
+            item,
+          }),
         )
       }
     />
@@ -66,9 +52,14 @@ const Certificates = (): ReactElement => {
   const dispatch = Session.useDispatch();
   return (
     <Secret.Certificates
-      selected={Session.Nav.useSelectSettingsItem()}
+      selected={Session.Nav.useSelectItem("settings")}
       onShowSelected={() =>
-        dispatch(Session.Nav.selectSettingsSection({ section: CERTIFICATES_SECTION }))
+        dispatch(
+          Session.Nav.selectSection({
+            page: "settings",
+            section: CERTIFICATES_SECTION,
+          }),
+        )
       }
     />
   );
@@ -150,27 +141,6 @@ export const GROUPS: Settings.Group[] = [
               useVisible: useUsersVisible,
             },
           ]),
-      {
-        key: LABELS_SECTION,
-        name: "Labels",
-        icon: <Icon.Label />,
-        Content: Label.Settings,
-        useVisible: useLabelsVisible,
-      },
-      {
-        key: "colors",
-        name: "Colors",
-        icon: <Icon.Swatches />,
-        Content: Color.Settings,
-        useVisible: useColorsVisible,
-      },
-      {
-        key: "enumerations",
-        name: "Enumerations",
-        icon: <Icon.Enumeration />,
-        Content: Enumeration.Settings,
-        useVisible: useEnumerationsVisible,
-      },
       {
         key: "secrets",
         name: "Secrets",

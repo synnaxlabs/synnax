@@ -1310,6 +1310,35 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
+		It("Should emit a narrowing enum as the kept members", func() {
+			source := `
+				@cpp output "client/cpp/modbus"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				RegisterType enum of DataType {
+					int16
+				}
+
+				Register struct {
+					register_type RegisterType
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+			resp := MustSucceed(
+				cppPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`REGISTER_TYPE_INT_16 = "int16";`))
+			Expect(content).ToNot(ContainSubstring(`REGISTER_TYPE_JSON`))
+		})
+
 		It(
 			"Should use indirect for self-referential optional fields",
 			func() {

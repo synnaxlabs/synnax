@@ -195,31 +195,38 @@ type heardTopic struct {
 	browsedTopic
 	// retained is the number of retained messages heard.
 	retained int
-	// inferrer holds the shape of every message heard.
+	// inferrer holds the shapes of every message heard.
 	inferrer *xjson.Inferrer
 }
 
-// infer sets the kind and the time format of each field, and the index, from the shape
-// of every message heard.
+// infer sets the shapes of the messages heard.
 func (t *heardTopic) infer() {
-	shape := t.inferrer.Shape()
-	byPointer := make(map[string]xjson.InferredField, len(shape.Fields))
-	for _, f := range shape.Fields {
-		byPointer[f.Pointer.String()] = f
+	shapes := t.inferrer.Shapes()
+	t.Shapes = make([]browsedShape, len(shapes))
+	for i, s := range shapes {
+		t.Shapes[i] = newBrowsedShape(s)
 	}
-	for i := range t.Fields {
-		f := byPointer[t.Fields[i].Pointer]
-		t.Fields[i].Kind, t.Fields[i].TimeFormat = f.Kind, f.TimeFormat
+}
+
+// newBrowsedShape returns the browsed form of s.
+func newBrowsedShape(s xjson.SampledShape) browsedShape {
+	b := browsedShape{Fields: make([]browsedField, len(s.Fields)), Count: s.Count}
+	for i, f := range s.Fields {
+		b.Fields[i] = browsedField{
+			Pointer:    f.Pointer.String(),
+			Type:       f.Type.String(),
+			Sample:     s.Samples[i],
+			Kind:       f.Kind,
+			TimeFormat: f.TimeFormat,
+		}
 	}
-	if shape.Index < 0 {
-		return
+	if s.Index >= 0 {
+		b.Index = s.Fields[s.Index].Pointer.String()
 	}
-	index := shape.Fields[shape.Index].Pointer.String()
-	if slices.ContainsFunc(t.Fields, func(f browsedField) bool {
-		return f.Pointer == index
-	}) {
-		t.Index = index
+	if s.Present >= 0 {
+		b.Present = s.Fields[s.Present].Pointer.String()
 	}
+	return b
 }
 
 // heard is what a browse heard on each topic.
@@ -267,8 +274,7 @@ func (s *scanner) hear(ctx context.Context, args browseArgs) (heard, error) {
 			}
 			p := m.Payload()
 			t.LastSeen, t.Retained = telem.Now(), m.Retained()
-			t.Payload, t.Format, t.Fields = payloadSample(p), driver.FormatOf(p),
-				payloadFields(p)
+			t.Payload, t.Format = payloadSample(p), driver.FormatOf(p)
 			t.inferrer.Add(p, t.LastSeen)
 			return false
 		},

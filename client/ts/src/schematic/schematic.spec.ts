@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, test, vi } from "vitest";
+import { describe, expect, it, test } from "vitest";
 
 import { NotFoundError } from "@/index";
 import { query } from "@/query";
@@ -122,12 +122,11 @@ describe("Schematic", () => {
         name: "Schematic",
       });
       await client.projects.delete(proj.key);
-      await vi.waitFor(
-        async () =>
-          await expect(client.schematics.retrieve(v.key)).rejects.toThrow(
-            NotFoundError,
-          ),
-      );
+      await expect
+        .poll(
+          async () => await client.schematics.retrieve(v.key).catch((e: unknown) => e),
+        )
+        .toBeInstanceOf(NotFoundError);
     });
   });
 

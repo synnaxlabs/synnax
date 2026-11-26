@@ -24,7 +24,8 @@ export const STATE_CLASS = CSS.B("control-state");
 
 export interface State {
   config: StateConfig;
-  channel: channel.Key;
+  /** channels are the channels that the chip acquires and the indicator reports. */
+  channels: channel.Key[];
   onChange?: (next: { control: StateConfig }) => void;
   /**
    * True when the Core deleted a channel of the symbol. The chip and the indicator
@@ -37,26 +38,26 @@ export interface State {
 
 interface InternalProps extends Flex.BoxProps {
   config: StateConfig;
-  channel: channel.Key;
+  channels: channel.Key[];
   deleted: boolean;
 }
 
 const Internal = ({
   config: { hidden, chipHidden, indicatorHidden, authority, orientation },
-  channel,
+  channels,
   deleted,
   children,
   ...rest
 }: InternalProps) => {
-  const controlShown = !hidden && !deleted && primitive.isNonZero(channel);
+  const controlShown = !hidden && !deleted && channels.length > 0;
   const chip = {
-    source: control.authoritySource({ channel }),
+    source: control.authoritySource({ channels }),
     sink: control.acquireChannelControl({
-      channel,
+      channels,
       authority: authority ?? xControl.ABSOLUTE_AUTHORITY,
     }),
   };
-  const indicator = { statusSource: control.authoritySource({ channel }) };
+  const indicator = { statusSource: control.authoritySource({ channels }) };
   return (
     <Flex.Box
       direction={direction.swap(orientation)}
@@ -73,10 +74,11 @@ const Internal = ({
 };
 
 export const State = Grid.createItem<State>(
-  ({ config, channel, onChange, deleted = false, children }) => {
-    // The chip and the indicator report control of the channel, so with no channel
-    // only the children show.
-    if ((!primitive.isNonZero(channel) || deleted) && children == null) return null;
+  ({ config, channels: all, onChange, deleted = false, children }) => {
+    // The chip and the indicator report control of the channels, so with none, or with
+    // a deleted one, only the children show.
+    const channels = all.filter(primitive.isNonZero);
+    if ((channels.length === 0 || deleted) && children == null) return null;
     return (
       <Grid.Item
         itemKey="control"
@@ -85,7 +87,7 @@ export const State = Grid.createItem<State>(
           onChange?.({ control: { ...config, orientation: loc } })
         }
       >
-        <Internal config={config} channel={channel} deleted={deleted}>
+        <Internal config={config} channels={channels} deleted={deleted}>
           {children}
         </Internal>
       </Grid.Item>

@@ -13,8 +13,8 @@ import type { ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Deleted } from "@/schematic/node/common/deleted";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
-import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { Primitive } from "@/schematic/node/general/light/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
@@ -52,7 +52,7 @@ export const Symbol = ({
       }
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      <Indicator.Slot stale={stale} />
       {deleted && <Deleted.Item />}
       <Primitive.Light enabled={enabled} orientation={orientation} {...rest} />
     </Grid.Grid>
