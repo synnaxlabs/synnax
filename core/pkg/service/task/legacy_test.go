@@ -974,10 +974,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 				Expect(fieldNames).To(Equal(names))
 				var got []binding
 				for _, b := range as[[]any](read["bindings"]) {
-					stored := as[map[string]any](b)
+					entry := as[map[string]any](b)
 					got = append(got, binding{
-						field:   nameOf[as[string](stored["field"])],
-						channel: as[float64](stored["channel"]),
+						field:   nameOf[as[string](entry["field"])],
+						channel: as[float64](entry["channel"]),
 					})
 				}
 				Expect(got).To(Equal(bound))
