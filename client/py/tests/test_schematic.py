@@ -49,7 +49,10 @@ class TestSchematic:
                     {
                         "key": "valve",
                         "position": {"x": 10, "y": 20},
-                        "config": {"variant": "solenoid_valve"},
+                        "config": {
+                            "variant": "symbol",
+                            "spec": {"type": "builtin", "name": "solenoid_valve"},
+                        },
                     },
                     {
                         "key": "tank",
@@ -68,7 +71,7 @@ class TestSchematic:
                 ],
             }
         )
-        assert isinstance(s.nodes[0].config, schematic.SolenoidValveNodeConfig)
+        assert isinstance(s.nodes[0].config, schematic.SymbolNodeConfig)
         assert isinstance(s.nodes[1].config, schematic.TankNodeConfig)
         assert isinstance(s.edges[0].config, schematic.PipeEdgeConfig)
         assert schematic.Schematic.model_validate_json(s.model_dump_json()) == s
@@ -122,16 +125,6 @@ class TestNodeConfig:
         assert type(config) is cls
         assert NODE.validate_json(NODE.dump_json(config)) == config
 
-    def test_custom_actuator(self) -> None:
-        """Should require the spec key of a custom actuator."""
-        config = NODE.validate_python(
-            {"variant": "custom_actuator", "spec_key": "pump"}
-        )
-        assert isinstance(config, schematic.CustomActuatorNodeConfig)
-        assert config.state_overrides == []
-        with pytest.raises(ValidationError):
-            NODE.validate_python({"variant": "custom_actuator"})
-
     def test_color_refs(self) -> None:
         """Should keep a named and a fixed color reference on a look color."""
         key = uuid4()
@@ -146,12 +139,6 @@ class TestNodeConfig:
         assert config.stroke_color == sy.color.NamedRef(key=key)
         assert config.fill_color == sy.color.FixedRef(value=sy.color.Color("#ff0000"))
         assert NODE.validate_json(NODE.dump_json(config)) == config
-
-    def test_toggle_stroke_value(self) -> None:
-        """Should keep a toggle symbol's stroke as a color value."""
-        config = NODE.validate_python({"variant": "valve", "stroke_color": "#ff0000"})
-        assert isinstance(config, schematic.ValveNodeConfig)
-        assert config.stroke_color == sy.color.Color("#ff0000")
 
     def test_group_box(self) -> None:
         """Should default a group box to unlocked."""
@@ -257,12 +244,6 @@ class TestDefaults:
         assert config.command_channel == 0
         assert config.control.authority is None
 
-    def test_light_threshold(self) -> None:
-        """Should leave an omitted light threshold absent."""
-        config = NODE.validate_python({"variant": "light"})
-        assert isinstance(config, schematic.LightNodeConfig)
-        assert config.threshold is None
-
     def test_cylinder_border_radius(self) -> None:
         """Should leave an omitted cylinder border radius absent."""
         config = NODE.validate_python({"variant": "cylinder"})
@@ -284,7 +265,13 @@ class TestDefaults:
     def test_scale(self) -> None:
         """Should reject a scale that is not above 0."""
         with pytest.raises(ValidationError):
-            NODE.validate_python({"variant": "valve", "scale": 0})
+            NODE.validate_python(
+                {
+                    "variant": "symbol",
+                    "spec": {"type": "builtin", "name": "valve"},
+                    "scale": 0,
+                }
+            )
 
     def test_inline_size(self) -> None:
         """Should reject an inline size of 0."""

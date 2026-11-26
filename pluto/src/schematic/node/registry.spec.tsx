@@ -17,12 +17,6 @@ import { Node } from "@/schematic/node";
 import { GroupBox } from "@/schematic/node/groupBox";
 import { createSynnaxWrapper, renderForm } from "@/testutil";
 
-const createSymbol = (variant: string): schematic.symbol.Symbol =>
-  schematic.symbol.symbolZ.parse({
-    name: "Pump",
-    data: { drawing: { type: "svg", markup: "<svg></svg>" }, variant },
-  });
-
 describe("Schematic.Node.resolveSpec", () => {
   it("should return the registered spec for a variant", () => {
     expect(Node.resolveSpec("tank")).toBe(Node.REGISTRY.tank);
@@ -59,41 +53,10 @@ describe("Schematic.Node.isConfig", () => {
   });
 });
 
-describe("Schematic.Node.isCustomVariant", () => {
-  it("should accept every custom variant", () => {
-    for (const variant of Node.CUSTOM_VARIANTS)
-      expect(Node.isCustomVariant(variant)).toBe(true);
-  });
-
-  it("should reject a built-in variant", () => {
-    expect(Node.isCustomVariant("tank")).toBe(false);
-  });
-
-  it("should reject an unset variant", () => {
-    expect(Node.isCustomVariant(undefined)).toBe(false);
-  });
-});
-
-describe("Schematic.Node.isCustomConfig", () => {
-  it("should accept a custom symbol config", () => {
-    const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
-    expect(Node.isCustomConfig(config)).toBe(true);
-  });
-
-  it("should reject a built-in symbol config", () => {
-    expect(Node.isCustomConfig(Node.createConfig({ variant: "tank" }))).toBe(false);
-  });
-});
-
 describe("Schematic.Node.STATIC_SPECS", () => {
-  it("should not include custom variants", () => {
-    const keys = Node.STATIC_SPECS.map((s) => s.key);
-    for (const variant of Node.CUSTOM_VARIANTS) expect(keys).not.toContain(variant);
-  });
-
-  it("should include all non-custom registry entries except groupBox and symbol", () => {
+  it("should include all registry entries except groupBox and symbol", () => {
     const expectedKeys = Object.keys(Node.REGISTRY).filter(
-      (k) => !Node.isCustomVariant(k) && k !== GroupBox.VARIANT && k !== "symbol",
+      (k) => k !== GroupBox.VARIANT && k !== "symbol",
     );
     const actualKeys = Node.STATIC_SPECS.map((s) => s.key);
     expect(actualKeys).toEqual(expect.arrayContaining(expectedKeys));
@@ -111,11 +74,6 @@ describe("Schematic.Node.STATIC_SPECS", () => {
 
   it("groupBox should exist in the registry", () => {
     expect(Node.REGISTRY).toHaveProperty(GroupBox.VARIANT);
-  });
-
-  it("custom variants should exist in the registry", () => {
-    for (const variant of Node.CUSTOM_VARIANTS)
-      expect(Node.REGISTRY).toHaveProperty(variant);
   });
 });
 
@@ -153,35 +111,14 @@ describe("Schematic.Node.createConfig", () => {
     expect(Node.createConfig({ variant: "text_box", value: "" }).value).toBe("");
   });
 
-  it("should carry a custom symbol's spec key", () => {
-    const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
-    expect(config.specKey).toBe("spec-1");
-    expect(config.stateOverrides).toEqual([]);
-  });
-
   it("should reject an unknown variant", () => {
     expect(() => Node.createConfig({ variant: "not-a-symbol" } as never)).toThrow();
-  });
-});
-
-describe("Schematic.Node.customVariant", () => {
-  it("should draw a static symbol as a custom static node", () => {
-    expect(Node.customVariant(createSymbol("static"))).toBe("custom_static");
-  });
-
-  it("should draw an actuator as a custom actuator", () => {
-    expect(Node.customVariant(createSymbol("actuator"))).toBe("custom_actuator");
   });
 });
 
 describe("Schematic.Node.symbolKey", () => {
   it("should return the variant of a built-in symbol", () => {
     expect(Node.symbolKey(Node.createConfig({ variant: "tank" }))).toBe("tank");
-  });
-
-  it("should return the spec key of a custom symbol", () => {
-    const config = Node.createConfig({ variant: "custom_static", specKey: "spec-1" });
-    expect(Node.symbolKey(config)).toBe("spec-1");
   });
 
   it("should return the name of the built-in that a symbol node draws", () => {
@@ -277,20 +214,6 @@ describe("Schematic.Node.changeConfig", () => {
       variant: "value",
     });
     expect(changed.inlineSize).toBe(70);
-  });
-
-  it("should take the spec key of the new custom symbol", () => {
-    const config = Node.createConfig({
-      variant: "custom_static",
-      specKey: "spec-1",
-      stateOverrides: [{ key: "base", name: "Base" }],
-    });
-    const changed = Node.changeConfig(config, {
-      variant: "custom_static",
-      specKey: "spec-2",
-    });
-    expect(changed.specKey).toBe("spec-2");
-    expect(changed.stateOverrides).toEqual([]);
   });
 
   it("should take the spec of the new symbol node and keep its bindings", () => {

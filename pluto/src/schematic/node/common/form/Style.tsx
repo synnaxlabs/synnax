@@ -12,8 +12,6 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { type color, deep } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { Errors } from "@/errors";
-import { Custom } from "@/schematic/node/common/custom";
 import { ColorValueField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
 import { Label } from "@/schematic/node/common/label";
@@ -27,56 +25,40 @@ export interface StyleValues extends schematic.LabeledConfig {
   strokeColor?: color.Color;
   scale: number;
   normallyOpen?: boolean;
-  stateOverrides?: schematic.symbol.StateOverride[];
 }
 
 export interface StyleFormProps extends FormProps {
   omit?: string[];
   hideInnerOrientation?: boolean;
   hideOuterOrientation?: boolean;
-  showStateOverrides?: boolean;
   /** Whether the config carries `normallyOpen`. Only the solenoid valve does. */
   showNormallyOpen?: boolean;
 }
 
 export const StyleForm = ({
-  actions,
   omit,
   hideInnerOrientation,
   hideOuterOrientation,
   showNormallyOpen = false,
-}: StyleFormProps): ReactElement => {
-  const hasStateOverrides =
-    Form.useFieldValue(path.stateOverrides, { optional: true }) != null;
-  return (
-    <Form.Sections x>
-      <Form.Section title="Label">
-        <Label.Form omit={omit} path={path.label} />
-      </Form.Section>
-      <Form.Section title="Appearance">
-        {!hasStateOverrides && (
-          <ColorValueField path={path.strokeColor} label="Stroke" />
-        )}
-        <Form.SwitchField
-          path={path.normallyOpen}
-          label="Normally open"
-          padHelpText={false}
-          visible={showNormallyOpen}
-        />
-        <ScaleField path={path.scale} />
-      </Form.Section>
-      {hasStateOverrides && (
-        <Form.Section title="State overrides" actions={actions}>
-          <Errors.SuspenseBoundary>
-            <Custom.StateOverrideForm />
-          </Errors.SuspenseBoundary>
-        </Form.Section>
-      )}
-      <Orientation.Section
-        path={path}
-        hideInner={hideInnerOrientation}
-        hideOuter={hideOuterOrientation}
+}: StyleFormProps): ReactElement => (
+  <Form.Sections x>
+    <Form.Section title="Label">
+      <Label.Form omit={omit} path={path.label} />
+    </Form.Section>
+    <Form.Section title="Appearance">
+      <ColorValueField path={path.strokeColor} label="Stroke" />
+      <Form.SwitchField
+        path={path.normallyOpen}
+        label="Normally open"
+        padHelpText={false}
+        visible={showNormallyOpen}
       />
-    </Form.Sections>
-  );
-};
+      <ScaleField path={path.scale} />
+    </Form.Section>
+    <Orientation.Section
+      path={path}
+      hideInner={hideInnerOrientation}
+      hideOuter={hideOuterOrientation}
+    />
+  </Form.Sections>
+);

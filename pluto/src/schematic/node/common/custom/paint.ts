@@ -226,23 +226,11 @@ export interface Value {
   name: string;
 }
 
-const UNNAMED: Value[] = [
+/** UNNAMED_VALUES are the values of a state with no enumeration. */
+export const UNNAMED_VALUES: readonly Value[] = [
   { key: "base", value: 0, name: "Base" },
   { key: "active", value: 1, name: "Active" },
 ];
-
-/**
- * @returns the values that the node of spec draws: Base and Active for an actuator, and
- * Base for a static symbol. A value takes the key and name of its entry in entries.
- */
-export const listValues = (
-  spec: Pick<schematic.symbol.Spec, "variant">,
-  entries: enumeration.Entry[] = [],
-): Value[] =>
-  UNNAMED.slice(0, spec.variant === "actuator" ? 2 : 1).map((v) => {
-    const entry = entries.find((e) => e.value === v.value);
-    return entry == null ? v : { key: entry.key, value: v.value, name: entry.name };
-  });
 
 const enumerationKeys = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,

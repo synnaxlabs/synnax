@@ -88,12 +88,10 @@
     }
 
     .console-preview {
-        /* A shape with no fill draws none, as a schematic node draws it. */
         svg {
             width: auto;
             height: auto;
             overflow: visible;
-            fill: none;
 
             * {
                 pointer-events: all;

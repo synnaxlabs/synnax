@@ -23,8 +23,6 @@ const schema = z.object({
   strokeColor: color.crudeZ.optional(),
   scale: z.number(),
   orientation: z.string(),
-  specKey: z.string().optional(),
-  stateOverrides: z.array(z.unknown()).optional(),
 });
 type Values = z.infer<typeof schema>;
 
@@ -68,12 +66,5 @@ describe("Form.StyleForm", () => {
     expect(getByText("Stroke")).toBeDefined();
     assert(ref.current != null);
     expect(ref.current.get()).toBeUndefined();
-  });
-
-  it("should hide the stroke field when the config carries state overrides", () => {
-    const { queryByText } = render(
-      <Host values={{ ...VALUES, specKey: "", stateOverrides: [] }} />,
-    );
-    expect(queryByText("Stroke")).toBeNull();
   });
 });

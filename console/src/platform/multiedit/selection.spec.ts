@@ -18,7 +18,7 @@ const SCHEMAS = {
   gauge: z.object({
     variant: z.literal("gauge"),
     fillColor: color.refZ.optional(),
-    strokeColor: xcolor.colorZ.optional(),
+    strokeColor: color.refZ.optional(),
     precision: z.number(),
   }),
   label: z.object({ variant: z.literal("label"), text: z.string() }),
@@ -27,7 +27,6 @@ const SCHEMAS = {
 type Config = z.infer<(typeof SCHEMAS)[keyof typeof SCHEMAS]>;
 
 const FIELDS = MultiEdit.fieldsByVariant(SCHEMAS);
-const VALUE_COLOR_FIELDS = { gauge: { strokeColor: true } } as const;
 
 const RED = xcolor.construct("#ff0000");
 const BLUE = xcolor.construct("#0000ff");
@@ -41,7 +40,6 @@ const create = (configs: Array<[string, Config]>) => {
   const selection = MultiEdit.selection<Config>({
     configs: new Map(configs),
     fields: FIELDS,
-    valueColorFields: VALUE_COLOR_FIELDS,
     onChange: (u) => updates.push(u.map(({ key, next }) => [key, next])),
   });
   return { selection, updates };
@@ -49,7 +47,10 @@ const create = (configs: Array<[string, Config]>) => {
 
 describe("selection", () => {
   const { selection, updates } = create([
-    ["a", { variant: "gauge", fillColor: FIXED_RED, strokeColor: RED, precision: 2 }],
+    [
+      "a",
+      { variant: "gauge", fillColor: FIXED_RED, strokeColor: FIXED_RED, precision: 2 },
+    ],
     ["b", { variant: "label", text: "hi" }],
     ["c", { variant: "gauge", precision: 4 }],
   ]);
@@ -73,18 +74,6 @@ describe("selection", () => {
     ]);
   });
 
-  it("should read a color value as a fixed reference", () => {
-    expect(selection.colors("strokeColor", () => BLUE)).toEqual([
-      { value: FIXED_RED, fallback: BLUE },
-      { value: undefined, fallback: BLUE },
-    ]);
-  });
-
-  it("should report the color fields an element stores as values", () => {
-    expect(selection.valueOnly("strokeColor")).toBe(true);
-    expect(selection.valueOnly("fillColor")).toBe(false);
-  });
-
   it("should store a reference in a field that holds references", () => {
     updates.length = 0;
     selection.setColor("fillColor", NAMED);
@@ -94,21 +83,6 @@ describe("selection", () => {
     ]);
   });
 
-  it("should store the color of a reference in a field that holds values", () => {
-    updates.length = 0;
-    selection.setColor("strokeColor", FIXED_BLUE);
-    expect(updates[0].map(([, c]) => c.variant === "gauge" && c.strokeColor)).toEqual([
-      BLUE,
-      BLUE,
-    ]);
-  });
-
-  it("should throw when a named color goes in a field that holds values", () => {
-    expect(() => selection.setColor("strokeColor", NAMED)).toThrow(
-      `[multiedit] - named color ${NAMED_KEY} in a color value field`,
-    );
-  });
-
   it("should set a field only on elements that declare it", () => {
     updates.length = 0;
     selection.set("precision", 3);
@@ -116,7 +90,12 @@ describe("selection", () => {
       [
         [
           "a",
-          { variant: "gauge", fillColor: FIXED_RED, strokeColor: RED, precision: 3 },
+          {
+            variant: "gauge",
+            fillColor: FIXED_RED,
+            strokeColor: FIXED_RED,
+            precision: 3,
+          },
         ],
         ["c", { variant: "gauge", precision: 3 }],
       ],
@@ -128,7 +107,7 @@ describe("selection", () => {
     selection.set("fillColor", undefined);
     expect(updates[0][0]).toEqual([
       "a",
-      { variant: "gauge", strokeColor: RED, precision: 2 },
+      { variant: "gauge", strokeColor: FIXED_RED, precision: 2 },
     ]);
   });
 
@@ -136,7 +115,7 @@ describe("selection", () => {
     updates.length = 0;
     selection.update("precision", (p) => (p ?? 0) + 1);
     expect(updates[0].map(([, c]) => c)).toEqual([
-      { variant: "gauge", fillColor: FIXED_RED, strokeColor: RED, precision: 3 },
+      { variant: "gauge", fillColor: FIXED_RED, strokeColor: FIXED_RED, precision: 3 },
       { variant: "gauge", precision: 5 },
     ]);
   });
@@ -146,7 +125,7 @@ describe("selection", () => {
     selection.setColors(
       [
         { key: "a", path: "fillColor", value: FIXED_RED },
-        { key: "a", path: "strokeColor", value: FIXED_RED, valueOnly: true },
+        { key: "a", path: "strokeColor", value: FIXED_RED },
       ],
       FIXED_BLUE,
     );
@@ -154,7 +133,12 @@ describe("selection", () => {
       [
         [
           "a",
-          { variant: "gauge", fillColor: FIXED_BLUE, strokeColor: BLUE, precision: 2 },
+          {
+            variant: "gauge",
+            fillColor: FIXED_BLUE,
+            strokeColor: FIXED_BLUE,
+            precision: 2,
+          },
         ],
       ],
     ]);
@@ -163,13 +147,13 @@ describe("selection", () => {
   it("should write every color an element holds in one update", () => {
     const schema = z.object({
       variant: z.literal("state"),
-      fillColor: xcolor.colorZ,
-      options: z.array(z.object({ color: xcolor.colorZ })),
+      fillColor: color.refZ,
+      options: z.array(z.object({ color: color.refZ })),
     });
     const config: z.infer<typeof schema> = {
       variant: "state",
-      fillColor: RED,
-      options: [{ color: RED }],
+      fillColor: FIXED_RED,
+      options: [{ color: FIXED_RED }],
     };
     const updates: Array<Array<[string, z.infer<typeof schema>]>> = [];
     MultiEdit.selection({
@@ -178,15 +162,20 @@ describe("selection", () => {
       onChange: (u) => updates.push(u.map(({ key, next }) => [key, next])),
     }).setColors(
       [
-        { key: "a", path: "fillColor", value: FIXED_RED, valueOnly: true },
-        { key: "a", path: "options.0.color", value: FIXED_RED, valueOnly: true },
+        { key: "a", path: "fillColor", value: FIXED_RED },
+        { key: "a", path: "options.0.color", value: FIXED_RED },
       ],
       FIXED_BLUE,
     );
     expect(updates).toEqual([
-      [["a", { variant: "state", fillColor: BLUE, options: [{ color: BLUE }] }]],
+      [
+        [
+          "a",
+          { variant: "state", fillColor: FIXED_BLUE, options: [{ color: FIXED_BLUE }] },
+        ],
+      ],
     ]);
-    expect(config.options[0].color).toEqual(RED);
+    expect(config.options[0].color).toEqual(FIXED_RED);
   });
 
   it("should report the config that each update starts from", () => {

@@ -12,12 +12,6 @@ import { deep, record } from "@synnaxlabs/x";
 import type { z } from "zod";
 
 import { BUILT_INS } from "@/schematic/node/builtIns";
-import {
-  CUSTOM_ACTUATOR_VARIANT,
-  CUSTOM_STATIC_VARIANT,
-  customActuatorSpec,
-  customStaticSpec,
-} from "@/schematic/node/custom/configs";
 import { Fittings } from "@/schematic/node/fittings";
 import { Flowmeters } from "@/schematic/node/flowmeters";
 import { General } from "@/schematic/node/general";
@@ -39,11 +33,9 @@ export const REGISTRY = {
   ...Safety.REGISTRY,
   ...Valves.REGISTRY,
   ...Vessels.REGISTRY,
-  custom_actuator: customActuatorSpec,
-  custom_static: customStaticSpec,
   group_box: GroupBox.spec,
   symbol: symbolSpec,
-} as const satisfies Record<schematic.NodeConfigType, unknown>;
+} as const satisfies Partial<Record<schematic.NodeConfigType, unknown>>;
 
 export const variantZ = schematic.nodeConfigTypeZ;
 export type Variant = schematic.NodeConfigType;
@@ -62,7 +54,7 @@ export type Input<V extends Variant> = { variant: V } & Omit<
 >;
 
 export const resolveSpec = (variant: string): Spec => {
-  const spec = REGISTRY[variant as Variant];
+  const spec: unknown = REGISTRY[variant as keyof typeof REGISTRY];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
   return spec as Spec;
 };
@@ -89,38 +81,11 @@ export const createConfig = <V extends Variant>(input: Input<V>): ConfigOf<V> =>
   return config;
 };
 
-/// CustomVariant is the union of Variants that reference a user-defined
-/// symbol spec via specKey rather than rendering a hard-coded SVG.
-export type CustomVariant =
-  typeof CUSTOM_ACTUATOR_VARIANT | typeof CUSTOM_STATIC_VARIANT;
-export type CustomConfig = ConfigOf<CustomVariant>;
-
-/// CUSTOM_VARIANTS is the set form of CustomVariant. Prefer the isCustomVariant
-/// / isCustomConfig guards at call sites; expose the set for cases that need
-/// to iterate the membership directly (e.g. tests).
-export const CUSTOM_VARIANTS: ReadonlySet<Variant> = new Set<Variant>([
-  CUSTOM_ACTUATOR_VARIANT,
-  CUSTOM_STATIC_VARIANT,
-]);
-
-export const isCustomVariant = (
-  variant: string | undefined,
-): variant is CustomVariant =>
-  variant != null && CUSTOM_VARIANTS.has(variant as Variant);
-
-export const isCustomConfig = (config: Config): config is CustomConfig =>
-  isCustomVariant(config.variant);
-
-/** @returns the variant that draws the custom symbol. */
-export const customVariant = (symbol: schematic.symbol.Symbol): CustomVariant =>
-  symbol.data.variant === "actuator" ? CUSTOM_ACTUATOR_VARIANT : CUSTOM_STATIC_VARIANT;
-
 /**
  * @returns the key of the symbol the config draws: the key of a custom symbol, or the
  * name of a built-in one.
  */
 export const symbolKey = (config: Config): string => {
-  if (isCustomConfig(config)) return config.specKey;
   if (config.variant !== SYMBOL_VARIANT) return config.variant;
   return config.spec.type === "builtin" ? config.spec.name : config.spec.key;
 };
@@ -143,8 +108,7 @@ export const builtInLabel = (name: string): string | undefined => {
 
 /**
  * Changes the config to the variant the input names. Each field the new variant
- * accepts keeps its value, except the symbol that the config draws and the state
- * overrides of a custom symbol.
+ * accepts keeps its value, except the symbol that the config draws.
  * @param config - The config to change.
  * @param input - The variant to change to, plus any fields to set on top.
  * @throws {NotFoundError} if no spec is registered for the variant.
@@ -155,7 +119,7 @@ export const changeConfig = <V extends Variant>(
 ): ConfigOf<V> =>
   deep.overrideValidItems(
     createConfig(input),
-    record.omit(config as record.Unknown, "spec", "specKey", "stateOverrides"),
+    record.omit(config as record.Unknown, "spec"),
     schematic.NODE_CONFIG_SCHEMAS[input.variant],
   );
 
@@ -164,6 +128,5 @@ export const changeConfig = <V extends Variant>(
 // groupBox and symbol are excluded by key: grouping alone creates a group box, and a
 // symbol node needs the symbol that it draws.
 export const STATIC_SPECS: readonly Spec[] = (Object.values(REGISTRY) as Spec[]).filter(
-  (s) =>
-    !isCustomVariant(s.key) && s.key !== GroupBox.VARIANT && s.key !== SYMBOL_VARIANT,
+  (s) => s.key !== GroupBox.VARIANT && s.key !== SYMBOL_VARIANT,
 );
