@@ -11,11 +11,12 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { Page } from "@/platform/page";
 import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 import { renderWithConsole, stubWidth, type Width } from "@/testutil";
 
-const createSection = (name: string, visible = true): Settings.Section => ({
+const createSection = (name: string, visible = true): Page.Section => ({
   key: name.toLowerCase(),
   name,
   icon: <Icon.Settings />,
@@ -23,19 +24,19 @@ const createSection = (name: string, visible = true): Settings.Section => ({
   useVisible: () => visible,
 });
 
-const RAIL = "console-settings__nav--rail";
+const RAIL = "console-page__nav--rail";
 
-describe("Settings.Frame", () => {
+describe("Page.Frame", () => {
   let width: Width;
 
   beforeEach(() => {
-    width = stubWidth("console-settings", 1200);
+    width = stubWidth("console-page", 1200);
   });
 
   afterEach(() => width.restore());
 
   it("should show the page of the section the user selects", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       {
         key: "first",
         name: "First",
@@ -43,7 +44,7 @@ describe("Settings.Frame", () => {
       },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     expect(screen.getByText("Alpha page")).toBeTruthy();
     fireEvent.click(screen.getByRole("menuitem", { name: "Beta" }));
@@ -52,18 +53,18 @@ describe("Settings.Frame", () => {
   });
 
   it("should head the page with the name and icon of its section", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     const heading = screen.getByRole("heading", { name: "Alpha" });
     expect(heading.querySelector("svg")).not.toBeNull();
   });
 
   it("should hide the sections the user cannot use and the groups left empty", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       {
         key: "first",
         name: "First",
@@ -72,7 +73,7 @@ describe("Settings.Frame", () => {
       { key: "second", name: "Second", sections: [createSection("Gone", false)] },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     expect(screen.getByText("Shown page")).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "Hidden" })).toBeNull();
@@ -81,7 +82,7 @@ describe("Settings.Frame", () => {
   });
 
   it("should show the section the window showed last when it opens again", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       {
         key: "first",
         name: "First",
@@ -89,19 +90,19 @@ describe("Settings.Frame", () => {
       },
     ];
     const { store, unmount } = await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     fireEvent.click(screen.getByRole("menuitem", { name: "Beta" }));
     unmount();
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
       { store },
     );
     expect(screen.getByText("Beta page")).toBeTruthy();
   });
 
   it("should show the first section when the user cannot use the last one", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       {
         key: "first",
         name: "First",
@@ -112,18 +113,18 @@ describe("Settings.Frame", () => {
     store.dispatch(Session.Nav.selectSection({ page: "settings", section: "hidden" }));
     unmount();
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
       { store },
     );
     expect(screen.getByText("Shown page")).toBeTruthy();
   });
 
   it("should show only the icons of the sections in a narrow pane", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     const nav = screen.getByRole("navigation", { name: "Settings" });
     expect(nav.classList.contains(RAIL)).toBe(false);
@@ -134,11 +135,11 @@ describe("Settings.Frame", () => {
   });
 
   it("should keep the names of the sections while its tab is hidden", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     const nav = screen.getByRole("navigation", { name: "Settings" });
     width.set(0);
@@ -146,11 +147,11 @@ describe("Settings.Frame", () => {
   });
 
   it("should collapse the section list to its icons and expand it again", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     const nav = screen.getByRole("navigation", { name: "Settings" });
     fireEvent.click(screen.getByRole("button", { name: "Collapse sidebar" }));
@@ -160,11 +161,11 @@ describe("Settings.Frame", () => {
   });
 
   it("should hide the collapse button in a narrow pane", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeTruthy();
     width.set(600);
@@ -172,11 +173,11 @@ describe("Settings.Frame", () => {
   });
 
   it("should name each icon of a narrow section list in its tooltip", async () => {
-    const groups: Settings.Group[] = [
+    const groups: Page.Group[] = [
       { key: "first", name: "First", sections: [createSection("Alpha")] },
     ];
     await renderWithConsole(
-      <Settings.Frame page="settings" name="Settings" groups={groups} />,
+      <Page.Frame page="settings" name="Settings" groups={groups} />,
     );
     width.set(600);
     fireEvent.pointerOver(screen.getByRole("menuitem", { name: "Alpha" }), {
