@@ -84,6 +84,13 @@ on:
         required: false
         type: boolean
         default: false
+      windows_supported:
+        description:
+          Whether the package runs on Windows, so Linux runs also check its types
+          against the Windows stubs
+        required: false
+        type: boolean
+        default: false
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -172,6 +179,10 @@ jobs:
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           version: latest-known
+          # A project outside the workspace, such as scripts/runners, has its own lock.
+          cache-dependency-glob: |
+            uv.lock
+            ${{ inputs.directory }}/uv.lock
 
       # A locked run fails on a stale uv.lock instead of rewriting it. A lowest-direct
       # resolution does not match uv.lock, so it relocks instead.
@@ -211,7 +222,7 @@ jobs:
             { echo "::error::Run scripts/fix.sh to format the changed files."; exit 1; }
 
       # Windows and macOS rows exist only in full runs (nightly and release), so mypy
-      # checks each OS's stubs there and only Linux on other runs.
+      # checks each OS's stubs there and the Linux stubs on other runs.
       - name: Check types
         shell: bash
         env:
@@ -219,6 +230,17 @@ jobs:
         run: |
           read -ra directories <<< "$TYPE_CHECK_DIR"
           uv run mypy "${directories[@]}"
+
+      # A run with no Windows rows checks the Windows stubs on Linux, so an error that
+      # only Windows shows fails the PR and not the nightly run.
+      - name: Check types for Windows
+        if: inputs.windows_supported && !inputs.windows && runner.os == 'Linux'
+        shell: bash
+        env:
+          TYPE_CHECK_DIR: ${{ inputs.type_check_dir }}
+        run: |
+          read -ra directories <<< "$TYPE_CHECK_DIR"
+          uv run mypy --platform win32 "${directories[@]}"
 
       # Only the x86 Linux runners start a Core, and not for a fork, so the others skip
       # the tests that need one.

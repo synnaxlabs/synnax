@@ -56,16 +56,27 @@ struct Config {
             .fields.push_back(f);
     }
 
-    /// @brief adds f to the message and binds it to float64 channel key.
-    void bind(const synnax::icd::TextField &f, const synnax::channel::Key key) {
+    /// @brief adds f to the message.
+    void add(const synnax::icd::JSONField &f) {
+        std::get<synnax::icd::JSONPayload>(this->ic.messages[0].payload)
+            .fields.push_back(f);
+    }
+
+    /// @brief adds f to the message and binds it to channel key of data type dt.
+    template<typename Field>
+    void bind(
+        const Field &f,
+        const synnax::channel::Key key,
+        const x::telem::DataType &dt = x::telem::FLOAT64_T
+    ) {
         this->add(f);
         synnax::icd::ChannelWriteBinding b;
-        b.field = synnax::icd::base(f).key;
+        b.field = f.key;
         b.channel = key;
         this->wm.bindings.emplace_back(b);
         synnax::channel::Channel ch;
         ch.key = key;
-        ch.data_type = x::telem::FLOAT64_T;
+        ch.data_type = dt;
         this->channels.insert_or_assign(key, ch);
     }
 
@@ -92,6 +103,23 @@ Config message() {
     c.ic.name = "valves";
     c.ic.messages = {m};
     return c;
+}
+
+/// @brief returns a config whose JSON message cmd has no fields.
+Config json_message() {
+    auto c = message();
+    c.ic.messages[0].payload = synnax::icd::JSONPayload{};
+    return c;
+}
+
+/// @brief returns a JSON field of type Field named name, at the pointer /name.
+template<typename Field>
+Field field(const std::string &name) {
+    Field f;
+    f.key = x::uuid::create();
+    f.name = name;
+    f.pointer = "/" + name;
+    return f;
 }
 
 /// @brief returns a config whose field a at position 0 takes channel 2, and whose field
@@ -353,7 +381,10 @@ TEST(Writer, RefuseInvalidMessage) {
     );
     auto binary = setpoints();
     binary.ic.messages[0].payload = synnax::icd::BinaryPayload{};
-    assert_refuses(binary, "message cmd: the Driver writes only text messages");
+    assert_refuses(
+        binary,
+        "message cmd: the Driver writes only text and JSON messages"
+    );
     auto unbound = message();
     auto f = at("a", 0);
     unbound.add(f);
@@ -394,5 +425,162 @@ TEST(Writer, RefuseInvalidBindings) {
     const auto err = open.create().second;
     ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
     EXPECT_EQ(err.data, "message cmd: field c: needs a channel or a default");
+}
+
+/// @brief it should send one JSON document for each row of commands, with the last
+/// command of a channel that has fewer, a string command included.
+TEST(Writer, WriteJSONDocuments) {
+    auto c = json_message();
+    c.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    c.bind(field<synnax::icd::StringJSONField>("s"), 3, x::telem::STRING_T);
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        sent(
+            w,
+            frame(
+                2,
+                x::telem::Series(std::vector<double>{1, 2}),
+                3,
+                x::telem::Series(std::string("on"))
+            )
+        ),
+        (std::vector<std::string>{R"({"a":1,"s":"on"})", R"({"a":2,"s":"on"})"})
+    );
+    EXPECT_EQ(
+        sent(w, frame(2, x::telem::Series(3.0))),
+        (std::vector<std::string>{R"({"a":3,"s":"on"})"})
+    );
+}
+
+/// @brief it should send the value of a value binding of each kind as its field's
+/// default.
+TEST(Writer, SendJSONValues) {
+    auto c = json_message();
+    c.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    const auto f = field<synnax::icd::FloatJSONField>("f");
+    const auto i = field<synnax::icd::IntegerJSONField>("i");
+    const auto u = field<synnax::icd::UnsignedJSONField>("u");
+    const auto s = field<synnax::icd::StringJSONField>("s");
+    const auto b = field<synnax::icd::BooleanJSONField>("b");
+    auto t = field<synnax::icd::TimestampJSONField>("t");
+    t.time_format = "iso8601";
+    const auto j = field<synnax::icd::JSONJSONField>("j");
+    const auto id = field<synnax::icd::UuidJSONField>("id");
+    const auto by = field<synnax::icd::BytesJSONField>("by");
+    for (const synnax::icd::JSONField &x: {
+             synnax::icd::JSONField(f),
+             synnax::icd::JSONField(i),
+             synnax::icd::JSONField(u),
+             synnax::icd::JSONField(s),
+             synnax::icd::JSONField(b),
+             synnax::icd::JSONField(t),
+             synnax::icd::JSONField(j),
+             synnax::icd::JSONField(id),
+             synnax::icd::JSONField(by),
+         })
+        c.add(x);
+    const auto key = ASSERT_NIL_P(
+        x::uuid::UUID::parse("2f1e8c0a-6b3d-4e7f-9a5c-1d2e3f405162")
+    );
+    c.fix(f.key, synnax::icd::FloatWriteValue{.value = 1.5});
+    c.fix(i.key, synnax::icd::IntegerWriteValue{.value = -2});
+    c.fix(u.key, synnax::icd::UnsignedWriteValue{.value = 3});
+    c.fix(s.key, synnax::icd::StringWriteValue{.value = "psi"});
+    c.fix(b.key, synnax::icd::BooleanWriteValue{.value = true});
+    c.fix(
+        t.key,
+        synnax::icd::TimestampWriteValue{.value = x::telem::TimeStamp(x::telem::SECOND)}
+    );
+    c.fix(j.key, synnax::icd::JSONWriteValue{.value = R"({"k":[1]})"});
+    c.fix(id.key, synnax::icd::UuidWriteValue{.value = key});
+    c.fix(by.key, synnax::icd::BytesWriteValue{.value = "AQI="});
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        sent(w, frame(2, x::telem::Series(1.0))),
+        (std::vector<std::string>{
+            R"({"a":1,"f":1.5,"i":-2,"u":3,"s":"psi","b":true,)"
+            R"("t":"1970-01-01T00:00:01Z","j":{"k":[1]},)"
+            R"("id":"2f1e8c0a-6b3d-4e7f-9a5c-1d2e3f405162","by":"AQI="})"
+        })
+    );
+}
+
+/// @brief it should refuse a value of another kind than its JSON field, and a value
+/// that the encoder refuses as a default.
+TEST(Writer, RefuseInvalidJSONValues) {
+    auto kind = json_message();
+    kind.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    const auto i = field<synnax::icd::IntegerJSONField>("i");
+    kind.add(i);
+    kind.fix(i.key, synnax::icd::FloatWriteValue{.value = 1});
+    assert_refuses(
+        kind,
+        "message cmd: field i of kind integer needs a value of its kind"
+    );
+    auto text = json_message();
+    text.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    const auto s = field<synnax::icd::StringJSONField>("s");
+    text.add(s);
+    text.fix(s.key, synnax::icd::JSONWriteValue{.value = "1"});
+    assert_refuses(
+        text,
+        "message cmd: field s of kind string needs a value of its kind"
+    );
+    auto invalid = json_message();
+    invalid.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    const auto j = field<synnax::icd::JSONJSONField>("j");
+    invalid.add(j);
+    invalid.fix(j.key, synnax::icd::JSONWriteValue{.value = "{"});
+    const auto err = invalid.create().second;
+    ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
+    EXPECT_EQ(err.data, "message cmd: field j: default: must be valid JSON");
+}
+
+/// @brief it should refuse a value of a number JSON field that decodes outside the min
+/// and max of the field.
+TEST(Writer, RefuseJSONValueOutsideLimits) {
+    auto integer = json_message();
+    integer.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    auto i = field<synnax::icd::IntegerJSONField>("i");
+    i.max = 100;
+    integer.add(i);
+    integer.fix(i.key, synnax::icd::IntegerWriteValue{.value = 500});
+    assert_refuses(integer, "message cmd: field i: 500 is above the max 100");
+    auto scaled = json_message();
+    scaled.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    auto u = field<synnax::icd::UnsignedJSONField>("u");
+    u.scale = 5;
+    u.max = 10;
+    scaled.add(u);
+    scaled.fix(u.key, synnax::icd::UnsignedWriteValue{.value = 3});
+    assert_refuses(
+        scaled,
+        "message cmd: field u: 3 decodes to 15, which is above the max 10"
+    );
+    auto low = json_message();
+    low.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    auto f = field<synnax::icd::FloatJSONField>("f");
+    f.min = 0;
+    low.add(f);
+    low.fix(f.key, synnax::icd::FloatWriteValue{.value = -2});
+    assert_refuses(low, "message cmd: field f: -2 is below the min 0");
+}
+
+/// @brief it should drop a command that its JSON field cannot hold, and keep the last
+/// good command of the field.
+TEST(Writer, DropRefusedJSONCommands) {
+    auto c = json_message();
+    c.bind(field<synnax::icd::FloatJSONField>("a"), 2);
+    auto w = ASSERT_NIL_P(c.create());
+    EXPECT_EQ(
+        sent(w, frame(2, x::telem::Series(1.0))),
+        (std::vector<std::string>{R"({"a":1})"})
+    );
+    assert_refuses_command(
+        w,
+        frame(2, x::telem::Series(std::vector<double>{std::nan(""), 2})),
+        {R"({"a":2})"},
+        "message cmd: field a: NaN is not a JSON number"
+    );
 }
 }

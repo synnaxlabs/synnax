@@ -34,5 +34,8 @@ filegroup(
 filegroup(
     name = "encode_fixtures",
     srcs = glob(["testdata/encode/*.json"]),
-    visibility = ["//driver/codec:__pkg__"],
+    visibility = [
+        "//driver/codec:__pkg__",
+        "//x/cpp/json:__pkg__",
+    ],
 )

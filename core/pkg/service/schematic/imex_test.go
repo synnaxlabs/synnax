@@ -109,7 +109,7 @@ var _ = Describe("ImEx", func() {
 			Expect(res.Nodes).To(HaveLen(1))
 			Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
 			Expect(res.Nodes[0].Config.Variant).
-				To(BeAssignableToTypeOf(schematic.ValveNodeConfig{}))
+				To(BeAssignableToTypeOf(schematic.SymbolNodeConfig{}))
 			// The file's only edge connects to a node it lacks.
 			Expect(res.Edges).To(BeEmpty())
 		})
@@ -137,6 +137,29 @@ var _ = Describe("ImEx", func() {
 		})
 
 		It(
+			"Should give each light of an old file with an on color an enumeration with "+
+				"On in that color",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_v13_states.json",
+					imex.ImportOptions{Parent: proj.ResourceID()},
+				)
+				light := as[schematic.SymbolNodeConfig](res.Nodes[2].Config.Variant)
+				Expect(light.States[0].Enumeration).ToNot(BeNil())
+				var states enumeration.Enumeration
+				Expect(enumSvc.NewRetrieve().
+					Where(enumeration.MatchKeys(*light.States[0].Enumeration)).
+					Entry(&states).
+					Exec(ctx, db)).To(Succeed())
+				Expect(states.Name).To(Equal("Light: Pump"))
+				Expect(states.Entries[1].Color).To(Equal(&servicecolor.Ref{
+					Variant: servicecolor.FixedRef{Value: color.Color{B: 255, A: 255}},
+				}))
+			},
+		)
+
+		It(
 			"Should import a v6 Console typed export carrying camelCase keys",
 			func(ctx SpecContext) {
 				res := importAndRetrieve(
@@ -146,7 +169,7 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Console Typed"))
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(4)))
-				cfg, ok := res.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
+				cfg, ok := res.Nodes[0].Config.Variant.(schematic.SymbolNodeConfig)
 				Expect(ok).To(BeTrue())
 				Expect(cfg.OnClickDelay).To(Equal(2 * telem.Millisecond))
 			},
@@ -167,10 +190,13 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Nodes[0].ZIndex).To(Equal(int16(3)))
 				// The file's only edge connects to a node it lacks.
 				Expect(res.Edges).To(BeEmpty())
-				cfg, ok := res.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
+				cfg, ok := res.Nodes[0].Config.Variant.(schematic.SymbolNodeConfig)
 				Expect(ok).To(BeTrue())
-				Expect(cfg.StrokeColor).
-					To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
+				Expect(cfg.Color).To(HaveValue(Equal(servicecolor.Ref{
+					Variant: servicecolor.FixedRef{
+						Value: MustSucceed(color.Parse("#ff0000")),
+					},
+				})))
 			},
 		)
 
@@ -214,7 +240,7 @@ var _ = Describe("ImEx", func() {
 				"versions/testdata/import_v10_zero_scale.json",
 				imex.ImportOptions{Parent: proj.ResourceID()},
 			)
-			valve, ok := res.Nodes[0].Config.Variant.(schematic.ValveNodeConfig)
+			valve, ok := res.Nodes[0].Config.Variant.(schematic.SymbolNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(valve.Scale).To(Equal(1.0))
 		})

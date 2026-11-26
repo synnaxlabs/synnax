@@ -14,7 +14,9 @@ export type { Reading } from "@/schematic/node/common/custom/motion";
 export { MotionProvider } from "@/schematic/node/common/custom/MotionProvider";
 export * from "@/schematic/node/common/custom/Overrides";
 export {
+  applies,
   listValues,
+  matched,
   type Paint,
   type StateValues,
   usePaints,

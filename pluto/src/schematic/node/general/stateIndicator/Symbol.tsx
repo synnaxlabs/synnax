@@ -12,9 +12,9 @@ import type { ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Options } from "@/schematic/node/common/options";
-import { Stale } from "@/schematic/node/common/stale";
 import { Telem } from "@/schematic/node/common/telem";
 import { Primitive } from "@/schematic/node/general/stateIndicator/primitive";
 import type { NodeProps } from "@/schematic/node/spec";
@@ -52,7 +52,7 @@ export const Symbol = ({
       onResize={({ width }) => onConfigChange({ inlineSize: width })}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      <Indicator.Slot stale={stale} />
       <Primitive.StateIndicator
         matchedOptionKey={optKey}
         options={options}
