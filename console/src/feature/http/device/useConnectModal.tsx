@@ -19,7 +19,7 @@ import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, json } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import {
   SCAN_SCHEMAS,
@@ -30,10 +30,12 @@ import {
   type APIKeyAuthConfigSendAs,
   type AuthType,
   type Device,
+  headersZ,
   type HealthCheckMethod,
   INTEGRATION_KEY,
   type Response,
   SCHEMAS,
+  validateHeaders,
   ZERO_AUTH_CONFIGS,
   ZERO_PROPERTIES,
   ZERO_RESPONSE,
@@ -71,14 +73,23 @@ const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 // Longer than the usual request timeout to allow for negotiating an SSL handshake.
 const TEST_CONNECTION_REQUEST_TIMEOUT_MS = TimeSpan.seconds(5).milliseconds;
 
-const beforeSave = async ({
-  client,
-  get,
-  set,
-}: Flux.FormBeforeSaveParams<
-  PDevice.RetrieveQuery,
-  PDevice.FormSchema<typeof SCHEMAS>
->) => {
+// A form with no headers reads null at their path.
+const healthCheckHeadersZ = headersZ
+  .check((p) => validateHeaders(p, p.value))
+  .nullish();
+
+const beforeSave = async (
+  params: Flux.FormBeforeSaveParams<
+    PDevice.RetrieveQuery,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >,
+) => {
+  const { client, get, set } = params;
+  // A check adds error statuses without failing validation.
+  if (params.getStatuses().some(({ variant }) => variant === "error")) {
+    Form.focusFirstError(params);
+    return false;
+  }
   const scanTask = await client.tasks.retrieve({
     type: SCAN_TYPE,
     rack: get(path.rack).value,
@@ -144,6 +155,17 @@ export const Connect = ({
   });
 
   const { set: setField } = form;
+
+  // The check starts at the first Connect, so a header the user just added is not an
+  // error before they fill it in.
+  const headersChecked = useRef(false);
+  const handleConnect = () => {
+    if (!headersChecked.current) {
+      form.addCheck(healthCheck.headers, healthCheckHeadersZ);
+      headersChecked.current = true;
+    }
+    save();
+  };
 
   const authType = Form.useFieldValue(auth.type, { ctx: form });
 
@@ -471,7 +493,7 @@ export const Connect = ({
         reason={reason}
         variant={variant}
         message={stat.description}
-        onConnect={() => save()}
+        onConnect={handleConnect}
         onCancel={() => close()}
         onBack={onBack}
       />

@@ -39,7 +39,7 @@ var _ = Describe("Migration", func() {
 	}
 
 	// retrieveMigrated opens the v2 symbol table with the migration wired in, driving
-	// the v0 -> typed lift end-to-end through gorp.
+	// the v0 -> typed lift end-to-end through Gorp.
 	retrieveMigrated := func(ctx SpecContext, db *gorp.DB, key v2.Key) v2.Symbol {
 		GinkgoHelper()
 		t := MustOpen(gorp.OpenTable(

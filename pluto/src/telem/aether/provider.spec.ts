@@ -55,7 +55,7 @@ interface MountedProvider {
   aggregator: status.Aggregator;
 }
 
-/** Mounts the provider under the alamos and status providers it reads context from,
+/** Mounts the provider under the Alamos and status providers it reads context from,
  * in production's nesting order. */
 const mountProvider = (
   createFactory: (client: telem.Client | null) => telem.CompoundFactory,

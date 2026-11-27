@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package casing provides shared snake/camel conversion helpers used across oracle
+// Package casing provides shared snake/camel conversion helpers used across Oracle
 // plugins. Field-name conversions go through FieldSnake, which preserves the
 // author's spelling when the field is already a valid snake_case identifier so
 // domain names like axis keys (x1, y1) are not split on letter-digit boundaries.

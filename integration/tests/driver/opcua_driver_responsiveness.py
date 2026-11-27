@@ -129,7 +129,7 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
 
         hold(DEADLOCK_DURATION, reason="keeps the simulator frozen")
 
-        # Step 5: Health probe — can the driver still run a Modbus task?
+        # Step 5: Health probe — can the Driver still run a Modbus task?
         self._check_driver_responsive()
 
     def _prime_pool(self, tasks: list[sy.opcua.ReadTask]) -> bool:

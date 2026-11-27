@@ -65,7 +65,7 @@ export const STUDIO_PORT = 9095;
 const DESKTOP_URL = "http://localhost:5175";
 
 /**
- * runCapture provisions the core, drives the script through a capture session,
+ * runCapture provisions the Core, drives the script through a capture session,
  * and returns the recorded timeline (also written to <outDir>/timeline.json).
  */
 export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => {

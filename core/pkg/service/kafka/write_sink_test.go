@@ -93,7 +93,7 @@ var _ = Describe("Write task with targets", func() {
 		Expect(w.Close()).To(Succeed())
 	}
 
-	It("Should produce the document of each command with the time of its index",
+	It("Should produce the payload of each command with the time of its index",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
