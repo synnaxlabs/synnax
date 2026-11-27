@@ -27,6 +27,7 @@ import {
  */
 export interface Lines {
   arcs: ((record: Payload, value: NonNullable<Where["arcs"]>) => boolean) | null;
+  icds: ((record: Payload, value: NonNullable<Where["icds"]>) => boolean) | null;
 }
 
 /**
@@ -52,6 +53,10 @@ export const matches = (lines: Lines, record: Payload, where?: Where): boolean =
     if (lines.arcs == null) throw new Error("only the Core can check arcs");
     if (!lines.arcs(record, where.arcs)) return false;
   }
+  if (where.icds != null) {
+    if (lines.icds == null) throw new Error("only the Core can check icds");
+    if (!lines.icds(record, where.icds)) return false;
+  }
   return true;
 };
 
@@ -66,7 +71,8 @@ export const serverComputed = (lines: Lines, where?: Where): boolean =>
     (where.not != null && serverComputed(lines, where.not)) ||
     where.name?.regex != null ||
     where.type?.regex != null ||
-    (where.arcs != null && lines.arcs == null));
+    (where.arcs != null && lines.arcs == null) ||
+    (where.icds != null && lines.icds == null));
 
 const inputs = {
   /** key selects by key. */
@@ -81,6 +87,8 @@ const inputs = {
   internal: filter.boolInputZ.exactOptional(),
   /** arcs matches the tasks that run any of the Arcs with the given keys. */
   arcs: filter.listInputZ(z.uuid()).exactOptional(),
+  /** icds matches the tasks that use any of the ICDs with the given keys. */
+  icds: filter.listInputZ(z.uuid()).exactOptional(),
 };
 
 /** WhereInput is a Where that takes a value or a list in place of an operator. */
@@ -128,6 +136,7 @@ export const retrieveInputZ = <O extends z.core.$ZodShape>(options: O) =>
         "rack",
         "internal",
         "arcs",
+        "icds",
       ]),
     );
 

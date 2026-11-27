@@ -139,6 +139,9 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Arcs; l != nil {
 		fs = append(fs, MatchArcs(l...))
 	}
+	if l := w.ICDs; l != nil {
+		fs = append(fs, MatchICDs(l...))
+	}
 	return And(fs...), nil
 }
 

@@ -154,6 +154,10 @@ Where filter Task {
         @cpp omit
         @doc value "matches the tasks that run any of the Arcs with the given keys."
     }
+    icds     uuid[] {
+        @cpp omit
+        @doc value "matches the tasks that use any of the ICDs with the given keys."
+    }
 
     @doc value         "is a filter that selects tasks."
     @go request_output "core/pkg/api/task"
