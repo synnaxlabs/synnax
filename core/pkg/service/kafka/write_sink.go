@@ -104,7 +104,7 @@ func (t *target) stamp(
 	now telem.TimeStamp,
 ) (telem.TimeStamp, bool) {
 	for b, key := range t.docs.Channels() {
-		if fr.Get(key).Len() <= int64(row) {
+		if sampleCount(fr, key) <= int64(row) {
 			continue
 		}
 		if t.indexes[b] == 0 {
@@ -113,6 +113,17 @@ func (t *target) stamp(
 		return sampleAt(fr, t.indexes[b], row)
 	}
 	return 0, false
+}
+
+// sampleCount returns the number of samples of key in fr.
+func sampleCount(fr framer.Frame, key channel.Key) int64 {
+	var n int64
+	for k, s := range fr.Entries() {
+		if k == key {
+			n += s.Len()
+		}
+	}
+	return n
 }
 
 // sampleAt returns sample i of the timestamps of key in fr, and false when fr holds
