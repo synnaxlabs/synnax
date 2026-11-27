@@ -183,13 +183,17 @@ each such clock that has no record to the note and to the `Delete` call, so one 
 entry holds the Intents of the keys and of their clocks. Cesium logs the Drop of a clock
 after the Drops of the keys that it times. No writer can make a new user of such a clock
 while the claim is held: continuation picks only a clock that a key of the group already
-names. A `synnax purge` adds the clocks of its keys in the same way. A clock can also
-lose its last user to a range delete, or to a crash between the steps: so at start,
-after the notes, each key that `Keys` lists with data and as no other key's clock, and
-that is a key of the clock range (RFC 0120 §4.0) or holds an entry of the retired index
-table, is a clock with no user. Such a key never has a record, so this is no delete on
-absence: the channel service ends it with a note and a `Delete`, and deletes its entry.
-Before RFC 0120 Phase 50 an index channel has a record, so its stamps stay until its own
+names. A `synnax purge` adds the clocks of its keys in the same way. A leased clock
+stores stamps only beside data that names it, so a range delete that removes its last
+such data also removes those stamps (§5.6). A retired index clock of RFC 0120 Phase 50
+can hold stamps outside all its data, which a range delete can leave with no user. So at
+start, after the notes, each key that holds an entry of the retired index table and that
+`Keys` lists with data and as no other key's clock is a clock with no user. The retire
+deleted its record, and its key is never issued again, so this is no delete on absence:
+the channel service ends it with a note and a `Delete`, and deletes its entry. The rule
+reads no key range, since from RFC 0120 Phase 50 channels and clocks share one counter.
+A spec keeps a channel made after Phase 50 whole across a restart and an undo. Before
+RFC 0120 Phase 50 an index channel has a record, so its stamps stay until its own
 delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
