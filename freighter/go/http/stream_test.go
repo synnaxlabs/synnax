@@ -371,6 +371,159 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		)
 	})
 
+	Describe("Keep-alive", func() {
+		var ownAddr address.Address
+		BeforeEach(func() {
+			// The router outlives this setup node, so it cannot take its context.
+			life, cancel := context.WithCancel(context.Background())
+			DeferCleanup(cancel)
+			router := MustSucceed(fhttp.NewRouter(life, fhttp.RouterConfig{
+				Errors:              errorCodec(),
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			ownServer.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				_, err := stream.Receive()
+				return err
+			})
+			var ownApp *fiber.App
+			ownApp, ownAddr = serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+		})
+
+		dial := func(ctx context.Context, query string) *ws.Conn {
+			GinkgoHelper()
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+				ctx, "ws://"+ownAddr.String()+"/"+query, headers,
+			))
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			Expect(res.Body.Close()).To(Succeed())
+			return conn
+		}
+
+		read := func(conn *ws.Conn) fhttp.WSMessage[testutil.Response] {
+			GinkgoHelper()
+			t, data := MustSucceed2(conn.ReadMessage())
+			Expect(t).To(Equal(ws.BinaryMessage))
+			var msg fhttp.WSMessage[testutil.Response]
+			Expect(json.Codec.Decode(data, &msg)).To(Succeed())
+			return msg
+		}
+
+		readKeepAlive := func(conn *ws.Conn) {
+			GinkgoHelper()
+			t, data := MustSucceed2(conn.ReadMessage())
+			Expect(t).To(Equal(ws.TextMessage))
+			Expect(string(data)).To(Equal(`{"type":"keep_alive"}`))
+		}
+
+		It("Should send a keep-alive before the open ack and on each interval", func(
+			ctx SpecContext,
+		) {
+			conn := dial(ctx, "?freighterctxkeep_alive=1000000000")
+			readKeepAlive(conn)
+			Expect(read(conn).Type).To(Equal(fhttp.WSMessageTypeOpen))
+			start := time.Now()
+			readKeepAlive(conn)
+			Expect(time.Since(start)).
+				To(BeNumerically("~", time.Second, 500*time.Millisecond))
+		})
+
+		DescribeTable("Should send no keep-alive when the client asks for none", func(
+			ctx SpecContext,
+			query string,
+		) {
+			conn := dial(ctx, query)
+			Expect(read(conn).Type).To(Equal(fhttp.WSMessageTypeOpen))
+			received := make(chan int, 1)
+			// Ends when the cleanup closes the connection.
+			go func() {
+				if t, _, err := conn.ReadMessage(); err == nil {
+					received <- t
+				}
+			}()
+			Consistently(received, 1500*time.Millisecond).ShouldNot(Receive())
+		},
+			Entry("no parameter", ""),
+			Entry("a zero interval", "?freighterctxkeep_alive=0"),
+		)
+
+		DescribeTable(
+			"Should fail the open on an invalid interval",
+			func(
+				ctx SpecContext,
+				value string,
+				message string,
+			) {
+				conn := dial(ctx, "?freighterctxkeep_alive="+value)
+				msg := read(conn)
+				Expect(msg.Type).To(Equal(fhttp.WSMessageTypeClose))
+				Expect(msg.Err.Data).To(ContainSubstring(message))
+			},
+			Entry(
+				"below the minimum",
+				"999999999",
+				"keep_alive: must be greater than or equal to 1s",
+			),
+			Entry(
+				"not an integer",
+				"5s",
+				"keep_alive: must be an integer of nanoseconds",
+			),
+		)
+
+		It("Should end a blocked Receive when a keep-alive cannot be sent", func(
+			ctx SpecContext,
+		) {
+			router := MustSucceed(fhttp.NewRouter(ctx, fhttp.RouterConfig{
+				Errors:              errorCodec(),
+				StreamWriteDeadline: testutil.WriteDeadline,
+			}))
+			ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+				"/",
+			)
+			received := make(chan error, 1)
+			ownServer.BindHandler(func(
+				_ context.Context,
+				stream freighter.ServerStream[testutil.Request, testutil.Response],
+			) error {
+				// Fills the socket of a peer that never reads, until a send passes the
+				// write deadline and breaks the connection's writes.
+				go func() {
+					msg := testutil.Response{Message: strings.Repeat("a", 1<<20)}
+					for {
+						if err := stream.Send(msg); err != nil {
+							return
+						}
+					}
+				}()
+				_, err := stream.Receive()
+				received <- err
+				return err
+			})
+			ownApp, ownAddr := serveRouter(router)
+			DeferCleanup(func() { Expect(ownApp.Shutdown()).To(Succeed()) })
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/json")
+			conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+				ctx,
+				"ws://"+ownAddr.String()+"/?freighterctxkeep_alive=1000000000",
+				headers,
+			))
+			DeferCleanup(func() { Expect(conn.Close()).To(Succeed()) })
+			Expect(res.Body.Close()).To(Succeed())
+			Eventually(received, 5*time.Second).
+				Should(Receive(MatchError(freighter.ErrStreamClosed)))
+		})
+	})
+
 	Describe("Shutdown", func() {
 		// Serves its own app: shutting down the shared one would strand later specs.
 		It(
