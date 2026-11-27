@@ -226,6 +226,12 @@ var _ = Describe("OIDC invites", func() {
 			Expect(MustSucceed(authSvc.Authenticate(ctx, res.Token)).Subject).
 				To(Equal(carol.ResourceID()))
 			Expect(retrieve(ctx)).To(BeEmpty())
+			var link oidc.Link
+			Expect(oidcSvc.NewRetrieve().
+				Where(oidc.MatchKeys(res.Session.Credential)).
+				Entry(&link).
+				Exec(ctx, db)).To(Succeed())
+			Expect(link.Label).To(Equal(sub + "@example.com"))
 			next := login(ctx, oidcProof(grantAccount(sub)))
 			Expect(MustSucceed(authSvc.Authenticate(ctx, next)).Subject).
 				To(Equal(carol.ResourceID()))
@@ -311,7 +317,7 @@ var _ = Describe("OIDC invites", func() {
 			sub := uuid.New().String()
 			linkAccount(ctx, bobToken, sub)
 			Expect(redeem(ctx, create(ctx).Token, grantAccount(sub))).Error().
-				To(MatchError(validate.ErrValidation))
+				To(MatchError(ContainSubstring("linked to another user")))
 			Expect(retrieve(ctx)).To(HaveLen(1))
 		})
 		It("Should refuse a user linked to the provider", func(ctx SpecContext) {
@@ -321,7 +327,7 @@ var _ = Describe("OIDC invites", func() {
 				uuid.New().String(),
 			)
 			Expect(redeem(ctx, create(ctx).Token, grantAccount(uuid.New().String()))).
-				Error().To(MatchError(validate.ErrValidation))
+				Error().To(MatchError(ContainSubstring("already has an account")))
 		})
 	})
 })
