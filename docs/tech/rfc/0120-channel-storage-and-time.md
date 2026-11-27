@@ -563,7 +563,8 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   (D-448), and a write reaches it by key.
 - **Groups**: An open may name `time_groups`, a partition of its stored channels. Each
   stored channel is in exactly one group, a virtual channel in none, and no group is
-  empty, or the open fails and names the channel. With no groups, the writer has one
+  empty, or the open fails and names the channel. Until Phase 50 an index channel in the
+  key list is the clock of its group, in no group. With no groups, the writer has one
   **adaptive** group of all its stored channels.
 - **Rules per frame**: A declared group is whole: a frame holds all of its channels or
   none, and a partial group fails with an error that stays, as a missing channel does
@@ -598,20 +599,25 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 - **Control writers**: The Python `Controller` and Pluto control declare one group per
   command channel, and Arc does so by default, so each command channel has its own
   clock. Pluto and the `Controller` stamp on arrival. A Pluto acquire of a channel that
-  Arc holds leases a clock and makes two files at open, off the frame path, and Phase 28
-  measures acquire time. Authority covers channels only. Until Phase 50 an index channel
-  stays under write control, so two command channels that share one still share its
-  authority; after it they do not. A commit after a handoff whose stamps go back past
-  the old holder's fails, as on `main` (`cesium/internal/unary/writer.go:436-450`), so
-  clock skew between two hosts that write one command channel can fail a commit.
+  Arc holds makes two files at open, off the frame path, and reuses the clock of the
+  key's newest open segment that no writer holds (RFC 0121 §5.8). A spec acquires a
+  channel twice and leases no clock the second time. Authority covers channels only.
+  Until Phase 50 an index channel stays under write control, so two command channels
+  that share one still share its authority; after it they do not. A commit after a
+  handoff whose stamps go back past the old holder's fails, as on `main`
+  (`cesium/internal/unary/writer.go:436-450`), so clock skew between two hosts that
+  write one command channel can fail a commit.
 - **Arc**: The compiler fills the groups of a program (`time_groups` in
-  `schemas/arc/ir.oracle`, NEW). Each output channel has a group of its own, so a cycle
-  that writes part of its outputs stays legal: an early `return`, a trap, a `=>` edge,
-  and a channel that two stages write. The cost is 8 bytes of stamps per command sample.
-  The compiler merges channels into one group only when it proves that every write site
-  of each writes all of them, one value each, with no `return`, no expression that can
-  trap, and no `=>` edge between the first write and the last. A new analyzer pass makes
-  that proof; today the analyzer records a body write per function, whatever the branch
+  `schemas/arc/ir.oracle`, NEW). Each output channel has a group of its own, so from
+  Phase 50, and before it for outputs with their own index, a cycle that writes part of
+  its outputs stays legal: an early `return`, a trap, a `=>` edge, and a channel that
+  two stages write. The cost is 8 bytes of stamps per command sample, and per data
+  output sample that the compiler cannot merge. The compiler merges channels into one
+  group only when it proves that every write site of each writes all of them, one value
+  each, with no `return`, no expression that can trap, and no `=>` edge between the
+  first write and the last. One output port whose edges are all `->` sinks counts as one
+  write site, for each channel with no other write site. A new analyzer pass makes that
+  proof; today the analyzer records a body write per function, whatever the branch
   (`arc/go/analyzer/statement/statement.go:1113`). The runtimes group a cycle's writes
   by group, not by index (`arc/go/stl/channels/state.go:173-198`), and stop adding index
   keys to a program's writes (`core/pkg/service/arc/runtime/dependencies.go:110-112`).
@@ -624,16 +630,18 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 - **Types**: A writer may name the type of each key at open; the default is the declared
   type. The validator checks each series against the session's type, so a Driver spool
   that holds an old type drains after a type change.
-- **One channel writes**: `Channel.write` and `Range.write` take the time series beside
-  the data from Phase 29, or write with `arrival_timed`.
+- **One channel writes**: `client.write`, `Channel.write`, and `Range.write` take the
+  time series beside the data from Phase 29, or write with `arrival_timed`.
 - **DataFrames**: A `time` column is the time; with none, a `DatetimeIndex` is. A
   DataFrame write with a blank cell fails: a read on two clocks leaves blanks, and they
   are not samples.
 - **On the wire**: The open names the groups, and the response gives the clock of each
-  group. A frame holds, for each present group, its time series under the group's clock,
-  declared in field 5 of the codec (§4.2). A data series names no clock: the Core knows
-  each channel's group from the open and sets `Series.clock` on relayed series, also for
-  a channel that a pause move put on its own clock. Live-only channels have no clock.
+  group. Until Phase 50, for a group over several index channels, it gives the first,
+  and the Core copies the time to the others. A frame holds, for each present group, its
+  time series under the group's clock, declared in field 5 of the codec (§4.2). A data
+  series names no clock: the Core knows each channel's group from the open and sets
+  `Series.clock` on relayed series, also for a channel that a pause move put on its own
+  clock. Live-only channels have no clock.
 - **Index channels** (until Phase 50): The channels of each index channel form one whole
   group on that index's clock, as on `main`, whatever groups the writer declares, and
   the index's stamps are its time. A declared group whose channels span several index
@@ -749,7 +757,7 @@ message IteratorRequest { repeated uint32 untimed_keys = 7; }
 | No time                                | The write has no time for temperature. Add "time", or open the writer with arrival_timed or time_of     |
 | Lengths differ                         | pressure has 2 samples, and its time has 3                                                              |
 | Time goes back                         | Time out of order at sample 4. When channels have their own times, open the writer with time_groups     |
-| Time and no channel                    | The write holds "time" and no channels                                                                  |
+| Time and no channel                    | The write holds "time" and no channels. An empty series, time or data, makes nothing present            |
 | Time in a writer that takes none       | The writer takes its time on arrival, so a write cannot hold "time"                                     |
 | A `time_of` start that is not a sample | temperature has no sample at the start. A writer with time_of starts at a sample of that channel        |
 | `"time"` in an open or read list       | "time" is not a channel. Writes take time under "time", and frame.time(channel) gives a channel's time  |
@@ -766,17 +774,17 @@ continuation. A partial group from a task fails loud, as a partial index group d
 `main`. Every Driver integration and both ICD readers change in a phase of their own
 (§5), and the Driver updates with the Core.
 
-| Producer                                                   | Groups                                                                                                                                     |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Driver read task: NI, LabJack, Modbus, EtherCAT, OPC UA    | One group of every enabled stored channel                                                                                                  |
-| Driver state writer (`driver/common/write_task.h:144-155`) | One group of every state channel                                                                                                           |
-| HTTP read, Kafka read, MQTT plain topics, both ICD readers | One group per message read                                                                                                                 |
-| MQTT Sparkplug                                             | One group per tag. A history fill writes the tag's group on a new clock, since it writes before the live stamps: two files per tag and gap |
-| Sparkplug edge commands                                    | One writer per command, as today, with one group                                                                                           |
-| Arc, Pluto control, the Python `Controller`                | §4.8                                                                                                                                       |
-| The metrics service                                        | One adaptive group, `arrival_timed`, and no index channel from Phase 44                                                                    |
-| Scripts                                                    | None: one adaptive group                                                                                                                   |
-| Calculations, signals, statuses, task commands             | None: free or virtual channels                                                                                                             |
+| Producer                                                   | Groups                                                                                                                                                                                                                        |
+| ---------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Driver read task: NI, LabJack, Modbus, EtherCAT, OPC UA    | One group of every enabled stored channel                                                                                                                                                                                     |
+| Driver state writer (`driver/common/write_task.h:144-155`) | One group of every state channel                                                                                                                                                                                              |
+| HTTP read, Kafka read, MQTT plain topics, both ICD readers | One group per message read                                                                                                                                                                                                    |
+| MQTT Sparkplug                                             | One group per tag. A history fill writes the tag's group on its index clock until Phase 50 (`Group.Index`), as on `main`, and from Phase 50 on a new clock, since it writes before the live stamps: two files per tag and gap |
+| Sparkplug edge commands                                    | One writer per command, as today, with one group                                                                                                                                                                              |
+| Arc, Pluto control, the Python `Controller`                | §4.8                                                                                                                                                                                                                          |
+| The metrics service                                        | One adaptive group, `arrival_timed`, and no index channel from Phase 44                                                                                                                                                       |
+| Scripts                                                    | None: one adaptive group                                                                                                                                                                                                      |
+| Calculations, signals, statuses, task commands             | None: free or virtual channels                                                                                                                                                                                                |
 
 - **Time fields**: A message read takes its time from its time field, else the record
   time (Kafka) or arrival (MQTT, HTTP). The ICD field `ReadMessage.index` becomes `time`
@@ -902,16 +910,16 @@ The migration changes metadata only and runs at the first start, before any writ
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
-| Holder                                                                           | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NI, LabJack, and OPC UA server devices                                           | A new schema version drops the index fields (§4.9)                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| EtherCAT devices, and the `core/v0.62.0` LabJack, HTTP, Modbus, and MQTT devices | A composition step drops the index keys from untyped JSON, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1174`)                                                                                                                                                                                                                                                                                                                                        |
-| HTTP, Kafka, MQTT, and ICD messages                                              | The index field becomes the time field, and its channel binding drops                                                                                                                                                                                                                                                                                                                                                                                               |
-| OPC UA read                                                                      | A read channel with `is_index` becomes the task's time node, and its binding drops. A channel CSV import maps a line of its `index` column to the time node (`console/src/feature/opcua/task/csv/csv.ts:17`)                                                                                                                                                                                                                                                        |
-| Sift                                                                             | Phase 42 groups Sift flows by the clock of each series, where it refuses a channel with no index today (`core/pkg/service/sift/ingest/flow.go:129-130`). A composition step drops retired keys from `channels`, by the staged entries, before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock. A flow for a new clock takes the name of its task, or of its first channel, and no status text shows a clock key |
-| Line plot, log                                                                   | A composition step, by the staged entries, sets a line plot axis that names a retired key to x 0, which shows time (`schemas/synnax/lineplot.oracle:230`), and drops a y line or a log channel that names one. Not `DropDangling`, which keeps a dead key that the Core issued (RFC 0119)                                                                                                                                                                           |
-| Arc and calculation text and graph nodes                                         | A read of a retired key, by the staged entries, becomes `time.of` of a data channel that it times, from `DB.Keys` (RFC 0121 §4.1): one that the same program reads, else the lowest key. A graph `on` or `write` node that names one takes the same source. A retired key that times no data channel stays, and the compile fails with an error that names `time.of`. The step drops `authority` entries for index channels, and a write to one fails at compile    |
-| Schematic symbol, table cell                                                     | Keeps a weak link, and the Console shows a missing channel. The release notes name the loss                                                                                                                                                                                                                                                                                                                                                                         |
+| Holder                                                                                          | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NI, LabJack, and OPC UA server devices                                                          | A new schema version drops the index fields (§4.9)                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| EtherCAT devices, the `core/v0.62.0` LabJack, HTTP, Modbus, and MQTT devices, and Kafka devices | A composition step drops the index keys from untyped JSON, by shape and not by release, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1174`). A Kafka device's `read` sources hold `index` (`console/src/feature/kafka/device/types.ts:27`, `console/src/platform/task/channels.ts:58-61`), so a stable release before Phase 50 ships them                                                                                                             |
+| HTTP, Kafka, MQTT, and ICD messages                                                             | The index field becomes the time field, and its channel binding drops                                                                                                                                                                                                                                                                                                                                                                                               |
+| OPC UA read                                                                                     | A read channel with `is_index` becomes the task's time node, and its binding drops. A channel CSV import maps a line of its `index` column to the time node (`console/src/feature/opcua/task/csv/csv.ts:17`)                                                                                                                                                                                                                                                        |
+| Sift                                                                                            | Phase 42 groups Sift flows by the clock of each series, where it refuses a channel with no index today (`core/pkg/service/sift/ingest/flow.go:129-130`). A composition step drops retired keys from `channels`, by the staged entries, before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock. A flow for a new clock takes the name of its task, or of its first channel, and no status text shows a clock key |
+| Line plot, log                                                                                  | A composition step, by the staged entries, sets a line plot axis that names a retired key to x 0, which shows time (`schemas/synnax/lineplot.oracle:230`), and drops a y line or a log channel that names one. Not `DropDangling`, which keeps a dead key that the Core issued (RFC 0119)                                                                                                                                                                           |
+| Arc and calculation text and graph nodes                                                        | A read of a retired key, by the staged entries, becomes `time.of` of a data channel that it times, from `DB.Keys` (RFC 0121 §4.1): one that the same program reads, else the lowest key. A graph `on` or `write` node that names one takes the same source. A retired key that times no data channel stays, and the compile fails with an error that names `time.of`. The step drops `authority` entries for index channels, and a write to one fails at compile    |
+| Schematic symbol, table cell                                                                    | Keeps a weak link, and the Console shows a missing channel. The release notes name the loss                                                                                                                                                                                                                                                                                                                                                                         |
 
 - **Order**: The channel step stages the entries. The holder steps merge dark at Phases
   42 and 43 and register at Phase 50 as composition migrations after the channel step
