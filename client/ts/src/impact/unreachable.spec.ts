@@ -28,6 +28,7 @@ describe("impact over an unreachable Core", () => {
     await new Promise<void>((resolve) => server.close(() => resolve()));
     const transport = new Transport({
       url: new url.URL({ host: "127.0.0.1", port }),
+      secure: false,
       retry: { baseInterval: TimeSpan.milliseconds(1), maxRetries: 2 },
       onRetry,
     });
