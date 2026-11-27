@@ -446,6 +446,15 @@ Device struct {
         @patch
     }
 
+    action Create {
+        device Device
+
+        @doc value """
+            replaces the device with the given created state. Emitted by the Core when a
+            device is created; clients never dispatch it.
+        """
+    }
+
     action Set = patch.Set
 
     action Remove = patch.Remove

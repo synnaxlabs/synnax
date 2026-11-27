@@ -12,8 +12,15 @@ package device
 import (
 	"context"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/patch"
 )
+
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// device.
+func (CreatePayload) Handle(Device) (Device, error) {
+	return Device{}, actions.CoreOnlyError("a LabJack device create")
+}
 
 // Handle applies the set to the device.
 func (p SetPayload) Handle(d Device) (Device, error) { return apply(d, patch.Set(p)) }
@@ -42,13 +49,14 @@ func apply[A patch.Action](d Device, a A) (Device, error) {
 	return d, nil
 }
 
-// Apply reduces acts onto the device stored under key, stores the result, and attaches
-// acts to the transaction of w, so its commit broadcasts them with the dispatch key of
-// w. The scanner sets only the identity paths: rack, serial, connection, and model.
-// Apply returns an error wrapping query.ErrNotFound when no device is stored under key,
-// and a validation error when an action fails or the result is invalid, changes the
-// model, carries ports for another model, gives a pin two roles, or maps a Mux80 port
-// or address line against the Mux80 state.
+// Apply applies the actions to the device stored under key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Each
+// action edits only its path, so concurrent actions on other paths survive. The scanner
+// writes only the identity paths (rack, serial, connection, and model), and users write
+// the rest. Apply returns an error wrapping query.ErrNotFound when no device is stored
+// under key, and a validation error when an action is a create or fails, or the result
+// is invalid, changes the model, carries ports for another model, gives a pin two
+// roles, or maps a Mux80 port or address line against the Mux80 state.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.update(ctx, key, func(d Device) (Device, error) {
 		return Reduce(d, acts...)

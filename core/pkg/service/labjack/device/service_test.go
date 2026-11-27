@@ -749,6 +749,15 @@ var _ = Describe("Service", func() {
 			}, "model: cannot change from t7 to t4"),
 		)
 
+		It("Should refuse a create action", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(
+				ctx,
+				d.Key,
+				device.NewCreateAction(device.CreatePayload{Device: d}),
+			)).To(MatchError(validate.ErrValidation))
+		})
+
 		It("Should reject a path that is not a device field", func(
 			ctx SpecContext,
 		) {

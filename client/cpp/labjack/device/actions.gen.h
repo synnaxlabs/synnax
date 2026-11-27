@@ -22,6 +22,15 @@
 
 namespace synnax::labjack::device {
 
+/// @brief CreatePayload replaces the device with the given created state. Emitted by
+/// the Core when a device is created; clients never dispatch it.
+struct CreatePayload {
+    Device device;
+
+    static CreatePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief SetPayload replaces the value at a path. It creates the absent objects on the
 /// path, and does nothing when the path goes through a missing list entry.
 using SetPayload = ::x::patch::Set;
@@ -39,12 +48,18 @@ using MovePayload = ::x::patch::Move;
 
 /// @brief Action is a discriminated union for all Device mutations. Its JSON form is
 /// {"type": t, t: payload}, where t is the type of the action.
-using Action = std::variant<SetPayload, RemovePayload, InsertPayload, MovePayload>;
+using Action = std::
+    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
 
 /// @brief parses an Action from its JSON form.
 Action parse_action(x::json::Parser parser);
 /// @brief returns the JSON form of an Action.
 [[nodiscard]] x::json::json to_json(const Action &value);
+
+/// @brief returns an Action that carries the given payload.
+inline Action create(CreatePayload payload) {
+    return payload;
+}
 
 /// @brief returns an Action that carries the given payload.
 inline Action set(SetPayload payload) {
@@ -66,8 +81,21 @@ inline Action move(MovePayload payload) {
     return payload;
 }
 
+inline CreatePayload CreatePayload::parse(x::json::Parser parser) {
+    return CreatePayload{
+        .device = parser.field<Device>("device"),
+    };
+}
+
+inline x::json::json CreatePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["device"] = this->device.to_json();
+    return j;
+}
+
 inline Action parse_action(x::json::Parser parser) {
     const auto type = parser.field<std::string>("type");
+    if (type == "create") return CreatePayload::parse(parser.child("create"));
     if (type == "set") return SetPayload::parse(parser.child("set"));
     if (type == "remove") return RemovePayload::parse(parser.child("remove"));
     if (type == "insert") return InsertPayload::parse(parser.child("insert"));
@@ -81,7 +109,9 @@ inline x::json::json to_json(const Action &value) {
         [](const auto &payload) {
             using Payload = std::decay_t<decltype(payload)>;
             std::string type;
-            if constexpr (std::is_same_v<Payload, SetPayload>)
+            if constexpr (std::is_same_v<Payload, CreatePayload>)
+                type = "create";
+            else if constexpr (std::is_same_v<Payload, SetPayload>)
                 type = "set";
             else if constexpr (std::is_same_v<Payload, RemovePayload>)
                 type = "remove";
