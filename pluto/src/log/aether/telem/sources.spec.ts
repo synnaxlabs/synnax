@@ -177,6 +177,23 @@ describe("StreamMultiChannelLog", () => {
     expect(log.streamedLines).toBe(0);
   });
 
+  it("should count the lines that stream in after a first read that failed for good", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        if (keys.includes(a)) throw new AccessDeniedError("no access");
+        return core.readLatest(keys, count, tr);
+      },
+    });
+    const log = open(core, client, { channels: [a] });
+    await expect.poll(() => log.value().status.variant, POLL).toBe("error");
+    await expect.poll(() => core.streams(core.index.key), POLL).toBe(true);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, 10);
+    expect(log.streamedLines).toBe(10);
+  });
+
   it("should show stored samples of any age", async () => {
     const core = createCore({ now: START.add(TimeSpan.days(2)), rate: Rate.hz(0.01) });
     const [a] = core.data.map((c) => c.key);

@@ -89,6 +89,11 @@ export interface Snapshot {
    * history change reads again do not count.
    */
   appended?: number;
+  /**
+   * For a latest request, true while the read of the channel's stored samples runs or
+   * waits to retry. A read that lands or fails for good ends it.
+   */
+  reading?: boolean;
 }
 
 /**
