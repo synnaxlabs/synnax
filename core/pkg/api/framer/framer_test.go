@@ -774,8 +774,7 @@ var _ = Describe("Framer", func() {
 			committed := func(w *svcframer.Writer, fr frame.Frame) bool {
 				GinkgoHelper()
 				MustSucceed(w.Write(fr))
-				_, authorized, err := w.Commit()
-				Expect(err).ToNot(HaveOccurred())
+				_, authorized := MustSucceed2(w.Commit())
 				return authorized
 			}
 

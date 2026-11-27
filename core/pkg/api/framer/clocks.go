@@ -201,6 +201,9 @@ func (c *indexClaims) Flow(ctx signal.Context, opts ...confluence.Option) {
 
 func (c *indexClaims) forward(ctx context.Context, req framer.WriterRequest) error {
 	switch req.Command {
+	case framer.WriterCommandOpen,
+		framer.WriterCommandCommit,
+		framer.WriterCommandEndDomain:
 	case framer.WriterCommandSetAuthority:
 		c.push(false)
 	case framer.WriterCommandWrite:
