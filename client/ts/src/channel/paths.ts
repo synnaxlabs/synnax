@@ -57,8 +57,13 @@ export class Paths {
   private readonly cfg: PathsConfig;
   /** The name and parent of each channel folder in the group table. */
   private readonly folders = new Map<group.Key, Folder>();
-  /** Counts the folder writes that can change a path. */
+  /** Counts the renames and moves of the cached channel folders. */
   private moves = 0;
+  /**
+   * Counts the writes that can change what a path matches: the moves, and each change
+   * to a channel folder new to the table.
+   */
+  private matches = 0;
 
   constructor(cfg: PathsConfig) {
     this.cfg = cfg;
@@ -74,13 +79,15 @@ export class Paths {
       const after = folderOf(event.value);
       this.folders.set(event.key, after);
       // A folder new to the table is either a new, empty folder or one that a write
-      // changed before the client read it, and only the second can change a path.
-      if (
-        before == null
-          ? query.isChange(event)
-          : before.name !== after.name || before.parent !== after.parent
-      )
-        this.moves++;
+      // changed before the client read it. Only the second can change a path, and only
+      // a path through a folder that the client did not cache.
+      if (before == null) {
+        if (query.isChange(event)) this.matches++;
+        return;
+      }
+      if (before.name === after.name && before.parent === after.parent) return;
+      this.moves++;
+      this.matches++;
     });
     const composed: query.Trigger<RetrieveRequest, Key> = {
       attach: (params, onEvent, members) => {
@@ -114,14 +121,14 @@ export class Paths {
     const filtered: query.Trigger<RetrieveRequest, Key> = {
       attach: (params, onEvent) => {
         if (!filtersPath(params.where)) return () => {};
-        let moves = this.moves;
+        let matches = this.matches;
         return groups.store.subscribe(() => {
-          if (this.moves === moves) return;
-          moves = this.moves;
+          if (this.matches === matches) return;
+          matches = this.matches;
           onEvent("refetch");
         });
       },
-      version: () => this.moves,
+      version: () => this.matches,
     };
     this.triggers = [composed, filtered];
   }
