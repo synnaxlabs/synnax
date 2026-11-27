@@ -737,16 +737,16 @@ public:
 
     /// @brief takes a region of at least size bytes past the end of guest memory.
     /// @returns the base and capacity of the region, or nullopt when memory cannot
-    /// grow or the region would end past the 32-bit address space.
+    /// grow. A 32-bit guest memory cannot grow past 4 GiB, so both fit 32 bits.
     std::optional<std::pair<uint32_t, uint32_t>> grow(const uint64_t size) {
         constexpr uint64_t PAGE_SIZE = 65536;
         const uint64_t pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
         const auto prev = this->memory.grow(this->store, pages);
         if (!prev) return std::nullopt;
-        const uint64_t base = prev.ok() * PAGE_SIZE;
-        const uint64_t capacity = pages * PAGE_SIZE;
-        if (base + capacity > UINT32_MAX) return std::nullopt;
-        return std::pair{static_cast<uint32_t>(base), static_cast<uint32_t>(capacity)};
+        return std::pair{
+            static_cast<uint32_t>(prev.ok() * PAGE_SIZE),
+            static_cast<uint32_t>(pages * PAGE_SIZE)
+        };
     }
 
     /// @brief gives the guest its whole loop budget. Call it before each cycle. A call

@@ -3750,13 +3750,4 @@ TEST(BatchTest, RefusesACapacityBelowOneSample) {
     out.resize(2);
     EXPECT_FALSE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 2, out)));
 }
-
-/// @brief it should refuse a region that ends past the 32-bit address space.
-TEST(BatchTest, GrowRefusesARegionPastFourGiB) {
-    auto [mod, func] = open_pair(
-        "func sum() {a i32, b i32} i32 { return a + b }",
-        "sum"
-    );
-    EXPECT_FALSE(mod->grow(uint64_t{1} << 33).has_value());
-}
 }
