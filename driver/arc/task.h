@@ -9,8 +9,11 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <optional>
+#include <thread>
 #include <variant>
 #include <vector>
 
@@ -133,8 +136,20 @@ class Task final : public task::Task {
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
     /// @brief the active top-level scopes of the program, or nullopt before its first
-    /// cycle in this run.
+    /// cycle in this run. Requires state_mu.
     std::optional<synnax::arc::task::StatusData> scopes;
+    /// @brief guards pending_scopes and scopes_closed.
+    std::mutex scopes_mu;
+    /// @brief wakes scopes_thread when scopes wait or the task closes.
+    std::condition_variable scopes_cv;
+    /// @brief the latest scopes that the runtime reported, until scopes_thread takes
+    /// them.
+    std::optional<synnax::arc::task::StatusData> pending_scopes;
+    /// @brief true once the task closes, which ends scopes_thread.
+    bool scopes_closed = false;
+    /// @brief shows the scopes that the runtime reports, so the runtime thread never
+    /// waits on a status lock.
+    std::thread scopes_thread;
 
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
@@ -150,19 +165,44 @@ class Task final : public task::Task {
     void send_scopes() {
         if (!this->scopes.has_value()) return;
         const auto [message, description] = scope_text(*this->scopes);
-        this->state.set_data(this->scopes->to_json().get<x::json::json::object_t>());
-        this->state.send_running(message, description);
+        this->state.send_running(
+            message,
+            description,
+            this->scopes->to_json().get<x::json::json::object_t>()
+        );
     }
 
-    /// @brief records the active paths of the program and shows them. Runs on the
-    /// runtime thread.
+    /// @brief hands the active paths of the program to scopes_thread. Runs on the
+    /// runtime thread, and never blocks on a status write.
     void set_scopes(const std::vector<::arc::runtime::scheduler::Path> &paths) {
         synnax::arc::task::StatusData data;
         for (const auto &p: paths)
             data.scopes.push_back({.path = p});
-        std::lock_guard lock(this->state_mu);
-        this->scopes = std::move(data);
-        this->send_scopes();
+        {
+            std::lock_guard lock(this->scopes_mu);
+            this->pending_scopes = std::move(data);
+        }
+        this->scopes_cv.notify_one();
+    }
+
+    /// @brief shows each pending set of scopes until the task closes.
+    void run_scopes() {
+        std::unique_lock lock(this->scopes_mu);
+        while (true) {
+            this->scopes_cv.wait(lock, [this] {
+                return this->scopes_closed || this->pending_scopes.has_value();
+            });
+            if (this->scopes_closed) return;
+            auto data = std::move(*this->pending_scopes);
+            this->pending_scopes.reset();
+            lock.unlock();
+            {
+                std::lock_guard state_lock(this->state_mu);
+                this->scopes = std::move(data);
+                this->send_scopes();
+            }
+            lock.lock();
+        }
     }
 
     /// @brief source that reads output data from the arc runtime.
@@ -353,6 +393,9 @@ public:
         if (err) return {nullptr, err};
 
         task->runtime = std::move(rt);
+        task->scopes_thread = std::thread([task_ptr = task.get()] {
+            task_ptr->run_scopes();
+        });
 
         if (!writer_factory)
             writer_factory = bypass::pipeline::create_writer_factory(ctx);
@@ -414,6 +457,7 @@ public:
                 this->state.ack(cmd_key, true);
                 return false;
             }
+            this->scopes.reset();
             if (this->control) {
                 this->opening = true;
                 this->pending_starts = {cmd_key};
@@ -450,6 +494,10 @@ public:
             this->state.ack(key, false);
         this->pending_starts.clear();
         this->opening = false;
+        {
+            std::lock_guard scopes_lock(this->scopes_mu);
+            this->pending_scopes.reset();
+        }
         this->scopes.reset();
         this->state.set_data(std::nullopt);
         if (propagate_state) this->state.send_stop(cmd_key);
@@ -471,5 +519,14 @@ public:
     }
 
     [[nodiscard]] std::string name() const override { return "Arc Runtime Task"; }
+
+    ~Task() override {
+        {
+            std::lock_guard lock(this->scopes_mu);
+            this->scopes_closed = true;
+        }
+        this->scopes_cv.notify_one();
+        if (this->scopes_thread.joinable()) this->scopes_thread.join();
+    }
 };
 }

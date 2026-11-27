@@ -1078,8 +1078,11 @@ TEST(TestSendRunning, SendsTheTextAndDataOfARunningTask) {
     const synnax::task::Task task{.name = "task1", .type = "arc"};
     auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
     handler.send_start("start");
-    handler.set_data(x::json::json::object_t{{"scopes", x::json::json::array()}});
-    handler.send_running("Idle", "waits");
+    handler.send_running(
+        "Idle",
+        "waits",
+        x::json::json::object_t{{"scopes", x::json::json::array()}}
+    );
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
     const auto running = ctx->snapshot()[1];
     EXPECT_EQ(running.variant, synnax::status::VARIANT_SUCCESS);
@@ -1095,10 +1098,10 @@ TEST(TestSendRunning, SendsNothingForAStoppedOrFailedTask) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "arc"};
     auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
-    handler.send_running("Idle", "");
+    handler.send_running("Idle", "", {});
     handler.send_start("start");
     handler.send_error(x::errors::Error(x::errors::INTERNAL, "boom"), "Failed");
-    handler.send_running("Idle", "");
+    handler.send_running("Idle", "", {});
     // A stop answers at once, so it shows that the flusher sent nothing before it.
     handler.send_stop("stop");
     const auto statuses = ctx->snapshot();
@@ -1113,8 +1116,11 @@ TEST(TestSendRunning, KeepsTheDataThroughAWarningAndDropsItOnAnError) {
     const synnax::task::Task task{.name = "task1", .type = "arc"};
     auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
     handler.send_start("start");
-    handler.set_data(x::json::json::object_t{{"scopes", x::json::json::array()}});
-    handler.send_running("Idle", "");
+    handler.send_running(
+        "Idle",
+        "",
+        x::json::json::object_t{{"scopes", x::json::json::array()}}
+    );
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
     handler.send_warning("Node failed", "");
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 3);

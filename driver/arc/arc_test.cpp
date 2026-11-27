@@ -4045,23 +4045,28 @@ sequence main {
 
 /// @brief it should show that the program is idle after its sequence ends.
 TEST(ArcScopeStatus, ShowsIdleAfterTheSequenceEnds) {
+    // The stage holds longer than the status window, so its status is sent before the
+    // end of the sequence.
     const auto r = scope_status::run(
         R"(
+import time
+
 sequence main {
     stage pressurize {
-        %pt% > 50 => next
+        time.wait(duration=1500ms) => next
     }
     0 -> %out%
 }
 %start% => main
 )",
-        {60}
+        {}
     );
     const auto &ctx = r.ctx;
-    ASSERT_EVENTUALLY_TRUE(
-        std::ranges::any_of(r.writer->writes->snapshot(), [&r](const auto &fr) {
-            return fr.contains(r.out);
-        })
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        scope_status::last(ctx).message,
+        "Running main › pressurize",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(5)
     );
     ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
         scope_status::last(ctx).message,
@@ -4072,5 +4077,8 @@ sequence main {
     const auto status = scope_status::last(ctx);
     EXPECT_TRUE(status.details.running);
     EXPECT_TRUE(scope_status::data_of(status).scopes.empty());
+    EXPECT_TRUE(std::ranges::any_of(r.writer->writes->snapshot(), [&r](const auto &fr) {
+        return fr.contains(r.out);
+    }));
 }
 }
