@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.opcua import server
+from synnax.opcua.client import Client
 from synnax.opcua.types import (
     MAKE,
     MODEL,
@@ -34,6 +35,7 @@ __all__ = [
     "MODEL",
     "ArraySampling",
     "BaseChannel",
+    "Client",
     "Device",
     "ReadChannel",
     "ReadConfig",

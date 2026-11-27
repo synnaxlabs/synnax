@@ -43,6 +43,7 @@ from synnax import (
     lineplot,
     log,
     ni as ni_,
+    opcua as opcua_,
     panel,
     project,
     rack,
@@ -382,6 +383,11 @@ class Synnax(framer.Client):
     @_Lazy
     def certificates(self) -> certificate.Client:
         return certificate.Client(client=self._transport.unary)
+
+    @_Lazy
+    def opcua(self) -> opcua_.Client:
+        """The clients of the OPC UA resources in the Core."""
+        return opcua_.Client(client=self._transport.unary)
 
     @_Lazy
     def icds(self) -> icd.Client:
