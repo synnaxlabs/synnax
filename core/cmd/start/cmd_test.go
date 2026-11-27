@@ -146,7 +146,7 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 
 		It("Should reject a negative lifetime", func() {
 			viper.Set(start.FlagInsecure, true)
-			viper.Set(start.FlagAPIKeyMaxLifetime, -time.Hour)
+			viper.Set(start.FlagKeyMaxLifetime, -time.Hour)
 			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
 			Expect(cfg.Validate()).
 				To(MatchError(ContainSubstring("api_key_max_lifetime")))

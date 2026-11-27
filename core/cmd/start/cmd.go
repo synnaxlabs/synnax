@@ -219,7 +219,7 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) (CoreConfig, error) {
 		secretsDir:          viper.GetString(FlagSecretsDir),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
 		sessionIdleTimeout:  viper.GetDuration(FlagSessionIdleTimeout),
-		apiKeyMaxLifetime:   viper.GetDuration(FlagAPIKeyMaxLifetime),
+		apiKeyMaxLifetime:   viper.GetDuration(FlagKeyMaxLifetime),
 		rootCredentials: auth.Credentials{
 			Username: viper.GetString(FlagUsername),
 			Password: viper.GetString(FlagPassword),
