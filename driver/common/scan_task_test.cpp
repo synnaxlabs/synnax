@@ -2674,6 +2674,9 @@ TEST(TestScanTask, RoutesLegacyAndScannerSignals) {
     signaled.key = "device1";
     signaled.rack = 1;
     signaled.make = "test_make";
+    signaled.name = "Device 1";
+    signaled.model = "test_model";
+    signaled.location = "dev1";
     auto cluster_api = std::make_unique<MockClusterAPI>(
         std::make_shared<std::vector<synnax::device::Device>>(std::vector{signaled}),
         std::make_shared<std::vector<synnax::device::Device>>()
@@ -2702,8 +2705,7 @@ TEST(TestScanTask, RoutesLegacyAndScannerSignals) {
     );
     scan_task.start();
     x::telem::Frame frame(2);
-    const x::json::json signaled_json = {{"key", signaled.key}};
-    frame.emplace(set_ch.key, x::telem::Series(signaled_json.dump()));
+    frame.emplace(set_ch.key, x::telem::Series(signaled.to_json().dump()));
     frame.emplace(thing_set.key, x::telem::Series(std::string(R"({"key":"a"})")));
     cluster_api_ptr->signals->send(std::move(frame));
     scan_task.stop();
