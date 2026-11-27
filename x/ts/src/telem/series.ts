@@ -1524,16 +1524,17 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   as(jsType: "boolean"): MultiSeries<boolean>;
 
   as<T extends TelemValue>(jsType: JSType): MultiSeries<T> {
-    checkAsType(jsType, this.dataType);
+    const dataType = this.dataType;
+    if (dataType != null) checkAsType(jsType, dataType);
     return this as unknown as MultiSeries<T>;
   }
 
   /**
-   * Returns the data type of the series in this collection. If the collection is empty,
-   * returns DataType.UNKNOWN.
+   * Returns the data type of the series in this collection, or undefined if the
+   * collection is empty.
    */
-  get dataType(): DataType {
-    return this.series[0]?.dataType ?? DataType.UNKNOWN;
+  get dataType(): DataType | undefined {
+    return this.series[0]?.dataType;
   }
 
   /**
@@ -1575,19 +1576,14 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * @throws Error if the series being added has a different data type
    */
   push(series: Series<T> | MultiSeries<T>): void {
-    const invalidDataTypeError = () =>
-      new Error(
-        `cannot push a ${series.dataType.toString()} series to a ${this.dataType.toString()} multi-series`,
+    const existing = this.dataType;
+    const added = series.dataType;
+    if (existing != null && added != null && !added.equals(existing))
+      throw new Error(
+        `cannot push a ${added.toString()} series to a ${existing.toString()} multi-series`,
       );
-    const dtsEqual = series.dataType.equals(this.dataType);
-    if (isSeries(series)) {
-      if (this.series.length !== 0 && !dtsEqual) throw invalidDataTypeError();
-      this.series.push(series);
-    } else {
-      if (this.series.length !== 0 && series.series.length !== 0 && !dtsEqual)
-        throw invalidDataTypeError();
-      series.series.forEach((s) => this.series.push(s));
-    }
+    if (isSeries(series)) this.series.push(series);
+    else series.series.forEach((s) => this.series.push(s));
   }
 
   /**
@@ -1648,15 +1644,15 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
 
   /** @returns A typed array containing all data from all series. */
   get data(): TypedArray {
-    const buf = new this.dataType.Array(
-      this.series.reduce((a, s) => a + s.data.length, 0),
-    );
+    const dataType = this.dataType;
+    if (dataType == null) throw new Error("an empty multi-series has no data");
+    const buf = new dataType.Array(this.series.reduce((a, s) => a + s.data.length, 0));
     let offset = 0;
     for (const ser of this.series) {
       buf.set(ser.data as ArrayLike<any>, offset);
       offset += ser.data.length;
     }
-    return new this.dataType.Array(buf.buffer);
+    return new dataType.Array(buf.buffer);
   }
 
   /** Acquires a reference to the WebGL buffer for all series. */
@@ -1675,7 +1671,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    * @returns An array of values parsed from the JSON series.
    */
   parseJSON<Z extends z.ZodType>(schema: Z): Array<z.infer<Z>> {
-    if (!this.dataType.equals(DataType.JSON))
+    if (this.dataType?.equals(DataType.JSON) !== true)
       throw new Error("cannot parse non-JSON series as JSON");
     return this.series.flatMap((s) => s.parseJSON(schema));
   }
