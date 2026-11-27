@@ -22,7 +22,7 @@ const ENV = {
   SYNNAX_HOST: "core.env",
   SYNNAX_PORT: "9091",
   SYNNAX_API_KEY: "syk_env",
-  SYNNAX_INSECURE: "false",
+  SYNNAX_CLIENT_INSECURE: "false",
 };
 
 const CODE = {
@@ -87,7 +87,7 @@ describe("resolveParams", () => {
         SYNNAX_HOST: " core.env\n",
         SYNNAX_PORT: "",
         SYNNAX_API_KEY: "syk_env\n",
-        SYNNAX_INSECURE: " ",
+        SYNNAX_CLIENT_INSECURE: " ",
       },
       { host: "core.env", port: 9090, apiKey: "syk_env", insecure: false },
     ],
@@ -133,16 +133,16 @@ describe("resolveParams", () => {
     ["0", false],
     ["no", false],
     ["false", false],
-  ])("should read SYNNAX_INSECURE=%j as %s", (value, insecure) => {
-    const vars = { SYNNAX_INSECURE: value };
+  ])("should read SYNNAX_CLIENT_INSECURE=%j as %s", (value, insecure) => {
+    const vars = { SYNNAX_CLIENT_INSECURE: value };
     expect(env.resolveParams({ host: "rig" }, vars).insecure).toEqual(insecure);
   });
 
   it.each<[env.Given, env.Env, boolean]>([
     [{ caCert: "pem" }, {}, false],
-    [{ caCert: "pem" }, { SYNNAX_INSECURE: "true" }, false],
-    [{ caCert: "pem", insecure: true }, { SYNNAX_INSECURE: "false" }, true],
-    [{ insecure: true }, { SYNNAX_INSECURE: "false" }, true],
+    [{ caCert: "pem" }, { SYNNAX_CLIENT_INSECURE: "true" }, false],
+    [{ caCert: "pem", insecure: true }, { SYNNAX_CLIENT_INSECURE: "false" }, true],
+    [{ insecure: true }, { SYNNAX_CLIENT_INSECURE: "false" }, true],
   ])("should take insecure and the CA from %j over %j", (params, vars, insecure) => {
     expect(env.resolveParams({ host: "rig", ...params }, vars).insecure).toEqual(
       insecure,
@@ -172,9 +172,21 @@ describe("resolveParams", () => {
       true,
     ],
     [
-      "SYNNAX_SECURE next to an agreeing SYNNAX_INSECURE",
+      "SYNNAX_CLIENT_INSECURE next to an agreeing SYNNAX_SECURE",
       {},
-      { SYNNAX_INSECURE: "false", SYNNAX_SECURE: "true" },
+      { SYNNAX_CLIENT_INSECURE: "false", SYNNAX_SECURE: "true" },
+      false,
+    ],
+    [
+      "SYNNAX_CLIENT_INSECURE over a disagreeing SYNNAX_SECURE",
+      {},
+      { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_SECURE: "true" },
+      true,
+    ],
+    [
+      "SYNNAX_CLIENT_INSECURE over a SYNNAX_SECURE that is not valid",
+      {},
+      { SYNNAX_CLIENT_INSECURE: "false", SYNNAX_SECURE: "maybe" },
       false,
     ],
   ])("should read %s with no warning", (_, params, vars, insecure) => {
@@ -185,18 +197,10 @@ describe("resolveParams", () => {
     warn.mockRestore();
   });
 
-  it.each<[env.Given, env.Env, string]>([
-    [{ insecure: true, secure: true }, {}, "insecure and secure disagree"],
-    [
-      {},
-      { SYNNAX_INSECURE: "true", SYNNAX_SECURE: "true" },
-      "SYNNAX_INSECURE and SYNNAX_SECURE disagree",
-    ],
-  ])("should reject %j and %j that disagree", (params, vars, message) => {
-    expect(() => env.resolveParams({ host: "rig", ...params }, vars)).toThrow(
-      ValidationError,
-    );
-    expect(() => env.resolveParams({ host: "rig", ...params }, vars)).toThrow(message);
+  it("should reject insecure and secure options that disagree", () => {
+    const params = { host: "rig", insecure: true, secure: true };
+    expect(() => env.resolveParams(params)).toThrow(ValidationError);
+    expect(() => env.resolveParams(params)).toThrow("insecure and secure disagree");
   });
 
   it("should read no variable for a field the params give", () => {
@@ -210,7 +214,11 @@ describe("resolveParams", () => {
     [{ host: "rig" }, { SYNNAX_PORT: "abc" }, "SYNNAX_PORT must be a port"],
     [{ host: "rig" }, { SYNNAX_PORT: "0" }, "SYNNAX_PORT must be a port"],
     [{ host: "rig" }, { SYNNAX_PORT: "65536" }, "SYNNAX_PORT must be a port"],
-    [{ host: "rig" }, { SYNNAX_INSECURE: "maybe" }, "SYNNAX_INSECURE must be true or"],
+    [
+      { host: "rig" },
+      { SYNNAX_CLIENT_INSECURE: "maybe" },
+      "SYNNAX_CLIENT_INSECURE must be true or",
+    ],
   ])("should reject %j with %j", (params, vars, message) => {
     expect(() => env.resolveParams(params, vars)).toThrow(ValidationError);
     expect(() => env.resolveParams(params, vars)).toThrow(message);
@@ -280,7 +288,7 @@ describe("resolveParams with Synnax Desktop", () => {
 
   it("should let the params and variables win over Synnax Desktop", () => {
     const system = desktop();
-    const vars = { SYNNAX_INSECURE: "true", SYNNAX_API_KEY: "syk_env" };
+    const vars = { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_API_KEY: "syk_env" };
     expect(env.resolveParams({ port: 80 }, vars, system)).toEqual({
       host: "localhost",
       port: 80,
@@ -703,8 +711,8 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     });
   });
 
-  it("should take SYNNAX_INSECURE=false with the file", () => {
-    const vars = { SYNNAX_INSECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" };
+  it("should take SYNNAX_CLIENT_INSECURE=false with the file", () => {
+    const vars = { SYNNAX_CLIENT_INSECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" };
     expect(env.resolveParams({ host: "rig" }, vars, system)).toMatchObject({
       insecure: false,
       caCert: PEM,
@@ -747,10 +755,10 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
 
   it.each<[string, env.Env, env.System | undefined, string]>([
     [
-      "SYNNAX_INSECURE is true",
-      { SYNNAX_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" },
+      "SYNNAX_CLIENT_INSECURE is true",
+      { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" },
       system,
-      "SYNNAX_CA_CERT requires TLS; leave SYNNAX_INSECURE out",
+      "SYNNAX_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out",
     ],
     [
       "the file does not exist",
@@ -801,9 +809,9 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     expect(deno.readFile).not.toHaveBeenCalled();
   });
 
-  it("should reject SYNNAX_INSECURE true when the CA is unsupported", () => {
+  it("should reject SYNNAX_CLIENT_INSECURE true when the CA is unsupported", () => {
     const deno: env.System = { ...system, caCertUnsupported: true };
-    const vars = { SYNNAX_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" };
+    const vars = { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" };
     expect(() => env.resolveParams({ host: "rig" }, vars, deno)).toThrow(
       "SYNNAX_CA_CERT requires TLS",
     );

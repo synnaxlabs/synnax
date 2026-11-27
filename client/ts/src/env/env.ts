@@ -94,7 +94,7 @@ const NOT_RUNNING_MSG =
   "Synnax Desktop is not running. Open it and try again. To connect to another Core, " +
   "give a host and a port.";
 const CA_NEEDS_TLS_MSG =
-  "SYNNAX_CA_CERT requires TLS; leave SYNNAX_INSECURE out or set it to false";
+  "SYNNAX_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out or set it to false";
 const HELPER_TIMEOUT = TimeSpan.seconds(30);
 
 // Synnax Desktop writes secure, the inverse of insecure.
@@ -153,42 +153,6 @@ export interface InsecureParams {
   secure?: boolean;
 }
 
-interface InsecureNames {
-  insecure: string;
-  secure: string;
-  replacement: string;
-}
-
-const PARAM_NAMES: InsecureNames = {
-  insecure: "insecure",
-  secure: "secure",
-  replacement: "insecure: true in place of secure: false",
-};
-
-const VARIABLE_NAMES: InsecureNames = {
-  insecure: "SYNNAX_INSECURE",
-  secure: "SYNNAX_SECURE",
-  replacement: "SYNNAX_INSECURE=true in place of SYNNAX_SECURE=false",
-};
-
-const combineInsecure = (
-  insecure: boolean | undefined,
-  secure: boolean | undefined,
-  names: InsecureNames,
-): boolean | undefined => {
-  if (secure == null) return insecure;
-  if (insecure === secure)
-    throw new ValidationError(
-      `${names.insecure} and ${names.secure} disagree. Give ${names.insecure} only.`,
-    );
-  // Both names that agree serve clients older and newer than 0.63 at once.
-  if (insecure != null) return insecure;
-  console.warn(
-    `${names.secure} is deprecated and goes in 0.64. Use ${names.replacement}.`,
-  );
-  return !secure;
-};
-
 /**
  * @returns insecure, or the inverse of the deprecated secure. The deprecated secure
  * alone logs a warning. Undefined when neither is given.
@@ -197,15 +161,32 @@ const combineInsecure = (
 export const resolveInsecure = ({
   insecure,
   secure,
-}: InsecureParams): boolean | undefined =>
-  combineInsecure(insecure, secure, PARAM_NAMES);
-
-const readInsecure = (env: Env): boolean | undefined =>
-  combineInsecure(
-    readBoolean(env, "SYNNAX_INSECURE"),
-    readBoolean(env, "SYNNAX_SECURE"),
-    VARIABLE_NAMES,
+}: InsecureParams): boolean | undefined => {
+  if (secure == null) return insecure;
+  if (insecure === secure)
+    throw new ValidationError("insecure and secure disagree. Give insecure only.");
+  // Both names that agree serve clients older and newer than 0.63 at once.
+  if (insecure != null) return insecure;
+  console.warn(
+    "secure is deprecated and goes in 0.64. Use insecure: true in place of " +
+      "secure: false.",
   );
+  return !secure;
+};
+
+// SYNNAX_SECURE applies only when SYNNAX_CLIENT_INSECURE is unset, and is not read
+// otherwise: a shell that also runs a Core can hold either name for the Core.
+const readInsecure = (env: Env): boolean | undefined => {
+  const insecure = readBoolean(env, "SYNNAX_CLIENT_INSECURE");
+  if (insecure != null) return insecure;
+  const secure = readBoolean(env, "SYNNAX_SECURE");
+  if (secure == null) return undefined;
+  console.warn(
+    "SYNNAX_SECURE is deprecated and goes in 0.64. Use SYNNAX_CLIENT_INSECURE=true in " +
+      "place of SYNNAX_SECURE=false.",
+  );
+  return !secure;
+};
 
 const isAbsolute = (path: string, platform: string): boolean =>
   platform === "win32" ? /^([a-z]:[\\/]|\\\\)/i.test(path) : path.startsWith("/");
@@ -434,23 +415,24 @@ export const nodeSystem = (
  * as loadAPIKey, which runs its key helper and rejects with a ValidationError if the
  * helper is gone, fails, or does not finish in time. Insecure and the CA certificate
  * come as a pair from the first source that sets either one: the params (insecure,
- * caCert), then the variables (SYNNAX_INSECURE, and SYNNAX_CA_CERT as the path of a PEM
- * file), then Synnax Desktop. The deprecated secure and SYNNAX_SECURE give the opposite
- * of insecure. Each logs a warning when set alone and throws when its new name
- * disagrees. When system.caCertUnsupported is true, SYNNAX_CA_CERT turns TLS on but its
- * file is not read. Reads only the variables of missing fields. Variable values are
- * trimmed, and an empty value is unset. In Deno, a variable the script has no
- * permission to read is unset.
+ * caCert), then the variables (SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT as the path
+ * of a PEM file), then Synnax Desktop. The deprecated secure and SYNNAX_SECURE give the
+ * opposite of insecure, and each logs a warning when used. Secure throws when insecure
+ * disagrees. SYNNAX_SECURE applies only when SYNNAX_CLIENT_INSECURE is unset. When
+ * system.caCertUnsupported is true, SYNNAX_CA_CERT turns TLS on but its file is not
+ * read. Reads only the variables of missing fields. Variable values are trimmed, and an
+ * empty value is unset. In Deno, a variable the script has no permission to read is
+ * unset.
  * @param system - Finds Synnax Desktop and reads the SYNNAX_CA_CERT file. Undefined in
  * a runtime that cannot.
  * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
- * SYNNAX_PORT, SYNNAX_INSECURE, or SYNNAX_SECURE is not valid, if insecure and secure,
- * or SYNNAX_INSECURE and SYNNAX_SECURE, disagree, if SYNNAX_CA_CERT is set with
- * SYNNAX_INSECURE true, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or
- * cannot be read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax
- * Desktop is too old. Reads the desktop.json of the config directory of the OS or of
- * ~/.synnax that was modified last. In Deno, a missing permission to read the file is
- * the same as no file.
+ * SYNNAX_PORT, SYNNAX_CLIENT_INSECURE, or the SYNNAX_SECURE it reads is not valid, if
+ * insecure and secure disagree, if SYNNAX_CA_CERT is set with SYNNAX_CLIENT_INSECURE
+ * true, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or cannot be read,
+ * if the desktop.json of Synnax Desktop cannot be read, or if Synnax Desktop is too
+ * old. Reads the desktop.json of the config directory of the OS or of ~/.synnax that
+ * was modified last. In Deno, a missing permission to read the file is the same as no
+ * file.
  */
 export const resolveParams = <P extends Given>(
   params: P,

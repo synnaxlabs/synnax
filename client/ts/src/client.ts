@@ -155,11 +155,19 @@ const constructorParamsZ = synnaxParamsZ
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
+interface ClientParams extends Omit<
+  ParsedSynnaxParams,
+  "password" | "apiKey" | "token" | "oidc" | "secure"
+> {
+  /** @deprecated Use insecure, its inverse. Removed in 0.64. */
+  readonly secure: boolean;
+}
+
 /**
  * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
- * SYNNAX_API_KEY, SYNNAX_INSECURE, and SYNNAX_CA_CERT environment variables fill the
- * fields left out, and so does the deprecated SYNNAX_SECURE. With no host from either,
- * Synnax Desktop on this computer fills them.
+ * SYNNAX_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT environment variables fill
+ * the fields left out, and so does the deprecated SYNNAX_SECURE. With no host from
+ * either, Synnax Desktop on this computer fills them.
  */
 export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
   host?: string;
@@ -260,7 +268,7 @@ export default class Synnax extends framer.Client {
   readonly key: string;
   readonly createdAt: TimeStamp;
   /** The parameters the client connects with. Credentials stay in auth. */
-  readonly params: Omit<ParsedSynnaxParams, "password" | "apiKey" | "token" | "oidc">;
+  readonly params: ClientParams;
   readonly ranges: ranger.Client;
   readonly channels: channel.Client;
   readonly auth: auth.Client;
@@ -322,12 +330,12 @@ export default class Synnax extends framer.Client {
    * healthy. Defaults to 30 seconds.
    * @param props.insecure - Whether to connect without TLS. Set it to true for a Core
    * that runs with --insecure. Defaults to false with props.caCert, else to
-   * SYNNAX_INSECURE (false with SYNNAX_CA_CERT), then the value of Synnax Desktop when
-   * it gives the host, then false.
+   * SYNNAX_CLIENT_INSECURE (false with SYNNAX_CA_CERT), then the value of Synnax
+   * Desktop when it gives the host, then false.
    * @param props.secure - Deprecated, and removed in 0.64: the opposite of
    * props.insecure. Alone, it logs a warning; it throws if props.insecure disagrees.
-   * SYNNAX_SECURE does the same with SYNNAX_INSECURE.
-   * A Synnax client must be closed when it is no longer needed. This stops the
+   * SYNNAX_SECURE logs a warning, and applies only when SYNNAX_CLIENT_INSECURE is
+   * unset. A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
    * certificate. When props.insecure and props.caCert are both left out, defaults to
@@ -337,11 +345,11 @@ export default class Synnax extends framer.Client {
    * fails, that login rejects with an APIKeyUnavailableError, and the connection status
    * gives the reason "auth".
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
-   * SYNNAX_PORT, SYNNAX_INSECURE, or SYNNAX_SECURE is not valid, if insecure and
-   * secure, or SYNNAX_INSECURE and SYNNAX_SECURE, disagree, if SYNNAX_CA_CERT is
-   * set with SYNNAX_INSECURE true, if the SYNNAX_CA_CERT file is missing, empty, not
-   * PEM text, or cannot be read, if the desktop.json of Synnax Desktop cannot be read,
-   * or if Synnax Desktop is too old.
+   * SYNNAX_PORT, SYNNAX_CLIENT_INSECURE, or the SYNNAX_SECURE it reads is not valid, if
+   * insecure and secure disagree, if SYNNAX_CA_CERT is set with SYNNAX_CLIENT_INSECURE
+   * true, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or cannot be
+   * read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax Desktop is
+   * too old.
    * @throws {Error} if props.caCert is set with props.insecure true, in a browser, or
    * in Deno.
    * @throws {Error} in Node, if HTTP_PROXY or HTTPS_PROXY is set to a value that is not
@@ -448,7 +456,12 @@ export default class Synnax extends framer.Client {
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
     this.createdAt = TimeStamp.now();
-    this.params = record.omit(parsedParams, "password", "apiKey", "token", "oidc");
+    // Built apart from the field so the deprecated key does not flag the build.
+    const clientParams = {
+      ...record.omit(parsedParams, "password", "apiKey", "token", "oidc", "secure"),
+      secure: !parsedParams.insecure,
+    };
+    this.params = clientParams;
     this.transport = transport;
     const unary = this.transport.unary;
     this.batch = new batch.Client(unary);
