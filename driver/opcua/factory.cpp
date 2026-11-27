@@ -89,9 +89,9 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.rate
+        cfg
     );
-    result.auto_start = !cfg.disabled;
+    result.auto_start = true;
     return {std::move(result), x::errors::NIL};
 }
 

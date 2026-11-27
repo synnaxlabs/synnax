@@ -218,6 +218,14 @@ func (b *BaseField) SetDefaults() {
 func (b BaseField) Validate() error {
 	v := validate.New("BaseField")
 	v.NotEmptyString("name", b.Name)
+	v.Finite("scale", b.Scale)
+	v.Finite("offset", b.Offset)
+	if b.Min != nil {
+		v.Finite("min", *b.Min)
+	}
+	if b.Max != nil {
+		v.Finite("max", *b.Max)
+	}
 	return v.Error()
 }
 

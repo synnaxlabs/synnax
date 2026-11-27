@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstring>
 #include <string>
 
@@ -80,6 +81,12 @@ public:
     }
 
     x::errors::Error start() override {
+        // Each start runs on a new thread.
+        if (!this->rt_handle) {
+            x::thread::rt::apply_config(this->config.rt());
+        } else {
+            this->rt_handle->apply();
+        }
         if (this->kqueue_fd != -1) return x::errors::NIL;
 
         // Create kqueue for event multiplexing
@@ -102,13 +109,6 @@ public:
                     "Failed to register user event: " + std::string(strerror(errno))
                 )
             );
-
-        if (!this->rt_handle) {
-            x::thread::rt::apply_config(this->config.rt());
-        } else {
-            this->rt_handle->apply();
-        }
-
         return x::errors::NIL;
     }
 
@@ -332,7 +332,8 @@ private:
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     /// @brief sets the deadline timer.
     Arm arm;
-    int kqueue_fd = -1;
+    /// @brief atomic, as wake reads it from another thread while start sets it.
+    std::atomic<int> kqueue_fd = -1;
     bool deadline_armed = false;
     bool arm_failed = false;
     x::loop::Timer sleeper;

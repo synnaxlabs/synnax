@@ -242,6 +242,15 @@ func newTask(
 	return t
 }
 
+// boot configures t as the driver does at boot, with no command, and stops the task at
+// the end of the spec.
+func boot(ctx context.Context, f driver.Factory, t task.Task) driver.Task {
+	GinkgoHelper()
+	configured := MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+	DeferCleanup(func() { Expect(configured.Stop(false)).To(Succeed()) })
+	return configured
+}
+
 // configure configures t with a start command key and stops the task at the end of
 // the spec.
 func configure(ctx context.Context, f driver.Factory, t task.Task) driver.Task {

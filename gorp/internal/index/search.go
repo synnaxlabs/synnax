@@ -71,15 +71,15 @@ func (s *Search[S, K]) Wait(ctx context.Context) error {
 	return s.population.wait(ctx)
 }
 
-// Set replaces the committed text of key.
-func (s *Search[S, K]) Set(key K, text []string) {
+// setCommitted replaces the committed text of key.
+func (s *Search[S, K]) setCommitted(key K, text []string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.committed.Set(key, text...)
 }
 
-// Delete removes key from committed state.
-func (s *Search[S, K]) Delete(key K) {
+// deleteCommitted removes key from committed state.
+func (s *Search[S, K]) deleteCommitted(key K) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.committed.Delete(key)
@@ -89,7 +89,7 @@ func (s *Search[S, K]) Delete(key K) {
 // committed state when scope commits.
 func (s *Search[S, K]) Stage(scope S, key K, text []string) {
 	if isNone(scope) {
-		s.Set(key, text)
+		s.setCommitted(key, text)
 		return
 	}
 	if text == nil {
@@ -102,7 +102,7 @@ func (s *Search[S, K]) Stage(scope S, key K, text []string) {
 // state when scope commits.
 func (s *Search[S, K]) StageDelete(scope S, key K) {
 	if isNone(scope) {
-		s.Delete(key)
+		s.deleteCommitted(key)
 		return
 	}
 	s.overlay.load(scope).set(key, nil)

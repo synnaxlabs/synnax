@@ -184,7 +184,7 @@ var _ = Describe("Symbol node bindings", func() {
 			Expect(create(ctx, &s)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
-					"nodes.config.spec.key: schematic_symbol %s does not exist",
+					"nodes.0.config.spec.key: schematic_symbol %s does not exist",
 					gone,
 				)),
 			))
