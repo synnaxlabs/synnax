@@ -71,8 +71,7 @@ export const Form = <
       `A ${type} form cannot show the views of a ${resourceType} frame`,
     );
   // A frame shows only the views of its resource type, which is type.
-  const changeWhere = (where: view.View["where"]) =>
-    onWhereChange(where);
+  const changeWhere = (where: view.View["where"]) => onWhereChange(where);
   const { term } = useSearchContext("View.Form");
   // The list of a new view starts with no term.
   const searchedRef = useRef("");
