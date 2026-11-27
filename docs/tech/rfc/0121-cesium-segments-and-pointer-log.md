@@ -151,20 +151,22 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    clock, where a key with a live intent counts as gone, as in `DB.Clocks`. Before any
    create, the channel service raises each key counter above the highest key of its own
    range that `Keys` returns: the channel counter over the local keys of the host's
-   lease, and the clock counter over the clock range (RFC 0120 §4.0). So an undo to a
-   release without clock keys never moves a local key past 2^20, and such a key is never
-   given to a new channel after an undo or a lost metadata tail. A key with a record, a
-   clock, and a key whose intent is live are accounted for. From RFC 0120 Phase 50, a
-   clock that has a record takes the open rule of principle 5 (RFC 0120 §4.10), and the
-   channel service deletes each entry of the retired index table whose key `Keys` no
-   longer lists, so an entry ends with its clock after a delete, a `synnax purge`, or a
-   range delete. An entry holds no data, so this is no delete on absence. Any other key
-   with data is kept: the Core raises a warning status whose description names the keys
-   and their bytes and says: restore the records from a backup to keep the data, or stop
-   the Core and run `synnax purge <keys>` to remove it. A missing record can come from a
-   restored backup or lost metadata, never only from a delete, so the Core deletes a key
-   only from a note, never on absence. No writer or reader reaches a kept key: the
-   framer and the API reach a key only through its record.
+   lease, and the clock counter over the clock range (RFC 0120 §4.0). From RFC 0120
+   Phase 50 the one counter rises above every key below `0xFFF00000` that `Keys`
+   returns. So an undo to a release without clock keys never moves a local key past
+   2^20, and such a key is never given to a new channel after an undo or a lost metadata
+   tail. A key with a record, a clock, and a key whose intent is live are accounted for.
+   From RFC 0120 Phase 50, a clock that has a record takes the open rule of principle 5
+   (RFC 0120 §4.10), and the channel service deletes each entry of the retired index
+   table whose key `Keys` no longer lists, so an entry ends with its clock after a
+   delete, a `synnax purge`, or a range delete. An entry holds no data, so this is no
+   delete on absence. Any other key with data is kept: the Core raises a warning status
+   whose description names the keys and their bytes and says: restore the records from a
+   backup to keep the data, or stop the Core and run `synnax purge <keys>` to remove it.
+   A missing record can come from a restored backup or lost metadata, never only from a
+   delete, so the Core deletes a key only from a note, never on absence. No writer or
+   reader reaches a kept key: the framer and the API reach a key only through its
+   record.
 6. The command `synnax purge` runs with the Core stopped: it takes the directory lock,
    opens storage, and lists the kept keys and their bytes. With keys, it refuses any key
    that has a record or is not kept, and any key that a kept segment of another key
@@ -180,24 +182,30 @@ key while a live pointer of another key names it, as today (`cesium/delete.go:26
 **The end of a clock** (RFC 0120 Phase 27): A clock that has no record ends with its
 last user. `DB.Clocks` (NEW) takes keys and returns each clock that their segments name
 and that no segment of a key outside the call names, other than the clock's own, where a
-key with a live intent counts as gone. So two deletes whose first Drop a reader pins
-still end the clock, and a spec covers that case. In step 2 the channel service adds
-each such clock that has no record to the note and to the `Delete` call, so one log
-entry holds the Intents of the keys and of their clocks. Cesium logs the Drop of a clock
-after the Drops of the keys that it times. No writer can make a new user of such a clock
-while the claim is held: continuation picks only a clock that a key of the group already
-names. A `synnax purge` adds the clocks of its keys in the same way. A leased clock
-stores stamps only beside data that names it, so a range delete that removes its last
-such data also removes those stamps (§5.6). A retired index clock of RFC 0120 Phase 50
-can hold stamps outside all its data, which a range delete can leave with no user. So at
-start, after the notes, each key that holds an entry of the retired index table and that
-`Keys` lists with data and as no other key's clock is a clock with no user. The retire
-deleted its record, and its key is never issued again, so this is no delete on absence:
-the channel service ends it with a note and a `Delete`, and deletes its entry. The rule
-reads no key range, since from RFC 0120 Phase 50 channels and clocks share one counter.
-A spec keeps a channel made after Phase 50 whole across a restart and an undo. Before
-RFC 0120 Phase 50 an index channel has a record, so its stamps stay until its own
-delete.
+key with a live intent, or a key of an open pending-drop note, counts as gone; the
+channel service passes the keys of the open notes under the lock of step 2, so two
+deletes in a row of the keys of one clock end it. So two deletes whose first Drop a
+reader pins still end the clock, and a spec covers that case. In step 2 the channel
+service adds each such clock that has no record to the note and to the `Delete` call, so
+one log entry holds the Intents of the keys and of their clocks. Cesium logs the Drop of
+a clock after the Drops of the keys that it times. No writer can make a new user of such
+a clock while the claim is held: continuation picks only a clock that a key of the group
+already names. A `synnax purge` adds the clocks of its keys in the same way. A channel
+delete and a `synnax purge` also Tombstone each clock with no record that stays, over
+the parts of the deleted keys' pointers that no live pointer of another key names, as a
+range delete does (§5.6), so a leased clock stores stamps only beside data that names it
+on every path. Specs: a channel delete, then a range delete of the clock's other key;
+and two deletes in a row of one clock's keys. A leased clock stores stamps only beside
+data that names it, so a range delete that removes its last such data also removes those
+stamps (§5.6). A retired index clock of RFC 0120 Phase 50 can hold stamps outside all
+its data, which a range delete can leave with no user. So at start, after the notes,
+each key that holds an entry of the retired index table and that `Keys` lists with data
+and as no other key's clock is a clock with no user. The retire deleted its record, and
+its key is never issued again, so this is no delete on absence: the channel service ends
+it with a note and a `Delete`, and deletes its entry. The rule reads no key range, since
+from RFC 0120 Phase 50 channels and clocks share one counter. A spec keeps a channel
+made after Phase 50 whole across a restart and an undo. Before RFC 0120 Phase 50 an
+index channel has a record, so its stamps stay until its own delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
@@ -899,7 +907,7 @@ that writes a key that another session's writer holds gets no claim on it at ope
 its first write of the key, the key moves into that session's writer through
 `DB.Handoff` (§4.2), the one path that moves a key. When the holder has closed, that
 first write takes the free claim, as an open does, and takes over the key's segment at
-its committed length, with the cursor and `tail_crc` that the gainer's `Close` left in
+its committed length, with the cursor and `tail_crc` that the holder's `Close` left in
 the state owner, so it checks nothing on the frame path (D-475 (2)).
 
 - **Continuation**: A group with an `Index` takes that key as its clock with no
@@ -944,7 +952,7 @@ the state owner, so it checks nothing on the frame path (D-475 (2)).
   holds one of its keys: the one copy of stored stamps, at most one per cohort of keys
   that moved together per frame, until the keys rejoin the group's clock at the next
   open. A clock stores no stamps for a frame in which no key on it has a sample. A file
-  that the step made and no move used is a spare, which a close removes.
+  that the step made and no move used is an unused pause file, which a close removes.
 - **Segments**: An open segment belongs to one writer, its holder (§5.4, invariant 6).
   At open, a later session with the same key, type, and clock key takes it over only
   after the commits of the earlier writer are durable. At a handoff, the gainer takes it
@@ -955,33 +963,36 @@ the state owner, so it checks nothing on the frame path (D-475 (2)).
   gainer's sync of the same segment passed; and a pause move of keys with old stamps,
   then a switch before the writer's next `Sync`. A takeover appends at the committed
   length, and a takeover of a segment at a §5.1 limit seals it and starts the next
-  segment instead, in its spare when it has one (D-537). It first checks the tail
-  through the same helper as the open check (§5.5 step 10), and for a variable type
-  rebuilds the sample cursor from the file. A tail that fails its check takes the
-  failure path of the open check (§5.5 step 10, D-482): a Tombstone per pointer from the
-  first sample in the bad range, over the same stamp range on every key that the clock
-  times, then a Seal, and an error to the error handler (§7). The key then starts a new
-  segment. At a handoff the gainer takes the loser's running CRC and sample cursor from
-  memory instead and checks nothing, so a handoff does no file I/O on the frame path
-  (D-475 (2)). Two writers on one key at once have two open segments. A background step
-  makes and opens one spare file for each held segment past three quarters of a §5.1
-  limit, by its pointers, its sample bytes, or the span of its stamps, as a pause move
-  makes its files at three quarters of P, and a roll at that limit, or a takeover at it
-  (D-537), takes it for the next segment. A spare belongs to its segment, not to a
-  session: a close keeps the spare of each segment that stays open, the next takeover
-  inherits it, and only a seal, the roll or takeover that takes it, or the orphan pass
-  removes it, so each segment makes at most one spare. A spare takes its identity when
-  the step makes it, since a file name is its identity and no file is renamed. A segment
-  that its holder no longer writes, such as a left segment of a pause move or a kept
-  segment of a cross-clock loser, gets no spare. So a call of a `client.write` loop
-  makes and removes no file. A roll with no spare, such as a burst that crosses the last
-  quarter before the step runs, makes its file in the write. A writer makes at open the
-  files of its new clocks and of each key new to a clock. For a key that another writer
-  holds, the open takes over the key's newest open segment on the writer's clock that no
-  writer holds, with the checks of a takeover, and makes a file only when there is none.
-  So handoffs onto a clock continue one open segment per key until a §5.1 limit, and a
-  move back to the loser continues the segment that it kept. The orphan pass (§5.5
-  step 10) removes a spare that a crash leaves.
+  segment instead, in its spare when it has one (D-537). It judges the time limit as the
+  switch does, by the segment's first stamp against the injected clock, and the spare
+  step counts the span up to the writer's start. It first checks the tail through the
+  same helper as the open check (§5.5 step 10), and for a variable type rebuilds the
+  sample cursor from the file. A tail that fails its check takes the failure path of the
+  open check (§5.5 step 10, D-482): a Tombstone per pointer from the first sample in the
+  bad range, over the same stamp range on every key that the clock times, then a Seal,
+  and an error to the error handler (§7). The key then starts a new segment. At a
+  handoff the gainer takes the loser's running CRC and sample cursor from memory instead
+  and checks nothing, so a handoff does no file I/O on the frame path (D-475 (2)). Two
+  writers on one key at once have two open segments. A background step makes and opens
+  one spare file for each held segment past three quarters of a §5.1 limit, by its
+  pointers, its sample bytes, or the span of its stamps, as a pause move makes its files
+  at three quarters of P, and a roll at that limit, or a takeover at it (D-537), takes
+  it for the next segment. A spare belongs to its segment, not to a session: a close
+  keeps the spare of each segment that stays open, the next takeover inherits it, and
+  only a seal, the roll or takeover that takes it, or the orphan pass removes it, so
+  each segment makes at most one spare. A spare's handle closes with its holder's
+  `Close` and opens again at the takeover, under the handle budget. A spare takes its
+  identity when the step makes it, since a file name is its identity and no file is
+  renamed. A segment that its holder no longer writes, such as a left segment of a pause
+  move or a kept segment of a cross-clock loser, gets no spare. So a call of a
+  `client.write` loop makes and removes no file. A roll with no spare, such as a burst
+  that crosses the last quarter before the step runs, makes its file in the write. A
+  writer makes at open the files of its new clocks and of each key new to a clock. For a
+  key that another writer holds, the open takes over the key's newest open segment on
+  the writer's clock that no writer holds, with the checks of a takeover, and makes a
+  file only when there is none. So handoffs onto a clock continue one open segment per
+  key until a §5.1 limit, and a move back to the loser continues the segment that it
+  kept. The orphan pass (§5.5 step 10) removes a spare that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, a `Bounded` claim that starts inside another claim, and a group whose key of
   stored stamps times itself, naming that key, so no data takes a self-timed key as its
