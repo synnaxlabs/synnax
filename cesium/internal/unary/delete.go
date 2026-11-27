@@ -45,10 +45,12 @@ func (db *DB) OpenDelete(
 			db.calculateStartOffset,
 			db.calculateEndOffset,
 		)
-		if err != nil {
-			return nil, db.wrapError(err)
+		if len(changes) > 0 {
+			db.resolver.invalidate()
 		}
-		db.resolver.invalidate()
+		if err != nil {
+			return changes, db.wrapError(err)
+		}
 		return changes, nil
 	}, release, nil
 }

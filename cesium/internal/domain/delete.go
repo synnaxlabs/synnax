@@ -55,8 +55,9 @@ type offsetResolver = func(
 //
 // Delete returns the time ranges whose history it changed: those of the unpublished
 // commits that it reveals, then the range that it removed data from. It returns none
-// when it removes no data. It reports no history change, so that the caller can report
-// them once it releases its own locks.
+// when it removes no data. It returns them also with the error of a failed index write,
+// since readers already see the delete. It reports no history change, so that the
+// caller can report them once it releases its own locks.
 func (db *DB) Delete(
 	ctx context.Context,
 	tr telem.TimeRange,

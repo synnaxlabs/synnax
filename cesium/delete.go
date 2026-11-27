@@ -265,11 +265,11 @@ func (db *DB) deleteTimeRange(
 	}
 	for _, del := range dels {
 		trs, err := del.del(ctx)
-		if err != nil {
-			return changes, err
-		}
 		for _, tr := range trs {
 			changes = append(changes, HistoryChange{Key: del.key, TimeRange: tr})
+		}
+		if err != nil {
+			return changes, err
 		}
 	}
 	return changes, nil
