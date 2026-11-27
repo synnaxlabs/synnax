@@ -114,7 +114,6 @@ export const Controls = ({
   const key = useKey();
   const drifted = useDrifted();
   const undeployed = useUndeployed();
-  const preview = useIsPreview();
   const canControl = Framer.useCanCommand();
   const type = Form.useFieldValue(formPath.type);
   const rackKey = Form.useFieldValue(formPath.rack, { optional: true }) ?? null;
@@ -165,7 +164,7 @@ export const Controls = ({
       status={shownStatus}
       running={running}
       drifted={drifted}
-      startDeploys={undeployed && !preview}
+      startDeploys={undeployed}
       hideActions={!canControl}
       disabled={(configuring || blocked != null) && !running}
       startStopVariant={startStopVariant}
