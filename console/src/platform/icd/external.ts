@@ -25,6 +25,7 @@ export * from "@/platform/icd/payload";
 export * from "@/platform/icd/picker";
 export * from "@/platform/icd/Plans";
 export * from "@/platform/icd/read";
+export * from "@/platform/icd/reuse";
 export * from "@/platform/icd/route";
 export * from "@/platform/icd/stored";
 export * from "@/platform/icd/tree";
