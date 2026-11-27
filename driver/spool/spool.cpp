@@ -52,11 +52,13 @@ list(const std::filesystem::path &dir) {
     return {std::move(paths), x::errors::NIL};
 }
 
-/// @returns the key that name holds, or std::nullopt when it is not a key.
+/// @returns the key that name holds, or std::nullopt when it is not a key in the form
+/// the spool writes, so `007` is not key 7.
 std::optional<std::uint64_t> parse_key(const std::string &name) {
     std::uint64_t key = 0;
     const auto [end, ec] = std::from_chars(name.data(), name.data() + name.size(), key);
     if (ec != std::errc() || end != name.data() + name.size()) return std::nullopt;
+    if (std::to_string(key) != name) return std::nullopt;
     return key;
 }
 

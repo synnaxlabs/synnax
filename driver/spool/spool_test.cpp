@@ -921,6 +921,13 @@ TEST_F(SpoolTest, SetsAsideSegmentWithInvalidName) {
     this->expect_set_aside("abc.seg", CORRUPT);
 }
 
+/// @brief it should set aside a segment whose key is not in the form the spool writes.
+TEST_F(SpoolTest, SetsAsideSegmentWithNonCanonicalKey) {
+    std::filesystem::create_directories(this->dir);
+    std::filesystem::copy_file(TESTDATA / "v1_segment.bin", this->dir / "007.seg");
+    this->expect_set_aside("007.seg", CORRUPT);
+}
+
 /// @brief it should set aside a segment with a data type that this Driver does not
 /// know, and open the other segments.
 TEST_F(SpoolTest, SetsAsideSegmentWithUnknownDataType) {
