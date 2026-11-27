@@ -498,9 +498,13 @@ names no clock key.
 A channel's declared type can change to any type, from Phase 52. Open writers keep the
 type they opened with. The next segment starts the new type (RFC 0121), and a read
 returns each segment in its stored type. A task save that changes an output's type
-changes the channel's declared type. A type change on an index channel fails. A clock
-move is not a channel edit: storage moves a key at continuation, at a handoff, and at a
-pause move (§4.0, §4.8), from Phase 25.
+changes the channel's declared type. A type change on an index channel fails. A Sift
+flow declares each channel's type at configure
+(`core/pkg/service/sift/ingest/flow.go:29-42`), so from Phase 52 a type change starts a
+new flow config, whose type widens the old one and the new one by the rule of §4.4. The
+encoder casts each value to the flow's type, where it takes the series' type today
+(`encode.go:129-160`). A clock move is not a channel edit: storage moves a key at
+continuation, at a handoff, and at a pause move (§4.0, §4.8), from Phase 25.
 
 ### 4.7 Calculations and XY plots across clocks
 
