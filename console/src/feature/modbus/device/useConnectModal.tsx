@@ -51,6 +51,7 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Rack } from "@/platform/rack";
 
 const path = deep.path<Device>();
 const connectionPath = path.properties.connection;
@@ -168,7 +169,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "Modbus",
     rack: rackKey,

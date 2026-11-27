@@ -257,11 +257,7 @@ std::pair<std::vector<driver::icd::Writer>, x::errors::Error> build_writers(
             *ic,
             resources.channels
         );
-        if (err)
-            return {
-                std::vector<driver::icd::Writer>(),
-                x::errors::Error(err, name + ": " + err.data)
-            };
+        if (err) return {std::vector<driver::icd::Writer>(), err.wrap(name)};
         writers.push_back(std::move(writer));
     }
     return {std::move(writers), x::errors::NIL};

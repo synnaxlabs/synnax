@@ -63,6 +63,7 @@ import { Analytics } from "@/platform/analytics";
 import { Certificate } from "@/platform/certificate";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Rack } from "@/platform/rack";
 import { Secret } from "@/platform/secret";
 
 const path = deep.path<Device>();
@@ -236,7 +237,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "OPC UA",
     rack: rackKey,
