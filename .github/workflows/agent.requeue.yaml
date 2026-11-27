@@ -12,7 +12,8 @@
 # rejection, or the drain of such a seat stopped its runner. The fleet controller then
 # starts a seat for it, on a shared login with usage left for Claude. When no Claude
 # login or Codex seat has usage left, or the run was already tried three times, this
-# workflow fails instead. Release runs are left to a person.
+# workflow fails instead, and posts to Slack when the relay cancelled the run. Release
+# runs are left to a person.
 
 name: Agent - Requeue
 run-name: Requeue run ${{ inputs.run }}
@@ -26,6 +27,10 @@ on:
         description: "Run to requeue"
         type: string
         required: true
+      cancelled:
+        description: "The relay cancelled the run"
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -45,12 +50,19 @@ jobs:
       # GitHub runs a job again only after its run completes.
       - name: Wait for the run to complete
         id: run
+        env:
+          CANCELLED: ${{ inputs.cancelled }}
         run: |
           for _ in $(seq 120); do
             gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN" > "$RUNNER_TEMP/run"
             if [ "$(jq -r .status "$RUNNER_TEMP/run")" = completed ]; then
               jq -r '"conclusion=\(.conclusion)", "attempt=\(.run_attempt)",
-                "title=\(.display_title)"' "$RUNNER_TEMP/run" >> "$GITHUB_OUTPUT"
+                "title=\(.display_title)", "name=\(.name)"' "$RUNNER_TEMP/run" \
+                >> "$GITHUB_OUTPUT"
+              # A run that a person cancelled runs nothing again.
+              requeue=$(jq --argjson relay "$CANCELLED" '.conclusion == "failure"
+                or (.conclusion == "cancelled" and $relay)' "$RUNNER_TEMP/run")
+              echo "requeue=$requeue" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             sleep 15
@@ -59,8 +71,7 @@ jobs:
           exit 1
 
       - name: Assume the runner start role
-        if: >-
-          contains(fromJSON('["failure", "cancelled"]'), steps.run.outputs.conclusion)
+        if: steps.run.outputs.requeue == 'true'
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
@@ -72,8 +83,7 @@ jobs:
       # shuts down under a job, so such a job of a failed run runs again too. Only one
       # job of a run can run again at a time, so the first one goes.
       - name: Run a job that a usage limit stopped again where usage is left
-        if: >-
-          contains(fromJSON('["failure", "cancelled"]'), steps.run.outputs.conclusion)
+        if: steps.run.outputs.requeue == 'true'
         env:
           CONCLUSION: ${{ steps.run.outputs.conclusion }}
           ATTEMPT: ${{ steps.run.outputs.attempt }}
@@ -184,3 +194,18 @@ jobs:
             exit 0
           fi
           gh api -X POST "repos/$GITHUB_REPOSITORY/actions/jobs/$found/rerun" --silent
+
+      # GitHub sends no email for a cancelled run, and none for this run, which the
+      # relay started.
+      - name: Post to Slack that the run does not run again
+        if: failure() && inputs.cancelled
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          NAME: ${{ steps.run.outputs.name }}
+        run: |
+          runs="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs"
+          text="A usage limit stopped ${NAME:-a run}, and it does not run again:"
+          text+=" $runs/$RUN. See $runs/$GITHUB_RUN_ID."
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"

@@ -40,29 +40,42 @@ jobs:
       REPORT: ${{ inputs.report && github.event_name == 'schedule' }}
     # No retry: a dispatch that fails with a 5xx can still start a run.
     steps:
-      - name: Start Agent - Requeue
-        if: env.REQUEUE == 'true'
-        run: gh workflow run agent.requeue.yaml --ref main -f run="$GITHUB_RUN_ID"
-
       # When each failed job only stopped at a usage limit or a rejected token, the
       # seat left the pool and Agent - Requeue runs the job again. The run then ends
-      # cancelled, as GitHub emails the person who started a failed run.
-      - name: Cancel a run that only a usage limit stopped
-        if: env.REQUEUE == 'true'
+      # cancelled, as GitHub emails the person who started a failed run. Steps without
+      # a status check still run in a run that a person cancelled, so this one checks.
+      - name: Decide whether to cancel the run
+        id: drain
+        if: ${{ !cancelled() && env.REQUEUE == 'true' }}
         run: |
           jobs="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest"
           drained=$(gh api --paginate "$jobs" --jq '.jobs[]
             | select(.conclusion == "failure")
             | any(.steps[]; (.name | startswith("Leave the pool until"))
               and .conclusion == "success")')
-          if [ -n "$drained" ] && ! grep -qx false <<< "$drained"; then
-            gh run cancel "$GITHUB_RUN_ID"
-          fi
+          cancel=false
+          if [ -n "$drained" ] && ! grep -qx false <<< "$drained"; then cancel=true; fi
+          echo "cancel=$cancel" >> "$GITHUB_OUTPUT"
+
+      - name: Start Agent - Requeue
+        if: env.REQUEUE == 'true'
+        env:
+          CANCEL: ${{ steps.drain.outputs.cancel == 'true' }}
+        run: |
+          gh workflow run agent.requeue.yaml --ref main -f run="$GITHUB_RUN_ID" \
+            -f cancelled="$CANCEL"
 
       # Report - Failures reads this attempt, so a rerun that Agent - Requeue starts
-      # does not hide the failure.
+      # does not hide the failure. Agent - Requeue reports a cancelled run that it
+      # cannot run again.
       - name: Start Report - Failures
-        if: ${{ !cancelled() && env.REPORT == 'true' }}
+        if: >-
+          ${{ !cancelled() && env.REPORT == 'true' && steps.drain.outputs.cancel !=
+          'true' }}
         run: |
           gh workflow run report.failures.yaml --ref main -f run="$GITHUB_RUN_ID" \
             -f attempt="$GITHUB_RUN_ATTEMPT"
+
+      - name: Cancel the run
+        if: steps.drain.outputs.cancel == 'true'
+        run: gh run cancel "$GITHUB_RUN_ID"
