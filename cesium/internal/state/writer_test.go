@@ -11,6 +11,7 @@ package state_test
 
 import (
 	"context"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -118,6 +119,52 @@ var _ = Describe("Writer", func() {
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("writer holds open segment 5 of key 1")),
 			))
+		})
+
+	It("Should keep a held Channel the same while later seals of its key go on",
+		func() {
+			start(head(5, 3))
+			w := open(clockWriter(0, false, 5))
+			seal := func(at int64) {
+				GinkgoHelper()
+				id := MustSucceed(w.NewSegment(5))
+				n := MustSucceed(w.NewAlignment())
+				Expect(w.Commit(commit(1, n, 0, at, at, slot(id, 8)))).To(Succeed())
+				MustSucceed(w.Seal(5))
+			}
+			for at := range int64(5) {
+				seal(at)
+			}
+			old := s.Channel(5)
+			first := slices.Clone(old.Segments)
+			Expect(first).To(HaveLen(5))
+			var (
+				read  = make(chan struct{})
+				done  = make(chan struct{})
+				reads = make(chan int, 1)
+			)
+			go func() {
+				defer GinkgoRecover()
+				for n := 1; ; n++ {
+					Expect(old.Segments).To(Equal(first))
+					if n == 1 {
+						close(read)
+					}
+					select {
+					case <-done:
+						reads <- n
+						return
+					default:
+					}
+				}
+			}()
+			Eventually(read).Should(BeClosed())
+			for at := range int64(20) {
+				seal(5 + at)
+			}
+			close(done)
+			Eventually(reads).Should(Receive(BeNumerically(">", 1)))
+			Expect(s.Channel(5).Segments).To(HaveLen(25))
 		})
 
 	It("Should give out segment 1 and alignment number 1 first in a new database",
