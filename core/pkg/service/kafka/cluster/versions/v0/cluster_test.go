@@ -307,7 +307,15 @@ var _ = Describe("msgpack", func() {
 			"type":           "tls",
 			"ca_certificate": 1,
 		}),
-		Entry("SCRAM", &v0.Auth{}, map[string]any{
+		Entry("PLAIN", &v0.Auth{}, map[string]any{
+			"mechanism": "plain",
+			"username":  1,
+		}),
+		Entry("SCRAM-SHA-256", &v0.Auth{}, map[string]any{
+			"mechanism": "scram_sha_256",
+			"username":  1,
+		}),
+		Entry("SCRAM-SHA-512", &v0.Auth{}, map[string]any{
 			"mechanism": "scram_sha_512",
 			"username":  1,
 		}),
