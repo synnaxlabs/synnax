@@ -133,6 +133,50 @@ var _ = Describe("Handler", func() {
 		Expect(res.Device.Name).To(Equal("Stored"))
 	})
 
+	It("Should dispatch actions to a device", func(ctx SpecContext) {
+		key := uuid.New()
+		var received device.DispatchRequest
+		transport.NIDeviceDispatch.BindHandler(func(
+			_ context.Context,
+			req device.DispatchRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+		MustSucceed(grpcdevice.NewNIDeviceDispatchServiceClient(conn).Exec(
+			ctx,
+			&grpcdevice.DispatchRequest{
+				Key:         key.String(),
+				DispatchKey: "dk",
+				Actions: [][]byte{
+					[]byte(`{"type":"set","set":{"path":["name"],"value":"Renamed"}}`),
+				},
+			},
+		))
+		Expect(received.Key).To(Equal(key))
+		Expect(received.DispatchKey).To(Equal("dk"))
+		Expect(received.Actions).To(HaveLen(1))
+		Expect(received.Actions[0].Set.Path).To(Equal([]string{"name"}))
+	})
+
+	It("Should refuse a dispatch with an action that does not decode", func(
+		ctx SpecContext,
+	) {
+		transport.NIDeviceDispatch.BindHandler(func(
+			context.Context,
+			device.DispatchRequest,
+		) (struct{}, error) {
+			return struct{}{}, nil
+		})
+		Expect(grpcdevice.NewNIDeviceDispatchServiceClient(conn).Exec(
+			ctx,
+			&grpcdevice.DispatchRequest{
+				Key:     uuid.New().String(),
+				Actions: [][]byte{[]byte("{")},
+			},
+		)).Error().To(HaveOccurred())
+	})
+
 	It("Should delete devices by key", func(ctx SpecContext) {
 		key := uuid.New()
 		var received device.DeleteRequest

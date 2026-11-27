@@ -80,40 +80,50 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 }
 
 // ApplyUpdate replaces the field group that update carries on the device stored under
-// key and keeps the other group as stored. It returns an error wrapping
-// query.ErrNotFound when no device is stored under key and a validation error when
-// update is invalid. A transaction that commits between the read and the write of this
-// one is overwritten.
+// key and keeps the other group as stored. It applies the group as one set action per
+// field, so subscribers to the action channel see the write. It returns an error
+// wrapping query.ErrNotFound when no device is stored under key and a validation error
+// when update is invalid.
 func (w Writer) ApplyUpdate(ctx context.Context, key Key, update Update) error {
-	switch v := update.Variant.(type) {
+	acts, err := update.actions()
+	if err != nil {
+		return err
+	}
+	return w.Apply(ctx, key, acts...)
+}
+
+// actions returns one set action for each field of the group that u replaces.
+func (u Update) actions() ([]Action, error) {
+	set := func(path string, value any) Action {
+		return NewSetAction(SetPayload{Path: []string{path}, Value: value})
+	}
+	switch v := u.Variant.(type) {
 	case IdentityUpdate:
 		if err := v.Validate(); err != nil {
-			return err
+			return nil, err
 		}
-		return w.Update(ctx, key, func(d Device) (Device, error) {
-			d.Rack = v.Rack
-			d.Serial = v.Serial
-			d.ResourceName = v.ResourceName
-			d.Model = v.Model
-			d.Chassis = v.Chassis
-			return d, nil
-		})
+		return []Action{
+			set("rack", v.Rack),
+			set("serial", v.Serial),
+			set("resource_name", v.ResourceName),
+			set("model", v.Model),
+			set("chassis", v.Chassis),
+		}, nil
 	case ConfigurationUpdate:
 		if err := v.Validate(); err != nil {
-			return err
+			return nil, err
 		}
-		return w.Update(ctx, key, func(d Device) (Device, error) {
-			d.Name = v.Name
-			d.Identifier = v.Identifier
-			d.AnalogInput = v.AnalogInput
-			d.AnalogOutput = v.AnalogOutput
-			d.CounterInput = v.CounterInput
-			d.DigitalInput = v.DigitalInput
-			d.DigitalOutput = v.DigitalOutput
-			return d, nil
-		})
+		return []Action{
+			set("name", v.Name),
+			set("identifier", v.Identifier),
+			set("analog_input", v.AnalogInput),
+			set("analog_output", v.AnalogOutput),
+			set("counter_input", v.CounterInput),
+			set("digital_input", v.DigitalInput),
+			set("digital_output", v.DigitalOutput),
+		}, nil
 	default:
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"device update has no field group",
 		)
