@@ -3553,6 +3553,37 @@ func (u View) Type() ViewType {
 	)
 
 	It(
+		"Should generate internally-tagged msgpack encoding on the wrapper",
+		func() {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
+
+			Scale union on type {
+				linear LinearParams
+				none NoneParams
+			}
+		`
+			resp := MustGenerate(source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`vmsgpack "github.com/vmihailenco/msgpack/v5"`,
+					`func (u Scale) EncodeMsgpack(enc *vmsgpack.Encoder) error {`,
+					`return enc.EncodeNil()`,
+					"Type ScaleType `msgpack:\"type\"`",
+					`}{Type: LinearScaleType, LinearScale: v})`,
+					`func (u *Scale) DecodeMsgpack(dec *vmsgpack.Decoder) error {`,
+					`if disc == nil {`,
+					`var v LinearScale`,
+					`u.Variant = v`,
+				)
+		},
+	)
+
+	It(
 		"Should flatten a base a variant omits a field from",
 		func() {
 			source := `

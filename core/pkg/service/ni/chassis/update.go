@@ -14,70 +14,7 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/vmihailenco/msgpack/v5"
 )
-
-var (
-	_ msgpack.CustomEncoder = Update{}
-	_ msgpack.CustomDecoder = (*Update)(nil)
-)
-
-// EncodeMsgpack implements msgpack.CustomEncoder. It writes the active variant's fields
-// with its group under "group", the same shape as the JSON encoding.
-func (u Update) EncodeMsgpack(enc *msgpack.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.EncodeNil()
-	case IdentityUpdate:
-		return enc.Encode(struct {
-			Group UpdateType `msgpack:"group"`
-			Identity
-		}{Group: IdentityUpdateType, Identity: v.Identity})
-	case ConfigurationUpdate:
-		return enc.Encode(struct {
-			Group UpdateType `msgpack:"group"`
-			Configuration
-		}{Group: ConfigurationUpdateType, Configuration: v.Configuration})
-	default:
-		return errors.Newf("Update: unknown variant %T", v)
-	}
-}
-
-// DecodeMsgpack implements msgpack.CustomDecoder. It returns a validation error for a
-// group no variant has.
-func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	var disc struct {
-		Group UpdateType `msgpack:"group"`
-	}
-	if err = msgpack.Unmarshal(raw, &disc); err != nil {
-		return err
-	}
-	switch disc.Group {
-	case IdentityUpdateType:
-		var identity Identity
-		if err = msgpack.Unmarshal(raw, &identity); err != nil {
-			return err
-		}
-		u.Variant = IdentityUpdate{Identity: identity}
-	case ConfigurationUpdateType:
-		var configuration Configuration
-		if err = msgpack.Unmarshal(raw, &configuration); err != nil {
-			return err
-		}
-		u.Variant = ConfigurationUpdate{Configuration: configuration}
-	default:
-		return errors.Wrapf(
-			validate.ErrValidation,
-			"unknown update group %q",
-			disc.Group,
-		)
-	}
-	return nil
-}
 
 // Apply replaces the field group that update carries on the chassis stored under key
 // and keeps the other group as stored. It returns an error wrapping query.ErrNotFound

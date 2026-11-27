@@ -1958,6 +1958,68 @@ func (u *{{.Name}}) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	return nil
 }
+
+// EncodeMsgpack encodes the active variant with its "{{.DiscJSONName}}" tag injected, as
+// MarshalJSONTo does.
+func (u {{.Name}}) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+{{- range .Variants}}
+	case {{.TypeName}}:
+		return enc.Encode(struct {
+			Type {{$u.DiscType}} ` + "`" + `msgpack:"{{$u.DiscJSONName}}"` + "`" + `
+			{{.TypeName}}
+		}{Type: {{.ConstName}}, {{.TypeName}}: v})
+{{- end}}
+	default:
+		return errors.Newf("{{.Name}}: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "{{.DiscJSONName}}" field, as
+// UnmarshalJSONFrom does.
+func (u *{{.Name}}) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type {{.DiscType}} ` + "`" + `msgpack:"{{.DiscJSONName}}"` + "`" + `
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+{{- range .Variants}}
+	case {{.ConstName}}:
+		var v {{.TypeName}}
+{{- if .SetDefaultsView.HasGroups}}
+		v.SetUngroupedDefaults()
+{{- else if .SetDefaultsView.Sets}}
+		v.SetDefaults()
+{{- end}}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+{{- if .SetDefaultsView.HasGroups}}
+		v.DefaultGroups()
+{{- end}}
+		u.Variant = v
+{{- end}}
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"{{.Name}}: unknown {{.DiscJSONName}} %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
 {{- if .TagMethod}}
 
 {{formatDoc .TagMethod (printf "returns the %s of the active variant, or an empty %s when there is none." .DiscJSONName .DiscJSONName)}}
