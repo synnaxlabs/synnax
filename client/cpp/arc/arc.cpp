@@ -72,9 +72,12 @@ std::pair<Arc, x::errors::Error> Client::create(const std::string &name) const {
     return {arc, err};
 }
 
-std::pair<Arc, x::errors::Error>
-Client::retrieve(const Key &key, const RetrieveOptions &options) const {
-    return this->retrieve(Where{.key = key}, x::filter::one, options);
+std::pair<Arc, x::errors::Error> Client::retrieve(
+    const Key &key,
+    const RetrieveOptions &options,
+    const std::shared_ptr<freighter::Canceler> &canceler
+) const {
+    return this->retrieve(Where{.key = key}, x::filter::one, options, canceler);
 }
 
 std::pair<Arc, x::errors::Error>
@@ -94,13 +97,17 @@ std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
     return this->retrieve(Where{.name = names}, options);
 }
 
-std::pair<std::vector<Arc>, x::errors::Error>
-Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+std::pair<std::vector<Arc>, x::errors::Error> Client::retrieve(
+    const Where &where,
+    const RetrieveOptions &options,
+    const std::shared_ptr<freighter::Canceler> &canceler
+) const {
     auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {std::vector<Arc>(), pb_err};
     grpc::arc::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
-    auto [res, err] = retrieve_client->send(RETRIEVE_ENDPOINT, grpc_req);
+    auto [res, err] = retrieve_client
+                          ->send_cancellable(RETRIEVE_ENDPOINT, grpc_req, canceler);
     if (err) return {std::vector<Arc>(), err};
     auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
     if (proto_err) return {std::vector<Arc>(), proto_err};
@@ -110,11 +117,12 @@ Client::retrieve(const Where &where, const RetrieveOptions &options) const {
 std::pair<Arc, x::errors::Error> Client::retrieve(
     const Where &where,
     x::filter::One,
-    const RetrieveOptions &options
+    const RetrieveOptions &options,
+    const std::shared_ptr<freighter::Canceler> &canceler
 ) const {
     if (options.limit.has_value() || options.after.has_value())
         return {Arc{}, errors::paged_one_error()};
-    auto [arcs, err] = this->retrieve(where, options);
+    auto [arcs, err] = this->retrieve(where, options, canceler);
     if (err) return {Arc{}, err};
     if (const auto one_err = errors::check_one(
             "Arc",

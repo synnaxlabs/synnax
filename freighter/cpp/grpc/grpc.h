@@ -205,7 +205,16 @@ public:
     /// @returns Should be of a generated proto message type.
     std::pair<RS, x::errors::Error>
     send(const std::string &target, RQ &request) override {
+        return this->send_cancellable(target, request, nullptr);
+    }
+
+    std::pair<RS, x::errors::Error> send_cancellable(
+        const std::string &target,
+        RQ &request,
+        const std::shared_ptr<Canceler> &canceler
+    ) override {
         Context ctx(priv::PROTOCOL, this->base_target.child(target), UNARY);
+        ctx.canceler = canceler;
         return mw.exec(ctx, this, request);
     }
 
@@ -225,7 +234,15 @@ public:
         if (ch_err) return {res_ctx, ch_err, res};
         auto stub = RPC::NewStub(channel);
 
+        const auto &canceler = req_ctx.canceler;
+        if (canceler != nullptr &&
+            !canceler->hold([&grpc_ctx] { grpc_ctx.TryCancel(); }))
+            return {res_ctx, x::errors::CANCELLED, res};
         const auto stat = stub->Exec(&grpc_ctx, req, &res);
+        if (canceler != nullptr) {
+            canceler->release();
+            if (canceler->is_cancelled()) return {res_ctx, x::errors::CANCELLED, res};
+        }
         if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
 
         // Set inbound metadata.

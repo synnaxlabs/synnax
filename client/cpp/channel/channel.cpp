@@ -91,9 +91,11 @@ Client::retrieve(const std::string &name, const RetrieveOptions &options) const 
     return this->retrieve(Where{.name = name}, x::filter::one, options);
 }
 
-std::pair<std::vector<Channel>, x::errors::Error>
-Client::retrieve(const std::vector<Key> &keys) const {
-    auto [channels, err] = this->retrieve(Where{.key = keys});
+std::pair<std::vector<Channel>, x::errors::Error> Client::retrieve(
+    const std::vector<Key> &keys,
+    const std::shared_ptr<freighter::Canceler> &canceler
+) const {
+    auto [channels, err] = this->retrieve(Where{.key = keys}, {}, canceler);
     if (err) return {{}, err};
     // Callers bind the channels to keys by position, so a missing key is an error.
     std::unordered_set<Key> found;
@@ -120,13 +122,17 @@ std::pair<std::vector<Channel>, x::errors::Error> Client::retrieve(
     return this->retrieve(Where{.name = names}, options);
 }
 
-std::pair<std::vector<Channel>, x::errors::Error>
-Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+std::pair<std::vector<Channel>, x::errors::Error> Client::retrieve(
+    const Where &where,
+    const RetrieveOptions &options,
+    const std::shared_ptr<freighter::Canceler> &canceler
+) const {
     auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
     if (pb_err) return {{}, pb_err};
     grpc::channel::RetrieveRequest grpc_req;
     *grpc_req.mutable_request() = pb_req;
-    auto [res, err] = this->retrieve_client->send("/channel/retrieve", grpc_req);
+    auto [res, err] = this->retrieve_client
+                          ->send_cancellable("/channel/retrieve", grpc_req, canceler);
     if (err) return {{}, err};
     auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
     if (proto_err) return {{}, proto_err};

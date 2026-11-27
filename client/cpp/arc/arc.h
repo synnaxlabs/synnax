@@ -79,10 +79,15 @@ public:
     /// @brief retrieves the Arc program with the given key.
     /// @param key the key of the Arc program.
     /// @param options the options of the retrieve.
+    /// @param canceler ends the retrieve from another thread, which then returns
+    /// x::errors::CANCELLED. Null means the retrieve cannot be cancelled.
     /// @returns the Arc program, and an error that matches NOT_FOUND when no program
     /// has the key.
-    [[nodiscard]] std::pair<Arc, x::errors::Error>
-    retrieve(const Key &key, const RetrieveOptions &options = {}) const;
+    [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve(
+        const Key &key,
+        const RetrieveOptions &options = {},
+        const std::shared_ptr<freighter::Canceler> &canceler = nullptr
+    ) const;
 
     /// @brief retrieves the Arc program with the given name.
     /// @param name the name of the Arc program.
@@ -112,19 +117,27 @@ public:
     /// @param where the filter that the programs match. An empty filter matches all
     /// programs.
     /// @param options the options of the retrieve.
-    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error>
-    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+    /// @param canceler ends the retrieve from another thread, which then returns
+    /// x::errors::CANCELLED. Null means the retrieve cannot be cancelled.
+    [[nodiscard]] std::pair<std::vector<Arc>, x::errors::Error> retrieve(
+        const Where &where,
+        const RetrieveOptions &options = {},
+        const std::shared_ptr<freighter::Canceler> &canceler = nullptr
+    ) const;
 
     /// @brief retrieves the one Arc program that where selects.
     /// @param where the filter that the program matches.
     /// @param options the options of the retrieve.
+    /// @param canceler ends the retrieve from another thread, which then returns
+    /// x::errors::CANCELLED. Null means the retrieve cannot be cancelled.
     /// @returns the Arc program, and an error that matches NOT_FOUND when no program
     /// matches, MULTIPLE_RESULTS when more than one does, or VALIDATION when options
     /// set a limit or a cursor.
     [[nodiscard]] std::pair<Arc, x::errors::Error> retrieve(
         const Where &where,
         x::filter::One,
-        const RetrieveOptions &options = {}
+        const RetrieveOptions &options = {},
+        const std::shared_ptr<freighter::Canceler> &canceler = nullptr
     ) const;
 
     /// @brief Deletes an Arc program by its key.

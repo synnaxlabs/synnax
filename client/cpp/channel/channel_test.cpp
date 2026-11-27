@@ -369,4 +369,15 @@ TEST(TestChannel, testParseMissingConcurrency) {
     ASSERT_NIL(parser.error());
     EXPECT_EQ(ch.concurrency, x::control::Concurrency::Exclusive);
 }
+
+/// @brief it should return CANCELLED from a retrieve whose canceler already cancelled.
+TEST(TestChannel, testRetrieveCancelled) {
+    const auto client = new_test_client();
+    const auto canceler = std::make_shared<freighter::Canceler>();
+    canceler->cancel();
+    ASSERT_OCCURRED_AS_P(
+        client.channels.retrieve(std::vector<Key>{1}, canceler),
+        x::errors::CANCELLED
+    );
+}
 }
