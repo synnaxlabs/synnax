@@ -122,4 +122,67 @@ var _ = Describe("Duration defaults", func() {
 			"duration 3000000h does not fit in an int64",
 		))
 	})
+
+	Describe("multiple_of", func() {
+		It("Should read a duration step in nanoseconds", func() {
+			table, diag := Analyze(`
+				import "schemas/x/telem"
+				Cfg struct {
+					keep_alive telem.TimeSpan = 60s { @validate multiple_of 1s }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			form := resolution.MustForm[resolution.StructForm](
+				table.MustGet("test.Cfg"),
+			)
+			step := form.Fields[0].Domains["validate"].Expressions[0].Values[0]
+			Expect(step.IntValue).To(Equal(int64(1_000_000_000)))
+			Expect(step.Duration).To(Equal("1s"))
+		})
+
+		It("Should accept a step on an integer", func() {
+			_, diag := Analyze(`
+				Cfg struct {
+					count int32 { @validate multiple_of 4 }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable("Should reject a rule that cannot apply",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a string", `
+				Cfg struct { name string { @validate multiple_of 2 } }
+			`, "test.Cfg.name has a multiple_of rule, but its type is not a number"),
+			Entry("with a zero step", `
+				Cfg struct { count int32 { @validate multiple_of 0 } }
+			`, "test.Cfg.count has a multiple_of rule, but its step is not positive"),
+			Entry("with a negative step", `
+				Cfg struct { count int32 { @validate multiple_of -5 } }
+			`, "test.Cfg.count has a multiple_of rule, but its step is not positive"),
+			Entry("on a float", `
+				Cfg struct { rate float64 { @validate multiple_of 1 } }
+			`, "test.Cfg.rate has a multiple_of rule, but its type is a float"),
+			Entry("with a fractional step on an integer", `
+				Cfg struct { count int32 { @validate multiple_of 0.5 } }
+			`, "test.Cfg.count has a multiple_of rule, but its step is not a whole number"),
+			Entry("with a step that does not fit the type", `
+				Cfg struct { count uint8 { @validate multiple_of 300 } }
+			`, "test.Cfg.count has a multiple_of rule, but its step does not fit in a uint8"),
+			Entry("with a step where its type sets one", `
+				Span int64 { @validate multiple_of 1000 }
+				Cfg struct { span Span { @validate multiple_of 7 } }
+			`, "test.Cfg.span has a multiple_of rule, but its type already sets one"),
+			Entry("with a duration on an integer", `
+				Cfg struct { count int64 { @validate multiple_of 1s } }
+			`, "test.Cfg.count has a multiple_of rule of 1s, but its type is not telem.TimeSpan"),
+			Entry("with a duration on another rule", `
+				Cfg struct { count int64 { @validate min 1s } }
+			`, "test.Cfg.count has a min rule of 1s, but its type is not telem.TimeSpan"),
+		)
+	})
 })

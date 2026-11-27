@@ -1010,16 +1010,29 @@ func processField(
 		fd.Alias = wireName
 	}
 
-	fd.PyType = typeToPython(field.Type, table, data)
 	// The Core mints a key, so a client sends its zero value on create. An optional
 	// field is never required.
 	_, isKey := field.Domains["key"]
-	if validation.FieldRules(field, table).Required && !isKey && !field.Optional &&
-		resolution.PrimitiveBase(field.Type, table) == "uuid" {
-		fd.PyType = refuseNilUUID(fd.PyType, data)
+	rules := validation.FieldRules(field, table)
+	timeSpan := telem.IsTimeSpan(field.Type, table, "py")
+	nonNilUUID := rules.Required && !isKey && !field.Optional &&
+		resolution.PrimitiveBase(field.Type, table) == "uuid"
+	fd.PyType = annotateChecks(
+		typeToPython(field.Type, table, data),
+		rules,
+		timeSpan,
+		nonNilUUID,
+		data,
+	)
+	// Pydantic's multiple_of divides a TimeSpan by a plain int, which TimeSpan refuses,
+	// so annotateChecks checks a TimeSpan step instead.
+	if timeSpan && rules.MultipleOf != nil {
+		withoutStep := *rules
+		withoutStep.MultipleOf = nil
+		rules = &withoutStep
 	}
 	fieldConstraints := collectValidation(
-		validation.FieldRules(field, table),
+		rules,
 		field.Default,
 		field.Type,
 		!isKey && !field.Optional,
@@ -1073,13 +1086,39 @@ func processField(
 	return fd
 }
 
-// refuseNilUUID wraps the UUID type pyType in Annotated with a check that refuses the
-// nil UUID, which pydantic's Field constraints cannot state.
-func refuseNilUUID(pyType string, data *templateData) string {
+// annotateChecks wraps pyType in Annotated with an AfterValidator for each rule that
+// pydantic's own Field constraints cannot state. timeSpan reports whether the field is
+// a telem.TimeSpan, whose step pydantic cannot check. nonNilUUID refuses the nil UUID.
+func annotateChecks(
+	pyType string,
+	rules *validation.Rules,
+	timeSpan bool,
+	nonNilUUID bool,
+	data *templateData,
+) string {
+	var checks []string
+	if nonNilUUID {
+		checks = append(checks, "non_nil_uuid")
+	}
+	if timeSpan && rules.MultipleOf != nil {
+		checks = append(checks, fmt.Sprintf("multiple_of(%d)", rules.MultipleOf.Int))
+	}
+	if rules.MaxBytes != nil {
+		checks = append(checks, fmt.Sprintf("max_bytes(%d)", *rules.MaxBytes))
+	}
+	if rules.Unique != nil {
+		checks = append(checks, fmt.Sprintf("unique(%q)", fieldName(*rules.Unique)))
+	}
+	if len(checks) == 0 {
+		return pyType
+	}
 	data.imports.addTyping("Annotated")
 	data.imports.addPydantic("AfterValidator")
 	module := data.imports.addModuleImport("x", "validate")
-	return fmt.Sprintf("Annotated[%s, AfterValidator(%s.non_nil_uuid)]", pyType, module)
+	validators := lo.Map(checks, func(c string, _ int) string {
+		return "AfterValidator(" + module + "." + c + ")"
+	})
+	return fmt.Sprintf("Annotated[%s, %s]", pyType, strings.Join(validators, ", "))
 }
 
 // requiredInPython reports whether a Python model must be given field: it is not
@@ -1127,7 +1166,7 @@ func orderBounds(constraints []string) {
 		switch {
 		case strings.HasPrefix(c, "ge="), strings.HasPrefix(c, "gt="):
 			return 1
-		case strings.HasPrefix(c, "le="):
+		case strings.HasPrefix(c, "le="), strings.HasPrefix(c, "multiple_of="):
 			return 2
 		case c == "allow_inf_nan=False":
 			return 3
@@ -1285,6 +1324,12 @@ func appendNumberConstraints(
 	}
 	if rules.Max != nil {
 		constraints = append(constraints, boundConstraint("le", *rules.Max))
+	}
+	if rules.MultipleOf != nil {
+		constraints = append(
+			constraints,
+			boundConstraint("multiple_of", *rules.MultipleOf),
+		)
 	}
 	isFloat := primitive == "float32" || primitive == "float64"
 	if isFloat && (len(constraints) > 0 || rules.Finite) {

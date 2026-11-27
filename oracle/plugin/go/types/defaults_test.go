@@ -1480,6 +1480,44 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			},
 		)
 
+		It("Should check a byte bound and a unique key in Validate", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Read struct {
+					node    string { @validate max_bytes 4096 }
+					channel uint32
+				}
+
+				Cfg struct {
+					reads Read[] { @validate unique channel }
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.MaxBytes("node", r.Node, 4096)`,
+				`v.Unique("reads", "channel", len(c.Reads), func(i int) any { return c.Reads[i].Channel })`,
+			)
+		})
+
+		It("Should check a multiple_of step for each kind of number", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Span int64
+
+				Cfg struct {
+					count int32 { @validate multiple_of 4 }
+					keep_alive Span { @validate multiple_of 1000 }
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				`v.MultipleOf("count", c.Count, 4)`,
+				`v.MultipleOf("keep_alive", c.KeepAlive, 1000)`,
+			)
+		})
+
 		It(
 			"Should check a bytes min length with the byte counting validator method",
 			func() {

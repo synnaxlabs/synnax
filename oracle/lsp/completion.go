@@ -265,6 +265,16 @@ var (
 			Detail: protocol.NewOptional("Maximum string length"),
 		},
 		{
+			Label:  "max_bytes",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Maximum UTF-8 byte length of a string"),
+		},
+		{
+			Label:  "unique",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("No two list items share this field"),
+		},
+		{
 			Label:  "min",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Minimum numeric value"),
@@ -283,6 +293,13 @@ var (
 			Label:  "pattern",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Regex pattern constraint"),
+		},
+		{
+			Label: "multiple_of",
+			Kind:  protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional(
+				"Integer or TimeSpan must be a multiple of this step",
+			),
 		},
 		{
 			Label:  "finite",

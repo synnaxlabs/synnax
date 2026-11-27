@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -421,6 +422,75 @@ var _ = Describe("Validate", func() {
 				Entry("2 bytes in 4 characters", "AQI=", true),
 				Entry("3 bytes in 4 characters", "AQID", false),
 			)
+
+			DescribeTable(
+				"MaxBytes should count UTF-8 bytes",
+				func(value string, long bool) {
+					Expect(v.MaxBytes("field", value, 4)).To(Equal(long))
+					if long {
+						Expect(v.Error()).To(MatchError(ContainSubstring(
+							"field: must be at most 4 bytes long",
+						)))
+					} else {
+						Expect(v.Error()).NotTo(HaveOccurred())
+					}
+				},
+				Entry("4 ASCII bytes", "abcd", false),
+				Entry("5 ASCII bytes", "abcde", true),
+				Entry("two accented letters in 4 bytes", "éé", false),
+				Entry("one emoji in 4 bytes", "😀", false),
+				Entry("three accented letters in 6 bytes", "ééé", true),
+			)
+		})
+
+		Describe("MultipleOf", func() {
+			DescribeTable("Should check an integer step", func(value int64, off bool) {
+				Expect(v.MultipleOf("keep_alive", value, 5)).To(Equal(off))
+				if off {
+					Expect(v.Error()).To(MatchError(ContainSubstring(
+						"keep_alive: must be a multiple of 5",
+					)))
+				} else {
+					Expect(v.Error()).NotTo(HaveOccurred())
+				}
+			},
+				Entry("zero", int64(0), false),
+				Entry("a multiple", int64(15), false),
+				Entry("a negative multiple", int64(-10), false),
+				Entry("not a multiple", int64(7), true),
+			)
+
+			It("Should name a TimeSpan step by its duration", func() {
+				Expect(v.MultipleOf(
+					"keep_alive",
+					1500*telem.Millisecond,
+					telem.Second,
+				)).To(BeTrue())
+				Expect(v.Error()).To(MatchError(ContainSubstring(
+					"keep_alive: must be a multiple of 1s",
+				)))
+			})
+		})
+
+		Describe("Unique", func() {
+			keys := []string{"a", "b", "a", "c", "b"}
+			keyOf := func(i int) any { return keys[i] }
+
+			It("Should accept items with distinct keys", func() {
+				Expect(v.Unique("reads", "channel", 3, func(i int) any { return i })).
+					To(BeFalse())
+				Expect(v.Error()).NotTo(HaveOccurred())
+			})
+
+			It("Should flag each item whose key an earlier item holds", func() {
+				Expect(v.Unique("reads", "channel", len(keys), keyOf)).To(BeTrue())
+				Expect(v.Error()).To(SatisfyAll(
+					MatchError(ContainSubstring("reads.2.channel: must be unique")),
+					MatchError(ContainSubstring("reads.4.channel: must be unique")),
+					Not(MatchError(ContainSubstring("reads.0.channel"))),
+					Not(MatchError(ContainSubstring("reads.1.channel"))),
+				))
+			})
 		})
 
 		Describe("NonZero", func() {

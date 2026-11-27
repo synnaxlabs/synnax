@@ -483,6 +483,54 @@ var _ = Describe("Validation Rules", func() {
 		ExpectContent(resp, "types.gen.ts").ToNotContain("00000000-0000")
 	})
 
+	It("Should bound a string by its UTF-8 byte count", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				node string @validate { max_bytes 4096 }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").
+			ToContain(`node: z.string().check(zod.maxUTF8Bytes(4096))`)
+	})
+
+	It("Should check a multiple_of step on a number", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				count int32 @validate { multiple_of 4 }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`.multipleOf(4)`,
+		)
+	})
+
+	It("Should check a unique key on a list", func() {
+		source := `
+			@ts output "out"
+
+			Read struct {
+				channel_key uint32
+			}
+
+			Item struct {
+				reads Read[] @validate { unique channel_key }
+				optional_reads Read[]? @validate { unique channel_key }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		check := `.array().check(zod.uniqueBy<Read, "channelKey">("channelKey", () => "must be unique"))`
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`reads: readZ`+check+`.default(() => [])`,
+			`optionalReads: zod.nullToUndefined(readZ`+check+`)`,
+		)
+	})
+
 	It("Should keep a length check chainable with a default", func() {
 		source := `
 			@ts output "out"

@@ -172,6 +172,29 @@ var _ = Describe("Python aliases", func() {
 		`, "class Panel(BaseModel):\n    item: str\n"),
 	)
 
+	It("Should check a TimeSpan step with an AfterValidator", func() {
+		loader := NewMockFileLoader().Add("schemas/x/telem", `
+			@py output "x/py/x/telem"
+
+			TimeSpan int64 {
+				@py hand
+			}
+		`)
+		resp := MustGenerate(`
+			import "schemas/x/telem"
+
+			@py output "client/py/synnax/test"
+
+			Cfg struct {
+				lifetime telem.TimeSpan { @validate multiple_of 1ms }
+			}
+		`, "test", loader, types.New(types.DefaultOptions()))
+		ExpectContent(resp, "test/types_gen.py").ToContain(
+			`lifetime: Annotated[telem.TimeSpan, AfterValidator(validate.multiple_of(1000000))]`,
+		)
+		ExpectContent(resp, "test/types_gen.py").ToNotContain("multiple_of=1000000")
+	})
+
 	It("Should reject same-named alias type params with different defaults", func() {
 		loader := NewMockFileLoader().
 			Add("schemas/x/telem", aliasTelem).

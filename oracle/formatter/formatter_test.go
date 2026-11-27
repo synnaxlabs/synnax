@@ -621,6 +621,13 @@ var _ = Describe("Format", func() {
 			Expect(result).To(ContainSubstring("t telem.TimeSpan = 1m30s"))
 		})
 
+		It("should keep the spelling of a duration rule value", func() {
+			result := format(
+				"Item struct {\n  t telem.TimeSpan { @validate multiple_of 1m30s }\n}\n",
+			)
+			Expect(result).To(ContainSubstring("@validate multiple_of 1m30s"))
+		})
+
 		It("should format an empty array default", func() {
 			result := format("Item struct {\n  vals float64[] = []\n}\n")
 			Expect(result).To(ContainSubstring("vals float64[] = []"))

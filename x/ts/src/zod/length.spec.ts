@@ -95,4 +95,17 @@ describe("length", () => {
       expect(result.error?.issues[0]?.message).toEqual("must be at most 3 bytes long");
     });
   });
+
+  describe("maxUTF8Bytes", () => {
+    const schema = z.string().check(zod.maxUTF8Bytes(4));
+
+    it.each(["abcd", "éé", "😀"])("should accept %s, which is 4 bytes", (value) => {
+      expect(schema.parse(value)).toEqual(value);
+    });
+
+    it.each(["abcde", "ééé"])("should reject %s, which is over 4 bytes", (value) => {
+      const result = schema.safeParse(value);
+      expect(result.error?.issues[0]?.message).toEqual("must be at most 4 bytes long");
+    });
+  });
 });

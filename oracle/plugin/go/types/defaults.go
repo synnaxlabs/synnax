@@ -718,15 +718,18 @@ func enumConstRef(
 type constraintCheckData struct {
 	GoName    string
 	FieldName string
-	// Kind selects the assertion form: non_empty_string, min_len, max_len, pattern
-	// (string), min_bytes (bytes), non_empty_slice (list), non_zero (numeric or uuid),
-	// or ge, le, lt (numeric).
+	// Kind selects the assertion form: non_empty_string, min_len, max_len, max_bytes,
+	// pattern (string), min_bytes (bytes), non_empty_slice, unique (list), non_zero
+	// (numeric or uuid), or ge, le, lt (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one, the
 	// Go name of the compared field for lt, or the regex var for pattern.
 	Arg string
 	// Message is the quoted error message of an lt or pattern check.
 	Message string
+	// KeyGo is the Go name of the item field that a unique check compares. Arg holds
+	// its wire name.
+	KeyGo string
 	// Opens and Closes mark the first and last checks of an optional field, which the
 	// template wraps in one nil guard.
 	Opens, Closes bool
@@ -770,6 +773,9 @@ func goConstraintChecks(
 		if required {
 			checks = append(checks, check("non_empty_slice", ""))
 		}
+		if chk, ok := uniqueCheck(field, rules, check, data.table); ok {
+			checks = append(checks, chk)
+		}
 	case base == "uuid":
 		if required {
 			checks = append(checks, check("non_zero", ""))
@@ -781,12 +787,47 @@ func goConstraintChecks(
 	}
 	if resolution.IsNumberPrimitive(base) {
 		checks = append(checks, numberChecks(rules, required, check)...)
+		if rules.MultipleOf != nil {
+			checks = append(
+				checks,
+				check("multiple_of", numberLiteral(rules.MultipleOf)),
+			)
+		}
 	}
 	if field.Optional && len(checks) > 0 {
 		checks[0].Opens = true
 		checks[len(checks)-1].Closes = true
 	}
 	return checks
+}
+
+// uniqueCheck returns the unique check of a list field. The analyzer ensures that the
+// key names a field of the item struct.
+func uniqueCheck(
+	field resolution.Field,
+	rules *validation.Rules,
+	check constraintCheck,
+	table *resolution.Table,
+) (constraintCheckData, bool) {
+	if rules.Unique == nil || len(field.Type.TypeArgs) == 0 {
+		return constraintCheckData{}, false
+	}
+	item, ok := field.Type.TypeArgs[0].Resolve(table)
+	if !ok {
+		return constraintCheckData{}, false
+	}
+	key, ok := lo.Find(
+		resolution.UnifiedFields(item, table),
+		func(f resolution.Field) bool {
+			return f.Name == *rules.Unique
+		},
+	)
+	if !ok {
+		return constraintCheckData{}, false
+	}
+	chk := check("unique", casing.FieldSnake(key.Name))
+	chk.KeyGo = naming.GetFieldName(key)
+	return chk, true
 }
 
 // bytesChecks returns the min_length check of a bytes field, which counts bytes. The
@@ -889,6 +930,12 @@ func stringChecks(
 		checks = append(
 			checks,
 			check("max_len", strconv.FormatInt(*rules.MaxLength, 10)),
+		)
+	}
+	if rules.MaxBytes != nil {
+		checks = append(
+			checks,
+			check("max_bytes", strconv.FormatInt(*rules.MaxBytes, 10)),
 		)
 	}
 	return checks

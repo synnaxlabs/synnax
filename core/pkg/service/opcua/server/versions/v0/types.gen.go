@@ -627,6 +627,7 @@ func (c Connection) Validate() error {
 	v.Ternary("endpoint", !validatePattern0.MatchString(string(c.Endpoint)), "Endpoint must be an opc.tcp:// URL with a host and an optional port and path")
 	v.GreaterThanEq("client_timeout", c.ClientTimeout, 100000000)
 	v.GreaterThanEq("secure_channel_lifetime", c.SecureChannelLifetime, 1000000000)
+	v.MultipleOf("secure_channel_lifetime", c.SecureChannelLifetime, 1000000)
 	v.GreaterThanEq("session_timeout", c.SessionTimeout, 1000000000)
 	v.Exec(func() error { return validate.PathedError(c.Auth.Validate(), "auth") })
 	v.Exec(func() error { return validate.PathedError(c.Security.Validate(), "security") })
@@ -652,6 +653,7 @@ type Read struct {
 func (r Read) Validate() error {
 	v := validate.New("Read")
 	v.NotEmptyString("node", r.Node)
+	v.MaxBytes("node", r.Node, 4096)
 	v.NonZero("index", r.Index)
 	v.NonZero("channel", r.Channel)
 	return v.Error()
@@ -671,6 +673,7 @@ type Write struct {
 func (w Write) Validate() error {
 	v := validate.New("Write")
 	v.NotEmptyString("node", w.Node)
+	v.MaxBytes("node", w.Node, 4096)
 	v.NonZero("channel", w.Channel)
 	return v.Error()
 }
@@ -735,6 +738,8 @@ func (s *Server) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (s Server) Validate() error {
 	v := validate.New("Server")
 	v.NotEmptyString("name", s.Name)
+	v.Unique("reads", "channel", len(s.Reads), func(i int) any { return s.Reads[i].Channel })
+	v.Unique("writes", "channel", len(s.Writes), func(i int) any { return s.Writes[i].Channel })
 	v.Exec(func() error { return validate.PathedError(s.Connection.Validate(), "connection") })
 	for i := range s.Reads {
 		v.Exec(func() error { return validate.PathedError(s.Reads[i].Validate(), "reads", strconv.Itoa(i)) })

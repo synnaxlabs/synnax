@@ -561,6 +561,59 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should check a multiple_of step with the Field constraint",
+			func() {
+				source := `
+				@py output "out"
+
+				Item struct {
+					count int32 @validate { multiple_of 4 }
+				}
+			`
+				table, diag := Analyze(source, "item", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(`multiple_of=4`))
+			},
+		)
+
+		It(
+			"Should check a byte bound and a unique key with AfterValidator",
+			func() {
+				source := `
+				@py output "out"
+
+				Read struct {
+					node    string @validate { max_bytes 4096 }
+					channel uint32
+				}
+
+				Server struct {
+					reads Read[] @validate { unique channel }
+				}
+			`
+				table, diag := Analyze(source, "server", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`node: Annotated[str, AfterValidator(validate.max_bytes(4096))]`,
+				))
+				Expect(content).To(ContainSubstring(
+					`reads: Annotated[list[Read], AfterValidator(validate.unique("channel"))]`,
+				))
+				Expect(content).To(ContainSubstring(`from x import validate`))
+				Expect(content).To(ContainSubstring(`AfterValidator`))
+				Expect(content).To(ContainSubstring(`Annotated`))
+			},
+		)
+
+		It(
 			"Should apply an exclusive lower bound in place of the implied one",
 			func() {
 				source := `

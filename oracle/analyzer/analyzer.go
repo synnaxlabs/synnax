@@ -109,6 +109,10 @@ func Analyze(
 	validateLengthRules(table, diag)
 	validateCollectionRules(table, diag)
 	validateFiniteRules(table, diag)
+	validateByteRules(table, diag)
+	validateUniqueRules(table, diag)
+	validateMultipleOfRules(table, diag)
+	validateDurationRules(table, diag)
 	validatePatternRules(table, diag)
 	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
@@ -148,6 +152,10 @@ func AnalyzeSeeded(
 	validateLengthRules(table, diag)
 	validateCollectionRules(table, diag)
 	validateFiniteRules(table, diag)
+	validateByteRules(table, diag)
+	validateUniqueRules(table, diag)
+	validateMultipleOfRules(table, diag)
+	validateDurationRules(table, diag)
 	validatePatternRules(table, diag)
 	validateComparisonRules(table, diag)
 	validateRuleRanges(table, diag)
@@ -1478,21 +1486,31 @@ func collectDomainContent(c *analysisCtx,
 ) {
 	if block := content.DomainBlock(); block != nil {
 		for _, e := range block.AllExpression() {
-			expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
-			for _, v := range e.AllExpressionValue() {
-				expr.Values = append(expr.Values, collectValue(c, v))
-			}
-			entry.Expressions = append(entry.Expressions, expr)
+			entry.Expressions = append(entry.Expressions, collectExpression(c, e))
 		}
 		return
 	}
 	if e := content.Expression(); e != nil {
-		expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
-		for _, v := range e.AllExpressionValue() {
-			expr.Values = append(expr.Values, collectValue(c, v))
-		}
-		entry.Expressions = append(entry.Expressions, expr)
+		entry.Expressions = append(entry.Expressions, collectExpression(c, e))
 	}
+}
+
+// collectExpression collects the name and the values of e in source order. A duration
+// value becomes an int in nanoseconds.
+func collectExpression(
+	c *analysisCtx,
+	e parser.IExpressionContext,
+) resolution.Expression {
+	expr := resolution.Expression{AST: e, Name: e.IDENT().GetText()}
+	for _, child := range e.GetChildren()[1:] {
+		switch v := child.(type) {
+		case parser.IExpressionValueContext:
+			expr.Values = append(expr.Values, collectValue(c, v))
+		case antlr.TerminalNode:
+			expr.Values = append(expr.Values, collectDuration(c, e, v.GetText()))
+		}
+	}
+	return expr
 }
 
 func collectFieldDefault(

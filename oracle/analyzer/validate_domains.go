@@ -11,8 +11,10 @@ package analyzer
 
 import (
 	"fmt"
+	"math"
 	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
@@ -789,4 +791,225 @@ func isEmptyRange(rules *validation.Rules) bool {
 
 func hasPattern(domains map[string]resolution.Domain) bool {
 	return validation.Parse(domains["validate"]).Pattern != nil
+}
+
+// validateByteRules errors on a max_bytes rule on a field or a type that is not a
+// string.
+func validateByteRules(table *resolution.Table, diag *diagnostics.Files) {
+	report := func(t resolution.Type, name string, ref resolution.TypeRef) {
+		if resolution.PrimitiveBase(ref, table) != "string" {
+			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+				"%s has a max_bytes rule, but its type is not a string", name,
+			))
+		}
+	}
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			if validation.Parse(t.Domains["validate"]).MaxBytes != nil {
+				report(t, t.QualifiedName, resolution.TypeRef{Name: t.QualifiedName})
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				if validation.Parse(f.Domains["validate"]).MaxBytes != nil {
+					report(t, t.QualifiedName+"."+f.Name, f.Type)
+				}
+			}
+		}
+	}
+}
+
+// validateUniqueRules errors on a unique rule outside a T[] struct field, and on one
+// whose key is not a required scalar field of the item struct.
+func validateUniqueRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			if validation.Parse(t.Domains["validate"]).Unique != nil {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has a unique rule, but only a T[] field can have one",
+					t.QualifiedName,
+				))
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				key := validation.Parse(f.Domains["validate"]).Unique
+				if key == nil {
+					continue
+				}
+				if problem := uniqueProblem(f, *key, table); problem != "" {
+					diag.Report(t.Namespace+".oracle", diagnostics.Errorf(
+						nil,
+						"%s.%s has a unique rule, but %s",
+						t.QualifiedName,
+						f.Name,
+						problem,
+					))
+				}
+			}
+		}
+	}
+}
+
+// uniqueProblem returns why the unique rule with key cannot apply to f, or "" when it
+// can.
+func uniqueProblem(f resolution.Field, key string, table *resolution.Table) string {
+	if !validation.IsList(f.Type) || len(f.Type.TypeArgs) == 0 {
+		return "only a T[] field can have one"
+	}
+	if key == "" || strings.Contains(key, ".") {
+		return "its key must name one field of the item, not a path"
+	}
+	item, ok := f.Type.TypeArgs[0].Resolve(table)
+	if !ok {
+		return "its items are not structs"
+	}
+	if _, ok := item.Form.(resolution.StructForm); !ok {
+		return "its items are not structs"
+	}
+	field, ok := lo.Find(
+		resolution.UnifiedFields(item, table),
+		func(u resolution.Field) bool {
+			return u.Name == key
+		},
+	)
+	if !ok {
+		return fmt.Sprintf("%s has no field %s", item.QualifiedName, key)
+	}
+	if field.Optional || !isScalar(field.Type, table) {
+		return fmt.Sprintf("its key %s is not a required scalar field", key)
+	}
+	return ""
+}
+
+// isScalar reports whether a value of ref compares by value in every language: a
+// string, number, bool, or UUID, or an enum.
+func isScalar(ref resolution.TypeRef, table *resolution.Table) bool {
+	switch base := resolution.PrimitiveBase(ref, table); {
+	case resolution.IsStringPrimitive(base), resolution.IsNumberPrimitive(base),
+		base == "bool", base == "uuid":
+		return true
+	}
+	resolved, _, ok := resolution.Dealias(ref, table)
+	if !ok {
+		return false
+	}
+	_, isEnum := resolved.Form.(resolution.EnumForm)
+	return isEnum
+}
+
+// validateMultipleOfRules errors on a multiple_of rule on a field or a type that is not
+// a number, on a float, on a step that is not positive, that is not a whole number, or
+// that does not fit the type, and on a step where the type chain sets one.
+func validateMultipleOfRules(table *resolution.Table, diag *diagnostics.Files) {
+	report := func(
+		t resolution.Type,
+		name string,
+		ref resolution.TypeRef,
+		chain []resolution.Type,
+		step *validation.Number,
+	) {
+		if problem := multipleOfProblem(ref, chain, step, table); problem != "" {
+			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+				"%s has a multiple_of rule, but %s", name, problem,
+			))
+		}
+	}
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			ref := resolution.TypeRef{Name: t.QualifiedName}
+			if step := validation.Parse(t.Domains["validate"]).MultipleOf; step != nil {
+				chain := validation.TypeChain(ref, table)
+				if len(chain) > 0 {
+					chain = chain[1:]
+				}
+				report(t, t.QualifiedName, ref, chain, step)
+			}
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				step := validation.Parse(f.Domains["validate"]).MultipleOf
+				if step != nil {
+					chain := validation.TypeChain(f.Type, table)
+					report(t, t.QualifiedName+"."+f.Name, f.Type, chain, step)
+				}
+			}
+		}
+	}
+}
+
+// multipleOfProblem returns why the multiple_of rule with step cannot apply to a value
+// of ref whose type chain is chain, or "" when it can.
+func multipleOfProblem(
+	ref resolution.TypeRef,
+	chain []resolution.Type,
+	step *validation.Number,
+	table *resolution.Table,
+) string {
+	base := resolution.PrimitiveBase(ref, table)
+	switch {
+	case !resolution.IsNumberPrimitive(base):
+		return "its type is not a number"
+	case step.Compare(validation.Number{IsInt: true}) <= 0:
+		return "its step is not positive"
+	case validation.TypeRules(chain).MultipleOf != nil:
+		return "its type already sets one"
+	case base == "float32" || base == "float64":
+		return "its type is a float, which has no exact multiple"
+	case !step.IsInt:
+		return "its step is not a whole number"
+	}
+	if limit, ok := integerMax[base]; ok && uint64(step.Int) > limit {
+		return "its step does not fit in a " + base
+	}
+	return ""
+}
+
+// integerMax is the largest value of each integer primitive.
+var integerMax = map[string]uint64{
+	"int8":   math.MaxInt8,
+	"int16":  math.MaxInt16,
+	"int32":  math.MaxInt32,
+	"int64":  math.MaxInt64,
+	"uint8":  math.MaxUint8,
+	"uint16": math.MaxUint16,
+	"uint32": math.MaxUint32,
+	"uint64": math.MaxUint64,
+}
+
+// validateDurationRules errors on a @validate value written as a duration, such as 1s,
+// on a field or a type that is not a telem.TimeSpan.
+func validateDurationRules(table *resolution.Table, diag *diagnostics.Files) {
+	report := func(t resolution.Type, name string, ref resolution.TypeRef, d resolution.Domain) {
+		if isTimeSpan(ref, table) {
+			return
+		}
+		for _, expr := range d.Expressions {
+			for _, v := range expr.Values {
+				if v.Duration == "" {
+					continue
+				}
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s has a %s rule of %s, but its type is not telem.TimeSpan. "+
+						"Write the value without a unit.",
+					name, expr.Name, v.Duration,
+				))
+			}
+		}
+	}
+	for _, t := range table.Types {
+		switch form := t.Form.(type) {
+		case resolution.AliasForm, resolution.DistinctForm:
+			report(
+				t,
+				t.QualifiedName,
+				resolution.TypeRef{Name: t.QualifiedName},
+				t.Domains["validate"],
+			)
+		case resolution.StructForm:
+			for _, f := range ownedFields(t, form, table) {
+				report(t, t.QualifiedName+"."+f.Name, f.Type, f.Domains["validate"])
+			}
+		}
+	}
 }

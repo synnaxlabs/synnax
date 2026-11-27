@@ -183,6 +183,8 @@ type Configuration struct {
 // schema constraints.
 func (c Configuration) Validate() error {
 	v := validate.New("Configuration")
+	v.Unique("reads", "channel", len(c.Reads), func(i int) any { return c.Reads[i].Channel })
+	v.Unique("writes", "channel", len(c.Writes), func(i int) any { return c.Writes[i].Channel })
 	for i := range c.Reads {
 		v.Exec(func() error { return validate.PathedError(c.Reads[i].Validate(), "reads", strconv.Itoa(i)) })
 	}

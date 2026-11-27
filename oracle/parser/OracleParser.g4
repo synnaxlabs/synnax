@@ -295,8 +295,9 @@ qualifiedIdent
 //   default "untitled"          (identifier + string)
 //   target label.Label          (identifier + qualified ident)
 //   cardinality many_to_many    (identifier + identifier)
+//   multiple_of 1s              (identifier + duration)
 expression
-    : IDENT expressionValue*
+    : IDENT (expressionValue | DURATION_LIT)*
     ;
 
 // Expression values can be various literal types or identifiers
