@@ -27,6 +27,11 @@ const ChangeIdentifierMenuItem = Device.createChangeIdentifierMenuItem({
   icon: "Logo.NI",
 });
 
+const Suggestions = ({ deviceKey }: { deviceKey: string }) => {
+  const dev = NI.Device.TYPED_ADAPTER.use(deviceKey);
+  return <span>{dev.suggestIdentifiers("Thermo Couples").join(",")}</span>;
+};
+
 const renderItems = async (identifier: string): Promise<void> => {
   const rack = await client.racks.create({ name: uniqueName("ni_rack") });
   const dev = await client.ni.devices.create({
@@ -59,5 +64,24 @@ describe("TYPED_ADAPTER", () => {
     await renderItems("dev1");
     await screen.findByText("Change identifier");
     expect(screen.queryByText("Configure")).toBeNull();
+  });
+});
+
+describe("TYPED_ADAPTER.use", () => {
+  it("should suggest identifiers from the name alone", async () => {
+    const rack = await client.racks.create({ name: uniqueName("ni_rack") });
+    const dev = await client.ni.devices.create({
+      rack: rack.key,
+      name: uniqueName("ni_dev"),
+      resourceName: id.create(),
+      model: "PXIe-4300",
+    });
+    await renderMenuItem(<Suggestions deviceKey={dev.key} />, { client });
+    const expected = NI.Device.suggestIdentifiers({
+      location: "",
+      name: "Thermo Couples",
+    });
+    expect(expected.length).toBeGreaterThan(0);
+    await screen.findByText(expected.join(","));
   });
 });
