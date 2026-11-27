@@ -46,6 +46,9 @@ type Documents struct {
 	next [][]byte
 	// commands holds the commands of each binding in one frame.
 	commands [][][]byte
+	// size is the capacity of the next document: the length of the last one, and an
+	// eighth more for values that grow.
+	size int
 }
 
 // NewDocuments returns the Documents of wm, the message of ic that a task sends.
@@ -126,11 +129,12 @@ func (d *Documents) From(fr framer.Frame, skips *driver.Skips) iter.Seq2[int, []
 			if !good || !d.fill() {
 				continue
 			}
-			doc, err := d.encoder.Encode(nil, d.next)
+			doc, err := d.encoder.Encode(make([]byte, 0, d.size), d.next)
 			if err != nil {
 				d.skip(skips, err)
 				continue
 			}
+			d.size = len(doc) + len(doc)/8
 			if !yield(i, doc) {
 				return
 			}
