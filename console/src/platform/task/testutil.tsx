@@ -60,6 +60,7 @@ import {
   createTestStore,
   findDialogTriggerByText,
   getBySelector,
+  getIconButton,
   getSwitchInput,
   HaulProvider,
   renderHookWithConsole,
@@ -600,7 +601,7 @@ export const awaitEditableForm = async (): Promise<void> => {
 export const clickDeploy = async (container: HTMLElement): Promise<void> =>
   await step("clickDeploy", async () => {
     const button = await waitFor(() => {
-      const b = within(container).getByRole("button", { name: "Start" });
+      const b = getIconButton(container, "play");
       if (b.getAttribute("aria-disabled") === "true")
         throw new Error("start button is disabled");
       return b;
@@ -616,7 +617,7 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> =>
 export const clickFailedDeploy = async (container: HTMLElement): Promise<void> => {
   await clickDeploy(container);
   await waitFor(() => {
-    const b = within(container).getByRole("button", { name: "Start" });
+    const b = getIconButton(container, "play");
     if (b.getAttribute("aria-disabled") === "true") throw new Error("still starting");
   });
   await act(async () => {});
@@ -660,6 +661,16 @@ export const findChannelListItem = async (text: string): Promise<HTMLElement> =>
     assertDefined(match, `channel list item showing "${text}" not found`);
     return match;
   });
+
+/**
+ * Gets the button under the channel list that adds a channel. The empty details pane
+ * shows an action of the same name.
+ */
+export const getAddChannelButton = (): HTMLElement => {
+  const list = document.querySelector<HTMLElement>(".console-channel-list");
+  assertDefined(list, "channel list not found");
+  return within(list).getByRole("button", { name: "Add channel" });
+};
 
 /** Finds the note under the channel list that shows the message, and its variant. */
 export const findChannelListNote = async (

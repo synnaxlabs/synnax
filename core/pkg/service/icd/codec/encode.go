@@ -191,7 +191,7 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 // bindingIndexes returns the index of the binding of each bound field in m. It fails
 // when a binding names a field that m does not have, or a field has two bindings.
 func bindingIndexes(m JSONMessage) (map[icd.FieldKey]int, error) {
-	fields, err := m.boundFields()
+	fields, err := boundFields(m.Payload.Fields, jsonKey, m.Bindings)
 	if err != nil {
 		return nil, err
 	}

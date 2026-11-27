@@ -20,7 +20,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
+import {
+  createBroker,
+  openAddData,
+  openScanner,
+  type ScannerReply,
+} from "@/feature/mqtt/testutil";
 import {
   focusedIn,
   pickMessageFormat,
@@ -43,6 +48,16 @@ import {
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+/** The reply of the Core when it cannot reach the broker. */
+const UNREACHABLE = {
+  variant: "error",
+  message: "Failed to reach broker",
+  description:
+    "Could not reach dev1:1883: dial tcp 127.0.0.1:1883: connect: connection " +
+    "refused. Check the host and the port, and that the network of the Core can " +
+    "reach the broker.",
+} as const satisfies ScannerReply;
 
 preloadForms(MQTT.Task.FORMS);
 
@@ -395,7 +410,7 @@ const retrieveFields = async (key: string): Promise<icd.JSONField[]> => {
 describe("MQTT read form", () => {
   // This first test pays the one-time load of the lazy form, which takes over 10 s on
   // a loaded CI runner.
-  it("should create a format named after the task and add later picks to it", async () => {
+  it("should create a format named after the device and add later picks to it", async () => {
     const TOPICS = [
       {
         topic: TOPIC,
@@ -437,7 +452,7 @@ describe("MQTT read form", () => {
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
     const [temperature, label] = await waitFor(async () => {
       const format = await client.icds.retrieve(entry.icd);
-      expect(format.name).toBe("MQTT read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toMatchObject([
         {
           key: entry.messages[0].message,
@@ -977,6 +992,33 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should show the reply of a broker that the Core cannot reach", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer(UNREACHABLE);
+    await dialog.findByText("Failed to list topics");
+    dialog.getByText(`${UNREACHABLE.message}. ${UNREACHABLE.description}`);
+  });
+
+  it("should show the reply when it cannot list the Sparkplug B nodes", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({ data: { topics: [], truncated: false } });
+    fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+    await scanner.answer(UNREACHABLE);
+    await dialog.findByText("Failed to list tags");
+    dialog.getByText(`${UNREACHABLE.message}. ${UNREACHABLE.description}`);
+  });
+
+  it("should show the error of a rack that has no scan task", async () => {
+    const { dev } = await renderRead();
+    const dialog = await openAddData();
+    await dialog.findByText("Failed to list topics");
+    dialog.getByText(`Found no task where rack = ${dev.rack} and type = "mqtt_scan"`);
+  });
+
   it("should focus the topic of a topic added by name", async () => {
     await renderRead();
     const dialog = await openAddData();
@@ -1013,7 +1055,7 @@ describe("MQTT read form", () => {
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
 
-  it("should give the ICD a default name while the task has none", async () => {
+  it("should name a new ICD after the device while the task has no name", async () => {
     const { dev, draft } = await renderRead();
     const name = await screen.findByLabelText("Name");
     fireEvent.change(name, { target: { value: "" } });
@@ -1024,9 +1066,7 @@ describe("MQTT read form", () => {
       expect(entries).toHaveLength(1);
       return entries;
     });
-    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(
-      "MQTT read task",
-    );
+    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(dev.name);
   });
 
   it("should show the format of a field from the ICD of its entry", async () => {
@@ -1142,6 +1182,8 @@ describe("MQTT read form", () => {
     await selectField("count");
     await screen.findByText("int64");
     const scale = await screen.findByLabelText("Scale");
+    // A read multiplies, as the label says, so only a write field explains its scale.
+    expect(screen.queryByText("The task sends (value − offset) ÷ scale.")).toBeNull();
     fireEvent.change(scale, { target: { value: "0.5" } });
     fireEvent.blur(scale);
     await screen.findByText("float64");

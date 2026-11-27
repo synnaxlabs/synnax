@@ -24,7 +24,7 @@ namespace {
 /// of 9600 baud.
 Settings dirty() {
     Settings s{};
-    s.c_iflag = IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON |
+    s.c_iflag = IGNBRK | BRKINT | IGNPAR | ISTRIP | INLCR | IGNCR | ICRNL | IXON |
                 IXOFF;
     s.c_oflag = OPOST;
     s.c_cflag = CS5 | PARENB | PARODD | CSTOPB | CRTSCTS;
@@ -50,7 +50,7 @@ TEST(Line, AppliesSevenDataBitsOddParityTwoStopBitsAndHardwareFlowControl) {
         s.c_cflag,
         static_cast<tcflag_t>(CS7 | PARENB | PARODD | CSTOPB | CRTSCTS | CREAD | CLOCAL)
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(::cfgetispeed(&s), static_cast<speed_t>(B19200));
     EXPECT_EQ(::cfgetospeed(&s), static_cast<speed_t>(B19200));
 }
@@ -61,7 +61,7 @@ TEST(Line, ClearsParityStopBitsAndFlowControlForTheDefaults) {
     auto s = dirty();
     ASSERT_NIL(apply(synnax::serial::Properties{}, s));
     EXPECT_EQ(s.c_cflag, static_cast<tcflag_t>(CS8 | CREAD | CLOCAL));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(::cfgetospeed(&s), static_cast<speed_t>(B9600));
 }
 
@@ -84,7 +84,7 @@ TEST(Line, KeepsTheFlagsItDoesNotOwn) {
 TEST(Line, PutsTheLineInRawMode) {
     auto s = dirty();
     ASSERT_NIL(apply(synnax::serial::Properties{}, s));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(s.c_oflag, static_cast<tcflag_t>(0));
     EXPECT_EQ(s.c_lflag, static_cast<tcflag_t>(0));
     EXPECT_TRUE(s.c_cflag & CREAD);
@@ -113,7 +113,7 @@ TEST(Line, AppliesSoftwareFlowControl) {
     p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
     auto s = dirty();
     ASSERT_NIL(apply(p, s));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IXON | IXOFF | IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | IXON | IXOFF));
     EXPECT_EQ(s.c_cflag & CRTSCTS, static_cast<tcflag_t>(0));
 }
 

@@ -28,6 +28,7 @@ cc_library(
         "//driver/codec",
         "//driver/errors",
         "//x/cpp/errors",
+        "//x/cpp/payload",
         "//x/cpp/telem",
     ],
 )

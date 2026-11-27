@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, payload, type record, uuid } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useRef } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
@@ -606,6 +606,16 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const { push, remove } = Form.useFieldListUtils(path);
   const fields = Form.useFieldValue(path);
   const own = fields.filter((f) => encodingOf(f) === encoding);
+  // The fields that the grid added, whose pointers follow a rename as in the task form.
+  const [created, setCreated] = useState<string[]>([]);
+  const followName = (prev: Field, next: Field): Field => {
+    if (!("pointer" in prev) || !("pointer" in next) || !created.includes(prev.key))
+      return next;
+    if (next.name === prev.name || next.pointer !== prev.pointer) return next;
+    const json = fields.filter((f): f is icd.JSONField => "pointer" in f);
+    const pointer = renamedPointer(prev, next.name, json);
+    return pointer == null ? next : { ...next, pointer };
+  };
   const status = Form.useStatuses(path).find(({ key }) =>
     own.some((f) => matchOwnField(key, path, f)),
   );
@@ -614,8 +624,13 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const handleChange = (next: Input.TableCell[][]) => {
     const updated = fieldsFromRows(encoding, columns, own, rows, next);
     const entries = deep.widen<unknown>(path);
-    own.forEach((field, i) => writeField(ctx, entries[field.key], field, updated[i]));
-    if (updated.length > own.length) push(updated.slice(own.length));
+    own.forEach((field, i) =>
+      writeField(ctx, entries[field.key], field, followName(field, updated[i])),
+    );
+    if (updated.length <= own.length) return;
+    const added = updated.slice(own.length);
+    setCreated((prev) => [...prev, ...added.map(({ key }) => key)]);
+    push(added);
   };
   const handleRemove = (index: number) => remove(own[index].key);
   // A paste adds several rows before any is stored. Each grid's first column is the
@@ -689,7 +704,11 @@ export interface JSONFieldProps {
   autoFocus?: boolean;
   /** Called with each new name, while the form still holds the old one. */
   onNameChange?: (name: string) => void;
+  /** A command channel fills the field, so the scale and offset convert in reverse. */
+  commanded?: boolean;
 }
+
+const WRITE_CONVERSION = "The task sends (value − offset) ÷ scale.";
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
@@ -700,6 +719,7 @@ export const JSONField = ({
   actions,
   autoFocus = false,
   onNameChange,
+  commanded = false,
 }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -741,7 +761,12 @@ export const JSONField = ({
       {isNumberKind(type) && (
         <>
           <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
-            {(p) => <ScaleControl {...p} offset={path.offset} />}
+            {(p) => (
+              <>
+                <ScaleControl {...p} offset={path.offset} />
+                {commanded && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
+              </>
+            )}
           </Form.Field>
           <Form.TextField path={path.units} label="Units" padHelpText={false} />
         </>

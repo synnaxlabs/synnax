@@ -22,6 +22,7 @@ import { CertificatesMenu, SecretsMenu } from "@/feature/secret/ContextMenu";
 import { Collection } from "@/platform/collection";
 import { CSS } from "@/platform/css";
 import { Secret as PlatformSecret } from "@/platform/secret";
+import { UsedBy } from "@/platform/used-by";
 
 /** Shows a certificate that uses a secret. */
 export interface SelectCertificate {
@@ -129,7 +130,7 @@ const SecretItem = ({ onSelectCertificate, ...rest }: SecretItemProps) => {
           </Text.Text>
         </List.Cell>
         <List.Cell>
-          <Collection.UsedBy
+          <UsedBy.UsedBy
             itemKey={itemKey}
             kind="secret"
             uses={uses}
