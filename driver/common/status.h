@@ -352,7 +352,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         synnax::task::Status status;
         status.owner = synnax::task::resource_id(task.key);
         status.name = task.name;
-        // No instance runs, so the status carries no config hash.
+        // Unless an instance runs on, the status carries no config hash.
         status.details.running = false;
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to configure task";
