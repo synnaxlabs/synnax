@@ -107,7 +107,8 @@ struct FakeStore final : Store<Resource> {
         return x::errors::NIL;
     }
 
-    x::errors::Error update_identity(const Resource &resource) override {
+    x::errors::Error
+    update_identity(const Resource &, const Resource &resource) override {
         if (this->during_update) this->during_update();
         if (this->update_err) return this->update_err;
         this->identity_updates.push_back(resource);

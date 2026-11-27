@@ -59,9 +59,9 @@ struct Store {
     /// @brief creates the resources, and sets the key of each one.
     virtual x::errors::Error create(std::vector<D> &resources) = 0;
 
-    /// @brief writes the identity group of the resource, and keeps the configuration
-    /// group as stored.
-    virtual x::errors::Error update_identity(const D &resource) = 0;
+    /// @brief writes the identity fields of resource that differ from stored, and
+    /// keeps the configuration group as stored.
+    virtual x::errors::Error update_identity(const D &stored, const D &resource) = 0;
 
     /// @brief writes the status of each resource. It sets the owner and the details of
     /// each status from the resource and the status variant.
@@ -252,7 +252,7 @@ public:
             if (!this->can_take_over(res.match, *stored)) continue;
             auto merged = this->store->merge_identity(*stored, res.resource);
             if (merged.to_json() != stored->to_json()) {
-                if (const auto err = this->store->update_identity(merged)) {
+                if (const auto err = this->store->update_identity(*stored, merged)) {
                     LOG(WARNING) << this->log_prefix << "failed to update "
                                  << merged.name << ": " << err;
                     keep(err);
