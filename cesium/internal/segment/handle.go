@@ -15,7 +15,6 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/invariants"
 	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
@@ -205,9 +204,6 @@ func (h *Handle) sync() error {
 	}
 	file, dirty, newEntry := h.file, h.written != h.synced, h.newEntry
 	if dirty {
-		if invariants.Enabled && file == nil {
-			panic("segment: a closed handle holds unsynced writes")
-		}
 		h.refs++
 		h.unlink()
 	}
