@@ -27,21 +27,21 @@ var _ = Describe("RenameInText breaker", func() {
 		// v0.62 lexes 1 MiB of these in about 0.3 s.
 		text := strings.Repeat("//\n", (1<<19)/3)
 		start := time.Now()
-		Expect(v1.RenameInText(text, rename)).To(Equal(text))
+		Expect(v1.RenameInText(text, dashed, rename)).To(Equal(text))
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 	})
 
 	It("Should scan a program of unclosed block comments in linear time", func() {
 		text := strings.Repeat("/*a", (1<<19)/3)
 		start := time.Now()
-		Expect(v1.RenameInText(text, rename)).To(Equal(text))
+		Expect(v1.RenameInText(text, dashed, rename)).To(Equal(text))
 		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
 	})
 
 	It("Should rename a name that a placeholder writes with an escape", func() {
 		// v0.62 unescapes the body before it lexes the placeholder, so this reads
 		// the channel pt-01.
-		out := v1.RenameInText(`f"{pt-01}"`, rename)
+		out := v1.RenameInText(`f"{pt\u002d01}"`, dashed, rename)
 		body, flags, ok := literal.StripQuotes(out)
 		Expect(ok).To(BeTrue())
 		segments := MustSucceed(literal.FmtStrSplit(body, flags))
@@ -51,7 +51,7 @@ var _ = Describe("RenameInText breaker", func() {
 
 	It("Should leave a placeholder that v0.62 compiled splittable by the new Core",
 		func() {
-			out := v1.RenameInText("f`{pt-01 // it's\n}`", rename)
+			out := v1.RenameInText("f`{pt-01 // it's\n}`", dashed, rename)
 			Expect(out).To(Equal("f`{pt_01 // it's\n}`"))
 			body, flags, ok := literal.StripQuotes(out)
 			Expect(ok).To(BeTrue())

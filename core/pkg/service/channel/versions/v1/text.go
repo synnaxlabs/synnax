@@ -15,103 +15,116 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/kv"
 )
 
-// CalculationTextMigration writes the new name of each renamed channel into the
-// expression of each calculated channel (TextRename). It runs after the name and clash
-// passes, and before anything compiles a calculation.
-var CalculationTextMigration = migrate.New(
-	"v63_rename_calculation_channels",
-	func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
-		renames, err := resource.StagedRenames(tx)
-		if err != nil || len(renames) == 0 {
-			return err
-		}
-		var channels []Channel
-		if err = gorp.NewRetrieve[Key, Channel]().
-			Entries(&channels).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		names := make(map[Key]string, len(channels))
-		for _, c := range channels {
-			names[c.Key()] = c.Name
-		}
-		rename, err := TextRename(names, renames)
-		if err != nil {
-			return err
-		}
-		var changed []Channel
-		for _, c := range channels {
-			if e := RenameInText(c.Expression, rename); e != c.Expression {
-				c.Expression = e
-				changed = append(changed, c)
+// NewCalculationTextMigration returns the migration that writes the new name of each
+// renamed channel into the expression of each calculated channel (TextRename), lexed
+// with cfg as a v0.62 Core lexed it. It runs after the name and clash passes, and
+// before anything compiles a calculation.
+func NewCalculationTextMigration(cfg parser.Config) gorp.Migration {
+	return migrate.New(
+		"v63_rename_calculation_channels",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			var channels []Channel
+			if err := gorp.NewRetrieve[Key, Channel]().
+				Entries(&channels).
+				Exec(ctx, tx); err != nil {
+				return err
 			}
-		}
-		return gorp.WrapWriter[Key, Channel](tx).Set(ctx, changed...)
-	},
-)
+			names := make(map[Key]string, len(channels))
+			for _, c := range channels {
+				names[c.Key()] = c.Name
+			}
+			rename, err := TextRename(tx, names)
+			if err != nil || rename == nil {
+				return err
+			}
+			var changed []Channel
+			for _, c := range channels {
+				if e := RenameInText(c.Expression, cfg, rename); e != c.Expression {
+					c.Expression = e
+					changed = append(changed, c)
+				}
+			}
+			return gorp.WrapWriter[Key, Channel](tx).Set(ctx, changed...)
+		},
+	)
+}
 
 // TextRename returns the rename that the text passes apply to each channel name in
-// text that a v0.62 Core stored. names holds the name of each channel now, by key. A
-// name that no channel holds now in NFC, and that a renamed channel held, becomes the
-// new name of the channel that a v0.62 Core bound it to: of the renamed channels that
-// held it, the one with the highest key.
+// text that a v0.62 Core stored, or nil when the upgrade staged no rename. names holds
+// the name of each channel now, by key. A name in text reads the channel that a v0.62
+// Core bound it to: of the channels that held it before the upgrade (each staged rename
+// put back), the one with the highest key. The name becomes the new name of that
+// channel when the upgrade renamed it.
 func TextRename(
+	r kv.Reader,
 	names map[Key]string,
-	renames []resource.Rename,
 ) (func(string) (string, bool), error) {
-	held := make(set.Set[string], len(names))
-	for _, n := range names {
-		held.Add(resource.NormalizeName(n))
+	renames, err := resource.StagedRenames(r)
+	if err != nil || len(renames) == 0 {
+		return nil, err
 	}
-	type target struct {
-		key  Key
-		name string
-	}
-	moved := make(map[string]target, len(renames))
-	for _, r := range renames {
-		if r.ID.Type != resource.TypeChannel ||
-			held.Contains(resource.NormalizeName(r.From)) {
+	from := make(map[Key]string, len(renames))
+	for _, rn := range renames {
+		if rn.ID.Type != resource.TypeChannel {
 			continue
 		}
-		local, err := strconv.ParseUint(r.ID.Key, 10, 32)
+		local, err := strconv.ParseUint(rn.ID.Key, 10, 32)
 		if err != nil {
 			return nil, err
 		}
 		key := Key(local)
-		name, ok := names[key]
-		if !ok {
-			return nil, errors.Newf("staged rename of %s names no record", r.ID)
+		if _, ok := names[key]; !ok {
+			return nil, errors.Newf("staged rename of %s names no record", rn.ID)
 		}
-		if t, ok := moved[r.From]; !ok || key > t.key {
-			moved[r.From] = target{key: key, name: name}
+		from[key] = rn.From
+	}
+	type binding struct {
+		key     Key
+		renamed bool
+	}
+	bound := make(map[string]binding, len(names))
+	for key, name := range names {
+		before, renamed := from[key]
+		if !renamed {
+			before = name
+		}
+		if b, ok := bound[before]; !ok || key > b.key {
+			bound[before] = binding{key: key, renamed: renamed}
 		}
 	}
 	return func(name string) (string, bool) {
-		t, ok := moved[name]
-		return t.name, ok
+		b, ok := bound[name]
+		if !ok || !b.renamed {
+			return "", false
+		}
+		return names[b.key], true
 	}, nil
 }
 
 // RenameInText returns text, an Arc program or calculation expression that a v0.62
 // Core stored, with each identifier that rename maps to a new name written as that
 // name. The new name must lex as one identifier. An identifier is one that v0.62 lexed
-// with dashed names on, in code or in a placeholder of a format string, where rename
-// gets the name that the placeholder reads. Comments and the rest of strings stay as
-// they are.
-func RenameInText(text string, rename func(name string) (string, bool)) string {
+// with cfg, in code or in a placeholder of a format string, where rename gets the name
+// that the placeholder reads. Comments and the rest of strings stay as they are.
+func RenameInText(
+	text string,
+	cfg parser.Config,
+	rename func(name string) (string, bool),
+) string {
 	type edit struct {
 		span
 		text string
 	}
 	var edits []edit
-	scanCode(text, place{}, func(s span, name string) {
+	scanCode(text, place{}, cfg.AllowDashedNames, func(s span, name string) {
 		if to, ok := rename(name); ok {
 			edits = append(edits, edit{span: s, text: to})
 		}
@@ -157,8 +170,8 @@ func (p place) sub(i int) place {
 
 // scanCode calls found with the span in the enclosing text of each identifier in the
 // code src, in order, and the name that the identifier reads. at places src in the
-// enclosing text. It follows the v0.62 lexer with dashed names on.
-func scanCode(src string, at place, found func(span, string)) {
+// enclosing text. It follows the v0.62 lexer, with dashed names when dashed is true.
+func scanCode(src string, at place, dashed bool, found func(span, string)) {
 	// No "/*" after one that finds no "*/" can find one.
 	unclosed := false
 	for i := 0; i < len(src); {
@@ -185,10 +198,10 @@ func scanCode(src string, at place, found func(span, string)) {
 			n, ok := stringLen(src[i:])
 			switch {
 			case ok:
-				scanFormatString(src[i:i+n], at.sub(i), found)
+				scanFormatString(src[i:i+n], at.sub(i), dashed, found)
 				i += n
 			case c == 'r' || c == 'f':
-				i = scanIdentifier(src, i, at, found)
+				i = scanIdentifier(src, i, at, dashed, found)
 			default:
 				i += skip(src[i:], n)
 			}
@@ -197,7 +210,7 @@ func scanCode(src string, at place, found func(span, string)) {
 			// drops the character after it too.
 			i = min(i+2, len(src))
 		case isIdentifierByte(c) && (c < '0' || c > '9'):
-			i = scanIdentifier(src, i, at, found)
+			i = scanIdentifier(src, i, at, dashed, found)
 		default:
 			i++
 		}
@@ -205,13 +218,19 @@ func scanCode(src string, at place, found func(span, string)) {
 }
 
 // scanIdentifier calls found with the identifier that starts at src[i], and returns its
-// end. A '-' joins an identifier unless '>' or '=' comes after it.
-func scanIdentifier(src string, i int, at place, found func(span, string)) int {
+// end. When dashed is true, a '-' joins an identifier unless '>' or '=' comes after it.
+func scanIdentifier(
+	src string,
+	i int,
+	at place,
+	dashed bool,
+	found func(span, string),
+) int {
 	end := i + 1
 	for end < len(src) {
 		c := src[end]
 		if c == '-' {
-			if end+1 < len(src) && (src[end+1] == '>' || src[end+1] == '=') {
+			if !dashed || end+1 < len(src) && (src[end+1] == '>' || src[end+1] == '=') {
 				break
 			}
 		} else if !isIdentifierByte(c) {
@@ -267,7 +286,7 @@ func isQuote(src string, i int) bool {
 // scanFormatString calls found with each identifier in the placeholders of the string
 // literal lit, when lit is a format string. at places lit in the enclosing text. A
 // string that v0.62 could not split holds no identifiers.
-func scanFormatString(lit string, at place, found func(span, string)) {
+func scanFormatString(lit string, at place, dashed bool, found func(span, string)) {
 	prefix := strings.IndexAny(lit, "\"`")
 	if strings.IndexByte(lit[:prefix], 'f') < 0 {
 		return
@@ -298,7 +317,7 @@ func scanFormatString(lit string, at place, found func(span, string)) {
 		for i := range offsets {
 			offsets[i] = at.pos(start + from[p.start+i])
 		}
-		scanCode(value[p.start:p.end], place{at: offsets}, found)
+		scanCode(value[p.start:p.end], place{at: offsets}, dashed, found)
 	}
 }
 

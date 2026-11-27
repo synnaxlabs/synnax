@@ -152,7 +152,10 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB:   cfg.DB,
 		Name: tableName,
 		Migrations: append(
-			versions.NewMigrations(cfg.HostKey),
+			versions.NewMigrations(
+				cfg.HostKey,
+				parser.Config{AllowDashedNames: !*cfg.ValidateNames},
+			),
 			gorp.DanglingMigration("v61_dangling_references"),
 		),
 		// The name index runs first, so a clash of two channels names the rule that
