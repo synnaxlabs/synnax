@@ -1548,6 +1548,122 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should read the message of the task that holds every field of a new key", async () => {
+      const time = createTimeField();
+      const fields = [
+        time,
+        createField("temperature", "float"),
+        createField("state", "string"),
+      ];
+      const { draft, dev } = await renderRead({
+        fields,
+        recordKey: "oven-1",
+        index: time.key,
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_SHAPE) });
+      await dialog.findByText(/^Reads oven-1 of format/);
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      const [read] = records[0].messages;
+      expect(records[1]).toMatchObject({ icd: records[0].icd, recordKey: "oven-2" });
+      expect(records[1].messages).toHaveLength(1);
+      expect(records[1].messages[0]).toMatchObject({
+        message: read.message,
+        index: time.key,
+      });
+      expect(records[1].messages[0].bindings.map(({ field }) => field)).toEqual(
+        fields.map(({ key }) => key),
+      );
+      const { messages } = await client.icds.retrieve(records[0].icd);
+      expect(messages.map(({ name }) => name)).toEqual(["oven-1"]);
+    });
+
+    /** A shape of the key oven-2 that holds a temperature. */
+    const OVEN_2_SHAPE = {
+      sources: ["oven-2"],
+      fields: [createInferredField("/temperature", "float", "number")],
+      index: -1,
+      count: 1,
+      present: -1,
+    };
+
+    /** Renders a task whose ICD holds two messages of a temperature. */
+    const renderTwins = async (
+      beforeRender?: (
+        dev: device.Device,
+        rec: Kafka.Task.ReadRecord,
+        twin: icd.Message,
+      ) => Promise<unknown>,
+    ) => {
+      const fields = [createField("temperature", "float")];
+      const twin: icd.Message = {
+        key: uuid.create(),
+        name: "twin",
+        payload: { format: "json", fields: [createField("temperature", "float")] },
+      };
+      const rec = await createRecord({ fields, recordKey: "oven-1" });
+      await client.icds.dispatch(
+        rec.icd,
+        icd.insert({
+          path: ["messages"],
+          value: twin,
+          after: rec.messages[0].message,
+        }),
+      );
+      const rendered = await renderRead({
+        records: [rec],
+        beforeRender: async (dev) => await beforeRender?.(dev, rec, twin),
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      return { ...rendered, rec, twin };
+    };
+
+    it("should add a new message for a new key that two messages fit equally", async () => {
+      const { draft, dev, rec } = await renderTwins();
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
+      await dialog.findByText("Fits 2 messages");
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      await waitFor(async () =>
+        expect(await retrieveRecords(draft.key)).toHaveLength(2),
+      );
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages.map(({ name }) => name)).toEqual([
+        "oven-1",
+        "twin",
+        "oven oven-2",
+      ]);
+    });
+
+    it("should read the message that the device stores channels for at a new key", async () => {
+      const { draft, dev, rec, twin } = await renderTwins(async (d, r, t) => {
+        const stored = kafka.readRecordZ.parse({
+          icd: r.icd,
+          recordKey: "oven-2",
+          messages: [{ message: t.key }],
+        });
+        await storeChannels(d.key, stored, { index: 0, channels: {} });
+      });
+      const dialog = await openAddData(dev, { data: sampleOf(OVEN_2_SHAPE) });
+      await dialog.findByText(/^Reads twin of format/);
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      expect(records[1].messages.map(({ message }) => message)).toEqual([twin.key]);
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages).toHaveLength(2);
+    });
+
     it("should not count the picks of a shape that a new sample lacks", async () => {
       const { dev } = await renderRead();
       const pump = {
