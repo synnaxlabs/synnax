@@ -78,6 +78,13 @@ const (
 	OperatorBool     = FilterNamespace + ".Bool"
 )
 
+// IsOperator reports whether ref names an operator type, such as OperatorBool. A typed
+// line of an operator type reads as a bare line, with a hand-written matcher.
+func IsOperator(ref TypeRef) bool {
+	_, ok := operatorMembers[ref.Name]
+	return ok
+}
+
 var operatorMembers = map[string][]string{
 	OperatorSet:      {"eq", "in"},
 	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
@@ -91,13 +98,6 @@ var operatorMembers = map[string][]string{
 		"case_insensitive",
 	},
 	OperatorBool: {"eq"},
-}
-
-// IsOperator reports whether ref names an operator type, such as OperatorBool. A typed
-// line of an operator type reads as a bare line, with a hand-written matcher.
-func IsOperator(ref TypeRef) bool {
-	_, ok := operatorMembers[ref.Name]
-	return ok
 }
 
 // OperatorMembers returns the members that the interpreters of the operator type op
