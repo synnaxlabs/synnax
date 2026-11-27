@@ -135,9 +135,10 @@ func (x *XY) GetY() float64 {
 	return 0
 }
 
-// ClosedBounds is a closed interval [lower, upper] over an ordered numeric value space,
-// such as the range of a hardware input. The TypeScript binding is generic over T;
-// other languages emit a concrete float64-based type.
+// ClosedBounds is a nonempty closed interval [lower, upper] over an ordered numeric
+// value space, such as the range of a hardware input. Go validation refuses a lower
+// that is not below upper. The TypeScript binding is generic over T; other languages
+// emit a concrete float64-based type.
 type ClosedBounds struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// lower is the inclusive lower bound.

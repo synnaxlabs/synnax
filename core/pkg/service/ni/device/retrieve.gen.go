@@ -85,9 +85,9 @@ func newIndexes() indexes {
 			Targets: func(e *Device) []rack.Key {
 				return []rack.Key{e.Rack}
 			},
-			Retarget: func(e *Device, from, to rack.Key) {
-				if e.Rack == from {
-					e.Rack = to
+			Retarget: func(e *Device, to map[rack.Key]rack.Key) {
+				if t, ok := to[e.Rack]; ok {
+					e.Rack = t
 				}
 			},
 		}),
@@ -102,9 +102,11 @@ func newIndexes() indexes {
 				}
 				return []chassis.Key{*e.Chassis}
 			},
-			Retarget: func(e *Device, from, to chassis.Key) {
-				if e.Chassis != nil && *e.Chassis == from {
-					*e.Chassis = to
+			Retarget: func(e *Device, to map[chassis.Key]chassis.Key) {
+				if e.Chassis != nil {
+					if t, ok := to[*e.Chassis]; ok {
+						*e.Chassis = t
+					}
 				}
 			},
 		}),
@@ -125,9 +127,11 @@ func newIndexes() indexes {
 					e.AnalogInput.Index = nil
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
-				if e.AnalogInput.Index != nil && *e.AnalogInput.Index == from {
-					*e.AnalogInput.Index = to
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
+				if e.AnalogInput.Index != nil {
+					if t, ok := to[*e.AnalogInput.Index]; ok {
+						*e.AnalogInput.Index = t
+					}
 				}
 			},
 		}),
@@ -148,9 +152,11 @@ func newIndexes() indexes {
 					e.AnalogInput.Temperature = nil
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
-				if e.AnalogInput.Temperature != nil && *e.AnalogInput.Temperature == from {
-					*e.AnalogInput.Temperature = to
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
+				if e.AnalogInput.Temperature != nil {
+					if t, ok := to[*e.AnalogInput.Temperature]; ok {
+						*e.AnalogInput.Temperature = t
+					}
 				}
 			},
 		}),
@@ -181,10 +187,10 @@ func newIndexes() indexes {
 					}
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k4, v5 := range e.AnalogInput.Channels {
-					if v5 == from {
-						v5 = to
+					if t, ok := to[v5]; ok {
+						v5 = t
 						e.AnalogInput.Channels[k4] = v5
 					}
 				}
@@ -220,10 +226,12 @@ func newIndexes() indexes {
 					e.AnalogOutput[k3] = v2
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k5, v4 := range e.AnalogOutput {
-					if v4.StateIndex != nil && *v4.StateIndex == from {
-						*v4.StateIndex = to
+					if v4.StateIndex != nil {
+						if t, ok := to[*v4.StateIndex]; ok {
+							*v4.StateIndex = t
+						}
 					}
 					e.AnalogOutput[k5] = v4
 				}
@@ -259,10 +267,12 @@ func newIndexes() indexes {
 					e.AnalogOutput[k3] = v2
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k5, v4 := range e.AnalogOutput {
-					if v4.Command != nil && *v4.Command == from {
-						*v4.Command = to
+					if v4.Command != nil {
+						if t, ok := to[*v4.Command]; ok {
+							*v4.Command = t
+						}
 					}
 					e.AnalogOutput[k5] = v4
 				}
@@ -298,10 +308,12 @@ func newIndexes() indexes {
 					e.AnalogOutput[k3] = v2
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k5, v4 := range e.AnalogOutput {
-					if v4.State != nil && *v4.State == from {
-						*v4.State = to
+					if v4.State != nil {
+						if t, ok := to[*v4.State]; ok {
+							*v4.State = t
+						}
 					}
 					e.AnalogOutput[k5] = v4
 				}
@@ -337,10 +349,12 @@ func newIndexes() indexes {
 					e.CounterInput[k3] = v2
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k5, v4 := range e.CounterInput {
-					if v4.Index != nil && *v4.Index == from {
-						*v4.Index = to
+					if v4.Index != nil {
+						if t, ok := to[*v4.Index]; ok {
+							*v4.Index = t
+						}
 					}
 					e.CounterInput[k5] = v4
 				}
@@ -376,10 +390,12 @@ func newIndexes() indexes {
 					e.CounterInput[k3] = v2
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k5, v4 := range e.CounterInput {
-					if v4.Channel != nil && *v4.Channel == from {
-						*v4.Channel = to
+					if v4.Channel != nil {
+						if t, ok := to[*v4.Channel]; ok {
+							*v4.Channel = t
+						}
 					}
 					e.CounterInput[k5] = v4
 				}
@@ -415,10 +431,12 @@ func newIndexes() indexes {
 					e.DigitalInput[k3] = v2
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k5, v4 := range e.DigitalInput {
-					if v4.Index != nil && *v4.Index == from {
-						*v4.Index = to
+					if v4.Index != nil {
+						if t, ok := to[*v4.Index]; ok {
+							*v4.Index = t
+						}
 					}
 					e.DigitalInput[k5] = v4
 				}
@@ -458,11 +476,11 @@ func newIndexes() indexes {
 					e.DigitalInput[k4] = v3
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k8, v7 := range e.DigitalInput {
 					for k9, v10 := range v7.Lines {
-						if v10 == from {
-							v10 = to
+						if t, ok := to[v10]; ok {
+							v10 = t
 							v7.Lines[k9] = v10
 						}
 					}
@@ -500,10 +518,12 @@ func newIndexes() indexes {
 					e.DigitalOutput[k3] = v2
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k5, v4 := range e.DigitalOutput {
-					if v4.StateIndex != nil && *v4.StateIndex == from {
-						*v4.StateIndex = to
+					if v4.StateIndex != nil {
+						if t, ok := to[*v4.StateIndex]; ok {
+							*v4.StateIndex = t
+						}
 					}
 					e.DigitalOutput[k5] = v4
 				}
@@ -546,11 +566,13 @@ func newIndexes() indexes {
 					e.DigitalOutput[k4] = v3
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k8, v7 := range e.DigitalOutput {
 					for k10, v9 := range v7.Lines {
-						if v9.Command != nil && *v9.Command == from {
-							*v9.Command = to
+						if v9.Command != nil {
+							if t, ok := to[*v9.Command]; ok {
+								*v9.Command = t
+							}
 						}
 						v7.Lines[k10] = v9
 					}
@@ -595,11 +617,13 @@ func newIndexes() indexes {
 					e.DigitalOutput[k4] = v3
 				}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
 				for k8, v7 := range e.DigitalOutput {
 					for k10, v9 := range v7.Lines {
-						if v9.State != nil && *v9.State == from {
-							*v9.State = to
+						if v9.State != nil {
+							if t, ok := to[*v9.State]; ok {
+								*v9.State = t
+							}
 						}
 						v7.Lines[k10] = v9
 					}
