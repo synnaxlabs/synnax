@@ -1184,8 +1184,7 @@ var _ = Describe("Edge task", func() {
 					tag := edgeTag("temp", createVirtual(ctx, telem.Float64T), "double")
 					tag["command_channel"] = 999999
 					return edgeConfig(dev, tag),
-						"command channel: tag plant/line1/temp: " +
-							"channel 999999 does not exist"
+						"tag temp: command channel 999999 does not exist"
 				},
 			),
 			Entry("a command channel of a type that the tag does not fit",

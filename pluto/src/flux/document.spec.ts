@@ -18,7 +18,16 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { deep, id, uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -99,6 +108,7 @@ const setRoutingKey = (value: string) => ({
 describe("createDocumentForm", () => {
   let testRack: rack.Rack;
   let wrapper: FC<PropsWithChildren>;
+  let log: Mock<(message: string) => void>;
 
   beforeAll(async () => {
     testRack = await client.racks.create({ name: "document-form" });
@@ -114,7 +124,8 @@ describe("createDocumentForm", () => {
   });
 
   beforeEach(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client: formClient });
+    log = vi.fn();
+    wrapper = await createAsyncSynnaxWrapper({ client: formClient, log });
     await waitForStreamLive(formClient.connection);
   });
 
@@ -657,23 +668,55 @@ describe("createDocumentForm", () => {
     expect(edited.config).toMatchObject({ routingKey: OTHER_ROUTING_KEY });
   });
 
-  it("should report an edit that the Core refuses and drop it", async () => {
-    const t = await createTask();
-    const { result } = await renderHookSuspended(
-      () => ({
-        ...useForm({ query: { key: t.key } }),
-        statuses: Status.useNotifications().statuses,
-      }),
+  const NEXT_STEP = "Fix it, then make the change again. The change was undone.";
+
+  const renderWithToasts = async (key: task.Key, beforeSend?: () => Promise<unknown>) =>
+    await renderHookSuspended(
+      () => {
+        const { statuses, silence } = Status.useNotifications();
+        return {
+          ...useForm({ query: { key }, beforeSend }),
+          failures: statuses.filter(
+            ({ message }) => message === "Failed to save change",
+          ),
+          silence,
+        };
+      },
       { wrapper },
     );
+
+  it("should report an edit that the Core refuses and drop it", async () => {
+    const t = await createTask();
+    const { result } = await renderWithToasts(t.key);
     act(() => result.current.form.set(path.name, ""));
     await act(async () => expect(await result.current.flush()).toBe(false));
     await waitFor(() =>
-      expect(result.current.statuses).toContainEqual(
-        expect.objectContaining({ variant: "error", message: "Failed to save Task" }),
-      ),
+      expect(result.current.failures).toEqual([
+        expect.objectContaining({
+          variant: "error",
+          name: t.name,
+          description: `Required. ${NEXT_STEP} name: required`,
+        }),
+      ]),
     );
     expect(result.current.form.get(path.name).value).toBe(t.name);
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(`ERROR [${t.name}]: Failed to save change`),
+    );
+  });
+
+  it("should report a refused send after the user closes the last report", async () => {
+    const t = await createTask();
+    const { result } = await renderWithToasts(t.key);
+    const refuse = async (): Promise<void> => {
+      act(() => result.current.form.set(path.name, ""));
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      await waitFor(() => expect(result.current.failures).toHaveLength(1));
+    };
+    await refuse();
+    act(() => result.current.silence(result.current.failures[0].key));
+    expect(result.current.failures).toHaveLength(0);
+    await refuse();
   });
 
   it("should report a refused send that was in flight when it flushes", async () => {
@@ -740,7 +783,7 @@ describe("createDocumentForm", () => {
 
     it("should drop an edit when beforeSend rejects", async () => {
       const t = await createTask();
-      const { result } = await renderGated(t.key, async () => {
+      const { result } = await renderWithToasts(t.key, async () => {
         throw new Error("not ready");
       });
       act(() =>
@@ -749,6 +792,14 @@ describe("createDocumentForm", () => {
       await act(async () => expect(await result.current.flush()).toBe(false));
       expect(result.current.form.get(path.name).value).toBe(t.name);
       expect((await fetchStored(t.key)).name).toBe(t.name);
+      await waitFor(() =>
+        expect(result.current.failures).toEqual([
+          expect.objectContaining({
+            name: t.name,
+            description: "The change was undone. not ready",
+          }),
+        ]),
+      );
     });
   });
 
