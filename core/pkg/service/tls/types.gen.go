@@ -13,5 +13,36 @@ package tls
 
 import "github.com/synnaxlabs/synnax/pkg/service/tls/versions"
 
+// ServerTrust is which server certificates the client trusts. A certificate authority
+// replaces the system roots.
+type ServerTrust = versions.ServerTrust
+
+// ServerTrustVariant is implemented by every ServerTrust variant.
+type ServerTrustVariant = versions.ServerTrustVariant
+
+// ServerTrustType is the "type" value that selects a variant of ServerTrust.
+type ServerTrustType = versions.ServerTrustType
+
+const (
+	// SystemRootsServerTrustType trusts the server certificates that the system roots
+	// sign.
+	SystemRootsServerTrustType ServerTrustType = versions.SystemRootsServerTrustType
+	// CertificateAuthorityServerTrustType trusts only the server certificates that one
+	// authority signs.
+	CertificateAuthorityServerTrustType ServerTrustType = versions.CertificateAuthorityServerTrustType
+	// ValidationDisabledServerTrustType accepts any server certificate.
+	ValidationDisabledServerTrustType ServerTrustType = versions.ValidationDisabledServerTrustType
+)
+
+// SystemRootsServerTrust trusts the server certificates that the system roots sign.
+type SystemRootsServerTrust = versions.SystemRootsServerTrust
+
+// CertificateAuthorityServerTrust trusts only the server certificates that one
+// authority signs.
+type CertificateAuthorityServerTrust = versions.CertificateAuthorityServerTrust
+
+// ValidationDisabledServerTrust accepts any server certificate.
+type ValidationDisabledServerTrust = versions.ValidationDisabledServerTrust
+
 // TLS configures a TLS connection to a server.
 type TLS = versions.TLS

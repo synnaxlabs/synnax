@@ -13,22 +13,73 @@ import { z } from "zod";
 
 import { certificate } from "@/certificate";
 
+/** SystemRootsServerTrust trusts the server certificates that the system roots sign. */
+export const systemRootsServerTrustZ = z.object({
+  type: z.literal("system_roots"),
+});
+export interface SystemRootsServerTrust extends z.infer<
+  typeof systemRootsServerTrustZ
+> {}
+
+/**
+ * CertificateAuthorityServerTrust trusts only the server certificates that one
+ * authority signs.
+ */
+export const certificateAuthorityServerTrustZ = z.object({
+  type: z.literal("certificate_authority"),
+  /** certificate is the certificate authority that signs the server certificate. */
+  certificate: certificate.keyZ,
+});
+export interface CertificateAuthorityServerTrust extends z.infer<
+  typeof certificateAuthorityServerTrustZ
+> {}
+
+/** ValidationDisabledServerTrust accepts any server certificate. */
+export const validationDisabledServerTrustZ = z.object({
+  type: z.literal("validation_disabled"),
+});
+export interface ValidationDisabledServerTrust extends z.infer<
+  typeof validationDisabledServerTrustZ
+> {}
+
+export const SERVER_TRUST_TYPES = [
+  "system_roots",
+  "certificate_authority",
+  "validation_disabled",
+] as const;
+export const serverTrustTypeZ = z.enum(SERVER_TRUST_TYPES);
+export type ServerTrustType = z.infer<typeof serverTrustTypeZ>;
+
+/**
+ * ServerTrust is which server certificates the client trusts. A certificate authority
+ * replaces the system roots.
+ */
+export const serverTrustZ = z.discriminatedUnion("type", [
+  systemRootsServerTrustZ,
+  certificateAuthorityServerTrustZ,
+  validationDisabledServerTrustZ,
+]);
+export type ServerTrust =
+  | SystemRootsServerTrust
+  | CertificateAuthorityServerTrust
+  | ValidationDisabledServerTrust;
+
+export const SERVER_TRUST_SCHEMAS: {
+  [K in ServerTrustType]: z.ZodType<Extract<ServerTrust, { type: K }>>;
+} = {
+  system_roots: systemRootsServerTrustZ,
+  certificate_authority: certificateAuthorityServerTrustZ,
+  validation_disabled: validationDisabledServerTrustZ,
+};
+
 /** TLS configures a TLS connection to a server. */
 export const tlsZ = z.object({
-  /**
-   * caCertificate is the certificate authority that signs the certificate of the
-   * server. Absent trusts the system roots.
-   */
-  caCertificate: certificate.keyZ.optional(),
+  /** serverTrust is which server certificates the client trusts. */
+  serverTrust: serverTrustZ.prefault({ type: "system_roots" }),
   /**
    * clientCertificate is the certificate and private key that the client presents to
    * the server. Absent presents no certificate.
    */
   clientCertificate: certificate.keyZ.optional(),
-  /**
-   * certificateValidationDisabled is true when the client accepts any server
-   * certificate.
-   */
-  certificateValidationDisabled: z.boolean().default(false),
 });
 export interface TLS extends z.infer<typeof tlsZ> {}

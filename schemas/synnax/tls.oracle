@@ -13,21 +13,37 @@ import "schemas/synnax/certificate"
 @py output "client/py/synnax/tls"
 @ts output "client/ts/src/tls"
 
-TLS struct {
-    ca_certificate                  certificate.Key? {
-        @doc value """
-            is the certificate authority that signs the certificate of the server.
-            Absent trusts the system roots.
-        """
+ServerTrust union on type {
+    system_roots {
+        @doc value "trusts the server certificates that the system roots sign."
     }
-    client_certificate              certificate.Key? {
+    certificate_authority {
+        certificate certificate.Key {
+            @doc value "is the certificate authority that signs the server certificate."
+        }
+
+        @doc value "trusts only the server certificates that one authority signs."
+    }
+    validation_disabled {
+        @doc value "accepts any server certificate."
+    }
+
+    @doc value  """
+        is which server certificates the client trusts. A certificate authority replaces
+        the system roots.
+    """
+    @go marshal
+}
+
+TLS struct {
+    server_trust       ServerTrust = system_roots {
+        @doc value "is which server certificates the client trusts."
+    }
+    client_certificate certificate.Key? {
         @doc value """
             is the certificate and private key that the client presents to the server.
             Absent presents no certificate.
         """
-    }
-    certificate_validation_disabled bool = false {
-        @doc value "is true when the client accepts any server certificate."
     }
 
     @doc value  "configures a TLS connection to a server."

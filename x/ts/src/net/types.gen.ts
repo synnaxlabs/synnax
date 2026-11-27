@@ -16,7 +16,7 @@ import { zod } from "@/zod";
 /** Address is a host and an optional TCP port that a client connects to. */
 export const addressZ = z.object({
   /** host is the hostname or IP address. */
-  host: z.string().min(1, "Host is required"),
+  host: z.string().min(1, "Host is required").check(zod.maxLength(253)),
   /** port is the TCP port. Absent takes the default port of the owner. */
   port: zod.uint16.min(1).optional(),
 });

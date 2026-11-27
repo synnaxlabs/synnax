@@ -22,5 +22,5 @@ class Address(BaseModel):
         port: Is the TCP port. Absent takes the default port of the owner.
     """
 
-    host: str = Field(min_length=1)
+    host: str = Field(min_length=1, max_length=253)
     port: int | None = Field(default=None, ge=1, le=65535)

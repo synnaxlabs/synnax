@@ -14,15 +14,54 @@ package v0
 import (
 	certificate "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (st ServerTrust) EncodeOrc(w *orc.Writer) error {
+	switch v := st.Variant.(type) {
+	case SystemRootsServerTrust:
+		w.String("system_roots")
+	case CertificateAuthorityServerTrust:
+		w.String("certificate_authority")
+		w.Write(v.Certificate[:])
+	case ValidationDisabledServerTrust:
+		w.String("validation_disabled")
+	default:
+		return errors.Newf("ServerTrust: nil or unknown variant %T", st.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (st *ServerTrust) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.StringBytes()
+	if err != nil {
+		return err
+	}
+	switch string(tag) {
+	case "system_roots":
+		var v SystemRootsServerTrust
+		st.Variant = v
+	case "certificate_authority":
+		var v CertificateAuthorityServerTrust
+		if _, err := r.Read(v.Certificate[:]); err != nil {
+			return err
+		}
+		st.Variant = v
+	case "validation_disabled":
+		var v ValidationDisabledServerTrust
+		st.Variant = v
+	default:
+		return errors.Newf("ServerTrust: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (tls TLS) EncodeOrc(w *orc.Writer) error {
-	if tls.CaCertificate != nil {
-		w.Bool(true)
-		w.Write((*tls.CaCertificate)[:])
-	} else {
-		w.Bool(false)
+	if err := tls.ServerTrust.EncodeOrc(w); err != nil {
+		return err
 	}
 	if tls.ClientCertificate != nil {
 		w.Bool(true)
@@ -30,25 +69,14 @@ func (tls TLS) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
-	w.Bool(tls.CertificateValidationDisabled)
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (tls *TLS) DecodeOrc(r *orc.Reader) error {
 	var err error
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv certificate.Key
-			if _, err := r.Read(hv[:]); err != nil {
-				return err
-			}
-			tls.CaCertificate = &hv
-		}
+	if err = tls.ServerTrust.DecodeOrc(r); err != nil {
+		return err
 	}
 	{
 		present, err := r.Bool()
@@ -62,9 +90,6 @@ func (tls *TLS) DecodeOrc(r *orc.Reader) error {
 			}
 			tls.ClientCertificate = &hv
 		}
-	}
-	if tls.CertificateValidationDisabled, err = r.Bool(); err != nil {
-		return err
 	}
 	return nil
 }

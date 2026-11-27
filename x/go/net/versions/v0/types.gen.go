@@ -32,6 +32,7 @@ type Address struct {
 func (a Address) Validate() error {
 	v := validate.New("Address")
 	v.NotEmptyString("host", a.Host)
+	v.MaxLength("host", a.Host, 253)
 	v.Ternary("host", !validatePattern0.MatchString(string(a.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
 	if a.Port != nil {
 		v.GreaterThanEq("port", *a.Port, 1)

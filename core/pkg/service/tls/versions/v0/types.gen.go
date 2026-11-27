@@ -11,17 +11,203 @@
 
 package v0
 
-import certificate "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v1"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
+	certificate "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v1"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+)
+
+// ServerTrustType is the "type" value that selects a variant of ServerTrust.
+type ServerTrustType string
+
+const (
+	// SystemRootsServerTrustType trusts the server certificates that the system roots
+	// sign.
+	SystemRootsServerTrustType ServerTrustType = "system_roots"
+	// CertificateAuthorityServerTrustType trusts only the server certificates that one
+	// authority signs.
+	CertificateAuthorityServerTrustType ServerTrustType = "certificate_authority"
+	// ValidationDisabledServerTrustType accepts any server certificate.
+	ValidationDisabledServerTrustType ServerTrustType = "validation_disabled"
+)
+
+// ServerTrustVariant is implemented by every ServerTrust variant.
+type ServerTrustVariant interface {
+	isServerTrustVariant()
+}
+
+// SystemRootsServerTrust trusts the server certificates that the system roots sign.
+type SystemRootsServerTrust struct {
+}
+
+func (SystemRootsServerTrust) isServerTrustVariant() {}
+
+// CertificateAuthorityServerTrust trusts only the server certificates that one
+// authority signs.
+type CertificateAuthorityServerTrust struct {
+	// Certificate is the certificate authority that signs the server certificate.
+	Certificate certificate.Key `json:"certificate" msgpack:"certificate"`
+}
+
+func (CertificateAuthorityServerTrust) isServerTrustVariant() {}
+
+// ValidationDisabledServerTrust accepts any server certificate.
+type ValidationDisabledServerTrust struct {
+}
+
+func (ValidationDisabledServerTrust) isServerTrustVariant() {}
+
+// ServerTrust is which server certificates the client trusts. A certificate authority
+// replaces the system roots.
+type ServerTrust struct {
+	Variant ServerTrustVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u ServerTrust) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case SystemRootsServerTrust:
+		return json.MarshalEncode(enc, struct {
+			Type ServerTrustType `json:"type"`
+			SystemRootsServerTrust
+		}{Type: SystemRootsServerTrustType, SystemRootsServerTrust: v})
+	case CertificateAuthorityServerTrust:
+		return json.MarshalEncode(enc, struct {
+			Type ServerTrustType `json:"type"`
+			CertificateAuthorityServerTrust
+		}{Type: CertificateAuthorityServerTrustType, CertificateAuthorityServerTrust: v})
+	case ValidationDisabledServerTrust:
+		return json.MarshalEncode(enc, struct {
+			Type ServerTrustType `json:"type"`
+			ValidationDisabledServerTrust
+		}{Type: ValidationDisabledServerTrustType, ValidationDisabledServerTrust: v})
+	default:
+		return errors.Newf("ServerTrust: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *ServerTrust) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ServerTrustType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case SystemRootsServerTrustType:
+		var v struct {
+			Type ServerTrustType `json:"type"`
+			SystemRootsServerTrust
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SystemRootsServerTrust
+	case CertificateAuthorityServerTrustType:
+		var v struct {
+			Type ServerTrustType `json:"type"`
+			CertificateAuthorityServerTrust
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CertificateAuthorityServerTrust
+	case ValidationDisabledServerTrustType:
+		var v struct {
+			Type ServerTrustType `json:"type"`
+			ValidationDisabledServerTrust
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ValidationDisabledServerTrust
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ServerTrust: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ServerTrust) Type() ServerTrustType {
+	switch u.Variant.(type) {
+	case SystemRootsServerTrust:
+		return SystemRootsServerTrustType
+	case CertificateAuthorityServerTrust:
+		return CertificateAuthorityServerTrustType
+	case ValidationDisabledServerTrust:
+		return ValidationDisabledServerTrustType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if no variant is active or
+// the active variant violates its schema constraints.
+func (u ServerTrust) Validate() error {
+	v := validate.New("ServerTrust")
+	v.Ternary("type", u.Variant == nil, "required")
+	return v.Error()
+}
 
 // TLS configures a TLS connection to a server.
 type TLS struct {
-	// CaCertificate is the certificate authority that signs the certificate of the
-	// server. Absent trusts the system roots.
-	CaCertificate *certificate.Key `json:"ca_certificate,omitzero" msgpack:"ca_certificate,omitempty"`
+	// ServerTrust is which server certificates the client trusts.
+	ServerTrust ServerTrust `json:"server_trust" msgpack:"server_trust"`
 	// ClientCertificate is the certificate and private key that the client presents to
 	// the server. Absent presents no certificate.
 	ClientCertificate *certificate.Key `json:"client_certificate,omitzero" msgpack:"client_certificate,omitempty"`
-	// CertificateValidationDisabled is true when the client accepts any server
-	// certificate.
-	CertificateValidationDisabled bool `json:"certificate_validation_disabled" msgpack:"certificate_validation_disabled"`
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TLS) SetDefaults() {
+	t.ServerTrust.Variant = SystemRootsServerTrust{}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (t *TLS) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain TLS
+	if reflect.ValueOf(*t).IsZero() {
+		t.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(t))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (t *TLS) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain TLS
+	if reflect.ValueOf(*t).IsZero() {
+		t.SetDefaults()
+	}
+	return dec.Decode((*plain)(t))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (t TLS) Validate() error {
+	v := validate.New("TLS")
+	v.Exec(func() error { return validate.PathedError(t.ServerTrust.Validate(), "server_trust") })
+	return v.Error()
 }

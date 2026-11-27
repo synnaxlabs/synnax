@@ -12,6 +12,7 @@ Address struct {
         @doc value         "is the hostname or IP address."
         @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
         @validate required
+        @validate max_length 253
     }
     port uint16? {
         @doc value    "is the TCP port. Absent takes the default port of the owner."

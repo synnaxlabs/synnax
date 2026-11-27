@@ -19,27 +19,36 @@ class TestTLS:
     """Tests for the shared TLS configuration type."""
 
     def test_applies_the_defaults(self) -> None:
-        """Should leave both certificates absent and keep validation on."""
+        """Should trust the system roots and present no certificate."""
         t = sy.tls.TLS.model_validate({})
-        assert t.ca_certificate is None
+        assert isinstance(t.server_trust, sy.tls.SystemRootsServerTrust)
         assert t.client_certificate is None
-        assert t.certificate_validation_disabled is False
 
-    def test_parses_both_certificates(self) -> None:
-        """Should keep a CA, a client certificate, and the validation flag."""
+    def test_parses_a_certificate_authority(self) -> None:
+        """Should keep a certificate authority and a client certificate."""
         ca, client = uuid4(), uuid4()
         t = sy.tls.TLS.model_validate(
             {
-                "ca_certificate": ca,
+                "server_trust": {"type": "certificate_authority", "certificate": ca},
                 "client_certificate": client,
-                "certificate_validation_disabled": True,
             }
         )
-        assert t.ca_certificate == ca
+        assert t.server_trust == sy.tls.CertificateAuthorityServerTrust(certificate=ca)
         assert t.client_certificate == client
-        assert t.certificate_validation_disabled is True
+
+    def test_parses_disabled_validation(self) -> None:
+        """Should accept a server trust that disables validation."""
+        t = sy.tls.TLS.model_validate({"server_trust": {"type": "validation_disabled"}})
+        assert isinstance(t.server_trust, sy.tls.ValidationDisabledServerTrust)
 
     def test_rejects_a_certificate_that_is_not_a_key(self) -> None:
-        """Should reject a CA certificate that is not a UUID."""
+        """Should reject a certificate authority that is not a UUID."""
         with pytest.raises(ValidationError):
-            sy.tls.TLS.model_validate({"ca_certificate": "ca.pem"})
+            sy.tls.TLS.model_validate(
+                {
+                    "server_trust": {
+                        "type": "certificate_authority",
+                        "certificate": "ca.pem",
+                    }
+                }
+            )
