@@ -676,7 +676,7 @@ var _ = Describe("Write task", func() {
 			ch := createVirtual(ctx, telem.Float64T)
 			m := jsonMessage("Command", nil, jsonField("v", "/v", icd.FloatJSONField{}))
 			ic := createICD(ctx, m)
-			t, configured := start(ctx, writeConfig(
+			t, _ := start(ctx, writeConfig(
 				dev, messageTarget("plant/edit", ic, m, channelBinding(m, 0, ch)),
 			))
 			command(ctx, ch, telem.NewSeriesV(1.5), func(g Gomega) {
@@ -693,13 +693,17 @@ var _ = Describe("Write task", func() {
 					},
 				))
 			})).To(Succeed())
-			Expect(configured.Stop(false)).To(Succeed())
-			expectRejected(
-				ctx,
-				t,
-				"target plant/edit: message Command: field unit: needs a channel or a "+
-					"default",
-			)
+			msg := "target plant/edit: message Command: field unit: needs a channel " +
+				"or a default"
+			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
+				To(MatchError(ContainSubstring(msg)))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to deploy changes"))
+			Expect(stat.Description).To(HavePrefix(
+				"The task still runs its last deployed config. " + msg,
+			))
+			Expect(stat.Details.Running).To(BeTrue())
 		})
 
 		DescribeTable(
