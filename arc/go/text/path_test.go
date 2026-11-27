@@ -108,6 +108,22 @@ stand.trig -> f()
 		)), diagnostics.String())
 	})
 
+	It("Should offer only a folder rename for a path in a folder named authority", func(
+		ctx SpecContext,
+	) {
+		_, diagnostics := analyze(ctx, "authority.pt_01 -> stand.valve_cmd")
+		Expect(*diagnostics).To(ContainElement(HaveField(
+			"Message",
+			"authority.pt_01 does not exist",
+		)), diagnostics.String())
+		Expect(diagnostics.String()).To(SatisfyAll(
+			ContainSubstring(
+				`note: folder "authority" cannot be read in Arc yet. rename the folder`,
+			),
+			Not(ContainSubstring("own name")),
+		))
+	})
+
 	DescribeTable("Should fail a module member that a channel path matches",
 		func(ctx SpecContext, source string) {
 			_, diagnostics := analyze(ctx, source)
