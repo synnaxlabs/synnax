@@ -27,10 +27,10 @@ export interface Route<M> {
 
 /**
  * @returns the message of messages that the Core gives a document with fields. A
- * document that meets more than one present rule gets none. When a field is at the
- * pointer of a value rule, the value picks, and a shape holds none: the message that
- * reads the most of the fields wins, and a tie is a split. Else the message whose
- * present rule is at or above a field wins, then the one with no rule.
+ * document that meets one present rule gets its message, and one that meets more gets
+ * none. Else, when a field is at the pointer of a value rule, the value picks, and a
+ * shape holds none: the message that reads the most of the fields wins, and a tie is a
+ * split. Else the message with no rule wins.
  * @param pointersOf - The pointers of the fields that a message reads.
  */
 export const route = <M extends { match?: icd.JSONMatch }>(
@@ -44,7 +44,9 @@ export const route = <M extends { match?: icd.JSONMatch }>(
     ({ match }) => match?.type === "present" && holds(match.pointer),
   );
   if (met.length > 1) return { matches: met };
-  const other = met.at(0) ?? messages.find(({ match }) => match == null);
+  // The Core refuses a document that also meets a value rule.
+  if (met.length === 1) return { message: met[0] };
+  const other = messages.find(({ match }) => match == null);
   const valued = messages.filter(
     ({ match }) => match != null && match.type !== "present",
   );

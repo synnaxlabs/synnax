@@ -81,10 +81,14 @@ const routeOf = (shape: json.Shape, messages: MessageRead[]) =>
 const messagesOfKey = ({ messages }: Reads, key: string): MessageRead[] =>
   messages.get(key) ?? messages.get("") ?? [];
 
-/** @returns what the records of each Kafka key read. */
+/**
+ * @returns what the enabled records of each Kafka key read. The Core skips disabled
+ * records.
+ */
 export const readsOf = (records: ReadRecord[], messagesOf: MessagesOf): Reads => {
   const reads: Reads = { messages: new Map(), jsonless: new Set() };
   for (const record of records) {
+    if (record.disabled) continue;
     const own = messageReads(record, messagesOf(record.icd));
     if (own.length === 0) reads.jsonless.add(record.recordKey);
     map.getOrInsert(reads.messages, record.recordKey, () => []).push(...own);
@@ -354,9 +358,9 @@ export interface KindMessage {
 }
 
 /**
- * @returns the picks that the records of the task gain, in the message that the Core
- * gives the documents of each picked shape. A message gains each picked field that it
- * does not hold, once for all of its records. A record starts to read each picked
+ * @returns the picks that the enabled records of the task gain, in the message that the
+ * Core gives the documents of each picked shape. A message gains each picked field that
+ * it does not hold, once for all of its records. A record starts to read each picked
  * field that it does not read in that message. When no message of a record takes a
  * shape, the records of its ICD start to read a new message for the kind.
  * @throws if a picked shape is not extendable.
@@ -374,7 +378,7 @@ export const createExtensions = (
     const pointers = picks.get(json.shapeKey(shape));
     if (pointers == null) continue;
     for (const record of records) {
-      if (!shape.sources.includes(record.recordKey)) continue;
+      if (record.disabled || !shape.sources.includes(record.recordKey)) continue;
       const held = messagesOf(record.icd);
       const own = messageReads(record, held);
       if (own.length === 0)

@@ -71,6 +71,15 @@ describe("route", () => {
     });
   });
 
+  it("should give the message of a met present rule over a value rule that reads more of the fields", () => {
+    const status = kind("status", "/kind", "/temp");
+    const rpm = {
+      match: { type: "present", pointer: "/rpm" } as const,
+      pointers: ["/rpm"],
+    };
+    expect(route(["/kind", "/temp", "/rpm"], [status, rpm])).toEqual({ message: rpm });
+  });
+
   it("should split when two messages read the most of the fields", () => {
     const messages = [kind("status", "/kind", "/code"), kind("fault", "/kind", "/rpm")];
     expect(route(["/kind", "/temp"], messages)).toEqual({ split: "/kind" });
