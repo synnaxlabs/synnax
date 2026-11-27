@@ -82,19 +82,6 @@ func dialSeed(ctx context.Context, brokers []string) (net.Conn, string, error) {
 	}
 }
 
-// reachFailure returns err, the error of the first request to the cluster of brokers,
-// or the failure of dialSeed when no seed broker answers and ctx has not ended.
-func reachFailure(ctx context.Context, brokers []string, err error) error {
-	if ctx.Err() != nil {
-		return err
-	}
-	conn, _, dErr := dialSeed(ctx, brokers)
-	if dErr != nil {
-		return dErr
-	}
-	return errors.Join(err, conn.Close())
-}
-
 // withPort returns addr with defaultPort when it names no port, as the Kafka client
 // reads a seed broker address.
 func withPort(addr string) string {

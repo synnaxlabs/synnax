@@ -92,7 +92,7 @@ type browseResult struct {
 }
 
 // browseTopics returns the topics of the cluster of props, other than internal topics,
-// sorted by name. It fails as the connect test does when no seed broker answers.
+// sorted by name. It fails as the connect test does when the cluster does not answer.
 func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error) {
 	cl, err := openClient(props)
 	if err != nil {
@@ -100,9 +100,9 @@ func browseTopics(ctx context.Context, props Properties) ([]browsedTopic, error)
 	}
 	defer cl.Close()
 	adm := kadm.NewClient(cl)
-	details, err := describeTopics(ctx, cl, nil)
+	details, err := describeCluster(ctx, props, cl, nil)
 	if err != nil {
-		return nil, reachFailure(ctx, props.Brokers, err)
+		return nil, err
 	}
 	topics, readable := listTopics(details)
 	if len(readable) == 0 {
@@ -241,6 +241,28 @@ func (d topicDetail) readable() bool {
 	return len(d.operations) == 0 ||
 		slices.Contains(d.operations, kadm.OpRead) ||
 		slices.Contains(d.operations, kadm.OpAll)
+}
+
+// describeCluster returns describeTopics of topics within the time that the connect
+// test
+// gives the cluster to answer. It fails as the connect test does.
+func describeCluster(
+	ctx context.Context,
+	props Properties,
+	cl *kgo.Client,
+	topics []string,
+) (map[string]topicDetail, error) {
+	mdCtx, cancel := context.WithTimeout(ctx, stageTimeout)
+	details, err := describeTopics(mdCtx, cl, topics)
+	cancel()
+	if err == nil || ctx.Err() != nil {
+		return details, err
+	}
+	conn, _, dErr := dialSeed(ctx, props.Brokers)
+	if dErr != nil {
+		return nil, dErr
+	}
+	return nil, errors.Combine(metadataFailure(err), conn.Close())
 }
 
 // describeTopics returns the metadata of topics, or of every topic that the client may
@@ -422,9 +444,9 @@ func sampleTopics(
 	}
 	defer cl.Close()
 	adm := kadm.NewClient(cl)
-	details, err := describeTopics(ctx, cl, args.Topics)
+	details, err := describeCluster(ctx, props, cl, args.Topics)
 	if err != nil {
-		return sampleResult{}, reachFailure(ctx, props.Brokers, err)
+		return sampleResult{}, err
 	}
 	res, readable := newSampleResult(args.Topics, details)
 	if len(readable) == 0 {

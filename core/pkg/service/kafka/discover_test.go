@@ -115,6 +115,32 @@ var _ = Describe("Discover", func() {
 		))
 	}
 
+	// newMuteCluster starts a cluster that takes connections but answers no metadata
+	// request, as a broker behind the wrong listener does.
+	newMuteCluster := func() *kfake.Cluster {
+		GinkgoHelper()
+		c := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1)))
+		DeferCleanup(c.Close)
+		c.ControlKey(
+			int16(kmsg.Metadata),
+			func(kmsg.Request) (kmsg.Response, error, bool) {
+				c.KeepControl()
+				return nil, nil, true
+			},
+		)
+		return c
+	}
+
+	// expectMute checks that stat answers a command to a cluster that answers no
+	// metadata request.
+	expectMute := func(stat task.Status) {
+		GinkgoHelper()
+		Expect(stat.Variant).To(Equal(status.VariantError))
+		Expect(stat.Message).To(Equal("Broker did not answer"))
+		Expect(stat.Description).To(Equal("The broker did not answer within 5s. " +
+			"Check that the TLS and SASL settings match the listener of the broker."))
+	}
+
 	Describe("Browse", func() {
 		// browse returns the topics of the cluster of props.
 		browse := func(ctx context.Context, props kafka.Properties) []browsedTopic {
@@ -298,6 +324,14 @@ var _ = Describe("Discover", func() {
 				expectUnreachable(stat, addr)
 			},
 		)
+
+		It("Should say that the broker did not answer", func(ctx SpecContext) {
+			dev := createDevice(
+				ctx,
+				kafka.Properties{Brokers: newMuteCluster().ListenAddrs()},
+			)
+			expectMute(command(ctx, "browse", map[string]any{"device": dev.Key}, nil))
+		})
 	})
 
 	Describe("Sample", func() {
@@ -493,6 +527,17 @@ var _ = Describe("Discover", func() {
 				expectUnreachable(stat, addr)
 			},
 		)
+
+		It("Should say that the broker did not answer", func(ctx SpecContext) {
+			dev := createDevice(
+				ctx,
+				kafka.Properties{Brokers: newMuteCluster().ListenAddrs()},
+			)
+			expectMute(command(ctx, "sample", map[string]any{
+				"device": dev.Key,
+				"topics": []string{"plant"},
+			}, nil))
+		})
 
 		It("Should reject a sample that repeats a topic", func(ctx SpecContext) {
 			topic := uniqueTopic()
