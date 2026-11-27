@@ -471,8 +471,9 @@ names no clock key.
   primary's time series for the same alignments. The calculator reads a relay stream and
   writes through a writer (`core/pkg/service/framer/calculation/transform.go:45-63`), so
   its outputs cannot ride in the input's frame. From Phase 21 that writer keeps the
-  clock and alignment of each series that the calculator sets, and the free writer
-  numbers and stamps only the series that name no clock
+  clock and alignment of each series that the calculator sets, in a calculation session
+  only, and the free writer numbers and stamps every other series and clears the clock
+  of each data series that a client sends
   (`core/pkg/distribution/framer/writer/free.go:113-127`). A spec streams a calculation
   and its primary, reads both in history, and finds one alignment space for the clock. A
   subscriber of both gets those stamps twice: 8 bytes per output sample.
@@ -521,9 +522,10 @@ returns each segment in its stored type. A task save that changes an output's ty
 changes the channel's declared type. A type change on an index channel fails. A Sift
 flow declares each channel's type at configure
 (`core/pkg/service/sift/ingest/flow.go:29-42`), so from Phase 52 a type change starts a
-new flow config, whose type widens the types of the segments in the task's range by the
-rule of §4.4, since no record keeps the old type. A flow whose types cannot widen, such
-as a number and text, fails its task with a status that names the channel. The encoder
+new flow config, whose type widens the types of the segments in the task's range, from
+`DB.Types` (RFC 0121 §4.2), by the rule of §4.4, since no record keeps the old type. A
+channel whose types cannot widen, such as a number and text, fails only its own flow,
+with a status that names the channel, and the task's other channels go on. The encoder
 casts each value to the flow's type, where it takes the series' type today
 (`encode.go:129-160`). Every ICD write (Kafka, MQTT, HTTP, UDP, TCP, and serial) fixes a
 field's type at configure and reads each command sample by that type today
@@ -900,8 +902,9 @@ continuation. A partial group from a task fails loud, as a partial index group d
   each series of the group and of its time series, in place of a counter per key that
   starts a new key at 0 (`driver/bypass/bypass.h:172-180`). A counter starts above the
   highest alignment that any key of its group took on the bus or in a Core frame
-  (`:229-247`), and each publish raises it to the mark of each key in the frame, one
-  atomic max per series, so the alignments of a key rise across concurrent writers, as
+  (`:229-247`). Each publish, under the bus's `alignment_mu` (`bypass.h:199`), raises it
+  to the mark of each key in the frame, steps it, and raises those marks, as one step,
+  so two writers that publish one key at once never take overlapping alignments, as
   today. The bus keeps its mark per key. The forwarder maps positions to clock keys only
   where it writes to the Core. A local reader, such as Arc from Phase 41, pairs a series
   with its group's time in the same frame, never by bus alignment across groups.
@@ -1155,13 +1158,12 @@ branch against `main` and reports to the founder session.
   today's index keys as clocks and no format change. It ships with one-clock specs; the
   multi-clock specs land with the first phase that moves a key, and the reads with two
   clocks or 64 pauses are measured on a commit of the bench branch that is never merged
-  (D-520). Before Phase 12 a read frame holds only the named keys, and a named index
-  takes its series per chunk by offset from the key's alignments. Phases 24 to 54 merge
-  only when the one-clock reads are within 15% of `main`, the prototype is within 3% of
-  the storage branch on them, and the reads with two clocks or 64 pauses are within 2
-  times their one-clock reads. Their code may be built before the gate, as D-519 (3) has
-  the writer time groups built while index channels exist. A failed gate stops the line
-  for a new plan, with no waiver (founder delegation).
+  (D-520). Phases 24 to 54 merge only when the one-clock reads are within 15% of `main`,
+  the prototype is within 3% of the storage branch on them, and the reads with two
+  clocks or 64 pauses are within 2 times their one-clock reads. Their code may be built
+  before the gate, as D-519 (3) has the writer time groups built while index channels
+  exist. A failed gate stops the line for a new plan, with no waiver (founder
+  delegation).
 - **The compare script**: Before the prototype is measured, the box's
   `scripts/compare_benchmarks.py` gets `layout=log` cases for `ReadDomains`,
   `ReadSamples`, and `StreamFixedSpan`, puts `ReadOneClock` and `SeekPointerLog` in its
