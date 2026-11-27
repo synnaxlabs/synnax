@@ -183,7 +183,7 @@ ReadConfig struct extends task.PersistConfig {
         @ts type         "number"
         @validate finite
         @validate gt     0
-        @validate max    1000
+        @validate max    10000
     }
     endpoints        ReadEndpoint[] {
         @doc value "contains the endpoints to poll."

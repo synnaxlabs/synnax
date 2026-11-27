@@ -234,7 +234,7 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.GreaterThan("rate", r.Rate, 0)
-	v.LessThanEq("rate", r.Rate, 1000)
+	v.LessThanEq("rate", r.Rate, 10000)
 	v.Finite("rate", r.Rate)
 	for i := range r.Endpoints {
 		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })

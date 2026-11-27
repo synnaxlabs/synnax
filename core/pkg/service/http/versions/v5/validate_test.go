@@ -53,7 +53,7 @@ var _ = Describe("Validate", func() {
 			v5.ReadConfig{Rate: telem.Rate(math.Inf(1))},
 			"rate",
 		),
-		Entry("a read rate above 1 kHz", v5.ReadConfig{Rate: 1001}, "rate"),
+		Entry("a read rate above 10 kHz", v5.ReadConfig{Rate: 10001}, "rate"),
 		Entry(
 			"a header value with a NUL",
 			v5.Header{Name: "Accept", Value: "a\x00b"},

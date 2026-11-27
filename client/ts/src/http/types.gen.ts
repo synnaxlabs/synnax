@@ -106,7 +106,7 @@ export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
-  rate: z.number().gt(0).max(1000).default(1),
+  rate: z.number().gt(0).max(10000).default(1),
   endpoints: readEndpointZ.array().default(() => []),
   nanFillEnabled: z.boolean().default(false),
 });
