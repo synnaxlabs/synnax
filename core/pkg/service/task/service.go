@@ -241,7 +241,7 @@ func (s *Service) createCommandChannel(ctx context.Context) (channel.Key, error)
 		return s.cfg.Channel.NewWriter(tx).Create(
 			ctx,
 			&cmdCh,
-			channel.RetrieveIfNameExistsInGroup(),
+			channel.RetrieveIfNameExists(),
 		)
 	}); err != nil {
 		return 0, err

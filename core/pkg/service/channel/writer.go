@@ -10,7 +10,6 @@
 package channel
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -25,7 +24,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -59,28 +57,17 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 
 type createOptions struct {
 	retrieveIfNameExists                        bool
-	inGroup                                     bool
 	overwriteIfNameExistsAndDifferentProperties bool
 }
 
 // CreateOption configures the behavior of a Create or CreateMany call.
 type CreateOption func(*createOptions)
 
-// RetrieveIfNameExists returns a CreateOption that populates a channel from the stored
-// channel of its name, compared in NFC, instead of creating it. A channel with a group
-// takes only the stored channel in that group. A name that several stored channels hold
-// returns a query.MultipleResults error.
+// RetrieveIfNameExists returns a CreateOption that, when a channel with the same name
+// or key already exists, populates the provided channel from the existing record
+// instead of returning an error.
 func RetrieveIfNameExists() CreateOption {
 	return func(o *createOptions) { o.retrieveIfNameExists = true }
-}
-
-// RetrieveIfNameExistsInGroup returns a CreateOption for a channel that the Core makes
-// for itself. It populates the channel from the stored channel of its name in its
-// group, or at the top level when it has none. When no channel holds the name there, it
-// takes the stored channel of the name in any group. Of several, it takes the one with
-// the highest key and writes a warning status that names each of them.
-func RetrieveIfNameExistsInGroup() CreateOption {
-	return func(o *createOptions) { o.retrieveIfNameExists, o.inGroup = true, true }
 }
 
 // OverwriteIfNameExistsAndDifferentProperties returns a CreateOption that overwrites an
@@ -405,12 +392,7 @@ func (w Writer) create(
 	// Reset channels that already exist by name to their stored records before index
 	// synthesis, so an existing calculated channel keeps its stored index.
 	if opts.retrieveIfNameExists {
-		if stored, err = w.resetStoredNames(
-			ctx,
-			channels,
-			stored,
-			opts.inGroup,
-		); err != nil {
+		if stored, err = w.resetStoredNames(ctx, channels, stored); err != nil {
 			return err
 		}
 	}
@@ -614,45 +596,13 @@ func addPosition(positions set.Set[int], at int) set.Set[int] {
 	return positions
 }
 
-// reportTaken writes a warning status that names holders, the channels outside the
-// folder of a channel that the Core makes that hold its name, and taken, the one that
-// it uses.
-func (w Writer) reportTaken(
-	ctx context.Context,
-	name string,
-	holders []Channel,
-	taken Channel,
-) error {
-	keys := make([]string, len(holders))
-	for i, h := range holders {
-		keys[i] = h.Key().String()
-	}
-	s := status.Status[any]{
-		Name:    name,
-		Variant: status.VariantWarning,
-		Message: "Used one of several channels",
-		Description: fmt.Sprintf(
-			"%d channels outside the folder of the Core are named %q (keys %s). The "+
-				"Core uses the one with key %s. Rename the others so that one channel "+
-				"holds the name.",
-			len(holders),
-			name,
-			strings.Join(keys, ", "),
-			taken.Key(),
-		),
-		Time: telem.Now(),
-	}
-	return w.svc.cfg.Status.NewWriter(w.tx).Set(ctx, &s)
-}
-
-// resetStoredNames resets each channel at a position not in reset to the stored channel
-// of its name: in its group when it has a group, else in any group. A name that several
-// channels hold returns a query.MultipleResults error.
+// resetStoredNames resets each channel whose name exists to its stored record. Of
+// channels in two folders with the name, it takes the one with the highest key, which a
+// v0.62 Core retrieved.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,
 	reset set.Set[int],
-	inGroup bool,
 ) (set.Set[int], error) {
 	names := normalizeNames(Names(channels))
 	var existing []Channel
@@ -662,36 +612,17 @@ func (w Writer) resetStoredNames(
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
 	}
-	held := make(map[string][]Channel, len(existing))
+	last := make(map[string]Channel, len(existing))
 	for _, e := range existing {
-		held[e.Name] = append(held[e.Name], e)
+		if prev, ok := last[e.Name]; !ok || e.Key() > prev.Key() {
+			last[e.Name] = e
+		}
 	}
-	for i, ch := range channels {
-		if reset.Contains(i) {
-			continue
-		}
-		holders := held[names[i]]
-		here := lo.Filter(holders, func(e Channel, _ int) bool {
-			return sameGroup(e.Group, ch.Group)
-		})
-		if inGroup && len(here) > 0 || !inGroup && ch.Group != nil {
-			holders = here
-		} else if inGroup && len(holders) > 1 {
-			taken := slices.MaxFunc(holders, func(a, b Channel) int {
-				return cmp.Compare(a.Key(), b.Key())
-			})
-			if err := w.reportTaken(ctx, ch.Name, holders, taken); err != nil {
-				return nil, err
-			}
-			holders = []Channel{taken}
-		}
-		switch len(holders) {
-		case 0:
-		case 1:
-			channels[i] = holders[0]
+	at := positions(names)
+	for name, e := range last {
+		if i := at[name][0]; !reset.Contains(i) {
+			channels[i] = e
 			reset = addPosition(reset, i)
-		default:
-			return nil, ambiguousName(ch.Name, KeysFromChannels(holders))
 		}
 	}
 	return reset, nil

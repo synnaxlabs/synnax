@@ -297,9 +297,9 @@ func (s *Service) createCalculatedChannels(
 	})
 }
 
-// findOrCreate sets each of chs to the stored channel of its name, in the folder of the
-// metrics or else in any folder (channel.RetrieveIfNameExistsInGroup), and creates each
-// other one in the folder of the metrics.
+// findOrCreate sets each of chs to the stored channel of its name
+// (channel.RetrieveIfNameExists), and creates each other one in the folder of the
+// metrics.
 func (s *Service) findOrCreate(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -312,7 +312,7 @@ func (s *Service) findOrCreate(
 	if err := s.cfg.Channel.NewWriter(tx).CreateMany(
 		ctx,
 		&created,
-		channel.RetrieveIfNameExistsInGroup(),
+		channel.RetrieveIfNameExists(),
 	); err != nil {
 		return err
 	}

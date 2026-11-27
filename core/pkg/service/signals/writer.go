@@ -59,7 +59,7 @@ func (p *Provider) add(
 		return p.cfg.Channel.NewWriter(tx).CreateMany(
 			ctx,
 			&created,
-			channel.RetrieveIfNameExistsInGroup(),
+			channel.RetrieveIfNameExists(),
 			channel.OverwriteIfNameExistsAndDifferentProperties(),
 		)
 	}); err != nil {
