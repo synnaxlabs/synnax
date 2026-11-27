@@ -44,7 +44,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	HostKey node.Key
-	// DB is the gorp database that racks will be stored in.
+	// DB is the Gorp database that racks will be stored in.
 	//
 	// [REQUIRED]
 	DB *gorp.DB

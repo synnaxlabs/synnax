@@ -72,7 +72,7 @@ const legacyWorkspaceType = resource.Type("workspace")
 
 // migrateWorkspaceToProject lifts a renamed workspace into a project. The
 // workspace-to-project change was a pure rename, so it lifts every record from the
-// legacy "Workspace" gorp prefix into the v1 Project type and repoints the ontology at
+// legacy "Workspace" Gorp prefix into the v1 Project type and repoints the ontology at
 // the renamed type: it re-keys each workspace resource node to project and rewrites
 // every relationship endpoint of type workspace to project. The whole transition runs
 // in one migration transaction, so it commits atomically.
