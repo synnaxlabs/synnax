@@ -21,7 +21,10 @@ const SERIAL = /-[0-9a-f]{6,}(?=mod\d+$|$)/i;
  * short form of it, such as "c1m1". The name leaves out a chassis serial number. When
  * no form fits, returns short forms of the device name.
  */
-export const suggestIdentifiers = ({ location, name }: device.Device): string[] => {
+export const suggestIdentifiers = ({
+  location,
+  name,
+}: Pick<device.Device, "location" | "name">): string[] => {
   const parts =
     location
       .replace(SERIAL, "")

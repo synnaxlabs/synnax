@@ -125,6 +125,38 @@ describe("typed devices", async () => {
     });
   });
 
+  describe("useSave", () => {
+    it("should name the device, set its identifier, and keep its ports", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useSave(), { wrapper });
+      const name = uniqueName("configured");
+      await act(async () => {
+        await result.current.updateAsync({ key: dev.key, name, identifier: "dev1" });
+      });
+      const stored = await client.ni.devices.retrieve({ key: dev.key });
+      expect(stored.name).toBe(name);
+      expect(stored.identifier).toBe("dev1");
+      expect(stored.analogInput.channels).toEqual({ 0: port.key });
+    });
+  });
+
+  describe("useChangeIdentifier", () => {
+    it("should change the identifier and keep the name", async () => {
+      const dev = await createTyped();
+      const wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(() => NI.Device.useChangeIdentifier(), {
+        wrapper,
+      });
+      await act(async () => {
+        await result.current.updateAsync({ key: dev.key, identifier: "dev2" });
+      });
+      const stored = await client.ni.devices.retrieve({ key: dev.key });
+      expect(stored.identifier).toBe("dev2");
+      expect(stored.name).toBe(dev.name);
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete the device", async () => {
       const dev = await createTyped();
