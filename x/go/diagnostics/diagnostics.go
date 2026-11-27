@@ -260,10 +260,6 @@ func (d *Diagnostics) Empty() bool { return len(*d) == 0 }
 // Error implements the error interface.
 func (d *Diagnostics) Error() string { return d.String() }
 
-// Unwrap returns the error that d was created from, or nil when it was created from
-// none.
-func (d Diagnostic) Unwrap() error { return d.cause }
-
 // Unwrap returns the errors that the diagnostics were created from, so that errors.Is
 // matches them.
 func (d *Diagnostics) Unwrap() []error {

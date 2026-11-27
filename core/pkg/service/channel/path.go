@@ -11,15 +11,14 @@ package channel
 
 import (
 	"context"
-	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -185,169 +184,92 @@ func Paths(
 	return paths, nil
 }
 
-// ambiguousNameError is the error of a name that several channels hold. The Service
-// returns it inside a query.MultipleResults error. It names the holders by key and no
-// path, since a path can name a folder that the reader cannot retrieve.
-// Service.DescribeAmbiguity writes the paths that a subject can see.
-type ambiguousNameError struct {
-	// Name is the name, and Holders are the keys of the channels that hold it.
-	Name    string
-	Holders Keys
+// Visible reports whether a subject that allowed accepts can see each folder of p.
+func (p Path) Visible(allowed func(resource.ID) bool) bool {
+	return lo.EveryBy(p.Folders, func(g group.Group) bool {
+		return allowed(g.ResourceID())
+	})
 }
 
-// Error implements error.
-func (e ambiguousNameError) Error() string {
-	keys := make([]string, len(e.Holders))
-	for i, k := range e.Holders {
-		keys[i] = k.String()
-	}
-	return fmt.Sprintf(
-		"%d channels are named '%s' (keys %s)",
-		len(e.Holders),
-		e.Name,
-		strings.Join(keys, ", "),
-	)
-}
-
-// quotePath returns path in single quotes, as display text.
-func quotePath(path string) string { return "'" + path + "'" }
-
-// ambiguousName returns the query.MultipleResults error that holds the
-// ambiguousNameError of name and holders.
-func ambiguousName(name string, holders Keys) error {
-	err := ambiguousNameError{Name: name, Holders: holders}
-	return query.MultipleResults(err, "%s", err.Error())
-}
-
-// KeysByNames returns the key of the channel that holds each of names, compared in NFC,
-// as snap holds them. A name that no channel holds adds no key. A name that several
-// channels hold returns a query.MultipleResults error.
-func (s *Service) KeysByNames(
+// KeysByPaths returns the key of the channel at each of paths, as a subject that
+// allowed accepts sees snap, or as anyone sees it when allowed is nil. A path that
+// holds only digits is a key. Any other path is the names of the folders from the top
+// level down and the name of the channel, joined by '.', so a path with no '.' is a
+// channel at the top level. Names compare in NFC. A channel that allowed refuses, or
+// one behind a folder that it refuses, is missing. The first missing path returns a
+// query.ErrNotFound error that names the paths of the channels of its last name that
+// the subject can see.
+func (s *Service) KeysByPaths(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	names []string,
+	allowed func(resource.ID) bool,
+	paths []string,
 ) (Keys, error) {
-	normal := normalizeNames(names)
-	var holders []Channel
-	if err := s.newRetrieve().
-		Where(MatchNames(normal...)).
-		Entries(&holders).
-		Exec(ctx, snap); err != nil {
-		return nil, err
+	if allowed == nil {
+		allowed = func(resource.ID) bool { return true }
 	}
-	byName := make(map[string]Keys, len(normal))
-	for _, ch := range holders {
-		byName[ch.Name] = append(byName[ch.Name], ch.Key())
-	}
-	for i, n := range normal {
-		if keys := byName[n]; len(keys) > 1 {
-			return nil, ambiguousName(names[i], keys)
+	keys := make(Keys, 0, len(paths))
+	for _, path := range paths {
+		match := MatchPaths(path)
+		if key, err := strconv.ParseUint(path, 10, 32); err == nil {
+			match = MatchKeys(Key(key))
 		}
+		var found []Channel
+		if err := s.NewRetrieve().
+			AllowFolders(allowed).
+			Where(match).
+			Entries(&found).
+			Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+		found = lo.Filter(found, func(ch Channel, _ int) bool {
+			return allowed(ch.ResourceID())
+		})
+		if len(found) == 0 {
+			return nil, s.notFound(ctx, snap, allowed, path)
+		}
+		keys = append(keys, found[0].Key())
 	}
-	return KeysFromChannels(holders), nil
+	return keys, nil
 }
 
-// DescribeAmbiguity returns err as a subject sees it when err is the error of a name
-// that several channels hold, or *diagnostics.Diagnostics that holds some, and returns
-// err unchanged otherwise. access returns whether the subject can retrieve a record. An
-// ambiguity becomes a query.MultipleResults error that quotes the path of each holder
-// that the subject can retrieve along with every folder on its path, then counts the
-// other holders, also the ones that snap no longer holds. It wraps err. Each other
-// diagnostic stays as it is.
-func (s *Service) DescribeAmbiguity(
+// notFound returns the query.ErrNotFound error of path, which names the path of each
+// channel of its last name that a subject that allowed accepts can see.
+func (s *Service) notFound(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	err error,
-	access func(context.Context) (func(resource.ID) bool, error),
+	allowed func(resource.ID) bool,
+	path string,
 ) error {
-	if diags, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
-		return s.describeDiagnostics(ctx, snap, diags, access)
-	}
-	ambiguous, ok := errors.AsType[ambiguousNameError](err)
-	if !ok {
+	name := path[strings.LastIndexByte(path, validate.PathSeparator)+1:]
+	var named []Channel
+	if err := s.NewRetrieve().
+		Where(MatchNames(validate.NormalizeName(name))).
+		Entries(&named).
+		Exec(ctx, snap); err != nil {
 		return err
 	}
-	allowed, aErr := access(ctx)
-	if aErr != nil {
-		return aErr
+	named = lo.Filter(named, func(ch Channel, _ int) bool {
+		return allowed(ch.ResourceID())
+	})
+	paths, err := Paths(ctx, snap, named)
+	if err != nil {
+		return err
 	}
-	return s.describe(ctx, snap, err, ambiguous, allowed)
-}
-
-// describeDiagnostics returns diags with the message of each diagnostic of an
-// ambiguousNameError described for the subject (DescribeAmbiguity).
-func (s *Service) describeDiagnostics(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	diags *diagnostics.Diagnostics,
-	access func(context.Context) (func(resource.ID) bool, error),
-) error {
-	var allowed func(resource.ID) bool
-	out := slices.Clone(*diags)
-	for i, d := range out {
-		ambiguous, ok := errors.AsType[ambiguousNameError](d.Unwrap())
-		if !ok {
-			continue
-		}
-		if allowed == nil {
-			var err error
-			if allowed, err = access(ctx); err != nil {
-				return err
-			}
-		}
-		described := s.describe(ctx, snap, d.Unwrap(), ambiguous, allowed)
-		if !errors.Is(described, query.ErrQuery) {
-			return described
-		}
-		out[i].Message = described.Error()
-	}
-	return &out
-}
-
-// describe returns the query.MultipleResults error of err, the error of ambiguous, as a
-// subject that can retrieve the records that allowed accepts sees it.
-func (s *Service) describe(
-	ctx context.Context,
-	snap gorp.Snapshot,
-	err error,
-	ambiguous ambiguousNameError,
-	allowed func(resource.ID) bool,
-) error {
-	var holders []Channel
-	// A holder that a commit deleted since the lookup is a non-match, not an error.
-	if rErr := s.newRetrieve().
-		Where(func(Retrieve) gorp.Filter[Key, Channel] {
-			return gorp.MatchKeysFunc[Key, Channel](func(gorp.Context) ([]Key, error) {
-				return ambiguous.Holders, nil
-			})
-		}).
-		Entries(&holders).
-		Exec(ctx, snap); rErr != nil {
-		return rErr
-	}
-	paths, rErr := Paths(ctx, snap, holders)
-	if rErr != nil {
-		return rErr
-	}
-	folderAllowed := func(g group.Group) bool { return allowed(g.ResourceID()) }
 	texts := PathTexts(paths)
-	shown := make([]string, 0, len(holders)+1)
+	var seen []string
 	for i, p := range paths {
-		if allowed(holders[i].ResourceID()) && lo.EveryBy(p.Folders, folderAllowed) {
-			shown = append(shown, quotePath(texts[i]))
+		if p.Visible(allowed) {
+			seen = append(seen, texts[i])
 		}
 	}
-	slices.Sort(shown)
-	if hidden := len(ambiguous.Holders) - len(shown); hidden > 0 && len(shown) > 0 {
-		shown = append(shown, fmt.Sprintf("and %d more you cannot see", hidden))
-	} else if hidden > 0 {
-		shown = append(shown, fmt.Sprintf("%d you cannot see", hidden))
+	if len(seen) == 0 {
+		return query.NotFound("%s does not exist", path)
 	}
-	return query.MultipleResults(
-		err,
-		"%d channels are named '%s': %s",
-		len(ambiguous.Holders),
-		ambiguous.Name,
-		strings.Join(shown, ", "),
+	slices.Sort(seen)
+	return query.NotFound(
+		"%s does not exist. Did you mean %s?",
+		path,
+		strings.Join(seen, ", "),
 	)
 }

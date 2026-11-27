@@ -12,7 +12,6 @@ package channel
 import (
 	"context"
 	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/samber/lo"
@@ -23,8 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -70,11 +67,9 @@ func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 	})), nil
 }
 
-// Resolve resolves a single cluster channel by numeric key, by path when name holds
-// validate.PathSeparator, or else by name in NFC. A resolved path is the name of its
-// symbol. A name that several channels hold returns a query.MultipleResults error,
-// described for the subject of r. Every holder of a bare name counts, and the one
-// holder binds only when the subject can retrieve it.
+// Resolve resolves a single cluster channel by numeric key, or by path
+// (Service.KeysByPaths), so a name with no validate.PathSeparator is the channel of
+// that name at the top level. The symbol of a path takes the path as its name.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
@@ -83,65 +78,24 @@ func (r *symbolResolver) Resolve(
 	if err != nil {
 		return nil, err
 	}
+	var ch Channel
 	if key, err := strconv.ParseUint(name, 10, 32); err == nil {
-		var ch Channel
 		if err = q.Where(MatchKeys(Key(key))).Entry(&ch).Exec(ctx, r.snap); err != nil {
 			return nil, err
 		}
 		return toSymbol(ch), nil
 	}
-	path := strings.IndexByte(name, validate.PathSeparator) >= 0
-	match := MatchPaths(name)
-	if !path {
-		// Every holder of a bare name counts, as a compile with no subject counts them.
-		// Access decides only whether one holder binds.
-		q, match = r.svc.NewRetrieve(), MatchNames(validate.NormalizeName(name))
-	}
-	var chs []Channel
-	if err = q.Where(match).Entries(&chs).Exec(ctx, r.snap); err != nil {
+	if err = q.Where(MatchPaths(name)).Entry(&ch).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	if len(chs) == 1 && !path {
-		if chs, err = r.visible(ctx, chs); err != nil {
-			return nil, err
-		}
-	}
-	switch len(chs) {
-	case 0:
-		return nil, errors.Wrapf(query.ErrNotFound, "channel '%s'", name)
-	case 1:
-		sym := toSymbol(chs[0])
-		if path {
-			sym.Name = name
-		}
-		return sym, nil
-	default:
-		ambiguous := ambiguousName(name, KeysFromChannels(chs))
-		if r.access == nil {
-			return nil, ambiguous
-		}
-		return nil, r.svc.DescribeAmbiguity(ctx, r.snap, ambiguous, r.access)
-	}
+	sym := toSymbol(ch)
+	sym.Name = name
+	return sym, nil
 }
 
-// visible returns the channels of chs that the subject of r can retrieve.
-func (r *symbolResolver) visible(
-	ctx context.Context,
-	chs []Channel,
-) ([]Channel, error) {
-	if r.access == nil {
-		return chs, nil
-	}
-	allowed, err := r.access(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return lo.Filter(chs, func(ch Channel, _ int) bool {
-		return allowed(ch.ResourceID())
-	}), nil
-}
-
-// Search fuzzy-searches non-internal cluster channels by name.
+// Search fuzzy-searches non-internal cluster channels by name, and names each symbol by
+// the path of its channel, so a name that is not found suggests the paths of the
+// channels that hold it.
 func (r *symbolResolver) Search(
 	ctx context.Context,
 	name string,
@@ -157,8 +111,15 @@ func (r *symbolResolver) Search(
 		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
-		return toSymbol(item)
+	paths, err := Paths(ctx, r.snap, results)
+	if err != nil {
+		return nil, err
+	}
+	texts := PathTexts(paths)
+	return lo.Map(results, func(item Channel, i int) *symbol.Symbol {
+		sym := toSymbol(item)
+		sym.Name = texts[i]
+		return sym
 	}), nil
 }
 
@@ -196,17 +157,9 @@ type resolution struct {
 }
 
 // same reports whether a second lookup, which returned sym and err, gives the answer of
-// res: the same symbol ID, type, and name, not found both times, or the same holders of
-// an ambiguous name. It returns err when the second lookup fails for another reason.
+// res: the same symbol ID, type, and name, or not found both times. It returns err when
+// the second lookup fails for another reason.
 func (res resolution) same(sym *symbol.Symbol, err error) (bool, error) {
-	// A name that several channels hold is an answer, the same only for the same
-	// holders.
-	ambiguous, isAmbiguous := errors.AsType[ambiguousNameError](err)
-	first, wasAmbiguous := errors.AsType[ambiguousNameError](res.err)
-	if isAmbiguous || wasAmbiguous {
-		return isAmbiguous && wasAmbiguous &&
-			set.New(ambiguous.Holders...).Equal(set.New(first.Holders...)), nil
-	}
 	notFound := errors.Is(err, query.ErrNotFound)
 	if err != nil && !notFound {
 		return false, err

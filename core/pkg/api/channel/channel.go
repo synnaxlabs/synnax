@@ -191,7 +191,7 @@ func (s *Service) Create(
 	}
 	if err := s.internal.NewWriter(tx).
 		CreateMany(ctx, &translated, opts...); err != nil {
-		return CreateResponse{}, s.describe(ctx, tx, err)
+		return CreateResponse{}, err
 	}
 	return CreateResponse{Channels: translateChannelsForward(translated)}, nil
 }
@@ -284,9 +284,7 @@ func (s *Service) retrieve(
 		req.Where = &where
 	}
 	if req.Strict {
-		if err := s.refuseAmbiguous(ctx, snap, req.Where); err != nil {
-			return nil, err
-		}
+		return s.lookUp(ctx, snap, req.Where)
 	}
 	q, err := ApplyRetrieve(
 		req,
@@ -310,30 +308,34 @@ func (s *Service) retrieve(
 	return res, nil
 }
 
-// refuseAmbiguous returns a multiple results error when a name of the strict where is
-// held by several channels, every holder counted, with the paths that the subject can
-// see. It returns a validation error when where holds a match other than a key, name,
-// or path, at the top level or as the branches of one or.
-func (s *Service) refuseAmbiguous(
+// lookUp returns the channel at each key, name, and path of the strict where, as the
+// subject of snap sees them (channel.Service.KeysByPaths): a name is the channel of
+// that name at the top level. It returns a validation error when where holds a match
+// other than a key, name, or path, at the top level or as the branches of one or.
+func (s *Service) lookUp(
 	ctx context.Context,
 	snap bind.Snapshot,
 	where *channel.Where,
-) error {
-	names, err := strictNames(where)
+) ([]channel.Channel, error) {
+	lookups, err := strictLookups(where)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	_, err = s.internal.KeysByNames(ctx, snap, names)
-	return s.internal.DescribeAmbiguity(ctx, snap, err, func(
-		context.Context,
-	) (func(resource.ID) bool, error) {
-		return snap.Allowed, nil
-	})
+	keys, err := s.internal.KeysByPaths(ctx, snap, snap.Allowed, lookups)
+	if err != nil {
+		return nil, err
+	}
+	var res []channel.Channel
+	return res, s.internal.NewRetrieve().
+		Where(channel.MatchKeys(keys...)).
+		Entries(&res).
+		Exec(ctx, snap)
 }
 
-// strictNames returns the names that a strict where matches, and a validation error
-// when where holds a match other than a key, name, or path.
-func strictNames(where *channel.Where) ([]string, error) {
+// strictLookups returns each key, name, and path that a strict where looks up, a key as
+// its digits, and a validation error when where holds a match other than a key, name,
+// or path.
+func strictLookups(where *channel.Where) ([]string, error) {
 	refuse := validate.PathedError(
 		validate.Errorf("a strict retrieve takes only key, name, and path matches"),
 		"where",
@@ -349,23 +351,36 @@ func strictNames(where *channel.Where) ([]string, error) {
 		}
 		branches = where.Or
 	}
-	var names []string
+	var lookups []string
 	for _, b := range branches {
 		if !lookupsOnly(b) || len(b.Or) > 0 || !looksUp(b) {
 			return nil, refuse
+		}
+		if k := b.Key; k != nil {
+			for _, key := range append(slices.Clone(k.In), lo.FromPtr(k.Eq)) {
+				if key != 0 {
+					lookups = append(lookups, key.String())
+				}
+			}
 		}
 		if n := b.Name; n != nil {
 			if n.Contains != nil || n.StartsWith != nil || n.Regex != nil ||
 				n.CaseInsensitive {
 				return nil, refuse
 			}
-			names = append(names, n.In...)
+			lookups = append(lookups, n.In...)
 			if n.Eq != nil {
-				names = append(names, *n.Eq)
+				lookups = append(lookups, *n.Eq)
+			}
+		}
+		if p := b.Path; p != nil {
+			lookups = append(lookups, p.In...)
+			if p.Eq != nil {
+				lookups = append(lookups, *p.Eq)
 			}
 		}
 	}
-	return names, nil
+	return lookups, nil
 }
 
 // looksUp reports whether w holds a key, name, or path to look up.
@@ -469,31 +484,54 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
-// Delete deletes the channels that the request names by key or by name. Deleting an
-// internal channel is a validation error. A name that several channels hold returns a
-// query.MultipleResults error.
+// Delete deletes the channels that the request names by key or by path
+// (channel.Service.KeysByPaths), as the subject of ctx sees them. Deleting an internal
+// channel is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	named, err := s.internal.KeysByNames(ctx, tx, req.Names)
+	named, err := LookUpToAct(
+		ctx,
+		tx,
+		s.access,
+		s.internal,
+		access.ActionDelete,
+		req.Names,
+	)
 	if err != nil {
-		return struct{}{}, s.describe(ctx, tx, err)
+		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).
 		DeleteMany(ctx, slices.Concat(req.Keys, named), false)
 }
 
-// describe returns err as the subject of ctx sees it, through
-// channel.Service.DescribeAmbiguity.
-func (s *Service) describe(ctx context.Context, tx gorp.Tx, err error) error {
-	return s.internal.DescribeAmbiguity(ctx, tx, err, func(
-		ctx context.Context,
-	) (func(resource.ID) bool, error) {
-		return s.access.NewEnforcer(tx).
-			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
-	})
+// LookUpToAct returns the key of the channel at each of paths
+// (channel.Service.KeysByPaths), as the subject of ctx sees tx to take action on them:
+// a channel or folder counts when the subject can retrieve it or take action on it.
+// It returns no keys for no paths.
+func LookUpToAct(
+	ctx context.Context,
+	tx gorp.Tx,
+	rbacSvc *rbac.Service,
+	channels *channel.Service,
+	action access.Action,
+	paths []string,
+) (channel.Keys, error) {
+	if len(paths) == 0 {
+		return nil, nil
+	}
+	subject := auth.GetSubject(ctx)
+	policies, err := rbacSvc.NewEnforcer(tx).Policies(ctx, subject)
+	if err != nil {
+		return nil, err
+	}
+	retrieve := rbac.Allows(subject, policies, access.ActionRetrieve)
+	act := rbac.Allows(subject, policies, action)
+	return channels.KeysByPaths(ctx, tx, func(id resource.ID) bool {
+		return retrieve(id) || act(id)
+	}, paths)
 }
 
 // DispatchRequest carries an action sequence to apply to a single channel. DispatchKey
@@ -516,7 +554,7 @@ func (s *Service) Dispatch(
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
 	if err != nil {
-		return DispatchResponse{}, s.describe(ctx, tx, err)
+		return DispatchResponse{}, err
 	}
 	return DispatchResponse{Actions: computed}, nil
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -146,19 +147,18 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	keys := req.Keys
-	if len(req.Names) > 0 {
-		named, err := s.channel.KeysByNames(ctx, tx, req.Names)
-		if err != nil {
-			return struct{}{}, s.channel.DescribeAmbiguity(ctx, tx, err, func(
-				ctx context.Context,
-			) (func(resource.ID) bool, error) {
-				return s.access.NewEnforcer(tx).
-					Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
-			})
-		}
-		keys = slices.Concat(keys, named)
+	named, err := apichannel.LookUpToAct(
+		ctx,
+		tx,
+		s.access,
+		s.channel,
+		access.ActionDelete,
+		req.Names,
+	)
+	if err != nil {
+		return struct{}{}, err
 	}
+	keys := slices.Concat(req.Keys, named)
 	var resChannels []channel.Channel
 	if err := s.channel.NewRetrieve().
 		Where(channel.MatchKeys(keys...)).

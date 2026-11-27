@@ -245,8 +245,9 @@ func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 }
 
 // NewArcSymbolResolver returns a resolver that maps channels to Arc symbols by numeric
-// key, path, or name, for analyzing and compiling Arc expressions such as calculated
-// channels. The resolver looks up channels in snap.
+// key or path, so a bare name is the channel of that name at the top level, for
+// analyzing and compiling Arc expressions such as calculated channels. The resolver
+// looks up channels in snap.
 func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
 	return &symbolResolver{svc: s, snap: snap}
 }
@@ -254,9 +255,7 @@ func (s *Service) NewArcSymbolResolver(snap gorp.Snapshot) arc.SymbolResolver {
 // NewSubjectResolver returns a resolver like NewArcSymbolResolver that sees only what a
 // subject can retrieve. access returns whether the subject can retrieve a record, and
 // the resolver calls it at each lookup. A channel that the subject cannot retrieve, or
-// a path through a folder that it cannot retrieve, resolves nothing. Every holder of a
-// bare name counts toward an ambiguous name, whose error names only the paths that the
-// subject can see.
+// a path through a folder that it cannot retrieve, resolves nothing.
 func (s *Service) NewSubjectResolver(
 	snap gorp.Snapshot,
 	access func(context.Context) (func(resource.ID) bool, error),
