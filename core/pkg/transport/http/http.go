@@ -644,6 +644,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/ni/chassis/update",
 		),
+		NIChassisDispatch: unary[nichassis.DispatchRequest, struct{}](
+			router,
+			"/api/v1/ni/chassis/dispatch",
+		),
 		NIChassisDelete: unary[nichassis.DeleteRequest, struct{}](
 			router,
 			"/api/v1/ni/chassis/delete",

@@ -352,7 +352,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			c := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, c.Key, chassis.Update{
 				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
 					Rack:         rackKey,
 					Serial:       "02B",
@@ -369,7 +369,7 @@ var _ = Describe("Service", func() {
 
 		It("Should accept an identity with no serial", func(ctx SpecContext) {
 			c := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, c.Key, chassis.Update{
 				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
 					Rack:         rackKey,
 					ResourceName: c.ResourceName,
@@ -381,7 +381,7 @@ var _ = Describe("Service", func() {
 
 		It("Should reject an identity without a resource name", func(ctx SpecContext) {
 			c := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, c.Key, chassis.Update{
 				Variant: chassis.IdentityUpdate{Identity: chassis.Identity{
 					Rack:   rackKey,
 					Serial: c.Serial,
@@ -394,7 +394,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			c := create(ctx)
-			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, chassis.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, c.Key, chassis.Update{
 				Variant: chassis.ConfigurationUpdate{
 					Configuration: chassis.Configuration{Name: "Renamed"},
 				},
@@ -405,7 +405,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should return not found for a missing chassis", func(ctx SpecContext) {
-			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), chassis.Update{
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, uuid.New(), chassis.Update{
 				Variant: chassis.ConfigurationUpdate{
 					Configuration: chassis.Configuration{Name: "Renamed"},
 				},
@@ -416,7 +416,7 @@ var _ = Describe("Service", func() {
 			"Should reject an invalid update",
 			func(ctx SpecContext, update chassis.Update, message string) {
 				c := create(ctx)
-				Expect(svc.NewWriter(tx).Apply(ctx, c.Key, update)).
+				Expect(svc.NewWriter(tx).ApplyUpdate(ctx, c.Key, update)).
 					To(MatchError(ContainSubstring(message)))
 			},
 			Entry("no group", chassis.Update{}, "no field group"),

@@ -274,6 +274,7 @@ type Transport struct {
 	NIChassisCreate   freighter.UnaryServer[nichassis.CreateRequest, nichassis.CreateResponse]
 	NIChassisRetrieve freighter.UnaryServer[nichassis.RetrieveRequest, nichassis.RetrieveResponse]
 	NIChassisUpdate   freighter.UnaryServer[nichassis.UpdateRequest, nichassis.UpdateResponse]
+	NIChassisDispatch freighter.UnaryServer[nichassis.DispatchRequest, struct{}]
 	NIChassisDelete   freighter.UnaryServer[nichassis.DeleteRequest, struct{}]
 
 	// OPC UA SERVER
@@ -610,6 +611,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.NIChassisCreate,
 		t.NIChassisRetrieve,
 		t.NIChassisUpdate,
+		t.NIChassisDispatch,
 		t.NIChassisDelete,
 
 		// OPC UA SERVER
@@ -915,6 +917,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.NIChassisCreate.BindHandler(bind.Write(l.binder, l.NIChassis.Create))
 	t.NIChassisRetrieve.BindHandler(bind.Read(l.binder, l.NIChassis.Retrieve))
 	t.NIChassisUpdate.BindHandler(bind.Write(l.binder, l.NIChassis.Update))
+	t.NIChassisDispatch.BindHandler(bind.Write(l.binder, l.NIChassis.Dispatch))
 	t.NIChassisDelete.BindHandler(bind.Write(l.binder, l.NIChassis.Delete))
 
 	// OPC UA SERVER

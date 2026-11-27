@@ -29,6 +29,10 @@ service NIChassisUpdateService {
   rpc Exec(UpdateRequest) returns (UpdateResponse);
 }
 
+service NIChassisDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty);
+}
+
 service NIChassisDeleteService {
   rpc Exec(DeleteRequest) returns (google.protobuf.Empty);
 }
@@ -50,6 +54,15 @@ message UpdateRequest {
 // UpdateResponse carries the chassis as stored after an update.
 message UpdateResponse {
   service.ni_chassis.pb.Chassis chassis = 1;
+}
+
+// DispatchRequest applies actions to one chassis.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
 }
 
 message DeleteRequest {

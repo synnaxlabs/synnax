@@ -574,6 +574,36 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Dispatch", func() {
+		rename := func(key chassis.Key) apichassis.DispatchRequest {
+			return apichassis.DispatchRequest{
+				Key: key,
+				Actions: []chassis.Action{chassis.NewSetAction(chassis.SetPayload{
+					Path:  []string{"name"},
+					Value: "Renamed",
+				})},
+			}
+		}
+
+		It("Should apply the actions when update is granted", func(ctx SpecContext) {
+			c := createChassis(ctx)
+			grantWrites(ctx, c.Rack)
+			MustSucceed(dispatch(testutil.AuthedCtx(ctx, u), rename(c.Key)))
+			got := retrieveChassis(ctx, c.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Serial).To(Equal(c.Serial))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			c := createChassis(ctx)
+			Expect(dispatch(testutil.AuthedCtx(ctx, u), rename(c.Key))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveChassis(ctx, c.Key).Name).To(Equal(c.Name))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should remove the chassis when delete is granted", func(ctx SpecContext) {
 			d := createChassis(ctx)

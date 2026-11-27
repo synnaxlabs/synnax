@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -24,10 +25,18 @@ import (
 // Service.NewWriter. A rack change moves only the chassis. The scanner moves each
 // module when it finds the module on the new rack.
 type Writer struct {
-	tx       gorp.Tx
-	status   status.Writer
-	statuses *status.Service
-	table    *gorp.Table[Key, Chassis]
+	tx         gorp.Tx
+	status     status.Writer
+	statuses   *status.Service
+	table      *gorp.Table[Key, Chassis]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 func (w Writer) setStatus(ctx context.Context, c Chassis) error {
@@ -54,7 +63,8 @@ func (w Writer) setStatus(ctx context.Context, c Chassis) error {
 
 // Create stores c and writes an unknown status when it has none. An existing status
 // takes the name and rack of c. A chassis with a nil key gets a new one. It returns a
-// validation error when c is invalid or its rack does not exist.
+// validation error when c is invalid or its rack does not exist. After the transaction
+// commits, Create broadcasts a create action that carries the stored chassis.
 func (w Writer) Create(ctx context.Context, c *Chassis) error {
 	if c.Key == uuid.Nil() {
 		c.Key = uuid.New()
@@ -65,7 +75,28 @@ func (w Writer) Create(ctx context.Context, c *Chassis) error {
 	if err := w.table.NewCreate().Entry(c).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.setStatus(ctx, *c)
+	if err := w.setStatus(ctx, *c); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, c.Key, NewCreateAction(CreatePayload{Chassis: *c}))
+	return nil
+}
+
+// Apply applies the actions to the chassis stored under key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Each
+// action edits only its path, so concurrent edits to different fields both survive. The
+// scanner writes only the identity paths (rack, serial, resource_name, and model), and
+// users write the name. Apply returns an error wrapping validate.ErrValidation when an
+// action is a create or the result is invalid, and an error wrapping query.ErrNotFound
+// when no chassis is stored under key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.Update(ctx, key, func(c Chassis) (Chassis, error) {
+		return Reduce(c, acts...)
+	}); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // Update applies change to the chassis stored under key and stores the result. A
