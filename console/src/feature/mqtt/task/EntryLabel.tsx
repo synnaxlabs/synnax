@@ -131,21 +131,24 @@ export const TOPIC_MISSING_DESCRIPTION =
 /** Marks a plain entry whose message has a problem. */
 const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
   const icdKey = PForm.useFieldValue(path.icd);
-  const read = PForm.useFieldValue(deep.present(path.messages)[0].message, {
-    optional: true,
-  });
+  const read = PForm.useFieldValue(deep.present(path.messages), { optional: true });
   const written = PForm.useFieldValue(deep.present(path.message).message, {
     optional: true,
   });
-  const message = read ?? written;
-  if (message == null) return null;
+  if (read != null && read.length > 0)
+    return (
+      <ICD.MessageMark
+        icdKey={icdKey}
+        messages={read.map(({ message }) => message)}
+        missingDescription={TOPIC_MISSING_DESCRIPTION}
+      />
+    );
+  if (written == null) return null;
   return (
     <ICD.MessageMark
       icdKey={icdKey}
-      message={message}
-      missingDescription={
-        read != null ? TOPIC_MISSING_DESCRIPTION : ICD.Write.MISSING_DESCRIPTION
-      }
+      messages={[written]}
+      missingDescription={ICD.Write.MISSING_DESCRIPTION}
     />
   );
 };

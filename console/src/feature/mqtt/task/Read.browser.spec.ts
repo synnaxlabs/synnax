@@ -1287,6 +1287,31 @@ describe("MQTT read form", () => {
     );
   });
 
+  it("should mark a later message that is not JSON and its topic", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const status = await addMessage(
+      entry,
+      "status",
+      [createField("mode", "string")],
+      KIND_MATCH,
+    );
+    await renderRead({
+      entries: [entry],
+      beforeRender: async () =>
+        await client.icds.dispatch(
+          entry.icd,
+          icd.set({
+            path: ["messages", status.key, "payload"],
+            value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+          }),
+        ),
+    });
+    const message = await screen.findByRole("treeitem", { name: /^status/ });
+    await within(message).findByRole("img", { name: NOT_JSON_NOTE });
+    const topic = screen.getByRole("treeitem", { name: /JSON.*plant\/oven/ });
+    within(topic).getByRole("img", { name: NOT_JSON_NOTE });
+  });
+
   it.each([
     { name: "gone", note: "Message not found", change: removeMessage },
     { name: "not JSON", note: NOT_JSON_NOTE, change: setTextFormat },
@@ -1491,7 +1516,7 @@ describe("MQTT read form", () => {
       await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
       await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
       fireEvent.click(
-        await screen.findByRole("treeitem", { name: "Message not found" }),
+        await screen.findByRole("treeitem", { name: /^Message not found/ }),
       );
       await screen.findByText(
         "The ICD has no message for this topic. Add data to make one.",
@@ -1534,7 +1559,7 @@ describe("MQTT read form", () => {
             }),
           ),
       });
-      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^status/ }));
       await screen.findByText(NOT_JSON_NOTE);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
@@ -1620,7 +1645,7 @@ describe("MQTT read form", () => {
         await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-      await screen.findByRole("treeitem", { name: `${TOPIC} 2` });
+      await screen.findByRole("treeitem", { name: new RegExp(`^${TOPIC} 2`) });
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toHaveLength(2),
       );

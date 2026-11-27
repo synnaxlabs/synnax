@@ -275,14 +275,12 @@ const MISSING_DESCRIPTION =
 const MessageMark = ({ itemKey }: { itemKey: string }) => {
   const path = icdPath(itemKey);
   const icdKey = PForm.useFieldValue(path.icd, { optional: true });
-  const message = PForm.useFieldValue(deep.present(path.messages)[0].message, {
-    optional: true,
-  });
-  if (icdKey == null || message == null) return null;
+  const messages = PForm.useFieldValue(path.messages, { optional: true });
+  if (icdKey == null || messages == null) return null;
   return (
     <ICD.MessageMark
       icdKey={icdKey}
-      message={message}
+      messages={messages.map(({ message }) => message)}
       missingDescription={MISSING_DESCRIPTION}
     />
   );
@@ -480,6 +478,7 @@ const Endpoints: FC<EndpointsProps> = ({
     sourceOf: (ep) => (readsICD(ep) ? ep : null),
     pathOf: icdPath,
     SourceItem,
+    missingDescription: MISSING_DESCRIPTION,
     tareable: true,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an endpoint reads it, another endpoint owns its message, or it no longer

@@ -17,6 +17,7 @@ import { deep, id, map, type record, unique, uuid } from "@synnaxlabs/x";
 import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
+import { MessageMark } from "@/platform/icd/Details";
 import { copyName } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
@@ -152,14 +153,30 @@ const useIndex = <S extends Source>(
 interface MessageItemProps extends Tree.ItemRenderProps<string> {
   path: deep.Path<ReadSource>;
   read: number;
+  missingDescription: string;
 }
 
-const MessageItem = ({ path, read, ...props }: MessageItemProps) => (
-  <Task.Views.TreeGroupItem
-    {...props}
-    label={<MessageLabel path={path} read={read} />}
-  />
-);
+const MessageItem = ({
+  path,
+  read,
+  missingDescription,
+  ...props
+}: MessageItemProps) => {
+  const icdKey = PForm.useFieldValue(path.icd);
+  const message = PForm.useFieldValue(path.messages[read].message);
+  return (
+    <Task.Views.TreeGroupItem
+      {...props}
+      label={<MessageLabel path={path} read={read} />}
+    >
+      <MessageMark
+        icdKey={icdKey}
+        messages={[message]}
+        missingDescription={missingDescription}
+      />
+    </Task.Views.TreeGroupItem>
+  );
+};
 
 interface FieldItemProps extends Tree.ItemRenderProps<string> {
   path: deep.Path<ReadSource>;
@@ -235,6 +252,8 @@ interface BaseArgs<S extends Source> {
   pathOf: (key: string) => deep.Path<ReadSource>;
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
+  /** Says why the ICD has no message that a source reads, and what to do now. */
+  missingDescription: string;
   /** @returns the binding of a field that the task starts to read. */
   bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
   /** Disables each control that binds a field to a channel. */
@@ -301,6 +320,7 @@ export const use = <
   sourceOf,
   pathOf,
   SourceItem,
+  missingDescription,
   bindingOf,
   bindDisabled = false,
   tareable = false,
@@ -714,7 +734,13 @@ export const use = <
       );
     if (node?.kind === "message")
       return (
-        <MessageItem key={key} {...p} path={pathOf(node.source)} read={node.read} />
+        <MessageItem
+          key={key}
+          {...p}
+          path={pathOf(node.source)}
+          read={node.read}
+          missingDescription={missingDescription}
+        />
       );
     return <SourceItem key={key} {...p} />;
   };

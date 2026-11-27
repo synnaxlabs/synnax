@@ -330,7 +330,8 @@ export interface MessageMarkProps extends Pick<
   "missingDescription"
 > {
   icdKey: icd.Key;
-  message: icd.MessageKey;
+  /** The messages of the item. The mark shows the problem of the first bad one. */
+  messages: icd.MessageKey[];
 }
 
 /**
@@ -339,14 +340,22 @@ export interface MessageMarkProps extends Pick<
  */
 export const MessageMark = ({
   icdKey,
-  message,
+  messages,
   missingDescription,
 }: MessageMarkProps): ReactElement | null => {
-  const found = PForm.useFieldValue(PICD.formPath.messages[message], {
+  const held = PForm.useFieldValue(PICD.formPath.messages, {
     optional: true,
     ctx: useFormats().get(icdKey),
   });
-  const problem = problemOf({ message: found ?? null, missingDescription });
+  const problem =
+    messages
+      .map((key) =>
+        problemOf({
+          message: held?.find((m) => m.key === key) ?? null,
+          missingDescription,
+        }),
+      )
+      .find((p) => p != null) ?? null;
   return problem == null ? null : <Task.Views.TreeWarning {...problem} />;
 };
 

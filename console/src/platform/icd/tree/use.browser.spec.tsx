@@ -53,6 +53,7 @@ const Sources: FC = () => {
     sourceOf: (e) => (e.type === "plain" ? e : null),
     pathOf: topicPath,
     SourceItem,
+    missingDescription: "The ICD has no such message.",
     bindingOf: (_, __, { key }) => icd.readBindingZ.parse({ field: key }),
     tareable: true,
     messageName: () => "Message",

@@ -201,9 +201,7 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
   const icdKey = PForm.useFieldValue(path.icd, { optional: true });
-  const message = PForm.useFieldValue(deep.present(path.messages)[0].message, {
-    optional: true,
-  });
+  const messages = PForm.useFieldValue(path.messages, { optional: true });
   if (disabled == null || recordKey == null || icdKey == null) return null;
   return (
     <Task.Views.TreeGroupItem
@@ -211,10 +209,10 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
       label={<RecordLabel recordKey={recordKey} emptyLabel={ANY_KEY} />}
       off={disabled}
     >
-      {message != null && (
+      {messages != null && (
         <ICD.MessageMark
           icdKey={icdKey}
-          message={message}
+          messages={messages.map(({ message }) => message)}
           missingDescription={MISSING_DESCRIPTION}
         />
       )}
@@ -444,6 +442,7 @@ const Records: FC<RecordsProps> = ({
     sourceOf: (r) => r,
     pathOf,
     SourceItem: RecordItem,
+    missingDescription: MISSING_DESCRIPTION,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an enabled record reads it. A record that reads one message also reuses
     // the channels of its earlier messages, so a new message format keeps its channels.

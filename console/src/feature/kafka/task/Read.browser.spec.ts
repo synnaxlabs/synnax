@@ -989,6 +989,31 @@ describe("Kafka read form", () => {
         expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
       },
     );
+
+    it("should mark a later message that is not JSON and its record", async () => {
+      const rec = await createRecord({ fields: [createField("temperature", "float")] });
+      const status = await addMessage(
+        rec,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
+      );
+      await renderRead({
+        records: [rec],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            rec.icd,
+            icd.set({
+              path: ["messages", status.key, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+            }),
+          ),
+      });
+      const message = await screen.findByRole("treeitem", { name: /^status/ });
+      await within(message).findByRole("img", { name: "Message is not JSON" });
+      const record = screen.getByRole("treeitem", { name: /JSON.*Any key/ });
+      within(record).getByRole("img", { name: "Message is not JSON" });
+    });
   });
 
   describe("adding data", () => {
@@ -2109,7 +2134,7 @@ describe("Kafka read form", () => {
         await screen.findByRole("treeitem", { name: /JSON.*Any key/ }),
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-      await screen.findByRole("treeitem", { name: "Any key 2" });
+      await screen.findByRole("treeitem", { name: /^Any key 2/ });
       await waitFor(async () =>
         expect((await retrieveRecords(draft.key))[0].messages).toHaveLength(2),
       );

@@ -12,12 +12,13 @@ import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { page, server } from "vitest/browser";
 import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { pickMessageFormat } from "@/platform/icd/testutil";
+import { pickMessageFormat, searchMessageFormats } from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
   awaitTare,
@@ -273,7 +274,7 @@ describe("Read", () => {
     ]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/a/ }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-    await screen.findByRole("treeitem", { name: "GET /a 2" });
+    await screen.findByRole("treeitem", { name: /^GET \/a 2/ });
     await waitFor(async () =>
       expect((await retrieveEndpoints(draft.key))[0].messages).toHaveLength(2),
     );
@@ -321,6 +322,21 @@ describe("Read", () => {
     await waitFor(() =>
       expect(within(item).queryByRole("img", { name: NO_FIELDS })).toBeNull(),
     );
+  });
+
+  it("should mark a later message with no fields and its endpoint", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    await addMessage(ep, "status", []);
+    await renderWithDevice([ep]);
+    const message = await screen.findByRole("treeitem", { name: /^status/ });
+    await within(message).findByRole("img", { name: NO_FIELDS });
+    // The endpoint comes before the item of its first message, which shares its name.
+    const [endpoint] = screen.getAllByRole("treeitem", { name: /GET \/data/ });
+    within(endpoint).getByRole("img", { name: NO_FIELDS });
   });
 
   it("should read a message of another ICD with each of its fields", async () => {
@@ -498,6 +514,37 @@ describe("Read", () => {
         { field: temperature.key, channel: ch.key, dataType: "" },
       ]),
     );
+  });
+
+  it("should show the message formats 480px wide and cut a long name", async () => {
+    const { width, height } = server.config.browser.viewport;
+    onTestFinished(async () => await page.viewport(width, height));
+    await page.viewport(1280, 800);
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const place = "the main feed pump on the north skid of plant 2";
+    const long = `${uniqueName("status")} of ${place}`;
+    const shared = await client.icds.create({
+      name: uniqueName("pump"),
+      messages: [
+        {
+          key: uuid.create(),
+          name: long,
+          payload: { format: "json", fields: [createField("pressure")] },
+        },
+      ],
+    });
+    await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    const dialog = await searchMessageFormats("GET /data", shared.name);
+    const name = await dialog.findByText(long);
+    const box = screen.getAllByRole("dialog").at(-1)?.getBoundingClientRect();
+    expect(box?.width).toBeGreaterThanOrEqual(480);
+    expect(getComputedStyle(name).whiteSpace).toBe("nowrap");
+    expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
   });
 
   it("should keep the stored channel of a pointer when the message format changes", async () => {

@@ -128,7 +128,7 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
     >
       <ICD.MessageMark
         icdKey={icdKey}
-        message={message}
+        messages={[message]}
         missingDescription={ICD.Write.MISSING_DESCRIPTION}
       />
       <Task.EnabledCheckbox path={path.disabled} />

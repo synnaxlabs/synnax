@@ -686,6 +686,7 @@ const Entries: FC<EntriesProps> = ({
     sourceOf: (e) => (isPlain(e) ? e : null),
     pathOf: plainPath,
     SourceItem,
+    missingDescription: TOPIC_MISSING_DESCRIPTION,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless another field reads it. A topic that reads one message also reuses the
     // channels of its earlier messages, so a new message format keeps its channels.

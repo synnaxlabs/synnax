@@ -146,7 +146,7 @@ const MessageMark = ({ itemKey }: { itemKey: string }) => {
   return (
     <ICD.MessageMark
       icdKey={icdKey}
-      message={message}
+      messages={[message]}
       missingDescription={ICD.Write.MISSING_DESCRIPTION}
     />
   );
