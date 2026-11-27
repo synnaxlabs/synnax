@@ -31,12 +31,12 @@ var _ = Describe("Load breaker", func() {
 		Describe(name, func() {
 			It("Should delete a key that was set before the load", func() {
 				e := newEngine()
-				e.Set(1, "a")
+				e.Stage(nil, 1, "a")
 				insert, finish := e.Populate()
 				insert(2, "b")
 				finish(nil)
 				Expect(e.Get(nil, "a")).To(ConsistOf(1))
-				e.Delete(1)
+				e.StageDelete(nil, 1)
 				Expect(e.Get(nil, "a")).To(BeEmpty())
 			})
 
@@ -48,7 +48,7 @@ var _ = Describe("Load breaker", func() {
 				insert, finish := e.Populate()
 				insert(2, "b")
 				finish(nil)
-				e.Set(1, "c")
+				e.Stage(nil, 1, "c")
 				Expect(e.Get(nil, "a")).To(BeEmpty())
 				Expect(e.Get(nil, "c")).To(ConsistOf(1))
 			})
