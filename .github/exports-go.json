@@ -47,19 +47,6 @@
       "caller": "sy-6979-text-reads"
     },
     {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/telem",
-      "receiver": "DataTypeCode",
-      "name": "DataType",
-      "caller": "https://linear.app/synnax/issue/SY-6394"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/telem",
-      "name": "CodeOf",
-      "caller": "https://linear.app/synnax/issue/SY-6394"
-    },
-    {
       "module": "core",
       "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
       "name": "NewText",
