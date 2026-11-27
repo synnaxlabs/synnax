@@ -7,10 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, NotFoundError } from "@synnaxlabs/client";
+import { DataType, type group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import type { Analytics } from "@/platform/analytics";
@@ -23,17 +25,32 @@ import {
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { pickOption } from "@/testutil";
+import { CaptureStatuses, pickOption } from "@/testutil";
 
 const client = createTestClient();
 
-const openModal = async (
-  analytics?: Analytics.Sink,
-): Promise<ModalOpenerHandle<void>> => {
-  const handle = await renderModalOpener(Channel.useCreateModal, [], {
-    client,
-    analytics,
-  });
+interface OpenModalOptions {
+  analytics?: Analytics.Sink;
+  params?: Channel.CreateParams;
+  /** Receives the status notifications on each change. */
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void;
+}
+
+const openModal = async ({
+  analytics,
+  params,
+  onStatuses,
+}: OpenModalOptions = {}): Promise<ModalOpenerHandle<void>> => {
+  const handle = await renderModalOpener(
+    Channel.useCreateModal,
+    params == null ? [] : [params],
+    {
+      client,
+      analytics,
+      extra:
+        onStatuses == null ? undefined : createElement(CaptureStatuses, { onStatuses }),
+    },
+  );
   await screen.findByPlaceholderText("Channel name");
   return handle;
 };
@@ -138,7 +155,7 @@ describe("useCreateModal", () => {
 
     it("should report the channel it created", async () => {
       const analytics = createTestSink();
-      await openModal(analytics);
+      await openModal({ analytics });
       setName(uniqueName("virt"));
       selectKind("Virtual");
       await clickCreate();
@@ -166,6 +183,104 @@ describe("useCreateModal", () => {
         ).toBe("");
       });
       expect(getKind("Data").getAttribute("aria-pressed")).toBe("true");
+    });
+  });
+
+  describe("folders", () => {
+    const createFolder = async (): Promise<group.Group> =>
+      await client.groups.create({ name: uniqueName("folder"), scope: "channel" });
+
+    const createVirtual = (name: string): void => {
+      setName(name);
+      selectKind("Virtual");
+    };
+
+    it("should create the channel in the folder that opens the modal", async () => {
+      const folder = await createFolder();
+      await openModal({ params: { group: folder.key } });
+      expect(await screen.findByText(folder.name)).toBeTruthy();
+      const name = uniqueName("virt");
+      createVirtual(name);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(name)).group).toEqual(folder.key),
+      );
+    });
+
+    it("should create the channel in the folder picked in the modal", async () => {
+      const folder = await createFolder();
+      await openModal();
+      fireEvent.click(screen.getByText("Select group"));
+      await pickOption(folder.name, "Search groups...");
+      const name = uniqueName("virt");
+      createVirtual(name);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(name)).group).toEqual(folder.key),
+      );
+    });
+
+    it("should create a channel at the top when no folder is picked", async () => {
+      await openModal();
+      const name = uniqueName("virt");
+      createVirtual(name);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(name)).group).toBeUndefined(),
+      );
+    });
+
+    it("should keep the folder for the next channel when create more is enabled", async () => {
+      const folder = await createFolder();
+      await openModal({ params: { group: folder.key } });
+      fireEvent.click(getSwitch("Create more"));
+      const first = uniqueName("virt");
+      createVirtual(first);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(first)).group).toEqual(folder.key),
+      );
+      await waitFor(() =>
+        expect(
+          screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
+        ).toBe(""),
+      );
+      const second = uniqueName("virt");
+      createVirtual(second);
+      await clickCreate();
+      await waitFor(async () =>
+        expect((await client.channels.retrieve(second)).group).toEqual(folder.key),
+      );
+    });
+
+    it("should refuse a name that a channel in the folder holds and create nothing", async () => {
+      const folder = await createFolder();
+      const taken = await client.channels.create({
+        name: uniqueName("taken"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        group: folder.key,
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      await openModal({
+        params: { group: folder.key },
+        onStatuses: (next) => (statuses = next),
+      });
+      createVirtual(taken.name);
+      await clickCreate();
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "error",
+            description: expect.stringMatching(/already exists/),
+          }),
+        ),
+      );
+      expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();
+      const named = await client.channels.retrieve({
+        where: { name: { eq: taken.name } },
+      });
+      expect(named.map(({ key }) => key)).toEqual([taken.key]);
     });
   });
 
