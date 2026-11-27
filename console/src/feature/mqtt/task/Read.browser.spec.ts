@@ -22,6 +22,7 @@ import { describe, expect, it, onTestFinished, vi } from "vitest";
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
 import {
+  focusedIn,
   pickMessageFormat,
   removeField,
   retype,
@@ -202,8 +203,7 @@ const setTextFormat = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =
     }),
   );
 
-const NOT_JSON_NOTE =
-  "The format of this message is not JSON. Open it in the editor to change its format.";
+const NOT_JSON_NOTE = "Message is not JSON";
 
 /** @returns the ICD and key of the first message that the entry reads. */
 const messageOf = ({ icd: key, messages }: MQTT.Task.PlainReadEntry) => ({
@@ -1302,6 +1302,65 @@ describe("MQTT read form", () => {
   });
 
   it.each([
+    { name: "gone", mark: "Message not found", change: removeMessage },
+    { name: "not JSON", mark: NOT_JSON_NOTE, change: setTextFormat },
+  ])(
+    "should mark a topic whose message is $name in the tree",
+    async ({ mark, change }) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry], beforeRender: () => change(entry) });
+      const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+      await within(item).findByRole("img", { name: mark });
+    },
+  );
+
+  it("should drop the mark of a topic once its message has a field", async () => {
+    const entry = await createEntry({ fields: [] });
+    await renderRead({ entries: [entry] });
+    const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+    await within(item).findByRole("img", { name: "Message has no fields" });
+    await client.icds.dispatch(
+      entry.icd,
+      icd.set({
+        path: ["messages", entry.messages[0].message, "payload"],
+        value: { format: "json", fields: [createField("temperature", "float")] },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        within(item).queryByRole("img", { name: "Message has no fields" }),
+      ).toBeNull(),
+    );
+  });
+
+  it("should mark a later message that is not JSON and its topic", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const status = await addMessage(
+      entry,
+      "status",
+      [createField("mode", "string")],
+      KIND_MATCH,
+    );
+    await renderRead({
+      entries: [entry],
+      beforeRender: async () =>
+        await client.icds.dispatch(
+          entry.icd,
+          icd.set({
+            path: ["messages", status.key, "payload"],
+            value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+          }),
+        ),
+    });
+    const message = await screen.findByRole("treeitem", { name: /^status/ });
+    await within(message).findByRole("img", { name: NOT_JSON_NOTE });
+    const topic = screen.getByRole("treeitem", { name: /JSON.*plant\/oven/ });
+    within(topic).getByRole("img", { name: NOT_JSON_NOTE });
+  });
+
+  it.each([
     { name: "gone", note: "Message not found", change: removeMessage },
     { name: "not JSON", note: NOT_JSON_NOTE, change: setTextFormat },
   ])(
@@ -1505,13 +1564,49 @@ describe("MQTT read form", () => {
       await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
       await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
       fireEvent.click(
-        await screen.findByRole("treeitem", { name: "Message not found" }),
+        await screen.findByRole("treeitem", { name: /^Message not found/ }),
       );
       await screen.findByText(
         "The ICD has no message for this topic. Add data to make one.",
       );
       expect(screen.queryByRole("button", { name: "Open in editor" })).toBeNull();
     });
+
+    it.each([
+      { item: "topic", name: /JSON.*plant\/oven/ },
+      { item: "message", name: /^Message not found/ },
+    ])(
+      "should tell the user to remove a later message that is gone from the $item",
+      async ({ name }) => {
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+        });
+        const status = await addMessage(
+          entry,
+          "status",
+          [createField("mode", "string")],
+          KIND_MATCH,
+        );
+        await renderRead({
+          entries: [entry],
+          beforeRender: () =>
+            client.icds.dispatch(
+              entry.icd,
+              icd.remove({ path: ["messages"], key: status.key }),
+            ),
+        });
+        const removeIt =
+          "The ICD no longer has this message. Remove it from the topic.";
+        fireEvent.click(
+          await screen.findByRole("treeitem", { name: /^Message not found/ }),
+        );
+        await screen.findByText(removeIt);
+        const item = screen.getByRole("treeitem", { name });
+        const mark = within(item).getByRole("img", { name: "Message not found" });
+        fireEvent.pointerOver(mark, { pointerType: "mouse" });
+        expect((await screen.findByRole("tooltip")).textContent).toContain(removeIt);
+      },
+    );
 
     it("should open the editor at a message that is not JSON", async () => {
       const entry = await createEntry({
@@ -1524,6 +1619,7 @@ describe("MQTT read form", () => {
       await screen.findByText(NOT_JSON_NOTE);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([entry.messages[0].message]);
+      expect(focusedIn(store, entry.icd)).toBeUndefined();
     });
 
     it("should open the editor at a later message that is not JSON", async () => {
@@ -1547,7 +1643,7 @@ describe("MQTT read form", () => {
             }),
           ),
       });
-      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^status/ }));
       await screen.findByText(NOT_JSON_NOTE);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
@@ -1568,6 +1664,7 @@ describe("MQTT read form", () => {
       fireEvent.click(await screen.findByRole("treeitem", { name: /^mode/ }));
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
+      expect(focusedIn(store, entry.icd)).toBe(status.payload.fields[0].key);
     });
 
     it("should add a message that matches at the pointer of the others", async () => {
@@ -1632,7 +1729,7 @@ describe("MQTT read form", () => {
         await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-      await screen.findByRole("treeitem", { name: `${TOPIC} 2` });
+      await screen.findByRole("treeitem", { name: new RegExp(`^${TOPIC} 2`) });
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toHaveLength(2),
       );

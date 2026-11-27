@@ -87,8 +87,8 @@ type encodeField struct {
 	fallback fieldDefault
 	// scaled is true when the field's scale or offset changes its value.
 	scaled bool
-	// converted is true when the number that encoder writes needs a scale, a rounding,
-	// a range check, or a change to a boolean.
+	// converted is true when the number of a sample needs a scale, a rounding, a range
+	// check, or a change to a boolean before encode writes it.
 	converted     bool
 	scale, offset float64
 	// base holds the min and max of the field.
@@ -611,21 +611,18 @@ func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 		}
 		return append(dst, sample...), nil
 	}
-	start := len(dst)
-	dst, err := f.encoder.Append(dst, sample)
+	if !f.converted {
+		return f.encoder.Append(dst, sample)
+	}
+	n, ok, err := f.encoder.Number(sample)
 	if err != nil {
 		return nil, err
 	}
 	// An enum label writes a value that the ICD names, which takes no conversion or
 	// check.
-	if !f.converted || dst[start] == '"' {
-		return dst, nil
+	if !ok {
+		return f.encoder.Append(dst, sample)
 	}
-	n, err := xjson.ParseNumber(dst[start:])
-	if err != nil {
-		return nil, err
-	}
-	dst = dst[:start]
 	if f.kind == payload.KindInteger || f.kind == payload.KindUnsigned {
 		return f.appendInteger(dst, n)
 	}

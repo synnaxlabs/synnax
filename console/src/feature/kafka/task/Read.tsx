@@ -201,19 +201,31 @@ const TopicItem = (props: Tree.ItemRenderProps<string>) => {
   return <Task.Views.TreeGroupItem {...props} label={<TopicLabel name={name} />} />;
 };
 
+const MISSING_DESCRIPTION =
+  "The ICD no longer has this message. Add a message to the record, then remove this one.";
+
 const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   const ctx = PForm.useContext();
   const topic = topicOf(ctx.get(root.config.topics).value, props.itemKey);
   const path = recordPath(topic, props.itemKey);
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
-  if (disabled == null || recordKey == null) return null;
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const messages = PForm.useFieldValue(path.messages, { optional: true });
+  if (disabled == null || recordKey == null || icdKey == null) return null;
   return (
     <Task.Views.TreeGroupItem
       {...props}
       label={<RecordLabel recordKey={recordKey} emptyLabel={ANY_KEY} />}
       off={disabled}
     >
+      {messages != null && (
+        <ICD.MessageMark
+          icdKey={icdKey}
+          messages={messages.map(({ message }) => message)}
+          missingDescription={() => MISSING_DESCRIPTION}
+        />
+      )}
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
   );
@@ -235,8 +247,7 @@ const useMessageProps = (
     // A new index field keeps the channel of the old one.
     indexChannel: bindings.find(({ field }) => field === index)?.channel ?? 0,
     sourceLabel: "Kafka timestamp",
-    missingDescription:
-      "The ICD no longer has this message. Add a message to the record, then remove this one.",
+    missingDescription: MISSING_DESCRIPTION,
   };
 };
 
@@ -441,6 +452,7 @@ const Records: FC<RecordsProps> = ({
     sourceOf: (r) => r,
     pathOf,
     SourceItem: RecordItem,
+    missingDescription: () => MISSING_DESCRIPTION,
     // Starting reuses the channel that the device stores for the field's pointer,
     // unless an enabled record reads it. A record that reads one message also reuses
     // the channels of its earlier messages, so a new message format keeps its channels.
