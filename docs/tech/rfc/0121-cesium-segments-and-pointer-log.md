@@ -75,8 +75,7 @@ telemetry (§9.0).
    has a channel record must never take a write, since the write would put stamps in a
    user's channel. The Core then starts with an error status that names the channel, the
    framer refuses writes to that channel, and continuation never picks its key, since
-   the Core names such keys to Cesium before any writer opens (§5.8) (founder
-   delegation, D-425 (3)).
+   the Core names such keys to Cesium before any writer opens (§5.8).
 
 ## 4 The seam with the Core
 
@@ -538,7 +537,7 @@ not know. Without the bit, that binary refuses to open.
   edge. The pointer with the left cut keeps the samples below it, even when the range
   covers it whole by time, and the pointer with the right cut keeps the bytes from it
   on. A clock Tombstone is valid when its left cut is at or past each timed key's cut by
-  alignment (D-502). The deleter reads the clock once to find the cuts
+  alignment. The deleter reads the clock once to find the cuts
   (`cesium/internal/unary/delete.go:150-279` today), so replay needs no clock. The state
   owner refuses a Tombstone whose cut names a segment that is no longer live, and a
   Replace that a later Tombstone or Drop made stale. The caller computes it again. Over
@@ -631,15 +630,14 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    publishes, and it answers with the durable view, which covers exactly log `g`. In the
    same step it marks sealed each open segment that no writer holds and that has reached
    a limit of §5.1, or whose first stamp is more than 7 days from the injected clock,
-   before or after it (D-079), and sends those segments to `L`, which logs a Seal for
-   each in log `g + 1`. Every other unheld open segment stays open, so a later session
-   takes it over (§5.8, D-512). While the pointers of unheld open segments in the
-   durable view pass 16 MiB (a config default), it also seals the unheld open segments
-   with the most pointers, largest first. So the head holds open segments of at most
-   4,096 pointers each, unheld ones of at most 7 days and at most 16 MiB of pointers in
-   all. It sends the durable view, as references to immutable channel states, to `C`.
-   `L` sends later batches to log `g + 1`. A crash now recovers from head `g` and both
-   logs.
+   before or after it, and sends those segments to `L`, which logs a Seal for each in
+   log `g + 1`. Every other unheld open segment stays open, so a later session takes it
+   over (§5.8). While the pointers of unheld open segments in the durable view pass 16
+   MiB (a config default), it also seals the unheld open segments with the most
+   pointers, largest first. So the head holds open segments of at most 4,096 pointers
+   each, unheld ones of at most 7 days and at most 16 MiB of pointers in all. It sends
+   the durable view, as references to immutable channel states, to `C`. `L` sends later
+   batches to log `g + 1`. A crash now recovers from head `g` and both logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
    `<p>.part`, write its body, sync, write its header sector, sync. A part that fails a
    read during its rewrite stays as it is, with its marks in the head.
@@ -879,9 +877,9 @@ A script session continues its clock (§5.8) and takes over its open segments, s
 after a clean close starts no segment, and takes no number when it starts within the gap
 of a continued stretch. The Core raises a warning status when the count passes half of
 the numbers, and an error status when the numbers start again at 1, and it keeps
-recording (D-425). A stretch starts at index 0, so a reused number never touches an
-older stretch. An iterator ends a chunk before a number that the chunk already holds for
-its clock, so no chunk holds two stretches of one number.
+recording. A stretch starts at index 0, so a reused number never touches an older
+stretch. An iterator ends a chunk before a number that the chunk already holds for its
+clock, so no chunk holds two stretches of one number.
 
 ### 5.8 One writer per time range
 
@@ -895,7 +893,7 @@ its first write of the key, the key moves into that session's writer through
 `DB.Handoff` (§4.2), the one path that moves a key. When the holder has closed, that
 first write takes the free claim, as an open does, and takes over the key's segment at
 its committed length, with the cursor and `tail_crc` that the holder's `Close` left in
-the state owner, so it checks nothing on the frame path (D-475 (2)).
+the state owner, so it checks nothing on the frame path.
 
 - **Continuation**: A group with an `Index` takes that key as its clock with no
   continuation (RFC 0120 §4.8). At open, for each other group, Cesium takes as
@@ -950,39 +948,38 @@ the state owner, so it checks nothing on the frame path (D-475 (2)).
   gainer's sync of the same segment passed; and a pause move of keys with old stamps,
   then a switch before the writer's next `Sync`. A takeover appends at the committed
   length, and a takeover of a segment at a §5.1 limit seals it and starts the next
-  segment instead, in its spare when it has one (D-537). It judges the time limit by the
-  span from the segment's first stamp to the writer's start, as the spare step does, so
-  a live session after a quiet week seals at open and a backfill session goes on; the
-  switch keeps its own test for unheld segments (D-537 (3)). A spec makes 1,000
-  `client.write` calls of old, contiguous chunks and finds one segment per key. It first
-  checks the tail through the same helper as the open check (§5.5 step 10), and for a
-  variable type rebuilds the sample cursor from the file. A tail that fails its check
-  takes the failure path of the open check (§5.5 step 10, D-482): a Tombstone per
-  pointer from the first sample in the bad range, over the same stamp range on every key
-  that the clock times, then a Seal, and an error to the error handler (§7). The key
-  then starts a new segment. At a handoff the gainer takes the loser's running CRC and
-  sample cursor from memory instead and checks nothing, so a handoff does no file I/O on
-  the frame path (D-475 (2)). Two writers on one key at once have two open segments. A
-  background step makes and opens one spare file for each held segment past three
-  quarters of a §5.1 limit, by its pointers, its sample bytes, or the span of its
-  stamps, as a pause move makes its files at three quarters of P, and a roll at that
-  limit, or a takeover at it (D-537), takes it for the next segment. A spare belongs to
-  its segment, not to a session: a close keeps the spare of each segment that stays
-  open, the next takeover inherits it, and only a seal, the roll or takeover that takes
-  it, or the orphan pass removes it, so each segment makes at most one spare. A spare's
-  handle closes with its holder's `Close` and opens again when its roll takes it, as the
-  writer's own handle, outside the budget. A spare takes its identity when the step
-  makes it, since a file name is its identity and no file is renamed. A segment that its
-  holder no longer writes, such as a left segment of a pause move or a kept segment of a
-  cross-clock loser, gets no spare. So a call of a `client.write` loop makes and removes
-  no file. A roll with no spare, such as a burst that crosses the last quarter before
-  the step runs, makes its file in the write. A writer makes at open the files of its
-  new clocks and of each key new to a clock. For a key that another writer holds, the
-  open takes over the key's newest open segment on the writer's clock that no writer
-  holds, with the checks of a takeover, and makes a file only when there is none. So
-  handoffs onto a clock continue one open segment per key until a §5.1 limit, and a move
-  back to the loser continues the segment that it kept. The orphan pass (§5.5 step 10)
-  removes a spare that a crash leaves.
+  segment instead, in its spare when it has one. It judges the time limit by the span
+  from the segment's first stamp to the writer's start, as the spare step does, so a
+  live session after a quiet week seals at open and a backfill session goes on; the
+  switch keeps its own test for unheld segments. A spec makes 1,000 `client.write` calls
+  of old, contiguous chunks and finds one segment per key. It first checks the tail
+  through the same helper as the open check (§5.5 step 10), and for a variable type
+  rebuilds the sample cursor from the file. A tail that fails its check takes the
+  failure path of the open check (§5.5 step 10): a Tombstone per pointer from the first
+  sample in the bad range, over the same stamp range on every key that the clock times,
+  then a Seal, and an error to the error handler (§7). The key then starts a new
+  segment. At a handoff the gainer takes the loser's running CRC and sample cursor from
+  memory instead and checks nothing, so a handoff does no file I/O on the frame path.
+  Two writers on one key at once have two open segments. A background step makes and
+  opens one spare file for each held segment past three quarters of a §5.1 limit, by its
+  pointers, its sample bytes, or the span of its stamps, as a pause move makes its files
+  at three quarters of P, and a roll at that limit, or a takeover at it, takes it for
+  the next segment. A spare belongs to its segment, not to a session: a close keeps the
+  spare of each segment that stays open, the next takeover inherits it, and only a seal,
+  the roll or takeover that takes it, or the orphan pass removes it, so each segment
+  makes at most one spare. A spare's handle closes with its holder's `Close` and opens
+  again when its roll takes it, as the writer's own handle, outside the budget. A spare
+  takes its identity when the step makes it, since a file name is its identity and no
+  file is renamed. A segment that its holder no longer writes, such as a left segment of
+  a pause move or a kept segment of a cross-clock loser, gets no spare. So a call of a
+  `client.write` loop makes and removes no file. A roll with no spare, such as a burst
+  that crosses the last quarter before the step runs, makes its file in the write. A
+  writer makes at open the files of its new clocks and of each key new to a clock. For a
+  key that another writer holds, the open takes over the key's newest open segment on
+  the writer's clock that no writer holds, with the checks of a takeover, and makes a
+  file only when there is none. So handoffs onto a clock continue one open segment per
+  key until a §5.1 limit, and a move back to the loser continues the segment that it
+  kept. The orphan pass (§5.5 step 10) removes a spare that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, a `Bounded` claim that starts inside another claim, and a group whose key of
   stored stamps times itself, naming that key, so no data takes a self-timed key as its
@@ -1198,7 +1195,7 @@ it. It keeps every sample that a checked block holds.
 
 A target is a ratio to a floor that a Go benchmark of the standard library measures in
 the same run, or to a named benchmark on `main`. The floors are NEW in
-`cesium/floor_bench_test.go`, which the bench host keeps off `main` (D-430):
+`cesium/floor_bench_test.go`, which the bench host keeps off `main`:
 `BenchmarkFloorSync` (append and sync, 4 KiB to 1 MiB), `BenchmarkFloorSyncFiles` (1,000
 files at a fan-out width), `BenchmarkFloorWrite`, `BenchmarkFloorCopy`, and
 `BenchmarkFloorCRC32C`: `F_sync(s)`, `F_files(k)`, `F_write`, `F_copy`, and `F_crc`
@@ -1268,11 +1265,11 @@ update backup of RFC 0102.
    only when the reads agree; with no two agreeing reads in three, the conversion leaves
    the file unread in place, where an undo still finds it, converts the channel without
    the samples of that file, and `DB.Identity` returns the file, so the Core raises a
-   status that names it and its time range (D-425 (2)). Data that such a clock file
-   timed goes with it, by step 3. The old layout never syncs, so a power loss can leave
-   a pointer that ends past its file: cut it to the file length, at a whole sample, and
-   log the cut. It can also leave a channel directory with no `meta.json`: the
-   conversion skips that directory, leaves it in place, and reports its key.
+   status that names it and its time range. Data that such a clock file timed goes with
+   it, by step 3. The old layout never syncs, so a power loss can leave a pointer that
+   ends past its file: cut it to the file length, at a whole sample, and log the cut. It
+   can also leave a channel directory with no `meta.json`: the conversion skips that
+   directory, leaves it in place, and reports its key.
 3. Apply the rule of `TruncateToIndex` once, in memory: a data pointer keeps the samples
    that its clock has stamps for. Log each cut. The cut of step 2 runs first, so a
    pointer that covers index bytes past the end of their file never keeps data samples
@@ -1292,8 +1289,7 @@ update backup of RFC 0102.
      warning names the file. Those samples were never durable.
    - At or past the end of its own range: the pointer becomes empty, with the data that
      it times, and `DB.Identity` returns the file and the time range for the Core's
-     status (D-425 (2)). So does a pointer whose own range starts at or below the stamps
-     before it.
+     status. So does a pointer whose own range starts at or below the stamps before it.
 4. Build the state. Each `N.domain` with a pointer is a sealed version 0 segment with a
    new identity and the old index key as its clock key. Each stretch of an old index
    takes one alignment number, in key order and then in time order. An old data pointer
@@ -1341,19 +1337,19 @@ stopped: `synnax repair --convert` after a real undo, and `synnax repair --adopt
 a lost or restored record. A converting update is one whose From version is older than
 the first release that writes segments. While one has not committed, the Core runs
 `--convert` itself and raises a warning status, since it served nothing from the new
-layout, so `--convert` loses nothing (D-518). A crash between the commit point and the
-identity write is such a case: RFC 0102 undoes the update and waits for
-`synnax update retry` (`core/pkg/storage/update.go:124-143`), and the retried start runs
-`--convert`. Each way on says what the other would keep and asks, and `--yes` skips the
-question. `--adopt` writes the newest head's identity to the metadata store. `--convert`
-renames every `.seg`, `.chk`, and `<key>/channel` file, then the root logs and parts,
-then the heads, to `<name>.<identity>.undone` inside its directory, with the identity of
-the undone database, so a second undo keeps the files of the first and a crash in the
-middle renames again. It syncs each directory, and the next start converts from the old
-files as they are now. A refused start of an update has already undone the update (RFC
-0102), and neither way on is part of an update, so `synnax update retry` then goes on. A
-drop removes every file of its key's directory but the `.undone` files, so a channel
-that reuses an undone channel's key never deletes that telemetry. Telemetry that the new
+layout, so `--convert` loses nothing. A crash between the commit point and the identity
+write is such a case: RFC 0102 undoes the update and waits for `synnax update retry`
+(`core/pkg/storage/update.go:124-143`), and the retried start runs `--convert`. Each way
+on says what the other would keep and asks, and `--yes` skips the question. `--adopt`
+writes the newest head's identity to the metadata store. `--convert` renames every
+`.seg`, `.chk`, and `<key>/channel` file, then the root logs and parts, then the heads,
+to `<name>.<identity>.undone` inside its directory, with the identity of the undone
+database, so a second undo keeps the files of the first and a crash in the middle
+renames again. It syncs each directory, and the next start converts from the old files
+as they are now. A refused start of an update has already undone the update (RFC 0102),
+and neither way on is part of an update, so `synnax update retry` then goes on. A drop
+removes every file of its key's directory but the `.undone` files, so a channel that
+reuses an undone channel's key never deletes that telemetry. Telemetry that the new
 binary wrote is lost, so the new binary's `synnax update undo` across the conversion
 warns and asks before it runs; `--yes` skips the question, and with no answer or no
 terminal the undo refuses. The old binary's undo cannot ask: `Open` reports that it
@@ -1451,21 +1447,21 @@ R3 per clock as well as per stream, and a `FullDisk` case at the commit limit, w
 and read-only cases. W1-N2's order is its own case: the loser's sync of a shared handle
 fails first, and the gainer's sync of it then returns that error. RFC 0120 Phases 2 to 4
 then build takeover at open, one number per clock per session with continued stretches,
-and the commit-first handoff (§5.7, §5.8) on the pointer log. Phase 7 builds D-459's
-read fixes: with checks off, a search step reads only the 8 bytes it needs, not the
-whole block; the block cache splits its lock; and the cause of the `ReadSamples` gap is
-found and fixed. Phase 8 merges only after a box run shows every read within 15% of
-`main` in time, bytes, and allocations, at 1 and 8 readers (D-459). Phase 8 builds
-parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test at
-each of its steps, the backup change, `synnax repair` with its two ways on (§6.0, §9.0),
-the Core's repair at start, and makes the new layout the only one that opens. It moves
-the create checks into the channel service, then removes `CreateChannel`, the channel
-list, and the channel file (§4.0, §5.0). RFC 0120 Phase 24 leases clock keys, Phase 25
-opens each writer on groups (§4.2, §5.8), Phase 26 moves often paused keys, Phase 27
-ends a clock with its last user (§4.1), and Phase 53 deletes the old code, except the
-old-layout reader of the conversion. Phases 5, 6, and 8 are the exceptions to one PR per
-phase. Phase 5 lands as the pieces of SY-6397 (D-454). Phases 6 and 8 each land as their
-reviewed pieces, one PR of about 2,000 hand-written lines each (D-392), behind the open
+and the commit-first handoff (§5.7, §5.8) on the pointer log. Phase 7 builds the read
+fixes of the storage branch: with checks off, a search step reads only the 8 bytes it
+needs, not the whole block; the block cache splits its lock; and the cause of the
+`ReadSamples` gap is found and fixed. Phase 8 merges only after a box run shows every
+read within 15% of `main` in time, bytes, and allocations, at 1 and 8 readers. Phase 8
+builds parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test
+at each of its steps, the backup change, `synnax repair` with its two ways on (§6.0,
+§9.0), the Core's repair at start, and makes the new layout the only one that opens. It
+moves the create checks into the channel service, then removes `CreateChannel`, the
+channel list, and the channel file (§4.0, §5.0). RFC 0120 Phase 24 leases clock keys,
+Phase 25 opens each writer on groups (§4.2, §5.8), Phase 26 moves often paused keys,
+Phase 27 ends a clock with its last user (§4.1), and Phase 53 deletes the old code,
+except the old-layout reader of the conversion. Phases 5, 6, and 8 are the exceptions to
+one PR per phase. Phase 5 lands as the pieces of SY-6397. Phases 6 and 8 each land as
+their reviewed pieces, one PR of about 2,000 hand-written lines each, behind the open
 option until the last piece of Phase 8 switches the layout, so each piece merges alone
 and leaves `main` green. Every other phase is one PR.
 
@@ -1490,7 +1486,7 @@ Phase 6, whose commit persists.
 | 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                                                                                                                                  | 3          |
 | 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `cesium/internal/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge`                                                                                                   | 1          |
 | 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`, `x/go/io/fs/testutil/crash`                                                                                                                                                               | 3, 4, 5    |
-| 7     | Fix the read costs that D-459 names                        | `cesium/internal/segment`, `cesium`                                                                                                                                                                                                                                        | 6          |
+| 7     | Fix the storage branch's read costs                        | `cesium/internal/segment`, `cesium`                                                                                                                                                                                                                                        | 6          |
 | 8     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`, `core/cmd/update`, `core/pkg/distribution/testutil`, `core/pkg/api`, `core/pkg/distribution/channel`, `core/pkg/service` | 6, 7       |
 
 ## 13 Resolved decisions
@@ -1542,8 +1538,8 @@ Phase 6, whose commit persists.
     names, which every task config must then store, and a `Line` flag in the channel
     file, which Phase 8 removes.
 13. **The old holder commits first at a handoff**: Rejected: a `Pending` that waits for
-    the new clock's stamps, with `adopt` across handoffs (D-313, D-389), which parks
-    samples across a move and drops them at `Close`.
+    the new clock's stamps, with `adopt` across handoffs, which parks samples across a
+    move and drops them at `Close`.
 14. **Continued stretches in memory only**: Rejected: a durable clean flag, a new record
     for one number per clock per restart.
 15. **The Core ends a clock**: Rejected: a `Delete` that ends each clock with no user on
@@ -1557,11 +1553,11 @@ Phase 6, whose commit persists.
     Rejected: a clock per moved key, which stores the stamps of 20 keys that pause
     together 20 times. Rejected: a file made at a key's first write after a move.
 
-17. **The Core starts past a clock with a record and an uncommitted conversion**: By the
-    delegation of D-518, each takes the most robust option, which keeps the Core
-    operational (D-425). A clock with a record raises an error status, and no write
-    reaches it (principle 5). An uncommitted conversion runs `--convert` with no step by
-    hand beyond RFC 0102's `synnax update retry`. D-419 stays the one refusal, since its
+17. **The Core starts past a clock with a record and an uncommitted conversion**: Each
+    takes the most robust option, which keeps the Core operational. A clock with a
+    record raises an error status, and no write reaches it (principle 5). An uncommitted
+    conversion runs `--convert` with no step by hand beyond RFC 0102's
+    `synnax update retry`. The identity refusal (§9.0) stays the one refusal, since its
     two ways on keep different data. Rejected: a refused start for each, which stops the
     Core for a fault that loses no data once the framer refuses that channel.
 
