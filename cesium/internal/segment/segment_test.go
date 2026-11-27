@@ -24,6 +24,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
@@ -324,12 +325,14 @@ var _ = Describe("Segment", func() {
 						stream, starts := samples(10, 70_000, 20)
 						w := create(varCfg)
 						Expect(w.Write(stream[:starts[1]])).To(Succeed())
-						Expect(w.Write(stream[starts[1] : starts[1]+3])).
-							To(MatchError(
-								ContainSubstring("ends inside the length at 0"),
-							))
-						Expect(w.Write(stream[starts[1] : starts[2]-1])).
-							To(MatchError(ContainSubstring("ends inside a sample")))
+						Expect(w.Write(stream[starts[1] : starts[1]+3])).To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("ends inside the length at 0")),
+						))
+						Expect(w.Write(stream[starts[1] : starts[2]-1])).To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("ends inside a sample")),
+						))
 						Expect(w.Len()).To(Equal(starts[1]))
 						Expect(w.Write(stream[starts[1]:])).To(Succeed())
 						Expect(h.Close()).To(Succeed())
@@ -387,9 +390,12 @@ var _ = Describe("Segment", func() {
 		for range 4095 {
 			Expect(w.Write(chunk)).To(Succeed())
 		}
-		Expect(w.Write(chunk)).To(MatchError(ContainSubstring(
-			"segment of 4293918720 stream bytes cannot grow by 1048576 past 4 GiB",
-		)))
+		Expect(w.Write(chunk)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"segment of 4293918720 stream bytes cannot grow by 1048576 past 4 GiB",
+			)),
+		))
 		Expect(w.Len()).To(Equal(int64(4293918720)))
 		Expect(w.Write(chunk[:1<<20-1])).To(Succeed())
 		length, _ := w.Commit()
