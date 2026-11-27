@@ -1002,9 +1002,8 @@ switch, Phase 39 is documentation, Phases 40 and 41 split the impact service, an
   tombstones (§4.11 Writers), so their display links keep the dead key, as on `main`,
   and a channel made again at the parent path does not heal them. From Phase 40 the
   ungroup moves them to the parent. From Phase 17, a plain rename or move, the ungroup's
-  moves included, can put a channel on a tombstone's path. Its delete then replaces that
-  tombstone, and a past holder that does not fit ahead of the new list in time drops
-  (§4.12 One per path).
+  moves included, can put a channel on a tombstone's path, where the tombstone waits.
+  When the channel's delete replaces it, a past holder can drop (§4.12 One per path).
 - **Phase 22: Uses.** The inspector builds on the shared used-by list
   (`console/src/platform/settings/UsedBy.tsx`), which learns to group uses by direction,
   with no copy.
