@@ -11,6 +11,8 @@
 package enum
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -149,20 +151,25 @@ func FindPBOutputPath(e resolution.Type, table *resolution.Table) string {
 	return ""
 }
 
-// CollectNamespaceEnums returns all enums in the given namespace that should be
-// generated at the specified output path. This handles the case where enums
-// inherit their output path from file-level directives rather than having
-// explicit per-type output directives.
-//
-// The function:
-// - Filters by namespace
-// - Filters by output path (via pathFunc or default FindOutputPath)
-// - Excludes omitted enums
-// - Deduplicates by QualifiedName
-//
-// If pathFunc is nil, uses the default FindOutputPath for the given domain.
+// CollectNamespaceEnums returns the enums of namespace that CollectOutputEnums returns
+// for outputPath.
 func CollectNamespaceEnums(
 	namespace, outputPath string,
+	table *resolution.Table,
+	domainName string,
+	pathFunc PathFunc,
+) []resolution.Type {
+	return slices.DeleteFunc(
+		CollectOutputEnums(outputPath, table, domainName, pathFunc),
+		func(e resolution.Type) bool { return e.Namespace != namespace },
+	)
+}
+
+// CollectOutputEnums returns each enum that generates at outputPath and is not omitted
+// in domainName, from every schema, once each. pathFunc finds the output of an enum,
+// and nil uses FindOutputPath.
+func CollectOutputEnums(
+	outputPath string,
 	table *resolution.Table,
 	domainName string,
 	pathFunc PathFunc,
@@ -173,17 +180,12 @@ func CollectNamespaceEnums(
 	var result []resolution.Type
 	seen := make(set.Set[string])
 	for _, e := range table.EnumTypes() {
-		if e.Namespace != namespace {
+		if output.IsOmitted(e, domainName) || seen.Contains(e.QualifiedName) {
 			continue
 		}
-		if output.IsOmitted(e, domainName) {
-			continue
-		}
-		if enumPath := pathFunc(e, table); enumPath == outputPath {
-			if !seen.Contains(e.QualifiedName) {
-				seen.Add(e.QualifiedName)
-				result = append(result, e)
-			}
+		if pathFunc(e, table) == outputPath {
+			seen.Add(e.QualifiedName)
+			result = append(result, e)
 		}
 	}
 	return result

@@ -26,6 +26,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getAddChannelButton,
   preloadForms,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -122,7 +123,7 @@ describe("Write", () => {
     const draft = await createDraft(client, createConfig(dev.key, []));
     await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    fireEvent.click(getAddChannelButton());
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
   });
 
@@ -134,7 +135,7 @@ describe("Write", () => {
     );
     await renderWrite({ client, taskKey: draft.key });
     await waitFor(() => expect(screen.getByText("FIO4")).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    fireEvent.click(getAddChannelButton());
     await waitFor(() => expect(screen.getByText("FIO5")).toBeTruthy());
   });
 
@@ -150,7 +151,7 @@ describe("Write", () => {
     await renderWrite({ client, taskKey: draft.key });
     const fio4 = await findChannelListItem("FIO4");
     fireEvent.click(within(fio4).getByRole("checkbox", { name: "Select" }));
-    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    fireEvent.click(getAddChannelButton());
     await waitFor(async () =>
       expect(await savedPorts(draft.key)).toEqual([
         ["digital", "DIO4"],

@@ -38,18 +38,17 @@ type FieldProcessor struct {
 }
 
 // NewFieldProcessor returns a FieldProcessor for a module of the given schema namespace
-// and file at the given output path.
+// at the given output path.
 func NewFieldProcessor(
 	namespace string,
-	filePath string,
 	outputPath string,
 	table *resolution.Table,
 ) *FieldProcessor {
 	return &FieldProcessor{
 		data: &templateData{
 			Namespace:       namespace,
-			FilePath:        filePath,
 			OutputPath:      outputPath,
+			table:           table,
 			GeneratedModule: generatedModule(),
 			imports:         newImportManager(),
 			missingIncludes: make(set.Set[string]),
@@ -96,7 +95,7 @@ func (fp *FieldProcessor) importNamespaceTypes(ref resolution.TypeRef) {
 		fp.importNamespaceTypes(arg)
 	}
 	resolved, ok := ref.Resolve(fp.table)
-	if !ok || resolved.FilePath != fp.data.FilePath ||
+	if !ok || !fp.data.declares(resolved) ||
 		omit.IsSkipped(resolved, "py") {
 		return
 	}

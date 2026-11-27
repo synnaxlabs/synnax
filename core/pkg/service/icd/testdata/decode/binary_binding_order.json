@@ -1,0 +1,66 @@
+{
+  "description": "A frame decodes its bound fields in binding order and leaves out the others.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "b",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "c",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "uint8"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "010203",
+      "message": "frame",
+      "samples": [3, 1]
+    }
+  ]
+}

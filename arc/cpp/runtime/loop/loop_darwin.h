@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <cstring>
 #include <string>
 
@@ -331,7 +332,8 @@ private:
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     /// @brief sets the deadline timer.
     Arm arm;
-    int kqueue_fd = -1;
+    /// @brief atomic, as wake reads it from another thread while start sets it.
+    std::atomic<int> kqueue_fd = -1;
     bool deadline_armed = false;
     bool arm_failed = false;
     x::loop::Timer sleeper;

@@ -565,7 +565,8 @@ var _ = Describe("Driver", func() {
 				Eventually(
 					func() int32 { return configCount.Load() },
 				).Should(Equal(int32(2)))
-				Expect(stopCount.Load()).To(Equal(int32(1)))
+				// The Driver stops the old task only after the new one configures.
+				Eventually(stopCount.Load).Should(Equal(int32(1)))
 			},
 		)
 
@@ -1682,6 +1683,7 @@ var _ = Describe("Driver", func() {
 					))
 					g.Expect(stat.Details.Cmd).To(Equal("cmd-unhandled"))
 					g.Expect(stat.Details.Running).To(BeFalse())
+					g.Expect(stat.Details.ConfigHash).To(BeEmpty())
 				}).Should(Succeed())
 			},
 		)
@@ -1990,7 +1992,7 @@ var _ = Describe("Driver", func() {
 				"The task still runs its last deployed config. bad config",
 				"good",
 			),
-			Entry("stopped", false, "Failed to configure task", "bad config", "bad"),
+			Entry("stopped", false, "Failed to configure task", "bad config", ""),
 		)
 
 		It("should configure existing tasks on startup", func(ctx SpecContext) {
