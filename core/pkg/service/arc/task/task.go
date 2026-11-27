@@ -680,6 +680,10 @@ func (t *impl) reporter() taskreporter.Reporter {
 		message string,
 		description string,
 	) {
+		if variant == status.VariantWarning {
+			t.warn(ctx, message, description)
+			return
+		}
 		t.setStatus(
 			ctx,
 			driver.NoCommand,
@@ -688,6 +692,21 @@ func (t *impl) reporter() taskreporter.Reporter {
 			message,
 			description,
 		)
+	}
+}
+
+// warn writes a warning that keeps the data of the last scope status, since the
+// program still runs its scopes.
+func (t *impl) warn(ctx context.Context, message, description string) {
+	t.scopesMu.Lock()
+	scopes := t.scopes
+	t.scopesMu.Unlock()
+	if err := t.status.Warn(ctx, driver.Warning{
+		Message:     message,
+		Description: description,
+		Data:        scopes,
+	}); err != nil {
+		t.factoryCfg.L.Error("failed to set warning status", zap.Error(err))
 	}
 }
 
@@ -817,16 +836,7 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey, text string) {
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
 	}
-	t.scopesMu.Lock()
-	scopes := t.scopes
-	t.scopesMu.Unlock()
-	if setErr := t.status.Warn(ctx, driver.Warning{
-		Message:     "Node failed",
-		Description: fmt.Sprintf("The %s node failed: %s", nodeType, text),
-		Data:        scopes,
-	}); setErr != nil {
-		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
-	}
+	t.warn(ctx, "Node failed", fmt.Sprintf("The %s node failed: %s", nodeType, text))
 }
 
 type state struct {
