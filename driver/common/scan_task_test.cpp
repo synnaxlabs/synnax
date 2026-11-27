@@ -1687,6 +1687,64 @@ TEST(TestScanTask, testDisabledRefusesStart) {
     EXPECT_EQ(s.details.cmd, "start_1");
 }
 
+/// @brief it should answer a stop and a refused start with the disabled status after a
+/// manual scan sent a status of its own.
+TEST(TestScanTask, testDisabledAnswersWithItsStateAfterAScan) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto task = new_test_task_record();
+    auto scanner = std::make_unique<MockScanner>(
+        std::vector<std::vector<synnax::device::Device>>{},
+        std::vector{x::errors::Error(PARTIAL_SCAN_ERROR, "eth1: cannot open")},
+        std::vector<x::errors::Error>{},
+        std::vector<x::errors::Error>{}
+    );
+    scanner->data = {x::json::json::object_t{{"filtered", x::json::json::array()}}};
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 1, true),
+        std::make_unique<MockClusterAPI>(
+            std::make_shared<std::vector<synnax::device::Device>>(),
+            std::make_shared<std::vector<synnax::device::Device>>()
+        )
+    );
+    synnax::task::Command scan{
+        .task = task.key,
+        .type = SCAN_CMD_TYPE,
+        .key = "scan_1",
+    };
+    scan_task.exec(scan, cancel);
+    synnax::task::Command stop{
+        .task = task.key,
+        .type = synnax::task::STOP_CMD_TYPE,
+        .key = "stop_1",
+    };
+    scan_task.exec(stop, cancel);
+    synnax::task::Command start{
+        .task = task.key,
+        .type = synnax::task::START_CMD_TYPE,
+        .key = "start_1",
+    };
+    scan_task.exec(start, cancel);
+    EXPECT_FALSE(scan_task.running());
+    ASSERT_EQ(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(ctx->statuses[0].details.data.has_value());
+    for (std::size_t i = 1; i < ctx->statuses.size(); i++) {
+        const auto &s = ctx->statuses[i];
+        EXPECT_EQ(s.variant, synnax::status::VARIANT_DISABLED);
+        EXPECT_EQ(s.message, "Scanner disabled");
+        EXPECT_EQ(s.description, "Enable the scanner to scan for devices.");
+        EXPECT_FALSE(s.details.data.has_value());
+        EXPECT_FALSE(s.details.running);
+    }
+    EXPECT_EQ(ctx->statuses[1].details.cmd, "stop_1");
+    EXPECT_EQ(ctx->statuses[2].details.cmd, "start_1");
+}
+
 /// @brief it should come up on a second start after the first one failed. run() exits
 /// early on a scanner start failure, and the pipeline it leaves behind must not block
 /// the retry.

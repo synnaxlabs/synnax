@@ -288,6 +288,19 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->send_status();
     }
 
+    /// @brief answers a start or a stop that changes nothing with the disabled status,
+    /// or with the current status when the scan task is enabled.
+    void send_unchanged() {
+        if (this->is_disabled)
+            this->send_status(
+                synnax::status::VARIANT_DISABLED,
+                "Scanner disabled",
+                "Enable the scanner to scan for devices."
+            );
+        else
+            this->send_status();
+    }
+
     /// @brief sends a warning when the scan error changes, and a success once scans
     /// recover. replaced is whether a command answer replaced the status before the
     /// scan started, since a scan that started earlier can report stale data.
@@ -543,11 +556,6 @@ public:
         this->status.owner = synnax::task::resource_id(task.key);
         this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
-        if (this->is_disabled) {
-            this->status.variant = synnax::status::VARIANT_DISABLED;
-            this->status.message = "Scanner disabled";
-            this->status.description = "Enable the scanner to scan for devices.";
-        }
     }
 
     ScanTask(
@@ -635,13 +643,13 @@ public:
     void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that
-        // changes nothing never reaches it, so the current status answers instead.
+        // changes nothing never reaches it, so exec answers it here.
         if (cmd.type == synnax::task::STOP_CMD_TYPE) {
-            if (!this->stop()) this->send_status();
+            if (!this->stop()) this->send_unchanged();
             return;
         }
         if (cmd.type == synnax::task::START_CMD_TYPE) {
-            if (!this->start()) this->send_status();
+            if (!this->start()) this->send_unchanged();
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
