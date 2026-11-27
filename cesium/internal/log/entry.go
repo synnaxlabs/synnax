@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
+const entryHeaderSize = 8
+
 // Entry builds the bytes of one entry, which applies all or nothing. The zero value is
 // an empty entry.
 type Entry struct {
@@ -44,7 +46,7 @@ func (e *Entry) Bytes() []byte {
 	if len(e.b) == 0 {
 		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
 	}
-	binary.LittleEndian.PutUint32(e.b, uint32(len(e.b)-recordHeaderSize))
+	binary.LittleEndian.PutUint32(e.b, uint32(len(e.b)-entryHeaderSize))
 	binary.LittleEndian.PutUint32(e.b[4:], e.count)
 	return e.b
 }
@@ -76,7 +78,7 @@ type Decoder struct {
 // Reset starts reading the entry at the start of b, and returns the length of the entry
 // in b.
 func (d *Decoder) Reset(b []byte) (int, error) {
-	if len(b) < recordHeaderSize {
+	if len(b) < entryHeaderSize {
 		return 0, errors.Wrapf(
 			place.ErrCorrupt,
 			"entry header needs 8 bytes, but %d remain",
@@ -85,17 +87,17 @@ func (d *Decoder) Reset(b []byte) (int, error) {
 	}
 	size := binary.LittleEndian.Uint32(b)
 	count := binary.LittleEndian.Uint32(b[4:])
-	if uint64(size) > uint64(len(b)-recordHeaderSize) {
+	if uint64(size) > uint64(len(b)-entryHeaderSize) {
 		return 0, errors.Wrapf(
 			place.ErrCorrupt,
 			"entry holds %d bytes of records, but %d remain",
 			size,
-			len(b)-recordHeaderSize,
+			len(b)-entryHeaderSize,
 		)
 	}
-	d.b = b[recordHeaderSize : recordHeaderSize+int(size)]
+	d.b = b[entryHeaderSize : entryHeaderSize+int(size)]
 	d.left = count
-	return recordHeaderSize + int(size), nil
+	return entryHeaderSize + int(size), nil
 }
 
 // Next returns the next record of the entry, or false at its end. The record stays

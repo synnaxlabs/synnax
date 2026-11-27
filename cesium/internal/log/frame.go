@@ -216,7 +216,7 @@ func DecodeFrame(b []byte, db, generation, offset uint64) (Frame, error) {
 		)
 	}
 	f.Clean = flags&flagClean != 0
-	if uint64(f.Count)*recordHeaderSize > size {
+	if uint64(f.Count)*entryHeaderSize > size {
 		return Frame{}, errors.Wrapf(
 			place.ErrCorrupt,
 			"frame at %d of %d bytes cannot hold %d entries",
