@@ -367,6 +367,7 @@ var _ = Describe("Writer open", func() {
 		// indexLen returns the number of samples left in idxKey. It is 2 once the
 		// delete has run.
 		indexLen := func(ctx context.Context) int64 {
+			GinkgoHelper()
 			return MustSucceed(db.Read(ctx, telem.TimeRangeMax, idxKey)).Len()
 		}
 
