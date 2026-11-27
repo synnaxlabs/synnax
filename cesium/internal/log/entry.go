@@ -23,8 +23,8 @@ import (
 type Entry struct {
 	b       []byte
 	records []Record
-	// fenced is true when a record of the entry is not a delete, a Restart, or a Seal,
-	// so the entry stops at the delete reserve.
+	// fenced is true when a record of the entry is not a delete or a Restart, so the
+	// entry stops at the delete reserve.
 	fenced bool
 }
 
@@ -37,7 +37,7 @@ func (e *Entry) Add(r Record) {
 	e.b = r.append(e.b)
 	e.records = append(e.records, r)
 	switch r.(type) {
-	case *Tombstone, *Intent, *Drop, *Restart, *Seal:
+	case *Tombstone, *Intent, *Drop, *Restart:
 	default:
 		e.fenced = true
 	}
