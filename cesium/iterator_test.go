@@ -13,6 +13,7 @@ import (
 	"context"
 	"slices"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1939,6 +1940,44 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
+				It("Should read a channel whose read failed no more until a seek", func(
+					ctx SpecContext,
+				) {
+					var reads atomic.Int64
+					faulty := WrapFaultyFS(openFS())
+					countedDB := mustOpenDBOnFS(
+						ctx,
+						readCountFS{FS: faulty, reads: &reads},
+					)
+					key := GenerateChannelKey()
+					Expect(countedDB.CreateChannel(ctx, cesium.Channel{
+						Key:      key,
+						Name:     "Scott",
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					})).To(Succeed())
+					Expect(countedDB.WriteSeries(
+						ctx,
+						key,
+						10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12),
+					)).To(Succeed())
+					i := MustSucceed(countedDB.OpenIterator(cesium.IteratorConfig{
+						Bounds:   telem.TimeRangeMax,
+						Channels: []cesium.ChannelKey{key},
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					faulty.SetOptions(WithFailReadAt())
+					Expect(i.Next(telem.Second)).To(BeFalse())
+					failed := reads.Load()
+					Expect(i.Next(telem.Second)).To(BeFalse())
+					Expect(reads.Load()).To(Equal(failed))
+					faulty.SetOptions()
+					Expect(i.SeekFirst()).To(BeTrue())
+					Expect(i.Next(cesium.AutoSpan)).To(BeTrue())
+					Expect(i.Close()).To(Succeed())
+				})
+
 				It("Should close cleanly once a seek clears the read error", func(
 					ctx SpecContext,
 				) {
@@ -2186,3 +2225,35 @@ var _ = Describe("Iterator read failures", func() {
 		Entry("of a fixed span", 10*telem.Second),
 	)
 })
+
+// readCountFS counts the reads of the files that it opens.
+type readCountFS struct {
+	fs.FS
+	reads *atomic.Int64
+}
+
+func (f readCountFS) Sub(name string) (fs.FS, error) {
+	sub, err := f.FS.Sub(name)
+	if err != nil {
+		return nil, err
+	}
+	return readCountFS{FS: sub, reads: f.reads}, nil
+}
+
+func (f readCountFS) Open(name string, flag int) (fs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil {
+		return nil, err
+	}
+	return readCountFile{File: file, reads: f.reads}, nil
+}
+
+type readCountFile struct {
+	fs.File
+	reads *atomic.Int64
+}
+
+func (f readCountFile) ReadAt(p []byte, off int64) (int, error) {
+	f.reads.Add(1)
+	return f.File.ReadAt(p, off)
+}
