@@ -41,6 +41,23 @@ const (
 	columnMax       = "max"
 )
 
+var (
+	knownColumns = []string{
+		columnMessage, columnID, columnExtended, columnLength, columnField,
+		columnStartBit, columnBitLength, columnByteOrder, columnKind,
+		columnScale, columnOffset, columnUnits, columnMin, columnMax,
+	}
+	requiredColumns = []string{
+		columnMessage, columnField, columnStartBit, columnBitLength,
+	}
+)
+
+// joinNames joins names with commas, and with conjunction before the last.
+func joinNames(names []string, conjunction string) string {
+	last := len(names) - 1
+	return strings.Join(names[:last], ", ") + ", " + conjunction + " " + names[last]
+}
+
 const (
 	// maxUnzipSize bounds the uncompressed size of an XLSX workbook.
 	maxUnzipSize = 64 << 20
@@ -184,29 +201,30 @@ func parseTable(rows [][]string) ([]Message, error) {
 }
 
 func (t *table) readHeader(cells []string) error {
-	known := []string{
-		columnMessage, columnID, columnExtended, columnLength, columnField,
-		columnStartBit, columnBitLength, columnByteOrder, columnKind,
-		columnScale, columnOffset, columnUnits, columnMin, columnMax,
-	}
 	for i, cell := range cells {
 		name := strings.ToLower(strings.TrimSpace(cell))
 		if name == "" {
 			continue
 		}
-		if !slices.Contains(known, name) {
-			return dataErrorf("row 1: unknown column %q", strings.TrimSpace(cell))
+		if !slices.Contains(knownColumns, name) {
+			return dataErrorf(
+				"row 1: unknown column %q: expected %s",
+				strings.TrimSpace(cell),
+				joinNames(knownColumns, "or"),
+			)
 		}
 		if _, dup := t.columns[name]; dup {
 			return dataErrorf("row 1: duplicate column %q", name)
 		}
 		t.columns[name] = i
 	}
-	for _, name := range []string{
-		columnMessage, columnField, columnStartBit, columnBitLength,
-	} {
+	for _, name := range requiredColumns {
 		if _, ok := t.columns[name]; !ok {
-			return dataErrorf("row 1: missing required column %q", name)
+			return dataErrorf(
+				"row 1: missing required column %q: a table needs %s",
+				name,
+				joinNames(requiredColumns, "and"),
+			)
 		}
 	}
 	return nil

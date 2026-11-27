@@ -11,14 +11,16 @@
 #include <atomic>
 #include <chrono>
 #include <cstddef>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
-#include "x/cpp/base64/base64.h"
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -28,9 +30,32 @@
 
 namespace driver::http {
 namespace {
+using ::testing::Contains;
+using ::testing::Pair;
+
 // Only bounds a hang. A loaded runner can stall a loopback request for seconds, so a
 // test that wants a timeout sets a short one itself.
 const auto TIMEOUT = 5 * x::telem::SECOND;
+
+/// @brief starts a mock server with routes. The server stops when it is destroyed.
+std::unique_ptr<testutil::Server> serve(std::vector<testutil::Route> routes) {
+    auto server = std::make_unique<testutil::Server>(
+        testutil::ServerConfig{.routes = std::move(routes)}
+    );
+    EXPECT_NIL(server->start());
+    return server;
+}
+
+/// @brief returns a GET route on path that answers 200 "ok" after delay.
+testutil::Route
+route(const std::string &path, const x::telem::TimeSpan delay = x::telem::TimeSpan()) {
+    return {
+        .path = path,
+        .response_body = "ok",
+        .content_type = "text/plain",
+        .delay = delay,
+    };
+}
 
 Request make_request(
     const std::string &base_url,
@@ -54,302 +79,91 @@ Request make_gated_request(
     req.max_concurrent_requests = cap;
     return req;
 }
-
-testutil::Route
-delayed_route(const std::string &path, const x::telem::TimeSpan &delay) {
-    return {
-        .method = Method::GET,
-        .path = path,
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-        .delay = delay,
-    };
-}
 }
 
-TEST(ProcessorTest, GETRequest) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/data",
-        .status_code = 200,
-        .response_body = R"({"value": 42})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
+struct MethodCase {
+    Method method;
+    /// @brief body of the request.
+    std::string body;
+    /// @brief body that the server receives.
+    std::string received;
+};
 
-    auto req = make_request(server.base_url(), "/api/data");
+class MethodTest : public ::testing::TestWithParam<MethodCase> {};
 
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, R"({"value": 42})");
-    EXPECT_GT(resp.time_range.end, resp.time_range.start);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, POSTRequestWithBody) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/submit",
+/// @brief it should send each method, and a body only with a method that takes one.
+TEST_P(MethodTest, SendsMethodAndBody) {
+    const auto &[method, body, received] = GetParam();
+    const auto server = serve({{
+        .method = method,
+        .path = "/r",
         .status_code = 201,
-        .response_body = R"({"id": 1})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/submit", Method::POST);
-    req.body = R"({"name": "test"})";
+        .response_body = "ok",
+    }});
+    auto req = make_request(server->base_url(), "/r", method);
+    req.body = body;
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
     EXPECT_EQ(resp.status_code, 201);
+    EXPECT_EQ(resp.body, "ok");
     EXPECT_GT(resp.time_range.end, resp.time_range.start);
-    EXPECT_EQ(resp.body, R"({"id": 1})");
-
-    auto reqs = server.received_requests();
+    const auto reqs = server->received_requests();
     ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].body, R"({"name": "test"})");
-
-    server.stop();
+    EXPECT_EQ(reqs[0].method, method);
+    EXPECT_EQ(reqs[0].body, received);
 }
 
-TEST(ProcessorTest, CustomHeaders) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/check",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
+INSTANTIATE_TEST_SUITE_P(
+    Methods,
+    MethodTest,
+    ::testing::Values(
+        MethodCase{Method::GET, "{}", ""},
+        MethodCase{Method::DEL, "{}", ""},
+        MethodCase{Method::POST, "{}", "{}"},
+        MethodCase{Method::POST, "", ""},
+        MethodCase{Method::PUT, "{}", "{}"},
+        MethodCase{Method::PATCH, "{}", "{}"},
+        MethodCase{Method::OPTIONS, "", ""}
+    )
+);
 
-    auto req = make_request(server.base_url(), "/api/check");
-    req.headers.emplace_back("X-Global: global-val");
-    req.headers.emplace_back("X-Request: req-val");
+/// @brief it should send the headers and the URL query as given.
+TEST(ProcessorTest, SendsHeadersAndQueryAsGiven) {
+    const auto server = serve({route("/r")});
+    auto req = make_request(server->base_url(), "/r?key=secret&q=a%20b&tag=a%26b%3Dc");
+    req.headers = {"Authorization: Bearer token", "X-API-Key: secret"};
 
     Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-
-    auto reqs = server.received_requests();
+    ASSERT_NIL_P(proc.execute(req));
+    const auto reqs = server->received_requests();
     ASSERT_EQ(reqs.size(), 1);
-
-    EXPECT_EQ(reqs[0].headers.find("X-Global")->second, "global-val");
-    EXPECT_EQ(reqs[0].headers.find("X-Request")->second, "req-val");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, BasicAuth) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/secure",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/secure");
-    req.headers.push_back("Authorization: Basic " + x::base64::encode("user:pass"));
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-
-    const auto expected = "Basic " + x::base64::encode("user:pass");
-    EXPECT_EQ(reqs[0].headers.find("Authorization")->second, expected);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, BearerAuth) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/secure",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/secure");
-    req.headers.emplace_back("Authorization: Bearer my-token");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-
-    EXPECT_EQ(reqs[0].headers.find("Authorization")->second, "Bearer my-token");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, APIKeyAuthAsHeader) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/keyed",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/keyed");
-    req.headers.emplace_back("X-API-Key: secret123");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].headers.find("X-API-Key")->second, "secret123");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, APIKeyAuthAsQueryParam) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/keyed",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/keyed?api_key=secret123");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].query_params.find("api_key")->second, "secret123");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, QueryParams) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/search",
-        .status_code = 200,
-        .response_body = "found",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/search?q=hello&limit=10");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, QueryParamsPercentEncoded) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/search",
-        .status_code = 200,
-        .response_body = "found",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(
-        server.base_url(),
-        "/api/search?q=hello%20world&tag=a%26b%3Dc"
+    EXPECT_THAT(reqs[0].headers, Contains(Pair("Authorization", "Bearer token")));
+    EXPECT_THAT(reqs[0].headers, Contains(Pair("X-API-Key", "secret")));
+    EXPECT_EQ(
+        reqs[0].query_params,
+        (std::multimap<std::string, std::string>{
+            {"key", "secret"},
+            {"q", "a b"},
+            {"tag", "a&b=c"},
+        })
     );
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].query_params.find("q")->second, "hello world");
-    EXPECT_EQ(reqs[0].query_params.find("tag")->second, "a&b=c");
-
-    server.stop();
 }
 
-TEST(ProcessorTest, MergedQueryParams) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/data",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/data?api_key=secret&limit=10");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].query_params.find("api_key")->second, "secret");
-    EXPECT_EQ(reqs[0].query_params.find("limit")->second, "10");
-
-    server.stop();
-}
-
+/// @brief it should fail a request that runs past its timeout as unreachable.
 TEST(ProcessorTest, TimeoutError) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/slow",
-        .status_code = 200,
-        .response_body = "delayed",
-        .content_type = "text/plain",
-        .delay = 2 * x::telem::SECOND,
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/slow");
-    req.timeout = 1 * x::telem::MILLISECOND;
+    const auto server = serve({route("/slow", 2 * x::telem::SECOND)});
+    auto req = make_request(server->base_url(), "/slow");
+    req.timeout = x::telem::MILLISECOND;
 
     Processor proc;
     ASSERT_OCCURRED_AS_P(proc.execute(req), errors::UNREACHABLE_ERROR);
-
-    server.stop();
 }
 
+/// @brief it should fail a request to a host that does not answer as unreachable.
 TEST(ProcessorTest, UnreachableError) {
-    Request req{
+    const Request req{
         .url = "http://192.0.2.1:1/",
-        .method = Method::GET,
         .timeout = 100 * x::telem::MILLISECOND,
     };
 
@@ -357,855 +171,41 @@ TEST(ProcessorTest, UnreachableError) {
     ASSERT_OCCURRED_AS_P(proc.execute(req), errors::UNREACHABLE_ERROR);
 }
 
-TEST(ProcessorTest, ErrorStatusCodesReturnResponse) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {
-            .method = Method::GET,
-            .path = "/api/notfound",
-            .status_code = 404,
-            .response_body = R"({"error": "not found"})",
-        },
-        {
-            .method = Method::GET,
-            .path = "/api/error",
-            .status_code = 500,
-            .response_body = R"({"error": "internal"})",
-        },
+/// @brief it should return the results of a batch in order, and an error status as a
+/// response.
+TEST(ProcessorTest, BatchReturnsResultsInOrder) {
+    const auto server = serve({
+        {.path = "/ok", .status_code = 200, .response_body = "A"},
+        {.path = "/missing", .status_code = 404, .response_body = "B"},
+        {.path = "/error", .status_code = 500, .response_body = "C"},
+    });
+    const std::vector<Request> reqs = {
+        make_request(server->base_url(), "/ok"),
+        make_request(server->base_url(), "/missing"),
+        make_request(server->base_url(), "/error"),
     };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    Processor proc;
-
-    {
-        auto req = make_request(server.base_url(), "/api/notfound");
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 404);
-        EXPECT_EQ(resp.body, R"({"error": "not found"})");
-    }
-
-    {
-        auto req = make_request(server.base_url(), "/api/error");
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 500);
-        EXPECT_EQ(resp.body, R"({"error": "internal"})");
-    }
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ParallelRequests) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/api/a",
-         .status_code = 200,
-         .response_body = "A"},
-        {.method = Method::GET,
-         .path = "/api/b",
-         .status_code = 200,
-         .response_body = "B"},
-        {.method = Method::GET,
-         .path = "/api/c",
-         .status_code = 200,
-         .response_body = "C"},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_request(server.base_url(), "/api/a"),
-        make_request(server.base_url(), "/api/b"),
-        make_request(server.base_url(), "/api/c"),
+    const std::vector<std::pair<int, std::string>> expected = {
+        {200, "A"},
+        {404, "B"},
+        {500, "C"},
     };
 
     Processor proc;
     const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 3);
-    for (const auto &[resp, err]: results) {
-        ASSERT_NIL(err);
-        EXPECT_EQ(resp.status_code, 200);
+    ASSERT_EQ(results.size(), expected.size());
+    for (std::size_t i = 0; i < expected.size(); i++) {
+        const auto &resp = ASSERT_NIL_P(results[i]);
+        EXPECT_EQ(resp.status_code, expected[i].first);
+        EXPECT_EQ(resp.body, expected[i].second);
     }
-    EXPECT_EQ(results[0].first.body, "A");
-    EXPECT_EQ(results[1].first.body, "B");
-    EXPECT_EQ(results[2].first.body, "C");
-
-    server.stop();
 }
 
-TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/ok",
-         .status_code = 200,
-         .response_body = "success"},
-        {.method = Method::GET,
-         .path = "/not-found",
-         .status_code = 404,
-         .response_body = R"({"error": "not found"})"},
-        {.method = Method::GET,
-         .path = "/error",
-         .status_code = 500,
-         .response_body = R"({"error": "internal"})"},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_request(server.base_url(), "/ok"),
-        make_request(server.base_url(), "/not-found"),
-        make_request(server.base_url(), "/error"),
-    };
-
-    Processor proc;
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 3);
-    for (const auto &[resp, err]: results)
-        ASSERT_NIL(err);
-    EXPECT_EQ(results[0].first.body, "success");
-    EXPECT_EQ(results[0].first.status_code, 200);
-    EXPECT_EQ(results[1].first.body, R"({"error": "not found"})");
-    EXPECT_EQ(results[1].first.status_code, 404);
-    EXPECT_EQ(results[2].first.body, R"({"error": "internal"})");
-    EXPECT_EQ(results[2].first.status_code, 500);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ParallelOneTimesOut) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/fast",
-         .status_code = 200,
-         .response_body = "fast"},
-        {.method = Method::GET,
-         .path = "/slow",
-         .status_code = 200,
-         .response_body = "slow",
-         .delay = 2 * x::telem::SECOND},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto fast = make_request(server.base_url(), "/fast");
-    fast.timeout = 500 * x::telem::MILLISECOND;
-    auto slow = make_request(server.base_url(), "/slow");
-    slow.timeout = 500 * x::telem::MILLISECOND;
-    std::vector<Request> reqs = {fast, slow};
-
-    Processor proc;
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 2);
-    const auto &fast_resp = ASSERT_NIL_P(results[0]);
-    EXPECT_EQ(fast_resp.status_code, 200);
-    EXPECT_EQ(fast_resp.body, "fast");
-    ASSERT_OCCURRED_AS_P(results[1], errors::UNREACHABLE_ERROR);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, RepeatedGETRequests) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/poll",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/poll");
-
-    Processor proc;
-    for (int i = 0; i < 5; i++) {
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 200);
-        EXPECT_EQ(resp.body, "ok");
-    }
-
-    EXPECT_EQ(server.received_requests().size(), 5);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, RepeatedPOSTRequests) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/send",
-        .status_code = 201,
-        .response_body = "created",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/send", Method::POST);
-
-    Processor proc;
-    for (int i = 0; i < 3; i++) {
-        req.body = R"({"i": )" + std::to_string(i) + "}";
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 201);
-        EXPECT_EQ(resp.body, "created");
-    }
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 3);
-    for (int i = 0; i < 3; i++) {
-        EXPECT_EQ(reqs[i].body, R"({"i": )" + std::to_string(i) + "}");
-    }
-
-    server.stop();
-}
-
-TEST(ProcessorTest, DELETERequest) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::DEL,
-        .path = "/api/item/42",
-        .status_code = 204,
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/item/42", Method::DEL);
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 204);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, PUTRequest) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::PUT,
-        .path = "/api/item/1",
-        .status_code = 200,
-        .response_body = R"({"updated": true})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/item/1", Method::PUT);
-    req.body = R"({"name": "new"})";
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].body, R"({"name": "new"})");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, EmptyPath) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/",
-        .status_code = 200,
-        .response_body = "root",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, "root");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, HTTPSGETRequest) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.secure = true;
-    server_cfg.cert_path = "driver/http/testutil/test_cert.pem";
-    server_cfg.key_path = "driver/http/testutil/test_key.pem";
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/secure",
-        .status_code = 200,
-        .response_body = R"({"secure": true})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/secure");
-    req.verify_ssl = false;
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, R"({"secure": true})");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ContentTypeValidation) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/json",
-        .status_code = 200,
-        .response_body = R"({"ok": true})",
-        .content_type = "application/json",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/json");
-    req.headers.emplace_back("Accept: application/json");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, R"({"ok": true})");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ContentTypeMismatchStillSucceeds) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/text",
-        .status_code = 200,
-        .response_body = "not json",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/text");
-    req.headers.emplace_back("Accept: application/json");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, "not json");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ContentTypeHeaderSent) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/xml",
-        .status_code = 200,
-        .response_body = "<ok/>",
-        .content_type = "application/xml",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/xml", Method::POST);
-    req.headers.emplace_back("Content-Type: application/xml");
-    req.body = "<req/>";
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, "<ok/>");
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-
-    EXPECT_EQ(reqs[0].headers.find("Content-Type")->second, "application/xml");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, AcceptHeaderSent) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/accept",
-        .status_code = 200,
-        .response_body = R"({"ok": true})",
-        .content_type = "application/json",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/accept");
-    req.headers.emplace_back("Accept: application/json");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-
-    EXPECT_EQ(reqs[0].headers.find("Accept")->second, "application/json");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, GETIgnoresRequestBody) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/data",
-        .status_code = 200,
-        .response_body = R"({"value": 42})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/data");
-    req.body = R"({"filter": true})";
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, R"({"value": 42})");
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_TRUE(reqs[0].body.empty());
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ConcurrentExecuteFromMultipleThreads) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/data",
-        .status_code = 200,
-        .response_body = R"({"ok": true})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    Processor proc;
-
-    constexpr int num_threads = 4;
-    constexpr int requests_per_thread = 5;
-    std::vector<std::thread> threads;
-    std::atomic<int> success_count{0};
-
-    threads.reserve(num_threads);
-    for (int t = 0; t < num_threads; t++) {
-        threads.emplace_back([&] {
-            for (int i = 0; i < requests_per_thread; i++) {
-                auto req = make_request(server.base_url(), "/api/data");
-                auto [resp, err] = proc.execute(req);
-                if (!err && resp.status_code == 200) success_count++;
-            }
-        });
-    }
-
-    for (auto &t: threads)
-        t.join();
-    EXPECT_EQ(success_count.load(), num_threads * requests_per_thread);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, DestructorCleansUpGracefully) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/data",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/data");
-
-    {
-        Processor proc;
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 200);
-    }
-    // Processor destructor runs here — should not crash or hang.
-
-    server.stop();
-}
-
-TEST(ProcessorTest, HTTPSPOSTRequestWithBody) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.secure = true;
-    server_cfg.cert_path = "driver/http/testutil/test_cert.pem";
-    server_cfg.key_path = "driver/http/testutil/test_key.pem";
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/submit",
-        .status_code = 201,
-        .response_body = R"({"id": 1})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/submit", Method::POST);
-    req.verify_ssl = false;
-    req.body = R"({"name": "test"})";
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 201);
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_EQ(reqs[0].body, R"({"name": "test"})");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ContentTypeNotCheckedWhenEmpty) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/any",
-        .status_code = 200,
-        .response_body = "whatever",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/any");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ContentTypeCharsetSuffix) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/charset",
-        .status_code = 200,
-        .response_body = R"({"ok": true})",
-        .content_type = "application/json; charset=utf-8",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/charset");
-    req.headers.emplace_back("Accept: application/json");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, RequestContentTypeOmittedWhenEmpty) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/raw",
-        .status_code = 200,
-        .response_body = "ok",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/raw", Method::POST);
-    req.headers.emplace_back("Content-Type: ");
-    req.body = "data";
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-
-    EXPECT_EQ(reqs[0].headers.find("Content-Type"), reqs[0].headers.end());
-
-    server.stop();
-}
-
-TEST(ProcessorTest, DELETEIgnoresRequestBody) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::DEL,
-        .path = "/api/items",
-        .status_code = 200,
-        .response_body = R"({"deleted": 3})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/items", Method::DEL);
-    req.body = R"({"ids": [1, 2, 3]})";
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, R"({"deleted": 3})");
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 1);
-    EXPECT_TRUE(reqs[0].body.empty());
-
-    server.stop();
-}
-
-TEST(ProcessorTest, OPTIONSRequest) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::OPTIONS,
-        .path = "/api/opts",
-        .status_code = 204,
-        .response_body = "",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/opts", Method::OPTIONS);
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 204);
-    EXPECT_EQ(resp.body, "");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, MixedGETAndPOST) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/api/read",
-         .status_code = 200,
-         .response_body = "read-ok",
-         .content_type = "text/plain"},
-        {.method = Method::POST,
-         .path = "/api/write",
-         .status_code = 201,
-         .response_body = "write-ok",
-         .content_type = "text/plain"},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto get_req = make_request(server.base_url(), "/api/read");
-    auto post_req = make_request(server.base_url(), "/api/write", Method::POST);
-    post_req.body = R"({"val": 1})";
-    std::vector<Request> reqs = {get_req, post_req};
-
-    Processor proc;
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 2);
-    const auto &get_resp = ASSERT_NIL_P(results[0]);
-    const auto &post_resp = ASSERT_NIL_P(results[1]);
-    EXPECT_EQ(get_resp.status_code, 200);
-    EXPECT_EQ(get_resp.body, "read-ok");
-    EXPECT_EQ(post_resp.status_code, 201);
-    EXPECT_EQ(post_resp.body, "write-ok");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, POSTWithEmptyBody) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/ping",
-        .status_code = 200,
-        .response_body = "pong",
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/ping", Method::POST);
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, "pong");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, SerialGETRequestsReuseHandles) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/data",
-        .status_code = 200,
-        .response_body = R"({"value": 1})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/data");
-    req.headers.emplace_back("X-Header: test-value");
-
-    Processor proc;
-    for (int i = 0; i < 3; i++) {
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 200);
-        EXPECT_EQ(resp.body, R"({"value": 1})");
-    }
-
-    auto reqs = server.received_requests();
-    EXPECT_EQ(reqs.size(), 3);
-    for (int i = 0; i < 3; i++) {
-        EXPECT_EQ(reqs[i].headers.find("X-Header")->second, "test-value");
-    }
-
-    server.stop();
-}
-
-TEST(ProcessorTest, SerialPOSTRequestsWithDifferentBodies) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/submit",
-        .status_code = 201,
-        .response_body = R"({"ok": true})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/submit", Method::POST);
-
-    const std::vector<std::string> bodies = {
-        R"({"name": "first"})",
-        R"({"name": "second"})",
-        R"({"name": "third"})",
-    };
-
-    Processor proc;
-    for (const auto &body: bodies) {
-        req.body = body;
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 201);
-    }
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 3);
-    for (int i = 0; i < 3; i++) {
-        EXPECT_EQ(reqs[i].body, bodies[i]);
-    }
-
-    server.stop();
-}
-
-TEST(ProcessorTest, SerialRequestsRecoverFromServerError) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {
-            .method = Method::GET,
-            .path = "/api/ok",
-            .status_code = 200,
-            .response_body = R"({"status": "ok"})",
-        },
-        {
-            .method = Method::GET,
-            .path = "/api/fail",
-            .status_code = 500,
-            .response_body = R"({"error": "internal"})",
-        },
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_request(server.base_url(), "/api/ok"),
-        make_request(server.base_url(), "/api/fail"),
-    };
-
-    Processor proc;
-    for (int i = 0; i < 3; i++) {
-        const auto r1 = proc.execute(reqs);
-        ASSERT_EQ(r1.size(), 2);
-        const auto &ok_resp = ASSERT_NIL_P(r1[0]);
-        const auto &fail_resp = ASSERT_NIL_P(r1[1]);
-        EXPECT_EQ(ok_resp.status_code, 200);
-        EXPECT_EQ(ok_resp.body, R"({"status": "ok"})");
-        EXPECT_EQ(fail_resp.status_code, 500);
-        EXPECT_EQ(fail_resp.body, R"({"error": "internal"})");
-    }
-
-    auto server_reqs = server.received_requests();
-    EXPECT_EQ(server_reqs.size(), 6);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, SerialSingleHandleRecoveryFromServerError) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::POST,
-        .path = "/api/action",
-        .status_code = 500,
-        .response_body = R"({"error": "broken"})",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/action", Method::POST);
-
-    Processor proc;
-    // Repeated calls to a 500 endpoint should all return valid responses without the
-    // processor becoming unusable.
-    for (int i = 0; i < 3; i++) {
-        req.body = R"({"attempt": )" + std::to_string(i) + "}";
-        const auto resp = ASSERT_NIL_P(proc.execute(req));
-        EXPECT_EQ(resp.status_code, 500);
-        EXPECT_EQ(resp.body, R"({"error": "broken"})");
-    }
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 3);
-    for (int i = 0; i < 3; i++) {
-        EXPECT_EQ(reqs[i].body, R"({"attempt": )" + std::to_string(i) + "}");
-    }
-
-    server.stop();
-}
-
+/// @brief it should return the other results of a batch when one request times out.
 TEST(ProcessorTest, ParallelFirstTimesOutSecondSucceeds) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/slow",
-         .status_code = 200,
-         .response_body = "slow",
-         .delay = 2 * x::telem::SECOND},
-        {.method = Method::GET,
-         .path = "/fast",
-         .status_code = 200,
-         .response_body = "fast"},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto slow = make_request(server.base_url(), "/slow");
-    slow.timeout = 500 * x::telem::MILLISECOND;
-    auto fast = make_request(server.base_url(), "/fast");
-    fast.timeout = 500 * x::telem::MILLISECOND;
-    std::vector<Request> reqs = {slow, fast};
+    const auto server = serve({route("/slow", 2 * x::telem::SECOND), route("/fast")});
+    auto slow = make_request(server->base_url(), "/slow");
+    slow.timeout = 100 * x::telem::MILLISECOND;
+    const std::vector<Request> reqs = {slow, make_request(server->base_url(), "/fast")};
 
     Processor proc;
     const auto results = proc.execute(reqs);
@@ -1214,486 +214,224 @@ TEST(ProcessorTest, ParallelFirstTimesOutSecondSucceeds) {
     EXPECT_EQ(slow_resp.status_code, 0);
     const auto &fast_resp = ASSERT_NIL_P(results[1]);
     EXPECT_EQ(fast_resp.status_code, 200);
-    EXPECT_EQ(fast_resp.body, "fast");
-
-    server.stop();
+    EXPECT_EQ(fast_resp.body, "ok");
 }
 
-TEST(ProcessorTest, ParallelPerResponseTimeRanges) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/fast",
-         .status_code = 200,
-         .response_body = "fast",
-         .content_type = "text/plain"},
-        {.method = Method::GET,
-         .path = "/slow",
-         .status_code = 200,
-         .response_body = "slow",
-         .content_type = "text/plain",
-         .delay = 50 * x::telem::MILLISECOND},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
+/// @brief it should stay usable after a server error and send the body of each request.
+TEST(ProcessorTest, SerialRequestsAfterServerError) {
+    const auto server = serve({{
+        .method = Method::POST,
+        .path = "/r",
+        .status_code = 500,
+        .response_body = "broken",
+    }});
+    auto req = make_request(server->base_url(), "/r", Method::POST);
+    const std::vector<std::string> bodies = {"1", "2", "3"};
 
-    std::vector<Request> reqs = {
-        make_request(server.base_url(), "/fast"),
-        make_request(server.base_url(), "/slow"),
+    Processor proc;
+    for (const auto &body: bodies) {
+        req.body = body;
+        const auto resp = ASSERT_NIL_P(proc.execute(req));
+        EXPECT_EQ(resp.status_code, 500);
+        EXPECT_EQ(resp.body, "broken");
+    }
+    const auto received = server->received_requests();
+    ASSERT_EQ(received.size(), bodies.size());
+    for (std::size_t i = 0; i < bodies.size(); i++)
+        EXPECT_EQ(received[i].body, bodies[i]);
+}
+
+/// @brief it should refuse a self-signed certificate unless verify_ssl is false.
+TEST(ProcessorTest, VerifySSL) {
+    testutil::Server server({
+        .routes = {route("/r")},
+        .secure = true,
+        .cert_path = "driver/http/testutil/test_cert.pem",
+        .key_path = "driver/http/testutil/test_key.pem",
+    });
+    ASSERT_NIL(server.start());
+    auto req = make_request(server.base_url(), "/r");
+
+    Processor proc;
+    req.verify_ssl = true;
+    ASSERT_OCCURRED_AS_P(proc.execute(req), errors::CRITICAL_ERROR);
+    req.verify_ssl = false;
+    const auto resp = ASSERT_NIL_P(proc.execute(req));
+    EXPECT_EQ(resp.body, "ok");
+}
+
+/// @brief it should give each response of a batch its own time range.
+TEST(ProcessorTest, ParallelPerResponseTimeRanges) {
+    const auto server = serve(
+        {route("/fast"), route("/slow", 50 * x::telem::MILLISECOND)}
+    );
+    const std::vector<Request> reqs = {
+        make_request(server->base_url(), "/fast"),
+        make_request(server->base_url(), "/slow"),
     };
 
     Processor proc;
     const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 2);
-    ASSERT_NIL(results[0].second);
-    ASSERT_NIL(results[1].second);
-
-    const auto &fast_resp = results[0].first;
-    const auto &slow_resp = results[1].first;
-
-    // Both start times should be very close (within 10ms), though not necessarily
-    // identical since the Processor creates handles sequentially.
+    const auto &fast_resp = ASSERT_NIL_P(results[0]);
+    const auto &slow_resp = ASSERT_NIL_P(results[1]);
+    // The Processor creates handles one at a time, so the starts differ a little.
     const auto start_diff = slow_resp.time_range.start > fast_resp.time_range.start
                               ? slow_resp.time_range.start - fast_resp.time_range.start
                               : fast_resp.time_range.start - slow_resp.time_range.start;
     EXPECT_LT(start_diff, 10 * x::telem::MILLISECOND);
-
-    // The slow response should have a later end time than the fast one.
     EXPECT_GT(slow_resp.time_range.end, fast_resp.time_range.end);
-
-    server.stop();
 }
 
+/// @brief it should return no results for an empty batch.
 TEST(ProcessorTest, EmptyBatchExecute) {
     Processor proc;
-    std::vector<Request> reqs;
-    const auto results = proc.execute(reqs);
-    EXPECT_TRUE(results.empty());
+    EXPECT_TRUE(proc.execute(std::vector<Request>{}).empty());
 }
 
-TEST(ProcessorTest, LargeResponseBody) {
+/// @brief it should keep every byte of a body that spans several reads, null bytes
+/// included.
+TEST(ProcessorTest, ResponseBodyKeepsEveryByte) {
     // Spans several curl write callbacks (16 KiB each) but fits the 128 KiB loopback
     // send buffer, so the mock server never blocks mid-body on flow control.
-    const std::string large_body(size_t{64} * 1024, 'X');
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/large",
-        .status_code = 200,
-        .response_body = large_body,
+    std::string body(std::size_t{64} * 1024, 'X');
+    body[100] = '\0';
+    body.back() = '\0';
+    const auto server = serve({{
+        .path = "/r",
+        .response_body = body,
         .content_type = "application/octet-stream",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/large");
+    }});
 
     Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body.size(), large_body.size());
-    EXPECT_EQ(resp.body, large_body);
-
-    server.stop();
+    const auto resp = ASSERT_NIL_P(
+        proc.execute(make_request(server->base_url(), "/r"))
+    );
+    EXPECT_EQ(resp.body, body);
 }
 
-TEST(ProcessorTest, BinaryNullBytesInResponse) {
-    std::string binary_body = "before";
-    binary_body.push_back('\0');
-    binary_body.push_back('\0');
-    binary_body += "after";
-
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/binary",
-        .status_code = 200,
-        .response_body = binary_body,
-        .content_type = "application/octet-stream",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/binary");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body.size(), binary_body.size());
-    EXPECT_EQ(resp.body, binary_body);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, VerifySSLTrueRejectsSelfSigned) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.secure = true;
-    server_cfg.cert_path = "driver/http/testutil/test_cert.pem";
-    server_cfg.key_path = "driver/http/testutil/test_key.pem";
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/api/secure",
-        .status_code = 200,
-        .response_body = "ok",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/api/secure");
-    req.verify_ssl = true;
-
-    Processor proc;
-    ASSERT_OCCURRED_AS_P(proc.execute(req), errors::CRITICAL_ERROR);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/api/a",
-         .status_code = 200,
-         .response_body = "A"},
-        {.method = Method::POST,
-         .path = "/api/b",
-         .status_code = 201,
-         .response_body = "B"},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    Processor proc;
-
-    constexpr int num_threads = 6;
-    constexpr int iters_per_thread = 10;
-    std::vector<std::thread> threads;
-    std::atomic<int> success_count{0};
-
-    threads.reserve(num_threads);
-    for (int t = 0; t < num_threads; t++) {
-        threads.emplace_back([&, t] {
-            for (int i = 0; i < iters_per_thread; i++) {
-                if (t % 3 == 0) {
-                    // Batch of two GETs.
-                    std::vector<Request> reqs = {
-                        make_request(server.base_url(), "/api/a"),
-                        make_request(server.base_url(), "/api/a"),
-                    };
-                    auto results = proc.execute(reqs);
-                    for (auto &[resp, err]: results) {
-                        if (!err && resp.status_code == 200) success_count++;
-                    }
-                } else if (t % 3 == 1) {
-                    // Single POST.
-                    auto req = make_request(server.base_url(), "/api/b", Method::POST);
-                    req.body = R"({"i": )" + std::to_string(i) + "}";
-                    auto [resp, err] = proc.execute(req);
-                    if (!err && resp.status_code == 201) success_count++;
-                } else {
-                    // Single GET.
-                    auto req = make_request(server.base_url(), "/api/a");
-                    auto [resp, err] = proc.execute(req);
-                    if (!err && resp.status_code == 200) success_count++;
-                }
-            }
-        });
-    }
-
-    for (auto &t: threads)
-        t.join();
-
-    // t%3==0: 2 threads * 10 iters * 2 requests = 40
-    // t%3==1: 2 threads * 10 iters * 1 request  = 20
-    // t%3==2: 2 threads * 10 iters * 1 request  = 20
-    EXPECT_EQ(success_count.load(), 80);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, RedirectSingleHop) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
+/// @brief it should follow redirects within one origin and keep the headers.
+TEST(ProcessorTest, RedirectFollowsSameOrigin) {
+    const auto server = serve({
         {
-            .method = Method::GET,
-            .path = "/old",
-            .status_code = 302,
-            .redirect_to = "/new",
-        },
-        {
-            .method = Method::GET,
-            .path = "/new",
-            .status_code = 200,
-            .response_body = "arrived",
-            .content_type = "text/plain",
-        },
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/old");
-    req.headers.emplace_back("X-API-Key: secret123");
-
-    Processor proc;
-    const auto resp = ASSERT_NIL_P(proc.execute(req));
-    EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, "arrived");
-
-    auto reqs = server.received_requests();
-    ASSERT_EQ(reqs.size(), 2);
-    EXPECT_EQ(reqs[0].path, "/old");
-    EXPECT_EQ(reqs[1].path, "/new");
-    EXPECT_EQ(reqs[1].headers.find("X-API-Key")->second, "secret123");
-
-    server.stop();
-}
-
-TEST(ProcessorTest, RedirectMultipleHops) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {
-            .method = Method::GET,
             .path = "/hop1",
             .status_code = 301,
             .redirect_to = "/hop2",
         },
         {
-            .method = Method::GET,
             .path = "/hop2",
             .status_code = 302,
             .redirect_to = "/hop3",
         },
-        {
-            .method = Method::GET,
-            .path = "/hop3",
-            .status_code = 200,
-            .response_body = "final",
-            .content_type = "text/plain",
-        },
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/hop1");
+        route("/hop3"),
+    });
+    auto req = make_request(server->base_url(), "/hop1");
+    req.headers = {"X-API-Key: secret"};
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
     EXPECT_EQ(resp.status_code, 200);
-    EXPECT_EQ(resp.body, "final");
-
-    auto reqs = server.received_requests();
+    EXPECT_EQ(resp.body, "ok");
+    const auto reqs = server->received_requests();
     ASSERT_EQ(reqs.size(), 3);
-    EXPECT_EQ(reqs[0].path, "/hop1");
-    EXPECT_EQ(reqs[1].path, "/hop2");
-    EXPECT_EQ(reqs[2].path, "/hop3");
-
-    server.stop();
+    for (std::size_t i = 0; i < reqs.size(); i++) {
+        EXPECT_EQ(reqs[i].path, "/hop" + std::to_string(i + 1));
+        EXPECT_THAT(reqs[i].headers, Contains(Pair("X-API-Key", "secret")));
+    }
 }
 
 /// @brief it should refuse a redirect to another origin without sending the API key.
 TEST(ProcessorTest, RedirectToAnotherOriginDoesNotSendAPIKey) {
-    testutil::ServerConfig target_cfg;
-    target_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/steal",
-        .status_code = 200,
-        .response_body = "stolen",
-        .content_type = "text/plain",
-    }};
-    testutil::Server target(target_cfg);
-    ASSERT_NIL(target.start());
-
+    const auto target = serve({route("/steal")});
     // curl follows a Location with a space in it, which a strict URL parse rejects.
     const std::vector<std::string> locations = {"/steal?api_key=secret123", "/a b"};
-    testutil::ServerConfig server_cfg;
+    std::vector<testutil::Route> routes;
+    routes.reserve(locations.size());
     for (std::size_t i = 0; i < locations.size(); i++)
-        server_cfg.routes.push_back({
-            .method = Method::GET,
+        routes.push_back({
             .path = "/old" + std::to_string(i),
             .status_code = 302,
-            .redirect_to = target.base_url() + locations[i],
+            .redirect_to = target->base_url() + locations[i],
         });
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
+    const auto server = serve(routes);
 
     Processor proc;
     for (std::size_t i = 0; i < locations.size(); i++) {
         auto req = make_request(
-            server.base_url(),
+            server->base_url(),
             "/old" + std::to_string(i) + "?api_key=secret123"
         );
         req.headers.emplace_back("X-API-Key: secret123");
         const auto [resp, err] = proc.execute(req);
         ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
-        EXPECT_NE(
-            err.data.find("refused redirect to " + target.base_url()),
-            std::string::npos
+        EXPECT_EQ(
+            err.data,
+            "refused redirect to " + target->base_url() +
+                ", a different scheme, host, or port than " + server->base_url()
         );
     }
-    EXPECT_EQ(server.received_requests().size(), locations.size());
-    EXPECT_TRUE(target.received_requests().empty());
-
-    server.stop();
-    target.stop();
+    EXPECT_EQ(server->received_requests().size(), locations.size());
+    EXPECT_TRUE(target->received_requests().empty());
 }
 
-TEST(ProcessorTest, MultipleServersBothSucceed) {
-    testutil::ServerConfig cfg_a;
-    cfg_a.routes = {{
-        .method = Method::GET,
-        .path = "/api/a",
-        .status_code = 200,
-        .response_body = R"({"source": "A"})",
-    }};
-    testutil::Server server_a(cfg_a);
-    ASSERT_NIL(server_a.start());
-
-    testutil::ServerConfig cfg_b;
-    cfg_b.routes = {{
-        .method = Method::POST,
-        .path = "/api/b",
-        .status_code = 201,
-        .response_body = R"({"source": "B"})",
-    }};
-    testutil::Server server_b(cfg_b);
-    ASSERT_NIL(server_b.start());
-
-    std::vector<Request> reqs = {
-        make_request(server_a.base_url(), "/api/a"),
-        make_request(server_b.base_url(), "/api/b", Method::POST),
-    };
-    reqs[1].body = R"({"data": 1})";
+/// @brief it should serve single and batch calls from many threads at once.
+TEST(ProcessorTest, ConcurrentExecuteFromManyThreads) {
+    const auto server = serve({
+        route("/a"),
+        {
+            .method = Method::POST,
+            .path = "/b",
+            .status_code = 201,
+            .response_body = "B",
+        },
+    });
+    const auto base_url = server->base_url();
 
     Processor proc;
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 2);
-
-    const auto &resp_a = ASSERT_NIL_P(results[0]);
-    EXPECT_EQ(resp_a.status_code, 200);
-    EXPECT_EQ(resp_a.body, R"({"source": "A"})");
-
-    const auto &resp_b = ASSERT_NIL_P(results[1]);
-    EXPECT_EQ(resp_b.status_code, 201);
-    EXPECT_EQ(resp_b.body, R"({"source": "B"})");
-
-    server_a.stop();
-    server_b.stop();
-}
-
-TEST(ProcessorTest, MultipleServersOneTimesOut) {
-    testutil::ServerConfig cfg_fast;
-    cfg_fast.routes = {{
-        .method = Method::GET,
-        .path = "/api/fast",
-        .status_code = 200,
-        .response_body = "fast",
-    }};
-    testutil::Server server_fast(cfg_fast);
-    ASSERT_NIL(server_fast.start());
-
-    testutil::ServerConfig cfg_slow;
-    cfg_slow.routes = {{
-        .method = Method::GET,
-        .path = "/api/slow",
-        .status_code = 200,
-        .response_body = "slow",
-        .delay = 2 * x::telem::SECOND,
-    }};
-    testutil::Server server_slow(cfg_slow);
-    ASSERT_NIL(server_slow.start());
-
-    auto fast = make_request(server_fast.base_url(), "/api/fast");
-    fast.timeout = 500 * x::telem::MILLISECOND;
-    auto slow = make_request(server_slow.base_url(), "/api/slow");
-    slow.timeout = 500 * x::telem::MILLISECOND;
-    std::vector<Request> reqs = {fast, slow};
-
-    Processor proc;
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 2);
-
-    const auto &fast_resp = ASSERT_NIL_P(results[0]);
-    EXPECT_EQ(fast_resp.status_code, 200);
-    EXPECT_EQ(fast_resp.body, "fast");
-
-    ASSERT_OCCURRED_AS_P(results[1], errors::UNREACHABLE_ERROR);
-
-    server_fast.stop();
-    server_slow.stop();
-}
-
-TEST(ProcessorTest, MultiThreadedParallelBatches) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        {.method = Method::GET,
-         .path = "/api/a",
-         .status_code = 200,
-         .response_body = "A"},
-        {.method = Method::POST,
-         .path = "/api/b",
-         .status_code = 201,
-         .response_body = "B"},
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    Processor proc;
-
-    constexpr int num_threads = 4;
-    constexpr int iters_per_thread = 3;
-    std::vector<std::thread> threads;
+    constexpr int num_threads = 6;
+    constexpr int iters_per_thread = 10;
     std::atomic<int> success_count{0};
-
+    std::vector<std::thread> threads;
     threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&, t] {
             for (int i = 0; i < iters_per_thread; i++) {
-                if (t % 2 == 0) {
-                    // Even threads: batch execute with two GET requests.
-                    std::vector<Request> reqs = {
-                        make_request(server.base_url(), "/api/a"),
-                        make_request(server.base_url(), "/api/a"),
+                if (t % 3 == 0) {
+                    const std::vector<Request> reqs = {
+                        make_request(base_url, "/a"),
+                        make_request(base_url, "/a"),
                     };
-                    auto results = proc.execute(reqs);
-                    for (auto &[resp, err]: results) {
+                    for (const auto &[resp, err]: proc.execute(reqs))
                         if (!err && resp.status_code == 200) success_count++;
-                    }
-                } else {
-                    // Odd threads: single execute with POST body.
-                    auto req = make_request(server.base_url(), "/api/b", Method::POST);
-                    req.body = R"({"thread": )" + std::to_string(t) + "}";
-                    auto [resp, err] = proc.execute(req);
+                } else if (t % 3 == 1) {
+                    auto req = make_request(base_url, "/b", Method::POST);
+                    req.body = std::to_string(i);
+                    const auto [resp, err] = proc.execute(req);
                     if (!err && resp.status_code == 201) success_count++;
+                } else {
+                    const auto [resp, err] = proc.execute(make_request(base_url, "/a"));
+                    if (!err && resp.status_code == 200) success_count++;
                 }
             }
         });
     }
-
     for (auto &t: threads)
         t.join();
-
-    // Even threads: 2 threads * 3 iters * 2 requests = 12.
-    // Odd threads: 2 threads * 3 iters * 1 request = 6.
-    EXPECT_EQ(success_count.load(), 18);
-
-    server.stop();
+    // Batch threads send 2 requests per iteration, single threads 1.
+    EXPECT_EQ(success_count.load(), 80);
 }
 
+/// @brief it should send requests over the cap of a base URL one after another, in
+/// order.
 TEST(ProcessorTest, GateRunsRequestsAboveCapInOrder) {
     const auto delay = 30 * x::telem::MILLISECOND;
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        delayed_route("/a", delay),
-        delayed_route("/b", delay),
-        delayed_route("/c", delay),
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server.base_url(), "/a", 1),
-        make_gated_request(server.base_url(), "/b", 1),
-        make_gated_request(server.base_url(), "/c", 1),
+    const auto server = serve(
+        {route("/a", delay), route("/b", delay), route("/c", delay)}
+    );
+    const std::vector<Request> reqs = {
+        make_gated_request(server->base_url(), "/a", 1),
+        make_gated_request(server->base_url(), "/b", 1),
+        make_gated_request(server->base_url(), "/c", 1),
     };
 
     Processor proc;
@@ -1703,31 +441,23 @@ TEST(ProcessorTest, GateRunsRequestsAboveCapInOrder) {
         ASSERT_NIL(result.second);
     EXPECT_GE(results[1].first.time_range.start, results[0].first.time_range.end);
     EXPECT_GE(results[2].first.time_range.start, results[1].first.time_range.end);
-
-    auto received = server.received_requests();
+    const auto received = server->received_requests();
     ASSERT_EQ(received.size(), 3);
     EXPECT_EQ(received[0].path, "/a");
     EXPECT_EQ(received[1].path, "/b");
     EXPECT_EQ(received[2].path, "/c");
-
-    server.stop();
 }
 
+/// @brief it should send up to the cap of a base URL at once.
 TEST(ProcessorTest, GateRunsUpToCapInParallel) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        delayed_route("/a", delay),
-        delayed_route("/b", delay),
-        delayed_route("/c", delay),
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server.base_url(), "/a", 2),
-        make_gated_request(server.base_url(), "/b", 2),
-        make_gated_request(server.base_url(), "/c", 2),
+    const auto server = serve(
+        {route("/a", delay), route("/b", delay), route("/c", delay)}
+    );
+    const std::vector<Request> reqs = {
+        make_gated_request(server->base_url(), "/a", 2),
+        make_gated_request(server->base_url(), "/b", 2),
+        make_gated_request(server->base_url(), "/c", 2),
     };
 
     Processor proc;
@@ -1740,25 +470,16 @@ TEST(ProcessorTest, GateRunsUpToCapInParallel) {
     const auto &c = results[2].first.time_range;
     EXPECT_LT(b.start, a.end);
     EXPECT_GE(c.start, std::min(a.end, b.end));
-
-    server.stop();
 }
 
+/// @brief it should keep a separate cap for each base URL.
 TEST(ProcessorTest, GateIsPerBaseURL) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    testutil::ServerConfig cfg_a;
-    cfg_a.routes = {delayed_route("/a", delay)};
-    testutil::Server server_a(cfg_a);
-    ASSERT_NIL(server_a.start());
-
-    testutil::ServerConfig cfg_b;
-    cfg_b.routes = {delayed_route("/b", delay)};
-    testutil::Server server_b(cfg_b);
-    ASSERT_NIL(server_b.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server_a.base_url(), "/a", 1),
-        make_gated_request(server_b.base_url(), "/b", 1),
+    const auto server_a = serve({route("/a", delay)});
+    const auto server_b = serve({route("/b", delay)});
+    const std::vector<Request> reqs = {
+        make_gated_request(server_a->base_url(), "/a", 1),
+        make_gated_request(server_b->base_url(), "/b", 1),
     };
 
     Processor proc;
@@ -1767,310 +488,18 @@ TEST(ProcessorTest, GateIsPerBaseURL) {
     ASSERT_NIL(results[0].second);
     ASSERT_NIL(results[1].second);
     EXPECT_LT(results[1].first.time_range.start, results[0].first.time_range.end);
-
-    server_a.stop();
-    server_b.stop();
 }
 
-TEST(ProcessorTest, UnreachableSkipsWaitingRequests) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        delayed_route("/slow", 2 * x::telem::SECOND),
-        delayed_route("/a", x::telem::TimeSpan::ZERO()),
-        delayed_route("/b", x::telem::TimeSpan::ZERO()),
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server.base_url(), "/slow", 1),
-        make_gated_request(server.base_url(), "/a", 1),
-        make_gated_request(server.base_url(), "/b", 1),
-    };
-    reqs[0].timeout = 100 * x::telem::MILLISECOND;
-
-    Processor proc;
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 3);
-    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
-    ASSERT_OCCURRED_AS_P(results[1], errors::SKIPPED_ERROR);
-    ASSERT_OCCURRED_AS_P(results[2], errors::SKIPPED_ERROR);
-    EXPECT_EQ(server.received_requests().size(), 1);
-
-    const auto resp = ASSERT_NIL_P(
-        proc.execute(make_gated_request(server.base_url(), "/a", 1))
-    );
-    EXPECT_EQ(resp.status_code, 200);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, UnreachableKeepsWaitingRequestsWhenDeviceResponds) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        delayed_route("/slow", 2 * x::telem::SECOND),
-        delayed_route("/fast", 50 * x::telem::MILLISECOND),
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto slow = make_gated_request(server.base_url(), "/slow", 2);
-    slow.timeout = 300 * x::telem::MILLISECOND;
-    std::vector<Request> reqs = {slow};
-    for (int i = 0; i < 10; i++)
-        reqs.push_back(make_gated_request(server.base_url(), "/fast", 2));
-
-    Processor proc;
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 11);
-    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
-    for (std::size_t i = 1; i < results.size(); i++) {
-        const auto &resp = ASSERT_NIL_P(results[i]);
-        EXPECT_EQ(resp.status_code, 200);
-    }
-    EXPECT_EQ(server.received_requests().size(), 11);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {delayed_route("/slow", 2 * x::telem::SECOND)};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs;
-    reqs.reserve(3);
-    for (int i = 0; i < 3; i++)
-        reqs.push_back(make_gated_request(server.base_url(), "/slow", 1));
-
-    auto proc = std::make_unique<Processor>();
-    std::vector<std::pair<Response, x::errors::Error>> results;
-    std::thread caller([&, p = proc.get()] { results = p->execute(reqs); });
-    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        server.received_requests().size(),
-        1,
-        std::chrono::seconds(10),
-        std::chrono::milliseconds(1)
-    );
-    // The wait only records a failure, so keep proc alive until the caller ends.
-    if (HasFailure()) {
-        caller.join();
-        return;
-    }
-    proc.reset();
-    caller.join();
-
-    ASSERT_EQ(results.size(), 3);
-    for (const auto &result: results)
-        ASSERT_OCCURRED_AS_P(result, errors::CRITICAL_ERROR);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, PollTimeoutDoesNotDelayRequestTimeout) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/slow");
-    req.timeout = 100 * x::telem::MILLISECOND;
-
-    Processor proc(1 * x::telem::SECOND);
-    const auto start = std::chrono::steady_clock::now();
-    ASSERT_OCCURRED_AS_P(proc.execute(req), errors::UNREACHABLE_ERROR);
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
-
-    server.stop();
-}
-
-TEST(ProcessorTest, PollTimeoutDoesNotDelayCompletion) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {delayed_route("/fast", 50 * x::telem::MILLISECOND)};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/fast");
-
-    Processor proc(1 * x::telem::SECOND);
-    const auto start = std::chrono::steady_clock::now();
-    ASSERT_NIL_P(proc.execute(req));
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
-
-    server.stop();
-}
-
-TEST(ProcessorTest, PollTimeoutDoesNotDelaySubmissionWhileActive) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        delayed_route("/slow", 500 * x::telem::MILLISECOND),
-        delayed_route("/fast", x::telem::TimeSpan()),
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto slow = make_request(server.base_url(), "/slow");
-    auto fast = make_request(server.base_url(), "/fast");
-
-    Processor proc(1 * x::telem::SECOND);
-    std::pair<Response, x::errors::Error> slow_result;
-    std::thread caller([&] { slow_result = proc.execute(slow); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-
-    const auto start = std::chrono::steady_clock::now();
-    ASSERT_NIL_P(proc.execute(fast));
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
-
-    caller.join();
-    ASSERT_NIL(slow_result.second);
-    server.stop();
-}
-
-TEST(ProcessorTest, DefaultPollTimeoutIs100ms) {
-    EXPECT_EQ(DEFAULT_ACTIVE_POLL_TIMEOUT, 100 * x::telem::MILLISECOND);
-}
-
-TEST(ProcessorTest, PollTimeoutDoesNotDelayGateDispatch) {
-    const auto delay = 50 * x::telem::MILLISECOND;
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {delayed_route("/a", delay), delayed_route("/b", delay)};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server.base_url(), "/a", 1),
-        make_gated_request(server.base_url(), "/b", 1),
-    };
-
-    Processor proc(1 * x::telem::SECOND);
-    const auto start = std::chrono::steady_clock::now();
-    const auto results = proc.execute(reqs);
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
-    ASSERT_EQ(results.size(), 2);
-    for (const auto &result: results)
-        ASSERT_NIL(result.second);
-    EXPECT_GE(results[1].first.time_range.start, results[0].first.time_range.end);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, PollTimeoutDoesNotDelaySkip) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server.base_url(), "/slow", 1),
-        make_gated_request(server.base_url(), "/slow", 1),
-    };
-    reqs[0].timeout = 100 * x::telem::MILLISECOND;
-
-    Processor proc(1 * x::telem::SECOND);
-    const auto start = std::chrono::steady_clock::now();
-    const auto results = proc.execute(reqs);
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
-    ASSERT_EQ(results.size(), 2);
-    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
-    ASSERT_OCCURRED_AS_P(results[1], errors::SKIPPED_ERROR);
-
-    server.stop();
-}
-
-TEST(ProcessorTest, PollTimeoutDoesNotDelayFasterServer) {
-    testutil::ServerConfig slow_cfg;
-    slow_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    testutil::Server slow_server(slow_cfg);
-    ASSERT_NIL(slow_server.start());
-    testutil::ServerConfig fast_cfg;
-    fast_cfg.routes = {delayed_route("/fast", x::telem::TimeSpan())};
-    testutil::Server fast_server(fast_cfg);
-    ASSERT_NIL(fast_server.start());
-
-    std::vector<Request> reqs = {
-        make_request(slow_server.base_url(), "/slow"),
-        make_request(fast_server.base_url(), "/fast"),
-    };
-
-    Processor proc(1 * x::telem::SECOND);
-    const auto start = x::telem::TimeStamp::now();
-    const auto results = proc.execute(reqs);
-    ASSERT_EQ(results.size(), 2);
-    for (const auto &result: results)
-        ASSERT_NIL(result.second);
-    EXPECT_LT(results[1].first.time_range.end - start, 300 * x::telem::MILLISECOND);
-    EXPECT_GE(results[0].first.time_range.end - start, 500 * x::telem::MILLISECOND);
-
-    slow_server.stop();
-    fast_server.stop();
-}
-
-TEST(ProcessorTest, SubmissionWakesIdleLoop) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {delayed_route("/fast", x::telem::TimeSpan())};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/fast");
-
-    Processor proc(1 * x::telem::SECOND);
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    const auto start = std::chrono::steady_clock::now();
-    for (int i = 0; i < 5; i++)
-        ASSERT_NIL_P(proc.execute(req));
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
-
-    server.stop();
-}
-
-TEST(ProcessorTest, ShutdownWakesActivePoll) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/slow");
-
-    auto proc = std::make_unique<Processor>(1 * x::telem::SECOND);
-    std::pair<Response, x::errors::Error> result;
-    std::thread caller([&, p = proc.get()] { result = p->execute(req); });
-    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
-        server.received_requests().size(),
-        1,
-        std::chrono::seconds(10),
-        std::chrono::milliseconds(1)
-    );
-    // The wait only records a failure, so keep proc alive until the caller ends.
-    if (HasFailure()) {
-        caller.join();
-        return;
-    }
-
-    const auto start = std::chrono::steady_clock::now();
-    proc.reset();
-    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
-
-    caller.join();
-    ASSERT_OCCURRED_AS_P(result, errors::CRITICAL_ERROR);
-    server.stop();
-}
-
+/// @brief it should keep the cap of the first request to a base URL.
 TEST(ProcessorTest, GateKeepsCapOfFirstRequest) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        delayed_route("/a", delay),
-        delayed_route("/b", delay),
-        delayed_route("/c", delay),
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server.base_url(), "/a", 1),
-        make_gated_request(server.base_url(), "/b", 3),
-        make_gated_request(server.base_url(), "/c", 3),
+    const auto server = serve(
+        {route("/a", delay), route("/b", delay), route("/c", delay)}
+    );
+    const std::vector<Request> reqs = {
+        make_gated_request(server->base_url(), "/a", 1),
+        make_gated_request(server->base_url(), "/b", 3),
+        make_gated_request(server->base_url(), "/c", 3),
     };
 
     Processor proc;
@@ -2083,27 +512,22 @@ TEST(ProcessorTest, GateKeepsCapOfFirstRequest) {
     const auto &c = results[2].first.time_range;
     EXPECT_GE(b.start, a.end);
     EXPECT_GE(c.start, b.end);
-
-    server.stop();
 }
 
+/// @brief it should fill every slot of a gate that frees in one batch of completions.
 TEST(ProcessorTest, GateRefillsEverySlotFreedInOneBatch) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {
-        delayed_route("/a", delay),
-        delayed_route("/b", delay),
-        delayed_route("/c", delay),
-        delayed_route("/d", delay),
-    };
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    std::vector<Request> reqs = {
-        make_gated_request(server.base_url(), "/a", 2),
-        make_gated_request(server.base_url(), "/b", 2),
-        make_gated_request(server.base_url(), "/c", 2),
-        make_gated_request(server.base_url(), "/d", 2),
+    const auto server = serve({
+        route("/a", delay),
+        route("/b", delay),
+        route("/c", delay),
+        route("/d", delay),
+    });
+    const std::vector<Request> reqs = {
+        make_gated_request(server->base_url(), "/a", 2),
+        make_gated_request(server->base_url(), "/b", 2),
+        make_gated_request(server->base_url(), "/c", 2),
+        make_gated_request(server->base_url(), "/d", 2),
     };
 
     Processor proc;
@@ -2119,80 +543,261 @@ TEST(ProcessorTest, GateRefillsEverySlotFreedInOneBatch) {
     );
     EXPECT_GE(results[2].first.time_range.start, first_end);
     EXPECT_GE(results[3].first.time_range.start, first_end);
-
-    server.stop();
 }
 
-/// @brief it should fail a request whose body is larger than max_response_size.
+/// @brief it should skip the waiting requests of a base URL that is unreachable.
+TEST(ProcessorTest, UnreachableSkipsWaitingRequests) {
+    const auto server = serve(
+        {route("/slow", 2 * x::telem::SECOND), route("/a"), route("/b")}
+    );
+    std::vector<Request> reqs = {
+        make_gated_request(server->base_url(), "/slow", 1),
+        make_gated_request(server->base_url(), "/a", 1),
+        make_gated_request(server->base_url(), "/b", 1),
+    };
+    reqs[0].timeout = 100 * x::telem::MILLISECOND;
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 3);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
+    ASSERT_OCCURRED_AS_P(results[1], errors::SKIPPED_ERROR);
+    ASSERT_OCCURRED_AS_P(results[2], errors::SKIPPED_ERROR);
+    EXPECT_EQ(server->received_requests().size(), 1);
+    const auto resp = ASSERT_NIL_P(
+        proc.execute(make_gated_request(server->base_url(), "/a", 1))
+    );
+    EXPECT_EQ(resp.status_code, 200);
+}
+
+/// @brief it should keep the waiting requests when the device answers another request.
+TEST(ProcessorTest, UnreachableKeepsWaitingRequestsWhenDeviceResponds) {
+    const auto server = serve({
+        route("/slow", 2 * x::telem::SECOND),
+        route("/fast", 50 * x::telem::MILLISECOND),
+    });
+    auto slow = make_gated_request(server->base_url(), "/slow", 2);
+    slow.timeout = 300 * x::telem::MILLISECOND;
+    std::vector<Request> reqs = {slow};
+    for (int i = 0; i < 10; i++)
+        reqs.push_back(make_gated_request(server->base_url(), "/fast", 2));
+
+    Processor proc;
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 11);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
+    for (std::size_t i = 1; i < results.size(); i++) {
+        const auto &resp = ASSERT_NIL_P(results[i]);
+        EXPECT_EQ(resp.status_code, 200);
+    }
+    EXPECT_EQ(server->received_requests().size(), 11);
+}
+
+/// @brief it should fail the active and the waiting requests when it shuts down.
+TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
+    const auto server = serve({route("/slow", 2 * x::telem::SECOND)});
+    const std::vector<Request> reqs(
+        3,
+        make_gated_request(server->base_url(), "/slow", 1)
+    );
+
+    auto proc = std::make_unique<Processor>();
+    std::vector<std::pair<Response, x::errors::Error>> results;
+    std::thread caller([&, p = proc.get()] { results = p->execute(reqs); });
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server->received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
+    proc.reset();
+    caller.join();
+
+    ASSERT_EQ(results.size(), 3);
+    for (const auto &result: results)
+        ASSERT_OCCURRED_AS_P(result, errors::CRITICAL_ERROR);
+}
+
+/// @brief it should end the poll wait when it shuts down.
+TEST(ProcessorTest, ShutdownWakesActivePoll) {
+    const auto server = serve({route("/slow", 500 * x::telem::MILLISECOND)});
+    const auto req = make_request(server->base_url(), "/slow");
+
+    auto proc = std::make_unique<Processor>(1 * x::telem::SECOND);
+    std::pair<Response, x::errors::Error> result;
+    std::thread caller([&, p = proc.get()] { result = p->execute(req); });
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server->received_requests().size(),
+        1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(1)
+    );
+    // The wait only records a failure, so keep proc alive until the caller ends.
+    if (HasFailure()) {
+        caller.join();
+        return;
+    }
+    const auto start = std::chrono::steady_clock::now();
+    proc.reset();
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+
+    caller.join();
+    ASSERT_OCCURRED_AS_P(result, errors::CRITICAL_ERROR);
+}
+
+/// @brief it should time out a request without waiting for the poll timeout.
+TEST(ProcessorTest, PollTimeoutDoesNotDelayRequestTimeout) {
+    const auto server = serve({route("/slow", 500 * x::telem::MILLISECOND)});
+    auto req = make_request(server->base_url(), "/slow");
+    req.timeout = 100 * x::telem::MILLISECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_OCCURRED_AS_P(proc.execute(req), errors::UNREACHABLE_ERROR);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+}
+
+/// @brief it should return a response without waiting for the poll timeout.
+TEST(ProcessorTest, PollTimeoutDoesNotDelayCompletion) {
+    const auto server = serve({route("/fast", 50 * x::telem::MILLISECOND)});
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL_P(proc.execute(make_request(server->base_url(), "/fast")));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+}
+
+/// @brief it should send a new request while another is in flight without waiting for
+/// the poll timeout.
+TEST(ProcessorTest, PollTimeoutDoesNotDelaySubmissionWhileActive) {
+    const auto server = serve(
+        {route("/slow", 500 * x::telem::MILLISECOND), route("/fast")}
+    );
+    const auto slow = make_request(server->base_url(), "/slow");
+
+    Processor proc(1 * x::telem::SECOND);
+    std::pair<Response, x::errors::Error> slow_result;
+    std::thread caller([&] { slow_result = proc.execute(slow); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_NIL_P(proc.execute(make_request(server->base_url(), "/fast")));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(300));
+
+    caller.join();
+    ASSERT_NIL(slow_result.second);
+}
+
+/// @brief it should send the next request of a gate without waiting for the poll
+/// timeout.
+TEST(ProcessorTest, PollTimeoutDoesNotDelayGateDispatch) {
+    const auto delay = 50 * x::telem::MILLISECOND;
+    const auto server = serve({route("/a", delay), route("/b", delay)});
+    const std::vector<Request> reqs = {
+        make_gated_request(server->base_url(), "/a", 1),
+        make_gated_request(server->base_url(), "/b", 1),
+    };
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    const auto results = proc.execute(reqs);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    ASSERT_EQ(results.size(), 2);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    EXPECT_GE(results[1].first.time_range.start, results[0].first.time_range.end);
+}
+
+/// @brief it should skip the waiting requests without waiting for the poll timeout.
+TEST(ProcessorTest, PollTimeoutDoesNotDelaySkip) {
+    const auto server = serve({route("/slow", 500 * x::telem::MILLISECOND)});
+    std::vector<Request> reqs(2, make_gated_request(server->base_url(), "/slow", 1));
+    reqs[0].timeout = 100 * x::telem::MILLISECOND;
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = std::chrono::steady_clock::now();
+    const auto results = proc.execute(reqs);
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+    ASSERT_EQ(results.size(), 2);
+    ASSERT_OCCURRED_AS_P(results[0], errors::UNREACHABLE_ERROR);
+    ASSERT_OCCURRED_AS_P(results[1], errors::SKIPPED_ERROR);
+}
+
+/// @brief it should return the response of a fast server before a slow one ends.
+TEST(ProcessorTest, PollTimeoutDoesNotDelayFasterServer) {
+    const auto slow_server = serve({route("/slow", 500 * x::telem::MILLISECOND)});
+    const auto fast_server = serve({route("/fast")});
+    const std::vector<Request> reqs = {
+        make_request(slow_server->base_url(), "/slow"),
+        make_request(fast_server->base_url(), "/fast"),
+    };
+
+    Processor proc(1 * x::telem::SECOND);
+    const auto start = x::telem::TimeStamp::now();
+    const auto results = proc.execute(reqs);
+    ASSERT_EQ(results.size(), 2);
+    for (const auto &result: results)
+        ASSERT_NIL(result.second);
+    EXPECT_LT(results[1].first.time_range.end - start, 300 * x::telem::MILLISECOND);
+    EXPECT_GE(results[0].first.time_range.end - start, 500 * x::telem::MILLISECOND);
+}
+
+/// @brief it should wake the idle event loop when a request comes in.
+TEST(ProcessorTest, SubmissionWakesIdleLoop) {
+    const auto server = serve({route("/fast")});
+    const auto req = make_request(server->base_url(), "/fast");
+
+    Processor proc(1 * x::telem::SECOND);
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto start = std::chrono::steady_clock::now();
+    for (int i = 0; i < 5; i++)
+        ASSERT_NIL_P(proc.execute(req));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(500));
+}
+
+/// @brief it should fail a body larger than max_response_size, chunked or not.
 TEST(ProcessorTest, ResponseLargerThanMaxResponseSizeErrors) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/big",
-        .status_code = 200,
-        .response_body = std::string(2048, 'a'),
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/big");
-    req.max_response_size = 1024;
-
-    Processor proc;
-    const auto [resp, err] = proc.execute(req);
-    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
-    EXPECT_NE(err.data.find("max_response_size"), std::string::npos);
-
-    server.stop();
-}
-
-/// @brief it should fail a chunked response that grows past max_response_size.
-TEST(ProcessorTest, ChunkedResponseLargerThanMaxResponseSizeErrors) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
-        .path = "/big",
-        .status_code = 200,
-        .response_body = std::string(2048, 'a'),
-        .content_type = "text/plain",
-        .body_delay = x::telem::MILLISECOND,
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/big");
-    req.max_response_size = 1024;
+    const std::string body(2048, 'a');
+    const auto server = serve({
+        {
+            .path = "/sized",
+            .response_body = body,
+        },
+        {
+            .path = "/chunked",
+            .response_body = body,
+            .body_delay = x::telem::MILLISECOND,
+        },
+    });
 
     Processor proc;
-    const auto [resp, err] = proc.execute(req);
-    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
-    EXPECT_NE(err.data.find("max_response_size"), std::string::npos);
-
-    server.stop();
+    for (const auto *path: {"/sized", "/chunked"}) {
+        auto req = make_request(server->base_url(), path);
+        req.max_response_size = 1024;
+        const auto [resp, err] = proc.execute(req);
+        ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+        EXPECT_EQ(
+            err.data,
+            "response body is larger than the max_response_size of the device"
+        );
+    }
 }
 
 /// @brief it should accept a body exactly max_response_size bytes long.
 TEST(ProcessorTest, ResponseAtMaxResponseSizeSucceeds) {
-    testutil::ServerConfig server_cfg;
-    server_cfg.routes = {{
-        .method = Method::GET,
+    const auto server = serve({{
         .path = "/exact",
-        .status_code = 200,
         .response_body = std::string(1024, 'a'),
-        .content_type = "text/plain",
-    }};
-    testutil::Server server(server_cfg);
-    ASSERT_NIL(server.start());
-
-    auto req = make_request(server.base_url(), "/exact");
+    }});
+    auto req = make_request(server->base_url(), "/exact");
     req.max_response_size = 1024;
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
     EXPECT_EQ(resp.body.size(), 1024);
-
-    server.stop();
 }
-
 }

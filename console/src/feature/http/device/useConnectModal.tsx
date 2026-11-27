@@ -42,6 +42,7 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
+import { Rack } from "@/platform/rack";
 
 const path = deep.path<Device>();
 const { auth, healthCheck } = path.properties;
@@ -123,7 +124,7 @@ export const Connect = ({
   const { capture } = Analytics.use();
   const {
     form,
-    saveAsync,
+    save,
     status: stat,
     variant,
   } = useForm({
@@ -136,7 +137,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "HTTP",
     rack: rackKey,
@@ -162,6 +163,16 @@ export const Connect = ({
   const secure = Form.useFieldValue(path.properties.secure, { ctx: form });
 
   const [tab, setTab] = useState("authentication");
+  const holdsError = (tabKey: string): boolean => {
+    const errors = form.getStatuses().filter(({ variant }) => variant === "error");
+    return TAB_PATHS[tabKey].some((tabPath) =>
+      errors.some(({ key }) => key != null && deep.pathsMatch(key, String(tabPath))),
+    );
+  };
+  // The open tab keeps the view while it holds an error, since the user reads it.
+  const showTab = (tabKey: string): void => {
+    if (!holdsError(tab)) setTab(tabKey);
+  };
 
   const handleValidateResponseChange = (value: boolean) => {
     setField(healthCheck.validateResponse, value);
@@ -220,24 +231,16 @@ export const Connect = ({
     return <SelectSendAs {...rest} onChange={handleChange} />;
   };
 
-  const handleConnect = async () => {
-    if (await saveAsync()) return;
-    const errorPaths = form
-      .getStatuses()
-      .flatMap(({ key, variant }) => (variant === "error" && key != null ? [key] : []));
-    const holdsError = (tabKey: string) =>
-      TAB_PATHS[tabKey].some((tabPath) =>
-        errorPaths.some((path) => deep.pathsMatch(path, tabPath)),
-      );
-    if (holdsError(tab)) return;
-    const next = Object.keys(TAB_PATHS).find(holdsError);
-    if (next != null) setTab(next);
-  };
   return (
     <PlatformDevice.ConnectFrame className={CSS.B("http-connect")}>
       <Modal.Header icon={<Icon.Logo.HTTP />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
+          {Object.entries(TAB_PATHS).flatMap(([key, paths]) =>
+            paths.map((p) => (
+              <TabFocus key={String(p)} path={p} onFocus={() => showTab(key)} />
+            )),
+          )}
           <Form.TextField
             path={path.name}
             showLabel={false}
@@ -468,7 +471,8 @@ export const Connect = ({
         reason={reason}
         variant={variant}
         message={stat.description}
-        onConnect={() => void handleConnect()}
+        onConnect={() => save()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -483,19 +487,27 @@ export const useConnectModal = PlatformDevice.createConnectModal(
 const HEADER = ["Device", "Connect", "HTTP server"];
 
 // The paths each tab edits, so a failed Connect can open the tab with the error.
-const TAB_PATHS: Record<string, string[]> = {
-  authentication: [String(auth)],
-  health_check: [String(healthCheck)],
-  advanced: [
-    String(path.properties.timeoutMs),
-    String(path.properties.maxConcurrentRequests),
-  ],
+const TAB_PATHS: Record<string, deep.Target<unknown>[]> = {
+  authentication: [auth],
+  health_check: [healthCheck],
+  advanced: [path.properties.timeoutMs, path.properties.maxConcurrentRequests],
+};
+
+interface TabFocusProps {
+  path: deep.Target<unknown>;
+  onFocus: () => void;
+}
+
+/** Opens a tab when the form asks a field under the path to take focus. */
+const TabFocus = ({ path, onFocus }: TabFocusProps): null => {
+  Form.useFocusHandler(path, onFocus);
+  return null;
 };
 
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "HTTP server",
+  placeholder: "Server name",
   "aria-label": "Name",
 } as const;
 
