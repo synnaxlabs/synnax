@@ -13,8 +13,9 @@
 package place
 
 import (
-	"errors" //nolint:depguard // place imports the standard library only.
 	"hash/crc32"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // ErrCorrupt is the error of bytes that fail their checksum, or that pass it and break
