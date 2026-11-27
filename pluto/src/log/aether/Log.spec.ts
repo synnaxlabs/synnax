@@ -566,6 +566,22 @@ describe("log/aether/Log", () => {
       expect(source.resumeCalls).toBe(0);
     });
 
+    it("should resume on a scroll down after a reload lands on the newest entry", () => {
+      const entries = Array.from({ length: 400 }, (_, i) => makeEntry(i, (i % 2) + 1));
+      const { leaf, source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos: 2000, scrolling: true });
+      source.setEntries(entries.slice(394));
+      source.exhausted = true;
+      const hidden = { ...base, scrolling: true, hiddenChannels: [2] };
+      updateState({ ...hidden, wheelPos: 2000 });
+      updateState({ ...hidden, wheelPos: 2000 });
+      updateState({ ...hidden, wheelPos: 1900 });
+      expect(leaf.state.scrolling).toBe(false);
+    });
+
     it("should stay paused when the shown entries fit on one screen", () => {
       const entries = Array.from({ length: 400 }, (_, i) => makeEntry(i, (i % 2) + 1));
       const { leaf, source, updateState } = setup(entries);

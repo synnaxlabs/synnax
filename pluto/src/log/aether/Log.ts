@@ -908,7 +908,11 @@ export class Log
     if (!reached && telem.wrapped.exhausted === false) return;
     this.seeking = null;
     // A view that lands on the newest entry starts there, as a pause does.
-    this.scrollState.awayFromEnd = false;
+    Object.assign(this.scrollState, {
+      scrollRef: this.state.wheelPos,
+      moved: 0,
+      awayFromEnd: false,
+    });
     this.anchors.scroll = this.entries[this.scrollState.offset - 1];
   }
 
