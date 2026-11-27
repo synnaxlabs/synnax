@@ -28,12 +28,19 @@
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
-/// @brief writes a segment file start at path with format version 2, which this
-/// Driver cannot read.
-void write_future_segment(const std::filesystem::path &path) {
+/// @brief writes a segment file start at path with the format version and flags, which
+/// a newer Driver writes.
+void write_future_segment(
+    const std::filesystem::path &path,
+    const std::uint16_t version = 2,
+    const std::uint16_t flags = 0
+) {
     std::string header(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
-    header += std::string("\x02\x00", 2);
-    header += std::string(journal::HEADER_SIZE - 14, '\0');
+    for (const auto v: {version, flags}) {
+        header.push_back(static_cast<char>(v & 0xFF));
+        header.push_back(static_cast<char>(v >> 8));
+    }
+    header += std::string(journal::HEADER_SIZE - 16, '\0');
     const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(header));
     for (int i = 0; i < 4; i++)
         header.push_back(static_cast<char>(crc >> (8 * i)));
@@ -83,9 +90,21 @@ TEST_F(OutboxFailureTest, UnknownVersion) {
     ASSERT_EQ(std::filesystem::file_size(this->dir / "0.calls"), journal::HEADER_SIZE);
 }
 
+/// @brief it should tell the user to update the Driver when a newer Driver set a flag
+/// that this one must know to read the outbox.
+TEST_F(OutboxFailureTest, UnknownFlag) {
+    write_future_segment(this->dir / "0.calls", journal::VERSION, 0x0100);
+    const auto err = this->open_err();
+    ASSERT_OCCURRED_AS(err, journal::UNKNOWN_FLAG);
+    EXPECT_NE(
+        outbox_failure(this->dir, err).data.find("A newer Driver wrote it."),
+        std::string::npos
+    );
+}
+
 /// @brief it should tell the user to move a damaged outbox aside.
 TEST_F(OutboxFailureTest, Corrupt) {
-    ASSERT_NIL(outbox::Outbox::open({.dir = this->dir}).second);
+    ASSERT_NIL_P(outbox::Outbox::open({.dir = this->dir}));
     ASSERT_NIL(
         journal::commit_offset(
             this->dir / "offset",
@@ -108,8 +127,7 @@ TEST_F(OutboxFailureTest, Corrupt) {
 
 /// @brief it should tell the user to stop the other Driver that uses the outbox.
 TEST_F(OutboxFailureTest, Locked) {
-    const auto [held, held_err] = outbox::Outbox::open({.dir = this->dir});
-    ASSERT_NIL(held_err);
+    const auto held = ASSERT_NIL_P(outbox::Outbox::open({.dir = this->dir}));
     const auto err = this->open_err();
     ASSERT_OCCURRED_AS(err, x::fs::LOCKED);
     const auto failure = outbox_failure(this->dir, err);
@@ -134,7 +152,7 @@ TEST_F(OutboxFailureTest, UnwritableDirectory) {
         std::filesystem::perms::owner_read | std::filesystem::perms::owner_exec
     );
     const auto err = this->open_err();
-    ASSERT_TRUE(err);
+    ASSERT_OCCURRED_AS(err, outbox::BASE_ERROR);
     ASSERT_EQ(
         outbox_failure(this->dir, err).data,
         "The Driver cannot open its outbox in " + this->dir.string() + ": " + err.data +

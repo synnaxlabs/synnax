@@ -25,7 +25,7 @@ outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err) {
     const auto path = dir.string();
     std::string fix;
     if (err.matches(outbox::UNKNOWN_VERSION) || err.matches(journal::UNKNOWN_VERSION) ||
-        err.matches(journal::UNKNOWN_TYPE))
+        err.matches(journal::UNKNOWN_TYPE) || err.matches(journal::UNKNOWN_FLAG))
         fix = "A newer Driver wrote it. Update the Driver, or move " + path +
               " aside to discard the changes it holds for the Core.";
     else if (

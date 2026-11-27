@@ -312,8 +312,7 @@ std::filesystem::path owner_test_dir() {
 TEST(StateTest, OwnerHookDoesNothingWithoutRoot) {
     const auto dir = owner_test_dir();
     x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
-    auto [hook, err] = state::owner_hook(dir, false);
-    ASSERT_NIL(err);
+    auto hook = ASSERT_NIL_P(state::owner_hook(dir, false));
     ASSERT_NIL(hook(dir / "missing"));
 }
 
@@ -325,8 +324,7 @@ TEST(StateTest, OwnerHookGivesFilesToTheOwnerOfTheDirectory) {
 #else
     const auto dir = owner_test_dir();
     x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
-    auto [hook, err] = state::owner_hook(dir, true);
-    ASSERT_NIL(err);
+    auto hook = ASSERT_NIL_P(state::owner_hook(dir, true));
     std::ofstream(dir / "file") << "x";
     ASSERT_NIL(hook(dir / "file"));
     struct stat st{};
@@ -348,8 +346,7 @@ TEST(StateTest, RootOutboxBelongsToTheOwnerOfTheDataDirectory) {
     const auto dir = owner_test_dir();
     x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
     ASSERT_EQ(chown(dir.c_str(), nobody->pw_uid, nobody->pw_gid), 0);
-    auto [hook, err] = state::owner_hook(dir);
-    ASSERT_NIL(err);
+    auto hook = ASSERT_NIL_P(state::owner_hook(dir));
     {
         const auto outbox = ASSERT_NIL_P(
             outbox::Outbox::open({.dir = dir / OUTBOX_DIR, .on_create = hook})
