@@ -83,12 +83,15 @@ writer opens. No channel record, task config, or client library keeps it.
   it (D-141).
 - **Continuation**: For each group, Cesium takes as candidates the clock of the newest
   segment of each key of the group, from memory or from the newest part record (one part
-  read per key). It drops a candidate that is a key of the group, one that an open
-  session holds, and one whose last stamp is not before the writer's start. It takes the
-  candidate that the most keys name, then the one with the latest last stamp, then the
-  lowest key. With no candidate left, it leases a new key. Each key of the group on
-  another clock moves to the chosen clock once, with one new segment. So a task restart,
-  a changed config, a task copy, and a `client.write` loop keep one clock.
+  read per key). When an open session holds that clock, the key's newest open segment on
+  a clock that no session holds stands in. It drops a candidate that is a key of the
+  group, one that an open session holds, one that another group of the same open took,
+  and one whose last stamp is not before the writer's start. The group with the most
+  keys on one candidate picks first, and each takes the candidate that the most of its
+  keys name, then the one with the latest last stamp, then the lowest key. With no
+  candidate left, it leases a new key. Each key of the group on another clock moves to
+  the chosen clock once, with one new segment. So a task restart, a changed config, a
+  task copy, and a `client.write` loop keep one clock.
 - **One session per clock**: A clock has at most one open session, which holds its claim
   (RFC 0121 §5.8). A second writer of the same channels at once gets a new clock. A key
   moves between sessions only through a handoff (§4.8).
@@ -102,10 +105,11 @@ writer opens. No channel record, task config, or client library keeps it.
   of its clock (RFC 0121 §5.7). So a loop of sessions draws one line and takes no new
   number, and a task stop still breaks the line, as it does today
   (`pluto/src/vis/line/aether/draw.ts:94-96`).
-- **Pauses**: A pause costs one pointer on the clock. In an adaptive group, a key that
-  reaches P pauses (64) in its open segment moves to a clock of its own at the first
-  commit after storage made its files off the frame path, and moves back at the next
-  open (§4.8). A move reuses the clock of the key's last move when no writer holds it.
+- **Pauses**: A pause costs one pointer on the clock. In an adaptive group, the keys
+  that reach P pauses (64) together, with one last present frame, move to one clock at
+  the first commit after storage made its files off the frame path, and move back at the
+  next open (§4.8). A move reuses a clock that a segment of one of those keys names when
+  no session holds it, and takes over its open segments.
 - **End of a clock**: A clock lives while a kept segment of a key names it. When a
   channel delete removes the last such key and no session holds the clock, the same log
   entry holds the clock's Intent (RFC 0121 §4.1). A range delete that leaves no live
@@ -581,15 +585,16 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   holds `"time"` fails. **`time_of`**: the channels take the stored stamps of another
   channel from `start`, on its clock, in one group, and the writer waits for those
   stamps (RFC 0121 §5.8). A write that holds `"time"` fails, and so does an open whose
-  `start` is not a sample of that channel.
-- **Pause moves**: Only an adaptive group moves a channel. A channel at P pauses (64) in
-  its open segment moves to a clock of its own (RFC 0121 §5.8). Cesium then stores the
-  group's stamps on that clock for each frame that holds the channel, and the framer
-  puts a copy of the time series under that clock in the relay frame. That is the one
-  place where stamps are stored twice: at most once per moved channel per frame, until
-  the channel moves back at the next open. A clock stores no stamps for a frame in which
-  no channel on it holds a sample after the authority filter. Tasks, Arc, Pluto, and the
-  `Controller` declare their groups and never pay for it.
+  `start` is not a sample of that channel, or whose source times itself (hard rule 4).
+- **Pause moves**: Only an adaptive group moves a channel. The channels that reach P
+  pauses (64) together, with one last present frame, move to one clock (RFC 0121 §5.8).
+  Cesium then stores the group's stamps on that clock for each frame that holds one of
+  them, and the framer puts a copy of the time series under that clock in the relay
+  frame. That is the one place where stamps are stored twice: at most once per presence
+  pattern per frame, until the channels move back at the next open. A clock stores no
+  stamps for a frame in which no channel on it holds a sample after the authority
+  filter. Tasks, Arc, Pluto, and the `Controller` declare their groups and never pay for
+  it.
 - **Handoff**: At the new holder's first write of a channel, the old holder commits its
   samples of the channel first, and then the claim moves (RFC 0121 §5.8). A move of
   control with no write moves no claim. The channel starts a new segment on the new
@@ -603,10 +608,11 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   key's newest open segment that no writer holds (RFC 0121 §5.8). A spec acquires a
   channel twice and leases no clock the second time. Authority covers channels only.
   Until Phase 50 an index channel stays under write control, so two command channels
-  that share one still share its authority; after it they do not. A commit after a
-  handoff whose stamps go back past the old holder's fails, as on `main`
-  (`cesium/internal/unary/writer.go:436-450`), so clock skew between two hosts that
-  write one command channel can fail a commit.
+  that share one still share its authority; after it they do not. A write after a
+  handoff whose stamps go back past the old holder's fails, as on `main`, where
+  `checkOrder` runs in `write` against the mark of any holder
+  (`cesium/internal/unary/writer.go:166-168`, `:352-356`, `:434-447`), so clock skew
+  between two hosts that write one command channel can fail a commit.
 - **Arc**: The compiler fills the groups of a program (`time_groups` in
   `schemas/arc/ir.oracle`, NEW). Each output channel has a group of its own, so from
   Phase 50, and before it for outputs with their own index, a cycle that writes part of
@@ -905,8 +911,10 @@ The migration changes metadata only and runs at the first start, before any writ
    key stays a clock that its data names until its last user ends it (RFC 0121 §4.1,
    D-464 (4)).
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
-   fails the start with an error that names it. It is the one check that Gorp and Cesium
-   agree.
+   must never take a write. Whether the Core then refuses to start and names it, or
+   starts with an error status while the framer refuses writes to that channel and
+   continuation never picks it, waits on the founder (§8): D-425 (3) keeps D-419 as the
+   one refusal. It is the one check that Gorp and Cesium agree.
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
@@ -953,7 +961,8 @@ Each rule closes a way to pair data with the wrong stamps and give no error.
    space per clock in each block and check the clock of each pair (Phases 14, 15,
    and 17) before Phase 25.
 4. **A user's channel is never a group's clock**: Continuation drops a candidate that is
-   a key of the group (§4.0). An index channel kept as a timestamp channel names itself
+   a key of the group (§4.0), and a `time_of` open whose source times itself fails at
+   open and names the source. An index channel kept as a timestamp channel names itself
    as its clock, and no other key names it, so the rule keeps every group's stamps out
    of it. It needs no stored flag, which has no home once RFC 0121 Phase 8 removes
    Cesium's channel file.
@@ -1272,9 +1281,10 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
     layout. Rejected: samples that wait across the move, which need parked samples, and
     the drop of uncommitted samples that the storage branch does today.
 23. **Takeover at open, and a variable type rebuilds its cursor**: Per D-475, which
-    amends D-080. Rejected: a seal at every open, which makes one file per channel and
-    clock per session, and a seal for variable types, which still does so for text
-    channels.
+    amends D-080. Continued stretches at open replace D-475 (1), and a handoff still
+    starts a new stretch (D-458). Rejected: a seal at every open, which makes one file
+    per channel and clock per session, and a seal for variable types, which still does
+    so for text channels.
 24. **A new alignment number per clock after a restart**: The continuation of a stretch
     lives in memory. Rejected: a durable clean flag. 5,000 clocks and one restart per
     day use 2^31 numbers in 1,176 years.
@@ -1343,8 +1353,11 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
 
 ## 8 Open questions
 
-Each is a parameter with a default: P, the pauses per open segment before a move (64,
-measured by §4.13); the clock keys per lease (256); the rare-path read bar (2 times);
-the gap, in steps, across which a stretch continues (3); and the step between the
-arrival stamps of one frame (the samples of a frame spread evenly from the last frame's
-arrival to this one, and 1 ns apart in a first frame).
+One is a rule, for the founder: what the Core does at start when a clock has a record
+(§4.10 step 3).
+
+Each other is a parameter with a default: P, the pauses per open segment before a move
+(64, measured by §4.13); the clock keys per lease (256); the rare-path read bar (2
+times); the gap, in steps, across which a stretch continues (3); and the step between
+the arrival stamps of one frame (the samples of a frame spread evenly from the last
+frame's arrival to this one, and 1 ns apart in a first frame).
