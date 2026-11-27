@@ -622,6 +622,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/ni/device/update",
 		),
+		NIDeviceDispatch: unary[nidevice.DispatchRequest, struct{}](
+			router,
+			"/api/v1/ni/device/dispatch",
+		),
 		NIDeviceDelete: unary[nidevice.DeleteRequest, struct{}](
 			router,
 			"/api/v1/ni/device/delete",

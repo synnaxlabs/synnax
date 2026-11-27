@@ -519,6 +519,36 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Dispatch", func() {
+		rename := func(key device.Key) apidevice.DispatchRequest {
+			return apidevice.DispatchRequest{
+				Key: key,
+				Actions: []device.Action{device.NewSetAction(device.SetPayload{
+					Path:  []string{"name"},
+					Value: "Renamed",
+				})},
+			}
+		}
+
+		It("Should apply the actions when update is granted", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Rack)
+			MustSucceed(dispatch(testutil.AuthedCtx(ctx, u), rename(d.Key)))
+			got := retrieveDevice(ctx, d.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Serial).To(Equal(d.Serial))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			d := createDevice(ctx)
+			Expect(dispatch(testutil.AuthedCtx(ctx, u), rename(d.Key))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveDevice(ctx, d.Key).Name).To(Equal(d.Name))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should remove the device when delete is granted", func(ctx SpecContext) {
 			d := createDevice(ctx)

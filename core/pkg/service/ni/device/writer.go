@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -23,10 +24,18 @@ import (
 // Writer creates, updates, and deletes NI devices in the transaction given to
 // Service.NewWriter.
 type Writer struct {
-	tx       gorp.Tx
-	status   status.Writer
-	statuses *status.Service
-	table    *gorp.Table[Key, Device]
+	tx         gorp.Tx
+	status     status.Writer
+	statuses   *status.Service
+	table      *gorp.Table[Key, Device]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 func (w Writer) setStatus(ctx context.Context, d Device) error {
@@ -53,7 +62,8 @@ func (w Writer) setStatus(ctx context.Context, d Device) error {
 
 // Create stores d and writes an unknown status when it has none. An existing status
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
-// validation error when d is invalid or its rack does not exist.
+// validation error when d is invalid or its rack does not exist. After the transaction
+// commits, Create broadcasts a create action that carries the stored device.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if d.Key == uuid.Nil() {
 		d.Key = uuid.New()
@@ -64,7 +74,28 @@ func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := w.table.NewCreate().Entry(d).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.setStatus(ctx, *d)
+	if err := w.setStatus(ctx, *d); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, d.Key, NewCreateAction(CreatePayload{Device: *d}))
+	return nil
+}
+
+// Apply applies the actions to the device stored under key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Each
+// action edits only its path, so concurrent actions on other paths survive. The
+// scanner writes only the identity paths (rack, serial, resource_name, model, and
+// chassis), and users write the rest. Apply returns an error wrapping
+// validate.ErrValidation when an action is a create or the result is invalid, and an
+// error wrapping query.ErrNotFound when no device is stored under key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.Update(ctx, key, func(d Device) (Device, error) {
+		return Reduce(d, acts...)
+	}); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // Update applies change to the device stored under key and stores the result, so a
