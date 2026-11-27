@@ -135,50 +135,9 @@ func (r *registry) retarget(
 	moves map[Target]Target,
 	limit int,
 ) error {
-	var (
-		holders []retargetHolder
-		indexOf = make(map[Target]int)
-	)
-	for _, from := range froms {
-		for _, ref := range r.referencesTo(from.Table) {
-			deps, err := ref.dependents(ctx, tx, from)
-			if err != nil {
-				return err
-			}
-			for _, k := range deps {
-				dep := Target{Table: ref.ownerTable(), Key: k}
-				if !ref.canRetarget() {
-					return errors.Wrapf(
-						validate.ErrValidation,
-						"cannot retarget %s %s because %s %s references it through "+
-							"%s, which cannot retarget",
-						from.Table,
-						from.Key,
-						dep.Table,
-						dep.Key,
-						ref.referenceName(),
-					)
-				}
-				i, ok := indexOf[dep]
-				if !ok {
-					i = len(holders)
-					indexOf[dep] = i
-					holders = append(holders, retargetHolder{entry: dep, from: from})
-					if len(holders) > limit {
-						return errors.Wrapf(
-							validate.ErrValidation,
-							"retargeting %s %s would change more than %d entries",
-							from.Table,
-							from.Key,
-							limit,
-						)
-					}
-				}
-				if !slices.Contains(holders[i].refs, ref.index()) {
-					holders[i].refs = append(holders[i].refs, ref.index())
-				}
-			}
-		}
+	holders, err := r.retargetHolders(ctx, tx, froms, limit)
+	if err != nil {
+		return err
 	}
 	for _, h := range holders {
 		table, err := r.table(h.entry.Table)
@@ -197,6 +156,62 @@ func (r *registry) retarget(
 		}
 	}
 	return nil
+}
+
+// retargetHolders returns each entry that holds one of froms, once, with the references
+// through which it holds them.
+func (r *registry) retargetHolders(
+	ctx context.Context,
+	tx Tx,
+	froms []Target,
+	limit int,
+) ([]retargetHolder, error) {
+	var (
+		holders []retargetHolder
+		indexOf = make(map[Target]int)
+	)
+	for _, from := range froms {
+		for _, ref := range r.referencesTo(from.Table) {
+			deps, err := ref.dependents(ctx, tx, from)
+			if err != nil {
+				return nil, err
+			}
+			for _, k := range deps {
+				dep := Target{Table: ref.ownerTable(), Key: k}
+				if !ref.canRetarget() {
+					return nil, errors.Wrapf(
+						validate.ErrValidation,
+						"cannot retarget %s %s because %s %s references it through "+
+							"%s, which cannot retarget",
+						from.Table,
+						from.Key,
+						dep.Table,
+						dep.Key,
+						ref.referenceName(),
+					)
+				}
+				i, ok := indexOf[dep]
+				if !ok {
+					i = len(holders)
+					indexOf[dep] = i
+					holders = append(holders, retargetHolder{entry: dep, from: from})
+				}
+				if len(holders) > limit {
+					return nil, errors.Wrapf(
+						validate.ErrValidation,
+						"retargeting %s %s would change more than %d entries",
+						from.Table,
+						from.Key,
+						limit,
+					)
+				}
+				if !slices.Contains(holders[i].refs, ref.index()) {
+					holders[i].refs = append(holders[i].refs, ref.index())
+				}
+			}
+		}
+	}
+	return holders, nil
 }
 
 // RetargetEach returns s with each element whose target to holds as a key pointed at

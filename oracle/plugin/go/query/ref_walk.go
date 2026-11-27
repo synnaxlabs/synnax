@@ -888,44 +888,52 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 					assign,
 				)
 			case leafSlice:
-				k := rd.nextVar("k")
-				set := "*" + k + " = " + t
-				if rd.info.IsID {
-					set = rd.assign(k)
-				}
-				fmt.Fprintf(
-					b,
-					"%[1]s = gorp.RetargetEach(\n%[1]s,\nto,\n"+
-						"func(%[2]s %[3]s) %[4]s {\nreturn %[5]s\n},\n"+
-						"func(%[2]s *%[3]s, %[6]s %[4]s) {\n%[7]s\n},\n)\n",
-					expr,
-					k,
-					rd.info.ElemGoType,
-					rd.info.TargetType(),
-					rd.target(k),
-					t,
-					set,
-				)
+				rd.retargetSlice(b, expr)
 			case leafMap:
-				k, v := rd.nextVar("k"), rd.nextVar("v")
-				fmt.Fprintf(
-					b,
-					"for %s, %s := range %s {\nif %s, ok := to[%s]; ok {\n"+
-						"%s\n%s[%s] = %s\n}\n}\n",
-					k,
-					v,
-					expr,
-					t,
-					rd.target(v),
-					rd.assign(v),
-					expr,
-					k,
-					v,
-				)
+				rd.retargetMap(b, expr)
 			}
 		},
 	)
 	return b.String()
+}
+
+// retargetSlice writes the code that moves each element of the slice at expr through
+// gorp.RetargetEach.
+func (rd *renderer) retargetSlice(b *strings.Builder, expr string) {
+	k := rd.nextVar("k")
+	set := "*" + k + " = t"
+	if rd.info.IsID {
+		set = rd.assign(k)
+	}
+	fmt.Fprintf(
+		b,
+		"%[1]s = gorp.RetargetEach(\n%[1]s,\nto,\n"+
+			"func(%[2]s %[3]s) %[4]s {\nreturn %[5]s\n},\n"+
+			"func(%[2]s *%[3]s, t %[4]s) {\n%[6]s\n},\n)\n",
+		expr,
+		k,
+		rd.info.ElemGoType,
+		rd.info.TargetType(),
+		rd.target(k),
+		set,
+	)
+}
+
+// retargetMap writes the code that moves each value of the map at expr.
+func (rd *renderer) retargetMap(b *strings.Builder, expr string) {
+	k, v := rd.nextVar("k"), rd.nextVar("v")
+	fmt.Fprintf(
+		b,
+		"for %s, %s := range %s {\nif t, ok := to[%s]; ok {\n%s\n%s[%s] = %s\n}\n}\n",
+		k,
+		v,
+		expr,
+		rd.target(v),
+		rd.assign(v),
+		expr,
+		k,
+		v,
+	)
 }
 
 // operand returns the target of expr in a form that can sit in an if condition, where a
