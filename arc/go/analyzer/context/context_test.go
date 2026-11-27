@@ -81,9 +81,8 @@ var _ = Describe("Context", func() {
 			specCtx SpecContext,
 		) {
 			ctx := analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
-			sym, err := ctx.ResolveName(parser.Name{Head: "missing"})
-			Expect(err).To(MatchError(ContainSubstring("undefined symbol: missing")))
-			Expect(sym).To(BeNil())
+			Expect(ctx.ResolveName(parser.Name{Head: "missing"})).Error().
+				To(MatchError(ContainSubstring("undefined symbol: missing")))
 			Expect(*ctx.Diagnostics).To(BeEmpty())
 		})
 	})
