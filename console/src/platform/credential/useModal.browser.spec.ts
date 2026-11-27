@@ -161,7 +161,8 @@ describe("useModal", () => {
     fireEvent.click(await screen.findByText("Custom"));
     await setExpiryDate("2020-01-01 00:00");
     await screen.findByText("Expiry must be in the future");
-    expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
+    fireEvent.click(findButton("Create"));
+    expect(await client.auth.apiKeys.retrieve([id])).toHaveLength(0);
     await setExpiryDate("2099-01-01 00:00");
     await waitFor(() =>
       expect(screen.queryByText("Expiry must be in the future")).toBeNull(),
@@ -206,7 +207,7 @@ describe("useModal", () => {
     await screen.findByText("Expired", undefined, { timeout: 10000 });
   });
 
-  it("should turn off Create when the custom time passes", async () => {
+  it("should show an error when the custom time passes", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({ name: uniqueName("user"), role });
@@ -217,11 +218,10 @@ describe("useModal", () => {
     await type("Key name", uniqueName("key"));
     fireEvent.click(await screen.findByText("Custom"));
     await setExpiryDate(localTime(new Date(Date.now() + 3000)));
-    expect(findButton("Create").getAttribute("aria-disabled")).not.toBe("true");
+    expect(screen.queryByText("Expiry must be in the future")).toBeNull();
     await screen.findByText("Expiry must be in the future", undefined, {
       timeout: 6000,
     });
-    expect(findButton("Create").getAttribute("aria-disabled")).toBe("true");
   });
 
   it("should mark an expired key", async () => {

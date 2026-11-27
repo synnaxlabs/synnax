@@ -139,7 +139,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
           <Button.Button
             variant="filled"
             status={status.keepVariants(variant, "loading")}
-            disabled={empty || past}
+            disabled={empty}
             onClick={handleCreate}
             trigger={Triggers.SAVE}
             triggerIndicator
