@@ -71,7 +71,7 @@ const GoToTime = (): ReactElement => {
           }}
           placeholder={TIME_PLACEHOLDER}
           status={invalid ? "error" : undefined}
-          tooltip={invalid ? "Not a time" : undefined}
+          tooltip={invalid ? "Time is not valid" : undefined}
         />
       </Dialog.Dialog>
     </Dialog.Frame>
