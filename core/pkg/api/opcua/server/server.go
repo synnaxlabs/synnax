@@ -138,8 +138,7 @@ func (s *Service) Update(
 type DispatchRequest = actions.DispatchRequest[server.Key, server.Action]
 
 // DispatchResponse carries the actions the Core added to a dispatch: a set of the
-// stored
-// reads or writes when the Core stored a node ID in another form.
+// stored reads or writes when the Core stored a node ID in another form.
 type DispatchResponse = actions.DispatchResponse[server.Action]
 
 // Dispatch applies the action sequence to the server atomically. Subscribers to

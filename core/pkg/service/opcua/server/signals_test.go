@@ -24,6 +24,7 @@ import (
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -188,9 +189,12 @@ var _ = Describe("Signals", Ordered, func() {
 		Expect(created.Key).To(Equal(s.Key))
 		Expect(created.Actions).To(HaveLen(1))
 		Expect(created.Actions[0].Create.Server.Name).To(Equal("Boiler PLC"))
+		cmd := MustSucceed(
+			channeltestutil.CreateVirtual(ctx, node.DB, channelSvc, 1),
+		)[0]
 		writes := server.NewSetAction(server.SetPayload{
 			Path:  []string{"writes"},
-			Value: []map[string]any{{"node": "NSU=urn:plc;s=Valve", "channel": 4}},
+			Value: []map[string]any{{"node": "NSU=urn:plc;s=Valve", "channel": cmd}},
 		})
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
 			_, err := svc.NewWriter(tx).WithDispatchKey("dk").Apply(ctx, s.Key, writes)

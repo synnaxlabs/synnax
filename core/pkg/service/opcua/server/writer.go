@@ -191,7 +191,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	var reduced Server
 	stored, err := w.update(ctx, key, func(s Server) (Server, error) {
 		next, err := Reduce(s, acts...)
+		// prepare normalizes the bindings in place, so keep copies to compare.
 		reduced = next
+		reduced.Reads = slices.Clone(next.Reads)
+		reduced.Writes = slices.Clone(next.Writes)
 		return next, err
 	})
 	if err != nil {
