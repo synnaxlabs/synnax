@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/labjack/device/actions.gen";
+export * from "@/labjack/device/client";
 export * from "@/labjack/device/types.gen";
 export type { WhereInput } from "@/labjack/device/where.gen";
