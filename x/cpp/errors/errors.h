@@ -19,7 +19,9 @@
 
 namespace x::errors {
 
-const std::string TYPE_NIL = "nil";
+/// @brief the type of a nil error. Inline, so every file reads one string, set up
+/// before the error constants that follow it.
+inline const std::string TYPE_NIL = "nil";
 const std::string TYPE_UNKNOWN = "unknown";
 
 /// @brief a network transportable error with a type and string encoded data. Copies
