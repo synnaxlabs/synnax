@@ -16,9 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/kafka/cluster/versions/v0"
 // Key uniquely identifies a Kafka cluster.
 type Key = v0.Key
 
-// Broker is a bootstrap broker of a cluster.
-type Broker = v0.Broker
-
 // Transport is the transport that the Core connects to the brokers of a cluster over.
 type Transport = v0.Transport
 

@@ -28,6 +28,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	secrettestutil "github.com/synnaxlabs/synnax/pkg/service/secret/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/tls"
+	"github.com/synnaxlabs/x/net"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
@@ -95,7 +97,7 @@ var _ = Describe("Service", func() {
 		c.SetDefaults()
 		c.Rack = rackSvc.EmbeddedKey
 		c.Name = "Plant Cluster"
-		c.Brokers = []cluster.Broker{{Host: "kafka.example.com"}}
+		c.Brokers = []net.Address{{Host: "kafka.example.com"}}
 		return c
 	}
 	read := func(topic string, recordKey *string, pointer string, message uuid.UUID) cluster.Read {
@@ -164,10 +166,10 @@ var _ = Describe("Service", func() {
 		return c.Base().Key
 	}
 	tls := func(ca, client *certificate.Key) cluster.Transport {
-		return cluster.Transport{Variant: cluster.TlsTransport{
+		return cluster.Transport{Variant: cluster.TlsTransport{TLS: tls.TLS{
 			CaCertificate:     ca,
 			ClientCertificate: client,
-		}}
+		}}}
 	}
 	create := func(ctx context.Context) cluster.Cluster {
 		GinkgoHelper()
@@ -275,7 +277,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			c := newCluster()
-			c.Brokers = []cluster.Broker{
+			c.Brokers = []net.Address{
 				{Host: "kafka.example.com"},
 				{Host: "kafka.example.com", Port: new(uint16(9093))},
 				{Host: "kafka-2.example.com"},
@@ -312,16 +314,16 @@ var _ = Describe("Service", func() {
 				"brokers",
 			),
 			Entry("a broker with no host", func(c *cluster.Cluster) {
-				c.Brokers = []cluster.Broker{{}}
+				c.Brokers = []net.Address{{}}
 			}, "host"),
 			Entry("a duplicate broker", func(c *cluster.Cluster) {
-				c.Brokers = []cluster.Broker{
+				c.Brokers = []net.Address{
 					{Host: "kafka.example.com"},
 					{Host: "kafka.example.com"},
 				}
 			}, "brokers.1"),
 			Entry("a broker that repeats the default port", func(c *cluster.Cluster) {
-				c.Brokers = []cluster.Broker{
+				c.Brokers = []net.Address{
 					{Host: "kafka.example.com"},
 					{Host: "kafka.example.com", Port: new(uint16(9092))},
 				}
@@ -329,7 +331,7 @@ var _ = Describe("Service", func() {
 			Entry(
 				"a broker that repeats another in other case",
 				func(c *cluster.Cluster) {
-					c.Brokers = []cluster.Broker{
+					c.Brokers = []net.Address{
 						{Host: "Kafka.Example.com"},
 						{Host: "kafka.example.com"},
 					}
@@ -337,7 +339,7 @@ var _ = Describe("Service", func() {
 				"brokers.1",
 			),
 			Entry("a broker that repeats another IPv6 form", func(c *cluster.Cluster) {
-				c.Brokers = []cluster.Broker{{Host: "::1"}, {Host: "0:0:0:0:0:0:0:1"}}
+				c.Brokers = []net.Address{{Host: "::1"}, {Host: "0:0:0:0:0:0:0:1"}}
 			}, "brokers.1"),
 			Entry("a duplicate read", func(c *cluster.Cluster) {
 				m := uuid.New()
@@ -612,7 +614,7 @@ var _ = Describe("Service", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
 			update := identity(c)
 			update.Name = "Renamed"
-			update.Brokers = []cluster.Broker{
+			update.Brokers = []net.Address{
 				{Host: "10.0.0.2", Port: new(uint16(9093))},
 			}
 			Expect(svc.NewWriter(tx).Apply(ctx, c.Key, cluster.Update{

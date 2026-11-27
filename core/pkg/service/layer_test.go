@@ -92,6 +92,7 @@ import (
 	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	"github.com/synnaxlabs/x/net"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/spatial"
@@ -1333,7 +1334,7 @@ var _ = Describe("Resource search", Ordered, func() {
 			Key:       uuid.New(),
 			Rack:      layer.Rack.EmbeddedKey,
 			Name:      "Pump Cluster",
-			Brokers:   []cluster.Broker{{Host: "pump.example.com"}},
+			Brokers:   []net.Address{{Host: "pump.example.com"}},
 			Transport: cluster.Transport{Variant: cluster.PlaintextTransport{}},
 			Auth:      cluster.Auth{Variant: cluster.NoneAuth{}},
 		}

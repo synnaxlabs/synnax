@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/net"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -53,7 +54,7 @@ var _ = Describe("Service", func() {
 		s.Key = uuid.New()
 		s.Rack = svc.Rack.EmbeddedKey
 		s.Name = "API-" + uuid.New().String()
-		s.Brokers = []cluster.Broker{{Host: "kafka.example.com"}}
+		s.Brokers = []net.Address{{Host: "kafka.example.com"}}
 		for _, override := range overrides {
 			override(&s)
 		}

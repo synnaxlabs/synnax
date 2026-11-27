@@ -10,7 +10,6 @@
 from synnax.kafka.cluster.types_gen import (
     TYPE_RESOURCE_ID,
     Auth,
-    Broker,
     Cluster,
     Configuration,
     ConfigurationUpdate,
@@ -38,7 +37,6 @@ from synnax.kafka.cluster.types_gen import (
 __all__ = [
     "TYPE_RESOURCE_ID",
     "Auth",
-    "Broker",
     "Cluster",
     "Configuration",
     "ConfigurationUpdate",

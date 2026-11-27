@@ -44,7 +44,11 @@ describe("clusterZ", () => {
       transport: { type: "tls", clientCertificate: SECRET },
       auth: { mechanism: "scram_sha_256", username: "admin", password: SECRET },
     });
-    expect(cluster.transport).toEqual({ type: "tls", clientCertificate: SECRET });
+    expect(cluster.transport).toEqual({
+      type: "tls",
+      clientCertificate: SECRET,
+      certificateValidationDisabled: false,
+    });
     expect(cluster.auth).toEqual({
       mechanism: "scram_sha_256",
       username: "admin",
