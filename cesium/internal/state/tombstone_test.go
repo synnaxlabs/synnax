@@ -20,8 +20,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// cutOf returns a cut of segment 3 of key 6 in sample() at sample index i, whose
-// stamps are 10, 20, and 30 at offsets 0, 4, and 8, with stamp.
+// cutOf returns a cut of segment 3 of key 6 in sample() at sample index i, whose stamps
+// are 10, 20, and 30 at offsets 0, 4, and 8, with stamp.
 func cutOf(i uint32, stamp int64) *log.Cut {
 	return &log.Cut{
 		Segment:   3,
@@ -83,8 +83,7 @@ var _ = Describe("Tombstone", func() {
 	)
 
 	// clockCut returns a cut of segment 2 of clock 5 in sample() at sample index i,
-	// with
-	// stamp.
+	// with stamp.
 	clockCut := func(i uint32, stamp int64) *log.Cut {
 		return &log.Cut{
 			Segment:   2,

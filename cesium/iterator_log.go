@@ -22,18 +22,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// logView is what the iterators of a read on one clock read: the visible Channels of
-// the clock and of each key of the read that it times, which the engine loads from one
-// step of the state and pins together, so the samples of every key and their stamps
-// come from one state. The view loads once in each step of the read in which the state
-// published: the first seek of the step loads it, and the stream iterator makes it
-// stale before the next. A data cursor keeps the ranges of its last seek, and their
-// segments, until it seeks again. So the view keeps its last load for the rest of the
-// read once a load would take away stamps that such ranges can need: a key or the clock
-// gone, as a Drop leaves them, or a stamp of the clock gone, as a delete of the clock
-// leaves it. Each lookup of the index closes its clock cursor and reader before it
-// returns, and the calls of a read never overlap, so a load never unpins what a cursor
-// still reads.
+// logView holds the Channels of a clock and of the keys it times, loaded and pinned
+// from one step of the state. It loads again at the first seek of a step in which the
+// state published. It keeps its last load once a new one would drop a key or a clock
+// stamp.
 type logView struct {
 	e *engine
 	// keys holds the clock and then each key of the read on it, and chs their Channels.
@@ -225,11 +217,9 @@ type logCursor struct {
 	view *logView
 	slot int
 	src  *logSource
-	// held holds the segments of the ranges of a data cursor, which it pins until its
-	// next load or Close, since a seek of another cursor of the view can load the view
-	// again while the ranges of this one still name them. spare is the array that the
-	// next load fills, and err the error of an unlink after an unpin, which Close
-	// returns.
+	// held holds the segments of the ranges of a data cursor, pinned until its next
+	// load or Close, since another cursor can load the view again. spare is the array
+	// that the next load fills. err holds the error of an unlink, which Close returns.
 	held, spare []uint64
 	err         error
 	bounds      telem.TimeRange

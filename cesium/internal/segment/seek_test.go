@@ -142,8 +142,7 @@ var _ = Describe("Seek", func() {
 			)
 
 			// trailer is a change to field off (0 first_pos, 4 first_off) of the
-			// trailer
-			// of full block b.
+			// trailer of full block b.
 			type trailer struct {
 				b, off int64
 				v      uint32
@@ -161,8 +160,8 @@ var _ = Describe("Seek", func() {
 
 			// Each entry seeks 10 samples from sample 2, at the start of block 1. The
 			// walk ends at sample 4, the start of block 2, whose trailer stays good.
-			// The search
-			// for sample 12 then reads only the changed trailers that lead it astray.
+			// The search for sample 12 then reads only the changed trailers that lead
+			// it astray.
 			DescribeTable(
 				"Should refuse trailers that disagree with one another past the first "+
 					"block that the walk reaches",

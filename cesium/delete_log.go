@@ -176,8 +176,7 @@ type stampReader struct {
 	samples int
 	spans   []stampSpan
 	// h is the handle of segment hSeg. buf holds stream bytes of span from stream
-	// offset
-	// from, or nothing when span is -1.
+	// offset from, or nothing when span is -1.
 	h    *segment.Handle
 	hSeg uint64
 	span int
@@ -230,9 +229,9 @@ func (e *engine) openStamps(
 }
 
 // search returns k, the index of the first stamp at or after at, by a binary search
-// that reads one block at each step that leaves the block it holds. It also returns
-// the stamp at k-1 when left is true, and the stamp at k otherwise, or zero when that
-// index holds no stamp.
+// that reads one block at each step that leaves the block it holds. It also returns the
+// stamp at k-1 when left is true, and the stamp at k otherwise, or zero when that index
+// holds no stamp.
 func (r *stampReader) search(
 	at telem.TimeStamp,
 	left bool,
@@ -281,8 +280,8 @@ func (r *stampReader) at(i int) (telem.TimeStamp, error) {
 	return telem.TimeStamp(binary.LittleEndian.Uint64(r.buf[off-r.from:])), nil
 }
 
-// load reads the bytes of span s in the block of stream offset off, and the rest of
-// the stamp at off when it crosses the end of that block.
+// load reads the bytes of span s in the block of stream offset off, and the rest of the
+// stamp at off when it crosses the end of that block.
 func (r *stampReader) load(s int, off int64) error {
 	sp := r.spans[s]
 	if r.h == nil || r.hSeg != sp.seg.ID {

@@ -23,11 +23,11 @@ type cutAt struct {
 	i   int
 }
 
-// checkTombstone checks t against the durable view: the key is live, no live pointer
-// of another key on the key's clock keeps a sample at an alignment that t takes out of
-// the clock, and each cut names a live pointer that the range reaches, inside it. A
-// pointer that holds an end of the range by time must be the one that the cut of that
-// end names.
+// checkTombstone checks t against the durable view: the key is live, no live pointer of
+// another key on the key's clock keeps a sample at an alignment that t takes out of the
+// clock, and each cut names a live pointer that the range reaches, inside it. A pointer
+// that holds an end of the range by time must be the one that the cut of that end
+// names.
 func (c *core) checkTombstone(t *log.Tombstone) error {
 	start, end := telem.TimeStamp(t.Start), telem.TimeStamp(t.End)
 	ch := c.channels[t.Key]

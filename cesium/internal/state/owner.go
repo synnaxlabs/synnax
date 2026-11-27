@@ -341,8 +341,7 @@ func (r *durableRequest) run(s *State) {
 // sealDeleted logs the Seal of each open segment that no writer holds and that a
 // Tombstone of records left with no live pointer, so its file goes once the Seal is
 // durable. The entry may use the delete reserve, since on a full disk no switch comes
-// to
-// seal the segment. It first forgets the owner's Seals among records.
+// to seal the segment. It first forgets the owner's Seals among records.
 func (s *State) sealDeleted(records []log.Record) {
 	var e log.Entry
 	for _, rec := range records {
