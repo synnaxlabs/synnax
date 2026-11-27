@@ -789,23 +789,24 @@ or without the flag.
   picks. That runs the action with the defaults and returns no entries; a plan is made
   only when picks come. The group delete route stays `main`'s one `Delete`: the group
   writer runs each scope's delete hook in its transaction first, and `channel/tree`'s
-  hook for scope `channel` deletes the folder's tombstones (§4.11), so every caller
-  passes the group guard. The channel delete route looks up its keys and paths and
-  deletes in one transaction: one apply over its keys, then one over the keys of its
-  paths, in `main`'s order, so no request changes `main`'s answer. `Declare`, inside
-  `channel`, creates the built-ins that a service makes at open, such as the task
-  command channel or a signals channel. It runs before the text holders open, so it
-  reports the channels that it creates and renames; before the API serves,
-  `channel/tree` applies their heals and text passes with the defaults. A migration that
-  moves a channel onto a tombstone's path runs the same heal, so a live channel and a
-  tombstone never share a path. No migration of this RFC meets one, since `core/v0.62.0`
-  holds no tombstones. `Declare` renames a user channel and creates the built-in as two
-  actions, the rename first, so text that names the user channel follows it. Before any
-  compile and before the API serves, the rename's text pass runs from the stored old
-  path, with `update_text` for each of its tokens whatever holds the path by then, and
-  deletes the stored path. A crash before the pass runs it at the next start. Every
-  first free suffix in this RFC (`Declare`, the Phase 7 migration, a displaced channel)
-  skips tombstone paths.
+  hook for scope `channel` deletes the folder's tombstones (Folders, below), so every
+  caller passes the group guard. Phase 17 builds the hook with the tombstones, in a new
+  `channel/tree` that holds only it until Phase 40 moves the folder edits there. The
+  channel delete route looks up its keys and paths and deletes in one transaction: one
+  apply over its keys, then one over the keys of its paths, in `main`'s order, so no
+  request changes `main`'s answer. `Declare`, inside `channel`, creates the built-ins
+  that a service makes at open, such as the task command channel or a signals channel.
+  It runs before the text holders open, so it reports the channels that it creates and
+  renames; before the API serves, `channel/tree` applies their heals and text passes
+  with the defaults. A migration that moves a channel onto a tombstone's path runs the
+  same heal, so a live channel and a tombstone never share a path. No migration of this
+  RFC meets one, since `core/v0.62.0` holds no tombstones. `Declare` renames a user
+  channel and creates the built-in as two actions, the rename first, so text that names
+  the user channel follows it. Before any compile and before the API serves, the
+  rename's text pass runs from the stored old path, with `update_text` for each of its
+  tokens whatever holds the path by then, and deletes the stored path. A crash before
+  the pass runs it at the next start. Every first free suffix in this RFC (`Declare`,
+  the Phase 7 migration, a displaced channel) skips tombstone paths.
 - **Access**: The plan and apply routes refuse a request that names a record the caller
   cannot retrieve, before any plan, so an apply never acts on effects that the caller
   could not see. The refusal names the key that the caller sent. An entry for any other
@@ -1013,7 +1014,7 @@ the issues of these phases take their blockers from this table too.
 | 3        | Phase 7, so no Core holds calculation records without its text pass, and RFC 0120 Phase 1, which carries code moves that it needs |
 | 5, 8     | Phase 38, since the quotes land last                                                                                              |
 | 25       | RFC 0120 Phase 1, which carries code moves that it needs                                                                          |
-| 29, 35   | Phase 40, which builds `channel/tree`                                                                                             |
+| 29, 35   | Phase 40, which moves the folder edits to `channel/tree`                                                                          |
 | 34 to 38 | RFC 0120 Phase 9, which pairs series by clock, and RFC 0121 Phase 8, which brings one alignment counter per database              |
 | 39       | RFC 0120 Phases 20 to 28 and 52                                                                                                   |
 | 41       | SY-6990, the link framework, which decides how every write applies its effects                                                    |
@@ -1043,7 +1044,7 @@ RFC 0121 moves the storage half of create, rename, and delete out of the commit 
 | 14    | Generate a retarget for every key reference                 | `gorp`, `oracle/plugin/go/query`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/schematic`, `core/pkg/service/table`                                                                                                                                                                                                                                                                                                                                                                                                                             | 13             |
 | 15    | Plan the records that a channel delete touches              | `gorp`, `core/pkg/service/impact`, `core/pkg/service/channel`, `core/pkg/service/task`, `core/pkg/api/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 1              |
 | 16    | Serve impact plans and apply them in the Core API           | `core/pkg/api/impact`, `schemas/synnax/impact.oracle`, `schemas/synnax/impact_api.oracle`, `core/pkg/api/channel`, `core/pkg/api/group`                                                                                                                                                                                                                                                                                                                                                                                                                                   | 15             |
-| 17    | Keep a tombstone of a deleted channel's path                | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 4, 7, 15       |
+| 17    | Keep a tombstone of a deleted channel's path                | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/service/channel/tree`, `core/pkg/service/group`, `core/pkg/service`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                                                     | 4, 7, 15       |
 | 18    | Heal display links when a channel takes a tombstone path    | `gorp`, `core/pkg/service/impact`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 14, 17         |
 | 19    | Plan and apply impact in the TS and Python clients          | `client/ts/src/impact`, `client/py/synnax/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 16             |
 | 20    | Filter channels that nothing uses                           | `gorp`, `core/pkg/service/channel`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 1              |
