@@ -9,7 +9,9 @@
 
 #pragma once
 
+#include <initializer_list>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -30,6 +32,20 @@ std::pair<T, x::errors::Error> narrow(const S v) {
             )
         };
     return {static_cast<T>(v), x::errors::NIL};
+}
+
+/// @brief checks that a protobuf map key names a member of a string enum.
+/// @param key the key to check.
+/// @param members the values of the enum's members.
+/// @returns a VALIDATION error when no member has the key.
+inline x::errors::Error
+member(const std::string &key, const std::initializer_list<std::string_view> members) {
+    for (const auto &m: members)
+        if (m == key) return x::errors::NIL;
+    return x::errors::Error(
+        x::errors::VALIDATION,
+        "\"" + key + "\" is not a valid key"
+    );
 }
 
 /// @brief Converts a protobuf repeated field to a container of C++ objects.

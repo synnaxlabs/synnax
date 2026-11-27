@@ -886,7 +886,11 @@ func (p *Plugin) setPtrConversion(
 func (p *Plugin) buildMapValueConversion(
 	typeRef resolution.TypeRef, data *templateData,
 ) *mapValueConversionData {
-	keyName := dealiasPrimitive(typeRef.TypeArgs[0], data.table).Name
+	keyRef := typeRef.TypeArgs[0]
+	if isStringEnum(keyRef, data) {
+		return p.enumKeyMapConversion(typeRef, data)
+	}
+	keyName := dealiasPrimitive(keyRef, data.table).Name
 	mvc := p.buildMapElementConversion(typeRef, data)
 	if !narrowKeyPrimitive(keyName) {
 		return mvc
@@ -895,17 +899,9 @@ func (p *Plugin) buildMapValueConversion(
 	goKeyType := p.goTypeName(resolution.Type{
 		Name: keyName, Form: resolution.PrimitiveForm{},
 	}, data)
+	mvc = directMapConversion(mvc, keyType, typeRef, data)
 	if mvc == nil {
-		valName := dealiasPrimitive(typeRef.TypeArgs[1], data.table).Name
-		if !castablePrimitive(valName) || primitiveNeedsConversion(valName) {
-			return nil
-		}
-		mvc = &mapValueConversionData{
-			GoMapType:         fmt.Sprintf("map[%s]%s", keyType, valName),
-			PBMapType:         fmt.Sprintf("map[%s]%s", keyType, valName),
-			ForwardValueExpr:  "v",
-			BackwardValueExpr: "v",
-		}
+		return nil
 	}
 	data.AddInternal("xpb", "github.com/synnaxlabs/x/pb")
 	mvc.GoMapType = "map[" + goKeyType + strings.TrimPrefix(
@@ -913,8 +909,69 @@ func (p *Plugin) buildMapValueConversion(
 		"map["+keyType,
 	)
 	mvc.ForwardKeyExpr = keyType + "(k)"
-	mvc.NarrowKeyType = goKeyType
+	mvc.BackwardKeyExpr = "xpb.Narrow[" + goKeyType + "](k)"
 	return mvc
+}
+
+// enumKeyMapConversion returns the conversion data of a Map field whose key is a
+// string enum, which proto holds as a string. The backward conversion refuses a key
+// that no member of the enum has.
+func (p *Plugin) enumKeyMapConversion(
+	typeRef resolution.TypeRef, data *templateData,
+) *mapValueConversionData {
+	const keyType = "string"
+	mvc := directMapConversion(
+		p.buildMapElementConversion(typeRef, data),
+		keyType,
+		typeRef,
+		data,
+	)
+	if mvc == nil {
+		return nil
+	}
+	goKeyType := p.resolveGoTypeLiteral(typeRef.TypeArgs[0], data)
+	data.AddInternal("xpb", "github.com/synnaxlabs/x/pb")
+	mvc.GoMapType = "map[" + goKeyType + strings.TrimPrefix(
+		mvc.GoMapType,
+		"map["+keyType,
+	)
+	mvc.ForwardKeyExpr = keyType + "(k)"
+	mvc.BackwardKeyExpr = "xpb.Enum[" + goKeyType + "](k)"
+	return mvc
+}
+
+// directMapConversion returns mvc, or, when mvc is nil, the conversion data of a map
+// whose values copy directly. It returns nil when the values need a conversion that
+// mvc does not hold.
+func directMapConversion(
+	mvc *mapValueConversionData,
+	keyType string,
+	typeRef resolution.TypeRef,
+	data *templateData,
+) *mapValueConversionData {
+	if mvc != nil {
+		return mvc
+	}
+	valName := dealiasPrimitive(typeRef.TypeArgs[1], data.table).Name
+	if !castablePrimitive(valName) || primitiveNeedsConversion(valName) {
+		return nil
+	}
+	return &mapValueConversionData{
+		GoMapType:         fmt.Sprintf("map[%s]%s", keyType, valName),
+		PBMapType:         fmt.Sprintf("map[%s]%s", keyType, valName),
+		ForwardValueExpr:  "v",
+		BackwardValueExpr: "v",
+	}
+}
+
+// isStringEnum reports whether ref resolves to an enum with string members.
+func isStringEnum(ref resolution.TypeRef, data *templateData) bool {
+	resolved, ok := ref.Resolve(data.table)
+	if !ok {
+		return false
+	}
+	form, isEnum := resolved.Form.(resolution.EnumForm)
+	return isEnum && !form.IsIntEnum
 }
 
 // narrowKeyPrimitive reports whether a map key is narrower than its proto key type and
@@ -944,9 +1001,12 @@ func castablePrimitive(name string) bool {
 func (p *Plugin) buildMapElementConversion(
 	typeRef resolution.TypeRef, data *templateData,
 ) *mapValueConversionData {
-	keyType := primitiveToProtoType(
-		dealiasPrimitive(typeRef.TypeArgs[0], data.table).Name,
-	)
+	keyType := "string"
+	if !isStringEnum(typeRef.TypeArgs[0], data) {
+		keyType = primitiveToProtoType(
+			dealiasPrimitive(typeRef.TypeArgs[0], data.table).Name,
+		)
+	}
 	valArg := dealiasPrimitive(typeRef.TypeArgs[1], data.table)
 
 	if resolution.IsPrimitive(valArg.Name) {
@@ -2644,9 +2704,10 @@ type mapValueConversionData struct {
 	// ForwardKeyExpr converts a Go key to a proto key, using "k" as placeholder. Empty
 	// when the key types match.
 	ForwardKeyExpr string // e.g., "uint32(k)"
-	// NarrowKeyType is the Go key type that a proto key narrows to, with a range
-	// check. Empty when the key types match.
-	NarrowKeyType string // e.g., "uint16"
+	// BackwardKeyExpr converts a proto key to a Go key and returns (K, error), using
+	// "k"
+	// as placeholder. Empty when the key types match.
+	BackwardKeyExpr string // e.g., "xpb.Narrow[uint16](k)"
 	// ForwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	ForwardValueExpr string // e.g., "uint32(v)"
 	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.

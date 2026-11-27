@@ -90,4 +90,14 @@ TEST(TestPB, testNarrowRejectsValueOutOfRange) {
     ASSERT_OCCURRED_AS_P(narrow<std::int8_t>(std::int32_t{-129}), errors::VALIDATION);
 }
 
+/// @brief it should accept a key that names a member of the enum.
+TEST(TestPB, testMemberAcceptsMember) {
+    ASSERT_NIL(member("DIO1", {"DIO0", "DIO1"}));
+}
+
+/// @brief it should reject a key that names no member of the enum.
+TEST(TestPB, testMemberRejectsNonMember) {
+    ASSERT_OCCURRED_AS(member("DIO9", {"DIO0", "DIO1"}), errors::VALIDATION);
+}
+
 }
