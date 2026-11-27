@@ -113,7 +113,7 @@ x::telem::TimeSpan Sink::send() {
         if (from_port(err)) guard.fail(err);
     }
     common::Warning warning;
-    if (err) warning = {.message = "Failed to send message", .description = err.data};
+    if (err) warning = {.message = "Failed to send message", .description = err.data()};
     {
         std::lock_guard lock(this->held_mu);
         if (warning == this->held) return wait;
