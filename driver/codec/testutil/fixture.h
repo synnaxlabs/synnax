@@ -16,8 +16,6 @@
 
 #include "nlohmann/json.hpp"
 
-#include "driver/codec/json.h"
-
 namespace driver::codec::testutil {
 /// @brief returns the text of the value at pointer in doc, or nothing when there is
 /// none. The fixtures hold numbers such as 1e999 that nlohmann rejects, so it reads
@@ -33,8 +31,10 @@ std::string string_at(const std::string &doc, const std::string &pointer);
 /// @brief returns the error text of a Go validation error without its suffix.
 std::string error_data(const std::string &go);
 
-/// @brief returns the JSON message m, in the form that the fixtures write it.
-JSONMessage parse_message(const nlohmann::json &m);
+/// @brief returns the message m, in the form that the fixtures write it. Message is
+/// JSONMessage or TextMessage.
+template<typename Message>
+Message parse_message(const nlohmann::json &m);
 
 /// @brief returns the text of the fixture at path.
 std::string read_fixture(const std::filesystem::path &path);

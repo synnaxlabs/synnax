@@ -1,0 +1,78 @@
+{
+  "description": "A field with no default needs a value in each line.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 0
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "b",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 2
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "t",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "tagged",
+            "tag": "T="
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "float64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "1,2,T=3",
+      "message": "line",
+      "error": "field b: invalid number \"T=3\": validation error"
+    },
+    {
+      "text": "1,2",
+      "message": "line",
+      "error": "field b: no value at position 2: validation error"
+    },
+    {
+      "text": "1,2,3",
+      "message": "line",
+      "error": "field t: no value after tag \"T=\": validation error"
+    },
+    {
+      "text": "1,2,3,T=",
+      "message": "line",
+      "error": "field t: no value after tag \"T=\": validation error"
+    }
+  ]
+}
