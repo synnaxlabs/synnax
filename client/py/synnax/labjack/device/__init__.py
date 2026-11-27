@@ -21,6 +21,7 @@ from synnax.labjack.device.actions_gen import (
     remove,
     set,
 )
+from synnax.labjack.device.client import Client
 from synnax.labjack.device.types_gen import (
     CONNECTION_ETHERNET,
     CONNECTION_USB,
@@ -65,6 +66,7 @@ __all__ = [
     "TYPE_RESOURCE_ID",
     "Action",
     "AnalogOutputPort",
+    "Client",
     "CommandStatePair",
     "Connection",
     "CreatePayload",
