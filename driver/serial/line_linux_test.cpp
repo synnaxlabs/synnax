@@ -24,7 +24,7 @@ namespace {
 /// of 9600 baud.
 Settings dirty() {
     Settings s{};
-    s.c_iflag = IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL | IXON |
+    s.c_iflag = IGNBRK | BRKINT | IGNPAR | ISTRIP | INLCR | IGNCR | ICRNL | IXON |
                 IXOFF;
     s.c_oflag = OPOST;
     s.c_cflag = B9600 | (B9600 << IBSHIFT) | CS5 | PARENB | PARODD | CMSPAR | CSTOPB |
@@ -55,7 +55,7 @@ TEST(Line, AppliesSevenDataBitsOddParityTwoStopBitsAndHardwareFlowControl) {
             CREAD | CLOCAL
         )
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(s.c_ispeed, 19200u);
     EXPECT_EQ(s.c_ospeed, 19200u);
 }
@@ -69,7 +69,7 @@ TEST(Line, ClearsParityStopBitsAndFlowControlForTheDefaults) {
         s.c_cflag,
         static_cast<tcflag_t>(BOTHER | (BOTHER << IBSHIFT) | CS8 | CREAD | CLOCAL)
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(s.c_ospeed, 9600u);
 }
 
@@ -92,7 +92,7 @@ TEST(Line, KeepsTheFlagsItDoesNotOwn) {
 TEST(Line, PutsTheLineInRawMode) {
     auto s = dirty();
     ASSERT_NIL(apply(synnax::serial::Properties{}, s));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(s.c_oflag, static_cast<tcflag_t>(0));
     EXPECT_EQ(s.c_lflag, static_cast<tcflag_t>(0));
     EXPECT_TRUE(s.c_cflag & CREAD);
@@ -121,7 +121,7 @@ TEST(Line, AppliesSoftwareFlowControl) {
     p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
     auto s = dirty();
     ASSERT_NIL(apply(p, s));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IXON | IXOFF | IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | IXON | IXOFF));
     EXPECT_FALSE(s.c_cflag & CRTSCTS);
 }
 
@@ -144,7 +144,7 @@ TEST(Line, AppliesMarkParity) {
         s.c_cflag & (PARENB | PARODD | CMSPAR),
         static_cast<tcflag_t>(PARENB | PARODD | CMSPAR)
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(IGNPAR));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
 }
 
 /// @brief it should apply space parity.

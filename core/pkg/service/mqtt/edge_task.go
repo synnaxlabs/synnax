@@ -82,16 +82,23 @@ func newPublishedTag(
 	if cfg.CommandChannel == 0 {
 		return t, declared, nil
 	}
+	cmd, ok := channels[cfg.CommandChannel]
+	if !ok {
+		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
+			validate.ErrValidation,
+			"tag %s: command channel %d does not exist", cfg.Name, cfg.CommandChannel,
+		)
+	}
 	command, err := newReadTag(SparkplugReadEntry{
 		Group:    node.Group,
 		EdgeNode: node.EdgeNode,
 		Tag:      cfg.Name,
 		Channel:  cfg.CommandChannel,
-	}, channels)
+	}, cmd.Index(), cmd.DataType)
 	if err != nil {
 		return publishedTag{}, sparkplug.Tag{}, errors.Wrap(err, "command channel")
 	}
-	if cmd := channels[cfg.CommandChannel]; cmd.IsIndex {
+	if cmd.IsIndex {
 		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
 			"tag %s: command channel %s is an index channel", cfg.Name, cmd.Name,
@@ -101,7 +108,7 @@ func newPublishedTag(
 		return publishedTag{}, sparkplug.Tag{}, errors.Wrapf(
 			validate.ErrValidation,
 			"tag %s: command channel %s of type %s cannot take values of %s",
-			cfg.Name, channels[cfg.CommandChannel].Name, command.dataType,
+			cfg.Name, cmd.Name, command.dataType,
 			sparkplugType,
 		)
 	}
