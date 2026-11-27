@@ -135,6 +135,7 @@ var _ = Describe("Service", func() {
 		devices, tasksCfg = openDevices(ctx, node.DB)
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      node.DB,
 			HostKey: node.Identity.HostKey,
 			Status:  tasksCfg.Status,
@@ -384,7 +385,7 @@ var _ = Describe("Service", func() {
 					"pdo":    "Value",
 				}},
 			})).Error().To(MatchError(
-				ContainSubstring("channels.device: device gone does not exist"),
+				ContainSubstring("channels.0.device: device gone does not exist"),
 			))
 		})
 

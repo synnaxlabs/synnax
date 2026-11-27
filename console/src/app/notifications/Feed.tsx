@@ -11,11 +11,15 @@ import { Arc } from "@/feature/arc";
 import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
+import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
+import { MQTT } from "@/feature/mqtt";
 import { Rack } from "@/feature/rack";
 import { Sift } from "@/feature/sift";
 import { Task } from "@/feature/task";
 import { FileBrowser } from "@/platform/file-browser";
 import { Notifications } from "@/platform/notifications";
+import { Panel } from "@/platform/panel";
 import { Version } from "@/platform/version";
 
 const NOTIFICATIONS: Notifications.Notification[] = [
@@ -29,7 +33,12 @@ const RULES: Notifications.Rules = {
   channel: Channel.NOTIFICATION_RULE,
   device: Device.NOTIFICATION_RULE,
   rack: Rack.NOTIFICATION_RULE,
-  task: Task.createNotificationRule(Device.INTEGRATIONS, [FileBrowser.TASK_TYPE]),
+  task: Task.createNotificationRule(Device.INTEGRATIONS, [
+    FileBrowser.TASK_TYPE,
+    HTTP.Device.SCAN_TYPE,
+    Kafka.Device.SCAN_TYPE,
+    MQTT.Device.SCAN_TYPE,
+  ]),
 };
 
 const KEY_RULES: Notifications.KeyRules = Sift.NOTIFICATION_KEY_RULES;
@@ -37,4 +46,5 @@ const KEY_RULES: Notifications.KeyRules = Sift.NOTIFICATION_KEY_RULES;
 export const Feed = () => <Notifications.Feed notifications={NOTIFICATIONS} />;
 
 /** Notifies the status writes that the Core streams by the rules of each feature. */
-export const useForward = (): void => Notifications.useForward(RULES, KEY_RULES);
+export const useForward = (): void =>
+  Notifications.useForward(RULES, KEY_RULES, Panel.useGetIsShown());

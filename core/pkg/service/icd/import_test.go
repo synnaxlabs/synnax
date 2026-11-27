@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 	"math"
-	"slices"
 	"testing"
 	"uuid"
 
@@ -59,15 +58,14 @@ func importFile(
 	return res.Messages, err
 }
 
-// checkImport fails t unless err is a validation error at the data path, or the
-// messages have unique keys, references that resolve, and finite numbers.
+// checkImport fails t unless err is a validation error with no path, or the messages
+// have unique keys, references that resolve, and finite numbers.
 func checkImport(t *testing.T, messages []icd.Message, err error) {
 	t.Helper()
 	if err != nil {
-		pathErr, ok := errors.AsType[validate.PathError](err)
-		if !ok || !slices.Equal(pathErr.Path, []string{"data"}) ||
-			!errors.Is(pathErr.Err, validate.ErrValidation) {
-			t.Fatalf("not a validation error at the data path: %v", err)
+		_, pathed := errors.AsType[validate.PathError](err)
+		if pathed || !errors.Is(err, validate.ErrValidation) {
+			t.Fatalf("not a validation error with no path: %v", err)
 		}
 		return
 	}
@@ -288,7 +286,7 @@ var _ = Describe("Import", func() {
 
 	It("Should reject data that does not parse", func(ctx SpecContext) {
 		Expect(importICD(ctx, ic.Key, icd.ImportFormatCSV, "color\n")).Error().To(
-			MatchError(`data: row 1: unknown column "color": validation error`),
+			MatchError(HavePrefix(`row 1: unknown column "color": expected `)),
 		)
 	})
 
@@ -305,5 +303,42 @@ var _ = Describe("Import", func() {
 	It("Should return not found for a missing ICD", func(ctx SpecContext) {
 		Expect(importICD(ctx, uuid.New(), icd.ImportFormatDBC, importDBC)).Error().
 			To(MatchError(query.ErrNotFound))
+	})
+})
+
+var _ = Describe("ImportNew", func() {
+	It("Should create an ICD with the key and the name that holds the messages", func(
+		ctx SpecContext,
+	) {
+		key := uuid.New()
+		res := MustSucceed(svc.NewWriter(tx).
+			ImportNew(ctx, key, "Bus", icd.ImportFormatDBC, []byte(importDBC)))
+		Expect(res.Key).To(Equal(key))
+		Expect(res.Name).To(Equal("Bus"))
+		Expect(res.Messages).ToNot(BeEmpty())
+		Expect(retrieveICD(ctx, key)).To(Equal(res))
+	})
+
+	It("Should refuse a key that exists and keep its ICD", func(ctx SpecContext) {
+		ic := icd.ICD{Name: "Stored"}
+		w := svc.NewWriter(tx)
+		Expect(w.Create(ctx, &ic)).To(Succeed())
+		data := []byte(importDBC)
+		Expect(w.ImportNew(ctx, ic.Key, "Replaced", icd.ImportFormatDBC, data)).
+			Error().To(MatchError(ContainSubstring("icd %s already exists", ic.Key)))
+		Expect(retrieveICD(ctx, ic.Key)).To(Equal(ic))
+	})
+
+	It("Should create nothing when the data does not parse", func(ctx SpecContext) {
+		key := uuid.New()
+		Expect(svc.NewWriter(tx).
+			ImportNew(ctx, key, "Bus", icd.ImportFormatCSV, []byte("color\n"))).
+			Error().
+			To(MatchError(HavePrefix(`row 1: unknown column "color": expected `)))
+		var res icd.ICD
+		Expect(svc.NewRetrieve().
+			Where(icd.MatchKeys(key)).
+			Entry(&res).
+			Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 	})
 })

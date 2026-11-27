@@ -266,8 +266,8 @@ export class Table<
   // Holds a stamp for present and tombstoned entries, so a fetch from before a write
   // never restores the older record.
   private readonly writeStamps = new Map<Key, Stamp>();
-  // The write stamps of the keys that trim dropped. A trim forgets each one once no
-  // fetch in flight predates it.
+  // The write stamps of the dropped keys. Each is forgotten once no fetch in flight
+  // predates it.
   private readonly dropped = new Map<Key, Stamp>();
   // The stamps of the fetches in flight, oldest first, since the write sequence only
   // grows.
@@ -391,10 +391,6 @@ export class Table<
     const over = this.entries.size - size;
     const since = this.trimmedAt;
     this.trimmedAt = this.touchSeq;
-    const oldest = this.inFlight.at(0) ?? Infinity;
-    this.dropped.forEach((stamp, key) => {
-      if (stamp <= oldest) this.dropped.delete(key);
-    });
     if (over <= 0) return [];
     const held = this.held();
     const touchOf = (key: Key): number => this.meta.get(key)?.touch ?? 0;
@@ -584,6 +580,10 @@ export class Table<
       return await fetch(since);
     } finally {
       this.inFlight.splice(this.inFlight.indexOf(since), 1);
+      const oldest = this.inFlight.at(0) ?? Infinity;
+      this.dropped.forEach((stamp, key) => {
+        if (stamp <= oldest) this.dropped.delete(key);
+      });
     }
   }
 

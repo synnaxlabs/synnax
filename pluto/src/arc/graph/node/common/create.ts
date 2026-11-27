@@ -22,8 +22,7 @@ export interface OperatorParams<T extends string> {
 }
 
 // createOperator builds the spec for a parameter-less binary/unary operator: a glyph
-// with fixed input/output handles, no config form. This is the operator analog of the
-// schematic node factories in @/schematic/node/common/create.
+// with fixed input/output handles, no config form.
 export const createOperator = <T extends string>({
   key,
   name,

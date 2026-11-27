@@ -217,6 +217,17 @@ const mountReaders = async ({
   };
 };
 
+describe("Suspend.usePendingFetch", () => {
+  it("fulfills a first value of undefined, then keeps its promise", async () => {
+    const { result } = renderHook(() =>
+      Suspend.usePendingFetch<{ key: string }, undefined>({ key: "a" }),
+    );
+    const promise = result.current.fulfill(undefined);
+    await expect(promise).resolves.toBeUndefined();
+    expect(result.current.fulfill(undefined)).toBe(promise);
+  });
+});
+
 describe("invalidate", () => {
   it("starts a new fetch instead of joining the one it discarded", async () => {
     const { answers, read, expectValue, discard, expectSettled } = await mountReaders();

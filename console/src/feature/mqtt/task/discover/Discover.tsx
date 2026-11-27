@@ -21,7 +21,11 @@ import { useState } from "react";
 
 import type { Device } from "@/feature/mqtt/device";
 import { TagPicker, type TagPicks } from "@/feature/mqtt/task/discover/Tags";
-import { TopicPicker, type TopicPicks } from "@/feature/mqtt/task/discover/Topics";
+import {
+  countOf,
+  TopicPicker,
+  type TopicPicks,
+} from "@/feature/mqtt/task/discover/Topics";
 import type { HeldEntry } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
@@ -29,7 +33,8 @@ import type { Modals } from "@/platform/modals";
 
 type Mode = "topics" | "sparkplug";
 
-const FORMAT_HELP = "Optional. A topic with no format gets one from its last message.";
+const FORMAT_HELP =
+  "Optional. A topic with no format gets one from the kind of message it sends most.";
 
 /** A message of an ICD. */
 export interface Format {
@@ -65,6 +70,8 @@ export interface Kind<E> {
   formatPickable?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
   create: (picks: Picks, entries: HeldEntry[]) => E[];
+  /** Says why the list can miss a topic. Set, adding a topic by name comes first. */
+  unlistedHint?: string;
   /** @returns what a topic added by name adds. Absent, the dialog lists no topics. */
   createTopic?: (topic: string, picks: Picks) => E;
   /** @returns what a tag added by name adds. Absent, the dialog lists no tags. */
@@ -94,7 +101,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
   const entryCount =
     kind.whole === true
       ? topicPicks.size
-      : math.sum([...topicPicks.values()].map((p) => p.pointers.size));
+      : math.sum([...topicPicks.values()].map(countOf));
   const parts: string[] = [];
   const topics = pluralize("topic", topicPicks.size, true);
   if (kind.whole === true && entryCount > 0) parts.push(topics);
@@ -121,6 +128,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
             entries={entries}
             whole={kind.whole}
             indexed={kind.indexed}
+            unlistedHint={kind.unlistedHint}
             value={topicPicks}
             onChange={setTopicPicks}
             onAddByName={(topic) => add(() => [createTopic(topic, picks)])}

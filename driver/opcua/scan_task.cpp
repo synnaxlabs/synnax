@@ -147,7 +147,7 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             devices,
             x::errors::Error(
                 common::PARTIAL_SCAN_ERROR,
-                "Failed to renew the Driver certificate: " + renew_err.data
+                "Failed to renew the Driver certificate: " + renew_err.data()
             )
         };
     if (records_err)
@@ -155,7 +155,8 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             devices,
             x::errors::Error(
                 common::PARTIAL_SCAN_ERROR,
-                "Failed to save the Driver certificate in the Core: " + records_err.data
+                "Failed to save the Driver certificate in the Core: " +
+                    records_err.data()
             )
         };
     return {devices, x::errors::NIL};
@@ -170,7 +171,7 @@ bool Scanner::exec(
     if (err) {
         auto status = command_status(this->task, cmd);
         status.message = "Failed to spend grant";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return true;
     }
@@ -237,7 +238,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     if (const auto err = connection::read_password(cfg, *this->reader)) {
         status.variant = synnax::status::VARIANT_WARNING;
         status.message = "Failed to read password";
-        status.description = err.data;
+        status.description = err.data();
         status.details.connected = false;
         dev.status = status;
         return err;
@@ -245,7 +246,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
     if (const auto err = connection::read_certificates(cfg, *this->reader)) {
         status.variant = synnax::status::VARIANT_WARNING;
         status.message = failure_message(err, cfg, "Failed to read certificate");
-        status.description = err.data;
+        status.description = err.data();
         status.details.connected = false;
         dev.status = status;
         return err;
@@ -262,7 +263,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
             status.variant = conn_err.matches(errors::SECURITY)
                                ? synnax::status::VARIANT_ERROR
                                : synnax::status::VARIANT_WARNING;
-            status.description = conn_err.data;
+            status.description = conn_err.data();
             status.details.connected = server_answered(conn_err);
             dev.status = status;
             return x::errors::NIL;
@@ -279,7 +280,7 @@ x::errors::Error Scanner::check_device_health(synnax::device::Device &dev) {
                 if (const auto err = this->ctx->client->certificates.set(pinned)) {
                     status.variant = synnax::status::VARIANT_WARNING;
                     status.message = "Failed to save server certificate";
-                    status.description = err.data;
+                    status.description = err.data();
                     dev.status = status;
                     return err;
                 }
@@ -374,7 +375,7 @@ void Scanner::certificates(
     if (err) {
         status.message = regenerate ? "Failed to regenerate the Driver certificate"
                                     : "Failed to load the Driver certificate";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return;
     }
@@ -637,7 +638,7 @@ std::pair<Search, x::errors::Error> find_variables(
             if (const auto &browse_err = results[i].err) {
                 search.skipped.emplace_back(
                     browse_err,
-                    objects[head + i].node.to_string() + ": " + browse_err.data
+                    objects[head + i].node.to_string() + ": " + browse_err.data()
                 );
                 continue;
             }
@@ -868,7 +869,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     auto [cfg, cfg_err] = this->connection_of(args, grant);
     if (cfg_err) {
         status.message = "Failed to connect to server";
-        status.description = cfg_err.data;
+        status.description = cfg_err.data();
         ctx->set_status(status);
         return std::nullopt;
     }
@@ -876,7 +877,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     auto [connection, err] = conn_pool->acquire(cfg, SCAN_LOG_PREFIX, deadline);
     if (err) {
         status.message = "Failed to connect to server";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return std::nullopt;
     }
@@ -888,7 +889,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
     if (!ns_err) ns_err = connection.update_namespaces(ns_res.get().results[0]).second;
     if (ns_err) {
         status.message = failure;
-        status.description = ns_err.data;
+        status.description = ns_err.data();
         ctx->set_status(status);
         return std::nullopt;
     }
@@ -952,7 +953,7 @@ void Scanner::browse_nodes(
     }
     if (err) {
         status.message = "Failed to browse nodes";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return;
     }
@@ -965,7 +966,7 @@ void Scanner::browse_nodes(
     if (members_err) {
         status.message = "Failed to list structure members";
         status.variant = synnax::status::VARIANT_WARNING;
-        status.description = members_err.data;
+        status.description = members_err.data();
     }
     status.details.data = {{"channels", channels}, {"truncated", truncated}};
     ctx->set_status(status);
@@ -999,13 +1000,13 @@ void Scanner::browse_variables(
     if (!err) std::tie(nodes, err) = to_nodes(connection, refs, deadline);
     if (err) {
         status.message = "Failed to find variables";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return;
     }
     x::json::json skipped = x::json::json::array();
     for (const auto &skip_err: search.skipped)
-        skipped.push_back(skip_err.data);
+        skipped.push_back(skip_err.data());
     x::json::json channels = x::json::json::array();
     for (size_t i = 0; i < nodes.size(); ++i) {
         auto node = nodes[i].to_json();
@@ -1050,7 +1051,7 @@ void Scanner::read_node(
     auto [data, details_err] = read_details(connection, id, args.field, deadline);
     if (details_err) {
         status.message = "Failed to read node";
-        status.description = details_err.data;
+        status.description = details_err.data();
         ctx->set_status(status);
         return;
     }
@@ -1076,21 +1077,21 @@ void Scanner::test_connection(
     }
     if (const auto err = read_sent_items(cfg, *this->reader, grant)) {
         status.message = "Failed to connect to server";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return;
     }
     auto [sec, sec_err] = connection::resolve_security(cfg, *this->store);
     if (sec_err) {
         status.message = failure_message(sec_err, cfg, "Failed to connect to server");
-        status.description = sec_err.data;
+        status.description = sec_err.data();
         ctx->set_status(status);
         return;
     }
     auto [client, err] = connection::connect(cfg, sec, SCAN_LOG_PREFIX);
     if (err) {
         status.message = failure_message(err, cfg, "Failed to connect to server");
-        status.description = err.data;
+        status.description = err.data();
         if (err.matches(errors::SERVER_CERTIFICATE_UNTRUSTED))
             if (const auto cert = connection::server_certificate(client.get()))
                 status.details.data = {
@@ -1120,7 +1121,7 @@ void Scanner::endpoints(const synnax::task::Command &cmd) const {
     auto [endpoints, err] = connection::endpoints(cfg);
     if (err) {
         status.message = "Failed to get endpoints";
-        status.description = err.data;
+        status.description = err.data();
         ctx->set_status(status);
         return;
     }

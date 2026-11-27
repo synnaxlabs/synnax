@@ -87,5 +87,16 @@ describe("language", () => {
         "./arc.language-configuration.json",
       ]);
     });
+
+    it("should register a grammar that holds characters outside Latin-1", async () => {
+      const raw = JSON.stringify({ match: "[α-ω→≤]+" });
+      await Code.registerLanguage({
+        ...LANGUAGE,
+        grammar: { scopeName: "source.arc", raw },
+      });
+      const [, url] = registerFileURLMock.mock.calls[0] as [string, string];
+      const body = url.slice(url.indexOf(",") + 1);
+      expect(decodeURIComponent(body)).toBe(raw);
+    });
   });
 });

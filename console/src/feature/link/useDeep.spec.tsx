@@ -138,6 +138,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       secure: false,
     },
   },
+  order: [CORE_KEY, OTHER_CORE_KEY, THIRD_CORE_KEY],
   selected: CORE_KEY,
 });
 

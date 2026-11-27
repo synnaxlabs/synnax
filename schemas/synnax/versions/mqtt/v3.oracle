@@ -142,6 +142,7 @@ WriteConfig struct extends task.StartConfig {
         configures an MQTT write task, which publishes a message whenever a value is
         written to the command channel of a target.
     """
+    @go entry   "mqtt_write_config"
     @go imex    body
     @go marshal
     @go migrate

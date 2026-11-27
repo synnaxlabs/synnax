@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -148,6 +149,27 @@ var _ = Describe("Read config", func() {
 		)))
 	})
 
+	It("Should drop the fields and index of an endpoint from before ICDs",
+		func(ctx SpecContext) {
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"endpoints": []any{map[string]any{
+					"key":    "ep",
+					"path":   "/values",
+					"fields": []any{map[string]any{"key": "f", "pointer": "/temp"}},
+					"index":  "f",
+				}},
+			}))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
+			Expect(data["endpoints"]).To(HaveExactElements(SatisfyAll(
+				HaveKeyWithValue("key", "ep"),
+				Not(HaveKey("fields")),
+				Not(HaveKey("index")),
+				Not(HaveKey("icd")),
+				HaveKeyWithValue("messages", BeEmpty()),
+			)))
+		},
+	)
+
 	It("Should save an endpoint that reads its ICD", func(ctx SpecContext) {
 		f := createFormat(ctx)
 		key := MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(
@@ -195,6 +217,25 @@ var _ = Describe("Read config", func() {
 		}, "endpoints.1.messages.0.bindings.0.channel",
 			"is also written by endpoints.0.messages.0.bindings.0.channel"),
 	)
+
+	It("Should reject two endpoints that write one index channel", func(
+		ctx SpecContext,
+	) {
+		f := createFormat(ctx)
+		level := createChannel(ctx, telem.Float64T, f.idx)
+		Expect(svc.Read.Prepare(ctx, db, uuid.New(), "Pump", readConfigOf(
+			f.ic,
+			readMessage(f.m, binding(f.m, 1, f.value)),
+			readMessage(f.m, binding(f.m, 1, level)),
+		))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(fmt.Sprintf(
+				"endpoints.1.messages.0: channel %d is also written by "+
+					"endpoints.0.messages.0",
+				f.idx.Key(),
+			)),
+		))
+	})
 
 	DescribeTable(
 		"Should save a disabled endpoint without checking its reads",

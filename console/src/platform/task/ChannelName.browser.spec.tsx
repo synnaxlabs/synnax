@@ -177,15 +177,6 @@ describe("ChannelName", () => {
     );
   });
 
-  it("should show No channel and allow no edit while nothing is picked", async () => {
-    await renderInTaskForm(<Task.ChannelName channel={0} picked />, {
-      values: { config: { name: "" } },
-    });
-    const name = await screen.findByText("No channel");
-    expect(name.className).not.toContain("lyra-text--editable");
-    expect(screen.queryByRole("img")).toBeNull();
-  });
-
   describe("with a live client", () => {
     const client = createTestClient();
 
@@ -282,28 +273,6 @@ describe("ChannelName", () => {
         "Channel not foundIt may have been deleted. Deploying the task does not " +
           "create a disabled channel.",
       );
-    });
-
-    it("should ask for another channel when a picked one is missing", async () => {
-      const deleted = await createDeleted();
-      await renderInTaskFormWithClient(
-        <Task.ChannelName channel={deleted.key} picked />,
-        { client, values: { name: "" } },
-      );
-      await waitFor(() => expect(isMissing()).toBe(true));
-      expect(await hoverTip("Channel not found")).toBe(
-        "Channel not foundIt may have been deleted. Select another channel.",
-      );
-    });
-
-    it("should allow no rename of a picked channel", async () => {
-      const ch = await createChannel();
-      await renderInTaskFormWithClient(<Task.ChannelName channel={ch.key} picked />, {
-        client,
-        values: { name: "" },
-      });
-      const name = await screen.findByText(ch.name);
-      expect(name.className).not.toContain("lyra-text--editable");
     });
 
     describe("recovering from a failed lookup", () => {

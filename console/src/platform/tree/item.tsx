@@ -113,6 +113,10 @@ export interface Item extends FC<ItemProps> {
   ContextMenu?: ContextMenu;
   /** A deep link opens a resource of this type. */
   linkable: boolean;
+  /** The name of the resource type, such as "Task", when the item gives one. */
+  typeName?: string;
+  /** Whether a double click on the item opens its resource. */
+  selectable: boolean;
   /** Returns the icon that the item shows for the resource. */
   icon: (resource: Resource) => Icon.ReactElement | undefined;
   /** Renders its children with the handler that a double click on the item runs. */
@@ -177,7 +181,7 @@ export interface CreateItemParams {
 
 export const createItem = ({
   icon,
-  useOnSelect = () => noop,
+  useOnSelect,
   children,
   hasChildren = children != null,
   folder = false,
@@ -191,6 +195,7 @@ export const createItem = ({
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
+  const useSelect = useOnSelect ?? (() => noop);
   const resolveIcon = (resource: Resource): Icon.ReactElement | undefined =>
     Icon.resolve(typeof icon === "function" ? icon(resource) : icon);
   const facts = typeName == null ? [] : [typeName];
@@ -203,7 +208,7 @@ export const createItem = ({
     />
   );
   const Component = (props: ItemProps): ReactElement => {
-    const onSelect = useOnSelect();
+    const onSelect = useSelect();
     const handleDoubleClick = () => onSelect(props.resource);
     return (
       <Row
@@ -214,7 +219,7 @@ export const createItem = ({
     );
   };
   const OnSelect = ({ children }: OnSelectProps): ReactNode => {
-    const onSelect = useOnSelect();
+    const onSelect = useSelect();
     return children(onSelect);
   };
   const item = Component as Item;
@@ -229,6 +234,8 @@ export const createItem = ({
   item.haulPreview = haulPreview ?? defaultHaulPreview;
   item.ContextMenu = ContextMenu;
   item.linkable = linkable;
+  item.typeName = typeName;
+  item.selectable = useOnSelect != null;
   return item;
 };
 

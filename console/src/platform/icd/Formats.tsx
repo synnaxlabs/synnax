@@ -21,7 +21,8 @@ import {
   useState,
 } from "react";
 
-import { jsonFields, type Messages } from "@/platform/icd/read";
+import { fieldNames } from "@/platform/icd/fieldNames";
+import { fieldsPath, jsonFields, type Messages } from "@/platform/icd/read";
 import { Task } from "@/platform/task";
 
 /** The form that edits an ICD. */
@@ -85,6 +86,34 @@ export const fieldsOf = (
       ?.value()
       .messages.find(({ key }) => key === message),
   );
+
+/** Inserts entries into the lists of one ICD. */
+export type Inserter = Pick<FormatForm, "insert">;
+
+/**
+ * Appends each field whose pointer the message lacks.
+ * @returns the fields it appends.
+ */
+export const appendFields = (
+  to: Inserter,
+  message: icd.Message,
+  fields: icd.JSONField[],
+): icd.JSONField[] => {
+  const held = jsonFields(message);
+  const pointers = new Set(held.map(({ pointer }) => pointer));
+  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
+  const names = fieldNames(
+    added.map(({ pointer }) => pointer),
+    held.map(({ name }) => name),
+  );
+  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
+  let after = held.at(-1)?.key;
+  for (const field of appended) {
+    to.insert(fieldsPath(message.key), field, after);
+    after = field.key;
+  }
+  return appended;
+};
 
 interface WithFormatProps extends PropsWithChildren {
   icdKey: icd.Key;

@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/patch"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -67,5 +69,68 @@ var _ = Describe("Actions", func() {
 			Name:     "Vehicle",
 			Messages: []icd.Message{},
 		}))
+	})
+
+	Describe("Framing", func() {
+		fixed := func(length uint32) *icd.Framing {
+			return &icd.Framing{Variant: icd.FixedFraming{Length: length}}
+		}
+
+		It("Should set the framing of an ICD with none", func() {
+			next := MustSucceed(
+				icd.Reduce(base, set([]string{"framing"}, map[string]any{
+					"type":              "sync",
+					"sync":              "qlU=",
+					"length_offset":     2,
+					"length_size":       "two",
+					"byte_order":        "big_endian",
+					"length_adjustment": 0,
+					"checksum": map[string]any{
+						"algorithm":  "crc32",
+						"byte_order": "little_endian",
+					},
+					"max_length": 512,
+				})),
+			)
+			Expect(next.Framing).To(Equal(&icd.Framing{Variant: icd.SyncFraming{
+				Sync:         []byte{0xAA, 0x55},
+				LengthOffset: 2,
+				LengthSize:   icd.LengthSizeTwo,
+				ByteOrder:    icd.ByteOrderBigEndian,
+				Checksum: &icd.Checksum{
+					Algorithm: icd.ChecksumAlgorithmCrc32,
+					ByteOrder: icd.ByteOrderLittleEndian,
+				},
+				MaxLength: 512,
+			}}))
+		})
+
+		It("Should set one value of the framing", func() {
+			framed := base
+			framed.Framing = fixed(8)
+			Expect(icd.Reduce(framed, icd.NewSetAction(icd.SetPayload{
+				Path:  []string{"framing", "length"},
+				Value: 64,
+				Guards: []patch.Guard{
+					{Path: []string{"framing", "type"}, Value: "fixed"},
+				},
+			}))).To(HaveField("Framing", Equal(fixed(64))))
+		})
+
+		It("Should remove the framing", func() {
+			framed := base
+			framed.Framing = fixed(8)
+			Expect(icd.Reduce(
+				framed,
+				icd.NewRemoveAction(icd.RemovePayload{Key: "framing"}),
+			)).To(HaveField("Framing", BeNil()))
+		})
+
+		It("Should remove the framing on a set that holds no value", func() {
+			framed := base
+			framed.Framing = fixed(8)
+			Expect(icd.Reduce(framed, set([]string{"framing"}, nil))).
+				To(HaveField("Framing", BeNil()))
+		})
 	})
 })

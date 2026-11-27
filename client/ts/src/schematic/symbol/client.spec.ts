@@ -22,7 +22,6 @@ const client = createTestClient();
 const SYMBOL_DATA: schematic.symbol.New["data"] = {
   drawing: { type: "svg", markup: "<svg></svg>" },
   handles: [],
-  variant: "sensor",
 };
 
 const createSymbolGroup = async (parent?: resource.ID): Promise<group.Group> =>
@@ -47,7 +46,6 @@ describe("Symbol Client", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -63,7 +61,6 @@ describe("Symbol Client", () => {
             data: {
               drawing: { type: "svg", markup: "<svg></svg>" },
               handles: [],
-              variant: "sensor",
             },
             group: symbolGroup.key,
           },
@@ -72,7 +69,6 @@ describe("Symbol Client", () => {
             data: {
               drawing: { type: "svg", markup: "<svg></svg>" },
               handles: [],
-              variant: "sensor",
             },
             group: symbolGroup.key,
           },
@@ -91,7 +87,6 @@ describe("Symbol Client", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -109,7 +104,6 @@ describe("Symbol Client", () => {
             data: {
               drawing: { type: "svg", markup: "<svg></svg>" },
               handles: [],
-              variant: "sensor",
             },
             group: symbolGroup.key,
           },
@@ -118,7 +112,6 @@ describe("Symbol Client", () => {
             data: {
               drawing: { type: "svg", markup: "<svg></svg>" },
               handles: [],
-              variant: "sensor",
             },
             group: symbolGroup.key,
           },
@@ -348,7 +341,6 @@ describe("Symbol Client", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });
@@ -384,7 +376,6 @@ describe("Symbol Client", () => {
         data: {
           drawing: { type: "svg", markup: "<svg></svg>" },
           handles: [],
-          variant: "sensor",
         },
         group: symbolGroup.key,
       });

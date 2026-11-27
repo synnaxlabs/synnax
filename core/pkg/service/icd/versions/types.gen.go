@@ -401,5 +401,14 @@ type ValueWriteBinding = v1.ValueWriteBinding
 // WriteMessage sends one message of an ICD.
 type WriteMessage = v1.WriteMessage
 
+// Poll is a query that a read task sends at a fixed rate.
+type Poll = v1.Poll
+
+// ReadEntry reads the messages of one device on a serial port or a socket.
+type ReadEntry = v1.ReadEntry
+
+// WriteTarget sends one message to one device on a serial port or a socket.
+type WriteTarget = v1.WriteTarget
+
 // BinaryBaseField carries the parts every binary field shares.
 type BinaryBaseField = v1.BinaryBaseField

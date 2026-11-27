@@ -34,7 +34,6 @@ func heater() symbol.Symbol {
 		Name: "Heater",
 		Data: symbol.Spec{
 			Drawing: symbol.Drawing{Variant: symbol.SvgDrawing{Markup: "<svg/>"}},
-			Variant: "static",
 			States: []symbol.State{
 				{Variant: symbol.EnumerationState{
 					BaseState: symbol.BaseState{Key: "active", Name: "Active"},
@@ -142,19 +141,14 @@ var _ = Describe("Symbol nodes", func() {
 			},
 		}
 		createSchematic(ctx, &s)
-		legacy := schematic.Schematic{
+		other := schematic.Schematic{
 			Project: &proj.Key,
-			Name:    "custom statics",
-			Nodes: []schematic.Node{configured(
-				node("n", 0, 0),
-				defaults.Fill(schematic.NodeConfig{
-					Variant: schematic.CustomStaticNodeConfig{
-						SpecKey: sym.Key.String(),
-					},
-				}),
-			)},
+			Name:    "built-ins",
+			Nodes: []schematic.Node{
+				symbolNode("n", schematic.SymbolNodeConfig{Spec: builtinRef("valve")}),
+			},
 		}
-		createSchematic(ctx, &legacy)
+		createSchematic(ctx, &other)
 		Expect(svc.Symbol.Uses(ctx, db, sym.Key)).
 			To(Equal([]resource.ID{schematic.ResourceID(s.Key)}))
 	})

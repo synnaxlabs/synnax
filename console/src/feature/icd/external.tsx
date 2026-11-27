@@ -16,7 +16,7 @@ import { Panel } from "@/platform/panel";
 export * from "@/feature/icd/commands";
 export * from "@/feature/icd/link";
 export * from "@/feature/icd/search";
-export * from "@/feature/icd/Toolbar";
+export * from "@/feature/icd/Settings";
 export * from "@/feature/icd/useCreate";
 export * from "@/feature/icd/useImport";
 

@@ -1,0 +1,174 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+#include <chrono>
+#include <string>
+#include <system_error>
+#include <thread>
+#include <type_traits>
+
+#include "asio/buffer.hpp"
+#include "asio/write.hpp"
+
+#include "driver/serial/device.h"
+#include "driver/serial/errors.h"
+#include "driver/serial/port.h"
+#include "driver/transport/errors.h"
+
+namespace driver::serial {
+namespace {
+/// @brief DRAIN_TIMEOUT is how long a closing port waits for its written bytes to
+/// leave.
+const auto DRAIN_TIMEOUT = x::telem::SECOND;
+
+/// @returns handle, which is a file descriptor on POSIX and a HANDLE on Windows, as a
+/// native::Handle.
+template<typename NativeHandle>
+native::Handle to_native(const NativeHandle handle) {
+    if constexpr (std::is_pointer_v<NativeHandle>)
+        return reinterpret_cast<native::Handle>(handle);
+    else
+        return static_cast<native::Handle>(handle);
+}
+
+/// @brief cancels the pending operations of device.
+void cancel(asio::serial_port &device) {
+    std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): it fails only when closed.
+    device.cancel(ignored);
+}
+
+/// @returns true when the output written to handle leaves within DRAIN_TIMEOUT.
+bool drain(const native::Handle handle) {
+    const x::telem::Stopwatch sw;
+    while (sw.elapsed() < DRAIN_TIMEOUT) {
+        const auto [queued, ec] = native::queued_output(handle);
+        if (ec) return false;
+        if (queued == 0) return true;
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    return false;
+}
+}
+
+native::Handle Port::handle() {
+    return to_native(this->device.native_handle());
+}
+
+std::pair<std::unique_ptr<Port>, x::errors::Error>
+Port::open(const synnax::serial::Properties &props) {
+    if (props.port.empty())
+        return {
+            nullptr,
+            x::errors::Error(transport::CONFIG_ERROR, "serial port path is required")
+        };
+    if (auto err = native::check(props)) return {nullptr, err};
+    auto port = std::unique_ptr<Port>(new Port(props.port));
+    if (auto err = device::open(port->device, props.port)) return {nullptr, err};
+    if (auto err = native::configure(port->handle(), props)) return {nullptr, err};
+    if (const auto watched = native::watch(port->handle(), port->line))
+        return {
+            nullptr,
+            translate("failed to open serial port " + props.port, watched)
+        };
+    return {std::move(port), x::errors::NIL};
+}
+
+void Port::close() {
+    native::unlock(this->handle());
+    std::error_code ignored;
+    // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
+    this->device.close(ignored);
+}
+
+x::errors::Error Port::fail(const x::errors::Error &err) {
+    native::discard_output(this->handle());
+    this->close();
+    this->failure = err;
+    return this->failure;
+}
+
+Port::~Port() {
+    if (!this->device.is_open()) return;
+    // The last close of a tty waits up to 30 seconds for output that has not left.
+    if (!drain(this->handle())) native::discard_output(this->handle());
+    this->close();
+}
+
+std::pair<transport::Chunk, x::errors::Error>
+Port::read(const x::telem::TimeSpan timeout) {
+    if (this->failure) return {{}, this->failure};
+    const auto context = "failed to read from serial port " + this->path;
+    const x::telem::Stopwatch sw;
+    transport::Chunk chunk;
+    // Empty data means that the timeout elapsed, so the port reads again after a read
+    // whose bytes were all line errors.
+    while (chunk.data.empty()) {
+        const auto done = transport::run_for(
+            this->ctx,
+            timeout - sw.elapsed(),
+            [this](transport::Handler handler) {
+                this->device.async_read_some(
+                    asio::buffer(this->buffer.data(), this->buffer.size()),
+                    std::move(handler)
+                );
+            },
+            [this] { cancel(this->device); }
+        );
+        // Windows completes a cancelled read with the bytes that it already received.
+        if (done.timed_out() && done.size == 0) return {chunk, x::errors::NIL};
+        if (done.ec && !done.timed_out())
+            return {{}, this->fail(translate(context, done.ec))};
+        const auto [received, ec] = native::receive(
+            this->handle(),
+            this->line,
+            {this->buffer.data(), done.size}
+        );
+        chunk.data = {this->buffer.data(), received.size};
+        chunk.time = done.time;
+        chunk.errors += received.errors;
+        chunk.overruns += received.overruns;
+        // The bytes that arrived come back now, and the next call returns the error.
+        if (ec) {
+            this->fail(translate(context, ec));
+            if (chunk.data.empty()) return {{}, this->failure};
+            break;
+        }
+        // A read of queued marks completes at once, so run_for never times out.
+        if (sw.elapsed() >= timeout) break;
+    }
+    return {chunk, x::errors::NIL};
+}
+
+x::errors::Error Port::write(
+    const std::span<const std::uint8_t> data,
+    const x::telem::TimeSpan timeout
+) {
+    if (this->failure) return this->failure;
+    const auto done = transport::run_for(
+        this->ctx,
+        timeout,
+        [this, data](transport::Handler handler) {
+            asio::async_write(
+                this->device,
+                asio::buffer(data.data(), data.size()),
+                std::move(handler)
+            );
+        },
+        [this] { cancel(this->device); }
+    );
+    const auto context = "failed to write to serial port " + this->path;
+    if (done.timed_out())
+        return this->fail(
+            translate(context, std::make_error_code(std::errc::timed_out))
+        );
+    if (done.ec) return this->fail(translate(context, done.ec));
+    return x::errors::NIL;
+}
+}
