@@ -831,16 +831,21 @@ then of port numbers, drops the others, and writes a warning status.
 **Amendments to RFC 0113** (the spool is not built yet, so its first format takes them):
 
 1. **Groups in the spool**: A spool segment records, with its channels, its writer's
-   time groups and, until Phase 50, the index key of each channel. A segment that a
-   Driver spooled with index keys drains on a Core past Phase 50: the drainer groups
-   each frame by index key, writes each index series as the `"time"` of its group, and
-   opens with `time_groups`. A segment that fails at open for a reason outside RFC 0113
-   §3.3 is set aside with a status that names it, so it never blocks the spool.
-2. **Authority at the drain**: The forwarder spools each frame before the authority
-   filter, with its subject, and the Core filters at the drain. So a handoff during an
-   outage never spools a partial group.
-3. **Phases**: RFC 0113 Phase 6 builds 1 and 2. Phase 31 here drains an index-keyed
-   segment, with a spec that spools on one release and drains on the next with no loss.
+   time groups and, until Phase 50, the index key of each channel, and each spooled
+   `pb::Frame` keeps the frame's group time list (§4.9). A segment that a Driver spooled
+   with index keys drains on a Core past Phase 50: the drainer groups each frame by
+   index key, writes each index series as the `"time"` of its group, and opens with
+   `time_groups`. A segment that fails at open for a reason outside RFC 0113 §3.3 is set
+   aside with a status that names it, so it never blocks the spool.
+2. **Authority in the spool**: The forwarder spools the frame after the local authority
+   filter, as RFC 0113 §3.3 does, and records with it the keys that the filter dropped.
+   The drainer counts those keys as present for the group check and then drops them, as
+   the framer's authority step does after its group check (§4.8). So each dropped key
+   pauses, the rest of its group writes, and the authority of the outage holds.
+3. **Phases**: RFC 0113 Phase 6, the spool format, takes 1. RFC 0113 Phase 7, the
+   forwarder and the drainer, takes 2. Phase 31 here follows RFC 0113 Phase 7 and drains
+   an index-keyed segment, with a spec that spools on one release and drains on the next
+   with no loss.
 
 ### 4.10 Migration
 
@@ -1045,6 +1050,7 @@ splits along its touches before it opens, each part green alone.
 Dependencies on other RFCs:
 
 - Phase 1 carries code moves that RFC 0119 Phases 3 and 25 and RFC 0121 Phase 5 need.
+- Phase 31 follows RFC 0113 Phase 7, which spools in the form of §4.9.
 - Phases 2 to 4 and 18 follow RFC 0121 Phase 6 (the pointer log). Phases 2 to 4 land
   before RFC 0121 Phase 8.
 - Phase 21 follows RFC 0119 Phase 3 (the calculation record), which also stops the Core
