@@ -709,13 +709,13 @@ describe("createDocumentForm", () => {
     const t = await createTask();
     const { result } = await renderWithToasts(t.key);
     const refuse = async (): Promise<void> => {
-      act(() => result.current.form.set(path.name, ""));
+      await act(async () => result.current.form.set(path.name, ""));
       await act(async () => expect(await result.current.flush()).toBe(false));
       await waitFor(() => expect(result.current.failures).toHaveLength(1));
     };
     await refuse();
-    act(() => result.current.silence(result.current.failures[0].key));
-    expect(result.current.failures).toHaveLength(0);
+    await act(async () => result.current.silence(result.current.failures[0].key));
+    await waitFor(() => expect(result.current.failures).toHaveLength(0));
     await refuse();
   });
 
