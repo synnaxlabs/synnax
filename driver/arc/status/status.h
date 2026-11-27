@@ -43,7 +43,8 @@ const std::string KEY_FAILURE_MSG = "Failed to save status key";
 /// @brief returns the description for sets the outbox refused.
 inline std::string
 refused_description(const size_t count, const x::errors::Error &err) {
-    const auto dropped = "Dropped " + std::to_string(count) + " sets";
+    const auto dropped = "Dropped " + std::to_string(count) +
+                         (count == 1 ? " set" : " sets");
     if (err.matches(::driver::outbox::FULL))
         return dropped +
                ", because the Driver holds the most changes it can until the Core "
