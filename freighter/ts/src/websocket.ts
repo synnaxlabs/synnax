@@ -121,6 +121,8 @@ const KEEP_ALIVE_PARAM = "keep_alive";
 // frame, so a keep-alive needs no decoding.
 const KEEP_ALIVE_MESSAGE = '{"type":"keep_alive"}';
 
+const STALL_GRACE = TimeSpan.milliseconds(500);
+
 // WebSocket has no drain event, so send polls bufferedAmount.
 const DRAIN_POLL_INTERVAL = TimeSpan.milliseconds(5);
 
@@ -286,10 +288,17 @@ class WebSocketStream<
     );
   }
 
-  private checkStall(timeout: TimeSpan, delay: number = timeout.milliseconds): void {
+  private checkStall(
+    timeout: TimeSpan,
+    delay: number = timeout.milliseconds,
+    overdue = false,
+  ): void {
     this.stallTimer = setTimeout(() => {
       const remaining = timeout.milliseconds - (performance.now() - this.lastMessage);
       if (remaining > 0) return this.checkStall(timeout, remaining);
+      // A page that resumes from a freeze can run this timer before the messages that
+      // arrived during the freeze, so they get a grace period to run first.
+      if (!overdue) return this.checkStall(timeout, STALL_GRACE.milliseconds, true);
       this.fail(
         new Unreachable({
           url: this.endpoint,

@@ -470,10 +470,16 @@ describe("local server", () => {
 
   describe("keep-alive", () => {
     const TIMEOUT = TimeSpan.milliseconds(200);
+    const DETECT_MARGIN = TimeSpan.seconds(1);
     const keepAlive = { interval: TimeSpan.milliseconds(50), timeout: TIMEOUT };
 
     const createClient = (config: Partial<KeepAlive>): WebSocketClient =>
       new WebSocketClient({ endpoint, codec: binary.JSON_CODEC, keepAlive: config });
+
+    const freeze = (span: TimeSpan): void => {
+      const end = performance.now() + span.milliseconds;
+      while (performance.now() < end);
+    };
 
     const sendKeepAliveFirst = (ws: WebSocket): void => {
       ws.send(KEEP_ALIVE_MESSAGE);
@@ -538,10 +544,29 @@ describe("local server", () => {
           err.message === `stream received no message for ${TIMEOUT.toString()}` &&
           err.url.port === (server.address() as AddressInfo).port,
       );
-      expect(performance.now() - started).toBeGreaterThanOrEqual(
-        TIMEOUT.milliseconds - 50,
-      );
+      const elapsed = performance.now() - started;
+      expect(elapsed).toBeGreaterThanOrEqual(TIMEOUT.milliseconds - 50);
+      expect(elapsed).toBeLessThan(TIMEOUT.milliseconds + DETECT_MARGIN.milliseconds);
       await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+    });
+
+    test("should not fail a stream on messages queued during a freeze", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, keepAlive);
+      const { ws } = await connected;
+      ws.send(KEEP_ALIVE_MESSAGE);
+      freeze(TIMEOUT.mult(2));
+      sendData(ws, { id: 1 });
+      expect(await stream.receive()).toEqual({ id: 1 });
+    });
+
+    test("should fail a stream that stalls during a freeze", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, keepAlive);
+      freeze(TIMEOUT.mult(2));
+      const resumed = performance.now();
+      await expect(stream.receive()).rejects.toThrow(Unreachable);
+      expect(performance.now() - resumed).toBeLessThan(DETECT_MARGIN.milliseconds);
     });
 
     test("should keep a stream open while keep-alives arrive", async () => {
