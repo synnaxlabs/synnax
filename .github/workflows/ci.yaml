@@ -1136,6 +1136,7 @@ jobs:
       coverage_flag: oracle
       directory: oracle
       install_antlr4: true
+      install_pnpm: true
       macos: *full
       windows: *full
     secrets:

@@ -145,3 +145,41 @@ var _ = Describe("RunBufGenerate", func() {
 		},
 	)
 })
+
+var _ = Describe("FormatBufOutputs", func() {
+	var (
+		root string
+		r    *format.Registry
+	)
+
+	BeforeEach(func() {
+		root = GinkgoT().TempDir()
+		Expect(os.Mkdir(filepath.Join(root, "x"), 0o755)).To(Succeed())
+		r = format.NewRegistry()
+		r.Register(".go", format.NewGo())
+	})
+
+	write := func(rel, content string) string {
+		GinkgoHelper()
+		path := filepath.Join(root, rel)
+		Expect(os.WriteFile(path, []byte(content), 0o644)).To(Succeed())
+		return path
+	}
+
+	It("Should rewrite only the outputs that change", func(ctx SpecContext) {
+		messy := write("x/a.pb.go", "package x\n\nvar  A = 1\n")
+		clean := write("x/b.pb.go", "package x\n\nvar B = 1\n")
+		Expect(codegen.FormatBufOutputs(ctx, root, r, 1)).To(Equal(1))
+		Expect(os.ReadFile(messy)).To(Equal([]byte("package x\n\nvar A = 1\n")))
+		Expect(os.ReadFile(clean)).To(Equal([]byte("package x\n\nvar B = 1\n")))
+	})
+
+	It("Should return an error when an output does not format", func(ctx SpecContext) {
+		bad := write("x/a.pb.go", "package x\n\nvar = \n")
+		Expect(codegen.FormatBufOutputs(ctx, root, r, 1)).Error().To(MatchError(And(
+			ContainSubstring("format buf outputs"),
+			ContainSubstring(bad),
+		)))
+		Expect(os.ReadFile(bad)).To(Equal([]byte("package x\n\nvar = \n")))
+	})
+})
