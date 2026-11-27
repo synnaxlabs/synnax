@@ -173,6 +173,67 @@ func (u *Tab) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "variant" tag injected, as
+// MarshalJSONTo does.
+func (u Tab) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case ResourceTab:
+		return enc.Encode(struct {
+			Type TabType `msgpack:"variant"`
+			ResourceTab
+		}{Type: ResourceTabType, ResourceTab: v})
+	case ViewTab:
+		return enc.Encode(struct {
+			Type TabType `msgpack:"variant"`
+			ViewTab
+		}{Type: ViewTabType, ViewTab: v})
+	default:
+		return errors.Newf("Tab: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *Tab) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type TabType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case ResourceTabType:
+		var v ResourceTab
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ViewTabType:
+		var v ViewTab
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Tab: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u Tab) Validate() error {
@@ -335,6 +396,67 @@ func (u *Node) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.SplitNode
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Node: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "variant" tag injected, as
+// MarshalJSONTo does.
+func (u Node) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case LeafNode:
+		return enc.Encode(struct {
+			Type NodeType `msgpack:"variant"`
+			LeafNode
+		}{Type: LeafNodeType, LeafNode: v})
+	case SplitNode:
+		return enc.Encode(struct {
+			Type NodeType `msgpack:"variant"`
+			SplitNode
+		}{Type: SplitNodeType, SplitNode: v})
+	default:
+		return errors.Newf("Node: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *Node) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type NodeType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case LeafNodeType:
+		var v LeafNode
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SplitNodeType:
+		var v SplitNode
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

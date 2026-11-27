@@ -31,6 +31,7 @@ import (
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	text "github.com/synnaxlabs/x/text/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
@@ -435,6 +436,129 @@ func (u *EdgeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "variant" tag injected, as
+// MarshalJSONTo does.
+func (u EdgeConfig) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case PipeEdgeConfig:
+		return enc.Encode(struct {
+			Type EdgeConfigType `msgpack:"variant"`
+			PipeEdgeConfig
+		}{Type: PipeEdgeConfigType, PipeEdgeConfig: v})
+	case ElectricEdgeConfig:
+		return enc.Encode(struct {
+			Type EdgeConfigType `msgpack:"variant"`
+			ElectricEdgeConfig
+		}{Type: ElectricEdgeConfigType, ElectricEdgeConfig: v})
+	case SecondaryEdgeConfig:
+		return enc.Encode(struct {
+			Type EdgeConfigType `msgpack:"variant"`
+			SecondaryEdgeConfig
+		}{Type: SecondaryEdgeConfigType, SecondaryEdgeConfig: v})
+	case JacketedEdgeConfig:
+		return enc.Encode(struct {
+			Type EdgeConfigType `msgpack:"variant"`
+			JacketedEdgeConfig
+		}{Type: JacketedEdgeConfigType, JacketedEdgeConfig: v})
+	case HydraulicEdgeConfig:
+		return enc.Encode(struct {
+			Type EdgeConfigType `msgpack:"variant"`
+			HydraulicEdgeConfig
+		}{Type: HydraulicEdgeConfigType, HydraulicEdgeConfig: v})
+	case PneumaticEdgeConfig:
+		return enc.Encode(struct {
+			Type EdgeConfigType `msgpack:"variant"`
+			PneumaticEdgeConfig
+		}{Type: PneumaticEdgeConfigType, PneumaticEdgeConfig: v})
+	case DataEdgeConfig:
+		return enc.Encode(struct {
+			Type EdgeConfigType `msgpack:"variant"`
+			DataEdgeConfig
+		}{Type: DataEdgeConfigType, DataEdgeConfig: v})
+	default:
+		return errors.Newf("EdgeConfig: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *EdgeConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type EdgeConfigType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case PipeEdgeConfigType:
+		var v PipeEdgeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ElectricEdgeConfigType:
+		var v ElectricEdgeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SecondaryEdgeConfigType:
+		var v SecondaryEdgeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case JacketedEdgeConfigType:
+		var v JacketedEdgeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case HydraulicEdgeConfigType:
+		var v HydraulicEdgeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PneumaticEdgeConfigType:
+		var v PneumaticEdgeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case DataEdgeConfigType:
+		var v DataEdgeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"EdgeConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Validate returns an error wrapping validate.ErrValidation if no variant is active or
 // the active variant violates its schema constraints.
 func (u EdgeConfig) Validate() error {
@@ -772,6 +896,67 @@ func (u *Source) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.LocalSource
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Source: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected, as
+// MarshalJSONTo does.
+func (u Source) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case ChannelSource:
+		return enc.Encode(struct {
+			Type SourceType `msgpack:"type"`
+			ChannelSource
+		}{Type: ChannelSourceType, ChannelSource: v})
+	case LocalSource:
+		return enc.Encode(struct {
+			Type SourceType `msgpack:"type"`
+			LocalSource
+		}{Type: LocalSourceType, LocalSource: v})
+	default:
+		return errors.Newf("Source: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *Source) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type SourceType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case ChannelSourceType:
+		var v ChannelSource
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LocalSourceType:
+		var v LocalSource
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
@@ -2066,6 +2251,272 @@ func (u *NodeConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.SymbolNodeConfig
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"NodeConfig: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "variant" tag injected, as
+// MarshalJSONTo does.
+func (u NodeConfig) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case BoxNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			BoxNodeConfig
+		}{Type: BoxNodeConfigType, BoxNodeConfig: v})
+	case ButtonNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ButtonNodeConfig
+		}{Type: ButtonNodeConfigType, ButtonNodeConfig: v})
+	case CircleNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CircleNodeConfig
+		}{Type: CircleNodeConfigType, CircleNodeConfig: v})
+	case GaugeNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			GaugeNodeConfig
+		}{Type: GaugeNodeConfigType, GaugeNodeConfig: v})
+	case InputNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			InputNodeConfig
+		}{Type: InputNodeConfigType, InputNodeConfig: v})
+	case LineNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			LineNodeConfig
+		}{Type: LineNodeConfigType, LineNodeConfig: v})
+	case OffPageReferenceNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			OffPageReferenceNodeConfig
+		}{Type: OffPageReferenceNodeConfigType, OffPageReferenceNodeConfig: v})
+	case PolygonNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			PolygonNodeConfig
+		}{Type: PolygonNodeConfigType, PolygonNodeConfig: v})
+	case SelectNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SelectNodeConfig
+		}{Type: SelectNodeConfigType, SelectNodeConfig: v})
+	case ScaleNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ScaleNodeConfig
+		}{Type: ScaleNodeConfigType, ScaleNodeConfig: v})
+	case SetpointNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SetpointNodeConfig
+		}{Type: SetpointNodeConfigType, SetpointNodeConfig: v})
+	case StateIndicatorNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			StateIndicatorNodeConfig
+		}{Type: StateIndicatorNodeConfigType, StateIndicatorNodeConfig: v})
+	case StringDisplayNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			StringDisplayNodeConfig
+		}{Type: StringDisplayNodeConfigType, StringDisplayNodeConfig: v})
+	case TextBoxNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			TextBoxNodeConfig
+		}{Type: TextBoxNodeConfigType, TextBoxNodeConfig: v})
+	case ValueNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			ValueNodeConfig
+		}{Type: ValueNodeConfigType, ValueNodeConfig: v})
+	case CylinderNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			CylinderNodeConfig
+		}{Type: CylinderNodeConfigType, CylinderNodeConfig: v})
+	case TankNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			TankNodeConfig
+		}{Type: TankNodeConfigType, TankNodeConfig: v})
+	case GroupBoxNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			GroupBoxNodeConfig
+		}{Type: GroupBoxNodeConfigType, GroupBoxNodeConfig: v})
+	case SymbolNodeConfig:
+		return enc.Encode(struct {
+			Type NodeConfigType `msgpack:"variant"`
+			SymbolNodeConfig
+		}{Type: SymbolNodeConfigType, SymbolNodeConfig: v})
+	default:
+		return errors.Newf("NodeConfig: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *NodeConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type NodeConfigType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case BoxNodeConfigType:
+		var v BoxNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ButtonNodeConfigType:
+		var v ButtonNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CircleNodeConfigType:
+		var v CircleNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GaugeNodeConfigType:
+		var v GaugeNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case InputNodeConfigType:
+		var v InputNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LineNodeConfigType:
+		var v LineNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case OffPageReferenceNodeConfigType:
+		var v OffPageReferenceNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case PolygonNodeConfigType:
+		var v PolygonNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SelectNodeConfigType:
+		var v SelectNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ScaleNodeConfigType:
+		var v ScaleNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SetpointNodeConfigType:
+		var v SetpointNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StateIndicatorNodeConfigType:
+		var v StateIndicatorNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case StringDisplayNodeConfigType:
+		var v StringDisplayNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TextBoxNodeConfigType:
+		var v TextBoxNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ValueNodeConfigType:
+		var v ValueNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case CylinderNodeConfigType:
+		var v CylinderNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TankNodeConfigType:
+		var v TankNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case GroupBoxNodeConfigType:
+		var v GroupBoxNodeConfig
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SymbolNodeConfigType:
+		var v SymbolNodeConfig
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

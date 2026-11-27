@@ -171,6 +171,68 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected, as
+// MarshalJSONTo does.
+func (u ReadChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case AutomaticReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			AutomaticReadChannel
+		}{Type: AutomaticReadChannelType, AutomaticReadChannel: v})
+	case ManualReadChannel:
+		return enc.Encode(struct {
+			Type ReadChannelType `msgpack:"type"`
+			ManualReadChannel
+		}{Type: ManualReadChannelType, ManualReadChannel: v})
+	default:
+		return errors.Newf("ReadChannel: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *ReadChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ReadChannelType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case AutomaticReadChannelType:
+		var v AutomaticReadChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ManualReadChannelType:
+		var v ManualReadChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u ReadChannel) Type() ReadChannelType {
 	switch u.Variant.(type) {
@@ -338,6 +400,68 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.ManualWriteChannel
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected, as
+// MarshalJSONTo does.
+func (u WriteChannel) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case AutomaticWriteChannel:
+		return enc.Encode(struct {
+			Type WriteChannelType `msgpack:"type"`
+			AutomaticWriteChannel
+		}{Type: AutomaticWriteChannelType, AutomaticWriteChannel: v})
+	case ManualWriteChannel:
+		return enc.Encode(struct {
+			Type WriteChannelType `msgpack:"type"`
+			ManualWriteChannel
+		}{Type: ManualWriteChannelType, ManualWriteChannel: v})
+	default:
+		return errors.Newf("WriteChannel: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *WriteChannel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type WriteChannelType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case AutomaticWriteChannelType:
+		var v AutomaticWriteChannel
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ManualWriteChannelType:
+		var v ManualWriteChannel
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

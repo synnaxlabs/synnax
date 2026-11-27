@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a range, represented as a UUID.
@@ -169,6 +170,67 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.WindowRef
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Ref: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "variant" tag injected, as
+// MarshalJSONTo does.
+func (u Ref) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case KeyRef:
+		return enc.Encode(struct {
+			Type RefType `msgpack:"variant"`
+			KeyRef
+		}{Type: KeyRefType, KeyRef: v})
+	case WindowRef:
+		return enc.Encode(struct {
+			Type RefType `msgpack:"variant"`
+			WindowRef
+		}{Type: WindowRefType, WindowRef: v})
+	default:
+		return errors.Newf("Ref: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *Ref) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type RefType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case KeyRefType:
+		var v KeyRef
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case WindowRefType:
+		var v WindowRef
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

@@ -183,6 +183,68 @@ func (u *Sampling) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
+// EncodeMsgpack encodes the active variant with its "type" tag injected, as
+// MarshalJSONTo does.
+func (u Sampling) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case UnarySampling:
+		return enc.Encode(struct {
+			Type SamplingType `msgpack:"type"`
+			UnarySampling
+		}{Type: UnarySamplingType, UnarySampling: v})
+	case ArraySampling:
+		return enc.Encode(struct {
+			Type SamplingType `msgpack:"type"`
+			ArraySampling
+		}{Type: ArraySamplingType, ArraySampling: v})
+	default:
+		return errors.Newf("Sampling: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *Sampling) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type SamplingType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case UnarySamplingType:
+		var v UnarySampling
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ArraySamplingType:
+		var v ArraySampling
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Sampling: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // Type returns the type of the active variant, or an empty type when there is none.
 func (u Sampling) Type() SamplingType {
 	switch u.Variant.(type) {

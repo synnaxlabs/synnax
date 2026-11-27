@@ -19,6 +19,7 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a secret.
@@ -142,6 +143,67 @@ func (u *Secret) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.FileSecret
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Secret: unknown source %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "source" tag injected, as
+// MarshalJSONTo does.
+func (u Secret) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case StoredSecret:
+		return enc.Encode(struct {
+			Type Source `msgpack:"source"`
+			StoredSecret
+		}{Type: SourceStored, StoredSecret: v})
+	case FileSecret:
+		return enc.Encode(struct {
+			Type Source `msgpack:"source"`
+			FileSecret
+		}{Type: SourceFile, FileSecret: v})
+	default:
+		return errors.Newf("Secret: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "source" field, as
+// UnmarshalJSONFrom does.
+func (u *Secret) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type Source `msgpack:"source"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case SourceStored:
+		var v StoredSecret
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case SourceFile:
+		var v FileSecret
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem/versions"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TimeStamp is a 64-bit signed integer representing nanoseconds since the Unix epoch
@@ -247,6 +248,68 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.LimitReduction
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Reduction: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "variant" tag injected, as
+// MarshalJSONTo does.
+func (u Reduction) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case StrideReduction:
+		return enc.Encode(struct {
+			Type ReductionType `msgpack:"variant"`
+			StrideReduction
+		}{Type: StrideReductionType, StrideReduction: v})
+	case LimitReduction:
+		return enc.Encode(struct {
+			Type ReductionType `msgpack:"variant"`
+			LimitReduction
+		}{Type: LimitReductionType, LimitReduction: v})
+	default:
+		return errors.Newf("Reduction: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "variant" field, as
+// UnmarshalJSONFrom does.
+func (u *Reduction) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ReductionType `msgpack:"variant"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case StrideReductionType:
+		var v StrideReduction
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case LimitReductionType:
+		var v LimitReduction
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

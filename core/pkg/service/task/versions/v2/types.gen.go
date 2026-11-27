@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a task.
@@ -361,6 +362,103 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v.NoneScale
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Scale: unknown type %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected, as
+// MarshalJSONTo does.
+func (u Scale) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case LinearScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			LinearScale
+		}{Type: LinearScaleType, LinearScale: v})
+	case MapScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			MapScale
+		}{Type: MapScaleType, MapScale: v})
+	case PolynomialScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			PolynomialScale
+		}{Type: PolynomialScaleType, PolynomialScale: v})
+	case TableScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			TableScale
+		}{Type: TableScaleType, TableScale: v})
+	case NoneScale:
+		return enc.Encode(struct {
+			Type ScaleType `msgpack:"type"`
+			NoneScale
+		}{Type: NoneScaleType, NoneScale: v})
+	default:
+		return errors.Newf("Scale: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field, as
+// UnmarshalJSONFrom does.
+func (u *Scale) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	var disc *struct {
+		Type ScaleType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	if disc == nil {
+		u.Variant = nil
+		return nil
+	}
+	switch disc.Type {
+	case LinearScaleType:
+		var v LinearScale
+		v.SetDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case MapScaleType:
+		var v MapScale
+		v.SetUngroupedDefaults()
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		v.DefaultGroups()
+		u.Variant = v
+	case PolynomialScaleType:
+		var v PolynomialScale
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case TableScaleType:
+		var v TableScale
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
+	case NoneScaleType:
+		var v NoneScale
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,
