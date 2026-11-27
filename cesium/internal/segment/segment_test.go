@@ -20,10 +20,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
@@ -104,7 +106,7 @@ var _ = Describe("Segment", func() {
 			)
 			BeforeEach(func() {
 				fs = makeFS()
-				budget = MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
+				budget = MustSucceed(segment.NewBudget(4, 4, goExec))
 			})
 
 			create := func(c segment.Config) *segment.Writer {
@@ -244,8 +246,8 @@ var _ = Describe("Segment", func() {
 			It("Should stage at most one block and its trailer of a large write, and "+
 				"write a last piece with nothing staged from the caller's bytes",
 				func() {
-					ops := newOpFS(fs)
-					budget2 := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+					ops := testutil.NewOpFS(fs)
+					budget2 := MustSucceed(segment.NewBudget(1, 1, goExec))
 					h2 := MustSucceed(budget2.Create(ops, "4.seg"))
 					w := segment.NewWriter(h2, cfg)
 					Expect(w.Write(pattern(100))).To(Succeed())
@@ -266,9 +268,8 @@ var _ = Describe("Segment", func() {
 
 			Describe("Variable density", func() {
 				DescribeTable(
-					"Should give each trailer the position and offset of the first "+
-						"sample "+
-						"that starts in its block",
+					"Should give each trailer the position and offset "+
+						"of the first sample that starts in its block",
 					func(sizes []int, split bool) {
 						stream, starts := samples(sizes...)
 						w := create(varCfg)
@@ -325,12 +326,14 @@ var _ = Describe("Segment", func() {
 						stream, starts := samples(10, 70_000, 20)
 						w := create(varCfg)
 						Expect(w.Write(stream[:starts[1]])).To(Succeed())
-						Expect(w.Write(stream[starts[1] : starts[1]+3])).
-							To(MatchError(
-								ContainSubstring("ends inside the length at 0"),
-							))
-						Expect(w.Write(stream[starts[1] : starts[2]-1])).
-							To(MatchError(ContainSubstring("ends inside a sample")))
+						Expect(w.Write(stream[starts[1] : starts[1]+3])).To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("ends inside the length at 0")),
+						))
+						Expect(w.Write(stream[starts[1] : starts[2]-1])).To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("ends inside a sample")),
+						))
 						Expect(w.Len()).To(Equal(starts[1]))
 						Expect(w.Write(stream[starts[1]:])).To(Succeed())
 						Expect(h.Close()).To(Succeed())
@@ -342,11 +345,11 @@ var _ = Describe("Segment", func() {
 					"Should put the sample count and block state back to the last "+
 						"commit",
 					func() {
-						first, _ := samples(5, 70_000)
+						old, _ := samples(5, 70_000)
 						w := create(varCfg)
-						Expect(w.Write(first[:9])).To(Succeed())
+						Expect(w.Write(old[:9])).To(Succeed())
 						w.Commit()
-						Expect(w.Write(first[9:])).To(Succeed())
+						Expect(w.Write(old[9:])).To(Succeed())
 						w.PutBack()
 						stream, starts := samples(5, 100, 140_000, 7)
 						Expect(w.Write(stream[9:])).To(Succeed())
@@ -381,16 +384,19 @@ var _ = Describe("Segment", func() {
 	}
 
 	It("Should refuse a write that grows the stream past 4 GiB", func() {
-		budget := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+		budget := MustSucceed(segment.NewBudget(1, 1, goExec))
 		h := MustSucceed(budget.Create(nullFS{FS: xfs.NewMem()}, "1.seg"))
 		w := segment.NewWriter(h, cfg)
 		chunk := make([]byte, 1<<20)
 		for range 4095 {
 			Expect(w.Write(chunk)).To(Succeed())
 		}
-		Expect(w.Write(chunk)).To(MatchError(ContainSubstring(
-			"segment of 4293918720 stream bytes cannot grow by 1048576 past 4 GiB",
-		)))
+		Expect(w.Write(chunk)).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"segment of 4293918720 stream bytes cannot grow by 1048576 past 4 GiB",
+			)),
+		))
 		Expect(w.Len()).To(Equal(int64(4293918720)))
 		Expect(w.Write(chunk[:1<<20-1])).To(Succeed())
 		length, _ := w.Commit()

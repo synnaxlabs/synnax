@@ -17,20 +17,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Executor runs f, at once or on another goroutine. It must run every f it gets.
-type Executor func(f func())
-
-// GoExecutor runs each f on a new goroutine.
-func GoExecutor(f func()) { go f() }
-
-// Budget limits the open file handles of a database, and runs every sync of their
-// files in one pool. To open a handle when the limit is reached, it closes the idle
-// handle that was used least recently, and syncs that handle first when it has unsynced
-// bytes. When every open handle is in use, the open waits for one to become idle. At
-// most width file and directory syncs run at once. A Budget is safe for concurrent use.
+// Budget limits the open file handles of a database, and runs every sync of their files
+// in one pool. To open a handle when the limit is reached, it closes the idle handle
+// that was used least recently, and syncs that handle first when it has unsynced bytes.
+// When every open handle is in use, the open waits for one to become idle. At most
+// width file and directory syncs run at once. A Budget is safe for concurrent use.
 type Budget struct {
 	limit int
-	exec  Executor
+	exec  func(f func())
 	slots chan struct{}
 	mu    sync.Mutex
 	cond  sync.Cond
@@ -42,8 +36,9 @@ type Budget struct {
 }
 
 // NewBudget returns a budget of limit open handles and width syncs at once, both at
-// least 1, that runs each sync on exec.
-func NewBudget(limit, width int, exec Executor) (*Budget, error) {
+// least 1, that runs each sync on exec. exec must run every function it gets, at once
+// or on another goroutine.
+func NewBudget(limit, width int, exec func(f func())) (*Budget, error) {
 	v := validate.New("segment.Budget")
 	v.Positive("limit", limit)
 	v.Positive("width", width)

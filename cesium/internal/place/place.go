@@ -13,8 +13,9 @@
 package place
 
 import (
-	"errors" //nolint:depguard // place imports the standard library only.
 	"hash/crc32"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // ErrCorrupt is the error of bytes that fail their checksum, or that pass it and break
@@ -86,12 +87,6 @@ func Head(db, generation, offset uint64) Place {
 // Part returns the place of bytes at offset in part file.
 func Part(db, file, offset uint64) Place {
 	return Place{db: db, file: file, offset: offset, kind: kindPart, version: 1}
-}
-
-// At returns p at another offset of the same file.
-func (p Place) At(offset uint64) Place {
-	p.offset = offset
-	return p
 }
 
 // Start returns the CRC state after p, from which Update continues over the covered

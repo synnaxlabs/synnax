@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -26,6 +27,9 @@ import (
 
 // syncTimeout bounds each wait on a sync of the disk, which a busy machine slows.
 const syncTimeout = 10 * time.Second
+
+// goExec runs each function on a new goroutine.
+func goExec(f func()) { go f() }
 
 // queue is an executor that runs each function at once until held, and then holds each
 // until the test runs it.
@@ -70,21 +74,23 @@ func (q *queue) take() []func() {
 var _ = Describe("Budget", func() {
 	DescribeTable(
 		"Should refuse a budget with no limit, no width, or no executor",
-		func(limit, width int, exec segment.Executor, field string) {
+		func(limit, width int, exec func(f func()), field string) {
 			Expect(segment.NewBudget(limit, width, exec)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(field)),
 			))
 		},
-		Entry("no limit", 0, 32, segment.Executor(segment.GoExecutor), "limit"),
-		Entry("no width", 4, 0, segment.Executor(segment.GoExecutor), "width"),
+		Entry("no limit", 0, 32, goExec, "limit"),
+		Entry("no width", 4, 0, goExec, "width"),
 		Entry("no executor", 4, 32, nil, "executor"),
 	)
 
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs *opFS
-			BeforeEach(func() { fs = newOpFS(makeFS()) })
+			var fs *testutil.OpFS
+			BeforeEach(func() {
+				fs = testutil.NewOpFS(makeFS(), "open", "close", "sync", "syncdir")
+			})
 
 			// dirty returns n handles of b with one write each since their last sync.
 			dirty := func(b *segment.Budget, n int, prefix string) []*segment.Handle {
@@ -105,15 +111,15 @@ var _ = Describe("Budget", func() {
 			}
 
 			It("Should run at most its width of syncs at once across callers", func() {
-				b := MustSucceed(segment.NewBudget(16, 2, segment.GoExecutor))
+				b := MustSucceed(segment.NewBudget(16, 2, goExec))
 				first, second := dirty(b, 3, "a"), dirty(b, 3, "b")
 				release := fs.Hold()
 				done := make(chan error, 2)
 				go func() { done <- b.Sync(first) }()
 				go func() { done <- b.Sync(second) }()
-				Eventually(fs.held).WithTimeout(syncTimeout).Should(Receive())
-				Eventually(fs.held).WithTimeout(syncTimeout).Should(Receive())
-				Consistently(fs.held).ShouldNot(Receive())
+				Eventually(fs.Held()).WithTimeout(syncTimeout).Should(Receive())
+				Eventually(fs.Held()).WithTimeout(syncTimeout).Should(Receive())
+				Consistently(fs.Held()).ShouldNot(Receive())
 				fs.Unhold()
 				close(release)
 				Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
@@ -126,13 +132,14 @@ var _ = Describe("Budget", func() {
 			It(
 				"Should return each failed sync, in order, and still sync the rest",
 				func() {
-					b := MustSucceed(segment.NewBudget(16, 32, segment.GoExecutor))
+					b := MustSucceed(segment.NewBudget(16, 32, goExec))
 					hs := dirty(b, 4, "")
 					fs.FailSync("1.seg", errInjected)
 					fs.FailSync("3.seg", errInjected)
-					err := b.Sync(hs)
-					Expect(err).To(MatchError(errInjected))
-					Expect(err.Error()).To(MatchRegexp(`(?s)file 1\.seg.*file 3\.seg`))
+					Expect(b.Sync(hs)).To(SatisfyAll(
+						MatchError(errInjected),
+						MatchError(MatchRegexp(`(?s)file 1\.seg.*file 3\.seg`)),
+					))
 					Expect(fs.Ops()).To(ContainElements("sync 0.seg", "sync 2.seg"))
 					Expect(
 						hs[1].WriteAt([]byte("x"), 0),
@@ -166,9 +173,8 @@ var _ = Describe("Budget", func() {
 			)
 
 			It(
-				"Should run the sync before a close in the call that closes, inside "+
-					"its "+
-					"width",
+				"Should run the sync before a close in the call that closes, "+
+					"inside its width",
 				func() {
 					var execs atomic.Int64
 					b := MustSucceed(segment.NewBudget(2, 1, func(f func()) {
@@ -180,11 +186,14 @@ var _ = Describe("Budget", func() {
 					release := fs.Hold()
 					synced := make(chan error, 1)
 					go func() { synced <- b.Sync(hs[:1]) }()
-					Eventually(fs.held).WithTimeout(syncTimeout).
+					Eventually(fs.Held()).WithTimeout(syncTimeout).
 						Should(Receive(Equal("0.seg")))
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
-					Consistently(fs.held).ShouldNot(Receive())
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "2.seg"))
+					}()
+					Consistently(fs.Held()).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
 					Eventually(synced).WithTimeout(syncTimeout).Should(Receive(BeNil()))
@@ -203,8 +212,7 @@ var _ = Describe("Budget", func() {
 
 			It(
 				"Should finish two closes in a row and the syncs that wait for them, "+
-					"when "+
-					"the executor runs one job at a time",
+					"when the executor runs one job at a time",
 				func() {
 					jobs := make(chan func(), 16)
 					go func() {
@@ -219,9 +227,12 @@ var _ = Describe("Budget", func() {
 					first := dirty(b, 1, "a")[0]
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "b0.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "b0.seg"))
+					}()
 					Eventually(
-						fs.held,
+						fs.Held(),
 					).WithTimeout(syncTimeout).
 						Should(Receive(Equal("a0.seg")))
 					synced := make(chan error, 2)
@@ -249,12 +260,15 @@ var _ = Describe("Budget", func() {
 				"Should sync a handle that waits for its close without a slot of "+
 					"its own",
 				func() {
-					b := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+					b := MustSucceed(segment.NewBudget(1, 1, goExec))
 					hs := dirty(b, 1, "")
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "1.seg")) }()
-					Eventually(fs.held).WithTimeout(syncTimeout).
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "1.seg"))
+					}()
+					Eventually(fs.Held()).WithTimeout(syncTimeout).
 						Should(Receive(Equal("0.seg")))
 					synced := make(chan error, 1)
 					go func() { synced <- b.Sync(hs) }()

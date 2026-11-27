@@ -15,33 +15,28 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var errInjected = errors.New("injected")
 
 var _ = Describe("Handle", func() {
-	It("Should refuse a budget below one handle", func() {
-		Expect(segment.NewBudget(0, 4, segment.GoExecutor)).Error().
-			To(MatchError(validate.ErrValidation))
-	})
-
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs *opFS
+			var fs *testutil.OpFS
 			BeforeEach(func() {
 				inner := makeFS()
 				MustSucceed(inner.Sub("12"))
-				fs = newOpFS(inner)
+				fs = testutil.NewOpFS(inner, "open", "close", "sync", "syncdir")
 			})
 
 			var b *segment.Budget
 			newBudget := func(limit int) *segment.Budget {
 				GinkgoHelper()
-				b = MustSucceed(segment.NewBudget(limit, 4, segment.GoExecutor))
+				b = MustSucceed(segment.NewBudget(limit, 4, goExec))
 				return b
 			}
 
@@ -213,7 +208,7 @@ var _ = Describe("Handle", func() {
 				synced := make(chan error, 1)
 				go func() { synced <- syncOf(h) }()
 				Eventually(
-					fs.held,
+					fs.Held(),
 				).WithTimeout(syncTimeout).
 					Should(Receive(Equal("1.seg")))
 				wrote := make(chan error, 1)
@@ -243,7 +238,7 @@ var _ = Describe("Handle", func() {
 					first := make(chan error, 1)
 					go func() { first <- syncOf(h) }()
 					Eventually(
-						fs.held,
+						fs.Held(),
 					).WithTimeout(syncTimeout).
 						Should(Receive(Equal("1.seg")))
 					second := make(chan error, 1)
@@ -253,7 +248,7 @@ var _ = Describe("Handle", func() {
 						_, err := h.WriteAt([]byte("x"), 0)
 						wrote <- err
 					}()
-					Consistently(fs.held).ShouldNot(Receive())
+					Consistently(fs.Held()).ShouldNot(Receive())
 					fs.FailSync("1.seg", nil)
 					fs.Unhold()
 					close(release)
@@ -282,9 +277,12 @@ var _ = Describe("Handle", func() {
 					fs.FailSync("1.seg", errInjected)
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "2.seg"))
+					}()
 					Eventually(
-						fs.held,
+						fs.Held(),
 					).WithTimeout(syncTimeout).
 						Should(Receive(Equal("1.seg")))
 					synced := make(chan error, 1)
@@ -323,11 +321,11 @@ var _ = Describe("Handle", func() {
 					done := make(chan error, 2)
 					go func() { done <- syncOf(h) }()
 					Eventually(
-						fs.held,
+						fs.Held(),
 					).WithTimeout(syncTimeout).
 						Should(Receive(Equal("12")))
 					go func() { done <- syncOf(h) }()
-					Consistently(fs.held).ShouldNot(Receive())
+					Consistently(fs.Held()).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)
 					Eventually(done).WithTimeout(syncTimeout).Should(Receive(BeNil()))
@@ -344,7 +342,7 @@ var _ = Describe("Handle", func() {
 				synced := make(chan error, 1)
 				go func() { synced <- syncOf(h) }()
 				Eventually(
-					fs.held,
+					fs.Held(),
 				).WithTimeout(syncTimeout).
 					Should(Receive(Equal("1.seg")))
 				closed := make(chan error, 1)
@@ -367,11 +365,14 @@ var _ = Describe("Handle", func() {
 					synced := make(chan error, 1)
 					go func() { synced <- syncOf(first) }()
 					Eventually(
-						fs.held,
+						fs.Held(),
 					).WithTimeout(syncTimeout).
 						Should(Receive(Equal("1.seg")))
 					created := make(chan *segment.Handle, 1)
-					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
+					go func() {
+						defer GinkgoRecover()
+						created <- MustSucceed(b.Create(fs, "2.seg"))
+					}()
 					Consistently(created).ShouldNot(Receive())
 					fs.Unhold()
 					close(release)

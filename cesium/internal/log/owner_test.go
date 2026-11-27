@@ -21,6 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -28,7 +29,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const logSize = 8 << 20
+const (
+	logSize = 8 << 20
+	full    = "does not fit in log 3: log file is full"
+)
 
 // goExec runs each step of a log owner on a new goroutine, as production does.
 func goExec(f func()) { go f() }
@@ -226,7 +230,7 @@ var _ = Describe("Log", func() {
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
 			var (
-				fs    *opFS
+				fs    *testutil.OpFS
 				l     *log.Log
 				ran   chan error
 				steps chan struct{}
@@ -273,7 +277,7 @@ var _ = Describe("Log", func() {
 			}
 
 			BeforeEach(func() {
-				fs = newOpFS(makeFS())
+				fs = testutil.NewOpFS(makeFS(), "write", "sync", "syncdir")
 				prepare = func(next uint64) { l.Prepared(next, errors.New("no space")) }
 			})
 
@@ -421,7 +425,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				e := of(&log.Drop{Key: 2})
 				second := l.Append(e)
 				e.Reset()
@@ -454,7 +458,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(of(&log.Drop{Key: 2}))
 				third := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
@@ -474,11 +478,11 @@ var _ = Describe("Log", func() {
 				size := int64(32 + len(entryOf(&log.Drop{Key: 3})))
 				release := fs.Hold()
 				a := l.Append(of(&log.Drop{Key: 3}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				b := l.Append(of(&log.Drop{Key: 3}))
 				release <- struct{}{}
 				Expect(a.Wait()).To(Equal(uint64(5)))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				c := l.Append(of(&log.Drop{Key: 3}))
 				fs.Unhold()
 				Expect(b.Wait()).To(Equal(uint64(6)))
@@ -492,7 +496,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				fs.Hold()
 				first := l.Append(of(&log.Restart{}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(bigEntry(10 << 20))
 				third := l.Append(bigEntry(10 << 20))
 				fs.Unhold()
@@ -510,7 +514,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
 				Expect(l.Append(commitEntry(n)).Wait()).Error().
-					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+					To(MatchError(ContainSubstring(full)))
 				Expect(hook.refusals()).
 					To(HaveExactElements(MatchError(ContainSubstring("log file is full"))))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
@@ -552,12 +556,12 @@ var _ = Describe("Log", func() {
 					fs.Unhold()
 					close(release)
 					select {
-					case <-fs.held:
+					case <-fs.Held():
 					case <-time.After(time.Second):
 					}
 				})
 				first := l.Append(of(&log.Drop{Key: 1}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				small := l.Append(commitEntry(64))
 				big := l.Append(
 					commitEntry(logSize - log.DeleteReserve - log.FramesStart),
@@ -570,7 +574,7 @@ var _ = Describe("Log", func() {
 				}()
 				release <- struct{}{}
 				Expect(first.Wait()).To(Equal(uint64(5)))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				Consistently(refused).ShouldNot(Receive())
 				fs.Unhold()
 				release <- struct{}{}
@@ -587,7 +591,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				n := logSize - 2*log.BlockSize - log.FramesStart - 32
 				Expect(l.Append(bigEntry(n + 8)).Wait()).Error().
-					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+					To(MatchError(ContainSubstring(full)))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
 				Eventually(func() []int64 { return writes(fs.Ops()) }).
 					Should(Equal([]int64{8_192, logSize - 2*log.BlockSize}))
@@ -602,7 +606,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
 				Expect(l.Append(bigEntry(log.MaxFrame)).Wait()).Error().
-					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+					To(MatchError(ContainSubstring(full)))
 			})
 
 			DescribeTable(
@@ -626,7 +630,7 @@ var _ = Describe("Log", func() {
 					Expect(l.Close()).To(MatchError(fault))
 					Eventually(ran).Should(Receive(MatchError(fault)))
 				},
-				Entry("sync", func(err error) { fs.FailSync(err) }),
+				Entry("sync", func(err error) { fs.FailSync(logName, err) }),
 				Entry("write", func(err error) { fs.FailWrite(err) }),
 			)
 

@@ -14,8 +14,8 @@ import (
 	"github.com/synnaxlabs/cesium/internal/log"
 )
 
-// refusal is bytes that a decoder refuses, with a part of the message of its error.
-// The specs check each refusal, and the fuzz targets start from them.
+// refusal is bytes that a decoder refuses, with a part of the message of its error. The
+// specs check each refusal, and the fuzz targets start from them.
 type refusal struct {
 	name string
 	b    []byte

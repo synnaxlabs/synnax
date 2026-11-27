@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -118,7 +119,8 @@ func NewWriter(h *Handle, cfg Config) *Writer {
 // grow the stream past 4 GiB, fails and changes nothing.
 func (w *Writer) Write(p []byte) error {
 	if w.at.length+int64(len(p)) > math.MaxUint32 {
-		return errors.Newf(
+		return errors.Wrapf(
+			validate.ErrValidation,
 			"segment of %d stream bytes cannot grow by %d past 4 GiB",
 			w.at.length,
 			len(p),
@@ -210,7 +212,8 @@ func (w *Writer) appendTrailer(dst []byte) []byte {
 func wholeSamples(p []byte) error {
 	for i := 0; i < len(p); {
 		if len(p)-i < lengthSize {
-			return errors.Newf(
+			return errors.Wrapf(
+				validate.ErrValidation,
 				"variable-density write of %d bytes ends inside the length at %d",
 				len(p),
 				i,
@@ -218,7 +221,8 @@ func wholeSamples(p []byte) error {
 		}
 		i += lengthSize + int(binary.LittleEndian.Uint32(p[i:]))
 		if i > len(p) {
-			return errors.Newf(
+			return errors.Wrapf(
+				validate.ErrValidation,
 				"variable-density write of %d bytes ends inside a sample",
 				len(p),
 			)

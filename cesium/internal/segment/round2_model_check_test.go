@@ -44,7 +44,7 @@ var _ = Describe("Round 2 check, random handles", func() {
 				SyncErrorRate: 0.03,
 				EvictionRate:  0.5,
 			}))
-			b := MustSucceed(segment.NewBudget(2, 2, segment.GoExecutor))
+			b := MustSucceed(segment.NewBudget(2, 2, goExec))
 			ts := make([]*tracked, 4)
 			for i := range ts {
 				name := fmt.Sprintf("%d.seg", i)

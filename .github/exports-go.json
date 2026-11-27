@@ -251,20 +251,8 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/segment",
-      "name": "Executor",
-      "caller": "sy-6398-17c-pointer-log-engine"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/segment",
       "name": "FixedTrailer",
       "caller": "sy-6568-18b-tombstones"
-    },
-    {
-      "module": "cesium",
-      "package": "github.com/synnaxlabs/cesium/internal/segment",
-      "name": "GoExecutor",
-      "caller": "sy-6398-17c-pointer-log-engine"
     },
     {
       "module": "cesium",
@@ -536,6 +524,12 @@
       "package": "github.com/synnaxlabs/cesium",
       "name": "Iterator",
       "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/invariants",
+      "name": "Enabled",
+      "caller": "sy-6398-17c-pointer-log-engine"
     },
     {
       "module": "x/go",

@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// ErrUnknown is the error of a record type that this binary does not know and cannot
-// skip. A newer binary wrote it.
-var ErrUnknown = errors.New("unknown log record")
+// ErrUnknown is the error of a log format version or record type that this binary does
+// not know and cannot skip. A newer binary wrote it.
+var ErrUnknown = errors.New("unknown log format")
 
 const (
 	typeReserve   uint16 = 1
@@ -38,13 +38,13 @@ const (
 	// typeSkippable marks a record type that an older binary skips.
 	typeSkippable uint16 = 1 << 15
 
-	headerSize      = 8
-	commitBaseSize  = 32
-	slotSize        = 16
-	tombstoneSize   = 72
-	cutSize         = 24
-	replaceBaseSize = 32
-	pointerSize     = 40
+	recordHeaderSize = 8
+	commitBaseSize   = 32
+	slotSize         = 16
+	tombstoneSize    = 72
+	cutSize          = 24
+	replaceBaseSize  = 32
+	pointerSize      = 40
 
 	flagIntentCleared uint32 = 1
 	flagLeftCut       uint32 = 1
@@ -101,8 +101,8 @@ type Commit struct {
 	Alignment uint64
 	// First and Last are the stamps of the first and last samples.
 	First, Last int64
-	// Slots hold one range per segment. A decoded Commit's Slots stay valid only
-	// until the next call of Decoder.Next.
+	// Slots hold one range per segment. A decoded Commit's Slots stay valid only until
+	// the next call of Decoder.Next.
 	Slots []Slot
 }
 

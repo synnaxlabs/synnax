@@ -59,7 +59,7 @@ func (f discardFS) Open(name string, flag int) (xfs.File, error) {
 var _ = Describe("Breaker check", func() {
 	It("Should not return a committed length that wraps past 2^32 stream bytes",
 		func() {
-			budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+			budget := MustSucceed(segment.NewBudget(8, 8, goExec))
 			h := MustSucceed(budget.Create(discardFS{xfs.NewMem()}, "3.seg"))
 			w := segment.NewWriter(h, cfg)
 			chunk := make([]byte, 16<<20)
@@ -78,7 +78,7 @@ var _ = Describe("Breaker check", func() {
 	It("Should leave the written bytes durable when Sync returns nil after a "+
 		"failed sync", func() {
 		disk := MustSucceed(fault.New(fault.Config{SyncErrorRate: 1}))
-		budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+		budget := MustSucceed(segment.NewBudget(8, 8, goExec))
 		h := MustSucceed(budget.Create(disk, "3.seg"))
 		w := segment.NewWriter(h, cfg)
 		disk.Writeback()
@@ -101,7 +101,7 @@ var _ = Describe("Breaker check", func() {
 				RunKey:        key,
 				SyncErrorRate: 0.5,
 			}))
-			budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+			budget := MustSucceed(segment.NewBudget(8, 8, goExec))
 			h := MustSucceed(budget.Create(disk, "3.seg"))
 			w := segment.NewWriter(h, cfg)
 			disk.Writeback()
@@ -141,7 +141,7 @@ var _ = Describe("Breaker check", func() {
 
 	It("Should keep a new segment file after a Sync returns nil", func() {
 		disk := MustSucceed(fault.New(fault.Config{}))
-		budget := MustSucceed(segment.NewBudget(8, 8, segment.GoExecutor))
+		budget := MustSucceed(segment.NewBudget(8, 8, goExec))
 		h := MustSucceed(budget.Create(disk, "3.seg"))
 		w := segment.NewWriter(h, cfg)
 		data := pattern(100)

@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
@@ -83,7 +84,7 @@ var _ = Describe("Sync check", func() {
 					SyncErrorRate: 0.5,
 				}))
 				g := newGateFS(ffs)
-				b := MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
+				b := MustSucceed(segment.NewBudget(4, 4, goExec))
 				h := MustSucceed(b.Create(g, "1.seg"))
 				if b.Sync([]*segment.Handle{h}) != nil {
 					Expect(h.Close()).To(Succeed())
@@ -139,24 +140,24 @@ var _ = Describe("Sync check", func() {
 
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs *opFS
+			var fs *testutil.OpFS
 			BeforeEach(func() {
 				inner := makeFS()
 				MustSucceed(inner.Sub("12"))
-				fs = newOpFS(inner)
+				fs = testutil.NewOpFS(inner, "open", "close", "sync", "syncdir")
 			})
 
 			It(
 				"Should never sync a file again after the budget's sync of it failed",
 				func() {
-					b := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+					b := MustSucceed(segment.NewBudget(1, 1, goExec))
 					first := MustSucceed(b.Create(fs, "1.seg"))
 					Expect(first.WriteAt([]byte("1.seg"), 0)).To(Equal(5))
 					fs.FailSync("1.seg", errInjected)
 					release := fs.Hold()
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "2.seg")) }()
-					Eventually(fs.held).Should(Receive(Equal("1.seg")))
+					Eventually(fs.Held()).Should(Receive(Equal("1.seg")))
 					fs.FailSync("1.seg", nil)
 					fs.Unhold()
 					synced := make(chan error, 1)
@@ -176,7 +177,7 @@ var _ = Describe("Sync check", func() {
 			It(
 				"Should run the sync before a budget close inside the width of the pool",
 				func() {
-					b := MustSucceed(segment.NewBudget(2, 1, segment.GoExecutor))
+					b := MustSucceed(segment.NewBudget(2, 1, goExec))
 					first := MustSucceed(b.Create(fs, "1.seg"))
 					second := MustSucceed(b.Create(fs, "2.seg"))
 					Expect(first.WriteAt([]byte("1.seg"), 0)).To(Equal(5))
@@ -184,12 +185,12 @@ var _ = Describe("Sync check", func() {
 					release := fs.Hold()
 					pooled := make(chan error, 1)
 					go func() { pooled <- b.Sync([]*segment.Handle{first}) }()
-					Eventually(fs.held).Should(Receive(Equal("1.seg")))
+					Eventually(fs.Held()).Should(Receive(Equal("1.seg")))
 					created := make(chan *segment.Handle, 1)
 					go func() { created <- MustSucceed(b.Create(fs, "3.seg")) }()
 					var outside string
 					select {
-					case outside = <-fs.held:
+					case outside = <-fs.Held():
 					case <-time.After(300 * time.Millisecond):
 					}
 					fs.Unhold()
@@ -207,15 +208,15 @@ var _ = Describe("Sync check", func() {
 			It(
 				"Should sync the directory of a new file once when two callers sync it",
 				func() {
-					budget := MustSucceed(segment.NewBudget(2, 2, segment.GoExecutor))
+					budget := MustSucceed(segment.NewBudget(2, 2, goExec))
 					h := MustSucceed(budget.Create(fs, "12/1.seg"))
 					release := fs.Hold()
 					done := make(chan error, 2)
 					go func() { done <- budget.Sync([]*segment.Handle{h}) }()
-					Eventually(fs.held).Should(Receive(Equal("12")))
+					Eventually(fs.Held()).Should(Receive(Equal("12")))
 					go func() { done <- budget.Sync([]*segment.Handle{h}) }()
 					select {
-					case <-fs.held:
+					case <-fs.Held():
 					case <-time.After(300 * time.Millisecond):
 					}
 					fs.Unhold()
