@@ -10,6 +10,8 @@
 package server_test
 
 import (
+	"bytes"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -268,6 +270,117 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Servers).To(BeEmpty())
+		})
+
+		Describe("Order", func() {
+			var (
+				prefix string
+				byName []server.Key
+			)
+			BeforeEach(func(ctx SpecContext) {
+				prefix = uuid.New().String()
+				named := func(name string) server.Key {
+					GinkgoHelper()
+					return createServer(
+						ctx,
+						func(s *server.Server) { s.Name = prefix + name },
+					).Key
+				}
+				beta := named("beta")
+				upper := named("Alpha")
+				gamma := named("Gamma")
+				lower := named("alpha")
+				tie := []server.Key{upper, lower}
+				// Gorp orders equal names by the trailing bytes of the key.
+				slices.SortFunc(tie, func(a, b server.Key) int {
+					slices.Reverse(a[:])
+					slices.Reverse(b[:])
+					return bytes.Compare(a[:], b[:])
+				})
+				byName = []server.Key{tie[0], tie[1], beta, gamma}
+				grantRetrieve(ctx)
+			})
+			page := func(ctx SpecContext, order apiserver.Order) []server.Key {
+				GinkgoHelper()
+				var (
+					keys  []server.Key
+					after *apiserver.Cursor
+				)
+				for {
+					res := MustSucceed(retrieve(
+						testutil.AuthedCtx(ctx, u),
+						apiserver.RetrieveRequest{
+							Where: &server.Where{Name: &filter.String{
+								In: []string{
+									prefix + "beta",
+									prefix + "Alpha",
+									prefix + "Gamma",
+									prefix + "alpha",
+								},
+							}},
+							Order: &order,
+							After: after,
+							Limit: new(uint32(1)),
+						},
+					))
+					if len(res.Servers) == 0 {
+						return keys
+					}
+					last := res.Servers[len(res.Servers)-1]
+					keys = append(keys, last.Key)
+					after = &apiserver.Cursor{Key: last.Key, Name: &last.Name}
+				}
+			}
+
+			It("Should page by name, ignoring case", func(ctx SpecContext) {
+				order := apiserver.Order{Field: apiserver.OrderFieldName}
+				Expect(page(ctx, order)).To(Equal(byName))
+			})
+
+			It("Should page by name in descending order", func(ctx SpecContext) {
+				order := apiserver.Order{
+					Field:      apiserver.OrderFieldName,
+					Descending: true,
+				}
+				desc := slices.Clone(byName)
+				slices.Reverse(desc)
+				Expect(page(ctx, order)).To(Equal(desc))
+			})
+
+			DescribeTable("Should reject a request",
+				func(ctx SpecContext, req apiserver.RetrieveRequest, message string) {
+					Expect(
+						retrieve(testutil.AuthedCtx(ctx, u), req),
+					).Error().
+						To(SatisfyAll(
+							BeAssignableToTypeOf(validate.PathError{}),
+							MatchError(message),
+						))
+				},
+				Entry(
+					"that resumes an order without the order's value",
+					apiserver.RetrieveRequest{
+						Order: &apiserver.Order{Field: apiserver.OrderFieldName},
+						After: &apiserver.Cursor{Key: uuid.New()},
+					},
+					"after.name: is required to resume an order by name: validation error",
+				),
+				Entry(
+					"that sorts a search",
+					apiserver.RetrieveRequest{
+						SearchTerm: "PLC",
+						Order:      &apiserver.Order{Field: apiserver.OrderFieldName},
+					},
+					"order: a search sorts by relevance: validation error",
+				),
+				Entry(
+					"that sorts by an unknown field",
+					apiserver.RetrieveRequest{
+						Order: &apiserver.Order{Field: "color"},
+					},
+					`order.field: "color" is not a field to sort by: validation error`,
+				),
+			)
 		})
 	})
 

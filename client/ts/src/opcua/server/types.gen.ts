@@ -29,6 +29,10 @@ export const SECURITY_POLICYS = [
 export const securityPolicyZ = z.enum(SECURITY_POLICYS);
 export type SecurityPolicy = z.infer<typeof securityPolicyZ>;
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 /** Read binds a node, or a member of its structure value, to a channel. */
 export const readZ = z.object({
   /**
@@ -59,6 +63,15 @@ export const writeZ = z.object({
   channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
 export interface Write extends z.infer<typeof writeZ> {}
+
+/** Order is a sort of servers. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -216,6 +229,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
 export const cursorZ = z.object({
   /** key is the key of the server at the position. */
   key: keyZ,
+  /** name is the name of the server at the position, when the order sorts by it. */
+  name: z.string().optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
@@ -242,6 +257,8 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the servers that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the servers. An absent order sorts them by key. */
+  order: orderZ.optional(),
   /** after starts the servers strictly past this position in their order. */
   after: cursorZ.optional(),
   /** limit is the most servers to return. */
