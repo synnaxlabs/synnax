@@ -259,14 +259,14 @@ func (e *engine) durable(sequence uint64, records []log.Record) {
 }
 
 // refused hands an entry that the log refused to the state. The state fails the
-// requests that wait for it, and returns no error of its own. The first refusal for a
-// storage fault is logged once: no write is durable until a restart.
+// requests that wait for it, and returns no error of its own. The first failed sync of
+// the log is logged once, since no write is durable after it until a restart.
 func (e *engine) refused(records []log.Record, err error) {
-	if !errors.Is(err, context.Canceled) {
+	if errors.Is(err, log.ErrSyncFailed) {
 		e.logFailed.Do(func() {
 			e.ins.L.Error(
-				"the log failed a write or a sync, and no write is durable until the "+
-					"Core restarts once its storage is fixed",
+				"the log failed a sync, and no write is durable until the Core "+
+					"restarts once its storage is fixed",
 				zap.Error(err),
 			)
 		})
