@@ -62,15 +62,15 @@ func (m *Multi[S, K, V]) Wait(ctx context.Context) error {
 	return m.population.wait(ctx)
 }
 
-// Set maps key to values in committed state, replacing any prior values of key.
-func (m *Multi[S, K, V]) Set(key K, values []V) {
+// setCommitted maps key to values in committed state, replacing its prior values.
+func (m *Multi[S, K, V]) setCommitted(key K, values []V) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.put(key, values)
 }
 
-// Delete removes key from committed state.
-func (m *Multi[S, K, V]) Delete(key K) {
+// deleteCommitted removes key from committed state.
+func (m *Multi[S, K, V]) deleteCommitted(key K) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.remove(key)
@@ -80,7 +80,7 @@ func (m *Multi[S, K, V]) Delete(key K) {
 // state when scope commits.
 func (m *Multi[S, K, V]) Stage(scope S, key K, values []V) {
 	if isNone(scope) {
-		m.Set(key, values)
+		m.setCommitted(key, values)
 		return
 	}
 	m.overlay.load(scope).set(key, slices.Clone(values))
@@ -115,7 +115,7 @@ func (m *Multi[S, K, V]) Current(scope S, key K, values []V) bool {
 // state when scope commits.
 func (m *Multi[S, K, V]) StageDelete(scope S, key K) {
 	if isNone(scope) {
-		m.Delete(key)
+		m.deleteCommitted(key)
 		return
 	}
 	m.overlay.load(scope).delete(key)
