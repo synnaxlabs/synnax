@@ -154,7 +154,8 @@ func (r Resolver) Hash(
 }
 
 // Check checks each of reads, in order, against its ICD, from icds or else retrieved
-// through snap, and its channels. It returns the validation error of the first problem.
+// through snap, and its channels, then claims the index channels that each read writes.
+// It returns the validation error of the first problem.
 func (r Resolver) Check(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -167,6 +168,11 @@ func (r Resolver) Check(
 	}
 	for _, rd := range reads {
 		if err = c.Read(rd); err != nil {
+			return err
+		}
+	}
+	for _, rd := range reads {
+		if err = c.claimIndexes(rd); err != nil {
 			return err
 		}
 	}
@@ -260,39 +266,39 @@ func (c Checker) Bind(rd Read) (*Source, error) {
 			rd.Path...,
 		)
 	}
-	for j, rm := range rd.Messages {
-		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
-		if err := c.claimIndexes(rm, path); err != nil {
-			return nil, err
-		}
+	if err := c.claimIndexes(rd); err != nil {
+		return nil, err
 	}
 	return newSource(rd, ic, c.channels)
 }
 
-// claimIndexes claims, for rm at path, each index channel of its bound channels that
-// its index field does not bind, since the task writes its timestamps.
-func (c Checker) claimIndexes(rm icd.ReadMessage, path []string) error {
-	var (
-		// indexes holds each index channel of the bound channels, in binding order.
-		indexes []channel.Key
-		// indexChannel is the channel of the index field.
-		indexChannel channel.Key
-	)
-	for _, b := range rm.Bindings {
-		if rm.Index != nil && *rm.Index == b.Field {
-			indexChannel = b.Channel
+// claimIndexes claims, for each message of rd, each index channel of its bound channels
+// that its index field does not bind, since the task writes its timestamps.
+func (c Checker) claimIndexes(rd Read) error {
+	for j, rm := range rd.Messages {
+		path := slices.Concat(rd.Path, []string{"messages", strconv.Itoa(j)})
+		var (
+			// indexes holds each index channel of the bound channels, in binding order.
+			indexes []channel.Key
+			// indexChannel is the channel of the index field.
+			indexChannel channel.Key
+		)
+		for _, b := range rm.Bindings {
+			if rm.Index != nil && *rm.Index == b.Field {
+				indexChannel = b.Channel
+			}
+			ch, ok := c.channels[b.Channel]
+			if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
+				indexes = append(indexes, ch.IndexKey)
+			}
 		}
-		ch, ok := c.channels[b.Channel]
-		if ok && ch.IndexKey != 0 && !slices.Contains(indexes, ch.IndexKey) {
-			indexes = append(indexes, ch.IndexKey)
-		}
-	}
-	for _, key := range indexes {
-		if key == indexChannel {
-			continue
-		}
-		if err := c.claim(key, path); err != nil {
-			return err
+		for _, key := range indexes {
+			if key == indexChannel {
+				continue
+			}
+			if err := c.claim(key, path); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

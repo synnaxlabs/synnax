@@ -441,17 +441,22 @@ var _ = Describe("Write task", func() {
 			_, configured := start(ctx, writeConfig(dev, pointTarget(
 				ctx, icd.FloatJSONField{},
 			)))
-			send(ctx, channel.Keys{x.Key(), y.Key()},
-				both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
-				func(g Gomega) {
-					g.Expect(payloads("plant/point")).ToNot(BeEmpty())
-				},
-			)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{x.Key(), y.Key()},
+				Start: telem.Now(),
+			}))
+			// The start opens the streamer, so one write is enough. A second write that
+			// is still on its way at the stop reaches the next run.
+			Expect(w.Write(both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)))).
+				To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Eventually(func() []string { return payloads("plant/point") }).
+				Should(ContainElement(`{"x":1,"y":2}`))
 			Expect(configured.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
 				To(Succeed())
 			Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "again"})).
 				To(Succeed())
-			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+			w = MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{x.Key()},
 				Start: telem.Now(),
 			}))
