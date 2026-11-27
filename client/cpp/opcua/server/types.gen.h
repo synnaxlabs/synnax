@@ -334,6 +334,9 @@ struct Connection {
     ::x::telem::TimeSpan secure_channel_lifetime = ::x::telem::TimeSpan(600000000000);
     /// @brief session_timeout is the timeout of the session.
     ::x::telem::TimeSpan session_timeout = ::x::telem::TimeSpan(1200000000000);
+    /// @brief read_node_timeout is the longest time that reading the details of one
+    /// node may take. Absent for the Driver default of 20 seconds.
+    std::optional<::x::telem::TimeSpan> read_node_timeout;
 
     static Connection parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

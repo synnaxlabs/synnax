@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -173,6 +174,9 @@ var _ = Describe("Service", func() {
 			},
 			Entry("no name", func(s *server.Server) { s.Name = "" }),
 			Entry("no endpoint", func(s *server.Server) { s.Connection.Endpoint = "" }),
+			Entry("a read node timeout of zero", func(s *server.Server) {
+				s.Connection.ReadNodeTimeout = new(telem.TimeSpan(0))
+			}),
 			Entry("a missing rack", func(s *server.Server) { s.Rack = 999 }),
 			Entry("a missing password", func(s *server.Server) {
 				s.Connection.Auth = server.Auth{Variant: server.UsernameAuth{

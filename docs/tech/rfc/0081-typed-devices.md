@@ -385,6 +385,7 @@ Release 0.59 shipped the single table. One ordered startup migration cuts over:
    - Trust: `validation_disabled`, else `pinned` to its certificate, else `first_use`.
    - A read takes its channel's index; a binding to a missing channel drops, warned.
    - An `ns=` binding is parked in KV under `sy_opcua_unresolved/<server key>`, warned.
+   - `read_node_timeout` carries over; a missing or non-positive one stays absent.
    - An endpoint without a scheme gains `opc.tcp://`; another bad one is quarantined.
    - LabJack `model` `LJM_dtT4`-`T8` maps to `t4`-`t8`; a non-`uint32` key quarantines.
    - LabJack `location` `WIFI` types map to `LJM_ctWIFI`; `TCP`, `ETHERNET`, `NETWORK`

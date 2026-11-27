@@ -142,6 +142,12 @@ Connection struct {
     session_timeout         telem.TimeSpan = 1200000000000 {
         @doc value "is the timeout of the session."
     }
+    read_node_timeout       telem.TimeSpan? {
+        @doc value """
+            is the longest time that reading the details of one node may take. Absent
+            for the Driver default of 20 seconds.
+        """
+    }
 
     @doc value  "holds the settings that the Driver connects to a server with."
     @go marshal

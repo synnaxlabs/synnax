@@ -288,6 +288,8 @@ class Connection(BaseModel):
         client_timeout: Is the timeout of each request and connection attempt.
         secure_channel_lifetime: Is the lifetime of the secure channel.
         session_timeout: Is the timeout of the session.
+        read_node_timeout: Is the longest time that reading the details of one node may
+            take. Absent for the Driver default of 20 seconds.
     """
 
     endpoint: str = Field(min_length=1)
@@ -301,6 +303,9 @@ class Connection(BaseModel):
     )
     session_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(1200000000000), ge=1000000000, le=9223372036854775807
+    )
+    read_node_timeout: telem.TimeSpan | None = Field(
+        default=None, gt=0, le=9223372036854775807
     )
 
 
