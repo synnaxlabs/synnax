@@ -9,7 +9,7 @@
 
 import { device, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, render, screen } from "@testing-library/react";
 import type { ReactElement } from "react";
@@ -28,8 +28,10 @@ import {
   UncappedFeed,
   writeStatus,
 } from "@/platform/notifications/testutil";
+import { createServerPanel } from "@/platform/panel/testutil";
 import { createTaskStatus } from "@/platform/task/testutil";
-import { createConsoleWrapper } from "@/testutil";
+import { Session } from "@/session";
+import { createConsoleWrapper, type TestStore } from "@/testutil";
 
 const client = createTestClient();
 
@@ -38,10 +40,11 @@ const Forward = (): ReactElement => {
   return <UncappedFeed />;
 };
 
-const renderForward = async (): Promise<void> => {
+const renderForward = async (): Promise<TestStore> => {
   await waitForStreamLive(client.connection);
-  const { wrapper } = await createConsoleWrapper({ client });
+  const { wrapper, store } = await createConsoleWrapper({ client });
   render(<Forward />, { wrapper });
+  return store;
 };
 
 const reply = async (tsk: task.Task): Promise<string> => {
@@ -98,6 +101,44 @@ describe("Notifications.useForward", () => {
     const browserMessage = await reply(browser);
     await screen.findByText(await reply(other));
     expect(screen.queryByText(browserMessage)).toBeNull();
+  });
+
+  /** Renders the forwarder with the current window showing the tab of a task. */
+  const renderShown = async (focused: boolean) => {
+    vi.spyOn(document, "hasFocus").mockReturnValue(focused);
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const create = async (): Promise<task.Task> =>
+      await r.createTask({ name: uniqueName("task"), type: "opc_read", config: {} });
+    const shown = await create();
+    const other = await create();
+    const tabKey = uuid.create();
+    const { key } = await createServerPanel(client, {
+      variant: "leaf",
+      tabs: [
+        { variant: "resource", key: tabKey, resource: task.resourceID(shown.key) },
+      ],
+    });
+    const store = await renderForward();
+    act(() => {
+      store.dispatch(Session.Panel.select({ key }));
+      store.dispatch(
+        Session.Panel.internalSelectTab({ key, tabKey, otherTabKeys: [] }),
+      );
+    });
+    return { shown, other };
+  };
+
+  // The footer of the task form shows the reply, so a toast would cover it.
+  it("should not notify a reply of a task that a focused window shows", async () => {
+    const { shown, other } = await renderShown(true);
+    const shownMessage = await reply(shown);
+    await screen.findByText(await reply(other));
+    expect(screen.queryByText(shownMessage)).toBeNull();
+  });
+
+  it("should notify a reply of a task that an unfocused window shows", async () => {
+    const { shown } = await renderShown(false);
+    expect(await screen.findByText(await reply(shown))).toBeTruthy();
   });
 
   // Each dialog that sends a command to these scanners shows the reply in place.

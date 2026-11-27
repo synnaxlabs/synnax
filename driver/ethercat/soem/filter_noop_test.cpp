@@ -19,6 +19,9 @@ namespace driver::ethercat::soem {
 TEST(DisableDewesoftFilterTest, RefusesOutsideWindows) {
     const auto err = disable_dewesoft_filter({"eth0"});
     ASSERT_OCCURRED_AS(err, errors::FILTER_ERROR);
-    EXPECT_EQ(err.data, "Only a Driver on Windows can turn off the DewesoftX filter.");
+    EXPECT_EQ(
+        err.data(),
+        "Only a Driver on Windows can turn off the DewesoftX filter."
+    );
 }
 }

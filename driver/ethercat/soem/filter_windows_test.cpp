@@ -19,6 +19,6 @@ namespace driver::ethercat::soem {
 TEST(DisableDewesoftFilterTest, RefusesAnInterfaceThatIsNotAnAdapter) {
     const auto err = disable_dewesoft_filter({"eth0"});
     ASSERT_OCCURRED_AS(err, errors::FILTER_ERROR);
-    EXPECT_EQ(err.data, "eth0 is not a Windows network adapter.");
+    EXPECT_EQ(err.data(), "eth0 is not a Windows network adapter.");
 }
 }

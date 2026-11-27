@@ -12,6 +12,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
+import { renderThemed, treatment } from "@/styletest";
 import { preloadTimeLanguage } from "@/testutil";
 import { Triggers } from "@/triggers";
 
@@ -276,6 +277,15 @@ describe("Input.DateTime", () => {
     const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
     open(container);
     expect(screen.getByRole("menuitem", { name: "Now" }).textContent).toBe("Now");
+  });
+
+  it("should draw an action hint in the text font", async () => {
+    const parent = { start: local(2026, 7, 20, 9, 0), end: local(2026, 7, 21, 9, 0) };
+    const { container } = await renderThemed(
+      <Input.DateTime value={VALUE} onChange={vi.fn()} anchors={{ parent }} />,
+    );
+    open(container);
+    expect(treatment(screen.getByText("T+0"))).toBe("prose");
   });
 
   describe("readings", () => {

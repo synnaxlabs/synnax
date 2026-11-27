@@ -176,7 +176,7 @@ TEST(RegisterReader, IllegalAddressNamesChannels) {
     );
     const auto [fr, err] = read_once(reader, dev);
     ASSERT_OCCURRED_AS(err, device::CRITICAL_ERROR);
-    EXPECT_EQ(err.data, "pressure (holding registers 500-501): Illegal data address");
+    EXPECT_EQ(err.data(), "pressure (holding registers 500-501): Illegal data address");
     EXPECT_EQ(slave.requests(MODBUS_FC_READ_HOLDING_REGISTERS), 1);
     slave.stop();
 }
@@ -232,7 +232,7 @@ TEST(BitReader, UnreachableOmitsChannels) {
     BitReader reader(device::Coil, {coil(1, 3, "valve")});
     const auto [fr, err] = read_once(reader, dev);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
-    EXPECT_EQ(err.data.find("valve"), std::string::npos);
+    EXPECT_EQ(err.data().find("valve"), std::string::npos);
 }
 
 /// @brief it should split registers into requests of at most the device's maximum.

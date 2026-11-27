@@ -21,7 +21,7 @@ int login(x::args::Parser &args) {
     // Root takes over or hands off the saved state before login reads it. It runs
     // before the prompts, so state that cannot be used fails at once.
     if (const auto err = rack::Config::secure_persisted_state(args)) {
-        LOG(ERROR) << err.data;
+        LOG(ERROR) << err.data();
         return 1;
     }
     synnax::Config config;
