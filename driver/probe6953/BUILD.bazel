@@ -1,0 +1,32 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+
+cc_binary(
+    name = "probe",
+    srcs = ["probe.cpp"],
+    deps = [
+        "//client/cpp/framer",
+        "//driver/common",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
+    ],
+)
+
+cc_binary(
+    name = "spsc_probe",
+    srcs = ["spsc_probe.cpp"],
+    deps = [
+        "//x/cpp/queue",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
+    ],
+)
+
+cc_binary(
+    name = "arc_probe",
+    srcs = ["arc_probe.cpp"],
+    deps = [
+        "//arc/cpp/stl/channels:state",
+        "//x/cpp/telem",
+        "@google_benchmark//:benchmark_main",
+    ],
+)
