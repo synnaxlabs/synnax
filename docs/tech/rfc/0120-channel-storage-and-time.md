@@ -92,7 +92,9 @@ writer opens. No channel record, task config, or client library keeps it.
   moves between sessions only through a handoff (§4.8).
 - **Takeover**: A session takes over the open segment of a continued clock, and of each
   key on it, once the earlier commits are durable, and appends at the committed length
-  (RFC 0121 §5.8).
+  (RFC 0121 §5.8). At a handoff on one clock the new holder takes over at once, and its
+  log entry carries the old holder's unsynced commits ahead of its own, so nothing
+  waits.
 - **Stretches**: A session takes one alignment number per clock. A clean next session
   whose first stamp comes within 3 steps of the clock's last stamp continues the stretch
   of its clock (RFC 0121 §5.7). So a loop of sessions draws one line and takes no new
@@ -546,15 +548,20 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   the channel moves back at the next open. A clock stores no stamps for a frame in which
   no channel on it holds a sample after the authority filter. Tasks, Arc, Pluto, and the
   `Controller` declare their groups and never pay for it.
-- **Handoff**: When control of a channel moves to another session, the old holder
-  commits its samples of the channel first, and then the claim moves. The channel starts
-  a new segment on the new holder's clock, in a file made at the new holder's open.
-  Cesium makes a spare file on the old holder's clock off the frame path, so a move back
-  opens no file on the frame path either (RFC 0121 §5.8).
+- **Handoff**: At the new holder's first write of a channel, the old holder commits its
+  samples of the channel first, and then the claim moves (RFC 0121 §5.8). A move of
+  control with no write moves no claim. The channel starts a new segment on the new
+  holder's clock, in a file made at the new holder's open. Cesium makes a spare file on
+  the old holder's clock off the frame path, so a move back opens no file on the frame
+  path either (RFC 0121 §5.8).
 - **Control writers**: The Python `Controller` and Pluto control declare one group per
   command channel, and Arc does so by default, so each command channel has its own
-  clock. Pluto and the `Controller` stamp on arrival. Authority covers channels only, so
-  two command channels that share an index channel today stop sharing authority.
+  clock. Pluto and the `Controller` stamp on arrival. Authority covers channels only.
+  Until Phase 50 an index channel stays under write control, so two command channels
+  that share one still share its authority; after it they do not. A commit after a
+  handoff whose stamps go back past the old holder's fails, as on `main`
+  (`cesium/internal/unary/writer.go:436-450`), so clock skew between two hosts that
+  write one command channel can fail a commit.
 - **Arc**: The compiler fills the groups of a program (`time_groups` in
   `schemas/arc/ir.oracle`, NEW). Each output channel has a group of its own, so a cycle
   that writes part of its outputs stays legal: an early `return`, a trap, a `=>` edge,
