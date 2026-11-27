@@ -494,8 +494,10 @@ var _ = Describe("Codec", func() {
 						telem.NewSeriesV[int32](2),
 					},
 				)))
-				Expect(dec.Decode(encoded)).Error().
-					To(MatchError("unknown channel key: 3"))
+				Expect(dec.Decode(encoded)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError("unknown channel key: 3: validation error"),
+				))
 			},
 		)
 	})
