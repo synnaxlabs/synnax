@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -447,7 +448,8 @@ private:
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     Api api;
     int epoll_fd = -1;
-    int event_fd = -1;
+    /// @brief atomic, as wake reads it from another thread while start sets it.
+    std::atomic<int> event_fd = -1;
     int timer_fd = -1;
     /// @brief holds all cores out of deep idle states while open.
     int latency_fd = -1;

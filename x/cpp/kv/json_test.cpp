@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <random>
 #include <string>
 
 #include "x/cpp/kv/kv.h"
@@ -21,7 +22,10 @@ protected:
 
     void SetUp() override {
         const auto temp_dir = std::filesystem::temp_directory_path();
-        temp_path = (temp_dir / "json_test" / "test.json").string();
+        temp_path = (temp_dir /
+                     ("json_test_" + std::to_string(std::random_device()())) /
+                     "test.json")
+                        .string();
     }
 
     void TearDown() override {

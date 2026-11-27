@@ -11,6 +11,7 @@
 #include <string>
 #include <system_error>
 #include <thread>
+#include <type_traits>
 
 #include "asio/buffer.hpp"
 #include "asio/write.hpp"
@@ -25,6 +26,16 @@ namespace {
 /// @brief DRAIN_TIMEOUT is how long a closing port waits for its written bytes to
 /// leave.
 const auto DRAIN_TIMEOUT = x::telem::SECOND;
+
+/// @returns handle, which is a file descriptor on POSIX and a HANDLE on Windows, as a
+/// native::Handle.
+template<typename NativeHandle>
+native::Handle to_native(const NativeHandle handle) {
+    if constexpr (std::is_pointer_v<NativeHandle>)
+        return reinterpret_cast<native::Handle>(handle);
+    else
+        return static_cast<native::Handle>(handle);
+}
 
 /// @brief cancels the pending operations of device.
 void cancel(asio::serial_port &device) {
@@ -47,7 +58,7 @@ bool drain(const native::Handle handle) {
 }
 
 native::Handle Port::handle() {
-    return static_cast<native::Handle>(this->device.native_handle());
+    return to_native(this->device.native_handle());
 }
 
 std::pair<std::unique_ptr<Port>, x::errors::Error>
@@ -110,8 +121,10 @@ Port::read(const x::telem::TimeSpan timeout) {
             },
             [this] { cancel(this->device); }
         );
-        if (done.timed_out()) return {chunk, x::errors::NIL};
-        if (done.ec) return {{}, this->fail(translate(context, done.ec))};
+        // Windows completes a cancelled read with the bytes that it already received.
+        if (done.timed_out() && done.size == 0) return {chunk, x::errors::NIL};
+        if (done.ec && !done.timed_out())
+            return {{}, this->fail(translate(context, done.ec))};
         const auto [received, ec] = native::receive(
             this->handle(),
             this->line,

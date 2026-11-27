@@ -797,6 +797,28 @@ var _ = Describe("Write task", func() {
 					)), "icd: ICD " + missing.Key.String() + " does not exist"
 				},
 			),
+			Entry("the first of two ICDs that do not exist",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					m := jsonMessage(
+						"Command",
+						nil,
+						jsonField("v", "/v", icd.FloatJSONField{}),
+					)
+					first := icd.ICD{Key: uuid.New()}
+					ch := createVirtual(ctx, telem.Float64T)
+					return writeConfig(
+						dev,
+						valueTarget(ctx, "plant/a", ch),
+						messageTarget("plant/b", first, m, channelBinding(m, 0, ch)),
+						messageTarget(
+							"plant/c",
+							icd.ICD{Key: uuid.New()},
+							m,
+							channelBinding(m, 0, ch),
+						),
+					), "icd: ICD " + first.Key.String() + " does not exist"
+				},
+			),
 			Entry("a message that the ICD lacks",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					ic := createICD(ctx)

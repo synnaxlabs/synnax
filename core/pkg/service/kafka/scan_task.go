@@ -61,7 +61,9 @@ func (s scanner) Check(ctx context.Context, dev device.Device) error {
 	if err != nil {
 		return err
 	}
-	return s.ping(ctx, props)
+	ctx, cancel := context.WithTimeout(ctx, s.timeout.Duration())
+	defer cancel()
+	return ping(ctx, props)
 }
 
 // Exec implements driver.Scanner.
@@ -130,12 +132,6 @@ func (s scanner) properties(ctx context.Context, key device.Key) (Properties, er
 		return Properties{}, settingsFailure(err)
 	}
 	return props, err
-}
-
-func (s scanner) ping(ctx context.Context, props Properties) error {
-	ctx, cancel := context.WithTimeout(ctx, s.timeout.Duration())
-	defer cancel()
-	return ping(ctx, props)
 }
 
 func validateScanConfig(cfg *ScanConfig) error {

@@ -85,7 +85,10 @@ class TaskPage(ConsolePage):
 
     def add_channel_row(self) -> None:
         """Append a channel row from the button under the channel list."""
-        self._pane().get_by_role("button", name="Add channel", exact=True).click()
+        # The empty details pane shows an action of the same name.
+        self._channel_list().get_by_role(
+            "button", name="Add channel", exact=True
+        ).click()
 
     def next_channel_row(self) -> int:
         """Return the index of the channel row to fill in next. On a new task, this is

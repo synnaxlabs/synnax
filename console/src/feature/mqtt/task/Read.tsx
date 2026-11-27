@@ -40,7 +40,6 @@ import {
 } from "react";
 
 import { Device } from "@/feature/mqtt/device";
-import { DEFAULT_READ_NAME } from "@/feature/mqtt/task/create";
 import type { Kind } from "@/feature/mqtt/task/discover/Discover";
 import { createDiscoverModal } from "@/feature/mqtt/task/discover/modal";
 import {
@@ -305,10 +304,6 @@ type Bind = (
   fields: icd.JSONField[],
   message: icd.MessageKey,
 ) => icd.ReadBinding[];
-
-/** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string =>
-  name.trim() === "" ? DEFAULT_READ_NAME : name;
 
 /** Creates an ICD with a message for each draft, and the entries that read them. */
 const createICD = async (
@@ -742,7 +737,7 @@ const Entries: FC<EntriesProps> = ({
       drafts.length === 0
         ? { added: [], held: [] }
         : home == null || format == null
-          ? await createICD(client, icdName(ctx.get(root.name).value), drafts, bind)
+          ? await createICD(client, device.name, drafts, bind)
           : await addTopics({
               client,
               format: { key: home, form: format },

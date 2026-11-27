@@ -178,16 +178,16 @@ export const uniqueName = (base: string, taken: icd.Message[]): string => {
 /**
  * @returns a message for each shape with picks, holding the picked fields, the fields
  * that its keys carry, and the shape's timestamp. Its records read the keys of the
- * shape with no record of their own. A message takes the name of its first key, or
- * label for the empty key. A shape that is one of several kinds adds the name of its
- * present field, and its message matches the documents that hold that field.
+ * shape with no record of their own. A message takes the name that nameOf gives its
+ * first key. A shape that is one of several kinds adds the name of its present field,
+ * and its message matches the documents that hold that field.
  */
 export const createAdditions = (
   shapes: json.Shape[],
   picks: Picks,
   reads: Reads,
   held: icd.Message[],
-  label: (recordKey: string) => string,
+  nameOf: (recordKey: string) => string,
 ): Addition[] => {
   const taken = [...held];
   return shapes.flatMap((shape): Addition[] => {
@@ -217,7 +217,7 @@ export const createAdditions = (
     const message: icd.Message = {
       key: uuid.create(),
       name: uniqueName(
-        ICD.kindName(label(recordKeys[0]), presentOf(shape)?.pointer),
+        ICD.kindName(nameOf(recordKeys[0]), presentOf(shape)?.pointer),
         taken,
       ),
       payload: { format: "json", fields, ...matchOf(shape) },
@@ -282,7 +282,7 @@ export const createExtensions = (
   picks: Picks,
   records: ReadRecord[],
   messagesOf: MessagesOf,
-  label: (recordKey: string) => string,
+  nameOf: (recordKey: string) => string,
 ): { extensions: Extension[]; kinds: KindMessage[] } => {
   const drafts = new Map<icd.MessageKey, Draft>();
   const kinds = new Map<string, KindMessage>();
@@ -311,7 +311,7 @@ export const createExtensions = (
           () => {
             const made = [...kinds.values()].filter(({ icd }) => icd === record.icd);
             const taken = [...held, ...made.map(({ message }) => message)];
-            return createKindMessage(shape, picked, record, taken, label);
+            return createKindMessage(shape, picked, record, taken, nameOf);
           },
         );
         kind.records.push(record.key);
@@ -362,7 +362,7 @@ const createKindMessage = (
   picked: json.InferredField[],
   record: ReadRecord,
   taken: icd.Message[],
-  label: (recordKey: string) => string,
+  nameOf: (recordKey: string) => string,
 ): KindMessage => {
   const indexField = shape.index == null ? undefined : shape.fields[shape.index];
   const kept = shape.fields.filter((f) => f === indexField || picked.includes(f));
@@ -371,7 +371,7 @@ const createKindMessage = (
   const message: icd.Message = {
     key: uuid.create(),
     name: uniqueName(
-      ICD.kindName(label(record.recordKey), presentOf(shape)?.pointer),
+      ICD.kindName(nameOf(record.recordKey), presentOf(shape)?.pointer),
       taken,
     ),
     payload: { format: "json", fields, ...matchOf(shape) },

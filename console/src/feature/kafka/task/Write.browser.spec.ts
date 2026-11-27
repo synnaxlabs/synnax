@@ -53,7 +53,7 @@ preloadForms(Kafka.Task.FORMS);
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<Kafka.Task.WriteSchemas> = {
-  name: Kafka.Task.DEFAULT_WRITE_NAME,
+  name: "Kafka write task",
   type: Kafka.Task.WRITE_TYPE,
   config: Kafka.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -216,7 +216,7 @@ describe("Kafka Write form", () => {
     ]);
     expect(target).toMatchObject({ topic: TOPIC, recordKey: "pump-2" });
     const [ic] = await client.icds.retrieve([target.icd]);
-    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
+    expect(ic.name).toBe(dev.name);
     expect(ic.messages).toMatchObject([
       {
         key: target.message.message,

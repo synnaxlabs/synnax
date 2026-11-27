@@ -17,8 +17,6 @@ const field = {
   type: "number",
   timeFormat: "unix_ms",
   enum: [],
-  count: 2,
-  mismatched: 0,
 };
 
 describe("shapeZ", () => {
