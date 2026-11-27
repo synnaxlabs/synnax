@@ -130,8 +130,19 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 		}
 		t := Task{Name: env.Name, Type: env.Type, Config: config}
 		if err := s.NewWriter(tx).Create(ctx, &t); err != nil {
-			return resource.ID{}, err
+			return resource.ID{}, fileError(err)
 		}
 		return ResourceID(t.Key), nil
 	}, nil
+}
+
+// fileError roots a path error of a task created from a file at the file, which holds
+// the fields of the config at its root. It returns any other error as it is.
+func fileError(err error) error {
+	pathErr, ok := errors.AsType[validate.PathError](err)
+	if !ok || len(pathErr.Path) < 2 || pathErr.Path[0] != "config" {
+		return err
+	}
+	pathErr.Path = pathErr.Path[1:]
+	return pathErr
 }
