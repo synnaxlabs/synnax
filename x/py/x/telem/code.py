@@ -10,7 +10,7 @@
 from x.telem.telem import DataType
 from x.telem.types_gen import DataTypeCode
 
-_DATA_TYPES: dict[DataTypeCode, DataType] = {
+_DATA_TYPES: dict[int, DataType] = {
     DataTypeCode.uint8: DataType.UINT8,
     DataTypeCode.uint16: DataType.UINT16,
     DataTypeCode.uint32: DataType.UINT32,
@@ -29,7 +29,9 @@ _DATA_TYPES: dict[DataTypeCode, DataType] = {
     DataTypeCode.boolean: DataType.BOOLEAN,
 }
 
-_CODES: dict[DataType, DataTypeCode] = {dt: c for c, dt in _DATA_TYPES.items()}
+_CODES: dict[DataType, DataTypeCode] = {
+    dt: DataTypeCode(c) for c, dt in _DATA_TYPES.items()
+}
 
 
 def code_of(data_type: DataType) -> DataTypeCode:
@@ -39,7 +41,4 @@ def code_of(data_type: DataType) -> DataTypeCode:
 
 def data_type_of(code: int) -> DataType:
     """:returns: the data type of code, or DataType.UNKNOWN for a code with none."""
-    for c, dt in _DATA_TYPES.items():
-        if c == code:
-            return dt
-    return DataType.UNKNOWN
+    return _DATA_TYPES.get(code, DataType.UNKNOWN)

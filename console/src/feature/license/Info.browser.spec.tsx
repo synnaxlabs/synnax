@@ -9,6 +9,7 @@
 
 import type { Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -36,7 +37,7 @@ describe("License.Info", () => {
     expect(
       await screen.findByText(`${PlatformLicense.editionLabel(lic)} license`),
     ).toBeTruthy();
-    expect(screen.getByText(`License ${lic.jti}`)).toBeTruthy();
+    expect(treatment(screen.getByText(`License ${lic.jti}`))).toBe("prose");
   });
 
   it("should copy the license diagnostics", async () => {

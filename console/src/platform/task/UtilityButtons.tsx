@@ -52,11 +52,16 @@ export const UtilityButtons = () => {
     copyLink({ name: getName(), resourceID: task.resourceID(taskKey) });
   };
   const handlePlot =
-    plotChannels == null
+    plotChannels == null || taskKey == null
       ? undefined
       : () =>
           plot([
-            { name: getName(), config: ctx.get(formPath.config).value, plotChannels },
+            {
+              key: taskKey,
+              name: getName(),
+              config: ctx.get(formPath.config).value,
+              plotChannels,
+            },
           ]);
   const hasKey = !primitive.isZero(taskKey);
   return (

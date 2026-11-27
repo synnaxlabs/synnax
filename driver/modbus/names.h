@@ -14,6 +14,6 @@
 namespace driver::modbus {
 /// @brief the make the Console and clients write on Modbus server devices.
 const std::string MAKE = "Modbus";
-/// @brief integration name for modbus.
+/// @brief integration name for Modbus.
 const std::string INTEGRATION_NAME = "modbus";
 }

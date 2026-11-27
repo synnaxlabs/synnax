@@ -60,13 +60,7 @@ const Progress = () => {
       <Flex.Box x justify="between" align="start">
         <Status.Summary status={progress} center={false} />
         <Text.Text x>
-          <Telem.Text.TimeSpanSince
-            el="span"
-            level="p"
-            color="gray"
-            format="semantic"
-            variant="code"
-          >
+          <Telem.Text.TimeSpanSince el="span" level="p" color="gray" format="semantic">
             {progress.time}
           </Telem.Text.TimeSpanSince>
           <Icon.Time color={9} />

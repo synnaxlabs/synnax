@@ -453,17 +453,17 @@ var _ = Describe("Change channels", func() {
 		createLabels(ctx, readable)
 		open(ctx, newUser(ctx, label.ResourceID(readable.Key)))
 		// With no keys, no frame of ch passes until the next key update applies. The
-		// ack
-		// shows that the relay applied the empty keys.
+		// ack shows that the relay applied the empty keys.
 		Expect(client.Send(apiframer.StreamerRequest{AckRequested: true})).To(Succeed())
 		Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
 		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
 			To(Succeed())
 		responses := make(chan apiframer.StreamerResponse, 16)
+		c := client
 		go func() {
 			defer GinkgoRecover()
 			for {
-				res, err := client.Receive()
+				res, err := c.Receive()
 				if err != nil {
 					close(responses)
 					return

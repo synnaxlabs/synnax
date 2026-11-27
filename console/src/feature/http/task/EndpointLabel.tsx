@@ -37,7 +37,6 @@ export const EndpointLabel = ({ path }: EndpointLabelProps) => {
       kind={method}
       kindColor={METHOD_COLORS[method]}
       color={epPath === "" ? 8 : 10}
-      variant="code"
     >
       {epPath === "" ? "New endpoint" : epPath}
     </Task.Views.ItemLabel>

@@ -168,54 +168,22 @@ DataTypeCode enum {
     unknown   = 0 {
         @doc value "is no data type. Every codec refuses it on the wire."
     }
-    uint8     = 1 {
-        @doc value "is the code of uint8."
-    }
-    uint16    = 2 {
-        @doc value "is the code of uint16."
-    }
-    uint32    = 3 {
-        @doc value "is the code of uint32."
-    }
-    uint64    = 4 {
-        @doc value "is the code of uint64."
-    }
-    int8      = 5 {
-        @doc value "is the code of int8."
-    }
-    int16     = 6 {
-        @doc value "is the code of int16."
-    }
-    int32     = 7 {
-        @doc value "is the code of int32."
-    }
-    int64     = 8 {
-        @doc value "is the code of int64."
-    }
-    float32   = 9 {
-        @doc value "is the code of float32."
-    }
-    float64   = 10 {
-        @doc value "is the code of float64."
-    }
-    timestamp = 11 {
-        @doc value "is the code of timestamp."
-    }
-    uuid      = 12 {
-        @doc value "is the code of uuid."
-    }
-    string    = 13 {
-        @doc value "is the code of string."
-    }
-    bytes     = 14 {
-        @doc value "is the code of bytes."
-    }
-    json      = 15 {
-        @doc value "is the code of json."
-    }
-    boolean   = 16 {
-        @doc value "is the code of boolean."
-    }
+    uint8     = 1
+    uint16    = 2
+    uint32    = 3
+    uint64    = 4
+    int8      = 5
+    int16     = 6
+    int32     = 7
+    int64     = 8
+    float32   = 9
+    float64   = 10
+    timestamp = 11
+    uuid      = 12
+    string    = 13
+    bytes     = 14
+    json      = 15
+    boolean   = 16
 
     @doc value """
         is the one-byte code of a data type in the frame codec and in Cesium segments. A

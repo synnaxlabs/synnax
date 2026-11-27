@@ -2659,6 +2659,31 @@ describe("Series", () => {
 });
 
 describe("MultiSeries", () => {
+  describe("empty", () => {
+    it("should have no data type", () => {
+      expect(new MultiSeries([]).dataType).toBeUndefined();
+    });
+
+    it("should cast to any JS type", () => {
+      const multi = new MultiSeries([]);
+      expect(multi.as("number").length).toEqual(0);
+      expect(multi.as("bigint").length).toEqual(0);
+      expect(multi.as("boolean").length).toEqual(0);
+    });
+
+    it("should throw when reading its data", () => {
+      expect(() => new MultiSeries([]).data).toThrow(
+        "an empty multi-series has no data",
+      );
+    });
+
+    it("should take the data type of the first series pushed", () => {
+      const multi = new MultiSeries([]);
+      multi.push(new Series(new Float32Array([1])));
+      expect(multi.dataType).toEqual(DataType.FLOAT32);
+    });
+  });
+
   describe("alignment", () => {
     it("should return the alignment of the first series", () => {
       const a = new Series({ data: new Float32Array([1, 2]), alignment: 10n });

@@ -113,7 +113,7 @@ var (
 func tryParseToken(params freighter.Params) (string, error) {
 	tkParam, ok := params.Get(fiber.HeaderAuthorization)
 	if !ok {
-		// GRPC sends a lowercase header
+		// gRPC sends a lowercase header
 		tkParam, ok = params.Get(strings.ToLower(fiber.HeaderAuthorization))
 		if !ok {
 			return "", errNoAuthenticationParam

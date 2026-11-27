@@ -238,24 +238,17 @@ class Codec:
         pld: FramePayload, state: CodecState
     ) -> list[tuple[channel.Key, Series, int]]:
         entries = []
-        unrequested = False
         for key, ser in zip(pld.keys, pld.series, strict=True):
             i = state.index.get(key)
             if i is not None:
                 entries.append((key, ser, i))
             elif ser.clock == key and _is_int64_like(ser.data_type):
                 entries.append((key, ser, -1))
-                unrequested = True
             else:
                 raise ValidationError(
                     f"encoder was provided a key {key} that is not in the codec state."
                 )
-        # An unrequested time series under its own clock stays only when a requested
-        # series names it as its clock. A stable sort keeps the producer's order
-        # within a key.
-        if unrequested:
-            named = {ser.clock for _, ser, i in entries if i >= 0}
-            entries = [e for e in entries if e[2] >= 0 or e[0] in named]
+        # A stable sort keeps the producer's order within a key.
         entries.sort(key=lambda e: e[0])
         return entries
 

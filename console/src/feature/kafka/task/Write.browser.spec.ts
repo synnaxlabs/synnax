@@ -527,6 +527,21 @@ describe("Kafka Write form", () => {
     dialog.getByText("2 topics");
   });
 
+  it("should show the format of the message of a target in the tree and its pane", async () => {
+    const { ic, message, target } = await createTarget([]);
+    await renderWrite([target]);
+    await screen.findByRole("treeitem", { name: /JSON.*No key/ });
+    await client.icds.dispatch(
+      ic.key,
+      icd.set({
+        path: ["messages", message.key, "payload"],
+        value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /TEXT.*No key/ }));
+    await waitFor(() => expect(screen.getAllByText("TEXT")).toHaveLength(2));
+  });
+
   it("should show one Message section for a target whose message has no fields", async () => {
     const { target } = await createTarget([]);
     await renderWrite([target]);

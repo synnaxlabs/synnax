@@ -54,7 +54,7 @@ describe("resolveDataTypeIcon", () => {
     expect(Telem.resolveDataTypeIcon(DataType.TIMESTAMP)).toBe(Icon.Time);
   });
 
-  it("should return undefined for UNKNOWN data type", () => {
-    expect(Telem.resolveDataTypeIcon(DataType.UNKNOWN)).toBeUndefined();
+  it("should return undefined for an unknown data type", () => {
+    expect(Telem.resolveDataTypeIcon(new DataType("custom"))).toBeUndefined();
   });
 });

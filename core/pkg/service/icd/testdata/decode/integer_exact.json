@@ -59,19 +59,51 @@
     },
     {
       "document": { "count": 9007199254740993.5, "total": 7, "half": 3 },
-      "error": "field count: 9007199254740993.5 is not an integer: validation error"
+      "message": "reading",
+      "samples": [null, 7, 1.5],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field count: 9007199254740993.5 is not an integer: validation error"
+        }
+      ]
     },
     {
       "document": { "count": 1, "total": -1, "half": 3 },
-      "error": "field total: -1 is out of range for uint64: validation error"
+      "message": "reading",
+      "samples": [1, null, 1.5],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field total: -1 is out of range for uint64: validation error"
+        }
+      ]
     },
     {
       "document": { "count": -9223372036854775809, "total": 7, "half": 3 },
-      "error": "field count: -9223372036854775809 is out of range for int64: validation error"
+      "message": "reading",
+      "samples": [null, 7, 1.5],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field count: -9223372036854775809 is out of range for int64: validation error"
+        }
+      ]
     },
     {
       "document": { "count": 1, "total": 1, "half": 1.5 },
-      "error": "field half: 1.5 is not an integer: validation error"
+      "message": "reading",
+      "samples": [1, 1, null],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": false,
+          "error": "field half: 1.5 is not an integer: validation error"
+        }
+      ]
     }
   ]
 }

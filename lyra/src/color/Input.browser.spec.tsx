@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { assert, describe, expect, it } from "vitest";
-import { page, userEvent } from "vitest/browser";
+import { page } from "vitest/browser";
 
 import { Color } from "@/color";
 import { CSS } from "@/css";
-import { Input } from "@/input";
-import { renderThemed } from "@/styletest";
+import { renderThemed, treatment } from "@/styletest";
 import { Triggers } from "@/triggers";
 
 const RED = "#ff0000";
@@ -39,17 +38,8 @@ const boxWidth = (name: string): number => {
   return box.getBoundingClientRect().width;
 };
 
-const fontOf = (
-  name: string,
-): Pick<CSSStyleDeclaration, "fontFamily" | "textTransform"> => {
-  const { fontFamily, textTransform } = getComputedStyle(
-    page.getByRole("textbox", { name }).element(),
-  );
-  return { fontFamily, textTransform };
-};
-
 describe("Input", () => {
-  it("should show a linked name in the text font until the user types", async () => {
+  it("should draw a hex, its #, and a linked name in the text font", async () => {
     await renderThemed(
       <Triggers.Provider>
         <Color.Input
@@ -65,35 +55,13 @@ describe("Input", () => {
           library={LIBRARY}
           onChange={() => {}}
         />
-        <Input.Text aria-label="Plain" value="" onChange={() => {}} />
       </Triggers.Provider>,
     );
-    expect(fontOf("Linked")).toEqual(fontOf("Plain"));
-    await userEvent.fill(page.getByRole("textbox", { name: "Linked" }), "0f0");
-    expect(fontOf("Linked")).toEqual(fontOf("Fixed"));
-  });
-
-  it("should draw the # in the code font of the digits", async () => {
-    await renderThemed(
-      <Triggers.Provider>
-        <Color.Input
-          aria-label="Fixed"
-          value={RED}
-          fallback={RED}
-          onChange={() => {}}
-        />
-        <Input.Text aria-label="Plain" value="" onChange={() => {}} />
-      </Triggers.Provider>,
-    );
-    const hash = page
-      .getByRole("textbox", { name: "Fixed" })
-      .element()
-      .closest(`.${CSS.B("color-hex-text")}`)
-      ?.querySelector(`.${CSS.BE("input", "start-content")}`);
-    assert(hash != null);
-    expect(hash.textContent).toBe("#");
-    expect(getComputedStyle(hash).fontFamily).toBe(fontOf("Fixed").fontFamily);
-    expect(fontOf("Fixed").fontFamily).not.toBe(fontOf("Plain").fontFamily);
+    for (const name of ["Fixed", "Linked"])
+      expect(treatment(page.getByRole("textbox", { name }).element()), name).toBe(
+        "prose",
+      );
+    expect(treatment(page.getByText("#", { exact: true }).element())).toBe("prose");
   });
 
   it("should take one width while fixed, linked, Auto, or mixed", async () => {
@@ -127,12 +95,12 @@ describe("Input", () => {
       expect(boxWidth(name), name).toBeCloseTo(fixed, 1);
   });
 
-  it("should fit an 8-digit hex", async () => {
+  it("should fit the widest 8-digit hex", async () => {
     await renderThemed(
       <Triggers.Provider>
         <Color.Input
           aria-label="Translucent"
-          value="#cccccc80"
+          value="#dddddddd"
           fallback={RED}
           onChange={() => {}}
         />

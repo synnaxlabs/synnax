@@ -593,9 +593,6 @@ func (c *tdmsChannel) read(
 			return err
 		}
 		at, a := start.AddSamples(uint32(i)*step), c.alignment()
-		if a < at {
-			return c.unindexedError()
-		}
 		if a > at {
 			gap := n - i
 			if a.DomainIndex() == at.DomainIndex() {

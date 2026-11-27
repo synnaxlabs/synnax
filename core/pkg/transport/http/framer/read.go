@@ -448,16 +448,6 @@ func (c *column) clockError(index *column) error {
 	return nil
 }
 
-// unindexedError returns the error for a sample the column points at that sits at no
-// alignment of its index.
-func (c *column) unindexedError() error {
-	return errors.Newf(
-		"[api.Read] channel %s has a sample at alignment %s with no index sample",
-		c.name,
-		c.alignment(),
-	)
-}
-
 func keysAndDataTypes(channels []channel.Channel) (channel.Keys, []telem.DataType) {
 	keys := make(channel.Keys, len(channels))
 	dataTypes := make([]telem.DataType, len(channels))

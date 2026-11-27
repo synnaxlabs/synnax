@@ -468,7 +468,7 @@ export interface TopicPickerProps {
   children?: ReactNode;
 }
 
-/** Lists the JSON topics the broker publishes, and the fields of the one selected. */
+/** Lists the topics the broker publishes, and the fields of the one selected. */
 export const TopicPicker = ({
   device,
   entries,
@@ -616,7 +616,6 @@ export const TopicPicker = ({
                 onChange={setScopeDraft}
                 size="small"
                 placeholder="plant/line1"
-                className={CSS.BE("mqtt-discover", "code")}
               />
               <Button.Button
                 variant="outlined"

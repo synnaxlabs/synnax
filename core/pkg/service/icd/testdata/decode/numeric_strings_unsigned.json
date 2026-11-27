@@ -44,13 +44,29 @@
       "document": {
         "v": "256"
       },
-      "error": "field v: 256 is out of range for uint8: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: 256 is out of range for uint8: validation error"
+        }
+      ]
     },
     {
       "document": {
         "v": "-1"
       },
-      "error": "field v: -1 is out of range for uint64: validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: -1 is out of range for uint64: validation error"
+        }
+      ]
     }
   ]
 }

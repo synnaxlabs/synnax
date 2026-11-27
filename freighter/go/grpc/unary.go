@@ -33,10 +33,10 @@ var (
 //     interface.
 type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 	TargetPrefix address.Address
-	// RequestTranslator translates the given go request into a GRPC payload.
+	// RequestTranslator translates the given Go request into a gRPC payload.
 	// See Translator for more information.
 	RequestTranslator Translator[RQ, RQT]
-	// ResponseTranslator translates the given GRPC response into a go type.
+	// ResponseTranslator translates the given gRPC response into a Go type.
 	// See Translator for more information.
 	ResponseTranslator Translator[RS, RST]
 	// Pool is the pool of gRPC connections the transport will use to make requests.
@@ -44,7 +44,7 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 	// ServiceDesc is the gRPC service description that the transport will use to bind
 	// to a gRPC service registrar.
 	ServiceDesc *grpc.ServiceDesc
-	// Exec is a function that executes the grpc request.
+	// Exec is a function that executes the gRPC request.
 	Exec func(context.Context, grpc.ClientConnInterface, RQT) (RST, error)
 	// Errors decodes the errors that the server returns.
 	Errors *errors.Codec
@@ -52,10 +52,10 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
-	// RequestTranslator translates the given GRPC request into a go type.
+	// RequestTranslator translates the given gRPC request into a Go type.
 	// See BackwardTranslator for more information.
 	RequestTranslator BackwardTranslator[RQ, RQT]
-	// ResponseTranslator translates the given go response into a GRPC payload.
+	// ResponseTranslator translates the given Go response into a gRPC payload.
 	// See ForwardTranslator for more information.
 	ResponseTranslator ForwardTranslator[RS, RST]
 	// ServiceDesc is the gRPC service description that the transport will use to bind
@@ -131,7 +131,7 @@ func (u *UnaryClient[RQ, RQT, RS, RST]) Send(
 	return res, err
 }
 
-// Exec implements the GRPC service interface.
+// Exec implements the gRPC service interface.
 func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 	ctx context.Context,
 	tReq RQT,

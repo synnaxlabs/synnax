@@ -130,7 +130,7 @@ auth = {
 
 ### Health check
 
-Configure how the driver monitors device health:
+Configure how the Driver monitors device health:
 
 ```python
 health_check = sy.http.HealthCheck(
