@@ -1,0 +1,54 @@
+{
+  "description": "A value takes the shorter of fixed and exponent notation, and fixed when both have the same length.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 0
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [100000],
+      "text": "1e+05"
+    },
+    {
+      "samples": [123456],
+      "text": "123456"
+    },
+    {
+      "samples": [0.001],
+      "text": "0.001"
+    },
+    {
+      "samples": [0.0001],
+      "text": "1e-04"
+    },
+    {
+      "samples": [2.5e-7],
+      "text": "2.5e-07"
+    },
+    {
+      "samples": [0],
+      "text": "0"
+    }
+  ]
+}
