@@ -19,7 +19,7 @@ import (
 
 func TestJoin(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "STL Join Suite", SuiteConfig())
+	RunSpecs(t, "Join Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

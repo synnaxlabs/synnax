@@ -30,51 +30,51 @@
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "name": "Config",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "name": "Run",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "name": "Output",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "receiver": "Output",
       "name": "Reset",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "name": "Join",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "name": "New",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "receiver": "Join",
       "name": "Push",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     },
     {
       "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/stl/join",
+      "package": "github.com/synnaxlabs/arc/join",
       "receiver": "Join",
       "name": "Next",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
