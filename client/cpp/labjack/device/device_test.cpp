@@ -14,6 +14,7 @@
 
 #include "client/cpp/labjack/device/actions.gen.h"
 #include "client/cpp/labjack/device/json.gen.h"
+#include "client/cpp/labjack/device/proto.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::labjack::device {
@@ -86,6 +87,40 @@ TEST(Device, RoundTrips) {
     );
     ASSERT_EQ(parsed.connection, CONNECTION_ETHERNET);
     ASSERT_EQ(parsed.identifier, "lj");
+}
+
+/// @brief returns a T7 with a channel on each kind of port.
+Device t7_with_ports() {
+    T7Ports ports;
+    ports.mux80_attached = true;
+    ports.analog_input = {{"AIN48", 1}};
+    ports.analog_output = {{"DAC0", CommandStatePair{.command = 2, .state = 3}}};
+    ports.digital_input = {{"DIO0", 4}};
+    ports.digital_output = {{"DIO1", CommandStatePair{.command = 5}}};
+    return Device{
+        .key = x::uuid::create(),
+        .rack = 1,
+        .name = "T7",
+        .serial = 470010001,
+        .connection = CONNECTION_USB,
+        .model = MODEL_T_7,
+        .ports = ports,
+    };
+}
+
+/// @brief it should keep the port maps of a device through protobuf.
+TEST(Device, RoundTripsThroughProto) {
+    const auto dev = t7_with_ports();
+    const auto pb = ASSERT_NIL_P(dev.to_proto());
+    const auto got = ASSERT_NIL_P(Device::from_proto(pb));
+    ASSERT_EQ(got.to_json(), dev.to_json());
+}
+
+/// @brief it should refuse a protobuf port that the model does not have.
+TEST(Device, RefusesUnknownPortFromProto) {
+    auto pb = ASSERT_NIL_P(t7_with_ports().to_proto());
+    (*pb.mutable_ports()->mutable_t7()->mutable_digital_input())["DIO99"] = 4;
+    ASSERT_OCCURRED_AS_P(Device::from_proto(pb), x::errors::VALIDATION);
 }
 
 /// @brief it should round trip a set action through JSON.

@@ -5,12 +5,6 @@
   ],
   "pending": [
     {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/pb",
-      "name": "Enum",
-      "caller": "sy-5127-labjack-device-pb"
-    },
-    {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
       "name": "ErrChannelNotFound",
