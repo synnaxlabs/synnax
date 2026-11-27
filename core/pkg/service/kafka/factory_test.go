@@ -40,24 +40,51 @@ var _ = Describe("Factory", func() {
 	BeforeEach(func() { f = newFactory() })
 
 	Describe("NewFactory", func() {
-		It("Should reject a config without a DB", func() {
-			Expect(kafka.NewFactory(kafka.FactoryConfig{
-				Device:  deviceSvc,
-				Channel: channelSvc,
-				Framer:  framerSvc,
-				Status:  statusSvc,
-			})).Error().To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
-
-		It("Should reject a config without an ICD service", func() {
-			Expect(kafka.NewFactory(kafka.FactoryConfig{
-				DB:      db,
-				Device:  deviceSvc,
-				Channel: channelSvc,
-				Framer:  framerSvc,
-				Status:  statusSvc,
-			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
-		})
+		DescribeTable(
+			"Should reject a config with a missing service",
+			func(unset func(*kafka.FactoryConfig), msg string) {
+				cfg := kafka.FactoryConfig{
+					DB:      db,
+					Device:  deviceSvc,
+					Channel: channelSvc,
+					Framer:  framerSvc,
+					Status:  statusSvc,
+					ICD:     icdSvc,
+				}
+				unset(&cfg)
+				Expect(kafka.NewFactory(cfg)).Error().To(MatchError(msg))
+			},
+			Entry(
+				"db",
+				func(c *kafka.FactoryConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
+				"device",
+				func(c *kafka.FactoryConfig) { c.Device = nil },
+				"device: must be non-nil",
+			),
+			Entry(
+				"channel",
+				func(c *kafka.FactoryConfig) { c.Channel = nil },
+				"channel: must be non-nil",
+			),
+			Entry(
+				"framer",
+				func(c *kafka.FactoryConfig) { c.Framer = nil },
+				"framer: must be non-nil",
+			),
+			Entry(
+				"status",
+				func(c *kafka.FactoryConfig) { c.Status = nil },
+				"status: must be non-nil",
+			),
+			Entry(
+				"icd",
+				func(c *kafka.FactoryConfig) { c.ICD = nil },
+				"icd: must be non-nil",
+			),
+		)
 	})
 
 	It("Should be named after the device make", func() {
@@ -110,39 +137,27 @@ var _ = Describe("Factory", func() {
 			},
 		)
 
-		It("Should write an error status for an invalid config at boot",
-			func(ctx SpecContext) {
+		DescribeTable("Should write an error status for an invalid config",
+			func(ctx SpecContext, cmd string) {
 				dev := createDevice(ctx, clusterProperties())
 				t := newTask(
 					ctx,
 					kafka.WriteTaskType,
 					kafka.WriteConfig{Device: dev.Key},
 				)
-				Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
-					To(MatchError(validate.ErrValidation))
+				const msg = "targets: the task has no enabled targets: validation error"
+				Expect(f.ConfigureTask(ctx, t, cmd)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(msg),
+				))
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Details.Cmd).To(Equal(driver.NoCommand))
+				Expect(stat.Description).To(Equal(msg))
+				Expect(stat.Details.Cmd).To(Equal(cmd))
 			},
-		)
-
-		It("Should answer the command with an error status for an invalid config",
-			func(ctx SpecContext) {
-				dev := createDevice(ctx, clusterProperties())
-				t := newTask(
-					ctx,
-					kafka.WriteTaskType,
-					kafka.WriteConfig{Device: dev.Key},
-				)
-				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
-					To(MatchError(validate.ErrValidation))
-				stat := taskStatus(ctx, t)
-				Expect(stat.Variant).To(Equal(status.VariantError))
-				Expect(stat.Message).To(Equal("Failed to configure task"))
-				Expect(stat.Description).To(ContainSubstring("no enabled targets"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
-			},
+			Entry("at boot", driver.NoCommand),
+			Entry("in answer to a command", "cmd-1"),
 		)
 	})
 
