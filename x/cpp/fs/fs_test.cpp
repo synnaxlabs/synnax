@@ -10,6 +10,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <random>
 
 #include "gtest/gtest.h"
 
@@ -28,7 +29,10 @@ protected:
     std::string special_chars_file;
 
     void SetUp() override {
-        test_dir = (std::filesystem::temp_directory_path() / "fs_test").string();
+        std::random_device rd;
+        test_dir = (std::filesystem::temp_directory_path() /
+                    ("fs_test_" + std::to_string(rd())))
+                       .string();
         std::filesystem::create_directories(test_dir);
         test_file = test_dir + "/test.txt";
         empty_file = test_dir + "/empty.txt";
