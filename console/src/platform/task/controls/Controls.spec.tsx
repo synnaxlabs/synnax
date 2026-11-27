@@ -278,6 +278,43 @@ describe("Controls.Controls", () => {
     await waitFor(() => expect(screen.queryByText("Copy diagnostics")).toBeNull());
   });
 
+  describe("start name", () => {
+    /** @returns a stopped task that last ran the config of hash deployed. */
+    const stoppedValues = (deployed?: string) => ({
+      key: "1",
+      rack: 2,
+      config: CONFIG,
+      configHash: CONFIG_HASH,
+      ...(deployed != null && {
+        status: createTaskStatus({
+          details: { running: false, configHash: deployed, rack: 2 },
+        }),
+      }),
+    });
+
+    it.each([
+      ["Deploy and start", "a task that never ran", undefined],
+      ["Deploy and start", "a config that changed since the task last ran", "stale"],
+      ["Start", "the config that the task last ran", CONFIG_HASH],
+    ])("should name the start button %s for %s", async (name, _, deployed) => {
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: stoppedValues(deployed) },
+      );
+      const start = await findIconButton(container, "play");
+      await waitFor(() => expect(start.getAttribute("aria-label")).toBe(name));
+    });
+
+    it("should name the start button Start for a user who cannot edit", async () => {
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        { client, values: stoppedValues("stale"), mode: "preview" },
+      );
+      const start = await findIconButton(container, "play");
+      await waitFor(() => expect(start.getAttribute("aria-label")).toBe("Start"));
+    });
+  });
+
   describe("settings", () => {
     const SETTINGS = { channels: [], dataSavingDisabled: false, autoStart: false };
 

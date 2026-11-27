@@ -26,3 +26,14 @@ export const useDrifted = <Schema extends z.ZodType>(
   const status = useStatus(ctx);
   return task.drifted({ configHash, rack, status });
 };
+
+/**
+ * Whether a start deploys the config and rack that the form holds: they differ from
+ * those the task last ran with, or the task never ran.
+ */
+export const useUndeployed = (): boolean => {
+  const configHash = Form.useFieldValue(formPath.configHash);
+  const rack = Form.useFieldValue(formPath.rack);
+  const details = useStatus()?.details;
+  return details == null || details.configHash !== configHash || details.rack !== rack;
+};
