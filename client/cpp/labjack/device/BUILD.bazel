@@ -15,6 +15,7 @@ cc_library(
     hdrs = [
         "actions.gen.h",
         "json.gen.h",
+        "proto.gen.h",
         "types.gen.h",
     ],
     visibility = ["//visibility:public"],
@@ -23,10 +24,14 @@ cc_library(
         "//client/cpp/rack:key",
         "//client/cpp/resource",
         "//client/cpp/status",
+        "//core/pkg/api/labjack/device:device_grpc",
+        "//core/pkg/service/labjack/device:device_grpc",
+        "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/mem",
         "//x/cpp/patch",
+        "//x/cpp/pb",
         "//x/cpp/uuid",
     ],
 )

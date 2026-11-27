@@ -23,11 +23,15 @@
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
+
+#include "core/pkg/api/labjack/device/pb/labjack_device.pb.h"
+#include "core/pkg/service/labjack/device/pb/labjack_device.pb.h"
 
 namespace synnax::labjack::device {
 
@@ -240,6 +244,13 @@ struct CommandStatePair {
 
     static CommandStatePair parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::labjack_device::pb::CommandStatePair;
+    [[nodiscard]] std::
+        pair<::service::labjack_device::pb::CommandStatePair, x::errors::Error>
+        to_proto() const;
+    static std::pair<CommandStatePair, x::errors::Error>
+    from_proto(const ::service::labjack_device::pb::CommandStatePair &pb);
 };
 
 /// @brief StatusDetails identifies the device and rack that a status pertains to.
@@ -251,6 +262,13 @@ struct StatusDetails {
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::labjack_device::pb::StatusDetails;
+    [[nodiscard]] std::
+        pair<::service::labjack_device::pb::StatusDetails, x::errors::Error>
+        to_proto() const;
+    static std::pair<StatusDetails, x::errors::Error>
+    from_proto(const ::service::labjack_device::pb::StatusDetails &pb);
 };
 
 /// @brief Cursor is a position in an order of devices: the sort value and the key of a
@@ -261,6 +279,12 @@ struct Cursor {
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::labjack_device::pb::Cursor;
+    [[nodiscard]] std::pair<::api::labjack_device::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::labjack_device::pb::Cursor &pb);
 };
 
 /// @brief Where is a filter that selects LabJack devices.
@@ -309,6 +333,12 @@ struct Where {
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::labjack_device::pb::Where;
+    [[nodiscard]] std::pair<::service::labjack_device::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::labjack_device::pb::Where &pb);
 };
 
 /// @brief T4Ports are the ports of a T4.
@@ -327,6 +357,13 @@ struct T4Ports {
 
     static T4Ports parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::labjack_device::pb::PortsT4Payload;
+    [[nodiscard]] std::
+        pair<::service::labjack_device::pb::PortsT4Payload, x::errors::Error>
+        to_proto() const;
+    static std::pair<T4Ports, x::errors::Error>
+    from_proto(const ::service::labjack_device::pb::PortsT4Payload &pb);
 };
 
 /// @brief T7Ports are the ports of a T7.
@@ -348,6 +385,13 @@ struct T7Ports {
 
     static T7Ports parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::labjack_device::pb::PortsT7Payload;
+    [[nodiscard]] std::
+        pair<::service::labjack_device::pb::PortsT7Payload, x::errors::Error>
+        to_proto() const;
+    static std::pair<T7Ports, x::errors::Error>
+    from_proto(const ::service::labjack_device::pb::PortsT7Payload &pb);
 };
 
 /// @brief T8Ports are the ports of a T8.
@@ -366,6 +410,13 @@ struct T8Ports {
 
     static T8Ports parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::labjack_device::pb::PortsT8Payload;
+    [[nodiscard]] std::
+        pair<::service::labjack_device::pb::PortsT8Payload, x::errors::Error>
+        to_proto() const;
+    static std::pair<T8Ports, x::errors::Error>
+    from_proto(const ::service::labjack_device::pb::PortsT8Payload &pb);
 };
 
 /// @brief Ports holds the configuration that depends on the model: the channel maps and
@@ -374,6 +425,10 @@ using Ports = std::variant<T4Ports, T7Ports, T8Ports>;
 
 Ports parse_ports(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Ports &value);
+[[nodiscard]] std::pair<::service::labjack_device::pb::Ports, x::errors::Error>
+to_proto(const Ports &value);
+std::pair<Ports, x::errors::Error>
+ports_from_proto(const ::service::labjack_device::pb::Ports &pb);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
@@ -416,6 +471,13 @@ struct RetrieveRequest {
 
     static RetrieveRequest parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::labjack_device::pb::RetrieveRequest;
+    [[nodiscard]] std::
+        pair<::api::labjack_device::pb::RetrieveRequest, x::errors::Error>
+        to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::labjack_device::pb::RetrieveRequest &pb);
 };
 
 /// @brief Device is a LabJack T-series device.
@@ -448,6 +510,12 @@ struct Device {
 
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::labjack_device::pb::Device;
+    [[nodiscard]] std::pair<::service::labjack_device::pb::Device, x::errors::Error>
+    to_proto() const;
+    static std::pair<Device, x::errors::Error>
+    from_proto(const ::service::labjack_device::pb::Device &pb);
 };
 
 /// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
@@ -457,6 +525,13 @@ struct RetrieveResponse {
 
     static RetrieveResponse parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::labjack_device::pb::RetrieveResponse;
+    [[nodiscard]] std::
+        pair<::api::labjack_device::pb::RetrieveResponse, x::errors::Error>
+        to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::labjack_device::pb::RetrieveResponse &pb);
 };
 
 const synnax::resource::ID TYPE_RESOURCE_ID("labjack_device", "");

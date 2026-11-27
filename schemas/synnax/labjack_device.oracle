@@ -15,6 +15,7 @@ import "schemas/x/patch"
 
 @cpp output "client/cpp/labjack/device"
 @go output  "core/pkg/service/labjack/device"
+@pb
 @py output  "client/py/synnax/labjack/device"
 @ts output  "client/ts/src/labjack/device"
 

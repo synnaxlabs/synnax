@@ -197,6 +197,29 @@ var _ = Describe("Plugin", func() {
 			},
 		)
 
+		It("Should key a map by a string for a string enum key", func() {
+			resp := MustGenerate(`
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Port enum {
+					dio0 = "DIO0"
+					dio1 = "DIO1"
+				}
+
+				Alias = Port
+
+				Thing struct {
+					ports   map<Port, uint32>
+					aliased map<Alias, uint32>
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+				"map<string, uint32> ports = 1;",
+				"map<string, uint32> aliased = 2;",
+			)
+		})
+
 		It(
 			"Should judge a type-parameter map value by its default",
 			func() {

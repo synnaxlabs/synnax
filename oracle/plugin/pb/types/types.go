@@ -953,6 +953,21 @@ func (p *Plugin) resolveEnumType(resolved resolution.Type, data *templateData) s
 	return fmt.Sprintf(".%s.%s", pkg, resolved.Name)
 }
 
+// mapKeyToProto returns the protobuf type of a map key. Protobuf refuses an enum key,
+// so a string enum key becomes a string.
+func (p *Plugin) mapKeyToProto(
+	keyRef resolution.TypeRef,
+	data *templateData,
+) (string, error) {
+	if resolved, _, ok := resolution.Dealias(keyRef, data.table); ok {
+		if form, isEnum := resolved.Form.(resolution.EnumForm); isEnum &&
+			!form.IsIntEnum {
+			return "string", nil
+		}
+	}
+	return p.typeToProto(keyRef, data)
+}
+
 func (p *Plugin) resolveMapType(
 	typeRef resolution.TypeRef,
 	data *templateData,
@@ -975,7 +990,7 @@ func (p *Plugin) resolveMapType(
 			)
 		}
 	}
-	keyType, err := p.typeToProto(typeRef.TypeArgs[0], data)
+	keyType, err := p.mapKeyToProto(typeRef.TypeArgs[0], data)
 	if err != nil {
 		return "", errors.Wrap(err, "map key type")
 	}

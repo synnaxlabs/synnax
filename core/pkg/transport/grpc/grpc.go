@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
-	apilabjackdevice "github.com/synnaxlabs/synnax/pkg/api/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -56,6 +55,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	grpcicd "github.com/synnaxlabs/synnax/pkg/transport/grpc/icd"
+	labjackdevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/labjack/device"
 	nichassis "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/transport/grpc/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/rack"
@@ -92,6 +92,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		arc.New(&t, errs),
 		control.New(&t, errs),
 		nidevice.New(&t, errs),
+		labjackdevice.New(&t, errs),
 		nichassis.New(&t, errs),
 		secret.New(&t, errs),
 		certificate.New(&t, errs),
@@ -171,12 +172,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 	t.OPCUAServerUpdate = noop.UnaryServer[server.UpdateRequest, server.UpdateResponse]{}
 	t.OPCUAServerDelete = noop.UnaryServer[server.DeleteRequest, struct{}]{}
-
-	// LABJACK DEVICE
-	t.LabJackDeviceCreate = noop.UnaryServer[apilabjackdevice.CreateRequest, apilabjackdevice.CreateResponse]{}
-	t.LabJackDeviceRetrieve = noop.UnaryServer[apilabjackdevice.RetrieveRequest, apilabjackdevice.RetrieveResponse]{}
-	t.LabJackDeviceDispatch = noop.UnaryServer[apilabjackdevice.DispatchRequest, struct{}]{}
-	t.LabJackDeviceDelete = noop.UnaryServer[apilabjackdevice.DeleteRequest, struct{}]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
