@@ -939,8 +939,16 @@ TEST(TestHandleConfigErr, testAutoStartOfADisabledTaskWritesNoLoadingStatus) {
     res.task = std::move(recording);
     res.auto_start = true;
     cancel.start();
-    handle_config_err(ctx, task, {std::move(res), x::errors::NIL}, "", cancel);
+    auto [tsk, handled] = handle_config_err(
+        ctx,
+        task,
+        {std::move(res), x::errors::NIL},
+        "",
+        cancel
+    );
     cancel.stop();
+    EXPECT_TRUE(handled);
+    EXPECT_NE(tsk, nullptr);
     EXPECT_TRUE(ctx->statuses.empty());
     ASSERT_EQ(raw->cmds.size(), 1);
     EXPECT_EQ(raw->cmds[0].type, synnax::task::START_CMD_TYPE);
