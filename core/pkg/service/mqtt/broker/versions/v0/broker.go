@@ -14,29 +14,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/synnaxlabs/gorp"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var sparkplugID = regexp.MustCompile("^[^/+#\x00]+$")
-
-var _ gorp.Entry[Key] = Broker{}
-
-// CustomTypeName gives brokers a table prefix that cannot collide with the legacy
-// device table or another integration's resource.
-func (Broker) CustomTypeName() string { return "mqtt_broker" }
-
-// GorpKey returns the key of the broker.
-func (b Broker) GorpKey() Key { return b.Key }
-
-// ResourceID returns the resource ID of the broker.
-func (b Broker) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeMqttBroker, Key: b.Key.String()}
-}
 
 type sparkplugTag struct{ group, edgeNode, device, tag string }
 
