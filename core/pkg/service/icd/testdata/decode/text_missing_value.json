@@ -57,22 +57,55 @@
     {
       "text": "1,2,T=3",
       "message": "line",
-      "error": "field b: invalid number \"T=3\": validation error"
+      "samples": [1, null, 3],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field b: invalid number \"T=3\": validation error"
+        }
+      ]
     },
     {
       "text": "1,2",
       "message": "line",
-      "error": "field b: no value at position 2: validation error"
+      "samples": [1, null, null],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": true,
+          "error": "field b: no value at position 2: validation error"
+        },
+        {
+          "binding": 2,
+          "missing": true,
+          "error": "field t: no value after tag \"T=\": validation error"
+        }
+      ]
     },
     {
       "text": "1,2,3",
       "message": "line",
-      "error": "field t: no value after tag \"T=\": validation error"
+      "samples": [1, 3, null],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": true,
+          "error": "field t: no value after tag \"T=\": validation error"
+        }
+      ]
     },
     {
       "text": "1,2,3,T=",
       "message": "line",
-      "error": "field t: no value after tag \"T=\": validation error"
+      "samples": [1, 3, null],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": true,
+          "error": "field t: no value after tag \"T=\": validation error"
+        }
+      ]
     }
   ]
 }
