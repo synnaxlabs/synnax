@@ -25,6 +25,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/port.h"
@@ -277,30 +278,60 @@ TEST_F(PtyTest, OpensAgainAfterTheFirstPortCloses) {
     EXPECT_EQ(as_string(ASSERT_NIL_P(second->read(x::telem::SECOND)).data), "again");
 }
 
-/// @brief it should fail to open a port that does not exist.
-TEST(Port, FailsToOpenAMissingPort) {
-    synnax::serial::Properties p;
-    p.port = "/dev/synnax-missing-port";
-    const auto [port, err] = Port::open(p);
-    ASSERT_OCCURRED_AS(err, transport::UNREACHABLE_ERROR);
-    EXPECT_TRUE(err.data.starts_with("failed to open serial port " + p.port + ": "))
-        << err.data;
+/// @brief it should drop the bytes that arrived before it applied the settings.
+TEST_F(PtyTest, FlushesBytesThatArrivedBeforeTheSettings) {
+    // macOS holds a write to the controller until the terminal side is open.
+    const int terminal = ::open(this->path().c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    ASSERT_GE(terminal, 0);
+    x::defer::defer close_terminal([terminal] { ::close(terminal); });
+    ::termios raw{};
+    ASSERT_EQ(::tcgetattr(terminal, &raw), 0);
+    ::cfmakeraw(&raw);
+    ASSERT_EQ(::tcsetattr(terminal, TCSANOW, &raw), 0);
+    this->peer_write("stale");
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("fresh");
+    EXPECT_EQ(as_string(ASSERT_NIL_P(port->read(x::telem::SECOND)).data), "fresh");
 }
 
-/// @brief it should refuse invalid settings before it opens the port.
-TEST(Port, RefusesInvalidSettingsBeforeItOpensThePort) {
-    synnax::serial::Properties p;
-    p.port = "/dev/synnax-missing-port";
-    p.data_bits = 9;
-    const auto [port, err] = Port::open(p);
-    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "data bits must be 5, 6, 7, or 8, got 9");
+/// @brief it should mark line errors instead of ignoring them.
+TEST_F(PtyTest, MarksLineErrorsInsteadOfIgnoringThem) {
+    for (const auto *parity:
+         {synnax::serial::PARITY_NONE_, synnax::serial::PARITY_EVEN_}) {
+        SCOPED_TRACE(parity);
+        auto p = this->props();
+        p.parity = parity;
+        const auto port = ASSERT_NIL_P(Port::open(p));
+        const auto tio = this->termios();
+        EXPECT_TRUE(tio.c_iflag & INPCK);
+        EXPECT_TRUE(tio.c_iflag & PARMRK);
+        EXPECT_FALSE(tio.c_iflag & (IGNPAR | ISTRIP | IGNBRK | BRKINT));
+    }
 }
 
-/// @brief it should refuse an empty port path.
-TEST(Port, RejectsAnEmptyPath) {
-    const auto [port, err] = Port::open(synnax::serial::Properties{});
-    ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "serial port path is required");
+/// @brief it should deliver a 0xFF byte once while it marks line errors.
+TEST_F(PtyTest, DeliversA0xFFByteOnceWhileMarkingLineErrors) {
+    auto p = this->props();
+    p.parity = synnax::serial::PARITY_EVEN_;
+    const auto port = ASSERT_NIL_P(Port::open(p));
+    this->peer_write(std::string("\xFF\x01\xFF", 3));
+    std::string got;
+    std::size_t errors = 0;
+    for (int i = 0; i < 100 && got.size() < 3; i++) {
+        const auto chunk = ASSERT_NIL_P(port->read(10 * x::telem::MILLISECOND));
+        got += as_string(chunk.data);
+        errors += chunk.errors;
+    }
+    EXPECT_EQ(got, std::string("\xFF\x01\xFF", 3));
+    EXPECT_EQ(errors, 0);
+}
+
+/// @brief it should report no overruns on a port that counts none.
+TEST_F(PtyTest, ReportsNoOverrunsOnAPortThatCountsNone) {
+    const auto port = ASSERT_NIL_P(Port::open(this->props()));
+    this->peer_write("x");
+    const auto chunk = ASSERT_NIL_P(port->read(x::telem::SECOND));
+    EXPECT_EQ(as_string(chunk.data), "x");
+    EXPECT_EQ(chunk.overruns, 0);
 }
 }

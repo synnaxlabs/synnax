@@ -346,7 +346,7 @@ describe("Kafka Write form", () => {
       sample: failed,
     });
     const dialog = await clickAddTargets();
-    await dialog.findByText("Failed to list topics");
+    await dialog.findByText(/Failed to reach the cluster/);
     fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
@@ -501,7 +501,9 @@ describe("Kafka Write form", () => {
   it("should show one Message section for a target whose message has no fields", async () => {
     const { target } = await createTarget([]);
     await renderWrite([target]);
-    fireEvent.click(await screen.findByRole("treeitem", { name: /JSON.*No key/ }));
+    const item = await screen.findByRole("treeitem", { name: /JSON.*No key/ });
+    within(item).getByRole("img", { name: "Message has no fields" });
+    fireEvent.click(item);
     await screen.findByText("Message has no fields");
     expect(screen.getAllByText("Message", { exact: true })).toHaveLength(1);
   });

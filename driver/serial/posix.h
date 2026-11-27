@@ -9,6 +9,10 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <span>
 #include <string>
 #include <system_error>
 #include <utility>
@@ -23,4 +27,22 @@ x::errors::Error failed(const std::string &setting, const std::string &port);
 /// @returns true when a program holds the terminal at fd with TIOCEXCL. macOS cannot
 /// read the flag and returns false.
 std::pair<bool, std::error_code> exclusive(int fd);
+
+/// @brief removes the parity, framing, and break marks that PARMRK puts in the input,
+/// and turns each doubled 0xFF back into one. It drops a 0xFF that no 0x00 or 0xFF
+/// follows, which the kernel does not send once PARMRK is on. data may end inside a
+/// mark. It never writes ahead of the byte that it reads.
+/// @param marked how many bytes of a mark ended the last call. strip updates it.
+/// @returns the number of bytes left at the front of data, and the number of marks.
+std::pair<std::size_t, std::size_t>
+strip(std::uint8_t &marked, std::span<std::uint8_t> data);
+
+/// @returns the port's receive overrun count, or nothing when the port does not count
+/// overruns.
+std::pair<std::optional<std::uint32_t>, std::error_code> overrun_count(int fd);
+
+/// @returns the overruns between last and count, which the port's 32-bit counter may
+/// have wrapped. The first count sets last and gives zero.
+std::size_t
+overruns_since(std::optional<std::uint32_t> &last, std::optional<std::uint32_t> count);
 }

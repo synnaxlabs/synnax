@@ -134,15 +134,8 @@ var _ = Describe("sync with a new TypeScript output", func() {
 			"synnax/user.oracle": "@ts output \"client/ts/src/user\"\n\n" +
 				"User struct {\n    key uuid\n    name string\n}\n",
 		})
-		// ESLint and Prettier run through pnpm, so a failing pnpm stops the sync while
-		// it formats.
-		bin := GinkgoT().TempDir()
-		Expect(os.WriteFile(
-			filepath.Join(bin, "pnpm"),
-			[]byte("#!/bin/sh\nexit 1\n"),
-			0o755,
-		)).To(Succeed())
-		GinkgoT().Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+		// The mini repo installs no ESLint or Prettier, so the sync fails while it
+		// formats.
 	})
 
 	AfterEach(func() { cleanup() })

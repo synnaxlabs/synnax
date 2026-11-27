@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -176,66 +175,48 @@ func (f *factory) buildReadRecords(
 	if err != nil {
 		return nil, nil, err
 	}
-	icds, err := retrieveICDs(ctx, f.cfg.DB, f.cfg.ICD, lo.Uniq(lo.Map(
-		enabled, func(r topicRecord, _ int) icd.Key { return r.ICD },
-	)))
-	if err != nil {
-		return nil, nil, err
-	}
-	var keys channel.Keys
-	for _, rec := range enabled {
-		for _, m := range rec.Messages {
-			for _, b := range m.Bindings {
-				keys = append(keys, b.Channel)
-			}
-		}
-	}
-	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, lo.Uniq(keys))
-	if err != nil {
-		return nil, nil, err
-	}
-	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		c, err := check(ctx, snap, f.reads, &cfg, icds)
-		if err != nil {
-			return err
-		}
-		return claimIndexes(c, &cfg)
-	}); err != nil {
-		return nil, nil, err
-	}
 	var (
 		records = make(map[string]map[string]*readRecord, len(cfg.Topics))
 		groups  []*readGroup
 	)
-	for _, rec := range enabled {
-		keys, ok := records[rec.topic]
-		if !ok {
-			keys = make(map[string]*readRecord)
-			records[rec.topic] = keys
-		}
-		if _, ok = keys[rec.RecordKey]; ok {
-			return nil, nil, errors.Wrapf(
-				validate.ErrValidation,
-				"topic %q: record key %q: claimed by more than one record",
-				rec.topic, rec.RecordKey,
-			)
-		}
-		rd, err := newReadRecord(rec.topic, rec.ReadRecord, icds[rec.ICD], channels)
+	if err = f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := check(ctx, snap, f.reads, &cfg, nil)
 		if err != nil {
-			return nil, nil, errors.Wrapf(
-				err, "topic %q: record key %q", rec.topic, rec.RecordKey,
-			)
+			return err
 		}
-		keys[rec.RecordKey] = rd
-		groups = append(groups, rd.groups...)
+		for _, rec := range enabled {
+			keys, ok := records[rec.topic]
+			if !ok {
+				keys = make(map[string]*readRecord)
+				records[rec.topic] = keys
+			}
+			if _, ok = keys[rec.RecordKey]; ok {
+				return errors.Wrapf(
+					validate.ErrValidation,
+					"topic %q: record key %q: claimed by more than one record",
+					rec.topic, rec.RecordKey,
+				)
+			}
+			source, err := c.Bind(rec.read)
+			if err != nil {
+				return err
+			}
+			rd := newReadRecord(rec.topic, rec.ReadRecord, source)
+			keys[rec.RecordKey] = rd
+			groups = append(groups, rd.groups...)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 	return records, groups, nil
 }
 
-// topicRecord is a record of a read task and the name of its topic.
+// topicRecord is a record of a read task, the name of its topic, and its read.
 type topicRecord struct {
 	topic string
 	ReadRecord
+	read read.Read
 }
 
 // enabledRecords returns the enabled records of cfg. It returns a validation error when
@@ -243,10 +224,10 @@ type topicRecord struct {
 func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 	names := make(set.Set[string], len(cfg.Topics))
 	var enabled []topicRecord
-	for i, topic := range cfg.Topics {
+	for t, topic := range cfg.Topics {
 		if topic.Name == "" {
 			return nil, errors.Wrapf(
-				validate.ErrValidation, "topics.%d.name: must not be empty", i,
+				validate.ErrValidation, "topics.%d.name: must not be empty", t,
 			)
 		}
 		if names.Contains(topic.Name) {
@@ -255,12 +236,13 @@ func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 			)
 		}
 		names.Add(topic.Name)
-		for _, rec := range topic.Records {
+		for i, rec := range topic.Records {
 			if !rec.Disabled {
-				enabled = append(
-					enabled,
-					topicRecord{topic: topic.Name, ReadRecord: rec},
-				)
+				enabled = append(enabled, topicRecord{
+					topic:      topic.Name,
+					ReadRecord: rec,
+					read:       readOf(t, i, rec),
+				})
 			}
 		}
 	}
@@ -272,22 +254,9 @@ func enabledRecords(cfg ReadConfig) ([]topicRecord, error) {
 	return enabled, nil
 }
 
-// newReadRecord validates rec, a record of topic, against ic, the ICD it names, and
-// channels, which holds every channel that a binding of rec names. The messages of rec
-// must pass check.
-func newReadRecord(
-	topic string,
-	rec ReadRecord,
-	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
-) (*readRecord, error) {
-	if len(rec.Messages) == 0 {
-		return nil, errors.Wrap(validate.ErrValidation, "reads no messages")
-	}
-	source, err := read.NewSource(rec.Messages, ic, channels)
-	if err != nil {
-		return nil, err
-	}
+// newReadRecord returns the record of rec, a record of topic, whose documents source
+// decodes.
+func newReadRecord(topic string, rec ReadRecord, source *read.Source) *readRecord {
 	rd := &readRecord{source: source}
 	for _, g := range source.Groups() {
 		rd.groups = append(rd.groups, &readGroup{
@@ -303,7 +272,7 @@ func newReadRecord(
 			replaying: true,
 		})
 	}
-	return rd, nil
+	return rd
 }
 
 // Exec implements driver.Task. Start and stop answer the command with a status,
