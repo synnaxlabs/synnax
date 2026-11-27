@@ -501,19 +501,19 @@ Inputs whose series have equal clock key, alignment, and length pair by position
 today. Every other case goes through a join node, which pairs inputs of one clock by
 alignment and inputs of two clocks by sample time:
 
-| Choice                                        | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, the first in the text on a tie, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, with a median of 0, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a status on the calculation: message `Input stale`, and a description that names the input and its hold limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. Until an input has a frame gap, its window is the larger of its hold limit and 3 times the median of the primary's frame gaps, or the primary's term alone for an input with fewer than 2 samples, computed again at each primary frame. Before an input's first value, a stamp gets no output, and no stale status comes before the primary has a frame gap and one such window has passed. History judges by stamps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators. The read paces its inputs (D-378): one storage iterator per clock of the inputs, and each step moves the clock whose newest stamp is earliest, by a chunk of at most 32,768 samples, half the buffer cap. An input's held sample is its last one at or before the next primary stamp, and its samples before the held one drop, also across a gap of the primary. So no input runs ahead of the join by more than one chunk, and a gap of the primary shows at its next chunk. A spec reads 10 chunks of the slower input with a 10-minute gap of the primary inside them, and a second case takes the slow input as the primary. A backward or `Latest` read, as the Core drains with `SeekLast` and `Prev` (`core/pkg/transport/http/framer/read.go:198-200`), finds its start on the primary alone, takes each input's look back from that start, and runs the forward pass to the end. A nested input paces through the stored inputs at the end of its chain. A spec reads the latest value when the slow input wrote last |
-| Live open                                     | Each input opens its stream first, then reads its last 17 stored samples, one read per input, and drops a sample that the stream already holds by clock and alignment. So its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Buffers                                       | Each input other than the primary keeps at most 65,536 samples past its held one. Live drops the oldest at the cap. A history read that reaches it fails with an error that names the input                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the last reset for a running operation, or to the first sample when it never resets                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Choice                                        | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, the first in the text on a tie, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, with a median of 0, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a status on the calculation: message `Input stale`, and a description that names the input and its hold limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. Until an input has a frame gap, its window is the larger of its hold limit and 3 times the median of the primary's frame gaps, or the primary's term alone for an input with fewer than 2 samples, computed again at each primary frame. Before an input's first value, a stamp gets no output, and no stale status comes before the primary has a frame gap and one such window has passed. History judges by stamps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators, and a running one from its stored state. The read paces its inputs (D-378): one storage iterator per clock of the inputs, and each step moves the clock whose newest stamp is earliest, by a chunk of at most 32,768 samples, half the buffer cap. An input's held sample is its last one at or before the next primary stamp, and its samples before the held one drop, also across a gap of the primary. So no input runs ahead of the join by more than one chunk, and a gap of the primary shows at its next chunk. A spec reads 10 chunks of the slower input with a 10-minute gap of the primary inside them, and a second case takes the slow input as the primary. A backward or `Latest` read, as the Core drains with `SeekLast` and `Prev` (`core/pkg/transport/http/framer/read.go:198-200`), finds its start on the primary alone, takes each input's look back from that start, and runs the forward pass to the end. A nested input paces through the stored inputs at the end of its chain. A spec reads the latest value when the slow input wrote last |
+| Live open                                     | Each input opens its stream first, then reads its last 17 stored samples, one read per input, and drops a sample that the stream already holds by clock and alignment. So its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Buffers                                       | Each input other than the primary keeps at most 65,536 samples past its held one. Live drops the oldest at the cap. A history read that reaches it fails with an error that names the input                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the nearest stored state for a running operation (Phase 55); until Phase 55, to the read start, as on `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 - **History is the canonical value**: Live output is the value at arrival: with a wait
   budget of 0 it differs from history only where an input was late. The TypeScript cache
@@ -521,10 +521,21 @@ alignment and inputs of two clocks by sample time:
   and keeps the live samples past it.
 - **Inputs with no clock**: A live-only input pairs by arrival with hold. Such a
   calculation has no historical values, and its live blocks are not replaced.
-- **Running operations**: One that never resets costs the whole history on every read,
-  and the live calculator starts at its open, so live differs from history for it. One
-  whose last reset is far back also reads to it, so R2 fails for it. D-063 holds this
-  until the founder rules again.
+- **Running operations** (Phase 55, founder delegation): A running operation looks back
+  to its last reset, or to its first sample when it never resets (D-063), through stored
+  states. The calculation service stores the state of each running calculator at the end
+  of each chunk of 16,384 primary samples, in a table of its own (NEW,
+  `calculation.State` in `schemas/synnax/calculation.oracle`): the calculation key, the
+  primary stamp at the chunk end, and the calculator state. A history read starts at the
+  nearest state at or before its start, so it reads at most one chunk more than `main`,
+  and no value depends on where a read starts. A background step of the service computes
+  the states over stored data, from the last reset on, and follows the primary's
+  commits. A history change of an input (`DB.OnHistoryChange`, `cesium/history.go:32`)
+  or a save of new text drops the states from the change on, and the step computes them
+  again. Until the step reaches a read's start, the read looks back the whole way. The
+  live calculator starts from the newest state and runs the stored samples after it, so
+  live agrees with history. A state is about 48 bytes per 16,384 samples, under 0.1% of
+  a `float32` primary.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
@@ -536,17 +547,18 @@ alignment and inputs of two clocks by sample time:
 - **Time as a value**: `time.of(channel)` (NEW, in `arc/go/stl/time`) gives a channel's
   stamps as `i64 ns`, on that channel's clock: a source in a flow, and an expression in
   a function body or a calculation. The migration rewrites a read of a retired index
-  channel to `time.of` of its first data channel (§4.10). The text pass follows D-504 to
-  D-506. Its candidates are the channel tokens of the release's grammar: bare, path, and
-  quoted. It resolves each from the program's parse, so a local, input, parameter,
-  stage, or module member of that name keeps its token, and it binds each channel token
-  by the live resolver, by key, before the retire. It rewrites only a token that binds
-  to a staged key, so a live channel never loses its reads, and it writes the new token
-  in the form of RFC 0119 §4.5 "Form". When RFC 0119's flip runs at the same start, this
-  pass runs after it. It leaves unchanged, and reports, a reference where the new text
-  would be captured, such as by a local named `time`, and text that does not parse. A
-  golden corpus spec in `core/pkg/service/arc/versions/v4` covers bare text, and the
-  step's own spec holds path and quoted text. No builtin gives a sample's stamp today
+  channel to `time.of` of a data channel that it times, from `DB.Keys` by the rule of
+  §4.10. The text pass follows D-504 to D-506. Its candidates are the channel tokens of
+  the release's grammar: bare, path, and quoted. It resolves each from the program's
+  parse, so a local, input, parameter, stage, or module member of that name keeps its
+  token, and it binds each channel token by the live resolver, by key, before the
+  retire. It rewrites only a token that binds to a staged key, so a live channel never
+  loses its reads, and it writes the new token in the form of RFC 0119 §4.5 "Form". When
+  RFC 0119's flip runs at the same start, this pass runs after it. It leaves unchanged,
+  and reports, a reference where the new text would be captured, such as by a local
+  named `time`, and text that does not parse. A golden corpus spec in
+  `core/pkg/service/arc/versions/v4` covers bare text, and the step's own spec holds
+  path and quoted text. No builtin gives a sample's stamp today
   (`arc/go/stl/time/time.go:34-38`).
 - **Stored `<name>_time` records**: Phase 21 deletes each `<name>_time` index channel
   that a v0.62 Core stored. First it retargets every reference to the record onto the
@@ -900,26 +912,27 @@ The migration changes metadata only and runs at the first start, before any writ
    injected, retires an index record when `Keys` marks its key as a clock, a key that a
    kept segment of another key names, or lists no data for it. It reads `Keys` after the
    start deletes of the pending-drop notes (RFC 0121 §4.1). For each retired record it
-   stages an entry (NEW, in `core/pkg/service/channel/versions`) under a key prefix of
-   the chain, as RFC 0119 §4.9 stages calculations: the key and the path. The holder
-   steps read the entries in the same upgrade, and the retire deletes them. It keeps
-   every other index record as a timestamp channel, which times itself. So this step and
-   the start check read one fact, and data of a kept key with no record also counts. It
-   mints channel v3, which drops `is_index`, `local_index`, and `concurrency`, keeps
-   `data_type` as the declared type, and stores `key` whole (RFC 0119 §4.0). The retired
-   records go after the holder steps, in one transaction with the staged entries,
-   through a retire path of the channel writer (NEW): the table delete
-   (`core/pkg/service/channel/writer.go:976-988`), so their links, groups, labels, and
-   policies go as on `main`, with no pending-drop note and no storage delete
+   writes an entry to the retired index table (NEW, in `core/pkg/service/channel`,
+   founder delegation): the key and the path, the one fact that no other record or
+   Cesium keeps once the record goes. The data channels that a key times are not copied:
+   each reader takes them from `DB.Keys`. The holder steps read the entries in the same
+   upgrade, and imports read them later. An entry goes in the transaction that ends its
+   clock (RFC 0121 §4.1), and no API shows the table. It keeps every other index record
+   as a timestamp channel, which times itself. So this step and the start check read one
+   fact, and data of a kept key with no record also counts. It mints channel v3, which
+   drops `is_index`, `local_index`, and `concurrency`, keeps `data_type` as the declared
+   type, and stores `key` whole (RFC 0119 §4.0). The retired records go after the holder
+   steps, in one transaction, through a retire path of the channel writer (NEW): the
+   table delete (`core/pkg/service/channel/writer.go:976-988`), so their links, groups,
+   labels, and policies go as on `main`, with no pending-drop note and no storage delete
    (`:991-998`). Unlike `main`'s delete of retired channels
    (`core/pkg/service/migrate.go:147-158`), Cesium keeps their stamps, and each retired
    key stays a clock that its data names until its last user ends it (RFC 0121 §4.1,
    D-464 (4)).
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
-   must never take a write. Whether the Core then refuses to start and names it, or
-   starts with an error status while the framer refuses writes to that channel and
-   continuation never picks it, waits on the founder (§8): D-425 (3) keeps D-419 as the
-   one refusal. It is the one check that Gorp and Cesium agree.
+   must never take a write. The Core starts with an error status that names the channel,
+   the framer refuses writes to that channel, and continuation never picks its key
+   (founder delegation, D-425 (3)). It is the one check that Gorp and Cesium agree.
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
@@ -941,12 +954,14 @@ The migration changes metadata only and runs at the first start, before any writ
   `restrict` link blocks it. A crash before the retire leaves the entries for the next
   start, and the steps that already ran do not run again. No writer opens during the
   upgrade (D-460).
-- **Imports**: An import after the upgrade finds no staged entry, since no import
-  service reads channel records from a file. A line plot or log key that has no record
-  and that `DB.Keys` marks as a clock takes the step's rule, so an old plot draws
-  against time. Arc or calculation text that names a retired index meets a name that
-  does not exist, and the compile error names `time.of`. The release notes name that
-  loss.
+- **Imports**: Imports always migrate (founder delegation). A line plot, log, graph
+  node, or Sift list key that has no record and that `DB.Keys` marks as a clock takes
+  its step's rule, so an old plot draws against time. Arc or calculation text that names
+  a retired index binds the name through the retired index table, and the text pass
+  rewrites it to `time.of` of a data channel that `DB.Keys` gives for that key, by the
+  rule of the Arc row, so no import reads a stale copy. A name that is both a live
+  channel and a retired entry stays, and the import reports it. A name whose clock has
+  ended has no entry, and the compile error names `time.of`.
 - **Specs**: Each step copies the Kafka three-layer specs
   (`core/pkg/service/kafka/versions/v1/migrate_test.go`,
   `core/pkg/service/kafka/migrate_test.go`), one per holder.
@@ -1016,14 +1031,15 @@ branch against `main` and reports to the founder session.
   step, the block cache mutex, and `ReadSamples`. Hidden clocks neither cause nor fix
   those misses and add clock finding on top, so they wait on D-459's fixes. A timed read
   or stream compares with `main`'s read or stream of the same keys and their index
-  channels, and an untimed one with `main`'s of the keys alone. The one exception is a
-  running operation whose last reset is far back, pending the founder (D-063, §4.7). The
-  8-reader reads run on the OS file system at the shapes of D-481.
+  channels, and an untimed one with `main`'s of the keys alone. A running operation
+  meets it through its stored states (§4.7). The 8-reader reads run on the OS file
+  system at the shapes of D-481.
 - **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
   today's index keys as clocks and no format change. Phases 24 to 54 start only when the
   one-clock reads are within 15% of `main`, the prototype is within 3% of the storage
   branch on them, and the reads with two clocks or 64 pauses are within 2 times their
-  one-clock reads.
+  one-clock reads. A failed gate stops the line for a new plan, with no waiver (founder
+  delegation).
 - **The compare script**: Before the prototype is measured, the box's
   `scripts/compare_benchmarks.py` gets `layout=log` cases for `ReadDomains`,
   `ReadSamples`, and `StreamFixedSpan`, puts `ReadOneClock` and `SeekPointerLog` in its
@@ -1058,7 +1074,7 @@ branch against `main` and reports to the founder session.
 | Write                       | framer `BenchmarkWrite`, `BenchmarkOpen`                                      | Within noise. One store per series, no new map lookup                                                                                                                                          | The validator already looks up each series (`validator.go:75`); the clock sits in the same value                                                                                         |
 | Stream                      | `BenchmarkStreamKeyChange`, TypeScript cache and line plot benchmarks         | Within noise. One compare per series in each filter and per series pair in a reader                                                                                                            | A relay filter over 501 series is 501 lookups (10 µs) today; 501 compares add about 0.25 µs                                                                                              |
 | Live calculator             | Box benchmarks: 1 kHz on one clock, 1 kHz with 1 Hz, 10 kHz                   | One clock: within noise. Two clocks: no worse than arrival pairing on the baseline. No allocation and no scheduler cycle per sample                                                            | The join steps one cursor per input per output sample, about 5 ns, and each input keeps its last 16 intervals sorted, about 20 ns per sample. At 10 kHz, 250 µs of CPU per second        |
-| Historical calculation read | `BenchmarkIteratorHistorical`, `BenchmarkIteratorCalc_TwoClocks`              | One clock: within noise, except a running operation (R2). Two clocks: at most 2 times the one-clock time per output sample                                                                     | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
+| Historical calculation read | `BenchmarkIteratorHistorical`, `BenchmarkIteratorCalc_TwoClocks`              | One clock: within noise, a running operation over its stored states included (R2). Two clocks: at most 2 times the one-clock time per output sample                                            | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
 | Driver frame build          | the Driver frame build benchmark, `write_task_bench.cpp`                      | 8n bytes of stamps written per clock, once. Time within noise for one clock, lower for a task that had several index keys                                                                      | 1000 stamps are 8 kB. A task with k index keys writes them k times today (`driver/common/sample_clock.h:237-242`)                                                                        |
 
 ## 5 Implementation phases
@@ -1068,9 +1084,10 @@ records baselines on `main`; none of it merges (D-430). The phases then follow o
 order: the shared storage fixes (Phases 2 to 4), the additive parts while index channels
 exist (Phases 5 to 17), the read prototype (Phase 18), the export (Phase 19), the join
 (Phases 20 to 23), hidden clocks (Phases 24 to 28), the producers and readers (Phases 29
-to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow. Each phase is one PR
-of up to about 2,000 hand-written lines, specs and generated code not counted. Phase 8
-is the exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases
+to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow, and Phase 55, the
+stored states of running operations, may land any time after Phase 21. Each phase is one
+PR of up to about 2,000 hand-written lines, specs and generated code not counted. Phase
+8 is the exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases
 46 to 49 remove every client use of `is_index` and `index`, and Phase 50 removes the
 fields from the generated payloads with `schemas/synnax/channel.oracle`, so its
 regeneration breaks no user outside its touches. A phase that grows past the limit
@@ -1202,6 +1219,7 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
 | 52    | Allow data type changes                                      | `core/pkg/service/channel`, `core/pkg/service/framer`, `core/pkg/transport/http/framer`, `console/src/feature/channel`                                                                                                                                                                 | 11, 14                                     |
 | 53    | Delete the old Cesium format                                 | `cesium`                                                                                                                                                                                                                                                                               | 1                                          |
 | 54    | Create task channels in the Core at task save                | `core/pkg/service/task`, `core/pkg/service/ni`, `core/pkg/service/labjack`, `core/pkg/service/opcua`, `console/src/platform/task`                                                                                                                                                      | 50                                         |
+| 55    | Look back to the last reset through stored calculator states | `schemas/synnax/calculation.oracle`, `core/pkg/service/calculation`, `core/pkg/service/framer/calculation`, `core/pkg/service/framer/iterator`                                                                                                                                         | 21                                         |
 
 ## 6 What this RFC does not cover
 
@@ -1213,6 +1231,10 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
 - Calculations on a rack, stored calculation outputs, and linear interpolation.
 
 ## 7 Resolved decisions
+
+The founder delegated every open rule of this RFC to the most robust option, with a stop
+for a new plan at a failed gate (founder delegation). Decisions 10, 13, 19, 29, 32, and
+35 to 44 settle them.
 
 1. **Sparse overrides over dense fields**: Rejected: a type byte on every series of a
    frame that is not steady, a shared clock per frame, and defaults fixed for the life
@@ -1259,9 +1281,11 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
 12. **Pair by sample time, hold only, budget 0; history is canonical**: Arrival pairing
     gives different numbers live, in history, and per client. A wait budget above 0
     would make live equal history and make a fast input wait.
-13. **A running operation looks back to its last reset**: Numbers never depend on where
-    a read starts, and live pays nothing. The cost is a read of the whole history for an
-    operation that never resets. Rejected: a bounded look back.
+13. **A running operation looks back to its last reset, through stored states**: Numbers
+    never depend on where a read starts, and a read pays at most one chunk more than
+    `main` (D-063, Phase 55). Rejected: a bounded look back, under which a value depends
+    on the read start, and a look back with no stored state, which reads the whole
+    history and fails R2.
 14. **Port links on the device, not in the task config**: A port keeps its channel
     across a task delete and create, at the cost of two hops from channel to task.
 15. **An exact lookup accepts device paths**: A string that matches a channel path and a
@@ -1347,25 +1371,39 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
     every release while Phases 24 to 50 merge, against D-161. The client cache rewrite
     and the per-segment read view are charged here, since any clock move needs them.
 39. **The read prototype decides R2 before hidden clocks**: It changes no format. A
+    failed gate stops the line for a new plan. Rejected: a waiver, under which R2 can
+    fail after storage has moved, with a new storage change as the only way back. A
     chunk that spans a handoff or a move may cost up to 2 times (a rare-path bar under
     R2), with its own benchmark.
 40. **Holder migrations land per integration, before the channel step**: Each holder
     step merges dark and registers with the channel step at Phase 50, so `main` never
-    holds a dangling link. The entries that the steps read are staged and deleted in
-    that upgrade. Rejected: a lasting table of retired indexes, a new stored concept
-    (D-312). Rejected: one PR with the channel step, over 2,000 lines.
+    holds a dangling link. The entries that the steps read stay as the retired index
+    table, which imports read. Rejected: entries deleted at the upgrade, under which an
+    import of old Arc text that reads an index fails to compile, against "imports always
+    migrate". Rejected: one PR with the channel step, over 2,000 lines.
 41. **A stretch continues only across a gap of at most 3 steps**: A line plot draws one
     line through a stretch. Rejected: continuation at every clean close, which draws a
     straight line across a task stop of any length, and a new number per session, which
     uses 2^31 numbers in 6.8 years for one 10 Hz `client.write` loop.
+42. **Line time supersedes these rulings, as one set**: Storage names each clock at
+    open, against D-450, D-467 (1) as amended by D-469 (2), D-467 (3), and D-469 (1). A
+    clock ends with its last user, against D-464 (2), D-469 (3), D-472 (8), and D-474
+    (b). A clock with no record at start is accounted for, against D-469 (3). The
+    handoff commits first (decision 22). A stretch continues within 3 steps, against
+    D-475 (1). A declared group is whole, against D-496 "A frame may carry any subset".
+    No `Line` flag (decision 25), against D-501. One database counter of alignment
+    numbers, against D-496 "Each line has its own alignment numbers".
+43. **Authority per channel from Phase 50**: Rejected: authority per clock, which would
+    hang on a key that no user sees.
+44. **A clock with a record raises a status at start, never a refused start**: The
+    framer refuses writes to that channel, so no stamps reach it, and the Core stays
+    operational (D-425). Rejected: a refused start, under which one bad record stops a
+    running system.
 
 ## 8 Open questions
 
-One is a rule, for the founder: what the Core does at start when a clock has a record
-(§4.10 step 3).
-
-Each other is a parameter with a default: P, the pauses per open segment before a move
-(64, measured by §4.13); the clock keys per lease (256); the rare-path read bar (2
-times); the gap, in steps, across which a stretch continues (3); and the step between
-the arrival stamps of one frame (the samples of a frame spread evenly from the last
-frame's arrival to this one, and 1 ns apart in a first frame).
+Each is a parameter with a default: P, the pauses per open segment before a move (64,
+measured by §4.13); the clock keys per lease (256); the rare-path read bar (2 times);
+the gap, in steps, across which a stretch continues (3); and the step between the
+arrival stamps of one frame (the samples of a frame spread evenly from the last frame's
+arrival to this one, and 1 ns apart in a first frame).
