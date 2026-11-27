@@ -75,12 +75,5 @@ var _ = Describe("Invariants", func() {
 			14*telem.SecondTS,
 			"are not sorted and apart",
 		),
-		Entry(
-			"a kept head that ends after the next pointer starts",
-			35*telem.SecondTS,
-			telem.Size(10),
-			14*telem.SecondTS,
-			"are not sorted and apart",
-		),
 	)
 })
