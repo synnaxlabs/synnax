@@ -51,15 +51,14 @@ channel.
   hold for a key. A **steady-state** frame holds only series that match both, and the
   time series of each clock that a timed key of its data names (§4.5). A frame that
   leaves out a key of the state, requested or declared, takes the keyed form, as today.
-  `untimed_keys` belong to the request and never to a codec state (D-524).
+  `untimed_keys` belong to the request and never to a codec state.
 
 ## 3 Principles
 
 1. **Information is stored once**: No channel record, task config, or client holds a
    clock key. Cesium records type and clock per segment. The one exception is the
-   retired index table (§4.10, D-518 (6)): the key and path of each index record that
-   the upgrade retires, kept until that key times no data, and shown by no API, search,
-   or ontology.
+   retired index table (§4.10): the key and path of each index record that the upgrade
+   retires, kept until that key times no data, and shown by no API, search, or ontology.
 2. **No new work per sample in the codec**: Every codec cost is per frame or per series,
    and a steady-state frame does not grow by one byte.
 3. **One side picks a default, the other reads the wire**: Two reads of a record that
@@ -82,7 +81,7 @@ writer opens. No channel record, task config, or client library keeps it.
 - **One clock per group**: Cesium gives each time group of a writer one clock at open
   (§4.8). The open response lists the clock of each group, in order. The framer and the
   client libraries use the list to place time series on the wire; no user surface shows
-  it (D-141).
+  it.
 - **Continuation**: For each group, Cesium takes as candidates the clock of the newest
   segment of each key of the group, from memory or from the newest part record (one part
   read per key). When an open session holds that clock, the key's newest open segment on
@@ -120,8 +119,8 @@ writer opens. No channel record, task config, or client library keeps it.
   range delete that leaves a clock with no user ends it in the same entry, a retired
   index clock included. No rule reads a key range, since channels and clocks share one
   counter from Phase 50 (RFC 0121 §4.1). `Keys` marks each clock, and the Core counts a
-  clock as accounted for. The Core never deletes a key on the absence of its record
-  (D-469); a clock never has one.
+  clock as accounted for. The Core never deletes a key on the absence of its record ; a
+  clock never has one.
 - **Key ranges**: A channel's local key stays below 2^20 until Phase 50
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
   hold a larger one. From Phase 24, clock keys come from their own counter below
@@ -156,10 +155,10 @@ data type stays the `DataType` string in memory.
 | C++        | `clock` | `std::uint32_t` | `x/cpp/telem/series.h:83-146`; every copy, move, and protobuf path carries it                                                       |
 
 The framer sets the field: the writer from the clock of each key, the iterator from the
-segment's clock. D-141 keeps clock keys off documented surfaces only: the JSON and
-msgpack forms carry `clock`, and the Python `Series` leaves it out of its repr. While a
-channel has an index channel, its clock is that index key. A client never sets it: a
-data series names no clock on the write wire (§4.8).
+segment's clock. Clock keys stay off documented surfaces only: the JSON and msgpack
+forms carry `clock`, and the Python `Series` leaves it out of its repr. While a channel
+has an index channel, its clock is that index key. A client never sets it: a data series
+names no clock on the write wire (§4.8).
 
 ### 4.2 The frame codec
 
@@ -225,19 +224,19 @@ override sits before the length, so a decoder knows the type before it reads dat
 - **Declared clocks**: A time series travels under its clock key, which a request need
   not name (§4.5, §4.8). The codec takes no untimed set: the relay, the iterator, and
   the record filter drop a time series that only untimed keys name, and the encoder
-  keeps each time series that a series in the frame names (D-524). The list that a frame
-  needs then holds the key of each time series in the frame that the request did not
-  name, and a key stays in it only while the frames that hold a series on its clock hold
-  its time series. A change to a request's keys swaps the encoder's state when the relay
-  applies it, not when the transport decodes it, and a change of its `untimed_keys`
-  swaps no codec state. So a stream that carries no time series declares nothing, and
-  its frames stay the frames of today. The encoder sends the whole list in field 5 when
-  it differs from the list of the state, and it becomes the list of the state; N can
-  be 0. A list applies to the frame that holds it. A state's key list is the sorted,
-  unique union of the requested and the declared keys in all four codecs, and
-  `allChannelsPresent` compares with it. A declared key has the agreed type `timestamp`
-  and is its own agreed clock. It takes no type and no clock override; the override
-  chain can sit on it for another kind.
+  keeps each time series that a series in the frame names. The list that a frame needs
+  then holds the key of each time series in the frame that the request did not name, and
+  a key stays in it only while the frames that hold a series on its clock hold its time
+  series. A change to a request's keys swaps the encoder's state when the relay applies
+  it, not when the transport decodes it, and a change of its `untimed_keys` swaps no
+  codec state. So a stream that carries no time series declares nothing, and its frames
+  stay the frames of today. The encoder sends the whole list in field 5 when it differs
+  from the list of the state, and it becomes the list of the state; N can be 0. A list
+  applies to the frame that holds it. A state's key list is the sorted, unique union of
+  the requested and the declared keys in all four codecs, and `allChannelsPresent`
+  compares with it. A declared key has the agreed type `timestamp` and is its own agreed
+  clock. It takes no type and no clock override; the override chain can sit on it for
+  another kind.
 - **Sequence numbers**: Only a client request that lists keys makes a state and a
   sequence number (`core/pkg/transport/grpc/framer/handler.go:210`,
   `core/pkg/transport/http/framer/codec.go:269`). The Core never adds a key to a
@@ -331,7 +330,7 @@ Codes 17 to 254 are free. The list holds data types only; an encoding takes a fl
 | One type override                                            | 5 + 6 = 11                                                | on each frame that holds the series, until the next state                                                   |
 | One clock move                                               | 5 + 9 + 8 = 22 for one channel on one clock               | once; the next frame is steady                                                                              |
 | One key on two clocks in one frame                           | 5 + 9 + 12 = 26, then 9 for the shorter list              | a read across a clock move                                                                                  |
-| A clock whose timed and untimed keys come in separate frames | 9 for field 5 on each such frame                          | the declared list leaves and enters again, since the codec keeps no untimed set (D-524)                     |
+| A clock whose timed and untimed keys come in separate frames | 9 for field 5 on each such frame                          | the declared list leaves and enters again, since the codec keeps no untimed set                             |
 | Worst case per series                                        | 10 (46 against 36 today)                                  |                                                                                                             |
 
 **Versions**: The first frame of every state is the handshake, on every transport.
@@ -591,20 +590,20 @@ Inputs whose series have equal clock key, alignment, and length pair by position
 today. Every other case goes through a join node, which pairs inputs of one clock by
 alignment and inputs of two clocks by sample time:
 
-| Choice                                        | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, the first in the text on a tie, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| Reset channel                                 | No join input. A `true` reset sample applies at the first primary stamp at or after its own stamp, live and in history. A reset channel with no samples never resets, and it takes no hold limit and no `Input stale` status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, with a median of 0, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a status on the calculation: message `Input stale`, and a description that names the input and its hold limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. Until an input has a frame gap, its window is the larger of its hold limit and 3 times the median of the primary's frame gaps, or the primary's term alone for an input with fewer than 2 samples, computed again at each primary frame. Before an input's first value, a stamp gets no output, and no stale status comes before the primary has a frame gap and one such window has passed. History judges by stamps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators. The read paces its inputs (D-378): one storage iterator per clock of the inputs, and each step moves the clock whose newest stamp is earliest, by a chunk of at most 32,768 samples, half the buffer cap. The unit is a view of §4.5, so a key whose clock changes in the range steps on each clock in turn. The read ends when the primary ends, and an input that ends stops stepping and holds its last sample. A run of equal stamps longer than the buffer cap fails the read loud (Buffers). An input's held sample is its last one at or before the next primary stamp, and its samples before the held one drop, also across a gap of the primary. So no input runs ahead of the join by more than one chunk, and a gap of the primary shows at its next chunk. A spec reads 10 chunks of the slower input with a 10-minute gap of the primary inside them, and a second case takes the slow input as the primary. A backward or `Latest` read, as the Core drains with `SeekLast` and `Prev` (`core/pkg/transport/http/framer/read.go:198-200`), finds its start on the primary alone, takes each input's look back from that start, and runs the forward pass up to where the step before began, so each later `Prev` covers the chunk before. A `Latest` read whose newest primary stamps lie past an input's hold limit returns fewer values than it asks for. A nested input paces through the stored inputs at the end of its chain. A spec reads the latest value when the slow input wrote last |
-| Live open                                     | Each input opens its stream first, then reads its last 17 stored samples, one read per input, and drops a sample that the stream already holds by clock and alignment. So its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| Buffers                                       | Each input other than the primary keeps at most 65,536 samples past its held one. Live drops the oldest at the cap. A history read that reaches it fails with an error that names the input                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the read start for a running operation, as on `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Choice                                        | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Output stamps                                 | The primary input's stamps, clock key, and alignment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Primary input                                 | Stored on the calculation record. When the user names none, the calculation service picks once at save: the input with the smallest median of its newest 16 intervals in one stored stretch, the first in the text on a tie, or, when no input has stored data, the first read that is not virtual. A virtual input is the primary only when every input is virtual. Reads never pick. A save whose text no longer reads the stored primary picks again by the same rule and announces the new one. The first compile at start after the upgrade picks a primary for each record that has none, by the same rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Other inputs                                  | The last value at or before each stamp (hold). No interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Reset channel                                 | No join input. A `true` reset sample applies at the first primary stamp at or after its own stamp, live and in history. A reset channel with no samples never resets, and it takes no hold limit and no `Input stale` status                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Hold limit (the longest hold of a last value) | 3 times the median of the input's last 16 intervals, the same live and in history. No limit for an input with fewer than 2 samples, with a median of 0, or with no steady rate: fewer than 3 in 4 of those intervals lie within a factor of 2 of their median                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Past the hold limit                           | No output for that stamp, a new output series after the gap, and a status on the calculation: message `Input stale`, and a description that names the input and its hold limit                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Live wait budget                              | 0. Live judges by arrival: a held value stays valid while its input's last frame arrived within the larger of its hold limit and 3 times the median of its last 16 frame arrival gaps, before the primary frame. Until an input has a frame gap, its window is the larger of its hold limit and 3 times the median of the primary's frame gaps, or the primary's term alone for an input with fewer than 2 samples, computed again at each primary frame. Before an input's first value, a stamp gets no output, and no stale status comes before the primary has a frame gap and one such window has passed. History judges by stamps                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Windows (`avg`, `min`, `max`)                 | Multiples of the window length in absolute time                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators. The read paces its inputs: one storage iterator per clock of the inputs, and each step moves the clock whose newest stamp is earliest, by a chunk of at most 32,768 samples, half the buffer cap. The unit is a view of §4.5, so a key whose clock changes in the range steps on each clock in turn. The read ends when the primary ends, and an input that ends stops stepping and holds its last sample. A run of equal stamps longer than the buffer cap fails the read loud (Buffers). An input's held sample is its last one at or before the next primary stamp, and its samples before the held one drop, also across a gap of the primary. So no input runs ahead of the join by more than one chunk, and a gap of the primary shows at its next chunk. A spec reads 10 chunks of the slower input with a 10-minute gap of the primary inside them, and a second case takes the slow input as the primary. A backward or `Latest` read, as the Core drains with `SeekLast` and `Prev` (`core/pkg/transport/http/framer/read.go:198-200`), finds its start on the primary alone, takes each input's look back from that start, and runs the forward pass up to where the step before began, so each later `Prev` covers the chunk before. A `Latest` read whose newest primary stamps lie past an input's hold limit returns fewer values than it asks for. A nested input paces through the stored inputs at the end of its chain. A spec reads the latest value when the slow input wrote last |
+| Live open                                     | Each input opens its stream first, then reads its last 17 stored samples, one read per input, and drops a sample that the stream already holds by clock and alignment. So its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Buffers                                       | Each input other than the primary keeps at most 65,536 samples past its held one. Live drops the oldest at the cap. A history read that reaches it fails with an error that names the input                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the read start for a running operation, as on `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 - **History is the canonical value**: Live output is the value at arrival: with a wait
   budget of 0 it differs from history only where an input was late. The TypeScript cache
@@ -628,18 +627,19 @@ alignment and inputs of two clocks by sample time:
   stamps as `i64 ns`, on that channel's clock: a source in a flow, and an expression in
   a function body or a calculation. The migration rewrites a read of a retired index
   channel to `time.of` of a data channel that it times, from `DB.Keys` by the rule of
-  §4.10. The text pass follows D-504's scope rules and departs from D-505 (3) and D-506
-  (decision 45). Its candidates are the channel tokens of the release's grammar: bare,
-  path, and quoted. It resolves each from the program's parse, so a local, input,
-  parameter, stage, or module member of that name keeps its token, and it binds each
-  channel token by the live resolver, by key, before the retire. It rewrites only a
-  token that binds to a retired key, so a live channel never loses its reads, and it
-  writes the new token in the form of RFC 0119 §4.5 "Form". When RFC 0119's flip runs at
-  the same start, this pass runs after it. It leaves unchanged, and reports, a reference
-  where the new text would be captured, such as by a local named `time`, and text that
-  does not parse. The step's own spec holds bare, path, and quoted text; the golden
-  corpus in `core/pkg/service/arc/versions/v4` records RFC 0119's rename pass, not this
-  step. No builtin gives a sample's stamp today (`arc/go/stl/time/time.go:34-38`).
+  §4.10. The text pass rewrites a token only where its position and the compiler's
+  finished scope agree, and it takes path and quoted tokens too (decision 45). Its
+  candidates are the channel tokens of the release's grammar: bare, path, and quoted. It
+  resolves each from the program's parse, so a local, input, parameter, stage, or module
+  member of that name keeps its token, and it binds each channel token by the live
+  resolver, by key, before the retire. It rewrites only a token that binds to a retired
+  key, so a live channel never loses its reads, and it writes the new token in the form
+  of RFC 0119 §4.5 "Form". When RFC 0119's flip runs at the same start, this pass runs
+  after it. It leaves unchanged, and reports, a reference where the new text would be
+  captured, such as by a local named `time`, and text that does not parse. The step's
+  own spec holds bare, path, and quoted text; the golden corpus in
+  `core/pkg/service/arc/versions/v4` records RFC 0119's rename pass, not this step. No
+  builtin gives a sample's stamp today (`arc/go/stl/time/time.go:34-38`).
 - **Stored `<name>_time` records**: From Phase 21 to Phase 44 a calculation keeps its
   `<name>_time` index as its clock, and the calculator writes its primary's stamps under
   that key at the primary's alignments, so every reader that keys on a calculation's
@@ -662,8 +662,8 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 
 - **The key**: `"time"` is a reserved key in a write. Its value is the time of each
   group that has a channel in the write, and it never looks up a channel. From Phase 50
-  a new channel whose path is `time` fails at create. A stored one keeps its name
-  (D-448), and a write reaches it by key.
+  a new channel whose path is `time` fails at create. A stored one keeps its name , and
+  a write reaches it by key.
 - **Groups**: An open may name `time_groups`, a partition of its stored channels. Each
   stored channel is in exactly one group, a virtual channel in none, and no group is
   empty, or the open fails and names the channel. Until Phase 50 an index channel in the
@@ -843,8 +843,8 @@ fr.emplace(ai_1, std::move(s1));
 C++ names a group by its position, through `x::telem::Frame::emplace_time` (NEW), which
 keeps group time series in a list apart from the channel series, so a position never
 sits in a clock field. The writer maps each position to its group's clock. So no clock
-key reaches a documented surface (D-141), and a Driver source builds frames before the
-open returns. `WriterConfig` gains `time_groups`, `time_of`, and `arrival_timed`, and
+key reaches a documented surface, and a Driver source builds frames before the open
+returns. `WriterConfig` gains `time_groups`, `time_of`, and `arrival_timed`, and
 `auto_index` goes (`client/cpp/framer/framer.h:351`). The C calls drop `index_channel`
 from both writes, `is_index` and `index` from create, and `out_index_keys` from key
 retrieves, and `auto_index` becomes `arrival_timed`
@@ -948,8 +948,8 @@ continuation. A partial group from a task fails loud, as a partial index group d
   device's index fields, it finds the index by the path at which it makes it, with the
   `retrieveIfNameExists` option of a create of that path
   (`client/ts/src/channel/client.ts:85`), which looks up that exact path from RFC 0119's
-  flip (D-540), so an index in a device's folder is found. OPC UA's "Use as index"
-  becomes "Use as time" at Phase 36.
+  flip, so an index in a device's folder is found. OPC UA's "Use as index" becomes "Use
+  as time" at Phase 36.
 - **Writes out**: From Phases 39 and 40, the Kafka write task and the MQTT edge writer
   take each sample's stamp from `frame.time`, in place of the index series of the frame
   (`core/pkg/service/kafka/write_task.go:685-697`,
@@ -1041,8 +1041,8 @@ new fields and no break):
 ### 4.10 Migration
 
 Stored data and imports always migrate, and only what `core/v0.62.0` shipped is owed.
-The migration changes metadata only and runs at the first start, before any writer opens
-(D-460).
+The migration changes metadata only and runs at the first start, before any writer
+opens.
 
 1. **Cesium**: The conversion of RFC 0121 §9 makes each old domain a sealed version 0
    segment with the old index key as its clock key. No byte format changes, since a
@@ -1052,30 +1052,29 @@ The migration changes metadata only and runs at the first start, before any writ
    injected, retires an index record when `Keys` marks its key as a clock, a key that a
    kept segment of another key names, or lists no data for it. It reads `Keys` after the
    start deletes of the pending-drop notes (RFC 0121 §4.1). For each retired record it
-   writes an entry to the retired index table (NEW, in `core/pkg/service/channel`,
-   D-518): the key and the path, the one fact that no other record or Cesium keeps once
-   the record goes. The data channels that a key times are not copied: each reader takes
-   them from `DB.Keys`. The holder steps read the entries in the same upgrade, and
-   imports read them later. The start deletes an entry once its key times no data (RFC
-   0121 §4.1 step 5), after a delete, a `synnax purge`, or a range delete; a stale entry
-   binds a name to a key with no data, which fails as no entry does. No API shows the
-   table. It keeps every other index record as a timestamp channel, which times itself.
-   So this step and the start check read one fact, and data of a kept key with no record
-   also counts. It mints channel v3, which drops `is_index`, `local_index`, and
-   `concurrency`, keeps `data_type` as the declared type, and stores `key` whole (RFC
-   0119 §4.0). The retired records go after the holder steps, in one transaction,
-   through a retire path of the channel writer (NEW): the table delete
+   writes an entry to the retired index table (NEW, in `core/pkg/service/channel`): the
+   key and the path, the one fact that no other record or Cesium keeps once the record
+   goes. The data channels that a key times are not copied: each reader takes them from
+   `DB.Keys`. The holder steps read the entries in the same upgrade, and imports read
+   them later. The start deletes an entry once its key times no data (RFC 0121 §4.1 step
+   5), after a delete, a `synnax purge`, or a range delete; a stale entry binds a name
+   to a key with no data, which fails as no entry does. No API shows the table. It keeps
+   every other index record as a timestamp channel, which times itself. So this step and
+   the start check read one fact, and data of a kept key with no record also counts. It
+   mints channel v3, which drops `is_index`, `local_index`, and `concurrency`, keeps
+   `data_type` as the declared type, and stores `key` whole (RFC 0119 §4.0). The retired
+   records go after the holder steps, in one transaction, through a retire path of the
+   channel writer (NEW): the table delete
    (`core/pkg/service/channel/writer.go:976-988`), so their links, groups, labels, and
    policies go as on `main`, with no pending-drop note and no storage delete
    (`:991-998`). Unlike `main`'s delete of retired channels
    (`core/pkg/service/migrate.go:147-158`), Cesium keeps their stamps, and each retired
-   key stays a clock that its data names until its last user ends it (RFC 0121 §4.1,
-   D-464 (4)).
+   key stays a clock that its data names until its last user ends it (RFC 0121 §4.1).
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
    must never take a write. The Core starts with an error status that names the channel,
    the framer refuses writes to that channel, and continuation never picks its key: the
    Core names these keys to Cesium after this check and before any writer opens (RFC
-   0121 §5.8) (D-518, D-425 (3)). It is the one check that Gorp and Cesium agree.
+   0121 §5.8). It is the one check that Gorp and Cesium agree.
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
@@ -1098,20 +1097,20 @@ The migration changes metadata only and runs at the first start, before any writ
   (`core/pkg/service/layer.go:1228-1252`), so task hashes see their edits. Each runs
   once, as a Gorp migration does. The retire runs last, so no `restrict` link blocks it.
   A crash before the retire leaves the entries for the next start, and the steps that
-  already ran do not run again. No writer opens during the upgrade (D-460): from Phase
-  50 the metrics service opens after the composition migrations, where today it opens
-  before them (`core/pkg/service/layer.go:1209`, `:1228-1246`).
-- **Imports**: Imports always migrate (D-518). A line plot, log, graph node, or Sift
-  list key that has no record and that `DB.Keys` marks as a clock takes its step's rule,
-  so an old plot draws against time. Arc or calculation text of a `core/v0.62.0` file
-  binds each bare token once, before RFC 0119's import pass writes paths: over the union
-  of live channels and retired entries whose last path segment is that name, as v0.62
-  bound a name in any group, with v0.62's pick, the highest key. A live pick takes RFC
-  0119's path. A retired pick takes `time.of` of a data channel that `DB.Keys` gives for
-  that key, by the rule for Arc text in the holders table above, in RFC 0119 §4.5's
-  form, so no import reads a stale copy. When both kinds match, the import report names
-  both. A path token binds the channel or entry of that path. A bare token that binds
-  nothing and reads `<name>_time` for a calculation `<name>` that it binds becomes
+  already ran do not run again. No writer opens during the upgrade: from Phase 50 the
+  metrics service opens after the composition migrations, where today it opens before
+  them (`core/pkg/service/layer.go:1209`, `:1228-1246`).
+- **Imports**: Imports always migrate. A line plot, log, graph node, or Sift list key
+  that has no record and that `DB.Keys` marks as a clock takes its step's rule, so an
+  old plot draws against time. Arc or calculation text of a `core/v0.62.0` file binds
+  each bare token once, before RFC 0119's import pass writes paths: over the union of
+  live channels and retired entries whose last path segment is that name, as v0.62 bound
+  a name in any group, with v0.62's pick, the highest key. A live pick takes RFC 0119's
+  path. A retired pick takes `time.of` of a data channel that `DB.Keys` gives for that
+  key, by the rule for Arc text in the holders table above, in RFC 0119 §4.5's form, so
+  no import reads a stale copy. When both kinds match, the import report names both. A
+  path token binds the channel or entry of that path. A bare token that binds nothing
+  and reads `<name>_time` for a calculation `<name>` that it binds becomes
   `time.of(<name>)`, since v0.62 named each calculation's index so
   (`core/pkg/service/channel/writer.go:548`). A name whose clock has ended has no entry,
   and the compile error names `time.of`. A v0.62 name that the upgrade renamed (RFC 0119
@@ -1177,31 +1176,30 @@ which leases clock keys from it through an injected open option.
 
 ### 4.13 Performance gate
 
-No speed gate runs on `main` or in CI (D-430). The box runs the benchmarks of each
-branch against `main` and reports to the founder session.
+No speed gate runs on `main` or in CI. The box runs the benchmarks of each branch
+against `main` and reports to the founder session.
 
 - **R1, the live path pays nothing new**: Per frame, one presence count per declared
   group, one store per series, and one compare per series in each filter. Only an
   adaptive group pays, per pause and per moved channel.
 - **R2, reads**: Every read is within 15% of `main` in time, bytes, and allocations,
-  with read checks off, at 1 and 8 readers (D-459, RFC 0121 §8). The storage branch
-  misses it today on point and full reads (D-459): the 64 KiB block read per search
-  step, the block cache mutex, and `ReadSamples`. Hidden clocks neither cause nor fix
-  those misses and add clock finding on top, so they wait on D-459's fixes. A timed read
-  or stream compares with `main`'s read or stream of the same keys and their index
+  with read checks off, at 1 and 8 readers (RFC 0121 §8). The storage branch misses it
+  today on point and full reads: the 64 KiB block read per search step, the block cache
+  mutex, and `ReadSamples`. Hidden clocks neither cause nor fix those misses and add
+  clock finding on top, so they wait on RFC 0121 Phase 7's read fixes. A timed read or
+  stream compares with `main`'s read or stream of the same keys and their index
   channels, and an untimed one with `main`'s of the keys alone. The 8-reader reads run
-  on the OS file system at the shapes of D-481.
+  on the OS file system at the read shapes of RFC 0121 §8.
 - **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
   today's index keys as clocks and no format change. It ships with one-clock specs; the
   multi-clock specs land with the first phase that moves a key, and the reads with two
   clocks or 64 pauses are measured on a commit of the bench branch that is never merged
-  (D-520). Phases 24 to 54 merge only when the one-clock reads are within 15% of `main`,
-  the prototype is within 3% of the storage branch on them, and the reads with two
-  clocks or 64 pauses are within 2 times their one-clock reads. The writer time groups
-  of Phases 28 to 30 may be built before the gate, as D-519 (3) has them built while
-  index channels exist; Phases 24 to 27, which lease, pick, pause, and hide clocks,
-  start after it. A failed gate stops the line for a new plan, with no waiver (founder
-  delegation).
+  . Phases 24 to 54 merge only when the one-clock reads are within 15% of `main`, the
+  prototype is within 3% of the storage branch on them, and the reads with two clocks or
+  64 pauses are within 2 times their one-clock reads. The writer time groups of Phases
+  28 to 30 may be built before the gate, while index channels exist; Phases 24 to 27,
+  which lease, pick, pause, and hide clocks, start after it. A failed gate stops the
+  line for a new plan, with no waiver (founder delegation).
 - **The compare script**: Before the prototype is measured, the box's
   `scripts/compare_benchmarks.py` gets `layout=log` cases for `ReadDomains`,
   `ReadSamples`, and `StreamFixedSpan`, puts `ReadOneClock` and `SeekPointerLog` in its
@@ -1242,23 +1240,23 @@ branch against `main` and reports to the founder session.
 ## 5 Implementation phases
 
 Before Phase 2, the box fixes its compare script, adds the benchmarks of §4.13, and
-records baselines on `main`; none of it merges (D-430). The phases then follow one
-order: the shared storage fixes (Phases 2 to 4), the additive parts while index channels
-exist (Phases 5 to 17), the read prototype (Phase 18), the export (Phase 19), the join
-(Phases 20 to 23), hidden clocks (Phases 24 to 28), the producers and readers (Phases 29
-to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow, and Phase 55, the
-C++ join of rack calculations, may land any time after Phase 41. Each phase is one PR of
-up to about 2,000 hand-written lines, specs and generated code not counted. Phase 8 is
-an exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases 41
-and 50 are the others: each is one PR, past the target if it must be, since D-519 (2)
-gives each phase one PR and a split would leave a release between the parts. At the
-upgrade, Phase 50 runs: the detach of each data channel's index on channel v2, whose
-`index` reference is `Restrict` (`core/pkg/service/channel/index.go:16-29`); the channel
-step, with its entries and channel v3; the holder steps; and the retire (§4.10). Phases
-46 to 49 remove every client use of `is_index` and `index`, and Phase 50 removes the
-fields from the generated payloads with `schemas/synnax/channel.oracle`, so its
-regeneration breaks no user outside its touches. A phase that grows past the limit
-splits along its touches before it opens, each part green alone.
+records baselines on `main`; none of it merges. The phases then follow one order: the
+shared storage fixes (Phases 2 to 4), the additive parts while index channels exist
+(Phases 5 to 17), the read prototype (Phase 18), the export (Phase 19), the join (Phases
+20 to 23), hidden clocks (Phases 24 to 28), the producers and readers (Phases 29 to 45),
+and the removals (Phases 46 to 50). Phases 51 to 54 follow, and Phase 55, the C++ join
+of rack calculations, may land any time after Phase 41. Each phase is one PR of up to
+about 2,000 hand-written lines, specs and generated code not counted. Phase 8 is an
+exception: its codec piece is about 3,390 lines and ships alone. Phases 41 and 50 are
+the others: each is one PR, past the target if it must be, since each phase is one PR
+and a split would leave a release between the parts. At the upgrade, Phase 50 runs: the
+detach of each data channel's index on channel v2, whose `index` reference is `Restrict`
+(`core/pkg/service/channel/index.go:16-29`); the channel step, with its entries and
+channel v3; the holder steps; and the retire (§4.10). Phases 46 to 49 remove every
+client use of `is_index` and `index`, and Phase 50 removes the fields from the generated
+payloads with `schemas/synnax/channel.oracle`, so its regeneration breaks no user
+outside its touches. A phase that grows past the limit splits along its touches before
+it opens, each part green alone.
 
 - **Shared storage fixes**: Today on the pointer log, every writer open seals its
   segments, a `client.write` loop steps the alignment counter at each call, and a
@@ -1273,21 +1271,20 @@ splits along its touches before it opens, each part green alone.
   calculated channel's series carries its primary's stamps under its `<name>_time` key
   from Phase 21, and its primary's clock from Phase 44, which deletes the `<name>_time`
   records.
-- **Releases**: Each phase is safe to release alone (D-161). Until Phase 50 the channels
-  of each index channel form one whole group on that index's clock (§4.8), and the
-  storage branch's shared clock writer keeps index channels under write control. So
-  tasks, Arc programs, and scripts that use index channels keep working at every phase.
-  The release notes name the five script breaks: a read of a stored `<name>_time`
-  record, which Phase 44 deletes; `is_index=` and `index=`, which Phases 46 to 49 remove
-  from each client; the CSV header, which has one `time` column from Phase 19 in place
-  of one column per index; the OPC UA read channel's `is_index` and the ICD read
-  message's `index`, which Phases 36 and 37 rename to the time node and `time`, and
-  which the regenerated client models then drop with no error; and from Phase 50 a read
-  that names a retired index by name or key, such as
-  `client.read(tr, ["time", "temperature"])`, which fails with an error that names
-  `frame.time`. No old field stays as an input, since no `core/v0.62.0` script is owed
-  (D-252). Phases 36 and 37 move the repository's own integration tests and examples
-  that set the old fields.
+- **Releases**: Each phase is safe to release alone. Until Phase 50 the channels of each
+  index channel form one whole group on that index's clock (§4.8), and the storage
+  branch's shared clock writer keeps index channels under write control. So tasks, Arc
+  programs, and scripts that use index channels keep working at every phase. The release
+  notes name the five script breaks: a read of a stored `<name>_time` record, which
+  Phase 44 deletes; `is_index=` and `index=`, which Phases 46 to 49 remove from each
+  client; the CSV header, which has one `time` column from Phase 19 in place of one
+  column per index; the OPC UA read channel's `is_index` and the ICD read message's
+  `index`, which Phases 36 and 37 rename to the time node and `time`, and which the
+  regenerated client models then drop with no error; and from Phase 50 a read that names
+  a retired index by name or key, such as `client.read(tr, ["time", "temperature"])`,
+  which fails with an error that names `frame.time`. No old field stays as an input,
+  since no `core/v0.62.0` script is owed . Phases 36 and 37 move the repository's own
+  integration tests and examples that set the old fields.
 - **No channel before its readers**: No stored channel and no calculation exists with no
   index channel before Phase 44, and Phase 44 follows every reader that keys on an
   index: the export (19), the cache and Pluto (17), `frame.time` (13), the client
@@ -1307,16 +1304,16 @@ splits along its touches before it opens, each part green alone.
 Dependencies on other RFCs and on the read gate: the phase table names only phases of
 this RFC, so the issues of these phases take their blockers from this table too.
 
-| Phase      | Waits for                                                                                                                               |
-| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| 2 to 4, 18 | RFC 0121 Phase 6, the pointer log                                                                                                       |
-| 21, 24     | RFC 0119 Phase 3, the calculation record, which also stops the Core from reading node bits, so Phase 24 can give clock keys their range |
-| 43         | RFC 0119 Phase 29, which builds the token form of RFC 0119 §4.5                                                                         |
-| 24 to 54   | RFC 0121 Phases 7 and 8, since a clock per group is a clock per segment and needs D-459's read fixes, and the read gate of Phase 18     |
-| 31         | RFC 0113 Phase 7, which spools in the form of §4.9                                                                                      |
-| 44         | RFC 0119 Phase 14, which builds the retargets                                                                                           |
-| 50         | RFC 0119 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, and the typed MQTT and Kafka devices                          |
-| 54         | RFC 0081 Phases 21 to 23                                                                                                                |
+| Phase      | Waits for                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2 to 4, 18 | RFC 0121 Phase 6, the pointer log                                                                                                              |
+| 21, 24     | RFC 0119 Phase 3, the calculation record, which also stops the Core from reading node bits, so Phase 24 can give clock keys their range        |
+| 43         | RFC 0119 Phase 29, which builds the token form of RFC 0119 §4.5                                                                                |
+| 24 to 54   | RFC 0121 Phases 7 and 8, since a clock per group is a clock per segment and needs RFC 0121 Phase 7's read fixes, and the read gate of Phase 18 |
+| 31         | RFC 0113 Phase 7, which spools in the form of §4.9                                                                                             |
+| 44         | RFC 0119 Phase 14, which builds the retargets                                                                                                  |
+| 50         | RFC 0119 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, and the typed MQTT and Kafka devices                                 |
+| 54         | RFC 0081 Phases 21 to 23                                                                                                                       |
 
 Other RFCs wait on this one: RFC 0119 Phases 3 and 25 and RFC 0121 Phase 5 on Phase 1,
 which carries code moves that they need; RFC 0121 Phase 8 on Phases 2 to 4, 8, 9, 14,
@@ -1345,7 +1342,7 @@ Phase 42. Keys of `core/v0.62.0` keep their numbers.
 | SY-6401: type and clock changes                               | Changes: type changes only                                            | 52                      |
 | SY-6404: task channels in the Core and retired index channels | Changes: splits in two                                                | 50, 54                  |
 | SY-6397, 17a to 17c, 18a to 18l, SY-6763                      | Stay                                                                  | RFC 0121 Phases 5, 6, 8 |
-| D-459's read fixes                                            | New                                                                   | RFC 0121 Phase 7        |
+| Storage read fixes                                            | New                                                                   | RFC 0121 Phase 7        |
 | 17d: one clock per writer, and SY-6863: shared clock writers  | Change: commit first replaces `Pending`, and groups replace one clock | 4, 25, 50               |
 | 18m: the switch, and 18n: no channel file                     | Stay, after Phases 2 to 4                                             | RFC 0121 Phase 8        |
 | SY-6402: the old format's delete                              | Stays                                                                 | 53                      |
@@ -1422,8 +1419,7 @@ Phase 42. Keys of `core/v0.62.0` keep their numbers.
 ## 7 Resolved decisions
 
 The founder delegated every open rule of this RFC to the most robust option, with a stop
-for a new plan at a failed gate (D-518). Decisions 10, 13, 19, 29, 32, and 35 to 44
-settle them.
+for a new plan at a failed gate. Decisions 10, 13, 19, 29, 32, and 35 to 44 settle them.
 
 1. **Sparse overrides over dense fields**: Rejected: a type byte on every series of a
    frame that is not steady, a shared clock per frame, and defaults fixed for the life
@@ -1455,15 +1451,15 @@ settle them.
    double the stream bytes of a value display. A read that returns a bare series is
    untimed.
 9. **Storage picks each clock, and nothing stores it**: Rejected: a clock per producer,
-   named in task configs and kept per client ID in the framer (D-057, D-464, D-467,
-   D-469, D-472, D-047), which needs owner lookups, pending-drop notes, and a unique
-   space of clock keys; and a clock per session, which makes 864,000 clocks per day for
-   a 10 Hz `client.write` loop. Continuation keeps one clock where a producer kept one.
+   named in task configs and kept per client ID in the framer which needs owner lookups,
+   pending-drop notes, and a unique space of clock keys; and a clock per session, which
+   makes 864,000 clocks per day for a 10 Hz `client.write` loop. Continuation keeps one
+   clock where a producer kept one.
 10. **Time is a key in the write, and the kind is fixed at open**: One reserved key
     keeps a write one mapping. `arrival_timed` and `time_of` name the other kinds, so a
     write that forgets its time fails. Rejected: a `time=` argument and a constant key,
-    which change every write call, and a kind fixed by the first write (D-059), which
-    turns a forgotten `"time"` into arrival stamps with no error.
+    which change every write call, and a kind fixed by the first write, which turns a
+    forgotten `"time"` into arrival stamps with no error.
 11. **No Core cast on read, and NumPy widening in clients**: A cast to the declared type
     would hide stored data. Widening loses integers above 2^53 in a read of a whole
     channel. Rejected: an error on `int64` with `float64`.
@@ -1495,15 +1491,15 @@ settle them.
 21. **Pause moves for adaptive groups only, at a commit**: Rejected: moves in declared
     groups, whose layout the producer knows, and a move inside a commit, which splits
     one commit across two clocks.
-22. **The old holder commits first at a handoff**: It supersedes D-313 and D-389, and
-    D-458's "`Pending` and adopt stay", on the pointer log. D-311 stays for the old
-    layout. Rejected: samples that wait across the move, which need parked samples, and
-    the drop of uncommitted samples that the storage branch does today.
-23. **Takeover at open, and a variable type rebuilds its cursor**: Per D-475, which
-    amends D-080. Continued stretches at open replace D-475 (1), and a handoff still
-    starts a new stretch (D-458). Rejected: a seal at every open, which makes one file
-    per channel and clock per session, and a seal for variable types, which still does
-    so for text channels.
+22. **The old holder commits first at a handoff**: On the pointer log it replaces the
+    pending set and adopt of earlier builds; the old layout keeps `main`'s handoff.
+    Rejected: samples that wait across the move, which need parked samples, and the drop
+    of uncommitted samples that the storage branch does today.
+23. **Takeover at open, and a variable type rebuilds its cursor**: A later session takes
+    over an open segment and appends to it. Continued stretches at open replace a new
+    stretch per takeover, and a handoff still starts a new stretch. Rejected: a seal at
+    every open, which makes one file per channel and clock per session, and a seal for
+    variable types, which still does so for text channels.
 24. **A new alignment number per clock after a restart**: The continuation of a stretch
     lives in memory. Rejected: a durable clean flag. 5,000 clocks and one restart per
     day use 2^31 numbers in 1,176 years.
@@ -1511,7 +1507,7 @@ settle them.
     4). Rejected: a `Line` flag in Cesium's channel file, which RFC 0121 Phase 8
     removes.
 26. **A clock ends with its last user's delete**: Rejected: a kept-key warning that only
-    `synnax purge` clears, and a delete on absence (D-469).
+    `synnax purge` clears, and a delete on absence.
 27. **Every stored reference migrates**: Rejected: a hidden alias of each index channel,
     which keeps a record that acts as an index channel and shows it to users.
 28. **An index channel that times no stored data stays a timestamp channel**:
@@ -1533,7 +1529,7 @@ settle them.
     rename of the shipped series field for no user gain. So the open response field is
     `clocks`, and the read caches are per clock.
 32. **C++ names a group by its position**: Rejected: `Writer::time_key(g)`, a clock key
-    on a documented return (D-141) that a Driver source cannot know before the open.
+    on a documented return that a Driver source cannot know before the open.
 33. **Task time sources**: OPC UA has one task-level `time` node, the ICD field
     `ReadMessage.index` becomes `time`, and a replay floor is the latest last stamp of a
     group's channels. Rejected: a time flag per OPC UA channel, which allows two.
@@ -1543,8 +1539,9 @@ settle them.
     is not before the start is no candidate, so a backfill takes a new clock instead of
     failing on another session's stamps.
 35. **A reserved `time`, with stored names kept**: A new channel whose path is `time`
-    fails at create. Rejected: a rename of stored ones, against D-448, and no rule,
-    which lets a write by name meet a channel and the reserved key at once.
+    fails at create. Rejected: a rename of stored ones, against the rule that the
+    upgrade renames only what it must, and no rule, which lets a write by name meet a
+    channel and the reserved key at once.
 36. **`frame.time(channel)` is the only time read**: Rejected: a `"time"` column, which
     holds only while every channel of a frame shares one clock, and time on each
     `Series`, which every slice and cast must carry.
@@ -1556,8 +1553,9 @@ settle them.
     storage's layout in the header.
 38. **The additive parts first, then the removals, each phase safe alone**: Users move
     writes, reads, and creates before the index API goes. Rejected: one break that holds
-    every release while Phases 24 to 50 merge, against D-161. The client cache rewrite
-    and the per-segment read view are charged here, since any clock move needs them.
+    every release while Phases 24 to 50 merge, against the rule that each phase is safe
+    to release alone. The client cache rewrite and the per-segment read view are charged
+    here, since any clock move needs them.
 39. **The read prototype decides R2 before hidden clocks**: It changes no format. A
     failed gate stops the line for a new plan. Rejected: a waiver, under which R2 can
     fail after storage has moved, with a new storage change as the only way back. A
@@ -1573,24 +1571,22 @@ settle them.
     line through a stretch. Rejected: continuation at every clean close, which draws a
     straight line across a task stop of any length, and a new number per session, which
     uses 2^31 numbers in 6.8 years for one 10 Hz `client.write` loop.
-42. **Line time supersedes these rulings, as one set**: Storage names each clock at
-    open, against D-450, D-467 (1) as amended by D-469 (2), D-467 (3), and D-469 (1). A
-    clock ends with its last user, against D-464 (2), D-469 (3), D-472 (8), and D-474
-    (b). A clock with no record at start is accounted for, against D-469 (3). The
-    handoff commits first (decision 22). A stretch continues within 3 steps, against
-    D-475 (1). A declared group is whole, against D-496 "A frame may carry any subset".
-    No `Line` flag (decision 25), against D-501. One database counter of alignment
-    numbers, against D-496 "Each line has its own alignment numbers".
+42. **Line time's clock rules, as one set**: Storage names each clock at open, and no
+    producer, config, or record names one. A clock ends with its last user, with no note
+    at its making and no sweep. A clock with no record at start is accounted for, never
+    warned. The handoff commits first (decision 22). A stretch continues within 3 steps.
+    A declared group is whole, and only the adaptive group takes any subset. No `Line`
+    flag marks a clock (decision 25). One database counter gives the alignment numbers.
 43. **Authority per channel from Phase 50**: Rejected: authority per clock, which would
     hang on a key that no user sees.
 44. **A clock with a record raises a status at start, never a refused start**: The
     framer refuses writes to that channel, so no stamps reach it, and the Core stays
-    operational (D-425). Rejected: a refused start, under which one bad record stops a
-    running system.
-45. **The `time.of` text pass departs from D-505 (3) and D-506**: It takes path and
-    quoted tokens, not bare ones only, and binds by the live resolver, since it runs on
-    text after RFC 0119's flip. Rejected: bare tokens bound by v0.62's binding, which
-    miss a path or a name that the flip changed.
+    operational. Rejected: a refused start, under which one bad record stops a running
+    system.
+45. **The `time.of` text pass takes path and quoted tokens**: It takes path and quoted
+    tokens, not bare ones only, and binds by the live resolver, since it runs on text
+    after RFC 0119's flip. Rejected: bare tokens bound by v0.62's binding, which miss a
+    path or a name that the flip changed.
 
 ## 8 Open questions
 
