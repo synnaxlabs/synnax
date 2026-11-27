@@ -93,6 +93,7 @@ func floatInputs(n int) []join.Input {
 }
 
 func newJoin(inputs, primary int, from telem.TimeStamp) *join.Join {
+	GinkgoHelper()
 	return MustSucceed(
 		join.New(
 			join.Config{Inputs: floatInputs(inputs), Primary: primary, From: from},
@@ -556,6 +557,7 @@ var _ = Describe("Join", func() {
 		var now telem.TimeStamp
 		BeforeEach(func() { now = 0 })
 		newLive := func(from telem.TimeStamp) *join.Join {
+			GinkgoHelper()
 			return MustSucceed(join.New(join.Config{
 				Inputs: floatInputs(2),
 				From:   from,
@@ -667,8 +669,7 @@ var _ = Describe("Join", func() {
 			"Should join a frame across a loaded sample's limit as history does",
 			func() {
 				// The samples hold for 3 s, so a primary frame from 18 s to 20 s keeps
-				// the
-				// stamps to 19 s and drops the rest, as a history read does.
+				// the stamps to 19 s and drops the rest, as a history read does.
 				primary := []float64{18, 18.5, 19, 19.5, 20}
 				history := newJoin(2, 0, seconds(18))
 				Expect(history.Push(1, storedValues, storedStamps)).To(Succeed())
@@ -850,6 +851,7 @@ var _ = Describe("Join", func() {
 
 		Describe("Arrival", func() {
 			newArrival := func() *join.Join {
+				GinkgoHelper()
 				inputs := floatInputs(2)
 				inputs[1].ArrivalTimed = true
 				return MustSucceed(join.New(join.Config{
