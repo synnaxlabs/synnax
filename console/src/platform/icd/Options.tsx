@@ -9,13 +9,13 @@
 
 import "@/platform/icd/Options.css";
 
-import { icd } from "@synnaxlabs/client";
+import type { icd } from "@synnaxlabs/client";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { deep, payload, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { deep, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -99,72 +99,6 @@ export const formatDefault = (field: icd.JSONField): string | null => {
     default:
       return String(field.default);
   }
-};
-
-/** @returns the default of a field of type that text spells. Throws when it spells none. */
-const DEFAULT_PARSERS: {
-  [T in Type]: (
-    text: string,
-  ) => NonNullable<Extract<icd.JSONField, { type: T }>["default"]>;
-} = {
-  float: (text) => {
-    const value = Number(text);
-    if (text.trim() === "" || !Number.isFinite(value))
-      throw new Error("Enter a number.");
-    return value;
-  },
-  integer: (text) => {
-    const result = payload.integerZ.safeParse(text.trim());
-    if (!result.success) throw new Error("Enter a whole number.");
-    return result.data;
-  },
-  unsigned: (text) => {
-    const result = payload.unsignedZ.safeParse(text.trim());
-    if (!result.success) throw new Error("Enter a whole number of 0 or more.");
-    return result.data;
-  },
-  string: (text) => text,
-  bytes: (text) => text,
-  boolean: (text) => {
-    const word = text.trim().toLowerCase();
-    if (word !== "true" && word !== "false") throw new Error("Enter true or false.");
-    return word === "true";
-  },
-  timestamp: (text) => {
-    if (text.trim().toLowerCase() === "now") return { type: "now" };
-    try {
-      return { type: "constant", value: new TimeStamp(text.trim()) };
-    } catch {
-      throw new Error("Enter now or a date.");
-    }
-  },
-  uuid: (text) => {
-    const word = text.trim();
-    if (word.toLowerCase() === "random") return { type: "random" };
-    const result = icd.uuidDefaultZ.safeParse({ type: "constant", value: word });
-    if (!result.success) throw new Error("Enter random or a UUID.");
-    return result.data;
-  },
-  json: (text) => {
-    try {
-      JSON.parse(text);
-    } catch {
-      throw new Error("Enter JSON.");
-    }
-    return text;
-  },
-};
-
-/**
- * @returns field with the default that text spells, or field as it is when text is
- * empty.
- * @throws an Error that says what to enter when text spells no value of the field's
- * type.
- */
-export const parseDefault = (field: icd.JSONField, text: string): icd.JSONField => {
-  if (text === "") return field;
-  const value: unknown = DEFAULT_PARSERS[field.type](text as never);
-  return icd.jsonFieldZ.parse({ ...field, default: value });
 };
 
 /** @returns what the field's options set, or null when they set nothing. */

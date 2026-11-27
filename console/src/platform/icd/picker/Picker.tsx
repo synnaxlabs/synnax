@@ -242,6 +242,8 @@ export interface FooterProps extends PropsWithChildren {
   counts: [noun: string, count: number][];
   /** Names what the add button adds while nothing is picked. */
   idle: string;
+  /** Disables the add button, such as while a pick is not valid. */
+  disabled?: boolean;
   onAdd: () => void;
   onCancel: () => void;
 }
@@ -250,6 +252,7 @@ export interface FooterProps extends PropsWithChildren {
 export const Footer = ({
   counts,
   idle,
+  disabled = false,
   onAdd,
   onCancel,
   children,
@@ -262,7 +265,7 @@ export const Footer = ({
       </Button.Button>
       <Button.Button
         variant="filled"
-        disabled={counts.every(([, count]) => count === 0)}
+        disabled={disabled || counts.every(([, count]) => count === 0)}
         onClick={onAdd}
       >
         {addLabel(counts, idle)}
