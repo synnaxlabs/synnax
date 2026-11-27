@@ -186,6 +186,7 @@ cc_test(
         "//driver/task",
         "//driver/transport",
         "//x/cpp/breaker",
+        "//x/cpp/errors",
         "//x/cpp/telem",
         "//x/cpp/testutil",
         "//x/cpp/uuid",

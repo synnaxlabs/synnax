@@ -255,8 +255,8 @@ TEST(RackFactoriesTest, DisabledIntegrationLogsAtBoot) {
 }
 
 namespace {
-/// @returns the status of a commanded configure of an empty serial read task, under
-/// a config that runs integrations.
+/// @returns the status of a commanded configure of an empty serial read task, under a
+/// config that runs integrations.
 synnax::task::Status serial_status(const std::vector<std::string> &integrations) {
     x::breaker::Breaker cancel;
     const Config cfg{.integrations = integrations};
