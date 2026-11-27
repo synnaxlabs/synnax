@@ -91,6 +91,9 @@ a transient or interrupted Core error never ends `read`.
 
 ### 3.3 The spool
 
+RFC 0120 §4.9 amends this section: the spool records the keys that the authority filter
+dropped, and the drainer opens on the present keys of each frame.
+
 `spool::Spool` (NEW) is one per Driver, in the state directory
 (`driver/rack/state.h:17-28`), capped at 10 GB by default in the Driver config. A full
 spool refuses new frames and counts them, so each segment stays contiguous. A segment
@@ -147,6 +150,8 @@ to the `arc.Program` the Driver runs
 (`core/pkg/service/channel/calculation/compiler/compile.go:106-241`). The Arc task runs
 each module on its base inputs and streams those inputs instead. Inputs from another
 Driver go stale during an outage. The Core keeps computing the channel for the Console.
+RFC 0120 §4.9 amends this section: the Driver pairs inputs through a C++ twin of the
+join node, and a running operation starts at the Arc task's open.
 
 ### 3.6 Reconnect and new minors
 
@@ -206,6 +211,14 @@ Running control logic offline needs no new model, because Arc already runs in th
 
 Phases 1 and 2 help today on their own. After phases 3 and 5, tasks run through an
 outage and offline data is dropped with a count; phase 7 keeps it.
+
+Dependencies on other RFCs: the phase table names only phases of this RFC, so the issues
+of these phases take their blockers from this table too.
+
+| Phase    | Waits for                                                                    |
+| -------- | ---------------------------------------------------------------------------- |
+| 7        | Nothing, but it takes RFC 0120 §4.9 item 2, and RFC 0120 Phase 31 follows it |
+| 10 to 11 | RFC 0120 Phase 56, the C++ join of rack calculations                         |
 
 | Phase | Scope                                                      | Touches                                                                                                                      | Depends on |
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
