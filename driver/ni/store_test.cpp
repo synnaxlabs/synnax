@@ -128,6 +128,22 @@ TEST(DeviceStore, FindsByResourceName) {
     ASSERT_EQ(got.value().key, dev.key);
 }
 
+/// @brief it should prefer the row on the rack of the scan when two rows hold the same
+/// hardware.
+TEST(DeviceStore, PrefersRowOnScanRack) {
+    auto [client, rack] = create_env();
+    synnax::rack::Rack other{.name = "ni_store_other_rack"};
+    ASSERT_NIL(client->racks.create(other));
+    const auto serial = x::uuid::create().to_string();
+    auto elsewhere = found_device(other.key, serial);
+    ASSERT_NIL(client->ni.devices.create(elsewhere));
+    auto here = found_device(rack.key, serial);
+    ASSERT_NIL(client->ni.devices.create(here));
+    DeviceStore store(client);
+    const auto got = ASSERT_NIL_P(store.find(found_device(rack.key, serial)));
+    ASSERT_EQ(got.value().key, here.key);
+}
+
 /// @brief it should find no device when none matches.
 TEST(DeviceStore, FindsNoDevice) {
     auto [client, rack] = create_env();

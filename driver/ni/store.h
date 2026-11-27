@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -142,14 +143,23 @@ public:
             where.resource_name = found.resource_name;
         else
             where.serial = found.serial;
-        auto [res, err] = this->resources().retrieve(
+        auto [matches, err] = this->resources().retrieve(
             where,
-            x::filter::one,
             typename R::RetrieveOptions{.include_status = true}
         );
-        if (err.matches(x::errors::NOT_FOUND)) return {std::nullopt, x::errors::NIL};
         if (err) return {std::nullopt, err};
-        return {std::move(res), x::errors::NIL};
+        if (matches.empty()) return {std::nullopt, x::errors::NIL};
+        // Two Drivers that first find the same hardware in one scan window can each
+        // create it. Prefer the row on this rack, then the most recently reported one.
+        const auto reported = [](const D &res) {
+            return res.status.has_value() ? res.status->time : x::telem::TimeStamp(0);
+        };
+        const auto it = std::ranges::max_element(matches, [&](const D &a, const D &b) {
+            if ((a.rack == found.rack) != (b.rack == found.rack))
+                return b.rack == found.rack;
+            return reported(a) < reported(b);
+        });
+        return {std::move(*it), x::errors::NIL};
     }
 
     x::errors::Error create(std::vector<D> &created) override {
