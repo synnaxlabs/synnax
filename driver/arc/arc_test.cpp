@@ -3963,9 +3963,13 @@ Run run(const std::string &source, const std::vector<float> &pressures) {
     x::telem::Frame trigger(1);
     trigger.emplace(start.key, x::telem::Series(std::uint8_t(1)));
     frames->push_back(std::move(trigger));
-    for (const auto p: pressures) {
+    // A source skips a series whose alignment is below the last one it read, as a
+    // streamer never sends one, so each pressure gets the next alignment.
+    for (std::uint32_t i = 0; i < pressures.size(); i++) {
         x::telem::Frame fr(1);
-        fr.emplace(pt.key, x::telem::Series(p));
+        auto series = x::telem::Series(pressures[i]);
+        series.alignment = x::telem::Alignment(1, i);
+        fr.emplace(pt.key, std::move(series));
         frames->push_back(std::move(fr));
     }
     auto ctx = std::make_shared<driver::task::MockContext>(client);
@@ -4011,11 +4015,9 @@ synnax::arc::task::StatusData data_of(const synnax::task::Status &status) {
 TEST(ArcScopeStatus, ShowsTheActiveStage) {
     const auto r = scope_status::run(
         R"(
-import time
-
 sequence main {
     stage pressurize {
-        time.wait(duration=200ms) => next
+        %pt% > 50 => next
     }
     stage hold {
         %pt% > 80 => pressurize
@@ -4023,7 +4025,7 @@ sequence main {
 }
 %start% => main
 )",
-        {}
+        {10, 60}
     );
     const auto &ctx = r.ctx;
     // The flusher sends one status per window, so a change can wait a window.
