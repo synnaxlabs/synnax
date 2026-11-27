@@ -115,6 +115,7 @@ cc_test(
         "//driver/version",
     ],
     deps = [
+        "//driver/http",
         "//driver/labjack:names",
         "//driver/ni:names",
         "//driver/rack",

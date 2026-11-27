@@ -660,6 +660,7 @@ TEST(TestStatusWindow, testDifferentVariantSameMessage) {
 class RecordingTask final : public task::Task {
 public:
     std::vector<synnax::task::Command> cmds;
+    bool is_disabled = false;
     /// @brief the context whose status count each exec records, or null.
     std::shared_ptr<task::MockContext> ctx;
     std::vector<size_t> statuses_at_exec;
@@ -669,6 +670,7 @@ public:
             this->statuses_at_exec.push_back(this->ctx->statuses.size());
     }
     void stop(bool will_reconfigure) override {}
+    [[nodiscard]] bool disabled() const override { return this->is_disabled; }
 };
 
 /// @brief a config error during a start-triggered deploy should write an error
@@ -922,5 +924,25 @@ TEST(TestHandleConfigErr, testAutoStartAtBootExecsStart) {
     ASSERT_EQ(raw->cmds.size(), 1);
     EXPECT_EQ(raw->cmds[0].type, synnax::task::START_CMD_TYPE);
     EXPECT_EQ(raw->statuses_at_exec, std::vector<size_t>{1});
+}
+
+/// @brief it should auto-start a disabled task at boot with no loading status, so the
+/// task never shows as starting.
+TEST(TestHandleConfigErr, testAutoStartOfADisabledTaskWritesNoLoadingStatus) {
+    x::breaker::Breaker cancel;
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "http_scan"};
+    ConfigureResult res;
+    auto recording = std::make_unique<RecordingTask>();
+    auto *raw = recording.get();
+    raw->is_disabled = true;
+    res.task = std::move(recording);
+    res.auto_start = true;
+    cancel.start();
+    handle_config_err(ctx, task, {std::move(res), x::errors::NIL}, "", cancel);
+    cancel.stop();
+    EXPECT_TRUE(ctx->statuses.empty());
+    ASSERT_EQ(raw->cmds.size(), 1);
+    EXPECT_EQ(raw->cmds[0].type, synnax::task::START_CMD_TYPE);
 }
 }

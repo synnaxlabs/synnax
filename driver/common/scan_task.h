@@ -231,7 +231,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
 class ScanTask final : public task::Task, public pipeline::Base {
     const synnax::task::Task task;
     x::loop::Timer timer;
-    const bool disabled;
+    const bool is_disabled;
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::task::Status status;
@@ -531,7 +531,7 @@ public:
         Base(breaker_config, task.name),
         task(task),
         timer(cfg.rate),
-        disabled(cfg.disabled),
+        is_disabled(cfg.disabled),
         scanner(std::move(scanner)),
         ctx(ctx),
         client(std::move(client)),
@@ -543,7 +543,7 @@ public:
         this->status.owner = synnax::task::resource_id(task.key);
         this->status.details.config_hash = task.config_hash;
         this->status.variant = synnax::status::VARIANT_SUCCESS;
-        if (this->disabled) {
+        if (this->is_disabled) {
             this->status.variant = synnax::status::VARIANT_DISABLED;
             this->status.message = "Scanner disabled";
             this->status.description = "Enable the scanner to scan for devices.";
@@ -788,9 +788,11 @@ public:
 
     std::string name() const override { return this->task.name; }
 
+    [[nodiscard]] bool disabled() const override { return this->is_disabled; }
+
     /// @brief starts the scan loop. A disabled scan task never starts.
     /// @returns false if the scan task is disabled or already running.
-    bool start() override { return !this->disabled && Base::start(); }
+    bool start() override { return !this->is_disabled && Base::start(); }
 
     using driver::pipeline::Base::stop;
 
