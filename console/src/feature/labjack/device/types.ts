@@ -160,13 +160,11 @@ const T4_DI_PORTS: DIPort[] = [
   ...diFactory({ lower: 4, upper: 7 }, { prefix: "FIO", offset: 0 }),
   ...diFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
   ...diFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
-  ...diFactory({ lower: 20, upper: 22 }, { prefix: "MIO", offset: 20 }),
 ];
 const T4_DO_PORTS: DOPort[] = [
   ...doFactory({ lower: 4, upper: 7 }, { prefix: "FIO", offset: 0 }),
   ...doFactory({ lower: 8, upper: 15 }, { prefix: "EIO", offset: 8 }),
   ...doFactory({ lower: 16, upper: 19 }, { prefix: "CIO", offset: 16 }),
-  ...doFactory({ lower: 20, upper: 22 }, { prefix: "MIO", offset: 20 }),
 ];
 const T4_PORTS: PortsInfo = {
   [AI_PORT_TYPE]: T4_AI_PORTS,

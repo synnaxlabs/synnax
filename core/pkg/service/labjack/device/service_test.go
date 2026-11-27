@@ -78,6 +78,29 @@ var _ = Describe("Service", func() {
 		change(&d)
 		return d
 	}
+	newModel := func(model device.Model, ports device.PortsVariant) device.Device {
+		return device.Device{
+			Rack:       rackKey,
+			Name:       "LJ",
+			Serial:     nextSerial(),
+			Connection: device.ConnectionUSB,
+			Model:      model,
+			Ports:      device.Ports{Variant: ports},
+		}
+	}
+	createChannels := func(ctx context.Context, count int) []channel.Key {
+		GinkgoHelper()
+		channels := make([]channel.Channel, count)
+		for i := range channels {
+			channels[i] = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+		}
+		Expect(channelSvc.NewWriter(tx).CreateMany(ctx, &channels)).To(Succeed())
+		return channel.KeysFromChannels(channels)
+	}
 	create := func(ctx context.Context) device.Device {
 		GinkgoHelper()
 		d := device.Device{
@@ -143,6 +166,56 @@ var _ = Describe("Service", func() {
 			Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
 				To(MatchError(validate.ErrValidation))
 		})
+
+		DescribeTable(
+			"Should keep a channel that a port map holds from being deleted",
+			func(ctx SpecContext, ports func(ch, other channel.Key) device.T7Ports) {
+				channels := createChannels(ctx, 2)
+				ch := channels[0]
+				d := device.Device{
+					Key:        uuid.New(),
+					Rack:       rackKey,
+					Name:       "T7-0003",
+					Serial:     nextSerial(),
+					Connection: device.ConnectionUSB,
+					Model:      device.ModelT7,
+					Ports:      device.Ports{Variant: ports(ch, channels[1])},
+				}
+				Expect(gorp.NewCreate[device.Key, device.Device]().
+					Entry(&d).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
+					To(MatchError(validate.ErrValidation))
+			},
+			Entry("an analog input", func(ch, _ channel.Key) device.T7Ports {
+				return device.T7Ports{
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin0: ch,
+					},
+				}
+			}),
+			Entry("a digital input", func(ch, _ channel.Key) device.T7Ports {
+				return device.T7Ports{
+					DigitalInput: map[device.T7DigitalPort]channel.Key{
+						device.T7DigitalPortDio0: ch,
+					},
+				}
+			}),
+			Entry("an output command", func(ch, _ channel.Key) device.T7Ports {
+				return device.T7Ports{
+					AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
+						device.AnalogOutputPortDac0: {Command: ch},
+					},
+				}
+			}),
+			Entry("an output state", func(ch, other channel.Key) device.T7Ports {
+				return device.T7Ports{
+					DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+						device.T7DigitalPortDio0: {Command: other, State: new(ch)},
+					},
+				}
+			}),
+		)
 	})
 
 	Describe("OpenService", func() {
@@ -173,6 +246,80 @@ var _ = Describe("Service", func() {
 			Expect(d.Key).ToNot(Equal(uuid.Nil()))
 			Expect(retrieve(ctx, d.Key).Serial).To(Equal(d.Serial))
 		})
+
+		It("Should store the port maps of a device", func(ctx SpecContext) {
+			ch := createChannels(ctx, 7)
+			d := newModel(device.ModelT7, device.T7Ports{
+				Mux80Attached: true,
+				AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+					device.T7AnalogInputPortAin0:  ch[0],
+					device.T7AnalogInputPortAin48: ch[1],
+				},
+				AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
+					device.AnalogOutputPortDac1: {Command: ch[2], State: new(ch[3])},
+				},
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio0: ch[4],
+				},
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio19: {Command: ch[5], State: new(ch[6])},
+				},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			Expect(retrieve(ctx, d.Key).Ports).To(Equal(d.Ports))
+		})
+
+		It("Should reject a port the model does not have", func(ctx SpecContext) {
+			d := newModel(device.ModelT4, device.T4Ports{
+				DigitalInput: map[device.T4DigitalPort]channel.Key{"DIO0": 5},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("invalid digital_input key: DIO0")),
+			))
+		})
+
+		DescribeTable("Should allow a Mux80 port only with a Mux80 attached",
+			func(ctx SpecContext, attached bool, matcher OmegaMatcher) {
+				ch := createChannels(ctx, 2)
+				d := newModel(device.ModelT7, device.T7Ports{
+					Mux80Attached: attached,
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin13: ch[0],
+						device.T7AnalogInputPortAin48: ch[1],
+					},
+				})
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(matcher)
+			},
+			Entry("attached", true, Succeed()),
+			Entry("not attached", false, SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"ports.analog_input: AIN48 needs mux80_attached",
+				)),
+			)),
+		)
+
+		DescribeTable("Should refuse a Mux80 address line with a Mux80 attached",
+			func(ctx SpecContext, ports device.T7Ports, msg string) {
+				ports.Mux80Attached = true
+				d := newModel(device.ModelT7, ports)
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
+			},
+			Entry("digital input", device.T7Ports{
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio20: 1,
+				},
+			}, "ports.digital_input: DIO20 addresses the attached Mux80"),
+			Entry("digital output", device.T7Ports{
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio22: {Command: 1},
+				},
+			}, "ports.digital_output: DIO22 addresses the attached Mux80"),
+		)
 
 		It("Should refuse to replace a device of another model", func(ctx SpecContext) {
 			d := create(ctx)
@@ -367,6 +514,135 @@ var _ = Describe("Service", func() {
 			Expect(got.Rack).To(Equal(d.Rack))
 			Expect(got.Serial).To(Equal(d.Serial))
 			Expect(got.Connection).To(Equal(d.Connection))
+		})
+
+		DescribeTable("Should write the port maps of each model",
+			func(
+				ctx SpecContext,
+				model device.Model,
+				bindPorts func(ch []channel.Key) device.PortsVariant,
+			) {
+				ports := bindPorts(createChannels(ctx, 2))
+				d := newModel(model, nil)
+				d.Ports = device.Ports{Variant: ports}
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, configuration(ports))).
+					To(Succeed())
+				Expect(retrieve(ctx, d.Key).Ports).
+					To(Equal(device.Ports{Variant: ports}))
+			},
+			Entry("T4", device.ModelT4, func(ch []channel.Key) device.PortsVariant {
+				return device.T4Ports{
+					AnalogInput:  map[device.T4AnalogInputPort]channel.Key{},
+					AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{},
+					DigitalInput: map[device.T4DigitalPort]channel.Key{},
+					DigitalOutput: map[device.T4DigitalPort]device.CommandStatePair{
+						device.T4DigitalPortDio4: {Command: ch[0], State: new(ch[1])},
+					},
+				}
+			}),
+			Entry("T7", device.ModelT7, func(ch []channel.Key) device.PortsVariant {
+				return device.T7Ports{
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin0: ch[0],
+					},
+					AnalogOutput:  map[device.AnalogOutputPort]device.CommandStatePair{},
+					DigitalInput:  map[device.T7DigitalPort]channel.Key{},
+					DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{},
+				}
+			}),
+			Entry("T8", device.ModelT8, func(ch []channel.Key) device.PortsVariant {
+				return device.T8Ports{
+					AnalogInput: map[device.T8AnalogInputPort]channel.Key{
+						device.T8AnalogInputPortAin7: ch[0],
+					},
+					AnalogOutput:  map[device.AnalogOutputPort]device.CommandStatePair{},
+					DigitalInput:  map[device.T8DigitalPort]channel.Key{},
+					DigitalOutput: map[device.T8DigitalPort]device.CommandStatePair{},
+				}
+			}),
+		)
+
+		DescribeTable(
+			"Should refuse a pin with two roles",
+			func(
+				ctx SpecContext,
+				ports device.PortsVariant,
+				model device.Model,
+				message string,
+			) {
+				d := newModel(model, ports)
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(message)),
+				))
+			},
+			Entry("a T4 analog input on a mapped digital pin", device.T4Ports{
+				AnalogInput: map[device.T4AnalogInputPort]channel.Key{
+					device.T4AnalogInputPortAin4: 1,
+				},
+				DigitalInput: map[device.T4DigitalPort]channel.Key{
+					device.T4DigitalPortDio4: 2,
+				},
+			}, device.ModelT4, "ports.analog_input: AIN4 shares its pin with DIO4"),
+			Entry("a T7 digital port that is an input and an output", device.T7Ports{
+				DigitalInput: map[device.T7DigitalPort]channel.Key{
+					device.T7DigitalPortDio0: 1,
+				},
+				DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
+					device.T7DigitalPortDio0: {Command: 2},
+				},
+			}, device.ModelT7, "ports.digital_output: DIO0 is also a digital input"),
+			Entry("a T8 digital port that is an input and an output", device.T8Ports{
+				DigitalInput: map[device.T8DigitalPort]channel.Key{
+					device.T8DigitalPortDio0: 1,
+				},
+				DigitalOutput: map[device.T8DigitalPort]device.CommandStatePair{
+					device.T8DigitalPortDio0: {Command: 2},
+				},
+			}, device.ModelT8, "ports.digital_output: DIO0 is also a digital input"),
+		)
+
+		It("Should accept a T4 analog input on a pin with no digital role", func(
+			ctx SpecContext,
+		) {
+			ch := createChannels(ctx, 2)
+			d := newModel(device.ModelT4, device.T4Ports{
+				AnalogInput: map[device.T4AnalogInputPort]channel.Key{
+					device.T4AnalogInputPortAin4: ch[0],
+				},
+				DigitalInput: map[device.T4DigitalPort]channel.Key{
+					device.T4DigitalPortDio5: ch[1],
+				},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+		})
+
+		It("Should reject a port the model does not have in a configuration", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, configuration(
+				device.T7Ports{
+					DigitalInput: map[device.T7DigitalPort]channel.Key{"DIO23": 3},
+				},
+			))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("invalid digital_input key: DIO23")),
+			))
+		})
+
+		It("Should refuse a Mux80 port in a configuration without a Mux80", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, configuration(
+				device.T7Ports{
+					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
+						device.T7AnalogInputPortAin127: 3,
+					},
+				},
+			))).To(MatchError(ContainSubstring("AIN127 needs mux80_attached")))
 		})
 
 		It("Should write the identity and keep the configuration", func(

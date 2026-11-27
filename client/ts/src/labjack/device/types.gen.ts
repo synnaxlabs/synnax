@@ -25,6 +25,222 @@ export const MODELS = ["t4", "t7", "t8"] as const;
 export const modelZ = z.enum(MODELS);
 export type Model = z.infer<typeof modelZ>;
 
+export const ANALOG_OUTPUT_PORTS = ["DAC0", "DAC1"] as const;
+export const analogOutputPortZ = z.enum(ANALOG_OUTPUT_PORTS);
+export type AnalogOutputPort = z.infer<typeof analogOutputPortZ>;
+
+export const T_4_ANALOG_INPUT_PORTS = [
+  "AIN0",
+  "AIN1",
+  "AIN2",
+  "AIN3",
+  "AIN4",
+  "AIN5",
+  "AIN6",
+  "AIN7",
+  "AIN8",
+  "AIN9",
+  "AIN10",
+  "AIN11",
+] as const;
+export const t4AnalogInputPortZ = z.enum(T_4_ANALOG_INPUT_PORTS);
+export type T4AnalogInputPort = z.infer<typeof t4AnalogInputPortZ>;
+
+export const T_4_DIGITAL_PORTS = [
+  "DIO4",
+  "DIO5",
+  "DIO6",
+  "DIO7",
+  "DIO8",
+  "DIO9",
+  "DIO10",
+  "DIO11",
+  "DIO12",
+  "DIO13",
+  "DIO14",
+  "DIO15",
+  "DIO16",
+  "DIO17",
+  "DIO18",
+  "DIO19",
+] as const;
+export const t4DigitalPortZ = z.enum(T_4_DIGITAL_PORTS);
+export type T4DigitalPort = z.infer<typeof t4DigitalPortZ>;
+
+export const T_7_ANALOG_INPUT_PORTS = [
+  "AIN0",
+  "AIN1",
+  "AIN2",
+  "AIN3",
+  "AIN4",
+  "AIN5",
+  "AIN6",
+  "AIN7",
+  "AIN8",
+  "AIN9",
+  "AIN10",
+  "AIN11",
+  "AIN12",
+  "AIN13",
+  "AIN48",
+  "AIN49",
+  "AIN50",
+  "AIN51",
+  "AIN52",
+  "AIN53",
+  "AIN54",
+  "AIN55",
+  "AIN56",
+  "AIN57",
+  "AIN58",
+  "AIN59",
+  "AIN60",
+  "AIN61",
+  "AIN62",
+  "AIN63",
+  "AIN64",
+  "AIN65",
+  "AIN66",
+  "AIN67",
+  "AIN68",
+  "AIN69",
+  "AIN70",
+  "AIN71",
+  "AIN72",
+  "AIN73",
+  "AIN74",
+  "AIN75",
+  "AIN76",
+  "AIN77",
+  "AIN78",
+  "AIN79",
+  "AIN80",
+  "AIN81",
+  "AIN82",
+  "AIN83",
+  "AIN84",
+  "AIN85",
+  "AIN86",
+  "AIN87",
+  "AIN88",
+  "AIN89",
+  "AIN90",
+  "AIN91",
+  "AIN92",
+  "AIN93",
+  "AIN94",
+  "AIN95",
+  "AIN96",
+  "AIN97",
+  "AIN98",
+  "AIN99",
+  "AIN100",
+  "AIN101",
+  "AIN102",
+  "AIN103",
+  "AIN104",
+  "AIN105",
+  "AIN106",
+  "AIN107",
+  "AIN108",
+  "AIN109",
+  "AIN110",
+  "AIN111",
+  "AIN112",
+  "AIN113",
+  "AIN114",
+  "AIN115",
+  "AIN116",
+  "AIN117",
+  "AIN118",
+  "AIN119",
+  "AIN120",
+  "AIN121",
+  "AIN122",
+  "AIN123",
+  "AIN124",
+  "AIN125",
+  "AIN126",
+  "AIN127",
+] as const;
+export const t7AnalogInputPortZ = z.enum(T_7_ANALOG_INPUT_PORTS);
+export type T7AnalogInputPort = z.infer<typeof t7AnalogInputPortZ>;
+
+export const T_7_DIGITAL_PORTS = [
+  "DIO0",
+  "DIO1",
+  "DIO2",
+  "DIO3",
+  "DIO4",
+  "DIO5",
+  "DIO6",
+  "DIO7",
+  "DIO8",
+  "DIO9",
+  "DIO10",
+  "DIO11",
+  "DIO12",
+  "DIO13",
+  "DIO14",
+  "DIO15",
+  "DIO16",
+  "DIO17",
+  "DIO18",
+  "DIO19",
+  "DIO20",
+  "DIO21",
+  "DIO22",
+] as const;
+export const t7DigitalPortZ = z.enum(T_7_DIGITAL_PORTS);
+export type T7DigitalPort = z.infer<typeof t7DigitalPortZ>;
+
+export const T_8_ANALOG_INPUT_PORTS = [
+  "AIN0",
+  "AIN1",
+  "AIN2",
+  "AIN3",
+  "AIN4",
+  "AIN5",
+  "AIN6",
+  "AIN7",
+] as const;
+export const t8AnalogInputPortZ = z.enum(T_8_ANALOG_INPUT_PORTS);
+export type T8AnalogInputPort = z.infer<typeof t8AnalogInputPortZ>;
+
+export const T_8_DIGITAL_PORTS = [
+  "DIO0",
+  "DIO1",
+  "DIO2",
+  "DIO3",
+  "DIO4",
+  "DIO5",
+  "DIO6",
+  "DIO7",
+  "DIO8",
+  "DIO9",
+  "DIO10",
+  "DIO11",
+  "DIO12",
+  "DIO13",
+  "DIO14",
+  "DIO15",
+  "DIO16",
+  "DIO17",
+  "DIO18",
+  "DIO19",
+] as const;
+export const t8DigitalPortZ = z.enum(T_8_DIGITAL_PORTS);
+export type T8DigitalPort = z.infer<typeof t8DigitalPortZ>;
+
+/** CommandStatePair is the pair of channels that writes to one port. */
+export const commandStatePairZ = z.object({
+  /** command is the channel that commands the port. */
+  command: channel.keyZ.refine((v) => v !== 0, "Command is required"),
+  /** state is the channel that holds the state of the port. */
+  state: channel.keyZ.optional(),
+});
+export interface CommandStatePair extends z.infer<typeof commandStatePairZ> {}
+
 /** Identity holds the device fields that the scanner owns. */
 export const identityZ = z.object({
   /** rack is the key of the rack the device is connected to. */
@@ -44,6 +260,16 @@ export type Key = z.infer<typeof keyZ>;
 /** T4Ports are the ports of a T4. */
 export const t4PortsZ = z.object({
   model: z.literal("t4"),
+  /** analogInput maps an analog input port to the channel that holds its samples. */
+  analogInput: z.partialRecord(t4AnalogInputPortZ, channel.keyZ).default(() => ({})),
+  /** analogOutput maps an analog output port to the channels that write to it. */
+  analogOutput: z
+    .partialRecord(analogOutputPortZ, commandStatePairZ)
+    .default(() => ({})),
+  /** digitalInput maps a digital port to the channel that holds its samples. */
+  digitalInput: z.partialRecord(t4DigitalPortZ, channel.keyZ).default(() => ({})),
+  /** digitalOutput maps a digital port to the channels that write to it. */
+  digitalOutput: z.partialRecord(t4DigitalPortZ, commandStatePairZ).default(() => ({})),
 });
 export interface T4Ports extends z.infer<typeof t4PortsZ> {}
 
@@ -55,12 +281,32 @@ export const t7PortsZ = z.object({
    * AIN48 to AIN127.
    */
   mux80Attached: z.boolean().default(false),
+  /** analogInput maps an analog input port to the channel that holds its samples. */
+  analogInput: z.partialRecord(t7AnalogInputPortZ, channel.keyZ).default(() => ({})),
+  /** analogOutput maps an analog output port to the channels that write to it. */
+  analogOutput: z
+    .partialRecord(analogOutputPortZ, commandStatePairZ)
+    .default(() => ({})),
+  /** digitalInput maps a digital port to the channel that holds its samples. */
+  digitalInput: z.partialRecord(t7DigitalPortZ, channel.keyZ).default(() => ({})),
+  /** digitalOutput maps a digital port to the channels that write to it. */
+  digitalOutput: z.partialRecord(t7DigitalPortZ, commandStatePairZ).default(() => ({})),
 });
 export interface T7Ports extends z.infer<typeof t7PortsZ> {}
 
 /** T8Ports are the ports of a T8. */
 export const t8PortsZ = z.object({
   model: z.literal("t8"),
+  /** analogInput maps an analog input port to the channel that holds its samples. */
+  analogInput: z.partialRecord(t8AnalogInputPortZ, channel.keyZ).default(() => ({})),
+  /** analogOutput maps an analog output port to the channels that write to it. */
+  analogOutput: z
+    .partialRecord(analogOutputPortZ, commandStatePairZ)
+    .default(() => ({})),
+  /** digitalInput maps a digital port to the channel that holds its samples. */
+  digitalInput: z.partialRecord(t8DigitalPortZ, channel.keyZ).default(() => ({})),
+  /** digitalOutput maps a digital port to the channels that write to it. */
+  digitalOutput: z.partialRecord(t8DigitalPortZ, commandStatePairZ).default(() => ({})),
 });
 export interface T8Ports extends z.infer<typeof t8PortsZ> {}
 

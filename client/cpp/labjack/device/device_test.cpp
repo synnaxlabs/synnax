@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <optional>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/labjack/device/json.gen.h"
@@ -63,13 +65,23 @@ TEST(Device, RoundTrips) {
     d.connection = CONNECTION_ETHERNET;
     d.identifier = "lj";
     d.model = MODEL_T_4;
-    d.ports = T4Ports{};
+    T4Ports ports;
+    ports.analog_input = {{"AIN11", 3}};
+    ports.digital_output = {{"DIO4", CommandStatePair{.command = 4, .state = 5}}};
+    d.ports = ports;
     x::json::Parser parser(d.to_json());
     const auto parsed = Device::parse(parser);
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.key, d.key);
     ASSERT_EQ(parsed.model, MODEL_T_4);
     ASSERT_TRUE(std::holds_alternative<T4Ports>(parsed.ports));
+    const auto &got = std::get<T4Ports>(parsed.ports);
+    ASSERT_EQ(got.analog_input.at("AIN11"), 3);
+    ASSERT_EQ(got.digital_output.at("DIO4").command, 4);
+    ASSERT_EQ(
+        got.digital_output.at("DIO4").state,
+        std::optional<synnax::channel::Key>{5}
+    );
     ASSERT_EQ(parsed.connection, CONNECTION_ETHERNET);
     ASSERT_EQ(parsed.identifier, "lj");
 }

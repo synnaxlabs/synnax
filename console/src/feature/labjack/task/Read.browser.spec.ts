@@ -590,7 +590,7 @@ describe("Read ports", () => {
   });
 
   it.each([
-    ["an analog", createAnalogReadChannel("AIN4"), "Digital inputs", 19],
+    ["an analog", createAnalogReadChannel("AIN4"), "Digital inputs", 16],
     ["a digital", createDigitalReadChannel("DIO4"), "Analog inputs", 12],
   ])(
     "should mark the terminal %s channel holds as used in the other type",
@@ -721,7 +721,6 @@ describe("Read ports", () => {
       "FIO4 to FIO7",
       "EIO0 to EIO7",
       "CIO0 to CIO3",
-      "MIO0 to MIO2",
     ]);
   });
 

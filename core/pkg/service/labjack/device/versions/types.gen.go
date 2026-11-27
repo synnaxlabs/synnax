@@ -40,6 +40,226 @@ const (
 	ConnectionWifi Connection = v0.ConnectionWifi
 )
 
+// AnalogOutputPort is an analog output port of a LabJack device.
+type AnalogOutputPort = v0.AnalogOutputPort
+
+const (
+	AnalogOutputPortDac0 AnalogOutputPort = v0.AnalogOutputPortDac0
+	AnalogOutputPortDac1 AnalogOutputPort = v0.AnalogOutputPortDac1
+)
+
+// T4AnalogInputPort is an analog input port of a T4.
+type T4AnalogInputPort = v0.T4AnalogInputPort
+
+const (
+	T4AnalogInputPortAin0  T4AnalogInputPort = v0.T4AnalogInputPortAin0
+	T4AnalogInputPortAin1  T4AnalogInputPort = v0.T4AnalogInputPortAin1
+	T4AnalogInputPortAin2  T4AnalogInputPort = v0.T4AnalogInputPortAin2
+	T4AnalogInputPortAin3  T4AnalogInputPort = v0.T4AnalogInputPortAin3
+	T4AnalogInputPortAin4  T4AnalogInputPort = v0.T4AnalogInputPortAin4
+	T4AnalogInputPortAin5  T4AnalogInputPort = v0.T4AnalogInputPortAin5
+	T4AnalogInputPortAin6  T4AnalogInputPort = v0.T4AnalogInputPortAin6
+	T4AnalogInputPortAin7  T4AnalogInputPort = v0.T4AnalogInputPortAin7
+	T4AnalogInputPortAin8  T4AnalogInputPort = v0.T4AnalogInputPortAin8
+	T4AnalogInputPortAin9  T4AnalogInputPort = v0.T4AnalogInputPortAin9
+	T4AnalogInputPortAin10 T4AnalogInputPort = v0.T4AnalogInputPortAin10
+	T4AnalogInputPortAin11 T4AnalogInputPort = v0.T4AnalogInputPortAin11
+)
+
+// T4DigitalPort is a digital port of a T4.
+type T4DigitalPort = v0.T4DigitalPort
+
+const (
+	T4DigitalPortDio4  T4DigitalPort = v0.T4DigitalPortDio4
+	T4DigitalPortDio5  T4DigitalPort = v0.T4DigitalPortDio5
+	T4DigitalPortDio6  T4DigitalPort = v0.T4DigitalPortDio6
+	T4DigitalPortDio7  T4DigitalPort = v0.T4DigitalPortDio7
+	T4DigitalPortDio8  T4DigitalPort = v0.T4DigitalPortDio8
+	T4DigitalPortDio9  T4DigitalPort = v0.T4DigitalPortDio9
+	T4DigitalPortDio10 T4DigitalPort = v0.T4DigitalPortDio10
+	T4DigitalPortDio11 T4DigitalPort = v0.T4DigitalPortDio11
+	T4DigitalPortDio12 T4DigitalPort = v0.T4DigitalPortDio12
+	T4DigitalPortDio13 T4DigitalPort = v0.T4DigitalPortDio13
+	T4DigitalPortDio14 T4DigitalPort = v0.T4DigitalPortDio14
+	T4DigitalPortDio15 T4DigitalPort = v0.T4DigitalPortDio15
+	T4DigitalPortDio16 T4DigitalPort = v0.T4DigitalPortDio16
+	T4DigitalPortDio17 T4DigitalPort = v0.T4DigitalPortDio17
+	T4DigitalPortDio18 T4DigitalPort = v0.T4DigitalPortDio18
+	T4DigitalPortDio19 T4DigitalPort = v0.T4DigitalPortDio19
+)
+
+// T7AnalogInputPort is an analog input port of a T7. AIN48 and up need a Mux80.
+type T7AnalogInputPort = v0.T7AnalogInputPort
+
+const (
+	T7AnalogInputPortAin0   T7AnalogInputPort = v0.T7AnalogInputPortAin0
+	T7AnalogInputPortAin1   T7AnalogInputPort = v0.T7AnalogInputPortAin1
+	T7AnalogInputPortAin2   T7AnalogInputPort = v0.T7AnalogInputPortAin2
+	T7AnalogInputPortAin3   T7AnalogInputPort = v0.T7AnalogInputPortAin3
+	T7AnalogInputPortAin4   T7AnalogInputPort = v0.T7AnalogInputPortAin4
+	T7AnalogInputPortAin5   T7AnalogInputPort = v0.T7AnalogInputPortAin5
+	T7AnalogInputPortAin6   T7AnalogInputPort = v0.T7AnalogInputPortAin6
+	T7AnalogInputPortAin7   T7AnalogInputPort = v0.T7AnalogInputPortAin7
+	T7AnalogInputPortAin8   T7AnalogInputPort = v0.T7AnalogInputPortAin8
+	T7AnalogInputPortAin9   T7AnalogInputPort = v0.T7AnalogInputPortAin9
+	T7AnalogInputPortAin10  T7AnalogInputPort = v0.T7AnalogInputPortAin10
+	T7AnalogInputPortAin11  T7AnalogInputPort = v0.T7AnalogInputPortAin11
+	T7AnalogInputPortAin12  T7AnalogInputPort = v0.T7AnalogInputPortAin12
+	T7AnalogInputPortAin13  T7AnalogInputPort = v0.T7AnalogInputPortAin13
+	T7AnalogInputPortAin48  T7AnalogInputPort = v0.T7AnalogInputPortAin48
+	T7AnalogInputPortAin49  T7AnalogInputPort = v0.T7AnalogInputPortAin49
+	T7AnalogInputPortAin50  T7AnalogInputPort = v0.T7AnalogInputPortAin50
+	T7AnalogInputPortAin51  T7AnalogInputPort = v0.T7AnalogInputPortAin51
+	T7AnalogInputPortAin52  T7AnalogInputPort = v0.T7AnalogInputPortAin52
+	T7AnalogInputPortAin53  T7AnalogInputPort = v0.T7AnalogInputPortAin53
+	T7AnalogInputPortAin54  T7AnalogInputPort = v0.T7AnalogInputPortAin54
+	T7AnalogInputPortAin55  T7AnalogInputPort = v0.T7AnalogInputPortAin55
+	T7AnalogInputPortAin56  T7AnalogInputPort = v0.T7AnalogInputPortAin56
+	T7AnalogInputPortAin57  T7AnalogInputPort = v0.T7AnalogInputPortAin57
+	T7AnalogInputPortAin58  T7AnalogInputPort = v0.T7AnalogInputPortAin58
+	T7AnalogInputPortAin59  T7AnalogInputPort = v0.T7AnalogInputPortAin59
+	T7AnalogInputPortAin60  T7AnalogInputPort = v0.T7AnalogInputPortAin60
+	T7AnalogInputPortAin61  T7AnalogInputPort = v0.T7AnalogInputPortAin61
+	T7AnalogInputPortAin62  T7AnalogInputPort = v0.T7AnalogInputPortAin62
+	T7AnalogInputPortAin63  T7AnalogInputPort = v0.T7AnalogInputPortAin63
+	T7AnalogInputPortAin64  T7AnalogInputPort = v0.T7AnalogInputPortAin64
+	T7AnalogInputPortAin65  T7AnalogInputPort = v0.T7AnalogInputPortAin65
+	T7AnalogInputPortAin66  T7AnalogInputPort = v0.T7AnalogInputPortAin66
+	T7AnalogInputPortAin67  T7AnalogInputPort = v0.T7AnalogInputPortAin67
+	T7AnalogInputPortAin68  T7AnalogInputPort = v0.T7AnalogInputPortAin68
+	T7AnalogInputPortAin69  T7AnalogInputPort = v0.T7AnalogInputPortAin69
+	T7AnalogInputPortAin70  T7AnalogInputPort = v0.T7AnalogInputPortAin70
+	T7AnalogInputPortAin71  T7AnalogInputPort = v0.T7AnalogInputPortAin71
+	T7AnalogInputPortAin72  T7AnalogInputPort = v0.T7AnalogInputPortAin72
+	T7AnalogInputPortAin73  T7AnalogInputPort = v0.T7AnalogInputPortAin73
+	T7AnalogInputPortAin74  T7AnalogInputPort = v0.T7AnalogInputPortAin74
+	T7AnalogInputPortAin75  T7AnalogInputPort = v0.T7AnalogInputPortAin75
+	T7AnalogInputPortAin76  T7AnalogInputPort = v0.T7AnalogInputPortAin76
+	T7AnalogInputPortAin77  T7AnalogInputPort = v0.T7AnalogInputPortAin77
+	T7AnalogInputPortAin78  T7AnalogInputPort = v0.T7AnalogInputPortAin78
+	T7AnalogInputPortAin79  T7AnalogInputPort = v0.T7AnalogInputPortAin79
+	T7AnalogInputPortAin80  T7AnalogInputPort = v0.T7AnalogInputPortAin80
+	T7AnalogInputPortAin81  T7AnalogInputPort = v0.T7AnalogInputPortAin81
+	T7AnalogInputPortAin82  T7AnalogInputPort = v0.T7AnalogInputPortAin82
+	T7AnalogInputPortAin83  T7AnalogInputPort = v0.T7AnalogInputPortAin83
+	T7AnalogInputPortAin84  T7AnalogInputPort = v0.T7AnalogInputPortAin84
+	T7AnalogInputPortAin85  T7AnalogInputPort = v0.T7AnalogInputPortAin85
+	T7AnalogInputPortAin86  T7AnalogInputPort = v0.T7AnalogInputPortAin86
+	T7AnalogInputPortAin87  T7AnalogInputPort = v0.T7AnalogInputPortAin87
+	T7AnalogInputPortAin88  T7AnalogInputPort = v0.T7AnalogInputPortAin88
+	T7AnalogInputPortAin89  T7AnalogInputPort = v0.T7AnalogInputPortAin89
+	T7AnalogInputPortAin90  T7AnalogInputPort = v0.T7AnalogInputPortAin90
+	T7AnalogInputPortAin91  T7AnalogInputPort = v0.T7AnalogInputPortAin91
+	T7AnalogInputPortAin92  T7AnalogInputPort = v0.T7AnalogInputPortAin92
+	T7AnalogInputPortAin93  T7AnalogInputPort = v0.T7AnalogInputPortAin93
+	T7AnalogInputPortAin94  T7AnalogInputPort = v0.T7AnalogInputPortAin94
+	T7AnalogInputPortAin95  T7AnalogInputPort = v0.T7AnalogInputPortAin95
+	T7AnalogInputPortAin96  T7AnalogInputPort = v0.T7AnalogInputPortAin96
+	T7AnalogInputPortAin97  T7AnalogInputPort = v0.T7AnalogInputPortAin97
+	T7AnalogInputPortAin98  T7AnalogInputPort = v0.T7AnalogInputPortAin98
+	T7AnalogInputPortAin99  T7AnalogInputPort = v0.T7AnalogInputPortAin99
+	T7AnalogInputPortAin100 T7AnalogInputPort = v0.T7AnalogInputPortAin100
+	T7AnalogInputPortAin101 T7AnalogInputPort = v0.T7AnalogInputPortAin101
+	T7AnalogInputPortAin102 T7AnalogInputPort = v0.T7AnalogInputPortAin102
+	T7AnalogInputPortAin103 T7AnalogInputPort = v0.T7AnalogInputPortAin103
+	T7AnalogInputPortAin104 T7AnalogInputPort = v0.T7AnalogInputPortAin104
+	T7AnalogInputPortAin105 T7AnalogInputPort = v0.T7AnalogInputPortAin105
+	T7AnalogInputPortAin106 T7AnalogInputPort = v0.T7AnalogInputPortAin106
+	T7AnalogInputPortAin107 T7AnalogInputPort = v0.T7AnalogInputPortAin107
+	T7AnalogInputPortAin108 T7AnalogInputPort = v0.T7AnalogInputPortAin108
+	T7AnalogInputPortAin109 T7AnalogInputPort = v0.T7AnalogInputPortAin109
+	T7AnalogInputPortAin110 T7AnalogInputPort = v0.T7AnalogInputPortAin110
+	T7AnalogInputPortAin111 T7AnalogInputPort = v0.T7AnalogInputPortAin111
+	T7AnalogInputPortAin112 T7AnalogInputPort = v0.T7AnalogInputPortAin112
+	T7AnalogInputPortAin113 T7AnalogInputPort = v0.T7AnalogInputPortAin113
+	T7AnalogInputPortAin114 T7AnalogInputPort = v0.T7AnalogInputPortAin114
+	T7AnalogInputPortAin115 T7AnalogInputPort = v0.T7AnalogInputPortAin115
+	T7AnalogInputPortAin116 T7AnalogInputPort = v0.T7AnalogInputPortAin116
+	T7AnalogInputPortAin117 T7AnalogInputPort = v0.T7AnalogInputPortAin117
+	T7AnalogInputPortAin118 T7AnalogInputPort = v0.T7AnalogInputPortAin118
+	T7AnalogInputPortAin119 T7AnalogInputPort = v0.T7AnalogInputPortAin119
+	T7AnalogInputPortAin120 T7AnalogInputPort = v0.T7AnalogInputPortAin120
+	T7AnalogInputPortAin121 T7AnalogInputPort = v0.T7AnalogInputPortAin121
+	T7AnalogInputPortAin122 T7AnalogInputPort = v0.T7AnalogInputPortAin122
+	T7AnalogInputPortAin123 T7AnalogInputPort = v0.T7AnalogInputPortAin123
+	T7AnalogInputPortAin124 T7AnalogInputPort = v0.T7AnalogInputPortAin124
+	T7AnalogInputPortAin125 T7AnalogInputPort = v0.T7AnalogInputPortAin125
+	T7AnalogInputPortAin126 T7AnalogInputPort = v0.T7AnalogInputPortAin126
+	T7AnalogInputPortAin127 T7AnalogInputPort = v0.T7AnalogInputPortAin127
+)
+
+// T7DigitalPort is a digital port of a T7.
+type T7DigitalPort = v0.T7DigitalPort
+
+const (
+	T7DigitalPortDio0  T7DigitalPort = v0.T7DigitalPortDio0
+	T7DigitalPortDio1  T7DigitalPort = v0.T7DigitalPortDio1
+	T7DigitalPortDio2  T7DigitalPort = v0.T7DigitalPortDio2
+	T7DigitalPortDio3  T7DigitalPort = v0.T7DigitalPortDio3
+	T7DigitalPortDio4  T7DigitalPort = v0.T7DigitalPortDio4
+	T7DigitalPortDio5  T7DigitalPort = v0.T7DigitalPortDio5
+	T7DigitalPortDio6  T7DigitalPort = v0.T7DigitalPortDio6
+	T7DigitalPortDio7  T7DigitalPort = v0.T7DigitalPortDio7
+	T7DigitalPortDio8  T7DigitalPort = v0.T7DigitalPortDio8
+	T7DigitalPortDio9  T7DigitalPort = v0.T7DigitalPortDio9
+	T7DigitalPortDio10 T7DigitalPort = v0.T7DigitalPortDio10
+	T7DigitalPortDio11 T7DigitalPort = v0.T7DigitalPortDio11
+	T7DigitalPortDio12 T7DigitalPort = v0.T7DigitalPortDio12
+	T7DigitalPortDio13 T7DigitalPort = v0.T7DigitalPortDio13
+	T7DigitalPortDio14 T7DigitalPort = v0.T7DigitalPortDio14
+	T7DigitalPortDio15 T7DigitalPort = v0.T7DigitalPortDio15
+	T7DigitalPortDio16 T7DigitalPort = v0.T7DigitalPortDio16
+	T7DigitalPortDio17 T7DigitalPort = v0.T7DigitalPortDio17
+	T7DigitalPortDio18 T7DigitalPort = v0.T7DigitalPortDio18
+	T7DigitalPortDio19 T7DigitalPort = v0.T7DigitalPortDio19
+	T7DigitalPortDio20 T7DigitalPort = v0.T7DigitalPortDio20
+	T7DigitalPortDio21 T7DigitalPort = v0.T7DigitalPortDio21
+	T7DigitalPortDio22 T7DigitalPort = v0.T7DigitalPortDio22
+)
+
+// T8AnalogInputPort is an analog input port of a T8.
+type T8AnalogInputPort = v0.T8AnalogInputPort
+
+const (
+	T8AnalogInputPortAin0 T8AnalogInputPort = v0.T8AnalogInputPortAin0
+	T8AnalogInputPortAin1 T8AnalogInputPort = v0.T8AnalogInputPortAin1
+	T8AnalogInputPortAin2 T8AnalogInputPort = v0.T8AnalogInputPortAin2
+	T8AnalogInputPortAin3 T8AnalogInputPort = v0.T8AnalogInputPortAin3
+	T8AnalogInputPortAin4 T8AnalogInputPort = v0.T8AnalogInputPortAin4
+	T8AnalogInputPortAin5 T8AnalogInputPort = v0.T8AnalogInputPortAin5
+	T8AnalogInputPortAin6 T8AnalogInputPort = v0.T8AnalogInputPortAin6
+	T8AnalogInputPortAin7 T8AnalogInputPort = v0.T8AnalogInputPortAin7
+)
+
+// T8DigitalPort is a digital port of a T8.
+type T8DigitalPort = v0.T8DigitalPort
+
+const (
+	T8DigitalPortDio0  T8DigitalPort = v0.T8DigitalPortDio0
+	T8DigitalPortDio1  T8DigitalPort = v0.T8DigitalPortDio1
+	T8DigitalPortDio2  T8DigitalPort = v0.T8DigitalPortDio2
+	T8DigitalPortDio3  T8DigitalPort = v0.T8DigitalPortDio3
+	T8DigitalPortDio4  T8DigitalPort = v0.T8DigitalPortDio4
+	T8DigitalPortDio5  T8DigitalPort = v0.T8DigitalPortDio5
+	T8DigitalPortDio6  T8DigitalPort = v0.T8DigitalPortDio6
+	T8DigitalPortDio7  T8DigitalPort = v0.T8DigitalPortDio7
+	T8DigitalPortDio8  T8DigitalPort = v0.T8DigitalPortDio8
+	T8DigitalPortDio9  T8DigitalPort = v0.T8DigitalPortDio9
+	T8DigitalPortDio10 T8DigitalPort = v0.T8DigitalPortDio10
+	T8DigitalPortDio11 T8DigitalPort = v0.T8DigitalPortDio11
+	T8DigitalPortDio12 T8DigitalPort = v0.T8DigitalPortDio12
+	T8DigitalPortDio13 T8DigitalPort = v0.T8DigitalPortDio13
+	T8DigitalPortDio14 T8DigitalPort = v0.T8DigitalPortDio14
+	T8DigitalPortDio15 T8DigitalPort = v0.T8DigitalPortDio15
+	T8DigitalPortDio16 T8DigitalPort = v0.T8DigitalPortDio16
+	T8DigitalPortDio17 T8DigitalPort = v0.T8DigitalPortDio17
+	T8DigitalPortDio18 T8DigitalPort = v0.T8DigitalPortDio18
+	T8DigitalPortDio19 T8DigitalPort = v0.T8DigitalPortDio19
+)
+
+// CommandStatePair is the pair of channels that writes to one port.
+type CommandStatePair = v0.CommandStatePair
+
 // StatusDetails identifies the device and rack that a status pertains to.
 type StatusDetails = v0.StatusDetails
 

@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/labjack/device/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/types"
@@ -64,6 +65,61 @@ var _ = Describe("Device", func() {
 			))
 		})
 	})
+
+	It("Should accept the ports of each model", func() {
+		d := device()
+		d.Ports = v0.Ports{Variant: v0.T7Ports{
+			AnalogInput: map[v0.T7AnalogInputPort]channel.Key{"AIN127": 1},
+			AnalogOutput: map[v0.AnalogOutputPort]v0.CommandStatePair{
+				"DAC1": {Command: 2, State: new(channel.Key(3))},
+			},
+			DigitalInput: map[v0.T7DigitalPort]channel.Key{"DIO0": 4},
+			DigitalOutput: map[v0.T7DigitalPort]v0.CommandStatePair{
+				"DIO22": {Command: 5, State: new(channel.Key(6))},
+			},
+		}}
+		Expect(d.Validate()).To(Succeed())
+	})
+
+	DescribeTable("Should reject a port the model does not have",
+		func(ports v0.PortsVariant, message string) {
+			d := device()
+			d.Ports = v0.Ports{Variant: ports}
+			Expect(d.Validate()).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(message)),
+			))
+		},
+		Entry(
+			"a T4 analog input",
+			v0.T4Ports{AnalogInput: map[v0.T4AnalogInputPort]channel.Key{"AIN12": 1}},
+			"invalid analog_input key: AIN12",
+		),
+		Entry(
+			"a T4 digital input",
+			v0.T4Ports{DigitalInput: map[v0.T4DigitalPort]channel.Key{"DIO0": 1}},
+			"invalid digital_input key: DIO0",
+		),
+		Entry(
+			"a T7 analog input",
+			v0.T7Ports{AnalogInput: map[v0.T7AnalogInputPort]channel.Key{"AIN14": 1}},
+			"invalid analog_input key: AIN14",
+		),
+		Entry(
+			"a T7 analog output",
+			v0.T7Ports{AnalogOutput: map[v0.AnalogOutputPort]v0.CommandStatePair{
+				"DAC2": {Command: 1, State: new(channel.Key(2))},
+			}},
+			"invalid analog_output key: DAC2",
+		),
+		Entry(
+			"a T8 digital output",
+			v0.T8Ports{DigitalOutput: map[v0.T8DigitalPort]v0.CommandStatePair{
+				"DIO20": {Command: 1, State: new(channel.Key(2))},
+			}},
+			"invalid digital_output key: DIO20",
+		),
+	)
 
 	DescribeTable("Should reject an invalid device",
 		func(change func(*v0.Device), message string) {

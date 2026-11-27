@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -30,6 +31,7 @@
 
 namespace synnax::labjack::device {
 
+struct CommandStatePair;
 struct StatusDetails;
 struct Cursor;
 struct Where;
@@ -47,7 +49,200 @@ constexpr const char *MODEL_T_4 = "t4";
 constexpr const char *MODEL_T_7 = "t7";
 constexpr const char *MODEL_T_8 = "t8";
 
+constexpr const char *ANALOG_OUTPUT_PORT_DAC_0 = "DAC0";
+constexpr const char *ANALOG_OUTPUT_PORT_DAC_1 = "DAC1";
+
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_0 = "AIN0";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_1 = "AIN1";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_2 = "AIN2";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_3 = "AIN3";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_4 = "AIN4";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_5 = "AIN5";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_6 = "AIN6";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_7 = "AIN7";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_8 = "AIN8";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_9 = "AIN9";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_10 = "AIN10";
+constexpr const char *T_4_ANALOG_INPUT_PORT_AIN_11 = "AIN11";
+
+constexpr const char *T_4_DIGITAL_PORT_DIO_4 = "DIO4";
+constexpr const char *T_4_DIGITAL_PORT_DIO_5 = "DIO5";
+constexpr const char *T_4_DIGITAL_PORT_DIO_6 = "DIO6";
+constexpr const char *T_4_DIGITAL_PORT_DIO_7 = "DIO7";
+constexpr const char *T_4_DIGITAL_PORT_DIO_8 = "DIO8";
+constexpr const char *T_4_DIGITAL_PORT_DIO_9 = "DIO9";
+constexpr const char *T_4_DIGITAL_PORT_DIO_10 = "DIO10";
+constexpr const char *T_4_DIGITAL_PORT_DIO_11 = "DIO11";
+constexpr const char *T_4_DIGITAL_PORT_DIO_12 = "DIO12";
+constexpr const char *T_4_DIGITAL_PORT_DIO_13 = "DIO13";
+constexpr const char *T_4_DIGITAL_PORT_DIO_14 = "DIO14";
+constexpr const char *T_4_DIGITAL_PORT_DIO_15 = "DIO15";
+constexpr const char *T_4_DIGITAL_PORT_DIO_16 = "DIO16";
+constexpr const char *T_4_DIGITAL_PORT_DIO_17 = "DIO17";
+constexpr const char *T_4_DIGITAL_PORT_DIO_18 = "DIO18";
+constexpr const char *T_4_DIGITAL_PORT_DIO_19 = "DIO19";
+
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_0 = "AIN0";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_1 = "AIN1";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_2 = "AIN2";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_3 = "AIN3";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_4 = "AIN4";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_5 = "AIN5";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_6 = "AIN6";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_7 = "AIN7";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_8 = "AIN8";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_9 = "AIN9";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_10 = "AIN10";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_11 = "AIN11";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_12 = "AIN12";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_13 = "AIN13";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_48 = "AIN48";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_49 = "AIN49";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_50 = "AIN50";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_51 = "AIN51";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_52 = "AIN52";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_53 = "AIN53";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_54 = "AIN54";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_55 = "AIN55";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_56 = "AIN56";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_57 = "AIN57";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_58 = "AIN58";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_59 = "AIN59";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_60 = "AIN60";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_61 = "AIN61";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_62 = "AIN62";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_63 = "AIN63";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_64 = "AIN64";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_65 = "AIN65";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_66 = "AIN66";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_67 = "AIN67";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_68 = "AIN68";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_69 = "AIN69";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_70 = "AIN70";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_71 = "AIN71";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_72 = "AIN72";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_73 = "AIN73";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_74 = "AIN74";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_75 = "AIN75";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_76 = "AIN76";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_77 = "AIN77";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_78 = "AIN78";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_79 = "AIN79";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_80 = "AIN80";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_81 = "AIN81";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_82 = "AIN82";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_83 = "AIN83";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_84 = "AIN84";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_85 = "AIN85";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_86 = "AIN86";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_87 = "AIN87";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_88 = "AIN88";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_89 = "AIN89";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_90 = "AIN90";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_91 = "AIN91";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_92 = "AIN92";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_93 = "AIN93";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_94 = "AIN94";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_95 = "AIN95";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_96 = "AIN96";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_97 = "AIN97";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_98 = "AIN98";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_99 = "AIN99";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_100 = "AIN100";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_101 = "AIN101";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_102 = "AIN102";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_103 = "AIN103";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_104 = "AIN104";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_105 = "AIN105";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_106 = "AIN106";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_107 = "AIN107";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_108 = "AIN108";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_109 = "AIN109";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_110 = "AIN110";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_111 = "AIN111";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_112 = "AIN112";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_113 = "AIN113";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_114 = "AIN114";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_115 = "AIN115";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_116 = "AIN116";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_117 = "AIN117";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_118 = "AIN118";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_119 = "AIN119";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_120 = "AIN120";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_121 = "AIN121";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_122 = "AIN122";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_123 = "AIN123";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_124 = "AIN124";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_125 = "AIN125";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_126 = "AIN126";
+constexpr const char *T_7_ANALOG_INPUT_PORT_AIN_127 = "AIN127";
+
+constexpr const char *T_7_DIGITAL_PORT_DIO_0 = "DIO0";
+constexpr const char *T_7_DIGITAL_PORT_DIO_1 = "DIO1";
+constexpr const char *T_7_DIGITAL_PORT_DIO_2 = "DIO2";
+constexpr const char *T_7_DIGITAL_PORT_DIO_3 = "DIO3";
+constexpr const char *T_7_DIGITAL_PORT_DIO_4 = "DIO4";
+constexpr const char *T_7_DIGITAL_PORT_DIO_5 = "DIO5";
+constexpr const char *T_7_DIGITAL_PORT_DIO_6 = "DIO6";
+constexpr const char *T_7_DIGITAL_PORT_DIO_7 = "DIO7";
+constexpr const char *T_7_DIGITAL_PORT_DIO_8 = "DIO8";
+constexpr const char *T_7_DIGITAL_PORT_DIO_9 = "DIO9";
+constexpr const char *T_7_DIGITAL_PORT_DIO_10 = "DIO10";
+constexpr const char *T_7_DIGITAL_PORT_DIO_11 = "DIO11";
+constexpr const char *T_7_DIGITAL_PORT_DIO_12 = "DIO12";
+constexpr const char *T_7_DIGITAL_PORT_DIO_13 = "DIO13";
+constexpr const char *T_7_DIGITAL_PORT_DIO_14 = "DIO14";
+constexpr const char *T_7_DIGITAL_PORT_DIO_15 = "DIO15";
+constexpr const char *T_7_DIGITAL_PORT_DIO_16 = "DIO16";
+constexpr const char *T_7_DIGITAL_PORT_DIO_17 = "DIO17";
+constexpr const char *T_7_DIGITAL_PORT_DIO_18 = "DIO18";
+constexpr const char *T_7_DIGITAL_PORT_DIO_19 = "DIO19";
+constexpr const char *T_7_DIGITAL_PORT_DIO_20 = "DIO20";
+constexpr const char *T_7_DIGITAL_PORT_DIO_21 = "DIO21";
+constexpr const char *T_7_DIGITAL_PORT_DIO_22 = "DIO22";
+
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_0 = "AIN0";
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_1 = "AIN1";
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_2 = "AIN2";
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_3 = "AIN3";
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_4 = "AIN4";
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_5 = "AIN5";
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_6 = "AIN6";
+constexpr const char *T_8_ANALOG_INPUT_PORT_AIN_7 = "AIN7";
+
+constexpr const char *T_8_DIGITAL_PORT_DIO_0 = "DIO0";
+constexpr const char *T_8_DIGITAL_PORT_DIO_1 = "DIO1";
+constexpr const char *T_8_DIGITAL_PORT_DIO_2 = "DIO2";
+constexpr const char *T_8_DIGITAL_PORT_DIO_3 = "DIO3";
+constexpr const char *T_8_DIGITAL_PORT_DIO_4 = "DIO4";
+constexpr const char *T_8_DIGITAL_PORT_DIO_5 = "DIO5";
+constexpr const char *T_8_DIGITAL_PORT_DIO_6 = "DIO6";
+constexpr const char *T_8_DIGITAL_PORT_DIO_7 = "DIO7";
+constexpr const char *T_8_DIGITAL_PORT_DIO_8 = "DIO8";
+constexpr const char *T_8_DIGITAL_PORT_DIO_9 = "DIO9";
+constexpr const char *T_8_DIGITAL_PORT_DIO_10 = "DIO10";
+constexpr const char *T_8_DIGITAL_PORT_DIO_11 = "DIO11";
+constexpr const char *T_8_DIGITAL_PORT_DIO_12 = "DIO12";
+constexpr const char *T_8_DIGITAL_PORT_DIO_13 = "DIO13";
+constexpr const char *T_8_DIGITAL_PORT_DIO_14 = "DIO14";
+constexpr const char *T_8_DIGITAL_PORT_DIO_15 = "DIO15";
+constexpr const char *T_8_DIGITAL_PORT_DIO_16 = "DIO16";
+constexpr const char *T_8_DIGITAL_PORT_DIO_17 = "DIO17";
+constexpr const char *T_8_DIGITAL_PORT_DIO_18 = "DIO18";
+constexpr const char *T_8_DIGITAL_PORT_DIO_19 = "DIO19";
+
 using Key = x::uuid::UUID;
+
+/// @brief CommandStatePair is the pair of channels that writes to one port.
+struct CommandStatePair {
+    /// @brief command is the channel that commands the port.
+    ::synnax::channel::Key command = 0;
+    /// @brief state is the channel that holds the state of the port.
+    std::optional<::synnax::channel::Key> state;
+
+    static CommandStatePair parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief StatusDetails identifies the device and rack that a status pertains to.
 struct StatusDetails {
@@ -118,40 +313,6 @@ struct Where {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief T4Ports are the ports of a T4.
-struct T4Ports {
-    std::string model = MODEL_T_4;
-
-    static T4Ports parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief T7Ports are the ports of a T7.
-struct T7Ports {
-    std::string model = MODEL_T_7;
-    /// @brief mux80_attached is true when a Mux80 is attached, which adds the analog
-    /// input ports AIN48 to AIN127.
-    bool mux80_attached = false;
-
-    static T7Ports parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief T8Ports are the ports of a T8.
-struct T8Ports {
-    std::string model = MODEL_T_8;
-
-    static T8Ports parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Ports holds the configuration that depends on the model: the channel maps and
-/// the accessories that add ports.
-using Ports = std::variant<T4Ports, T7Ports, T8Ports>;
-
-Ports parse_ports(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const Ports &value);
-
 /// @brief Identity holds the device fields that the scanner owns.
 struct Identity {
     /// @brief rack is the key of the rack the device is connected to.
@@ -166,6 +327,70 @@ struct Identity {
     static Identity parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief T4Ports are the ports of a T4.
+struct T4Ports {
+    std::string model = MODEL_T_4;
+    /// @brief analog_input maps an analog input port to the channel that holds its
+    /// samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
+    /// @brief analog_output maps an analog output port to the channels that write to
+    /// it.
+    std::unordered_map<std::string, CommandStatePair> analog_output = {};
+    /// @brief digital_input maps a digital port to the channel that holds its samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
+    /// @brief digital_output maps a digital port to the channels that write to it.
+    std::unordered_map<std::string, CommandStatePair> digital_output = {};
+
+    static T4Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T7Ports are the ports of a T7.
+struct T7Ports {
+    std::string model = MODEL_T_7;
+    /// @brief mux80_attached is true when a Mux80 is attached, which adds the analog
+    /// input ports AIN48 to AIN127.
+    bool mux80_attached = false;
+    /// @brief analog_input maps an analog input port to the channel that holds its
+    /// samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
+    /// @brief analog_output maps an analog output port to the channels that write to
+    /// it.
+    std::unordered_map<std::string, CommandStatePair> analog_output = {};
+    /// @brief digital_input maps a digital port to the channel that holds its samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
+    /// @brief digital_output maps a digital port to the channels that write to it.
+    std::unordered_map<std::string, CommandStatePair> digital_output = {};
+
+    static T7Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief T8Ports are the ports of a T8.
+struct T8Ports {
+    std::string model = MODEL_T_8;
+    /// @brief analog_input maps an analog input port to the channel that holds its
+    /// samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> analog_input = {};
+    /// @brief analog_output maps an analog output port to the channels that write to
+    /// it.
+    std::unordered_map<std::string, CommandStatePair> analog_output = {};
+    /// @brief digital_input maps a digital port to the channel that holds its samples.
+    std::unordered_map<std::string, ::synnax::channel::Key> digital_input = {};
+    /// @brief digital_output maps a digital port to the channels that write to it.
+    std::unordered_map<std::string, CommandStatePair> digital_output = {};
+
+    static T8Ports parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Ports holds the configuration that depends on the model: the channel maps and
+/// the accessories that add ports.
+using Ports = std::variant<T4Ports, T7Ports, T8Ports>;
+
+Ports parse_ports(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Ports &value);
 
 using Status = ::synnax::status::Status<StatusDetails>;
 

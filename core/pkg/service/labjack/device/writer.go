@@ -11,6 +11,10 @@ package device
 
 import (
 	"context"
+	"maps"
+	"slices"
+	"strconv"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -52,18 +56,117 @@ func (w Writer) setStatus(ctx context.Context, d Device) error {
 	return w.status.Set(ctx, &s)
 }
 
-// validateDevice rejects an invalid device and one whose ports are for another model.
+// firstMux80Port is the lowest analog input port that a Mux80 adds to a T7.
+const firstMux80Port = 48
+
+// keys returns the port names of m in order.
+func keys[K ~string, V any](m map[K]V) []string {
+	names := make([]string, 0, len(m))
+	for k := range m {
+		names = append(names, string(k))
+	}
+	slices.Sort(names)
+	return names
+}
+
+// refuseSharedPins rejects a digital port that is both an input and an output, and on a
+// T4 an analog input whose pin is also mapped as a digital port. The T4's AIN4 to
+// AIN11 are the pins of DIO4 to DIO11.
+func refuseSharedPins(v *validate.Validator, analog, input, output []string) {
+	for _, port := range output {
+		v.Ternaryf(
+			"ports.digital_output",
+			slices.Contains(input, port),
+			"%s is also a digital input",
+			port,
+		)
+	}
+	for _, port := range analog {
+		dio := "DIO" + strings.TrimPrefix(port, "AIN")
+		v.Ternaryf(
+			"ports.analog_input",
+			slices.Contains(input, dio) || slices.Contains(output, dio),
+			"%s shares its pin with %s",
+			port,
+			dio,
+		)
+	}
+}
+
+// mux80AddressLines are the T7 pins that address an attached Mux80.
+var mux80AddressLines = []T7DigitalPort{
+	T7DigitalPortDio20,
+	T7DigitalPortDio21,
+	T7DigitalPortDio22,
+}
+
+// refuseMux80AddressLines rejects a digital port of p that addresses its Mux80.
+func refuseMux80AddressLines(v *validate.Validator, p T7Ports) {
+	for _, port := range mux80AddressLines {
+		_, in := p.DigitalInput[port]
+		_, out := p.DigitalOutput[port]
+		v.Ternaryf(
+			"ports.digital_input",
+			in,
+			"%s addresses the attached Mux80",
+			port,
+		)
+		v.Ternaryf(
+			"ports.digital_output",
+			out,
+			"%s addresses the attached Mux80",
+			port,
+		)
+	}
+}
+
+// validateDevice rejects an invalid device, one whose ports are for another model, one
+// that gives a pin two roles, a T7 that maps a Mux80 port while no Mux80 is attached,
+// and a T7 that maps a Mux80 address line while one is attached.
 func validateDevice(d Device) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
-	return d.ValidatePorts()
+	if err := d.ValidatePorts(); err != nil {
+		return err
+	}
+	v := validate.New("device")
+	switch p := d.Ports.Variant.(type) {
+	case T4Ports:
+		refuseSharedPins(
+			v,
+			keys(p.AnalogInput),
+			keys(p.DigitalInput),
+			keys(p.DigitalOutput),
+		)
+	case T7Ports:
+		refuseSharedPins(v, nil, keys(p.DigitalInput), keys(p.DigitalOutput))
+	case T8Ports:
+		refuseSharedPins(v, nil, keys(p.DigitalInput), keys(p.DigitalOutput))
+	}
+	t7, ok := d.Ports.Variant.(T7Ports)
+	switch {
+	case ok && t7.Mux80Attached:
+		refuseMux80AddressLines(v, t7)
+	case ok:
+		for _, port := range slices.Sorted(maps.Keys(t7.AnalogInput)) {
+			n, err := strconv.Atoi(strings.TrimPrefix(string(port), "AIN"))
+			v.Ternaryf(
+				"ports.analog_input",
+				err == nil && n >= firstMux80Port,
+				"%s needs mux80_attached",
+				port,
+			)
+		}
+	}
+	return v.Error()
 }
 
 // Create stores d and writes an unknown status when it has none. An existing status
 // takes the name and rack of d. A device with a nil key gets a new one. It returns a
-// validation error when d is invalid, its ports are for another model, it replaces a
-// device of another model, or its rack does not exist.
+// validation error when d is invalid, its ports are for another model, it gives a pin
+// two roles, it maps a Mux80 port or address line against the Mux80 state, it replaces
+// a device of another model, or its rack does not exist.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if err := validateDevice(*d); err != nil {
 		return err
