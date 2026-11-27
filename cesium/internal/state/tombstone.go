@@ -78,8 +78,8 @@ func (c *core) checkTombstone(t *log.Tombstone) error {
 // clock keeps a sample at an alignment that t takes out of the clock.
 func (c *core) checkClock(t *log.Tombstone) error {
 	gone := removed(c.channels[t.Key], t)
-	for _, s := range c.segments {
-		if s.key == t.Key || s.vis.Clock != t.Key || !s.dur.created {
+	for s := range c.clocks[t.Key] {
+		if s.key == t.Key || !s.dur.created {
 			continue
 		}
 		for _, p := range s.dur.pointers {

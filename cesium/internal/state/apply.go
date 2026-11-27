@@ -33,7 +33,9 @@ type core struct {
 	count    *pubCount
 	channels map[uint32]*chanState
 	segments map[uint64]*segState
-	intents  set.Set[uint32]
+	// clocks holds the segments of each clock key.
+	clocks  map[uint32]set.Set[*segState]
+	intents set.Set[uint32]
 	// sequence is the sequence of the last durable entry.
 	sequence uint64
 	// limits are the durable limits, below which the state gives out values. reserved
@@ -60,6 +62,7 @@ func newCore(versions set.Set[uint16]) *core {
 		count:    &pubCount{},
 		channels: map[uint32]*chanState{},
 		segments: map[uint64]*segState{},
+		clocks:   map[uint32]set.Set[*segState]{},
 		intents:  set.Set[uint32]{},
 		keys:     set.Set[uint32]{},
 		dropped:  map[uint32]uint64{},
@@ -74,6 +77,26 @@ func (c *core) channel(key uint32) *chanState {
 		c.keysChanged = true
 	}
 	return ch
+}
+
+// addSegment adds s to the segments of c and to those of its clock.
+func (c *core) addSegment(s *segState) {
+	c.segments[s.vis.ID] = s
+	timed, ok := c.clocks[s.vis.Clock]
+	if !ok {
+		timed = set.Set[*segState]{}
+		c.clocks[s.vis.Clock] = timed
+	}
+	timed.Add(s)
+}
+
+// removeSegment takes s out of the segments of c and out of those of its clock.
+func (c *core) removeSegment(s *segState) {
+	delete(c.segments, s.vis.ID)
+	timed := c.clocks[s.vis.Clock]
+	if timed.Remove(s); len(timed) == 0 {
+		delete(c.clocks, s.vis.Clock)
+	}
 }
 
 // apply applies the records of the durable entry of sequence, in order, or returns an
@@ -155,7 +178,7 @@ func (c *core) create(r *log.Create) error {
 		Version:  r.Version,
 		DataType: r.DataType,
 	}, dur: durable{created: true}}
-	c.segments[r.Segment] = s
+	c.addSegment(s)
 	c.channel(r.Key).insert(s)
 	return nil
 }
@@ -268,7 +291,7 @@ func (c *core) bury(s *segState) {
 	}
 	ch := c.channels[s.key]
 	ch.remove(s.vis.ID)
-	delete(c.segments, s.vis.ID)
+	c.removeSegment(s)
 	c.addDead(Dead{Segment: s.vis.ID, Key: s.key, Sequence: c.sequence + 1})
 	ch.publish()
 }
@@ -283,8 +306,8 @@ func (c *core) addDead(d Dead) {
 }
 
 func (c *core) drop(key uint32) error {
-	for _, s := range c.segments {
-		if s.key != key && s.vis.Clock == key && s.dur.created {
+	for s := range c.clocks[key] {
+		if s.key != key && s.dur.created {
 			return refuse("drop of key %d, the clock of segment %d of key %d", key,
 				s.vis.ID, s.key)
 		}
@@ -294,7 +317,7 @@ func (c *core) drop(key uint32) error {
 		// The database unlinks the file of each segment once the log covers the Drop
 		// and no reader pins it.
 		for _, s := range ch.segs {
-			delete(c.segments, s.vis.ID)
+			c.removeSegment(s)
 			c.addDead(Dead{Segment: s.vis.ID, Key: key, Sequence: c.sequence + 1})
 		}
 		delete(c.channels, key)

@@ -378,10 +378,35 @@ func (s *State) sealDeleted(records []log.Record) {
 	}
 }
 
+type timedRequest struct {
+	clock uint32
+	keys  set.Set[uint32]
+	done  chan error
+}
+
+func (r *timedRequest) fail(err error) { r.done <- err }
+
+func (r *timedRequest) run(s *State) {
+	r.keys = set.Set[uint32]{}
+	for seg := range s.core.clocks[r.clock] {
+		if seg.dur.created {
+			r.keys.Add(seg.key)
+		}
+	}
+	r.done <- nil
+}
+
 // Timed returns the keys of the segments that a durable Create made with clock as their
 // clock.
 func (s *State) Timed(clock uint32) (set.Set[uint32], error) {
-	return nil, nil
+	r := &timedRequest{clock: clock, done: make(chan error, 1)}
+	if err := s.enqueue(r); err != nil {
+		return nil, err
+	}
+	if err := wait(s, r.done); err != nil {
+		return nil, err
+	}
+	return r.keys, nil
 }
 
 // Drops returns the count of the Drop records that the state applied.

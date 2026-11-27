@@ -374,7 +374,7 @@ func (s *State) newSegment(r *segmentRequest) {
 		Version:  s.cfg.Version,
 		DataType: r.dataType,
 	}}
-	s.core.segments[id] = seg
+	s.core.addSegment(seg)
 	ch := s.core.channel(r.key)
 	ch.insert(seg)
 	ch.publish()
@@ -744,7 +744,7 @@ func (*switchRequest) fail(error) {}
 func (s *State) drop(seg *segState) {
 	ch := s.core.channels[seg.key]
 	ch.remove(seg.vis.ID)
-	delete(s.core.segments, seg.vis.ID)
+	s.core.removeSegment(seg)
 	s.core.addDead(Dead{Segment: seg.vis.ID, Key: seg.key})
 	ch.cuts++
 	ch.publish()

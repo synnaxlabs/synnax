@@ -44,7 +44,7 @@ func (c *core) load(s *Snapshot) error {
 				tailCRC:  seg.TailCRC,
 				pointers: slices.Clone(seg.Pointers),
 			}}
-			c.segments[seg.ID] = st
+			c.addSegment(st)
 			cs.segs = append(cs.segs, st)
 		}
 		if err := checkApart(ch); err != nil {
