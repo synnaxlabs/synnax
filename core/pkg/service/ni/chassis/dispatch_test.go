@@ -30,8 +30,9 @@ import (
 
 var _ = Describe("Dispatch", func() {
 	var (
-		svc *chassis.Service
-		c   chassis.Chassis
+		stat *status.Service
+		svc  *chassis.Service
+		c    chassis.Chassis
 	)
 	set := func(path []string, value any) chassis.Action {
 		return chassis.NewSetAction(chassis.SetPayload{Path: path, Value: value})
@@ -55,7 +56,7 @@ var _ = Describe("Dispatch", func() {
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
@@ -82,6 +83,18 @@ var _ = Describe("Dispatch", func() {
 				return svc.NewWriter(tx).Delete(ctx, c.Key)
 			})).To(Succeed())
 		})
+	})
+
+	It("Should rename the status when a dispatch renames the chassis", func(
+		ctx SpecContext,
+	) {
+		Expect(dispatch(ctx, c.Key, set([]string{"name"}, "Bench"))).To(Succeed())
+		var s chassis.Status
+		Expect(stat.NewRetrieve[chassis.StatusDetails]().
+			Where(status.MatchOwners[chassis.StatusDetails](c.ResourceID())).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		Expect(s.Name).To(Equal("Bench"))
 	})
 
 	It("Should keep edits to different fields from separate dispatches", func(

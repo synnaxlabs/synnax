@@ -330,6 +330,106 @@ var NIChassisUpdateService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	NIChassisDispatchService_Exec_FullMethodName = "/grpc.ni_chassis.NIChassisDispatchService/Exec"
+)
+
+// NIChassisDispatchServiceClient is the client API for NIChassisDispatchService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type NIChassisDispatchServiceClient interface {
+	Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type nIChassisDispatchServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewNIChassisDispatchServiceClient(cc grpc.ClientConnInterface) NIChassisDispatchServiceClient {
+	return &nIChassisDispatchServiceClient{cc}
+}
+
+func (c *nIChassisDispatchServiceClient) Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, NIChassisDispatchService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// NIChassisDispatchServiceServer is the server API for NIChassisDispatchService service.
+// All implementations should embed UnimplementedNIChassisDispatchServiceServer
+// for forward compatibility.
+type NIChassisDispatchServiceServer interface {
+	Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedNIChassisDispatchServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedNIChassisDispatchServiceServer struct{}
+
+func (UnimplementedNIChassisDispatchServiceServer) Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedNIChassisDispatchServiceServer) testEmbeddedByValue() {}
+
+// UnsafeNIChassisDispatchServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to NIChassisDispatchServiceServer will
+// result in compilation errors.
+type UnsafeNIChassisDispatchServiceServer interface {
+	mustEmbedUnimplementedNIChassisDispatchServiceServer()
+}
+
+func RegisterNIChassisDispatchServiceServer(s grpc.ServiceRegistrar, srv NIChassisDispatchServiceServer) {
+	// If the following call panics, it indicates UnimplementedNIChassisDispatchServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&NIChassisDispatchService_ServiceDesc, srv)
+}
+
+func _NIChassisDispatchService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DispatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NIChassisDispatchServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NIChassisDispatchService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NIChassisDispatchServiceServer).Exec(ctx, req.(*DispatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// NIChassisDispatchService_ServiceDesc is the grpc.ServiceDesc for NIChassisDispatchService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var NIChassisDispatchService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.ni_chassis.NIChassisDispatchService",
+	HandlerType: (*NIChassisDispatchServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _NIChassisDispatchService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/ni/chassis/chassis.proto",
+}
+
+const (
 	NIChassisDeleteService_Exec_FullMethodName = "/grpc.ni_chassis.NIChassisDeleteService/Exec"
 )
 

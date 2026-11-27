@@ -11,6 +11,7 @@ package chassis
 
 import (
 	"context"
+	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -20,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/ni/chassis/pb"
 	svcchassis "github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	chassispb "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/pb"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -43,6 +46,12 @@ type (
 		chassis.UpdateResponse,
 		*UpdateResponse,
 	]
+	dispatchServer = grpc.UnaryServer[
+		chassis.DispatchRequest,
+		*DispatchRequest,
+		struct{},
+		*emptypb.Empty,
+	]
 	deleteServer = grpc.UnaryServer[
 		chassis.DeleteRequest,
 		*DeleteRequest,
@@ -58,6 +67,7 @@ type (
 	retrieveResponseTranslator struct{}
 	updateRequestTranslator    struct{}
 	updateResponseTranslator   struct{}
+	dispatchRequestTranslator  struct{}
 	deleteRequestTranslator    struct{}
 )
 
@@ -146,6 +156,34 @@ func (deleteRequestTranslator) Backward(
 	return chassis.DeleteRequest{Keys: keys}, nil
 }
 
+func (dispatchRequestTranslator) Backward(
+	_ context.Context,
+	req *DispatchRequest,
+) (chassis.DispatchRequest, error) {
+	key, err := uuid.Parse(req.Key)
+	if err != nil {
+		return chassis.DispatchRequest{}, validate.PathedError(
+			errors.Wrap(validate.ErrValidation, err.Error()),
+			"key",
+		)
+	}
+	acts := make([]svcchassis.Action, len(req.Actions))
+	for i, b := range req.Actions {
+		if err := json.Codec.Decode(b, &acts[i]); err != nil {
+			return chassis.DispatchRequest{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, err.Error()),
+				"actions",
+				strconv.Itoa(i),
+			)
+		}
+	}
+	return chassis.DispatchRequest{
+		Key:         key,
+		DispatchKey: req.DispatchKey,
+		Actions:     acts,
+	}, nil
+}
+
 // New binds the NI chassis routes to t and returns their gRPC transport.
 func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 	create := &createServer{
@@ -169,6 +207,13 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 		Errors:             errs,
 	}
 	t.NIChassisUpdate = update
+	dispatch := &dispatchServer{
+		RequestTranslator:  dispatchRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &NIChassisDispatchService_ServiceDesc,
+		Errors:             errs,
+	}
+	t.NIChassisDispatch = dispatch
 	del := &deleteServer{
 		RequestTranslator:  deleteRequestTranslator{},
 		ResponseTranslator: grpc.EmptyTranslator{},
@@ -176,5 +221,5 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 		Errors:             errs,
 	}
 	t.NIChassisDelete = del
-	return grpc.CompoundBindableTransport{create, retrieve, update, del}
+	return grpc.CompoundBindableTransport{create, retrieve, update, dispatch, del}
 }

@@ -123,6 +123,32 @@ var _ = Describe("Handler", func() {
 		Expect(res.Chassis.Name).To(Equal("Stored"))
 	})
 
+	It("Should dispatch actions to a chassis", func(ctx SpecContext) {
+		key := uuid.New()
+		var received chassis.DispatchRequest
+		transport.NIChassisDispatch.BindHandler(func(
+			_ context.Context,
+			req chassis.DispatchRequest,
+		) (struct{}, error) {
+			received = req
+			return struct{}{}, nil
+		})
+		MustSucceed(grpcchassis.NewNIChassisDispatchServiceClient(conn).Exec(
+			ctx,
+			&grpcchassis.DispatchRequest{
+				Key:         key.String(),
+				DispatchKey: "dk",
+				Actions: [][]byte{
+					[]byte(`{"type":"set","set":{"path":["name"],"value":"Bench"}}`),
+				},
+			},
+		))
+		Expect(received.Key).To(Equal(key))
+		Expect(received.DispatchKey).To(Equal("dk"))
+		Expect(received.Actions).To(HaveLen(1))
+		Expect(received.Actions[0].Set.Path).To(Equal([]string{"name"}))
+	})
+
 	It("Should delete chassis by key", func(ctx SpecContext) {
 		key := uuid.New()
 		var received chassis.DeleteRequest

@@ -80,33 +80,41 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 }
 
 // ApplyUpdate replaces the field group that update carries on the chassis stored under
-// key and keeps the other group as stored. It returns an error wrapping
-// query.ErrNotFound when no chassis is stored under key and a validation error when
-// update is invalid. A transaction that commits between the read and the write of this
-// one is overwritten.
+// key and keeps the other group as stored. It applies the group as one set action per
+// field, so subscribers to the action channel see the write. It returns an error
+// wrapping query.ErrNotFound when no chassis is stored under key and a validation error
+// when update is invalid.
 func (w Writer) ApplyUpdate(ctx context.Context, key Key, update Update) error {
-	switch v := update.Variant.(type) {
+	acts, err := update.actions()
+	if err != nil {
+		return err
+	}
+	return w.Apply(ctx, key, acts...)
+}
+
+// actions returns one set action for each field of the group that u replaces.
+func (u Update) actions() ([]Action, error) {
+	set := func(path string, value any) Action {
+		return NewSetAction(SetPayload{Path: []string{path}, Value: value})
+	}
+	switch v := u.Variant.(type) {
 	case IdentityUpdate:
 		if err := v.Validate(); err != nil {
-			return err
+			return nil, err
 		}
-		return w.Update(ctx, key, func(c Chassis) (Chassis, error) {
-			c.Rack = v.Rack
-			c.Serial = v.Serial
-			c.ResourceName = v.ResourceName
-			c.Model = v.Model
-			return c, nil
-		})
+		return []Action{
+			set("rack", v.Rack),
+			set("serial", v.Serial),
+			set("resource_name", v.ResourceName),
+			set("model", v.Model),
+		}, nil
 	case ConfigurationUpdate:
 		if err := v.Validate(); err != nil {
-			return err
+			return nil, err
 		}
-		return w.Update(ctx, key, func(c Chassis) (Chassis, error) {
-			c.Name = v.Name
-			return c, nil
-		})
+		return []Action{set("name", v.Name)}, nil
 	default:
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"chassis update has no field group",
 		)
