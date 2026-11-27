@@ -107,11 +107,11 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
   const getReason = ({ key, name }: PlatformDevice.Integration): string | null =>
     racks == null
       ? null
-      : Rack.getBlockedReason(racks, {
+      : (Rack.getBlockedReason(racks, {
           integration: key,
           name,
           rack: rackKey,
-        });
+        })?.message ?? null);
   return (
     <PlatformDevice.ConnectFrame className={CSS.B("device-connect")}>
       <Modal.Header icon={<Icon.Device />}>Device.Connect</Modal.Header>

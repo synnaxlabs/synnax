@@ -15,16 +15,23 @@ import { describe, expect, it, vi } from "vitest";
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, pressEscape, renderModalOpener } from "@/platform/modals/testutil";
+import type { Rack } from "@/platform/rack";
 
 interface FooterParams {
   variant: status.Variant;
   onBack: () => void;
+  reason?: Rack.BlockedReason;
 }
 
-const Footer: Modals.Content<FooterParams, void> = ({ variant, onBack, close }) => (
+const Footer: Modals.Content<FooterParams, void> = ({
+  variant,
+  onBack,
+  reason,
+  close,
+}) => (
   <Modal.Frame>
     <Device.ConnectFooter
-      reason={null}
+      reason={reason ?? null}
       variant={variant}
       onConnect={() => {}}
       onCancel={() => close()}
@@ -44,6 +51,16 @@ describe("ConnectFooter", () => {
     await pressEscape();
     expect(onBack).not.toHaveBeenCalled();
     expect(screen.queryByText("Back")).not.toBeNull();
+  });
+
+  it("should show what blocks Connect and what to do about it", async () => {
+    const reason = {
+      message: "Driver not running",
+      description: "Start the Driver on Node 1.",
+    };
+    await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn(), reason }]);
+    expect(await screen.findByText("Driver not running")).toBeTruthy();
+    expect(screen.getByText("Start the Driver on Node 1.")).toBeTruthy();
   });
 
   it("should close the dialog on Cancel", async () => {
