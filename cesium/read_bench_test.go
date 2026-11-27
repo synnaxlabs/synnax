@@ -106,10 +106,10 @@ func readAll(b *testing.B, db *cesium.DB, keys []cesium.ChannelKey) int {
 	return read
 }
 
-// layout returns the options of the old layout, or of the pointer log.
-func layout(pointerLog bool) []cesium.Option {
+// layout returns the options of the old layout, or of the pointer log with opts.
+func layout(pointerLog bool, opts ...cesium.Option) []cesium.Option {
 	if pointerLog {
-		return []cesium.Option{cesium.WithPointerLog()}
+		return append([]cesium.Option{cesium.WithPointerLog()}, opts...)
 	}
 	return nil
 }
@@ -211,12 +211,18 @@ func BenchmarkReadSamples(b *testing.B) { readSamples(b, false) }
 // checks off.
 func BenchmarkReadSamplesPointerLog(b *testing.B) { readSamples(b, true) }
 
-func readSamples(b *testing.B, pointerLog bool) {
+// BenchmarkReadSamplesPointerLogChecked is BenchmarkReadSamples on the pointer log,
+// with read checks on.
+func BenchmarkReadSamplesPointerLogChecked(b *testing.B) {
+	readSamples(b, true, cesium.WithReadsChecked())
+}
+
+func readSamples(b *testing.B, pointerLog bool, opts ...cesium.Option) {
 	b.Helper()
 	const n = 1_000_000
 	for _, late := range []int{0, n / 2} {
 		b.Run(fmt.Sprintf("late=%d", late), func(b *testing.B) {
-			db := openBenchDB(b, true, layout(pointerLog)...)
+			db := openBenchDB(b, true, layout(pointerLog, opts...)...)
 			keys := []cesium.ChannelKey{1, 2}
 			createBenchChannels(b, db, keys)
 			writeBenchData(b, db, keys, n, late, pointerLog)
@@ -237,7 +243,11 @@ func BenchmarkReadOneClock(b *testing.B) {
 	layouts := []struct {
 		name string
 		opts []cesium.Option
-	}{{name: "old"}, {name: "log", opts: []cesium.Option{cesium.WithPointerLog()}}}
+	}{
+		{name: "old"},
+		{name: "log", opts: layout(true)},
+		{name: "log-checked", opts: layout(true, cesium.WithReadsChecked())},
+	}
 	for _, layout := range layouts {
 		for _, count := range []int{4, 16} {
 			name := fmt.Sprintf("layout=%s/keys=%d", layout.name, count)
@@ -284,7 +294,13 @@ func BenchmarkStreamFixedSpan(b *testing.B) { streamFixedSpan(b, false) }
 // with read checks off.
 func BenchmarkStreamFixedSpanPointerLog(b *testing.B) { streamFixedSpan(b, true) }
 
-func streamFixedSpan(b *testing.B, pointerLog bool) {
+// BenchmarkStreamFixedSpanPointerLogChecked is BenchmarkStreamFixedSpan on the pointer
+// log, with read checks on.
+func BenchmarkStreamFixedSpanPointerLogChecked(b *testing.B) {
+	streamFixedSpan(b, true, cesium.WithReadsChecked())
+}
+
+func streamFixedSpan(b *testing.B, pointerLog bool, opts ...cesium.Option) {
 	b.Helper()
 	for _, c := range []struct{ samples, channels int }{
 		{samples: 1_000_000, channels: 1},
@@ -294,7 +310,7 @@ func streamFixedSpan(b *testing.B, pointerLog bool) {
 	} {
 		name := fmt.Sprintf("samples=%d/channels=%d", c.samples, c.channels)
 		b.Run(name, func(b *testing.B) {
-			db := openBenchDB(b, true, layout(pointerLog)...)
+			db := openBenchDB(b, true, layout(pointerLog, opts...)...)
 			keys := createIndexedChannels(b, db, 1, c.channels)
 			stamps := writeBenchData(b, db, keys, c.samples, 0, pointerLog)
 			span := stamps[0].Span(stamps[c.samples-1] + 1)
