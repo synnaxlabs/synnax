@@ -56,29 +56,19 @@ export interface SeverableProxy {
 
 const CLOSE_OPCODE = 0x8;
 
-// Parses the client-to-server WebSocket frames of a connection, which are always
-// masked, and calls onClose at the first close frame.
+// A client frame is masked. The frames a client sends to a blackholed connection are
+// short: a 2-byte header, a 4-byte mask, and a payload under 126 bytes.
+const frameEnd = (frames: Buffer): number =>
+  frames.length < 2 ? Infinity : 6 + (frames[1] & 0x7f);
+
+// Calls onClose at each WebSocket close frame that the client sends.
 const watchForCloseFrame = (onClose: () => void): ((chunk: Buffer) => void) => {
   let buffered = Buffer.alloc(0);
   return (chunk) => {
     buffered = Buffer.concat([buffered, chunk]);
-    while (buffered.length >= 2) {
-      const opcode = buffered[0] & 0x0f;
-      let length = buffered[1] & 0x7f;
-      let offset = 2;
-      if (length === 126) {
-        if (buffered.length < 4) return;
-        length = buffered.readUInt16BE(2);
-        offset = 4;
-      } else if (length === 127) {
-        if (buffered.length < 10) return;
-        length = Number(buffered.readBigUInt64BE(2));
-        offset = 10;
-      }
-      const end = offset + 4 + length;
-      if (buffered.length < end) return;
-      if (opcode === CLOSE_OPCODE) onClose();
-      buffered = buffered.subarray(end);
+    while (buffered.length >= frameEnd(buffered)) {
+      if ((buffered[0] & 0x0f) === CLOSE_OPCODE) onClose();
+      buffered = buffered.subarray(frameEnd(buffered));
     }
   };
 };

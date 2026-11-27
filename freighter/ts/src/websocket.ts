@@ -231,7 +231,9 @@ class WebSocketStream<
     this.receiveDataQueue.length = 0;
     this.receiveQueueBytes = 0;
     this.serverClosed = err;
-    this.addMessage({ type: "close", error: errors.encode(err) });
+    // A later receive throws serverClosed, so only the waiting receives need it.
+    const msg: ControlMessage = { type: "close", error: errors.encode(err) };
+    this.receiveCallbacksQueue.splice(0).forEach(({ resolve }) => resolve(msg));
   }
 
   private listenForMessages(): void {

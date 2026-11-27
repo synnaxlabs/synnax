@@ -364,9 +364,11 @@ describe("local server", () => {
     const stream = await dial({});
     const { ws } = await connected;
     const closed = new Promise((resolve) => ws.on("close", resolve));
-    const pending = stream.receive();
+    const first = stream.receive();
+    const second = stream.receive();
     stream.close();
-    await expect(pending).rejects.toThrow(StreamClosed);
+    await expect(first).rejects.toThrow(StreamClosed);
+    await expect(second).rejects.toThrow(StreamClosed);
     await expect(stream.receive()).rejects.toThrow(StreamClosed);
     await expect(stream.send({ id: 0 })).rejects.toThrow(StreamClosed);
     await closed;
