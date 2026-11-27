@@ -109,7 +109,6 @@ var _ = Describe("Write task with targets", func() {
 				telem.NewSeriesV(1.5, 2.5),
 			)
 			recs := consume(ctx, topic, 2)
-			Expect(recs).To(HaveLen(2))
 			Expect(decode(recs[0])).To(Equal(map[string]any{"value": 1.5}))
 			Expect(decode(recs[1])).To(Equal(map[string]any{"value": 2.5}))
 			Expect(string(recs[0].Key)).To(Equal("pump"))

@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
@@ -379,21 +380,46 @@ func closedAddress() string {
 	return addr
 }
 
-// consume reads at least n records from topic.
+// consume reads exactly n records from topic.
 func consume(ctx context.Context, topic string, n int) []*kgo.Record {
 	GinkgoHelper()
 	cl := newKafkaClient(
 		kgo.ConsumeTopics(topic),
 		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
+		kgo.FetchMaxBytes(16<<20),
 	)
-	var recs []*kgo.Record
+	recs := make([]*kgo.Record, 0, n)
 	Eventually(func() int {
 		pollCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 		defer cancel()
 		recs = append(recs, cl.PollFetches(pollCtx).Records()...)
 		return len(recs)
-	}).WithTimeout(15 * time.Second).Should(BeNumerically(">=", n))
+	}).WithTimeout(2 * time.Minute).WithPolling(time.Millisecond).
+		Should(BeNumerically(">=", n))
+	Expect(recs).To(HaveLen(n))
 	return recs
+}
+
+// stored returns every sample persisted in key.
+func stored(ctx context.Context, key channel.Key) telem.Series {
+	GinkgoHelper()
+	it := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:   channel.Keys{key},
+		Bounds: telem.TimeRangeMax,
+	}))
+	defer func() { Expect(it.Close()).To(Succeed()) }()
+	var s telem.Series
+	if !it.SeekFirst() {
+		return s
+	}
+	for it.Next(iterator.AutoSpan) {
+		for _, ser := range it.Value().Get(key).Series {
+			s.DataType = ser.DataType
+			s.Data = append(s.Data, ser.Data...)
+		}
+	}
+	Expect(it.Error()).To(Succeed())
+	return s
 }
 
 // decode returns the JSON value of rec.
