@@ -10,6 +10,7 @@
 #include <atomic>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <string_view>
@@ -447,6 +448,103 @@ TEST(JSONEncoder, ChecksSampleAtIndex) {
     const auto err = enc.check(0, s, 1);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(err.data, "message command: field on: 2.5 is not 0 or 1");
+}
+
+/// @brief returns an encoder of one float field v, bound to a float64 channel.
+JSONEncoder float_encoder() {
+    return ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::FloatJSONField>("v")}, {x::telem::FLOAT64_T})
+        )
+    );
+}
+
+/// @brief it should encode a sample that differs from the checked sample.
+TEST(JSONEncoder, EncodesSampleThatDiffersFromCheckedSample) {
+    auto enc = float_encoder();
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::vector{1.0, 1.5}), 1));
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector{1.0}))),
+        nlohmann::json({{"v", 1}})
+    );
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector{1.5}))),
+        nlohmann::json({{"v", 1.5}})
+    );
+}
+
+/// @brief it should encode a sample whose buffer changed after its check.
+TEST(JSONEncoder, EncodesSampleWhoseBufferChangedAfterCheck) {
+    auto enc = float_encoder();
+    x::telem::Series s(std::vector{1.5});
+    ASSERT_NIL(enc.check(0, s, 0));
+    const double v = 2.5;
+    std::memcpy(s.data(), &v, sizeof(v));
+    ASSERT_EQ(encoded(enc, series_of(std::move(s))), nlohmann::json({{"v", 2.5}}));
+}
+
+/// @brief it should keep the text of the last good sample after a failed check.
+TEST(JSONEncoder, KeepsTextOfLastGoodSampleAfterFailedCheck) {
+    auto enc = float_encoder();
+    const auto nan = std::numeric_limits<double>::quiet_NaN();
+    ASSERT_NIL(enc.check(0, x::telem::Series(std::vector{1.5}), 0));
+    const auto err = enc.check(0, x::telem::Series(std::vector{nan}), 0);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data, "message command: field v: NaN is not a JSON number");
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector{1.5}))),
+        nlohmann::json({{"v", 1.5}})
+    );
+    std::vector<std::uint8_t> payload;
+    const auto encode_err = enc.encode(
+        series_of(x::telem::Series(std::vector{nan})),
+        payload
+    );
+    ASSERT_OCCURRED_AS(encode_err, x::errors::VALIDATION);
+    ASSERT_EQ(encode_err.data, err.data);
+}
+
+/// @brief it should match a checked string sample at an index by its bytes.
+TEST(JSONEncoder, MatchesCheckedStringSampleByBytes) {
+    auto enc = ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::StringJSONField>("state")}, {x::telem::STRING_T})
+        )
+    );
+    ASSERT_NIL(
+        enc.check(0, x::telem::Series(std::vector<std::string>{"run", "stop"}), 1)
+    );
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector<std::string>{"run"}))),
+        nlohmann::json({{"state", "run"}})
+    );
+    ASSERT_EQ(
+        encoded(enc, series_of(x::telem::Series(std::vector<std::string>{"stop"}))),
+        nlohmann::json({{"state", "stop"}})
+    );
+}
+
+/// @brief it should encode a checked JSON sample without allocating.
+TEST(JSONEncoder, EncodesCheckedJSONSampleWithoutAllocating) {
+    auto enc = ASSERT_NIL_P(
+        JSONEncoder::create(
+            command({field<icd::JSONJSONField>("config")}, {x::telem::JSON_T})
+        )
+    );
+    const auto samples = series_of(
+        x::telem::Series(std::string(R"({"rate":10,"mode":"auto"})"), x::telem::JSON_T)
+    );
+    std::vector<std::uint8_t> payload;
+    ASSERT_NIL(enc.check(0, samples[0], 0));
+    ASSERT_NIL(enc.encode(samples, payload));
+    const auto before = x::bench::alloc_count.load(std::memory_order_relaxed);
+    for (int i = 0; i < 100; i++)
+        ASSERT_NIL(enc.encode(samples, payload));
+    EXPECT_EQ(x::bench::alloc_count.load(std::memory_order_relaxed) - before, 0);
+    ASSERT_EQ(
+        std::string(payload.begin(), payload.end()),
+        R"({"config":{"rate":10,"mode":"auto"}})"
+    );
 }
 
 /// @brief it should write the sample of a JSON field as it is, and reject one that is
