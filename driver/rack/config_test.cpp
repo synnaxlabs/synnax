@@ -717,11 +717,23 @@ TEST_F(RackConfigTest, LoadOutboxConfigFromEnvironmentVariables) {
     ASSERT_EQ(cfg.outbox.stuck_after, 90 * x::telem::SECOND);
 }
 
-/// @brief it should refuse a compact share outside 0 to 1 and a payload past the
-/// journal limit.
+/// @brief it should take a compact share between 0 and 1.
+TEST_F(RackConfigTest, TakesCompactShareInRange) {
+    x::env::set("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "0.25");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE");
+    });
+    ASSERT_EQ(ASSERT_NIL_P(Config::resolve(args, brk)).outbox.compact_share, 0.25);
+}
+
+/// @brief it should refuse a compact share of 0, 1, or outside them, and a payload past
+/// the journal limit.
 TEST_F(RackConfigTest, RefuseOutOfRangeOutboxSettings) {
     for (const auto &[name, value]: std::vector<std::pair<std::string, std::string>>{
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "0"},
              {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "1"},
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "-0.5"},
+             {"SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "1.5"},
              {"SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD", "67108865"},
          }) {
         x::env::set(name, value);

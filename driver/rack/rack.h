@@ -355,7 +355,8 @@ struct Config {
             std::min<std::size_t>(max_payload, journal::MAX_PAYLOAD)
         );
         const auto share = p.field("outbox_compact_share", this->outbox.compact_share);
-        if (const bool in_range = share > 0 && share < 1; !in_range)
+        // Double literals, so clang-tidy does not read the bounds as integer bounds.
+        if (share <= 0.0 || share >= 1.0)
             p.field_err(
                 "outbox_compact_share",
                 "must be greater than 0 and less than 1"
