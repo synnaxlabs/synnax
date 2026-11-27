@@ -38,6 +38,9 @@ constexpr std::uint64_t DEFAULT_CAP = 10ULL * 1000 * 1000 * 1000;
 constexpr std::uint64_t DEFAULT_MIN_FREE = 1000ULL * 1000 * 1000;
 /// @brief the default number of written bytes that starts a sync of a segment.
 constexpr std::uint64_t DEFAULT_SYNC_BYTES = 64ULL * 1000 * 1000;
+/// @brief the default largest byte size of one segment, below the 4 GiB file limit of
+/// FAT32.
+constexpr std::uint64_t DEFAULT_SEGMENT_BYTES = 1ULL << 30;
 /// @brief the default number of reserved bytes between two checks of the free space.
 constexpr std::uint64_t DEFAULT_SPACE_CHECK_BYTES = 64ULL * 1000 * 1000;
 /// @brief the magic at the start of each segment file.
@@ -77,6 +80,10 @@ struct Config {
     std::function<
         std::pair<std::uint64_t, x::errors::Error>(const std::filesystem::path &dir)>
         available = disk_available;
+    /// @brief the largest byte size of one segment. A writer starts a new segment
+    /// when a frame would make its segment larger, so the spool frees space as
+    /// segments drain. A segment with one frame can be larger.
+    std::uint64_t segment_bytes = DEFAULT_SEGMENT_BYTES;
     /// @brief the reserved bytes between two checks of the free disk space.
     std::uint64_t space_check_bytes = DEFAULT_SPACE_CHECK_BYTES;
     /// @brief the maximum time between a write and the sync that follows it.
@@ -128,8 +135,9 @@ struct BadSegment {
 
 class Spool;
 
-/// @brief appends frames to one new segment. Not safe for concurrent use. The spool
-/// must outlive the writer.
+/// @brief appends frames to new segments, and starts the next segment when one
+/// reaches Config::segment_bytes. Not safe for concurrent use. The spool must outlive
+/// the writer.
 class Writer {
     friend class Spool;
     Spool &spool;
@@ -144,6 +152,7 @@ class Writer {
     x::errors::Error failed;
 
     Writer(Spool &spool, Header header, std::string header_payload, std::uint64_t key);
+    x::errors::Error end_segment();
     x::errors::Error
     fail(const x::errors::Error &err, std::uint64_t reserved, std::uint64_t marker);
 
@@ -242,6 +251,7 @@ class Spool {
     x::errors::Error reserve(std::uint64_t bytes);
     void release(std::uint64_t bytes);
     void close(std::uint64_t key, std::uint64_t size);
+    std::uint64_t take_key();
     void count_cut(std::uint64_t key, std::uint64_t bytes);
     [[nodiscard]] bool is_closed(std::uint64_t key) const;
     x::errors::Error remove_files(std::uint64_t key);

@@ -345,6 +345,7 @@ x::errors::Error validate(const Config &cfg) {
     if (cfg.dir.empty()) return invalid("dir must not be empty");
     if (cfg.cap == 0) return invalid("cap must be more than 0");
     if (cfg.sync_bytes == 0) return invalid("sync_bytes must be more than 0");
+    if (cfg.segment_bytes == 0) return invalid("segment_bytes must be more than 0");
     if (cfg.sync_interval <= x::telem::TimeSpan(0))
         return invalid("sync_interval must be more than 0");
     if (cfg.max_payload == 0 || cfg.max_payload > journal::MAX_PAYLOAD)
@@ -411,12 +412,17 @@ x::errors::Error Writer::close() {
     if (this->closed) return x::errors::NIL;
     this->closed = true;
     if (this->size == 0) return x::errors::NIL;
+    return this->end_segment();
+}
+
+x::errors::Error Writer::end_segment() {
     // The journal refuses the close record after it fails, and then readers keep the
     // crash rules.
     auto err = this->file->write(close_record(this->file->pos()));
     if (const auto c_err = this->file->close(); !err) err = c_err;
     this->file.reset();
     this->spool.close(this->key, this->size + CLOSE_RECORD_SIZE);
+    this->size = 0;
     return err;
 }
 
@@ -430,13 +436,21 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
         ++this->spool.refused_count;
         return FULL;
     }
-    std::uint64_t bytes = 0;
+    auto [payload, err] = encode_frame(frame, this->types);
+    if (err) return err;
+    std::uint64_t bytes = journal::RECORD_PREFIX_SIZE + payload.size();
+    if (this->size > 0 &&
+        this->size + bytes + CLOSE_RECORD_SIZE > this->spool.cfg.segment_bytes) {
+        if (const auto e_err = this->end_segment()) {
+            this->failed = e_err;
+            ++this->spool.refused_count;
+            return this->failed;
+        }
+        this->key = this->spool.take_key();
+    }
     if (this->size == 0)
         bytes += journal::HEADER_SIZE + journal::RECORD_PREFIX_SIZE +
                  this->header_payload.size();
-    auto [payload, err] = encode_frame(frame, this->types);
-    if (err) return err;
-    bytes += journal::RECORD_PREFIX_SIZE + payload.size();
     const auto marker = this->size == 0 ? CLOSE_RECORD_SIZE : 0;
     std::string limit;
     if (payload.size() > this->spool.cfg.max_payload)
@@ -755,13 +769,17 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Spool::open_writer(Header h
                     std::to_string(this->cfg.max_payload) + " bytes"
             )
         };
-    std::lock_guard lock(this->mu);
     return {
         std::unique_ptr<Writer>(
-            new Writer(*this, std::move(header), std::move(payload), this->next_key++)
+            new Writer(*this, std::move(header), std::move(payload), this->take_key())
         ),
         x::errors::NIL,
     };
+}
+
+std::uint64_t Spool::take_key() {
+    std::lock_guard lock(this->mu);
+    return this->next_key++;
 }
 
 std::vector<std::uint64_t> Spool::segments() const {

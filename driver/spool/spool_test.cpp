@@ -440,6 +440,60 @@ TEST_F(SpoolTest, RefusesFrameLargerThanCap) {
     ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(header_of(1)))->write(frame_of(1)));
 }
 
+/// @brief it should start a new segment when a frame would make one larger than
+/// segment_bytes, and keep the frames in order across segments.
+TEST_F(SpoolTest, StartsNewSegmentAtSegmentBytes) {
+    std::uint64_t one = 0;
+    {
+        const auto spool = this->open_spool();
+        this->write_frames(*spool, header_of(1), 1);
+        one = std::filesystem::file_size(this->dir / "0.seg");
+        ASSERT_NIL(spool->remove(0));
+    }
+    const auto header = header_of(1);
+    {
+        const auto spool = ASSERT_NIL_P(
+            Spool::open(Config{.dir = this->dir, .segment_bytes = one})
+        );
+        this->write_frames(*spool, header, 3);
+        ASSERT_EQ(spool->segments(), (std::vector<std::uint64_t>{0, 1, 2}));
+    }
+    const auto spool = this->open_spool();
+    float expected = 0;
+    for (const auto key: spool->segments()) {
+        EXPECT_EQ(
+            std::filesystem::file_size(this->dir / (std::to_string(key) + ".seg")),
+            one
+        );
+        const auto reader = ASSERT_NIL_P(spool->open_reader(key));
+        expect_header_eq(reader->header, header);
+        const auto frame = ASSERT_NIL_P(reader->read());
+        EXPECT_EQ(value_of(frame.value()), expected++);
+        ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
+    }
+}
+
+/// @brief it should free the space of each drained segment while a writer keeps
+/// writing.
+TEST_F(SpoolTest, FreesSpaceOfDrainedSegments) {
+    std::uint64_t one = 0;
+    {
+        const auto spool = this->open_spool();
+        this->write_frames(*spool, header_of(1), 1);
+        one = std::filesystem::file_size(this->dir / "0.seg");
+        ASSERT_NIL(spool->remove(0));
+    }
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(Config{.dir = this->dir, .cap = 2 * one, .segment_bytes = one})
+    );
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
+    for (int i = 0; i < 10; i++) {
+        ASSERT_NIL(writer->write(frame_of(static_cast<float>(i))));
+        for (const auto key: spool->segments())
+            ASSERT_NIL(spool->remove(key));
+    }
+}
+
 /// @brief it should count the bytes of every file it writes against the cap.
 TEST_F(SpoolTest, CountsSegmentBytesExactly) {
     std::uint64_t size = 0;
@@ -1125,6 +1179,7 @@ TEST_F(SpoolTest, RefusesInvalidConfig) {
         [](Config &c) { c.dir.clear(); },
         [](Config &c) { c.cap = 0; },
         [](Config &c) { c.sync_bytes = 0; },
+        [](Config &c) { c.segment_bytes = 0; },
         [](Config &c) { c.sync_interval = x::telem::TimeSpan(0); },
         [](Config &c) { c.sync_interval = x::telem::TimeSpan(-1); },
         [](Config &c) { c.max_payload = 0; },
