@@ -1,0 +1,25 @@
+{
+  "auto_start": false,
+  "channels": [
+    {
+      "channel": 1048586,
+      "disabled": false,
+      "enum_values": [],
+      "json_type": "number",
+      "key": "32418470-74ed-456d-a3bb-96014cd307bb"
+    }
+  ],
+  "device": "kafka-plant",
+  "name": "kafka_write",
+  "record": {
+    "channel_pointer": "/channel",
+    "fields": [],
+    "time_format": "unix_ns",
+    "timestamp_pointer": "/time",
+    "value_pointer": "/value"
+  },
+  "record_key": "channel_name",
+  "topic": "plant.setpoints",
+  "type": "kafka_write",
+  "version": 0
+}

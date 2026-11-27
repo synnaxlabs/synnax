@@ -13,6 +13,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"slices"
 	"time"
 	"uuid"
@@ -1038,6 +1040,20 @@ var _ = Describe("Edge task", func() {
 					cfg := valid(ctx)
 					cfg["device"] = other.Key
 					return cfg, "device: DAQ is not an MQTT broker"
+				},
+			),
+			Entry("a broker whose CA file holds no PEM certificates",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					caFile := filepath.Join(GinkgoT().TempDir(), "ca.crt")
+					Expect(os.WriteFile(caFile, []byte("not a certificate"), 0o600)).
+						To(Succeed())
+					secured := createBrokerDevice(
+						ctx, rackKey, broker.port,
+						msgpack.EncodedJSON{"secure": true, "ca_file": caFile},
+					)
+					cfg := valid(ctx)
+					cfg["device"] = secured.Key
+					return cfg, "CA file " + caFile + " holds no PEM certificates"
 				},
 			),
 			Entry("no group", func(ctx context.Context) (msgpack.EncodedJSON, string) {

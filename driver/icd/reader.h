@@ -123,8 +123,8 @@ public:
     /// lists the fields that the decoder could not decode.
     /// @param cap the capacity of each series that read adds to fr. A series that fr
     /// already holds for a channel takes the sample instead, and must have room for it.
-    /// @param fill when set, the sample of a field on a float channel that the decoder
-    /// cannot decode, which keeps its index group.
+    /// @param nan_filled true when a field on a float channel that the decoder cannot
+    /// decode takes NaN, which keeps its index group.
     /// @returns the position in reads of the message that payload matches, or nothing,
     /// adding nothing, when payload matches no message.
     /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload. The
@@ -135,7 +135,7 @@ public:
         x::telem::TimeStamp received,
         x::telem::Frame &fr,
         std::size_t cap = 1,
-        std::optional<double> fill = std::nullopt
+        bool nan_filled = false
     );
 
     /// @brief returns the failures of the last read, in binding order. Empty after a

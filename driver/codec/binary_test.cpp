@@ -292,6 +292,13 @@ TEST(Binary, RefuseScaledInteger) {
     );
 }
 
+/// @brief it should refuse a field with a zero scale.
+TEST(Binary, RefuseZeroScale) {
+    auto f = field<icd::UnsignedBinaryField>("v", 0, 8);
+    f.scale = 0;
+    assert_refuses(f, x::telem::FLOAT64_T, "scale must be non-zero");
+}
+
 /// @brief it should refuse a default that the bits of its field cannot hold.
 TEST(Binary, RefuseDefaultOutOfRange) {
     auto u = field<icd::UnsignedBinaryField>("v", 0, 8);
@@ -992,8 +999,8 @@ TEST(BinaryEncoder, RefuseInvalidBindings) {
     assert_encoder_refuses(twice, "message frame: field v has more than one binding");
 }
 
-/// @brief it should refuse a channel that does not hold numbers, a scaled field whose
-/// channel does not hold floats, and a scale that cannot be undone.
+/// @brief it should refuse a channel that does not hold numbers, and a scaled field
+/// whose channel does not hold floats.
 TEST(BinaryEncoder, RefuseChannelDataType) {
     assert_encoder_refuses(
         frame(field<icd::UnsignedBinaryField>("v", 0, 8), x::telem::STRING_T),
@@ -1005,12 +1012,23 @@ TEST(BinaryEncoder, RefuseChannelDataType) {
         frame(scaled, x::telem::INT32_T),
         "message frame: field v: a scaled field requires a float channel, not int32"
     );
+}
+
+/// @brief it should refuse a bound field with a zero scale, and write the default of an
+/// unbound one.
+TEST(BinaryEncoder, RefuseZeroScale) {
     auto zero = field<icd::IntegerBinaryField>("v", 0, 16);
     zero.scale = 0;
     assert_encoder_refuses(
         frame(zero, x::telem::FLOAT64_T),
-        "message frame: field v: cannot write with a scale of 0"
+        "message frame: field v: scale must be non-zero"
     );
+    auto unbound = field<icd::UnsignedBinaryField>("w", 8, 8);
+    unbound.scale = 0;
+    unbound.default_ = 7;
+    auto m = frame(field<icd::UnsignedBinaryField>("v", 0, 8), x::telem::UINT8_T);
+    m.payload.fields.emplace_back(unbound);
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(std::uint8_t{3}))), (Bytes{3, 7}));
 }
 
 /// @brief it should write only the fields that the multiplexor values select.

@@ -305,6 +305,13 @@ TEST(Text, RefuseNonFloatChannel) {
     );
 }
 
+/// @brief it should refuse a field with a zero scale.
+TEST(Text, RefuseZeroScale) {
+    auto f = at("f", 0);
+    f.scale = 0;
+    assert_refuses({message("a", {f})}, "message a: field f: scale must be non-zero");
+}
+
 /// @brief it should write a NaN default for a line with no value for its field.
 TEST(Text, DecodeNaNDefault) {
     auto f = at("b", 1);
@@ -622,6 +629,23 @@ TEST(TextEncoder, RefuseInvalidFields) {
         message("cmd", {scaled}, "", x::telem::INT32_T),
         "message cmd: field a: a scaled field requires a float channel, not int32"
     );
+}
+
+/// @brief it should refuse a bound field with a zero scale, and write the default of an
+/// unbound one.
+TEST(TextEncoder, RefuseZeroScale) {
+    auto zero = at("a", 0);
+    zero.scale = 0;
+    assert_encoder_refuses(
+        message("cmd", {zero}),
+        "message cmd: field a: scale must be non-zero"
+    );
+    auto unbound = at("b", 1);
+    unbound.scale = 0;
+    unbound.default_ = 7;
+    auto m = message("cmd", {at("a", 0)});
+    m.payload.fields.emplace_back(unbound);
+    EXPECT_EQ(encode(m, series_of(x::telem::Series(3.0))), "3,7");
 }
 
 /// @brief it should encode without allocating once its scratch space has grown.

@@ -676,7 +676,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should auto-start task and set running status when auto_start is true",
+			"Should auto-start a task at boot when auto_start is true",
 			func(ctx SpecContext) {
 				ch := &channel.Channel{
 					Name:     "auto_start_test_ch_" + uuid.New().String()[:8],
@@ -699,7 +699,7 @@ var _ = Describe("Task", Ordered, func() {
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
-					ConfigureTask(ctx, svcTask, "cmd-1"))
+					ConfigureTask(ctx, svcTask, driver.NoCommand))
 				Expect(t).ToNot(BeNil())
 				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
 				var stat task.Status
@@ -713,7 +713,7 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
-			"Should answer the configuring command when an auto-start fails",
+			"Should report an auto-start that fails at boot",
 			func(ctx SpecContext) {
 				ch := createVirtualCh(ctx, "auto_start_fail", telem.Float32T)
 				svcTask := task.Task{
@@ -728,7 +728,7 @@ var _ = Describe("Task", Ordered, func() {
 				}
 				createTask(ctx, svcTask)
 				Expect(newGraphFactory(simpleGraph(ch.Key())).
-					ConfigureTask(ctx, svcTask, "cmd-1")).Error().
+					ConfigureTask(ctx, svcTask, driver.NoCommand)).Error().
 					To(MatchError(`unknown performance "unknown"`))
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
@@ -736,8 +736,31 @@ var _ = Describe("Task", Ordered, func() {
 					Entry(&stat).Exec(ctx, db)).To(Succeed())
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
-				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 				Expect(stat.Details.Running).To(BeFalse())
+			},
+		)
+
+		It(
+			"Should leave the start to the start command of a deploy",
+			func(ctx SpecContext) {
+				ch := createVirtualCh(ctx, "auto_start_cmd", telem.Float32T)
+				svcTask := task.Task{
+					Key:  uuid.New(),
+					Name: "test-auto-start-cmd",
+					Type: arctask.Type,
+					Config: configToMap(arctask.Config{
+						AutoStart: true,
+						ArcKey:    uuid.New(),
+					}),
+				}
+				createTask(ctx, svcTask)
+				t := MustSucceed(newGraphFactory(simpleGraph(ch.Key())).
+					ConfigureTask(ctx, svcTask, "cmd-1"))
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&task.Status{}).
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -765,7 +788,7 @@ var _ = Describe("Task", Ordered, func() {
 				t := MustSucceed(newGraphFactory(
 					simpleGraph(ch.Key()),
 				).
-					ConfigureTask(ctx, svcTask, "cmd-1"))
+					ConfigureTask(ctx, svcTask, driver.NoCommand))
 				Expect(t).ToNot(BeNil())
 				Expect(t.Stop(false)).To(Succeed())
 				var stat task.Status
