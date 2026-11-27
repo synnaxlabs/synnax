@@ -188,6 +188,16 @@ class States {
             this->predict(*g, channel);
     }
 
+    /// @brief forgets each closed writer that the Core no longer names as a holder.
+    /// Requires mu.
+    void prune_closed_locked() {
+        std::erase_if(this->closed, [this](const std::string &key) {
+            return std::ranges::none_of(this->core, [&key](const auto &entry) {
+                return entry.second.subject.key == key;
+            });
+        });
+    }
+
     /// @brief applies to every channel the increases of the writers open on the Core,
     /// earlier gate first, as predict_opened does for one channel. Requires mu.
     void predict_all_opened() {
@@ -242,6 +252,7 @@ class States {
                 this->recompute(transfer.from->resource);
             }
         }
+        if (!this->closed.empty()) this->prune_closed_locked();
     }
 
     /// @brief ends a read. Requires hold_mu.
@@ -356,7 +367,9 @@ public:
     /// updates that landed while the read was open on top, marks the Core connected,
     /// and opens the bus. A writer open on the Core takes a channel from a holder with
     /// less authority, as an increase does. A writer not yet open on the Core keeps the
-    /// local rule until opened_on_core. Calls the on_connect of each gate. Each frame
+    /// local rule until opened_on_core. A closed writer that the snapshot still names
+    /// keeps its channels until its transfer arrives. Calls the on_connect of each
+    /// gate. Each frame
     /// of a hold is filtered against the new mirror and published in the order it came,
     /// before any frame that route gets after this call. A read that began before a
     /// later hold, stream restart, or full log is ignored, since it can miss changes.
@@ -369,12 +382,12 @@ public:
         if (current) {
             std::unique_lock lock(this->mu);
             this->connected = true;
-            this->closed.clear();
             this->core.clear();
             for (const auto &state: next)
                 this->core[state.resource] = state;
             for (auto i = read.log_pos - this->log_base; i < this->log.size(); i++)
                 this->apply_locked(this->log[i]);
+            this->prune_closed_locked();
             this->predict_all_opened();
             this->recompute_all();
             // Under mu, so close_gate waits for a call that reaches a closing writer.

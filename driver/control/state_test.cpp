@@ -1054,4 +1054,21 @@ TEST(StatesTest, StaleReopenKeepsTheLocalHolder) {
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
     ASSERT_FALSE(states.is_authorized(1, ARC));
 }
+
+/// @brief it should hand a channel on at disconnect when a writer closed while the
+/// Core was connected and a read of control state still named it as the holder.
+TEST(StatesTest, DisconnectHandsOffAClosedHolderThatAReadStillNamed) {
+    States states;
+    states.opened_on_core(ARC);
+    states.opened_on_core(OPERATOR);
+    states.open_gate(ARC, {1}, {200});
+    states.open_gate(OPERATOR, {1}, {100});
+    states.set({{.subject = ARC, .resource = 1, .authority = 200}});
+    states.close_gate(ARC);
+    states.set({{.subject = ARC, .resource = 1, .authority = 200}});
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    states.disconnect();
+    ASSERT_TRUE(states.is_authorized(1, OPERATOR));
+    ASSERT_FALSE(states.is_authorized(1, ARC));
+}
 }
