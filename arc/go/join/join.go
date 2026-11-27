@@ -250,9 +250,10 @@ func (j *Join) Load(i int, data, t telem.Series) error {
 // follow the input's last, as a stream can repeat the samples that Load added, and it
 // counts a push of samples as a frame. A history join refuses such a sample, and keeps
 // the input as it was. It also refuses samples that would leave an input other than the
-// primary with more than 65,536 samples that Next has not passed, since a history read
-// paces its inputs. An arrival-timed input keeps only its newest sample, and Push
-// ignores t.
+// primary with more than 65,536 samples that Next has not passed, so a history read
+// pushes at most that many samples of an input at once, and calls Next at the earliest
+// of the inputs' newest stamps. An arrival-timed input keeps only its newest sample,
+// and Push ignores t.
 func (j *Join) Push(i int, data, t telem.Series) error {
 	if err := j.validate(i, data, t); err != nil {
 		return err
