@@ -29,6 +29,7 @@ cc_library(
         "//arc/cpp/runtime",
         "//arc/cpp/runtime/loop",
         "//client/cpp/arc",
+        "//client/cpp/arc/task",
         "//client/cpp/task",
         "//driver/arc/ranges",
         "//driver/arc/status",
@@ -38,6 +39,7 @@ cc_library(
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/json",
+        "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/cpp/uuid",
     ],
@@ -48,6 +50,7 @@ cc_test(
     srcs = ["arc_test.cpp"],
     tags = ["requires-core"],
     deps = [
+        "//client/cpp/arc/task",
         "//client/cpp/testutil",
         "//driver/arc",
         "//driver/bypass",

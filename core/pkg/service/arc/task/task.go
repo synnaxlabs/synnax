@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	stdstrings "strings"
 	stdtime "time"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -49,6 +50,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/set"
@@ -454,6 +456,7 @@ func (t *impl) newScheduler(f node.CompoundFactory, drt *dataRuntime) error {
 			},
 		),
 	)
+	sched.SetScopeHandler(t.setScopes)
 	drt.scheduler = sched
 	return nil
 }
@@ -683,6 +686,42 @@ func (t *impl) setStatus(
 			"failed to set status for Arc task",
 			zap.Stringer("key", t.task.Key),
 			zap.String("name", t.task.Name),
+			zap.Error(err),
+		)
+	}
+}
+
+// pathSeparator separates the keys of a scope path in a status message.
+const pathSeparator = " › "
+
+// scopeText returns the status message and description that show the active top-level
+// scopes of a program.
+func scopeText(data StatusData) (message, description string) {
+	if len(data.Scopes) == 0 {
+		return "Idle", "No sequence or stage runs. A trigger can start one."
+	}
+	paths := make([]string, len(data.Scopes))
+	for i, sc := range data.Scopes {
+		paths[i] = stdstrings.Join(sc.Path, pathSeparator)
+	}
+	return "Running " + stdstrings.Join(paths, ", "), ""
+}
+
+// setScopes shows the active paths of the program in the status of the task.
+func (t *impl) setScopes(ctx context.Context, paths [][]string) {
+	data := StatusData{Scopes: make([]Scope, len(paths))}
+	for i, p := range paths {
+		data.Scopes[i] = Scope{Path: p}
+	}
+	encoded, err := msgpack.NewEncodedJSON(data)
+	if err == nil {
+		message, description := scopeText(data)
+		err = t.status.SendRunning(ctx, message, description, encoded)
+	}
+	if err != nil {
+		t.factoryCfg.L.Error(
+			"failed to set the scope status of an Arc task",
+			zap.Stringer("key", t.task.Key),
 			zap.Error(err),
 		)
 	}

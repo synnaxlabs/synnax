@@ -124,6 +124,25 @@ struct StatusHandler {
         if (this->last.has_value()) this->defer(this->shown(*this->last));
     }
 
+    /// @brief sends the text of a task that runs with no error, at most once per
+    /// window. A task that does not run, or that has an error, sends nothing. The
+    /// flusher thread sends the status, so the caller never writes to the Core.
+    void send_running(const std::string &message, const std::string &description) {
+        if (this->accumulated_err || !this->status.details.running) return;
+        this->status.variant = synnax::status::VARIANT_SUCCESS;
+        this->set_text(message, description);
+        std::lock_guard lock(this->mu);
+        if (this->closed) return;
+        this->last = this->status;
+        this->defer(this->shown(this->status));
+    }
+
+    /// @brief sets the task-specific data of the statuses sent after it. It sends
+    /// nothing by itself.
+    void set_data(std::optional<x::json::json::object_t> data) {
+        this->status.details.data = std::move(data);
+    }
+
     void clear_warning() {
         if (this->status.variant != synnax::status::VARIANT_WARNING) return;
         this->status.variant = synnax::status::VARIANT_SUCCESS;

@@ -17,10 +17,12 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/arc/arc.h"
+#include "client/cpp/arc/task/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
@@ -38,6 +40,21 @@
 #include "driver/task/task.h"
 
 namespace driver::arc {
+/// @brief the separator between the keys of a scope path in a status message.
+inline const std::string PATH_SEPARATOR = " › ";
+
+/// @brief returns the status message and description that show the active top-level
+/// scopes of a program.
+inline std::pair<std::string, std::string>
+scope_text(const synnax::arc::task::StatusData &data) {
+    if (data.scopes.empty())
+        return {"Idle", "No sequence or stage runs. A trigger can start one."};
+    std::vector<std::string> paths;
+    for (const auto &sc: data.scopes)
+        paths.push_back(x::strings::join(sc.path, PATH_SEPARATOR));
+    return {"Running " + x::strings::join(paths, ", "), ""};
+}
+
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : ::synnax::task::PersistConfig {
     x::uuid::UUID arc_key;
@@ -115,6 +132,9 @@ class Task final : public task::Task {
     bool opening = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
+    /// @brief the active top-level scopes of the program, or nullopt before its first
+    /// cycle in this run.
+    std::optional<synnax::arc::task::StatusData> scopes;
 
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
@@ -122,6 +142,27 @@ class Task final : public task::Task {
             this->state.send_start(key);
         this->pending_starts.clear();
         this->opening = false;
+        this->send_scopes();
+    }
+
+    /// @brief shows the active scopes in the status of a task that runs. Requires
+    /// state_mu.
+    void send_scopes() {
+        if (!this->scopes.has_value()) return;
+        const auto [message, description] = scope_text(*this->scopes);
+        this->state.set_data(this->scopes->to_json().get<x::json::json::object_t>());
+        this->state.send_running(message, description);
+    }
+
+    /// @brief records the active paths of the program and shows them. Runs on the
+    /// runtime thread.
+    void set_scopes(const std::vector<::arc::runtime::scheduler::Path> &paths) {
+        synnax::arc::task::StatusData data;
+        for (const auto &p: paths)
+            data.scopes.push_back({.path = p});
+        std::lock_guard lock(this->state_mu);
+        this->scopes = std::move(data);
+        this->send_scopes();
     }
 
     /// @brief source that reads output data from the arc runtime.
@@ -279,6 +320,9 @@ public:
                     task_ptr->state.send_warning(message, description);
                 },
             .loop_budget = cfg.loop_budget,
+            .on_scopes = [task_ptr = task.get()](
+                             const std::vector<::arc::runtime::scheduler::Path> &paths
+                         ) { task_ptr->set_scopes(paths); },
         };
 
         const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {
@@ -388,6 +432,7 @@ public:
         const auto started = this->start_runtime();
         std::lock_guard lock(this->state_mu);
         this->state.send_start(cmd_key);
+        this->send_scopes();
         return started;
     }
 
@@ -405,6 +450,8 @@ public:
             this->state.ack(key, false);
         this->pending_starts.clear();
         this->opening = false;
+        this->scopes.reset();
+        this->state.set_data(std::nullopt);
         if (propagate_state) this->state.send_stop(cmd_key);
         return control_stopped && acq_stopped && runtime_stopped;
     }

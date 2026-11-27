@@ -132,6 +132,34 @@ func (h *StatusHandler) clearWarning(ctx context.Context) error {
 	return nil
 }
 
+// SendRunning writes an unsolicited status with the text and data of an instance that
+// runs with no error. It writes nothing when the instance does not run or reports an
+// error, and it replaces an active warning. A failed write leaves the status as it was.
+func (h *StatusHandler) SendRunning(
+	ctx context.Context,
+	message string,
+	description string,
+	data msgpack.EncodedJSON,
+) error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if !h.stat.Details.Running || h.stat.Variant == status.VariantError {
+		return nil
+	}
+	next := h.stat
+	next.Variant = status.VariantSuccess
+	next.Message = message
+	next.Description = description
+	next.Details.Data = data
+	next.Details.Cmd = NoCommand
+	next.Time = telem.Now()
+	if err := h.write(ctx, next); err != nil {
+		return err
+	}
+	h.stat = next
+	return nil
+}
+
 // Ack answers cmdKey by re-sending the current status, re-asserting the running
 // state, for a command that needs no work.
 func (h *StatusHandler) Ack(ctx context.Context, cmdKey string, running bool) error {
