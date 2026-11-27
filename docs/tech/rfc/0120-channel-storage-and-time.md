@@ -411,7 +411,8 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   with blanks, as today. A range channel has `time` (Python `ScopedChannel.time`). A
   TypeScript cache `Snapshot` has `time`, one time series per series, and its old
   `time`, the end of the newest sample, becomes `end`
-  (`client/ts/src/framer/subscription.ts:81`).
+  (`client/ts/src/framer/subscription.ts:81`), at Phase 14, whose per-clock blocks fill
+  it.
 - **Mixed types**: Series lists and frames hold more than one type in TypeScript,
   Python, and C++. A read of one series keeps its exact type. A read of a whole channel
   as one array widens by the NumPy rule (`int64` with `float64` gives `float64`), which
@@ -522,16 +523,16 @@ names no clock key.
   that also reads `temperature` fires on each output. Before Phase 44 a calculation's
   clock is its `<name>_time` key, and a read or stream that names it gets its series as
   on `main`, which a spec at Phase 21 holds: a read and a stream of
-  `["temp_f", "temp_f_time"]`, and an Arc `on temp_f`. A time series whose clock is not
-  yet in the set is kept when a kept timed series of the same frame names it, which the
-  filter checks after the frame's data series, so the first stamps of a new clock are
-  never dropped. That check also finds a clock move and updates the set. The relay
-  (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep only
-  demanded keys today (`relay/tap.go:287`), the calculation transform, and the
-  iterator's calculation step take the rule. Until RFC 0121 Phase 5, the storage tap
-  also subscribes the index of each stored demanded key (`relay/tap.go:233-236` opens it
-  on `keys.Storage()`). A spec streams only a data key and gets its time after a handoff
-  and after a pause move.
+  `["temp_f", "temp_f_time"]`, and an Arc `on temp_f`. A filter takes the clocks of a
+  frame's kept timed data series as it walks them, then keeps each time series that one
+  of them names, with no set kept across frames, so the first stamps of a new clock and
+  a clock move need no update: 0 allocations and about 2 ns a frame over `KeepKeys`
+  today. The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps,
+  which keep only demanded keys today (`relay/tap.go:287`), the calculation transform,
+  and the iterator's calculation step take the rule. Until RFC 0121 Phase 5, the storage
+  tap also subscribes the index of each stored demanded key (`relay/tap.go:233-236`
+  opens it on `keys.Storage()`). A spec streams only a data key and gets its time after
+  a handoff and after a pause move.
 - **Requests**: A request names channel keys only. Clients stop sending
   `TimestampsIncluded` and adding index keys at Phases 46 and 49
   (`client/ts/src/framer/reader.ts:172-181`,
@@ -799,12 +800,14 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   (`driver/common/sample_clock.h:237-242`). Declared groups that hold channels of one
   index channel merge into that index's group. A channel with no index channel keeps its
   declared group, on a clock that storage picks. The framer names each index to Cesium
-  in `Group.Index` (NEW), which skips continuation (RFC 0121 §4.2). From Phase 13 a
-  client maps `"time"` to the index channel of each group, and until Phase 28 a writer
-  of channels without their index channel takes the stored kind, as today. From Phase 44
-  the Core makes a stored channel with no index channel (§5). `is_index=`, `index=`, and
-  index keys in a write work on the Core until Phase 50, and in each client until its
-  removal phase (46 to 49).
+  in `Group.Index` (NEW), which skips continuation (RFC 0121 §4.2). From Phase 13 the
+  Core's writer open adds each stored channel's index channel to the session as its
+  group's time and names it in the open response, and a client maps `"time"` to that
+  key, so an open on `["temperature"]` alone takes `"time"` and no client looks up an
+  index, and until Phase 28 a writer of channels without their index channel takes the
+  stored kind, as today. From Phase 44 the Core makes a stored channel with no index
+  channel (§5). `is_index=`, `index=`, and index keys in a write work on the Core until
+  Phase 50, and in each client until its removal phase (46 to 49).
 - **Other producers**: The metrics service and scripts give no groups. Driver common
   code builds one time series per group, where `generate_index_data` copies one per
   index channel today (`driver/common/sample_clock.h:222-244`). Phase 31 adds the group
@@ -1408,9 +1411,9 @@ Phase 42. Keys of `core/v0.62.0` keep their numbers.
 | 9     | Pair data by each series' clock in the clients               | `client/ts/src/framer/cache`, `client/py/synnax/framer`, `pluto/src/vis/line`, `arc/cpp/stl/channels`, `arc/cpp/runtime`, `driver/bypass`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 8                                                  |
 | 10    | Swap the codec state when the relay applies new keys         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/streamer`, `core/pkg/transport/grpc/framer`, `core/pkg/transport/http/framer`, `client/ts/src/framer/codec`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 8                                                  |
 | 11    | Accept mixed data types in every reader                      | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `client/ts/src/framer`, `pluto/src/vis/line`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/arc`, `arc/cpp/stl/channels`, `core/pkg/service/icd`, `x/go/json`, `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `driver/icd`, `driver/http`, `driver/codec`, `driver/ni`, `driver/labjack`, `driver/modbus`, `driver/ethercat`, `x/cpp/telem`                                                                                                                                                                                                                                                                 | 1, 9                                               |
-| 12    | Send the time of its data with every read and stream         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                             | 10                                                 |
+| 12    | Send the time of its data with every read and stream         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `client/ts/src/framer`, `client/py/synnax/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 10                                                 |
 | 13    | Read and write time by channel in Python and TypeScript      | `client/py/synnax/framer`, `client/py/synnax/ranger`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 12                                                 |
-| 14    | Keep one alignment space and floor per clock in cache blocks | `client/ts/src/framer/cache`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 12                                                 |
+| 14    | Keep one alignment space and floor per clock in cache blocks | `client/ts/src/framer/cache`, `client/ts/src/framer/subscription.ts`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 12                                                 |
 | 15    | Tell a pause from a dropped frame in the cache join          | `client/ts/src/framer/cache`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 14                                                 |
 | 16    | Bring time through the TypeScript cache to subscribers       | `client/ts/src/framer/cache`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 15                                                 |
 | 17    | Draw lines against each series' own time in Pluto            | `pluto/src/telem/aether`, `pluto/src/vis/line`, `pluto/src/lineplot`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 16                                                 |
