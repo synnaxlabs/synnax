@@ -611,21 +611,18 @@ func (f *encodeField) encode(dst, sample []byte) ([]byte, error) {
 		}
 		return append(dst, sample...), nil
 	}
-	start := len(dst)
-	dst, err := f.encoder.Append(dst, sample)
+	if !f.converted {
+		return f.encoder.Append(dst, sample)
+	}
+	n, ok, err := f.encoder.Number(sample)
 	if err != nil {
 		return nil, err
 	}
 	// An enum label writes a value that the ICD names, which takes no conversion or
 	// check.
-	if !f.converted || dst[start] == '"' {
-		return dst, nil
+	if !ok {
+		return f.encoder.Append(dst, sample)
 	}
-	n, err := xjson.ParseNumber(dst[start:])
-	if err != nil {
-		return nil, err
-	}
-	dst = dst[:start]
 	if f.kind == payload.KindInteger || f.kind == payload.KindUnsigned {
 		return f.appendInteger(dst, n)
 	}
