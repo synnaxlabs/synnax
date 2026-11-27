@@ -316,7 +316,10 @@ func (f *factory) configureWrite(
 		Channels:        streamed,
 		Task:            t,
 	})
-	return wt, cfg.AutoStart, err
+	if err != nil {
+		return nil, false, err
+	}
+	return wt, cfg.AutoStart, nil
 }
 
 // buildWriteTargets builds the enabled targets, and returns them with the channels
