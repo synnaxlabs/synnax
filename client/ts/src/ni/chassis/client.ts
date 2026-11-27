@@ -229,9 +229,9 @@ export class Client extends query.Retriever<
 
   /**
    * Applies the actions to the chassis in one transaction of the Core. Each action
-   * edits only its path of the chassis the Core holds when it applies them, so edits to
-   * other fields that commit earlier survive. Actions hold the snake_case form that the
-   * Core stores. The cache holds the result when dispatch resolves.
+   * edits only its path, so concurrent edits to different fields both survive. Actions
+   * hold the snake_case form that the Core stores. The cache holds the result when
+   * dispatch resolves.
    * @throws {NotFoundError} if the chassis does not exist.
    * @throws {ValidationError} if the chassis cannot hold an action.
    */
