@@ -89,6 +89,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/lifetime"
@@ -970,6 +971,11 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			sift.APIKeyReference(l.Secret),
 			opcua.PasswordReference(l.Secret),
 			opcua.CertificateReference(l.Certificate),
+		},
+		Properties: map[string]func(msgpack.EncodedJSON) error{
+			serial.Make: device.CheckProperties[serial.Properties](),
+			tcp.Make:    device.CheckProperties[tcp.Properties](),
+			udp.Make:    device.CheckProperties[udp.Properties](),
 		},
 	}); !ok(err, l.Device) {
 		return nil, err

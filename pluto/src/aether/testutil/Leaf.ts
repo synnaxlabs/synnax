@@ -21,7 +21,7 @@ export interface UpdateCall {
   prevState: LeafState;
 }
 
-/** Bundled aether `Leaf` stub for tests. Registered in a test registry under any type
+/** Bundled Aether `Leaf` stub for tests. Registered in a test registry under any type
  * name; records every lifecycle invocation for later assertion. The schema accepts any
  * record-shaped state. */
 export class Leaf extends aether.Leaf<typeof leafStateZ> {

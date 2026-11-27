@@ -584,6 +584,23 @@ var _ = Describe("Infer", func() {
 		),
 	)
 
+	DescribeTable("Should mark a field optional when some documents lack it",
+		func(docs []string, pointer string, optional bool) {
+			shapes, _ := xjson.Infer(documents("tank", len(docs), func(i int) string {
+				return docs[i]
+			}))
+			Expect(shapes).To(HaveLen(1))
+			Expect(fieldAt(shapes[0], pointer).Optional).To(Equal(optional))
+		},
+		Entry("a field of every document", []string{narrow(0), narrow(1)}, "/v", false),
+		Entry("a field that a document lacks",
+			[]string{wide(0), narrow(1), wide(2)}, "/w", true),
+		Entry("a field of every document of a joined cluster",
+			[]string{wide(0), narrow(1), wide(2)}, "/v", false),
+		Entry("a field that a document holds as null",
+			[]string{`{"v":1,"w":2}`, `{"v":1,"w":null}`}, "/w", true),
+	)
+
 	It("Should not index on a timestamp that some documents lack", func() {
 		docs := documents("a", 2, func(i int) string {
 			return fmt.Sprintf(`{"ts":%d,"v":1}`, t0Seconds+int64(i))
@@ -669,7 +686,7 @@ var _ = Describe("Infer", func() {
 		text := MustSucceed(json.Marshal(shapes[0].Fields[0]))
 		Expect(string(text)).To(Equal(
 			`{"pointer":"/a~1b/ts","kind":"timestamp","type":"number",` +
-				`"time_format":"unix_ns","enum":[]}`,
+				`"time_format":"unix_ns","enum":[],"optional":false}`,
 		))
 		var decoded xjson.InferredField
 		Expect(json.Unmarshal(text, &decoded)).To(Succeed())
@@ -685,7 +702,8 @@ var _ = Describe("Infer", func() {
 			documents("a", 1, func(int) string { return `{"v":1}` }),
 		)
 		Expect(string(MustSucceed(json.Marshal(shapes[0].Fields[0])))).To(Equal(
-			`{"pointer":"/v","kind":"integer","type":"number","enum":[]}`,
+			`{"pointer":"/v","kind":"integer","type":"number","enum":[],` +
+				`"optional":false}`,
 		))
 	})
 })

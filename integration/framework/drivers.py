@@ -29,8 +29,12 @@ class Process:
         connection: SynnaxConnection,
         log_path: Path,
         stop_timeout: float = _STOP_TIMEOUT,
+        integrations: list[str] | None = None,
     ) -> None:
-        """:param stop_timeout: Seconds stop waits for the Driver before it kills it."""
+        """:param stop_timeout: Seconds stop waits for the Driver before it kills it.
+        :param integrations: The integrations the Driver runs, such as the ones that
+            ship dark. None runs its defaults except NI.
+        """
         self._stop_timeout = stop_timeout
         self._state = Path(tempfile.mkdtemp(prefix="synnax-driver-"))
         secrets = self._state / "secrets"
@@ -47,7 +51,10 @@ class Process:
         args += [f"--secure={str(connection.secure).lower()}"]
         args += ["--state-file", str(self._state / "state.json")]
         args += ["--config", str(config)]
-        args += ["--disable-integrations", "ni"]
+        if integrations is None:
+            args += ["--disable-integrations", "ni"]
+        else:
+            args += ["--enable-integrations", ",".join(integrations)]
         # Unbuffered, so a write to a Driver that exited fails at once.
         self._popen = subprocess.Popen(
             args,
@@ -56,6 +63,19 @@ class Process:
             stderr=subprocess.STDOUT,
             bufsize=0,
         )
+
+    def api_key(self) -> str | None:
+        """Returns the API key that the Driver logs in with as its rack, or None until
+        the Driver enrolls with the Core."""
+        try:
+            state = json.loads((self._state / "state.json").read_text())
+        # The Driver writes the file in place, so a read can see it half written.
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+        params = state.get("conn_params")
+        if params is None:
+            return None
+        return json.loads(params).get("api_key") or None
 
     def stop(self) -> None:
         """Asks the Driver to stop its tasks and exit, then kills a Driver that does

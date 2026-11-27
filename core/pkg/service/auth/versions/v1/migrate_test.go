@@ -34,7 +34,7 @@ var _ = Describe("Migration", func() {
 	}
 
 	// retrieveMigrated opens the current credentials table with the migration wired in,
-	// driving the v0 -> Orc lift end-to-end through gorp.
+	// driving the v0 -> Orc lift end-to-end through Gorp.
 	retrieveMigrated := func(
 		ctx SpecContext,
 		db *gorp.DB,

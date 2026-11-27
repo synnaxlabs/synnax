@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package task implements the driver task and factory infrastructure for executing
+// Package task implements the Driver task and factory infrastructure for executing
 // compiled Arc programs. It is split out from arc/runtime so that arc/runtime (the core
 // the calculation compiler depends on) does not import the Arc service package, which
 // would otherwise form an import cycle once the Arc service depends on the

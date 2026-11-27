@@ -65,6 +65,9 @@ type InferredField struct {
 	// Enum holds the distinct values, sorted, of a field of only strings that repeats
 	// a few.
 	Enum []string `json:"enum" msgpack:"enum"`
+	// Optional is true when some documents of the shape lack the field or hold null at
+	// it.
+	Optional bool `json:"optional" msgpack:"optional"`
 }
 
 // Shape is the layout of one cluster of documents, from one or more sources.
@@ -105,7 +108,8 @@ type SampledShape struct {
 //     shape that is the only shape of each of its sources has none. The clusters of a
 //     source whose shapes have none merge into one, so each source has at most one
 //     shape with none.
-//   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
+//   - A field is a JSON pointer to a scalar. Arrays and nulls give no field. A field is
+//     optional when some documents of its shape lack it.
 //   - Number kinds widen across documents: integer, then unsigned, then float. The JSON
 //     type of most values wins.
 //   - A field of only strings that repeats 2 to 16 values of at most 64 bytes gives an
@@ -699,7 +703,7 @@ func (g *inferGroup) shape() Shape {
 	}
 	nearest := math.Inf(1)
 	for i, s := range g.order {
-		shape.Fields[i] = s.field()
+		shape.Fields[i] = s.field(g.count)
 		// An index must stamp every document.
 		if !s.timestamp() || !s.time.rising || s.count < g.count {
 			continue
@@ -869,8 +873,9 @@ func sampleOf(raw []byte) []byte {
 
 func (s *fieldStats) timestamp() bool { return s.time.candidate && s.time.formatted }
 
-func (s *fieldStats) field() InferredField {
-	f := InferredField{Pointer: s.pointer}
+// field returns the field of s in a shape of n documents.
+func (s *fieldStats) field(n int) InferredField {
+	f := InferredField{Pointer: s.pointer, Optional: s.count < n}
 	switch {
 	case s.numbers > 0 && s.numbers+s.booleans >= s.strings:
 		f.Type, f.Kind = Number, s.numberKind()
