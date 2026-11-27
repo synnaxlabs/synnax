@@ -43,11 +43,10 @@
       "caller": "https://github.com/synnaxlabs/synnax/pull/8019"
     },
     {
-      "module": "gorp",
-      "package": "github.com/synnaxlabs/gorp",
-      "receiver": "UniqueIndex",
-      "name": "Filter",
-      "caller": "https://linear.app/synnax/issue/SY-6524"
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/query",
+      "name": "NotFound",
+      "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"
     },
     {
       "module": "core",

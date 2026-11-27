@@ -14,7 +14,9 @@ import { z } from "zod";
 
 // Picked rather than omitted: the client's params carry behavioral fields a session
 // has no business storing, and a new one must not reach the disk by default.
-export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
+export const coreZ = synnaxParamsZ.pick({ host: true }).extend({
+  // Not picked: a stored record must not change when the client default does.
+  secure: z.boolean().default(false),
   // A record holds no credentials until its first login, so the stored shape
   // accepts them empty where the login form does not.
   username: z.string(),
@@ -25,8 +27,8 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
    */
   oidc: synnaxParamsZ.shape.oidc,
   /**
-   * When a login on this machine last saved a session for the Core in the keychain.
-   * Each window reads the keychain again when it changes.
+   * When a person last logged in to the Core on this machine. Each window connects
+   * again, and on desktop reads the keychain again, when it changes.
    */
   lastLogin: z.number().optional(),
   key: z.string(),

@@ -18,6 +18,7 @@ import { Synnax } from "@/synnax";
 const LIVE_PARAMS: connection.CheckParams = {
   host: testClientParams().host,
   port: testClientParams().port,
+  secure: false,
 };
 
 describe("useCheckConnection", () => {
@@ -34,7 +35,11 @@ describe("useCheckConnection", () => {
 
   it("should resolve an error status against a dead port", async () => {
     const { result } = renderHook(() =>
-      Synnax.useCheckConnection({ host: testClientParams().host, port: 9999 }),
+      Synnax.useCheckConnection({
+        host: testClientParams().host,
+        port: 9999,
+        secure: false,
+      }),
     );
     await waitFor(() => expect(result.current?.variant).toEqual("error"));
   });
