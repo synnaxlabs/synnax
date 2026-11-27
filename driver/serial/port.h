@@ -49,11 +49,11 @@ class Port final : public transport::Transport {
 
     [[nodiscard]] native::Handle handle();
 
-    /// @brief discards unsent output and releases the lock when this port holds the
-    /// lock, then closes the port.
+    /// @brief releases the lock when this port holds it, then closes the port.
     void close();
 
-    /// @brief closes the port, and returns and keeps err.
+    /// @brief discards unsent output and closes the port at once, then returns and
+    /// keeps err.
     x::errors::Error fail(const x::errors::Error &err);
 
 public:
@@ -65,7 +65,7 @@ public:
     open(const synnax::serial::Properties &props);
 
     /// @brief waits up to one second for written bytes to leave a locked port that has
-    /// not failed, then closes it.
+    /// not failed, discards the bytes that did not leave, then closes it.
     ~Port() override;
 
     Port(const Port &) = delete;

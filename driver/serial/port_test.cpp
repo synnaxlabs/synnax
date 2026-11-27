@@ -26,6 +26,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/port.h"
@@ -34,20 +35,18 @@
 
 namespace driver::serial {
 namespace {
+#ifdef __linux__
 /// @returns true when the terminal at path refuses programs other than its holder. A
 /// program without root cannot open it at all, and root can read its exclusive flag.
 bool exclusive(const std::string &path) {
     const int fd = ::open(path.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
     if (fd < 0) return errno == EBUSY;
     int flag = 0;
-#ifdef TIOCGEXCL
     const bool read = ::ioctl(fd, TIOCGEXCL, &flag) == 0;
-#else
-    const bool read = false;
-#endif
     ::close(fd);
     return read && flag != 0;
 }
+#endif
 
 /// @brief expects got to be want, with its message.
 void expect_same(const x::errors::Error &got, const x::errors::Error &want) {
@@ -258,7 +257,10 @@ TEST_F(PtyTest, RefusesASecondOpenOfAPortInUse) {
         "failed to open serial port " + this->path() +
             ": the port is in use by another program"
     );
+#ifdef __linux__
+    // A macOS pseudo-terminal lets programs without root open past TIOCEXCL.
     EXPECT_TRUE(exclusive(this->path()));
+#endif
 }
 
 /// @brief it should refuse settings outside the schema and release the port.
@@ -281,6 +283,14 @@ TEST_F(PtyTest, OpensAgainAfterTheFirstPortCloses) {
 
 /// @brief it should drop the bytes that arrived before it applied the settings.
 TEST_F(PtyTest, FlushesBytesThatArrivedBeforeTheSettings) {
+    // macOS holds a write to the controller until the terminal side is open.
+    const int terminal = ::open(this->path().c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    ASSERT_GE(terminal, 0);
+    x::defer::defer close_terminal([terminal] { ::close(terminal); });
+    ::termios raw{};
+    ASSERT_EQ(::tcgetattr(terminal, &raw), 0);
+    ::cfmakeraw(&raw);
+    ASSERT_EQ(::tcsetattr(terminal, TCSANOW, &raw), 0);
     this->peer_write("stale");
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     this->peer_write("fresh");
