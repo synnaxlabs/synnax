@@ -93,6 +93,7 @@ export { status, type StatusZodObject } from "@/status";
 export { table } from "@/table";
 export { task } from "@/task";
 export { tcp } from "@/tcp";
+export { udp } from "@/udp";
 export { user } from "@/user";
 export { view } from "@/view";
 export {

@@ -27,6 +27,7 @@
 #include "absl/log/log.h"
 #include "open62541/plugin/accesscontrol_default.h"
 #include "open62541/plugin/certificategroup_default.h"
+#include "open62541/plugin/log_stdout.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
 
@@ -921,7 +922,17 @@ private:
     }
 
     void serve() {
-        UA_Server *server = UA_Server_new();
+        UA_ServerConfig initial{};
+        // Info logs push test output past the Bazel limit, which hides failures.
+        initial.logging = UA_Log_Stdout_new(UA_LOGLEVEL_WARNING);
+        if (const auto status = UA_ServerConfig_setDefault(&initial);
+            status != UA_STATUSCODE_GOOD) {
+            LOG(WARNING) << "Mock OPC UA server failed to configure: "
+                         << UA_StatusCode_name(status);
+            UA_ServerConfig_clear(&initial);
+            return;
+        }
+        UA_Server *server = UA_Server_newWithConfig(&initial);
         auto *server_config = UA_Server_getConfig(server);
         if (cfg.identity.has_value()) {
             const auto bytes = [](const std::string &data) {

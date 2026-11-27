@@ -21,7 +21,6 @@ import { deep, id, type json, unique } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/kafka/device";
-import { DEFAULT_WRITE_NAME } from "@/feature/kafka/task/create";
 import { createDiscoverModal, type Format } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
@@ -116,13 +115,21 @@ const TargetItem = (props: Tree.ItemRenderProps<string>) => {
   const path = root.config.targets[props.itemKey];
   const disabled = PForm.useFieldValue(path.disabled, { optional: true });
   const recordKey = PForm.useFieldValue(path.recordKey, { optional: true });
-  if (disabled == null || recordKey == null) return null;
+  const icdKey = PForm.useFieldValue(path.icd, { optional: true });
+  const message = PForm.useFieldValue(path.message.message, { optional: true });
+  if (disabled == null || recordKey == null || icdKey == null || message == null)
+    return null;
   return (
     <Task.Views.TreeGroupItem
       {...props}
       label={<RecordLabel recordKey={recordKey} emptyLabel={NO_KEY} />}
       off={disabled}
     >
+      <ICD.MessageMark
+        icdKey={icdKey}
+        messages={[message]}
+        missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+      />
       <Task.EnabledCheckbox path={path.disabled} />
     </Task.Views.TreeGroupItem>
   );
@@ -186,10 +193,6 @@ const TargetDetails = ({ path, onAddField }: TargetDetailsProps) => {
   );
 };
 
-/** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string =>
-  name.trim() === "" ? DEFAULT_WRITE_NAME : name;
-
 const keyLabel = (recordKey: string): string => (recordKey === "" ? NO_KEY : recordKey);
 
 /** @returns the key that sent every record of shape, or "" for none or several. */
@@ -221,7 +224,6 @@ interface TargetsProps {
 /** The targets of the task as a tree of topics, beside the selected item's details. */
 const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProps) => {
   const client = PSynnax.use();
-  const ctx = PForm.useContext();
   const handleError = Status.useErrorHandler();
   const formats = ICD.useFormats();
   const targets = PForm.useFieldListUtils(root.config.targets);
@@ -283,7 +285,7 @@ const Targets = ({ device, selected, onSelect, expanded, onExpand }: TargetsProp
         client,
         formats,
         targets: targets.value(),
-        name: icdName(ctx.get(root.name).value),
+        name: device.name,
         messages: whole.map(({ topic, shape }) => ({
           name: topic,
           fields: ICD.createFields(shape?.fields ?? []),

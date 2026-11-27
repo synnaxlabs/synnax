@@ -334,9 +334,10 @@ inline std::string config_err_description(const x::errors::Error &err) {
 /// the start that follows it answers the command. Only a configure with no command
 /// auto-starts the task: a start command starts it with its own key, and the task
 /// manager starts a redeploy. An auto-start first writes a loading status, which the
-/// task replaces when it answers the start. cancel is passed to the auto-start. A
-/// configure that fails with x::errors::CANCELLED writes no status, so the start is
-/// answered as stopped.
+/// task replaces when it answers the start. A disabled task gets no loading status: it
+/// answers the start at once. cancel is passed to the auto-start. A configure that
+/// fails with x::errors::CANCELLED writes no status, so the start is answered as
+/// stopped.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -351,7 +352,7 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         synnax::task::Status status;
         status.owner = synnax::task::resource_id(task.key);
         status.name = task.name;
-        status.details.config_hash = task.config_hash;
+        // No instance runs, so the status carries no config hash.
         status.details.running = false;
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to configure task";
@@ -381,13 +382,15 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     if (!commanded && res.first.auto_start) {
         // A task may answer the start later, from its own thread. Until then, this
         // status replaces the one stored by the last run.
-        synnax::task::Status starting;
-        starting.owner = synnax::task::resource_id(task.key);
-        starting.name = task.name;
-        starting.variant = synnax::status::VARIANT_LOADING;
-        starting.message = "Starting task";
-        starting.details.config_hash = task.config_hash;
-        ctx->set_status(starting);
+        if (!res.first.task->disabled()) {
+            synnax::task::Status starting;
+            starting.owner = synnax::task::resource_id(task.key);
+            starting.name = task.name;
+            starting.variant = synnax::status::VARIANT_LOADING;
+            starting.message = "Starting task";
+            starting.details.config_hash = task.config_hash;
+            ctx->set_status(starting);
+        }
         synnax::task::Command start_cmd{
             .task = task.key,
             .type = synnax::task::START_CMD_TYPE,

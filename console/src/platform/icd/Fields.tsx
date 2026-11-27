@@ -15,7 +15,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep, payload, type record, uuid } from "@synnaxlabs/x";
-import type { ReactElement, ReactNode } from "react";
+import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { EnumValues } from "@/platform/icd/EnumValues";
@@ -46,6 +46,7 @@ type Cell<F extends Field> = (
 ) => ReactElement;
 
 type Render<F extends Field> =
+  | "name"
   | "text"
   | "number"
   | "optional"
@@ -66,7 +67,7 @@ interface Column<F extends Field> {
 
 const name = <F extends Field>(): Column<F> => ({
   name: "Name",
-  render: "text",
+  render: "name",
   width: 24,
   get: ({ name }) => name,
   set: (f, cell) => ({ ...f, name: String(cell) }),
@@ -514,10 +515,25 @@ const selectColumn = (
   </Input.TableColumn>
 );
 
+interface NameCellProps extends Input.TableCellProps<string> {
+  path: deep.Target<string>;
+}
+
+/** The name of a field, which takes focus when the form asks it to. */
+const NameCell = ({ path, ...rest }: NameCellProps): ReactElement => {
+  const ref = useRef<HTMLInputElement>(null);
+  Form.useFocusHandler(path, () => {
+    ref.current?.focus();
+    ref.current?.select();
+  });
+  return <Input.Text ref={ref} {...rest} />;
+};
+
 const renderColumn = (
   column: Column<Field>,
   index: number,
   fields: Field[],
+  own: Field[],
   path: deep.Target<Field[]>,
 ): ReactElement<Input.TableColumnProps> => {
   const { name, render, width } = column;
@@ -532,6 +548,22 @@ const renderColumn = (
       </Input.TableColumn>
     );
   switch (render) {
+    // A custom column gives the row, and so the path of the field.
+    case "name":
+      return (
+        <Input.TableColumn<string>
+          key={index}
+          name={name}
+          width={width}
+          type="custom"
+          empty=""
+          parse={(text) => text}
+        >
+          {({ row, ...props }) => (
+            <NameCell {...props} path={deep.widen(path)[own[row].key].name} />
+          )}
+        </Input.TableColumn>
+      );
     case "number":
       return <Input.TableColumn key={index} name={name} width={width} />;
     case "text":
@@ -574,6 +606,16 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const { push, remove } = Form.useFieldListUtils(path);
   const fields = Form.useFieldValue(path);
   const own = fields.filter((f) => encodingOf(f) === encoding);
+  // The fields that the grid added, whose pointers follow a rename as in the task form.
+  const [created, setCreated] = useState<string[]>([]);
+  const followName = (prev: Field, next: Field): Field => {
+    if (!("pointer" in prev) || !("pointer" in next) || !created.includes(prev.key))
+      return next;
+    if (next.name === prev.name || next.pointer !== prev.pointer) return next;
+    const json = fields.filter((f): f is icd.JSONField => "pointer" in f);
+    const pointer = renamedPointer(prev, next.name, json);
+    return pointer == null ? next : { ...next, pointer };
+  };
   const status = Form.useStatuses(path).find(({ key }) =>
     own.some((f) => matchOwnField(key, path, f)),
   );
@@ -582,8 +624,13 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
   const handleChange = (next: Input.TableCell[][]) => {
     const updated = fieldsFromRows(encoding, columns, own, rows, next);
     const entries = deep.widen<unknown>(path);
-    own.forEach((field, i) => writeField(ctx, entries[field.key], field, updated[i]));
-    if (updated.length > own.length) push(updated.slice(own.length));
+    own.forEach((field, i) =>
+      writeField(ctx, entries[field.key], field, followName(field, updated[i])),
+    );
+    if (updated.length <= own.length) return;
+    const added = updated.slice(own.length);
+    setCreated((prev) => [...prev, ...added.map(({ key }) => key)]);
+    push(added);
   };
   const handleRemove = (index: number) => remove(own[index].key);
   // A paste adds several rows before any is stored. Each grid's first column is the
@@ -611,7 +658,7 @@ export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
         rowKey={(i) => own[i].key}
         preview={ctx.mode === "preview"}
       >
-        {columns.map((column, i) => renderColumn(column, i, fields, path))}
+        {columns.map((column, i) => renderColumn(column, i, fields, own, path))}
       </Input.Table>
       {helpText != null && (
         <Input.HelpText variant={status?.variant}>{helpText}</Input.HelpText>
@@ -657,7 +704,11 @@ export interface JSONFieldProps {
   autoFocus?: boolean;
   /** Called with each new name, while the form still holds the old one. */
   onNameChange?: (name: string) => void;
+  /** A command channel fills the field, so the scale and offset convert in reverse. */
+  commanded?: boolean;
 }
+
+const WRITE_CONVERSION = "The task sends (value − offset) ÷ scale.";
 
 /**
  * Edits one field of a JSON message: its name, pointer, type, and conversion, then its
@@ -668,6 +719,7 @@ export const JSONField = ({
   actions,
   autoFocus = false,
   onNameChange,
+  commanded = false,
 }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -709,7 +761,12 @@ export const JSONField = ({
       {isNumberKind(type) && (
         <>
           <Form.Field<number> path={path.scale} label="Scale" padHelpText={false}>
-            {(p) => <ScaleControl {...p} offset={path.offset} />}
+            {(p) => (
+              <>
+                <ScaleControl {...p} offset={path.offset} />
+                {commanded && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
+              </>
+            )}
           </Form.Field>
           <Form.TextField path={path.units} label="Units" padHelpText={false} />
         </>

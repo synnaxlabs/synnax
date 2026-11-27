@@ -111,30 +111,14 @@ var _ = Describe("Read task", func() {
 		return out
 	}
 
-	// single lifts fields into one record that reads every key, indexed by the field
-	// keyed "ts" when there is one.
-	single := func(ctx context.Context, fields []kafka.ReadField) []kafka.ReadRecord {
+	// stampedRecords returns the records of a topic that read /ts into index and /v
+	// into data.
+	stampedRecords := func(
+		ctx context.Context,
+		index, data channel.Channel,
+	) []kafka.ReadRecord {
 		GinkgoHelper()
-		rec := kafka.InlineRecord{Key: "r", Fields: fields}
-		for _, fld := range fields {
-			if fld.Key == "ts" {
-				rec.Index = fld.Key
-			}
-		}
-		return lift(ctx, rec)
-	}
-
-	stampedFields := func(index, data channel.Channel) []kafka.ReadField {
-		return []kafka.ReadField{
-			{
-				Key:        "ts",
-				Channel:    index.Key(),
-				Pointer:    "/ts",
-				DataType:   telem.TimestampT,
-				TimeFormat: &unixNs,
-			},
-			{Key: "v", Channel: data.Key(), Pointer: "/v", DataType: telem.Float64T},
-		}
+		return single(ctx, stampedMessage("Reading", nil), index, data)
 	}
 
 	It("Should write record fields stamped by the record", func(ctx SpecContext) {
@@ -143,7 +127,7 @@ var _ = Describe("Read task", func() {
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+			Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 		})
 		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.5})
@@ -159,14 +143,15 @@ var _ = Describe("Read task", func() {
 		Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 	})
 
-	// unstampedFields reads /v into data and no timestamp field.
-	unstampedFields := func(data channel.Channel) []kafka.ReadField {
-		return []kafka.ReadField{{
-			Key:      "v",
-			Channel:  data.Key(),
-			Pointer:  "/v",
-			DataType: telem.Float64T,
-		}}
+	// unstampedRecords returns the records of a topic that read /v into data and no
+	// timestamp.
+	unstampedRecords := func(
+		ctx context.Context,
+		data channel.Channel,
+	) []kafka.ReadRecord {
+		GinkgoHelper()
+		m := jsonMessage("Reading", nil, jsonField("v", "/v", icd.FloatJSONField{}))
+		return single(ctx, m, data)
 	}
 
 	// produceAt produces a JSON record whose Kafka timestamp is ms milliseconds.
@@ -187,7 +172,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, unstampedFields(data))),
+				Topics: oneTopic(topic, unstampedRecords(ctx, data)),
 			})
 			start(ctx, dt, t)
 			produceAt(ctx, topic, 10_000, map[string]any{"v": 1.0})
@@ -205,7 +190,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, unstampedFields(data))),
+				Topics: oneTopic(topic, unstampedRecords(ctx, data)),
 			})
 			start(ctx, dt, t)
 			produceAt(ctx, topic, 10_000, map[string]any{"v": 1.0})
@@ -237,7 +222,7 @@ var _ = Describe("Read task", func() {
 			}
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, unstampedFields(data))),
+				Topics: oneTopic(topic, unstampedRecords(ctx, data)),
 			})
 			start(ctx, dt, t)
 			produce(0, 10_000, 1)
@@ -260,7 +245,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			cfg := kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, unstampedFields(data))),
+				Topics: oneTopic(topic, unstampedRecords(ctx, data)),
 			}
 			dt, t := configure(ctx, cfg)
 			start(ctx, dt, t)
@@ -289,7 +274,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			cmdCtx, cancel := context.WithCancel(ctx)
 			start(cmdCtx, dt, t)
@@ -305,7 +290,7 @@ var _ = Describe("Read task", func() {
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+			Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 		})
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
 		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.5})
@@ -329,7 +314,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
@@ -377,7 +362,7 @@ var _ = Describe("Read task", func() {
 			group := "group-" + topic
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 				Group:  group,
 			})
 			start(ctx, dt, t)
@@ -406,7 +391,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 20e9, "v": 1.0})
@@ -415,7 +400,7 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(ContainSubstring(fmt.Sprintf(
-					`is not after the last written %s for message Any key of key "" `+
+					`is not after the last written %s for message Reading of key "" `+
 						"of topic %q",
 					20*telem.SecondTS, topic,
 				)))
@@ -431,7 +416,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			cfg := kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			}
 			dt, t := configure(ctx, cfg)
 			start(ctx, dt, t)
@@ -457,7 +442,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
@@ -544,7 +529,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			// Cleanup runs in reverse, so a failed spec opens the gate before the stop
 			// waits on the consumer that holds it.
@@ -589,7 +574,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			fail(ctx, topic)
@@ -622,7 +607,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			failWrite(ctx, topic)
@@ -646,7 +631,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			failFetch(ctx, topic)
@@ -665,14 +650,17 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			DeferCleanup(cluster.Fault(kfake.Fault{
 				Keys:  []kmsg.Key{kmsg.JoinGroup},
 				Group: "kafka-" + t.Key.String(),
 				Err:   kerr.GroupAuthorizationFailed,
 			}).Remove)
-			start(ctx, dt, t)
+			// The join can fail before the start status is read, so only the failure
+			// status is checked.
+			cmd := task.Command{Task: t.Key, Type: "start", Key: "cmd-2"}
+			Expect(dt.Exec(ctx, cmd)).To(Succeed())
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx, t)
 				g.Expect(stat.Message).To(Equal("Failed to fetch records"))
@@ -690,7 +678,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			fail(ctx, topic)
@@ -719,7 +707,7 @@ var _ = Describe("Read task", func() {
 			Expect(broker.CreateTopic(topic, 1, nil)).To(Succeed())
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, unstampedFields(data))),
+				Topics: oneTopic(topic, unstampedRecords(ctx, data)),
 			})
 			start(ctx, dt, t)
 			produce := func(ms int64, v float64) {
@@ -777,7 +765,7 @@ var _ = Describe("Read task", func() {
 			Expect(broker.CreateTopic(topic, 1, nil)).To(Succeed())
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			produce := func(doc map[string]any) {
@@ -821,7 +809,7 @@ var _ = Describe("Read task", func() {
 		Expect(producer.ProduceSync(ctx, recs...).FirstErr()).To(Succeed())
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+			Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 		})
 		start(ctx, dt, t)
 		Eventually(func() string { return taskStatus(ctx, t).Message }).
@@ -839,25 +827,16 @@ var _ = Describe("Read task", func() {
 	It("Should route keyed records to their groups", func(ctx SpecContext) {
 		indexA, dataA := createIndexed(ctx, telem.Float64T)
 		indexB, dataB := createIndexed(ctx, telem.Float64T)
+		a, b := stampedMessage("A", nil), stampedMessage("B", nil)
+		ic := createICD(ctx, a, b)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, lift(
-				ctx,
-				kafka.InlineRecord{
-					Key:       "a",
-					RecordKey: "a",
-					Index:     "ts",
-					Fields:    stampedFields(indexA, dataA),
-				},
-				kafka.InlineRecord{
-					Key:       "b",
-					RecordKey: "b",
-					Index:     "ts",
-					Fields:    stampedFields(indexB, dataB),
-				},
-			)),
+			Topics: oneTopic(topic, []kafka.ReadRecord{
+				record("a", ic, read(a, indexA, dataA)),
+				record("b", ic, read(b, indexB, dataB)),
+			}),
 		})
 		start(ctx, dt, t)
 		produceJSON(ctx, producer, topic, "a", map[string]any{"ts": 10e9, "v": 1.0})
@@ -876,7 +855,7 @@ var _ = Describe("Read task", func() {
 				Device: dev.Key,
 				Topics: oneTopic(
 					newTopic(),
-					single(ctx, stampedFields(index, data)),
+					stampedRecords(ctx, index, data),
 				),
 				StartOffset: kafka.StartOffsetNone,
 			})
@@ -900,7 +879,7 @@ var _ = Describe("Read task", func() {
 				Device: dev.Key,
 				Topics: oneTopic(
 					newTopic(),
-					single(ctx, stampedFields(index, data)),
+					stampedRecords(ctx, index, data),
 				),
 				StartOffset: kafka.StartOffsetEarliest,
 			})
@@ -926,7 +905,7 @@ var _ = Describe("Read task", func() {
 				Device: dev.Key,
 				Topics: oneTopic(
 					newTopic(),
-					single(ctx, stampedFields(index, data)),
+					stampedRecords(ctx, index, data),
 				),
 				StartOffset: kafka.StartOffsetNone,
 			})
@@ -955,7 +934,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			cfg := kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 				Group:  "group-" + topic,
 			}
 			dt, t := configure(ctx, cfg)
@@ -980,7 +959,7 @@ var _ = Describe("Read task", func() {
 		index, data channel.Channel,
 	) kafka.ReadTopic {
 		GinkgoHelper()
-		records := single(ctx, stampedFields(index, data))
+		records := stampedRecords(ctx, index, data)
 		records[0].Key = "r-" + key
 		return kafka.ReadTopic{Key: key, Name: name, Records: records}
 	}
@@ -1063,7 +1042,7 @@ var _ = Describe("Read task", func() {
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+			Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte("{")}
@@ -1082,7 +1061,7 @@ var _ = Describe("Read task", func() {
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+			Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":1,"v":2}`)}
@@ -1146,7 +1125,7 @@ var _ = Describe("Read task", func() {
 		)
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+			Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 		})
 		start(ctx, dt, t)
 		Expect(floats(expectStored(ctx, data.Key(), 4))).
@@ -1166,7 +1145,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			rec := &kgo.Record{
@@ -1183,12 +1162,13 @@ var _ = Describe("Read task", func() {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
-			fields := stampedFields(index, data)
-			fields[0].Pointer = "/t~1s"
-			fields[1].Pointer = "/vals/1"
+			m := jsonMessage("Reading", nil,
+				jsonField("ts", "/t~1s", icd.TimestampJSONField{TimeFormat: unixNs}),
+				jsonField("v", "/vals/1", icd.FloatJSONField{}),
+			)
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, fields)),
+				Topics: oneTopic(topic, single(ctx, m, index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{
@@ -1205,11 +1185,13 @@ var _ = Describe("Read task", func() {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
-			fields := stampedFields(index, data)
-			fields[1].Pointer = "/vals/01"
+			m := jsonMessage("Reading", nil,
+				jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: unixNs}),
+				jsonField("v", "/vals/01", icd.FloatJSONField{}),
+			)
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, fields)),
+				Topics: oneTopic(topic, single(ctx, m, index, data)),
 			})
 			start(ctx, dt, t)
 			produceJSON(ctx, producer, topic, "", map[string]any{
@@ -1218,9 +1200,8 @@ var _ = Describe("Read task", func() {
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
 				Should(Equal(
-					"Record value: field vals_01: no value at " +
-						"/vals/01: validation error (topic " + topic + ", partition 0, " +
-						"offset 0).",
+					"Record value: field v: no value at /vals/01: validation error " +
+						"(topic " + topic + ", partition 0, offset 0).",
 				))
 		},
 	)
@@ -1229,11 +1210,13 @@ var _ = Describe("Read task", func() {
 		index, data := createIndexed(ctx, telem.JSONT)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
-		fields := stampedFields(index, data)
-		fields[1].DataType = telem.JSONT
+		m := jsonMessage("Reading", nil,
+			jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: unixNs}),
+			jsonField("v", "/v", icd.JSONJSONField{}),
+		)
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, fields)),
+			Topics: oneTopic(topic, single(ctx, m, index, data)),
 		})
 		start(ctx, dt, t)
 		doc := map[string]any{"mode": "auto", "limits": []any{1, 2.5}}
@@ -1262,13 +1245,11 @@ var _ = Describe("Read task", func() {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).Create(ctx, &text)
 			})).To(Succeed())
-			fields := stampedFields(index, data)
-			fields = slices.Insert(fields, 1, kafka.ReadField{
-				Key:      "s",
-				Channel:  text.Key(),
-				Pointer:  "/s",
-				DataType: telem.StringT,
-			})
+			m := jsonMessage("Reading", nil,
+				jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: unixNs}),
+				jsonField("s", "/s", icd.StringJSONField{}),
+				jsonField("v", "/v", icd.FloatJSONField{}),
+			)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
 			for _, rec := range records {
@@ -1277,7 +1258,7 @@ var _ = Describe("Read task", func() {
 			Expect(producer.ProduceSync(ctx, records...).FirstErr()).To(Succeed())
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, fields)),
+				Topics: oneTopic(topic, single(ctx, m, index, text, data)),
 			})
 			start(ctx, dt, t)
 			return data, text
@@ -1328,7 +1309,7 @@ var _ = Describe("Read task", func() {
 			topic := newTopic()
 			dt, t := configure(ctx, kafka.ReadConfig{
 				Device: dev.Key,
-				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
+				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
 			rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"\u0076":2.5}`)}
@@ -1347,19 +1328,16 @@ var _ = Describe("Read task", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return channelSvc.NewWriter(tx).Create(ctx, &inner)
 		})).To(Succeed())
-		fields := stampedFields(index, data)
-		fields[1].DataType = telem.JSONT
-		fields = append(fields, kafka.ReadField{
-			Key:      "inner",
-			Channel:  inner.Key(),
-			Pointer:  "/v/a/b",
-			DataType: telem.Float64T,
-		})
+		m := jsonMessage("Reading", nil,
+			jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: unixNs}),
+			jsonField("v", "/v", icd.JSONJSONField{}),
+			jsonField("inner", "/v/a/b", icd.FloatJSONField{}),
+		)
 		dev := createDevice(ctx, clusterProperties())
 		topic := newTopic()
 		dt, t := configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, fields)),
+			Topics: oneTopic(topic, single(ctx, m, index, data, inner)),
 		})
 		start(ctx, dt, t)
 		rec := &kgo.Record{
@@ -1372,346 +1350,74 @@ var _ = Describe("Read task", func() {
 			To(Equal(`{"a":{"b":7.5}}`))
 	})
 
-	// startSingle starts a task reading /v of each record into a channel of dt, and
-	// produces body.
-	startSingle := func(
+	// startTyped starts a task that reads /ts in format, and /v as a field of variant v
+	// into a new channel of dt.
+	startTyped := func(
 		ctx context.Context,
 		dt telem.DataType,
-		body string,
-	) (data channel.Channel, t task.Task) {
+		format payload.TimeFormat,
+		v icd.JSONFieldVariant,
+	) (index, data channel.Channel, t task.Task, topic string) {
 		GinkgoHelper()
-		var index channel.Channel
 		index, data = createIndexed(ctx, dt)
+		m := jsonMessage("Reading", nil,
+			jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: format}),
+			jsonField("v", "/v", v),
+		)
 		dev := createDevice(ctx, clusterProperties())
-		topic := newTopic()
-		fields := stampedFields(index, data)
-		fields[1].DataType = dt
+		topic = newTopic()
 		var dtask driver.Task
 		dtask, t = configure(ctx, kafka.ReadConfig{
 			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, fields)),
+			Topics: oneTopic(topic, single(ctx, m, index, data)),
 		})
 		start(ctx, dtask, t)
-		rec := &kgo.Record{Topic: topic, Value: []byte(body)}
-		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
-		return data, t
+		return index, data, t, topic
 	}
 
-	DescribeTable("Should store a JSON value as the record spells it",
-		func(ctx SpecContext, value, expected string) {
-			data, _ := startSingle(ctx, telem.JSONT, `{"ts":10e9,"v":`+value+`}`)
-			Expect(string(expectStored(ctx, data.Key(), 1).At(0))).To(Equal(expected))
-		},
-		Entry("a fraction with a trailing zero", `1.0`, `1.0`),
-		Entry("a number past the range of a float", `1e999`, `1e999`),
-		Entry("members out of order", `{"z":1,"a":2}`, `{"z":1,"a":2}`),
-		Entry("spaces inside a value", `{ "a" : [ 1 , 2 ] }`, `{"a":[1,2]}`),
-	)
-
-	It("Should skip a number past the range of a numeric channel",
+	It("Should convert the record value into the data type of the channel",
 		func(ctx SpecContext) {
-			_, t := startSingle(ctx, telem.Float64T, `{"ts":10e9,"v":1e999}`)
-			Eventually(func() string { return taskStatus(ctx, t).Description }).
-				WithTimeout(15 * time.Second).
-				Should(ContainSubstring(`field v: invalid number "1e999"`))
-		},
-	)
-
-	DescribeTable(
-		"Should encode a number in an integer channel",
-		func(
-			ctx SpecContext,
-			dt telem.DataType,
-			value string,
-			expected telem.Series,
-		) {
-			body := `{"ts":10e9,"v":` + value + `}`
-			data, _ := startSingle(ctx, dt, body)
-			Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(expected.Data))
-		},
-		Entry("a negative int8", telem.Int8T, `-2`, telem.NewSeriesV[int8](-2)),
-		Entry("a negative int16", telem.Int16T, `-300`, telem.NewSeriesV[int16](-300)),
-		Entry(
-			"a negative int32",
-			telem.Int32T,
-			`-70000`,
-			telem.NewSeriesV[int32](-70000),
-		),
-		Entry("a negative int64", telem.Int64T, `-5000000000`,
-			telem.NewSeriesV[int64](-5000000000)),
-		Entry("the largest uint8", telem.Uint8T, `255`, telem.NewSeriesV[uint8](255)),
-		Entry("the largest uint16", telem.Uint16T, `65535`,
-			telem.NewSeriesV[uint16](65535)),
-		Entry("the largest uint32", telem.Uint32T, `4294967295`,
-			telem.NewSeriesV[uint32](4294967295)),
-		Entry("the largest uint64", telem.Uint64T, `18446744073709551615`,
-			telem.NewSeriesV[uint64](18446744073709551615)),
-		Entry("a negative whole float", telem.Int16T, `-3.0`,
-			telem.NewSeriesV[int16](-3)),
-		Entry("a float past the range of an int64", telem.Uint64T, `1e19`,
-			telem.NewSeriesV[uint64](10000000000000000000)),
-	)
-
-	It("Should skip a JSON value that repeats a member", func(ctx SpecContext) {
-		index, data := createIndexed(ctx, telem.JSONT)
-		dev := createDevice(ctx, clusterProperties())
-		topic := newTopic()
-		fields := stampedFields(index, data)
-		fields[1].DataType = telem.JSONT
-		dt, t := configure(ctx, kafka.ReadConfig{
-			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, fields)),
-		})
-		start(ctx, dt, t)
-		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":{"a":1,"a":2}}`)}
-		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
-		Eventually(func() string { return taskStatus(ctx, t).Description }).
-			WithTimeout(15 * time.Second).
-			Should(ContainSubstring("duplicate object member name"))
-	})
-
-	It("Should skip a record with data after its JSON value", func(ctx SpecContext) {
-		index, data := createIndexed(ctx, telem.Float64T)
-		dev := createDevice(ctx, clusterProperties())
-		topic := newTopic()
-		dt, t := configure(ctx, kafka.ReadConfig{
-			Device: dev.Key,
-			Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
-		})
-		start(ctx, dt, t)
-		rec := &kgo.Record{Topic: topic, Value: []byte(`{"ts":10e9,"v":1} {}`)}
-		Expect(producer.ProduceSync(ctx, rec).FirstErr()).To(Succeed())
-		Eventually(func() string { return taskStatus(ctx, t).Description }).
-			WithTimeout(15 * time.Second).
-			Should(ContainSubstring("unexpected data after the top-level value"))
-		produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.0})
-		Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{2}))
-	})
-
-	onOff := []payload.EnumEntry{{Label: "OFF", Value: 0}, {Label: "ON", Value: 1}}
-	readUUID := uuid.MustParse("6f1c2a4e-8d3b-4f5a-9c7e-2b1d0e3f4a5b")
-
-	// valueFields reads the timestamp at /ts in format and the value at /v.
-	valueFields := func(
-		index, data channel.Channel,
-		dt telem.DataType,
-		format *payload.TimeFormat,
-		enums []payload.EnumEntry,
-	) []kafka.ReadField {
-		return []kafka.ReadField{
-			{
-				Key:        "ts",
-				Channel:    index.Key(),
-				Pointer:    "/ts",
-				DataType:   telem.TimestampT,
-				TimeFormat: format,
-			},
-			{
-				Key:        "v",
-				Channel:    data.Key(),
-				Pointer:    "/v",
-				DataType:   dt,
-				EnumValues: enums,
-			},
-		}
-	}
-
-	DescribeTable("Should convert the record value into the channel's data type",
-		func(
-			ctx SpecContext,
-			dataType telem.DataType,
-			format payload.TimeFormat,
-			enums []payload.EnumEntry,
-			doc map[string]any,
-			expected telem.Series,
-		) {
-			index, data := createIndexed(ctx, dataType)
-			dev := createDevice(ctx, clusterProperties())
-			topic := newTopic()
-			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topics: oneTopic(topic, single(
-					ctx,
-					valueFields(index, data, dataType, &format, enums),
-				)),
-			})
-			start(ctx, dt, t)
-			produceJSON(ctx, producer, topic, "", doc)
-			Expect(expectStored(ctx, data.Key(), 1).Data).To(Equal(expected.Data))
+			index, data, _, topic := startTyped(
+				ctx,
+				telem.Int16T,
+				payload.TimeFormatUnixMs,
+				icd.IntegerJSONField{},
+			)
+			produceJSON(
+				ctx,
+				producer,
+				topic,
+				"",
+				map[string]any{"ts": 10_000, "v": -300},
+			)
+			Expect(expectStored(ctx, data.Key(), 1).Data).
+				To(Equal(telem.NewSeriesV[int16](-300).Data))
 			Expect(timestamps(stored(ctx, index.Key()))).
 				To(Equal([]telem.TimeStamp{10 * telem.SecondTS}))
 		},
-		Entry("a unix second timestamp",
-			telem.Float64T, payload.TimeFormatUnixSec, nil,
-			map[string]any{"ts": 10, "v": 1.5}, telem.NewSeriesV[float64](1.5)),
-		Entry("a unix millisecond timestamp",
-			telem.Float64T, payload.TimeFormatUnixMs, nil,
-			map[string]any{"ts": 10_000, "v": 1.5}, telem.NewSeriesV[float64](1.5)),
-		Entry("a unix microsecond timestamp",
-			telem.Float64T, payload.TimeFormatUnixUs, nil,
-			map[string]any{"ts": 10_000_000, "v": 1.5},
-			telem.NewSeriesV[float64](1.5)),
-		Entry("an ISO 8601 timestamp",
-			telem.Float64T, payload.TimeFormatISO8601, nil,
-			map[string]any{"ts": "1970-01-01T00:00:10Z", "v": 1.5},
-			telem.NewSeriesV[float64](1.5)),
-		Entry("an integer into a float channel",
-			telem.Float64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 2}, telem.NewSeriesV[float64](2)),
-		Entry("an integer beyond float64 precision",
-			telem.Int64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": int64(9007199254740993)},
-			telem.NewSeriesV[int64](9007199254740993)),
-		Entry("the largest unsigned integer",
-			telem.Uint64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": uint64(math.MaxUint64)},
-			telem.NewSeriesV[uint64](math.MaxUint64)),
-		Entry("the smallest integer of the channel's range",
-			telem.Int8T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": -128}, telem.NewSeriesV[int8](-128)),
-		Entry("an integral float into an integer channel",
-			telem.Uint16T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": jsontext.Value("6.5e4")},
-			telem.NewSeriesV[uint16](65000)),
-		Entry("an enum label",
-			telem.Uint8T, payload.TimeFormatUnixNs, onOff,
-			map[string]any{"ts": 10e9, "v": "ON"}, telem.NewSeriesV[uint8](1)),
-		Entry("a string",
-			telem.StringT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": "hello"}, telem.NewSeriesV("hello")),
-		Entry("a number into a string channel as its JSON text",
-			telem.StringT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1}, telem.NewSeriesV("1")),
-		Entry("a UUID",
-			telem.UUIDT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": readUUID.String()},
-			telem.NewSeriesV(readUUID)),
-		Entry("bytes from base64",
-			telem.BytesT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": "AP8/"},
-			telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})),
-		Entry("empty bytes from empty base64",
-			telem.BytesT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": ""}, telem.NewSeriesV([]byte{})),
 	)
 
-	It("Should keep every nanosecond of a unix_ns timestamp", func(ctx SpecContext) {
-		index, data := createIndexed(ctx, telem.Float64T)
-		dev := createDevice(ctx, clusterProperties())
-		topic := newTopic()
-		dt, t := configure(ctx, kafka.ReadConfig{
-			Device: dev.Key,
-			Topics: oneTopic(topic, single(
+	It(
+		"Should skip a record whose value the channel cannot hold",
+		func(ctx SpecContext) {
+			_, _, t, topic := startTyped(
 				ctx,
-				valueFields(index, data, telem.Float64T, &unixNs, nil),
-			)),
-		})
-		start(ctx, dt, t)
-		stamp := int64(1_700_000_000_000_000_001)
-		produceJSON(ctx, producer, topic, "", map[string]any{"ts": stamp, "v": 1.5})
-		expectStored(ctx, data.Key(), 1)
-		Expect(timestamps(stored(ctx, index.Key()))).
-			To(Equal([]telem.TimeStamp{telem.TimeStamp(stamp)}))
-	})
-
-	DescribeTable("Should skip a record whose value does not convert",
-		func(
-			ctx SpecContext,
-			dataType telem.DataType,
-			format payload.TimeFormat,
-			enums []payload.EnumEntry,
-			doc map[string]any,
-			msg string,
-		) {
-			index, data := createIndexed(ctx, dataType)
-			dev := createDevice(ctx, clusterProperties())
-			topic := newTopic()
-			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topics: oneTopic(topic, single(
-					ctx,
-					valueFields(index, data, dataType, &format, enums),
-				)),
-			})
-			start(ctx, dt, t)
-			produceJSON(ctx, producer, topic, "", doc)
+				telem.Uint8T,
+				unixNs,
+				icd.UnsignedJSONField{},
+			)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 256})
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
-				WithTimeout(15 * time.Second).Should(ContainSubstring(msg))
+				WithTimeout(15 * time.Second).
+				Should(Equal("Record value: field v: 256 is out of range for uint8: " +
+					"validation error (topic " + topic + ", partition 0, offset 0)."))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantWarning))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
-		Entry("a number where an ISO 8601 timestamp is expected",
-			telem.Float64T, payload.TimeFormatISO8601, nil,
-			map[string]any{"ts": 10, "v": 1.5}, "expected an ISO 8601 string"),
-		Entry("a malformed ISO 8601 timestamp",
-			telem.Float64T, payload.TimeFormatISO8601, nil,
-			map[string]any{"ts": "yesterday", "v": 1.5},
-			"invalid ISO 8601 timestamp"),
-		Entry("a boolean where a numeric timestamp is expected",
-			telem.Float64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": true, "v": 1.5}, "expected a number, got a boolean"),
-		Entry("a string that holds no number where a numeric timestamp is expected",
-			telem.Float64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": "soon", "v": 1.5}, `invalid number "soon"`),
-		Entry("an unknown enum label",
-			telem.Uint8T, payload.TimeFormatUnixNs, onOff,
-			map[string]any{"ts": 10e9, "v": "MAYBE"}, "unknown enum label"),
-		Entry("an object where a number is expected",
-			telem.Float64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": map[string]any{"x": 1}},
-			"expected a number or boolean"),
-		Entry("a null where a number is expected",
-			telem.Float64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": nil}, "field v: no value at /v"),
-		Entry("a null where a string is expected",
-			telem.StringT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": nil}, "field v: no value at /v"),
-		Entry("a number where a UUID is expected",
-			telem.UUIDT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1}, "expected a UUID string"),
-		Entry("a malformed UUID",
-			telem.UUIDT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": "not-a-uuid"}, "invalid UUID"),
-		Entry("text that is not base64",
-			telem.BytesT, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": "a*b="}, "not canonical base64"),
-		Entry("an integer beyond the channel's range",
-			telem.Uint8T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 256}, "256 is out of range for uint8"),
-		Entry("a negative integer into an unsigned channel",
-			telem.Uint32T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": -1}, "-1 is out of range for uint64"),
-		Entry("a fraction into an integer channel",
-			telem.Int32T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1.5}, "1.5 is not an integer"),
-		Entry("an exponent beyond the integer channel's range",
-			telem.Int64T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": jsontext.Value("1e19")},
-			"10000000000000000000 is out of range for int64"),
-		Entry("a number beyond float32",
-			telem.Float32T, payload.TimeFormatUnixNs, nil,
-			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
-		Entry("an integer timestamp beyond the nanosecond range",
-			telem.Float64T, payload.TimeFormatUnixMs, nil,
-			map[string]any{"ts": int64(1_000_000_000_000_000_000), "v": 1.5},
-			"1000000000000000000 is out of range for a unix_ms timestamp"),
-		Entry("a floating-point timestamp beyond the nanosecond range",
-			telem.Float64T, payload.TimeFormatUnixSec, nil,
-			map[string]any{"ts": jsontext.Value("1e13"), "v": 1.5},
-			"1e13 is out of range for a unix_sec timestamp"),
 	)
 
 	Context("ICD messages", func() {
-		// stampedMessage returns a message that holds a unix_ns timestamp at /ts and a
-		// float at /v, read when a record value meets match.
-		stampedMessage := func(name string, match *icd.JSONMatch) icd.Message {
-			return jsonMessage(name, match,
-				jsonField("ts", "/ts", icd.TimestampJSONField{TimeFormat: unixNs}),
-				jsonField("v", "/v", icd.FloatJSONField{}),
-			)
-		}
-
 		// typed returns the match rule that a record value with /type equal to value
 		// meets.
 		typed := func(value string) *icd.JSONMatch {
@@ -1719,31 +1425,6 @@ var _ = Describe("Read task", func() {
 				JSONBaseMatch: icd.JSONBaseMatch{Pointer: "/type"},
 				Value:         value,
 			}}
-		}
-
-		// read returns the read of m that writes its timestamp to index and its value
-		// to data.
-		read := func(m icd.Message, index, data channel.Channel) icd.ReadMessage {
-			ts := fieldKey(m, 0)
-			return icd.ReadMessage{
-				Message:  m.Key,
-				Index:    &ts,
-				Bindings: []icd.ReadBinding{bind(m, 0, index), bind(m, 1, data)},
-			}
-		}
-
-		// record returns a record with recordKey that reads messages of ic.
-		record := func(
-			recordKey string,
-			ic icd.ICD,
-			messages ...icd.ReadMessage,
-		) kafka.ReadRecord {
-			return kafka.ReadRecord{
-				Key:       "r-" + recordKey,
-				RecordKey: recordKey,
-				ICD:       ic.Key,
-				Messages:  messages,
-			}
 		}
 
 		It("Should read each record value as the message whose match rule it meets",
@@ -2017,6 +1698,9 @@ var _ = Describe("Read task", func() {
 			)
 		})
 
+		// missingICD is an ICD that the Core does not hold.
+		missingICD := icd.ICD{Key: uuid.New()}
+
 		DescribeTable("Should reject an invalid config",
 			func(
 				ctx SpecContext,
@@ -2064,6 +1748,23 @@ var _ = Describe("Read task", func() {
 				},
 				"does not exist in ICD Plant",
 			),
+			Entry(
+				"an ICD that does not exist",
+				func(_ context.Context, index, data channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					return []kafka.ReadRecord{
+						record("", missingICD, read(m, index, data)),
+					}
+				},
+				"topics.0.records.0.icd: ICD "+missingICD.Key.String()+" does not exist",
+			),
+			Entry("a record that reads no messages",
+				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					return []kafka.ReadRecord{record("", createICD(ctx, m))}
+				},
+				"topics.0.records.0: reads no messages",
+			),
 			Entry("a binding with no channel",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
@@ -2072,21 +1773,70 @@ var _ = Describe("Read task", func() {
 						Field: fieldKey(m, 1), DataType: telem.Float64T,
 					}
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
-				}, "message Reading: channel 0 does not exist"),
+				}, "topics.0.records.0.messages.0.bindings.1.channel: field v has no "+
+					"channel"),
 			Entry("a channel that does not exist",
 				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
 					rm := read(m, index, index)
 					rm.Bindings[1].Channel = 999999
 					return []kafka.ReadRecord{record("", createICD(ctx, m), rm)}
-				}, "message Reading: channel 999999 does not exist"),
+				}, "topics.0.records.0.messages.0.bindings.1.channel: channel 999999 "+
+					"does not exist"),
 			Entry("a message that binds no fields",
 				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
 					m := stampedMessage("Reading", nil)
 					return []kafka.ReadRecord{record(
 						"", createICD(ctx, m), icd.ReadMessage{Message: m.Key},
 					)}
-				}, "message Reading binds no fields"),
+				}, "topics.0.records.0.messages.0: message Reading binds no fields"),
+			Entry("a field whose kind does not convert to its channel",
+				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
+					m := jsonMessage("Reading", nil,
+						jsonField("s", "/s", icd.StringJSONField{}),
+					)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						icd.ReadMessage{
+							Message:  m.Key,
+							Bindings: []icd.ReadBinding{bind(m, 0, data)},
+						},
+					)}
+				}, "field s of kind string cannot read into channel"),
+			Entry("an index field with no binding",
+				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					ts := fieldKey(m, 0)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						icd.ReadMessage{
+							Message:  m.Key,
+							Index:    &ts,
+							Bindings: []icd.ReadBinding{bind(m, 1, data)},
+						},
+					)}
+				}, "the index field ts has no binding"),
+			Entry("an index field on a data channel",
+				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
+					_, stamps := createIndexed(ctx, telem.TimestampT)
+					m := stampedMessage("Reading", nil)
+					ts := fieldKey(m, 0)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						icd.ReadMessage{
+							Message:  m.Key,
+							Index:    &ts,
+							Bindings: []icd.ReadBinding{bind(m, 0, stamps)},
+						},
+					)}
+				}, "the index field ts must write to an index channel"),
+			Entry("a data field on an index channel",
+				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
+					m := stampedMessage("Reading", nil)
+					return []kafka.ReadRecord{record("", createICD(ctx, m),
+						icd.ReadMessage{
+							Message:  m.Key,
+							Bindings: []icd.ReadBinding{bind(m, 0, index)},
+						},
+					)}
+				}, "field ts cannot write to index channel"),
 			Entry(
 				"two messages with no match rule",
 				func(ctx context.Context, index, data channel.Channel) []kafka.ReadRecord {

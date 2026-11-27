@@ -22,6 +22,7 @@
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -149,7 +150,7 @@ set_values(std::vector<Field> &fields, const icd::WriteMessage &wm) {
 
 /// @brief replaces the sample of last with sample i of s, a series of the data type of
 /// last.
-void keep(x::telem::Series &last, const x::telem::Series &s, const std::size_t i) {
+void set_last(x::telem::Series &last, const x::telem::Series &s, const std::size_t i) {
     last.clear();
     if (s.data_type().is_variable()) {
         last.write(s.at<std::string>(static_cast<int>(i)));
@@ -255,7 +256,7 @@ Writer::command(const std::size_t binding, std::size_t i) const {
     return std::nullopt;
 }
 
-Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
+std::size_t Writer::gather(const x::telem::Frame &fr) {
     for (auto &series: this->commands)
         series.clear();
     for (const auto &[key, s]: fr)
@@ -268,33 +269,68 @@ Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
             size += s->size();
         n = std::max(n, size);
     }
-    Result result;
-    for (std::size_t row = 0; row < n; row++) {
-        bool good = false;
-        for (std::size_t b = 0; b < this->channels.size(); b++) {
-            const auto cmd = this->command(b, row);
-            if (!cmd.has_value()) continue;
-            if (auto err = std::visit(
-                    [&](auto &e) { return e.check(b, *cmd->series, cmd->index); },
-                    this->encoder
-                )) {
-                if (!result.refused) result.refused = err;
-                continue;
-            }
-            keep(this->last[b], *cmd->series, cmd->index);
-            good = true;
-        }
-        if (result.error || !good ||
-            !std::visit([this](auto &e) { return e.ready(this->last); }, this->encoder))
-            continue;
+    return n;
+}
+
+bool Writer::apply(const std::size_t row, x::errors::Error &refused) {
+    bool good = false;
+    for (std::size_t b = 0; b < this->channels.size(); b++) {
+        const auto cmd = this->command(b, row);
+        if (!cmd.has_value()) continue;
         if (auto err = std::visit(
-                [&](auto &e) { return e.encode(this->last, this->payload); },
+                [&](auto &e) { return e.check(b, *cmd->series, cmd->index); },
                 this->encoder
-            ))
-            result.error = err;
-        else if (auto send_err = send(this->payload))
-            result.error = send_err;
+            )) {
+            if (!refused) refused = err;
+            continue;
+        }
+        set_last(this->last[b], *cmd->series, cmd->index);
+        good = true;
     }
+    return good;
+}
+
+Writer::Result Writer::write(const x::telem::Frame &fr, const Send &send) {
+    const auto rows = this->gather(fr);
+    Result result;
+    for (std::size_t row = 0; row < rows; row++)
+        if (this->apply(row, result.refused) && !result.error)
+            result.error = this->encode(send);
     return result;
+}
+
+x::errors::Error Writer::keep(const x::telem::Frame &fr) {
+    const auto rows = this->gather(fr);
+    x::errors::Error refused;
+    for (std::size_t row = 0; row < rows; row++)
+        this->apply(row, refused);
+    return refused;
+}
+
+x::errors::Error Writer::encode(const Send &send) {
+    if (!std::visit([this](auto &e) { return e.ready(this->last); }, this->encoder))
+        return x::errors::NIL;
+    if (auto err = std::visit(
+            [&](auto &e) { return e.encode(this->last, this->payload); },
+            this->encoder
+        ))
+        return err;
+    return send(this->payload);
+}
+
+std::string Writer::format() const {
+    return std::visit(
+        []<typename E>(const E &) -> std::string {
+            if constexpr (std::is_same_v<E, codec::BinaryEncoder>)
+                return x::payload::FORMAT_BINARY;
+            else if constexpr (std::is_same_v<E, codec::TextEncoder>)
+                return x::payload::FORMAT_TEXT;
+            else {
+                static_assert(std::is_same_v<E, codec::JSONEncoder>);
+                return x::payload::FORMAT_JSON;
+            }
+        },
+        this->encoder
+    );
 }
 }

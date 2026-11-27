@@ -84,16 +84,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/tcp"
+	"github.com/synnaxlabs/synnax/pkg/service/udp"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // LayerConfig is the configuration for opening the service layer. See fields for
@@ -292,6 +295,8 @@ type Layer struct {
 	Serial *serial.Service
 	// TCP owns the stored configuration records of the TCP task types.
 	TCP *tcp.Service
+	// UDP owns the stored configuration records of the UDP task types.
+	UDP *udp.Service
 	// TaskStopper stops running tasks ahead of a delete.
 	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
@@ -345,10 +350,34 @@ type Layer struct {
 	Signals *signals.Provider
 	// closer is for properly shutting down the service layer.
 	closer io.MultiCloser
+	// guard orders Run against Close.
+	guard lifetime.Guard
 }
 
-// Close shuts down the service layer, returning any error encountered.
-func (l *Layer) Close() error { return l.closer.Close() }
+// Run runs the goroutines of the services in the Layer until ctx ends or one of them
+// fails, then waits for all of them to stop and returns the first error. A second Run,
+// or a Run after Close, returns an error.
+func (l *Layer) Run(ctx context.Context) error {
+	if err := l.guard.Begin(); err != nil {
+		return err
+	}
+	defer l.guard.End()
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error { return l.Auth.Run(ctx) })
+	g.Go(func() error { return l.License.Run(ctx) })
+	g.Go(func() error { return l.Certificate.Run(ctx) })
+	g.Go(func() error { return l.Rack.Run(ctx) })
+	return g.Wait()
+}
+
+// Close shuts down the service layer, returning any error encountered. Call it after
+// Run returns: while Run runs, Close returns an error and closes nothing.
+func (l *Layer) Close() error {
+	if first, err := l.guard.Close(); !first || err != nil {
+		return err
+	}
+	return l.closer.Close()
+}
 
 func revokePasswordSessions(
 	ctx context.Context,
@@ -1013,6 +1042,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.TCP) {
 		return nil, err
 	}
+	if l.UDP, err = udp.OpenService(ctx, udp.ServiceConfig{
+		Instrumentation: cfg.Child("udp"),
+		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
+		ICD:             l.ICD,
+	}); !ok(err, l.UDP) {
+		return nil, err
+	}
 	// Arc task configs reference Arcs, and the task migrations write them.
 	arcTable, err := arc.OpenTable(ctx, arc.TableConfig{
 		Instrumentation: cfg.Child("arc"),
@@ -1068,7 +1105,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		l.NI.Stores(), l.OPCUA.Stores(), l.LabJack.Stores(), l.Modbus.Stores(),
 		l.EtherCAT.Stores(), l.HTTP.Stores(), l.Kafka.Stores(), l.ArcTask.Stores(),
 		l.RackTask.Stores(), l.PagerDuty.Stores(), l.MQTT.Stores(), l.Sift.Stores(),
-		l.File.Stores(), l.Serial.Stores(), l.TCP.Stores(),
+		l.File.Stores(), l.Serial.Stores(), l.TCP.Stores(), l.UDP.Stores(),
 	)
 	taskConfigs, err := taskconfig.NewRegistry(configStores...)
 	if !ok(err, nil) {

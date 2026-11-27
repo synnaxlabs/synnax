@@ -487,7 +487,7 @@ public:
         synnax::task::Status status{
             .variant = synnax::status::VARIANT_ERROR,
             .message = "Failed to configure task",
-            .details = {.cmd = cmd_key, .config_hash = task.config_hash},
+            .details = {.cmd = cmd_key},
             .owner = synnax::task::resource_id(task.key),
         };
         status.description = this->error;
@@ -894,6 +894,34 @@ TEST_F(TaskManagerTest, BootFailsAStartLeftLoading) {
     );
     EXPECT_FALSE(s.details.running);
     EXPECT_EQ(s.details.cmd, "start-cmd");
+    EXPECT_EQ(s.details.config_hash, task.config_hash);
+}
+
+/// @brief it should fail a start that a previous Driver run left loading with no
+/// config hash when the boot deploy builds no instance.
+TEST_F(TaskManagerTest, BootFailsAStartLeftLoadingWithNoInstance) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    synnax::task::Status loading;
+    loading.key = "boot-loading-unhandled";
+    loading.owner = synnax::task::resource_id(task.key);
+    loading.name = task.name;
+    loading.variant = synnax::status::VARIANT_LOADING;
+    loading.message = "Starting task";
+    loading.time = x::telem::TimeStamp::now();
+    loading.details.rack = rack.key;
+    loading.details.config_hash = task.config_hash;
+    ASSERT_NIL(client->statuses.set(loading));
+    start_manager(std::make_unique<QuietEchoTaskFactory>());
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Failed to start task";
+    });
+    EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(s.details.config_hash.empty());
 }
 
 /// @brief stores a status of task as an earlier Driver run left it, with "stored" as
@@ -2440,6 +2468,7 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
             "' tasks. Check that the Driver and the Core run the same version."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
+    EXPECT_TRUE(s.details.config_hash.empty());
 }
 
 /// @brief it should stop each running task when the manager stops.
@@ -2555,7 +2584,7 @@ public:
             .variant = synnax::status::VARIANT_ERROR,
             .message = "Failed to configure task",
             .description = "Npcap is not installed",
-            .details = {.cmd = cmd_key, .config_hash = task.config_hash},
+            .details = {.cmd = cmd_key},
             .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
@@ -2998,6 +3027,7 @@ TEST_F(TaskManagerTest, StartFailsWhenHashKeepsMovingDuringConfigure) {
         "task again."
     );
     EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(s.details.config_hash.empty());
     std::lock_guard lock(f->mu);
     ASSERT_GE(f->task_states.size(), 3);
     for (std::size_t i = 0; i < 3; i++) {
@@ -3751,6 +3781,36 @@ TEST_F(TaskManagerTest, StopOfACancelledConfigureAnswersStopped) {
     EXPECT_FALSE(stopped.details.running);
 }
 
+/// @brief it should end a start that a stop cancelled during its configure with no
+/// config hash, since the configure built no instance.
+TEST_F(TaskManagerTest, StopOfACancelledConfigureEndsTheStartWithNoHash) {
+    start_manager(
+        std::make_unique<CancelledConfigureFactory>(),
+        {.poll_interval = 100 * x::telem::MILLISECOND}
+    );
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.message == "Starting task" && s.details.cmd == "start-cmd";
+    });
+    send_stop(client, task);
+    const auto ended = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-cmd" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(ended.message, "Stopped task");
+    EXPECT_TRUE(ended.details.config_hash.empty());
+}
+
 /// @brief it should answer a stop with the error of a start that failed on its own
 /// while the stop waited, since that error says what to fix.
 TEST_F(TaskManagerTest, StopKeepsTheErrorOfAStartThatFailedOnItsOwn) {
@@ -4073,6 +4133,7 @@ TEST_F(TaskManagerTest, StopAnswersASilentStartAndItsJoinOnce) {
             finals[key].description,
             "A stop ended the start before it finished."
         );
+        EXPECT_EQ(finals[key].details.config_hash, task.config_hash);
     }
     EXPECT_EQ(finals["stop-cmd"].message, "stopped");
     EXPECT_EQ(f->starts.load(), 1);

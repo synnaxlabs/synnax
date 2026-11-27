@@ -484,7 +484,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Binary::decode_as(
     auto &m = this->messages[*i];
     if (auto err = m.decode(payload)) {
         if (this->messages.size() > 1) err = err.wrap("message " + m.name);
-        return {std::nullopt, err};
+        return {i, err};
     }
     return {i, x::errors::NIL};
 }
@@ -498,7 +498,7 @@ Binary::decode(const std::span<const std::uint8_t> payload) {
         if (it == h.messages.end()) continue;
         if (found.has_value())
             return {
-                std::nullopt,
+                std::min(*found, it->second),
                 x::errors::Error(
                     x::errors::VALIDATION,
                     "frame matches messages " +

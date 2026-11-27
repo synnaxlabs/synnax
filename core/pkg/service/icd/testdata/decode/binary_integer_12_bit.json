@@ -1,0 +1,43 @@
+{
+  "description": "An integer field reads as a two's complement integer of its bit length.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 12,
+            "byte_order": "little_endian",
+            "kind": "integer"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "int16"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "ff0f",
+      "message": "frame",
+      "samples": [-1]
+    },
+    {
+      "hex": "ff07",
+      "message": "frame",
+      "samples": [2047]
+    }
+  ]
+}

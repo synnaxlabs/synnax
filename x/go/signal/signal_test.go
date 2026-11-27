@@ -347,8 +347,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(
 				inc1,
 				signal.WithRetryOnPanic(100),
-				signal.WithBaseRetryInterval(1*time.Millisecond),
-				signal.WithRetryScale(1.01),
+				signal.WithBaseRetryInterval(time.Millisecond),
 				signal.RecoverWithErrOnPanic(),
 			)
 
@@ -371,8 +370,7 @@ var _ = Describe("Signal", func() {
 				ctx.Go(
 					inc1,
 					signal.WithRetryOnPanic(100),
-					signal.WithBaseRetryInterval(1*time.Millisecond),
-					signal.WithRetryScale(1.01),
+					signal.WithBaseRetryInterval(time.Millisecond),
 					signal.RecoverWithoutErrOnPanic(),
 				)
 
@@ -399,8 +397,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(
 				f,
 				signal.WithRetryOnPanic(),
-				signal.WithBaseRetryInterval(1*time.Millisecond),
-				signal.WithRetryScale(1.01),
+				signal.WithBaseRetryInterval(time.Millisecond),
 			)
 
 			wg.Go(func() {
@@ -413,40 +410,6 @@ var _ = Describe("Signal", func() {
 			wg.Wait()
 			Eventually(done).Should(BeClosed())
 		})
-
-		It("Should wait exponentially more time", func() {
-			var (
-				done         = make(chan struct{})
-				counter      atomic.Int64
-				succeedInTen = func(context.Context) error {
-					if counter.Add(1) < 10 {
-						panic("panicking")
-					}
-					return nil
-				}
-			)
-
-			ctx, _ := signal.Isolated()
-			start := time.Now()
-			ctx.Go(
-				succeedInTen,
-				signal.WithRetryOnPanic(),
-				signal.WithBaseRetryInterval(1*time.Millisecond),
-				signal.WithRetryScale(2),
-				signal.RecoverWithErrOnPanic(),
-			)
-
-			go func() {
-				defer GinkgoRecover()
-				Expect(ctx.Wait()).ToNot(HaveOccurred())
-				close(done)
-			}()
-
-			Eventually(done).Should(BeClosed())
-			Expect(
-				time.Since(start),
-			).To(BeNumerically("~", 511*time.Millisecond, 150*time.Millisecond))
-		})
 	})
 
 	Describe("Breaker configuration", func() {
@@ -457,7 +420,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(func(context.Context) error {
 				called.Store(true)
 				return nil
-			}, signal.WithRetryScale(0.5))
+			}, signal.WithRetryOnPanic(-2))
 			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
 			Expect(called.Load()).To(BeFalse())
 			Eventually(ctx.Stopped()).Should(BeClosed())
@@ -473,7 +436,7 @@ var _ = Describe("Signal", func() {
 			var deferred atomic.Bool
 			ctx.Go(
 				func(context.Context) error { return nil },
-				signal.WithRetryScale(0.5),
+				signal.WithRetryOnPanic(-2),
 				signal.CancelOnFail(),
 				signal.Defer(func() { deferred.Store(true) }),
 			)
@@ -492,7 +455,7 @@ var _ = Describe("Signal", func() {
 			ctx.Go(
 				func(context.Context) error { return nil },
 				signal.WithKey("invalid"),
-				signal.WithRetryScale(0.5),
+				signal.WithRetryOnPanic(-2),
 			)
 			Expect(ctx.Wait()).To(MatchError(validate.ErrValidation))
 			Expect(ctx.Routines()).To(ContainElement(And(
@@ -563,11 +526,11 @@ var _ = Describe("Signal", func() {
 				return ctx.Err()
 			},
 				signal.WithRetryOnPanic(),
-				signal.WithBaseRetryInterval(200*time.Millisecond),
+				signal.WithBaseRetryInterval(100*time.Millisecond),
 			)
 			Eventually(attempts.Load).Should(Equal(int32(1)))
 			ctx.Go(immediatelyReturnNil)
-			Consistently(ctx.Stopped(), 100*time.Millisecond).ShouldNot(BeClosed())
+			Consistently(ctx.Stopped(), 50*time.Millisecond).ShouldNot(BeClosed())
 			cancel()
 			Expect(ctx.Wait()).To(MatchError(context.Canceled))
 			Eventually(ctx.Stopped()).Should(BeClosed())

@@ -8,8 +8,19 @@
 // included in the file licenses/APL.txt.
 
 #include <array>
+#include <cerrno>
+#include <cstdint>
+#include <optional>
+#include <system_error>
+#include <utility>
 
+#include <linux/serial.h>
+#include <sys/ioctl.h>
+
+#include "driver/serial/errors.h"
 #include "driver/serial/line.h"
+#include "driver/serial/native.h"
+#include "driver/serial/posix.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
@@ -22,6 +33,18 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
     if (auto err = check(props)) return err;
     if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
         return {transport::CONFIG_ERROR, "Linux does not support 1.5 stop bits"};
+    // The port moves raw bytes, with no line editing, echo, signals, or output
+    // processing.
+    settings.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | ICRNL);
+    settings.c_oflag &= ~OPOST;
+    settings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    settings.c_cflag |= CREAD | CLOCAL;
+    settings.c_cc[VMIN] = 1;
+    settings.c_cc[VTIME] = 0;
+    // The port marks parity, framing, and break errors in the input and removes them,
+    // so it counts errors that IGNPAR would drop without a trace.
+    settings.c_iflag &= ~IGNPAR;
+    settings.c_iflag |= INPCK | PARMRK;
     settings.c_cflag &= ~(CBAUD | (CBAUD << IBSHIFT));
     settings.c_cflag |= BOTHER | (BOTHER << IBSHIFT);
     settings.c_ispeed = props.baud_rate;
@@ -47,6 +70,48 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
     if (props.flow_control == synnax::serial::FLOW_CONTROL_HARDWARE)
         settings.c_cflag |= CRTSCTS;
     return x::errors::NIL;
+}
+}
+
+namespace native {
+void unlock(const Handle handle) {
+    // A pseudo-terminal keeps TIOCEXCL after its last close while its controller is
+    // open, so the port clears it.
+    ::ioctl(static_cast<int>(handle), TIOCNXCL);
+}
+
+std::pair<bool, std::error_code> exclusive(const int fd) {
+    int flag = 0;
+    if (::ioctl(fd, TIOCGEXCL, &flag) != 0)
+        return {false, {errno, std::generic_category()}};
+    return {flag != 0, {}};
+}
+
+x::errors::Error
+configure(const Handle handle, const synnax::serial::Properties &props) {
+    const int fd = static_cast<int>(handle);
+    line::Settings settings{};
+    if (::ioctl(fd, TCGETS2, &settings) != 0)
+        return failed("the line settings", props.port);
+    if (auto err = line::apply(props, settings)) return err;
+    if (::ioctl(fd, TCSETS2, &settings) != 0)
+        return failed("the line settings", props.port);
+    // Bytes that arrived before PARMRK carry no marks, so strip would misread them.
+    if (::ioctl(fd, TCFLSH, TCIFLUSH) != 0)
+        return translate(
+            "failed to flush the input of " + props.port,
+            {errno, std::generic_category()}
+        );
+    return x::errors::NIL;
+}
+
+std::pair<std::optional<std::uint32_t>, std::error_code> overrun_count(const int fd) {
+    serial_icounter_struct counts{};
+    if (::ioctl(fd, TIOCGICOUNT, &counts) == 0)
+        return {static_cast<std::uint32_t>(counts.overrun + counts.buf_overrun), {}};
+    // A driver without counters rejects the request.
+    if (errno == ENOTTY || errno == EINVAL) return {std::nullopt, {}};
+    return {std::nullopt, {errno, std::generic_category()}};
 }
 }
 }

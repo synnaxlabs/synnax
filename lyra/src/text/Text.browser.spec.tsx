@@ -35,6 +35,33 @@ describe("Text", () => {
     },
   );
 
+  it("should give a link that is a button the look of a link", async () => {
+    const { getByText } = await renderThemed(
+      <>
+        <Text.Text variant="link" href="#">
+          Anchor
+        </Text.Text>
+        <Text.Text el="button" type="button" variant="link">
+          Button
+        </Text.Text>
+      </>,
+    );
+    const anchor = getByText("Anchor").element();
+    const button = getByText("Button").element();
+    for (const property of [
+      "color",
+      "font-family",
+      "font-size",
+      "font-weight",
+      "line-height",
+      "padding-top",
+      "border-top-width",
+      "background-color",
+      "cursor",
+    ])
+      expect(computed(button, property), property).toBe(computed(anchor, property));
+  });
+
   it("should shrink the font size at each level from h1 to tiny", async () => {
     const { getByText } = await renderThemed(
       LEVELS.map((level) => (

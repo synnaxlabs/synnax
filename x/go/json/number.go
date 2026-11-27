@@ -245,6 +245,25 @@ func (n ParsedNumber) Uint64() (v uint64, ok bool) {
 // Float64 returns the float64 nearest to n.
 func (n ParsedNumber) Float64() float64 { return n.n.float() }
 
+// ParseFloat64 parses text, which ParseNumber accepts, as the nearest float64. Unlike
+// ParseNumber, it keeps the sign of an integer negative zero. It returns an error
+// wrapping validate.ErrValidation when text is not a decimal number, or is past the
+// range of a float64.
+func ParseFloat64(text []byte) (float64, error) {
+	t, ok := scanDecimal(text)
+	if !ok {
+		return 0, invalidNumber(text)
+	}
+	if f, exact := t.float(); exact {
+		return f, nil
+	}
+	f, err := strconv.ParseFloat(string(text), 64)
+	if err != nil {
+		return 0, invalidNumber(text)
+	}
+	return f, nil
+}
+
 func invalidNumber(text []byte) error {
 	return errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
 }
@@ -637,10 +656,19 @@ func appendJSONNumber(dst []byte, n number) ([]byte, error) {
 	if n.kind != floatNumber {
 		return n.appendText(dst), nil
 	}
-	if !xmath.Finite(n.f) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
+	if err := checkFinite(n); err != nil {
+		return nil, err
 	}
 	return xstrconv.AppendFloat(dst, n.f, 64), nil
+}
+
+// checkFinite returns an error wrapping validate.ErrValidation when n is NaN or
+// infinite, which no JSON number holds.
+func checkFinite(n number) error {
+	if n.kind == floatNumber && !xmath.Finite(n.f) {
+		return errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
+	}
+	return nil
 }
 
 // numeric reports whether dt holds numbers: an integer, float, or boolean type.
