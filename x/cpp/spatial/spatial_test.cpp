@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <utility>
+
 #include "gtest/gtest.h"
 
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/spatial/spatial.h"
 #include "x/cpp/spatial/types.gen.h"
@@ -25,6 +28,24 @@ TEST(StickyXY, ParsesMissingRootAndUnits) {
     EXPECT_EQ(sticky.root.y, expected.root.y);
     EXPECT_EQ(sticky.units.x, expected.units.x);
     EXPECT_EQ(sticky.units.y, expected.units.y);
+}
+
+/// @brief it should parse bounds whose lower is below upper.
+TEST(ClosedBounds, ParsesOrderedBounds) {
+    x::json::Parser parser(x::json::json{{"lower", 0.0}, {"upper", 10.0}});
+    const auto bounds = ClosedBounds::parse(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(bounds.lower, 0);
+    EXPECT_EQ(bounds.upper, 10);
+}
+
+/// @brief it should refuse bounds whose lower is not below upper.
+TEST(ClosedBounds, RefusesLowerNotBelowUpper) {
+    for (const auto &[lower, upper]: {std::pair{5.0, 5.0}, std::pair{10.0, 0.0}}) {
+        x::json::Parser parser(x::json::json{{"lower", lower}, {"upper", upper}});
+        ClosedBounds::parse(parser);
+        ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    }
 }
 
 /// @brief it should return upper minus lower.

@@ -531,20 +531,31 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
-// validateComparisonRules errors on a `@go validate` rule that is not lt <field> or
-// pattern "<regex>", on one outside a struct field, on an lt rule in a struct with a
-// type parameter that has no default or whose field and compared field are not two
-// required numbers of one type in the same struct, and on a pattern rule outside a
-// required string or with a bad regex.
+// comparisonLangs are the languages whose domains can set a `validate` comparison
+// rule. Only Go supports pattern.
+var comparisonLangs = []string{"go", "ts", "py", "cpp"}
+
+// validateComparisonRules errors on a `@<lang> validate` rule that is not lt <field>
+// or, for Go, pattern "<regex>", on one outside a struct field, on an lt rule in a
+// struct with a type parameter that has no default or whose field and compared field
+// are not two required numbers of one type in the same struct, and on a pattern rule
+// outside a required string or with a bad regex.
 func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		var problems []string
-		if _, set := t.Domains["go"].Expressions.Find("validate"); set {
-			problems = append(problems, t.QualifiedName+
-				" has a @go validate rule, but only a struct field can have one")
-		}
-		if form, ok := t.Form.(resolution.StructForm); ok {
-			problems = append(problems, structComparisonProblems(t, form, table)...)
+		for _, lang := range comparisonLangs {
+			if _, set := t.Domains[lang].Expressions.Find("validate"); set {
+				problems = append(problems, fmt.Sprintf(
+					"%s has a @%s validate rule, but only a struct field can have one",
+					t.QualifiedName, lang,
+				))
+			}
+			if form, ok := t.Form.(resolution.StructForm); ok {
+				problems = append(
+					problems,
+					structComparisonProblems(t, form, lang, table)...,
+				)
+			}
 		}
 		for _, p := range problems {
 			diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil, "%s", p))
@@ -552,21 +563,22 @@ func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	}
 }
 
-// structComparisonProblems returns the problems of the @go validate rules on the fields
-// of t.
+// structComparisonProblems returns the problems of the @<lang> validate rules on the
+// fields of t.
 func structComparisonProblems(
 	t resolution.Type,
 	form resolution.StructForm,
+	lang string,
 	table *resolution.Table,
 ) []string {
 	var problems []string
-	// Go emits a struct whose type parameters all have defaults as a concrete type, so
-	// its fields compare at those defaults.
+	// A struct whose type parameters all have defaults emits as a concrete type, so its
+	// fields compare at those defaults.
 	fields, _ := resolution.RecordFields(t, table)
 	for _, f := range fields {
 		name := t.QualifiedName + "." + f.Name
 		_, declared := form.Field(f.Name)
-		if m := validation.Matches(f.Domains, "go"); m != nil {
+		if m := validation.Matches(f.Domains, lang); m != nil && lang == "go" {
 			switch {
 			case len(form.TypeParams) > 0:
 				problems = append(problems, fmt.Sprintf(
@@ -577,11 +589,16 @@ func structComparisonProblems(
 			}
 			continue
 		}
-		lt := validation.LessThan(f.Domains, "go")
+		lt := validation.LessThan(f.Domains, lang)
 		if lt == nil {
-			if _, set := f.Domains["go"].Expressions.Find("validate"); set && declared {
-				problems = append(problems, name+" has a @go validate rule, but only "+
-					`lt <field> and pattern "<regex>" are supported`)
+			if _, set := f.Domains[lang].Expressions.Find("validate"); set && declared {
+				supported := "only lt <field> is supported"
+				if lang == "go" {
+					supported = `only lt <field> and pattern "<regex>" are supported`
+				}
+				problems = append(problems, fmt.Sprintf(
+					"%s has a @%s validate rule, but %s", name, lang, supported,
+				))
 			}
 			continue
 		}

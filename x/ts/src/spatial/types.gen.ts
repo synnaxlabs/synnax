@@ -160,17 +160,22 @@ export interface Bounds<T extends numeric.Value = number> {
 
 /**
  * ClosedBounds is a nonempty closed interval [lower, upper] over an ordered numeric
- * value space, such as the range of a hardware input. Go validation refuses a lower
- * that is not below upper. The TypeScript binding is generic over T; other languages
- * emit a concrete float64-based type.
+ * value space, such as the range of a hardware input. Validation refuses a lower that
+ * is not below upper. The TypeScript binding is generic over T; other languages emit a
+ * concrete float64-based type.
  */
 export const closedBoundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>
-  z.object({
-    /** lower is the inclusive lower bound. */
-    lower: t ?? z.number(),
-    /** upper is the inclusive upper bound. */
-    upper: t ?? z.number(),
-  });
+  z
+    .object({
+      /** lower is the inclusive lower bound. */
+      lower: t ?? z.number(),
+      /** upper is the inclusive upper bound. */
+      upper: t ?? z.number(),
+    })
+    .refine((v) => v.lower < v.upper, {
+      path: ["lower"],
+      message: "must be less than upper",
+    });
 export interface ClosedBounds<T extends numeric.Value = number> {
   lower: T;
   upper: T;

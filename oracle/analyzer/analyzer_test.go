@@ -1273,6 +1273,16 @@ Node union on variant {
 					@go validate lt max
 				}
 			`, "test.Range has a @go validate rule, but only a struct field can have one"),
+			Entry("with a pattern outside Go", `
+				Device struct {
+					name string { @ts validate pattern "^a$" }
+				}
+			`, "name has a @ts validate rule, but only lt <field> is supported"),
+			Entry("for C++ naming a field the struct does not have", `
+				Range struct {
+					min float64 { @cpp validate lt max }
+				}
+			`, "test.Range.min is less than max, but test.Range has no field max"),
 			Entry("naming a field the struct does not have", `
 				Range struct {
 					min float64 { @go validate lt max }
@@ -1432,6 +1442,16 @@ Node union on variant {
 				Range struct<T extends numeric = float64> {
 					lower T { @go validate lt upper }
 					upper T
+				}
+			`),
+			Entry("for each language", `
+				Range struct {
+					min float64 {
+						@ts validate lt max
+						@py validate lt max
+						@cpp validate lt max
+					}
+					max float64
 				}
 			`),
 		)

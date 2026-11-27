@@ -278,9 +278,9 @@ type Bounds struct {
 }
 
 // ClosedBounds is a nonempty closed interval [lower, upper] over an ordered numeric
-// value space, such as the range of a hardware input. Go validation refuses a lower
-// that is not below upper. The TypeScript binding is generic over T; other languages
-// emit a concrete float64-based type.
+// value space, such as the range of a hardware input. Validation refuses a lower that
+// is not below upper. The TypeScript binding is generic over T; other languages emit a
+// concrete float64-based type.
 type ClosedBounds struct {
 	// Lower is the inclusive lower bound.
 	Lower float64 `json:"lower" msgpack:"lower"`

@@ -322,8 +322,11 @@ Bounds struct<T extends numeric = float64> {
 
 ClosedBounds struct<T extends numeric = float64> {
     lower T {
-        @doc value   "is the inclusive lower bound."
-        @go validate lt upper
+        @cpp validate lt upper
+        @doc value    "is the inclusive lower bound."
+        @go validate  lt upper
+        @py validate  lt upper
+        @ts validate  lt upper
     }
     upper T {
         @doc value "is the inclusive upper bound."
@@ -331,9 +334,9 @@ ClosedBounds struct<T extends numeric = float64> {
 
     @doc value  """
         is a nonempty closed interval [lower, upper] over an ordered numeric value
-        space, such as the range of a hardware input. Go validation refuses a lower that
-        is not below upper. The TypeScript binding is generic over T; other languages
-        emit a concrete float64-based type.
+        space, such as the range of a hardware input. Validation refuses a lower that is
+        not below upper. The TypeScript binding is generic over T; other languages emit
+        a concrete float64-based type.
     """
     @go marshal
 }
