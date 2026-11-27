@@ -140,6 +140,8 @@ Port::read(const x::telem::TimeSpan timeout) {
             if (chunk.data.empty()) return {{}, this->failure};
             break;
         }
+        // A read of queued marks completes at once, so run_for never times out.
+        if (sw.elapsed() >= timeout) break;
     }
     return {chunk, x::errors::NIL};
 }
