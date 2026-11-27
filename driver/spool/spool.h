@@ -144,7 +144,8 @@ class Writer {
     x::errors::Error failed;
 
     Writer(Spool &spool, Header header, std::string header_payload, std::uint64_t key);
-    x::errors::Error fail(const x::errors::Error &err, std::uint64_t reserved);
+    x::errors::Error
+    fail(const x::errors::Error &err, std::uint64_t reserved, std::uint64_t marker);
 
 public:
     Writer(const Writer &) = delete;
@@ -168,8 +169,9 @@ public:
     /// last frames reach the disk in one second.
     x::errors::Error sync_if_due();
 
-    /// @brief syncs and closes the segment, so readers can open it. Later writes return
-    /// an error, and later calls to close do nothing.
+    /// @brief ends the segment with a close record, then syncs and closes it, so
+    /// readers can open it. Readers then treat any damage in the segment as CORRUPT.
+    /// Later writes return an error, and later calls to close do nothing.
     /// @returns the error of the last sync. Then the frames since the sync before it
     /// can be lost.
     x::errors::Error close();
@@ -192,8 +194,9 @@ public:
     /// @brief the header of the segment.
     Header header;
 
-    /// @brief reads the next frame. The first record that a crash or a power loss
-    /// damaged ends the segment, and the spool counts its bytes in Spool::cut.
+    /// @brief reads the next frame. In a segment without a close record, the first
+    /// record that a crash or a power loss damaged ends the segment, and the spool
+    /// counts its bytes in Spool::cut.
     /// @returns the frame, or std::nullopt at the end of the segment, where the reader
     /// closes its file. CORRUPT when a record is not a valid frame. The errors of
     /// journal::Reader::next when a record is not valid. After an error, every later
@@ -242,6 +245,7 @@ class Spool {
     void count_cut(std::uint64_t key, std::uint64_t bytes);
     [[nodiscard]] bool is_closed(std::uint64_t key) const;
     x::errors::Error remove_files(std::uint64_t key);
+    x::errors::Error recover(const std::filesystem::path &path);
     void forget(std::uint64_t key);
     x::errors::Error set_aside_files(
         const std::filesystem::path &segment,
@@ -254,8 +258,9 @@ public:
     /// @brief opens the spool in the directory of the config, and creates the directory
     /// when it does not exist. Removes segments that a crash left without a header,
     /// read offsets without a segment, and temp files. Cuts the tail that a crash
-    /// damaged from each segment, counts it in cut(), and syncs the segment. Sets aside
-    /// each segment that fails its checks, as set_aside does.
+    /// damaged from each segment without a close record, counts it in cut(), adds the
+    /// close record, and syncs the segment. Sets aside each segment that fails its
+    /// checks, as set_aside does.
     /// @returns INVALID_CONFIG when a setting is out of its range. x::fs::LOCKED when
     /// another process has the spool open. An error when the spool cannot read or
     /// change its directory.

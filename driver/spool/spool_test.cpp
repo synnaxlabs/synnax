@@ -40,8 +40,30 @@ void append_file(const std::filesystem::path &path, const std::string &data) {
     f.write(data.data(), static_cast<std::streamsize>(data.size()));
 }
 
-/// @brief appends a record that passes its checksum to the segment at path.
+/// @brief the byte size of the close record that ends a closed segment.
+constexpr std::uint64_t CLOSE_RECORD_SIZE = journal::RECORD_PREFIX_SIZE + 8;
+
+/// @brief removes the close record from the end of the segment at path, as a crash
+/// before the writer closed leaves it.
+/// @returns false when the segment does not end with a close record.
+bool unseal(const std::filesystem::path &path) {
+    if (!std::filesystem::exists(path)) return false;
+    const auto data = read_file(path);
+    if (data.size() < journal::HEADER_SIZE + CLOSE_RECORD_SIZE) return false;
+    const auto pos = data.size() - CLOSE_RECORD_SIZE;
+    std::string expected("\x08\x00\x00\x00", 4);
+    if (data.substr(pos, 4) != expected || data[pos + 8] != '\x03') return false;
+    for (std::size_t i = 0; i < 8; i++)
+        if (static_cast<unsigned char>(data[pos + 9 + i]) != ((pos >> (8 * i)) & 0xFF))
+            return false;
+    std::filesystem::resize_file(path, pos);
+    return true;
+}
+
+/// @brief appends a record that passes its checksum to the segment at path, after
+/// the frames of a segment that a crash left without a close record.
 void append_record(const std::filesystem::path &path, const journal::Record &record) {
+    unseal(path);
     auto writer = ASSERT_NIL_P(
         journal::Writer::open({.path = path, .magic = SEGMENT_MAGIC})
     );
@@ -52,7 +74,9 @@ void append_record(const std::filesystem::path &path, const journal::Record &rec
 /// @brief reads every record of the segment at path.
 std::vector<journal::Record> read_records(const std::filesystem::path &path) {
     auto reader = ASSERT_NIL_P(
-        journal::Reader::open({.path = path, .magic = SEGMENT_MAGIC, .types = {1, 2}})
+        journal::Reader::open(
+            {.path = path, .magic = SEGMENT_MAGIC, .types = {1, 2, 3}}
+        )
     );
     EXPECT_EQ(reader->header.version, journal::VERSION);
     std::vector<journal::Record> records;
@@ -718,6 +742,8 @@ TEST_F(SpoolTest, SyncsSegmentsAtOpen) {
         this->write_frames(*spool, header_of(1), 1);
         this->write_frames(*spool, header_of(1), 1);
     }
+    ASSERT_TRUE(unseal(this->dir / "0.seg"));
+    ASSERT_TRUE(unseal(this->dir / "1.seg"));
     auto syncs = std::make_shared<int>(0);
     const auto spool = ASSERT_NIL_P(
         Spool::open(
@@ -730,8 +756,80 @@ TEST_F(SpoolTest, SyncsSegmentsAtOpen) {
             }
         )
     );
-    EXPECT_EQ(*syncs, 2);
+    EXPECT_EQ(*syncs, 4);
     EXPECT_EQ(spool->segments().size(), 2);
+}
+
+/// @brief it should not rewrite a closed segment when it opens.
+TEST_F(SpoolTest, KeepsClosedSegmentsAtOpen) {
+    const auto path = this->write_segment();
+    const auto data = read_file(path);
+    auto syncs = std::make_shared<int>(0);
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(
+            Config{
+                .dir = this->dir,
+                .on_sync = [syncs](const x::errors::Error &err) {
+                    ++*syncs;
+                    return err;
+                },
+            }
+        )
+    );
+    EXPECT_EQ(*syncs, 0);
+    EXPECT_EQ(read_file(path), data);
+}
+
+/// @brief it should end each closed segment with a close record.
+TEST_F(SpoolTest, EndsClosedSegmentWithCloseRecord) {
+    const auto records = read_records(this->write_segment());
+    ASSERT_EQ(records.size(), 3);
+    EXPECT_EQ(records[2].type, 3);
+}
+
+/// @brief it should add a close record to a segment that a crash left without one.
+TEST_F(SpoolTest, ClosesRecoveredSegment) {
+    const auto path = this->write_segment();
+    ASSERT_TRUE(unseal(path));
+    append_file(path, std::string("\x40\x00\x00", 3));
+    const auto spool = this->open_spool();
+    EXPECT_EQ(spool->cut(), 3);
+    const auto records = read_records(path);
+    ASSERT_EQ(records.size(), 3);
+    EXPECT_EQ(records[2].type, 3);
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
+}
+
+/// @brief it should read damage in a closed segment as CORRUPT, so the drainer sets
+/// it aside, also where a crash could leave damage in a segment without a close
+/// record.
+TEST_F(SpoolTest, ReadsDamageInClosedSegmentAsCorrupt) {
+    const auto path = this->write_segment();
+    auto data = read_file(path);
+    // The last byte of the frame payload, just before the close record.
+    const auto i = data.size() - CLOSE_RECORD_SIZE - 1;
+    data[i] = static_cast<char>(data[i] ^ 0xFF);
+    std::ofstream(path, std::ios::binary | std::ios::trunc)
+        .write(data.data(), static_cast<std::streamsize>(data.size()));
+    const auto spool = this->open_spool();
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    const auto [frame, err] = reader->read();
+    ASSERT_MATCHES(err, journal::CORRUPT);
+    EXPECT_TRUE(is_bad(err));
+    EXPECT_EQ(spool->cut(), 0);
+}
+
+/// @brief it should fail on a close record before the end of a segment.
+TEST_F(SpoolTest, FailsOnCloseRecordBeforeEnd) {
+    const auto path = this->write_segment();
+    append_record(path, {.type = 3, .payload = std::string(8, '\0')});
+    append_record(path, {.type = 2, .payload = ""});
+    const auto spool = this->open_spool();
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
 }
 
 /// @brief it should cut a damaged tail from a segment when it opens.

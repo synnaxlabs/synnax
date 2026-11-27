@@ -39,6 +39,12 @@ const std::string BAD_EXT = ".bad";
 const std::string TEMP_INFIX = ".tmp.";
 constexpr std::uint8_t HEADER_TYPE = 1;
 constexpr std::uint8_t FRAME_TYPE = 2;
+/// @brief ends a closed segment. Its payload is its own byte position as a u64, so
+/// bytes that only look like a record do not end a segment.
+constexpr std::uint8_t CLOSE_TYPE = 3;
+constexpr std::uint64_t CLOSE_PAYLOAD_SIZE = 8;
+constexpr std::uint64_t CLOSE_RECORD_SIZE = journal::RECORD_PREFIX_SIZE +
+                                            CLOSE_PAYLOAD_SIZE;
 
 using Types = std::unordered_map<std::uint32_t, x::telem::DataType>;
 
@@ -278,14 +284,40 @@ decode_frame(const std::string &payload, const Types &types) {
     return {std::move(frame), x::errors::NIL};
 }
 
-std::pair<std::unique_ptr<journal::Reader>, x::errors::Error>
-open_segment(const std::filesystem::path &path, const std::uint64_t pos = 0) {
+std::pair<std::unique_ptr<journal::Reader>, x::errors::Error> open_segment(
+    const std::filesystem::path &path,
+    const std::uint64_t pos = 0,
+    const std::optional<std::uint64_t> end = std::nullopt
+) {
     return journal::Reader::open(
         {.path = path,
          .magic = SEGMENT_MAGIC,
-         .types = {HEADER_TYPE, FRAME_TYPE},
-         .pos = pos}
+         .types = {HEADER_TYPE, FRAME_TYPE, CLOSE_TYPE},
+         .pos = pos,
+         .end = end}
     );
+}
+
+journal::Record close_record(const std::uint64_t pos) {
+    std::string payload(CLOSE_PAYLOAD_SIZE, '\0');
+    for (std::size_t i = 0; i < CLOSE_PAYLOAD_SIZE; i++)
+        payload[i] = static_cast<char>(pos >> (8 * i));
+    return {.type = CLOSE_TYPE, .payload = std::move(payload)};
+}
+
+/// @returns the byte position of the close record that ends the first size bytes of
+/// the segment at path, or std::nullopt when they do not end with one.
+std::optional<std::uint64_t>
+close_pos(const std::filesystem::path &path, const std::uint64_t size) {
+    if (size < journal::HEADER_SIZE + CLOSE_RECORD_SIZE) return std::nullopt;
+    const auto pos = size - CLOSE_RECORD_SIZE;
+    auto [file, err] = open_segment(path, pos, size);
+    if (err) return std::nullopt;
+    auto [record, r_err] = file->next();
+    if (r_err || !record || record->type != CLOSE_TYPE ||
+        record->payload != close_record(pos).payload)
+        return std::nullopt;
+    return pos;
 }
 
 /// @brief reads the first record of a segment.
@@ -379,9 +411,12 @@ x::errors::Error Writer::close() {
     if (this->closed) return x::errors::NIL;
     this->closed = true;
     if (this->size == 0) return x::errors::NIL;
-    const auto err = this->file->close();
+    // The journal refuses the close record after it fails, and then readers keep the
+    // crash rules.
+    auto err = this->file->write(close_record(this->file->pos()));
+    if (const auto c_err = this->file->close(); !err) err = c_err;
     this->file.reset();
-    this->spool.close(this->key, this->size);
+    this->spool.close(this->key, this->size + CLOSE_RECORD_SIZE);
     return err;
 }
 
@@ -402,10 +437,11 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
     auto [payload, err] = encode_frame(frame, this->types);
     if (err) return err;
     bytes += journal::RECORD_PREFIX_SIZE + payload.size();
+    const auto marker = this->size == 0 ? CLOSE_RECORD_SIZE : 0;
     std::string limit;
     if (payload.size() > this->spool.cfg.max_payload)
         limit = "max_payload of " + std::to_string(this->spool.cfg.max_payload);
-    else if (bytes > this->spool.cfg.cap)
+    else if (bytes + marker > this->spool.cfg.cap)
         limit = "cap of " + std::to_string(this->spool.cfg.cap);
     if (!limit.empty()) {
         this->failed = x::errors::Error(
@@ -416,7 +452,7 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
         ++this->spool.refused_count;
         return this->failed;
     }
-    if (const auto r_err = this->spool.reserve(bytes)) {
+    if (const auto r_err = this->spool.reserve(bytes + marker)) {
         if (r_err.matches(FULL))
             this->refused = true;
         else
@@ -434,17 +470,17 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
             .on_create = this->spool.cfg.on_create,
             .on_sync = this->spool.cfg.on_sync,
         });
-        if (o_err) return this->fail(o_err, bytes);
+        if (o_err) return this->fail(o_err, bytes, marker);
         this->file = std::move(file);
         if (const auto w_err = this->file->write(
                 {.type = HEADER_TYPE, .payload = this->header_payload}
             ))
-            return this->fail(w_err, bytes);
+            return this->fail(w_err, bytes, marker);
     }
     if (const auto w_err = this->file->write(
             {.type = FRAME_TYPE, .payload = std::move(payload)}
         ))
-        return this->fail(w_err, bytes);
+        return this->fail(w_err, bytes, marker);
     this->size += bytes;
     return x::errors::NIL;
 }
@@ -455,8 +491,11 @@ x::errors::Error Writer::sync_if_due() {
     return this->failed;
 }
 
-x::errors::Error
-Writer::fail(const x::errors::Error &err, const std::uint64_t reserved) {
+x::errors::Error Writer::fail(
+    const x::errors::Error &err,
+    const std::uint64_t reserved,
+    const std::uint64_t marker
+) {
     this->failed = err;
     // The journal appends a record before it syncs, so after a failed sync the frame is
     // in the segment.
@@ -465,7 +504,7 @@ Writer::fail(const x::errors::Error &err, const std::uint64_t reserved) {
         this->size = end;
         return this->failed;
     }
-    this->spool.release(reserved);
+    this->spool.release(reserved + marker);
     ++this->spool.refused_count;
     if (this->size > 0) return this->failed;
     // A segment without frames is useless to readers.
@@ -494,8 +533,12 @@ std::pair<std::optional<x::telem::Frame>, x::errors::Error> Reader::read() {
         this->file.reset();
         return {std::nullopt, x::errors::NIL};
     }
-    if (record->type != FRAME_TYPE) {
+    if (record->type == HEADER_TYPE) {
         this->failed = x::errors::Error(CORRUPT, "segment has a second header");
+        return {std::nullopt, this->failed};
+    }
+    if (record->type == CLOSE_TYPE) {
+        this->failed = x::errors::Error(CORRUPT, "segment has frames after its end");
         return {std::nullopt, this->failed};
     }
     auto [frame, d_err] = decode_frame(record->payload, this->types);
@@ -573,28 +616,18 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
             continue;
         }
         file.reset();
-        // Cuts a torn tail and syncs the rest, so a reader never commits past bytes
-        // that a power loss can still take.
-        auto [recovered, r_err] = journal::Writer::open({
-            .path = path,
-            .magic = SEGMENT_MAGIC,
-            .sync_interval = spool->cfg.sync_interval,
-            .sync_bytes = spool->cfg.sync_bytes,
-            .max_payload = spool->cfg.max_payload,
-            .on_create = spool->cfg.on_create,
-            .on_sync = spool->cfg.on_sync,
-        });
-        if (is_bad(r_err)) {
-            if (const auto s_err = spool->set_aside_files(path, r_err))
-                return {nullptr, s_err};
-            continue;
-        }
-        if (r_err) return {nullptr, r_err};
-        spool->cut_count += recovered->cut();
-        if (const auto c_err = recovered->close()) return {nullptr, c_err};
-        recovered.reset();
-        const auto size = std::filesystem::file_size(path, ec);
+        auto size = std::filesystem::file_size(path, ec);
         if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
+        if (!close_pos(path, size)) {
+            if (const auto r_err = spool->recover(path)) {
+                if (!is_bad(r_err)) return {nullptr, r_err};
+                if (const auto s_err = spool->set_aside_files(path, r_err))
+                    return {nullptr, s_err};
+                continue;
+            }
+            size = std::filesystem::file_size(path, ec);
+            if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
+        }
         spool->used += size;
         spool->closed[key] = size;
     }
@@ -602,6 +635,26 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
         spool->next_key = std::max(spool->next_key, key + 1);
     if (const auto err = spool->remove_orphan_offsets()) return {nullptr, err};
     return {std::move(spool), x::errors::NIL};
+}
+
+x::errors::Error Spool::recover(const std::filesystem::path &path) {
+    // Cuts a torn tail and syncs the rest, so a reader never commits past bytes that
+    // a power loss can still take.
+    auto [file, err] = journal::Writer::open({
+        .path = path,
+        .magic = SEGMENT_MAGIC,
+        .sync_interval = this->cfg.sync_interval,
+        .sync_bytes = this->cfg.sync_bytes,
+        .max_payload = this->cfg.max_payload,
+        .on_create = this->cfg.on_create,
+        .on_sync = this->cfg.on_sync,
+    });
+    if (err) return err;
+    this->cut_count += file->cut();
+    // A crash can cut the tail back to a close record.
+    if (!close_pos(path, file->pos()))
+        if (err = file->write(close_record(file->pos())); err) return err;
+    return file->close();
 }
 
 std::filesystem::path Spool::segment_path(const std::uint64_t key) const {
@@ -731,7 +784,13 @@ Spool::open_reader(const std::uint64_t key) {
             )
         };
     const auto path = this->segment_path(key);
-    auto [file, err] = open_segment(path);
+    std::error_code ec;
+    const auto size = std::filesystem::file_size(path, ec);
+    if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
+    // A segment that a failed writer left without a close record keeps the crash
+    // rules.
+    const auto end = close_pos(path, size);
+    auto [file, err] = open_segment(path, 0, end);
     if (err) return {nullptr, err};
     auto [header, h_err] = read_header(*file);
     if (h_err) return {nullptr, h_err};
@@ -755,7 +814,7 @@ Spool::open_reader(const std::uint64_t key) {
             };
         if (offset->pos < reader->pos)
             return {nullptr, x::errors::Error(CORRUPT, "read offset is in the header")};
-        std::tie(file, err) = open_segment(path, offset->pos);
+        std::tie(file, err) = open_segment(path, offset->pos, end);
         if (err) return {nullptr, err};
         reader->pos = offset->pos;
     }
