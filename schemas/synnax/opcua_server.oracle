@@ -18,6 +18,7 @@ import "schemas/x/telem"
 
 @cpp output "client/cpp/opcua/server"
 @go output  "core/pkg/service/opcua/server"
+@pb
 @py output  "client/py/synnax/opcua/server"
 @ts output  "client/ts/src/opcua/server"
 
