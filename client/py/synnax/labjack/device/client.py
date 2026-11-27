@@ -92,7 +92,6 @@ class Client:
         """Deletes devices with their statuses. Deleting a missing device succeeds.
 
         :param keys: The keys of the devices to delete.
-        :raises ValidationError: If a task or channel still uses a device.
         """
         self._client.send(
             "/labjack/device/delete", _DeleteRequest(keys=normalize(keys)), Empty
