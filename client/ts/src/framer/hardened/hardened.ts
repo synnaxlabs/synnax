@@ -227,7 +227,9 @@ export class HardenedStreamer implements Streamer {
   ): Promise<void> {
     if (this.closed) throw new EOF();
     const prev = this.config.channels;
+    const prevUntimed = this.config.untimedKeys;
     this.config.channels = channels;
+    this.config.untimedKeys = options?.untimedKeys;
     try {
       await this.wrapped.update(channels, options);
     } catch (e) {
@@ -236,6 +238,7 @@ export class HardenedStreamer implements Streamer {
       // A rejection of the keys recurs on every retry, and leaves the stream as it was.
       if (isDefinitive(err)) {
         this.config.channels = prev;
+        this.config.untimedKeys = prevUntimed;
         throw err;
       }
       // an EOF the client did not ask for is a drop, as in read

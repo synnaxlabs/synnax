@@ -16,6 +16,7 @@ import {
   type WebSocketClient,
 } from "@synnaxlabs/freighter";
 import {
+  array,
   disposable,
   errors,
   Rate,
@@ -35,6 +36,7 @@ import { StreamProxy } from "@/framer/streamProxy";
 
 const reqZ = z.object({
   keys: z.number().array(),
+  untimedKeys: z.number().array().optional(),
   downsampleFactor: z.uint32(),
   throttleRate: Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
@@ -89,6 +91,11 @@ const intermediateStreamerConfigZ = z.object({
    connection fails reads instead of hanging forever. TimeSpan.ZERO disables
    detection. Defaults to 5 seconds. */
   keepAlive: TimeSpan.z.default(TimeSpan.seconds(5)),
+  /**
+   * The keys among the channels whose samples the stream sends with no time. Every
+   * other channel's samples come with the time series of their clock.
+   */
+  untimedKeys: channel.keyZ.array().default([]),
 });
 
 /** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
@@ -128,6 +135,11 @@ export interface StreamerUpdateOptions {
    * Core that supports it.
    */
   waitForAck?: boolean;
+  /**
+   * The keys among the channels whose samples the stream sends with no time. Defaults
+   * to none.
+   */
+  untimedKeys?: channel.Key[];
 }
 
 /**
@@ -188,9 +200,11 @@ export const createStreamOpener =
       cfg.excludeGroups,
       cfg.keepAlive,
       onMissed,
+      cfg.untimedKeys,
     );
     await stream.send({
       keys: Array.from(adapter.keys),
+      untimedKeys: cfg.untimedKeys,
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
       excludeGroups: cfg.excludeGroups,
@@ -234,6 +248,7 @@ class BaseStreamer implements Streamer {
   private readonly excludeGroups: number[];
   private readonly deadline: TimeSpan;
   private readonly onMissed?: MissedHandler;
+  private untimedKeys: channel.Key[];
   // Set once the Core proves keep-alive support by sending one, so the deadline never
   // arms against a Core that will not send them.
   private armed = false;
@@ -249,6 +264,7 @@ class BaseStreamer implements Streamer {
     excludeGroups: number[] = [],
     keepAlive: TimeSpan = TimeSpan.ZERO,
     onMissed?: MissedHandler,
+    untimedKeys: channel.Key[] = [],
   ) {
     this.stream = new StreamProxy("Streamer", stream);
     this.adapter = adapter;
@@ -259,6 +275,7 @@ class BaseStreamer implements Streamer {
       keepAlive.milliseconds * KEEP_ALIVE_DEADLINE_FACTOR,
     );
     this.onMissed = onMissed;
+    this.untimedKeys = untimedKeys;
   }
 
   get keys(): channel.Key[] {
@@ -321,15 +338,18 @@ class BaseStreamer implements Streamer {
 
   async update(
     channels: channel.Params,
-    { waitForAck = false }: StreamerUpdateOptions = {},
+    { waitForAck = false, untimedKeys = [] }: StreamerUpdateOptions = {},
   ): Promise<void> {
     const hasChanged = await this.adapter.update(channels);
     // A read that failed while the channels resolved left no reader for the ack.
     if (this.failure != null) throw this.failure;
-    if (!hasChanged && !waitForAck) return;
+    const untimedChanged = !array.equalAsSets(untimedKeys, this.untimedKeys);
+    if (!hasChanged && !untimedChanged && !waitForAck) return;
+    this.untimedKeys = untimedKeys;
     this.adapter.advance();
     const sent = this.stream.send({
       keys: Array.from(this.adapter.keys),
+      untimedKeys,
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
       excludeGroups: this.excludeGroups,

@@ -298,7 +298,11 @@ class Client:
         """
         normal = channel.normalize_params(channels)
         frame = self._reader.read(
-            tr, channels, reduction=reduction, timestamps_included=not normal.single
+            tr,
+            channels,
+            reduction=reduction,
+            timestamps_included=not normal.single,
+            untimed=normal.single,
         )
         if not normal.single:
             return frame

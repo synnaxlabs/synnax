@@ -208,7 +208,7 @@ export class Client {
     opts?: ReadOptions,
   ): Promise<MultiSeries | Frame> {
     const { single } = channel.analyzeParams(channels);
-    const fr = await this.reader.read(tr, channels, opts);
+    const fr = await this.reader.read(tr, channels, opts, single);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
@@ -276,7 +276,7 @@ export class Client {
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
     const { single } = channel.analyzeParams(channels);
-    const fr = await this.readLatestNFrame(channels, n);
+    const fr = await this.readLatestNFrame(channels, n, TimeRange.MAX, single);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
@@ -285,9 +285,10 @@ export class Client {
     channels: channel.Params,
     n: number,
     tr: TimeRange = TimeRange.MAX,
+    untimed: boolean = false,
   ): Promise<Frame> {
     if (n <= 0) return new Frame();
-    return await this.reader.read(tr, channels, { latest: n });
+    return await this.reader.read(tr, channels, { latest: n }, untimed);
   }
 
   /**

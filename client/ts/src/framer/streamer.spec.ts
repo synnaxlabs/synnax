@@ -1146,6 +1146,27 @@ describe("Streamer", () => {
       expect(openerMock).toHaveBeenCalledTimes(2);
     });
 
+    it("should reopen with the untimed keys of the last update", async () => {
+      const streamer1 = new MockStreamer();
+      const streamer2 = new MockStreamer();
+      const fr = new framer.Frame({ 1: new Series([1]) });
+      streamer1.responses = [[fr, new Unreachable({ message: "cat" })]];
+      streamer2.responses = [[fr, null]];
+      const configs: framer.StreamerConfig[] = [];
+      const hardened = await framer.HardenedStreamer.open(
+        async (config) => {
+          configs.push(structuredClone(config));
+          return configs.length === 1 ? streamer1 : streamer2;
+        },
+        { channels: [1, 2] },
+      );
+      await hardened.update([1, 2], { untimedKeys: [2] });
+      await hardened.read();
+      expect(configs).toHaveLength(2);
+      expect(configs[1]).toMatchObject({ channels: [1, 2], untimedKeys: [2] });
+      hardened.close();
+    });
+
     it("should repeatedly try re-opening the streamer when read fails", async () => {
       const streamer1 = new MockStreamer();
       const streamer5 = new MockStreamer();
