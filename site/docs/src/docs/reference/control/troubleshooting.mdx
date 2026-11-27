@@ -288,7 +288,8 @@ No fix is necessary when the sensor streams. See
 
 A runtime error, such as an index out of bounds. The status shows "Node failed" with
 this text in the description. The automation drops the output of that part for the cycle
-and keeps running.
+and keeps running. When the part runs over a whole series in one call, the text says
+`over <n> samples` in place of `at sample <i>/<n>`.
 
 </Problem.Cause>
 <Problem.Fix>

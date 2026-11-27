@@ -192,7 +192,41 @@ public:
         this->state.set_current_node_key(this->ir.key);
 
         bool trapped = false;
-        for (int i = 0; i < max_length; i++) {
+        bool batched = false;
+        if (auto *batch = this->func.batch();
+            batch != nullptr && max_length > 1 && !this->string_outputs[0]) {
+            std::vector<const x::telem::Series *> series(this->ir.inputs.size());
+            for (size_t j = 0; j < this->ir.inputs.size(); j++)
+                if (this->ir.inputs[j].value.is_null())
+                    series[j] = this->state.input(j).get();
+            const auto count = static_cast<size_t>(max_length);
+            const auto [ran, err] = batch->call(series, count, *this->state.output(0));
+            batched = ran;
+            if (err.matches(errors::INTERRUPTED)) return x::errors::NIL;
+            if (err) {
+                ctx.report_error(
+                    x::errors::Error(
+                        err,
+                        "WASM execution failed in node " + this->ir.key + " over " +
+                            std::to_string(max_length) + " samples: " + err.data
+                    )
+                );
+                trapped = true;
+            } else if (ran) {
+                auto *stamps = reinterpret_cast<int64_t *>(
+                    this->state.output_time(0)->data()
+                );
+                for (size_t i = 0; i < count; i++)
+                    stamps[i] = clock_stamp
+                                  ? (clock_first + static_cast<int64_t>(i))
+                                        .nanoseconds()
+                                  : longest_input_time
+                                        ->at<x::telem::TimeStamp>(static_cast<int>(i))
+                                        .nanoseconds();
+                this->offsets[0] = static_cast<int>(count);
+            }
+        }
+        for (int i = 0; !batched && i < max_length; i++) {
             for (size_t j = 0; j < this->ir.inputs.size(); j++) {
                 if (!this->ir.inputs[j].value.is_null() || this->chan_inputs[j] ||
                     this->var_inputs[j])

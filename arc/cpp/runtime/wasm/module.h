@@ -9,15 +9,19 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <tuple>
 #include <utility>
 #include <vector>
 
+#include "absl/log/log.h"
 #include "wasmtime.hh"
 
 #include "x/cpp/errors/errors.h"
@@ -40,6 +44,53 @@ inline std::string trap_reason(std::string_view message) {
     while (message.ends_with('\n'))
         message.remove_suffix(1);
     return std::string(message);
+}
+
+/// @brief suffix of the batch wrapper that the compiler exports beside an
+/// element-wise function.
+constexpr auto BATCH_SUFFIX = "$batch";
+
+/// @brief returns the raw bits of a guest value, zero-extended to 64 bits.
+inline uint64_t wasm_bits(const wasmtime::Val &val) {
+    uint64_t bits = 0;
+    switch (val.kind()) {
+        case wasmtime::ValKind::I32:
+            bits = static_cast<uint32_t>(val.i32());
+            break;
+        case wasmtime::ValKind::I64:
+            bits = static_cast<uint64_t>(val.i64());
+            break;
+        case wasmtime::ValKind::F32: {
+            const float f = val.f32();
+            uint32_t b = 0;
+            std::memcpy(&b, &f, sizeof(f));
+            bits = b;
+            break;
+        }
+        case wasmtime::ValKind::F64: {
+            const double d = val.f64();
+            std::memcpy(&bits, &d, sizeof(d));
+            break;
+        }
+        default:
+            break;
+    }
+    return bits;
+}
+
+/// @brief reports whether the raw bytes of a sample of data_type give the guest the
+/// same value as the conversion of one sample at a time.
+inline bool same_bits(const x::telem::DataType &data_type, const types::Type &type) {
+    if (data_type.density() != type.density()) return false;
+    const bool is_float = data_type == x::telem::FLOAT32_T ||
+                          data_type == x::telem::FLOAT64_T;
+    if (is_float != (type.kind == types::Kind::F32 || type.kind == types::Kind::F64))
+        return false;
+    // A narrow integer widens to i32, so its sign must match.
+    if (type.density() > 2) return true;
+    const bool is_signed = data_type == x::telem::INT8_T ||
+                           data_type == x::telem::INT16_T;
+    return is_signed == (type.kind == types::Kind::I8 || type.kind == types::Kind::I16);
 }
 
 /// @brief Convert SampleValue to wasmtime::Val for WASM function calls.
@@ -206,6 +257,8 @@ constexpr auto LOOP_BUDGET_EXPORT = "$loop_budget";
 /// @brief loop iterations and function calls that a program can run in one cycle by
 /// default.
 constexpr std::int64_t DEFAULT_LOOP_BUDGET = 100'000'000;
+/// @brief bytes of guest memory that each node's batch call can take by default.
+constexpr std::uint32_t DEFAULT_BATCH_CAPACITY = 1024 * 1024;
 
 struct ModuleConfig {
     program::Program program;
@@ -216,6 +269,9 @@ struct ModuleConfig {
     /// @brief loop iterations and function calls that the guest can run between calls
     /// to reset_loop_budget.
     std::int64_t loop_budget = DEFAULT_LOOP_BUDGET;
+    /// @brief bytes of guest memory that each node's batch call can take. A longer
+    /// series runs in slices that fit.
+    std::uint32_t batch_capacity = DEFAULT_BATCH_CAPACITY;
 };
 
 class Module {
@@ -360,6 +416,171 @@ public:
     Module(const Module &) = delete;
     Module &operator=(const Module &) = delete;
 
+    /// @brief calls the batch wrapper that the compiler exports beside an element-wise
+    /// function. The wrapper loops over a whole series inside the guest. Its params are
+    /// the sample count, the output block's base, then a base and byte stride per
+    /// input.
+    class Batch {
+        Module &module;
+        wasmtime::Func fn;
+        types::Params inputs;
+        types::Type output;
+        /// @brief the bits of each literal input; unused for a streamed input.
+        std::vector<uint64_t> literals;
+        std::vector<wasmtime::Val> args;
+        uint32_t ptr = 0;
+        uint32_t capacity = 0;
+        /// @brief true once a failed grow has been reported.
+        bool warned = false;
+
+        static constexpr uint64_t align8(const uint64_t v) { return (v + 7) & ~7ULL; }
+
+        /// @brief returns the bytes of a region that holds count samples, where varies
+        /// marks the inputs that hold a sample per output sample.
+        [[nodiscard]] uint64_t
+        region_size(const uint64_t count, const std::vector<bool> &varies) const {
+            uint64_t size = align8(count * this->output.density());
+            for (size_t i = 0; i < this->inputs.size(); i++)
+                size += align8(
+                    (varies[i] ? count : 1) * this->inputs[i].type.density()
+                );
+            return size;
+        }
+
+        /// @brief runs samples [start, start + count) of the function into out.
+        x::errors::Error call_slice(
+            const std::vector<const x::telem::Series *> &series,
+            const std::vector<bool> &varies,
+            const size_t start,
+            const size_t count,
+            x::telem::Series &out
+        ) {
+            const auto out_density = this->output.density();
+            auto *buf = this->module.memory.data(this->module.store).data() + this->ptr;
+            uint64_t offset = align8(count * out_density);
+            for (size_t i = 0; i < this->inputs.size(); i++) {
+                const auto density = this->inputs[i].type.density();
+                auto *dst = buf + offset;
+                const auto *in = series[i];
+                if (in == nullptr)
+                    std::memcpy(dst, &this->literals[i], density);
+                else if (!varies[i])
+                    std::memcpy(dst, in->data(), density);
+                else if (in->size() >= start + count)
+                    std::memcpy(dst, in->data() + (start * density), count * density);
+                else
+                    for (size_t j = 0; j < count; j++)
+                        std::memcpy(
+                            dst + (j * density),
+                            in->data() + (((start + j) % in->size()) * density),
+                            density
+                        );
+                this->args[2 + (2 * i)] = wasmtime::Val(
+                    static_cast<int32_t>(this->ptr + offset)
+                );
+                this->args[3 + (2 * i)] = wasmtime::Val(
+                    static_cast<int32_t>(varies[i] ? density : 0)
+                );
+                offset += align8((varies[i] ? count : 1) * density);
+            }
+            this->args[0] = wasmtime::Val(static_cast<int32_t>(count));
+            this->args[1] = wasmtime::Val(static_cast<int32_t>(this->ptr));
+            if (auto result = this->fn.call(this->module.store, this->args); !result)
+                return this->module.call_error(result.err());
+            // The guest can grow memory, which can move it.
+            buf = this->module.memory.data(this->module.store).data() + this->ptr;
+            std::memcpy(out.data() + (start * out_density), buf, count * out_density);
+            return x::errors::NIL;
+        }
+
+    public:
+        Batch(
+            Module &module,
+            wasmtime::Func fn,
+            const types::Params &inputs,
+            types::Type output
+        ):
+            module(module),
+            fn(fn),
+            inputs(inputs),
+            output(std::move(output)),
+            literals(inputs.size()),
+            args(2 + (2 * inputs.size()), wasmtime::Val(0)) {
+            for (size_t i = 0; i < inputs.size(); i++) {
+                if (inputs[i].value.is_null()) continue;
+                const auto sv = types::to_sample_value(inputs[i].value, inputs[i].type);
+                if (sv.has_value())
+                    this->literals[i] = wasm_bits(sample_to_wasm(*sv, inputs[i].type));
+            }
+        }
+
+        /// @brief writes count samples of the function into out, which must hold count
+        /// samples. series holds each streamed input, and nullptr for a literal one. A
+        /// series longer than the batch region holds runs in slices that fit it.
+        /// @returns false when a series does not match the wrapper's layout or guest
+        /// memory cannot hold one sample, so the caller must run the samples one at a
+        /// time, and the error of the call.
+        std::pair<bool, x::errors::Error> call(
+            const std::vector<const x::telem::Series *> &series,
+            const size_t count,
+            x::telem::Series &out
+        ) {
+            if (!same_bits(out.data_type(), this->output))
+                return {false, x::errors::NIL};
+            std::vector<bool> varies(this->inputs.size(), false);
+            for (size_t i = 0; i < this->inputs.size(); i++) {
+                const auto *in = series[i];
+                if (in == nullptr) continue;
+                if (!same_bits(in->data_type(), this->inputs[i].type))
+                    return {false, x::errors::NIL};
+                varies[i] = in->size() != 1;
+            }
+            const uint64_t cap = this->module.cfg.batch_capacity;
+            const uint64_t fixed = this->region_size(0, varies);
+            const uint64_t per_sample = this->region_size(1, varies) - fixed;
+            // Alignment adds at most 7 bytes for each block past the fixed size.
+            const uint64_t slack = 8 * (1 + this->inputs.size());
+            if (fixed + slack + per_sample > cap) return {false, x::errors::NIL};
+            const uint64_t slice = std::min<uint64_t>(
+                count,
+                (cap - fixed - slack) / per_sample
+            );
+            const uint64_t size = this->region_size(slice, varies);
+            if (size > this->capacity) {
+                // Doubling bounds what a node abandons as its series grow.
+                const auto want = std::min(
+                    std::max(size, uint64_t{2} * this->capacity),
+                    cap
+                );
+                const auto region = this->module.grow(want);
+                if (!region.has_value()) {
+                    if (!this->warned)
+                        LOG(WARNING)
+                            << "[arc.wasm] guest memory cannot grow by " << want
+                            << " bytes, so a node runs one sample at a time";
+                    this->warned = true;
+                    return {false, x::errors::NIL};
+                }
+                std::tie(this->ptr, this->capacity) = *region;
+            }
+            for (size_t start = 0; start < count; start += slice)
+                if (auto err = this->call_slice(
+                        series,
+                        varies,
+                        start,
+                        std::min<size_t>(slice, count - start),
+                        out
+                    ))
+                    return {true, err};
+            if (this->output.kind == types::Kind::Bool) {
+                auto *bytes = reinterpret_cast<uint8_t *>(out.data());
+                for (size_t j = 0; j < count; j++)
+                    bytes[j] = bytes[j] != 0 ? 1 : 0;
+            }
+            return {true, x::errors::NIL};
+        }
+    };
+
     class Function {
     public:
         struct Result {
@@ -376,6 +597,7 @@ public:
         uint32_t base;
         std::vector<wasmtime::Val> args;
         std::vector<uint32_t> offsets;
+        std::optional<Batch> batch_call;
 
     public:
         Function(
@@ -383,9 +605,14 @@ public:
             wasmtime::Func fn,
             const types::Params &outputs,
             const types::Params &inputs,
-            const uint32_t base
+            const uint32_t base,
+            std::optional<Batch> batch = std::nullopt
         ):
-            module(module), fn(fn), outputs(outputs), base(base) {
+            module(module),
+            fn(fn),
+            outputs(outputs),
+            base(base),
+            batch_call(std::move(batch)) {
             this->args.resize(inputs.size(), wasmtime::Val(0));
             this->streamed.assign(inputs.size(), false);
             // An input with a nil value is edge-fed and streams in call(); a literal
@@ -424,6 +651,12 @@ public:
             }
         }
 
+        /// @brief returns the wrapper that runs the function over a whole series, or
+        /// nullptr when the node's shape does not admit one.
+        [[nodiscard]] Batch *batch() {
+            return this->batch_call.has_value() ? &*this->batch_call : nullptr;
+        }
+
         x::errors::Error call(
             const std::vector<x::telem::SampleValue> &input_vals,
             std::vector<Result> &output_vals
@@ -434,30 +667,7 @@ public:
                 if (this->streamed[i]) this->args[i] = sample_to_wasm(input_vals[i]);
 
             auto result = fn.call(this->module.store, this->args);
-            if (!result) {
-                auto trap = result.err();
-                if (const auto *t = std::get_if<wasmtime::Trap>(&trap.data);
-                    t != nullptr && t->code() == WASMTIME_TRAP_CODE_INTERRUPT)
-                    return x::errors::Error(
-                        errors::INTERRUPTED,
-                        "The runtime stopped the call."
-                    );
-                if (this->module.loop_budget_used()) {
-                    // Later calls would each trap at once and report the error again.
-                    this->module.interrupt();
-                    return x::errors::Error(
-                        errors::LOOP_BUDGET,
-                        "The program ran more than " +
-                            std::to_string(this->module.cfg.loop_budget) +
-                            " loop iterations and function calls in one cycle."
-                    );
-                }
-                auto msg = trap.message();
-                return x::errors::Error(
-                    errors::WASM_TRAP,
-                    trap_reason({msg.data(), msg.size()})
-                );
-            }
+            if (!result) return this->module.call_error(result.err());
 
             const auto results = result.ok();
             if (this->base == 0) {
@@ -501,6 +711,44 @@ public:
         }
     };
 
+    /// @brief returns the runtime error of a failed guest call.
+    x::errors::Error call_error(const wasmtime::TrapError &trap) {
+        if (const auto *t = std::get_if<wasmtime::Trap>(&trap.data);
+            t != nullptr && t->code() == WASMTIME_TRAP_CODE_INTERRUPT)
+            return x::errors::Error(
+                errors::INTERRUPTED,
+                "The runtime stopped the call."
+            );
+        if (this->loop_budget_used()) {
+            // Later calls would each trap at once and report the error again.
+            this->interrupt();
+            return x::errors::Error(
+                errors::LOOP_BUDGET,
+                "The program ran more than " + std::to_string(this->cfg.loop_budget) +
+                    " loop iterations and function calls in one cycle."
+            );
+        }
+        auto msg = trap.message();
+        return x::errors::Error(
+            errors::WASM_TRAP,
+            trap_reason({msg.data(), msg.size()})
+        );
+    }
+
+    /// @brief takes a region of at least size bytes past the end of guest memory.
+    /// @returns the base and capacity of the region, or nullopt when memory cannot
+    /// grow. A 32-bit guest memory cannot grow past 4 GiB, so both fit 32 bits.
+    std::optional<std::pair<uint32_t, uint32_t>> grow(const uint64_t size) {
+        constexpr uint64_t PAGE_SIZE = 65536;
+        const uint64_t pages = (size + PAGE_SIZE - 1) / PAGE_SIZE;
+        const auto prev = this->memory.grow(this->store, pages);
+        if (!prev) return std::nullopt;
+        return std::pair{
+            static_cast<uint32_t>(prev.ok() * PAGE_SIZE),
+            static_cast<uint32_t>(pages * PAGE_SIZE)
+        };
+    }
+
     /// @brief gives the guest its whole loop budget. Call it before each cycle. A call
     /// that uses the whole budget interrupts the module until resume().
     void reset_loop_budget() {
@@ -532,6 +780,28 @@ public:
         const auto export_opt = this->instance.get(this->store, name);
         if (!export_opt) return false;
         return std::get_if<wasmtime::Func>(&*export_opt) != nullptr;
+    }
+
+    /// @brief returns the batch wrapper of the function name for a node with inputs,
+    /// or nullopt when the guest exports none or the node's shape does not match one: a
+    /// single returned value, and fixed-width values with no references throughout.
+    std::optional<Batch> batch(
+        const std::string &name,
+        const ir::Function &func,
+        const types::Params &inputs,
+        const uint32_t base
+    ) {
+        if (base != 0 || func.outputs.size() != 1 ||
+            func.outputs[0].type.density() == 0 || inputs.size() != func.inputs.size())
+            return std::nullopt;
+        for (size_t i = 0; i < inputs.size(); i++)
+            if (func.inputs[i].type.density() == 0 || inputs[i].type.density() == 0)
+                return std::nullopt;
+        const auto export_opt = this->instance.get(this->store, name + BATCH_SUFFIX);
+        if (!export_opt) return std::nullopt;
+        const auto *fn = std::get_if<wasmtime::Func>(&*export_opt);
+        if (fn == nullptr) return std::nullopt;
+        return Batch(*this, *fn, inputs, func.outputs[0].type);
     }
 
     /// @brief Wraps the WASM export `name` using its declared inputs.
@@ -576,7 +846,14 @@ public:
 
         const auto &inputs_to_use = node_inputs.empty() ? func.inputs : node_inputs;
         return {
-            Function(*this, *func_ptr, func.outputs, inputs_to_use, base),
+            Function(
+                *this,
+                *func_ptr,
+                func.outputs,
+                inputs_to_use,
+                base,
+                this->batch(name, func, inputs_to_use, base)
+            ),
             x::errors::NIL
         };
     }

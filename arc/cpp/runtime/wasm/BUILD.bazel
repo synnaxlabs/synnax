@@ -28,6 +28,7 @@ cc_library(
         "//vendor/wasmtime",
         "//x/cpp/errors",
         "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
     ],
 )
 
@@ -37,6 +38,7 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         ":wasm",
+        "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/testutil:compile",
         "//arc/cpp/stl",
         "//arc/cpp/stl/strings",

@@ -845,7 +845,7 @@ func reciprocal() {val i32} i32 {
     EXPECT_EQ(
         reported_errors[0].data(),
         "WASM execution failed in node " + func_node->key +
-            " at sample 1/3: integer divide by zero"
+            " over 3 samples: integer divide by zero"
     );
     EXPECT_EQ(changes, 0);
     EXPECT_FALSE(done);
@@ -3441,4 +3441,204 @@ func sum2() {x i32, y i32} i32 {
     EXPECT_EQ(std::get<int32_t>(results[0].value), 15);
 }
 
+/// @brief returns the given series as a list of frames.
+template<typename... Series>
+std::vector<x::telem::Series> frames_of(Series &&...series) {
+    std::vector<x::telem::Series> frames;
+    (frames.push_back(std::forward<Series>(series)), ...);
+    return frames;
+}
+
+/// @brief the outputs and errors of a single-input node over a run of frames.
+struct UnaryRun {
+    std::vector<x::telem::Series> data;
+    std::vector<x::telem::Series> time;
+    std::vector<x::errors::Error> errors;
+};
+
+/// @brief compiles source, which routes a channel of in_type through the function fn
+/// to a channel of out_type, then runs fn's node once per frame in frames. Each frame
+/// is stamped from start in microseconds.
+UnaryRun run_unary(
+    const std::string &fn,
+    const std::string &body,
+    const x::telem::DataType &in_type,
+    const x::telem::DataType &out_type,
+    const std::vector<x::telem::Series> &frames
+) {
+    const auto client = new_test_client();
+    auto index_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("time"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    EXPECT_NIL(client.channels.create(index_ch));
+    auto input_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("input"),
+        .data_type = in_type,
+        .index = index_ch.key,
+    };
+    EXPECT_NIL(client.channels.create(input_ch));
+    auto output_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("output"),
+        .data_type = out_type,
+        .index = index_ch.key,
+    };
+    EXPECT_NIL(client.channels.create(output_ch));
+    const auto mod = testutil::compile_text(
+        client,
+        body + "\n" + input_ch.name + " -> " + fn + " -> " + output_ch.name
+    );
+    const auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
+    state::State state(
+        state::Config{
+            .ir = static_cast<const arc::ir::IR &>(mod),
+            .channels =
+                {{index_ch.key, x::telem::TIMESTAMP_T, 0},
+                 {input_ch.key, in_type, index_ch.key},
+                 {output_ch.key, out_type, index_ch.key}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+    const auto *on_node = find_node_by_type(mod, "on");
+    const auto *fn_node = find_node_by_type(mod, fn.substr(0, fn.find('(')));
+    auto on_state = ASSERT_NIL_P(state.node(on_node->key));
+    const auto func = ASSERT_NIL_P(wasm_mod->func(fn_node->type, fn_node->inputs));
+    wasm::Node node(
+        mod,
+        *fn_node,
+        ASSERT_NIL_P(state.node(fn_node->key)),
+        func,
+        wasm_mod->strings()
+    );
+    UnaryRun run;
+    auto ctx = make_context();
+    ctx.report_error = [&](const x::errors::Error &err) { run.errors.push_back(err); };
+    int64_t stamp = 1;
+    for (const auto &frame: frames) {
+        std::vector<x::telem::TimeStamp> stamps;
+        stamps.reserve(frame.size());
+        for (size_t i = 0; i < frame.size(); i++)
+            stamps.emplace_back(stamp++ * x::telem::MICROSECOND);
+        on_state.output(0) = x::mem::make_local_shared<x::telem::Series>(
+            frame.deep_copy()
+        );
+        on_state.output_time(0) = x::mem::make_local_shared<x::telem::Series>(stamps);
+        on_state.mark_fresh(0);
+        EXPECT_NIL(node.next(ctx));
+        auto out = state.node(fn_node->key).first;
+        run.data.push_back(out.output(0)->deep_copy());
+        run.time.push_back(out.output_time(0)->deep_copy());
+    }
+    return run;
+}
+
+/// @brief returns each sample of series as a frame of its own.
+std::vector<x::telem::Series> split(const x::telem::Series &series) {
+    std::vector<x::telem::Series> frames;
+    for (size_t i = 0; i < series.size(); i++) {
+        auto one = x::telem::Series(series.data_type(), 1);
+        one.write(series.at(static_cast<int>(i)));
+        frames.push_back(std::move(one));
+    }
+    return frames;
+}
+
+/// @brief expects a batched run of one frame to give the samples and stamps of a run
+/// that takes one sample at a time.
+void expect_batch_matches_samples(
+    const std::string &fn,
+    const std::string &body,
+    const x::telem::DataType &out_type,
+    const x::telem::Series &data
+) {
+    const auto batched = run_unary(
+        fn,
+        body,
+        data.data_type(),
+        out_type,
+        frames_of(data.deep_copy())
+    );
+    const auto single = run_unary(fn, body, data.data_type(), out_type, split(data));
+    ASSERT_TRUE(batched.errors.empty());
+    ASSERT_TRUE(single.errors.empty());
+    ASSERT_EQ(batched.data[0].size(), data.size());
+    for (size_t i = 0; i < data.size(); i++) {
+        EXPECT_EQ(batched.data[0].at(static_cast<int>(i)), single.data[i].at(0));
+        EXPECT_EQ(batched.time[0].at(static_cast<int>(i)), single.time[i].at(0));
+    }
+}
+
+/// @brief it should give the samples of a node that runs sample by sample.
+TEST(BatchTest, MatchesSampleBySampleForF64) {
+    expect_batch_matches_samples(
+        "scale()",
+        "func scale() {v f64} f64 { return v * 2.5 - 1.0 }",
+        x::telem::FLOAT64_T,
+        x::telem::Series(std::vector<double>{1.5, -2.0, 0.0, 1e9, -7.25})
+    );
+}
+
+/// @brief it should widen a narrow signed input with its sign.
+TEST(BatchTest, MatchesSampleBySampleForI8) {
+    expect_batch_matches_samples(
+        "neg()",
+        "func neg() {v i8} i8 { return 0 - v }",
+        x::telem::INT8_T,
+        x::telem::Series(std::vector<int8_t>{-128, -5, 0, 7, 127})
+    );
+}
+
+/// @brief it should repeat a literal input across every sample.
+TEST(BatchTest, MatchesSampleBySampleWithALiteralInput) {
+    expect_batch_matches_samples(
+        "offset(k=3)",
+        "func offset(k i32) {v i32} i32 { return v + k }",
+        x::telem::INT32_T,
+        x::telem::Series(std::vector<int32_t>{1, 2, 3, -4})
+    );
+}
+
+/// @brief it should write 1 for any true bool, as it does sample by sample.
+TEST(BatchTest, MatchesSampleBySampleForABoolOutput) {
+    expect_batch_matches_samples(
+        "pass()",
+        "func pass() {v bool} bool { return v }",
+        x::telem::BOOLEAN_T,
+        x::telem::Series(std::vector<uint8_t>{0, 1, 2, 255}, x::telem::BOOLEAN_T)
+    );
+}
+
+/// @brief it should drop the cycle's output when the batch traps.
+TEST(BatchTest, TrapDropsTheCycle) {
+    const auto run = run_unary(
+        "reciprocal()",
+        "func reciprocal() {v i32} i32 { return 10 / v }",
+        x::telem::INT32_T,
+        x::telem::INT32_T,
+        frames_of(x::telem::Series(std::vector<int32_t>{5, 0, 2}))
+    );
+    ASSERT_EQ(run.errors.size(), 1);
+    EXPECT_TRUE(run.errors[0].matches(errors::WASM_TRAP));
+    EXPECT_EQ(run.data[0].size(), 0);
+}
+
+/// @brief it should mix frames of one sample with batched frames.
+TEST(BatchTest, SingleSampleFramesMixWithBatches) {
+    const auto run = run_unary(
+        "twice()",
+        "func twice() {v i64} i64 { return v * 2 }",
+        x::telem::INT64_T,
+        x::telem::INT64_T,
+        frames_of(
+            x::telem::Series(static_cast<int64_t>(4)),
+            x::telem::Series(std::vector<int64_t>{5, 6}),
+            x::telem::Series(static_cast<int64_t>(7))
+        )
+    );
+    ASSERT_TRUE(run.errors.empty());
+    EXPECT_EQ(run.data[0].values<int64_t>(), std::vector<int64_t>{8});
+    EXPECT_EQ(run.data[1].values<int64_t>(), (std::vector<int64_t>{10, 12}));
+    EXPECT_EQ(run.data[2].values<int64_t>(), std::vector<int64_t>{14});
+}
 }

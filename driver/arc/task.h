@@ -46,13 +46,17 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     /// @brief loop iterations and function calls that the program can run in one
     /// cycle. Not read from the task's JSON config.
     std::int64_t loop_budget = ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET;
+    /// @brief bytes of guest memory that each node's batch call can take. Not read from
+    /// the task's JSON config.
+    std::uint32_t batch_capacity = ::arc::runtime::wasm::DEFAULT_BATCH_CAPACITY;
 
     TaskConfig(TaskConfig &&other) noexcept:
         ::synnax::task::PersistConfig(std::move(other)),
         arc_key(other.arc_key),
         program(std::move(other.program)),
         loop(other.loop),
-        loop_budget(other.loop_budget) {}
+        loop_budget(other.loop_budget),
+        batch_capacity(other.batch_capacity) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -279,6 +283,7 @@ public:
                     task_ptr->state.send_warning(message, description);
                 },
             .loop_budget = cfg.loop_budget,
+            .batch_capacity = cfg.batch_capacity,
         };
 
         const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {

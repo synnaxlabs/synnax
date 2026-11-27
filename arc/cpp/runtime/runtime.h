@@ -79,6 +79,9 @@ struct Config {
     /// @brief loop iterations and function calls that the program can run in one
     /// cycle. A cycle that runs more stops the runtime with errors::LOOP_BUDGET.
     std::int64_t loop_budget = wasm::DEFAULT_LOOP_BUDGET;
+    /// @brief bytes of guest memory that each node's batch call can take. A longer
+    /// series runs in slices that fit.
+    std::uint32_t batch_capacity = wasm::DEFAULT_BATCH_CAPACITY;
 };
 
 /// @brief callback invoked when a fatal error occurs in the runtime.
@@ -364,6 +367,7 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
         .modules = stl_modules,
         .strings = str_st,
         .loop_budget = cfg.loop_budget,
+        .batch_capacity = cfg.batch_capacity,
     };
     auto [mod, mod_err] = wasm::Module::open(module_cfg);
     if (mod_err) return {nullptr, mod_err};
