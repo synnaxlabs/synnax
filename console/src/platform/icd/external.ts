@@ -19,6 +19,7 @@ export * from "@/platform/icd/inferred";
 export * from "@/platform/icd/Match";
 export * from "@/platform/icd/MessageFormatField";
 export * from "@/platform/icd/number";
+export * from "@/platform/icd/payload";
 export * from "@/platform/icd/picker";
 export * from "@/platform/icd/Plans";
 export * from "@/platform/icd/read";

@@ -135,7 +135,9 @@ struct ConnectionConfig {
     const std::string &device_key
 );
 
-/// @brief merges a ConnectionConfig and RequestConfig into a fully resolved Request.
+/// @brief merges a ConnectionConfig and RequestConfig into a fully resolved Request. A
+/// Content-Type header in req.headers, in any letter case, wins over
+/// req.request_content_type.
 /// @param conn the device-level connection configuration.
 /// @param req the per-endpoint request configuration.
 /// @returns the resolved request.

@@ -33,9 +33,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// decodeFixture is the JSON messages of one source from testdata/decode and the
-// documents they decode. A fixture with an error names the error NewJSON must return,
-// and has no cases.
+// decodeFixture is the messages of one source from testdata/decode and the documents
+// they decode. A fixture with an error names the error that creating the decoder must
+// return, and has no cases.
 type decodeFixture struct {
 	Description string           `json:"description"`
 	Messages    []fixtureMessage `json:"messages"`
@@ -44,9 +44,9 @@ type decodeFixture struct {
 }
 
 type fixtureMessage struct {
-	Name     string          `json:"name"`
-	Payload  icd.JSONPayload `json:"payload"`
-	Bindings []binding       `json:"bindings"`
+	Name     string      `json:"name"`
+	Payload  icd.Payload `json:"payload"`
+	Bindings []binding   `json:"bindings"`
 }
 
 type binding struct {
@@ -55,8 +55,10 @@ type binding struct {
 }
 
 // decodeCase is one document. A document that belongs to no message sets unmatched, and
-// one that does not decode names the error. Otherwise message names the message it
-// belongs to, and samples holds one JSON value for each binding of that message.
+// one that fails as a whole names the error, and the message it belongs to when it
+// belongs to one. Otherwise message names the message it belongs to, samples holds one
+// JSON value for each binding of that message, or null for a binding with no sample,
+// and failures holds each field that does not decode, in binding order.
 type decodeCase struct {
 	Document  json.RawMessage   `json:"document"`
 	Text      *string           `json:"text"`
@@ -64,26 +66,62 @@ type decodeCase struct {
 	Error     string            `json:"error"`
 	Message   string            `json:"message"`
 	Samples   []json.RawMessage `json:"samples"`
+	Failures  []failureCase     `json:"failures"`
+}
+
+// failureCase is a field that a case does not decode.
+type failureCase struct {
+	Binding int    `json:"binding"`
+	Missing bool   `json:"missing"`
+	Error   string `json:"error"`
 }
 
 func fixtureEntry(path string) TableEntry {
 	return Entry(strings.TrimSuffix(filepath.Base(path), ".json"), path)
 }
 
-// fixturePaths returns the fixtures in the dir folder of testdata.
-func fixturePaths(dir string) []string {
+// fixturePaths returns the fixtures of messages in format in the dir folder of
+// testdata.
+func fixturePaths(dir string, format payload.Format) []string {
 	GinkgoHelper()
 	paths := MustSucceed(
 		filepath.Glob(filepath.Join("..", "testdata", dir, "*.json")),
 	)
+	paths = lo.Filter(paths, func(path string, _ int) bool {
+		return fixtureFormat(path) == format
+	})
 	Expect(paths).ToNot(BeEmpty())
 	return paths
 }
 
-// fixtureEntries returns an entry for each fixture in the dir folder of testdata.
-func fixtureEntries(dir string) []TableEntry {
+type formatMessage struct {
+	Payload struct {
+		Format payload.Format `json:"format"`
+	} `json:"payload"`
+}
+
+// fixtureFormat returns the payload format of the first message of the fixture at
+// path.
+func fixtureFormat(path string) payload.Format {
 	GinkgoHelper()
-	return lo.Map(fixturePaths(dir), func(path string, _ int) TableEntry {
+	var f struct {
+		Messages []formatMessage `json:"messages"`
+		Message  formatMessage   `json:"message"`
+	}
+	Expect(
+		json.Unmarshal(MustSucceed(os.ReadFile(filepath.Clean(path))), &f),
+	).To(Succeed())
+	if len(f.Messages) > 0 {
+		return f.Messages[0].Payload.Format
+	}
+	return f.Message.Payload.Format
+}
+
+// fixtureEntries returns an entry for each fixture of messages in format in the dir
+// folder of testdata.
+func fixtureEntries(dir string, format payload.Format) []TableEntry {
+	GinkgoHelper()
+	return lo.Map(fixturePaths(dir, format), func(path string, _ int) TableEntry {
 		return fixtureEntry(path)
 	})
 }
@@ -131,10 +169,15 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
-// expectSample checks that data, the sample of binding i with data type dt, is want.
-// MatchJSON reads each number as a float64, so an integer compares as text.
+// expectSample checks that data, the sample of binding i with data type dt, is want, or
+// that it is empty when want is null. MatchJSON reads each number as a float64, so an
+// integer compares as text.
 func expectSample(dt telem.DataType, data []byte, want json.RawMessage, i int) {
 	GinkgoHelper()
+	if string(want) == "null" {
+		Expect(data).To(BeEmpty(), "binding %d", i)
+		return
+	}
 	actual := MustSucceed(json.Marshal(sampleJSON(dt, data)))
 	switch dt {
 	case telem.Int8T, telem.Int16T, telem.Int32T, telem.Int64T, telem.Uint8T,
@@ -170,20 +213,95 @@ func readDecodeFixture(path string) decodeFixture {
 	return f
 }
 
+func (m fixtureMessage) bindings() []codec.Binding {
+	return lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
+		return codec.Binding{Field: b.Field, DataType: b.DataType}
+	})
+}
+
 func (m fixtureMessage) jsonMessage() codec.JSONMessage {
-	return codec.JSONMessage{
-		Name:    m.Name,
-		Payload: m.Payload,
-		Bindings: lo.Map(m.Bindings, func(b binding, _ int) codec.Binding {
-			return codec.Binding{Field: b.Field, DataType: b.DataType}
-		}),
-	}
+	GinkgoHelper()
+	p, ok := m.Payload.Variant.(icd.JSONPayload)
+	Expect(ok).To(BeTrue(), "message %s is not JSON", m.Name)
+	return codec.JSONMessage{Name: m.Name, Payload: p, Bindings: m.bindings()}
 }
 
 func (f decodeFixture) messages() []codec.JSONMessage {
+	GinkgoHelper()
 	return lo.Map(f.Messages, func(m fixtureMessage, _ int) codec.JSONMessage {
 		return m.jsonMessage()
 	})
+}
+
+// newSamples returns empty sample slices for each binding of each message of f.
+func (f decodeFixture) newSamples() [][][]byte {
+	return lo.Map(f.Messages, func(m fixtureMessage, _ int) [][]byte {
+		return make([][]byte, len(m.Bindings))
+	})
+}
+
+// decodeFunc decodes doc into samples as JSON.Decode does.
+type decodeFunc func(
+	doc []byte,
+	samples [][][]byte,
+) (message int, ok bool, failures []codec.Failure, err error)
+
+// checkCases checks that decode decodes each case of f as the case says.
+func (f decodeFixture) checkCases(decode decodeFunc) {
+	GinkgoHelper()
+	Expect(f.Cases).ToNot(BeEmpty())
+	for i, c := range f.Cases {
+		By("case " + strconv.Itoa(i))
+		doc := []byte(c.Document)
+		if c.Text != nil {
+			doc = []byte(*c.Text)
+		}
+		samples := f.newSamples()
+		m, ok, failures, err := decode(doc, samples)
+		switch {
+		case c.Error != "":
+			Expect(err).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(c.Error),
+			))
+			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
+			if c.Message != "" {
+				Expect(ok).To(BeTrue())
+				Expect(f.Messages[m].Name).To(Equal(c.Message))
+			}
+		case c.Unmatched:
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ok).To(BeFalse())
+			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
+		default:
+			Expect(err).ToNot(HaveOccurred())
+			Expect(ok).To(BeTrue())
+			Expect(f.Messages[m].Name).To(Equal(c.Message))
+			bindings := f.Messages[m].Bindings
+			Expect(c.Samples).To(HaveLen(len(bindings)))
+			if len(c.Failures) == 0 {
+				Expect(failures).To(BeNil())
+			}
+			Expect(failures).To(HaveLen(len(c.Failures)))
+			for j, want := range c.Failures {
+				Expect(failures[j].Binding).To(Equal(want.Binding))
+				Expect(failures[j].Missing).To(Equal(want.Missing))
+				Expect(failures[j].Err).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(want.Error),
+				))
+				Expect(string(c.Samples[want.Binding])).To(Equal("null"))
+			}
+			for k, b := range bindings {
+				expectSample(b.DataType, samples[m][k], c.Samples[k], k)
+			}
+			for other := range samples {
+				if other != m {
+					Expect(samples[other]).To(HaveEach(BeEmpty()))
+				}
+			}
+		}
+	}
 }
 
 // newSamples returns empty sample slices for each binding of each message.
@@ -225,51 +343,8 @@ var _ = Describe("JSON", func() {
 			return
 		}
 		dec := MustSucceed(codec.NewJSON(messages))
-		Expect(f.Cases).ToNot(BeEmpty())
-		for i, c := range f.Cases {
-			By("case " + strconv.Itoa(i))
-			doc := []byte(c.Document)
-			if c.Text != nil {
-				doc = []byte(*c.Text)
-			}
-			samples := newSamples(messages)
-			switch {
-			case c.Error != "":
-				m, _, failures, err := dec.Decode(doc, samples)
-				if err == nil {
-					Expect(failures).ToNot(BeEmpty())
-					err = failures[0].Err
-					for _, failure := range failures {
-						Expect(samples[m][failure.Binding]).To(BeEmpty())
-					}
-				} else {
-					Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
-				}
-				Expect(err).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(c.Error),
-				))
-			case c.Unmatched:
-				_, ok := decode(dec, doc, samples)
-				Expect(ok).To(BeFalse())
-				Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
-			default:
-				m, ok := decode(dec, doc, samples)
-				Expect(ok).To(BeTrue())
-				Expect(messages[m].Name).To(Equal(c.Message))
-				bindings := messages[m].Bindings
-				Expect(c.Samples).To(HaveLen(len(bindings)))
-				for k, b := range bindings {
-					expectSample(b.DataType, samples[m][k], c.Samples[k], k)
-				}
-				for other := range samples {
-					if other != m {
-						Expect(samples[other]).To(HaveEach(BeEmpty()))
-					}
-				}
-			}
-		}
-	}, fixtureEntries("decode"))
+		f.checkCases(dec.Decode)
+	}, fixtureEntries("decode", payload.FormatJSON))
 
 	It("Should reject a match rule with no type", func() {
 		key := uuid.New()

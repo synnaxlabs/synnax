@@ -24,17 +24,6 @@ import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 
-const createPayload = (format: payload.Format): icd.Payload => {
-  switch (format) {
-    case "binary":
-      return { format, fields: [] };
-    case "text":
-      return { format, delimiter: ",", prefix: "", fields: [] };
-    case "json":
-      return { format, fields: [] };
-  }
-};
-
 const checkCycleTime = (span: TimeSpan): string | null => {
   if (span.lessThan(TimeSpan.NANOSECOND)) return "Cycle time must be 1ns or more";
   if (span.greaterThan(TimeSpan.MAX)) return "Cycle time is too long";
@@ -91,7 +80,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
   const { set, mode } = Form.useContext();
   const format = Form.useFieldValue(payloadPath.format);
   const handleFormatChange = (next: payload.Format) => {
-    if (next !== format) set(payloadPath, createPayload(next));
+    if (next !== format) set(payloadPath, ICD.createPayload(next));
   };
   return (
     <Form.Sections className={CSS.BE("icd-editor", "details")}>

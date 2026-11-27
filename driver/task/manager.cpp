@@ -649,7 +649,12 @@ void Manager::worker_loop() {
         const auto operation = entry->op;
         lock.unlock();
         this->execute_op(op, entry, *operation);
-        const auto unanswered = this->ctx->end(operation);
+        std::string deployed;
+        {
+            std::lock_guard entry_lock{entry->mu};
+            deployed = entry->deployed_hash;
+        }
+        const auto unanswered = this->ctx->end(operation, deployed);
         // The flag flips under mu so a waiter mid-predicate cannot miss the
         // notify and sleep past a claimable op.
         lock.lock();
@@ -724,14 +729,12 @@ void Manager::execute_op(
                         ours = entry->row.rack == this->rack.key;
                     }
                     if (ours && !err.matches(x::errors::NOT_FOUND)) {
-                        const auto [name, hash] = operation.task_info();
                         synnax::task::Status status;
                         status.owner = synnax::task::resource_id(op.task_key);
-                        status.name = name;
+                        status.name = operation.task_info().first;
                         status.variant = synnax::status::VARIANT_ERROR;
                         status.message = "Failed to start task";
-                        status.description = err.data;
-                        status.details.config_hash = hash;
+                        status.description = err.data();
                         operation.answer(status);
                     }
                     this->discard(op.task_key, true);
@@ -834,7 +837,6 @@ void Manager::execute_op(
                                          "' tasks. Check that the Driver and the "
                                          "Core run the same version.";
                     status.details.running = false;
-                    status.details.config_hash = tsk.config_hash;
                     operation.answer(status);
                 }
             }
@@ -904,8 +906,14 @@ void Manager::execute_op(
     // Only a boot deploy carries the stored task, and with it the stored status. A
     // cancelled one is answered by the stop that cancelled it, or by the next run.
     if (op.type == Op::Type::DEPLOY && !op.task.key.is_nil() &&
-        operation.token().running())
-        this->replace_interrupted_status(op.task);
+        operation.token().running()) {
+        std::string deployed;
+        {
+            std::lock_guard entry_lock{entry->mu};
+            deployed = entry->deployed_hash;
+        }
+        this->replace_interrupted_status(op.task, deployed);
+    }
 }
 
 void Manager::announce_start(const synnax::task::Key &key, Operation &operation) {
@@ -922,7 +930,10 @@ void Manager::announce_start(const synnax::task::Key &key, Operation &operation)
     operation.step(status, this->op_timeout);
 }
 
-void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
+void Manager::replace_interrupted_status(
+    const synnax::task::Task &tsk,
+    const std::string &deployed_hash
+) {
     // A task that answered its own deploy, such as with an auto-start, owns its status.
     if (!tsk.status.has_value() || this->statuses->latest(tsk.key).has_value()) return;
     // A task moved here runs on its old Driver until a start arrives.
@@ -938,6 +949,7 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
     auto status = *tsk.status;
     status.time = x::telem::TimeStamp::now();
     status.details.running = false;
+    status.details.config_hash = deployed_hash;
     const std::string cause = this->boot_run == 0 || this->runs == this->boot_run
                                 ? "The Driver restarted"
                                 : "The Driver lost its connection to the Core";
@@ -978,7 +990,6 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
         status.message = message;
         status.description = description;
         status.details.running = false;
-        status.details.config_hash = tsk.config_hash;
         operation.answer(status);
     };
     for (int attempt = 1;; attempt++) {
@@ -1000,7 +1011,7 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
         if (err) {
             LOG(WARNING) << "failed to check the config hash of task " << tsk << ": "
                          << err;
-            fail(synnax::status::VARIANT_ERROR, "Failed to configure task", err.data);
+            fail(synnax::status::VARIANT_ERROR, "Failed to configure task", err.data());
             return {nullptr, true};
         }
         if (stored.rack != this->rack.key) {

@@ -44,7 +44,7 @@ Identity::parse(const std::string &certificate, const std::string &private_key) 
     if (parse_err)
         return {
             Identity{},
-            x::errors::Error(errors::CLIENT_CERTIFICATE_INVALID, parse_err.data)
+            x::errors::Error(errors::CLIENT_CERTIFICATE_INVALID, parse_err.data())
         };
     if (private_key.empty())
         return {
@@ -57,7 +57,7 @@ Identity::parse(const std::string &certificate, const std::string &private_key) 
     if (const auto match_err = cert.check_key(private_key))
         return {
             Identity{},
-            x::errors::Error(errors::CLIENT_CERTIFICATE_INVALID, match_err.data)
+            x::errors::Error(errors::CLIENT_CERTIFICATE_INVALID, match_err.data())
         };
     return {
         Identity{.certificate = std::move(cert), .private_key = private_key},
@@ -131,7 +131,7 @@ std::pair<Identity, x::errors::Error> create(
     if (err)
         return {
             Identity{},
-            x::errors::Error(errors::DRIVER_CERTIFICATE_FAILED, err.data)
+            x::errors::Error(errors::DRIVER_CERTIFICATE_FAILED, err.data())
         };
     return {
         Identity{.certificate = std::move(cert), .private_key = key_pem},

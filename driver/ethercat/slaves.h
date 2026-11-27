@@ -45,7 +45,7 @@ struct Slaves {
             return &it->second;
         auto [dev, err] = client.devices.retrieve(key);
         if (err) {
-            cfg.field_err(path + "device", err.data);
+            cfg.field_err(path + "device", err.data());
             return nullptr;
         }
         auto parser = x::json::Parser(dev.properties);

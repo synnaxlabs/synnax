@@ -153,7 +153,7 @@ describe("Schematic toolbar Properties", () => {
         createConfig: createValveNodeConfig,
       });
       fireEvent.click(await screen.findByRole("tab", { name: "Style" }));
-      const input = getInputByItemLabel(result.container, "Label");
+      const input = getInputByItemLabel(result.container, "Text");
       fireEvent.change(input, { target: { value: "Main Valve" } });
       await waitFor(async () => {
         const config = await retrieveConfig(key, "n1");
@@ -180,7 +180,7 @@ describe("Schematic toolbar Properties", () => {
         );
       });
       await waitFor(() =>
-        expect(getInputByItemLabel(result.container, "Label").value).toBe("Remote"),
+        expect(getInputByItemLabel(result.container, "Text").value).toBe("Remote"),
       );
     });
 
@@ -254,9 +254,14 @@ describe("Schematic toolbar Properties", () => {
             spec: { type: "custom", key: symbol.key },
           }),
       });
-      const edit = await waitFor(() => getIconButton(result.baseElement, "edit"));
-      fireEvent.click(edit);
+      fireEvent.click(await within(result.baseElement).findByLabelText("Edit symbol"));
       expect(await screen.findByDisplayValue(symbol.name)).toBeDefined();
+    });
+
+    it("offers no edit for a built-in symbol", async () => {
+      await renderProperties({ nodeKeys: ["n1"], createConfig: createValveNodeConfig });
+      await screen.findByRole("tab", { name: "Style" });
+      expect(screen.queryByLabelText("Edit symbol")).toBeNull();
     });
   });
 

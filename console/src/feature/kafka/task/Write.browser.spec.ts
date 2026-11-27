@@ -53,7 +53,7 @@ preloadForms(Kafka.Task.FORMS);
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<Kafka.Task.WriteSchemas> = {
-  name: Kafka.Task.DEFAULT_WRITE_NAME,
+  name: "Kafka write task",
   type: Kafka.Task.WRITE_TYPE,
   config: Kafka.Task.WRITE_SCHEMAS.config.parse({}),
 };
@@ -216,7 +216,7 @@ describe("Kafka Write form", () => {
     ]);
     expect(target).toMatchObject({ topic: TOPIC, recordKey: "pump-2" });
     const [ic] = await client.icds.retrieve([target.icd]);
-    expect(ic.name).toBe(Kafka.Task.DEFAULT_WRITE_NAME);
+    expect(ic.name).toBe(dev.name);
     expect(ic.messages).toMatchObject([
       {
         key: target.message.message,
@@ -275,6 +275,35 @@ describe("Kafka Write form", () => {
     await waitFor(async () =>
       expect(await retrieveTargets(draft.key)).toMatchObject([{ topic: TOPIC }]),
     );
+  });
+
+  it("should keep a string field with enum labels a string, in the preview and the target", async () => {
+    const { dev, draft } = await renderWrite();
+    const mode = {
+      ...createInferredField("/mode", "string", "string"),
+      enum: ["auto", "manual"],
+    };
+    const { answered } = await answerScan(dev, "sample", {
+      browse: { data: browseOf(listTopic(TOPIC)) },
+      sample: {
+        data: sampleOfTopic(TOPIC, { ...createShape(["pump-1"], 2), fields: [mode] }),
+      },
+    });
+    const dialog = await clickAddTargets();
+    await answered;
+    await dialog.findByText("/mode");
+    dialog.getByText("string");
+    expect(dialog.queryByText("int64")).toBeNull();
+    fireEvent.click(dialog.getByRole("checkbox", { name: `Pick ${TOPIC}` }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));
+    await waitFor(async () => {
+      const [target] = await retrieveTargets(draft.key);
+      const [ic] = await client.icds.retrieve([target.icd]);
+      const message = ic.messages.find(({ key }) => key === target.message.message);
+      expect(ICD.jsonFields(message)).toMatchObject([
+        { pointer: "/mode", type: "string", enumValues: [] },
+      ]);
+    });
   });
 
   it("should add a target with an empty message for a topic that holds no records", async () => {

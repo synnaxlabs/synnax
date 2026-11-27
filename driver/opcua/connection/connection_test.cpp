@@ -498,7 +498,7 @@ TEST(ConnectionTest, resolveSecurityUnreadClientCertificate) {
     cfg.client_certificate_item = x::uuid::create();
     const auto err = resolve_security(cfg, *store).second;
     ASSERT_MATCHES(err, opcua::errors::CLIENT_CERTIFICATE_INVALID);
-    ASSERT_EQ(err.data, "The Driver did not read the client certificate.");
+    ASSERT_EQ(err.data(), "The Driver did not read the client certificate.");
 }
 
 /// @brief it should leave the identity empty for an unsecured connection without

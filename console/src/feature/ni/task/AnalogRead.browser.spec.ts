@@ -28,6 +28,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
+  getAddChannelButton,
   preloadForms,
   reportTaskRunning,
   selectFromDropdown,
@@ -578,6 +579,14 @@ describe("AnalogRead ports", () => {
     return await screen.findByRole("group", { name: `${dev.name} ports` });
   };
 
+  it("should draw the device location in Inter", async () => {
+    const dev = await createDevice();
+    await renderWith([createChannel("ai_voltage", 0, { device: dev.key })]);
+    await openPorts(dev);
+    const { fontFamily } = getComputedStyle(screen.getByText(dev.location));
+    expect(fontFamily).toMatch(/^"?Inter/);
+  });
+
   it.each<[string, (device: string) => NI.Task.AIChannel[], string]>([
     [
       "a port the device does not have",
@@ -1002,7 +1011,7 @@ describe("AnalogRead ports", () => {
     await selectFromDropdown("Voltage", "Current");
     const min = await screen.findByLabelText<HTMLInputElement>("Minimum value");
     await waitFor(() => expect(min.value).toBe("-0.02"));
-    fireEvent.click(screen.getByRole("button", { name: "Add channel" }));
+    fireEvent.click(getAddChannelButton());
     await waitFor(() => {
       const rows = screen.getAllByRole("option");
       expect(rows).toHaveLength(2);

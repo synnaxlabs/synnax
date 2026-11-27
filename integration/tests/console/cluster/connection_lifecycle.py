@@ -28,15 +28,13 @@ class ConnectionLifecycle(ConsoleCase):
         self.recon_channel: str | None = None
         super().setup()
 
-    def _goto_console(
-        self, query: str = "", host: str | None = None, port: int | None = None
-    ) -> None:
+    def _goto_console(self, host: str | None = None, port: int | None = None) -> None:
         # A browser Console only talks to the Core that served it, so the page loads
         # through the proxy. The dev server fallback reads the Core port from storage.
         self.page.add_init_script(
             f"localStorage.setItem('synnax-dev-connection-port', '{self.proxy.port}')"
         )
-        super()._goto_console(query, host="127.0.0.1", port=self.proxy.port)
+        super()._goto_console(host="127.0.0.1", port=self.proxy.port)
 
     def teardown(self) -> None:
         # Page and project cleanup drive the browser, which talks to the Core

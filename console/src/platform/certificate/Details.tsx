@@ -120,7 +120,6 @@ const Fingerprint = ({ certificate: c, sha256 }: FingerprintProps): ReactElement
         <Text.Text
           el="span"
           level="small"
-          variant="code"
           className={CSS.BE("certificate-field", "fingerprint")}
         >
           {text}

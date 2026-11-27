@@ -262,6 +262,25 @@ var _ = Describe("Read", func() {
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
+			It("Should accept a read of a message that gains an unbound field", func(
+				ctx SpecContext,
+			) {
+				rpm := jsonField("rpm", "/rpm", icd.FloatJSONField{})
+				grown := jsonMessage("Status", ts, temp, state, raw, flat, ticks, rpm)
+				grown.Key = status.Key
+				next := plant
+				next.Messages = []icd.Message{grown, stamped, frame, line}
+				rd := readAt(0, plant.Key, indexed(
+					ts,
+					readOf(status, bind(ts, timeKey), bind(temp, valueKey)),
+				))
+				icds := map[icd.Key]icd.ICD{plant.Key: next}
+				c := MustSucceed(
+					resolver.NewChecker(ctx, db, []read.Read{rd}, nil, icds),
+				)
+				Expect(c.Read(rd)).To(Succeed())
+			})
+
 			It("Should accept a message with no index field on one index channel", func(
 				ctx SpecContext,
 			) {

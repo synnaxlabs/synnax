@@ -134,10 +134,10 @@ const Item = ({
             </Text.Text>
           </List.Cell>
           <List.Cell>
-            <UsedBy.UsedBy
+            <UsedBy.Popover
               itemKey={e.key}
               kind="enumeration"
-              uses={e.uses}
+              uses={e.uses?.map((id) => ({ id }))}
               anchor={element}
             />
           </List.Cell>
@@ -173,7 +173,14 @@ const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
     const key = uuid.create();
     creating(key);
     void (async () => {
-      if ((await updateAsync({ key, name: trimmed })) === false) return;
+      if (
+        (await updateAsync({
+          key,
+          name: trimmed,
+          entries: Enumeration.createEntries(),
+        })) === false
+      )
+        return;
       // The new enumeration lists at the top, so its entries show to take focus.
       created(key);
       close();

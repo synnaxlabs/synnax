@@ -48,7 +48,7 @@ TEST(Ports, RefusesSecondReadTaskOnDevice) {
     const auto [refused, err] = ports.claim_read("boiler", task("press"));
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "A serial device runs one read task at a time, and the task 'oven' reads from "
         "this device. Add these entries to that task."
     );
@@ -81,6 +81,6 @@ TEST(Ports, RefusesOtherPropertiesOnSameDevice) {
     other.props.baud_rate = 115200;
     const auto [refused, err] = ports.acquire(other);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
-    ASSERT_EQ(err.data, "another task has device oven_key open with other settings");
+    ASSERT_EQ(err.data(), "another task has device oven_key open with other settings");
 }
 }

@@ -19,6 +19,7 @@ from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
     Properties,
     Symbol,
+    edit_toggle,
 )
 from x.control import Authority
 from x.spatial import AngularDirection, OuterLocation
@@ -344,7 +345,7 @@ class Schematic(ConsolePage):
 
         Symbols must be selected first (see select).
         """
-        return self.page.locator(".console-schematic__symbol .lyra-text").first
+        return self.page.locator(".console-schematic__symbol-name")
 
     def change_symbol(self, name: str) -> None:
         """Change the selected symbols to the named symbol from the symbols tab.
@@ -460,7 +461,7 @@ class Schematic(ConsolePage):
 
     def enable_edit(self) -> None:
         """Enable edit for the schematic if not already enabled."""
-        enable = self.page.get_by_role("button", name="Enable editing", exact=True)
+        enable = edit_toggle(self.page, "Enable editing")
         if enable.count() > 0:
             enable.click()
             self.page.get_by_role(
@@ -473,7 +474,7 @@ class Schematic(ConsolePage):
         disable = self.page.get_by_role("button", name="Disable editing", exact=True)
         if disable.count() > 0:
             disable.click()
-            self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
+            edit_toggle(self.page, "Enable editing").wait_for(
                 state="visible", timeout=2000
             )
         sy.sleep(0.1)

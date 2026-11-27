@@ -22,6 +22,7 @@
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -44,7 +45,7 @@ std::optional<std::string> set_value(icd::TextField &f, const icd::WriteValue &v
     if (value == nullptr) return " of kind float needs a value of its kind";
     std::visit([&](auto &t) { t.default_ = value->value; }, f);
     if (const auto err = codec::check_raw_limits(icd::base(f), value->value.value))
-        return ": " + err.data;
+        return ": " + err.data();
     return std::nullopt;
 }
 
@@ -66,7 +67,7 @@ std::optional<std::string> set_value(icd::BinaryField &f, const icd::WriteValue 
                 field.default_ = value.value;
                 const auto raw = static_cast<double>(value.value.value);
                 if (const auto err = codec::check_raw_limits(field, raw))
-                    return ": " + err.data;
+                    return ": " + err.data();
                 return std::nullopt;
             } else
                 return " of kind " + field.kind + " needs a value of its kind";
@@ -114,7 +115,7 @@ std::optional<std::string> set_value(icd::JSONField &f, const icd::WriteValue &v
             ) {
                 const auto raw = static_cast<double>(field.default_.value().value);
                 if (const auto err = codec::check_raw_limits(field, raw))
-                    return ": " + err.data;
+                    return ": " + err.data();
             }
             return std::nullopt;
         },
@@ -315,5 +316,21 @@ x::errors::Error Writer::encode(const Send &send) {
         ))
         return err;
     return send(this->payload);
+}
+
+std::string Writer::format() const {
+    return std::visit(
+        []<typename E>(const E &) -> std::string {
+            if constexpr (std::is_same_v<E, codec::BinaryEncoder>)
+                return x::payload::FORMAT_BINARY;
+            else if constexpr (std::is_same_v<E, codec::TextEncoder>)
+                return x::payload::FORMAT_TEXT;
+            else {
+                static_assert(std::is_same_v<E, codec::JSONEncoder>);
+                return x::payload::FORMAT_JSON;
+            }
+        },
+        this->encoder
+    );
 }
 }

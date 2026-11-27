@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { HTTP } from "@/feature/http";
 
 describe("plotChannels", () => {
-  it("should find the bound channels of the messages of each enabled endpoint", () => {
+  it("should find the bound channels and fields of the messages of each enabled endpoint", () => {
     const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
     const read = (...messages: number[][]) => ({
@@ -24,12 +24,20 @@ describe("plotChannels", () => {
         bindings: channels.map((channel) => ({ field: uuid.create(), channel })),
       })),
     });
+    const first = read([1, 0], [4]);
     const config = {
       endpoints: [
-        { ...read([1, 0], [4]), fields: [{ channel: 2, disabled: false }] },
+        { ...first, fields: [{ channel: 2, disabled: false }] },
         { ...read([5]), disabled: true },
+        {},
       ],
     };
-    expect(plotChannels(config)).toEqual([1, 4]);
+    const plotted = plotChannels(config);
+    expect(plotted.map(({ channel }) => channel)).toEqual([1, 0, 4]);
+    expect(plotted[2].field).toEqual({
+      icd: first.icd,
+      message: first.messages[1].message,
+      key: first.messages[1].bindings[0].field,
+    });
   });
 });

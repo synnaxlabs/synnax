@@ -1,0 +1,37 @@
+{
+  "description": "A field scales and then offsets its value.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 0.5,
+            "offset": -1,
+            "units": "",
+            "encoding": "delimited",
+            "position": 0
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "10",
+      "message": "line",
+      "samples": [4]
+    }
+  ]
+}

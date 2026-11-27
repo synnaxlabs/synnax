@@ -21,7 +21,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, unique, uuid } from "@synnaxlabs/x";
+import { deep, payload, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -45,7 +45,6 @@ import {
   readsOf,
   uniqueName,
 } from "@/feature/kafka/task/additions";
-import { DEFAULT_READ_NAME } from "@/feature/kafka/task/create";
 import { createDiscoverModal } from "@/feature/kafka/task/Discover";
 import { RecordLabel, TopicLabel } from "@/feature/kafka/task/Labels";
 import {
@@ -132,6 +131,16 @@ const Properties = () => (
 const recordLabel = ({ recordKey }: Pick<ReadRecord, "recordKey">): string =>
   recordKey === "" ? ANY_KEY : recordKey;
 
+/**
+ * @returns the name of a new message that the records of topic with recordKey read: the
+ * topic, then the key when there is one, such as `plant.sensors pump-1`. A topic with
+ * no name gives the record label.
+ */
+const topicMessageName = (topic: string, recordKey: string): string => {
+  if (topic.trim() === "") return recordLabel({ recordKey });
+  return recordKey === "" ? topic : `${topic} ${recordKey}`;
+};
+
 /** The prefix of the names of the channels that deploying creates for a record. */
 const recordPrefix = (deviceName: string, topic: string, recordKey: string): string => {
   const prefix = `${channel.escapeInvalidName(deviceName)}_${channel.escapeInvalidName(topic)}`;
@@ -168,10 +177,6 @@ const createMessage = (name: string, match?: icd.JSONMatch): icd.Message => ({
   name,
   payload: { format: "json", fields: [], ...(match == null ? {} : { match }) },
 });
-
-/** @returns the name of the ICD of a task named name. */
-const icdName = (name: string): string =>
-  name.trim() === "" ? DEFAULT_READ_NAME : name;
 
 /** @returns the prefix of the channel names of a record, current with its key. */
 const usePrefix = (
@@ -320,6 +325,8 @@ interface RecordDetailsProps {
   onAddMessage: () => void;
   /** Reads a message of an ICD instead of the one message that the record reads. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Makes the record read a new message of the format with no fields. */
+  onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
 }
 
@@ -335,6 +342,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  onFormatCreate,
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -374,6 +382,8 @@ const RecordDetails: FC<RecordDetailsProps> = ({
               icdKey={icdKey}
               message={reads[0].message}
               onChange={onFormatChange}
+              formats={payload.FORMATS}
+              onCreate={onFormatCreate}
               disabled={bindDisabled}
               preview={isPreview}
             />
@@ -433,6 +443,7 @@ const Records: FC<RecordsProps> = ({
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   } = ICD.Tree.use({
     groups: {
       path: root.config.topics,
@@ -464,8 +475,13 @@ const Records: FC<RecordsProps> = ({
       )[0];
     },
     messageName: (key, held) => {
+      const all = ctx.get(root.config.topics).value;
+      const topic = ctx.get(topicPath(topicOf(all, key))).value.name;
       const rec = ctx.get(pathOf(key)).value;
-      return uniqueName(`${recordLabel(rec)} ${rec.messages.length + 1}`, held);
+      return uniqueName(
+        `${topicMessageName(topic, rec.recordKey)} ${rec.messages.length + 1}`,
+        held,
+      );
     },
     made,
     selected,
@@ -494,8 +510,9 @@ const Records: FC<RecordsProps> = ({
   };
 
   /**
-   * Puts messages in the ICD that the most records read, or in a new ICD for a task
-   * with no record, then adds the records that read them to their topics.
+   * Puts messages in the ICD that the most records read, or in a new ICD named after
+   * the device for a task with no record, then adds the records that read them to
+   * their topics.
    * @param recordsOf - Returns the records to add to each topic, by topic name.
    */
   const addRecords = async (
@@ -504,10 +521,9 @@ const Records: FC<RecordsProps> = ({
   ) => {
     if (client == null) throw new DisconnectedError();
     let icdKey = ICD.mostRead(records);
-    if (icdKey == null) {
-      const name = icdName(ctx.get(root.name).value);
-      icdKey = (await client.icds.create({ name, messages })).key;
-    } else {
+    if (icdKey == null)
+      icdKey = (await client.icds.create({ name: device.name, messages })).key;
+    else {
       const format = ICD.formatOf(formats, icdKey);
       let after = format.value().messages.at(-1)?.key;
       format.batch(() => {
@@ -599,23 +615,24 @@ const Records: FC<RecordsProps> = ({
     for (const { topic, shapes, picks } of result.topics) {
       const records = topicRecords(topic);
       const reads = readsOf(records, messagesOf);
+      const nameOf = (recordKey: string) => topicMessageName(topic, recordKey);
       const { extensions, kinds } = createExtensions(
         shapes,
         picks,
         records,
         messagesOf,
-        label,
+        nameOf,
       );
       extend(extensions, kinds);
       held = [...held, ...kinds.map(({ message }) => message)];
-      const added = createAdditions(shapes, picks, reads, held, label);
+      const added = createAdditions(shapes, picks, reads, held, nameOf);
       if (added.length === 0) continue;
       additions.set(topic, added);
       held = [...held, ...added.map(({ message }) => message)];
     }
     if (result.record != null) {
       const empty = {
-        message: createMessage(uniqueName(ANY_KEY, held)),
+        message: createMessage(uniqueName(topicMessageName(result.record, ""), held)),
         recordKeys: [""],
       };
       additions.set(result.record, [...(additions.get(result.record) ?? []), empty]);
@@ -698,6 +715,7 @@ const Records: FC<RecordsProps> = ({
           onAddField={() => addField(rec.key, 0)}
           onAddMessage={() => addMessage(rec.key)}
           onFormatChange={(icdKey, message) => setMessage(rec.key, icdKey, message)}
+          onFormatCreate={(format) => setNewMessage(rec.key, format)}
           bindDisabled={bindDisabled}
         />
       );

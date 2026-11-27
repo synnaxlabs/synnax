@@ -1,0 +1,29 @@
+{
+  "description": "A position past 65535 makes a line too long for a 64 KiB frame.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 4000000000
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "error": "message cmd: field a: position 4000000000 is past the last position 65535: validation error"
+}

@@ -1,0 +1,32 @@
+{
+  "description": "An integer field cannot decode to an unsigned channel.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "integer"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "error": "message frame: field v: cannot write integer values to uint8 channels: validation error"
+}

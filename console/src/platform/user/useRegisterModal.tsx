@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, user } from "@synnaxlabs/client";
+import { status, UnexpectedError, user } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -16,7 +16,10 @@ import type { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
+import { useEffect, useRef } from "react";
 
+import { Core } from "@/platform/core";
+import { Credential } from "@/platform/credential";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
@@ -43,11 +46,34 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
 
 const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();
+  const { password: passwordAccepted } = Core.useAcceptedMethods(client?.params);
+  const openCredentials = Credential.useModal();
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
   const { form, save, variant } = User.useForm({
     query: null,
-    afterSave: () => close(),
+    afterSave: ({ value }) => {
+      if (!open.current) return;
+      const { key, name } = value();
+      if (key == null) throw new UnexpectedError("User key is null");
+      close();
+      openCredentials({ subject: user.resourceID(key), title: ["Sign-in", name] });
+    },
   });
   Modals.useBusy(variant === "loading");
+  const handleSave = () => {
+    // Hidden fields must not fail validation.
+    if (!passwordAccepted) {
+      form.set(path.username, "");
+      form.set(path.password, "");
+    }
+    save();
+  };
 
   return (
     <Modal.Frame>
@@ -63,11 +89,13 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
             <Form.TextField
               path={path.username}
               label="Username"
+              visible={passwordAccepted}
               inputProps={USERNAME_INPUT_PROPS}
             />
             <Form.TextField
               path={path.password}
               label="Password"
+              visible={passwordAccepted}
               inputProps={PASSWORD_INPUT_PROPS}
             />
             <Form.Field path={path.role} label="Role">
@@ -81,7 +109,7 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
       <Modal.Footer>
         <Nav.Bar.End>
           <Button.Button
-            onClick={() => save()}
+            onClick={handleSave}
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             trigger={Triggers.SAVE}
@@ -99,13 +127,15 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
 export const useRegisterModal = Modals.create(Register);
 
 /**
- * Reports whether the subject may register a user. Registering creates the user, then
- * gives it a password, which needs update on the user. It deletes the user when the
- * password fails, which needs delete.
+ * Reports whether the subject may register a user. Registering creates the user. On a
+ * Core that accepts passwords, the form can also give the user a password, which needs
+ * update on the user, and deletes the user when the password fails, which needs delete.
  */
 export const useRegisterGranted = (): boolean => {
+  const client = Synnax.use();
+  const { password } = Core.useAcceptedMethods(client?.params);
   const create = Access.useCreateGranted(user.TYPE_RESOURCE_ID);
   const update = Access.useUpdateGranted(user.TYPE_RESOURCE_ID);
   const remove = Access.useDeleteGranted(user.TYPE_RESOURCE_ID);
-  return create && update && remove;
+  return create && (!password || (update && remove));
 };
