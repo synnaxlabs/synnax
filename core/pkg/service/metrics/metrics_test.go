@@ -39,7 +39,7 @@ var _ = Describe("Metrics", func() {
 				DB:                 dist.DB,
 				HostKey:            dist.Identity.HostKey,
 				Storage:            dist.Storage,
-				CollectionInterval: 5 * time.Second,
+				CollectionInterval: 100 * time.Millisecond,
 			}))
 			Expect(svc.Close()).To(Succeed())
 		})
@@ -262,9 +262,47 @@ var _ = Describe("Metrics", func() {
 			Expect(svc.Close()).To(Succeed())
 		})
 	})
+	Describe("Run", func() {
+		var svc *metrics.Service
+		BeforeEach(func(ctx SpecContext) {
+			svc = MustSucceed(metrics.OpenService(ctx, metrics.ServiceConfig{
+				Channel:            channelSvc,
+				Group:              groupSvc,
+				Framer:             framerSvc,
+				HostKey:            dist.Identity.HostKey,
+				DB:                 dist.DB,
+				Storage:            dist.Storage,
+				CollectionInterval: 10 * time.Millisecond,
+			}))
+		})
+		It("Should return an error when called twice", func(ctx SpecContext) {
+			stop := StartRun(svc.Run)
+			Expect(svc.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+			stop()
+			Expect(svc.Close()).To(Succeed())
+		})
+		It("Should not close while Run runs", func() {
+			stop := StartRun(svc.Run)
+			Expect(svc.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+			stop()
+			Expect(svc.Close()).To(Succeed())
+		})
+		It("Should return an error when called after Close", func(ctx SpecContext) {
+			Expect(svc.Close()).To(Succeed())
+			Expect(svc.Run(ctx)).
+				To(MatchError(ContainSubstring("run called after close")))
+		})
+		It("Should return nil when ctx ends before it starts", func(ctx SpecContext) {
+			runCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			Expect(svc.Run(runCtx)).To(Succeed())
+			Expect(svc.Close()).To(Succeed())
+		})
+	})
 	Describe("Writer Control Subject", func() {
 		It("Should name the writer after the host node", func(ctx SpecContext) {
-			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
+			svc := MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				Framer:             framerSvc,
@@ -273,6 +311,7 @@ var _ = Describe("Metrics", func() {
 				Storage:            dist.Storage,
 				CollectionInterval: 100 * time.Millisecond,
 			}))
+			StartRun(svc.Run)
 			Eventually(func() []string {
 				states := dist.Storage.TS.ControlStates()
 				holders := make([]string, 0, len(states.Transfers))
@@ -328,7 +367,7 @@ var _ = Describe("Metrics", func() {
 			MustSucceed(w.Write(fr))
 			Expect(w.Close()).To(Succeed())
 
-			MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
+			svc := MustOpen(metrics.OpenService(ctx, metrics.ServiceConfig{
 				Channel:            channelSvc,
 				Group:              groupSvc,
 				DB:                 dist.DB,
@@ -337,6 +376,7 @@ var _ = Describe("Metrics", func() {
 				Storage:            dist.Storage,
 				CollectionInterval: 50 * time.Millisecond,
 			}))
+			StartRun(svc.Run)
 			var channels []channel.Channel
 			names := getNames(dist.Identity.HostKey)
 			Expect(channelSvc.NewRetrieve().
