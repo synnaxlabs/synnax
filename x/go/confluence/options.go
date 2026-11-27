@@ -10,6 +10,8 @@
 package confluence
 
 import (
+	"time"
+
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 )
@@ -79,6 +81,14 @@ func RecoverWithoutErrOnPanic() Option {
 func WithRetryOnPanic(maxRetries ...int) Option {
 	return func(fo *Options) {
 		fo.Signal = append(fo.Signal, signal.WithRetryOnPanic(maxRetries...))
+	}
+}
+
+// WithBaseRetryInterval sets how long a segment that WithRetryOnPanic restarts waits
+// before its first restart.
+func WithBaseRetryInterval(interval time.Duration) Option {
+	return func(fo *Options) {
+		fo.Signal = append(fo.Signal, signal.WithBaseRetryInterval(interval))
 	}
 }
 

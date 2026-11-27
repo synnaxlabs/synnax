@@ -283,11 +283,11 @@ Give each endpoint its own channels and its own index channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"... an endpoint no longer reads fields ..."}>
+<Problem.Item message={"endpoint ... reads no messages. Open the task and pick a message for it."}>
 <Problem.Cause>
 
-The config sets `fields` on an endpoint, as code for an earlier version of Synnax does.
-The task reads each response as an ICD message, so the Core refuses to save it.
+The endpoint reads no ICD message. Code for an earlier version of Synnax sets `fields`
+on an endpoint instead, and Synnax ignores those fields.
 
 </Problem.Cause>
 <Problem.Fix>

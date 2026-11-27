@@ -77,6 +77,7 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 // NewUniqueIndex constructs a UniqueIndex named name in the space named space. value
 // returns the value of an entry, or false to exempt the entry. Every index of a space
 // must have the same value type V, and a table can have at most one index in a space.
+// value reads the stored entry and must not change it.
 func NewUniqueIndex[K Key, E Entry[K], V comparable](
 	name string,
 	space string,
@@ -93,32 +94,22 @@ func NewUniqueIndex[K Key, E Entry[K], V comparable](
 // Name implements Index.
 func (u *UniqueIndex[K, E, V]) Name() string { return u.name }
 
-func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
+func (u *UniqueIndex[K, E, V]) populate() (func(*E), func(error)) {
 	insert, finish := u.store.Populate()
-	return func(entry E) {
-			if v, ok := u.value(&entry); ok {
-				insert(entry.GorpKey(), v)
+	return func(entry *E) {
+			if v, ok := u.value(entry); ok {
+				insert((*entry).GorpKey(), v)
 			}
 		},
 		func(err error) { finish(populateErr(u.name, err)) }
 }
 
-func (u *UniqueIndex[K, E, V]) set(entry E) {
-	if v, ok := u.value(&entry); ok {
-		u.store.Set(entry.GorpKey(), v)
+func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry *E) {
+	if v, ok := u.value(entry); ok {
+		u.store.Stage(tx.txIdentity(), (*entry).GorpKey(), v)
 		return
 	}
-	u.store.Delete(entry.GorpKey())
-}
-
-func (u *UniqueIndex[K, E, V]) delete(key K) { u.store.Delete(key) }
-
-func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	if v, ok := u.value(&entry); ok {
-		u.store.Stage(tx.txIdentity(), entry.GorpKey(), v)
-		return
-	}
-	u.store.StageDelete(tx.txIdentity(), entry.GorpKey())
+	u.store.StageDelete(tx.txIdentity(), (*entry).GorpKey())
 }
 
 func (u *UniqueIndex[K, E, V]) stageDelete(tx Tx, key K) {
@@ -171,6 +162,12 @@ func (u *UniqueIndex[K, E, V]) Holder(
 	return Target{}, false, nil
 }
 
+// Filter returns a Filter that matches the entries of the table of u whose value is one
+// of values. A match is what storage holds, as with FilterFunc.
+func (u *UniqueIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
+	return indexFilter[K, E](u.store, u.holds, values)
+}
+
 // FilterFunc returns a Filter that matches the entries of the table of u whose value is
 // one of the values that f returns when the query runs. A match is what storage holds:
 // the filter probes u for the keys of the values, with the changes staged against the
@@ -189,8 +186,7 @@ func (u *UniqueIndex[K, E, V]) FilterFunc(
 			values = lo.Uniq(values)
 			in := index.AnyOf(values)
 			eval := func(_ Context, e *E, _, _ []byte) (bool, error) {
-				v, ok := u.value(e)
-				return ok && in(v), nil
+				return u.holds(e, in), nil
 			}
 			keys, err := probe(ctx, u.store, snap, values)
 			if errors.Is(err, ErrIndexInvalid) {
@@ -202,6 +198,12 @@ func (u *UniqueIndex[K, E, V]) FilterFunc(
 			return resolved[K, E]{keys: keyset.Hashed(keys), eval: eval}, nil
 		},
 	}
+}
+
+// holds reports whether e holds a value that in accepts.
+func (u *UniqueIndex[K, E, V]) holds(e *E, in func(V) bool) bool {
+	v, ok := u.value(e)
+	return ok && in(v)
 }
 
 // clash returns err, or else the UniqueError for holder and v.

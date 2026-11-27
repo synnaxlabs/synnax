@@ -40,12 +40,10 @@ func Default(repoRoot string, year int, prior []string) (*Registry, error) {
 	}
 	r.Register(".go", license)
 	r.Register(".go", NewGo())
-	prettier := newPrettier()
-	eslint := newESLint()
+	ts := newTypeScript()
 	for _, ext := range []string{".ts", ".tsx"} {
 		r.Register(ext, license)
-		r.Register(ext, eslint)
-		r.Register(ext, prettier)
+		r.registerBatch(ext, ts)
 	}
 	r.Register(".py", license)
 	r.Register(".py", newRuff())

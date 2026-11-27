@@ -1,0 +1,39 @@
+{
+  "description": "A sample of a signed channel must fit its unsigned field.",
+  "message": {
+    "name": "frame",
+    "payload": {
+      "format": "binary",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "v",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 0,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "kind": "unsigned"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "int16"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [256],
+      "error": "message frame: field v: 256 is out of range for 8 bits: validation error"
+    },
+    {
+      "samples": [-1],
+      "error": "message frame: field v: -1 is out of range for 8 bits: validation error"
+    }
+  ]
+}

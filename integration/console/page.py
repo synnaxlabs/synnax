@@ -40,6 +40,8 @@ PageType = (
         "mqtt_read",
         "mqtt_write",
         "mqtt_sparkplug_edge",
+        "kafka_read",
+        "kafka_write",
     ]
 )
 
@@ -62,6 +64,8 @@ _PAGE_LABELS: dict[PageType, str] = {
     "mqtt_read": "MQTT read task",
     "mqtt_write": "MQTT write task",
     "mqtt_sparkplug_edge": "Sparkplug edge node",
+    "kafka_read": "Kafka read task",
+    "kafka_write": "Kafka write task",
 }
 
 

@@ -1,0 +1,47 @@
+{
+  "description": "A field writes a tag that starts the tag of another field.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "te",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "tagged",
+          "tag": "TE"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "t",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "tagged",
+          "tag": "T"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [5, 3],
+      "text": "TE5,T3"
+    }
+  ]
+}

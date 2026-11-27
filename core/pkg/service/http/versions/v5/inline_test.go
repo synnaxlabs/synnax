@@ -163,7 +163,6 @@ var _ = Describe("ResolveReadConfig", func() {
 				{Field: fields[0].Base().Key, Channel: 6},
 				{Field: fields[1].Base().Key, Channel: 7},
 			}))
-			Expect(cfg.Endpoints[0].Fields).To(HaveLen(3))
 		},
 	)
 

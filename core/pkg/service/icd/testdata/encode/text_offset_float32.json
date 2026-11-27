@@ -1,0 +1,34 @@
+{
+  "description": "A float32 sample loses its offset at float64 precision.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": -1000000.0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 0
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float32"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [0.001],
+      "text": "1000000.001"
+    }
+  ]
+}
