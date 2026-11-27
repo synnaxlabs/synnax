@@ -4157,7 +4157,6 @@ var _ = Describe("Scheduler", func() {
 					{{"main", "second"}},
 					nil,
 				}))
-				Expect(s.ActivePaths()).To(BeEmpty())
 			},
 		)
 
@@ -4168,7 +4167,6 @@ var _ = Describe("Scheduler", func() {
 				tick(ctx, s)
 			}
 			Expect(reports).To(HaveLen(1))
-			Expect(s.ActivePaths()).To(Equal([][]string{{"main", "first"}}))
 		})
 
 		It(

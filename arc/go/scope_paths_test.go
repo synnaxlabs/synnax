@@ -85,7 +85,6 @@ var _ = Describe("Scope paths", func() {
 				{{"main", "second"}},
 				nil,
 			}))
-			Expect(h.scheduler.ActivePaths()).To(BeEmpty())
 		},
 	)
 
@@ -98,7 +97,6 @@ var _ = Describe("Scope paths", func() {
 		push(ctx, 101, 0)
 		push(ctx, 100, 1)
 		Expect(reports).To(HaveLen(2))
-		Expect(h.scheduler.ActivePaths()).To(Equal([][]string{{"main", "first"}}))
 	})
 
 	It("Should not report a program with no top-level scope", func(ctx SpecContext) {

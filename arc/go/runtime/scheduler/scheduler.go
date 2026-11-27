@@ -201,7 +201,9 @@ func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err e
 	f(ctx, nodeKey, err)
 }
 
-// ScopeHandler receives the active paths of a program, as ActivePaths returns them.
+// ScopeHandler receives the path of each active top-level scope of a program, in
+// program order. A path is the key of the top-level scope, then the key of each active
+// step below it, down to a step that is not a sequence.
 type ScopeHandler func(ctx context.Context, paths [][]string)
 
 // SetScopeHandler configures the handler that receives the active paths at the end of
@@ -213,10 +215,7 @@ func (s *Scheduler) SetScopeHandler(handler ScopeHandler) {
 	s.scopesChanged, s.pathsReported = true, false
 }
 
-// ActivePaths returns the path of each active top-level scope, in program order. A path
-// is the key of the top-level scope, then the key of each active step below it, down to
-// a step that is not a sequence.
-func (s *Scheduler) ActivePaths() [][]string {
+func (s *Scheduler) activePaths() [][]string {
 	var paths [][]string
 	for i := range s.root.members {
 		top := s.root.members[i].scope
@@ -244,7 +243,7 @@ func (s *Scheduler) reportScopes(ctx context.Context) {
 		return
 	}
 	s.scopesChanged = false
-	paths := s.ActivePaths()
+	paths := s.activePaths()
 	if s.pathsReported && slices.EqualFunc(s.paths, paths, slices.Equal) {
 		return
 	}

@@ -69,13 +69,6 @@
       "module": "arc/go",
       "package": "github.com/synnaxlabs/arc/runtime/scheduler",
       "receiver": "Scheduler",
-      "name": "ActivePaths",
-      "caller": "sy-7012-arc-task-scope-status"
-    },
-    {
-      "module": "arc/go",
-      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
-      "receiver": "Scheduler",
       "name": "SetScopeHandler",
       "caller": "sy-7012-arc-task-scope-status"
     },
