@@ -9,7 +9,10 @@
 
 #include <limits>
 #include <sstream>
+#include <string>
 #include <thread>
+#include <utility>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -1493,27 +1496,31 @@ TEST(SizeTests, testParseWhitespace) {
 
 /// @brief it should name the problem in each parse error.
 TEST(SizeTests, testParseErrorReasons) {
-    const auto reason = [](const std::string &text) {
-        const auto [_, err] = Size::parse(text);
-        EXPECT_TRUE(err.matches(errors::VALIDATION));
-        return err.data.substr(err.data.find("': ") + 3);
+    constexpr auto
+        no_number = "expected a number followed by a unit (B, KB, MB, GB, TB)";
+    constexpr auto unit_order = "each unit may appear at most once, largest first";
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"-5", "sizes cannot be negative"},
+        {"1.5GB", "fractional numbers are not allowed"},
+        {"1KB1B", "expected a space after each unit"},
+        {"1MB 1GB", unit_order},
+        {"1KB 1KB", unit_order},
+        {"", no_number},
+        {" \t", no_number},
     };
-    ASSERT_EQ(reason("-5"), "sizes cannot be negative");
-    ASSERT_EQ(reason("1.5GB"), "fractional numbers are not allowed");
-    ASSERT_EQ(reason("1KB1B"), "expected a space after each unit");
-    ASSERT_EQ(reason("1MB 1GB"), "each unit may appear at most once, largest first");
-    ASSERT_EQ(reason("1KB 1KB"), "each unit may appear at most once, largest first");
-    ASSERT_EQ(reason(""), "expected a number followed by a unit (B, KB, MB, GB, TB)");
-    ASSERT_EQ(
-        reason(" \t"),
-        "expected a number followed by a unit (B, KB, MB, GB, TB)"
-    );
+    for (const auto &[text, reason]: cases) {
+        SCOPED_TRACE(text);
+        const auto [_, err] = Size::parse(text);
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+        ASSERT_EQ(err.data.substr(err.data.find("': ") + 3), reason);
+    }
 }
 
 /// @brief it should cut a long input to 64 characters in a parse error.
 TEST(SizeTests, testParseErrorTruncatesInput) {
     const std::string text = std::string(100, 'x');
     const auto [_, err] = Size::parse(text);
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
         err.data,
         "invalid size '" + std::string(64, 'x') +
@@ -1527,7 +1534,7 @@ TEST(SizeTests, testParseErrorTruncatesOnCharacterBoundary) {
     json::Parser parser(json::json{{"max", text}});
     parser.field<Size>("max");
     const auto err = parser.error();
-    ASSERT_TRUE(err.matches(errors::VALIDATION));
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_TRUE(err.data.contains("'" + std::string(63, 'x') + "...'"));
 }
 
@@ -1539,15 +1546,17 @@ TEST(SizeTests, testParseErrorReplacesInvalidUTF8) {
         json::Parser parser(json::json{{"m", std::string(text)}});
         parser.field<Size>("m");
         const auto err = parser.error();
-        ASSERT_TRUE(err.matches(errors::VALIDATION));
+        ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     }
     const auto [_, err] = Size::parse("1\xff");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_TRUE(err.data.starts_with("invalid size '1?'"));
 }
 
 /// @brief it should keep valid multi-byte characters when it echoes an input.
 TEST(SizeTests, testParseErrorKeepsValidUTF8) {
     const auto [_, err] = Size::parse("4 \xd0\x9c\xd0\x91");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_TRUE(err.data.starts_with("invalid size '4 \xd0\x9c\xd0\x91'"));
 }
 
@@ -1561,6 +1570,7 @@ TEST(SizeTests, testParseOverflow) {
 /// @brief it should name the text and the problem in a parse error.
 TEST(SizeTests, testParseErrorMessage) {
     const auto [_, err] = Size::parse("4 XB");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(
         err.data,
         "invalid size '4 XB': unknown unit 'XB', expected B, KB, MB, GB, or TB"
