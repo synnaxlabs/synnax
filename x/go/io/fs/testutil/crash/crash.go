@@ -207,6 +207,11 @@ func (c Config) validate() error {
 	v := validate.New("crash.Config")
 	v.NotNil("open", c.Open)
 	v.Positive("commits", c.Commits)
+	v.Ternary(
+		"commits",
+		c.Profile == Mixed && c.Commits < 2,
+		"must be at least 2 under Mixed, which fills the disk and then syncs",
+	)
 	v.Positive("stride", c.Stride)
 	v.Ternary(
 		"profile",
