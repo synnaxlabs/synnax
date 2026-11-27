@@ -651,26 +651,34 @@ change:
   issued, as `core/v0.62.0` import kept raw keys and those fields had no reference.
 - **Phase 7: Names.** The pass writes every stored name in NFC, the stored form (§4.1),
   and renames a name only for what paths and uniqueness need: each `.` becomes `_`,
-  invalid bytes go, a name that is empty after trimming becomes `channel_<key>`, and
-  among holders of one name in one folder, the lower key keeps it and each other takes
-  the first free suffix (`_2`, `_3`). A renamed name that is taken takes the first free
-  suffix too; until Phase 31, "taken" means anywhere in the Core. Every other stored
-  name stays as stored, and the skip rule keeps it writable (§4.1). A built-in is never
-  renamed. The same pass runs on channel folders in the channel chain, with a frozen
-  copy of the rule, in key order, and other folders keep their names, as on `main`;
-  after both tables open, in a clash of a folder and a sibling channel, the name that a
-  pass rewrote takes a suffix, and the folder does when both or neither were rewritten.
-  A folder that the Core makes by name (`Metrics`) never takes the suffix; the clashing
-  item does. Duplicates in different folders stay. Each rename writes a warning status
-  (`core/pkg/service/migrate.go:62`).
+  invalid bytes go, and an empty name becomes `channel_<key>`; a name of spaces only
+  stays as stored. Among holders of one name in one folder, the channel that
+  `core/v0.62.0` resolved, the last in Gorp's key order, keeps it, so stored text keeps
+  its channel, and each other takes the first free suffix (`_2`, `_3`). A renamed name
+  that is taken takes the first free suffix too; until Phase 31, "taken" means anywhere
+  in the Core. Every other stored name stays as stored, and the skip rule keeps it
+  writable (§4.1). A built-in is never renamed. The same pass runs on channel folders in
+  the channel chain, with a frozen copy of the rule, in key order, and other folders
+  keep their names, as on `main`; after both tables open, in a clash of a folder and a
+  sibling channel, the name that a pass rewrote takes a suffix, and the folder does when
+  both or neither were rewritten. A folder that the Core makes by name (`Metrics`) never
+  takes the suffix; the clashing item does. Duplicates in different folders stay. Each
+  rename writes a warning status (`core/pkg/service/migrate.go:62`).
 - **Phase 7: Text.** The name pass writes each change under a staging prefix in its own
-  transaction. One pass over Arc text and one over the expressions of calculated
-  channels, in the channel chain before Phase 3 copies them, write each changed name in
-  the bare form. The quoting of dashed tokens comes with the quotes (§5). The last pass
+  transaction. One text pass, `channelv1.Rewriter` in
+  `core/pkg/service/channel/versions/v1`, rewrites Arc text and the expressions of
+  calculated channels, the expressions in the channel chain before Phase 3 copies them.
+  It runs the live lexer and analyzer with the parser config of `core/v0.62.0`, takes
+  only bare identifiers, and rewrites a token only where `core/v0.62.0` bound it to the
+  renamed channel. It writes each changed name in the bare form. A golden corpus spec
+  pins its answers, and no frozen parser is kept until a grammar change breaks one. The
+  quoting of dashed tokens comes with the quotes (§5), in the same pass. The last pass
   deletes the list in its transaction. An import of an Arc file from `core/v0.62.0` (Arc
-  version 4) runs the same text pass, with the names of the importing Core and of the
-  channels the import makes, and from Phase 31 the rewrite of §4.5 with the same pick
-  and the same exception.
+  version 4) runs the same pass and no other, with the names of the importing Core and
+  of the channels the import makes, and from Phase 31 the rewrite of §4.5 with the same
+  pick and the same exception. Before that rewrite writes paths, the import binds each
+  bare token once, over live channels and the retired index entries of RFC 0120 §4.10,
+  with the pick of `core/v0.62.0`, the highest key. A live pick takes its path.
 - **Phase 3: Calculations.** The channel chain copies each v1 record that holds an
   expression under a staging prefix, then writes v2. The calculation chain builds one
   record per copy, with a UUIDv5 of the channel key, empty `reads`, and each
