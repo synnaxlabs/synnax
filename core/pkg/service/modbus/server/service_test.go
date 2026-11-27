@@ -201,13 +201,13 @@ var _ = Describe("Service", func() {
 					To(MatchError(ContainSubstring("another write sets")))
 			},
 			Entry("two data types at one address",
-				whole(server.DataTypeFloat32),
-				whole(server.DataTypeUint16), uint16(0)),
+				whole(telem.NumericDataTypeFloat32),
+				whole(telem.NumericDataTypeUint16), uint16(0)),
 			Entry("a float32 and the next register",
-				whole(server.DataTypeFloat32),
-				whole(server.DataTypeUint16), uint16(1)),
+				whole(telem.NumericDataTypeFloat32),
+				whole(telem.NumericDataTypeUint16), uint16(1)),
 			Entry("a whole value and one of its bits",
-				whole(server.DataTypeUint16),
+				whole(telem.NumericDataTypeUint16),
 				bit(3), uint16(0)),
 			Entry("one bit twice",
 				bit(3), bit(3), uint16(0)),
@@ -218,7 +218,7 @@ var _ = Describe("Service", func() {
 			s.Writes = []server.Write{
 				holdingWrite(5, bit(1), 2),
 				holdingWrite(5, bit(2), 3),
-				holdingWrite(6, whole(server.DataTypeInt16), 4),
+				holdingWrite(6, whole(telem.NumericDataTypeInt16), 4),
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		})

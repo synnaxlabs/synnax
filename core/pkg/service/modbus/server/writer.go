@@ -33,7 +33,7 @@ type locationKey struct {
 	typ      LocationType
 	address  uint16
 	value    ValueType
-	dataType DataType
+	dataType telem.NumericDataType
 	bit      uint8
 	length   uint16
 }
@@ -178,7 +178,7 @@ func (ws *writeSet) addBit(a address, bit uint8) bool {
 }
 
 // registerCount returns the number of 16-bit registers that a value of dt fills.
-func registerCount(dt DataType) int {
+func registerCount(dt telem.NumericDataType) int {
 	return max(1, int(telem.DataType(dt).Density())/2)
 }
 

@@ -79,7 +79,7 @@ func read(address uint16, index, ch channel.Key) server.Read {
 		Location: server.Location{Variant: server.HoldingRegisterLocation{
 			Address: address,
 			Value: server.Value{
-				Variant: server.WholeValue{DataType: server.DataTypeFloat32},
+				Variant: server.WholeValue{DataType: telem.NumericDataTypeFloat32},
 			},
 		}},
 		Index:   index,
@@ -113,7 +113,7 @@ func holdingWrite(
 }
 
 // whole returns a write of a number of the data type.
-func whole(dt server.DataType) server.WholeWriteValue {
+func whole(dt telem.NumericDataType) server.WholeWriteValue {
 	return server.WholeWriteValue{DataType: dt}
 }
 
