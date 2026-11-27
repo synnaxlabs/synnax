@@ -24,6 +24,10 @@ namespace driver::serial::native {
 /// @returns the translated errno for a setting that the port rejected.
 x::errors::Error failed(const std::string &setting, const std::string &port);
 
+/// @returns true when a program holds the terminal at fd with TIOCEXCL. macOS cannot
+/// read the flag and returns false.
+std::pair<bool, std::error_code> exclusive(int fd);
+
 /// @brief removes the parity, framing, and break marks that PARMRK puts in the input,
 /// and turns each doubled 0xFF back into one. It drops a 0xFF that no 0x00 or 0xFF
 /// follows, which the kernel does not send once PARMRK is on. data may end inside a

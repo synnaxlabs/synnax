@@ -50,6 +50,7 @@ cc_test(
         "port_test.cpp",
         "pty.h",
     ] + select({
+        "@platforms//os:linux": ["linux_test.cpp"],
         "@platforms//os:macos": ["macos_test.cpp"],
         "//conditions:default": [],
     }),

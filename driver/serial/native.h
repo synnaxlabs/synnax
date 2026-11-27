@@ -20,12 +20,16 @@
 #include "client/cpp/serial/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
-/// @brief port operations on the native handle. Each platform implements them in its
-/// own file, and this header stays free of Asio because Linux's termios2 conflicts with
-/// <termios.h>.
+/// @brief port operations that differ by platform. This header stays free of Asio
+/// because Linux's termios2 conflicts with <termios.h>.
 namespace driver::serial::native {
 /// @brief a file descriptor on POSIX or a HANDLE on Windows.
 using Handle = std::intptr_t;
+
+/// @brief checks props against the schema and the settings that the platform can
+/// express, with no port.
+/// @returns CONFIG_ERROR when props fails the check.
+x::errors::Error check(const synnax::serial::Properties &props);
 
 /// @brief lets other programs open the port that device::open locked once the Driver
 /// closes it.

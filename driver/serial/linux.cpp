@@ -74,6 +74,13 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
 }
 
 namespace native {
+std::pair<bool, std::error_code> exclusive(const int fd) {
+    int flag = 0;
+    if (::ioctl(fd, TIOCGEXCL, &flag) != 0)
+        return {false, {errno, std::generic_category()}};
+    return {flag != 0, {}};
+}
+
 x::errors::Error
 configure(const Handle handle, const synnax::serial::Properties &props) {
     const int fd = static_cast<int>(handle);
