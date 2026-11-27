@@ -100,14 +100,13 @@ TEST(ConnectionTest, testBasicConn) {
 
     testutil::ServerConfig server_cfg;
     server_cfg.test_nodes = {node};
-    server_cfg.port = 4849;
 
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4849";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -126,13 +125,12 @@ TEST(ConnectionTest, testBasicConn) {
 /// @brief it should log open62541 messages with their UA_String arguments formatted.
 TEST(ConnectionTest, testLogFormatsUAString) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4850;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4850";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -189,13 +187,12 @@ TEST(ConnectionTest, invalidHostname) {
 /// @brief it should reconnect successfully after disconnect.
 TEST(ConnectionTest, disconnectAndReconnect) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4841;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4841";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -222,13 +219,12 @@ TEST(ConnectionTest, disconnectAndReconnect) {
 /// @brief it should handle server stop during active connection.
 TEST(ConnectionTest, serverStopDuringConnection) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4842;
     auto server = std::make_unique<testutil::Server>(server_cfg);
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4842";
+    cfg.endpoint = server->endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -258,19 +254,19 @@ TEST(ConnectionTest, serverStopDuringConnection) {
 /// @brief it should connect successfully after server restart.
 TEST(ConnectionTest, connectionAfterServerRestart) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4844;
 
     auto server = std::make_unique<testutil::Server>(server_cfg);
     server->start();
     ASSERT_TRUE(server->wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4844";
+    cfg.endpoint = server->endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
     auto client1 = ASSERT_NIL_P(connect(cfg, {}, "test"));
 
+    server_cfg.port = server->port();
     server->stop();
     server.reset();
 
@@ -286,13 +282,12 @@ TEST(ConnectionTest, connectionAfterServerRestart) {
 /// @brief it should read successfully before disconnect changes session state.
 TEST(ConnectionTest, readAfterDisconnect) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4845;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4845";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -313,13 +308,12 @@ TEST(ConnectionTest, readAfterDisconnect) {
 /// @brief it should handle multiple consecutive disconnects gracefully.
 TEST(ConnectionTest, multipleDisconnects) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4846;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4846";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
 
@@ -337,13 +331,12 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     // Mock server rejects username/password without encryption to prevent
     // credential leaks over the network
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4847;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4847";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "any_user";
@@ -359,13 +352,12 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     // When password is provided without encryption, the server rejects the
     // identity token to prevent credential leaks
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4851;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4851";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "";
@@ -381,13 +373,12 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     // When username is provided without encryption, the server rejects the
     // identity token to prevent credential leaks
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4852;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4852";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.username = "username";
@@ -401,13 +392,12 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
 /// @brief it should apply default timeout of 5 seconds when client_timeout_ms is 0.
 TEST(ConnectionTest, DefaultClientTimeout) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4854;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4854";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.client_timeout_ms = 0;
@@ -422,13 +412,12 @@ TEST(ConnectionTest, DefaultClientTimeout) {
 /// @brief it should apply custom client timeout when specified.
 TEST(ConnectionTest, CustomClientTimeout) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4855;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4855";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.client_timeout_ms = 15000;
@@ -444,13 +433,12 @@ TEST(ConnectionTest, CustomClientTimeout) {
 /// timeouts when not specified.
 TEST(ConnectionTest, DefaultSessionAndChannelTimeouts) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4856;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4856";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.secure_channel_lifetime_ms = 0;
@@ -467,13 +455,12 @@ TEST(ConnectionTest, DefaultSessionAndChannelTimeouts) {
 /// @brief it should apply custom secure channel and session timeouts.
 TEST(ConnectionTest, CustomSessionAndChannelTimeouts) {
     testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = 4857;
     testutil::Server server(server_cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
 
     Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4857";
+    cfg.endpoint = server.endpoint();
     cfg.security_mode = "None";
     cfg.security_policy = "None";
     cfg.secure_channel_lifetime_ms = 30000;

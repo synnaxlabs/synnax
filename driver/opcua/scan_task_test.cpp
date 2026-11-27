@@ -114,7 +114,6 @@ protected:
         const std::uint32_t generated_variables = 0
     ) {
         auto cfg = testutil::ServerConfig::create_default();
-        cfg.port = 4871;
         cfg.identity = id;
         cfg.trusted_clients = std::move(trusted_clients);
         cfg.users = std::move(users);
@@ -135,9 +134,9 @@ protected:
         conn_pool = std::make_shared<connection::Pool>(store);
     }
 
-    [[nodiscard]] static connection::Config secured_config() {
+    [[nodiscard]] connection::Config secured_config() const {
         connection::Config cfg;
-        cfg.endpoint = "opc.tcp://localhost:4871";
+        cfg.endpoint = secured_server->endpoint();
         cfg.security_mode = "SignAndEncrypt";
         cfg.security_policy = "Basic256Sha256";
         return cfg;
@@ -159,8 +158,8 @@ protected:
 
     /// @returns the secured connection that logs in as "user" with the password in the
     /// secret with key.
-    [[nodiscard]] static connection::Config
-    password_config(const synnax::secret::Key &key) {
+    [[nodiscard]] connection::Config
+    password_config(const synnax::secret::Key &key) const {
         auto cfg = secured_config();
         cfg.username = "user";
         cfg.password_secret = key;
@@ -174,7 +173,7 @@ protected:
             password_config(secret::testutil::create_secret(*this->client))
         );
         dev.key = "password-device-" + x::uuid::create().to_string();
-        dev.location = "opc.tcp://localhost:4871";
+        dev.location = secured_server->endpoint();
         dev.model = "OPC UA";
         EXPECT_NIL(this->client->devices.create(dev));
         return dev;
@@ -201,7 +200,7 @@ TEST_F(TestScanTask, testBasicScan) {
     );
 
     connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://localhost:4840";
+    conn_cfg.endpoint = server->endpoint();
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
@@ -287,7 +286,7 @@ TEST_F(TestScanTask, testConnectionPooling) {
     );
 
     connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://localhost:4840";
+    conn_cfg.endpoint = server->endpoint();
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
@@ -330,7 +329,7 @@ TEST_F(TestScanTask, testTestConnection) {
     );
 
     connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://localhost:4840";
+    conn_cfg.endpoint = server->endpoint();
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
 
@@ -405,11 +404,7 @@ command(const std::string &type, const std::string &endpoint, x::json::json args
 /// the URI of their namespace.
 TEST_F(TestScanTask, testBrowsePrintsNamespaceURIs) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
-    auto cmd = command(
-        BROWSE_CMD_TYPE,
-        "opc.tcp://localhost:4840",
-        {{"node_id", "i=85"}}
-    );
+    auto cmd = command(BROWSE_CMD_TYPE, server->endpoint(), {{"node_id", "i=85"}});
     ASSERT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_EQ(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
@@ -428,11 +423,7 @@ TEST_F(TestScanTask, testBrowsePrintsNamespaceURIs) {
 /// connection opened.
 TEST_F(TestScanTask, testBrowsePrintsNamespaceAddedAfterConnect) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
-    auto cmd = command(
-        BROWSE_CMD_TYPE,
-        "opc.tcp://localhost:4840",
-        {{"node_id", "i=85"}}
-    );
+    auto cmd = command(BROWSE_CMD_TYPE, server->endpoint(), {{"node_id", "i=85"}});
     ASSERT_TRUE(scanner.exec(cmd, task, ctx));
     UA_Float value = 5.0f;
     UA_Variant variant;
@@ -459,7 +450,7 @@ TEST_F(TestScanTask, testBrowseUnknownNamespace) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
     auto cmd = command(
         BROWSE_CMD_TYPE,
-        "opc.tcp://localhost:4840",
+        server->endpoint(),
         {{"node_id", "nsu=urn:missing;i=85"}}
     );
     ASSERT_TRUE(scanner.exec(cmd, task, ctx));
@@ -475,7 +466,7 @@ TEST_F(TestScanTask, testBrowseUnknownNamespace) {
 TEST_F(TestScanTask, testGetEndpoints) {
     start_secured_server(server_id);
     Scanner scanner(ctx, task, conn_pool, store, reader);
-    auto cmd = command(GET_ENDPOINTS_CMD_TYPE, "opc.tcp://localhost:4871");
+    auto cmd = command(GET_ENDPOINTS_CMD_TYPE, secured_server->endpoint());
     ASSERT_TRUE(scanner.exec(cmd, task, ctx));
     ASSERT_EQ(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
@@ -541,7 +532,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
     dev.rack = rack.key;
     dev.properties = x::json::json{
         {"connection",
-         {{"endpoint", "opc.tcp://localhost:4840"},
+         {{"endpoint", server->endpoint()},
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", x::json::json::array()}
@@ -565,7 +556,7 @@ TEST_F(TestScanTask, testScanChecksDeviceHealth) {
 TEST_F(TestScanTask, testHealthCheckRidesTaskSession) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
     connection::Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.endpoint = server->endpoint();
     synnax::device::Device dev;
     dev.key = "ride-device";
     dev.name = "Ride Device";
@@ -589,7 +580,7 @@ TEST_F(TestScanTask, testHealthCheckRidesTaskSession) {
 TEST_F(TestScanTask, testHealthCheckProbesEachScan) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
     connection::Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.endpoint = server->endpoint();
     synnax::device::Device dev;
     dev.key = "probe-device";
     dev.name = "Probe Device";
@@ -618,7 +609,7 @@ TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     dev.rack = rack.key;
     dev.properties = x::json::json{
         {"connection",
-         {{"endpoint", "opc.tcp://localhost:4840"},
+         {{"endpoint", server->endpoint()},
           {"security_mode", "None"},
           {"security_policy", "None"}}},
         {"channels", x::json::json::array()}
@@ -938,7 +929,7 @@ TEST_F(TestScanTask, testSentClientCertificateNeedsGrant) {
 TEST_F(TestScanTask, testUnsecuredClientCertificateNeedsNoGrant) {
     Scanner scanner(ctx, task, conn_pool, store, reader);
     connection::Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
+    cfg.endpoint = server->endpoint();
     cfg.client_certificate_item = x::uuid::create();
     synnax::task::Command cmd{
         .type = TEST_CONNECTION_CMD_TYPE,
@@ -994,7 +985,7 @@ TEST_F(TestScanTask, testHealthCheckReadsClientCertificate) {
     );
     auto dev = secured_device(cfg);
     dev.key = "client-certificate-device-" + x::uuid::create().to_string();
-    dev.location = "opc.tcp://localhost:4871";
+    dev.location = secured_server->endpoint();
     dev.model = "OPC UA";
     ASSERT_NIL(client->devices.create(dev));
     const auto scanned = scan(scanner, dev);
@@ -1291,17 +1282,18 @@ TEST_F(TestScanTask, testRecordsFailureIsPartialScan) {
     ASSERT_EQ(scanned.size(), 1);
 }
 
-/// @brief browses the node at path in the server on port 4881, and returns the status.
+/// @brief browses the node at path in the server at endpoint, and returns the status.
 synnax::task::Status browse_node(
     const std::shared_ptr<task::MockContext> &ctx,
     const synnax::task::Task &task,
     const std::shared_ptr<connection::Pool> &pool,
     const std::shared_ptr<certificate::Store> &store,
+    const std::string &endpoint,
     const std::string &node_id,
     const std::string &field
 ) {
     connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://localhost:4881";
+    conn_cfg.endpoint = endpoint;
     conn_cfg.security_mode = "None";
     conn_cfg.security_policy = "None";
     Scanner scanner(
@@ -1331,7 +1323,6 @@ synnax::task::Status browse_node(
 /// a TestSensor node, whose structure holds an array.
 std::unique_ptr<testutil::Server> start_motor_server() {
     auto cfg = testutil::ServerConfig::create_default();
-    cfg.port = 4881;
     cfg.motor = testutil::Motor{
         .speed = 1500.0,
         .running = true,
@@ -1348,8 +1339,15 @@ std::unique_ptr<testutil::Server> start_motor_server() {
 /// not the type definition of the variable.
 TEST_F(TestScanTask, testBrowsesStructureMembers) {
     const auto motor_server = start_motor_server();
-    const auto
-        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestMotor", "");
+    const auto status = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        motor_server->endpoint(),
+        "NS=1;S=TestMotor",
+        ""
+    );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
     const auto &channels = status.details.data.value().at("channels");
     ASSERT_EQ(channels.size(), 3);
@@ -1372,6 +1370,7 @@ TEST_F(TestScanTask, testBrowsesNestedMembers) {
         task,
         conn_pool,
         store,
+        motor_server->endpoint(),
         "NS=1;S=TestMotor",
         "Position"
     );
@@ -1387,8 +1386,15 @@ TEST_F(TestScanTask, testBrowsesNestedMembers) {
 /// @brief it should list a member that holds an array, and no members of it.
 TEST_F(TestScanTask, testBrowsesArrayMember) {
     const auto motor_server = start_motor_server();
-    const auto
-        sensor = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestSensor", "");
+    const auto sensor = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        motor_server->endpoint(),
+        "NS=1;S=TestSensor",
+        ""
+    );
     ASSERT_EQ(sensor.variant, synnax::status::VARIANT_SUCCESS) << sensor.description;
     const auto &members = sensor.details.data.value().at("channels");
     ASSERT_EQ(members.size(), 1);
@@ -1399,6 +1405,7 @@ TEST_F(TestScanTask, testBrowsesArrayMember) {
         task,
         conn_pool,
         store,
+        motor_server->endpoint(),
         "NS=1;S=TestSensor",
         "Readings"
     );
@@ -1412,13 +1419,19 @@ TEST_F(TestScanTask, testBrowsesArrayMember) {
 /// build, and warn that its members do not list.
 TEST_F(TestScanTask, testBrowsesChildrenOfUnbuiltStructure) {
     auto cfg = testutil::ServerConfig::create_default();
-    cfg.port = 4881;
     cfg.broken = testutil::Broken{};
     testutil::Server server(cfg);
     server.start();
     ASSERT_TRUE(server.wait_until_ready());
-    const auto
-        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestBroken", "");
+    const auto status = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        server.endpoint(),
+        "NS=1;S=TestBroken",
+        ""
+    );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to list structure members");
     EXPECT_EQ(
@@ -1440,8 +1453,15 @@ TEST_F(TestScanTask, testBrowsesChildrenOfUnbuiltStructure) {
 /// @brief it should fail to list the members of a node that holds no structure.
 TEST_F(TestScanTask, testRejectsFieldOfScalar) {
     const auto motor_server = start_motor_server();
-    const auto
-        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestDouble", "Speed");
+    const auto status = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        motor_server->endpoint(),
+        "NS=1;S=TestDouble",
+        "Speed"
+    );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to browse nodes");
     EXPECT_EQ(status.description, "Double has no member Speed");
@@ -1455,7 +1475,7 @@ synnax::task::Status run_command(
     const std::shared_ptr<connection::Pool> &pool,
     const std::shared_ptr<certificate::Store> &store,
     const std::string &type,
-    const int port,
+    const std::string &endpoint,
     x::json::json args,
     const x::telem::TimeSpan read_node_timeout = connection::Config{}.read_node_timeout
 ) {
@@ -1466,11 +1486,7 @@ synnax::task::Status run_command(
         store,
         std::make_shared<secret::Reader>(ctx->client, secret::Config{})
     );
-    auto cmd = command(
-        type,
-        "opc.tcp://localhost:" + std::to_string(port),
-        std::move(args)
-    );
+    auto cmd = command(type, endpoint, std::move(args));
     cmd.args["connection"]["read_node_timeout"] = read_node_timeout.nanoseconds();
     const auto before = ctx->statuses.size();
     EXPECT_TRUE(scanner.exec(cmd, task, ctx));
@@ -1482,7 +1498,6 @@ synnax::task::Status run_command(
 std::unique_ptr<testutil::Server>
 start_generated_server(const std::uint32_t variables, const std::uint32_t folders = 0) {
     auto cfg = testutil::ServerConfig::create_default();
-    cfg.port = 4882;
     cfg.generated_variables = variables;
     cfg.generated_folders = folders;
     cfg.max_nodes_per_browse = 1000;
@@ -1502,7 +1517,7 @@ TEST_F(TestScanTask, testBrowseVariables) {
         conn_pool,
         store,
         BROWSE_VARIABLES_CMD_TYPE,
-        4882,
+        generated->endpoint(),
         {{"node_id", "NS=1;S=Generated"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1535,7 +1550,7 @@ TEST_F(TestScanTask, testBrowseVariablesReturnsSkippedErrors) {
         conn_pool,
         store,
         BROWSE_VARIABLES_CMD_TYPE,
-        4882,
+        generated->endpoint(),
         {{"node_id", "NS=1;S=Missing"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1557,7 +1572,7 @@ TEST_F(TestScanTask, testBrowseVariablesStopsAtLimit) {
         conn_pool,
         store,
         BROWSE_VARIABLES_CMD_TYPE,
-        4882,
+        generated->endpoint(),
         {{"node_id", "NS=1;S=Generated"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1577,7 +1592,7 @@ TEST_F(TestScanTask, testBrowseStopsAtChildLimit) {
         conn_pool,
         store,
         BROWSE_CMD_TYPE,
-        4882,
+        generated->endpoint(),
         {{"node_id", "NS=1;S=Generated"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1591,7 +1606,6 @@ TEST_F(TestScanTask, testBrowseStopsAtChildLimit) {
 /// ms before it handles each request and takes the type of one variable in each Read.
 std::unique_ptr<testutil::Server> start_slow_server(const std::uint32_t variables) {
     auto cfg = testutil::ServerConfig::create_default();
-    cfg.port = 4882;
     cfg.generated_variables = variables;
     cfg.max_nodes_per_read = 2;
     auto server = std::make_unique<testutil::Server>(cfg);
@@ -1612,7 +1626,7 @@ TEST_F(TestScanTask, testBrowseStopsAtDeadline) {
         conn_pool,
         store,
         BROWSE_CMD_TYPE,
-        4882,
+        slow->endpoint(),
         {{"node_id", "NS=1;S=Generated"}}
     );
     EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(10));
@@ -1635,7 +1649,7 @@ TEST_F(TestScanTask, testBrowseVariablesStopsAtDeadline) {
         conn_pool,
         store,
         BROWSE_VARIABLES_CMD_TYPE,
-        4882,
+        slow->endpoint(),
         {{"node_id", "NS=1;S=Generated"}}
     );
     EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(30));
@@ -1656,7 +1670,7 @@ TEST_F(TestScanTask, testBrowseVariablesStopsAtObjectLimit) {
         conn_pool,
         store,
         BROWSE_VARIABLES_CMD_TYPE,
-        4882,
+        generated->endpoint(),
         {{"node_id", "NS=1;S=Generated"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1676,7 +1690,6 @@ std::unique_ptr<testutil::Server> start_one_node_server(
     const x::telem::TimeSpan delay
 ) {
     auto cfg = testutil::ServerConfig::create_default();
-    cfg.port = 4882;
     cfg.max_nodes_per_read = 1;
     auto server = std::make_unique<testutil::Server>(cfg);
     server->start();
@@ -1687,7 +1700,7 @@ std::unique_ptr<testutil::Server> start_one_node_server(
         pool,
         store,
         READ_NODE_CMD_TYPE,
-        4882,
+        server->endpoint(),
         {{"node_id", "NS=1;S=TestDouble"}}
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1706,7 +1719,7 @@ TEST_F(TestScanTask, testReadNodeOneNodePerRequest) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4882,
+        slow->endpoint(),
         {{"node_id", "NS=1;S=TestDouble"}}
     );
     EXPECT_GT(
@@ -1727,7 +1740,7 @@ TEST_F(TestScanTask, testReadNodeStopsAtDeadline) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4882,
+        slow->endpoint(),
         {{"node_id", "NS=1;S=TestDouble"}},
         300 * x::telem::MILLISECOND
     );
@@ -1748,7 +1761,7 @@ TEST_F(TestScanTask, testReadNodeDeadlineCoversNamespaceRead) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4882,
+        slow->endpoint(),
         {{"node_id", "NS=1;S=TestDouble"}},
         10 * x::telem::MILLISECOND
     );
@@ -1766,7 +1779,7 @@ TEST_F(TestScanTask, testReadNodeDeadlineCoversConnection) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4840,
+        server->endpoint(),
         {{"node_id", "NS=1;S=TestDouble"}},
         x::telem::TimeSpan(1)
     );
@@ -1783,7 +1796,7 @@ TEST_F(TestScanTask, testReadNode) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4840,
+        server->endpoint(),
         {{"node_id", "NS=1;S=TestDouble"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1816,7 +1829,7 @@ TEST_F(TestScanTask, testReadNodeArray) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4840,
+        server->endpoint(),
         {{"node_id", "NS=1;S=TestDoubleArray"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1837,7 +1850,7 @@ TEST_F(TestScanTask, testReadNodeObject) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4840,
+        server->endpoint(),
         {{"node_id", "i=85"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1859,7 +1872,7 @@ TEST_F(TestScanTask, testReadNodeStructure) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4881,
+        motor_server->endpoint(),
         {{"node_id", "NS=1;S=TestMotor"}}
     );
     ASSERT_EQ(whole.variant, synnax::status::VARIANT_SUCCESS) << whole.description;
@@ -1876,7 +1889,7 @@ TEST_F(TestScanTask, testReadNodeStructure) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4881,
+        motor_server->endpoint(),
         {{"node_id", "NS=1;S=TestMotor"}, {"field", "Position.Y"}}
     );
     ASSERT_EQ(member.variant, synnax::status::VARIANT_SUCCESS) << member.description;
@@ -1898,7 +1911,7 @@ TEST_F(TestScanTask, testReadNodeArrayMember) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4881,
+        motor_server->endpoint(),
         {{"node_id", "NS=1;S=TestSensor"}, {"field", "Readings"}}
     );
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
@@ -1920,7 +1933,7 @@ TEST_F(TestScanTask, testReadNodeUnknown) {
         conn_pool,
         store,
         READ_NODE_CMD_TYPE,
-        4840,
+        server->endpoint(),
         {{"node_id", "NS=1;S=Missing"}}
     );
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);

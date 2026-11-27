@@ -24,12 +24,11 @@ class ConnectionPoolKeepAliveTest : public ::testing::Test {
 protected:
     void SetUp() override {
         server_cfg = testutil::ServerConfig::create_default();
-        server_cfg.port = 4847;
         this->server = std::make_unique<testutil::Server>(server_cfg);
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
 
-        conn_cfg.endpoint = "opc.tcp://localhost:4847";
+        conn_cfg.endpoint = this->server->endpoint();
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
     }

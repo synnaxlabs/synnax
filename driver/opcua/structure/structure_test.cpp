@@ -63,7 +63,6 @@ class TypesTest : public ::testing::Test {
 protected:
     void SetUp() override {
         auto server_cfg = testutil::ServerConfig::create_default();
-        server_cfg.port = 4880;
         server_cfg.motor = testutil::Motor{
             .speed = 1500.0,
             .running = true,
@@ -74,7 +73,7 @@ protected:
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
         connection::Config cfg;
-        cfg.endpoint = "opc.tcp://localhost:4880";
+        cfg.endpoint = this->server->endpoint();
         cfg.security_mode = "None";
         cfg.security_policy = "None";
         this->pool = std::make_unique<connection::Pool>(testutil::create_store());

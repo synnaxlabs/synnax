@@ -50,10 +50,14 @@ int main(int argc, char *argv[]) {
         // Create and start the server
         driver::opcua::testutil::Server server(config);
         server.start();
+        if (!server.wait_until_ready()) {
+            std::cerr << "Failed to start the OPC UA server" << std::endl;
+            return 1;
+        }
 
         std::cout << "\nOPC UA Mock Server is running with the following test nodes:"
                   << std::endl;
-        std::cout << "Endpoint: opc.tcp://localhost:" << port << std::endl;
+        std::cout << "Endpoint: " << server.endpoint() << std::endl;
         std::cout << "\nAvailable test nodes:" << std::endl;
 
         for (const auto &node: config.test_nodes) {

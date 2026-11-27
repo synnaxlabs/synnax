@@ -107,7 +107,13 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
+        server = std::make_unique<testutil::Server>(
+            testutil::ServerConfig::create_default()
+        );
+        server->start();
+        ASSERT_TRUE(server->wait_until_ready());
+
+        conn_cfg.endpoint = server->endpoint();
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
@@ -211,9 +217,6 @@ protected:
         auto p = x::json::Parser(task_cfg);
         this->cfg = std::make_unique<WriteTaskConfig>(client, p);
 
-        // Use the comprehensive default server configuration
-        auto server_cfg = testutil::ServerConfig::create_default();
-
         ctx = std::make_shared<task::MockContext>(client);
         reader = std::make_shared<secret::Reader>(client, secret::Config{});
         auto reads = std::make_shared<std::vector<::x::telem::Frame>>();
@@ -279,10 +282,6 @@ protected:
         );
 
         conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
-
-        server = std::make_unique<testutil::Server>(server_cfg);
-        server->start();
-        ASSERT_TRUE(server->wait_until_ready());
     }
 
     std::unique_ptr<common::WriteTask> create_task() {
@@ -301,14 +300,14 @@ protected:
         );
     }
 
-    static constexpr std::uint16_t SECURED_PORT = 4862;
     synnax::device::Device secured_dev;
     synnax::channel::Channel secured_cmd_channel;
 
-    /// @brief creates a command channel, and a device for the secured server that
-    /// presents server_cert. The device logs in as username with the password in
-    /// password_secret when username is not empty.
+    /// @brief creates a command channel, and a device for the secured server at
+    /// endpoint that presents server_cert. The device logs in as username with the
+    /// password in password_secret when username is not empty.
     void create_secured_device(
+        const std::string &endpoint,
         const x::x509::Certificate &server_cert,
         const std::string &username = "",
         const x::uuid::UUID &password_secret = {}
@@ -320,7 +319,7 @@ protected:
         ));
         const auto rack = ASSERT_NIL_P(ctx->client->racks.create("secured_write_rack"));
         connection::Config secured_cfg;
-        secured_cfg.endpoint = "opc.tcp://localhost:" + std::to_string(SECURED_PORT);
+        secured_cfg.endpoint = endpoint;
         secured_cfg.security_mode = "SignAndEncrypt";
         secured_cfg.security_policy = "Basic256Sha256";
         secured_cfg.server_certificate_item = secret::testutil::create_certificate(
@@ -520,12 +519,11 @@ TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
     );
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto moved_server_cfg = testutil::ServerConfig::create_default();
-    moved_server_cfg.port = 4858;
     testutil::Server moved_server(moved_server_cfg);
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
     auto moved_cfg = conn_cfg;
-    moved_cfg.endpoint = "opc.tcp://localhost:4858";
+    moved_cfg.endpoint = moved_server.endpoint();
     ASSERT_NIL(ctx->client->devices.dispatch(
         this->dev.key,
         {synnax::device::set(
@@ -908,13 +906,12 @@ TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
     const auto old = ASSERT_NIL_P(store->current());
     const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     auto server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = SECURED_PORT;
     server_cfg.identity = server_id;
     server_cfg.trusted_clients = {old.certificate};
     auto secured = std::make_unique<testutil::Server>(server_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
-    this->create_secured_device(server_id.certificate);
+    this->create_secured_device(secured->endpoint(), server_id.certificate);
     const auto sink = this->create_secured_sink("NS=1;S=TestUInt32");
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);
@@ -924,6 +921,7 @@ TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
     );
     ASSERT_NIL(sink->write(fr));
     const auto next = ASSERT_NIL_P(store->regenerate());
+    server_cfg.port = secured->port();
     secured->stop();
     server_cfg.trusted_clients = {next.certificate};
     secured = std::make_unique<testutil::Server>(server_cfg);
@@ -937,13 +935,13 @@ TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
 TEST_F(TestWriteTask, testWriteLogsInWithPasswordSecret) {
     const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     auto server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = SECURED_PORT;
     server_cfg.identity = server_id;
     server_cfg.users = {{"user", x::x509::testutil::KEY}};
     testutil::Server secured(server_cfg);
     secured.start();
     ASSERT_TRUE(secured.wait_until_ready());
     this->create_secured_device(
+        secured.endpoint(),
         server_id.certificate,
         "user",
         secret::testutil::create_secret(*ctx->client)
@@ -972,12 +970,11 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
     conn_pool = std::make_shared<connection::Pool>(store);
     const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     auto server_cfg = testutil::ServerConfig::create_default();
-    server_cfg.port = SECURED_PORT;
     server_cfg.identity = server_id;
     testutil::Server secured(server_cfg);
     secured.start();
     ASSERT_TRUE(secured.wait_until_ready());
-    this->create_secured_device(server_id.certificate);
+    this->create_secured_device(secured.endpoint(), server_id.certificate);
     const auto sink = this->create_secured_sink("NS=99;I=99999");
     ASSERT_NIL(sink->start("start_cmd", this->cancel));
     auto fr = x::telem::Frame(1);

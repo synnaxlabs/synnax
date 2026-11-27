@@ -142,15 +142,25 @@ protected:
         ));
         auto rack = ASSERT_NIL_P(client->racks.create("opc_read_task_test_rack"));
 
+        auto server_cfg = testutil::ServerConfig::create_default();
+        server_cfg.motor = testutil::Motor{
+            .speed = 1500.0,
+            .running = true,
+            .position = {.x = 1.5F, .y = 2.5F},
+        };
+        server = std::make_unique<testutil::Server>(server_cfg);
+        server->start();
+        ASSERT_TRUE(server->wait_until_ready());
+
         connection::Config conn_cfg;
-        conn_cfg.endpoint = "opc.tcp://localhost:4840";
+        conn_cfg.endpoint = server->endpoint();
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
         this->dev = synnax::device::Device{
             .key = make_unique_channel_name("opc_read_task_test_server"),
             .rack = rack.key,
-            .location = "opc.tcp://localhost:4840",
+            .location = conn_cfg.endpoint,
             .make = "opc",
             .model = "OPC UA Server",
             .name = "OPC UA Read Task Test Server",
@@ -159,14 +169,6 @@ protected:
             ),
         };
         ASSERT_NIL(client->devices.create(this->dev));
-
-        // Use the comprehensive default server configuration
-        auto server_cfg = testutil::ServerConfig::create_default();
-        server_cfg.motor = testutil::Motor{
-            .speed = 1500.0,
-            .running = true,
-            .position = {.x = 1.5F, .y = 2.5F},
-        };
 
         x::json::json task_cfg{
             {"data_saving_disabled", false},
@@ -271,10 +273,6 @@ protected:
         reader = std::make_shared<secret::Reader>(client, secret::Config{});
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
         conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
-
-        server = std::make_unique<testutil::Server>(server_cfg);
-        server->start();
-        ASSERT_TRUE(server->wait_until_ready());
     }
 
     /// @returns a unary source that reads cfg_json.
@@ -626,8 +624,9 @@ testutil::TestNode shared_node(const std::int32_t ns, UA_Float value) {
 /// @brief it should find a node by its namespace URI after the server restarts with its
 /// namespaces in another order.
 TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
-    server->stop();
     testutil::ServerConfig server_cfg;
+    server_cfg.port = server->port();
+    server->stop();
     server_cfg.namespaces = {"urn:a", "urn:b"};
     server_cfg.test_nodes = {shared_node(2, 1.0f), shared_node(3, 2.0f)};
     server = std::make_unique<testutil::Server>(server_cfg);
@@ -752,12 +751,11 @@ TEST_F(TestReadTask, testStartsWhileServerOff) {
 /// @brief it should retrieve the device before it connects again, so a corrected
 /// endpoint takes effect without a restart.
 TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
-    const std::string endpoint = "opc.tcp://localhost:4863";
     auto moved_server_cfg = testutil::ServerConfig::create_default();
-    moved_server_cfg.port = 4863;
     testutil::Server moved_server(moved_server_cfg);
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
+    const std::string endpoint = moved_server.endpoint();
     const auto source = this->create_source(task_cfg_json);
     ASSERT_NIL(source->start("start_cmd", this->cancel));
     connection::Config moved_cfg;
@@ -971,7 +969,7 @@ TEST_F(TestReadTask, testRapidStartStop) {
 
 /// @brief it should reuse connections from pool across task starts.
 TEST_F(TestReadTask, testConnectionPoolReuse) {
-    const std::string endpoint = "opc.tcp://localhost:4840";
+    const std::string endpoint = server->endpoint();
     EXPECT_EQ(conn_pool->size(), 0);
     EXPECT_EQ(conn_pool->available_count(endpoint), 0);
 
@@ -1003,12 +1001,11 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
 /// @brief it should retrieve the device on each start, so a changed endpoint takes
 /// effect without configuring the task again.
 TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
-    const std::string endpoint = "opc.tcp://localhost:4859";
     auto moved_server_cfg = testutil::ServerConfig::create_default();
-    moved_server_cfg.port = 4859;
     testutil::Server moved_server(moved_server_cfg);
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
+    const std::string endpoint = moved_server.endpoint();
     const auto rt = create_task();
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
@@ -1023,7 +1020,7 @@ TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop", true);
     EXPECT_EQ(conn_pool->available_count(endpoint), 1);
-    EXPECT_EQ(conn_pool->available_count("opc.tcp://localhost:4840"), 0);
+    EXPECT_EQ(conn_pool->available_count(server->endpoint()), 0);
 }
 
 /// @brief it should keep reading after the Driver certificate changes and the server
@@ -1034,14 +1031,13 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     const auto old = ASSERT_NIL_P(store->current());
     const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     auto secured_cfg = testutil::ServerConfig::create_default();
-    secured_cfg.port = 4861;
     secured_cfg.identity = server_id;
     secured_cfg.trusted_clients = {old.certificate};
     auto secured = std::make_unique<testutil::Server>(secured_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
     connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://localhost:4861";
+    conn_cfg.endpoint = secured->endpoint();
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
     conn_cfg.server_certificate_item = secret::testutil::create_certificate(
@@ -1063,6 +1059,7 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     x::telem::Frame fr;
     ASSERT_NIL(source.read(breaker, fr).error);
     const auto next = ASSERT_NIL_P(store->regenerate());
+    secured_cfg.port = secured->port();
     secured->stop();
     secured_cfg.trusted_clients = {next.certificate};
     secured = std::make_unique<testutil::Server>(secured_cfg);
@@ -1076,14 +1073,13 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
 TEST_F(TestReadTask, testReadLogsInWithPasswordSecret) {
     const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
     auto secured_cfg = testutil::ServerConfig::create_default();
-    secured_cfg.port = 4862;
     secured_cfg.identity = server_id;
     secured_cfg.users = {{"user", x::x509::testutil::KEY}};
     const auto secured = std::make_unique<testutil::Server>(secured_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
     connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://localhost:4862";
+    conn_cfg.endpoint = secured->endpoint();
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
     conn_cfg.server_certificate_item = secret::testutil::create_certificate(
@@ -1117,7 +1113,7 @@ TEST_F(TestReadTask, testReadLogsInWithPasswordSecret) {
 
 /// @brief it should create separate connections for concurrent tasks.
 TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
-    const std::string endpoint = "opc.tcp://localhost:4840";
+    const std::string endpoint = server->endpoint();
     EXPECT_EQ(conn_pool->size(), 0);
 
     const auto rt1 = create_task();
@@ -1411,7 +1407,6 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     // Test that UnaryReadTaskSource skips samples when boolean data is invalid
     // Uses a separate mock server on different port with invalid data
     auto invalid_server_cfg = testutil::ServerConfig::create_with_invalid_data();
-    invalid_server_cfg.port = 4841; // Different port from main server
     auto invalid_server = std::make_unique<testutil::Server>(invalid_server_cfg);
     invalid_server->start();
     ASSERT_TRUE(invalid_server->wait_until_ready());
@@ -1422,14 +1417,14 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     );
 
     connection::Config invalid_conn_cfg;
-    invalid_conn_cfg.endpoint = "opc.tcp://localhost:4841";
+    invalid_conn_cfg.endpoint = invalid_server->endpoint();
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
         .key = make_unique_channel_name("opc_invalid_test_server"),
         .rack = invalid_rack.key,
-        .location = "opc.tcp://localhost:4841",
+        .location = invalid_server->endpoint(),
         .make = "opc",
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Data Test Server",
@@ -1498,7 +1493,6 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
 TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     // Test that UnaryReadTaskSource skips samples when float data has null pointer
     auto invalid_server_cfg = testutil::ServerConfig::create_with_invalid_data();
-    invalid_server_cfg.port = 4842; // Different port
     auto invalid_server = std::make_unique<testutil::Server>(invalid_server_cfg);
     invalid_server->start();
     ASSERT_TRUE(invalid_server->wait_until_ready());
@@ -1509,14 +1503,14 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     );
 
     connection::Config invalid_conn_cfg;
-    invalid_conn_cfg.endpoint = "opc.tcp://localhost:4842";
+    invalid_conn_cfg.endpoint = invalid_server->endpoint();
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
         .key = make_unique_channel_name("opc_invalid_float_server"),
         .rack = invalid_rack.key,
-        .location = "opc.tcp://localhost:4842",
+        .location = invalid_server->endpoint(),
         .make = "opc",
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Float Server",
@@ -1584,7 +1578,6 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
 TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     // Test that ArrayReadTaskSource clears frames with zero-length arrays
     auto invalid_server_cfg = testutil::ServerConfig::create_with_invalid_data();
-    invalid_server_cfg.port = 4843;
     auto invalid_server = std::make_unique<testutil::Server>(invalid_server_cfg);
     invalid_server->start();
     ASSERT_TRUE(invalid_server->wait_until_ready());
@@ -1595,14 +1588,14 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     );
 
     connection::Config invalid_conn_cfg;
-    invalid_conn_cfg.endpoint = "opc.tcp://localhost:4843";
+    invalid_conn_cfg.endpoint = invalid_server->endpoint();
     invalid_conn_cfg.security_mode = "None";
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
         .key = make_unique_channel_name("opc_invalid_double_server"),
         .rack = invalid_rack.key,
-        .location = "opc.tcp://localhost:4843",
+        .location = invalid_server->endpoint(),
         .make = "opc",
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Double Server",

@@ -30,12 +30,13 @@ class ConnectionPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
         server_cfg = testutil::ServerConfig::create_default();
-        server_cfg.port = 4845;
         this->server = std::make_unique<testutil::Server>(server_cfg);
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
+        // A server that a test makes again from server_cfg keeps the endpoint.
+        server_cfg.port = this->server->port();
 
-        conn_cfg.endpoint = "opc.tcp://localhost:4845";
+        conn_cfg.endpoint = this->server->endpoint();
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
     }
@@ -98,13 +99,12 @@ TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
 /// @brief it should create separate connections for different endpoints.
 TEST_F(ConnectionPoolTest, DifferentEndpoints) {
     testutil::ServerConfig server2_cfg = testutil::ServerConfig::create_default();
-    server2_cfg.port = 4846;
     testutil::Server server2(server2_cfg);
     server2.start();
     ASSERT_TRUE(server2.wait_until_ready());
 
     Config cfg2 = conn_cfg;
-    cfg2.endpoint = "opc.tcp://localhost:4846";
+    cfg2.endpoint = server2.endpoint();
 
     Pool pool(testutil::create_store());
 
@@ -448,13 +448,12 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
 ///   update: thread B runs concurrently, completes quickly   → PASS
 TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
     testutil::ServerConfig server2_cfg = testutil::ServerConfig::create_default();
-    server2_cfg.port = 4846;
     testutil::Server server2(server2_cfg);
     server2.start();
     ASSERT_TRUE(server2.wait_until_ready());
 
     Config cfg2 = conn_cfg;
-    cfg2.endpoint = "opc.tcp://localhost:4846";
+    cfg2.endpoint = server2.endpoint();
 
     Pool pool(testutil::create_store());
 
@@ -876,13 +875,14 @@ class SessionLimitPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
         server_cfg = testutil::ServerConfig::create_default();
-        server_cfg.port = 4860;
         server_cfg.max_sessions = 2;
         this->server = std::make_unique<testutil::Server>(server_cfg);
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
+        // A server that a test makes again from server_cfg keeps the endpoint.
+        server_cfg.port = this->server->port();
 
-        conn_cfg.endpoint = "opc.tcp://localhost:4860";
+        conn_cfg.endpoint = this->server->endpoint();
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
     }

@@ -322,7 +322,9 @@ create_server_identity(const x::telem::TimeSpan validity = x::telem::DAY) {
 
 struct ServerConfig {
     std::vector<TestNode> test_nodes;
-    std::uint16_t port = 4840; // Default OPC UA port
+    /// @brief the loopback port that the server listens on. 0 lets the operating
+    /// system pick a free port, which Server::port reports once the server is ready.
+    std::uint16_t port = 0;
     std::uint16_t max_sessions = 0; // 0 = unlimited (open62541 default)
     /// @brief the certificate and key that the server presents. Without one, the
     /// server offers only the None security policy.
@@ -570,7 +572,17 @@ public:
     /// @brief the Sessions that the server created since it started.
     std::atomic<size_t> sessions_created{0};
 
-    explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
+    explicit Server(ServerConfig cfg): cfg(std::move(cfg)), bound(this->cfg.port) {}
+
+    /// @brief returns the port that the server listens on. The server keeps it when
+    /// it restarts. Valid once wait_until_ready returns true.
+    [[nodiscard]] std::uint16_t port() const { return this->bound.load(); }
+
+    /// @brief returns the endpoint URL that clients connect to. Valid once
+    /// wait_until_ready returns true.
+    [[nodiscard]] std::string endpoint() const {
+        return "opc.tcp://127.0.0.1:" + std::to_string(this->port());
+    }
 
     /// @brief adds a namespace with nodes to the running server, as a server that loads
     /// a model while it runs does. Each node goes in the new namespace, whatever its
@@ -911,6 +923,7 @@ public:
 
 private:
     std::atomic<bool> exited{false};
+    std::atomic<std::uint16_t> bound;
     /// @brief guards loop, which stop() cancels from another thread.
     std::mutex loop_mu;
     /// @brief the running server's event loop, or nullptr when there is none.
@@ -949,7 +962,7 @@ private:
             const auto key = bytes(cfg.identity->private_key);
             const auto status = UA_ServerConfig_setDefaultWithSecurityPolicies(
                 server_config,
-                cfg.port,
+                this->bound,
                 &cert,
                 &key,
                 trust_list.data(),
@@ -970,11 +983,22 @@ private:
                 UA_CertificateGroup_AcceptAll(&server_config->sessionPKI);
             }
         } else {
-            UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
+            UA_ServerConfig_setMinimal(server_config, this->bound, nullptr);
             auto &uri = server_config->applicationDescription.applicationUri;
             UA_String_clear(&uri);
             uri = UA_STRING_ALLOC(SERVER_APPLICATION_URI.c_str());
         }
+        // Only the IPv4 loopback, since port 0 gives each listen socket its own port.
+        UA_Array_delete(
+            server_config->serverUrls,
+            server_config->serverUrlsSize,
+            &UA_TYPES[UA_TYPES_STRING]
+        );
+        server_config->serverUrls = UA_String_new();
+        server_config->serverUrlsSize = 1;
+        *server_config->serverUrls = UA_STRING_ALLOC(
+            ("opc.tcp://127.0.0.1:" + std::to_string(this->bound)).c_str()
+        );
         server_config->maxSessionTimeout = 3600000;
         if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
         server_config->maxNodesPerRead = cfg.max_nodes_per_read;
@@ -1044,6 +1068,22 @@ private:
         if (status != UA_STATUSCODE_GOOD) {
             LOG(WARNING) << "Mock OPC UA server stopped with status: "
                          << UA_StatusCode_name(status);
+            UA_Server_delete(server);
+            return;
+        }
+        // The listen socket adds its URL, with the port it bound, to discoveryUrls.
+        const auto &app = server_config->applicationDescription;
+        for (size_t i = 0; i < app.discoveryUrlsSize && this->bound == 0; i++) {
+            UA_String host;
+            UA_String path;
+            UA_UInt16 port = 0;
+            if (UA_parseEndpointUrl(&app.discoveryUrls[i], &host, &port, &path) ==
+                UA_STATUSCODE_GOOD)
+                this->bound = port;
+        }
+        if (this->bound == 0) {
+            LOG(WARNING) << "Mock OPC UA server did not report its listen port";
+            UA_Server_run_shutdown(server);
             UA_Server_delete(server);
             return;
         }

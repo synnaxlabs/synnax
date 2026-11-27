@@ -29,8 +29,6 @@
 
 namespace driver::opcua::connection {
 namespace {
-constexpr std::uint16_t PORT = 4870;
-const std::string ENDPOINT = "opc.tcp://localhost:4870";
 const std::string LOG_PREFIX = "[test] ";
 
 bool activated(UA_Client *client) {
@@ -107,9 +105,11 @@ protected:
         const std::uint16_t max_sessions = 0,
         std::vector<std::pair<std::string, std::string>> users = {}
     ) {
-        if (this->server) this->server->stop();
         auto cfg = testutil::ServerConfig::create_default();
-        cfg.port = PORT;
+        if (this->server) {
+            cfg.port = this->server->port();
+            this->server->stop();
+        }
         cfg.identity = id;
         cfg.trusted_clients = std::move(trusted_clients);
         cfg.max_sessions = max_sessions;
@@ -125,9 +125,9 @@ protected:
         );
     }
 
-    [[nodiscard]] static Config config(const std::string &policy = "Basic256Sha256") {
+    [[nodiscard]] Config config(const std::string &policy = "Basic256Sha256") const {
         Config cfg;
-        cfg.endpoint = ENDPOINT;
+        cfg.endpoint = this->server->endpoint();
         cfg.security_mode = "SignAndEncrypt";
         cfg.security_policy = policy;
         return cfg;
@@ -226,7 +226,7 @@ TEST_F(SecurityTest, FirstCertificateLocks) {
     ASSERT_EQ(server_certificate(client.get()), server_id.certificate);
     UA_Client_disconnect(client.get());
     this->start_server(other_id);
-    const auto err = reconnect(client, ENDPOINT);
+    const auto err = reconnect(client, this->server->endpoint());
     ASSERT_MATCHES(err, errors::SERVER_CERTIFICATE_UNTRUSTED);
     ASSERT_EQ(err.data, mismatch_message(other_id.certificate, server_id.certificate));
     ASSERT_FALSE(activated(client.get()));
@@ -378,7 +378,7 @@ TEST_F(SecurityTest, PoolSkipsUntrustedConnection) {
         errors::SERVER_CERTIFICATE_UNTRUSTED
     );
     ASSERT_EQ(pool.size(), 1);
-    ASSERT_EQ(pool.available_count(ENDPOINT), 1);
+    ASSERT_EQ(pool.available_count(this->server->endpoint()), 1);
     const auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
     ASSERT_EQ(conn.get(), first);
 }
@@ -396,7 +396,7 @@ TEST_F(SecurityTest, PoolSeparatesLogins) {
     second.username = "a";
     second.password = "b|c";
     ASSERT_OCCURRED_AS_P(pool.acquire(second, LOG_PREFIX), errors::SESSION_REJECTED);
-    ASSERT_EQ(pool.available_count(ENDPOINT), 1);
+    ASSERT_EQ(pool.available_count(this->server->endpoint()), 1);
 }
 
 /// @brief it should stop connecting after repeated certificate rejections, and repeat
@@ -445,7 +445,7 @@ TEST_F(SecurityTest, PoolClosesIdleConnectionAfterCertificateChange) {
     auto cfg = config();
     cfg.server_certificate = server_id.certificate;
     { auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX)); }
-    ASSERT_EQ(pool.available_count(ENDPOINT), 1);
+    ASSERT_EQ(pool.available_count(this->server->endpoint()), 1);
     ASSERT_NIL_P(store->regenerate());
     const auto conn = ASSERT_NIL_P(pool.acquire(cfg, LOG_PREFIX));
     ASSERT_TRUE(activated(conn.get()));
@@ -496,7 +496,7 @@ TEST_F(SecurityTest, PoolRefreshClosesOldConnection) {
     conn = ASSERT_NIL_P(pool.refresh(conn, cfg, LOG_PREFIX));
     ASSERT_TRUE(conn);
     ASSERT_EQ(pool.size(), 1);
-    ASSERT_EQ(pool.available_count(ENDPOINT), 0);
+    ASSERT_EQ(pool.available_count(this->server->endpoint()), 0);
 }
 
 /// @brief it should keep the old connection when the server does not trust the new
