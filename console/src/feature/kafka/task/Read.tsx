@@ -128,16 +128,19 @@ const Properties = () => (
   </>
 );
 
-/**
- * @returns the name of a new message that the records of topic with recordKey read: the
- * topic, then the key when there is one, such as `plant.sensors pump-1`.
- */
-const topicMessageName = (topic: string, recordKey: string): string =>
-  recordKey === "" ? topic : `${topic} ${recordKey}`;
-
 /** @returns the record key, or a stand-in for a record that reads any key. */
 const recordLabel = ({ recordKey }: Pick<ReadRecord, "recordKey">): string =>
   recordKey === "" ? ANY_KEY : recordKey;
+
+/**
+ * @returns the name of a new message that the records of topic with recordKey read: the
+ * topic, then the key when there is one, such as `plant.sensors pump-1`. A topic with
+ * no name gives the record label.
+ */
+const topicMessageName = (topic: string, recordKey: string): string => {
+  if (topic.trim() === "") return recordLabel({ recordKey });
+  return recordKey === "" ? topic : `${topic} ${recordKey}`;
+};
 
 /** The prefix of the names of the channels that deploying creates for a record. */
 const recordPrefix = (deviceName: string, topic: string, recordKey: string): string => {

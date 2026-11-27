@@ -2132,6 +2132,17 @@ describe("Kafka read form", () => {
       );
     });
 
+    it("should name a message of a topic with no name after its record", async () => {
+      await renderRead({
+        topics: [await createTopic("", [createField("pressure", "float")])],
+      });
+      fireEvent.contextMenu(
+        await screen.findByRole("treeitem", { name: /JSON.*Any key/ }),
+      );
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
+      await screen.findByRole("treeitem", { name: "Any key 2" });
+    });
+
     it("should name the match of a message that takes every value Any value", async () => {
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
       await addMessage(rec, "status", [createField("mode", "string")]);
