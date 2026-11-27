@@ -468,7 +468,7 @@ export interface TopicPickerProps {
   children?: ReactNode;
 }
 
-/** Lists the JSON topics the broker publishes, and the fields of the one selected. */
+/** Lists the topics the broker publishes, and the fields of the one selected. */
 export const TopicPicker = ({
   device,
   entries,
