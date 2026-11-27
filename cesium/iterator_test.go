@@ -1813,9 +1813,8 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should return the read error of a chunked read", func(
-					ctx SpecContext,
-				) {
+				It("Should report the read errors of a chunked read, and return "+
+					"them on Close", func(ctx SpecContext) {
 					faulty, faultyDB, keys := openFaulty(ctx)
 					i := MustSucceed(faultyDB.OpenIterator(cesium.IteratorConfig{
 						Bounds:   telem.TimeRangeMax,
@@ -1827,8 +1826,13 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.NextChunks(ctx, 10*telem.Second, func(cesium.Frame) error {
 						emitted++
 						return nil
-					})).Error().To(MatchError(ErrFault))
+					})).To(BeFalse())
 					Expect(emitted).To(BeZero())
+					Expect(i.Failed()).To(HaveLen(len(keys)))
+					for j, f := range i.Failed() {
+						Expect(f.Channel).To(Equal(keys[j]))
+						Expect(f.Err).To(MatchError(ErrFault))
+					}
 					Expect(i.Close()).To(MatchError(ErrFault))
 				})
 
