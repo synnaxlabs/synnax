@@ -319,13 +319,13 @@ var _ = Describe("Read task", func() {
 				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
+			produced := time.Now()
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
 			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
 				WithTimeout(15 * time.Second).Should(Equal(status.VariantWarning))
-			skipped := time.Now()
 			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
 				WithTimeout(15 * time.Second).Should(Equal(status.VariantSuccess))
-			Expect(time.Since(skipped)).To(BeNumerically(">=", hold.Duration()*4/5))
+			Expect(time.Since(produced)).To(BeNumerically(">=", hold.Duration()))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Description).To(BeEmpty())
