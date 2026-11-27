@@ -267,15 +267,30 @@ cc_test(
 
 cc_library(
     name = "list",
-    srcs = ["list_linux.cpp"],
-    hdrs = [
-        "list.h",
-        "list_linux.h",
-    ],
-    target_compatible_with = ["@platforms//os:linux"],
+    srcs = select({
+        "@platforms//os:linux": ["list_linux.cpp"],
+        "@platforms//os:macos": ["list_macos.cpp"],
+        "@platforms//os:windows": ["list_windows.cpp"],
+    }),
+    hdrs = ["list.h"] + select({
+        "@platforms//os:linux": ["list_linux.h"],
+        "//conditions:default": [],
+    }),
+    linkopts = select({
+        "@platforms//os:macos": [
+            "-framework CoreFoundation",
+            "-framework IOKit",
+        ],
+        "@platforms//os:windows": [
+            "/DEFAULTLIB:advapi32.lib",
+            "/DEFAULTLIB:setupapi.lib",
+        ],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
         ":serial",
+        "//driver/transport",
         "//x/cpp/errors",
     ],
 )
@@ -283,10 +298,10 @@ cc_library(
 cc_test(
     name = "list_test",
     size = "small",
-    srcs = [
-        "list_linux_test.cpp",
-        "list_test.cpp",
-    ],
+    srcs = ["list_test.cpp"] + select({
+        "@platforms//os:linux": ["list_linux_test.cpp"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":list",
         "//driver/transport",
