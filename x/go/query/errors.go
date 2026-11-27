@@ -51,6 +51,20 @@ func (multipleResultsError) Is(target error) bool {
 	return target == errMultipleResults || target == ErrQuery
 }
 
+// NotFound returns an error that matches ErrNotFound and whose text is format and args
+// alone, with no ": not found" after them, also once it is encoded and decoded.
+func NotFound(format string, args ...any) error {
+	return notFoundError{msg: fmt.Sprintf(format, args...)}
+}
+
+type notFoundError struct{ msg string }
+
+func (e notFoundError) Error() string { return e.msg }
+
+func (notFoundError) Is(target error) bool {
+	return target == ErrNotFound || target == ErrQuery
+}
+
 const (
 	typePrefix        = "sy.query"
 	uniqueViolation   = typePrefix + ".unique_violation"
@@ -111,7 +125,11 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 func decode(_ *errors.Codec, pld errors.Payload) (error, bool) {
 	switch pld.Type {
 	case notFound:
-		return wrap(ErrNotFound, pld.Data), true
+		if pld.Data == ErrNotFound.Error() ||
+			strings.HasSuffix(pld.Data, ": "+ErrNotFound.Error()) {
+			return wrap(ErrNotFound, pld.Data), true
+		}
+		return notFoundError{msg: pld.Data}, true
 	case uniqueViolation:
 		return wrap(ErrUniqueViolation, pld.Data), true
 	case invalidParameters:
