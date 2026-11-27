@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { env } from "@/env";
 import { ValidationError } from "@/index";
@@ -843,13 +843,40 @@ describe("resolveParams with SYNNAX_CLIENT_CA_CERT", () => {
     });
   });
 
-  it.each<[string, env.Env, env.System | undefined, string]>([
+  it.each<[string, env.Env, string]>([
     [
-      "SYNNAX_CLIENT_INSECURE is true",
+      "the new names",
       { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CLIENT_CA_CERT: "~/ca.pem" },
-      system,
-      "SYNNAX_CLIENT_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out",
+      "SYNNAX_CLIENT_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out or set it " +
+        "to false",
     ],
+    [
+      "the old names",
+      { SYNNAX_SECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" },
+      "SYNNAX_CA_CERT requires TLS; leave SYNNAX_SECURE out or set it to true",
+    ],
+    [
+      "a new insecure name and an old CA name",
+      { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" },
+      "SYNNAX_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out or set it to false",
+    ],
+    [
+      "an old insecure name and a new CA name",
+      { SYNNAX_SECURE: "false", SYNNAX_CLIENT_CA_CERT: "~/ca.pem" },
+      "SYNNAX_CLIENT_CA_CERT requires TLS; leave SYNNAX_SECURE out or set it to true",
+    ],
+  ])("should name the variables it read when TLS is off with %s", (_, vars, msg) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(
+      ValidationError,
+    );
+    expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(msg);
+  });
+
+  it.each<[string, env.Env, env.System | undefined, string]>([
     [
       "the file does not exist",
       { SYNNAX_CLIENT_CA_CERT: "/missing.pem" },

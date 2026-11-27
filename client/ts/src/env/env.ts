@@ -93,9 +93,6 @@ const OLD_DESKTOP_MSG =
 const NOT_RUNNING_MSG =
   "Synnax Desktop is not running. Open it and try again. To connect to another Core, " +
   "give a host and a port.";
-const CA_NEEDS_TLS_MSG =
-  "SYNNAX_CLIENT_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out or set it to " +
-  "false";
 const HELPER_TIMEOUT = TimeSpan.seconds(30);
 
 // Synnax Desktop writes secure, the inverse of insecure.
@@ -328,10 +325,16 @@ const resolveTLS = (
   const insecure = resolveInsecure(params);
   if (insecure != null || params.caCert != null)
     return { insecure: insecure ?? false, caCert: params.caCert };
-  const envInsecure = readRenamed(env, INSECURE)?.value;
+  const envInsecure = readRenamed(env, INSECURE);
   const path = readRenamed(env, CA_CERT);
-  if (path == null) return { insecure: envInsecure ?? desktop?.insecure ?? false };
-  if (envInsecure === true) throw new ValidationError(CA_NEEDS_TLS_MSG);
+  if (path == null)
+    return { insecure: envInsecure?.value ?? desktop?.insecure ?? false };
+  if (envInsecure?.value === true) {
+    const tls = envInsecure.name === INSECURE.deprecated ? "true" : "false";
+    throw new ValidationError(
+      `${path.name} requires TLS; leave ${envInsecure.name} out or set it to ${tls}`,
+    );
+  }
   if (system?.caCertUnsupported === true) return { insecure: false };
   return { insecure: false, caCert: readCA(system, path) };
 };
