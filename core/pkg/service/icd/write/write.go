@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/payload"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -39,19 +40,26 @@ var defaultDataTypes = map[payload.Kind]telem.DataType{
 	payload.KindBytes:     telem.BytesT,
 }
 
+// encoder encodes the payloads of one message, in any format.
+type encoder interface {
+	Encode(dst []byte, samples [][]byte) ([]byte, error)
+	Check(i int, sample []byte) error
+	Ready(samples [][]byte) bool
+}
+
 // newEncoder returns the encoder of the payloads that wm sends of its message in ic.
 // The encoder takes one sample for each channel binding of wm, in binding order. A
 // value binding sends its value as its field. dataTypes holds the data type of each
 // channel that exists. A binding to another channel takes its own data type, or else
 // float64 for a scaled field and the default of its field's kind for any other.
-// newEncoder returns a validation error when wm is not valid, ic lacks the message, the
-// message is not JSON, wm binds no channels, a value does not suit its field, or the
-// encoder refuses the bindings.
+// newEncoder returns a validation error when wm is not valid, ic lacks the message, wm
+// binds no channels, a binding does not suit its field, or the encoder refuses the
+// bindings.
 func newEncoder(
 	wm icd.WriteMessage,
 	ic icd.ICD,
 	dataTypes map[channel.Key]telem.DataType,
-) (*codec.JSONEncoder, error) {
+) (encoder, error) {
 	if err := wm.Validate(); err != nil {
 		return nil, err
 	}
@@ -64,95 +72,205 @@ func newEncoder(
 		)
 	}
 	msg := ic.Messages[i]
-	jp, ok := msg.Payload.Variant.(icd.JSONPayload)
-	if !ok {
-		return nil, validate.Errorf("message %s is not a JSON message", msg.Name)
-	}
 	if !slices.ContainsFunc(wm.Bindings, func(b icd.WriteBinding) bool {
 		return b.Type() == icd.ChannelWriteBindingType
 	}) {
 		return nil, validate.Errorf("message %s binds no channels", msg.Name)
 	}
-	jp.Fields = slices.Clone(jp.Fields)
-	at := make(map[icd.FieldKey]int, len(jp.Fields))
-	for k, f := range jp.Fields {
-		at[f.Base().Key] = k
+	p, bindings, err := bind(wm, msg.Payload, dataTypes)
+	if err != nil {
+		return nil, err
 	}
-	bound := lo.CountValuesBy(wm.Bindings, func(b icd.WriteBinding) icd.FieldKey {
-		return b.Base().Field
-	})
+	switch v := p.Variant.(type) {
+	case icd.JSONPayload:
+		return built(codec.NewJSONEncoder(
+			codec.JSONMessage{Name: msg.Name, Payload: v, Bindings: bindings},
+		))
+	case icd.BinaryPayload:
+		return built(codec.NewBinaryEncoder(
+			codec.BinaryMessage{Name: msg.Name, Payload: v, Bindings: bindings},
+		))
+	case icd.TextPayload:
+		return built(codec.NewTextEncoder(
+			codec.TextMessage{Name: msg.Name, Payload: v, Bindings: bindings},
+		))
+	default:
+		panic(errors.Newf("write: unknown payload variant %T", v))
+	}
+}
+
+// built returns e, or a nil encoder when err is not nil.
+func built[E encoder](e E, err error) (encoder, error) {
+	if err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+// bind returns p with the value of each value binding of wm as the default of its
+// field, and the codec binding of each channel binding, in binding order. dataTypes is
+// as in newEncoder. bind returns a validation error at the path of a binding that names
+// no field of p, a field that a binding before it names, or the identifier field, or
+// that holds a value its field cannot send.
+func bind(
+	wm icd.WriteMessage,
+	p icd.Payload,
+	dataTypes map[channel.Key]telem.DataType,
+) (icd.Payload, []codec.Binding, error) {
+	fields := fieldsOf(p)
+	at := make(map[icd.FieldKey]int, len(fields))
+	for i, f := range fields {
+		at[f.key] = i
+	}
+	bound := make(set.Set[icd.FieldKey], len(wm.Bindings))
 	var bindings []codec.Binding
 	for j, b := range wm.Bindings {
+		pathed := func(err error, segments ...string) error {
+			path := slices.Concat([]string{"bindings", strconv.Itoa(j)}, segments)
+			return validate.PathedError(err, path...)
+		}
+		key := b.Base().Field
+		i, ok := at[key]
+		switch {
+		case !ok:
+			return icd.Payload{}, nil, pathed(
+				validate.Errorf("field %s does not exist", key), "field",
+			)
+		case bound.Contains(key):
+			return icd.Payload{}, nil, pathed(validate.Errorf(
+				"field %s has more than one binding", fields[i].name,
+			), "field")
+		case fields[i].identifier:
+			return icd.Payload{}, nil, pathed(validate.Errorf(
+				"field %s holds the identifier, so it takes no binding", fields[i].name,
+			), "field")
+		}
+		bound.Add(key)
 		switch v := b.Variant.(type) {
 		case icd.ChannelWriteBinding:
-			dt, ok := dataTypes[v.Channel]
-			if f, exists := at[v.Field]; !ok && exists {
-				dt = lo.FromPtrOr(v.DataType, defaultDataType(jp.Fields[f]))
+			dt, found := dataTypes[v.Channel]
+			if !found {
+				dt = lo.FromPtrOr(v.DataType, fields[i].dataType())
 			}
-			bindings = append(bindings, codec.Binding{Field: v.Field, DataType: dt})
+			bindings = append(bindings, codec.Binding{Field: key, DataType: dt})
 		case icd.ValueWriteBinding:
-			if err := fill(&jp, at, v, bound[v.Field]); err != nil {
-				return nil, validate.PathedError(err, "bindings", strconv.Itoa(j))
+			var err error
+			if p, err = withFieldValue(p, i, v.Value); err != nil {
+				return icd.Payload{}, nil, pathed(err, "value")
 			}
 		default:
 			panic(errors.Newf("write: unknown write binding variant %T", v))
 		}
 	}
-	return codec.NewJSONEncoder(codec.JSONMessage{
-		Name:     msg.Name,
-		Payload:  jp,
-		Bindings: bindings,
-	})
+	return p, bindings, nil
 }
 
-// defaultDataType returns the data type of the command channel that a client creates
-// for f when its binding names none. A scaled field takes float64, because the codec
-// writes a scaled field only from a float channel.
-func defaultDataType(f icd.JSONField) telem.DataType {
-	if b := f.Base(); b.Scale != 1 || b.Offset != 0 {
+// field is the part of a message field that a write checks.
+type field struct {
+	key    icd.FieldKey
+	name   string
+	kind   payload.Kind
+	scaled bool
+	// identifier is true when the field holds the identifier of its message.
+	identifier bool
+}
+
+func newField(b icd.BaseField, k payload.Kind) field {
+	return field{
+		key:    b.Key,
+		name:   b.Name,
+		kind:   k,
+		scaled: b.Scale != 1 || b.Offset != 0,
+	}
+}
+
+// dataType returns the data type of the command channel that a client creates for f
+// when its binding names none. A scaled field takes float64, because the codec writes a
+// scaled field only from a float channel.
+func (f field) dataType() telem.DataType {
+	if f.scaled {
 		return telem.Float64T
 	}
-	return defaultDataTypes[f.Type()]
+	return defaultDataTypes[f.kind]
 }
 
-// fill makes the value of b the default of its field in jp, where at holds the index of
-// each field. count is the number of bindings to the field. It returns a validation
-// error at the path of the problem within b.
-func fill(
-	jp *icd.JSONPayload,
-	at map[icd.FieldKey]int,
-	b icd.ValueWriteBinding,
-	count int,
-) error {
-	i, exists := at[b.Field]
-	switch {
-	case !exists:
-		return validate.PathedError(
-			validate.Errorf("field %s does not exist", b.Field), "field",
-		)
-	case count > 1:
-		return validate.PathedError(validate.Errorf(
-			"field %s has more than one binding", jp.Fields[i].Base().Name,
-		), "field")
+// fieldsOf returns the fields of p, in order. A text field encodes a float.
+func fieldsOf(p icd.Payload) []field {
+	switch v := p.Variant.(type) {
+	case icd.JSONPayload:
+		return lo.Map(v.Fields, func(f icd.JSONField, _ int) field {
+			return newField(f.Base().BaseField, f.Type())
+		})
+	case icd.BinaryPayload:
+		var id *icd.FieldKey
+		if v.Identifier != nil {
+			if fi, ok := v.Identifier.Variant.(icd.FieldIdentifier); ok {
+				id = &fi.Field
+			}
+		}
+		return lo.Map(v.Fields, func(f icd.BinaryField, _ int) field {
+			out := newField(f.Base().BaseField, payload.Kind(f.Kind()))
+			out.identifier = id != nil && *id == out.key
+			return out
+		})
+	case icd.TextPayload:
+		return lo.Map(v.Fields, func(f icd.TextField, _ int) field {
+			return newField(f.Base().BaseField, payload.KindFloat)
+		})
+	default:
+		panic(errors.Newf("write: unknown payload variant %T", v))
 	}
-	f, ok := withValue(jp.Fields[i], b.Value)
+}
+
+// withFieldValue returns p with v as the default of field i. It returns a validation
+// error when v is not of the kind of the field, or when the field cannot send v.
+func withFieldValue(p icd.Payload, i int, v icd.WriteValue) (icd.Payload, error) {
+	var (
+		name, kind string
+		ok         bool
+		err        error
+	)
+	switch pv := p.Variant.(type) {
+	case icd.JSONPayload:
+		pv.Fields = slices.Clone(pv.Fields)
+		f := &pv.Fields[i]
+		name, kind = f.Base().Name, string(f.Type())
+		if *f, ok = jsonWithValue(*f, v); ok {
+			err = codec.CheckDefault(*f)
+		}
+		p.Variant = pv
+	case icd.BinaryPayload:
+		pv.Fields = slices.Clone(pv.Fields)
+		f := &pv.Fields[i]
+		name, kind = f.Base().Name, string(f.Kind())
+		if *f, ok = binaryWithValue(*f, v); ok {
+			err = icd.CheckBinaryDefault(*f)
+		}
+		p.Variant = pv
+	case icd.TextPayload:
+		pv.Fields = slices.Clone(pv.Fields)
+		f := &pv.Fields[i]
+		name, kind = f.Base().Name, string(payload.KindFloat)
+		if *f, ok = textWithValue(*f, v); ok {
+			err = icd.CheckTextDefault(*f)
+		}
+		p.Variant = pv
+	default:
+		panic(errors.Newf("write: unknown payload variant %T", pv))
+	}
 	if !ok {
-		return validate.PathedError(validate.Errorf(
+		return p, validate.Errorf(
 			"field %s of kind %s needs a value of its kind",
-			f.Base().Name, f.Type(),
-		), "value")
-	}
-	if err := codec.CheckDefault(f); err != nil {
-		return validate.PathedError(
-			errors.Wrapf(err, "field %s", f.Base().Name), "value",
+			name,
+			kind,
 		)
 	}
-	jp.Fields[i] = f
-	return nil
+	return p, errors.Wrapf(err, "field %s", name)
 }
 
-// withValue returns f with v as its default, and false when v is not of the kind of f.
-func withValue(f icd.JSONField, v icd.WriteValue) (icd.JSONField, bool) {
+// jsonWithValue returns f with v as its default, and false when v is not of the kind of
+// f.
+func jsonWithValue(f icd.JSONField, v icd.WriteValue) (icd.JSONField, bool) {
 	switch x := v.Variant.(type) {
 	case icd.FloatWriteValue:
 		return withDefault(f, func(fv *icd.FloatJSONField) { fv.Default = &x.Value })
@@ -192,4 +310,52 @@ func withDefault[F icd.JSONFieldVariant](
 		f.Variant = fv
 	}
 	return f, ok
+}
+
+// binaryWithValue returns f with v as its default, and false when v is not of the kind
+// of f.
+func binaryWithValue(f icd.BinaryField, v icd.WriteValue) (icd.BinaryField, bool) {
+	switch x := v.Variant.(type) {
+	case icd.FloatWriteValue:
+		fv, ok := f.Variant.(icd.FloatBinaryField)
+		if ok {
+			fv.Default = &x.Value
+			f.Variant = fv
+		}
+		return f, ok
+	case icd.IntegerWriteValue:
+		fv, ok := f.Variant.(icd.IntegerBinaryField)
+		if ok {
+			fv.Default = &x.Value
+			f.Variant = fv
+		}
+		return f, ok
+	case icd.UnsignedWriteValue:
+		fv, ok := f.Variant.(icd.UnsignedBinaryField)
+		if ok {
+			fv.Default = &x.Value
+			f.Variant = fv
+		}
+		return f, ok
+	}
+	return f, false
+}
+
+// textWithValue returns f with v as its default, and false when v is not a float.
+func textWithValue(f icd.TextField, v icd.WriteValue) (icd.TextField, bool) {
+	x, ok := v.Variant.(icd.FloatWriteValue)
+	if !ok {
+		return f, false
+	}
+	switch fv := f.Variant.(type) {
+	case icd.DelimitedTextField:
+		fv.Default = &x.Value
+		f.Variant = fv
+	case icd.TaggedTextField:
+		fv.Default = &x.Value
+		f.Variant = fv
+	default:
+		panic(errors.Newf("write: unknown text field variant %T", fv))
+	}
+	return f, true
 }

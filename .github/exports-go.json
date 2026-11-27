@@ -11,72 +11,6 @@
   ],
   "pending": [
     {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "TextEncoder",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "NewTextEncoder",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "TextEncoder",
-      "name": "Encode",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "TextEncoder",
-      "name": "Check",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "TextEncoder",
-      "name": "HasDefault",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "BinaryEncoder",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "NewBinaryEncoder",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "BinaryEncoder",
-      "name": "Encode",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "BinaryEncoder",
-      "name": "Check",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "receiver": "BinaryEncoder",
-      "name": "Ready",
-      "caller": "sy-6979-text-binary-writes"
-    },
-    {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
       "name": "ErrChannelNotFound",
@@ -173,12 +107,6 @@
     {
       "module": "core",
       "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "TextMessage",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
       "name": "Text",
       "caller": "sy-6979-text-reads"
     },
@@ -193,12 +121,6 @@
       "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
       "receiver": "Text",
       "name": "Decode",
-      "caller": "sy-6979-text-reads"
-    },
-    {
-      "module": "core",
-      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
-      "name": "BinaryMessage",
       "caller": "sy-6979-text-reads"
     },
     {

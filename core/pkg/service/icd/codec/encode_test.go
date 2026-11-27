@@ -312,7 +312,7 @@ var _ = Describe("JSONEncoder", func() {
 		Expect(second).ToNot(Equal(first))
 	})
 
-	It("Should report which bindings have a default", func() {
+	It("Should be ready when each field has a sample or a default", func() {
 		mode, temp := uuid.New(), uuid.New()
 		enc := MustSucceed(codec.NewJSONEncoder(message(
 			[]icd.JSONField{
@@ -328,8 +328,8 @@ var _ = Describe("JSONEncoder", func() {
 			codec.Binding{Field: mode, DataType: telem.StringT},
 			codec.Binding{Field: temp, DataType: telem.Float64T},
 		)))
-		Expect(enc.HasDefault(0)).To(BeTrue())
-		Expect(enc.HasDefault(1)).To(BeFalse())
+		Expect(enc.Ready([][]byte{nil, nil})).To(BeFalse())
+		Expect(enc.Ready([][]byte{nil, float64Sample(1)})).To(BeTrue())
 	})
 
 	It("Should write a new UUID at each encode for a bound field with a nil sample",
@@ -424,7 +424,7 @@ var _ = Describe("JSONEncoder", func() {
 			[]icd.JSONField{nanField("v", key)},
 			codec.Binding{Field: key, DataType: telem.Float64T},
 		)))
-		Expect(enc.HasDefault(0)).To(BeTrue())
+		Expect(enc.Ready([][]byte{nil})).To(BeTrue())
 		Expect(enc.Encode(nil, [][]byte{float64Sample(2.5)})).To(MatchJSON(`{"v":2.5}`))
 		Expect(enc.Encode(nil, [][]byte{nil})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
@@ -755,47 +755,60 @@ var _ = Describe("CheckDefault", func() {
 	)
 })
 
-var _ = Describe("CheckWrite", func() {
-	DescribeTable(
-		"Should accept samples that can write a field",
-		func(k payload.Kind, scaled bool, dt telem.DataType) {
-			Expect(codec.CheckWrite(k, scaled, dt)).To(Succeed())
+var _ = Describe("JSONEncoder", func() {
+	// field returns a field named v at /v with variant v and scale.
+	field := func(v icd.JSONFieldVariant, scale float64) icd.JSONField {
+		f := icd.JSONField{Variant: v}
+		f.SetBase(icd.JSONBaseField{
+			Key: uuid.New(), Name: "v", Scale: scale, Pointer: "/v",
+		})
+		return f
+	}
+	encoder := func(f icd.JSONField, dt telem.DataType) (*codec.JSONEncoder, error) {
+		return codec.NewJSONEncoder(
+			message(
+				[]icd.JSONField{f},
+				codec.Binding{Field: f.Base().Key, DataType: dt},
+			),
+		)
+	}
+
+	DescribeTable("Should accept a channel that can write its field",
+		func(f icd.JSONField, dt telem.DataType) {
+			MustSucceed(encoder(f, dt))
 		},
 		Entry("a channel of the kind of the field",
-			payload.KindString, false, telem.StringT,
+			field(icd.StringJSONField{}, 1), telem.StringT,
 		),
 		Entry("a number channel to a field of another number kind",
-			payload.KindUnsigned, false, telem.Float64T,
+			field(icd.UnsignedJSONField{}, 1), telem.Float64T,
 		),
 		Entry("a boolean channel to a number field",
-			payload.KindFloat, false, telem.BooleanT,
+			field(icd.FloatJSONField{}, 1), telem.BooleanT,
 		),
-		Entry(
-			"a float channel to a scaled field",
-			payload.KindInteger,
-			true,
-			telem.Float32T,
+		Entry("a float channel to a scaled field",
+			field(icd.IntegerJSONField{}, 2), telem.Float32T,
 		),
 	)
 
-	DescribeTable("Should refuse samples that cannot write a field",
-		func(k payload.Kind, scaled bool, dt telem.DataType, expected string) {
-			Expect(codec.CheckWrite(k, scaled, dt)).To(SatisfyAll(
+	DescribeTable("Should refuse a channel that cannot write its field",
+		func(f icd.JSONField, dt telem.DataType, expected string) {
+			Expect(encoder(f, dt)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(expected),
+				MatchError("message command: field v: "+expected+": validation error"),
 			))
 		},
 		Entry("a channel whose kind does not write the field",
-			payload.KindFloat, false, telem.StringT,
-			"cannot write string channels to float fields: validation error",
+			field(icd.FloatJSONField{}, 1), telem.StringT,
+			"cannot write string channels to float fields",
 		),
 		Entry("a number channel to a string field",
-			payload.KindString, false, telem.Int32T,
-			"cannot write int32 channels to string fields: validation error",
+			field(icd.StringJSONField{}, 1), telem.Int32T,
+			"cannot write int32 channels to string fields",
 		),
 		Entry("an integer channel to a scaled field",
-			payload.KindInteger, true, telem.Int64T,
-			"a scaled field requires a float channel, not int64: validation error",
+			field(icd.IntegerJSONField{}, 2), telem.Int64T,
+			"a scaled field requires a float channel, not int64",
 		),
 	)
 })

@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/icd/codec"
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -30,13 +29,13 @@ import (
 // Payloads builds the payloads of one ICD message from the commands of its channel
 // bindings. Payload i of a frame holds command i of each bound channel, and the last
 // command of a channel with fewer. A field with no command since the last Reset sends
-// its default. Payloads builds nothing until each field with no default has a command.
+// its default. Payloads builds nothing until each field that needs a command has one.
 // A command that its field cannot hold is dropped, and the field keeps its last good
 // command. Payload i goes out only when one of its commands is good. Payloads is not
 // safe for concurrent use.
 type Payloads struct {
 	name    string
-	encoder *codec.JSONEncoder
+	encoder encoder
 	// channels holds the command channel of each binding.
 	channels channel.Keys
 	received []bool
@@ -168,17 +167,18 @@ func (p *Payloads) gather(fr framer.Frame) int {
 	return n
 }
 
-// fill fills next with the last good command of each binding, and reports whether each
-// field with no default has one.
+// fill fills next with the last good command of each binding, nil for a binding with
+// none, and reports whether the encoder is ready to encode next.
 func (p *Payloads) fill() bool {
-	ready := true
+	missing := false
 	for b := range p.next {
 		p.next[b] = nil
 		if p.received[b] {
 			p.next[b] = p.last[b]
-		} else if !p.encoder.HasDefault(b) {
-			ready = false
+		} else {
+			missing = true
 		}
 	}
-	return ready
+	// An encoder is always ready when each binding has a command.
+	return !missing || p.encoder.Ready(p.next)
 }
