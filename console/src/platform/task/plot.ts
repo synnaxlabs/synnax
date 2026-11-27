@@ -61,19 +61,26 @@ export interface PlotSource extends Pick<task.Task, "key" | "name" | "config"> {
 const isPlottable = ({ isIndex, dataType }: channel.Channel): boolean =>
   !isIndex && dataType.isNumeric && !dataType.equals(DataType.TIMESTAMP);
 
-/** @returns the units of the field of each plot channel, or "" for none. */
+/**
+ * @returns the trimmed units of the field of each plot channel, or "" for none. A field
+ * of a deleted ICD has no units.
+ */
 const retrieveUnits = async (
   client: Client,
   plotted: PlotChannel[],
 ): Promise<string[]> => {
   const keys = unique.unique(plotted.flatMap(({ field }) => field?.icd ?? []));
-  const icds = keys.length === 0 ? [] : await client.icds.retrieve(keys);
+  const icds =
+    keys.length === 0
+      ? []
+      : await client.icds.retrieve({ where: { key: { in: keys } } });
   return plotted.map(({ field }) => {
     if (field == null) return "";
     const message = icds
       .find(({ key }) => key === field.icd)
       ?.messages.find(({ key }) => key === field.message);
-    return message?.payload.fields.find(({ key }) => key === field.key)?.units ?? "";
+    const units = message?.payload.fields.find(({ key }) => key === field.key)?.units;
+    return units?.trim() ?? "";
   });
 };
 
