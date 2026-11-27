@@ -452,8 +452,8 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
 // error, appending nothing, when doc is not JSON or meets two match rules. When a field
-// reads the root of a document, a doc that is not JSON reads as a JSON string, and
-// Decode returns an error only when doc is not UTF-8.
+// reads the root of a document, a doc that is not JSON reads as a JSON string, so it
+// fails only when it is not UTF-8.
 //
 // failures holds each field whose value does not convert, or that has no value and no
 // default. A failed field appends no sample, and the other fields still append.
