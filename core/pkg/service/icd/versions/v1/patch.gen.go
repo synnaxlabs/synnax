@@ -23,6 +23,18 @@ func (p *Poll) HashContent(h *content.Hash) {
 }
 
 // HashContent writes the content of the value to h, without its keys.
+func (rb *ReadBinding) HashContent(h *content.Hash) {
+	h.Bytes(rb.Field[:])
+	h.Uint(uint64(rb.Channel))
+	if rb.DataType == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.String(string(*rb.DataType))
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
 func (re *ReadEntry) HashContent(h *content.Hash) {
 	h.Bytes(re.ICD[:])
 	h.Len(len(re.Messages))
@@ -34,6 +46,21 @@ func (re *ReadEntry) HashContent(h *content.Hash) {
 	} else {
 		h.Bool(true)
 		re.Poll.HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (rm *ReadMessage) HashContent(h *content.Hash) {
+	h.Bytes(rm.Message[:])
+	if rm.Index == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.Bytes((*rm.Index)[:])
+	}
+	h.Len(len(rm.Bindings))
+	for i0 := range rm.Bindings {
+		rm.Bindings[i0].HashContent(h)
 	}
 }
 
