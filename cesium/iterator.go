@@ -57,9 +57,7 @@ type Iterator struct {
 	chunkSize int64
 	frame     Frame
 	ins       alamos.Instrumentation
-	// stopped is true for each iterator in internal whose read error is logged.
-	stopped []bool
-	closed  bool
+	closed    bool
 }
 
 // Next reads all data occupying the next span of time, returning true if any channel
@@ -106,26 +104,26 @@ func (i *Iterator) PrevChunks(
 // channel holds data there.
 func (i *Iterator) SeekFirst() bool {
 	ctx := context.Background()
-	return i.seek(func(u *unary.Iterator) bool { return u.SeekFirst(ctx) })
+	return i.each(func(u *unary.Iterator) bool { return u.SeekFirst(ctx) })
 }
 
 // SeekLast moves the iterator to the end of its bounds, returning true if any channel
 // holds data there.
 func (i *Iterator) SeekLast() bool {
 	ctx := context.Background()
-	return i.seek(func(u *unary.Iterator) bool { return u.SeekLast(ctx) })
+	return i.each(func(u *unary.Iterator) bool { return u.SeekLast(ctx) })
 }
 
 // SeekLE moves the iterator to the last sample at or before ts.
 func (i *Iterator) SeekLE(ts telem.TimeStamp) bool {
 	ctx := context.Background()
-	return i.seek(func(u *unary.Iterator) bool { return u.SeekLE(ctx, ts) })
+	return i.each(func(u *unary.Iterator) bool { return u.SeekLE(ctx, ts) })
 }
 
 // SeekGE moves the iterator to the first sample at or after ts.
 func (i *Iterator) SeekGE(ts telem.TimeStamp) bool {
 	ctx := context.Background()
-	return i.seek(func(u *unary.Iterator) bool { return u.SeekGE(ctx, ts) })
+	return i.each(func(u *unary.Iterator) bool { return u.SeekGE(ctx, ts) })
 }
 
 // Valid returns true if any channel's iterator points to data.
@@ -151,7 +149,7 @@ func (i *Iterator) Error() error {
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) {
-	i.seek(func(u *unary.Iterator) bool { u.SetBounds(bounds); return true })
+	i.each(func(u *unary.Iterator) bool { u.SetBounds(bounds); return true })
 }
 
 // Value returns the data that the last Next or Prev read.
@@ -187,21 +185,11 @@ func (i *Iterator) each(f func(*unary.Iterator) bool) (ok bool) {
 	return ok
 }
 
-// seek runs each with f, which clears the error of each channel's iterator.
-func (i *Iterator) seek(f func(*unary.Iterator) bool) bool {
-	clear(i.stopped)
-	return i.each(f)
-}
-
-// report logs the read error of the iterator at index j of internal, unless it is
-// already logged.
+// report logs the read error of the iterator at index j of internal. A read skips a
+// channel whose iterator holds an error, so each error is logged once.
 func (i *Iterator) report(j int) {
 	u := i.internal[j]
-	if i.stopped[j] {
-		return
-	}
 	if err := u.Error(); err != nil {
-		i.stopped[j] = true
 		i.ins.L.Error(
 			"read of a channel failed",
 			zap.Stringer("channel", u.Channel),
@@ -237,6 +225,9 @@ func (i *Iterator) read(
 		ok bool
 	)
 	for j, u := range i.internal {
+		if u.Error() != nil {
+			continue
+		}
 		var moved bool
 		if prev {
 			moved = u.Prev(ctx, span)
@@ -267,22 +258,11 @@ func (i *Iterator) readInChunks(
 	emit func(Frame) error,
 ) (ok bool, err error) {
 	var (
-		ends = make([]telem.TimeStamp, len(i.internal))
-		last telem.TimeStamp
-		n    = max(1, i.chunkSize/int64(max(1, len(i.internal))))
+		ends, last = i.startChunks(ctx, span, prev)
+		n          = max(1, i.chunkSize/int64(max(1, len(i.internal))))
 		// probed holds the indexes that the end of the chunk was found on.
 		probed = make(set.Set[channel.Key], len(i.internal))
 	)
-	for j, u := range i.internal {
-		tr := u.View().End.SpanRange(span)
-		if prev {
-			tr = u.View().Start.SpanRange(-span)
-		}
-		tr = tr.BoundBy(u.Bounds())
-		u.MoveTo(ctx, tr.Start)
-		ends[j] = tr.End
-		last = max(last, tr.End)
-	}
 	for {
 		i.cache.Reset()
 		end := last
@@ -322,6 +302,31 @@ func (i *Iterator) readInChunks(
 			return ok, nil
 		}
 	}
+}
+
+// startChunks moves the iterator of each channel to the start of the range of a read
+// of span, and returns the end of each range and the latest of them. A channel whose
+// read failed keeps a zero end, so the read passes over it.
+func (i *Iterator) startChunks(
+	ctx context.Context,
+	span telem.TimeSpan,
+	prev bool,
+) (ends []telem.TimeStamp, last telem.TimeStamp) {
+	ends = make([]telem.TimeStamp, len(i.internal))
+	for j, u := range i.internal {
+		if u.Error() != nil {
+			continue
+		}
+		tr := u.View().End.SpanRange(span)
+		if prev {
+			tr = u.View().Start.SpanRange(-span)
+		}
+		tr = tr.BoundBy(u.Bounds())
+		u.MoveTo(ctx, tr.Start)
+		ends[j] = tr.End
+		last = max(last, tr.End)
+	}
+	return ends, last
 }
 
 // emitFrame hands fr to emit unless it holds no series.
