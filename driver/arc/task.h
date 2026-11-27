@@ -97,7 +97,6 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 
 /// @brief arc runtime task that manages both read and write pipelines.
 class Task final : public task::Task {
-    std::shared_ptr<::arc::runtime::Runtime> runtime;
     /// @brief allocates the RT core of each run. Null for a loop that runs unpinned.
     std::shared_ptr<x::thread::rt::Manager> rt_manager;
     x::thread::rt::Config rt_config;
@@ -105,16 +104,29 @@ class Task final : public task::Task {
     /// fills it at each start and releases it at each stop, so a task built beside a
     /// running one takes no core.
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
-    std::unique_ptr<pipeline::Acquisition> acquisition;
-    std::unique_ptr<pipeline::Control> control;
     /// @brief guards state, opening, and pending_starts, which the command, pipeline,
-    /// and runtime threads all touch.
+    /// runtime, and outbox threads all touch.
     std::mutex state_mu;
     common::StatusHandler state;
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
+    /// @brief the task is ending, so a late report must not reach the runtime.
+    bool closed = false;
+    // Declared after state, so the status module stops its reports before state ends.
+    std::shared_ptr<::arc::runtime::Runtime> runtime;
+    std::unique_ptr<pipeline::Acquisition> acquisition;
+    std::unique_ptr<pipeline::Control> control;
+
+    /// @brief sends a warning while the runtime runs. Drops a report that comes after a
+    /// stop, such as a late outbox result, so it does not replace the stopped status.
+    void
+    warn_while_running(const std::string &message, const std::string &description) {
+        std::lock_guard lock(this->state_mu);
+        if (!this->closed && this->runtime->running())
+            this->state.send_warning(message, description);
+    }
 
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
@@ -208,14 +220,26 @@ class Task final : public task::Task {
     }
 
 public:
+    /// @brief keeps a late status report from reaching the runtime while it ends.
+    ~Task() override {
+        std::lock_guard lock(this->state_mu);
+        this->closed = true;
+    }
+
     static std::pair<std::unique_ptr<Task>, x::errors::Error> create(
         const synnax::task::Task &task_meta,
         const std::shared_ptr<task::Context> &ctx,
         const TaskConfig &cfg,
+        const std::pair<std::shared_ptr<status::Keys>, x::errors::Error> &keys,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
         const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ) {
+        auto [outbox, outbox_err] = ctx->outbox();
+        if (status::sets_statuses(cfg.program)) {
+            if (outbox_err) return {nullptr, outbox_err};
+            if (keys.second) return {nullptr, keys.second};
+        }
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
         if (rt_manager != nullptr) {
@@ -249,14 +273,12 @@ public:
             .factories =
                 {
                     std::make_shared<::driver::arc::status::Module>(
-                        ctx->client,
+                        outbox,
+                        keys.first,
                         [task_ptr = task.get()](
                             const std::string &message,
                             const std::string &description
-                        ) {
-                            std::lock_guard lock(task_ptr->state_mu);
-                            task_ptr->state.send_warning(message, description);
-                        }
+                        ) { task_ptr->warn_while_running(message, description); }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
                         ctx->client,

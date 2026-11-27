@@ -46,7 +46,14 @@ when it runs.
 - Trigger -> optional. Each new trigger runs it, whatever the value. To run it only when
   a condition is true, use `=>`. With no trigger, it runs once each time its stage
   starts.
-- Output -> the key of the status, as a `str`. A failed call gives an empty key.
+- Output -> the key of the status, as a `str`. On the Core, a failed call gives an empty
+  key. On a Driver, the key of the last set with this `key_or_name` that reached the
+  Core, also from before a restart, or an empty key when the Driver knows none. A failed
+  call does not change it. The Driver keeps the keys of the names it used last, 1,024 by
+  default (`outbox_status_keys`), and forgets older ones. A set that waits on disk
+  through a restart gives no key until a later set with that `key_or_name` reaches the
+  Core. A sequence step on a Driver moves on once the set is queued, before the Core has
+  it.
 - Function form -> `status.set(key_or_name, message, variant) str`.
 
 Synnax looks for a status with the key first, then for one with the name. When more than
@@ -64,5 +71,8 @@ tank_pt > 500 => status.set(
 )
 ```
 
-The example sets the status on each `tank_pt` value above 500. `status.set` works the
-same on the Core and on a Driver.
+The example sets the status on each `tank_pt` value above 500. On a Driver, `status.set`
+does not wait for the Core. The Driver keeps up to 64 MB of sets on disk (`outbox_size`)
+and sends them in order when it can reach the Core, with the time each set ran. When
+that is full, it keeps only the last set of each status, then drops new ones and shows a
+warning.

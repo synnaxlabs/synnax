@@ -213,6 +213,8 @@ class Outbox {
     std::optional<journal::Offset> sent;
     /// @brief the last sent call ended its segment.
     bool segment_sent = false;
+    /// @brief the functions to run on the send thread.
+    std::vector<std::function<void()>> posted;
     /// @brief the last offset on the disk. Used only by the sync thread.
     std::optional<journal::Offset> saved;
     std::atomic<std::uint64_t> dropped_count = 0;
@@ -250,7 +252,8 @@ class Outbox {
     /// @returns whether a newer set of the same status replaced call. Requires mu.
     [[nodiscard]] bool is_replaced(const Call &call) const;
     void run();
-    /// @brief waits for the retry interval after the number of failed sends.
+    /// @brief waits for the retry interval after the number of failed sends, and
+    /// runs posted functions while it waits.
     /// @returns false when the outbox stops.
     bool wait_retry(std::size_t failures);
     x::errors::Error send(const Call &call) const;
@@ -310,6 +313,10 @@ public:
     /// the outbox does not hold the set.
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
+
+    /// @brief runs fn on the send thread before its next send, during a retry wait, or
+    /// at once when the outbox holds no calls. fn must not call the outbox.
+    void post(std::function<void()> fn);
 
     /// @returns the number of calls the Core rejected, which the outbox dropped.
     [[nodiscard]] std::uint64_t dropped() const;

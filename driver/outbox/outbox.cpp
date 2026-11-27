@@ -392,6 +392,14 @@ x::errors::Error Outbox::push(pb::Call request, SetStatusDone done) {
     return x::errors::NIL;
 }
 
+void Outbox::post(std::function<void()> fn) {
+    {
+        std::lock_guard lock(this->mu);
+        this->posted.push_back(std::move(fn));
+    }
+    this->cv.notify_one();
+}
+
 x::errors::Error Outbox::next_tail(std::unique_lock<std::mutex> &lock) {
     if (!this->spare.has_value()) {
         this->spare_wanted = true;
@@ -447,15 +455,24 @@ void Outbox::run() {
     while (true) {
         Call call;
         bool skip = false;
+        bool has_call = false;
+        std::vector<std::function<void()>> posted;
         {
             std::unique_lock lock(this->mu);
             this->cv.wait(lock, [this] {
-                return this->stopped || !this->calls.empty();
+                return this->stopped || !this->calls.empty() || !this->posted.empty();
             });
             if (this->stopped) return;
-            call = this->calls.front();
-            skip = this->is_replaced(call);
+            std::swap(posted, this->posted);
+            has_call = !this->calls.empty();
+            if (has_call) {
+                call = this->calls.front();
+                skip = this->is_replaced(call);
+            }
         }
+        for (const auto &fn: posted)
+            fn();
+        if (!has_call) continue;
         if (skip) {
             this->commit(call.seq);
             continue;
@@ -486,11 +503,22 @@ void Outbox::run() {
 }
 
 bool Outbox::wait_retry(const std::size_t failures) {
+    const auto deadline = std::chrono::steady_clock::now() +
+                          this->cfg.retry.interval(failures).chrono();
     std::unique_lock lock(this->mu);
-    this->cv.wait_for(lock, this->cfg.retry.interval(failures).chrono(), [this] {
-        return this->stopped;
-    });
-    return !this->stopped;
+    while (true) {
+        this->cv.wait_until(lock, deadline, [this] {
+            return this->stopped || !this->posted.empty();
+        });
+        if (this->stopped) return false;
+        if (this->posted.empty()) return true;
+        std::vector<std::function<void()>> posted;
+        std::swap(posted, this->posted);
+        lock.unlock();
+        for (const auto &fn: posted)
+            fn();
+        lock.lock();
+    }
 }
 
 x::errors::Error Outbox::send(const Call &call) const {

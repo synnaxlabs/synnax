@@ -159,6 +159,8 @@ struct Config {
     synnax::Config connection;
     /// @brief the settings of the outbox. The rack sets its directory and client.
     outbox::Config outbox;
+    /// @brief the most status names whose key the Driver keeps across restarts.
+    std::size_t status_keys = arc::status::DEFAULT_MAX_KEYS;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
     /// @brief the directory that holds the persisted state file. Integrations keep
@@ -175,6 +177,9 @@ struct Config {
     x::errors::Error outbox_err;
     /// @brief the warning of a stuck outbox, which the rack status reports.
     std::shared_ptr<status::Alert> outbox_alert = std::make_shared<status::Alert>();
+    /// @brief called with each file that the Driver creates in the data directory, such
+    /// as to give it to the owner of that directory. Set by Rack::run.
+    x::fs::OnCreate on_create = x::fs::no_create_hook;
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
     /// Give it the same client as the task manager. With an incompatible Core, the
@@ -383,6 +388,7 @@ struct Config {
             this->outbox.sync_interval
         );
         this->outbox.stuck_after = span("outbox_stuck_after", this->outbox.stuck_after);
+        this->status_keys = count("outbox_status_keys", this->status_keys);
     }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);

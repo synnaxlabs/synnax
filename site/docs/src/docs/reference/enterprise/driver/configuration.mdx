@@ -126,6 +126,7 @@ SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL=1
 SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL=5
 SYNNAX_DRIVER_OUTBOX_SYNC_INTERVAL=1
 SYNNAX_DRIVER_OUTBOX_STUCK_AFTER=300
+SYNNAX_DRIVER_OUTBOX_STATUS_KEYS=1024
 SYNNAX_DRIVER_OP_TIMEOUT=60
 SYNNAX_DRIVER_POLL_INTERVAL=1
 SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
@@ -182,7 +183,8 @@ The file cannot hold comments.
     "outbox_retry_interval": 1,
     "outbox_max_retry_interval": 5,
     "outbox_sync_interval": 1,
-    "outbox_stuck_after": 300
+    "outbox_stuck_after": 300,
+    "outbox_status_keys": 1024
   },
   "manager": {
     "op_timeout": 60,
@@ -312,6 +314,12 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 <Field.Item name="outbox_stuck_after" default="300">
   The number of seconds that the Core can refuse the first waiting status set before the
   rack status shows "Outbox stuck". In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_status_keys" default="1024">
+  The number of status names whose key the Driver keeps across restarts, so `status.set`
+  returns the key at once. Past it, the Driver forgets the name it used least recently.
+  In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="op_timeout" default="60">

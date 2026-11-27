@@ -145,6 +145,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             };
         auto [hook, hook_err] = state::owner_hook(data);
         if (hook_err) return {nullptr, hook_err};
+        cfg.on_create = hook;
         outbox_cfg.on_create = std::move(hook);
         return outbox::Outbox::open(outbox_cfg);
     }();
