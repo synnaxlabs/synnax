@@ -46,6 +46,7 @@ from x.telem.telem import (
 )
 from x.telem.types_gen import (
     Aggregation,
+    DataTypeName,
     DynamicWindow,
     FixedWidthDataType,
     LimitReduction,
@@ -75,6 +76,7 @@ __all__ = [
     "CrudeTimeSpan",
     "CrudeTimeStamp",
     "DataType",
+    "DataTypeName",
     "Density",
     "DynamicWindow",
     "FixedWidthDataType",
