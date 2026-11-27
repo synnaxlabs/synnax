@@ -35,7 +35,7 @@ var (
 	statusType = resource.ID{Type: resource.TypeStatus}
 	// channelType lets a user bind any channel, which a write needs to use it.
 	channelType = resource.ID{Type: resource.TypeChannel}
-	allWrites  = []access.Action{
+	allWrites   = []access.Action{
 		access.ActionCreate,
 		access.ActionUpdate,
 		access.ActionDelete,
