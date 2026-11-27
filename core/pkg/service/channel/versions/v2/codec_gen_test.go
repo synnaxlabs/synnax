@@ -56,6 +56,7 @@ var _ = Describe("Codec", func() {
 				},
 				Expression: "test_13",
 				Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+				Rewires:    []v2.Rewire{{From: v2.Key(17), At: telem.TimeStamp(18)}},
 			}),
 			Entry("zero values", v2.Channel{
 				Name:        "",
@@ -69,6 +70,7 @@ var _ = Describe("Codec", func() {
 				Operations:  []v2.Operation{},
 				Expression:  "",
 				Group:       nil,
+				Rewires:     []v2.Rewire{},
 			}),
 			Entry("empty collections", v2.Channel{
 				Name:        "test_1",
@@ -82,6 +84,53 @@ var _ = Describe("Codec", func() {
 				Operations:  []v2.Operation{},
 				Expression:  "test_10",
 				Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
+				Rewires:     []v2.Rewire{},
+			}),
+		)
+	})
+	Describe("Rewire", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Rewire) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Rewire
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Rewire{From: v2.Key(2), At: telem.TimeStamp(3)}),
+			Entry("zero values", v2.Rewire{From: v2.Key(0), At: telem.TimeStamp(0)}),
+		)
+	})
+	Describe("Tombstone", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.Tombstone) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.Tombstone
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.Tombstone{
+				Key:     v2.Key(2),
+				Name:    "test_2",
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
+				Rewires: []v2.Rewire{{From: v2.Key(6), At: telem.TimeStamp(7)}},
+			}),
+			Entry("zero values", v2.Tombstone{
+				Key:     v2.Key(0),
+				Name:    "",
+				Group:   nil,
+				Rewires: []v2.Rewire{},
+			}),
+			Entry("empty collections", v2.Tombstone{
+				Key:     v2.Key(2),
+				Name:    "test_2",
+				Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
+				Rewires: []v2.Rewire{},
 			}),
 		)
 	})
@@ -106,6 +155,7 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 		},
 		Expression: "test_13",
 		Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+		Rewires:    []v2.Rewire{{From: v2.Key(17), At: telem.TimeStamp(18)}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -115,6 +165,45 @@ func BenchmarkEncodeDecodeChannel(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v2.Channel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeRewire(b *testing.B) {
+	seed := v2.Rewire{From: v2.Key(2), At: telem.TimeStamp(3)}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Rewire
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeTombstone(b *testing.B) {
+	seed := v2.Tombstone{
+		Key:     v2.Key(2),
+		Name:    "test_2",
+		Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
+		Rewires: []v2.Rewire{{From: v2.Key(6), At: telem.TimeStamp(7)}},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.Tombstone
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -142,6 +231,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			},
 			Expression: "test_13",
 			Group:      new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780e"))),
+			Rewires:    []v2.Rewire{{From: v2.Key(17), At: telem.TimeStamp(18)}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -162,6 +252,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Operations:  []v2.Operation{},
 			Expression:  "",
 			Group:       nil,
+			Rewires:     []v2.Rewire{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -182,6 +273,7 @@ func FuzzDecodeChannel(f *testing.F) {
 			Operations:  []v2.Operation{},
 			Expression:  "test_10",
 			Group:       new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
+			Rewires:     []v2.Rewire{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -201,6 +293,107 @@ func FuzzDecodeChannel(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.Channel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeRewire(f *testing.F) {
+	{
+		seed := v2.Rewire{From: v2.Key(2), At: telem.TimeStamp(3)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Rewire{From: v2.Key(0), At: telem.TimeStamp(0)}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Rewire
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Rewire
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeTombstone(f *testing.F) {
+	{
+		seed := v2.Tombstone{
+			Key:     v2.Key(2),
+			Name:    "test_2",
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
+			Rewires: []v2.Rewire{{From: v2.Key(6), At: telem.TimeStamp(7)}},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Tombstone{
+			Key:     v2.Key(0),
+			Name:    "",
+			Group:   nil,
+			Rewires: []v2.Rewire{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.Tombstone{
+			Key:     v2.Key(2),
+			Name:    "test_2",
+			Group:   new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"))),
+			Rewires: []v2.Rewire{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.Tombstone
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.Tombstone
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)
