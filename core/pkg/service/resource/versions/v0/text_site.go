@@ -29,23 +29,27 @@ type TextSite struct {
 	// Holder is the resource whose text holds the reference: a calculated channel or an
 	// Arc.
 	Holder ID `json:"holder"`
+	// Function is the key of the graph function whose body holds the reference, or
+	// empty when the text is not the body of a graph function.
+	Function string `json:"function,omitempty"`
 	// Name is the old name, and NewName the new name of the channel.
 	Name    string `json:"name"`
 	NewName string `json:"new_name"`
 	// Line counts from 1, and Column counts characters from 0.
 	Line   int `json:"line"`
 	Column int `json:"column"`
-	// Captured is true when a symbol in scope at the reference holds the new name, and
-	// false when the text does not parse.
+	// Captured is true when a symbol that the text declares takes the old or the new
+	// name at the reference, and false when the text does not parse or bind.
 	Captured bool `json:"captured"`
 }
 
 func textSiteKey(s TextSite) []byte {
 	return fmt.Appendf(
 		nil,
-		"%s%s/%d:%d/%s",
+		"%s%s/%s/%d:%d/%s",
 		textSitePrefix,
 		s.Holder,
+		s.Function,
 		s.Line,
 		s.Column,
 		s.Name,

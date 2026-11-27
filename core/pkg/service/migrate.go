@@ -118,7 +118,7 @@ func newGroupRemovalReport(
 
 // newArcTextMigration returns the migration that writes the new name of each renamed
 // channel into the text of each Arc and into the function bodies of each graph
-// (channelv1.TextRename), lexed with cfg as a v0.62 Core lexed it. It runs before
+// (channelv1.TextRename), read with cfg as a v0.62 Core read it. It runs before
 // newRenameReport deletes the staged renames, and before anything compiles an Arc.
 func newArcTextMigration(cfg parser.Config) gorp.Migration {
 	return migrate.New(
@@ -188,7 +188,7 @@ func renameSource(
 		if err != nil {
 			return "", err
 		}
-		return res.Text, channelv1.StageKept(ctx, tx, holder, res)
+		return res.Text, channelv1.StageKept(ctx, tx, holder, source.Function, res)
 	}
 	changed := false
 	switch v := src.Variant.(type) {
@@ -203,13 +203,18 @@ func renameSource(
 			src.Variant, changed = v, true
 		}
 	case arc.GraphSource:
+		keys := make([]string, len(v.Graph.Functions))
+		for i, f := range v.Graph.Functions {
+			keys[i] = f.Key
+		}
 		for i, f := range v.Graph.Functions {
 			out, err := rewrite(channelv1.Source{
-				Text:     f.Body.Raw,
-				Form:     channelv1.FormBody,
-				Function: f.Key,
-				Inputs:   f.Inputs,
-				Outputs:  f.Outputs,
+				Text:      f.Body.Raw,
+				Form:      channelv1.FormBody,
+				Function:  f.Key,
+				Inputs:    f.Inputs,
+				Outputs:   f.Outputs,
+				Functions: keys,
 			})
 			if err != nil {
 				return false, err
@@ -321,9 +326,12 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 	if site.Holder.Type == resource.TypeArc {
 		noun = "Arc"
 	}
-	why := "the text does not parse"
+	if site.Function != "" {
+		noun = fmt.Sprintf("function %q of %s", site.Function, noun)
+	}
+	why := "the text does not parse, or its names do not bind"
 	if site.Captured {
-		why = fmt.Sprintf("a symbol in scope there holds the name %q", site.NewName)
+		why = "a symbol that the text declares holds one of these names there"
 	}
 	return status.Status[any]{
 		Name:    holder,

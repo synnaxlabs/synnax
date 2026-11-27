@@ -119,6 +119,18 @@ var _ = Describe("Rewriter", func() {
 		Expect(kept(res)).To(BeEmpty())
 	})
 
+	It("Should keep and report a read before a local of the old name, which the "+
+		"compiled program reads", func(ctx SpecContext) {
+		text := "Metrics := Metrics * 2\nreturn Metrics"
+		res := rewrite(ctx, calculation(text))
+		Expect(res.Text).To(Equal(text))
+		Expect(kept(res)).To(ConsistOf(SatisfyAll(
+			HaveField("Line", 1),
+			HaveField("Column", 11),
+			HaveField("Captured", true),
+		)))
+	})
+
 	It("Should leave the text and keep the reference when a local holds the new name",
 		func(ctx SpecContext) {
 			text := "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2"
