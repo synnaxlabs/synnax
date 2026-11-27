@@ -24,9 +24,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// limited returns a delimited text field named name at position, with base giving its
-// scale, min, max, and default.
-func limited(name string, position uint32, base icd.TextBaseField) icd.TextField {
+// delimitedWith returns a delimited text field named name at position, with base giving
+// its scale, min, max, and default.
+func delimitedWith(name string, position uint32, base icd.TextBaseField) icd.TextField {
 	base.Key, base.Name = uuid.New(), name
 	if base.Scale == 0 {
 		base.Scale = 1
@@ -97,7 +97,7 @@ var _ = Describe("TextEncoder", func() {
 	It("Should check a sample of a binding as Encode does", func() {
 		enc := MustSucceed(codec.NewTextEncoder(textMessage("cmd", "",
 			delimited("a", 0),
-			limited("b", 1, icd.TextBaseField{Default: new(payload.Float(1))}),
+			delimitedWith("b", 1, icd.TextBaseField{Default: new(payload.Float(1))}),
 		)))
 		Expect(enc.Check(0, telem.NewSeriesV(2.5).Data)).To(Succeed())
 		Expect(enc.Check(1, telem.NewSeriesV(2.5).Data)).To(Succeed())
@@ -110,7 +110,7 @@ var _ = Describe("TextEncoder", func() {
 	It("Should report which bindings have a default", func() {
 		enc := MustSucceed(codec.NewTextEncoder(textMessage("cmd", "",
 			delimited("a", 0),
-			limited("b", 1, icd.TextBaseField{Default: new(payload.Float(1))}),
+			delimitedWith("b", 1, icd.TextBaseField{Default: new(payload.Float(1))}),
 		)))
 		Expect(enc.HasDefault(0)).To(BeFalse())
 		Expect(enc.HasDefault(1)).To(BeTrue())
@@ -118,8 +118,8 @@ var _ = Describe("TextEncoder", func() {
 
 	Describe("Limits", func() {
 		var (
-			a = limited("a", 0, icd.TextBaseField{Min: new(0.0), Max: new(10.0)})
-			s = limited("s", 1, icd.TextBaseField{Scale: 0.1, Max: new(10.0)})
+			a = delimitedWith("a", 0, icd.TextBaseField{Min: new(0.0), Max: new(10.0)})
+			s = delimitedWith("s", 1, icd.TextBaseField{Scale: 0.1, Max: new(10.0)})
 		)
 
 		DescribeTable("Should check a sample against the min and max of its field, "+
@@ -146,6 +146,15 @@ var _ = Describe("TextEncoder", func() {
 				"message cmd: field a: Infinity is not finite"),
 		)
 
+		It("Should encode a sample outside the min and max of its field", func() {
+			enc := MustSucceed(codec.NewTextEncoder(textMessage("cmd", "", a, s)))
+			line := MustSucceed(enc.Encode(nil, [][]byte{
+				telem.NewSeriesV(10.5).Data,
+				telem.NewSeriesV(20.0).Data,
+			}))
+			Expect(string(line)).To(Equal("10.5,200"))
+		})
+
 		It("Should check an integer sample against the min and max of its field",
 			func() {
 				m := textMessage("cmd", "", a)
@@ -162,8 +171,8 @@ var _ = Describe("TextEncoder", func() {
 		It("Should take a float32 sample at a limit at float32 precision as at the "+
 			"limit, and refuse one past it with its exact value", func() {
 			m := textMessage("cmd", "",
-				limited("a", 0, icd.TextBaseField{Max: new(0.1)}),
-				limited("b", 1, icd.TextBaseField{Min: new(3.3)}),
+				delimitedWith("a", 0, icd.TextBaseField{Max: new(0.1)}),
+				delimitedWith("b", 1, icd.TextBaseField{Min: new(3.3)}),
 			)
 			for i := range m.Bindings {
 				m.Bindings[i].DataType = telem.Float32T
