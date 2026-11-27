@@ -15,27 +15,33 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Validate", func() {
-	DescribeTable("Should reject an invalid field",
+	DescribeTable(
+		"Should reject an invalid field",
 		func(v interface{ Validate() error }, path string) {
 			Expect(v.Validate()).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(path)),
 			))
 		},
-		Entry("a header with no name", v5.Header{Value: "json"}, "name"),
-		Entry("a header name with a colon", v5.Header{Name: "Accept:"}, "name"),
-		Entry("a header name with a space", v5.Header{Name: "X Key"}, "name"),
+		Entry("a header with no name", http.Header{Value: "json"}, "name"),
+		Entry("a header name with a colon", http.Header{Name: "Accept:"}, "name"),
+		Entry("a header name with a space", http.Header{Name: "X Key"}, "name"),
 		Entry(
 			"a header value with a line break",
-			v5.Header{Name: "Accept", Value: "a\r\nb"},
+			http.Header{Name: "Accept", Value: "a\r\nb"},
 			"value",
 		),
-		Entry("a query parameter with no name", v5.QueryParam{Value: "1"}, "parameter"),
+		Entry(
+			"a query parameter with no name",
+			http.QueryParam{Value: "1"},
+			"parameter",
+		),
 		Entry(
 			"a read pointer with no leading slash",
 			v5.ReadField{Pointer: "t"},
@@ -56,12 +62,12 @@ var _ = Describe("Validate", func() {
 		Entry("a read rate above 10 kHz", v5.ReadConfig{Rate: 10001}, "rate"),
 		Entry(
 			"a header value with a NUL",
-			v5.Header{Name: "Accept", Value: "a\x00b"},
+			http.Header{Name: "Accept", Value: "a\x00b"},
 			"value",
 		),
 		Entry(
 			"a header value with a DEL",
-			v5.Header{Name: "Accept", Value: "a\x7fb"},
+			http.Header{Name: "Accept", Value: "a\x7fb"},
 			"value",
 		),
 		Entry(
@@ -80,20 +86,20 @@ var _ = Describe("Validate", func() {
 		),
 		Entry(
 			"a write endpoint with a header that has no name",
-			v5.WriteEndpoint{Headers: []v5.Header{{Value: "1"}}},
+			v5.WriteEndpoint{Headers: []http.Header{{Value: "1"}}},
 			"headers",
 		),
 		Entry(
 			"a write endpoint with a query parameter that has no name",
-			v5.WriteEndpoint{QueryParams: []v5.QueryParam{{Value: "1"}}},
+			v5.WriteEndpoint{QueryParams: []http.QueryParam{{Value: "1"}}},
 			"query_params",
 		),
 	)
 
 	DescribeTable("Should accept a valid field",
 		func(v interface{ Validate() error }) { Expect(v.Validate()).To(Succeed()) },
-		Entry("a header", v5.Header{Name: "X-API-Key", Value: "a\tb"}),
-		Entry("a query parameter", v5.QueryParam{Parameter: "units", Value: "si"}),
+		Entry("a header", http.Header{Name: "X-API-Key", Value: "a\tb"}),
+		Entry("a query parameter", http.QueryParam{Parameter: "units", Value: "si"}),
 		Entry("an escaped pointer", v5.ReadField{Pointer: "/a~1b/~0c/0"}),
 		Entry("a whole body pointer", v5.ReadField{}),
 	)

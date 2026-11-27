@@ -64,6 +64,10 @@ func autoMigrateV4QueryParamToHttpQueryParam(_ context.Context, old v4.QueryPara
 }
 
 func autoMigrateReadEndpoint(ctx context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+	method, err := migrateReadEndpointMethod(ctx, old.Method)
+	if err != nil {
+		return ReadEndpoint{}, err
+	}
 	headers, err := lo.MapErr(old.Headers, func(v v4.Header, _ int) (http.Header, error) {
 		return autoMigrateV4HeaderToHttpHeader(ctx, v)
 	})
@@ -78,7 +82,7 @@ func autoMigrateReadEndpoint(ctx context.Context, old v4.ReadEndpoint) (ReadEndp
 	}
 	return ReadEndpoint{
 		Key:         old.Key,
-		Method:      http.Method(old.Method),
+		Method:      method,
 		Path:        old.Path,
 		Headers:     headers,
 		QueryParams: queryParams,
@@ -87,6 +91,10 @@ func autoMigrateReadEndpoint(ctx context.Context, old v4.ReadEndpoint) (ReadEndp
 }
 
 func autoMigrateWriteEndpoint(ctx context.Context, old v4.WriteEndpoint) (WriteEndpoint, error) {
+	method, err := migrateWriteEndpointMethod(ctx, old.Method)
+	if err != nil {
+		return WriteEndpoint{}, err
+	}
 	headers, err := lo.MapErr(old.Headers, func(v v4.Header, _ int) (http.Header, error) {
 		return autoMigrateV4HeaderToHttpHeader(ctx, v)
 	})
@@ -102,7 +110,7 @@ func autoMigrateWriteEndpoint(ctx context.Context, old v4.WriteEndpoint) (WriteE
 	return WriteEndpoint{
 		Key:         old.Key,
 		Disabled:    old.Disabled,
-		Method:      http.Method(old.Method),
+		Method:      method,
 		Path:        old.Path,
 		Headers:     headers,
 		QueryParams: queryParams,

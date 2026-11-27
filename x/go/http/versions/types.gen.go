@@ -31,10 +31,8 @@ const (
 	MethodPatch Method = v0.MethodPatch
 	// MethodOptions asks which communication options a resource supports.
 	MethodOptions Method = v0.MethodOptions
-	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = v0.MethodTrace
-	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = v0.MethodConnect
+	// MethodQuery reads a resource with a query in the body, safely and idempotently.
+	MethodQuery Method = v0.MethodQuery
 )
 
 // Header is a single HTTP header sent with a request.

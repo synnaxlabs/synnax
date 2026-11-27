@@ -39,17 +39,15 @@ const (
 	MethodPatch Method = "PATCH"
 	// MethodOptions asks which communication options a resource supports.
 	MethodOptions Method = "OPTIONS"
-	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = "TRACE"
-	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = "CONNECT"
+	// MethodQuery reads a resource with a query in the body, safely and idempotently.
+	MethodQuery Method = "QUERY"
 )
 
 // IsValid reports whether m is one of the defined Method
 // values.
 func (m Method) IsValid() bool {
 	switch m {
-	case MethodGet, MethodHead, MethodPost, MethodPut, MethodDelete, MethodPatch, MethodOptions, MethodTrace, MethodConnect:
+	case MethodGet, MethodHead, MethodPost, MethodPut, MethodDelete, MethodPatch, MethodOptions, MethodQuery:
 		return true
 	default:
 		return false

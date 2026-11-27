@@ -11,68 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Literal, override as _override
+from typing import override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
 from synnax import device as device_, icd as icd_, task
-from x import telem
-
-METHOD_GET: Literal["GET"] = "GET"
-
-METHOD_HEAD: Literal["HEAD"] = "HEAD"
-
-METHOD_POST: Literal["POST"] = "POST"
-
-METHOD_PUT: Literal["PUT"] = "PUT"
-
-METHOD_DELETE: Literal["DELETE"] = "DELETE"
-
-METHOD_PATCH: Literal["PATCH"] = "PATCH"
-
-METHOD_OPTIONS: Literal["OPTIONS"] = "OPTIONS"
-
-METHOD_TRACE: Literal["TRACE"] = "TRACE"
-
-METHOD_CONNECT: Literal["CONNECT"] = "CONNECT"
-
-
-Method = Literal[
-    "GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "TRACE", "CONNECT"
-]
-
-
-class Header(BaseModel):
-    """Is a single HTTP header sent with a request.
-
-    Attributes:
-        name: Is the header name, unique within a request.
-        value: Is the header value.
-    """
-
-    name: str = Field(min_length=1, default="")
-    value: str = ""
-
-
-class QueryParam(BaseModel):
-    """Is a single URL query parameter sent with a request.
-
-    Attributes:
-        parameter: Is the parameter name, unique within a request.
-        value: Is the parameter value.
-    """
-
-    parameter: str = Field(min_length=1, default="")
-    value: str = ""
-
-
-class ScanConfig(task.ScanConfig):
-    """Configures an HTTP scan task."""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
+from x import http, telem
 
 
 class ReadEndpoint(BaseModel):
@@ -93,10 +38,10 @@ class ReadEndpoint(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    method: Method = "GET"
+    method: http.Method = "GET"
     path: str = ""
-    headers: list[Header] = Field(default_factory=list)
-    query_params: list[QueryParam] = Field(default_factory=list)
+    headers: list[http.Header] = Field(default_factory=list)
+    query_params: list[http.QueryParam] = Field(default_factory=list)
     body: str = ""
     icd: icd_.Key | None = None
     messages: list[icd_.ReadMessage] = Field(default_factory=list)
@@ -124,12 +69,20 @@ class WriteEndpoint(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    method: Method = "POST"
+    method: http.Method = "POST"
     path: str = ""
-    headers: list[Header] = Field(default_factory=list)
-    query_params: list[QueryParam] = Field(default_factory=list)
+    headers: list[http.Header] = Field(default_factory=list)
+    query_params: list[http.QueryParam] = Field(default_factory=list)
     icd: icd_.Key | None = None
     message: icd_.WriteMessage | None = None
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ScanConfig(task.ScanConfig):
+    """Configures an HTTP scan task."""
 
     @_override
     def __hash__(self) -> int:

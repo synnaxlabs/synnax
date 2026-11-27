@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 )
 
 // repairRequest drops the header and query parameter rows with no name, which the
@@ -26,11 +27,14 @@ import (
 // Driver sends the same query in its own order and encoding. A query that repeats a
 // name, has a name with no '=', or does not decode stays in path, because params
 // cannot hold it.
-func repairRequest(path *string, headers *[]Header, params *[]QueryParam) {
-	*headers = slices.DeleteFunc(*headers, func(h Header) bool { return h.Name == "" })
+func repairRequest(path *string, headers *[]http.Header, params *[]http.QueryParam) {
+	*headers = slices.DeleteFunc(
+		*headers,
+		func(h http.Header) bool { return h.Name == "" },
+	)
 	*params = slices.DeleteFunc(
 		*params,
-		func(q QueryParam) bool { return q.Parameter == "" },
+		func(q http.QueryParam) bool { return q.Parameter == "" },
 	)
 	base, query, found := strings.Cut(*path, "?")
 	if !found {
@@ -46,12 +50,12 @@ func repairRequest(path *string, headers *[]Header, params *[]QueryParam) {
 		value, valueErr := url.QueryUnescape(rawValue)
 		taken := slices.ContainsFunc(
 			moved,
-			func(q QueryParam) bool { return q.Parameter == name },
+			func(q http.QueryParam) bool { return q.Parameter == name },
 		)
 		if !assigned || nameErr != nil || valueErr != nil || name == "" || taken {
 			return
 		}
-		moved = append(moved, QueryParam{Parameter: name, Value: value})
+		moved = append(moved, http.QueryParam{Parameter: name, Value: value})
 	}
 	*path, *params = base, moved
 }

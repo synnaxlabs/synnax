@@ -34,11 +34,8 @@ Method enum {
     options = "OPTIONS" {
         @doc value "asks which communication options a resource supports."
     }
-    trace   = "TRACE" {
-        @doc value "asks the server to echo the request it receives."
-    }
-    connect = "CONNECT" {
-        @doc value "opens a tunnel to the server."
+    query   = "QUERY" {
+        @doc value "reads a resource with a query in the body, safely and idempotently."
     }
 
     @doc value "is the HTTP method used when requesting an endpoint."
