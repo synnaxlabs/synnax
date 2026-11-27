@@ -34,7 +34,7 @@ Always prefix with `uv run`. Client CLI: `uv run sy --help`.
   `T10`, `TID252`, `W605`, `YTT`, and `PT` (not in `integration`). The published
   packages also select the preview rule `PLW1514`: pass `encoding="utf-8"` to every text
   file open.
-- mypy strict with NumPy and pydantic plugins — fix type issues early.
+- mypy strict with NumPy and Pydantic plugins — fix type issues early.
 - Type hints on every function signature.
 - Pydantic models for validation at API boundaries (they validate at runtime).
 

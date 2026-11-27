@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package http provides HTTP and WebSocket transports for freighter. It includes both
+// Package http provides HTTP and WebSocket transports for Freighter. It includes both
 // unary and streaming servers (use in production for communicating with the TypeScript
 // and Python clients) and unary and streaming clients for testing.
 package http
