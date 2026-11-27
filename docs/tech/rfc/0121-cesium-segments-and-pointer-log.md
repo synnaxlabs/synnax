@@ -71,7 +71,7 @@ telemetry (§9.0).
    to the live write and stream path. A storage fault raises a status and never stops a
    writer, a stream, or the Core, and the Core gets past start damage by itself (§6). A
    bad data block fails its read. Cesium's one refusal to open is the identity check
-   (§9.0), whose two ways on keep different data. From RFC 0120 Phase 38 the Core also
+   (§9.0), whose two ways on keep different data. From RFC 0120 Phase 50 the Core also
    refuses to start when a clock has a channel record, since a write would put stamps in
    a user's channel (RFC 0120 §4.10).
 
@@ -86,7 +86,7 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
 
 - **Channel lookup**: The framer reads channels from Cesium today. It gains a lookup
   that the channel service provides: for a key, the declared type (RFC 0120), the
-  live-only flag, and the index key until RFC 0120 Phase 38 retires it. The framer opens
+  live-only flag, and the index key until RFC 0120 Phase 50 retires it. The framer opens
   before the channel service, so the lookup arrives through the existing late-bound seam
   (`core/pkg/distribution/framer/service.go:178`), not through the framer's config.
 - **Errors carry keys**: A Cesium error carries the key, never a name
@@ -101,7 +101,7 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    is released when the transaction ends without a commit. The claim fails while a
    writer holds one of the keys, and it blocks writer opens on them while it is held.
    Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
-2. In the Gorp transaction, the service deletes the records. Until RFC 0120 Phase 38 it
+2. In the Gorp transaction, the service deletes the records. Until RFC 0120 Phase 50 it
    first refuses the delete of an index channel that a kept channel outside the delete
    names as its index, with the error of today (`cesium/delete.go:144-152`), so no data
    channel loses the clock it writes. Only once that delete succeeds does it save a
@@ -131,7 +131,7 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    lease, and the clock counter over the clock range (RFC 0120 §4.0). So an undo to a
    release without clock keys never moves a local key past 2^20, and such a key is never
    given to a new channel after an undo or a lost metadata tail. A key with a record, a
-   clock, and a key whose intent is live are accounted for. From RFC 0120 Phase 38, a
+   clock, and a key whose intent is live are accounted for. From RFC 0120 Phase 50, a
    clock that has a record fails the start (RFC 0120 §4.10). Any other key with data is
    kept: the Core raises a warning status whose description names the keys and their
    bytes and says: restore the records from a backup to keep the data, or stop the Core
@@ -151,7 +151,7 @@ as its clock, and the intent of such a key stays until they go. Meanwhile a read
 data key reads those stamps through its own segments. `DeleteTimeRange` refuses a clock
 key while a live pointer of another key names it, as today (`cesium/delete.go:265-279`).
 
-**The end of a clock** (RFC 0120 Phase 25): A clock that has no record ends with its
+**The end of a clock** (RFC 0120 Phase 27): A clock that has no record ends with its
 last user. `DB.Clocks` (NEW) takes keys and returns each clock that their segments name
 and that no segment of another key names, where a key with a live intent counts as gone.
 So two deletes whose first Drop a reader pins still end the clock, and a spec covers
@@ -160,7 +160,7 @@ note and to the `Delete` call, so one log entry holds the Intents of the keys an
 their clocks. Cesium logs the Drop of a clock after the Drops of the keys that it times.
 No writer can make a new user of such a clock while the claim is held: continuation
 picks only a clock that a key of the group already names. A `synnax purge` adds the
-clocks of its keys in the same way. Before RFC 0120 Phase 38 an index channel has a
+clocks of its keys in the same way. Before RFC 0120 Phase 50 an index channel has a
 record, so its stamps stay until its own delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
@@ -206,7 +206,7 @@ of the first head.
 | --------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `Open`, `DB.Run`                                                      | Kept                          | `Open` takes the database identity that the Core holds (§9.0) and runs recovery or the conversion; options inject the file system, clock, random source, the executor of owner steps and syncs, and a handler of errors that no call returns (§7), and set `WithReadsChecked` and `WithVersion0Rewritable` (NEW, both false by default). `Run` runs the owners of §7 until its context ends                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `DB.Identity`                                                         | NEW                           | Returns the database identity, and whether this open converted the old layout. After an open that converted, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| `DB.OpenWriter`                                                       | Changed                       | From RFC 0120 Phase 23 (one clock key before it), takes the groups (`Group`, NEW: its keys, and the key whose stored stamps time them, or zero), the type of each key, `Adaptive` (NEW: the one group may arrive in part, and a key that pauses often moves to a clock of its own), a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Picks the clock of each group (§5.8), which `Writer.Clocks` (NEW) returns in the order of the groups. Refuses an overlap (§5.8)                                                                                              |
+| `DB.OpenWriter`                                                       | Changed                       | From RFC 0120 Phase 25 (one clock key before it), takes the groups (`Group`, NEW: its keys; the key whose stored stamps time them, or zero; and `Index`, until RFC 0120 Phase 50 the index key that is the group's clock, or zero), the type of each key, `Adaptive` (NEW: the one group may arrive in part, and a key that pauses often moves to a clock of its own), a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Picks the clock of each group (§5.8), which `Writer.Clocks` (NEW) returns in the order of the groups. Refuses an overlap (§5.8)           |
 | `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp. Both take the skip predicate of Phase 5 (§12); in test builds, a call into Cesium from inside it panics (`x/go/invariants`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entry. It is safe beside `Write` and `Commit`: it swaps the writer's entry for an empty one under a short lock and waits with no lock, so a `Commit` during the wait goes into the next entry. `Close` does the same and releases the claims after its last entry is acked. While the log is failing (§6), it returns the error at once and releases them: its commits stay visible, so the overlap rules of §5.8 still see them, and no writer takes over its segments before they are durable                                                                                                                                                                                                                                                  |
 | `Writer.EndStretch`                                                   | NEW, replaces `EndDomain`     | Takes no keys. Commits, then ends the stretch of each of the writer's clocks (RFC 0095 §4.2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -222,7 +222,7 @@ of the first head.
 The errors `ErrCorrupt` and `ErrDiskFull` are NEW. The framer calls `Sync` on the
 interval of auto commit from a background task per writer, so a write and the relay
 never wait for a sync, and a failed `Sync` raises a status and keeps the writer and its
-stream running. Its `EndDomain` command keeps its name. From RFC 0120 Phase 23 the
+stream running. Its `EndDomain` command keeps its name. From RFC 0120 Phase 25 the
 framer opens one Cesium writer per session, over all of its groups. Before it, on the
 pointer log, it opens one per live clock, for the session that holds the clock (§12). On
 a control handoff, its region owner calls `DB.Handoff` as one event (RFC 0120 §4.8).
@@ -684,7 +684,7 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
 - **Seal**: One Seal record, in the next entry of the writer. The file is not written.
 - **Delete of a time range**: One Tombstone per key. The delete is refused while the
   claim of an open writer holds part of the range (RFC 0095 §4.0). A sealed segment with
-  no live pointer is unlinked. From RFC 0120 Phase 25 the Core adds each clock of the
+  no live pointer is unlinked. From RFC 0120 Phase 27 the Core adds each clock of the
   keys that has no record, and Cesium logs, in the same entry, a Tombstone of the clock
   over each part of the range that no live pointer of another key names, judged by
   alignment (§5.2).
@@ -769,15 +769,17 @@ that writes a key that another session's writer holds gets no claim on it at ope
 its first write of the key, the key moves into that session's writer through
 `DB.Handoff` (§4.2), the one path that moves a key.
 
-- **Continuation**: At open, for each group, Cesium takes as candidates the clock of the
-  newest segment of each key of the group, from the state or from the key's newest part
-  record. It drops a candidate that is a key of the group, one that an open writer
-  holds, and one whose last stamp is not before the writer's start. It takes the
-  candidate that the most keys name, then the one with the latest last stamp, then the
-  lowest key, and else leases a new key (RFC 0120 §4.0). A key of the group on another
-  clock starts a new segment on the chosen clock. The first drop rule keeps a group's
-  stamps out of a key that times itself, such as an index channel that the migration
-  keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard rule 4).
+- **Continuation**: A group with an `Index` takes that key as its clock with no
+  continuation (RFC 0120 §4.8). At open, for each other group, Cesium takes as
+  candidates the clock of the newest segment of each key of the group, from the state or
+  from the key's newest part record. It drops a candidate that is a key of the group,
+  one that an open writer holds, and one whose last stamp is not before the writer's
+  start. It takes the candidate that the most keys name, then the one with the latest
+  last stamp, then the lowest key, and else leases a new key (RFC 0120 §4.0). A key of
+  the group on another clock starts a new segment on the chosen clock. The first drop
+  rule keeps a group's stamps out of a key that times itself, such as an index channel
+  that the migration keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11,
+  hard rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock (NEW).
 - **Pauses**: In an `Adaptive` writer, a key that reaches 48 pauses in its open segment
@@ -1244,11 +1246,11 @@ only the indexes whose groups it fully controls, so a write or a commit never re
 channel that another session controls. From Phase 6, on the pointer log only, the framer
 opens one Cesium writer per live clock, for the session that holds the clock, over that
 session's keys on it. A handoff of the clock moves its keys to the new holder's writer
-through `DB.Handoff` (§4.2), as one event, until RFC 0120 Phase 38 gives each command
+through `DB.Handoff` (§4.2), as one event, until RFC 0120 Phase 50 gives each command
 channel a clock of its own. The old layout keeps each session's own Cesium writer and
 old Cesium's claim join until Phase 8. The framer reads the layout from one storage
 config field, which goes when Phase 8 makes the new layout the only one. The predicate
-stays for data channels that the holder lacks until RFC 0120 Phase 38. One clock per
+stays for data channels that the holder lacks until RFC 0120 Phase 50. One clock per
 writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6, on the
 pointer log. Phase 6 builds the log, heads, `Sync` and the framer's call to it,
 recovery, the state owner, the handle budget, version 1 segments, and replay from a run
@@ -1263,11 +1265,11 @@ parts, versions 0 and 2, tombstones, compaction, the conversion with a crash tes
 each of its steps, the backup change, `synnax repair` with its two ways on (§6.0, §9.0),
 the Core's repair at start, and makes the new layout the only one that opens. It then
 removes `CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC 0120
-Phase 22 leases clock keys, Phase 23 opens each writer on groups (§4.2, §5.8), Phase 24
-moves often paused keys, Phase 25 ends a clock with its last user (§4.1), and Phase 42
+Phase 24 leases clock keys, Phase 25 opens each writer on groups (§4.2, §5.8), Phase 26
+moves often paused keys, Phase 27 ends a clock with its last user (§4.1), and Phase 53
 deletes the old code, except the old-layout reader of the conversion. Phase 5 comes
-after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 17 come after Phase 6, Phases 2 to 4
-land before Phase 8, and RFC 0120 Phases 22 to 42 come after Phase 8. Phases 6 and 8 are
+after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 18 come after Phase 6, Phases 2 to 4
+land before Phase 8, and RFC 0120 Phases 24 to 53 come after Phase 8. Phases 6 and 8 are
 the exceptions to one PR per phase: each lands as its reviewed pieces, one PR of about
 2,000 hand-written lines each (D-392), behind the open option until the last piece of
 Phase 8 switches the layout, so each piece merges alone and leaves `main` green. Every
@@ -1338,7 +1340,7 @@ other phase is one PR.
 14. **Continued stretches in memory only**: Rejected: a durable clean flag, a new record
     for one number per clock per restart.
 15. **The Core ends a clock**: Rejected: a `Delete` that ends each clock with no user on
-    its own. Before RFC 0120 Phase 38 a clock can be an index channel with a record,
+    its own. Before RFC 0120 Phase 50 a clock can be an index channel with a record,
     which Cesium cannot see.
 16. **No segment file on the frame path**: Spares made at open and at a handoff cost one
     empty file each, and a pause move makes its files in a background step at 48 pauses.
