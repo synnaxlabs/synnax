@@ -70,6 +70,8 @@ export interface Kind<E> {
   formatPickable?: boolean;
   /** @returns what the picks add to a task that holds the entries. */
   create: (picks: Picks, entries: HeldEntry[]) => E[];
+  /** Says why the list can miss a topic. Set, adding a topic by name comes first. */
+  unlistedHint?: string;
   /** @returns what a topic added by name adds. Absent, the dialog lists no topics. */
   createTopic?: (topic: string, picks: Picks) => E;
   /** @returns what a tag added by name adds. Absent, the dialog lists no tags. */
@@ -126,6 +128,7 @@ export const Discover = <E,>({ device, entries, close, kind }: DiscoverProps<E>)
             entries={entries}
             whole={kind.whole}
             indexed={kind.indexed}
+            unlistedHint={kind.unlistedHint}
             value={topicPicks}
             onChange={setTopicPicks}
             onAddByName={(topic) => add(() => [createTopic(topic, picks)])}

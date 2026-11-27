@@ -12,6 +12,7 @@
 #include <string>
 
 #include "driver/serial/line.h"
+#include "driver/serial/native.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial::line {
@@ -58,5 +59,12 @@ x::errors::Error check(const synnax::serial::Properties &props) {
         ))
         return invalid("unknown flow control '" + props.flow_control + "'");
     return x::errors::NIL;
+}
+}
+
+namespace driver::serial::native {
+x::errors::Error check(const synnax::serial::Properties &props) {
+    line::Settings settings{};
+    return line::apply(props, settings);
 }
 }
