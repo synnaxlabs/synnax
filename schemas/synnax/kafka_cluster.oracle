@@ -1,0 +1,198 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/certificate"
+import "schemas/synnax/channel"
+import "schemas/synnax/icd"
+import "schemas/synnax/rack"
+import "schemas/synnax/secret"
+import "schemas/synnax/status"
+
+@go output "core/pkg/service/kafka/cluster"
+@py output "client/py/synnax/kafka/cluster"
+@ts output "client/ts/src/kafka/cluster"
+
+Key = uuid {
+    @doc value "uniquely identifies a Kafka cluster."
+}
+
+Broker struct {
+    host string  {
+        @doc value         "is the hostname or IP address of the broker."
+        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
+        @validate required
+    }
+    port uint16? {
+        @doc value    "is the TCP port. Absent takes 9092."
+        @validate min 1
+    }
+
+    @doc value  "is a bootstrap broker of a cluster."
+    @go marshal
+}
+
+Transport union on type {
+    plaintext {
+        @doc value "connects over plain TCP."
+    }
+    tls {
+        ca_certificate     certificate.Key? {
+            @doc value """
+                is the certificate authority that signs the certificates of the brokers.
+                Absent trusts the system roots.
+            """
+        }
+        client_certificate certificate.Key? {
+            @doc value """
+                is the certificate and private key that the Core presents to the
+                brokers. Absent presents no certificate.
+            """
+        }
+
+        @doc value "connects over TLS."
+    }
+
+    @doc value  """
+        is the transport that the Core connects to the brokers of a cluster over.
+    """
+    @go marshal
+}
+
+Credentials struct {
+    username string     {
+        @doc value         "is the user name to authenticate with."
+        @validate required
+    }
+    password secret.Key {
+        @doc value         "is the secret that holds the password."
+        @validate required
+    }
+
+    @doc value  "carries the user name and password of a SASL mechanism."
+    @go marshal
+}
+
+Auth union on mechanism {
+    none {
+        @doc value "authenticates with no credentials."
+    }
+    plain extends Credentials {
+        @doc value "authenticates with the SASL PLAIN mechanism."
+    }
+    scram_sha_256 extends Credentials {
+        @doc value "authenticates with the SASL SCRAM-SHA-256 mechanism."
+    }
+    scram_sha_512 extends Credentials {
+        @doc value "authenticates with the SASL SCRAM-SHA-512 mechanism."
+    }
+
+    @doc value  "selects the SASL mechanism and the credentials it carries."
+    @go marshal
+}
+
+Read struct {
+    topic      string         {
+        @doc value         "is the topic to consume."
+        @go validate       pattern "^([a-zA-Z0-9_-][a-zA-Z0-9._-]{0,248}|[.][a-zA-Z0-9_-][a-zA-Z0-9._-]{0,247}|[.][.][a-zA-Z0-9._-]{1,247})$" "Topic must be 1 to 249 letters, digits, '.', '_', or '-', and not '.' or '..'"
+        @validate required
+    }
+    record_key string?        {
+        @doc value           """
+            is the Kafka key of the records read here, never empty. Absent reads only
+            the records with no key or an empty key.
+        """
+        @validate min_length 1
+    }
+    message    icd.MessageKey {
+        @doc value         "is the ICD message that the values of the records hold."
+        @validate required
+    }
+    pointer    string = "" {
+        @doc value   "is the JSON Pointer to the value in the message."
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+    }
+    index      channel.Key    {
+        @doc value         "is the index channel of the channel."
+        @ref kind          use
+        @ref on_delete     restrict
+        @validate required
+    }
+    channel    channel.Key    {
+        @doc value         "is the channel that holds the samples of the value."
+        @ref kind          use
+        @ref on_delete     restrict
+        @validate required
+    }
+
+    @doc value  "binds a value in the records of a topic to a channel."
+    @go marshal
+}
+
+StatusDetails struct {
+    rack      rack.Key {
+        @doc value "is the key of the rack the cluster belongs to."
+    }
+    cluster   Key      {
+        @doc value "is the key of the cluster."
+    }
+    connected bool = false {
+        @doc value "is true when the Core is connected to the cluster."
+    }
+
+    @doc value "identifies the cluster and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the connection status of a cluster."
+}
+
+Cluster struct {
+    key       Key = create {
+        @doc value "uniquely identifies the cluster."
+        @key
+    }
+    rack      rack.Key  {
+        @doc value     "is the key of the rack that connects to the cluster."
+        @ref kind      place
+        @ref on_delete restrict
+    }
+    name      string    {
+        @doc value         "is a human-readable name for the cluster."
+        @filter
+        @search
+        @validate required
+    }
+    brokers   Broker[]  {
+        @doc value         """
+            are the bootstrap brokers of the cluster. A cluster has at least one.
+        """
+        @validate required
+    }
+    transport Transport = plaintext {
+        @doc value "is the transport that the Core connects to the brokers over."
+    }
+    auth      Auth = none {
+        @doc value "is the authentication that the brokers require."
+    }
+    reads     Read[] = [] {
+        @doc value "bind the values that read tasks consume to channels."
+    }
+    status    Status?   {
+        @doc value  "is the current connection status of the cluster."
+        @go marshal omit
+        @include
+    }
+
+    @create
+    @doc value     "is a Kafka cluster that a rack connects to."
+    @go marshal
+    @go migrate
+    @resource type "kafka_cluster"
+    @retrieve
+}

@@ -211,6 +211,7 @@ func (s *Service) Add(
 		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
 		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
 		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeKafkaCluster,
 		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return struct{}{}, unlabeled(req.ID)
@@ -250,6 +251,7 @@ func (s *Service) Remove(
 		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
 		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
 		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeKafkaCluster,
 		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return struct{}{}, unlabeled(req.ID)

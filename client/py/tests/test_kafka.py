@@ -7,9 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import uuid4
+from typing import Any, ClassVar
+from uuid import UUID, uuid4
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
 from tests.json_value import obj
@@ -242,3 +244,107 @@ class TestKafkaWriteTask:
 
         props = client.devices.retrieve(key=dev.key).properties
         assert obj(props, "write") == {key: stored.key}
+
+
+@pytest.mark.kafka
+class TestKafkaClusterResource:
+    """Tests for the typed Kafka cluster resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    CLUSTER: ClassVar[dict[str, Any]] = {
+        "rack": 1,
+        "name": "Plant Cluster",
+        "brokers": [{"host": "kafka.example.com"}],
+    }
+
+    def test_applies_the_defaults(self) -> None:
+        """Should parse a cluster and fill in its defaults."""
+        cluster = sy.kafka.cluster.Cluster.model_validate(self.CLUSTER)
+        assert cluster.brokers[0].port is None
+        assert isinstance(cluster.transport, sy.kafka.cluster.PlaintextTransport)
+        assert isinstance(cluster.auth, sy.kafka.cluster.NoneAuth)
+        assert cluster.reads == []
+
+    def test_parses_tls_credentials_and_reads(self) -> None:
+        """Should parse TLS, SCRAM credentials, and a read with its defaults."""
+        password, message = uuid4(), uuid4()
+        cluster = sy.kafka.cluster.Cluster.model_validate(
+            {
+                **self.CLUSTER,
+                "transport": {"type": "tls"},
+                "auth": {
+                    "mechanism": "scram_sha_512",
+                    "username": "admin",
+                    "password": password,
+                },
+                "reads": [
+                    {"topic": "plant", "message": message, "index": 1, "channel": 2}
+                ],
+            }
+        )
+        assert isinstance(cluster.transport, sy.kafka.cluster.TlsTransport)
+        assert cluster.transport.ca_certificate is None
+        assert cluster.transport.client_certificate is None
+        assert isinstance(cluster.auth, sy.kafka.cluster.ScramSha512Auth)
+        assert cluster.auth.password == password
+        assert cluster.reads[0].record_key is None
+        assert cluster.reads[0].pointer == ""
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"name": ""},
+            {"brokers": []},
+            {"brokers": [{"host": ""}]},
+            {"brokers": [{"host": "kafka.example.com", "port": 0}]},
+            {"transport": {"type": "ssl"}},
+            {"auth": {"mechanism": "plain", "username": "a", "password": "plain"}},
+            {"auth": {"mechanism": "scram_sha_256", "username": "a"}},
+            {"reads": [{"topic": "plant", "index": 1, "channel": 2}]},
+            {
+                "reads": [
+                    {
+                        "topic": "plant",
+                        "record_key": "",
+                        "message": uuid4(),
+                        "index": 1,
+                        "channel": 2,
+                    }
+                ]
+            },
+        ],
+    )
+    def test_rejects_an_invalid_cluster(self, change: dict[str, Any]) -> None:
+        """Should reject an empty name, broker list, or host, a zero port, an unknown
+        transport, a plaintext or absent password, a read with no message, and an
+        empty record key."""
+        with pytest.raises(ValidationError):
+            sy.kafka.cluster.Cluster.model_validate({**self.CLUSTER, **change})
+
+    def test_parses_a_record_key(self) -> None:
+        """Should keep the record key of a read that names one."""
+        cluster = sy.kafka.cluster.Cluster.model_validate(
+            {
+                **self.CLUSTER,
+                "reads": [
+                    {
+                        "topic": "plant",
+                        "record_key": "pump",
+                        "message": uuid4(),
+                        "index": 1,
+                        "channel": 2,
+                    }
+                ],
+            }
+        )
+        assert cluster.reads[0].record_key == "pump"
+
+    def test_requires_brokers(self) -> None:
+        """Should reject a cluster with no brokers field."""
+        with pytest.raises(ValidationError):
+            sy.kafka.cluster.Cluster.model_validate({"rack": 1, "name": "Plant"})
+
+    def test_resource_id(self) -> None:
+        """Should name the cluster by its key under the kafka_cluster type."""
+        assert sy.kafka.cluster.resource_id(self.KEY).type == "kafka_cluster"
+        assert sy.kafka.cluster.resource_id(self.KEY).key == str(self.KEY)

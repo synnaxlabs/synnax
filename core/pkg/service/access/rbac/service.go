@@ -252,6 +252,7 @@ func (s *Service) roleOf(
 		resource.TypeHTTPServer, resource.TypeLabjackDevice, resource.TypeModbusServer,
 		resource.TypeNiChassis, resource.TypeNiDevice, resource.TypeOpcuaServer,
 		resource.TypeArcDirectory, resource.TypeSecret, resource.TypeCertificate,
+		resource.TypeKafkaCluster,
 		resource.TypeColor, resource.TypeICD, resource.TypeEnumeration:
 	}
 	return uuid.Nil(), errors.Wrapf(

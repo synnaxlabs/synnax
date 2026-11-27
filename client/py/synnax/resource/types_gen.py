@@ -89,6 +89,8 @@ TYPE_ICD: Literal["icd"] = "icd"
 
 TYPE_ENUMERATION: Literal["enumeration"] = "enumeration"
 
+TYPE_KAFKA_CLUSTER: Literal["kafka_cluster"] = "kafka_cluster"
+
 
 Type = Literal[
     "arc",
@@ -129,4 +131,5 @@ Type = Literal[
     "color",
     "icd",
     "enumeration",
+    "kafka_cluster",
 ]

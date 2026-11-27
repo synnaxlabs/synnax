@@ -202,6 +202,7 @@ TEST(ResourceID, testProtoRoundTripTypedDevices) {
          {TYPE_ETHERCAT_MASTER,
           TYPE_ETHERCAT_SLAVE,
           TYPE_HTTP_SERVER,
+          TYPE_KAFKA_CLUSTER,
           TYPE_LABJACK_DEVICE,
           TYPE_MODBUS_SERVER,
           TYPE_NI_CHASSIS,

@@ -104,6 +104,9 @@ Type enum {
     enumeration      = "enumeration" {
         @doc value "identifies an enumeration."
     }
+    kafka_cluster    = "kafka_cluster" {
+        @doc value "identifies a Kafka cluster."
+    }
 
     @doc value "is the type of the resource."
 }

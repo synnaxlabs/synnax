@@ -279,6 +279,7 @@ func (g *groupGraph) placeGroup(grp *Group, ins alamos.Instrumentation) {
 		resource.TypeModbusServer, resource.TypeNiChassis, resource.TypeNiDevice,
 		resource.TypeOpcuaServer, resource.TypeArcDirectory, resource.TypeSecret,
 		resource.TypeCertificate, resource.TypeColor, resource.TypeICD,
+		resource.TypeKafkaCluster,
 		resource.TypeEnumeration:
 	}
 }
