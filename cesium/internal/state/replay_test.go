@@ -240,6 +240,16 @@ var _ = Describe("Replay", func() {
 		))
 	})
 
+	It("Should refuse a writer that starts inside data that replay committed", func() {
+		Expect(replay(commit(2, 3, 0, 60, 70, slot(4, 32)))).To(Succeed())
+		run(s)
+		Expect(s.OpenWriter(context.Background(), clockWriter(65, true, 5))).Error().
+			To(SatisfyAll(
+				conflict(),
+				MatchError(ContainSubstring("inside its stored data from 60 to 70")),
+			))
+	})
+
 	It("Should open again on the head of a state that replayed a backfill", func() {
 		Expect(replay(commit(1, 3, 0, 32, 32, slot(4, 20)))).To(Succeed())
 		run(s)
