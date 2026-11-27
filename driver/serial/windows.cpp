@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <cctype>
 #include <cstddef>
 #include <initializer_list>
 #include <span>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
 
@@ -169,6 +171,15 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
 
 void discard_output(const Handle handle) {
     ::PurgeComm(reinterpret_cast<HANDLE>(handle), PURGE_TXABORT | PURGE_TXCLEAR);
+}
+
+std::string identity(const std::string &path) {
+    constexpr std::string_view prefix = R"(\\.\)";
+    std::string name = path.starts_with(prefix) ? path.substr(prefix.size()) : path;
+    std::ranges::transform(name, name.begin(), [](const unsigned char c) {
+        return static_cast<char>(std::toupper(c));
+    });
+    return name;
 }
 
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {

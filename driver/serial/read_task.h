@@ -25,6 +25,7 @@
 #include "driver/common/common.h"
 #include "driver/common/read_task.h"
 #include "driver/icd/receiver.h"
+#include "driver/serial/ports.h"
 #include "driver/serial/serial.h"
 #include "driver/task/task.h"
 

@@ -47,10 +47,53 @@ cc_library(
 )
 
 cc_library(
+    name = "ports",
+    srcs = ["ports.cpp"],
+    hdrs = ["ports.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":serial",
+        "//client/cpp/device",
+        "//client/cpp/serial",
+        "//client/cpp/task",
+        "//driver/errors",
+        "//driver/transport",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+    ],
+)
+
+cc_test(
+    name = "ports_test",
+    size = "small",
+    srcs = ["ports_test.cpp"] + select({
+        "@platforms//os:windows": [
+            "open_windows_test.cpp",
+            "ports_windows_test.cpp",
+        ],
+        "//conditions:default": [
+            "open_posix_test.cpp",
+            "ports_posix_test.cpp",
+            "pty.h",
+        ],
+    }),
+    deps = [
+        ":ports",
+        "//client/cpp/serial",
+        "//client/cpp/task",
+        "//driver/errors",
+        "//driver/transport",
+        "//x/cpp/defer",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_library(
     name = "tasks",
     srcs = [
         "factory.cpp",
-        "ports.cpp",
         "read_task.cpp",
         "write_task.cpp",
     ],
@@ -61,6 +104,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":ports",
         ":serial",
         "//client/cpp/channel",
         "//client/cpp/device",
@@ -184,24 +228,6 @@ cc_test(
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/telem",
-        "//x/cpp/testutil",
-        "//x/cpp/uuid",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "ports_test",
-    size = "small",
-    srcs = ["ports_test.cpp"] + select({
-        "@platforms//os:windows": ["open_windows_test.cpp"],
-        "//conditions:default": ["open_posix_test.cpp"],
-    }),
-    deps = [
-        ":tasks",
-        "//client/cpp/task",
-        "//driver/errors",
-        "//driver/transport",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",

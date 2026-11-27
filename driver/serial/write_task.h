@@ -26,6 +26,7 @@
 #include "driver/common/common.h"
 #include "driver/common/write_task.h"
 #include "driver/icd/sender.h"
+#include "driver/serial/ports.h"
 #include "driver/serial/serial.h"
 #include "driver/task/task.h"
 
