@@ -1256,6 +1256,103 @@ Node union on variant {
 		)
 
 		DescribeTable(
+			"Should reject a max_bytes rule on a type that is not a string",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("an integer field", `
+				Entry struct {
+					value int32 { @validate max_bytes 4 }
+				}
+			`, "test.Entry.value has a max_bytes rule, but its type is not a string"),
+			Entry("a list of strings", `
+				Entry struct {
+					values string[] { @validate max_bytes 4 }
+				}
+			`, "test.Entry.values has a max_bytes rule, but its type is not a string"),
+			Entry("a distinct integer", `
+				Count int32 { @validate max_bytes 4 }
+			`, "test.Count has a max_bytes rule, but its type is not a string"),
+		)
+
+		It("Should accept a max_bytes rule on a string", func() {
+			_, diag := Analyze(`
+				Name string { @validate max_bytes 8 }
+				Entry struct {
+					node string { @validate max_bytes 4096 }
+					name Name
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
+			"Should reject a unique rule that cannot apply",
+			func(source, want string) {
+				_, diag := Analyze(source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(want))
+			},
+			Entry("on a type", `
+				Names string[] { @validate unique name }
+			`, "test.Names has a unique rule, but only a T[] field can have one"),
+			Entry("on a field that is not a list", `
+				Item struct { channel uint32 }
+				Entry struct {
+					item Item { @validate unique channel }
+				}
+			`, "test.Entry.item has a unique rule, but only a T[] field can have one"),
+			Entry("on a list of strings", `
+				Entry struct {
+					names string[] { @validate unique name }
+				}
+			`, "test.Entry.names has a unique rule, but its items are not structs"),
+			Entry("with an unknown key", `
+				Item struct { channel uint32 }
+				Entry struct {
+					items Item[] { @validate unique index }
+				}
+			`, "test.Entry.items has a unique rule, but test.Item has no field index"),
+			Entry("with a key path", `
+				Item struct { channel uint32 }
+				Entry struct {
+					items Item[] { @validate unique item.channel }
+				}
+			`, "test.Entry.items has a unique rule, but its key must name one field"),
+			Entry("with an optional key", `
+				Item struct { channel uint32? }
+				Entry struct {
+					items Item[] { @validate unique channel }
+				}
+			`, "its key channel is not a required scalar field"),
+			Entry("with a list key", `
+				Item struct { channels uint32[] }
+				Entry struct {
+					items Item[] { @validate unique channels }
+				}
+			`, "its key channels is not a required scalar field"),
+		)
+
+		It("Should accept a unique rule on a scalar field of the items", func() {
+			_, diag := Analyze(`
+				Mode enum { a = "a" }
+				Item struct {
+					channel uint32
+					node string
+					mode Mode
+				}
+				Entry struct {
+					by_channel Item[] { @validate unique channel }
+					by_node Item[]? { @validate unique node }
+					by_mode Item[] { @validate unique mode }
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+		})
+
+		DescribeTable(
 			"Should reject an lt rule",
 			func(source, want string) {
 				_, diag := Analyze(source, "test", loader)

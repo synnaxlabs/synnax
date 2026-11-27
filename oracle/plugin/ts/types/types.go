@@ -1870,10 +1870,20 @@ func (p *Plugin) wrapArray(
 	table *resolution.Table,
 	data *templateData,
 ) {
+	array := ".array()"
+	if key := validation.Parse(field.Domains["validate"]).Unique; key != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		array = fmt.Sprintf(
+			`.array().check(zod.uniqueBy<%s, "%s">("%s", () => "must be unique"))`,
+			fd.TSType,
+			FieldName(*key),
+			FieldName(*key),
+		)
+	}
 	switch {
 	case field.Optional:
 		addXImport(data, xImport{name: "zod", submodule: "zod"})
-		fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s.array())", fd.ZodType)
+		fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s%s)", fd.ZodType, array)
 		fd.ZodSchemaType = fmt.Sprintf(
 			"ReturnType<typeof zod.nullToUndefined<z.ZodArray<%s>>>",
 			fd.ZodSchemaType,
@@ -1881,15 +1891,16 @@ func (p *Plugin) wrapArray(
 	case validation.NonEmpty(field):
 		// The analyzer refuses a default here, so a missing list fails too.
 		fd.ZodType = fmt.Sprintf(
-			"%s.array().min(1, \"%s is required\")",
+			"%s%s.min(1, \"%s is required\")",
 			fd.ZodType,
+			array,
 			field.Name,
 		)
 		fd.ZodSchemaType = fmt.Sprintf("z.ZodArray<%s>", fd.ZodSchemaType)
 	default:
 		// The server omits a nil ("not loaded") array, so a missing array defaults to
 		// []; an allocated empty array still arrives as [].
-		arrayZod := fd.ZodType + ".array()"
+		arrayZod := fd.ZodType + array
 		fd.ZodSchemaType = fmt.Sprintf(
 			"z.ZodDefault<z.ZodArray<%s>>",
 			fd.ZodSchemaType,
@@ -2952,6 +2963,14 @@ func applyStringRules(
 			*rules.MaxLength,
 		)
 	}
+	if rules.MaxBytes != nil {
+		addXImport(data, xImport{name: "zod", submodule: "zod"})
+		zodType = fmt.Sprintf(
+			"%s.check(zod.maxUTF8Bytes(%d))",
+			zodType,
+			*rules.MaxBytes,
+		)
+	}
 	if rules.Pattern != nil {
 		if rules.PatternMessage != nil {
 			zodType = fmt.Sprintf(
@@ -2988,6 +3007,9 @@ func applyNumberRules(
 	if rules.Max != nil {
 		zodType = numberBoundCall(zodType, "max", *rules.Max)
 	}
+	if rules.MultipleOf != nil {
+		zodType = numberBoundCall(zodType, "multipleOf", *rules.MultipleOf)
+	}
 	return zodType
 }
 
@@ -3011,10 +3033,22 @@ func applyBoundChecks(zodType string, rules *validation.Rules) string {
 	if rules.Max != nil {
 		checks = append(checks, "z.lte("+boundLiteral(*rules.Max)+")")
 	}
-	if len(checks) == 0 {
-		return zodType
+	if len(checks) > 0 {
+		zodType = fmt.Sprintf("%s.check(%s)", zodType, strings.Join(checks, ", "))
 	}
-	return fmt.Sprintf("%s.check(%s)", zodType, strings.Join(checks, ", "))
+	// A TimeSpan schema outputs a TimeSpan, which z.multipleOf cannot divide, so the
+	// step divides its bigint nanoseconds. A fractional number fails before BigInt,
+	// which would throw on it. The analyzer keeps the step whole.
+	if step := rules.MultipleOf; step != nil && step.IsInt {
+		zodType = fmt.Sprintf(
+			"%s.refine((v) => (typeof v.valueOf() === \"bigint\" || "+
+				"Number.isInteger(v.valueOf())) && BigInt(v.valueOf()) %% %dn === 0n, %q)",
+			zodType,
+			step.Int,
+			fmt.Sprintf("must be a multiple of %d", step.Int),
+		)
+	}
+	return zodType
 }
 
 // applyDefault appends the default of defaultVal to zodType. It reports whether the

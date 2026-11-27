@@ -513,6 +513,34 @@ class TestOPCServerResource:
                 {**self.SERVER, "connection": {**self.SERVER["connection"], **change}}
             )
 
+    def test_accepts_a_channel_lifetime_in_milliseconds(self) -> None:
+        """Should accept a secure channel lifetime that is a whole number of ms."""
+        lifetime = 90 * sy.TimeSpan.SECOND
+        server = sy.opcua.server.Server.model_validate(
+            {
+                **self.SERVER,
+                "connection": {
+                    **self.SERVER["connection"],
+                    "secure_channel_lifetime": lifetime,
+                },
+            }
+        )
+        assert server.connection.secure_channel_lifetime == lifetime
+
+    def test_rejects_a_channel_lifetime_below_a_millisecond(self) -> None:
+        """Should refuse a secure channel lifetime that is not a whole number of ms."""
+        with pytest.raises(ValidationError, match="must be a multiple of 1000000"):
+            sy.opcua.server.Server.model_validate(
+                {
+                    **self.SERVER,
+                    "connection": {
+                        **self.SERVER["connection"],
+                        "secure_channel_lifetime": sy.TimeSpan.SECOND
+                        + sy.TimeSpan.MICROSECOND,
+                    },
+                }
+            )
+
     def test_rejects_a_read_without_an_index(self) -> None:
         """Should require the index channel of a read."""
         with pytest.raises(ValidationError):

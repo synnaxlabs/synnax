@@ -56,8 +56,8 @@ var hoverDocs = map[string]string{
 	"@doc": "**@doc**\n\nDocumentation for the declaration.\n\nUse " +
 		"`@doc value \"...\"` on fields and declarations.",
 	"@validate": "**@validate**\n\nValidation constraints.\n\nExpressions: " +
-		"`required`, `skip`, `min_length`, `max_length`, `min`, `gt`, `max`, " +
-		"`pattern`",
+		"`required`, `skip`, `min_length`, `max_length`, `max_bytes`, `min`, " +
+		"`gt`, `max`, `multiple_of`, `pattern`, `finite`, `unique`",
 	"@filter": "**@filter**\n\nRetrieve requests can filter on this field.",
 	"@search": "**@search**\n\nRetrieve requests can search the text of this field.",
 	"@response": "**@response**\n\nSets the record type of a filter's retrieve " +
@@ -87,7 +87,13 @@ var hoverDocs = map[string]string{
 	"skip":       "**skip**\n\nSkip validation for this field.",
 	"min_length": "**min_length** *value*\n\nMinimum string length.",
 	"max_length": "**max_length** *value*\n\nMaximum string length.",
-	"pattern":    "**pattern** *\"regex\"*\n\nRegex pattern constraint.",
+	"max_bytes":  "**max_bytes** *value*\n\nMaximum UTF-8 byte length of a string.",
+	"multiple_of": "**multiple_of** *value*\n\nAn integer or a telem.TimeSpan must be " +
+		"a whole multiple of this positive step. A telem.TimeSpan step may be a " +
+		"duration, such as 1s.",
+	"unique": "**unique** *field*\n\nNo two items of a list share the value of " +
+		"this field of the item.",
+	"pattern": "**pattern** *\"regex\"*\n\nRegex pattern constraint.",
 	"use_input": "**use_input**\n\nUse `z.input` instead of `z.infer` for the " +
 		"generated TypeScript type.",
 	"name":   "**name** *\"TypeName\"*\n\nOverride the generated type name.",

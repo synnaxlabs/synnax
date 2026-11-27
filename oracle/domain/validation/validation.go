@@ -21,11 +21,17 @@ import (
 
 // Rules contains the parsed validation constraints from a @validate domain.
 type Rules struct {
-	MinLength      *int64
-	MaxLength      *int64
-	Min            *Number
-	GT             *Number
-	Max            *Number
+	MinLength *int64
+	MaxLength *int64
+	// MaxBytes bounds the UTF-8 byte length of a string.
+	MaxBytes *int64
+	// Unique names the field of a list item that no two items may share.
+	Unique *string
+	Min    *Number
+	GT     *Number
+	Max    *Number
+	// MultipleOf requires a number to be a whole multiple of a positive step.
+	MultipleOf     *Number
 	Pattern        *string
 	PatternMessage *string
 	Required       bool
@@ -90,12 +96,18 @@ func Parse(domain resolution.Domain) *Rules {
 			rules.MinLength = &v.IntValue
 		case "max_length":
 			rules.MaxLength = &v.IntValue
+		case "max_bytes":
+			rules.MaxBytes = &v.IntValue
+		case "unique":
+			rules.Unique = &v.IdentValue
 		case "min":
 			rules.Min = newNumber(v)
 		case "gt":
 			rules.GT = newNumber(v)
 		case "max":
 			rules.Max = newNumber(v)
+		case "multiple_of":
+			rules.MultipleOf = newNumber(v)
 		case "pattern":
 			rules.Pattern = &v.StringValue
 			if len(expr.Values) > 1 {
@@ -204,6 +216,13 @@ func Merge(a, b *Rules) *Rules {
 	out.Skip = a.Skip || b.Skip
 	out.MinLength = tighterLength(a.MinLength, b.MinLength, true)
 	out.MaxLength = tighterLength(a.MaxLength, b.MaxLength, false)
+	out.MaxBytes = tighterLength(a.MaxBytes, b.MaxBytes, false)
+	if out.Unique == nil {
+		out.Unique = b.Unique
+	}
+	if out.MultipleOf == nil {
+		out.MultipleOf = b.MultipleOf
+	}
 	out.Min = tighterNumber(a.Min, b.Min, true)
 	out.GT = tighterNumber(a.GT, b.GT, true)
 	out.Max = tighterNumber(a.Max, b.Max, false)
@@ -256,5 +275,6 @@ func IsEmpty(r *Rules) bool {
 		return true
 	}
 	return !r.Required && !r.Finite && r.MinLength == nil && r.MaxLength == nil &&
-		r.Min == nil && r.GT == nil && r.Max == nil && r.Pattern == nil
+		r.MaxBytes == nil && r.Unique == nil && r.Min == nil && r.GT == nil &&
+		r.Max == nil && r.MultipleOf == nil && r.Pattern == nil
 }

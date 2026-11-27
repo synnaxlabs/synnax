@@ -147,9 +147,10 @@ Connection struct {
         @validate min 100000000
     }
     secure_channel_lifetime telem.TimeSpan = 600000000000 {
-        @doc value    "is the lifetime of the secure channel."
-        @ts type      telem.NumericTimeSpan
-        @validate min 1000000000
+        @doc value            "is the lifetime of the secure channel."
+        @ts type              telem.NumericTimeSpan
+        @validate min         1000000000
+        @validate multiple_of 1ms
     }
     session_timeout         telem.TimeSpan = 1200000000000 {
         @doc value    "is the timeout of the session."
@@ -163,10 +164,11 @@ Connection struct {
 
 Read struct {
     node    string      {
-        @doc value         """
+        @doc value          """
             is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
             identifier alone in namespace 0.
         """
+        @validate max_bytes 4096
         @validate required
     }
     field   string = "" {
@@ -194,10 +196,11 @@ Read struct {
 
 Write struct {
     node    string      {
-        @doc value         """
+        @doc value          """
             is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
             identifier alone in namespace 0.
         """
+        @validate max_bytes 4096
         @validate required
     }
     channel channel.Key {
@@ -249,10 +252,12 @@ Server struct {
         @doc value "holds the settings that the Driver connects with."
     }
     reads      Read[] = [] {
-        @doc value "bind the nodes that read tasks sample to channels."
+        @doc value       "bind the nodes that read tasks sample to channels."
+        @validate unique channel
     }
     writes     Write[] = [] {
-        @doc value "bind the nodes that write tasks command to channels."
+        @doc value       "bind the nodes that write tasks command to channels."
+        @validate unique channel
     }
     status     Status?    {
         @doc value  "is the current connection status of the server."
@@ -290,10 +295,12 @@ Identity struct {
 
 Configuration struct {
     reads  Read[] = [] {
-        @doc value "bind the nodes that read tasks sample to channels."
+        @doc value       "bind the nodes that read tasks sample to channels."
+        @validate unique channel
     }
     writes Write[] = [] {
-        @doc value "bind the nodes that write tasks command to channels."
+        @doc value       "bind the nodes that write tasks command to channels."
+        @validate unique channel
     }
 
     @doc value "holds the server fields that the task forms own."

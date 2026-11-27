@@ -66,6 +66,26 @@ var _ = Describe("Parse", func() {
 		Expect(*rules.MaxLength).To(Equal(int64(100)))
 	})
 
+	It("should parse the max_bytes, unique, and multiple_of expressions", func() {
+		domain := resolution.Domain{Expressions: []resolution.Expression{
+			{Name: "max_bytes", Values: []resolution.ExpressionValue{{IntValue: 4096}}},
+			{Name: "unique", Values: []resolution.ExpressionValue{{
+				Kind:       resolution.ValueKindIdent,
+				IdentValue: "channel",
+			}}},
+			{Name: "multiple_of", Values: []resolution.ExpressionValue{{
+				Kind:     resolution.ValueKindInt,
+				IntValue: 1_000_000_000,
+				Duration: "1s",
+			}}},
+		}}
+		rules := validation.Parse(domain)
+		Expect(*rules.MaxBytes).To(Equal(int64(4096)))
+		Expect(*rules.Unique).To(Equal("channel"))
+		Expect(rules.MultipleOf.Int).To(Equal(int64(1_000_000_000)))
+		Expect(rules.MultipleOf.IsInt).To(BeTrue())
+	})
+
 	It("should parse min expression with int", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{
@@ -352,6 +372,15 @@ var _ = Describe("IsEmpty", func() {
 		Expect(validation.IsEmpty(&validation.Rules{Required: true})).To(BeFalse())
 	})
 
+	It("should return false when a byte bound, a unique key, or a step is set", func() {
+		Expect(validation.IsEmpty(parse("max_bytes", intValue(4)))).To(BeFalse())
+		Expect(validation.IsEmpty(parse("unique", resolution.ExpressionValue{
+			Kind:       resolution.ValueKindIdent,
+			IdentValue: "channel",
+		}))).To(BeFalse())
+		Expect(validation.IsEmpty(parse("multiple_of", intValue(5)))).To(BeFalse())
+	})
+
 	It("should return false when any field is set", func() {
 		minLen := int64(1)
 		Expect(validation.IsEmpty(&validation.Rules{MinLength: &minLen})).To(BeFalse())
@@ -479,6 +508,32 @@ var _ = Describe("TypeRules", func() {
 })
 
 var _ = Describe("Merge", func() {
+	It("should keep the lower byte bound", func() {
+		merged := validation.Merge(
+			parse("max_bytes", intValue(8)),
+			parse("max_bytes", intValue(4)),
+		)
+		Expect(*merged.MaxBytes).To(Equal(int64(4)))
+	})
+
+	It("should keep a unique key from either side", func() {
+		key := resolution.ExpressionValue{
+			Kind:       resolution.ValueKindIdent,
+			IdentValue: "channel",
+		}
+		Expect(*validation.Merge(parse("unique", key), &validation.Rules{}).Unique).
+			To(Equal("channel"))
+		Expect(*validation.Merge(&validation.Rules{}, parse("unique", key)).Unique).
+			To(Equal("channel"))
+	})
+
+	It("should keep a multiple_of step from either side", func() {
+		Expect(validation.Merge(parse("multiple_of", intValue(5)), &validation.Rules{}).
+			MultipleOf.Int).To(Equal(int64(5)))
+		Expect(validation.Merge(&validation.Rules{}, parse("multiple_of", intValue(5))).
+			MultipleOf.Int).To(Equal(int64(5)))
+	})
+
 	It("should keep the higher lower bound", func() {
 		merged := validation.Merge(parse("min", intValue(1)), parse("min", intValue(3)))
 		Expect(merged.Min.Int).To(Equal(int64(3)))

@@ -44,3 +44,15 @@ export const maxBytes = (max: number): z.core.$ZodCheck<Uint8Array> =>
     (value) => value.length <= max,
     `must be at most ${max} bytes long`,
   );
+
+const encoder = new TextEncoder();
+
+/**
+ * @returns a check for `.check()` that rejects a string whose UTF-8 encoding holds more
+ * than `max` bytes.
+ */
+export const maxUTF8Bytes = (max: number): z.core.$ZodCheck<string> =>
+  z.refine<string>(
+    (value) => encoder.encode(value).length <= max,
+    `must be at most ${max} bytes long`,
+  );

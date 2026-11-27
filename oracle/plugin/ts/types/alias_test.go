@@ -238,6 +238,16 @@ var _ = Describe("TS aliases", func() {
 				"@validate min 1\n@validate max 9\n}",
 			"span: telem.numericTimeSpanZ.check(z.gte(1), z.lte(9)).default(5),",
 		),
+		Entry(
+			"a step on a timespan, which divides its nanoseconds",
+			"span telem.TimeSpan {\n@validate multiple_of 1s\n}",
+			`span: telem.timeSpanZ.refine((v) => (typeof v.valueOf() === "bigint" || Number.isInteger(v.valueOf())) && BigInt(v.valueOf()) % 1000000000n === 0n, "must be a multiple of 1000000000")`,
+		),
+		Entry(
+			"a step on an alias hand-written as a number",
+			"span telem.NumericTimeSpan {\n@validate multiple_of 5\n}",
+			`span: telem.numericTimeSpanZ.refine((v) => (typeof v.valueOf() === "bigint" || Number.isInteger(v.valueOf())) && BigInt(v.valueOf()) % 5n === 0n, "must be a multiple of 5")`,
+		),
 		Entry("an alias of a record", "data Data", "data: dataZ.default(() => ({})),"),
 		Entry("an optional alias of a record",
 			"data Data?", "data: zod.nullToUndefined(dataZ),"),

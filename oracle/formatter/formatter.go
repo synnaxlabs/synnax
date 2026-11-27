@@ -298,7 +298,7 @@ func (f *formatter) formatExpressionAligned(
 	command := ctx.IDENT().GetText()
 	f.write(command)
 
-	values := ctx.AllExpressionValue()
+	values := expressionValues(ctx)
 	if len(values) > 0 {
 		// Calculate padding needed to align values
 		fullPrefixLen := currentPrefixLen + 1 + len(
@@ -307,17 +307,50 @@ func (f *formatter) formatExpressionAligned(
 		padding := max(maxPrefixLen-fullPrefixLen, 0)
 		f.writePadding(padding)
 		f.write(" ")
-		if len(values) == 1 {
-			f.formatSoleExpressionValue(values[0])
+		if len(values) == 1 && values[0].value != nil {
+			f.formatSoleExpressionValue(values[0].value)
 			return
 		}
 		for i, val := range values {
 			if i > 0 {
 				f.write(" ")
 			}
-			f.formatExpressionValue(val)
+			if val.value == nil {
+				f.write(val.duration)
+				continue
+			}
+			f.formatExpressionValue(val.value)
 		}
 	}
+}
+
+// expressionValue is one value of an expression: an expression value, or the text of a
+// duration literal.
+type expressionValue struct {
+	value    parser.IExpressionValueContext
+	duration string
+}
+
+// expressionValues returns the values of ctx in source order.
+func expressionValues(ctx parser.IExpressionContext) []expressionValue {
+	var values []expressionValue
+	for _, child := range ctx.GetChildren()[1:] {
+		switch v := child.(type) {
+		case parser.IExpressionValueContext:
+			values = append(values, expressionValue{value: v})
+		case antlr.TerminalNode:
+			values = append(values, expressionValue{duration: v.GetText()})
+		}
+	}
+	return values
+}
+
+// expressionValueString renders val on one line.
+func (f *formatter) expressionValueString(val expressionValue) string {
+	if val.value == nil {
+		return val.duration
+	}
+	return f.formatExpressionValueToString(val.value)
 }
 
 func (f *formatter) formatDefinition(ctx parser.IDefinitionContext) {
@@ -856,9 +889,9 @@ func (f *formatter) formatDomainContentToString(
 func (f *formatter) formatExpressionToString(ctx parser.IExpressionContext) string {
 	var sb strings.Builder
 	sb.WriteString(ctx.IDENT().GetText())
-	for _, val := range ctx.AllExpressionValue() {
+	for _, val := range expressionValues(ctx) {
 		sb.WriteString(" ")
-		sb.WriteString(f.formatExpressionValueToString(val))
+		sb.WriteString(f.expressionValueString(val))
 	}
 	return sb.String()
 }
@@ -1239,15 +1272,19 @@ func (f *formatter) formatDomainBlock(ctx parser.IDomainBlockContext) {
 
 func (f *formatter) formatExpression(ctx parser.IExpressionContext) {
 	f.write(ctx.IDENT().GetText())
-	values := ctx.AllExpressionValue()
-	if len(values) == 1 {
+	values := expressionValues(ctx)
+	if len(values) == 1 && values[0].value != nil {
 		f.write(" ")
-		f.formatSoleExpressionValue(values[0])
+		f.formatSoleExpressionValue(values[0].value)
 		return
 	}
 	for _, val := range values {
 		f.write(" ")
-		f.formatExpressionValue(val)
+		if val.value == nil {
+			f.write(val.duration)
+			continue
+		}
+		f.formatExpressionValue(val.value)
 	}
 }
 

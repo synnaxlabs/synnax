@@ -11,11 +11,13 @@ package validate
 
 import (
 	"reflect"
+	"strconv"
 	"unicode/utf8"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/math"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -209,4 +211,42 @@ func (v *Validator) MinBytes[T ~[]byte](field string, value T, minLen int) bool 
 		"must be at least %d bytes long",
 		minLen,
 	)
+}
+
+// MaxBytes returns true and attaches an error to v if the UTF-8 encoding of the string
+// holds more than maxLen bytes.
+func (v *Validator) MaxBytes[T ~string](field string, value T, maxLen int) bool {
+	return v.Ternaryf(
+		field,
+		len(value) > maxLen,
+		"must be at most %d bytes long",
+		maxLen,
+	)
+}
+
+// Unique attaches an error to v at field.i.key for each item i of the n items whose key
+// an earlier item holds, and returns true if it attached any. keyOf returns the key of
+// item i, which must be comparable.
+func (v *Validator) Unique(field, key string, n int, keyOf func(i int) any) bool {
+	seen := make(set.Set[any], n)
+	for i := range n {
+		k := keyOf(i)
+		if seen.Contains(k) {
+			v.errs = append(v.errs, PathedError(
+				ruleError{errors.New("must be unique")},
+				field,
+				strconv.Itoa(i),
+				key,
+			))
+			continue
+		}
+		seen.Add(k)
+	}
+	return len(v.errs) > 0
+}
+
+// MultipleOf returns true and attaches an error to v if the integer value is not a
+// whole multiple of step. step must be positive.
+func (v *Validator) MultipleOf[T types.Integer](field string, value, step T) bool {
+	return v.Ternaryf(field, value%step != 0, "must be a multiple of %v", step)
 }

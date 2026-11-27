@@ -10,6 +10,7 @@
 package v0_test
 
 import (
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -142,6 +143,38 @@ var _ = Describe("Server", func() {
 				}
 			},
 			"policy",
+		),
+		Entry(
+			"two reads into one channel",
+			func(s *v0.Server) {
+				s.Reads = append(
+					s.Reads,
+					v0.Read{Node: "nsu=urn:plc;s=Flow", Index: 1, Channel: 2},
+				)
+			},
+			"reads.1.channel: must be unique",
+		),
+		Entry(
+			"two writes from one command channel",
+			func(s *v0.Server) {
+				s.Writes = append(
+					s.Writes,
+					v0.Write{Node: "nsu=urn:plc;s=Pump", Channel: 3},
+				)
+			},
+			"writes.1.channel: must be unique",
+		),
+		Entry(
+			"a node ID over 4096 bytes",
+			func(s *v0.Server) { s.Reads[0].Node = "s=" + strings.Repeat("é", 2048) },
+			"must be at most 4096 bytes long",
+		),
+		Entry(
+			"a channel lifetime that is not a whole number of milliseconds",
+			func(s *v0.Server) {
+				s.Connection.SecureChannelLifetime = telem.Second + telem.Microsecond
+			},
+			"secure_channel_lifetime: must be a multiple of 1ms",
 		),
 		Entry(
 			"a read without a node",

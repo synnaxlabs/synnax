@@ -1695,6 +1695,10 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "min_bytes"}}
 	v.MinBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "max_bytes"}}
+	v.MaxBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "unique"}}
+	v.Unique("{{.FieldName}}", "{{.Arg}}", len({{$val}}), func(i int) any { return {{$val}}[i].{{.KeyGo}} })
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "gt"}}
@@ -1703,6 +1707,8 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "multiple_of"}}
+	v.MultipleOf("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$s.Receiver}}.{{.Arg}}), {{.Message}})
 {{- else if eq .Kind "pattern"}}
@@ -1839,6 +1845,10 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.MaxLength("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "min_bytes"}}
 	v.MinBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "max_bytes"}}
+	v.MaxBytes("{{.FieldName}}", {{$val}}, {{.Arg}})
+{{- else if eq .Kind "unique"}}
+	v.Unique("{{.FieldName}}", "{{.Arg}}", len({{$val}}), func(i int) any { return {{$val}}[i].{{.KeyGo}} })
 {{- else if eq .Kind "ge"}}
 	v.GreaterThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "gt"}}
@@ -1847,6 +1857,8 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	v.LessThanEq("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "finite"}}
 	v.Finite("{{.FieldName}}", {{$val}})
+{{- else if eq .Kind "multiple_of"}}
+	v.MultipleOf("{{.FieldName}}", {{$val}}, {{.Arg}})
 {{- else if eq .Kind "lt"}}
 	v.Ternary("{{.FieldName}}", !({{$val}} < {{$vt.Receiver}}.{{.Arg}}), {{.Message}})
 {{- else if eq .Kind "pattern"}}

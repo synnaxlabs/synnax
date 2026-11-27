@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from synnax import (
     certificate as certificate_,
@@ -24,7 +24,7 @@ from synnax import (
     status as status_,
 )
 from synnax.resource import ID
-from x import filter, telem
+from x import filter, telem, validate
 
 SECURITY_POLICY_BASIC128_RSA15: Literal["Basic128Rsa15"] = "Basic128Rsa15"
 
@@ -64,7 +64,7 @@ class Read(BaseModel):
         channel: Is the channel that holds the samples of the node.
     """
 
-    node: str = Field(min_length=1)
+    node: Annotated[str, AfterValidator(validate.max_bytes(4096))] = Field(min_length=1)
     field: str = ""
     index: channel_.Key = Field(gt=0, le=4294967295)
     channel: channel_.Key = Field(gt=0, le=4294967295)
@@ -79,7 +79,7 @@ class Write(BaseModel):
         channel: Is the channel that commands the node.
     """
 
-    node: str = Field(min_length=1)
+    node: Annotated[str, AfterValidator(validate.max_bytes(4096))] = Field(min_length=1)
     channel: channel_.Key = Field(gt=0, le=4294967295)
 
 
@@ -209,8 +209,12 @@ class Configuration(BaseModel):
         writes: Bind the nodes that write tasks command to channels.
     """
 
-    reads: list[Read] = Field(default_factory=list)
-    writes: list[Write] = Field(default_factory=list)
+    reads: Annotated[list[Read], AfterValidator(validate.unique("channel"))] = Field(
+        default_factory=list
+    )
+    writes: Annotated[list[Write], AfterValidator(validate.unique("channel"))] = Field(
+        default_factory=list
+    )
 
 
 class SecuredChannel(BaseModel):
@@ -296,7 +300,9 @@ class Connection(BaseModel):
     client_timeout: telem.TimeSpan = Field(
         default=telem.TimeSpan(5000000000), ge=100000000, le=9223372036854775807
     )
-    secure_channel_lifetime: telem.TimeSpan = Field(
+    secure_channel_lifetime: Annotated[
+        telem.TimeSpan, AfterValidator(validate.multiple_of(1000000))
+    ] = Field(
         default=telem.TimeSpan(600000000000), ge=1000000000, le=9223372036854775807
     )
     session_timeout: telem.TimeSpan = Field(
@@ -321,8 +327,12 @@ class Server(BaseModel):
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
     connection: Connection
-    reads: list[Read] = Field(default_factory=list)
-    writes: list[Write] = Field(default_factory=list)
+    reads: Annotated[list[Read], AfterValidator(validate.unique("channel"))] = Field(
+        default_factory=list
+    )
+    writes: Annotated[list[Write], AfterValidator(validate.unique("channel"))] = Field(
+        default_factory=list
+    )
     status: Status | None = None
 
     @_override

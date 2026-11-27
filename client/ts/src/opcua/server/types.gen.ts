@@ -35,7 +35,7 @@ export const readZ = z.object({
    * node is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
    * identifier alone in namespace 0.
    */
-  node: z.string().min(1, "Node is required"),
+  node: z.string().min(1, "Node is required").check(zod.maxUTF8Bytes(4096)),
   /**
    * field is the path to a member of the node's structure value. Names join with '.',
    * and '&' escapes the next character. Empty binds the whole value.
@@ -54,7 +54,7 @@ export const writeZ = z.object({
    * node is the ID of the node, as nsu=<namespace URI>;<i|s|g|b>=<identifier>, or the
    * identifier alone in namespace 0.
    */
-  node: z.string().min(1, "Node is required"),
+  node: z.string().min(1, "Node is required").check(zod.maxUTF8Bytes(4096)),
   /** channel is the channel that commands the node. */
   channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
@@ -163,9 +163,15 @@ export const SERVER_TRUST_SCHEMAS: {
 /** Configuration holds the server fields that the task forms own. */
 export const configurationZ = z.object({
   /** reads bind the nodes that read tasks sample to channels. */
-  reads: readZ.array().default(() => []),
+  reads: readZ
+    .array()
+    .check(zod.uniqueBy<Read, "channel">("channel", () => "must be unique"))
+    .default(() => []),
   /** writes bind the nodes that write tasks command to channels. */
-  writes: writeZ.array().default(() => []),
+  writes: writeZ
+    .array()
+    .check(zod.uniqueBy<Write, "channel">("channel", () => "must be unique"))
+    .default(() => []),
 });
 export interface Configuration extends z.infer<typeof configurationZ> {}
 
@@ -304,6 +310,12 @@ export const connectionZ = z.object({
   /** secureChannelLifetime is the lifetime of the secure channel. */
   secureChannelLifetime: telem.numericTimeSpanZ
     .check(z.gte(1000000000))
+    .refine(
+      (v) =>
+        (typeof v.valueOf() === "bigint" || Number.isInteger(v.valueOf())) &&
+        BigInt(v.valueOf()) % 1000000n === 0n,
+      "must be a multiple of 1000000",
+    )
     .default(600000000000),
   /** sessionTimeout is the timeout of the session. */
   sessionTimeout: telem.numericTimeSpanZ
@@ -323,9 +335,15 @@ export const serverZ = z.object({
   /** connection holds the settings that the Driver connects with. */
   connection: connectionZ,
   /** reads bind the nodes that read tasks sample to channels. */
-  reads: readZ.array().default(() => []),
+  reads: readZ
+    .array()
+    .check(zod.uniqueBy<Read, "channel">("channel", () => "must be unique"))
+    .default(() => []),
   /** writes bind the nodes that write tasks command to channels. */
-  writes: writeZ.array().default(() => []),
+  writes: writeZ
+    .array()
+    .check(zod.uniqueBy<Write, "channel">("channel", () => "must be unique"))
+    .default(() => []),
   /** status is the current connection status of the server. */
   status: statusZ.optional(),
 });
