@@ -53,15 +53,6 @@ func MatchPaths(paths ...string) Filter {
 	}
 }
 
-// siblingOf returns the folder and the name of ch.
-func siblingOf(ch *Channel) group.Sibling {
-	s := group.Sibling{Name: ch.Name}
-	if ch.Group != nil {
-		s.Parent = *ch.Group
-	}
-	return s
-}
-
 // siblingAt returns the folder of the last segment of path and that segment, as seen
 // by snap. It returns false when a folder on the path does not exist or r does not
 // allow it.
