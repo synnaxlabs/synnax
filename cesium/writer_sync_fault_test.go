@@ -99,6 +99,7 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 		}
 		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
+			Clock:    idx,
 			Start:    stamps[0],
 		}))
 		defer func() { err = xerrors.Join(err, w.Close()) }()
