@@ -26,15 +26,15 @@ import { Pane } from "@synnaxlabs/lyra/pane";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Steps } from "@synnaxlabs/lyra/steps";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
+import { Device as PDevice, Rack as PRack, Synnax, Task } from "@synnaxlabs/pluto";
 import { compare, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import type { Hardware } from "@/platform/device/integration";
-import { isReady } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
+import { Rack } from "@/platform/rack";
 import type { Session } from "@/session";
 
 /** The command that makes a scan task scan for devices now. */
@@ -88,7 +88,7 @@ const ScannerState = ({
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  if (!isReady(r))
+  if (!Rack.isReady(r))
     return (
       <State
         variant="warning"
@@ -145,7 +145,7 @@ const byConfigured = (a: device.Device, b: device.Device): number =>
 const bySlot = compare.by((d: device.Device) => d.location, compare.natural);
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
-  isReady(r) &&
+  Rack.isReady(r) &&
   scanner != null &&
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
@@ -246,7 +246,7 @@ const RackCard = ({
             {strings.count(devices.length, "device")}
           </Text.Text>
         )}
-        <Rack.StatusIndicator status={r.status} />
+        <PRack.StatusIndicator status={r.status} />
       </Header.Actions>
     </Pane.Header>
     <ScannerState rack={r} scanner={scanner} name={name} ScanAction={ScanAction} />
@@ -311,9 +311,9 @@ export const Find = ({
   onConfigure,
 }: FindProps): ReactElement => {
   const { key, name, title, icon, make, scanType, checks, location } = hardware;
-  const allRacks = Rack.useResultMultiple({}).data;
+  const allRacks = PRack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
-  const running = allRacks?.some(isReady) === true;
+  const running = allRacks?.some(Rack.isReady) === true;
   const racks = allRacks?.filter(
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
@@ -330,7 +330,8 @@ export const Find = ({
   const [scanned, setScanned] = useState<rack.Key[]>([]);
   const targets = (scanners ?? []).filter(
     (s) =>
-      !isScanDisabled(s) && racks?.some((r) => r.key === s.rack && isReady(r)) === true,
+      !isScanDisabled(s) &&
+      racks?.some((r) => r.key === s.rack && Rack.isReady(r)) === true,
   );
   const scan = async () => {
     setScanning(true);

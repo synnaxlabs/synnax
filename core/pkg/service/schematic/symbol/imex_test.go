@@ -51,7 +51,7 @@ var _ = Describe("ImEx", func() {
 		It("Should export a symbol as a versioned envelope", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "exported",
-				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>")},
 			})
 			// Export reads committed data, so the symbol must be deleted to keep the
 			// shared DB's counts intact.
@@ -131,7 +131,6 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Server Symbol"))
 				Expect(res.Data.Drawing).To(Equal(svg("<svg><rect/></svg>")))
-				Expect(res.Data.Variant).To(Equal("valve"))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
 				state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
@@ -159,7 +158,6 @@ var _ = Describe("ImEx", func() {
 					createImportGroup(ctx, tx),
 				)
 				Expect(res.Name).To(Equal("Console Symbol"))
-				Expect(res.Data.Variant).To(Equal("sensor"))
 				Expect(res.Data.Scale).To(Equal(2.0))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.Looks).To(HaveLen(1))
@@ -285,7 +283,6 @@ var _ = Describe("ImEx", func() {
 			GinkgoHelper()
 			sym := defaults.Fill(symbol.Symbol{Name: "valve", Data: symbol.Spec{
 				Drawing: svg("<svg/>"),
-				Variant: "static",
 				States: []symbol.State{{Variant: symbol.EnumerationState{
 					Key:         "active",
 					Name:        "Active",
@@ -354,7 +351,6 @@ var _ = Describe("ImEx", func() {
 					Name: "round-trip",
 					Data: symbol.Spec{
 						Drawing:      svg("<svg/>"),
-						Variant:      "valve",
 						StrokeScaled: true,
 					},
 				})
@@ -393,7 +389,6 @@ var _ = Describe("ImEx", func() {
 					Commands:     []symbol.Command{},
 					Looks:        []symbol.Look{},
 					Interactions: []symbol.Interaction{},
-					Variant:      "valve",
 					StrokeScaled: true,
 					Scale:        original.Data.Scale,
 				}))

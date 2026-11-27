@@ -1153,6 +1153,7 @@ var _ = Describe("Device", func() {
 						racktestutil.CreateDriverRole(ctx, db, roleSvc),
 					),
 				}))
+				StartRun(rackSvc.Run)
 				svc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 					DB:     db,
 					Status: stat,

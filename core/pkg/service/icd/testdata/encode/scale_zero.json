@@ -1,0 +1,27 @@
+{
+  "description": "A bound field with a zero scale cannot undo the scale of a sample.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "temp",
+          "scale": 0,
+          "offset": 0,
+          "units": "",
+          "pointer": "/temp",
+          "type": "float"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "error": "message command: field temp: scale must be non-zero: validation error"
+}

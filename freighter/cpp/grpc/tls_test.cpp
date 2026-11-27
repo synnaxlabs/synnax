@@ -167,7 +167,7 @@ TEST(testTLS, emptyCACertIsError) {
         std::ofstream(path) << contents;
         const auto [creds, err] = ssl_credentials(path);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        EXPECT_NE(err.data.find(path), std::string::npos);
+        EXPECT_NE(err.data().find(path), std::string::npos);
         EXPECT_EQ(creds, nullptr);
     }
 }

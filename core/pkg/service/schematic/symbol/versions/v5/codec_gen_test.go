@@ -17,11 +17,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
+	color "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
 	enumeration "github.com/synnaxlabs/synnax/pkg/service/enumeration/versions/v0"
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
-	xcolor "github.com/synnaxlabs/x/color/versions/v2"
 	"github.com/synnaxlabs/x/encoding/orc"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -257,9 +256,7 @@ var _ = Describe("Codec", func() {
 			Entry("contrast variant", v5.Paint{Variant: v5.ContrastPaint{State: "test_1"}}),
 			Entry("node variant", v5.Paint{Variant: v5.NodePaint{}}),
 			Entry("color variant", v5.Paint{Variant: v5.ColorPaint{
-				Value: servicecolor.Ref{Variant: servicecolor.NamedRef{
-					Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-				}},
+				Value: color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")}},
 			}}),
 		)
 	})
@@ -372,10 +369,9 @@ var _ = Describe("Codec", func() {
 						Command:         "test_43",
 					}},
 				},
-				Variant:         "test_44",
-				Scale:           45.5,
-				StrokeScaled:    false,
-				PreviewViewport: new(spatial.Viewport{Zoom: 48.5, Position: spatial.XY{X: 50.5, Y: 51.5}}),
+				Scale:           44.5,
+				StrokeScaled:    true,
+				PreviewViewport: new(spatial.Viewport{Zoom: 47.5, Position: spatial.XY{X: 49.5, Y: 50.5}}),
 			}),
 			Entry("zero values", v5.Spec{
 				Drawing:         v5.Drawing{Variant: v5.SvgDrawing{Markup: ""}},
@@ -385,7 +381,6 @@ var _ = Describe("Codec", func() {
 				Commands:        []v5.Command{},
 				Looks:           []v5.Look{},
 				Interactions:    []v5.Interaction{},
-				Variant:         "",
 				Scale:           0,
 				StrokeScaled:    false,
 				PreviewViewport: nil,
@@ -398,10 +393,9 @@ var _ = Describe("Codec", func() {
 				Commands:        []v5.Command{},
 				Looks:           []v5.Look{},
 				Interactions:    []v5.Interaction{},
-				Variant:         "test_9",
-				Scale:           10.5,
-				StrokeScaled:    true,
-				PreviewViewport: new(spatial.Viewport{Zoom: 13.5, Position: spatial.XY{X: 15.5, Y: 16.5}}),
+				Scale:           9.5,
+				StrokeScaled:    false,
+				PreviewViewport: new(spatial.Viewport{Zoom: 12.5, Position: spatial.XY{X: 14.5, Y: 15.5}}),
 			}),
 		)
 	})
@@ -426,52 +420,6 @@ var _ = Describe("Codec", func() {
 				BaseState: fullyPopulatedBaseState,
 				Bounds:    spatial.ClosedBounds{Lower: 2.5, Upper: 3.5},
 			}}),
-		)
-	})
-	Describe("StateOverride", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v5.StateOverride) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v5.StateOverride
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v5.StateOverride{
-				Key:  "test_1",
-				Name: "test_2",
-				Regions: []v5.Region{
-					{
-						Key:       "test_4",
-						Name:      "test_5",
-						Selectors: []string{"test_6"},
-						StrokeColor: new(xcolor.Color{
-							R: 9,
-							G: 10,
-							B: 11,
-							A: 12,
-						}),
-						FillColor: new(xcolor.Color{
-							R: 14,
-							G: 15,
-							B: 16,
-							A: 17,
-						}),
-					},
-				},
-			}),
-			Entry("zero values", v5.StateOverride{
-				Key:     "",
-				Name:    "",
-				Regions: []v5.Region{},
-			}),
-			Entry("empty collections", v5.StateOverride{
-				Key:     "test_1",
-				Name:    "test_2",
-				Regions: []v5.Region{},
-			}),
 		)
 	})
 	Describe("Symbol", func() {
@@ -539,12 +487,11 @@ var _ = Describe("Codec", func() {
 							Command:         "test_46",
 						}},
 					},
-					Variant:         "test_47",
-					Scale:           48.5,
-					StrokeScaled:    true,
-					PreviewViewport: new(spatial.Viewport{Zoom: 51.5, Position: spatial.XY{X: 53.5, Y: 54.5}}),
+					Scale:           47.5,
+					StrokeScaled:    false,
+					PreviewViewport: new(spatial.Viewport{Zoom: 50.5, Position: spatial.XY{X: 52.5, Y: 53.5}}),
 				},
-				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567837"))),
+				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567836"))),
 			}),
 			Entry("zero values", v5.Symbol{
 				Key:  uuid.Nil(),
@@ -557,7 +504,6 @@ var _ = Describe("Codec", func() {
 					Commands:        []v5.Command{},
 					Looks:           []v5.Look{},
 					Interactions:    []v5.Interaction{},
-					Variant:         "",
 					Scale:           0,
 					StrokeScaled:    false,
 					PreviewViewport: nil,
@@ -575,12 +521,11 @@ var _ = Describe("Codec", func() {
 					Commands:        []v5.Command{},
 					Looks:           []v5.Look{},
 					Interactions:    []v5.Interaction{},
-					Variant:         "test_12",
-					Scale:           13.5,
-					StrokeScaled:    false,
-					PreviewViewport: new(spatial.Viewport{Zoom: 16.5, Position: spatial.XY{X: 18.5, Y: 19.5}}),
+					Scale:           12.5,
+					StrokeScaled:    true,
+					PreviewViewport: new(spatial.Viewport{Zoom: 15.5, Position: spatial.XY{X: 17.5, Y: 18.5}}),
 				},
-				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+				Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
 			}),
 		)
 	})
@@ -898,10 +843,9 @@ func BenchmarkEncodeDecodeSpec(b *testing.B) {
 				Command:         "test_43",
 			}},
 		},
-		Variant:         "test_44",
-		Scale:           45.5,
-		StrokeScaled:    false,
-		PreviewViewport: new(spatial.Viewport{Zoom: 48.5, Position: spatial.XY{X: 50.5, Y: 51.5}}),
+		Scale:           44.5,
+		StrokeScaled:    true,
+		PreviewViewport: new(spatial.Viewport{Zoom: 47.5, Position: spatial.XY{X: 49.5, Y: 50.5}}),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -933,45 +877,6 @@ func BenchmarkEncodeDecodeState(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v5.State
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeStateOverride(b *testing.B) {
-	seed := v5.StateOverride{
-		Key:  "test_1",
-		Name: "test_2",
-		Regions: []v5.Region{
-			{
-				Key:       "test_4",
-				Name:      "test_5",
-				Selectors: []string{"test_6"},
-				StrokeColor: new(xcolor.Color{
-					R: 9,
-					G: 10,
-					B: 11,
-					A: 12,
-				}),
-				FillColor: new(xcolor.Color{
-					R: 14,
-					G: 15,
-					B: 16,
-					A: 17,
-				}),
-			},
-		},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v5.StateOverride
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1034,12 +939,11 @@ func BenchmarkEncodeDecodeSymbol(b *testing.B) {
 					Command:         "test_46",
 				}},
 			},
-			Variant:         "test_47",
-			Scale:           48.5,
-			StrokeScaled:    true,
-			PreviewViewport: new(spatial.Viewport{Zoom: 51.5, Position: spatial.XY{X: 53.5, Y: 54.5}}),
+			Scale:           47.5,
+			StrokeScaled:    false,
+			PreviewViewport: new(spatial.Viewport{Zoom: 50.5, Position: spatial.XY{X: 52.5, Y: 53.5}}),
 		},
-		Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567837"))),
+		Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567836"))),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1562,9 +1466,7 @@ func FuzzDecodePaint(f *testing.F) {
 	}
 	{
 		seed := v5.Paint{Variant: v5.ColorPaint{
-			Value: servicecolor.Ref{Variant: servicecolor.NamedRef{
-				Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
-			}},
+			Value: color.Ref{Variant: color.NamedRef{Key: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")}},
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1756,10 +1658,9 @@ func FuzzDecodeSpec(f *testing.F) {
 					Command:         "test_43",
 				}},
 			},
-			Variant:         "test_44",
-			Scale:           45.5,
-			StrokeScaled:    false,
-			PreviewViewport: new(spatial.Viewport{Zoom: 48.5, Position: spatial.XY{X: 50.5, Y: 51.5}}),
+			Scale:           44.5,
+			StrokeScaled:    true,
+			PreviewViewport: new(spatial.Viewport{Zoom: 47.5, Position: spatial.XY{X: 49.5, Y: 50.5}}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1776,7 +1677,6 @@ func FuzzDecodeSpec(f *testing.F) {
 			Commands:        []v5.Command{},
 			Looks:           []v5.Look{},
 			Interactions:    []v5.Interaction{},
-			Variant:         "",
 			Scale:           0,
 			StrokeScaled:    false,
 			PreviewViewport: nil,
@@ -1796,10 +1696,9 @@ func FuzzDecodeSpec(f *testing.F) {
 			Commands:        []v5.Command{},
 			Looks:           []v5.Look{},
 			Interactions:    []v5.Interaction{},
-			Variant:         "test_9",
-			Scale:           10.5,
-			StrokeScaled:    true,
-			PreviewViewport: new(spatial.Viewport{Zoom: 13.5, Position: spatial.XY{X: 15.5, Y: 16.5}}),
+			Scale:           9.5,
+			StrokeScaled:    false,
+			PreviewViewport: new(spatial.Viewport{Zoom: 12.5, Position: spatial.XY{X: 14.5, Y: 15.5}}),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1876,83 +1775,6 @@ func FuzzDecodeState(f *testing.F) {
 	})
 }
 
-func FuzzDecodeStateOverride(f *testing.F) {
-	{
-		seed := v5.StateOverride{
-			Key:  "test_1",
-			Name: "test_2",
-			Regions: []v5.Region{
-				{
-					Key:       "test_4",
-					Name:      "test_5",
-					Selectors: []string{"test_6"},
-					StrokeColor: new(xcolor.Color{
-						R: 9,
-						G: 10,
-						B: 11,
-						A: 12,
-					}),
-					FillColor: new(xcolor.Color{
-						R: 14,
-						G: 15,
-						B: 16,
-						A: 17,
-					}),
-				},
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v5.StateOverride{
-			Key:     "",
-			Name:    "",
-			Regions: []v5.Region{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v5.StateOverride{
-			Key:     "test_1",
-			Name:    "test_2",
-			Regions: []v5.Region{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v5.StateOverride
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v5.StateOverride
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeSymbol(f *testing.F) {
 	{
 		seed := v5.Symbol{
@@ -2009,12 +1831,11 @@ func FuzzDecodeSymbol(f *testing.F) {
 						Command:         "test_46",
 					}},
 				},
-				Variant:         "test_47",
-				Scale:           48.5,
-				StrokeScaled:    true,
-				PreviewViewport: new(spatial.Viewport{Zoom: 51.5, Position: spatial.XY{X: 53.5, Y: 54.5}}),
+				Scale:           47.5,
+				StrokeScaled:    false,
+				PreviewViewport: new(spatial.Viewport{Zoom: 50.5, Position: spatial.XY{X: 52.5, Y: 53.5}}),
 			},
-			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567837"))),
+			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567836"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2034,7 +1855,6 @@ func FuzzDecodeSymbol(f *testing.F) {
 				Commands:        []v5.Command{},
 				Looks:           []v5.Look{},
 				Interactions:    []v5.Interaction{},
-				Variant:         "",
 				Scale:           0,
 				StrokeScaled:    false,
 				PreviewViewport: nil,
@@ -2059,12 +1879,11 @@ func FuzzDecodeSymbol(f *testing.F) {
 				Commands:        []v5.Command{},
 				Looks:           []v5.Look{},
 				Interactions:    []v5.Interaction{},
-				Variant:         "test_12",
-				Scale:           13.5,
-				StrokeScaled:    false,
-				PreviewViewport: new(spatial.Viewport{Zoom: 16.5, Position: spatial.XY{X: 18.5, Y: 19.5}}),
+				Scale:           12.5,
+				StrokeScaled:    true,
+				PreviewViewport: new(spatial.Viewport{Zoom: 15.5, Position: spatial.XY{X: 17.5, Y: 18.5}}),
 			},
-			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567814"))),
+			Group: new(group.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"))),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

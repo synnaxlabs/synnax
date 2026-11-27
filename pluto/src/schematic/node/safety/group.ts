@@ -18,11 +18,11 @@ export const GROUP: Group = {
   Icon: Icon.Safety,
   symbols: [
     "burst_disc",
-    "iso_burst_disc",
     "flame_arrestor",
     "flame_arrestor_detonation",
     "flame_arrestor_explosion",
     "flame_arrestor_fire_res",
     "flame_arrestor_fire_res_detonation",
+    "iso_burst_disc",
   ],
 };

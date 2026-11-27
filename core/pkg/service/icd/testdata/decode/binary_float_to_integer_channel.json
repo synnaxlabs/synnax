@@ -1,0 +1,32 @@
+{
+  "description": "A float field cannot decode to an integer channel.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "kind": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "int32"
+        }
+      ]
+    }
+  ],
+  "error": "message frame: field v: cannot write float values to int32 channels: validation error"
+}

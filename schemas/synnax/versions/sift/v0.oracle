@@ -14,6 +14,7 @@ import "schemas/synnax/versions/task/v2"
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures a Sift scan task."
+    @go entry   "sift_scan_config"
     @go imex    body
     @go marshal
     @go migrate
@@ -37,6 +38,7 @@ StreamConfig struct extends task.StartConfig {
     }
 
     @doc value  "configures a task that streams live data to Sift."
+    @go entry   "sift_stream_config"
     @go imex    body
     @go marshal
     @go migrate

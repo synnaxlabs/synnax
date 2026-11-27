@@ -8,15 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import type { device } from "@synnaxlabs/client";
-import { Rack } from "@synnaxlabs/pluto";
+import { Rack as PRack } from "@synnaxlabs/pluto";
 
-import { getDefaultRack } from "@/platform/device/racks";
 import type { ConnectParams } from "@/platform/device/types";
 import { Modals } from "@/platform/modals";
+import { Rack } from "@/platform/rack";
 
 /**
  * Returns a prompt hook that opens the connect form of an integration, such as "opc". A
- * caller that names no rack gets {@link getDefaultRack}.
+ * caller that names no rack gets {@link Rack.getDefault}.
  */
 export const createConnectModal = (
   Connect: Modals.Content<ConnectParams, device.Key>,
@@ -25,11 +25,11 @@ export const createConnectModal = (
   const usePrompt = Modals.createPrompt<device.Key, ConnectParams>(Connect);
   const useConnectModal = (): Modals.Prompt<device.Key, ConnectParams> => {
     const prompt = usePrompt();
-    const { data: racks } = Rack.useResultMultiple({});
+    const { data: racks } = PRack.useResultMultiple({});
     return (params?: ConnectParams) =>
       prompt({
         ...params,
-        rack: params?.rack ?? getDefaultRack(racks ?? [], integration),
+        rack: params?.rack ?? Rack.getDefault(racks ?? [], integration),
       });
   };
   return useConnectModal;

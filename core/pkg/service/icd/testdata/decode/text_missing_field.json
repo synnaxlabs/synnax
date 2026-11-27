@@ -1,0 +1,21 @@
+{
+  "description": "A binding must name a field of the message.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": []
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000009",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "error": "message a: field 00000000-0000-4000-8000-000000000009 does not exist: validation error"
+}

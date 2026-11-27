@@ -23,7 +23,7 @@ import {
   type FetchInit,
   type FetchResponse,
 } from "@/connector";
-import { asUntrustedCertificate, Timeout, Unreachable } from "@/errors";
+import { asTLSFailure, Timeout, Unreachable } from "@/errors";
 import type { FileEncoding, FileOptions, FileTransport, UploadBody } from "@/file";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import type { UnaryClient } from "@/unary";
@@ -96,6 +96,18 @@ const BROWSER_FETCH_FAILURE = /load failed|failed to fetch|networkerror|network 
 
 const isBrowserFetchFailure = (err: Error): boolean =>
   err.name === "TypeError" && BROWSER_FETCH_FAILURE.test(err.message);
+
+// A server that closes an HTTP/2 connection with GOAWAY does not process the streams
+// after its last stream ID. Undici sends such a request again only if it can replay
+// the body. It cannot replay a fetch body, so it fails the request with this error.
+const GOAWAY_REFUSAL = /^HTTP\/2: "GOAWAY" frame received with code 0$/;
+
+const isGoAwayRefusal = (err: unknown): boolean =>
+  err instanceof Error &&
+  err.cause instanceof Error &&
+  "code" in err.cause &&
+  err.cause.code === "UND_ERR_INFO" &&
+  GOAWAY_REFUSAL.test(err.cause.message);
 
 const BROWSER_CERTIFICATE_HINT =
   "The server may be down, or the browser may not trust its certificate";
@@ -232,6 +244,7 @@ export class HTTPClient
    * @throws {Unreachable} if the target cannot be reached.
    * @throws {UntrustedCertificate} if the runtime does not trust the certificate of
    * the target.
+   * @throws {NoTLS} in Node, if the request uses TLS and the target does not.
    */
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
@@ -372,8 +385,8 @@ export class HTTPClient
   ): Promise<FetchResponse> {
     const cast = (e: unknown, delivered: boolean): Error => {
       const err = errors.fromUnknown(e);
-      const untrusted = asUntrustedCertificate(err, url);
-      if (untrusted != null) return untrusted;
+      const tls = asTLSFailure(err, url);
+      if (tls != null) return tls;
       if (!shouldCastToUnreachable(err)) return err;
       // A body read failure comes after the TLS handshake.
       const hint =
@@ -382,12 +395,15 @@ export class HTTPClient
           : undefined;
       return new Unreachable({ url, cause: err, delivered, hint });
     };
-    let res: FetchResponse;
-    try {
-      res = await this.connector.fetch(target, request);
-    } catch (e) {
-      throw cast(e, false);
-    }
+    const send = async (replayable: boolean): Promise<FetchResponse> => {
+      try {
+        return await this.connector.fetch(target, request);
+      } catch (e) {
+        if (replayable && isGoAwayRefusal(e)) return await send(false);
+        throw cast(e, false);
+      }
+    };
+    const res = await send(!(request.body instanceof ReadableStream));
     // The connection can fail after the headers arrive, while the body is read.
     return {
       ok: res.ok,

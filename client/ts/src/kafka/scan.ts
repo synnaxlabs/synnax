@@ -99,6 +99,8 @@ export const sampledTopicZ = z.object({
    * asked for. Empty when it read them.
    */
   error: z.string(),
+  /** missing is true when the topic does not exist. */
+  missing: z.boolean(),
 });
 
 export interface SampledTopic extends z.infer<typeof sampledTopicZ> {}

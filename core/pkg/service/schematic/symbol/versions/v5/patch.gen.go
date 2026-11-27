@@ -14,23 +14,6 @@ package v5
 import "github.com/synnaxlabs/x/patch"
 
 // Patch applies the path action at c, which is not done, to the value.
-func (so *StateOverride) Patch(c patch.Cursor) error {
-	switch c.Segment() {
-	case "key":
-		return patch.Value(&so.Key, c.Next())
-	case "name":
-		return patch.Value(&so.Name, c.Next())
-	case "regions":
-		return patch.List(&so.Regions, c.Next())
-	default:
-		return c.UnknownField()
-	}
-}
-
-// PatchKey returns the key that paths name the value by in a list.
-func (so *StateOverride) PatchKey() string { return so.Key }
-
-// Patch applies the path action at c, which is not done, to the value.
 func (m *Matcher) Patch(c patch.Cursor) error {
 	switch v := m.Variant.(type) {
 	case ExactMatcher:

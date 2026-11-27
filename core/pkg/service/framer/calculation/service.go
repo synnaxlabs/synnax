@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
-	channelgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
@@ -68,12 +68,17 @@ type ServiceConfig struct {
 	// it for channel changes and reports calculation statuses through it.
 	//
 	// [REQUIRED]
-	ChannelGraph *channelgraph.Graph
+	ChannelGraph *calcgraph.Graph
 	// RetryDelay is the wait before the service compiles a changed calculation again
 	// when the channels it reads changed during each compile.
 	//
 	// [OPTIONAL] - Defaults to 100 milliseconds.
 	RetryDelay telem.TimeSpan
+	// RestartInterval is how long a calculation group waits before it restarts a
+	// pipeline that panicked.
+	//
+	// [OPTIONAL] - Defaults to 1 second.
+	RestartInterval telem.TimeSpan
 	// Compile compiles a calculated channel. It is injectable for testing.
 	//
 	// [OPTIONAL] - Defaults to compiler.Compile.
@@ -95,6 +100,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("channel", c.Channel)
 	v.NotNil("channel_graph", c.ChannelGraph)
 	v.Positive("retry_delay", c.RetryDelay)
+	v.Positive("restart_interval", c.RestartInterval)
 	return v.Error()
 }
 
@@ -107,6 +113,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
 	c.RetryDelay = override.Numeric(c.RetryDelay, other.RetryDelay)
+	c.RestartInterval = override.Numeric(c.RestartInterval, other.RestartInterval)
 	c.Compile = override.Nil(c.Compile, other.Compile)
 	return c
 }
@@ -130,7 +137,10 @@ type Service struct {
 // closed when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(
-		ServiceConfig{RetryDelay: 100 * telem.Millisecond},
+		ServiceConfig{
+			RetryDelay:      100 * telem.Millisecond,
+			RestartInterval: telem.Second,
+		},
 		cfgs...,
 	)
 	if err != nil {
@@ -236,7 +246,7 @@ func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
 	}
 }
 
-func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
+func (s *Service) handleChange(ctx context.Context, reader calcgraph.Changes) {
 	for cg := range reader {
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
@@ -421,6 +431,7 @@ func (s *Service) updateGroup(
 			report:          s.report,
 			framer:          s.cfg.Framer,
 			writer:          s.cfg.Writer,
+			restartInterval: s.cfg.RestartInterval,
 		},
 	)
 	if err != nil {

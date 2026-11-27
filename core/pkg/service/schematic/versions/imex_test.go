@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
@@ -41,11 +42,33 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return s.Nodes[i].Config
 	}
 
-	valveConfig := func(s versions.Schematic, node string) versions.ValveNodeConfig {
+	// valveConfig returns the symbol node that an imported valve node becomes.
+	valveConfig := func(s versions.Schematic, node string) versions.SymbolNodeConfig {
 		GinkgoHelper()
-		cfg, ok := nodeConfig(s, node).Variant.(versions.ValveNodeConfig)
+		cfg, ok := nodeConfig(s, node).Variant.(versions.SymbolNodeConfig)
 		Expect(ok).To(BeTrue())
+		Expect(cfg.Spec.Variant).To(Equal(symbol.BuiltinRef{Name: "valve"}))
 		return cfg
+	}
+
+	defaultValve := versions.SymbolNodeConfig{
+		Label: versions.LabelConfig{
+			Level:         "h5",
+			Orientation:   "top",
+			Direction:     "x",
+			MaxInlineSize: 150,
+			Align:         "center",
+		},
+		Orientation:      "left",
+		Scale:            1,
+		StalenessTimeout: 5 * telem.Second,
+		Spec:             symbol.Ref{Variant: symbol.BuiltinRef{Name: "valve"}},
+		States: []versions.StateBinding{{
+			Key:    "active",
+			Source: &versions.Source{Variant: versions.ChannelSource{}},
+		}},
+		Commands: []versions.CommandBinding{},
+		Control:  &versions.ControlStateConfig{Orientation: "bottom"},
 	}
 
 	gaugeConfig := func(s versions.Schematic, node string) versions.GaugeNodeConfig {
@@ -81,19 +104,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		expectNode(sch, "n1", spatial.XY{X: 1, Y: 2}, 4)
 		// The file's only edge has no config and connects to a node it lacks.
 		Expect(sch.Edges).To(BeEmpty())
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveNodeConfig{
-			Label: versions.LabelConfig{
-				Level:         "h5",
-				Orientation:   "top",
-				Direction:     "x",
-				MaxInlineSize: 150,
-				Align:         "center",
-			},
-			Orientation:      "left",
-			Scale:            1,
-			StalenessTimeout: 5 * telem.Second,
-			Control:          versions.ControlStateConfig{Orientation: "bottom"},
-		}))
+		Expect(valveConfig(sch, "n1")).To(Equal(defaultValve))
 	})
 
 	It("Should lift a v11 envelope, moving configs onto nodes and edges", func(
@@ -142,19 +153,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		expectNode(sch, "n1", spatial.XY{X: 1, Y: 2}, 4)
 		// The file's only edge has no config and connects to a node it lacks.
 		Expect(sch.Edges).To(BeEmpty())
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveNodeConfig{
-			Label: versions.LabelConfig{
-				Level:         "h5",
-				Orientation:   "top",
-				Direction:     "x",
-				MaxInlineSize: 150,
-				Align:         "center",
-			},
-			Orientation:      "left",
-			Scale:            1,
-			StalenessTimeout: 5 * telem.Second,
-			Control:          versions.ControlStateConfig{Orientation: "bottom"},
-		}))
+		Expect(valveConfig(sch, "n1")).To(Equal(defaultValve))
 	})
 
 	DescribeTable("Should restate a legacy scale as a vertical bar without its gutter",
@@ -180,8 +179,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		sch := decode(ctx, "testdata/import_v3_state.json")
 		Expect(sch.Nodes[0].ZIndex).To(Equal(int16(3)))
 		Expect(sch.Edges).To(BeEmpty())
-		Expect(valveConfig(sch, "n1").StrokeColor).
-			To(HaveValue(Equal(MustSucceed(color.Parse("#ff0000")))))
+		Expect(valveConfig(sch, "n1").Color).To(HaveValue(Equal(servicecolor.Ref{
+			Variant: servicecolor.FixedRef{Value: MustSucceed(color.Parse("#ff0000"))},
+		})))
 	})
 
 	// The fixtures below are schematics a shipped Console exported.

@@ -10,6 +10,7 @@
 import {
   type actions,
   DisconnectedError,
+  PathError,
   query,
   type Synnax as Client,
 } from "@synnaxlabs/client";
@@ -21,6 +22,7 @@ import {
   type destructor,
   patch,
   type record,
+  strings,
   TimeSpan,
   zod,
 } from "@synnaxlabs/x";
@@ -29,8 +31,11 @@ import type { z } from "zod";
 
 import { Synnax } from "@/synnax";
 
+/** A document that a document form edits, which the user knows by its name. */
+export type Document = query.Data & { name: string };
+
 /** The part of a domain client that a document form reads and edits through. */
-export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
+export interface DocumentDomain<Key extends record.Key, Doc extends Document> {
   watch: (key: Key) => query.Live<Doc>;
   /**
    * Begins a transaction of actions on the cached document, with camelCase keys.
@@ -158,7 +163,7 @@ const overlaps = (a: string, b: string): boolean =>
 
 interface StoreParams<
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Query extends DocumentQuery<Key>,
   V,
 > {
@@ -184,7 +189,7 @@ interface StoreParams<
  */
 class DocumentStore<
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Query extends DocumentQuery<Key>,
   V,
 > implements Form.Store<V> {
@@ -491,7 +496,7 @@ class DocumentStore<
 
 export interface CreateDocumentFormParams<
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Schema extends z.ZodType,
   Query extends DocumentQuery<Key>,
 > {
@@ -547,6 +552,27 @@ export interface UseDocumentForm<Query, Schema extends z.ZodType> {
 const WHOLE_DOCUMENT = (): string[] => [];
 
 /**
+ * @returns the cached name of the document, which can hold a rename not yet saved, or
+ * "" once the document left the cache.
+ */
+const cachedName = <Key extends record.Key, Doc extends Document>(
+  docs: DocumentDomain<Key, Doc>,
+  key: Key,
+): string => {
+  const cached = docs.watch(key).getCached();
+  return query.isLive(cached) ? cached.name : "";
+};
+
+const UNDONE = "The change was undone.";
+
+/** Says why a send failed and what to do now. The raw error goes after it. */
+const describeFailure = (error: unknown): string => {
+  if (!PathError.matchExact(error)) return UNDONE;
+  const plain = strings.capitalize(error.error.message.replace(/\.$/, ""));
+  return `${plain}. Fix it, then make the change again. ${UNDONE}`;
+};
+
+/**
  * Builds a hook for a form over a document in the client cache, which other clients
  * edit at the same time. The form shows the cached document, re-rendering only the
  * fields a remote edit reaches, and each edit reaches the Core as a path action. Call
@@ -554,7 +580,7 @@ const WHOLE_DOCUMENT = (): string[] => [];
  */
 export const createDocumentForm = <
   Key extends record.Key,
-  Doc extends query.Data,
+  Doc extends Document,
   Schema extends z.ZodType,
   Query extends DocumentQuery<Key> = DocumentQuery<Key>,
 >({
@@ -581,14 +607,20 @@ export const createDocumentForm = <
     const create = (): DocumentStore<Key, Doc, Query, z.infer<Schema>> => {
       if (client == null)
         throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
+      const docs = domain(client);
       return new DocumentStore({
         client,
         query,
-        domain: domain(client),
+        domain: docs,
         schema,
         toValues,
         path: pathOf(query),
-        onError: (error) => handleError(error, `Failed to save ${name}`),
+        onError: (error) =>
+          handleError(error, {
+            message: "Failed to save change",
+            name: cachedName(docs, query.key),
+            description: describeFailure(error),
+          }),
         beforeSend: beforeSendRef,
       });
     };

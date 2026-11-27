@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, license } from "@synnaxlabs/client";
+import { license } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
-import { LABELS_SECTION, LICENSE_SECTION, useOpen } from "@/app/settings/tab";
+import { LICENSE_SECTION, useOpen } from "@/app/settings/tab";
 import { Command } from "@/platform/command";
 
 const OpenCommand = Command.create({
@@ -19,18 +19,6 @@ const OpenCommand = Command.create({
   name: "Open settings",
   icon: <Icon.Settings />,
   useOnSelect: useOpen,
-});
-
-const useLabelsVisible = (): boolean => Access.useUpdateGranted(label.TYPE_RESOURCE_ID);
-
-const useOpenLabels = (): (() => void) => useOpen(LABELS_SECTION);
-
-const EditLabelsCommand = Command.create({
-  key: "edit_labels",
-  name: "Edit labels",
-  icon: <Icon.Label />,
-  useVisible: useLabelsVisible,
-  useOnSelect: useOpenLabels,
 });
 
 const useLicenseVisible = (): boolean => Access.useRetrieveGranted(license.RESOURCE_ID);
@@ -45,4 +33,4 @@ const ShowLicenseCommand = Command.create({
   useOnSelect: useOpenLicense,
 });
 
-export const COMMANDS = [OpenCommand, EditLabelsCommand, ShowLicenseCommand];
+export const COMMANDS = [OpenCommand, ShowLicenseCommand];

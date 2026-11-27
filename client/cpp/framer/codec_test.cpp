@@ -168,7 +168,7 @@ TEST(CodecTests, RejectsAlignmentMultiples) {
     const auto [_, err] = codec.decode(encoded);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "remote sent alignment multiples, which this codec does not support"
     );
 }
@@ -628,7 +628,7 @@ TEST(CodecTests, EncodeErrorCommitsNothing) {
     std::vector<uint8_t> encoded;
     const auto err = c.encode(x::telem::Frame(1, std::move(bad)), encoded);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "data type \"int128\" of channel 1 has no type code");
+    ASSERT_EQ(err.data(), "data type \"int128\" of channel 1 has no type code");
     auto good = x::telem::Series(std::vector<float>{1});
     good.clock = 5;
     ASSERT_NIL(c.encode(x::telem::Frame(1, std::move(good)), encoded));
@@ -666,10 +666,10 @@ TEST(CodecTests, Rejects) {
         corrupt(b);
         const auto [_, err] = dec.decode(b);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        ASSERT_EQ(err.data, msg);
+        ASSERT_EQ(err.data(), msg);
         const auto [next, dropped] = dec.decode(from_hex(CLOCK_FRAME));
         ASSERT_EQ(
-            dropped.data,
+            dropped.data(),
             "remote sent a frame for state 1 after a frame of it failed to decode"
         );
     }
@@ -681,12 +681,12 @@ TEST(CodecTests, RejectsDeclarationErrors) {
     Codec dec({1}, {x::telem::FLOAT32_T});
     ASSERT_NIL_P(dec.decode(from_hex(CLOCK_FRAME)));
     ASSERT_EQ(
-        dec.decode(from_hex(CLOCK_FRAME)).second.data,
+        dec.decode(from_hex(CLOCK_FRAME)).second.data(),
         "remote declared the types of state 1 twice"
     );
     Codec fresh({1}, {x::telem::FLOAT32_T});
     ASSERT_EQ(
-        fresh.decode(from_hex("3F 01000000 01000000 0000803F")).second.data,
+        fresh.decode(from_hex("3F 01000000 01000000 0000803F")).second.data(),
         "remote sent no type declaration for state 1, so it runs an older codec, "
         "which this codec does not support"
     );
@@ -700,19 +700,22 @@ TEST(CodecTests, RejectsDeclaredClockErrors) {
     auto requested = from_hex(WORKED_EXAMPLE);
     put_u32(requested, 12, 6);
     ASSERT_EQ(
-        worked().decode(requested).second.data,
+        worked().decode(requested).second.data(),
         "remote declared clock 6, which the request names"
     );
     auto overridden = from_hex(WORKED_EXAMPLE);
     put_u32(overridden, 20, 0);
     overridden.insert(overridden.begin() + 24, 0b10);
     ASSERT_EQ(
-        worked().decode(overridden).second.data,
+        worked().decode(overridden).second.data(),
         "remote sent an override for declared clock 5"
     );
     auto huge = from_hex(WORKED_EXAMPLE);
     put_u32(huge, 8, 0xFFFFFFFF);
-    ASSERT_EQ(worked().decode(huge).second.data, "remote sent a frame that ends early");
+    ASSERT_EQ(
+        worked().decode(huge).second.data(),
+        "remote sent a frame that ends early"
+    );
     Codec c({6}, {x::telem::FLOAT32_T});
     auto t5 = x::telem::Series(std::vector<int64_t>{1});
     t5.clock = 5;
@@ -732,7 +735,7 @@ TEST(CodecTests, RejectsDeclaredClockErrors) {
     put_u32(encoded, 11, 7);
     put_u32(encoded, 15, 5);
     ASSERT_EQ(
-        c.decode(encoded).second.data,
+        c.decode(encoded).second.data(),
         "remote declared clock 5 after clock 7, so the list is not ascending"
     );
 }

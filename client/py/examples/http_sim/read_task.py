@@ -67,7 +67,18 @@ humidity = client.channels.create(
     retrieve_if_name_exists=True,
 )
 
-# Create the HTTP Read Task
+# The ICD describes the response. The read task binds its fields to channels.
+temperature_field = sy.icd.FloatJSONField(name="Temperature", pointer="/temperature")
+pressure_field = sy.icd.FloatJSONField(name="Pressure", pointer="/pressure")
+humidity_field = sy.icd.FloatJSONField(name="Humidity", pointer="/humidity")
+data = sy.icd.Message(
+    name="Data",
+    payload=sy.icd.JSONPayload(
+        fields=[temperature_field, pressure_field, humidity_field]
+    ),
+)
+server = client.icds.create(name="HTTP Server", messages=[data])
+
 tsk = http.ReadTask(
     name="HTTP Py - Read Task",
     device=dev.key,
@@ -76,24 +87,21 @@ tsk = http.ReadTask(
         http.ReadEndpoint(
             method="GET",
             path="/api/v1/data",
-            fields=[
-                http.ReadField(
-                    pointer="/temperature",
-                    channel=temperature.key,
-                    data_type=sy.DataType.FLOAT64,
-                    name="Temperature",
-                ),
-                http.ReadField(
-                    pointer="/pressure",
-                    channel=pressure.key,
-                    data_type=sy.DataType.FLOAT64,
-                    name="Pressure",
-                ),
-                http.ReadField(
-                    pointer="/humidity",
-                    channel=humidity.key,
-                    data_type=sy.DataType.FLOAT64,
-                    name="Humidity",
+            icd=server.key,
+            messages=[
+                sy.icd.ReadMessage(
+                    message=data.key,
+                    bindings=[
+                        sy.icd.ReadBinding(
+                            field=temperature_field.key, channel=temperature.key
+                        ),
+                        sy.icd.ReadBinding(
+                            field=pressure_field.key, channel=pressure.key
+                        ),
+                        sy.icd.ReadBinding(
+                            field=humidity_field.key, channel=humidity.key
+                        ),
+                    ],
                 ),
             ],
         ),

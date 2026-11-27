@@ -17,6 +17,7 @@ import type { ReactElement } from "react";
 import { Channel } from "@/channel";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import type { ColorFallbacks, FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
@@ -65,6 +66,7 @@ export const InputForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       <Base.Sections x>
         <Base.Section title="Label">
           <Label.Form path={path.label} />
+          <Orientation.Field path={path} hideInner label="Position" />
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />

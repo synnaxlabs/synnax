@@ -201,6 +201,18 @@ class Cursor(BaseModel):
     key: Key
 
 
+class Configuration(BaseModel):
+    """Holds the server fields that the task forms own.
+
+    Attributes:
+        reads: Bind the nodes that read tasks sample to channels.
+        writes: Bind the nodes that write tasks command to channels.
+    """
+
+    reads: list[Read] = Field(default_factory=list)
+    writes: list[Write] = Field(default_factory=list)
+
+
 class SecuredChannel(BaseModel):
     """Holds the settings of a signed or encrypted connection.
 
@@ -318,6 +330,21 @@ class Server(BaseModel):
         return hash(self.key)
 
 
+class Identity(BaseModel):
+    """Holds the server fields that the connect form and the scanner's certificate pin
+    own.
+
+    Attributes:
+        rack: Is the key of the rack whose Driver connects to the server.
+        name: Is a human-readable name for the server.
+        connection: Holds the settings that the Driver connects with.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    connection: Connection
+
+
 class RetrieveResponse(BaseModel):
     """Holds the servers a RetrieveRequest selects.
 
@@ -326,6 +353,27 @@ class RetrieveResponse(BaseModel):
     """
 
     servers: list[Server] = Field(default_factory=list)
+
+
+class IdentityUpdate(Identity):
+    """Writes the rack, name, and connection of the server."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the bindings of the server. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a server.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 Where.model_rebuild()

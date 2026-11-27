@@ -35,7 +35,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -103,11 +102,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Enumeration: MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{
 			DB: db,
 		})),
-		Actuators:     noActuators,
 		RemoveOrphans: noOrphans,
 	}))
 	channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      db,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
@@ -142,10 +141,6 @@ func subjectCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", u.ResourceID())
 	return fctx
-}
-
-func noActuators(context.Context, gorp.Tx) (set.Set[symbol.Key], error) {
-	return nil, nil
 }
 
 func noOrphans(context.Context, gorp.Tx, symbol.Symbol) error { return nil }

@@ -11,13 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, override as _override
+from typing import Literal, override as _override
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, device as device_, icd as icd_, task
-from x import payload, telem
+from synnax import device as device_, icd as icd_, task
+from x import telem
 
 METHOD_GET: Literal["GET"] = "GET"
 
@@ -67,83 +67,6 @@ class QueryParam(BaseModel):
     value: str = ""
 
 
-class ReadField(BaseModel):
-    """Is a single value extracted from an endpoint's JSON response.
-
-    Attributes:
-        key: Uniquely identifies the field within the endpoint.
-        name: Is the human-readable field name.
-        disabled: Is true when the field is excluded from polling.
-        optional: Is true when a missing value is normal for this field. The task writes
-            fill_value, or NaN on a float channel, and sends no warning.
-        fill_value: Is the value written when an optional field is missing, typed by the
-            channel. Unset writes NaN, which needs a float channel.
-        channel: Is the Synnax channel the extracted value is written to.
-        pointer: Is the JSON Pointer to the value within the response body.
-        data_type: Is the data type of the extracted value.
-        time_format: Is the encoding of the JSON value when the target channel holds
-            timestamps. Required for timestamp channels.
-        enum_values: Maps string labels in the response to numeric channel values.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    name: str = ""
-    disabled: bool = False
-    optional: bool = False
-    fill_value: JsonValue | None = None
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    pointer: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class ChannelField(BaseModel):
-    """Is the command channel value placed into a write endpoint's body.
-
-    Attributes:
-        pointer: Is the JSON Pointer where the channel value is placed in the body. An
-            empty pointer sends the bare value as the entire body, in which case the
-            endpoint may not declare any additional fields.
-        json_type: Is the JSON type the channel value is serialized as.
-        channel: Is the Synnax command channel that triggers the request.
-        name: Is the human-readable name of the command channel.
-        data_type: Is the data type of the command channel.
-        time_format: Is the output encoding when the command channel holds timestamps.
-            An unset format is ISO 8601.
-        enum_values: Maps numeric channel values to string labels. Only valid when
-            json_type is 'string'.
-    """
-
-    pointer: str = ""
-    json_type: payload.JSONType = "number"
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    name: str = ""
-    data_type: telem.DataType = telem.DataType("float64")
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-
-class BaseWriteField(BaseModel):
-    """Carries the fields every write body field shares.
-
-    Attributes:
-        key: Uniquely identifies the field within the endpoint.
-        pointer: Is the JSON Pointer where the value is placed in the body.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    pointer: str = ""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
 class ScanConfig(task.ScanConfig):
     """Configures an HTTP scan task."""
 
@@ -166,9 +89,6 @@ class ReadEndpoint(BaseModel):
         icd: Is the key of the ICD that holds the messages of the endpoint. Absent when
             the endpoint reads no messages.
         messages: Are the messages that the response body is read as.
-        fields: Contains the values to extract from the response.
-        index: Is the key of the field whose channel indexes the others. Empty when the
-            task stamps samples on arrival.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -180,55 +100,6 @@ class ReadEndpoint(BaseModel):
     body: str = ""
     icd: icd_.Key | None = None
     messages: list[icd_.ReadMessage] = Field(default_factory=list)
-    fields: list[ReadField] = Field(default_factory=list)
-    index: str = ""
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class StaticWriteField(BaseWriteField):
-    """Places a fixed value in the request body."""
-
-    type: Literal["static"] = "static"
-    json_type: payload.JSONType = "number"
-    value: JsonValue
-
-
-class GeneratedWriteField(BaseWriteField):
-    """Places a freshly generated UUID or timestamp in the body."""
-
-    type: Literal["generated"] = "generated"
-    generator: payload.GeneratorType = "uuid"
-    time_format: payload.TimeFormat | None = None
-
-
-# Is an additional body field on a write endpoint. The type field selects whether
-# the value is fixed or generated per request.
-WriteField = Annotated[
-    StaticWriteField | GeneratedWriteField,
-    Field(discriminator="type"),
-]
-
-
-class ReadConfig(task.PersistConfig):
-    """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
-    device and writes extracted JSON values to Synnax channels.
-
-    Attributes:
-        device: Is the key of the HTTP server device to poll.
-        rate: Is the polling rate applied to all endpoints, in Hertz.
-        endpoints: Contains the endpoints to poll.
-        nan_fill_enabled: Is true when a float field that is missing or fails to convert
-            is written as NaN. When false, the task skips every field that shares the
-            endpoint and index channel with it.
-    """
-
-    device: device_.Key = ""
-    rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
-    endpoints: list[ReadEndpoint] = Field(default_factory=list)
-    nan_fill_enabled: bool = False
 
     @_override
     def __hash__(self) -> int:
@@ -249,8 +120,6 @@ class WriteEndpoint(BaseModel):
             the endpoint sends no message.
         message: Is the message whose document is the request body. A command on any
             bound channel sends one request.
-        channel: Is the command channel whose writes trigger this endpoint.
-        fields: Contains additional static or generated body fields.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -261,8 +130,29 @@ class WriteEndpoint(BaseModel):
     query_params: list[QueryParam] = Field(default_factory=list)
     icd: icd_.Key | None = None
     message: icd_.WriteMessage | None = None
-    channel: ChannelField = Field(default_factory=lambda: ChannelField())
-    fields: list[WriteField] = Field(default_factory=list)
+
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ReadConfig(task.PersistConfig):
+    """Configures an HTTP read task, which polls one or more endpoints on an HTTP server
+    device and writes extracted JSON values to Synnax channels.
+
+    Attributes:
+        device: Is the key of the HTTP server device to poll.
+        rate: Is the polling rate applied to all endpoints, in Hertz.
+        endpoints: Contains the endpoints to poll.
+        nan_fill_enabled: Is true when a float field that is missing or fails to convert
+            is written as NaN. When false, the task skips every field that shares the
+            endpoint and index channel with it.
+    """
+
+    device: device_.Key = ""
+    rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
+    endpoints: list[ReadEndpoint] = Field(default_factory=list)
+    nan_fill_enabled: bool = False
 
     @_override
     def __hash__(self) -> int:

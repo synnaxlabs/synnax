@@ -13,7 +13,7 @@ import "@xyflow/react/dist/base.css";
 import { renderThemed } from "@synnaxlabs/lyra/styletest";
 import { type color, type location, narrow } from "@synnaxlabs/x";
 import { type Node as RFNode, type NodeProps, ReactFlow } from "@xyflow/react";
-import type { FC, ReactElement } from "react";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { server } from "vitest/browser";
 
@@ -59,7 +59,6 @@ interface DrawingProps {
   orientation: location.Outer;
   scale: number;
   strokeColor?: color.Crude;
-  enabled?: boolean;
 }
 
 interface Case extends Record<string, unknown> {
@@ -87,24 +86,38 @@ const FAMILIES = Node.GROUPS.filter(({ key }) => key !== EXCLUDED_GROUP).map(
   }),
 );
 
-const createCases = (variant: string, enabled?: true): Case[] =>
+const createCases = (variant: string): Case[] =>
   ORIENTATIONS.flatMap((orientation) =>
     SCALES.flatMap((scale) =>
       [undefined, COLOR].map((strokeColor) => ({
         variant,
-        name: [orientation, `x${scale}`, enabled && "on", strokeColor && "colored"]
+        name: [orientation, `x${scale}`, strokeColor && "colored"]
           .filter(Boolean)
           .join(" "),
-        props: { orientation, scale, strokeColor, enabled },
+        props: { orientation, scale, strokeColor },
       })),
     ),
   );
 
+// A built-in with clicks draws in the button of a toggle.
 const Drawing = ({
   data: { variant, props },
 }: NodeProps<RFNode<Case>>): ReactElement => {
-  const Preview = Node.resolveSpec(variant).Preview as FC<DrawingProps>;
-  return <Preview {...props} />;
+  const spec = Node.BUILT_INS.get(variant);
+  if (spec == null) throw new Error(`${variant} is not a built-in`);
+  const { orientation, scale, strokeColor } = props;
+  const drawing = (
+    <Node.Custom.Drawing
+      spec={spec}
+      builtIn
+      strokeColor={strokeColor}
+      orientation={orientation}
+      scale={scale}
+    />
+  );
+  if (spec.interactions.length === 0)
+    return <Node.Primitive.Div>{drawing}</Node.Primitive.Div>;
+  return <Node.Toggle.Button orientation={orientation}>{drawing}</Node.Toggle.Button>;
 };
 
 const NODE_TYPES = { drawing: Drawing };
@@ -223,11 +236,6 @@ describe("Drawings", () => {
       const record: Record<string, Fingerprint> = {};
       await draw(
         variants.flatMap((v) => createCases(v)),
-        record,
-      );
-      const toggles = variants.filter((v) => record[v].root === "button");
-      await draw(
-        toggles.flatMap((v) => createCases(v, true)),
         record,
       );
       await expect(`${JSON.stringify(record, sortKeys, 2)}\n`).toMatchFileSnapshot(

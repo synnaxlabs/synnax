@@ -16,14 +16,9 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from synnax import (
-    color as color_,
-    enumeration as enumeration_,
-    group as group_,
-    resource,
-)
+from synnax import color, enumeration as enumeration_, group as group_, resource
 from synnax.resource import ID
-from x import color, filter, spatial, telem
+from x import filter, spatial, telem
 from x.filter import shorthand
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
@@ -32,25 +27,6 @@ ORDER_FIELD_NAME: Literal["name"] = "name"
 OrderField = Literal["name"]
 
 Key: TypeAlias = UUID
-
-
-class Region(BaseModel):
-    """Is a visual styling area within a symbol state, targeting specific SVG elements
-    for dynamic coloring.
-
-    Attributes:
-        key: Is the region identifier.
-        name: Is a human-readable name for the region.
-        selectors: Contains CSS selectors targeting SVG elements within the symbol.
-        stroke_color: Is an optional stroke color override for the region.
-        fill_color: Is an optional fill color override for the region.
-    """
-
-    key: str
-    name: str
-    selectors: list[str] = Field(default_factory=list)
-    stroke_color: color.Color | None = None
-    fill_color: color.Color | None = None
 
 
 class Handle(BaseModel):
@@ -228,7 +204,7 @@ class ColorPaint(BaseModel):
     """Is one color."""
 
     type: Literal["color"] = "color"
-    value: color_.Ref
+    value: color.Ref
 
 
 # Is the color of a fill or stroke.
@@ -370,20 +346,6 @@ Ref = Annotated[
 ]
 
 
-class StateOverride(BaseModel):
-    """Is a node's replacement for the region colors of one value that it draws.
-
-    Attributes:
-        key: Is the key of the value that the override colors.
-        name: Is a human-readable name for the value.
-        regions: Contains the regions that the override colors.
-    """
-
-    key: str
-    name: str
-    regions: list[Region] = Field(default_factory=list)
-
-
 class FireInteraction(BaseInteraction):
     """Sends one command on a click."""
 
@@ -507,7 +469,6 @@ class Spec(BaseModel):
         commands: Are the requests that the symbol sends.
         looks: Change the parts, in order.
         interactions: Are what pointer gestures on the parts do.
-        variant: Is the node variant that a placement makes: 'static' or 'actuator'.
         scale: Is the symbol scale factor.
         stroke_scaled: Is true when stroke width scales with the symbol size.
         preview_viewport: Is an optional viewport configuration for symbol preview
@@ -521,7 +482,6 @@ class Spec(BaseModel):
     commands: list[Command] = Field(default_factory=list)
     looks: list[Look] = Field(default_factory=list)
     interactions: list[Interaction] = Field(default_factory=list)
-    variant: str = Field(min_length=1)
     scale: float = 1
     stroke_scaled: bool = False
     preview_viewport: spatial.Viewport | None = None

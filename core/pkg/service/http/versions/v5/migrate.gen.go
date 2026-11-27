@@ -56,8 +56,6 @@ func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoi
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
 		Body:        old.Body,
-		Fields:      old.Fields,
-		Index:       old.Index,
 	}, nil
 }
 
@@ -69,7 +67,5 @@ func autoMigrateWriteEndpoint(_ context.Context, old v4.WriteEndpoint) (WriteEnd
 		Path:        old.Path,
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
-		Channel:     old.Channel,
-		Fields:      old.Fields,
 	}, nil
 }
