@@ -285,6 +285,67 @@ TEST_F(SerialWriteTask, KeepsPortOpenAfterFramingError) {
     ASSERT_EQ(guard.opens(), 1);
 }
 
+/// @brief it should keep the command of a target with a period while the port is
+/// missing, and send it once the port opens.
+TEST_F(SerialWriteTask, KeepsCommandOfPeriodicTargetWhilePortIsMissing) {
+    const Link link("/dev/synnax-missing-port");
+    auto props = this->props();
+    props.port = link.path.string();
+    const Command cmd(100 * x::telem::MILLISECOND);
+    bus::Sink sink(
+        this->acquire(props),
+        ASSERT_NIL_P(icd::Sender::create({cmd.target}, {cmd.ic}, cmd.channels, false)),
+        {2}
+    );
+    ASSERT_NIL(sink.start("start", this->cancel));
+    x::defer::defer stop([&sink] { ASSERT_NIL(sink.stop()); });
+    x::telem::Frame fr(2, x::telem::Series(4.5));
+    ASSERT_NIL(sink.write(fr));
+    link.point(this->path());
+    ASSERT_EQ(this->read_until("\n"), "4.5\n");
+}
+
+/// @brief it should warn when a send fails on the port, then reopen the port, send
+/// again, and clear the warning.
+TEST_F(SerialWriteTask, WarnsWhenPortFailsAndSendsWhenItReturns) {
+    const Link link(this->path());
+    auto props = this->props();
+    props.port = link.path.string();
+    this->create(props, Command(50 * x::telem::MILLISECOND));
+    ASSERT_TRUE(this->task->start("start", this->cancel));
+    ASSERT_EQ(this->read_until("7\n"), "7\n");
+    this->close_peer();
+    ASSERT_EVENTUALLY_EQ(this->last_status().message, "Failed to send message");
+    const auto status = this->last_status();
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    ASSERT_TRUE(status.details.running);
+    this->open_peer();
+    link.point(this->path());
+    ASSERT_TRUE(this->read_until("7\n").ends_with("7\n"));
+    ASSERT_EVENTUALLY_EQ(this->last_status().variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EQ(this->last_status().message, "Task running");
+}
+
+/// @brief it should warn when a periodic send fails on an error of its own, and keep
+/// the port open for the other tasks on the device.
+TEST_F(SerialWriteTask, WarnsWhenPeriodicSendFailsAndKeepsPortOpen) {
+    Command cmd(50 * x::telem::MILLISECOND);
+    cmd.ic.framing = synnax::icd::DelimitedFraming{.delimiter = "7"};
+    const auto conn = ASSERT_NIL_P(this->ports->acquire(
+        Device{.key = "device", .name = "device", .props = this->props()}
+    ));
+    this->create(this->props(), cmd);
+    ASSERT_TRUE(this->task->start("start", this->cancel));
+    ASSERT_EVENTUALLY_EQ(this->last_status().message, "Failed to send message");
+    const auto status = this->last_status();
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    ASSERT_EQ(status.description, "the frame holds the delimiter");
+    ASSERT_TRUE(status.details.running);
+    auto guard = conn->lock();
+    ASSERT_NIL_P(guard.transport());
+    ASSERT_EQ(guard.opens(), 1);
+}
+
 /// @brief it should start a target with a period on a missing port, and warn while it
 /// tries to open the port.
 TEST_F(SerialWriteTask, WarnsWhilePortIsMissing) {
