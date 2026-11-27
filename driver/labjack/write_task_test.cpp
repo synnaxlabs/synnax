@@ -62,7 +62,7 @@ protected:
         ASSERT_NIL(client->channels.create(cmd_ch));
 
         const x::json::json j{
-            {"device", dev_key},
+            {"device", "0" + dev_key},
             {"state_rate", 10},
             {"data_saving_disabled", false},
             {"channels",

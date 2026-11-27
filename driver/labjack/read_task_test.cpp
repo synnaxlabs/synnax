@@ -653,7 +653,10 @@ protected:
             x::telem::FLOAT64_T,
             true
         ));
-        auto j = basic_read_task_config(dev_key);
+        // A leading zero keeps the serial but makes the key differ from the serial that
+        // the source acquires by.
+        this->serial = dev_key;
+        auto j = basic_read_task_config("0" + dev_key);
         if (thermocouple)
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
@@ -684,6 +687,9 @@ protected:
         ASSERT_NIL(p.error());
         this->devs = std::make_shared<device::MockManager>();
     }
+
+    /// @brief the serial number of the device of the parsed config.
+    std::string serial;
 };
 
 /// @brief it should claim the device on start and release it on stop, so a device
@@ -700,6 +706,7 @@ TEST_F(SourceClaimTest, testUnarySourceClaimsDeviceOnStart) {
     EXPECT_EQ(devs->dev.use_count(), 1);
     ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
+    EXPECT_EQ(devs->acquired, std::vector({this->serial, this->serial}));
     ASSERT_NIL(source.stop());
 }
 
@@ -729,6 +736,7 @@ TEST_F(SourceClaimTest, testStreamSourceClaimsDeviceOnStart) {
     EXPECT_EQ(devs->dev.use_count(), 1);
     ASSERT_NIL(source.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 2);
+    EXPECT_EQ(devs->acquired, std::vector({this->serial, this->serial}));
     ASSERT_NIL(source.stop());
 }
 
