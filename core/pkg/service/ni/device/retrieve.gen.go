@@ -206,7 +206,7 @@ func newIndexes() indexes {
 			},
 			Locate: func(e *Device, t channel.Key) []string {
 				for k6, v7 := range e.AnalogOutput {
-					if v7.StateIndex == t {
+					if v7.StateIndex != nil && *v7.StateIndex == t {
 						return []string{"analog_output", fmt.Sprint(k6), "state_index"}
 					}
 				}
@@ -245,7 +245,7 @@ func newIndexes() indexes {
 			},
 			Locate: func(e *Device, t channel.Key) []string {
 				for k6, v7 := range e.AnalogOutput {
-					if v7.Command == t {
+					if v7.Command != nil && *v7.Command == t {
 						return []string{"analog_output", fmt.Sprint(k6), "command"}
 					}
 				}
@@ -284,7 +284,7 @@ func newIndexes() indexes {
 			},
 			Locate: func(e *Device, t channel.Key) []string {
 				for k6, v7 := range e.AnalogOutput {
-					if v7.State == t {
+					if v7.State != nil && *v7.State == t {
 						return []string{"analog_output", fmt.Sprint(k6), "state"}
 					}
 				}
@@ -323,7 +323,7 @@ func newIndexes() indexes {
 			},
 			Locate: func(e *Device, t channel.Key) []string {
 				for k6, v7 := range e.CounterInput {
-					if v7.Index == t {
+					if v7.Index != nil && *v7.Index == t {
 						return []string{"counter_input", fmt.Sprint(k6), "index"}
 					}
 				}
@@ -362,7 +362,7 @@ func newIndexes() indexes {
 			},
 			Locate: func(e *Device, t channel.Key) []string {
 				for k6, v7 := range e.CounterInput {
-					if v7.Channel == t {
+					if v7.Channel != nil && *v7.Channel == t {
 						return []string{"counter_input", fmt.Sprint(k6), "channel"}
 					}
 				}
@@ -401,7 +401,7 @@ func newIndexes() indexes {
 			},
 			Locate: func(e *Device, t channel.Key) []string {
 				for k6, v7 := range e.DigitalInput {
-					if v7.Index == t {
+					if v7.Index != nil && *v7.Index == t {
 						return []string{"digital_input", fmt.Sprint(k6), "index"}
 					}
 				}
@@ -486,7 +486,7 @@ func newIndexes() indexes {
 			},
 			Locate: func(e *Device, t channel.Key) []string {
 				for k6, v7 := range e.DigitalOutput {
-					if v7.StateIndex == t {
+					if v7.StateIndex != nil && *v7.StateIndex == t {
 						return []string{"digital_output", fmt.Sprint(k6), "state_index"}
 					}
 				}
@@ -528,7 +528,7 @@ func newIndexes() indexes {
 			Locate: func(e *Device, t channel.Key) []string {
 				for k11, v12 := range e.DigitalOutput {
 					for k13, v14 := range v12.Lines {
-						if v14.Command == t {
+						if v14.Command != nil && *v14.Command == t {
 							return []string{"digital_output", fmt.Sprint(k11), "lines", fmt.Sprint(k13), "command"}
 						}
 					}
@@ -577,7 +577,7 @@ func newIndexes() indexes {
 			Locate: func(e *Device, t channel.Key) []string {
 				for k11, v12 := range e.DigitalOutput {
 					for k13, v14 := range v12.Lines {
-						if v14.State == t {
+						if v14.State != nil && *v14.State == t {
 							return []string{"digital_output", fmt.Sprint(k11), "lines", fmt.Sprint(k13), "state"}
 						}
 					}
