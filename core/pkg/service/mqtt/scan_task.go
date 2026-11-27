@@ -226,9 +226,9 @@ func browseDuration(ms int) time.Duration {
 	return min(duration, maxBrowseDuration)
 }
 
-// browseConfig returns the properties of a browse's broker device and the config of
-// its client. A browse has its own client and client ID. A wildcard subscription on
-// the shared connection would overlap the subscriptions of the tasks. It returns a
+// browseConfig returns the properties of a browse's broker device and the config of its
+// client. A browse has its own client and client ID. A wildcard subscription on the
+// shared connection would overlap the subscriptions of the tasks. It returns a
 // driver.Failure when the properties of the device are not valid.
 func (s *scanner) browseConfig(
 	ctx context.Context,
