@@ -271,10 +271,11 @@ slave.
 The scanner creates a resource it has not seen with both groups filled: the identity
 group from the hardware, and the configuration group with today's defaults (`name` is
 `NI <model>` or `<type>-<last4 of serial>`, `identifier` is empty). After creation the
-scanner writes only the identity group, through `Update`. When hardware appears on
-another rack, the scanner moves it; `name` stays as the user left it. The user's write
-path is `Update` over the configuration group. The shallow merge in
-`driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
+scanner writes only the identity group, as `patch.Set` actions on its fields. When
+hardware appears on another rack, the scanner moves it; `name` stays as the user left
+it. The user writes the configuration group through the same patch actions. Each action
+changes one field, so concurrent edits to different fields both survive. The shallow
+merge in `driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
@@ -308,10 +309,10 @@ string and the `<master>.Slot <n>` location encoding are deleted.
 ### 4.5 API and clients
 
 Each resource gets routes under its integration: `/ni/device/create`,
-`/ni/device/retrieve`, `/ni/device/update`, `/ni/device/delete`, and the same for
-`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `update` is one route
-that dispatches on a union over the identity and configuration groups, so one request
-writes one group. Retrieve filters are the struct's `@filter` fields plus `search_term`,
+`/ni/device/retrieve`, `/ni/device/dispatch`, `/ni/device/delete`, and the same for
+`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `dispatch` takes
+`patch.Set`, `patch.Remove`, `patch.Insert`, and `patch.Move` actions, as every other
+resource does. Retrieve filters are the struct's `@filter` fields plus `search_term`,
 `include_status`, and `include_parent`. The generic `/device/*` routes are deleted. Two
 narrow writes serve OPC UA: `/opcua/server/pin` for the certificate pin (§4.1), and
 `/opcua/server/resolve`, which appends resolved `ns=` bindings, skips duplicates, and
@@ -503,6 +504,9 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 12. **No generic device store**: A `device.Service[D]` needed 8 hooks, did not fit
     racks, and left the same code in every other resource. The trade is real: eight
     hand-written writers until a project deduplicates all resources.
+13. **Patch dispatch, not a group `Update` union**: The 28 other resources write through
+    patch actions. A whole-group update loses one of two concurrent edits to different
+    fields.
 
 ## 9 Open questions
 
