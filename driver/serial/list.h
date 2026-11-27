@@ -14,10 +14,6 @@
 #include <utility>
 #include <vector>
 
-#ifdef __linux__
-#include <filesystem>
-#endif
-
 #include "x/cpp/errors/errors.h"
 
 namespace driver::serial {
@@ -35,14 +31,8 @@ struct Entry {
 };
 
 /// @brief lists the serial ports of this computer, sorted by path. On Linux, it leaves
-/// out the UART ports in which the kernel found no UART.
+/// out a port with no node in /dev, such as a port of the host in a container, and the
+/// UART ports in which the kernel found no UART.
 /// @returns the error of the operating system when it cannot list the ports.
 std::pair<std::vector<Entry>, x::errors::Error> list();
-
-#ifdef __linux__
-/// @brief lists the serial ports in the sysfs tree at sys, as list does.
-/// @param dev the device tree whose serial/by-id links name the ports.
-std::pair<std::vector<Entry>, x::errors::Error>
-list(const std::filesystem::path &sys, const std::filesystem::path &dev);
-#endif
 }

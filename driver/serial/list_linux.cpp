@@ -18,7 +18,7 @@
 #include <vector>
 
 #include "driver/serial/errors.h"
-#include "driver/serial/list.h"
+#include "driver/serial/list_linux.h"
 
 namespace driver::serial {
 namespace fs = std::filesystem;
@@ -68,6 +68,8 @@ list(const fs::path &sys, const fs::path &dev) {
         const auto device = fs::canonical(tty.path() / "device", device_ec);
         if (device_ec || empty_uart(tty.path())) continue;
         const auto name = tty.path().filename().string();
+        std::error_code node_ec;
+        if (!fs::exists(dev / name, node_ec)) continue;
         const auto link = links.find(name);
         entries.push_back({
             .path = link != links.end() ? link->second : (dev / name).string(),

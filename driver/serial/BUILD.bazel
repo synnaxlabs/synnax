@@ -187,7 +187,10 @@ cc_library(
         "@platforms//os:macos": ["list_macos.cpp"],
         "@platforms//os:windows": ["list_windows.cpp"],
     }),
-    hdrs = ["list.h"],
+    hdrs = ["list.h"] + select({
+        "@platforms//os:linux": ["list_linux.h"],
+        "//conditions:default": [],
+    }),
     linkopts = select({
         "@platforms//os:macos": [
             "-framework CoreFoundation",
