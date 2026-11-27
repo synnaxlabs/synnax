@@ -121,13 +121,13 @@
       "package": "github.com/synnaxlabs/x/telem",
       "receiver": "DataTypeCode",
       "name": "DataType",
-      "caller": "https://linear.app/synnax/issue/SY-6394"
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7949"
     },
     {
       "module": "x/go",
       "package": "github.com/synnaxlabs/x/telem",
       "name": "CodeOf",
-      "caller": "https://linear.app/synnax/issue/SY-6394"
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7949"
     },
     {
       "module": "core",
