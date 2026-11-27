@@ -1,0 +1,35 @@
+{
+  "description": "Each case makes its folders, each inside the one before, and a channel in the last one, then expects the path of the channel. So that names stay unique, a spec puts the first folder inside a folder of its own and expects the name of that folder and a '.' before the path, and it adds one suffix to the name of the channel and to the end of the path. The Core's path spec and the TypeScript client's path spec both run these cases.",
+  "cases": [
+    {
+      "name": "a channel in one folder",
+      "folders": ["stand"],
+      "channel": "pt_01",
+      "path": "stand.pt_01"
+    },
+    {
+      "name": "a channel in nested folders",
+      "folders": ["stand", "sensors", "inlet"],
+      "channel": "pt_01",
+      "path": "stand.sensors.inlet.pt_01"
+    },
+    {
+      "name": "folders whose names hold spaces and symbols",
+      "folders": ["Stand A", "Rig #2 (east)"],
+      "channel": "pt_01",
+      "path": "Stand A.Rig #2 (east).pt_01"
+    },
+    {
+      "name": "folders whose names hold letters of other scripts",
+      "folders": ["\u65E5\u672C", "Str\u00F6m"],
+      "channel": "pt_01",
+      "path": "\u65E5\u672C.Str\u00F6m.pt_01"
+    },
+    {
+      "name": "a folder named in another normal form",
+      "folders": ["Cafe\u0301", "Rig"],
+      "channel": "pt_01",
+      "path": "Caf\u00E9.Rig.pt_01"
+    }
+  ]
+}
