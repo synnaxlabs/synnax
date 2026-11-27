@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/resource"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 )
 
 const AutoSpan = unary.AutoSpan
@@ -55,30 +57,19 @@ type Iterator struct {
 	limited   bool
 	chunkSize int64
 	frame     Frame
-	// failed holds the failures of the last Next or Prev. stopped is true for each
-	// iterator in internal whose failure is already reported.
-	failed  []ReadFailure
+	ins       alamos.Instrumentation
+	// stopped is true for each iterator in internal whose read error is logged.
 	stopped []bool
 	closed  bool
 }
 
-// ReadFailure is the failure of the read of one channel in a Next or a Prev. The read
-// goes on for the other channels.
-type ReadFailure struct {
-	// Channel is the key of the channel.
-	Channel ChannelKey
-	// TimeRange is the time range that the read of the channel covered.
-	TimeRange telem.TimeRange
-	// Err is the error of the read.
-	Err error
-}
-
 // Next reads all data occupying the next span of time, returning true if any channel
-// read data. Failed returns the channels whose read failed. Note: If the internal
-// iterators have different views, then they will each read the next span of time,
-// ending at different times. For example, if the iterator on channel 1 has view [00:01,
-// 00:02) while the iterator on channel 2 has view [00:03, 00:04), then they will read
-// [00:02, 00:07) and [00:04, 00:09), respectively, after a call to Next(5).
+// read data. A channel whose read fails reads nothing more until a seek or SetBounds,
+// and the iterator logs its error once. Note: If the internal iterators have different
+// views, then they will each read the next span of time, ending at different times. For
+// example, if the iterator on channel 1 has view [00:01, 00:02) while the iterator on
+// channel 2 has view [00:03, 00:04), then they will read [00:02, 00:07) and [00:04,
+// 00:09), respectively, after a call to Next(5).
 func (i *Iterator) Next(span telem.TimeSpan) bool {
 	ok, err := i.NextChunks(context.Background(), span, i.collect)
 	return ok && err == nil
@@ -167,11 +158,6 @@ func (i *Iterator) SetBounds(bounds telem.TimeRange) {
 // Value returns the data that the last Next or Prev read.
 func (i *Iterator) Value() Frame { return i.frame }
 
-// Failed returns the channels whose read failed in the last Next or Prev. A failed
-// channel reads nothing more, and it reports its failure once, until a seek or
-// SetBounds clears it.
-func (i *Iterator) Failed() []ReadFailure { return i.failed }
-
 // Close closes the iterator and returns the error that stopped it, unless a seek or
 // SetBounds has cleared that error since. Closing a closed iterator returns nil.
 func (i *Iterator) Close() error {
@@ -208,8 +194,8 @@ func (i *Iterator) seek(f func(*unary.Iterator) bool) bool {
 	return i.each(f)
 }
 
-// report notes the failure of the iterator at index j of internal, unless it is already
-// noted.
+// report logs the read error of the iterator at index j of internal, unless it is
+// already logged.
 func (i *Iterator) report(j int) {
 	u := i.internal[j]
 	if i.stopped[j] {
@@ -217,11 +203,12 @@ func (i *Iterator) report(j int) {
 	}
 	if err := u.Error(); err != nil {
 		i.stopped[j] = true
-		i.failed = append(i.failed, ReadFailure{
-			Channel:   u.Channel.Key,
-			TimeRange: u.View(),
-			Err:       err,
-		})
+		i.ins.L.Error(
+			"read of a channel failed",
+			zap.Stringer("channel", u.Channel),
+			zap.Stringer("time_range", u.View()),
+			zap.Error(err),
+		)
 	}
 }
 
@@ -242,7 +229,6 @@ func (i *Iterator) read(
 		return false, ErrIteratorClosed
 	}
 	i.frame = Frame{}
-	i.failed = i.failed[:0]
 	i.cache.Reset()
 	if !i.limited && span != AutoSpan {
 		return i.readInChunks(ctx, span, prev, emit)

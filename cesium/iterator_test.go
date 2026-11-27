@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
@@ -26,6 +27,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var _ = Describe("Iterator Behavior", func() {
@@ -1813,9 +1816,8 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.Close()).To(Succeed())
 				})
 
-				It("Should return the read error of a chunked read", func(
-					ctx SpecContext,
-				) {
+				It("Should return no read error from a chunked read, and return it "+
+					"on Close", func(ctx SpecContext) {
 					faulty, faultyDB, keys := openFaulty(ctx)
 					i := MustSucceed(faultyDB.OpenIterator(cesium.IteratorConfig{
 						Bounds:   telem.TimeRangeMax,
@@ -1827,7 +1829,7 @@ var _ = Describe("Iterator Behavior", func() {
 					Expect(i.NextChunks(ctx, 10*telem.Second, func(cesium.Frame) error {
 						emitted++
 						return nil
-					})).Error().To(MatchError(ErrFault))
+					})).To(BeFalse())
 					Expect(emitted).To(BeZero())
 					Expect(i.Close()).To(MatchError(ErrFault))
 				})
@@ -2014,11 +2016,14 @@ var _ = Describe("Iterator index lookups", func() {
 var _ = Describe("Iterator read failures", func() {
 	var (
 		db             *cesium.DB
+		logs           *observer.ObservedLogs
 		idx, good, bad cesium.ChannelKey
 	)
 	BeforeEach(func(ctx SpecContext) {
 		mem := fs.NewMem()
-		db = mustOpenDBOnFS(ctx, mem)
+		ins, observed := ObservedInstrumentation(zapcore.ErrorLevel)
+		logs = observed
+		db = mustOpenDBOnFS(ctx, mem, cesium.WithInstrumentation(ins))
 		idx = GenerateChannelKey()
 		good, bad = GenerateChannelKey(), GenerateChannelKey()
 		Expect(db.CreateChannel(
@@ -2040,28 +2045,36 @@ var _ = Describe("Iterator read failures", func() {
 		Expect(mem.Remove(channelKeyToPath(bad) + "/1.domain")).To(Succeed())
 	})
 	DescribeTable("Should read the other channels when the read of one fails, and "+
-		"report the failure once until a seek",
+		"log the failure once until a seek",
 		func(span telem.TimeSpan) {
 			i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
 				Channels: []cesium.ChannelKey{good, bad},
 				Bounds:   telem.TimeRangeMax,
 			}))
 			gone := "open " + channelKeyToPath(bad) + "/1.domain: file does not exist"
+			failures := func() []observer.LoggedEntry {
+				return logs.FilterMessage("read of a channel failed").All()
+			}
 			Expect(i.SeekFirst()).To(BeTrue())
 			Expect(i.Next(span)).To(BeTrue())
 			Expect(i.Value().Get(bad).Series).To(BeEmpty())
 			Expect(i.Value().Get(good).Series).To(HaveLen(1))
 			Expect(i.Value().Get(good).Series[0]).To(MatchSeriesDataV[int64](1, 2, 3))
-			failed := i.Failed()
-			Expect(failed).To(HaveLen(1))
-			Expect(failed[0].Channel).To(Equal(bad))
-			Expect(failed[0].TimeRange.Start).To(Equal(10 * telem.SecondTS))
-			Expect(failed[0].Err).To(MatchError(ContainSubstring(gone)))
+			Expect(failures()).To(HaveLen(1))
+			fields := failures()[0].ContextMap()
+			Expect(fields).To(HaveKeyWithValue(
+				"channel",
+				ContainSubstring(channelKeyToPath(bad)),
+			))
+			Expect(fields).To(HaveKeyWithValue("time_range", ContainSubstring(
+				"1970-01-01T00:00:10Z",
+			)))
+			Expect(fields).To(HaveKeyWithValue("error", ContainSubstring(gone)))
 			Expect(i.Next(span)).To(BeFalse())
-			Expect(i.Failed()).To(BeEmpty())
+			Expect(failures()).To(HaveLen(1))
 			Expect(i.SeekFirst()).To(BeTrue())
 			Expect(i.Next(span)).To(BeTrue())
-			Expect(i.Failed()).To(HaveLen(1))
+			Expect(failures()).To(HaveLen(2))
 			Expect(i.Close()).To(MatchError(ContainSubstring(gone)))
 		},
 		Entry("of an automatic span", cesium.AutoSpan),
