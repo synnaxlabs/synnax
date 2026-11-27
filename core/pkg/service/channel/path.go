@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -247,28 +248,79 @@ func (s *Service) KeysByNames(
 }
 
 // DescribeAmbiguity returns err as a subject sees it when err is an AmbiguousNameError,
-// and returns err unchanged otherwise. access returns whether the subject can retrieve
-// a record. The result is a query.MultipleResults error that quotes the path of each
-// holder that the subject can retrieve along with every folder on its path, then counts
-// the other holders. errors.As still finds the AmbiguousNameError in it. Paths are as
-// snap holds them.
+// or *diagnostics.Diagnostics that holds some, and returns err unchanged otherwise.
+// access returns whether the subject can retrieve a record. An ambiguity becomes a
+// query.MultipleResults error that quotes the path of each holder that the subject can
+// retrieve along with every folder on its path, then counts the other holders, also the
+// ones that snap no longer holds. errors.As still finds the AmbiguousNameError in it.
+// Each other diagnostic stays as it is.
 func (s *Service) DescribeAmbiguity(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	err error,
 	access func(context.Context) (func(resource.ID) bool, error),
 ) error {
+	if diags, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
+		return s.describeDiagnostics(ctx, snap, diags, access)
+	}
 	ambiguous, ok := errors.AsType[AmbiguousNameError](err)
 	if !ok {
 		return err
 	}
-	allowed, rErr := access(ctx)
-	if rErr != nil {
-		return rErr
+	allowed, aErr := access(ctx)
+	if aErr != nil {
+		return aErr
 	}
+	return s.describe(ctx, snap, err, ambiguous, allowed)
+}
+
+// describeDiagnostics returns diags with the message of each diagnostic of an
+// AmbiguousNameError described for the subject (DescribeAmbiguity).
+func (s *Service) describeDiagnostics(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	diags *diagnostics.Diagnostics,
+	access func(context.Context) (func(resource.ID) bool, error),
+) error {
+	var allowed func(resource.ID) bool
+	out := slices.Clone(*diags)
+	for i, d := range out {
+		ambiguous, ok := errors.AsType[AmbiguousNameError](d.Unwrap())
+		if !ok {
+			continue
+		}
+		if allowed == nil {
+			var err error
+			if allowed, err = access(ctx); err != nil {
+				return err
+			}
+		}
+		described := s.describe(ctx, snap, d.Unwrap(), ambiguous, allowed)
+		if !errors.Is(described, query.ErrQuery) {
+			return described
+		}
+		out[i].Message = described.Error()
+	}
+	return &out
+}
+
+// describe returns the query.MultipleResults error of err, the error of ambiguous, as a
+// subject that can retrieve the records that allowed accepts sees it.
+func (s *Service) describe(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	err error,
+	ambiguous AmbiguousNameError,
+	allowed func(resource.ID) bool,
+) error {
 	var holders []Channel
-	if rErr = s.newRetrieve().
-		Where(MatchKeys(ambiguous.Holders...)).
+	// A holder that a commit deleted since the lookup is a non-match, not an error.
+	if rErr := s.newRetrieve().
+		Where(func(Retrieve) gorp.Filter[Key, Channel] {
+			return gorp.MatchKeysFunc[Key, Channel](func(gorp.Context) ([]Key, error) {
+				return ambiguous.Holders, nil
+			})
+		}).
 		Entries(&holders).
 		Exec(ctx, snap); rErr != nil {
 		return rErr
