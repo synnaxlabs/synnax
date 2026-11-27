@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/io/fs/testutil/fault"
@@ -29,8 +30,8 @@ var _ = Describe("Budget check", func() {
 	It("Should keep the limit and every byte with handles used from many goroutines",
 		func() {
 			for runKey := range uint64(32) {
-				fs := newOpFS(xfs.NewMem())
-				b := MustSucceed(segment.NewBudget(3, 2, segment.GoExecutor))
+				fs := testutil.NewOpFS(xfs.NewMem(), "open", "close", "sync", "syncdir")
+				b := MustSucceed(segment.NewBudget(3, 2, goExec))
 				hs := make([]*segment.Handle, 8)
 				for i := range hs {
 					hs[i] = MustSucceed(b.Create(fs, fmt.Sprintf("%d.seg", i)))
@@ -90,7 +91,7 @@ var _ = Describe("Budget check", func() {
 					SyncErrorRate: 0.5,
 				}))
 				g := newGateFS(ffs)
-				budget := MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
+				budget := MustSucceed(segment.NewBudget(4, 4, goExec))
 				h := MustSucceed(budget.Create(g, "1.seg"))
 				if budget.Sync([]*segment.Handle{h}) != nil {
 					Expect(h.Close()).To(Succeed())

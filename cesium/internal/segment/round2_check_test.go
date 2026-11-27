@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -104,7 +105,7 @@ func (f *holdFile) Close() error {
 var _ = Describe("Round 2 check", func() {
 	It("Should finish two closes in a row and the budget syncs that wait for them, "+
 		"when the executor runs one job at a time", func() {
-		fs := newOpFS(xfs.NewMem())
+		fs := testutil.NewOpFS(xfs.NewMem(), "open", "close", "sync", "syncdir")
 		jobs := make(chan func(), 16)
 		worker := make(chan struct{})
 		go func() {
@@ -171,7 +172,7 @@ var _ = Describe("Round 2 check", func() {
 				Expect(f.Close()).To(Succeed())
 			}
 			fs := newHoldFS(mem)
-			b := MustSucceed(segment.NewBudget(3, 4, segment.GoExecutor))
+			b := MustSucceed(segment.NewBudget(3, 4, goExec))
 			h1 := MustSucceed(b.Create(fs, "1.seg"))
 			Expect(b.Sync([]*segment.Handle{h1})).To(Succeed())
 			Expect(h1.WriteAt([]byte("1"), 0)).To(Equal(1))

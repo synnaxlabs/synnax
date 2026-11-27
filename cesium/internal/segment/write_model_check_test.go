@@ -140,7 +140,7 @@ var _ = Describe("Write model check", func() {
 				r := rand.New(rand.NewPCG(runKey, 1))
 				mem := MustSucceed(xfs.NewMem().Sub("d"))
 				sfs := &shortFS{FS: mem, fail: -1}
-				b := MustSucceed(segment.NewBudget(1, 1, segment.GoExecutor))
+				b := MustSucceed(segment.NewBudget(1, 1, goExec))
 				h := MustSucceed(b.Create(sfs, "1.seg"))
 				w := segment.NewWriter(h, c)
 				var (
