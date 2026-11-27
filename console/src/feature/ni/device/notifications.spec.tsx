@@ -10,7 +10,7 @@
 import { ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -104,7 +104,7 @@ describe("NI.Device.useListenForChanges", async () => {
 
     it("should not count a missing device as in use", async () => {
       expect(
-        await NI.Device.NOTIFICATION_RULE.inUse?.({ client, key: id.create() }),
+        await NI.Device.NOTIFICATION_RULE.inUse?.({ client, key: uuid.create() }),
       ).toBe(false);
     });
   });

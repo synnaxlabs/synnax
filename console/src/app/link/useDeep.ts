@@ -24,11 +24,11 @@ import { Task } from "@/feature/task";
 import { FLAGS } from "@/flags";
 import { Session } from "@/session";
 
-// Keyed by the resource type, the segment after the cluster key in a deep link.
-const useNIDeviceLinks = FLAGS.typedNIDevices
-  ? () => ({ ni_device: NI.Device.useLink() })
-  : () => ({});
+const useTypedNIDeviceLinks = () => ({ ni_device: NI.Device.useLink() });
+const useNoLinks = () => ({});
+const useNIDeviceLinks = FLAGS.typedNIDevices ? useTypedNIDeviceLinks : useNoLinks;
 
+// Keyed by the resource type, the segment after the cluster key in a deep link.
 const useLinks = (): void => {
   Link.useDeep(Core.useLink(), {
     arc: Arc.useLink(),
