@@ -11,6 +11,7 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, dispatchReqZ, dispatchResZ } from "@/labjack/device/actions.gen";
 import {
   type Device,
   deviceZ,
@@ -22,8 +23,6 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
   statusZ,
-  type Update,
-  updateZ,
 } from "@/labjack/device/types.gen";
 import {
   compareCursors,
@@ -43,9 +42,7 @@ type Stored = Omit<Device, "status">;
 
 const createReqZ = z.object({ devices: deviceZ.array() });
 const createResZ = z.object({ devices: deviceZ.array() });
-const updateReqZ = z.object({ key: keyZ, update: updateZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const updateResZ = z.object({ device: deviceZ });
 const emptyResZ = z.object({});
 
 const filterParamsZ = retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape);
@@ -206,24 +203,20 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Writes one field group to the device and keeps the other as stored. The update
-   * replaces the whole group, so a field it leaves out is cleared, such as the read
-   * index of a configuration update.
-   * @returns the device as the Core stored it, without its status.
+   * Applies actions to the device, in order, in one transaction. Paths and values take
+   * the snake_case form that the Core stores. The cached device takes the result.
    * @throws {NotFoundError} if the device does not exist.
-   * @throws {ValidationError} if the update is invalid or changes the model.
+   * @throws {ValidationError} if an action fails, or the result is invalid or changes
+   * the model.
    */
-  async update(key: Key, update: Update): Promise<Device> {
-    const { device } = await this.cfg.unary.send(
-      "/labjack/device/update",
-      { key, update },
-      updateReqZ,
-      updateResZ,
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/labjack/device/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
     );
-    // The reply replaces the cached device, even when an older stream set arrived
-    // during the request.
-    this.store.set([stripStatus(device)]);
-    return device;
+    await this.fetchThrough(query.keysRequest([key]));
   }
 
   /** Deletes the devices with their statuses. */

@@ -10,7 +10,7 @@
 import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { labjack } from "@/labjack";
 import { query } from "@/query";
 import { resource } from "@/resource";
@@ -19,19 +19,8 @@ import { createTestClient, expectLive, waitForStreamLive } from "@/testutil";
 const client = createTestClient();
 const other = createTestClient();
 
-const configuration = (name: string): labjack.device.ConfigurationUpdate => ({
-  group: "configuration",
-  name,
-  identifier: "",
-  ports: {
-    model: "t7",
-    mux80Attached: false,
-    analogInput: {},
-    analogOutput: {},
-    digitalInput: {},
-    digitalOutput: {},
-  },
-});
+const rename = (name: string): labjack.device.Action =>
+  labjack.device.set({ path: ["name"], value: name });
 
 const createSerial = (): number => Math.floor(Math.random() * 0xfffffffe) + 1;
 
@@ -159,7 +148,7 @@ describe("LabJack device", async () => {
       const d = await create();
       await other.labjack.devices.retrieve({ key: d.key });
       await waitForStreamLive(other.connection);
-      await client.labjack.devices.update(d.key, configuration("Cached"));
+      await client.labjack.devices.dispatch(d.key, rename("Cached"));
       await expect
         .poll(async () => (await other.labjack.devices.retrieve({ key: d.key })).name)
         .toBe("Cached");
@@ -238,43 +227,48 @@ describe("LabJack device", async () => {
     });
   });
 
-  describe("update", () => {
-    it("should write the configuration group", async () => {
+  describe("dispatch", () => {
+    it("should apply the actions and keep the other fields", async () => {
       const d = await create();
-      const stored = await client.labjack.devices.update(d.key, {
-        ...configuration("Renamed"),
-        identifier: "dev",
-      });
+      await client.labjack.devices.dispatch(d.key, [
+        rename("Renamed"),
+        labjack.device.set({ path: ["identifier"], value: "dev" }),
+      ]);
       const retrieved = await client.labjack.devices.retrieve({ key: d.key });
       expect(retrieved.name).toBe("Renamed");
       expect(retrieved.identifier).toBe("dev");
-      expect(retrieved.model).toBe(d.model);
-      expect(stored).toEqual(retrieved);
+      expect(retrieved.serial).toBe(d.serial);
     });
 
-    it("should write the identity group and keep the configuration", async () => {
+    it("should set one port of a channel map", async () => {
       const d = await create();
-      const serial = createSerial();
-      const stored = await client.labjack.devices.update(d.key, {
-        group: "identity",
-        rack: rack.key,
-        serial,
-        connection: "LJM_ctETHERNET",
-        model: "t7",
+      const ch = await client.channels.create({
+        name: `lj_di_${uuid.create()}`,
+        dataType: "uint8",
+        virtual: true,
       });
+      await client.labjack.devices.dispatch(
+        d.key,
+        labjack.device.set({ path: ["ports", "digital_input", "DIO2"], value: ch.key }),
+      );
       const retrieved = await client.labjack.devices.retrieve({ key: d.key });
-      expect(retrieved.serial).toBe(serial);
-      expect(retrieved.connection).toBe("LJM_ctETHERNET");
-      expect(retrieved.name).toBe(d.name);
-      expect(stored).toEqual(retrieved);
+      expect(retrieved.ports).toMatchObject({ digitalInput: { DIO2: ch.key } });
     });
-  });
 
-  describe("update errors", () => {
     it("should throw a NotFoundError for a missing device", async () => {
       await expect(
-        client.labjack.devices.update(uuid.create(), configuration("Missing")),
+        client.labjack.devices.dispatch(uuid.create(), rename("Missing")),
       ).rejects.toThrow(NotFoundError);
+    });
+
+    it("should throw a ValidationError for a change of model", async () => {
+      const d = await create();
+      await expect(
+        client.labjack.devices.dispatch(
+          d.key,
+          labjack.device.set({ path: ["model"], value: "t4" }),
+        ),
+      ).rejects.toThrow(ValidationError);
     });
   });
 
@@ -304,7 +298,7 @@ describe("LabJack device", async () => {
       await other.labjack.devices.retrieve({ key: d.key });
       await waitForStreamLive(other.connection);
       const stop = other.labjack.devices.onSet((device) => seen.push(device.name));
-      await client.labjack.devices.update(d.key, configuration("Streamed"));
+      await client.labjack.devices.dispatch(d.key, rename("Streamed"));
       await expect.poll(() => seen).toContain("Streamed");
       stop();
     });
@@ -334,7 +328,7 @@ describe("LabJack device", async () => {
       });
       onTestFinished(list.onChange(() => {}));
       await list.retrieve();
-      await client.labjack.devices.update(d.key, configuration(`${token} renamed`));
+      await client.labjack.devices.dispatch(d.key, rename(`${token} renamed`));
       const key = resource.idToString(labjack.device.resourceID(d.key));
       await expect
         .poll(() => list.getCached()?.records.find((r) => r.key === key)?.name)
