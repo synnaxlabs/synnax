@@ -38,6 +38,7 @@ describe("slaveZ", () => {
         inputs: [
           {
             name: "Value",
+            pdoIndex: 0x1a00,
             index: 0x6000,
             subIndex: 0x11,
             bitLength: 16,
@@ -51,17 +52,31 @@ describe("slaveZ", () => {
         { index: 0x8000, subIndex: 1, dataType: "uint16", value: 500 },
       ],
     });
-    expect(slave.pdos.inputs[0].pdoName).toEqual("");
-    expect(slave.readBindings[0].scaled).toBe(false);
-    expect(slave.writeBindings[0].state).toEqual(0);
+    expect(slave.pdos.inputs[0].pdoName).toBeUndefined();
+    expect(slave.readBindings[0].samples).toEqual("raw");
+    expect(slave.writeBindings[0].state).toBeUndefined();
     expect(slave.startupParameters[0]).toMatchObject({
       dataType: "uint16",
       value: 500,
     });
   });
 
+  const ENTRY = { name: "Value", index: 0x6000, subIndex: 1, dataType: "int16" };
   const INVALID: [string, Record<string, unknown>][] = [
     ["an empty name", { name: "" }],
+    ["a serial wider than 32 bits", { serial: 2 ** 32 }],
+    [
+      "an entry without bits",
+      { pdos: { inputs: [{ ...ENTRY, pdoIndex: 0x1a00, bitLength: 0 }] } },
+    ],
+    [
+      "an input in an RxPDO",
+      { pdos: { inputs: [{ ...ENTRY, pdoIndex: 0x1600, bitLength: 16 }] } },
+    ],
+    [
+      "an output in a TxPDO",
+      { pdos: { outputs: [{ ...ENTRY, pdoIndex: 0x1a00, bitLength: 16 }] } },
+    ],
     ["no master", { master: undefined }],
     ["no vendor ID", { vendorId: undefined }],
     ["no revision", { revision: undefined }],

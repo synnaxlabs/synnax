@@ -71,9 +71,31 @@ var _ = Describe("Slave", func() {
 			"identifier",
 		),
 		Entry(
-			"a serial above the exact range of a JSON number",
-			func(m *v0.Slave) { m.Serial = 1 << 53 },
-			"serial",
+			"an entry without bits",
+			func(m *v0.Slave) {
+				m.Pdos.Inputs = []v0.InputEntry{{PdoIndex: 0x1A00}}
+			},
+			"bit_length",
+		),
+		Entry(
+			"an input in an RxPDO",
+			func(m *v0.Slave) {
+				m.Pdos.Inputs = []v0.InputEntry{{
+					BitLength: 16,
+					PdoIndex:  0x1600,
+				}}
+			},
+			"pdos.inputs.0.pdo_index",
+		),
+		Entry(
+			"an output in a TxPDO",
+			func(m *v0.Slave) {
+				m.Pdos.Outputs = []v0.OutputEntry{{
+					BitLength: 1,
+					PdoIndex:  0x1A00,
+				}}
+			},
+			"pdos.outputs.0.pdo_index",
 		),
 		Entry(
 			"a startup parameter without a data type",

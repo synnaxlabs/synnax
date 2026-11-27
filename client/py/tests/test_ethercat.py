@@ -864,6 +864,9 @@ class TestEtherCATMasterResource:
         assert sy.ethercat.master.resource_id(self.KEY).key == str(self.KEY)
 
 
+ENTRY = {"name": "Value", "index": 0x6000, "sub_index": 1, "data_type": "int16"}
+
+
 @pytest.mark.ethercat
 class TestEtherCATSlaveResource:
     """Tests for the typed EtherCAT slave resource."""
@@ -921,7 +924,10 @@ class TestEtherCATSlaveResource:
     @pytest.mark.parametrize(
         "change",
         [
-            {"serial": 2**53},
+            {"serial": 2**32},
+            {"pdos": {"inputs": [{**ENTRY, "pdo_index": 0x1A00, "bit_length": 0}]}},
+            {"pdos": {"inputs": [{**ENTRY, "pdo_index": 0x1600, "bit_length": 16}]}},
+            {"pdos": {"outputs": [{**ENTRY, "pdo_index": 0x1A00, "bit_length": 1}]}},
             {
                 "startup_parameters": [
                     {"index": 1, "sub_index": 0, "data_type": "uint8", "value": 256}
@@ -937,7 +943,7 @@ class TestEtherCATSlaveResource:
         ],
     )
     def test_rejects_an_invalid_slave(self, change: dict[str, object]) -> None:
-        """Should reject a large serial, a bad startup value or type, and a zero
-        binding channel."""
+        """Should reject a serial over 32 bits, an entry with no bits or in the wrong
+        PDO range, a bad startup value or type, and a zero binding channel."""
         with pytest.raises(ValidationError):
             sy.ethercat.slave.Slave.model_validate({**self.SLAVE, **change})

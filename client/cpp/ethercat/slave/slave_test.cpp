@@ -56,13 +56,18 @@ TEST(Slave, RoundTrips) {
     x::json::Parser in(valid_slave());
     auto s = Slave::parse(in);
     ASSERT_NIL(in.error());
-    s.pdos.inputs.push_back({
-        .name = "Value",
-        .index = 0x6000,
-        .sub_index = 0x11,
-        .bit_length = 16,
-        .data_type = x::telem::INT16_T,
-    });
+    s.pdos.inputs.push_back(
+        InputEntry{
+            PDOEntry{
+                .name = "Value",
+                .index = 0x6000,
+                .sub_index = 0x11,
+                .bit_length = 16,
+                .data_type = x::telem::INT16_T,
+            },
+            0x1A00,
+        }
+    );
     s.read_bindings.push_back({.index = 0x6000, .sub_index = 0x11, .channel = 7});
     s.write_bindings.push_back({.index = 0x7000, .sub_index = 1, .command = 8});
     x::json::Parser parser(s.to_json());
@@ -70,9 +75,11 @@ TEST(Slave, RoundTrips) {
     ASSERT_NIL(parser.error());
     ASSERT_EQ(parsed.pdos.inputs.size(), 1);
     ASSERT_EQ(parsed.pdos.inputs[0].data_type, x::telem::INT16_T);
+    ASSERT_EQ(parsed.pdos.inputs[0].pdo_index, 0x1A00);
+    ASSERT_EQ(parsed.read_bindings[0].samples, SAMPLES_RAW);
     ASSERT_EQ(parsed.read_bindings[0].channel, 7);
     ASSERT_EQ(parsed.write_bindings[0].command, 8);
-    ASSERT_EQ(parsed.write_bindings[0].state, 0);
+    ASSERT_FALSE(parsed.write_bindings[0].state.has_value());
 }
 
 /// @brief it should parse the startup parameter variant that its data type names and

@@ -36,11 +36,8 @@ PDOEntry struct {
     name       string         {
         @doc value "is the name of the entry, such as Input."
     }
-    pdo_name   string = "" {
+    pdo_name   string?        {
         @doc value "is the name of the PDO that holds the entry, such as Channel 1."
-    }
-    pdo_index  uint16 = 0 {
-        @doc value "is the index of the PDO that holds the entry, such as 0x1A00."
     }
     index      uint16         {
         @doc value "is the CoE object dictionary index of the entry."
@@ -49,21 +46,48 @@ PDOEntry struct {
         @doc value "is the CoE object dictionary sub-index of the entry."
     }
     bit_length uint8          {
-        @doc value "is the size of the entry in bits."
+        @doc value    "is the size of the entry in bits."
+        @validate min 1
     }
     data_type  telem.DataType {
         @doc value "is the data type of the entry."
     }
 
-    @doc value  "is a PDO entry that a scan found on a slave."
+    @doc value  "holds the fields of a PDO entry that a scan found on a slave."
+    @go marshal
+}
+
+InputEntry struct extends PDOEntry {
+    pdo_index uint16 {
+        @doc value    """
+            is the index of the TxPDO that holds the entry, 0x1A00 to 0x1BFF.
+        """
+        @validate max 7167
+        @validate min 6656
+    }
+
+    @doc value  "is an entry that the slave sends."
+    @go marshal
+}
+
+OutputEntry struct extends PDOEntry {
+    pdo_index uint16 {
+        @doc value    """
+            is the index of the RxPDO that holds the entry, 0x1600 to 0x17FF.
+        """
+        @validate max 6143
+        @validate min 5632
+    }
+
+    @doc value  "is an entry that the slave receives."
     @go marshal
 }
 
 PDOs struct {
-    inputs  PDOEntry[] = [] {
+    inputs  InputEntry[] = [] {
         @doc value "are the entries that the slave sends."
     }
-    outputs PDOEntry[] = [] {
+    outputs OutputEntry[] = [] {
         @doc value "are the entries that the slave receives."
     }
 
@@ -71,20 +95,34 @@ PDOs struct {
     @go marshal
 }
 
+Samples enum {
+    raw               = "raw" {
+        @doc value "are the samples that the slave sends."
+    }
+    calibrated        = "calibrated" {
+        @doc value "are the raw samples after the gain and offset of the slave."
+    }
+    scaled            = "scaled" {
+        @doc value "are the raw samples after the scale of the task."
+    }
+    calibrated_scaled = "calibrated_scaled" {
+        @doc value "are the calibrated samples after the scale of the task."
+    }
+
+    @doc value "is which samples of an input entry a channel holds."
+}
+
 ReadBinding struct {
-    index      uint16      {
+    index     uint16      {
         @doc value "is the CoE object dictionary index of the input entry."
     }
-    sub_index  uint8       {
+    sub_index uint8       {
         @doc value "is the CoE object dictionary sub-index of the input entry."
     }
-    scaled     bool = false {
-        @doc value "is whether the channel holds the scaled samples of the entry."
+    samples   Samples = raw {
+        @doc value "is which samples of the entry the channel holds."
     }
-    calibrated bool = false {
-        @doc value "is whether the channel holds the calibrated samples of the entry."
-    }
-    channel    channel.Key {
+    channel   channel.Key {
         @doc value         "is the channel that holds the samples of the entry."
         @validate required
     }
@@ -189,18 +227,18 @@ StartupParameter union on data_type extends StartupParameterBase {
 }
 
 WriteBinding struct {
-    index     uint16      {
+    index     uint16       {
         @doc value "is the CoE object dictionary index of the output entry."
     }
-    sub_index uint8       {
+    sub_index uint8        {
         @doc value "is the CoE object dictionary sub-index of the output entry."
     }
-    command   channel.Key {
+    command   channel.Key  {
         @doc value         "is the channel that commands the entry."
         @validate required
     }
-    state     channel.Key = 0 {
-        @doc value "is the channel that holds the state of the entry. 0 is no channel."
+    state     channel.Key? {
+        @doc value "is the channel that holds the state of the entry."
     }
 
     @doc value  "is the pair of channels that a slave maps for one output entry."
@@ -219,11 +257,8 @@ Slave struct {
         @doc value         "is a human-readable name for the slave."
         @validate required
     }
-    serial             uint64 = 0 {
-        @doc value    """
-            is the serial number of the slave. 0 when the slave reports none.
-        """
-        @validate max 9007199254740991
+    serial             uint32 = 0 {
+        @doc value "is the serial number of the slave. 0 when the slave reports none."
     }
     vendor_id          uint32              {
         @doc value "is the EtherCAT vendor ID of the slave."
@@ -253,10 +288,10 @@ Slave struct {
     startup_parameters StartupParameter[] = [] {
         @doc value "are the CoE objects the Driver writes to the slave in PRE-OP."
     }
-    read_index         channel.Key = 0 {
+    read_index         channel.Key?        {
         @doc value "is the index channel of the channels that the slave reads into."
     }
-    write_state_index  channel.Key = 0 {
+    write_state_index  channel.Key?        {
         @doc value "is the index channel of the state channels of the slave's outputs."
     }
     read_bindings      ReadBinding[] = [] {

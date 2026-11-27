@@ -22,11 +22,31 @@ type StatusDetails = versions.StatusDetails
 // Status is the operational status of a slave.
 type Status = versions.Status
 
-// PDOEntry is a PDO entry that a scan found on a slave.
+// PDOEntry holds the fields of a PDO entry that a scan found on a slave.
 type PDOEntry = versions.PDOEntry
+
+// InputEntry is an entry that the slave sends.
+type InputEntry = versions.InputEntry
+
+// OutputEntry is an entry that the slave receives.
+type OutputEntry = versions.OutputEntry
 
 // PDOs holds the PDO entries of a slave.
 type PDOs = versions.PDOs
+
+// Samples is which samples of an input entry a channel holds.
+type Samples = versions.Samples
+
+const (
+	// SamplesRaw are the samples that the slave sends.
+	SamplesRaw Samples = versions.SamplesRaw
+	// SamplesCalibrated are the raw samples after the gain and offset of the slave.
+	SamplesCalibrated Samples = versions.SamplesCalibrated
+	// SamplesScaled are the raw samples after the scale of the task.
+	SamplesScaled Samples = versions.SamplesScaled
+	// SamplesCalibratedScaled are the calibrated samples after the scale of the task.
+	SamplesCalibratedScaled Samples = versions.SamplesCalibratedScaled
+)
 
 // ReadBinding is the channel that a slave maps for one input entry.
 type ReadBinding = versions.ReadBinding

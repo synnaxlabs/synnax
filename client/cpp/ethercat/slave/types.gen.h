@@ -29,23 +29,28 @@
 namespace synnax::ethercat::slave {
 
 struct PDOEntry;
-struct ReadBinding;
 struct StartupParameterBase;
 struct WriteBinding;
 struct StatusDetails;
+struct InputEntry;
+struct OutputEntry;
+struct ReadBinding;
 struct PDOs;
 struct Slave;
 
+constexpr const char *SAMPLES_RAW = "raw";
+constexpr const char *SAMPLES_CALIBRATED = "calibrated";
+constexpr const char *SAMPLES_SCALED = "scaled";
+constexpr const char *SAMPLES_CALIBRATED_SCALED = "calibrated_scaled";
+
 using Key = x::uuid::UUID;
 
-/// @brief PDOEntry is a PDO entry that a scan found on a slave.
+/// @brief PDOEntry holds the fields of a PDO entry that a scan found on a slave.
 struct PDOEntry {
     /// @brief name is the name of the entry, such as Input.
     std::string name;
     /// @brief pdo_name is the name of the PDO that holds the entry, such as Channel 1.
-    std::string pdo_name = "";
-    /// @brief pdo_index is the index of the PDO that holds the entry, such as 0x1A00.
-    std::uint16_t pdo_index = 0;
+    std::optional<std::string> pdo_name;
     /// @brief index is the CoE object dictionary index of the entry.
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the entry.
@@ -56,24 +61,6 @@ struct PDOEntry {
     ::x::telem::DataType data_type;
 
     static PDOEntry parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ReadBinding is the channel that a slave maps for one input entry.
-struct ReadBinding {
-    /// @brief index is the CoE object dictionary index of the input entry.
-    std::uint16_t index = 0;
-    /// @brief sub_index is the CoE object dictionary sub-index of the input entry.
-    std::uint8_t sub_index = 0;
-    /// @brief scaled is whether the channel holds the scaled samples of the entry.
-    bool scaled = false;
-    /// @brief calibrated is whether the channel holds the calibrated samples of the
-    /// entry.
-    bool calibrated = false;
-    /// @brief channel is the channel that holds the samples of the entry.
-    ::synnax::channel::Key channel = 0;
-
-    static ReadBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -98,8 +85,8 @@ struct WriteBinding {
     std::uint8_t sub_index = 0;
     /// @brief command is the channel that commands the entry.
     ::synnax::channel::Key command = 0;
-    /// @brief state is the channel that holds the state of the entry. 0 is no channel.
-    ::synnax::channel::Key state = ::synnax::channel::Key(0);
+    /// @brief state is the channel that holds the state of the entry.
+    std::optional<::synnax::channel::Key> state;
 
     static WriteBinding parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -116,14 +103,23 @@ struct StatusDetails {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief PDOs holds the PDO entries of a slave.
-struct PDOs {
-    /// @brief inputs are the entries that the slave sends.
-    std::vector<PDOEntry> inputs = {};
-    /// @brief outputs are the entries that the slave receives.
-    std::vector<PDOEntry> outputs = {};
+/// @brief InputEntry is an entry that the slave sends.
+struct InputEntry : public PDOEntry {
+    /// @brief pdo_index is the index of the TxPDO that holds the entry, 0x1A00 to
+    /// 0x1BFF.
+    std::uint16_t pdo_index = 0;
 
-    static PDOs parse(x::json::Parser parser);
+    static InputEntry parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief OutputEntry is an entry that the slave receives.
+struct OutputEntry : public PDOEntry {
+    /// @brief pdo_index is the index of the RxPDO that holds the entry, 0x1600 to
+    /// 0x17FF.
+    std::uint16_t pdo_index = 0;
+
+    static OutputEntry parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -253,7 +249,33 @@ StartupParameter parse_startup_parameter(x::json::Parser parser);
     );
 }
 
+/// @brief ReadBinding is the channel that a slave maps for one input entry.
+struct ReadBinding {
+    /// @brief index is the CoE object dictionary index of the input entry.
+    std::uint16_t index = 0;
+    /// @brief sub_index is the CoE object dictionary sub-index of the input entry.
+    std::uint8_t sub_index = 0;
+    /// @brief samples is which samples of the entry the channel holds.
+    std::string samples = SAMPLES_RAW;
+    /// @brief channel is the channel that holds the samples of the entry.
+    ::synnax::channel::Key channel = 0;
+
+    static ReadBinding parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief PDOs holds the PDO entries of a slave.
+struct PDOs {
+    /// @brief inputs are the entries that the slave sends.
+    std::vector<InputEntry> inputs = {};
+    /// @brief outputs are the entries that the slave receives.
+    std::vector<OutputEntry> outputs = {};
+
+    static PDOs parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Slave is an EtherCAT slave: one module on the bus of a master.
 struct Slave {
@@ -264,7 +286,7 @@ struct Slave {
     /// @brief name is a human-readable name for the slave.
     std::string name;
     /// @brief serial is the serial number of the slave. 0 when the slave reports none.
-    std::uint64_t serial = 0;
+    std::uint32_t serial = 0;
     /// @brief vendor_id is the EtherCAT vendor ID of the slave.
     std::uint32_t vendor_id = 0;
     /// @brief product_code is the product code of the slave.
@@ -285,10 +307,10 @@ struct Slave {
     std::vector<StartupParameter> startup_parameters = {};
     /// @brief read_index is the index channel of the channels that the slave reads
     /// into.
-    ::synnax::channel::Key read_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> read_index;
     /// @brief write_state_index is the index channel of the state channels of the
     /// slave's outputs.
-    ::synnax::channel::Key write_state_index = ::synnax::channel::Key(0);
+    std::optional<::synnax::channel::Key> write_state_index;
     /// @brief read_bindings are the channels of the input entries.
     std::vector<ReadBinding> read_bindings = {};
     /// @brief write_bindings are the channels of the output entries.

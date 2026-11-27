@@ -38,7 +38,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	serial               *gorp.LookupIndex[Key, Slave, uint64]
+	serial               *gorp.LookupIndex[Key, Slave, uint32]
 	rack                 *gorp.KeyReference[Key, Slave, rack.Key]
 	master               *gorp.KeyReference[Key, Slave, master.Key]
 	readIndex            *gorp.KeyReference[Key, Slave, channel.Key]
@@ -54,9 +54,9 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		serial: gorp.NewLookupIndex[Key, Slave, uint64](
+		serial: gorp.NewLookupIndex[Key, Slave, uint32](
 			"serial",
-			func(e *Slave) uint64 { return e.Serial },
+			func(e *Slave) uint32 { return e.Serial },
 		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Slave, rack.Key]{
 			Name:     "rack",
@@ -92,14 +92,14 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *Slave) []channel.Key {
-				if e.ReadIndex == 0 {
+				if e.ReadIndex == nil {
 					return nil
 				}
-				return []channel.Key{e.ReadIndex}
+				return []channel.Key{*e.ReadIndex}
 			},
 			Retarget: func(e *Slave, from, to channel.Key) {
-				if e.ReadIndex == from {
-					e.ReadIndex = to
+				if e.ReadIndex != nil && *e.ReadIndex == from {
+					*e.ReadIndex = to
 				}
 			},
 		}),
@@ -109,14 +109,14 @@ func newIndexes() indexes {
 			OnDelete: gorp.Restrict,
 			Kind:     gorp.Use,
 			Targets: func(e *Slave) []channel.Key {
-				if e.WriteStateIndex == 0 {
+				if e.WriteStateIndex == nil {
 					return nil
 				}
-				return []channel.Key{e.WriteStateIndex}
+				return []channel.Key{*e.WriteStateIndex}
 			},
 			Retarget: func(e *Slave, from, to channel.Key) {
-				if e.WriteStateIndex == from {
-					e.WriteStateIndex = to
+				if e.WriteStateIndex != nil && *e.WriteStateIndex == from {
+					*e.WriteStateIndex = to
 				}
 			},
 		}),
@@ -184,23 +184,23 @@ func newIndexes() indexes {
 			Targets: func(e *Slave) []channel.Key {
 				var targets []channel.Key
 				for _, v1 := range e.WriteBindings {
-					if v1.State != 0 {
-						targets = append(targets, v1.State)
+					if v1.State != nil {
+						targets = append(targets, *v1.State)
 					}
 				}
 				return targets
 			},
 			Detach: func(e *Slave, t channel.Key) {
 				for i2 := range e.WriteBindings {
-					if e.WriteBindings[i2].State == t {
-						e.WriteBindings[i2].State = 0
+					if e.WriteBindings[i2].State != nil && *e.WriteBindings[i2].State == t {
+						e.WriteBindings[i2].State = nil
 					}
 				}
 			},
 			Retarget: func(e *Slave, from, to channel.Key) {
 				for i3 := range e.WriteBindings {
-					if e.WriteBindings[i3].State == from {
-						e.WriteBindings[i3].State = to
+					if e.WriteBindings[i3].State != nil && *e.WriteBindings[i3].State == from {
+						*e.WriteBindings[i3].State = to
 					}
 				}
 			},
@@ -321,7 +321,7 @@ func MatchNames(vals ...string) Filter {
 // MatchSerials returns a filter for
 // slaves whose Serial matches any of the
 // provided values.
-func MatchSerials(vals ...uint64) Filter {
+func MatchSerials(vals ...uint32) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Slave] {
 		return r.indexes.serial.Filter(vals...)
 	}
