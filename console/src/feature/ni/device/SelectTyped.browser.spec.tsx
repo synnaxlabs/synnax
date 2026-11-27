@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { deep, id } from "@synnaxlabs/x";
@@ -74,5 +75,27 @@ describe("NI.Device.TYPED_SOURCE", async () => {
     await waitFor(() => expect(screen.getByText(`rack:${rack.key}`)).toBeTruthy());
     expect((await findDialogTrigger()).textContent).toContain(dev.name);
     expect(onConfigure).not.toHaveBeenCalled();
+  });
+
+  it("should badge the selected device from its connected flag", async () => {
+    const dev = await create("dev2");
+    await renderSelect(vi.fn());
+    fireEvent.click(await findDialogTrigger());
+    fireEvent.click(await screen.findByText(dev.name));
+    await waitFor(async () =>
+      expect((await findDialogTrigger()).textContent).toContain("Disconnected"),
+    );
+    await client.statuses.set(
+      status.create<typeof ni.device.statusDetailsZ>({
+        owner: ni.device.resourceID(dev.key),
+        variant: "warning",
+        message: "Device connected",
+        details: { rack: rack.key, device: dev.key, connected: true },
+      }),
+    );
+    await waitFor(async () =>
+      expect((await findDialogTrigger()).textContent).toContain("Connected"),
+    );
+    expect((await findDialogTrigger()).textContent).not.toContain("Disconnected");
   });
 });

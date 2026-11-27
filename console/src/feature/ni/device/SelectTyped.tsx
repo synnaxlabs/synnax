@@ -10,13 +10,10 @@
 import "@/feature/ni/device/SelectTyped.css";
 
 import { ni } from "@synnaxlabs/client";
-import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
@@ -52,28 +49,11 @@ const ITEM_HEIGHT = 48;
 
 const DIALOG_PROPS = { className: CSS.BE("ni-device-select", "dialog") };
 
-// The Driver gives a typed device a success status while a scan finds it.
-const StatusBadge = ({ status }: Pick<ni.device.Device, "status">): ReactElement => {
-  const variant = status?.variant ?? "disabled";
-  return (
-    <Tooltip.Dialog location="bottom">
-      <Status.Summary
-        variant={variant}
-        message={status?.message ?? "Device status unknown"}
-        description={status?.description}
-        hideIcon
-        level="small"
-      />
-      <Badge.Badge status={variant}>
-        {variant === "success" ? "Connected" : "Disconnected"}
-      </Badge.Badge>
-    </Tooltip.Dialog>
-  );
-};
-
 const renderStatus = (entry: unknown): ReactElement | undefined => {
   const parsed = ni.device.deviceZ.safeParse(entry);
-  return parsed.success ? <StatusBadge status={parsed.data.status} /> : undefined;
+  return parsed.success ? (
+    <PDevice.StatusBadge status={parsed.data.status} />
+  ) : undefined;
 };
 
 const BASE_QUERY = { includeStatus: true } as const;
