@@ -21,7 +21,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // writerClocks returns the index channel of each group of the stored channels of keys,
@@ -73,6 +75,52 @@ func (s *Service) writerClocks(
 		clocks = append(clocks, index)
 	}
 	return clocks, raises, nil
+}
+
+// dropStored removes from clocks and raises each index of raises that holds data at or
+// after start, or after now when start is zero. A writer cannot open such an index, so
+// the data of its group takes its time from the stamps that the index stores.
+func (s *Service) dropStored(
+	ctx context.Context,
+	clocks channel.Keys,
+	raises map[channel.Key]control.Authority,
+	start telem.TimeStamp,
+) (channel.Keys, map[channel.Key]control.Authority, error) {
+	if start == 0 {
+		start = telem.Now()
+	}
+	for index := range raises {
+		stored, err := s.holdsData(ctx, index, start)
+		if err != nil {
+			return nil, nil, err
+		}
+		if stored {
+			delete(raises, index)
+			clocks = slices.DeleteFunc(
+				clocks,
+				func(k channel.Key) bool { return k == index },
+			)
+		}
+	}
+	return clocks, raises, nil
+}
+
+// holdsData reports whether index holds a sample at or after start.
+func (s *Service) holdsData(
+	ctx context.Context,
+	index channel.Key,
+	start telem.TimeStamp,
+) (found bool, err error) {
+	it, err := s.internal.OpenIterator(ctx, framer.IteratorConfig{
+		Keys:   channel.Keys{index},
+		Bounds: telem.TimeRange{Start: start, End: telem.TimeStampMax},
+	})
+	if err != nil {
+		return false, err
+	}
+	defer func() { err = errors.Combine(err, it.Close()) }()
+	found = it.SeekFirst() && it.Next(framer.IteratorAutoSpan)
+	return found, it.Error()
 }
 
 // authorityOf returns the authority that authorities give the key at position i.

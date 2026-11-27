@@ -317,9 +317,15 @@ class WriteFrameAdapter:
         for col, s in frame.items():
             if not isinstance(col, channel.Key):
                 continue
-            index = self._channels[col].index
-            if index not in self.clocks:
+            ch = self._channels[col]
+            index = ch.index
+            if ch.virtual or index == 0:
                 continue
+            if index not in self.clocks:
+                raise ValidationError(
+                    f"{ch.name} takes its time from the stamps that its index already "
+                    'stores, so the write cannot hold "time" for it'
+                )
             if index in frame.channels:
                 raise ValidationError(
                     f'The write holds "time" and the index channel {index}, which '

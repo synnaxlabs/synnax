@@ -979,6 +979,14 @@ func (s *Service) openWriter(
 	}); err != nil {
 		return nil, nil, err
 	}
+	if clocks, raises, err = s.dropStored(
+		ctx,
+		clocks,
+		raises,
+		req.Config.Start,
+	); err != nil {
+		return nil, nil, err
+	}
 	keys, authorities := withRaises(req.Config.Keys, authorities, clocks, raises)
 
 	w, err := s.internal.NewStreamWriter(ctx, framer.WriterConfig{
