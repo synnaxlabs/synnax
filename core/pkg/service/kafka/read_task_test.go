@@ -642,7 +642,10 @@ var _ = Describe("Read task", func() {
 				Group: "kafka-" + t.Key.String(),
 				Err:   kerr.GroupAuthorizationFailed,
 			}).Remove)
-			start(ctx, dt, t)
+			// The join can fail before the start status is read, so only the failure
+			// status is checked.
+			cmd := task.Command{Task: t.Key, Type: "start", Key: "cmd-2"}
+			Expect(dt.Exec(ctx, cmd)).To(Succeed())
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx, t)
 				g.Expect(stat.Message).To(Equal("Failed to run task"))

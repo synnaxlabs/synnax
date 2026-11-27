@@ -11,6 +11,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
+#include <limits>
 #include <string>
 #include <system_error>
 #include <vector>
@@ -30,6 +31,7 @@
 #include "driver/codec/errors.h"
 #include "driver/codec/json.h"
 #include "driver/codec/testutil/fixture.h"
+#include "driver/codec/text.h"
 
 namespace driver::codec {
 namespace {
@@ -38,8 +40,8 @@ using testutil::raw_at;
 using testutil::required_at;
 using testutil::string_at;
 
-/// @brief the Core's encode fixtures. Each holds one JSON message and either the error
-/// that creating an encoder for it returns, or the samples it encodes.
+/// @brief the Core's encode fixtures. Each holds one JSON or text message and either
+/// the error that creating an encoder for it returns, or the samples it encodes.
 const std::filesystem::path FIXTURES = "core/pkg/service/icd/testdata/encode";
 
 /// @brief returns the integer that raw, the text of a JSON integer, holds exactly.
@@ -52,12 +54,21 @@ T integer_of(const std::string &raw) {
     return v;
 }
 
+/// @brief returns the float that raw holds: a JSON number, or a string for NaN,
+/// Infinity, and -Infinity.
+double float_of(const std::string &raw) {
+    if (raw == "\"NaN\"") return std::numeric_limits<double>::quiet_NaN();
+    if (raw == "\"Infinity\"") return std::numeric_limits<double>::infinity();
+    if (raw == "\"-Infinity\"") return -std::numeric_limits<double>::infinity();
+    return ASSERT_NIL_P(x::json::parse_float64(raw));
+}
+
 /// @brief returns the series of dt that holds the sample raw, or an empty series for
 /// null. An integer reads without a double, which holds only 53 bits.
 x::telem::Series sample_of(const x::telem::DataType &dt, const std::string &raw) {
     if (raw == "null") return {dt, std::size_t{0}};
     if (dt == x::telem::FLOAT64_T || dt == x::telem::FLOAT32_T)
-        return x::telem::Series(dt.cast(ASSERT_NIL_P(x::json::parse_float64(raw))), dt);
+        return x::telem::Series(dt.cast(float_of(raw)), dt);
     if (dt == x::telem::INT64_T || dt == x::telem::INT32_T || dt == x::telem::INT16_T ||
         dt == x::telem::INT8_T || dt == x::telem::TIMESTAMP_T)
         return x::telem::Series(dt.cast(integer_of<std::int64_t>(raw)), dt);
@@ -83,9 +94,10 @@ x::telem::Series sample_of(const x::telem::DataType &dt, const std::string &raw)
 }
 
 /// @brief checks the encode of one case of a fixture.
+template<typename Encoder, typename Message>
 void check_case(
-    JSONEncoder &enc,
-    const JSONMessage &message,
+    Encoder &enc,
+    const Message &message,
     const std::string &doc,
     const std::string &c
 ) {
@@ -124,15 +136,14 @@ void check_case(
     );
 }
 
-/// @brief checks that an encoder for the message of the fixture at path encodes the
-/// samples of its cases, or fails to create with its error.
-void check_fixture(const std::filesystem::path &path) {
-    const auto doc = testutil::read_fixture(path);
-    ASSERT_FALSE(string_at(doc, "/description").empty());
-    const auto message = testutil::parse_message(
+/// @brief checks that an Encoder for the message of doc encodes the samples of its
+/// cases, or fails to create with its error.
+template<typename Encoder, typename Message>
+void check_codec(const std::string &doc) {
+    const auto message = testutil::parse_message<Message>(
         nlohmann::json::parse(required_at(doc, "/message"))
     );
-    auto [enc, err] = JSONEncoder::create(message);
+    auto [enc, err] = Encoder::create(message);
     if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
         ASSERT_EQ(err.data, error_data(expected));
@@ -144,6 +155,20 @@ void check_fixture(const std::filesystem::path &path) {
         SCOPED_TRACE("case " + std::to_string(i));
         check_case(enc, message, doc, "/cases/" + std::to_string(i));
     }
+}
+
+/// @brief checks the fixture at path with the encoder of the payload format of its
+/// message.
+void check_fixture(const std::filesystem::path &path) {
+    const auto doc = testutil::read_fixture(path);
+    ASSERT_FALSE(string_at(doc, "/description").empty());
+    const auto format = string_at(doc, "/message/payload/format");
+    if (format == "json")
+        check_codec<JSONEncoder, JSONMessage>(doc);
+    else if (format == "text")
+        check_codec<TextEncoder, TextMessage>(doc);
+    else
+        FAIL() << "unknown payload format " << format;
 }
 }
 
