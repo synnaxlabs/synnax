@@ -696,10 +696,10 @@ jobs:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
-  # The EtherCAT bus runs on its own thread, and a streamer can set its channels
-  # while it reads, so their suites also run under TSan. The GCC TSan runtime on the
-  # build bots aborts on the kernel's address randomization, so the tests run with it
-  # off.
+  # The EtherCAT bus runs on its own thread, a streamer can set its channels while it
+  # reads, and the Arc loop wakes from another thread, so their suites also run under
+  # TSan. The GCC TSan runtime on the build bots aborts on the kernel's address
+  # randomization, so the tests run with it off.
   driver-tsan:
     needs: [changes, core-image]
     if:
@@ -710,7 +710,9 @@ jobs:
       apt_packages: libsystemd-dev
       core_image: ${{ needs.core-image.outputs.image }}
       sanitizers: false
-      targets: //client/cpp/framer:framer_test //driver/ethercat/...
+      targets: >-
+        //arc/cpp/runtime/loop:loop_test //client/cpp/framer:framer_test
+        //driver/ethercat/...
       test_flags: --config=tsan-no-aslr
       test_tags: -hardware
     secrets:
