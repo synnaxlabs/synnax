@@ -329,7 +329,9 @@ declared with `await using` closes when its block ends.
 <Field.Item name="keepAlive" id="typescript-keep-alive" type="TimeSpan" default="5 s">
   How often the Core tells the streamer that the connection is alive. When three
   intervals pass with no message, `read` throws. The value must be at least 2 s. With
-  `TimeSpan.ZERO`, `read` waits with no limit.
+  `TimeSpan.ZERO`, the streamer has no deadline of its own, and only the
+  [`streamKeepAlive`](/reference/client/connect#typescript-stream-keep-alive) of its
+  client applies.
 </Field.Item>
 
 </Field.List>

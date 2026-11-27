@@ -107,6 +107,17 @@ export const synnaxParamsZ = z.object({
    * sets no limit.
    */
   streamOpenTimeout: TimeSpan.z.optional(),
+  /**
+   * How an open stream detects a stalled connection. The Core sends a keep-alive every
+   * interval (5 s, at least 1 s), and a stream that receives nothing for the timeout
+   * (three intervals) fails with Unreachable. The timeout must be longer than the
+   * interval and cover the largest message on the slowest link. A zero interval turns
+   * it off.
+   */
+  streamKeepAlive: z
+    .object({ interval: TimeSpan.z, timeout: TimeSpan.z })
+    .partial()
+    .optional(),
   cache: z.boolean().default(true),
   /**
    * Receives cache errors that have no caller to throw to (listener fan-out, streamer
@@ -372,6 +383,7 @@ export default class Synnax extends framer.Client {
       onRetry: parsedParams.onRetry,
       connector,
       streamOpenTimeout: parsedParams.streamOpenTimeout,
+      streamKeepAlive: parsedParams.streamKeepAlive,
     });
     transport.use(errorsMiddleware);
     const tokenless = new Transport({ url: address, secure, connector });

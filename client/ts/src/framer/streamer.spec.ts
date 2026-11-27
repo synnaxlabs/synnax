@@ -958,6 +958,7 @@ describe("Streamer", () => {
     it("should leave a silent read pending when keep-alive is disabled", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
         onRetry: quiet,
+        streamKeepAlive: { interval: TimeSpan.ZERO },
       });
       const ch = await newVirtualChannel(client);
       const streamer = await proxied.openStreamer({
@@ -966,7 +967,7 @@ describe("Streamer", () => {
       });
       await sleep.sleep(TimeSpan.milliseconds(250));
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-      // Without keep-alives the read has no deadline, so it hangs.
+      // With both keep-alives off the read has no deadline, so it hangs.
       const pending = streamer.read();
       pending.catch(() => {});
       const result = await Promise.race([

@@ -842,6 +842,16 @@ A Node.js script does not exit until you close the client.
   `maxInterval`, `maxRetries` (5), `scale` (1), and `jitter` (0).
 </Field.Item>
 
+<Field.Item name="streamKeepAlive" id="typescript-stream-keep-alive" type="object">
+  How each open stream, such as a streamer or a writer, detects a lost connection. The
+  Core sends a keep-alive message every `interval` (5 s, at least 1 s). A stream that
+  receives no message for `timeout` (three intervals) fails with `Unreachable`. The
+  timeout must be longer than the interval, and long enough to receive the largest
+  message, such as an iterator frame, on the slowest link. With an `interval` of
+  `TimeSpan.ZERO`, a stream waits with no limit, except a streamer, whose own
+  [`keepAlive`](/reference/client/stream-data#typescript-keep-alive) still applies.
+</Field.Item>
+
 <Field.Item name="cache" id="typescript-cache" type="boolean" default="true">
   Keep retrieved resources in memory and update them as they change on the Core.
 </Field.Item>

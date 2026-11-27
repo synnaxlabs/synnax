@@ -35,6 +35,7 @@ export { type UnaryClient, unaryWithBreaker } from "@/unary";
 export type { WebsocketMessage } from "@/websocket";
 export {
   type FlowControl,
+  type KeepAlive,
   WebSocketClient,
   type WebSocketClientConfig,
 } from "@/websocket";

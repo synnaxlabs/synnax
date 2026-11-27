@@ -20,6 +20,7 @@ import {
   type Context,
   EOF,
   type FlowControl,
+  type KeepAlive,
   ReceiveOverflow,
   type Socket,
   subprotocols,
@@ -297,16 +298,19 @@ describe("local server", () => {
 
   let server: WebSocketServer;
   let connected: Promise<Connection>;
+  let sendOpenAck: (ws: WebSocket) => void;
 
   const dial = async (
     flowControl: Partial<FlowControl>,
     codec: binary.Codec = new binary.JSONCodec(),
+    keepAlive: Partial<KeepAlive> = {},
   ) => {
     const { port } = server.address() as AddressInfo;
     const c = new WebSocketClient({
       endpoint: new url.URL({ host: "127.0.0.1", port }),
       codec,
       flowControl,
+      keepAlive,
     });
     return await c.stream("stream", messageSchema, messageSchema);
   };
@@ -314,11 +318,15 @@ describe("local server", () => {
   const sendData = (ws: WebSocket, payload: z.infer<typeof messageSchema>) =>
     ws.send(Buffer.from(JSON.stringify({ type: "data", payload })));
 
+  const OPEN_ACK = Buffer.from(JSON.stringify({ type: "open", payload: null }));
+  const KEEP_ALIVE_MESSAGE = '{"type":"keep_alive"}';
+
   beforeEach(async () => {
     server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
+    sendOpenAck = (ws) => ws.send(OPEN_ACK);
     connected = new Promise((resolve) =>
       server.on("connection", (ws, req) => {
-        ws.send(Buffer.from(JSON.stringify({ type: "open", payload: null })));
+        sendOpenAck(ws);
         resolve({ ws, req });
       }),
     );
@@ -458,6 +466,114 @@ describe("local server", () => {
       vi.useRealTimers();
     }
     await expect.poll(() => received).toEqual([0, 1, 2]);
+  });
+
+  describe("keep-alive", () => {
+    const TIMEOUT = TimeSpan.milliseconds(200);
+    const keepAlive = { interval: TimeSpan.milliseconds(50), timeout: TIMEOUT };
+
+    const createClient = (config: Partial<KeepAlive>): WebSocketClient =>
+      new WebSocketClient({ endpoint, codec: binary.JSON_CODEC, keepAlive: config });
+
+    const sendKeepAliveFirst = (ws: WebSocket): void => {
+      ws.send(KEEP_ALIVE_MESSAGE);
+      ws.send(OPEN_ACK);
+    };
+
+    test("should ask for the interval in the URL", async () => {
+      await dial({}, undefined, { interval: TimeSpan.seconds(2) });
+      const { req } = await connected;
+      expect(req.url).toContain("freighterctxkeep_alive=2000000000");
+    });
+
+    test("should default the timeout to three intervals", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, {
+        interval: TimeSpan.milliseconds(100),
+      });
+      const started = performance.now();
+      await expect(stream.receive()).rejects.toThrow(
+        "stream received no message for 300ms",
+      );
+      expect(performance.now() - started).toBeGreaterThanOrEqual(250);
+    });
+
+    test("should reject a timeout that is not longer than the interval", () => {
+      expect(() =>
+        createClient({ interval: TimeSpan.seconds(20), timeout: TimeSpan.seconds(15) }),
+      ).toThrow("keep-alive timeout 15s must be longer than the interval 20s");
+    });
+
+    test("should reject a negative interval", () => {
+      expect(() => createClient({ interval: TimeSpan.seconds(-1) })).toThrow(
+        "keep-alive interval -1s is negative",
+      );
+    });
+
+    test("should not fail a stream when the timeout sets no limit", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, {
+        interval: TimeSpan.milliseconds(50),
+        timeout: Infinity,
+      });
+      const { ws } = await connected;
+      await sleep.sleep(TimeSpan.milliseconds(200));
+      sendData(ws, { id: 1 });
+      expect(await stream.receive()).toEqual({ id: 1 });
+    });
+
+    test("should not ask for keep-alives with a zero interval", async () => {
+      await dial({}, undefined, { interval: TimeSpan.ZERO });
+      const { req } = await connected;
+      expect(req.url).not.toContain("keep_alive");
+    });
+
+    test("should fail a stalled stream with Unreachable", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, keepAlive);
+      const started = performance.now();
+      await expect(stream.receive()).rejects.toSatisfy(
+        (err) =>
+          Unreachable.matches(err) &&
+          err.message === `stream received no message for ${TIMEOUT.toString()}` &&
+          err.url.port === (server.address() as AddressInfo).port,
+      );
+      expect(performance.now() - started).toBeGreaterThanOrEqual(
+        TIMEOUT.milliseconds - 50,
+      );
+      await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+    });
+
+    test("should keep a stream open while keep-alives arrive", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, keepAlive);
+      const { ws } = await connected;
+      const ticker = setInterval(() => ws.send(KEEP_ALIVE_MESSAGE), 50);
+      try {
+        await sleep.sleep(TIMEOUT.mult(3));
+        sendData(ws, { id: 1 });
+        expect(await stream.receive()).toEqual({ id: 1 });
+        expect(stream.received()).toBe(false);
+      } finally {
+        clearInterval(ticker);
+      }
+    });
+
+    test("should not fail a stream when the server sends no keep-alives", async () => {
+      const stream = await dial({}, undefined, keepAlive);
+      const { ws } = await connected;
+      await sleep.sleep(TIMEOUT.mult(2));
+      sendData(ws, { id: 1 });
+      expect(await stream.receive()).toEqual({ id: 1 });
+    });
+
+    test("should fail the stream on a text message that is not a keep-alive", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, keepAlive);
+      const { ws } = await connected;
+      ws.send("hello");
+      await expect(stream.receive()).rejects.toThrow("unexpected text message: hello");
+    });
   });
 
   describe("authorization", () => {

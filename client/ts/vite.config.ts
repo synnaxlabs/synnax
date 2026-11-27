@@ -34,6 +34,7 @@ const NODE_SPECS = [
   "src/channel/channel.spec.ts",
   "src/connection/downtime.spec.ts",
   "src/task/task.spec.ts",
+  "src/transport/keepAlive.spec.ts",
   // Listen for unhandled rejections on `process`.
   "src/framer/cache/streamer/streamer.spec.ts",
   // Read the filter vectors from the file system.
