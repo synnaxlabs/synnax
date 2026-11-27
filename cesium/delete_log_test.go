@@ -191,9 +191,10 @@ var _ = Describe("Delete on the pointer log", func() {
 			for i := range seconds {
 				seconds[i], ints[i] = telem.TimeStamp(from+i), int64(from+i)
 			}
-			series := []telem.Series{telem.NewSeriesSecondsTSV(seconds...)}
-			for range on[1:] {
-				series = append(series, telem.NewSeries(ints))
+			series := make([]telem.Series, len(on))
+			series[0] = telem.NewSeriesSecondsTSV(seconds...)
+			for i := range on[1:] {
+				series[i+1] = telem.NewSeries(ints)
 			}
 			w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: on,

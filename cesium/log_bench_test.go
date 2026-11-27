@@ -110,36 +110,7 @@ func BenchmarkSeekPointerLogUnderWrite(b *testing.B) {
 	)); err != nil {
 		b.Fatal(err)
 	}
-	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
-		Channels: keys,
-		Clock:    keys[0],
-		Start:    stamps[n-1] + 1,
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
-	done, written := make(chan struct{}), make(chan error, 1)
-	go func() {
-		for stamp := stamps[n-1] + 1; ; stamp++ {
-			select {
-			case <-done:
-				written <- w.Close()
-				return
-			default:
-			}
-			_, _, err := w.Write(b.Context(), telem.MultiFrame(keys, []telem.Series{
-				telem.NewSeriesV(stamp),
-				telem.NewSeriesV[float32](0),
-			}), nil)
-			if err == nil {
-				_, _, err = w.Commit(b.Context(), nil)
-			}
-			if err != nil {
-				written <- errors.Join(err, w.Close())
-				return
-			}
-		}
-	}()
+	stop := commitInLoop(b, db, keys, stamps[n-1]+1)
 	b.ReportAllocs()
 	b.ResetTimer()
 	var wg sync.WaitGroup
@@ -167,9 +138,53 @@ func BenchmarkSeekPointerLogUnderWrite(b *testing.B) {
 	}
 	wg.Wait()
 	b.StopTimer()
-	close(done)
-	if err := <-written; err != nil {
+	if err := stop(); err != nil {
 		b.Fatal(err)
+	}
+}
+
+// commitInLoop writes and commits one sample of the channels that createBenchChannels
+// creates, from stamp from on, in a loop until the returned function stops it.
+func commitInLoop(
+	b *testing.B,
+	db *cesium.DB,
+	keys []cesium.ChannelKey,
+	from telem.TimeStamp,
+) (stop func() error) {
+	b.Helper()
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels: keys,
+		Clock:    keys[0],
+		Start:    from,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	done, written := make(chan struct{}), make(chan error, 1)
+	go func() {
+		for stamp := from; ; stamp++ {
+			select {
+			case <-done:
+				written <- w.Close()
+				return
+			default:
+			}
+			_, _, err := w.Write(b.Context(), telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesV(stamp),
+				telem.NewSeriesV[float32](0),
+			}), nil)
+			if err == nil {
+				_, _, err = w.Commit(b.Context(), nil)
+			}
+			if err != nil {
+				written <- errors.Join(err, w.Close())
+				return
+			}
+		}
+	}()
+	return func() error {
+		close(done)
+		return <-written
 	}
 }
 
