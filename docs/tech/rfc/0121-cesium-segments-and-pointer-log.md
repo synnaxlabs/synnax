@@ -1028,19 +1028,24 @@ second read. No storage fault stops a running Core: Cesium's `Run` never ends fo
 write, sync, or `SyncDir` error, and a writer that cannot store gets the error, as on
 `main` (§5.4). After a sync error on the log in use, `g`, the log owner never writes or
 syncs that log again and acks nothing more, as a failed sync leaves its bytes unknown
-(fault 7). Each writer takes §5.4 step 4 for its unacked entries, every later `Sync`
-returns the error until the next start, `Close` returns it and releases its claims
-(§4.2), and the Core raises a status that says storage is failing and that a restart
-after the disk is fixed resumes writes. `Run` goes on, and reads and other work go on. A
-failed header sync of a switch log is a sync error on `g`: the log owner removes that
-file and sends no switch request. At the next start, a frame whose sync failed is
-replayed when it is valid on disk, as `main` keeps a write whose fsync failed; no later
-frame was written, so the log stays a prefix of entry order. A crash in that time loses
-the commits since the last durable entry. At start, the Core gets past damage by itself:
-when `Open` returns `ErrCorrupt`, the Core runs `cesium.Repair` (§6.0) with a confirm
-that accepts, raises a warning status that lists what repair could not save, and opens
-again. A repair that fails fails the start. The identity refusal (§9.0) is its own
-error, and the Core never repairs past it. Cesium does not panic.
+(fault 7). A log file is written whole before use (§5.2), so only EIO, or a full disk on
+a copy-on-write file system, reaches this path. A full disk on any other file system
+never does: the next log's file fails to be made, which is the refusal of §5.2 that each
+`Sync` tries again, and a segment's write or sync fails only its clock write (§5.4), so
+writes go on with no restart once space frees. Each writer takes §5.4 step 4 for its
+unacked entries, every later `Sync` returns the error until the next start, `Close`
+returns it and releases its claims (§4.2), and the Core raises a status that says
+storage is failing and that a restart after the disk is fixed resumes writes. `Run` goes
+on, and reads and other work go on. A failed header sync of a switch log is a sync error
+on `g`: the log owner removes that file and sends no switch request. At the next start,
+a frame whose sync failed is replayed when it is valid on disk, as `main` keeps a write
+whose fsync failed; no later frame was written, so the log stays a prefix of entry
+order. A crash in that time loses the commits since the last durable entry. At start,
+the Core gets past damage by itself: when `Open` returns `ErrCorrupt`, the Core runs
+`cesium.Repair` (§6.0) with a confirm that accepts, raises a warning status that lists
+what repair could not save, and opens again. A repair that fails fails the start. The
+identity refusal (§9.0) is its own error, and the Core never repairs past it. Cesium
+does not panic.
 
 | Fault                                                                                         | What the engine sees                                                                                              | What it does                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
