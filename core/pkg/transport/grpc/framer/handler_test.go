@@ -389,6 +389,23 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(req.AckRequested).To(BeTrue())
 		})
 
+		It("Should receive the untimed keys of a request", func(ctx SpecContext) {
+			timed := createVirtualChannel(ctx, telem.Int64T)
+			untimed := createVirtualChannel(ctx, telem.Int64T)
+			requests, _ := serve(transport.FrameStreamer, 1)
+			exchange(
+				MustSucceed(client.Exec(ctx)),
+				0,
+				&grpcframer.StreamerRequest{
+					Keys:        append(timed, untimed...).Uint32(),
+					UntimedKeys: untimed.Uint32(),
+				},
+			)
+			var req framer.StreamerRequest
+			Eventually(requests).Should(Receive(&req))
+			Expect(req.UntimedKeys).To(Equal(untimed))
+		})
+
 		It("Should receive a request for missed markers", func(ctx SpecContext) {
 			requests, _ := serve(transport.FrameStreamer, 1)
 			exchange(
@@ -472,6 +489,17 @@ var _ = Describe("gRPC Framer Transport", func() {
 			Expect(
 				fr.SeriesAt(0),
 			).To(MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+		})
+
+		It("Should receive the untimed keys of a request", func(ctx SpecContext) {
+			keys := createVirtualChannel(ctx, telem.Int32T)
+			requests, _ := serve(transport.FrameIterator, 1)
+			open := openRequest(keys)
+			open.UntimedKeys = keys.Uint32()
+			exchange(MustSucceed(client.Exec(ctx)), 0, open)
+			var req framer.IteratorRequest
+			Eventually(requests).Should(Receive(&req))
+			Expect(req.UntimedKeys).To(Equal(keys))
 		})
 
 		It("Should send an ack without a buffer", func(ctx SpecContext) {

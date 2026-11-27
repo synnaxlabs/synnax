@@ -202,33 +202,41 @@ var _ = Describe("Read", func() {
 				To(Equal("application/vnd.synnax.frame"))
 		})
 
-		It("Should encode the read as data records and an empty terminator", func(
-			ctx SpecContext,
-		) {
-			index, channels := createIndexed(ctx, telem.Float32T)
-			write(
-				ctx,
-				index,
-				telem.NewSeriesSecondsTSV(1, 2, 3),
-				channels,
-				telem.NewSeriesV[float32](1, 2, 3),
-			)
-			b := MustSucceed(
-				framer.NewFrameEncoder(ctx, errors.NewCodec()).
-					Encode(read(ctx, index, channels...)),
-			)
-			data, terminator := splitRecords(b)
-			Expect(terminator).To(BeEmpty())
-			Expect(data).To(HaveLen(1))
-			c := codec.NewStatic(
-				svcchannel.KeysFromChannels(channels),
-				[]telem.DataType{telem.Float32T},
-			)
-			fr := MustSucceed(c.Decode(data[0]))
-			Expect(fr.Count()).To(Equal(1))
-			Expect(fr.Get(channels[0].Key()).Series[0]).
-				To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
-		})
+		It(
+			"Should encode the read and its time as records and an empty terminator",
+			func(ctx SpecContext) {
+				index, channels := createIndexed(ctx, telem.Float32T)
+				write(
+					ctx,
+					index,
+					telem.NewSeriesSecondsTSV(1, 2, 3),
+					channels,
+					telem.NewSeriesV[float32](1, 2, 3),
+				)
+				b := MustSucceed(
+					framer.NewFrameEncoder(ctx, errors.NewCodec()).
+						Encode(read(ctx, index, channels...)),
+				)
+				data, terminator := splitRecords(b)
+				Expect(terminator).To(BeEmpty())
+				Expect(data).To(HaveLen(1))
+				c := codec.NewStatic(
+					svcchannel.KeysFromChannels(channels),
+					[]telem.DataType{telem.Float32T},
+				)
+				fr := MustSucceed(c.Decode(data[0]))
+				Expect(fr.Count()).To(Equal(2))
+				values := fr.Get(channels[0].Key()).Series[0]
+				Expect(
+					values,
+				).To(MatchWrittenSeries(telem.NewSeriesV[float32](1, 2, 3)))
+				stamps := fr.Get(index.Key()).Series[0]
+				Expect(stamps).To(MatchSeriesDataV[telem.TimeStamp](
+					telem.SecondTS, 2*telem.SecondTS, 3*telem.SecondTS,
+				))
+				Expect(stamps.AlignmentBounds()).To(Equal(values.AlignmentBounds()))
+			},
+		)
 
 		It("Should encode the alignment multiples of a limited read", func(
 			ctx SpecContext,
