@@ -83,8 +83,8 @@ func (i *Iterator) Prev(span telem.TimeSpan) bool {
 
 // NextChunks reads the next span of time as Next does, and hands the data to emit in
 // chunks, in time order, instead of keeping it as Value. WithChunkSize and
-// AutoChunkSize set the size of a chunk. It returns whether any channel moved, and the
-// error of emit or of an index lookup.
+// AutoChunkSize set the size of a chunk. It returns whether any channel moved, or false
+// and the error of emit or of an index lookup.
 func (i *Iterator) NextChunks(
 	ctx context.Context,
 	span telem.TimeSpan,
@@ -297,7 +297,7 @@ func (i *Iterator) readInChunks(
 			probed.Add(idx)
 			chunkEnd, err := u.EndAfter(ctx, n)
 			if err != nil {
-				return ok, err
+				return false, err
 			}
 			end = min(end, chunkEnd)
 		}
