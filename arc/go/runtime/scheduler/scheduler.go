@@ -210,6 +210,7 @@ type ScopeHandler func(ctx context.Context, paths [][]string)
 // top-level scope never calls it.
 func (s *Scheduler) SetScopeHandler(handler ScopeHandler) {
 	s.scopeHandler = handler
+	s.scopesChanged, s.pathsReported = true, false
 }
 
 // ActivePaths returns the path of each active top-level scope, in program order. A path

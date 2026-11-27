@@ -4184,6 +4184,18 @@ var _ = Describe("Scheduler", func() {
 		)
 
 		It(
+			"Should report the paths to a handler that replaces another",
+			func(ctx SpecContext) {
+				s, _, _ := buildSeq()
+				s.SetScopeHandler(func(context.Context, [][]string) {})
+				tick(ctx, s)
+				s.SetScopeHandler(record)
+				tick(ctx, s)
+				Expect(reports).To(Equal([][][]string{{{"main", "first"}}}))
+			},
+		)
+
+		It(
 			"Should not report a program with no top-level scope",
 			func(ctx SpecContext) {
 				mock("a")
