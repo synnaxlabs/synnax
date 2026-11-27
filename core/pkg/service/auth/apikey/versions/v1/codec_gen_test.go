@@ -42,7 +42,7 @@ var _ = Describe("Codec", func() {
 				Hash:    []byte{5, 6, 7},
 				Name:    "test_6",
 				Created: telem.TimeStamp(8),
-				Expires: new(telem.TimeStamp(9)),
+				Expires: telem.TimeStamp(9),
 			}),
 			Entry("zero values", v1.APIKey{
 				Key:     uuid.Nil(),
@@ -50,7 +50,7 @@ var _ = Describe("Codec", func() {
 				Hash:    nil,
 				Name:    "",
 				Created: telem.TimeStamp(0),
-				Expires: nil,
+				Expires: telem.TimeStamp(0),
 			}),
 		)
 	})
@@ -63,7 +63,7 @@ func BenchmarkEncodeDecodeAPIKey(b *testing.B) {
 		Hash:    []byte{5, 6, 7},
 		Name:    "test_6",
 		Created: telem.TimeStamp(8),
-		Expires: new(telem.TimeStamp(9)),
+		Expires: telem.TimeStamp(9),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -88,7 +88,7 @@ func FuzzDecodeAPIKey(f *testing.F) {
 			Hash:    []byte{5, 6, 7},
 			Name:    "test_6",
 			Created: telem.TimeStamp(8),
-			Expires: new(telem.TimeStamp(9)),
+			Expires: telem.TimeStamp(9),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -103,7 +103,7 @@ func FuzzDecodeAPIKey(f *testing.F) {
 			Hash:    nil,
 			Name:    "",
 			Created: telem.TimeStamp(0),
-			Expires: nil,
+			Expires: telem.TimeStamp(0),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

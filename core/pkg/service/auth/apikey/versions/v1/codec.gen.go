@@ -28,12 +28,7 @@ func (apik APIKey) EncodeOrc(w *orc.Writer) error {
 	}
 	w.String(apik.Name)
 	w.Int64(int64(apik.Created))
-	if apik.Expires != nil {
-		w.Bool(true)
-		w.Int64(int64(*apik.Expires))
-	} else {
-		w.Bool(false)
-	}
+	w.Int64(int64(apik.Expires))
 	return nil
 }
 
@@ -69,21 +64,11 @@ func (apik *APIKey) DecodeOrc(r *orc.Reader) error {
 		apik.Created = telem.TimeStamp(rawV)
 	}
 	{
-		present, err := r.Bool()
+		rawV, err := r.Int64()
 		if err != nil {
 			return err
 		}
-		if present {
-			var hv telem.TimeStamp
-			{
-				rawV, err := r.Int64()
-				if err != nil {
-					return err
-				}
-				hv = telem.TimeStamp(rawV)
-			}
-			apik.Expires = &hv
-		}
+		apik.Expires = telem.TimeStamp(rawV)
 	}
 	return nil
 }

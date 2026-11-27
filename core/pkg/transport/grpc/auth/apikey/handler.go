@@ -72,30 +72,24 @@ var (
 )
 
 func apiKeyForward(k apikey.APIKey) *grpcauth.APIKey {
-	pb := &grpcauth.APIKey{
+	return &grpcauth.APIKey{
 		Key:     k.Key.String(),
 		Subject: grpcauth.SubjectForward(k.Subject),
 		Name:    k.Name,
 		Created: int64(k.Created),
+		Expires: int64(k.Expires),
 	}
-	if k.Expires != nil {
-		pb.Expires = new(int64(*k.Expires))
-	}
-	return pb
 }
 
 func (createRequestTranslator) Backward(
 	_ context.Context,
 	r *grpcauth.APIKeyCreateRequest,
 ) (apikey.CreateRequest, error) {
-	req := apikey.CreateRequest{
+	return apikey.CreateRequest{
 		Subject: grpcauth.SubjectBackward(r.Subject),
 		Name:    r.Name,
-	}
-	if r.Expires != nil {
-		req.Expires = new(telem.TimeStamp(*r.Expires))
-	}
-	return req, nil
+		Expires: telem.TimeStamp(r.Expires),
+	}, nil
 }
 
 func (createResponseTranslator) Forward(

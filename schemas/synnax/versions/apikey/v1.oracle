@@ -13,7 +13,7 @@ import "schemas/x/versions/telem/v0"
 Key = v0.Key
 
 APIKey struct extends v0.APIKey {
-    expires telem.TimeStamp? {
-        @doc value "is when the key stops logging in. Absent means never."
+    expires telem.TimeStamp {
+        @doc value "is when the key stops logging in. TimeStamp max means never."
     }
 }

@@ -42,7 +42,7 @@ func create(
 		token string
 	)
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-		k, token, err = svc.NewWriter(tx).Create(ctx, sub, name, nil)
+		k, token, err = svc.NewWriter(tx).Create(ctx, sub, name, 0)
 		return err
 	})).To(Succeed())
 	return k, token
@@ -110,7 +110,7 @@ var _ = Describe("Service", func() {
 		})
 		It("Should reject an invalid subject", func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				_, _, err := svc.NewWriter(tx).Create(ctx, resource.ID{}, "", nil)
+				_, _, err := svc.NewWriter(tx).Create(ctx, resource.ID{}, "", 0)
 				return err
 			})).
 				To(MatchError(ContainSubstring("subject")))
@@ -193,12 +193,12 @@ var _ = Describe("Service", func() {
 			sub := subject()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 				k, token, err = svc.NewWriter(tx).
-					Create(ctx, sub, "expiring", new(expires))
+					Create(ctx, sub, "expiring", expires)
 				return err
 			})).To(Succeed())
 		})
 		It("Should store the expiry", func() {
-			Expect(k.Expires).To(HaveValue(Equal(expires)))
+			Expect(k.Expires).To(Equal(expires))
 		})
 		It("Should log in until the key expires", func(ctx SpecContext) {
 			clock.Advance(time.Hour - time.Second)
@@ -215,12 +215,24 @@ var _ = Describe("Service", func() {
 		It("Should reject an expiry that is not in the future", func(ctx SpecContext) {
 			sub, now := subject(), telem.NewTimeStamp(clock.Now())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				_, _, err := svc.NewWriter(tx).Create(ctx, sub, "", new(now))
+				_, _, err := svc.NewWriter(tx).Create(ctx, sub, "", now)
 				return err
 			})).To(MatchError(ContainSubstring("expires: must be in the future")))
 		})
-		It("Should never expire a key with no expiry", func(ctx SpecContext) {
-			_, never := create(ctx, svc, subject(), "never")
+		It("Should give a key with a zero expiry the maximum expiry", func(
+			ctx SpecContext,
+		) {
+			never, _ := create(ctx, svc, subject(), "never")
+			Expect(never.Expires).To(Equal(telem.TimeStampMax))
+		})
+		It("Should never expire a key with the maximum expiry", func(ctx SpecContext) {
+			sub := subject()
+			var never string
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
+				_, never, err = svc.NewWriter(tx).
+					Create(ctx, sub, "never", telem.TimeStampMax)
+				return err
+			})).To(Succeed())
 			clock.Advance(100 * 365 * 24 * time.Hour)
 			MustSucceed(svc.Authenticate(ctx, proof(never)))
 		})

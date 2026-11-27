@@ -52,7 +52,7 @@ var _ = Describe("HeldTables", func() {
 	) {
 		tx := DeferClose(db.OpenTx())
 		k, _ := MustSucceed2(
-			apiKeySvc.NewWriter(tx).Create(ctx, root.ResourceID(), "held", nil),
+			apiKeySvc.NewWriter(tx).Create(ctx, root.ResourceID(), "held", 0),
 		)
 		h := MustSucceed(passwordSvc.Hash(creds.Password))
 		passwords := passwordSvc.NewWriter(tx)

@@ -24,7 +24,7 @@ import (
 )
 
 var _ = Describe("Migration", func() {
-	It("Should give a stored key no expiry", func(ctx SpecContext) {
+	It("Should give a stored key the maximum expiry", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.APIKey]{DB: db}))
@@ -50,6 +50,7 @@ var _ = Describe("Migration", func() {
 			Hash:    old.Hash,
 			Name:    old.Name,
 			Created: old.Created,
+			Expires: telem.TimeStampMax,
 		}))
 	})
 })

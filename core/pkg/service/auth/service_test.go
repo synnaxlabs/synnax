@@ -489,7 +489,7 @@ var _ = Describe("Service", func() {
 				var token string
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) (err error) {
 					_, token, err = keys.NewWriter(tx).
-						Create(ctx, alice, "expiring", new(expires))
+						Create(ctx, alice, "expiring", expires)
 					return err
 				})).To(Succeed())
 				session, sessionToken := MustSucceed2(svc.Login(ctx, auth.Proof{

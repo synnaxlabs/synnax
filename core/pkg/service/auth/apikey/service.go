@@ -110,7 +110,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.Now()) }
 
 func (s *Service) expired(k APIKey) bool {
-	return k.Expires != nil && *k.Expires <= s.now()
+	return s.now() >= k.Expires
 }
 
 // Authenticate implements [auth.Authenticator]. A malformed key, an unknown key, a

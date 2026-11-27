@@ -86,8 +86,9 @@ type CreateRequest struct {
 	Subject resource.ID `json:"subject" msgpack:"subject"`
 	// Name is a label that tells the subject's keys apart.
 	Name string `json:"name" msgpack:"name"`
-	// Expires is when the key stops logging in. Nil means never.
-	Expires *telem.TimeStamp `json:"expires,omitzero" msgpack:"expires,omitempty"`
+	// Expires is when the key stops logging in. Zero or [telem.TimeStampMax] means
+	// never.
+	Expires telem.TimeStamp `json:"expires" msgpack:"expires"`
 }
 
 // CreateResponse is a new API key.

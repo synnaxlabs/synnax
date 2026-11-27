@@ -42,6 +42,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -725,7 +726,7 @@ func (d *Driver) resolveKey(ctx context.Context) (string, error) {
 			ctx,
 			d.cfg.RackKey.ResourceID(),
 			apiKeyName,
-			nil,
+			telem.TimeStampMax,
 		)
 		return err
 	}); err != nil {

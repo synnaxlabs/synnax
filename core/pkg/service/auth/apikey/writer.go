@@ -29,14 +29,18 @@ type Writer struct {
 }
 
 // Create stores a new API key for subject and returns it with the full key, which is
-// the only copy of its secret. A nil expires makes a key that never expires. It returns
-// a validation error when subject is invalid or expires is not in the future.
+// the only copy of its secret. A zero expires becomes [telem.TimeStampMax], which
+// never expires. It returns a validation error when subject is invalid or expires is
+// not in the future.
 func (w Writer) Create(
 	ctx context.Context,
 	subject resource.ID,
 	name string,
-	expires *telem.TimeStamp,
+	expires telem.TimeStamp,
 ) (APIKey, string, error) {
+	if expires == 0 {
+		expires = telem.TimeStampMax
+	}
 	k := APIKey{
 		Key:     uuid.New(),
 		Subject: subject,
@@ -50,7 +54,7 @@ func (w Writer) Create(
 	v := validate.New("api_key")
 	v.Ternary(
 		"expires",
-		expires != nil && *expires <= k.Created,
+		expires <= k.Created,
 		"must be in the future",
 	)
 	if err := v.Error(); err != nil {

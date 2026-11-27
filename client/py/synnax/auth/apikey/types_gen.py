@@ -30,16 +30,14 @@ class APIKey(BaseModel):
         subject: Is the user or rack the key logs in as.
         name: Is a label that tells the subject's keys apart.
         created: Is when the key was created.
-        expires: Is when the key stops logging in. Absent means never.
+        expires: Is when the key stops logging in. TimeStamp max means never.
     """
 
     key: Key = Field(default_factory=uuid4)
     subject: resource.ID
     name: str
     created: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
-    expires: telem.TimeStamp | None = Field(
-        default=None, ge=-9223372036854775808, le=9223372036854775807
-    )
+    expires: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
 
     @_override
     def __hash__(self) -> int:

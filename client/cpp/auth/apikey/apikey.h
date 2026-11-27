@@ -42,14 +42,16 @@ using DeleteClient = freighter::
 inline std::pair<APIKey, x::errors::Error> from_pb(const grpc::auth::APIKey &pb) {
     auto [key, err] = Key::parse(pb.key());
     if (err) return {{}, err};
-    APIKey k{
-        .key = key,
-        .subject = subject_from_pb(pb.subject()),
-        .name = pb.name(),
-        .created = x::telem::TimeStamp(pb.created()),
+    return {
+        APIKey{
+            .key = key,
+            .subject = subject_from_pb(pb.subject()),
+            .name = pb.name(),
+            .created = x::telem::TimeStamp(pb.created()),
+            .expires = x::telem::TimeStamp(pb.expires()),
+        },
+        x::errors::NIL,
     };
-    if (pb.has_expires()) k.expires = x::telem::TimeStamp(pb.expires());
-    return {k, x::errors::NIL};
 }
 
 /// @brief an API key just created, with the token that holds its secret.

@@ -167,19 +167,28 @@ var _ = Describe("API keys", func() {
 			expires := telem.Now().Add(telem.TimeSpan(time.Hour))
 			res := MustSucceed(createKey(
 				authed(ctx, bobToken),
-				apiapikey.CreateRequest{Name: "ci", Expires: new(expires)},
+				apiapikey.CreateRequest{Name: "ci", Expires: expires},
 			))
-			Expect(res.Key.Expires).To(HaveValue(Equal(expires)))
+			Expect(res.Key.Expires).To(Equal(expires))
 			retrieved := MustSucceed(retrieveKeys(
 				authed(ctx, bobToken),
 				apiapikey.RetrieveRequest{},
 			))
 			Expect(retrieved.Keys).To(ContainElement(res.Key))
 		})
+		It("Should give a key with no expiry the maximum expiry", func(
+			ctx SpecContext,
+		) {
+			res := MustSucceed(createKey(
+				authed(ctx, bobToken),
+				apiapikey.CreateRequest{Name: "ci"},
+			))
+			Expect(res.Key.Expires).To(Equal(telem.TimeStampMax))
+		})
 		It("Should reject an expiry in the past", func(ctx SpecContext) {
 			Expect(createKey(
 				authed(ctx, bobToken),
-				apiapikey.CreateRequest{Name: "ci", Expires: new(telem.TimeStamp(1))},
+				apiapikey.CreateRequest{Name: "ci", Expires: telem.TimeStamp(1)},
 			)).Error().
 				To(MatchError(ContainSubstring("expires: must be in the future")))
 		})

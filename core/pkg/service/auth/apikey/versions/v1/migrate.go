@@ -9,7 +9,23 @@
 
 package v1
 
-import "github.com/synnaxlabs/gorp/migrate"
+import (
+	"context"
+
+	"github.com/synnaxlabs/gorp/migrate"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/apikey/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
+)
 
 // Migration lifts stored API keys from v0 to v1. A v0 key never expires.
-var Migration = migrate.NewEntry("v63_api_key_expires", autoMigrateAPIKey)
+var Migration = migrate.NewEntry(
+	"v63_api_key_expires",
+	func(ctx context.Context, old v0.APIKey) (APIKey, error) {
+		k, err := autoMigrateAPIKey(ctx, old)
+		if err != nil {
+			return APIKey{}, err
+		}
+		k.Expires = telem.TimeStampMax
+		return k, nil
+	},
+)

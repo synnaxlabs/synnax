@@ -24,23 +24,23 @@ APIKey struct {
         @doc value "is the unique identifier for this API key."
         @key
     }
-    subject resource.ID      {
+    subject resource.ID     {
         @doc value     "is the user or rack the key logs in as."
         @ref kind      place
         @ref on_delete cascade
         @ref types     user rack
     }
-    hash    bytes            {
+    hash    bytes           {
         @doc value "is the SHA-256 hash of the secret in the key."
     }
-    name    string           {
+    name    string          {
         @doc value "is a label that tells the subject's keys apart."
     }
-    created telem.TimeStamp  {
+    created telem.TimeStamp {
         @doc value "is when the key was created."
     }
-    expires telem.TimeStamp? {
-        @doc value "is when the key stops logging in. Absent means never."
+    expires telem.TimeStamp {
+        @doc value "is when the key stops logging in. TimeStamp max means never."
     }
 
     @cpp omit

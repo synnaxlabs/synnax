@@ -815,7 +815,7 @@ type APIKey struct {
 	Subject       *Subject               `protobuf:"bytes,2,opt,name=subject,proto3" json:"subject,omitempty"`
 	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	Created       int64                  `protobuf:"varint,4,opt,name=created,proto3" json:"created,omitempty"`
-	Expires       *int64                 `protobuf:"varint,5,opt,name=expires,proto3,oneof" json:"expires,omitempty"`
+	Expires       int64                  `protobuf:"varint,5,opt,name=expires,proto3" json:"expires,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -879,8 +879,8 @@ func (x *APIKey) GetCreated() int64 {
 }
 
 func (x *APIKey) GetExpires() int64 {
-	if x != nil && x.Expires != nil {
-		return *x.Expires
+	if x != nil {
+		return x.Expires
 	}
 	return 0
 }
@@ -889,7 +889,7 @@ type APIKeyCreateRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Subject       *Subject               `protobuf:"bytes,1,opt,name=subject,proto3" json:"subject,omitempty"`
 	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Expires       *int64                 `protobuf:"varint,3,opt,name=expires,proto3,oneof" json:"expires,omitempty"`
+	Expires       int64                  `protobuf:"varint,3,opt,name=expires,proto3" json:"expires,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -939,8 +939,8 @@ func (x *APIKeyCreateRequest) GetName() string {
 }
 
 func (x *APIKeyCreateRequest) GetExpires() int64 {
-	if x != nil && x.Expires != nil {
-		return *x.Expires
+	if x != nil {
+		return x.Expires
 	}
 	return 0
 }
@@ -1187,21 +1187,17 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x17SessionRetrieveResponse\x12.\n" +
 	"\bsessions\x18\x01 \x03(\v2\x12.grpc.auth.SessionR\bsessions\"*\n" +
 	"\x14SessionDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\"\xa1\x01\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"\x90\x01\n" +
 	"\x06APIKey\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\asubject\x18\x02 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x18\n" +
-	"\acreated\x18\x04 \x01(\x03R\acreated\x12\x1d\n" +
-	"\aexpires\x18\x05 \x01(\x03H\x00R\aexpires\x88\x01\x01B\n" +
-	"\n" +
-	"\b_expires\"\x82\x01\n" +
+	"\acreated\x18\x04 \x01(\x03R\acreated\x12\x18\n" +
+	"\aexpires\x18\x05 \x01(\x03R\aexpires\"q\n" +
 	"\x13APIKeyCreateRequest\x12,\n" +
 	"\asubject\x18\x01 \x01(\v2\x12.grpc.auth.SubjectR\asubject\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +
-	"\aexpires\x18\x03 \x01(\x03H\x00R\aexpires\x88\x01\x01B\n" +
-	"\n" +
-	"\b_expires\"Q\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
+	"\aexpires\x18\x03 \x01(\x03R\aexpires\"Q\n" +
 	"\x14APIKeyCreateResponse\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12#\n" +
 	"\x03key\x18\x02 \x01(\v2\x11.grpc.auth.APIKeyR\x03key\"G\n" +
@@ -1316,8 +1312,6 @@ func file_core_pkg_transport_grpc_auth_auth_proto_init() {
 	}
 	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[9].OneofWrappers = []any{}
 	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[10].OneofWrappers = []any{}
-	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[14].OneofWrappers = []any{}
-	file_core_pkg_transport_grpc_auth_auth_proto_msgTypes[15].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
