@@ -36,6 +36,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores the status of each server.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Signals publishes server changes.

@@ -404,7 +404,7 @@ var _ = Describe("Service", func() {
 			))
 			got := retrieveServer(ctx, s.Key)
 			Expect(got.Writes).To(HaveLen(1))
-			Expect(got.Writes[0].Channel).To(Equal(channel.Key(2)))
+			Expect(got.Writes[0].Channel).To(Equal(ch[0]))
 			Expect(got.Name).To(Equal(s.Name))
 		})
 
