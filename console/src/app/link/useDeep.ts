@@ -25,8 +25,11 @@ import { FLAGS } from "@/flags";
 import { Session } from "@/session";
 
 // Keyed by the resource type, the segment after the cluster key in a deep link.
+const useNIDeviceLinks = FLAGS.typedNIDevices
+  ? () => ({ ni_device: NI.Device.useLink() })
+  : () => ({});
+
 const useLinks = (): void => {
-  const niDevice = NI.Device.useLink();
   Link.useDeep(Core.useLink(), {
     arc: Arc.useLink(),
     channel: Channel.useLink(),
@@ -34,7 +37,7 @@ const useLinks = (): void => {
     icd: ICD.useLink(),
     lineplot: LinePlot.useLink(),
     log: Log.useLink(),
-    ...(FLAGS.typedNIDevices ? { ni_device: niDevice } : {}),
+    ...useNIDeviceLinks(),
     project: Project.useLink(),
     range: Range.useLink(),
     schematic: Schematic.useLink(),

@@ -86,4 +86,26 @@ describe("NI.Device.useListenForChanges", async () => {
       statuses().find((s) => s.message === `${configured} connected`),
     ).toBeUndefined();
   });
+
+  describe("NOTIFICATION_RULE.inUse", () => {
+    it("should count a device with an identifier as in use", async () => {
+      const dev = await create(uniqueName("model"), "dev1");
+      expect(await NI.Device.NOTIFICATION_RULE.inUse?.({ client, key: dev.key })).toBe(
+        true,
+      );
+    });
+
+    it("should not count a device without an identifier as in use", async () => {
+      const dev = await create(uniqueName("model"), "");
+      expect(await NI.Device.NOTIFICATION_RULE.inUse?.({ client, key: dev.key })).toBe(
+        false,
+      );
+    });
+
+    it("should not count a missing device as in use", async () => {
+      expect(
+        await NI.Device.NOTIFICATION_RULE.inUse?.({ client, key: id.create() }),
+      ).toBe(false);
+    });
+  });
 });
