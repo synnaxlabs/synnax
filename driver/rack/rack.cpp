@@ -20,6 +20,13 @@
 #include "rack.h"
 
 namespace driver::rack {
+namespace {
+/// @returns the text of err as a sentence. Some error texts end in a full stop.
+std::string sentence(const x::errors::Error &err) {
+    return err.data.ends_with('.') ? err.data : err.data + ".";
+}
+}
+
 x::errors::Error
 outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err) {
     const auto path = dir.string();
@@ -41,12 +48,10 @@ outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err) {
         fix = "Make sure that the Driver can write to " + path +
               " and that the disk has free space. On Linux, run 'sudo synnax-driver "
               "install' to update the service.";
-    // Some causes end in a full stop of their own.
-    const auto cause = err.data.ends_with('.') ? err.data : err.data + ".";
     return {
         err,
-        "The Driver cannot open its outbox in " + path + ": " + cause + " " + fix +
-            " Then restart the Driver."
+        "The Driver cannot open its outbox in " + path + ": " + sentence(err) + " " +
+            fix + " Then restart the Driver."
     };
 }
 
@@ -59,8 +64,8 @@ status::Health outbox_stuck(
         .variant = synnax::status::VARIANT_WARNING,
         .message = OUTBOX_STUCK_MSG,
         .description = "The Core has not taken an Arc status set for " +
-                       stuck_after.to_string() + ": " + err.data +
-                       ". Check that the Driver can reach the Core and that the Core "
+                       stuck_after.to_string() + ": " + sentence(err) +
+                       " Check that the Driver can reach the Core and that the Core "
                        "is running. The Driver keeps the sets in " +
                        dir.string() + " and sends them once the Core takes them.",
     };

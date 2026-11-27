@@ -169,6 +169,16 @@ TEST_F(OutboxFailureTest, UnwritableDirectory) {
 #endif
 }
 
+/// @brief it should add no second full stop after a cause that ends in one.
+TEST(OutboxStuckTest, KeepsOneFullStop) {
+    const auto health = outbox_stuck(
+        "/data/outbox",
+        x::telem::MINUTE,
+        x::errors::Error(freighter::UNREACHABLE, "connection refused.")
+    );
+    EXPECT_FALSE(health.description.contains("..")) << health.description;
+}
+
 /// @brief it should warn that the outbox is stuck, with the error and the fix.
 TEST(OutboxStuckTest, Warns) {
     const auto health = outbox_stuck(
