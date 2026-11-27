@@ -68,6 +68,7 @@ Port::open(const synnax::serial::Properties &props) {
             nullptr,
             x::errors::Error(transport::CONFIG_ERROR, "serial port path is required")
         };
+    if (auto err = native::check(props)) return {nullptr, err};
     auto port = std::unique_ptr<Port>(new Port(props.port));
     if (auto err = device::open(port->device, props.port)) return {nullptr, err};
     if (auto err = native::configure(port->handle(), props)) return {nullptr, err};

@@ -20,12 +20,16 @@
 #include "client/cpp/serial/types.gen.h"
 #include "x/cpp/errors/errors.h"
 
-/// @brief port operations on the native handle. Each platform implements them in its
-/// own file, and this header stays free of Asio because Linux's termios2 conflicts with
-/// <termios.h>.
+/// @brief port operations that differ by platform. This header stays free of Asio
+/// because Linux's termios2 conflicts with <termios.h>.
 namespace driver::serial::native {
 /// @brief a file descriptor on POSIX or a HANDLE on Windows.
 using Handle = std::intptr_t;
+
+/// @brief checks props against the schema and the settings that the platform can
+/// express, with no port.
+/// @returns CONFIG_ERROR when props fails the check.
+x::errors::Error check(const synnax::serial::Properties &props);
 
 /// @brief lets other programs open the port that device::open locked once the Driver
 /// closes it.
@@ -56,8 +60,8 @@ struct Line {
 struct Received {
     /// @brief size is the number of bytes left at the front of the read.
     std::size_t size = 0;
-    /// @brief errors is the number of bytes received with a parity or framing error.
-    /// Windows counts each kind of error once.
+    /// @brief errors is the number of parity errors, framing errors, and breaks that
+    /// the read received. Windows counts each kind of error once.
     std::size_t errors = 0;
     /// @brief overruns is the number of receive overruns since the last read. Windows
     /// counts each kind of overrun once.

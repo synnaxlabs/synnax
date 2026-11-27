@@ -36,14 +36,23 @@ std::error_code last_error() {
     return {errno, std::generic_category()};
 }
 
+/// @brief refuses the port at fd when another program holds it, then locks it. macOS
+/// cannot read TIOCEXCL, so a root Driver there opens a port that another program holds
+/// with TIOCEXCL alone.
 x::errors::Error lock(const int fd, const std::string &port) {
+    const auto busy = std::make_error_code(std::errc::device_or_resource_busy);
+    // Root gets past TIOCEXCL, and the port must not clear a flag that it did not set.
+    const auto [held, ec] = native::exclusive(fd);
+    if (ec) return translate_open(port, ec);
+    if (held) return translate_open(port, busy);
     // flock stops programs that lock the port, and root, which TIOCEXCL lets through.
     // TIOCEXCL stops every other open by a program without root.
     if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        auto ec = last_error();
-        if (ec == std::errc::operation_would_block)
-            ec = std::make_error_code(std::errc::device_or_resource_busy);
-        return translate_open(port, ec);
+        const auto locked = last_error();
+        return translate_open(
+            port,
+            locked == std::errc::operation_would_block ? busy : locked
+        );
     }
     if (::ioctl(fd, TIOCEXCL) != 0) return translate_open(port, last_error());
     return x::errors::NIL;

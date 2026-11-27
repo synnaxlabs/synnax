@@ -43,9 +43,9 @@ struct Chunk {
     std::span<const std::uint8_t> data;
     /// @brief time is the host time at which the bytes arrived.
     x::telem::TimeStamp time;
-    /// @brief errors is the number of parity or framing errors that a serial line
-    /// reported. Linux and macOS count the bytes with errors and leave them out of
-    /// data. Windows counts each kind of error once and leaves the bytes in data.
+    /// @brief errors is the number of parity errors, framing errors, and breaks that a
+    /// serial line reported. Linux and macOS count each one and drop its bytes from
+    /// data. Windows counts each kind once and leaves the bytes in data.
     std::size_t errors = 0;
     /// @brief overruns is the number of receive overruns that a serial line reported
     /// since the last read: bytes that the UART or the OS dropped because the Driver
