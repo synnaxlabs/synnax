@@ -13,6 +13,7 @@ from synnax.kafka.cluster.types_gen import (
     Broker,
     Cluster,
     Credentials,
+    Cursor,
     Key,
     NoneAuth,
     PlainAuth,
@@ -24,6 +25,8 @@ from synnax.kafka.cluster.types_gen import (
     StatusDetails,
     TlsTransport,
     Transport,
+    Where,
+    WhereInput,
     resource_id,
 )
 
@@ -33,6 +36,7 @@ __all__ = [
     "Broker",
     "Cluster",
     "Credentials",
+    "Cursor",
     "Key",
     "NoneAuth",
     "PlainAuth",
@@ -44,5 +48,7 @@ __all__ = [
     "StatusDetails",
     "TlsTransport",
     "Transport",
+    "Where",
+    "WhereInput",
     "resource_id",
 ]

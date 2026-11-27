@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
+	kafkacluster "github.com/synnaxlabs/synnax/pkg/api/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
@@ -170,6 +171,11 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 	t.OPCUAServerUpdate = noop.UnaryServer[server.UpdateRequest, struct{}]{}
 	t.OPCUAServerDelete = noop.UnaryServer[server.DeleteRequest, struct{}]{}
+	// KAFKA CLUSTER
+	t.KafkaClusterRetrieve = noop.UnaryServer[
+		kafkacluster.RetrieveRequest,
+		kafkacluster.RetrieveResponse,
+	]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}

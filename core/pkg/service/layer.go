@@ -289,7 +289,8 @@ type Layer struct {
 	EtherCAT *ethercat.Service
 	// HTTP owns the stored configuration records of the HTTP task types.
 	HTTP *http.Service
-	// Kafka owns the stored configuration records of the Kafka task types.
+	// Kafka owns the Kafka clusters and the stored configuration records of the Kafka
+	// task types.
 	Kafka *kafka.Service
 	// Serial owns the stored configuration records of the serial task types.
 	Serial *serial.Service
@@ -1024,6 +1025,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		ICD:             l.ICD,
+		Signals:         l.Signals,
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
@@ -1174,6 +1176,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeEnumeration:     l.Enumeration.Resources(),
 			resource.TypeGroup:           l.Group.Resources(),
 			resource.TypeICD:             l.ICD.Resources(),
+			resource.TypeKafkaCluster:    l.Kafka.Clusters.Resources(),
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
