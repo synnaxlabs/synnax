@@ -1879,11 +1879,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				It(
 					"Should keep only requested keys and their time beside a stored channel",
 					func(ctx SpecContext) {
-						calc := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
-							Name:       "idx_only_mixed",
-							DataType:   telem.Float32T,
-							Expression: "return sensor_1",
-						}))
+						calc := MustSucceed(
+							creator.Create(ctx, calctestutil.Calculation{
+								Name:       "idx_only_mixed",
+								DataType:   telem.Float32T,
+								Expression: "return sensor_1",
+							}),
+						)
 						iter := MustSucceed(iteratorSvc.Open(ctx, iterator.Config{
 							Keys:   []channel.Key{calc.Index(), dataCh1.Key()},
 							Bounds: telem.TimeRangeMax,
