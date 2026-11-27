@@ -65,7 +65,6 @@ func (c ServiceConfig) Validate() error {
 
 // Service creates, edits, retrieves, and deletes ICDs.
 type Service struct {
-	cfg     ServiceConfig
 	table   *gorp.Table[Key, ICD]
 	indexes indexes
 	state   *actions.State[Key, Action]
@@ -80,28 +79,27 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
 		indexes: newIndexes(),
 		state:   actions.NewState[Key, Action](cfg.DB),
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, ICD]{
-		DB:              s.cfg.DB,
+		DB:              cfg.DB,
 		Name:            tableName,
 		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
-		Instrumentation: s.cfg.Instrumentation,
+		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if err = s.cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
+	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
-	if s.cfg.Signals == nil {
+	if cfg.Signals == nil {
 		return s, nil
 	}
-	if err = s.cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
 		Name:     "sy_icd_action_set",
 		Actions:  s.state,
 		Resource: ResourceID,
@@ -109,7 +107,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, nil) {
 		return nil, err
 	}
-	if err = s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, ICD]{
+	if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, ICD]{
 		Changes:     s.table.Changes,
 		Resource:    ResourceID,
 		SetDisabled: new(true),

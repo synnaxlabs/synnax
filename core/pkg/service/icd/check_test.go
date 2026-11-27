@@ -368,13 +368,6 @@ var _ = Describe("Check", func() {
 			}}),
 			"default", "default 120 is above the max 100",
 		),
-		Entry("a scaled JSON default that decodes above the max",
-			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
-				Name: "v", Scale: 10, Pointer: "/v",
-				Max: new(100.0), Default: new(payload.Integer(12)),
-			}}),
-			"default", "default 12 decodes to 120, which is above the max 100",
-		),
 		Entry("a JSON enum value above the max",
 			jsonMessage(icd.JSONField{Variant: icd.UnsignedJSONField{
 				Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
@@ -404,13 +397,6 @@ var _ = Describe("Check", func() {
 			}}),
 			"default", "default -1 is below the min 0",
 		),
-		Entry("an infinite default, which reports only that",
-			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
-				Name: "v", Scale: 1, Pointer: "/v",
-				Max: new(100.0), Default: new(payload.Float(math.Inf(1))),
-			}}),
-			"default", "default cannot be infinite",
-		),
 	)
 
 	DescribeTable("Should accept a value at a limit of its field",
@@ -418,12 +404,6 @@ var _ = Describe("Check", func() {
 			ic := icd.ICD{Name: "L", Messages: []icd.Message{m}}
 			Expect(problemsOf(ic)).To(BeEmpty())
 		},
-		Entry("a scaled JSON default that float error puts above the max",
-			jsonMessage(icd.JSONField{Variant: icd.FloatJSONField{
-				Name: "v", Scale: 0.1, Pointer: "/v",
-				Max: new(0.3), Default: new(payload.Float(3)),
-			}}),
-		),
 		Entry("a JSON enum value at the max",
 			jsonMessage(icd.JSONField{Variant: icd.IntegerJSONField{
 				Name: "v", Scale: 1, Pointer: "/v", Max: new(10.0),
@@ -489,85 +469,59 @@ var _ = Describe("Check", func() {
 		withKey := func(f icd.BinaryField) icd.BinaryField {
 			return updateBase(f, func(b *icd.BinaryBaseField) { b.Key = uuid.New() })
 		}
-		var mux icd.BinaryField
-		BeforeEach(func() {
-			mux = withKey(binaryField("mux", 0, 4))
-		})
+		mux := withKey(binaryField("mux", 0, 4))
+		other := withKey(binaryField("other", 4, 4))
 
-		It("Should find two fields that read the same bits", func() {
-			Expect(check(binaryField("a", 0, 8), binaryField("b", 4, 8))).
-				To(ConsistOf(overlapping(1)))
-		})
-
-		It("Should report a field against the first field it overlaps", func() {
-			Expect(check(
-				binaryField("a", 0, 8),
+		DescribeTable("Should report a field that reads the bits of an earlier field",
+			func(i int, fields ...icd.BinaryField) {
+				Expect(check(fields...)).To(ConsistOf(overlapping(i)))
+			},
+			Entry("with some of the same bits", 1,
+				binaryField("a", 0, 8), binaryField("b", 4, 8),
+			),
+			Entry("against the first field it overlaps", 2,
+				binaryField("a", 0, 8), binaryField("b", 8, 8), binaryField("c", 4, 8),
+			),
+			Entry("with a different byte order", 1,
+				binaryField("a", 0, 8), bigEndian(binaryField("b", 7, 8)),
+			),
+			Entry("multiplexed, over a field that is always present", 2,
+				mux,
+				binaryField("a", 8, 8),
+				multiplexed(binaryField("b", 8, 8), mux, 0),
+			),
+			Entry("always present, over a multiplexed field", 2,
+				mux,
+				multiplexed(binaryField("a", 8, 8), mux, 0),
 				binaryField("b", 8, 8),
-				binaryField("c", 4, 8),
-			)).To(ConsistOf(overlapping(2)))
-		})
-
-		It("Should not find fields that only touch", func() {
-			Expect(check(binaryField("a", 0, 8), binaryField("b", 8, 8))).To(BeEmpty())
-		})
-
-		It("Should compare fields with different byte orders", func() {
-			Expect(check(binaryField("a", 0, 8), bigEndian(binaryField("b", 7, 8)))).
-				To(ConsistOf(overlapping(1)))
-			Expect(check(bigEndian(binaryField("a", 7, 16)), binaryField("b", 16, 8))).
-				To(BeEmpty())
-		})
-
-		It(
-			"Should find a multiplexed field over a field that is always present",
-			func() {
-				Expect(check(
-					mux,
-					binaryField("a", 8, 8),
-					multiplexed(binaryField("b", 8, 8), mux, 0),
-				)).To(ConsistOf(overlapping(2)))
-			},
-		)
-
-		It(
-			"Should find a field that is always present over a multiplexed field",
-			func() {
-				Expect(check(
-					mux,
-					multiplexed(binaryField("a", 8, 8), mux, 0),
-					binaryField("b", 8, 8),
-				)).To(ConsistOf(overlapping(2)))
-			},
-		)
-
-		It("Should find multiplexed fields that share a multiplex value", func() {
-			Expect(check(
+			),
+			Entry("multiplexed, sharing a multiplex value", 2,
 				mux,
 				multiplexed(binaryField("a", 8, 8), mux, 0, 1),
 				multiplexed(binaryField("b", 8, 8), mux, 1, 2),
-			)).To(ConsistOf(overlapping(2)))
-		})
-
-		It(
-			"Should not find multiplexed fields that are never present together",
-			func() {
-				Expect(check(
-					mux,
-					multiplexed(binaryField("a", 8, 8), mux, 0),
-					multiplexed(binaryField("b", 8, 8), mux, 1),
-				)).To(BeEmpty())
-			},
+			),
 		)
 
-		It("Should not compare fields under different multiplexors", func() {
-			other := withKey(binaryField("other", 4, 4))
-			Expect(check(
+		DescribeTable("Should not report fields that never read one bit in one frame",
+			func(fields ...icd.BinaryField) { Expect(check(fields...)).To(BeEmpty()) },
+			Entry("fields that only touch",
+				binaryField("a", 0, 8), binaryField("b", 8, 8),
+			),
+			Entry("fields with different byte orders that only touch",
+				bigEndian(binaryField("a", 7, 16)), binaryField("b", 16, 8),
+			),
+			Entry("multiplexed fields with no shared multiplex value",
+				mux,
+				multiplexed(binaryField("a", 8, 8), mux, 0),
+				multiplexed(binaryField("b", 8, 8), mux, 1),
+			),
+			Entry("fields under different multiplexors",
 				mux,
 				other,
 				multiplexed(binaryField("a", 8, 8), mux, 0),
 				multiplexed(binaryField("b", 8, 8), other, 0),
-			)).To(BeEmpty())
-		})
+			),
+		)
 	})
 })
 

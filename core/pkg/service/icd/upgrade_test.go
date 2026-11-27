@@ -26,7 +26,8 @@ import (
 
 var _ = Describe("Upgrade", func() {
 	It("Should key ICDs by the type name that v0 used", func() {
-		Expect(types.Name[icd.ICD]()).To(Equal(types.Name[v0.ICD]()))
+		Expect(types.Name[v0.ICD]()).To(Equal("ICD"))
+		Expect(types.Name[icd.ICD]()).To(Equal("ICD"))
 	})
 
 	It("Should read a stored v0 ICD with no framing", func(ctx SpecContext) {
