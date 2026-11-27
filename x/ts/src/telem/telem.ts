@@ -1567,7 +1567,9 @@ export class DataType
     return DataType.CODES.get(this.valueOf()) ?? DataTypeCode.unknown;
   }
 
-  /** @returns the data type of a type code, or undefined for a code with no data type. */
+  /**
+   * @returns the data type of a type code, or undefined for a code with no data type.
+   */
   static fromCode(code: number): DataType | undefined {
     return DataType.BY_CODE.get(code);
   }
