@@ -10,8 +10,11 @@
 package channel_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -27,6 +30,7 @@ var _ = Describe("Arc paths", Ordered, func() {
 		db       *gorp.DB
 		svc      *channel.Service
 		stand    group.Key
+		standID  resource.ID
 		standDir string
 	)
 	create := func(ctx SpecContext, name string) channel.Channel {
@@ -60,7 +64,7 @@ var _ = Describe("Arc paths", Ordered, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groups.NewWriter(tx).Create(ctx, &g)
 		})).To(Succeed())
-		stand = g.Key
+		stand, standID = g.Key, g.ResourceID()
 	})
 
 	It("Should bind a channel made again under a path at the next lookup", func(
@@ -96,6 +100,57 @@ var _ = Describe("Arc paths", Ordered, func() {
 			),
 		)
 		Expect(result.Deps).To(ConsistOf(read.Key()))
+	})
+
+	analyze := func(
+		ctx SpecContext,
+		resolver arc.SymbolResolver,
+		expression string,
+	) error {
+		GinkgoHelper()
+		_, err := channel.NewCalculationAnalyzer(resolver).Analyze(
+			ctx,
+			channel.Channel{
+				Name:       UniqueChannelName(),
+				Virtual:    true,
+				Expression: expression,
+			},
+		)
+		return err
+	}
+
+	It("Should suggest the path of a channel in a folder for a missing name", func(
+		ctx SpecContext,
+	) {
+		near := create(ctx, "flow_01")
+		DeferCleanup(func(ctx SpecContext) { deleteChannel(ctx, near.Key()) })
+		Eventually(func(g Gomega) {
+			g.Expect(analyze(ctx, svc.NewArcSymbolResolver(db), "return flow_02 * 2")).
+				To(MatchError(ContainSubstring(
+					"did you mean: " + standDir + ".flow_01?",
+				)))
+		}).Should(Succeed())
+	})
+
+	It("Should suggest no channel in a folder that the subject cannot see", func(
+		ctx SpecContext,
+	) {
+		near := create(ctx, "flow_11")
+		DeferCleanup(func(ctx SpecContext) { deleteChannel(ctx, near.Key()) })
+		Eventually(func(g Gomega) {
+			g.Expect(svc.NewArcSymbolResolver(db).Search(ctx, "flow_11")).
+				To(ContainElement(HaveField("ID", int(near.Key()))))
+		}).Should(Succeed())
+		hidden := svc.NewSubjectResolver(
+			db,
+			func(context.Context) (func(resource.ID) bool, error) {
+				return func(id resource.ID) bool { return id != standID }, nil
+			},
+		)
+		Expect(analyze(ctx, hidden, "return flow_12 * 2")).To(SatisfyAll(
+			MatchError(ContainSubstring("undefined symbol: flow_12")),
+			Not(MatchError(ContainSubstring("flow_11"))),
+		))
 	})
 
 	It("Should name a bare path that matches nothing", func(ctx SpecContext) {
