@@ -135,6 +135,7 @@ class Writer {
     Spool &spool;
     Header header;
     std::unordered_map<std::uint32_t, x::telem::DataType> types;
+    std::string header_payload;
     std::uint64_t key;
     std::unique_ptr<journal::Writer> file;
     std::uint64_t size = 0;
@@ -142,7 +143,7 @@ class Writer {
     bool closed = false;
     x::errors::Error failed;
 
-    Writer(Spool &spool, Header header, std::uint64_t key);
+    Writer(Spool &spool, Header header, std::string header_payload, std::uint64_t key);
     x::errors::Error fail(const x::errors::Error &err, std::uint64_t reserved);
 
 public:
@@ -257,7 +258,9 @@ public:
 
     /// @brief starts a new segment for the header. The writer creates the file at its
     /// first frame.
-    std::unique_ptr<Writer> open_writer(Header header);
+    /// @returns BASE_ERROR when the header is not valid. TOO_LARGE when the encoded
+    /// header is larger than Config::max_payload.
+    std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(Header header);
 
     /// @returns the keys of the closed segments, oldest first.
     [[nodiscard]] std::vector<std::uint64_t> segments() const;

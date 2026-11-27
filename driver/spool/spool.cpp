@@ -359,10 +359,17 @@ disk_available(const std::filesystem::path &dir) {
 #endif
 }
 
-Writer::Writer(Spool &spool, Header header, const std::uint64_t key):
-    spool(spool), header(std::move(header)), key(key) {
-    if (check(this->header).empty()) this->types = types_of(this->header);
-}
+Writer::Writer(
+    Spool &spool,
+    Header header,
+    std::string header_payload,
+    const std::uint64_t key
+):
+    spool(spool),
+    header(std::move(header)),
+    types(types_of(this->header)),
+    header_payload(std::move(header_payload)),
+    key(key) {}
 
 Writer::~Writer() {
     this->close();
@@ -388,15 +395,10 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
         ++this->spool.refused_count;
         return FULL;
     }
-    std::string header_payload;
     std::uint64_t bytes = 0;
-    if (this->size == 0) {
-        auto [encoded, err] = encode_header(this->header);
-        if (err) return err;
-        header_payload = std::move(encoded);
+    if (this->size == 0)
         bytes += journal::HEADER_SIZE + journal::RECORD_PREFIX_SIZE +
-                 header_payload.size();
-    }
+                 this->header_payload.size();
     auto [payload, err] = encode_frame(frame, this->types);
     if (err) return err;
     bytes += journal::RECORD_PREFIX_SIZE + payload.size();
@@ -435,7 +437,7 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
         if (o_err) return this->fail(o_err, bytes);
         this->file = std::move(file);
         if (const auto w_err = this->file->write(
-                {.type = HEADER_TYPE, .payload = std::move(header_payload)}
+                {.type = HEADER_TYPE, .payload = this->header_payload}
             ))
             return this->fail(w_err, bytes);
     }
@@ -665,11 +667,26 @@ x::errors::Error Spool::remove_orphan_offsets() const {
     return x::errors::NIL;
 }
 
-std::unique_ptr<Writer> Spool::open_writer(Header header) {
+std::pair<std::unique_ptr<Writer>, x::errors::Error> Spool::open_writer(Header header) {
+    auto [payload, err] = encode_header(header);
+    if (err) return {nullptr, err};
+    if (payload.size() > this->cfg.max_payload)
+        return {
+            nullptr,
+            x::errors::Error(
+                TOO_LARGE,
+                "header of " + std::to_string(payload.size()) +
+                    " bytes is larger than the max_payload of " +
+                    std::to_string(this->cfg.max_payload) + " bytes"
+            )
+        };
     std::lock_guard lock(this->mu);
-    return std::unique_ptr<Writer>(
-        new Writer(*this, std::move(header), this->next_key++)
-    );
+    return {
+        std::unique_ptr<Writer>(
+            new Writer(*this, std::move(header), std::move(payload), this->next_key++)
+        ),
+        x::errors::NIL,
+    };
 }
 
 std::vector<std::uint64_t> Spool::segments() const {

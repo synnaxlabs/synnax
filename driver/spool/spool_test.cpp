@@ -194,7 +194,7 @@ protected:
     }
 
     void write_frames(Spool &spool, const Header &header, const int count) const {
-        const auto writer = spool.open_writer(header);
+        const auto writer = ASSERT_NIL_P(spool.open_writer(header));
         for (int i = 0; i < count; i++)
             ASSERT_NIL(writer->write(frame_of(static_cast<float>(i))));
     }
@@ -239,7 +239,7 @@ TEST_F(SpoolTest, ReadsV1Segment) {
 TEST_F(SpoolTest, WritesV1Segment) {
     {
         const auto spool = this->open_spool();
-        ASSERT_NIL(spool->open_writer(v1_header())->write(v1_frame()));
+        ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(v1_header()))->write(v1_frame()));
     }
     const auto expected = read_records(TESTDATA / "v1_segment.bin");
     const auto actual = read_records(this->dir / "0.seg");
@@ -279,7 +279,7 @@ TEST_F(SpoolTest, ReadsBackAfterReopen) {
 TEST_F(SpoolTest, RoundTripsFrame) {
     {
         const auto spool = this->open_spool();
-        ASSERT_NIL(spool->open_writer(v1_header())->write(v1_frame()));
+        ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(v1_header()))->write(v1_frame()));
     }
     const auto spool = this->open_spool();
     const auto reader = ASSERT_NIL_P(spool->open_reader(0));
@@ -302,7 +302,7 @@ TEST_F(SpoolTest, OmitsDataTypesFromFrames) {
 /// @brief it should reject a frame with a channel that is not in the header.
 TEST_F(SpoolTest, RejectsFrameWithUnknownChannel) {
     const auto spool = this->open_spool();
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_MATCHES(
         writer->write({7, x::telem::Series(std::vector<float>{1})}),
         BASE_ERROR
@@ -313,7 +313,7 @@ TEST_F(SpoolTest, RejectsFrameWithUnknownChannel) {
 /// @brief it should reject a series with another data type than the header.
 TEST_F(SpoolTest, RejectsFrameWithWrongDataType) {
     const auto spool = this->open_spool();
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_MATCHES(
         writer->write({1, x::telem::Series(std::vector<double>{1})}),
         BASE_ERROR
@@ -325,14 +325,14 @@ TEST_F(SpoolTest, RejectsInvalidHeader) {
     const auto spool = this->open_spool();
     auto header = header_of(1);
     header.data_types.pop_back();
-    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
+    ASSERT_OCCURRED_AS_P(spool->open_writer(header), BASE_ERROR);
     ASSERT_TRUE(spool->segments().empty());
 }
 
 /// @brief it should list a segment after close, and refuse later frames.
 TEST_F(SpoolTest, ClosesWriter) {
     const auto spool = this->open_spool();
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_NIL(writer->write(frame_of(1)));
     ASSERT_NIL(writer->close());
     ASSERT_EQ(spool->segments().size(), 1);
@@ -345,13 +345,13 @@ TEST_F(SpoolTest, RejectsUnknownDataType) {
     const auto spool = this->open_spool();
     auto header = header_of(1);
     header.data_types[0] = x::telem::DataType("complex128");
-    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
+    ASSERT_OCCURRED_AS_P(spool->open_writer(header), BASE_ERROR);
 }
 
 /// @brief it should fail to remove a segment that is not closed.
 TEST_F(SpoolTest, RejectsRemoveOfOpenSegment) {
     const auto spool = this->open_spool();
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_NIL(writer->write(frame_of(1)));
     ASSERT_MATCHES(spool->remove(0), BASE_ERROR);
 }
@@ -359,7 +359,7 @@ TEST_F(SpoolTest, RejectsRemoveOfOpenSegment) {
 /// @brief it should list a segment only after its writer closes.
 TEST_F(SpoolTest, ListsClosedSegmentsOnly) {
     const auto spool = this->open_spool();
-    auto writer = spool->open_writer(header_of(1));
+    auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_NIL(writer->write(frame_of(1)));
     ASSERT_NIL(writer->sync_if_due());
     ASSERT_TRUE(spool->segments().empty());
@@ -371,9 +371,9 @@ TEST_F(SpoolTest, ListsClosedSegmentsOnly) {
 TEST_F(SpoolTest, ListsSegmentsInOrder) {
     {
         const auto spool = this->open_spool();
-        auto first = spool->open_writer(header_of(1));
-        auto second = spool->open_writer(header_of(2));
-        auto third = spool->open_writer(header_of(3));
+        auto first = ASSERT_NIL_P(spool->open_writer(header_of(1)));
+        auto second = ASSERT_NIL_P(spool->open_writer(header_of(2)));
+        auto third = ASSERT_NIL_P(spool->open_writer(header_of(3)));
         ASSERT_NIL(third->write({3, x::telem::Series(std::vector<float>{3})}));
         ASSERT_NIL(first->write({1, x::telem::Series(std::vector<float>{1})}));
         ASSERT_NIL(second->write({2, x::telem::Series(std::vector<float>{2})}));
@@ -390,7 +390,7 @@ TEST_F(SpoolTest, ListsSegmentsInOrder) {
 /// @brief it should refuse and count every frame after the cap is reached.
 TEST_F(SpoolTest, RefusesAndCountsFramesPastCap) {
     const auto spool = this->open_spool(300);
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_NIL(writer->write(frame_of(1)));
     x::errors::Error err;
     while (!err)
@@ -404,14 +404,14 @@ TEST_F(SpoolTest, RefusesAndCountsFramesPastCap) {
 /// @brief it should refuse a frame larger than the cap as too large, not as full.
 TEST_F(SpoolTest, RefusesFrameLargerThanCap) {
     const auto spool = this->open_spool(300);
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     const x::telem::Frame large(1, x::telem::Series(std::vector<float>(100)));
     const auto err = writer->write(large);
     ASSERT_MATCHES(err, TOO_LARGE);
     ASSERT_FALSE(err.matches(FULL));
     ASSERT_MATCHES(writer->write(frame_of(1)), TOO_LARGE);
     ASSERT_EQ(spool->refused(), 2);
-    ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
+    ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(header_of(1)))->write(frame_of(1)));
 }
 
 /// @brief it should count the bytes of every file it writes against the cap.
@@ -425,33 +425,36 @@ TEST_F(SpoolTest, CountsSegmentBytesExactly) {
     }
     const auto capped = this->open_spool(size);
     this->write_frames(*capped, header_of(1), 3);
-    ASSERT_MATCHES(capped->open_writer(header_of(1))->write(frame_of(1)), FULL);
+    ASSERT_MATCHES(
+        ASSERT_NIL_P(capped->open_writer(header_of(1)))->write(frame_of(1)),
+        FULL
+    );
 }
 
 /// @brief it should accept frames again after a removed segment frees space.
 TEST_F(SpoolTest, AcceptsFramesAfterRemove) {
     const auto spool = this->open_spool(300);
     {
-        const auto writer = spool->open_writer(header_of(1));
+        const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
         while (!writer->write(frame_of(1))) {}
     }
     ASSERT_NIL(spool->remove(spool->segments()[0]));
     ASSERT_TRUE(spool->segments().empty());
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_NIL(writer->write(frame_of(1)));
 }
 
 /// @brief it should remove a segment whose first write fails, and fail later writes.
 TEST_F(SpoolTest, RemovesSegmentOfFailedWrite) {
     const auto spool = this->open_spool(1000);
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     std::filesystem::create_directory(this->dir / "0.seg");
     auto err = writer->write(frame_of(1));
     ASSERT_MATCHES(err, x::fs::FS_ERROR);
     const auto again = writer->write(frame_of(2));
     ASSERT_EQ(again.data, err.data);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
-    ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
+    ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(header_of(1)))->write(frame_of(1)));
     ASSERT_EQ(spool->refused(), 2);
 }
 
@@ -460,7 +463,7 @@ TEST_F(SpoolTest, RefusesFramesBelowMinFree) {
     const auto spool = ASSERT_NIL_P(
         Spool::open(Config{.dir = this->dir, .min_free = UINT64_MAX})
     );
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_MATCHES(writer->write(frame_of(1)), FULL);
     ASSERT_MATCHES(writer->write(frame_of(2)), FULL);
     ASSERT_EQ(spool->refused(), 2);
@@ -484,13 +487,13 @@ TEST_F(SpoolTest, ChecksFreeSpaceAfterRemove) {
     );
     const x::telem::Frame frame(1, x::telem::Series(std::vector<float>(250000)));
     {
-        const auto writer = spool->open_writer(header_of(1));
+        const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
         for (int i = 0; i < 70; i++)
             ASSERT_NIL(writer->write(frame));
     }
     ASSERT_NIL(spool->remove(0));
     *free = 0;
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     int written = 0;
     while (!writer->write(frame))
         written++;
@@ -514,7 +517,7 @@ TEST_F(SpoolTest, FailsWriterWhenFreeSpaceUnknown) {
             }
         )
     );
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_MATCHES(writer->write(frame_of(1)), BASE_ERROR);
     ASSERT_MATCHES(writer->write(frame_of(2)), BASE_ERROR);
     ASSERT_EQ(spool->refused(), 2);
@@ -525,7 +528,7 @@ TEST_F(SpoolTest, FailsWriterWhenFreeSpaceUnknown) {
 /// frame after it.
 TEST_F(SpoolTest, RefusesFrameLargerThanRecordLimit) {
     const auto spool = this->open_spool();
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     const x::telem::Frame large(
         1,
         x::telem::Series(std::vector<float>(journal::MAX_PAYLOAD / sizeof(float) + 1))
@@ -542,13 +545,13 @@ TEST_F(SpoolTest, RefusesFrameLargerThanMaxPayload) {
     const auto spool = ASSERT_NIL_P(
         Spool::open(Config{.dir = this->dir, .max_payload = 1024})
     );
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     const x::telem::Frame large(1, x::telem::Series(std::vector<float>(256)));
     ASSERT_MATCHES(writer->write(large), TOO_LARGE);
     ASSERT_MATCHES(writer->write(frame_of(1)), TOO_LARGE);
     ASSERT_EQ(spool->refused(), 2);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
-    ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
+    ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(header_of(1)))->write(frame_of(1)));
 }
 
 /// @brief it should call on_create with each file it creates.
@@ -577,12 +580,21 @@ TEST_F(SpoolTest, CallsOnCreate) {
     EXPECT_TRUE(created->at(2).starts_with("0.offset"));
 }
 
+/// @brief it should refuse a writer whose header is larger than max_payload.
+TEST_F(SpoolTest, RefusesWriterWithHeaderLargerThanMaxPayload) {
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(Config{.dir = this->dir, .max_payload = 16})
+    );
+    ASSERT_OCCURRED_AS_P(spool->open_writer(header_of(1)), TOO_LARGE);
+    ASSERT_TRUE(spool->segments().empty());
+}
+
 /// @brief it should reject a header that lists a channel twice.
 TEST_F(SpoolTest, RejectsHeaderWithDuplicateChannel) {
     const auto spool = this->open_spool();
     auto header = header_of(1);
     header.channels[1] = 1;
-    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
+    ASSERT_OCCURRED_AS_P(spool->open_writer(header), BASE_ERROR);
 }
 
 /// @brief it should reject a header with an index that is not one of its channels.
@@ -590,13 +602,13 @@ TEST_F(SpoolTest, RejectsHeaderWithUnknownIndex) {
     const auto spool = this->open_spool();
     auto header = header_of(1);
     header.indexes[1] = 9;
-    ASSERT_MATCHES(spool->open_writer(header)->write(frame_of(1)), BASE_ERROR);
+    ASSERT_OCCURRED_AS_P(spool->open_writer(header), BASE_ERROR);
 }
 
 /// @brief it should fail to open a reader on a segment that is not closed.
 TEST_F(SpoolTest, RejectsReaderOfOpenSegment) {
     const auto spool = this->open_spool();
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_NIL(writer->write(frame_of(1)));
     ASSERT_OCCURRED_AS_P(spool->open_reader(0), BASE_ERROR);
 }
@@ -782,17 +794,17 @@ TEST_F(SpoolTest, SetsAsideSegment) {
 TEST_F(SpoolTest, AcceptsFramesAfterSetAside) {
     const auto spool = this->open_spool(300);
     {
-        const auto writer = spool->open_writer(header_of(1));
+        const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
         while (!writer->write(frame_of(1))) {}
     }
     ASSERT_NIL(spool->set_aside(0, CORRUPT));
-    ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
+    ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(header_of(1)))->write(frame_of(1)));
 }
 
 /// @brief it should fail to set aside a segment that is not closed.
 TEST_F(SpoolTest, RejectsSetAsideOfOpenSegment) {
     const auto spool = this->open_spool();
-    const auto writer = spool->open_writer(header_of(1));
+    const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
     ASSERT_NIL(writer->write(frame_of(1)));
     ASSERT_MATCHES(spool->set_aside(0, CORRUPT), BASE_ERROR);
     ASSERT_TRUE(spool->bad_segments().empty());
@@ -814,7 +826,7 @@ TEST_F(SpoolTest, FailsOnPartialSample) {
 TEST_F(SpoolTest, FailsOnPartialVariableSample) {
     {
         const auto spool = this->open_spool();
-        ASSERT_NIL(spool->open_writer(v1_header())->write(v1_frame()));
+        ASSERT_NIL(ASSERT_NIL_P(spool->open_writer(v1_header()))->write(v1_frame()));
     }
     // A frame of string channel 3 whose sample says 5 bytes but holds 1.
     const std::string payload(
@@ -1022,7 +1034,7 @@ TEST_F(SpoolTest, KeepsFrameWhenSyncFails) {
         )
     );
     {
-        const auto writer = spool->open_writer(header_of(1));
+        const auto writer = ASSERT_NIL_P(spool->open_writer(header_of(1)));
         ASSERT_NIL(writer->write(frame_of(0)));
         *failing = true;
         ASSERT_MATCHES(writer->write(frame_of(1)), journal::BASE_ERROR);
@@ -1051,7 +1063,7 @@ TEST_F(SpoolTest, RemovesSegmentWhenFirstSyncFails) {
         )
     );
     ASSERT_MATCHES(
-        spool->open_writer(header_of(1))->write(frame_of(0)),
+        ASSERT_NIL_P(spool->open_writer(header_of(1)))->write(frame_of(0)),
         journal::BASE_ERROR
     );
     ASSERT_TRUE(spool->segments().empty());
