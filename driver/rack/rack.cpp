@@ -41,9 +41,11 @@ outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err) {
         fix = "Make sure that the Driver can write to " + path +
               " and that the disk has free space. On Linux, run 'sudo synnax-driver "
               "install' to update the service.";
+    // Some causes end in a full stop of their own.
+    const auto cause = err.data.ends_with('.') ? err.data : err.data + ".";
     return {
         err,
-        "The Driver cannot open its outbox in " + path + ": " + err.data + ". " + fix +
+        "The Driver cannot open its outbox in " + path + ": " + cause + " " + fix +
             " Then restart the Driver."
     };
 }

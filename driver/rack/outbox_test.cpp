@@ -47,6 +47,11 @@ void write_future_segment(
     std::ofstream(path, std::ios::binary) << header;
 }
 
+/// @returns the text of err as a sentence, as outbox_failure gives it.
+std::string sentence(const x::errors::Error &err) {
+    return err.data.ends_with('.') ? err.data : err.data + ".";
+}
+
 class OutboxFailureTest : public ::testing::Test {
 protected:
     std::filesystem::path root;
@@ -81,8 +86,8 @@ TEST_F(OutboxFailureTest, UnknownVersion) {
     ASSERT_OCCURRED_AS(failure, journal::UNKNOWN_VERSION);
     ASSERT_EQ(
         failure.data,
-        "The Driver cannot open its outbox in " + this->dir.string() + ": " + err.data +
-            ". A newer Driver wrote it. Update the Driver, or move " +
+        "The Driver cannot open its outbox in " + this->dir.string() + ": " +
+            sentence(err) + " A newer Driver wrote it. Update the Driver, or move " +
             this->dir.string() +
             " aside to discard the changes it holds for the Core. Then restart the "
             "Driver."
@@ -96,10 +101,9 @@ TEST_F(OutboxFailureTest, UnknownFlag) {
     write_future_segment(this->dir / "0.calls", journal::VERSION, 0x0100);
     const auto err = this->open_err();
     ASSERT_OCCURRED_AS(err, journal::UNKNOWN_FLAG);
-    EXPECT_NE(
-        outbox_failure(this->dir, err).data.find("A newer Driver wrote it."),
-        std::string::npos
-    );
+    const auto text = outbox_failure(this->dir, err).data;
+    EXPECT_NE(text.find("A newer Driver wrote it."), std::string::npos);
+    EXPECT_EQ(text.find(".."), std::string::npos) << text;
 }
 
 /// @brief it should tell the user to move a damaged outbox aside.
@@ -118,8 +122,8 @@ TEST_F(OutboxFailureTest, Corrupt) {
     ASSERT_OCCURRED_AS(failure, journal::CORRUPT);
     ASSERT_EQ(
         failure.data,
-        "The Driver cannot open its outbox in " + this->dir.string() + ": " + err.data +
-            ". Its files are damaged. Move " + this->dir.string() +
+        "The Driver cannot open its outbox in " + this->dir.string() + ": " +
+            sentence(err) + " Its files are damaged. Move " + this->dir.string() +
             " aside to discard the changes it holds for the Core. Then restart the "
             "Driver."
     );
@@ -134,8 +138,9 @@ TEST_F(OutboxFailureTest, Locked) {
     ASSERT_OCCURRED_AS(failure, x::fs::LOCKED);
     ASSERT_EQ(
         failure.data,
-        "The Driver cannot open its outbox in " + this->dir.string() + ": " + err.data +
-            ". Another Driver uses it. Stop the other Driver, or give each Driver "
+        "The Driver cannot open its outbox in " + this->dir.string() + ": " +
+            sentence(err) +
+            " Another Driver uses it. Stop the other Driver, or give each Driver "
             "its own state directory. Then restart the Driver."
     );
 }
@@ -155,8 +160,9 @@ TEST_F(OutboxFailureTest, UnwritableDirectory) {
     ASSERT_OCCURRED_AS(err, outbox::BASE_ERROR);
     ASSERT_EQ(
         outbox_failure(this->dir, err).data,
-        "The Driver cannot open its outbox in " + this->dir.string() + ": " + err.data +
-            ". Make sure that the Driver can write to " + this->dir.string() +
+        "The Driver cannot open its outbox in " + this->dir.string() + ": " +
+            sentence(err) + " Make sure that the Driver can write to " +
+            this->dir.string() +
             " and that the disk has free space. On Linux, run 'sudo synnax-driver "
             "install' to update the service. Then restart the Driver."
     );
