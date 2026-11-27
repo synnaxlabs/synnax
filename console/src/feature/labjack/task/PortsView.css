@@ -23,10 +23,6 @@
     }
 }
 
-.console-labjack-ports__usage {
-    font-variant-numeric: tabular-nums;
-}
-
 .console-labjack-ports--compact {
     flex: none;
     gap: 1.5rem;

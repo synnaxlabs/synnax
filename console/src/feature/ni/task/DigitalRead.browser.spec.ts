@@ -9,6 +9,7 @@
 
 import type { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -214,7 +215,11 @@ describe("DigitalRead ports", () => {
         dev.key,
       ),
     );
-    await screen.findByRole("group", { name: "port0 lines" });
+    const row = (await screen.findByRole("group", { name: "port0 lines" }))
+      .parentElement;
+    if (row == null) throw new Error("expected the row of port0");
+    expect(treatment(within(row).getByText("port0"))).toBe("numeric");
+    expect(treatment(screen.getByText(/^8 of \d+ lines used$/))).toBe("numeric");
     fireEvent.click(getIconButton(container, "add"));
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({

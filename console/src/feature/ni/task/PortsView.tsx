@@ -113,7 +113,7 @@ const DeviceSection = ({
             >
               {device.model}
             </Text.Text>
-            <Text.Text level="small" color={9} className={CSS.BE("ni-ports", "usage")}>
+            <Text.Text level="small" color={9} variant="numeric">
               {usage}
             </Text.Text>
           </Flex.Box>

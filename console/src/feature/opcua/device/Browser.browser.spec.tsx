@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Haul } from "@synnaxlabs/lyra/haul";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { treatment } from "@synnaxlabs/lyra/styletest";
-import { scheduler } from "@synnaxlabs/x";
+import { scheduler, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -159,6 +159,8 @@ const variable = (name: string): OPCUA.Device.ScannedNode => ({
 const TANK = variable("TankPressure");
 
 const PUMP = variable("PumpSpeed");
+
+const SOURCE_TIME = "2026-11-27T12:00:00Z";
 
 const DETAILS = {
   node: TANK,
@@ -339,12 +341,18 @@ describe("Browser details", () => {
     const { client, scan } = await renderBrowser();
     const read = await answerNextCommand(client, scan, {
       type: OPCUA.Device.READ_NODE_COMMAND_TYPE,
-      data: { ...DETAILS, node: { ...TANK, field: "Level" } },
+      data: {
+        ...DETAILS,
+        node: { ...TANK, field: "Level" },
+        sourceTimestamp: SOURCE_TIME,
+      },
     });
     fireEvent.click(screen.getByText("TankPressure"));
     expect((await read.answered).args).toMatchObject({ nodeId: TANK.nodeId });
     await screen.findByText("Double");
     expect(treatment(screen.getByText("2.5"))).toBe("numeric");
+    const time = new TimeStamp(SOURCE_TIME).toString("dateTime", "local");
+    expect(treatment(screen.getByText(time))).toBe("numeric");
     expect(treatment(screen.getByText(TANK.nodeId))).toBe("prose");
     expect(treatment(screen.getByText("Level"))).toBe("prose");
     expect(screen.getByText("Good")).toBeTruthy();

@@ -265,12 +265,12 @@ const Item = ({
           {certificate != null && <Expiry details={certificate} now={now} />}
         </List.Cell>
         <List.Cell className={NUMERIC_CLASS}>
-          <Text.Text level="small" color={9}>
+          <Text.Text level="small" color={9} variant="numeric">
             {entry.kind === "file" ? formatSize(entry.size) : ""}
           </Text.Text>
         </List.Cell>
         <List.Cell className={NUMERIC_CLASS}>
-          <Text.Text level="small" color={9}>
+          <Text.Text level="small" color={9} variant="numeric">
             {formatModified(entry.modified, now)}
           </Text.Text>
         </List.Cell>

@@ -18,6 +18,8 @@ import {
 } from "@synnaxlabs/client";
 import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { treatment } from "@synnaxlabs/lyra/styletest";
+import { Telem } from "@synnaxlabs/lyra/telem";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { color, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -786,6 +788,20 @@ describe("range/explorer/Explorer", () => {
   });
 
   describe("item", () => {
+    it("should draw the start and the span with tabular digits", async () => {
+      const rng = await createRange(uniqueName("digits"));
+      await renderExplorer();
+      await search(rng.name);
+      const item = await findItem(rng.name);
+      const { start, span } = rng.timeRange;
+      const day = Telem.Text.describeDay(start, TimeStamp.now());
+      const full = `${day} ${Telem.Text.formatTime(start, TimeSpan.MINUTE)}`;
+      expect(treatment(within(item).getByText(full))).toBe("numeric");
+      expect(treatment(within(item).getByText(span.toString("semantic")))).toBe(
+        "numeric",
+      );
+    });
+
     it("should open the overview of the range on a plain click", async () => {
       const rng = await createRange(uniqueName("click"));
       const store = await renderExplorer();
@@ -915,6 +931,7 @@ describe("range/explorer/Explorer", () => {
       await renderExplorer();
       fireEvent.click(await screen.findByRole("button", { name: /Timeline/ }));
       const axis = await screen.findByRole("group", { name: "Time axis" });
+      expect(treatment(within(axis).getAllByText(/\d/)[0])).toBe("numeric");
       expect(screen.queryByRole("button", { name: "Fit all" })).toBeNull();
       fireEvent.pointerDown(axis, { clientX: 50, pointerId: 1 });
       fireEvent.pointerMove(axis, { clientX: 20, pointerId: 1 });

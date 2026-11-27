@@ -34,5 +34,4 @@
 
 .console-port-rows__label {
     height: var(--pluto-port-height);
-    font-variant-numeric: tabular-nums;
 }

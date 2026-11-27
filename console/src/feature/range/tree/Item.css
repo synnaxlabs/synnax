@@ -110,14 +110,12 @@
 .console-range-item__start {
     flex-shrink: 0;
     width: 19rem;
-    font-variant-numeric: tabular-nums;
 }
 
 .console-range-item__span {
     flex-shrink: 0;
     justify-content: flex-end;
     width: 11rem;
-    font-variant-numeric: tabular-nums;
     text-align: right;
 }
 

@@ -18,7 +18,6 @@
     padding-left: 3rem;
     color: var(--pluto-gray-l8);
     font-size: var(--pluto-small-size);
-    font-variant-numeric: tabular-nums;
 }
 
 .console-modbus__trigger .console-modbus__option-description {

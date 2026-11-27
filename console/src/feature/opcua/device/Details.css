@@ -27,7 +27,6 @@
 }
 
 .console-opc-details__time {
-    font-variant-numeric: tabular-nums;
     white-space: nowrap;
 }
 

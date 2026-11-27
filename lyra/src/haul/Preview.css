@@ -78,7 +78,6 @@
     font-size: var(--pluto-tiny-size);
     line-height: var(--pluto-tiny-line-height);
     white-space: nowrap;
-    font-variant-numeric: tabular-nums;
 }
 
 .lyra-haul-preview__sep {
@@ -107,11 +106,11 @@
     border-radius: 1.75rem;
     background: var(--pluto-primary-z);
     color: var(--pluto-text-on-primary);
+    font-family: var(--pluto-font-family);
     font-size: var(--pluto-tiny-size);
     font-weight: 400;
     line-height: 3.5rem;
     text-align: center;
-    font-variant-numeric: tabular-nums;
 }
 
 /* Two plates behind the preview show that the drag carries more than one object. */

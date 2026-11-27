@@ -102,11 +102,7 @@ const Section = <P extends Device.Port>({
           >
             {TITLES[type]}
           </Text.Text>
-          <Text.Text
-            level="small"
-            color={9}
-            className={CSS.BE("labjack-ports", "usage")}
-          >
+          <Text.Text level="small" color={9} variant="numeric">
             {`${Task.Port.usedCount(ports.map(terminal), claims)} of ${ports.length} ports used`}
           </Text.Text>
         </Flex.Box>
