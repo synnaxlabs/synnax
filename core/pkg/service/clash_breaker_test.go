@@ -14,8 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
@@ -76,6 +81,97 @@ var _ = Describe("Clash upgrade breaker", func() {
 		Expect(l.Channel.CalculationInputs(ctx, n.DB, []channel.Channel{calc})).
 			To(ConsistOf(bound))
 	})
+
+	It("Should not let a local of the new name capture the read of a renamed channel",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			stored := storeV062(
+				ctx,
+				n,
+				[]string{groupv1.MetricsFolder, "scaled", "pt", "control"},
+				func(cs []channelv1.Channel) {
+					cs[1].Expression = "Metrics_2 f32 := 2.0\nreturn Metrics * Metrics_2"
+					cs[3].Expression = "pt_2 f32 := 2.0\nreturn pt * pt_2"
+				},
+				folder(groupv1.MetricsFolder),
+			)
+			l := MustOpen(svctestutil.OpenLayer(ctx, n))
+			Expect(namesOf(ctx, n, stored)[stored[0].Key()]).To(Equal("Metrics_2"))
+			var calcs []channel.Channel
+			Expect(gorp.NewRetrieve[channel.Key, channel.Channel]().
+				Where(gorp.MatchKeys[channel.Key, channel.Channel](
+					stored[1].Key(),
+					stored[3].Key(),
+				)).
+				Entries(&calcs).
+				Exec(ctx, n.DB)).To(Succeed())
+			Expect(calcs).To(HaveLen(2))
+			byKey := map[channel.Key]channel.Channel{}
+			for _, c := range calcs {
+				byKey[c.Key()] = c
+			}
+			// The same shape with a channel that keeps its name reads the channel.
+			Expect(l.Channel.CalculationInputs(
+				ctx,
+				n.DB,
+				[]channel.Channel{byKey[stored[3].Key()]},
+			)).To(ConsistOf(stored[2].Key()))
+			// A local in scope holds the new name, so the text keeps the old name and
+			// the report names the place.
+			Expect(byKey[stored[1].Key()].Expression).
+				To(Equal("Metrics_2 f32 := 2.0\nreturn Metrics * Metrics_2"))
+			Expect(renameStatuses(ctx, n)["scaled"].Description).To(Equal(
+				`The upgrade renamed channel "Metrics" to "Metrics_2", but the text of ` +
+					`calculated channel "scaled" still reads the old name at line 2, ` +
+					`column 8, because a symbol in scope there holds the name ` +
+					`"Metrics_2". Edit the text so that it reads the channel.`,
+			))
+		})
+
+	It("Should leave a graph function body that reads its own input of the old name",
+		func(ctx SpecContext) {
+			n := testutil.NewNode(ctx)
+			storeV062(
+				ctx,
+				n,
+				[]string{groupv1.MetricsFolder},
+				func([]channelv1.Channel) {},
+				folder(groupv1.MetricsFolder),
+			)
+			storeArcs(ctx, n, nil, nil)
+			isRoot := func(_ gorp.Context, d *directory.Directory) (bool, error) {
+				return d.Parent == nil, nil
+			}
+			var root directory.Directory
+			Expect(gorp.NewRetrieve[directory.Key, directory.Directory]().
+				Where(gorp.Match(isRoot)).
+				Entry(&root).
+				Exec(ctx, n.DB)).To(Succeed())
+			// v0.62 binds the input in the scope of the function, so the body reads
+			// the input and not the channel Metrics.
+			const body = "{ return Metrics * 2 }"
+			a := svcarc.Arc{Variant: svcarc.AutomationArc{Base: svcarc.Base{
+				Key:       uuid.New(),
+				Name:      "graph",
+				Directory: &root.Key,
+				Source: svcarc.Source{Variant: svcarc.GraphSource{Graph: graph.Graph{
+					Functions: ir.Functions{{
+						Key: "scale",
+						Inputs: types.Params{
+							{Name: groupv1.MetricsFolder, Type: types.F64()},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: body},
+					}},
+				}}},
+			}}}
+			Expect(gorp.WrapWriter[svcarc.Key, svcarc.Arc](n.DB).Set(ctx, a)).
+				To(Succeed())
+			MustOpen(svctestutil.OpenLayer(ctx, n))
+			Expect(sourceOf(ctx, n, a.Base().Key)).To(Equal(body))
+		})
 
 	It("Should not report a folder clash for a Metrics channel when the store held no "+
 		"folder of the name", func(ctx SpecContext) {
