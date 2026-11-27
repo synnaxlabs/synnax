@@ -85,6 +85,15 @@ TEST_F(RackConfigTest, Default) {
     ASSERT_NE(cfg.rack.name, "");
 }
 
+/// @brief it should renew the key that it enrolled, since it saved the key itself.
+TEST_F(RackConfigTest, RenewsEnrolledKey) {
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_TRUE(cfg.api_key_persisted);
+    const auto reloaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(reloaded.connection.api_key, cfg.connection.api_key);
+    ASSERT_TRUE(reloaded.api_key_persisted);
+}
+
 /// @brief it should write the version of this Driver to its rack and find a Core of the
 /// same train compatible.
 TEST_F(RackConfigTest, WritesDriverVersionToRack) {
