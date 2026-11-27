@@ -3906,12 +3906,24 @@ std::string replace(std::string s, const std::string &from, const std::string &t
     return s;
 }
 
+/// @brief an Arc task that runs, and the context that holds its statuses.
+struct Run {
+    std::shared_ptr<driver::task::MockContext> ctx;
+    std::unique_ptr<arc::Task> task;
+
+    Run() = default;
+    Run(Run &&) = default;
+    Run(const Run &) = delete;
+    Run &operator=(const Run &) = delete;
+    ~Run() {
+        if (this->task != nullptr) this->task->stop("stop", true);
+    }
+};
+
 /// @brief runs source, in which %start%, %pt%, and %out% name a start command, a
 /// pressure, and an output channel, through an Arc task. The task gets a start command,
-/// then each pressure in order. Returns the context that holds the statuses of the
-/// task.
-std::shared_ptr<driver::task::MockContext>
-run(const std::string &source, const std::vector<float> &pressures) {
+/// then each pressure in order.
+Run run(const std::string &source, const std::vector<float> &pressures) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto start = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("scope_start"),
@@ -3968,7 +3980,10 @@ run(const std::string &source, const std::vector<float> &pressures) {
         )
     );
     tsk->start("start");
-    return ctx;
+    Run r;
+    r.ctx = ctx;
+    r.task = std::move(tsk);
+    return r;
 }
 
 /// @brief returns the last status in ctx, or a default status when there is none.
@@ -3989,7 +4004,7 @@ synnax::arc::task::StatusData data_of(const synnax::task::Status &status) {
 
 /// @brief it should show the stage that a running sequence is in.
 TEST(ArcScopeStatus, ShowsTheActiveStage) {
-    const auto ctx = scope_status::run(
+    const auto r = scope_status::run(
         R"(
 sequence main {
     stage pressurize {
@@ -4003,6 +4018,7 @@ sequence main {
 )",
         {10, 60}
     );
+    const auto &ctx = r.ctx;
     ASSERT_EVENTUALLY_EQ(scope_status::last(ctx).message, "Running main › hold");
     const auto status = scope_status::last(ctx);
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
@@ -4014,7 +4030,7 @@ sequence main {
 
 /// @brief it should show that the program is idle after its sequence ends.
 TEST(ArcScopeStatus, ShowsIdleAfterTheSequenceEnds) {
-    const auto ctx = scope_status::run(
+    const auto r = scope_status::run(
         R"(
 sequence main {
     stage pressurize {
@@ -4026,6 +4042,7 @@ sequence main {
 )",
         {60}
     );
+    const auto &ctx = r.ctx;
     ASSERT_EVENTUALLY_EQ(scope_status::last(ctx).message, "Idle");
     const auto status = scope_status::last(ctx);
     EXPECT_TRUE(status.details.running);
