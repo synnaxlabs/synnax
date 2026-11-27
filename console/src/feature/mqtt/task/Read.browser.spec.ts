@@ -1176,7 +1176,13 @@ describe("MQTT read form", () => {
       shapes: [
         {
           fields: [
-            { pointer: "/temperature", type: "number", kind: "float", sample: "1" },
+            {
+              pointer: "/temperature",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
           ],
           count: 1,
         },
