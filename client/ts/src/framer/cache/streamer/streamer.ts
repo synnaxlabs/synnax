@@ -563,6 +563,13 @@ export class Multiplexed {
             prev: Array.from(this.sentKeys),
             next: arrKeys,
           }));
+          // A key that now needs its time is not acked until the update that sends
+          // its time is.
+          const timed = Array.from(this.sentUntimed).filter((k) => !untimed.has(k));
+          if (timed.length > 0)
+            this.setAcked(
+              new Set(Array.from(this.acked).filter((k) => !timed.includes(k))),
+            );
           await this.streamer.update(arrKeys, { waitForAck: true, untimedKeys });
         }
         this.sentKeys = desired;

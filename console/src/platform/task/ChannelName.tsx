@@ -46,18 +46,13 @@ export interface ChannelNameProps extends optional.Optional<
   /**
    * Holds the name deploying the task gives the channel, shown until the channel
    * resolves. Without it, a channel of 0 shows the default name, read only. One of the
-   * two is required while the channel is 0, unless the channel is picked.
+   * two is required while the channel is 0.
    */
   namePath?: deep.Target<string | undefined>;
   /** Leads the name. A new or missing channel shows its state icon in its place. */
   icon?: ReactElement;
   /** Deploying the task does not create the channel, because it is disabled. */
   skipped?: boolean;
-  /**
-   * The form picks an existing channel, so deploying the task never creates one, and
-   * the name is read only.
-   */
-  picked?: boolean;
 }
 
 const NO_CHANNEL = "No channel";
@@ -68,7 +63,7 @@ export const withSuffix = (name: string, suffix: string): string =>
 
 interface NameProps extends Omit<
   ChannelNameProps,
-  "channel" | "defaultName" | "suffix" | "namePath" | "icon" | "skipped" | "picked"
+  "channel" | "defaultName" | "suffix" | "namePath" | "icon" | "skipped"
 > {
   name: string;
   /** Takes a rename. Without it, the name is read only. */
@@ -145,7 +140,7 @@ const lead = (icon: ReactElement | undefined, name: Anchor): Anchor =>
     </Flex.Box>
   );
 
-interface ResolvedProps extends Omit<ChannelNameProps, "skipped" | "picked"> {
+interface ResolvedProps extends Omit<ChannelNameProps, "skipped"> {
   deploy: Deploy;
 }
 
@@ -162,10 +157,9 @@ const Resolved = ({
   const { update } = Channel.useRename();
   const result = Channel.useResultName({ key: channel });
   if (result.variant === "success") {
-    const handleRename =
-      deploy === "never" || !canRename
-        ? undefined
-        : (name: string) => update({ key: channel, name });
+    const handleRename = canRename
+      ? (name: string) => update({ key: channel, name })
+      : undefined;
     return lead(icon, <Name {...rest} name={result.data} onRename={handleRename} />);
   }
   const unresolved = { ...rest, namePath, defaultName, suffix };
@@ -176,14 +170,7 @@ const Resolved = ({
         message={STATE_MESSAGES.missing}
         description={MISSING_DESCRIPTIONS[deploy]}
       >
-        {lead(
-          <StateIcon state="missing" />,
-          <Unresolved
-            {...unresolved}
-            defaultName={deploy === "never" ? STATE_MESSAGES.missing : defaultName}
-            color={8}
-          />,
-        )}
+        {lead(<StateIcon state="missing" />, <Unresolved {...unresolved} color={8} />)}
       </Message>
     );
   if (result.variant !== "error")
@@ -243,11 +230,6 @@ const Pending = ({ icon, skipped, children }: PendingProps) =>
     </Message>
   );
 
-const deployOf = (skipped: boolean, picked: boolean): Deploy => {
-  if (picked) return "never";
-  return skipped ? "skips" : "creates";
-};
-
 export const ChannelName = ({
   channel,
   namePath,
@@ -255,13 +237,13 @@ export const ChannelName = ({
   suffix,
   icon,
   skipped = false,
-  picked = false,
   ...rest
 }: ChannelNameProps): ReactElement => {
   const named = { ...rest, namePath, defaultName, suffix, icon };
   if (channel !== 0)
-    return <Resolved {...named} channel={channel} deploy={deployOf(skipped, picked)} />;
-  if (picked) return lead(icon, <Name {...rest} name={NO_CHANNEL} color={8} />);
+    return (
+      <Resolved {...named} channel={channel} deploy={skipped ? "skips" : "creates"} />
+    );
   if (namePath != null)
     return <Unbound {...named} namePath={namePath} skipped={skipped} />;
   if (defaultName == null)

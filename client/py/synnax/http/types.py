@@ -10,9 +10,9 @@
 from typing import Any, override
 from uuid import uuid4
 
-from pydantic import BaseModel, JsonValue
+from pydantic import BaseModel
 
-from synnax import device, rack as rack_, task
+from synnax import device, icd, rack as rack_, task
 from synnax.http.types_gen import (
     Header,
     QueryParam,
@@ -109,28 +109,6 @@ class ReadTask(
             nan_fill_enabled=nan_fill_enabled,
         )
         task.assign_keys(self.config.endpoints)
-        for ep in self.config.endpoints:
-            task.assign_keys(ep.fields)
-
-    @override
-    def update_device_properties(self, device_client: device.Client) -> device.Device:
-        """Sync channel mappings to device properties."""
-        dev = device_client.retrieve(key=self.config.device)
-        props = dict(dev.properties)
-        read = device.ensure_object(props, "read")
-        for ep in self.config.endpoints:
-            channels: dict[str, JsonValue] = {}
-            index_key = 0
-            for field in ep.fields:
-                channels[field.pointer] = field.channel
-                if ep.index != "" and field.key == ep.index:
-                    index_key = field.channel
-            read[ep.path] = {"index": index_key, "channels": channels}
-        dev.properties = props
-        device_client.dispatch(
-            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
-        )
-        return dev
 
 
 class WriteTask(
@@ -167,17 +145,24 @@ class WriteTask(
             endpoints=endpoints if endpoints is not None else [],
         )
         task.assign_keys(self.config.endpoints)
-        for ep in self.config.endpoints:
-            task.assign_keys(ep.fields)
 
     @override
     def update_device_properties(self, device_client: device.Client) -> device.Device:
-        """Sync channel mappings to device properties."""
+        """Sync the command channel of each field of each enabled endpoint to device
+        properties, keyed by "METHOD path#field", so each task on the device that sends
+        to the same method and path shares the channel."""
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
         write = device.ensure_object(props, "write")
         for ep in self.config.endpoints:
-            write[ep.path] = ep.channel.channel
+            if ep.disabled or ep.message is None:
+                continue
+            for binding in ep.message.bindings:
+                if (
+                    isinstance(binding, icd.ChannelWriteBinding)
+                    and binding.channel != 0
+                ):
+                    write[f"{ep.method} {ep.path}#{binding.field}"] = binding.channel
         dev.properties = props
         device_client.dispatch(
             dev.key, device.set(device.SetPayload(path=["properties"], value=props))

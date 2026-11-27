@@ -305,6 +305,15 @@ func validateRead(req ReadRequest) ([]telem.TimeRange, error) {
 			"a read cannot take both latest and earliest",
 		)
 	}
+	for _, key := range req.UntimedKeys {
+		if !req.Keys.Contains(key) {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"untimed_keys: channel %d is not requested",
+				key,
+			)
+		}
+	}
 	if (req.Latest > 0 || req.Earliest > 0) && req.Reduction.Variant != nil {
 		return nil, errors.Wrap(
 			validate.ErrValidation,

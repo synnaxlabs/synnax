@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
+	"github.com/synnaxlabs/synnax/pkg/service/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/x/address"
@@ -182,7 +182,16 @@ func (s *Service) NewStream(
 		}
 	}
 	distCfg := cfg.distribution()
-	distCfg.Keys = lo.Uniq(append(distCfg.Keys, indexes...))
+	// A chunked read counts the samples of each channel on its own, so it reads each
+	// index beside the chunks of its data instead of chunking the index too.
+	var times *chunkTime
+	if clocks := chunkClocks(cfg, channels); calcTransform == nil && len(clocks) > 0 {
+		if times, err = newChunkTime(ctx, s.cfg.Framer, cfg, clocks); err != nil {
+			return nil, err
+		}
+	} else {
+		distCfg.Keys = lo.Uniq(append(distCfg.Keys, indexes...))
+	}
 	if calcTransform != nil {
 		// A calculation must see every sample its expression was written over. Fed a
 		// strided or aggregated input, a stateful expression returns a different signal
@@ -191,11 +200,18 @@ func (s *Service) NewStream(
 	}
 	dist, err := s.cfg.Framer.NewStreamIterator(ctx, distCfg)
 	if err != nil {
+		if times != nil {
+			err = errors.Combine(err, times.indexes.Close())
+		}
 		return nil, err
 	}
 	p.SetSegment("distribution", dist)
 	var routeInletsTo, routeOutletFrom address.Address = "distribution", "distribution"
-	if calcTransform == nil && len(indexes) > 0 {
+	if times != nil {
+		p.SetSegment("time", times)
+		p.MustConnect[Response](routeOutletFrom, "time", 25)
+		routeOutletFrom = "time"
+	} else if calcTransform == nil && len(indexes) > 0 {
 		p.SetSegment("time", newTimeFilter(cfg.Keys, cfg.UntimedKeys))
 		p.MustConnect[Response](routeOutletFrom, "time", 25)
 		routeOutletFrom = "time"
@@ -229,6 +245,24 @@ func timeIndexes(cfg Config, channels []channel.Channel) channel.Keys {
 		indexes = append(indexes, index)
 	}
 	return lo.Uniq(indexes)
+}
+
+// chunkClocks returns the index of each timed stored data channel in channels when cfg
+// reads in chunks, and none otherwise.
+func chunkClocks(cfg Config, channels []channel.Channel) channel.Keys {
+	if cfg.ChunkSize <= 0 {
+		return nil
+	}
+	var clocks channel.Keys
+	for _, ch := range channels {
+		index := ch.Index()
+		if index == 0 || index == ch.Key() || ch.Virtual ||
+			cfg.UntimedKeys.Contains(ch.Key()) {
+			continue
+		}
+		clocks = append(clocks, index)
+	}
+	return lo.Uniq(clocks)
 }
 
 // newTimeFilter returns a transform that keeps, in each data response, the series of

@@ -11,14 +11,11 @@
 
 #include <map>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "client/cpp/http/types.gen.h"
-#include "x/cpp/json/convert.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/common/read_task.h"
@@ -33,57 +30,25 @@
 namespace driver::http {
 const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 
-/// @brief a single field within a sampling group, with conversion state derived
-/// from its configuration.
-struct GroupField {
-    /// @brief Synnax channel key to write the extracted value to.
-    synnax::channel::Key channel = 0;
-    /// @brief JSON Pointer to the value in the response.
-    x::json::json::json_pointer pointer;
-    /// @brief if the Synnax channel is a timestamp, the format of the JSON value.
-    std::optional<x::json::TimeFormat> time_format;
-    /// @brief mapping of string values to numbers for enum-style parsing
-    /// (e.g., "ON" -> 1, "OFF" -> 0).
-    x::json::EnumMap enum_values;
-    /// @brief true when a missing value is filled with no warning.
-    bool optional = false;
-    /// @brief the sample to write for a missing value. Unset writes NaN.
-    std::optional<x::telem::SampleValue> fill_value;
-};
-
-/// @brief a group of fields that share the same index channel and must be
-/// written atomically — either all fields succeed or the entire group is
-/// skipped.
-struct SamplingGroup {
-    /// @brief index channel key, or 0 if the fields have no index.
-    synnax::channel::Key index_key = 0;
-    /// @brief whether the index channel is software-timed (not an explicit
-    /// field — needs a timestamp written automatically).
-    bool software_timed_index = false;
-    /// @brief index of the endpoint this group's fields live on.
-    size_t endpoint_index = 0;
-    /// @brief the fields in this group.
-    std::vector<GroupField> fields;
-};
-
 /// @brief configuration for an HTTP read task.
 struct ReadTaskConfig : ::synnax::http::ReadConfig {
-    /// @brief index channels that need software timing, mapped to their endpoint
-    /// index. These are index channels referenced by data channels but not
-    /// explicitly listed as fields.
-    std::map<synnax::channel::Key, int> software_timed_indexes;
-    /// @brief mapping of channel keys to their Synnax channel definitions.
-    std::map<synnax::channel::Key, synnax::channel::Channel> channels;
-    /// @brief the fill value of each field that sets one, converted to the data type
-    /// of its channel and keyed by channel.
-    std::map<synnax::channel::Key, x::telem::SampleValue> fill_values;
-
-    /// @brief parses a read task config from a Synnax task definition.
-    /// @param ctx the task context providing access to the Synnax client.
-    /// @param task the Synnax task definition containing the configuration JSON.
-    /// @returns the parsed config paired with an error.
+    /// @brief parses a read task config from a Synnax task definition. The config
+    /// holds only its enabled endpoints.
+    /// @returns VALIDATION when the task has no device, no enabled endpoint, or an
+    /// enabled endpoint with an invalid request.
     static std::pair<ReadTaskConfig, x::errors::Error>
-    parse(const std::shared_ptr<task::Context> &ctx, const synnax::task::Task &task);
+    parse(const synnax::task::Task &task);
+};
+
+/// @brief Readers reads the responses of the endpoints of a read task.
+struct Readers {
+    /// @brief endpoints holds the reader of each endpoint, in endpoint order.
+    std::vector<driver::icd::Reader> endpoints;
+    /// @brief channels holds the channel of each binding, by key.
+    std::map<synnax::channel::Key, synnax::channel::Channel> channels;
+    /// @brief pointers holds the JSON pointer of the field of each binding of a JSON
+    /// message, by the key of its channel.
+    std::map<synnax::channel::Key, std::string> pointers;
 };
 
 /// @brief source that polls HTTP endpoints and writes extracted values to a frame.
@@ -91,20 +56,21 @@ class ReadTaskSource : public common::Source {
     ReadTaskConfig cfg;
     std::shared_ptr<Processor> processor;
     std::vector<Request> requests;
+    Readers readers;
+    /// @brief keys holds each channel that the readers write.
+    std::vector<synnax::channel::Key> keys;
     common::SoftwareTimedSampleClock sample_clock;
-    std::vector<synnax::channel::Channel> chs;
-    std::vector<x::json::json> parsed_bodies;
-    /// @brief sampling groups derived from the configuration.
-    std::vector<SamplingGroup> groups;
 
 public:
     /// @param cfg the read task configuration.
     /// @param processor the shared HTTP processor for executing requests.
     /// @param requests pre-built requests (one per endpoint).
+    /// @param readers the readers of the responses (one per endpoint).
     ReadTaskSource(
         ReadTaskConfig cfg,
         std::shared_ptr<Processor> processor,
-        std::vector<Request> requests
+        std::vector<Request> requests,
+        Readers readers
     );
 
     /// @brief returns the writer configuration for the task.
@@ -137,13 +103,11 @@ public:
 /// @brief builds the message reader of each read endpoint from the messages of its ICD.
 /// @param client the client that retrieves the ICDs and the channels of the endpoints.
 /// @param endpoints the endpoints to build readers for.
-/// @returns one reader per enabled endpoint, in order. Returns CONFIGURATION_ERROR that
-/// names the endpoint when it reads no messages, when its ICD does not exist, or when
-/// driver::icd::Reader rejects its messages, and that names both endpoints when two of
-/// them write to one channel (an index channel included). Returns the error of a failed
-/// retrieve as is.
-[[nodiscard]] std::pair<std::vector<driver::icd::Reader>, x::errors::Error>
-build_readers(
+/// @returns CONFIGURATION_ERROR that names the endpoint when it reads no messages, when
+/// its ICD does not exist, or when driver::icd::Reader rejects its messages, and that
+/// names both endpoints when two of them write to one channel (an index channel
+/// included). Returns the error of a failed retrieve as is.
+[[nodiscard]] std::pair<Readers, x::errors::Error> build_readers(
     const synnax::Synnax &client,
     const std::vector<::synnax::http::ReadEndpoint> &endpoints
 );

@@ -19,8 +19,8 @@ The Kafka integration moves JSON records between an
 [Apache Kafka](https://kafka.apache.org/) cluster and Synnax channels. In Synnax, a
 Kafka cluster is a list of brokers with their TLS and authentication settings. The
 [read task](/reference/hardware/kafka/read-task) records the values in the records of a
-topic, and the [write task](/reference/hardware/kafka/write-task) sends the samples of
-channels to a topic as records.
+topic, and the [write task](/reference/hardware/kafka/write-task) sends commands to a
+topic as records.
 
 Kafka tasks run inside the Synnax Core, not in a Driver. The Core uses the rack "Node
 1", and it runs Kafka tasks wherever the Core runs, Docker included.

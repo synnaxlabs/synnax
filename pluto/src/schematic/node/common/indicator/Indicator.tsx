@@ -35,11 +35,11 @@ const Unknown = (): ReactElement => (
 
 export interface SlotProps {
   stale: boolean;
-  unknown: boolean;
+  unknown?: boolean;
 }
 
 /** Slot shows the indicators of a symbol side by side below it, or nothing. */
-export const Slot = Grid.createItem(({ stale, unknown }: SlotProps) => {
+export const Slot = Grid.createItem(({ stale, unknown = false }: SlotProps) => {
   if (!stale && !unknown) return null;
   return (
     <Grid.Item itemKey="indicator" location="bottom">

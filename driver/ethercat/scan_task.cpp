@@ -379,17 +379,17 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
             holds_configured_devices_on(scan_ctx, key)) {
             this->next_probes.erase(key);
             if (err.matches(errors::REPLIES_BLOCKED)) {
-                blocked.emplace_back(key, err.data);
+                blocked.emplace_back(key, err.data());
                 continue;
             }
             // The master tells how to fix a port with no link.
             if (err.matches(errors::NO_LINK)) {
-                failures.insert(err.data);
+                failures.insert(err.data());
                 continue;
             }
             const auto [engine, acquire_err] = this->pool->acquire(key);
             failures.insert(
-                acquire_err ? acquire_err.data
+                acquire_err ? acquire_err.data()
                             : "No module answered on " + engine->name() +
                                   ". Check the cable and the power of the first module."
             );
@@ -398,13 +398,13 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
         if (err.matches(errors::NO_SLAVES_FOUND)) {
             auto &probe = this->next_probes[key];
             probe.due = scan_ctx.count + EMPTY_INTERFACE_PROBE_INTERVAL;
-            probe.failure = err.matches(errors::REPLIES_BLOCKED) ? err.data : "";
+            probe.failure = err.matches(errors::REPLIES_BLOCKED) ? err.data() : "";
             if (!probe.failure.empty()) blocked.emplace_back(key, probe.failure);
             continue;
         }
         this->next_probes.erase(key);
         if (err) {
-            failures.insert(err.data);
+            failures.insert(err.data());
             continue;
         }
         const auto [engine, acquire_err] = this->pool->acquire(key);
@@ -557,7 +557,7 @@ void Scanner::disable_dewesoft_filter(const synnax::task::Command &cmd) {
     if (interfaces.empty())
         task_status.description = "The DewesoftX filter blocks no adapter.";
     else if (const auto err = this->disable_filter(interfaces)) {
-        task_status.description = err.data;
+        task_status.description = err.data();
         task_status.details.data = this->status_data();
     } else {
         {
@@ -820,7 +820,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
         task_status.message = "Failed to probe interface";
-        task_status.description = errors::sentence(err.data);
+        task_status.description = errors::sentence(err.data());
         this->ctx->set_status(task_status);
         return;
     }
@@ -859,7 +859,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     }
     const auto [engine, engine_err] = this->pool->acquire(saved.network);
     if (engine_err) {
-        fail(engine_err.data);
+        fail(engine_err.data());
         return;
     }
     saved.name = dev.name;
@@ -907,7 +907,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     );
     if (written.empty()) {
         if (err) {
-            fail(err.data);
+            fail(err.data());
             return;
         }
         task_status.variant = synnax::status::VARIANT_SUCCESS;
@@ -924,15 +924,15 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
     };
     const auto mode = std::ranges::find_if(written, sets_mode);
     if (mode == written.end()) {
-        fail(err ? err.data : "the switch does not set the mode of the device");
+        fail(err ? err.data() : "the switch does not set the mode of the device");
         return;
     }
     const auto [held, held_err] = engine->read(position, mode->index, mode->sub_index);
     if (held_err || static_cast<double>(held) != mode->value) {
         if (err)
-            fail(err.data);
+            fail(err.data());
         else if (held_err)
-            fail(held_err.data);
+            fail(held_err.data());
         else
             fail(std::format("the device holds mode {} after the switch", held));
         return;
@@ -955,7 +955,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
             "The device in slot {} did not save the switch, so it goes back to its "
             "saved mode when its power restarts. {}",
             position,
-            errors::sentence(err.data)
+            errors::sentence(err.data())
         );
         this->ctx->set_status(task_status);
         return;
@@ -969,7 +969,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
             "The device in slot {} did not confirm the save of the switch, so it can "
             "go back to its saved mode when its power restarts. {}",
             position,
-            errors::sentence(err.data)
+            errors::sentence(err.data())
         );
         this->ctx->set_status(task_status);
         return;
@@ -985,7 +985,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) {
                 save.sub_index
             );
             VLOG(1) << SCAN_LOG_PREFIX << dev.name << " reads "
-                    << (flag_err ? flag_err.data : std::to_string(flag)) << " at "
+                    << (flag_err ? flag_err.data() : std::to_string(flag)) << " at "
                     << save.to_string() << " after the switch";
         }
     // configure discovered the slave again, with the entries of its new mode.

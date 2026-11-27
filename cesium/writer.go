@@ -29,7 +29,10 @@ type Writer struct {
 
 var ErrWriterClosed = resource.NewClosedError("cesium.writer")
 
-func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
+func wrapStreamWriter(
+	cfg WriterConfig,
+	internal confluence.Segment[WriterRequest, WriterResponse],
+) *Writer {
 	sCtx, cancel := signal.Isolated()
 	req := confluence.NewStream[WriterRequest](1)
 	res := confluence.NewStream[WriterResponse](1)

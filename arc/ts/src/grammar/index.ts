@@ -58,7 +58,7 @@ export const grammar: Grammar = {
  * ```typescript
  * import { grammarRaw } from '@synnaxlabs/arc';
  *
- * const dataUrl = `data:application/json;base64,${btoa(grammarRaw)}`;
+ * const dataUrl = `data:application/json,${encodeURIComponent(grammarRaw)}`;
  * ```
  */
 export const grammarRaw: string = arcGrammarRaw;
@@ -72,7 +72,8 @@ export const grammarRaw: string = arcGrammarRaw;
  * ```typescript
  * import { languageConfigurationRaw } from '@synnaxlabs/arc';
  *
- * const dataUrl = `data:application/json;base64,${btoa(languageConfigurationRaw)}`;
+ * const body = encodeURIComponent(languageConfigurationRaw);
+ * const dataUrl = `data:application/json,${body}`;
  * ```
  */
 export const languageConfigurationRaw: string = arcLanguageConfigurationRaw;

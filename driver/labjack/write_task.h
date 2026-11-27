@@ -81,7 +81,7 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
             return;
         }
         if (const auto err = client->devices.retrieve(this->device).second) {
-            parser.field_err("device", "failed to retrieve device: " + err.data);
+            parser.field_err("device", "failed to retrieve device: " + err.data());
             return;
         }
         std::vector<synnax::channel::Key> state_channels;
@@ -90,7 +90,10 @@ struct WriteTaskConfig : ::synnax::labjack::WriteConfig {
             state_channels.push_back(ch->cfg.state_channel);
         const auto [sy_channels, ch_err] = client->channels.retrieve(state_channels);
         if (ch_err) {
-            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.data()
+            );
             return;
         }
         for (const auto &state_ch: sy_channels) {

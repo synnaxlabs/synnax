@@ -99,7 +99,7 @@ std::pair<std::vector<engine::SavedSlave>, x::errors::Error> slave_configs(
             x::errors::Error(
                 dev_err,
                 "The Driver could not read the module settings for " + name +
-                    " from the Core: " + dev_err.data
+                    " from the Core: " + dev_err.data()
             )
         };
     std::vector<engine::SavedSlave> saved;
@@ -222,7 +222,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
     x::json::Parser parser(task.config);
     ScanTaskConfig cfg(parser);
     if (parser.error()) return {std::move(result), parser.error()};
-    result.auto_start = !cfg.disabled;
+    result.auto_start = true;
     if (auto err = this->pool->check_available()) return {std::move(result), err};
     auto scanner = std::make_unique<Scanner>(
         ctx,
@@ -236,7 +236,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.rate
+        cfg
     );
     return {std::move(result), x::errors::NIL};
 }

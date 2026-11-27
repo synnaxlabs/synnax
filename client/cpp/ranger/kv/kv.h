@@ -54,7 +54,7 @@ public:
     /// @param key - the key to get the value of.
     /// @returns a pair containing the value and an error where ok() is false if the
     /// value could not be retrieved. Use err.message() to get the error message
-    /// or err.type to get the error type.
+    /// or err.type() to get the error type.
     [[nodiscard]] std::pair<std::string, x::errors::Error>
     get(const std::string &key) const;
 
@@ -62,7 +62,7 @@ public:
     /// @param key - the key to set the value of.
     /// @param value - the value to set.
     /// @returns an error where ok() is false if the value could not be set.
-    /// Use err.message() to get the error message or err.type to get the error
+    /// Use err.message() to get the error message or err.type() to get the error
     /// type.
     /// @note this will overwrite any existing value for the given key.
     [[nodiscard]] x::errors::Error
@@ -71,7 +71,7 @@ public:
     /// @brief deletes the value of the given key.
     /// @param key - the key to delete the value of.
     /// @returns an error where ok() is false if the value could not be deleted.
-    /// Use err.message() to get the error message or err.type to get the error
+    /// Use err.message() to get the error message or err.type() to get the error
     /// type.
     /// @note this operation is idempotent, an will not error if the key does not
     /// exist.

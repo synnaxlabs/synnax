@@ -17,7 +17,7 @@ a running instance survives its device and row moving to another rack.
 from examples.http_sim import HTTPSim
 
 import synnax as sy
-from synnax import http
+from tests.driver.http_task import create_read_endpoint, read_channel_keys
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import cleanup_task, create_channel, create_index
 from x import random_name
@@ -55,20 +55,21 @@ class HTTPDeployOnStart(SimulatorCase):
             device=self.device.key,
             rate=rate,
             endpoints=[
-                http.ReadEndpoint(
+                create_read_endpoint(
+                    self.client,
                     path="/api/v1/data",
-                    method="GET",
-                    fields=[
-                        http.ReadField(
-                            pointer="/temperature",
-                            channel=create_channel(
+                    bindings=[
+                        (
+                            sy.icd.FloatJSONField(
+                                name="temperature", pointer="/temperature"
+                            ),
+                            create_channel(
                                 self.client,
                                 name=ch_name,
                                 data_type=sy.DataType.FLOAT64,
                                 index=idx.key,
                             ),
-                            data_type=sy.DataType.FLOAT64,
-                        ),
+                        )
                     ],
                 ),
             ],
@@ -81,16 +82,8 @@ class HTTPDeployOnStart(SimulatorCase):
             self.fail(f"start failed: {status.message}")
         return status
 
-    def _channel_keys(self, task: sy.http.ReadTask) -> list[int]:
-        return [
-            field.channel
-            for ep in task.config.endpoints
-            for field in ep.fields
-            if field.channel != 0
-        ]
-
     def _assert_streaming(self, task: sy.http.ReadTask, label: str) -> None:
-        with self.client.open_streamer(self._channel_keys(task)) as streamer:
+        with self.client.open_streamer(read_channel_keys(task)) as streamer:
             frame = streamer.read(timeout=10)
             assert frame is not None, f"task is not streaming data {label}"
 

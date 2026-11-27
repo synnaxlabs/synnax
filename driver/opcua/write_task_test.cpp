@@ -626,7 +626,7 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     const auto err = sink->write(fr);
     ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         bad_cmd.name +
             " returned BadNodeIdUnknown. The node id refers to a node that does not "
             "exist in the server address space."
@@ -708,7 +708,7 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
     const auto err = sink->write(fr);
     ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         this->uint32_cmd_channel.name + ": the server has no namespace urn:missing."
     );
     ASSERT_NIL(sink->stop());
@@ -759,7 +759,7 @@ TEST_F(TestWriteTask, testRejectsCommandOutOfRange) {
     fr.emplace(cmd.key, x::telem::Series(-1.0));
     const auto err = sink->write(fr);
     ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
-    EXPECT_EQ(err.data, cmd.name + ": -1 is out of range for a UInt32 node.");
+    EXPECT_EQ(err.data(), cmd.name + ": -1 is out of range for a UInt32 node.");
     ASSERT_NIL(sink->stop());
 }
 

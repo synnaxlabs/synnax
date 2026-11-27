@@ -452,8 +452,11 @@ var _ = Describe("Change channels", func() {
 		find(ctx, "sy_label_action_set")
 		createLabels(ctx, readable)
 		open(ctx, newUser(ctx, label.ResourceID(readable.Key)))
-		// With no keys, no frame of ch passes until the next key update applies.
-		Expect(client.Send(apiframer.StreamerRequest{})).To(Succeed())
+		// With no keys, no frame of ch passes until the next key update applies. The
+		// ack
+		// shows that the relay applied the empty keys.
+		Expect(client.Send(apiframer.StreamerRequest{AckRequested: true})).To(Succeed())
+		Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
 		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
 			To(Succeed())
 		responses := make(chan apiframer.StreamerResponse, 16)
@@ -469,7 +472,8 @@ var _ = Describe("Change channels", func() {
 			}
 		}()
 		// The create of a label that the subject cannot retrieve leaves a frame with no
-		// record, which Send drops. The key update applies during these creates.
+		// record, which Send drops. The first frame of ch after the key update carries
+		// its Applied, so a dropped one passes it on.
 		for range 10 {
 			createLabels(ctx, newLabel())
 		}
@@ -490,6 +494,31 @@ var _ = Describe("Change channels", func() {
 			Should(Succeed())
 		Expect(res.Applied).To(Equal(1))
 	}, SpecTimeout(15*time.Second))
+
+	It("Should send the records of a channel that a key update adds", func(
+		ctx SpecContext,
+	) {
+		find(ctx, "sy_label_delete")
+		deletes := ch
+		find(ctx, "sy_label_action_set")
+		readable := newLabel()
+		createLabels(ctx, readable)
+		open(ctx, newUser(
+			ctx,
+			label.ResourceID(readable.Key),
+			svcframer.ResourceIDs(channel.Keys{deletes.Key()})[0],
+		))
+		Expect(client.Send(apiframer.StreamerRequest{
+			Keys:         channel.Keys{ch.Key(), deletes.Key()},
+			AckRequested: true,
+		})).To(Succeed())
+		Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).Delete(ctx, readable.Key)
+		})).To(Succeed())
+		res := MustSucceed(client.Receive())
+		Expect(res.Frame.Get(deletes.Key()).Series).ToNot(BeEmpty())
+	}, SpecTimeout(10*time.Second))
 
 	It("Should stop sending a record once a policy no longer allows it", func(
 		ctx SpecContext,

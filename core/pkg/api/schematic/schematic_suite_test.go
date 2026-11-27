@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
 	apisymbol "github.com/synnaxlabs/synnax/pkg/api/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -51,8 +52,8 @@ var (
 	rbacSvc      *rbac.Service
 	schematicSvc *schematic.Service
 	apiSvc       *apischematic.Service
-	// create, del, dispatch, copySchematic, retrieve, and dispatchSymbol run their
-	// routes as the API layer binds them.
+	// create, del, dispatch, copySchematic, retrieve, dispatchSymbol, and importFile
+	// run their routes as the API layer binds them.
 	create freighter.UnaryHandler[
 		apischematic.CreateRequest,
 		apischematic.CreateResponse,
@@ -68,6 +69,7 @@ var (
 		apischematic.RetrieveResponse,
 	]
 	dispatchSymbol freighter.UnaryHandler[apisymbol.DispatchRequest, struct{}]
+	importFile     freighter.UnaryHandler[apiimex.ImportRequest, apiimex.ImportResponse]
 	proj           project.Project
 	projectSvc     *project.Service
 	author         user.User
@@ -106,10 +108,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	)
 	enumSvc := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
+	imexSvc := imex.NewService()
 	schematicSvc = MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:          db,
 		Group:       groupSvc,
-		ImEx:        imex.NewService(),
+		ImEx:        imexSvc,
 		Enumeration: enumSvc,
 	}))
 	apiSvc = MustSucceed(apischematic.NewService(apischematic.ServiceConfig{
@@ -129,6 +132,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Symbol: schematicSvc.Symbol,
 	}))
 	dispatchSymbol = bind.Write(binder, symbolSvc.Dispatch)
+	imexAPI := MustSucceed(apiimex.NewService(apiimex.ServiceConfig{ImEx: imexSvc}))
+	importFile = bind.WriteRetrievable(binder, imexAPI.Import)
 	author = MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 		Name: "test",
 	}))

@@ -94,7 +94,7 @@ export const Symbol = ({
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected} {...resize}>
       <Control.State
         config={control}
-        channel={commandChannel}
+        channels={[commandChannel]}
         onChange={onConfigChange}
       >
         {stale ? <Staleness.Badge /> : null}

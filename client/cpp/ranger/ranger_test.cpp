@@ -242,7 +242,7 @@ TEST(RangerTests, testRetrieveOneWhereNotFound) {
     const auto name = std::to_string(gen_rand());
     const auto [_, err] = client.ranges.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "Found no range where name = \"" + name + "\"");
+    ASSERT_EQ(err.data(), "Found no range where name = \"" + name + "\"");
 }
 
 /// @brief it should name the search term in the error when no range matches it.
@@ -256,7 +256,7 @@ TEST(RangerTests, testRetrieveOneSearchTermNotFound) {
     );
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "Found no range matching \"" + name + "\" where name = \"" + name + "\""
     );
 }
@@ -287,7 +287,7 @@ TEST(RangerTests, testRetrieveRejectsPage) {
                   .second}) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
-                err.data,
+                err.data(),
                 "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
@@ -544,7 +544,7 @@ TEST(RangerTests, testStageProtoRoundTrip) {
     }
     const auto [_, err] = stage_to_pb("bogus");
     ASSERT_OCCURRED_AS(err, x::errors::Error("unrecognized Stage value: bogus"));
-    ASSERT_EQ(err.type, "unrecognized Stage value: bogus");
+    ASSERT_EQ(err.type(), "unrecognized Stage value: bogus");
 }
 
 /// @brief it should convert a range key to a resource ID

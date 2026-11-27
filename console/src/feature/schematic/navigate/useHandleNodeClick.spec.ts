@@ -186,7 +186,10 @@ describe("Navigate.useHandleNodeClick", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
       configs: {
-        n1: schematic.valveNodeConfigZ.parse({ variant: "valve" }),
+        n1: schematic.symbolNodeConfigZ.parse({
+          variant: "symbol",
+          spec: { type: "builtin", name: "valve" },
+        }),
         ctl: offPageConfig({ type: "schematic", key: control.key }),
       },
     });

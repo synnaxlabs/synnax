@@ -13,7 +13,7 @@ import { assert, describe, expect, it } from "vitest";
 import { Group } from "@/schematic/group";
 import { Node } from "@/schematic/node";
 
-const vent = schematic.nodeConfigZ.parse({ variant: "vent" });
+const box = schematic.nodeConfigZ.parse({ variant: "box" });
 
 const groupConfig = (): Node.GroupBox.Config => ({
   variant: Node.GroupBox.VARIANT,
@@ -25,7 +25,7 @@ const node = (
   x = 0,
   y = 0,
   parent?: string,
-  config: schematic.NodeConfig = vent,
+  config: schematic.NodeConfig = box,
 ): schematic.Node => ({
   key,
   position: { x, y },

@@ -9,6 +9,7 @@
 
 export * from "@/form/Context";
 export * from "@/form/Field";
+export * from "@/form/focusFirstError";
 export * from "@/form/Form";
 export * from "@/form/Section";
 export * from "@/form/setChanged";

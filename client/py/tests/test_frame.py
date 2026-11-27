@@ -11,15 +11,17 @@ import subprocess
 import sys
 from datetime import UTC
 from types import MappingProxyType
-from typing import Any
+from typing import Any, override
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
+from freighter.mock import MockUnaryClient
 from synnax.channel.payload import Payload as ChannelPayload, normalize_params
 from synnax.channel.retrieve import Retriever
+from synnax.channel.types_gen import RetrieveResponse
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
 from synnax.framer.frame import FramePayload, is_dataframe
 from synnax.telem import CrudeSeries
@@ -1297,6 +1299,7 @@ class _FixedRetriever(Retriever):
     def __init__(self, channels: list[ChannelPayload]) -> None:
         self._channels = channels
 
+    @override
     def retrieve(self, channels: sy.channel.Params) -> list[ChannelPayload]:
         wanted = set(normalize_params(channels).channels)
         return [c for c in self._channels if c.key in wanted or c.name in wanted]
@@ -1482,3 +1485,26 @@ class TestFrameTime:
         assert df.index.name == "time"
         assert list(df.index.astype("int64")) == [5, 6]
         assert list(df.columns) == ["d"]
+
+
+@pytest.mark.framer
+class TestWriteFrameAdapterRepeatedKeys:
+    """Adapts frames without a Core."""
+
+    def test_frame_with_two_series_for_one_channel(self) -> None:
+        """It should keep every series of a channel that a frame holds twice."""
+        ch = ChannelPayload(
+            key=65537,
+            name="repeated",
+            data_type=sy.DataType.FLOAT64,
+            virtual=True,
+            leaseholder=1,
+        )
+        client = MockUnaryClient(responses=[RetrieveResponse(channels=[ch])])
+        adapter = WriteFrameAdapter(retriever=Retriever(client=client))
+        adapter.update(ch.key)
+        o = adapter.adapt(
+            sy.Frame([ch.key, ch.key], [sy.Series([1.0]), sy.Series([2.0])])
+        )
+        assert o.channels == [ch.key, ch.key]
+        assert [list(s) for s in o.series] == [[1.0], [2.0]]

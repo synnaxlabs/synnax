@@ -14,28 +14,25 @@ import (
 	. "github.com/onsi/gomega"
 	xjson "github.com/synnaxlabs/x/json"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Pointer", func() {
 	Describe("ParsePointer", func() {
-		It("Should reject a pointer that does not start with a slash", func() {
-			Expect(xjson.ParsePointer("temperature")).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(`must be empty or start with "/"`)),
-			))
-		})
-		It("Should reject a tilde that does not form an escape", func() {
-			Expect(xjson.ParsePointer("/a~2b")).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(`"~" must be followed by "0" or "1"`)),
-			))
-		})
-		It("Should reject a trailing tilde", func() {
-			Expect(xjson.ParsePointer("/a~")).Error().To(
-				MatchError(validate.ErrValidation),
-			)
-		})
+		DescribeTable("Should reject text that is not a JSON Pointer",
+			func(text, expected string) {
+				Expect(xjson.ParsePointer(text)).Error().
+					To(MatchError(expected + ": validation error"))
+			},
+			Entry("no leading slash", "temperature",
+				`json pointer "temperature" must be empty or start with "/"`,
+			),
+			Entry("a tilde that does not form an escape", "/a~2b",
+				`json pointer "/a~2b" is malformed: "~" must be followed by "0" or "1"`,
+			),
+			Entry("a trailing tilde", "/a~",
+				`json pointer "/a~" is malformed: "~" must be followed by "0" or "1"`,
+			),
+		)
 	})
 
 	Describe("String", func() {
@@ -47,6 +44,23 @@ var _ = Describe("Pointer", func() {
 			Entry("key", "/temperature"),
 			Entry("escapes", "/nested/a~1b/m~0n"),
 			Entry("empty token", "/nested/"),
+		)
+	})
+
+	Describe("HasArrayIndex", func() {
+		DescribeTable("Should return whether a token is an array index",
+			func(pointer string, expected bool) {
+				Expect(MustSucceed(xjson.ParsePointer(pointer)).HasArrayIndex()).
+					To(Equal(expected))
+			},
+			Entry("zero", "/a/0", true),
+			Entry("an index after a member", "/a/12/b", true),
+			Entry("the root", "", false),
+			Entry("members only", "/a/b", false),
+			Entry("a leading zero", "/a/01", false),
+			Entry("a sign", "/a/-1", false),
+			Entry("an empty token", "/a/", false),
+			Entry("digits past an int", "/a/99999999999999999999", false),
 		)
 	})
 

@@ -903,7 +903,7 @@ TEST(WriteTest, NextReportsErrorOnTimeLengthMismatch) {
 
     EXPECT_TRUE(captured.matches(x::errors::INTERNAL));
     EXPECT_EQ(
-        captured.data,
+        captured.data(),
         "write to channel 100: sample count 2 does not match timestamp count 1"
     );
     EXPECT_FALSE(changed);
@@ -2113,7 +2113,7 @@ public:
     }
 
     /// @brief returns the sizes of the output data and time after one next.
-    std::pair<size_t, size_t> next(bool &changed) {
+    std::pair<size_t, size_t> next(bool &changed) const {
         changed = false;
         auto ctx = make_context(&changed);
         EXPECT_NIL(this->node->next(ctx));

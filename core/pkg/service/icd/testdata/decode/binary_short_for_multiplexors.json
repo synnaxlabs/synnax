@@ -1,0 +1,81 @@
+{
+  "description": "A payload too short for a multiplexor fails, and names the first multiplexor that does not fit.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "bank",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "mode",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 16,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [1],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned",
+            "multiplexor": "00000000-0000-4000-8000-000000000001",
+            "default": 0
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "b",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [1],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned",
+            "multiplexor": "00000000-0000-4000-8000-000000000002",
+            "default": 0
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "uint8"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000004",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "0100",
+      "error": "field mode: the payload has 2 bytes and the field needs 3: validation error"
+    }
+  ]
+}

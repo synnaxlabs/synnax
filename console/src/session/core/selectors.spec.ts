@@ -22,6 +22,7 @@ const stateWith = (cores: Core.Core[], selected?: string): Core.SliceState => ({
   version: 0,
   selected,
   cores: Object.fromEntries(cores.map((c) => [c.key, c])),
+  order: cores.map((c) => c.key),
 });
 
 const storeWith = (cores: Core.Core[], selected?: string): Core.StoreState => ({

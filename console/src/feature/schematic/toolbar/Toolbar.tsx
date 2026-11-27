@@ -13,15 +13,23 @@ import { schematic } from "@synnaxlabs/client";
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Panel as PlutoPanel, Schematic } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { Symbol } from "@/feature/schematic/symbol";
 import { Control } from "@/feature/schematic/toolbar/Control";
 import { Properties } from "@/feature/schematic/toolbar/Properties";
+import {
+  useChangeableSymbols,
+  useSymbolName,
+} from "@/feature/schematic/toolbar/selection";
 import { Symbols, type SymbolsChangeProps } from "@/feature/schematic/toolbar/Symbols";
+import { useConfirmChange } from "@/feature/schematic/toolbar/useConfirmChange";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
@@ -53,57 +61,19 @@ const NotEditableContent = (): ReactElement => {
   );
 };
 
-// Group boxes come only from grouping, and a locked group shields its members.
-const useChangeableSymbols = (
-  selected: string[],
-): Map<string, Schematic.Node.Config> => {
-  const configs = Schematic.useConfigs({ keys: selected });
-  const parentOf = Schematic.useParentOf();
-  const shielded = Schematic.Group.shielded(
-    [...configs.keys()],
-    parentOf,
-    Object.fromEntries(configs),
-  );
-  const out = new Map<string, Schematic.Node.Config>();
-  configs.forEach((config, key) => {
-    if (
-      Schematic.Node.isConfig(config) &&
-      config.variant !== Schematic.Node.GroupBox.VARIANT &&
-      !shielded.has(key)
-    )
-      out.set(key, config);
-  });
-  return out;
-};
-
-interface SymbolName {
-  /** The symbol that every config draws, if they all draw the same one. */
-  symbol?: string;
-  name: string;
-}
-
-const useSymbolName = (configs: Map<string, Schematic.Node.Config>): SymbolName => {
-  const symbolKeys = new Set(Array.from(configs.values(), Schematic.Node.symbolKey));
-  const shared = symbolKeys.size === 1 ? configs.values().next().value : undefined;
-  const specKey =
-    shared != null && Schematic.Node.isCustomConfig(shared) ? shared.specKey : null;
-  const { symbol: custom } = Schematic.Symbol.useResolved(specKey);
-  if (shared == null) return { name: "Mixed" };
-  if (specKey != null) return { symbol: specKey, name: custom?.name ?? "" };
-  const spec = Schematic.Node.resolveSpec(shared.variant);
-  return { symbol: shared.variant, name: spec.label ?? spec.name };
-};
-
 interface SymbolSummaryProps {
   name: string;
   changing: boolean;
   onChangingChange: (changing: boolean) => void;
+  /** Opens the symbol in the editor, for a symbol that the user made. */
+  onEdit?: () => void;
 }
 
 const SymbolSummary = ({
   name,
   changing,
   onChangingChange,
+  onEdit,
 }: SymbolSummaryProps): ReactElement => (
   <Flex.Box x align="center" gap="small" className={CSS.BE("schematic", "symbol")}>
     {changing ? (
@@ -132,7 +102,15 @@ const SymbolSummary = ({
       </>
     ) : (
       <>
-        <Text.Text level="p" weight={500} color={10}>
+        <Text.Text level="small" color={9}>
+          Symbol
+        </Text.Text>
+        <Text.Text
+          level="p"
+          weight={500}
+          color={10}
+          className={CSS.BE("schematic", "symbol-name")}
+        >
           {name}
         </Text.Text>
         <Button.Button
@@ -140,10 +118,23 @@ const SymbolSummary = ({
           size="small"
           textColor="var(--pluto-primary-p1)"
           aria-label="Change symbol"
+          tooltip="Change to another symbol"
           onClick={() => onChangingChange(true)}
         >
           Change
         </Button.Button>
+        {onEdit != null && (
+          <Button.Button
+            variant="text"
+            size="small"
+            textColor="var(--pluto-primary-p1)"
+            aria-label="Edit symbol"
+            tooltip="Edit the symbol for every node that draws it"
+            onClick={onEdit}
+          >
+            Edit
+          </Button.Button>
+        )}
       </>
     )}
   </Flex.Box>
@@ -157,9 +148,14 @@ const Internal = (): ReactElement => {
   const { isCurrentlyEditable, canEdit } = Session.Schematic.useSelectEditable();
   const selected = Session.Schematic.useSelectSelected();
   const changeable = useChangeableSymbols(selected);
+  // Another client can edit the configs while the confirm asks, so it reads them again.
+  const changeableRef = useSyncedRef(changeable);
   const current = useSymbolName(changeable);
   const changing = Session.Schematic.useSelectChanging();
   const changeSymbol = Schematic.useChangeSymbol();
+  const confirmChange = useConfirmChange();
+  const openEditor = Symbol.Edit.useModal();
+  const handleError = Status.useErrorHandler();
   const setChanging = (changing: boolean) =>
     dispatch(Session.Schematic.setChanging({ key, changing }));
   const singleSelectedConfig = Schematic.useElementConfig({
@@ -168,9 +164,13 @@ const Internal = (): ReactElement => {
   const change: SymbolsChangeProps | undefined = changing
     ? {
         value: current.symbol,
-        onChange: (input) => {
-          changeSymbol([...changeable.keys()], input);
-          setChanging(false);
+        onChange: (input, spec) => {
+          handleError(async () => {
+            if (!(await confirmChange(() => changeableRef.current, input, spec)))
+              return;
+            changeSymbol([...changeableRef.current.keys()], input, spec);
+            setChanging(false);
+          }, "Failed to change symbol");
         },
       }
     : undefined;
@@ -209,6 +209,11 @@ const Internal = (): ReactElement => {
                 name={current.name}
                 changing={changing}
                 onChangingChange={setChanging}
+                onEdit={
+                  current.custom == null
+                    ? undefined
+                    : () => openEditor({ symbolKey: current.custom })
+                }
               />
             )}
           </Flex.Box>
