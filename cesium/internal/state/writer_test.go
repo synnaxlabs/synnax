@@ -311,6 +311,30 @@ var _ = Describe("Writer", func() {
 				durable(&log.Seal{Segment: clk})
 			})
 
+		It("Should take a commit over the samples that a take back cut, and refuse "+
+			"one over the durable data that it kept", func() {
+			Expect(w.Commit(first())).To(Succeed())
+			durable(create(clk, 5, 5), create(data, 6, 5), first())
+			Expect(w.Commit(commit(1, number, 2, 120, 120, slot(clk, 24),
+				slot(data, 12)))).To(Succeed())
+			seals := MustSucceed(w.TakeBack())
+			Expect(seals).To(HaveLen(2))
+			durable(&seals[0], &seals[1])
+			c5, c6 := MustSucceed(w.NewSegment(5)), MustSucceed(w.NewSegment(6))
+			n := MustSucceed(w.NewAlignment())
+			c := commit(1, n, 0, 120, 120, slot(c5, 8), slot(c6, 4))
+			Expect(w.Commit(c)).To(Succeed())
+			durable(create(c5, 5, 5), create(c6, 6, 5), c)
+			n = MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(1, n, 0, 105, 105, slot(c5, 16), slot(c6, 8)))).
+				To(SatisfyAll(
+					conflict(),
+					MatchError(
+						ContainSubstring("overlaps its stored data from 100 to 110"),
+					),
+				))
+		})
+
 		It("Should seal the held segment of a key at its committed length", func() {
 			Expect(w.Commit(first())).To(Succeed())
 			Expect(w.Seal(6)).To(Equal(log.Seal{Segment: data, Length: 8, TailCRC: 24}))
