@@ -19,7 +19,7 @@ import "schemas/x/telem"
 @py output  "client/py/synnax/http"
 @ts output  "client/ts/src/http"
 
-Method enum {
+StoredMethod enum {
     get     = "GET" {
         @doc value "reads a resource."
     }
@@ -47,8 +47,21 @@ Method enum {
     connect = "CONNECT" {
         @doc value "opens a tunnel to the server."
     }
+    query   = "QUERY" {
+        @doc value "reads a resource with a query in the body, safely and idempotently."
+    }
 
-    @doc value "is the HTTP method used when requesting an endpoint."
+    @doc value """
+        is any HTTP method that a stored endpoint can hold, including the methods that a
+        new endpoint can no longer use.
+    """
+}
+
+Method enum of StoredMethod omit {
+    trace
+    connect
+
+    @doc value "is an HTTP method that a new or changed endpoint can use."
 }
 
 Header struct {
@@ -132,11 +145,11 @@ ReadEndpoint struct {
         @doc value "uniquely identifies the endpoint within the task."
         @key
     }
+    method       StoredMethod = get {
+        @doc value "is the HTTP method used to poll the endpoint."
+    }
     disabled     bool = false {
         @doc value "is true when the endpoint is excluded from the task."
-    }
-    method       Method = get {
-        @doc value "is the HTTP method used to poll the endpoint."
     }
     path         string = "" {
         @doc value "is the URL path appended to the device's base URL."
@@ -311,7 +324,7 @@ WriteEndpoint struct {
     disabled     bool = false {
         @doc value "is true when the endpoint is excluded from the task."
     }
-    method       Method = post {
+    method       StoredMethod = post {
         @doc value "is the HTTP method used to send the request."
     }
     path         string = "" {

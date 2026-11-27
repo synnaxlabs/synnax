@@ -23,8 +23,20 @@
 #include "x/cpp/telem/telem.h"
 
 namespace driver::http {
-/// @brief supported HTTP methods.
-enum class Method { GET, HEAD, POST, PUT, DEL, PATCH, OPTIONS, TRACE, CONNECT };
+/// @brief supported HTTP methods. QUERY_METHOD is QUERY, renamed because a system
+/// header defines QUERY as a macro.
+enum class Method {
+    GET,
+    HEAD,
+    POST,
+    PUT,
+    DEL,
+    PATCH,
+    OPTIONS,
+    TRACE,
+    CONNECT,
+    QUERY_METHOD
+};
 
 /// @brief returns the HTTP method string (e.g., Method::DEL returns "DELETE").
 /// @param m the method.
@@ -49,6 +61,8 @@ constexpr const char *to_string(const Method m) {
             return "TRACE";
         case Method::CONNECT:
             return "CONNECT";
+        case Method::QUERY_METHOD:
+            return "QUERY";
     }
     throw std::invalid_argument("unknown HTTP method");
 }
@@ -66,6 +80,7 @@ inline std::pair<Method, x::errors::Error> parse_method(const std::string &str) 
     if (str == "OPTIONS") return {Method::OPTIONS, x::errors::NIL};
     if (str == "TRACE") return {Method::TRACE, x::errors::NIL};
     if (str == "CONNECT") return {Method::CONNECT, x::errors::NIL};
+    if (str == "QUERY") return {Method::QUERY_METHOD, x::errors::NIL};
     return {
         Method::GET,
         x::errors::Error(x::errors::VALIDATION, "unknown HTTP method '" + str + "'"),

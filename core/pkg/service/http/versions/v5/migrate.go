@@ -42,7 +42,9 @@ func MigrateReadEndpoint(
 	ctx context.Context,
 	old v4.ReadEndpoint,
 ) (ReadEndpoint, error) {
-	return autoMigrateReadEndpoint(ctx, old)
+	ep, err := autoMigrateReadEndpoint(ctx, old)
+	ep.Method = StoredMethod(old.Method)
+	return ep, err
 }
 
 // MigrateWriteConfig lifts a v4 write config to v5, with the key, channel, and fields
@@ -69,7 +71,9 @@ func MigrateWriteEndpoint(
 	ctx context.Context,
 	old v4.WriteEndpoint,
 ) (WriteEndpoint, error) {
-	return autoMigrateWriteEndpoint(ctx, old)
+	ep, err := autoMigrateWriteEndpoint(ctx, old)
+	ep.Method = StoredMethod(old.Method)
+	return ep, err
 }
 
 // NoteLift returns the note for ResolveReadConfig that logs each change to a field of

@@ -61,6 +61,13 @@ TEST(ParseMethodTest, ParsesTRACE) {
     EXPECT_TRUE(p.ok());
 }
 
+/// @brief it should parse QUERY.
+TEST(ParseMethodTest, ParsesQUERY) {
+    x::json::Parser p(x::json::json{{"method", "QUERY"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::QUERY_METHOD);
+    EXPECT_TRUE(p.ok());
+}
+
 TEST(ParseMethodTest, ParsesCONNECT) {
     x::json::Parser p(x::json::json{{"method", "CONNECT"}});
     EXPECT_EQ(parse_method(p, "method"), Method::CONNECT);
@@ -113,6 +120,11 @@ TEST(ToStringTest, TRACE) {
     EXPECT_STREQ(to_string(Method::TRACE), "TRACE");
 }
 
+/// @brief it should return QUERY for QUERY_METHOD.
+TEST(ToStringTest, QUERY) {
+    EXPECT_STREQ(to_string(Method::QUERY_METHOD), "QUERY");
+}
+
 TEST(ToStringTest, CONNECT) {
     EXPECT_STREQ(to_string(Method::CONNECT), "CONNECT");
 }
@@ -147,6 +159,11 @@ TEST(HasRequestBodyTest, HEAD) {
 
 TEST(HasRequestBodyTest, DEL) {
     EXPECT_FALSE(has_request_body(Method::DEL));
+}
+
+/// @brief it should send a body with QUERY.
+TEST(HasRequestBodyTest, QUERY) {
+    EXPECT_TRUE(has_request_body(Method::QUERY_METHOD));
 }
 
 TEST(HasRequestBodyTest, CONNECT) {
@@ -187,6 +204,11 @@ TEST(HasResponseBodyTest, TRACE) {
 
 TEST(HasResponseBodyTest, HEAD) {
     EXPECT_FALSE(has_response_body(Method::HEAD));
+}
+
+/// @brief it should read a response body for QUERY.
+TEST(HasResponseBodyTest, QUERY) {
+    EXPECT_TRUE(has_response_body(Method::QUERY_METHOD));
 }
 
 TEST(HasResponseBodyTest, CONNECT) {

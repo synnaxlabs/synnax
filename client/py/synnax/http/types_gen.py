@@ -19,6 +19,40 @@ from pydantic import BaseModel, Field
 from synnax import device as device_, icd as icd_, task
 from x import telem
 
+STORED_METHOD_GET: Literal["GET"] = "GET"
+
+STORED_METHOD_HEAD: Literal["HEAD"] = "HEAD"
+
+STORED_METHOD_POST: Literal["POST"] = "POST"
+
+STORED_METHOD_PUT: Literal["PUT"] = "PUT"
+
+STORED_METHOD_DELETE: Literal["DELETE"] = "DELETE"
+
+STORED_METHOD_PATCH: Literal["PATCH"] = "PATCH"
+
+STORED_METHOD_OPTIONS: Literal["OPTIONS"] = "OPTIONS"
+
+STORED_METHOD_TRACE: Literal["TRACE"] = "TRACE"
+
+STORED_METHOD_CONNECT: Literal["CONNECT"] = "CONNECT"
+
+STORED_METHOD_QUERY: Literal["QUERY"] = "QUERY"
+
+
+StoredMethod = Literal[
+    "GET",
+    "HEAD",
+    "POST",
+    "PUT",
+    "DELETE",
+    "PATCH",
+    "OPTIONS",
+    "TRACE",
+    "CONNECT",
+    "QUERY",
+]
+
 METHOD_GET: Literal["GET"] = "GET"
 
 METHOD_HEAD: Literal["HEAD"] = "HEAD"
@@ -33,14 +67,10 @@ METHOD_PATCH: Literal["PATCH"] = "PATCH"
 
 METHOD_OPTIONS: Literal["OPTIONS"] = "OPTIONS"
 
-METHOD_TRACE: Literal["TRACE"] = "TRACE"
-
-METHOD_CONNECT: Literal["CONNECT"] = "CONNECT"
+METHOD_QUERY: Literal["QUERY"] = "QUERY"
 
 
-Method = Literal[
-    "GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "TRACE", "CONNECT"
-]
+Method = Literal["GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "QUERY"]
 
 
 class Header(BaseModel):
@@ -80,8 +110,8 @@ class ReadEndpoint(BaseModel):
 
     Attributes:
         key: Uniquely identifies the endpoint within the task.
-        disabled: Is true when the endpoint is excluded from the task.
         method: Is the HTTP method used to poll the endpoint.
+        disabled: Is true when the endpoint is excluded from the task.
         path: Is the URL path appended to the device's base URL.
         headers: Contains additional headers merged into the request.
         query_params: Contains query parameters appended to the request URL.
@@ -92,8 +122,8 @@ class ReadEndpoint(BaseModel):
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
+    method: StoredMethod = "GET"
     disabled: bool = False
-    method: Method = "GET"
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
     query_params: list[QueryParam] = Field(default_factory=list)
@@ -124,7 +154,7 @@ class WriteEndpoint(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    method: Method = "POST"
+    method: StoredMethod = "POST"
     path: str = ""
     headers: list[Header] = Field(default_factory=list)
     query_params: list[QueryParam] = Field(default_factory=list)

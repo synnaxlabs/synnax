@@ -86,8 +86,8 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (re ReadEndpoint) EncodeOrc(w *orc.Writer) error {
 	w.String(re.Key)
-	w.Bool(re.Disabled)
 	w.String(string(re.Method))
+	w.Bool(re.Disabled)
 	w.String(re.Path)
 	w.Bool(re.Headers != nil)
 	if re.Headers != nil {
@@ -132,15 +132,15 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 	if re.Key, err = r.String(); err != nil {
 		return err
 	}
-	if re.Disabled, err = r.Bool(); err != nil {
-		return err
-	}
 	{
 		rawV, err := r.String()
 		if err != nil {
 			return err
 		}
-		re.Method = Method(rawV)
+		re.Method = StoredMethod(rawV)
+	}
+	if re.Disabled, err = r.Bool(); err != nil {
+		return err
 	}
 	if re.Path, err = r.String(); err != nil {
 		return err
@@ -323,7 +323,7 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		we.Method = Method(rawV)
+		we.Method = StoredMethod(rawV)
 	}
 	if we.Path, err = r.String(); err != nil {
 		return err

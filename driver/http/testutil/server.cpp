@@ -51,6 +51,7 @@ struct Server::Impl {
         if (m == "OPTIONS") return Method::OPTIONS;
         if (m == "TRACE") return Method::TRACE;
         if (m == "CONNECT") return Method::CONNECT;
+        if (m == "QUERY") return Method::QUERY_METHOD;
         throw std::runtime_error("unsupported HTTP method: " + m);
     }
 
@@ -164,6 +165,8 @@ struct Server::Impl {
                 throw std::runtime_error("httplib does not support TRACE methods");
             case Method::CONNECT:
                 throw std::runtime_error("httplib does not support CONNECT methods");
+            case Method::QUERY_METHOD:
+                throw std::runtime_error("httplib does not support QUERY methods");
         }
     }
 };

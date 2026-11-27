@@ -13,28 +13,32 @@ package versions
 
 import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 
-// Method is the HTTP method used when requesting an endpoint.
-type Method = v5.Method
+// StoredMethod is any HTTP method that a stored endpoint can hold, including the
+// methods that a new endpoint can no longer use.
+type StoredMethod = v5.StoredMethod
 
 const (
-	// MethodGet reads a resource.
-	MethodGet Method = v5.MethodGet
-	// MethodHead reads the headers of a resource, with no body.
-	MethodHead Method = v5.MethodHead
-	// MethodPost submits data to a resource.
-	MethodPost Method = v5.MethodPost
-	// MethodPut replaces a resource.
-	MethodPut Method = v5.MethodPut
-	// MethodDelete removes a resource.
-	MethodDelete Method = v5.MethodDelete
-	// MethodPatch changes part of a resource.
-	MethodPatch Method = v5.MethodPatch
-	// MethodOptions asks which communication options a resource supports.
-	MethodOptions Method = v5.MethodOptions
-	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = v5.MethodTrace
-	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = v5.MethodConnect
+	// StoredMethodGet reads a resource.
+	StoredMethodGet StoredMethod = v5.StoredMethodGet
+	// StoredMethodHead reads the headers of a resource, with no body.
+	StoredMethodHead StoredMethod = v5.StoredMethodHead
+	// StoredMethodPost submits data to a resource.
+	StoredMethodPost StoredMethod = v5.StoredMethodPost
+	// StoredMethodPut replaces a resource.
+	StoredMethodPut StoredMethod = v5.StoredMethodPut
+	// StoredMethodDelete removes a resource.
+	StoredMethodDelete StoredMethod = v5.StoredMethodDelete
+	// StoredMethodPatch changes part of a resource.
+	StoredMethodPatch StoredMethod = v5.StoredMethodPatch
+	// StoredMethodOptions asks which communication options a resource supports.
+	StoredMethodOptions StoredMethod = v5.StoredMethodOptions
+	// StoredMethodTrace asks the server to echo the request it receives.
+	StoredMethodTrace StoredMethod = v5.StoredMethodTrace
+	// StoredMethodConnect opens a tunnel to the server.
+	StoredMethodConnect StoredMethod = v5.StoredMethodConnect
+	// StoredMethodQuery reads a resource with a query in the body, safely and
+	// idempotently.
+	StoredMethodQuery StoredMethod = v5.StoredMethodQuery
 )
 
 // Header is a single HTTP header sent with a request.

@@ -294,3 +294,116 @@ var _ = Describe("Write config", func() {
 		)
 	})
 })
+
+var _ = Describe("Removed methods", func() {
+	var svc *http.Service
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+			ICD:     icdSvc,
+		}))
+	})
+	// store writes a config whose one endpoint uses method, as a Core that shipped
+	// TRACE and CONNECT stored it, and returns its key.
+	store := func(ctx SpecContext, read bool, method http.StoredMethod) uuid.UUID {
+		GinkgoHelper()
+		key := uuid.New()
+		if read {
+			cfg := http.ReadConfig{
+				Key:  key,
+				Rate: 1,
+				Endpoints: []http.ReadEndpoint{{
+					Key:    "valve",
+					Method: method,
+					Path:   "/valve",
+				}},
+			}
+			Expect(gorp.WrapWriter[uuid.UUID, http.ReadConfig](db).Set(ctx, cfg)).
+				To(Succeed())
+			return key
+		}
+		cfg := http.WriteConfig{
+			Key: key,
+			Endpoints: []http.WriteEndpoint{{
+				Key:    "valve",
+				Method: method,
+				Path:   "/valve",
+			}},
+		}
+		Expect(gorp.WrapWriter[uuid.UUID, http.WriteConfig](db).Set(ctx, cfg)).
+			To(Succeed())
+		return key
+	}
+	// prepare prepares a config at key whose one endpoint uses method.
+	prepare := func(ctx SpecContext, read bool, key uuid.UUID, method string) error {
+		data := msgpack.EncodedJSON{"endpoints": []any{map[string]any{
+			"key":    "valve",
+			"method": method,
+			"path":   "/valve",
+		}}}
+		if read {
+			_, err := svc.Read.Prepare(ctx, db, key, "Valves", data)
+			return err
+		}
+		_, err := svc.Write.Prepare(ctx, db, key, "Valves", data)
+		return err
+	}
+
+	DescribeTable("Should load and run a stored TRACE endpoint",
+		func(ctx SpecContext, read bool) {
+			key := store(ctx, read, http.StoredMethodTrace)
+			var data msgpack.EncodedJSON
+			if read {
+				data = MustSucceed(svc.Read.Read(ctx, db, key))
+			} else {
+				data = MustSucceed(svc.Write.Read(ctx, db, key))
+			}
+			Expect(data["endpoints"]).To(HaveExactElements(
+				HaveKeyWithValue("method", "TRACE"),
+			))
+		},
+		Entry("a read", true),
+		Entry("a write", false),
+	)
+
+	DescribeTable("Should save an edit of a stored TRACE endpoint",
+		func(ctx SpecContext, read bool) {
+			key := store(ctx, read, http.StoredMethodTrace)
+			Expect(prepare(ctx, read, key, "TRACE")).To(Succeed())
+		},
+		Entry("a read", true),
+		Entry("a write", false),
+	)
+
+	DescribeTable("Should accept a new QUERY endpoint",
+		func(ctx SpecContext, read bool) {
+			Expect(prepare(ctx, read, uuid.New(), "QUERY")).To(Succeed())
+		},
+		Entry("a read", true),
+		Entry("a write", false),
+	)
+
+	DescribeTable("Should refuse a new or changed endpoint that uses a removed method",
+		func(ctx SpecContext, read bool, stored http.StoredMethod, method string) {
+			key := uuid.New()
+			if stored != "" {
+				key = store(ctx, read, stored)
+			}
+			Expect(prepare(ctx, read, key, method)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("endpoints.0.method")),
+			))
+		},
+		Entry("a new TRACE read", true, http.StoredMethod(""), "TRACE"),
+		Entry("a new CONNECT write", false, http.StoredMethod(""), "CONNECT"),
+		Entry("a GET read changed to TRACE", true, http.StoredMethodGet, "TRACE"),
+		Entry("a GET write changed to TRACE", false, http.StoredMethodGet, "TRACE"),
+		Entry(
+			"a TRACE write changed to CONNECT",
+			false,
+			http.StoredMethodTrace,
+			"CONNECT",
+		),
+	)
+})

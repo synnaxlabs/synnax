@@ -13,28 +13,32 @@ package http
 
 import "github.com/synnaxlabs/synnax/pkg/service/http/versions"
 
-// Method is the HTTP method used when requesting an endpoint.
-type Method = versions.Method
+// StoredMethod is any HTTP method that a stored endpoint can hold, including the
+// methods that a new endpoint can no longer use.
+type StoredMethod = versions.StoredMethod
 
 const (
-	// MethodGet reads a resource.
-	MethodGet Method = versions.MethodGet
-	// MethodHead reads the headers of a resource, with no body.
-	MethodHead Method = versions.MethodHead
-	// MethodPost submits data to a resource.
-	MethodPost Method = versions.MethodPost
-	// MethodPut replaces a resource.
-	MethodPut Method = versions.MethodPut
-	// MethodDelete removes a resource.
-	MethodDelete Method = versions.MethodDelete
-	// MethodPatch changes part of a resource.
-	MethodPatch Method = versions.MethodPatch
-	// MethodOptions asks which communication options a resource supports.
-	MethodOptions Method = versions.MethodOptions
-	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = versions.MethodTrace
-	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = versions.MethodConnect
+	// StoredMethodGet reads a resource.
+	StoredMethodGet StoredMethod = versions.StoredMethodGet
+	// StoredMethodHead reads the headers of a resource, with no body.
+	StoredMethodHead StoredMethod = versions.StoredMethodHead
+	// StoredMethodPost submits data to a resource.
+	StoredMethodPost StoredMethod = versions.StoredMethodPost
+	// StoredMethodPut replaces a resource.
+	StoredMethodPut StoredMethod = versions.StoredMethodPut
+	// StoredMethodDelete removes a resource.
+	StoredMethodDelete StoredMethod = versions.StoredMethodDelete
+	// StoredMethodPatch changes part of a resource.
+	StoredMethodPatch StoredMethod = versions.StoredMethodPatch
+	// StoredMethodOptions asks which communication options a resource supports.
+	StoredMethodOptions StoredMethod = versions.StoredMethodOptions
+	// StoredMethodTrace asks the server to echo the request it receives.
+	StoredMethodTrace StoredMethod = versions.StoredMethodTrace
+	// StoredMethodConnect opens a tunnel to the server.
+	StoredMethodConnect StoredMethod = versions.StoredMethodConnect
+	// StoredMethodQuery reads a resource with a query in the body, safely and
+	// idempotently.
+	StoredMethodQuery StoredMethod = versions.StoredMethodQuery
 )
 
 // Header is a single HTTP header sent with a request.
@@ -103,3 +107,36 @@ type InlineWriteEndpoint = versions.InlineWriteEndpoint
 
 // InlineWrite holds the bodies of a write config from before ICDs.
 type InlineWrite = versions.InlineWrite
+
+// Method is an HTTP method that a new or changed endpoint can use.
+type Method string
+
+const (
+	// MethodGet reads a resource.
+	MethodGet Method = "GET"
+	// MethodHead reads the headers of a resource, with no body.
+	MethodHead Method = "HEAD"
+	// MethodPost submits data to a resource.
+	MethodPost Method = "POST"
+	// MethodPut replaces a resource.
+	MethodPut Method = "PUT"
+	// MethodDelete removes a resource.
+	MethodDelete Method = "DELETE"
+	// MethodPatch changes part of a resource.
+	MethodPatch Method = "PATCH"
+	// MethodOptions asks which communication options a resource supports.
+	MethodOptions Method = "OPTIONS"
+	// MethodQuery reads a resource with a query in the body, safely and idempotently.
+	MethodQuery Method = "QUERY"
+)
+
+// IsValid reports whether m is one of the defined Method
+// values.
+func (m Method) IsValid() bool {
+	switch m {
+	case MethodGet, MethodHead, MethodPost, MethodPut, MethodDelete, MethodPatch, MethodOptions, MethodQuery:
+		return true
+	default:
+		return false
+	}
+}

@@ -43,8 +43,8 @@ const root = deep.path<Task.Values<WriteSchemas>>();
 const Properties = () => <Device.Select />;
 
 interface MethodSelectProps {
-  path: deep.Target<http.Method>;
-  onChange: (method: http.Method) => void;
+  path: deep.Target<http.StoredMethod>;
+  onChange: (method: http.StoredMethod) => void;
 }
 
 const MethodSelect = ({ path, onChange }: MethodSelectProps) => (
@@ -53,11 +53,11 @@ const MethodSelect = ({ path, onChange }: MethodSelectProps) => (
   </PForm.Field>
 );
 
-const SelectMethod = (p: Select.ButtonsProps<http.Method>) => (
-  <Select.Buttons<http.Method> {...p}>
-    <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
-    <Select.Item<http.Method> itemKey="PUT">PUT</Select.Item>
-    <Select.Item<http.Method> itemKey="PATCH">PATCH</Select.Item>
+const SelectMethod = (p: Select.ButtonsProps<http.StoredMethod>) => (
+  <Select.Buttons<http.StoredMethod> {...p}>
+    <Select.Item<http.StoredMethod> itemKey="POST">POST</Select.Item>
+    <Select.Item<http.StoredMethod> itemKey="PUT">PUT</Select.Item>
+    <Select.Item<http.StoredMethod> itemKey="PATCH">PATCH</Select.Item>
   </Select.Buttons>
 );
 

@@ -51,7 +51,6 @@ func autoMigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfi
 func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
 	return ReadEndpoint{
 		Key:         old.Key,
-		Method:      old.Method,
 		Path:        old.Path,
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
@@ -63,7 +62,6 @@ func autoMigrateWriteEndpoint(_ context.Context, old v4.WriteEndpoint) (WriteEnd
 	return WriteEndpoint{
 		Key:         old.Key,
 		Disabled:    old.Disabled,
-		Method:      old.Method,
 		Path:        old.Path,
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,

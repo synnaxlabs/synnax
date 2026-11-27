@@ -31,6 +31,17 @@ struct WriteEndpoint;
 struct ReadConfig;
 struct WriteConfig;
 
+constexpr const char *STORED_METHOD_GET = "GET";
+constexpr const char *STORED_METHOD_HEAD = "HEAD";
+constexpr const char *STORED_METHOD_POST = "POST";
+constexpr const char *STORED_METHOD_PUT = "PUT";
+constexpr const char *STORED_METHOD_DELETE = "DELETE";
+constexpr const char *STORED_METHOD_PATCH = "PATCH";
+constexpr const char *STORED_METHOD_OPTIONS = "OPTIONS";
+constexpr const char *STORED_METHOD_TRACE = "TRACE";
+constexpr const char *STORED_METHOD_CONNECT = "CONNECT";
+constexpr const char *STORED_METHOD_QUERY = "QUERY";
+
 constexpr const char *METHOD_GET = "GET";
 constexpr const char *METHOD_HEAD = "HEAD";
 constexpr const char *METHOD_POST = "POST";
@@ -38,8 +49,7 @@ constexpr const char *METHOD_PUT = "PUT";
 constexpr const char *METHOD_DELETE = "DELETE";
 constexpr const char *METHOD_PATCH = "PATCH";
 constexpr const char *METHOD_OPTIONS = "OPTIONS";
-constexpr const char *METHOD_TRACE = "TRACE";
-constexpr const char *METHOD_CONNECT = "CONNECT";
+constexpr const char *METHOD_QUERY = "QUERY";
 
 /// @brief Header is a single HTTP header sent with a request.
 struct Header {
@@ -74,10 +84,10 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
 struct ReadEndpoint {
     /// @brief key uniquely identifies the endpoint within the task.
     std::string key;
+    /// @brief method is the HTTP method used to poll the endpoint.
+    std::string method = STORED_METHOD_GET;
     /// @brief disabled is true when the endpoint is excluded from the task.
     bool disabled = false;
-    /// @brief method is the HTTP method used to poll the endpoint.
-    std::string method = METHOD_GET;
     /// @brief path is the URL path appended to the device's base URL.
     std::string path = "";
     /// @brief headers contains additional headers merged into the request.
@@ -103,7 +113,7 @@ struct WriteEndpoint {
     /// @brief disabled is true when the endpoint is excluded from the task.
     bool disabled = false;
     /// @brief method is the HTTP method used to send the request.
-    std::string method = METHOD_POST;
+    std::string method = STORED_METHOD_POST;
     /// @brief path is the URL path appended to the device's base URL.
     std::string path = "";
     /// @brief headers contains additional headers merged into the request.

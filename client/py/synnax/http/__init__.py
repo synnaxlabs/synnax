@@ -23,6 +23,7 @@ from synnax.http.types_gen import (
     ReadConfig,
     ReadEndpoint,
     ScanConfig,
+    StoredMethod,
     WriteConfig,
     WriteEndpoint,
 )
@@ -40,6 +41,7 @@ __all__ = [
     "ReadEndpoint",
     "ReadTask",
     "ScanConfig",
+    "StoredMethod",
     "WriteConfig",
     "WriteEndpoint",
     "WriteTask",

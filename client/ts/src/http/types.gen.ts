@@ -16,7 +16,7 @@ import { device } from "@/device";
 import { icd } from "@/icd";
 import { task } from "@/task";
 
-export const METHODS = [
+export const STORED_METHODS = [
   "GET",
   "HEAD",
   "POST",
@@ -26,6 +26,20 @@ export const METHODS = [
   "OPTIONS",
   "TRACE",
   "CONNECT",
+  "QUERY",
+] as const;
+export const storedMethodZ = z.enum(STORED_METHODS);
+export type StoredMethod = z.infer<typeof storedMethodZ>;
+
+export const METHODS = [
+  "GET",
+  "HEAD",
+  "POST",
+  "PUT",
+  "DELETE",
+  "PATCH",
+  "OPTIONS",
+  "QUERY",
 ] as const;
 export const methodZ = z.enum(METHODS);
 export type Method = z.infer<typeof methodZ>;
@@ -55,10 +69,10 @@ export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 export const readEndpointZ = z.object({
   /** key uniquely identifies the endpoint within the task. */
   key: z.string().default(id.create),
+  /** method is the HTTP method used to poll the endpoint. */
+  method: storedMethodZ.default("GET"),
   /** disabled is true when the endpoint is excluded from the task. */
   disabled: z.boolean().default(false),
-  /** method is the HTTP method used to poll the endpoint. */
-  method: methodZ.default("GET"),
   /** path is the URL path appended to the device's base URL. */
   path: z.string().default(""),
   /** headers contains additional headers merged into the request. */
@@ -84,7 +98,7 @@ export const writeEndpointZ = z.object({
   /** disabled is true when the endpoint is excluded from the task. */
   disabled: z.boolean().default(false),
   /** method is the HTTP method used to send the request. */
-  method: methodZ.default("POST"),
+  method: storedMethodZ.default("POST"),
   /** path is the URL path appended to the device's base URL. */
   path: z.string().default(""),
   /** headers contains additional headers merged into the request. */
