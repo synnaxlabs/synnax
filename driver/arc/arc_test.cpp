@@ -3923,7 +3923,8 @@ public:
 };
 
 /// @brief opens a control streamer that rejects every channel set and fails its read
-/// once fail is set, and then streamers that accept every channel set.
+/// once fail is set, and then streamers that accept every channel set. Each streamer
+/// reads the frames that push queues.
 class RejectingStreamerFactory final : public pipeline::StreamerFactory {
     class Streamer final : public pipeline::Streamer {
         RejectingStreamerFactory &factory;
@@ -3939,7 +3940,12 @@ class RejectingStreamerFactory final : public pipeline::StreamerFactory {
             if (this->closed) return {x::telem::Frame{}, freighter::STREAM_CLOSED};
             if (this->rejects && this->factory.fail)
                 return {x::telem::Frame{}, freighter::UNREACHABLE};
-            return {x::telem::Frame{}, x::errors::NIL};
+            std::lock_guard lock(this->factory.mu);
+            if (this->factory.frames.empty())
+                return {x::telem::Frame{}, x::errors::NIL};
+            auto fr = std::move(this->factory.frames.front());
+            this->factory.frames.erase(this->factory.frames.begin());
+            return {std::move(fr), x::errors::NIL};
         }
 
         x::errors::Error close() override {
@@ -3956,9 +3962,17 @@ class RejectingStreamerFactory final : public pipeline::StreamerFactory {
         }
     };
 
+    std::mutex mu;
+    std::vector<x::telem::Frame> frames;
+
 public:
     std::atomic<int> opens = 0;
     std::atomic<bool> fail = false;
+
+    void push(x::telem::Frame frame) {
+        std::lock_guard lock(this->mu);
+        this->frames.push_back(std::move(frame));
+    }
     std::shared_ptr<pipeline::testutil::ChannelSets>
         sets = std::make_shared<pipeline::testutil::ChannelSets>();
 
@@ -4412,6 +4426,11 @@ TEST_F(OutageTest, RetriesFailedReloadWhenControlReopens) {
     ASSERT_EVENTUALLY_GE(control->opens.load(), 1);
     this->set_expression(inner, b.name + " * 3");
     ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
+    // The failed reload keeps the old calculations.
+    ASSERT_EVENTUALLY_TRUE([&] {
+        control->push(x::telem::Frame(a.key, x::telem::Series(1.0f)));
+        return this->wrote(out.key, 3.0f);
+    }());
     control->fail = true;
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
         [&] {

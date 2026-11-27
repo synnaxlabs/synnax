@@ -343,6 +343,22 @@ class Task final : public task::Task {
             return x::errors::NIL;
         }
 
+        /// @brief takes back the calculator that reload handed over, and puts back
+        /// previous, the calculator that it replaced before the control thread took
+        /// it. If the control thread took it, the calculator that it replaced goes
+        /// back in.
+        void restore(std::unique_ptr<Calculator> previous) {
+            std::lock_guard lock(this->task.reload_mu);
+            if (this->task.has_reloaded.load(std::memory_order_acquire))
+                this->task.reloaded = std::move(previous);
+            else
+                this->task.reloaded = std::move(this->task.retired);
+            this->task.has_reloaded.store(
+                this->task.reloaded != nullptr,
+                std::memory_order_release
+            );
+        }
+
         x::errors::Error reload() {
             auto [compiled, err] = retrieve_automation(*this->client, this->arc_key);
             if (err) return err;
@@ -370,8 +386,10 @@ class Task final : public task::Task {
                 this->task.has_reloaded.store(true, std::memory_order_release);
             }
             if (streamed != this->streamed) {
-                if (const auto set_err = this->task.control->set_channels(streamed))
+                if (const auto set_err = this->task.control->set_channels(streamed)) {
+                    this->restore(std::move(unused));
                     return set_err;
+                }
                 this->streamed = std::move(streamed);
             }
             this->loaded = std::move(loaded);
@@ -749,8 +767,7 @@ public:
             if (this->has_reloaded.exchange(false, std::memory_order_acq_rel)) {
                 std::lock_guard lock(this->reload_mu);
                 std::swap(this->calculator, *this->reloaded);
-                this->reloaded = nullptr;
-                this->retired = nullptr;
+                this->retired = std::move(this->reloaded);
             } else if (const auto err = this->calculator.reset()) {
                 std::lock_guard lock(this->state_mu);
                 this->state.error(err, "Failed to load calculations");
