@@ -51,6 +51,9 @@ type header struct {
 type binaryMessage struct {
 	name   string
 	fields []binaryField
+	muxes  multiplexors
+	// raw holds the raw value of each multiplexor in the last decode.
+	raw []int64
 }
 
 type binaryField struct {
@@ -66,7 +69,8 @@ type binaryField struct {
 	sample *xjson.Decoder
 	// fallback is the sample used when a payload does not hold the field, or nil when
 	// the field requires one.
-	fallback []byte
+	fallback  []byte
+	condition condition
 }
 
 // NewBinary returns a Binary decoder for messages that share one source of payloads. A
@@ -74,9 +78,9 @@ type binaryField struct {
 // message with no identifier. NewBinary returns an error wrapping
 // validate.ErrValidation when a message has a CAN identifier, two messages have no
 // identifier, two identifiers match the same value of one field layout, an identifier
-// is invalid, a binding names no field of its message, a bound field has a
-// multiplexor, a field's layout or default is invalid, a bound field has a zero scale,
-// or a field does not convert to the data type of its binding.
+// is invalid, a binding names no field of its message, a field's layout, default, or
+// multiplexor is invalid, a bound field has a zero scale, or a field does not convert
+// to the data type of its binding.
 func NewBinary(messages []BinaryMessage) (*Binary, error) {
 	b := &Binary{messages: make([]binaryMessage, len(messages)), fallback: -1}
 	for i, m := range messages {
@@ -98,11 +102,15 @@ func newBinaryMessage(m BinaryMessage) (binaryMessage, error) {
 	if err != nil {
 		return binaryMessage{}, err
 	}
+	byKey := make(map[icd.FieldKey]icd.BinaryField, len(m.Payload.Fields))
+	for _, f := range m.Payload.Fields {
+		byKey[binaryKey(f)] = f
+	}
 	msg := binaryMessage{name: m.Name, fields: make([]binaryField, len(fields))}
 	for i, f := range fields {
 		field, err := newBinaryField(f, m.Bindings[i].DataType)
-		if err == nil && f.Base().Multiplexor != nil {
-			err = errors.Wrap(validate.ErrValidation, "multiplexors are not supported")
+		if err == nil {
+			field.condition, err = msg.muxes.resolve(f.Base(), byKey)
 		}
 		if err == nil {
 			err = checkLength(field.bits, m.Payload)
@@ -112,6 +120,7 @@ func newBinaryMessage(m BinaryMessage) (binaryMessage, error) {
 		}
 		msg.fields[i] = field
 	}
+	msg.raw = make([]int64, len(msg.muxes.all))
 	return msg, nil
 }
 
@@ -288,11 +297,15 @@ func identifierBits(id icd.FieldIdentifier, p icd.BinaryPayload) (bitRange, erro
 // and appends one sample for each of its bindings to samples[message]. samples is as
 // in JSON.Decode. ok is false, and Decode appends nothing, when data belongs to no
 // message. Decode returns an error wrapping validate.ErrValidation, appending nothing,
-// with the first of the messages, when data meets the identifiers of two messages.
+// when data meets the identifiers of two messages, with the first of them, or when it
+// is too short for the multiplexors of its message. A short payload's error names the
+// first multiplexor that does not fit, and also the message when the decoder holds
+// more than one.
 //
-// failures holds each field with no default that data is too short for, or whose value
-// does not fit its channel. A failed field appends no sample, and the other fields
-// still append. A failure names the field, and also the message when the decoder holds
+// failures holds each selected field with no default that data is too short for, or
+// whose value does not fit its channel. A failed field appends no sample, and the other
+// fields still append. A field that the multiplexors do not select appends its default,
+// or nothing. A failure names the field, and also the message when the decoder holds
 // more than one. failures is nil when every field decodes, and valid until the next
 // Decode.
 func (b *Binary) Decode(
@@ -324,27 +337,52 @@ func (b *Binary) Decode(
 		return 0, false, nil, nil
 	}
 	m := &b.messages[message]
-	b.failures = m.decode(data, samples[message], b.failures[:0])
-	if len(b.failures) == 0 {
-		return message, true, nil, nil
-	}
+	b.failures, err = m.decode(data, samples[message], b.failures[:0])
 	if len(b.messages) > 1 {
+		if err != nil {
+			err = errors.Wrapf(err, "message %s", m.name)
+		}
 		for i := range b.failures {
 			b.failures[i].Err = errors.Wrapf(b.failures[i].Err, "message %s", m.name)
 		}
+	}
+	if err != nil || len(b.failures) == 0 {
+		return message, true, nil, err
 	}
 	return message, true, b.failures, nil
 }
 
 // decode appends the sample of each field in data to samples, and each failed field to
-// failures.
+// failures. It returns an error, appending nothing, when data is too short for the
+// multiplexors.
 func (m *binaryMessage) decode(
 	data []byte,
 	samples [][]byte,
 	failures []Failure,
-) []Failure {
+) ([]Failure, error) {
+	if len(data) < m.muxes.end {
+		i := slices.IndexFunc(m.muxes.all, func(mux multiplexor) bool {
+			return mux.bits.end > len(data)
+		})
+		mux := &m.muxes.all[i]
+		return failures, errors.Wrapf(
+			tooShort(len(data), mux.bits.end), "field %s", mux.name,
+		)
+	}
+	for i := range m.muxes.all {
+		mux := &m.muxes.all[i]
+		if mux.signed {
+			m.raw[i] = mux.bits.readSigned(data)
+		} else {
+			m.raw[i] = int64(mux.bits.read(data))
+		}
+	}
 	for i := range m.fields {
 		f := &m.fields[i]
+		if !m.muxes.selected(f.condition, m.raw) {
+			samples[i] = append(samples[i], f.fallback...)
+			continue
+		}
 		missing := len(data) < f.bits.end
 		var err error
 		switch {
@@ -366,7 +404,7 @@ func (m *binaryMessage) decode(
 			})
 		}
 	}
-	return failures
+	return failures, nil
 }
 
 // decode appends the sample of the field in data, which holds the field, to dst.

@@ -50,27 +50,13 @@ func (f decodeFixture) can() bool {
 	})
 }
 
-// multiplexed reports whether a field of f has a multiplexor, which Go does not decode
-// yet.
-func (f decodeFixture) multiplexed() bool {
-	return lo.SomeBy(f.Messages, func(m fixtureMessage) bool {
-		p, ok := m.Payload.Variant.(icd.BinaryPayload)
-		return ok && lo.SomeBy(p.Fields, func(f icd.BinaryField) bool {
-			return f.Base().Multiplexor != nil
-		})
-	})
-}
-
 // binaryFixtureEntries returns an entry for each binary decode fixture with no CAN
-// identifier and no multiplexor.
+// identifier.
 func binaryFixtureEntries() []TableEntry {
 	GinkgoHelper()
 	paths := lo.Filter(
 		fixturePaths("decode", payload.FormatBinary),
-		func(path string, _ int) bool {
-			f := readDecodeFixture(path)
-			return !f.can() && !f.multiplexed()
-		},
+		func(path string, _ int) bool { return !readDecodeFixture(path).can() },
 	)
 	return lo.Map(paths, func(path string, _ int) TableEntry {
 		return fixtureEntry(path)
@@ -109,14 +95,6 @@ var _ = Describe("Binary", func() {
 			MatchError(validate.ErrValidation),
 			MatchError("message a: identifier: only the Driver reads CAN frames: "+
 				"validation error"),
-		))
-	})
-
-	It("Should reject a bound field with a multiplexor", func() {
-		f := readDecodeFixture("../testdata/decode/binary_multiplexed.json")
-		Expect(codec.NewBinary(f.binaryMessages())).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("multiplexors are not supported")),
 		))
 	})
 
