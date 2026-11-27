@@ -62,6 +62,7 @@ const Delete = ({
         <UsedBy.List
           kind="ICD"
           uses={tasks.map(({ key }) => ({ id: task.resourceID(key) }))}
+          onSelect={() => close()}
         />
       )}
     </Modals.ConfirmLayout>

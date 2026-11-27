@@ -17,7 +17,7 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import { holdRequests } from "@synnaxlabs/client/testutil";
+import { failRequests, holdRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -183,6 +183,29 @@ describe("ICD.Settings", () => {
       fireEvent.click(await screen.findByText("Delete"));
       await screen.findByText("Some of these ICDs are in use");
       expect(screen.getByText("Remove them from these tasks first.")).toBeTruthy();
+      expect(deleteDisabled()).toBe(true);
+    });
+
+    it("should open a task from the delete dialog and close the dialog", async () => {
+      const { ic, used } = await createUsedICD();
+      const { store } = await renderSettings(ic, [task.resourceID(used.key)]);
+      await openDelete(ic.name);
+      fireEvent.click(await screen.findByText(used.name));
+      expect(await focusedResourceKey(store)).toBe(task.resourceID(used.key).key);
+      await waitFor(() =>
+        expect(screen.queryByText(`${ic.name} is in use`)).toBeNull(),
+      );
+    });
+
+    it("should say why it cannot find the tasks that use an ICD and offer no delete", async () => {
+      const ic = await createICD();
+      const { subject } = await renderSettings(ic);
+      await screen.findByText(ic.name);
+      failRequests(subject, "/task/retrieve", new Error("task lookup failed"));
+      await openDelete(ic.name);
+      expect(
+        await screen.findByText("Failed to retrieve tasks: task lookup failed"),
+      ).toBeTruthy();
       expect(deleteDisabled()).toBe(true);
     });
 
