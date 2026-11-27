@@ -14,14 +14,13 @@ from pydantic import BaseModel, field_validator
 
 from synnax import device, icd, rack as rack_, task
 from synnax.http.types_gen import (
-    Header,
-    QueryParam,
     ReadConfig,
     ReadEndpoint,
     WriteConfig,
     WriteEndpoint,
 )
 from synnax.telem import CrudeRate, Rate
+from x.http import Header, QueryParam
 
 MAKE = "http"
 MODEL = "HTTP server"

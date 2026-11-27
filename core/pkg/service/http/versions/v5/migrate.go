@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	"github.com/synnaxlabs/x/errors"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	"go.uber.org/zap"
 )
 
@@ -70,6 +71,19 @@ func MigrateWriteEndpoint(
 	old v4.WriteEndpoint,
 ) (WriteEndpoint, error) {
 	return autoMigrateWriteEndpoint(ctx, old)
+}
+
+// migrateReadEndpointMethod keeps the method of a read endpoint. A TRACE or CONNECT
+// method keeps its value, and the endpoint refuses to configure until a user picks
+// another method.
+func migrateReadEndpointMethod(_ context.Context, old v4.Method) (http.Method, error) {
+	return http.Method(old), nil
+}
+
+// migrateWriteEndpointMethod keeps the method of a write endpoint, as
+// migrateReadEndpointMethod does for a read endpoint.
+func migrateWriteEndpointMethod(_ context.Context, old v4.Method) (http.Method, error) {
+	return http.Method(old), nil
 }
 
 // NoteLift returns the note for ResolveReadConfig that logs each change to a field of

@@ -24,6 +24,7 @@ export * from "@/errors";
 export * from "@/filename";
 export * from "@/filter";
 export * from "@/grid";
+export * from "@/http";
 export * from "@/id";
 export * from "@/json";
 export * from "@/link";

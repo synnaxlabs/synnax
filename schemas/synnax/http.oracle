@@ -11,6 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/icd"
 import "schemas/synnax/task"
+import "schemas/x/http"
 import "schemas/x/payload"
 import "schemas/x/telem"
 
@@ -18,66 +19,6 @@ import "schemas/x/telem"
 @go output  "core/pkg/service/http"
 @py output  "client/py/synnax/http"
 @ts output  "client/ts/src/http"
-
-Method enum {
-    get     = "GET" {
-        @doc value "reads a resource."
-    }
-    head    = "HEAD" {
-        @doc value "reads the headers of a resource, with no body."
-    }
-    post    = "POST" {
-        @doc value "submits data to a resource."
-    }
-    put     = "PUT" {
-        @doc value "replaces a resource."
-    }
-    delete  = "DELETE" {
-        @doc value "removes a resource."
-    }
-    patch   = "PATCH" {
-        @doc value "changes part of a resource."
-    }
-    options = "OPTIONS" {
-        @doc value "asks which communication options a resource supports."
-    }
-    trace   = "TRACE" {
-        @doc value "asks the server to echo the request it receives."
-    }
-    connect = "CONNECT" {
-        @doc value "opens a tunnel to the server."
-    }
-
-    @doc value "is the HTTP method used when requesting an endpoint."
-}
-
-Header struct {
-    name  string = "" {
-        @doc value         "is the header name, unique within a request."
-        @go validate       pattern "^[!#$%&'*+.^_`|~0-9A-Za-z-]+$" "Header name must be a token: letters, digits, and !#$%&'*+-.^_`|~"
-        @validate required
-    }
-    value string = "" {
-        @doc value   "is the header value."
-        @go validate pattern "^([^[:cntrl:]]|[[:blank:]])*$" "Header value must not hold a line break or other control character"
-    }
-
-    @doc value  "is a single HTTP header sent with a request."
-    @go marshal
-}
-
-QueryParam struct {
-    parameter string = "" {
-        @doc value         "is the parameter name, unique within a request."
-        @validate required
-    }
-    value     string = "" {
-        @doc value "is the parameter value."
-    }
-
-    @doc value  "is a single URL query parameter sent with a request."
-    @go marshal
-}
 
 ReadField struct {
     key         string = create {
@@ -140,17 +81,17 @@ ReadEndpoint struct {
     disabled     bool = false {
         @doc value "is true when the endpoint is excluded from the task."
     }
-    method       Method = get {
+    method       http.Method = get {
         @doc value "is the HTTP method used to poll the endpoint."
     }
     path         string = "" {
         @doc value   "is the URL path appended to the device's base URL."
         @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
-    headers      Header[]          {
+    headers      http.Header[]     {
         @doc value "contains additional headers merged into the request."
     }
-    query_params QueryParam[]      {
+    query_params http.QueryParam[] {
         @doc value "contains query parameters appended to the request URL."
     }
     body         string = "" {
@@ -321,17 +262,17 @@ WriteEndpoint struct {
     disabled     bool = false {
         @doc value "is true when the endpoint is excluded from the task."
     }
-    method       Method = post {
+    method       http.Method = post {
         @doc value "is the HTTP method used to send the request."
     }
     path         string = "" {
         @doc value   "is the URL path appended to the device's base URL."
         @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
     }
-    headers      Header[]          {
+    headers      http.Header[]     {
         @doc value "contains additional headers merged into the request."
     }
-    query_params QueryParam[]      {
+    query_params http.QueryParam[] {
         @doc value "contains query parameters appended to the request URL."
     }
     icd          icd.Key?          {

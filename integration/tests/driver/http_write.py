@@ -11,12 +11,13 @@ import synnax as sy
 from synnax import http
 from tests.driver.http_task import HTTPWriteTaskCase
 from tests.driver.task import create_channel, create_index
+from x import http as xhttp
 
 
 def create_endpoint(
     client: sy.Synnax,
     *,
-    method: http.Method,
+    method: xhttp.Method,
     path: str,
     bindings: list[tuple[sy.icd.JSONField, int]],
     fields: list[sy.icd.JSONField] | None = None,

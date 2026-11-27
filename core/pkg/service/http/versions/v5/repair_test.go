@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -32,13 +33,13 @@ var _ = Describe("Repair", func() {
 			"rows with no name",
 			v5.ReadEndpoint{
 				Path:        "/now",
-				Headers:     []v5.Header{{Value: "x"}, {Name: "Accept", Value: "j"}},
-				QueryParams: []v5.QueryParam{{Value: "1"}},
+				Headers:     []http.Header{{Value: "x"}, {Name: "Accept", Value: "j"}},
+				QueryParams: []http.QueryParam{{Value: "1"}},
 			},
 			v5.ReadEndpoint{
 				Path:        "/now",
-				Headers:     []v5.Header{{Name: "Accept", Value: "j"}},
-				QueryParams: []v5.QueryParam{},
+				Headers:     []http.Header{{Name: "Accept", Value: "j"}},
+				QueryParams: []http.QueryParam{},
 			},
 		),
 		Entry(
@@ -46,7 +47,7 @@ var _ = Describe("Repair", func() {
 			v5.ReadEndpoint{Path: "/now?units=si&city=New%20York"},
 			v5.ReadEndpoint{
 				Path: "/now",
-				QueryParams: []v5.QueryParam{
+				QueryParams: []http.QueryParam{
 					{Parameter: "units", Value: "si"},
 					{Parameter: "city", Value: "New York"},
 				},
@@ -71,14 +72,14 @@ var _ = Describe("Repair", func() {
 			KeyedConfig: key,
 			Endpoints: []v5.ReadEndpoint{{
 				Path:    "/now?units=si",
-				Headers: []v5.Header{{Value: "x"}},
+				Headers: []http.Header{{Value: "x"}},
 			}},
 		}
 		write := v5.WriteConfig{
 			KeyedConfig: key,
 			Endpoints: []v5.WriteEndpoint{{
 				Path:        "/cmd?id=7",
-				QueryParams: []v5.QueryParam{{Value: "1"}},
+				QueryParams: []http.QueryParam{{Value: "1"}},
 			}},
 		}
 		Expect(gorp.WrapWriter[uuid.UUID, v5.ReadConfig](db).Set(ctx, read)).
@@ -103,7 +104,7 @@ var _ = Describe("Repair", func() {
 		Expect(gotRead.Endpoints[0].Path).To(Equal("/now"))
 		Expect(gotRead.Endpoints[0].Headers).To(BeEmpty())
 		Expect(gotRead.Endpoints[0].QueryParams).
-			To(Equal([]v5.QueryParam{{Parameter: "units", Value: "si"}}))
+			To(Equal([]http.QueryParam{{Parameter: "units", Value: "si"}}))
 		var gotWrite v5.WriteConfig
 		Expect(gorp.NewRetrieve[uuid.UUID, v5.WriteConfig]().
 			Where(gorp.MatchKeys[uuid.UUID, v5.WriteConfig](key.Key)).
@@ -111,6 +112,6 @@ var _ = Describe("Repair", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(gotWrite.Endpoints[0].Path).To(Equal("/cmd"))
 		Expect(gotWrite.Endpoints[0].QueryParams).
-			To(Equal([]v5.QueryParam{{Parameter: "id", Value: "7"}}))
+			To(Equal([]http.QueryParam{{Parameter: "id", Value: "7"}}))
 	})
 })

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { http } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Tree } from "@synnaxlabs/lyra/tree";
-import type { deep } from "@synnaxlabs/x";
+import type { deep, http } from "@synnaxlabs/x";
 import type { ReactNode } from "react";
 
 import { Task } from "@/platform/task";

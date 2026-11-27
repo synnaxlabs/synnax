@@ -14,6 +14,7 @@ package v5
 import (
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
@@ -140,7 +141,7 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		re.Method = Method(rawV)
+		re.Method = http.Method(rawV)
 	}
 	if re.Path, err = r.String(); err != nil {
 		return err
@@ -155,7 +156,7 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			re.Headers = make([]Header, n)
+			re.Headers = make([]http.Header, n)
 			for i := range re.Headers {
 				if err = re.Headers[i].DecodeOrc(r); err != nil {
 					return err
@@ -173,7 +174,7 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			re.QueryParams = make([]QueryParam, n)
+			re.QueryParams = make([]http.QueryParam, n)
 			for i := range re.QueryParams {
 				if err = re.QueryParams[i].DecodeOrc(r); err != nil {
 					return err
@@ -323,7 +324,7 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		we.Method = Method(rawV)
+		we.Method = http.Method(rawV)
 	}
 	if we.Path, err = r.String(); err != nil {
 		return err
@@ -338,7 +339,7 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			we.Headers = make([]Header, n)
+			we.Headers = make([]http.Header, n)
 			for i := range we.Headers {
 				if err = we.Headers[i].DecodeOrc(r); err != nil {
 					return err
@@ -356,7 +357,7 @@ func (we *WriteEndpoint) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			we.QueryParams = make([]QueryParam, n)
+			we.QueryParams = make([]http.QueryParam, n)
 			for i := range we.QueryParams {
 				if err = we.QueryParams[i].DecodeOrc(r); err != nil {
 					return err

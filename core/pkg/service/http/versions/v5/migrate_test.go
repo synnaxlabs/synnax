@@ -20,6 +20,7 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v2"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -73,9 +74,11 @@ var _ = Describe("MigrateReadConfig", func() {
 			Expect(cfg.Rate).To(Equal(old.Rate))
 			Expect(cfg.Endpoints).To(HaveLen(2))
 			ep := cfg.Endpoints[0]
-			Expect(ep.Method).To(Equal(v4.MethodPost))
+			Expect(ep.Method).To(Equal(http.MethodPost))
 			Expect(ep.Path).To(Equal("/values"))
-			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
+			Expect(ep.Headers).To(Equal(
+				[]http.Header{{Name: "Accept", Value: "application/json"}},
+			))
 			Expect(ep.Body).To(Equal(`{"all":true}`))
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Messages).To(BeEmpty())
@@ -112,9 +115,11 @@ var _ = Describe("MigrateReadEndpoint", func() {
 		old := storedConfig().Endpoints[0]
 		ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
 		Expect(ep.Key).To(Equal("ep1"))
-		Expect(ep.Method).To(Equal(v4.MethodPost))
+		Expect(ep.Method).To(Equal(http.MethodPost))
 		Expect(ep.Path).To(Equal("/values"))
-		Expect(ep.Headers).To(Equal(old.Headers))
+		Expect(ep.Headers).To(Equal(
+			[]http.Header{{Name: "Accept", Value: "application/json"}},
+		))
 		Expect(ep.Body).To(Equal(`{"all":true}`))
 		Expect(ep.ICD).To(BeNil())
 		Expect(ep.Messages).To(BeEmpty())
@@ -264,9 +269,11 @@ var _ = Describe("MigrateWriteConfig", func() {
 			Expect(cfg.Device).To(Equal(old.Device))
 			Expect(cfg.Endpoints).To(HaveLen(2))
 			ep := cfg.Endpoints[0]
-			Expect(ep.Method).To(Equal(v4.MethodPut))
+			Expect(ep.Method).To(Equal(http.MethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
-			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
+			Expect(ep.Headers).To(Equal(
+				[]http.Header{{Name: "Accept", Value: "application/json"}},
+			))
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Message).To(BeNil())
 			Expect(cfg.Endpoints[1].Disabled).To(BeTrue())
@@ -286,9 +293,11 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 			old := storedWriteConfig().Endpoints[0]
 			ep := MustSucceed(v5.MigrateWriteEndpoint(ctx, old))
 			Expect(ep.Key).To(Equal("sp"))
-			Expect(ep.Method).To(Equal(v4.MethodPut))
+			Expect(ep.Method).To(Equal(http.MethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
-			Expect(ep.Headers).To(Equal(old.Headers))
+			Expect(ep.Headers).To(Equal(
+				[]http.Header{{Name: "Accept", Value: "application/json"}},
+			))
 			Expect(ep.Disabled).To(BeFalse())
 			Expect(ep.ICD).To(BeNil())
 			Expect(ep.Message).To(BeNil())

@@ -21,6 +21,7 @@ cc_library(
         "//client/cpp/device",
         "//client/cpp/icd",
         "//client/cpp/task",
+        "//x/cpp/http",
         "//x/cpp/json",
         "//x/cpp/payload",
         "//x/cpp/telem",

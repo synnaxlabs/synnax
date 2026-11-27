@@ -1172,7 +1172,7 @@ TEST(HTTPReadTask, EndpointQueryParams) {
     x::defer::defer stop_server([&server] { server.stop(); });
     const auto client = new_test_client();
     auto ep = create_float_endpoint(client, "/api/data");
-    ep.endpoint.query_params = std::vector<::synnax::http::QueryParam>{
+    ep.endpoint.query_params = std::vector<::x::http::QueryParam>{
         {"api_key", "abc123"},
         {"format", "json"}
     };
@@ -1239,7 +1239,7 @@ TEST(HTTPReadTask, EndpointHeaders) {
     x::defer::defer stop_server([&server] { server.stop(); });
     const auto client = new_test_client();
     auto ep = create_float_endpoint(client, "/api/data");
-    ep.endpoint.headers = std::vector<::synnax::http::Header>{
+    ep.endpoint.headers = std::vector<::x::http::Header>{
         {"Accept", "application/json"}
     };
     ASSERT_NIL(read_once(client, create_config({ep}), server.base_url()).second.error);

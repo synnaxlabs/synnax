@@ -22,42 +22,13 @@ import (
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v4"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 var validatePattern0 = regexp.MustCompile("^[^?#[:space:]]*$")
-
-// Method is the HTTP method used when requesting an endpoint.
-type Method = v4.Method
-
-const (
-	// MethodGet reads a resource.
-	MethodGet Method = v4.MethodGet
-	// MethodHead reads the headers of a resource, with no body.
-	MethodHead Method = v4.MethodHead
-	// MethodPost submits data to a resource.
-	MethodPost Method = v4.MethodPost
-	// MethodPut replaces a resource.
-	MethodPut Method = v4.MethodPut
-	// MethodDelete removes a resource.
-	MethodDelete Method = v4.MethodDelete
-	// MethodPatch changes part of a resource.
-	MethodPatch Method = v4.MethodPatch
-	// MethodOptions asks which communication options a resource supports.
-	MethodOptions Method = v4.MethodOptions
-	// MethodTrace asks the server to echo the request it receives.
-	MethodTrace Method = v4.MethodTrace
-	// MethodConnect opens a tunnel to the server.
-	MethodConnect Method = v4.MethodConnect
-)
-
-// Header is a single HTTP header sent with a request.
-type Header = v4.Header
-
-// QueryParam is a single URL query parameter sent with a request.
-type QueryParam = v4.QueryParam
 
 // ReadField is a single value extracted from an endpoint's JSON response.
 type ReadField = v4.ReadField
@@ -69,13 +40,13 @@ type ReadEndpoint struct {
 	// Disabled is true when the endpoint is excluded from the task.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Method is the HTTP method used to poll the endpoint.
-	Method Method `json:"method" msgpack:"method"`
+	Method http.Method `json:"method" msgpack:"method"`
 	// Path is the URL path appended to the device's base URL.
 	Path string `json:"path" msgpack:"path"`
 	// Headers contains additional headers merged into the request.
-	Headers []Header `json:"headers" msgpack:"headers"`
+	Headers []http.Header `json:"headers" msgpack:"headers"`
 	// QueryParams contains query parameters appended to the request URL.
-	QueryParams []QueryParam `json:"query_params" msgpack:"query_params"`
+	QueryParams []http.QueryParam `json:"query_params" msgpack:"query_params"`
 	// Body is a static body sent with each request. Empty sends no body.
 	Body string `json:"body" msgpack:"body"`
 	// ICD is the key of the ICD that holds the messages of the endpoint. Absent when
@@ -87,7 +58,7 @@ type ReadEndpoint struct {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadEndpoint) SetDefaults() {
-	r.Method = MethodGet
+	r.Method = http.MethodGet
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
@@ -258,13 +229,13 @@ type WriteEndpoint struct {
 	// Disabled is true when the endpoint is excluded from the task.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Method is the HTTP method used to send the request.
-	Method Method `json:"method" msgpack:"method"`
+	Method http.Method `json:"method" msgpack:"method"`
 	// Path is the URL path appended to the device's base URL.
 	Path string `json:"path" msgpack:"path"`
 	// Headers contains additional headers merged into the request.
-	Headers []Header `json:"headers" msgpack:"headers"`
+	Headers []http.Header `json:"headers" msgpack:"headers"`
 	// QueryParams contains query parameters appended to the request URL.
-	QueryParams []QueryParam `json:"query_params" msgpack:"query_params"`
+	QueryParams []http.QueryParam `json:"query_params" msgpack:"query_params"`
 	// ICD is the key of the ICD that holds the message of the endpoint. Absent when the
 	// endpoint sends no message.
 	ICD *icd.Key `json:"icd,omitzero" msgpack:"icd,omitempty"`
@@ -275,7 +246,7 @@ type WriteEndpoint struct {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteEndpoint) SetDefaults() {
-	w.Method = MethodPost
+	w.Method = http.MethodPost
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the

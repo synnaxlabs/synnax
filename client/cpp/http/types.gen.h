@@ -18,57 +18,17 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/icd/types.gen.h"
 #include "client/cpp/task/types.gen.h"
+#include "x/cpp/http/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::http {
 
-struct Header;
-struct QueryParam;
-struct ScanConfig;
 struct ReadEndpoint;
 struct WriteEndpoint;
+struct ScanConfig;
 struct ReadConfig;
 struct WriteConfig;
-
-constexpr const char *METHOD_GET = "GET";
-constexpr const char *METHOD_HEAD = "HEAD";
-constexpr const char *METHOD_POST = "POST";
-constexpr const char *METHOD_PUT = "PUT";
-constexpr const char *METHOD_DELETE = "DELETE";
-constexpr const char *METHOD_PATCH = "PATCH";
-constexpr const char *METHOD_OPTIONS = "OPTIONS";
-constexpr const char *METHOD_TRACE = "TRACE";
-constexpr const char *METHOD_CONNECT = "CONNECT";
-
-/// @brief Header is a single HTTP header sent with a request.
-struct Header {
-    /// @brief name is the header name, unique within a request.
-    std::string name = "";
-    /// @brief value is the header value.
-    std::string value = "";
-
-    static Header parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief QueryParam is a single URL query parameter sent with a request.
-struct QueryParam {
-    /// @brief parameter is the parameter name, unique within a request.
-    std::string parameter = "";
-    /// @brief value is the parameter value.
-    std::string value = "";
-
-    static QueryParam parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief ScanConfig configures an HTTP scan task.
-struct ScanConfig : public ::synnax::task::ScanConfig {
-
-    static ScanConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
 
 /// @brief ReadEndpoint is a single HTTP endpoint polled by a read task.
 struct ReadEndpoint {
@@ -77,13 +37,13 @@ struct ReadEndpoint {
     /// @brief disabled is true when the endpoint is excluded from the task.
     bool disabled = false;
     /// @brief method is the HTTP method used to poll the endpoint.
-    std::string method = METHOD_GET;
+    std::string method = ::x::http::METHOD_GET;
     /// @brief path is the URL path appended to the device's base URL.
     std::string path = "";
     /// @brief headers contains additional headers merged into the request.
-    std::vector<Header> headers;
+    std::vector<::x::http::Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
-    std::vector<QueryParam> query_params;
+    std::vector<::x::http::QueryParam> query_params;
     /// @brief body is a static body sent with each request. Empty sends no body.
     std::string body = "";
     /// @brief icd is the key of the ICD that holds the messages of the endpoint. Absent
@@ -103,13 +63,13 @@ struct WriteEndpoint {
     /// @brief disabled is true when the endpoint is excluded from the task.
     bool disabled = false;
     /// @brief method is the HTTP method used to send the request.
-    std::string method = METHOD_POST;
+    std::string method = ::x::http::METHOD_POST;
     /// @brief path is the URL path appended to the device's base URL.
     std::string path = "";
     /// @brief headers contains additional headers merged into the request.
-    std::vector<Header> headers;
+    std::vector<::x::http::Header> headers;
     /// @brief query_params contains query parameters appended to the request URL.
-    std::vector<QueryParam> query_params;
+    std::vector<::x::http::QueryParam> query_params;
     /// @brief icd is the key of the ICD that holds the message of the endpoint. Absent
     /// when the endpoint sends no message.
     std::optional<::synnax::icd::Key> icd;
@@ -118,6 +78,13 @@ struct WriteEndpoint {
     std::optional<::synnax::icd::WriteMessage> message;
 
     static WriteEndpoint parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ScanConfig configures an HTTP scan task.
+struct ScanConfig : public ::synnax::task::ScanConfig {
+
+    static ScanConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

@@ -17,9 +17,6 @@ from synnax.http.types import (
     WriteTask,
 )
 from synnax.http.types_gen import (
-    Header,
-    Method,
-    QueryParam,
     ReadConfig,
     ReadEndpoint,
     ScanConfig,
@@ -32,10 +29,7 @@ __all__ = [
     "MODEL",
     "Device",
     "ExpectedResponse",
-    "Header",
     "HealthCheck",
-    "Method",
-    "QueryParam",
     "ReadConfig",
     "ReadEndpoint",
     "ReadTask",

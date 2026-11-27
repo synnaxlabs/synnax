@@ -19,7 +19,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, id, unique } from "@synnaxlabs/x";
+import { deep, type http as xhttp, id, unique } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useState } from "react";
 
 import { Device } from "@/feature/http/device";
@@ -43,8 +43,8 @@ const root = deep.path<Task.Values<WriteSchemas>>();
 const Properties = () => <Device.Select />;
 
 interface MethodSelectProps {
-  path: deep.Target<http.Method>;
-  onChange: (method: http.Method) => void;
+  path: deep.Target<xhttp.Method>;
+  onChange: (method: xhttp.Method) => void;
 }
 
 const MethodSelect = ({ path, onChange }: MethodSelectProps) => (
@@ -53,11 +53,11 @@ const MethodSelect = ({ path, onChange }: MethodSelectProps) => (
   </PForm.Field>
 );
 
-const SelectMethod = (p: Select.ButtonsProps<http.Method>) => (
-  <Select.Buttons<http.Method> {...p}>
-    <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
-    <Select.Item<http.Method> itemKey="PUT">PUT</Select.Item>
-    <Select.Item<http.Method> itemKey="PATCH">PATCH</Select.Item>
+const SelectMethod = (p: Select.ButtonsProps<xhttp.Method>) => (
+  <Select.Buttons<xhttp.Method> {...p}>
+    <Select.Item<xhttp.Method> itemKey="POST">POST</Select.Item>
+    <Select.Item<xhttp.Method> itemKey="PUT">PUT</Select.Item>
+    <Select.Item<xhttp.Method> itemKey="PATCH">PATCH</Select.Item>
   </Select.Buttons>
 );
 
