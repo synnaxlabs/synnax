@@ -184,10 +184,9 @@ func (s *Service) NewStream(
 	distCfg := cfg.distribution()
 	// A chunked read counts the samples of each channel on its own, so it reads each
 	// index beside the chunks of its data instead of chunking the index too.
-	chunked := cfg.ChunkSize > 0 && calcTransform == nil && len(indexes) > 0
 	var times *chunkTime
-	if chunked {
-		if times, err = newChunkTime(ctx, s.cfg.Framer, cfg, indexes); err != nil {
+	if clocks := chunkClocks(cfg, channels); calcTransform == nil && len(clocks) > 0 {
+		if times, err = newChunkTime(ctx, s.cfg.Framer, cfg, clocks); err != nil {
 			return nil, err
 		}
 	} else {
@@ -246,6 +245,24 @@ func timeIndexes(cfg Config, channels []channel.Channel) channel.Keys {
 		indexes = append(indexes, index)
 	}
 	return lo.Uniq(indexes)
+}
+
+// chunkClocks returns the index of each timed stored data channel in channels when cfg
+// reads in chunks, and none otherwise.
+func chunkClocks(cfg Config, channels []channel.Channel) channel.Keys {
+	if cfg.ChunkSize <= 0 {
+		return nil
+	}
+	var clocks channel.Keys
+	for _, ch := range channels {
+		index := ch.Index()
+		if index == 0 || index == ch.Key() || ch.Virtual ||
+			cfg.UntimedKeys.Contains(ch.Key()) {
+			continue
+		}
+		clocks = append(clocks, index)
+	}
+	return lo.Uniq(clocks)
 }
 
 // newTimeFilter returns a transform that keeps, in each data response, the series of

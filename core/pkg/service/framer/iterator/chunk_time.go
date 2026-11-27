@@ -84,19 +84,15 @@ func (t *chunkTime) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// time returns fr with the time of each of its timed series, once per clock and range
-// of alignments.
+// time returns fr with the time of each of its timed series that fr does not already
+// hold under the series' clock.
 func (t *chunkTime) time(fr frame.Frame) (frame.Frame, error) {
 	out := fr
-	var added []telem.AlignmentBounds
 	for key, s := range fr.Entries() {
 		clock := channel.Key(s.Clock)
-		if !t.keys.Contains(key) || t.untimed.Contains(key) ||
-			!t.clocks.Contains(clock) || s.AlignmentMultiple > 1 {
-			continue
-		}
-		bounds := s.AlignmentBounds()
-		if containsBounds(added, bounds) {
+		if key == clock || !t.keys.Contains(key) || t.untimed.Contains(key) ||
+			!t.clocks.Contains(clock) || s.AlignmentMultiple > 1 ||
+			holdsTime(out, clock, s.AlignmentBounds()) {
 			continue
 		}
 		stamps, ok, err := t.stampsOf(clock, s)
@@ -105,7 +101,6 @@ func (t *chunkTime) time(fr frame.Frame) (frame.Frame, error) {
 		}
 		if ok {
 			out = out.Append(clock, stamps)
-			added = append(added, bounds)
 		}
 	}
 	return out, nil
@@ -138,9 +133,12 @@ func (t *chunkTime) stampsOf(
 	return telem.Series{}, false, nil
 }
 
-func containsBounds(added []telem.AlignmentBounds, b telem.AlignmentBounds) bool {
-	for _, a := range added {
-		if a == b {
+// holdsTime reports whether fr holds a series of clock at every alignment of bounds.
+func holdsTime(fr frame.Frame, clock channel.Key, bounds telem.AlignmentBounds) bool {
+	for key, s := range fr.Entries() {
+		held := s.AlignmentBounds()
+		if key == clock && s.AlignmentMultiple <= 1 &&
+			held.Lower <= bounds.Lower && held.Upper >= bounds.Upper {
 			return true
 		}
 	}
