@@ -235,7 +235,7 @@ type segmentRequest struct {
 func (r *segmentRequest) fail(err error) { r.w.done <- err }
 
 func (r *segmentRequest) run(s *State) {
-	if err := s.checkSegment(r); err != nil {
+	if err := s.checkNewSegment(r); err != nil {
 		r.w.done <- err
 		return
 	}
@@ -279,7 +279,7 @@ func (w *Writer) NewSegment(key uint32) (uint64, error) {
 	return r.id, nil
 }
 
-func (s *State) checkSegment(r *segmentRequest) error {
+func (s *State) checkNewSegment(r *segmentRequest) error {
 	t, ok := r.w.types[r.key]
 	switch {
 	case !ok:
@@ -421,7 +421,7 @@ type commitRequest struct {
 
 func (r *commitRequest) fail(err error) { r.w.done <- err }
 
-func (r *commitRequest) run(s *State) { r.w.done <- s.commit(r.w, r.c) }
+func (r *commitRequest) run(s *State) { r.w.done <- s.commitVisible(r.w, r.c) }
 
 // Commit checks c against the claims and the stored data of its keys, and makes its
 // samples visible. The caller logs c at its next sync. It returns an error that wraps
@@ -476,7 +476,7 @@ func (s *State) checkVisible(w *Writer, c *log.Commit) error {
 	return nil
 }
 
-func (s *State) commit(w *Writer, c *log.Commit) error {
+func (s *State) commitVisible(w *Writer, c *log.Commit) error {
 	if err := s.checkVisible(w, c); err != nil {
 		return err
 	}
@@ -569,7 +569,7 @@ func (s *State) takeBack(w *Writer) []log.Seal {
 	for _, seg := range w.held {
 		if !seg.dur.created {
 			delete(w.held, seg.key)
-			s.drop(seg)
+			s.discard(seg)
 			continue
 		}
 		seg.vis.Pointers = slices.Clone(seg.dur.pointers)
@@ -602,7 +602,7 @@ func (r *switchRequest) run(s *State) {
 			continue
 		}
 		if !seg.dur.created {
-			s.drop(seg)
+			s.discard(seg)
 			continue
 		}
 		seg.vis.Sealed = true
@@ -627,9 +627,9 @@ func (r *switchRequest) run(s *State) {
 
 func (*switchRequest) fail(error) {}
 
-// drop takes seg, which has no durable byte, out of the state, for the database to
+// discard takes seg, which has no durable byte, out of the state, for the database to
 // unlink its file.
-func (s *State) drop(seg *segEntry) {
+func (s *State) discard(seg *segEntry) {
 	ch := s.core.channels[seg.key]
 	ch.remove(seg.vis.ID)
 	delete(s.core.segments, seg.vis.ID)
