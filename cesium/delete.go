@@ -225,8 +225,8 @@ func (db *DB) removeDirs(names ...string) {
 // deletes nothing and returns ctx.Err() if ctx is already canceled.
 //
 // Writers that open on tr in a channel it deletes, or in a dependent of an index it
-// deletes, wait until it returns. So does CreateChannel of a new dependent. It calls
-// the history handlers once it holds nothing, so a handler may call the DB.
+// deletes, wait until it releases tr. So does CreateChannel of a new dependent. It
+// releases tr before it calls the history handlers, so a handler may call the DB.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
@@ -255,14 +255,14 @@ func (db *DB) deleteTimeRange(
 	}
 	defer end()
 	dels, releases, err := openTimeRangeDeletes(ctx, targets, tr)
+	if err != nil {
+		return nil, err
+	}
 	defer func() {
 		for _, release := range releases {
 			release()
 		}
 	}()
-	if err != nil {
-		return nil, err
-	}
 	for _, del := range dels {
 		trs, err := del.del(ctx)
 		for _, tr := range trs {
@@ -277,7 +277,8 @@ func (db *DB) deleteTimeRange(
 
 // openTimeRangeDeletes takes each target for a delete of tr, and returns the deletes
 // with their data channels first, since those resolve their offsets through the index.
-// It returns the release of each target it took, also when it fails.
+// It returns the release of each target it took. When it fails, it releases each
+// target it took and returns none.
 func openTimeRangeDeletes(
 	ctx context.Context,
 	targets []deleteTarget,
@@ -286,8 +287,15 @@ func openTimeRangeDeletes(
 	var (
 		dataDels  = make([]keyDelete, 0, len(targets))
 		indexDels = make([]keyDelete, 0, len(targets))
+		held      = make([]func(), 0, len(targets))
 	)
-	releases = make([]func(), 0, len(targets))
+	defer func() {
+		if err != nil {
+			for _, release := range held {
+				release()
+			}
+		}
+	}()
 	// Take every channel before the first delete, so that a channel a writer controls
 	// refuses the call before it deletes anything. The key order keeps two deletes from
 	// waiting on each other.
@@ -295,11 +303,11 @@ func openTimeRangeDeletes(
 		if t.dependent {
 			hasData, release, err := t.db.OpenHold(ctx, tr)
 			if err != nil {
-				return nil, releases, err
+				return nil, nil, err
 			}
-			releases = append(releases, release)
+			held = append(held, release)
 			if hasData {
-				return nil, releases, errors.Newf(
+				return nil, nil, errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",
 					t.index,
@@ -311,9 +319,9 @@ func openTimeRangeDeletes(
 		}
 		del, release, err := t.db.OpenDelete(tr)
 		if err != nil {
-			return nil, releases, err
+			return nil, nil, err
 		}
-		releases = append(releases, release)
+		held = append(held, release)
 		kd := keyDelete{key: t.db.Channel().Key, del: del}
 		if t.db.Channel().IsIndex {
 			indexDels = append(indexDels, kd)
@@ -321,7 +329,7 @@ func openTimeRangeDeletes(
 			dataDels = append(dataDels, kd)
 		}
 	}
-	return slices.Concat(dataDels, indexDels), releases, nil
+	return slices.Concat(dataDels, indexDels), held, nil
 }
 
 // keyDelete is the delete of one channel that DeleteTimeRange opened.

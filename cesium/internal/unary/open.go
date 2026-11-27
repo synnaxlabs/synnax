@@ -64,7 +64,8 @@ type Config struct {
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
 	// OnHistoryChange receives the time range of each write before the channel's newest
-	// data, after the index releases its lock. A delete returns its range instead.
+	// data, after the index releases its lock. A delete returns its range and the
+	// changes of the commits that it reveals instead.
 	//
 	// [OPTIONAL]
 	OnHistoryChange func(context.Context, telem.TimeRange)
