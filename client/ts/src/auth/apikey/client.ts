@@ -42,14 +42,14 @@ export interface New {
   subject?: resource.ID;
   /** A label that tells the subject's keys apart. */
   name: string;
-  /** When the key stops logging in. Defaults to never. */
+  /** When the key stops logging in. Defaults to TimeStamp.MAX, which never expires. */
   expires?: CrudeTimeStamp;
 }
 
 const createReqZ = z.object({
   subject: resource.idZ.optional(),
   name: z.string(),
-  expires: TimeStamp.z.optional(),
+  expires: TimeStamp.z.default(TimeStamp.MAX),
 });
 const createResZ = z.object({ token: z.string(), key: apiKeyZ });
 const retrieveReqZ = z.object({ subjects: resource.idZ.array().optional() });

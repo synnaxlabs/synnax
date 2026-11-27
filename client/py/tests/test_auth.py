@@ -440,11 +440,10 @@ class TestAPIKeys:
             host=host, port=port, username=username, password=password, secure=False
         )
         _, never = admin.auth.api_keys.create("never")
-        assert never.expires is None
-        token, key = admin.auth.api_keys.create(
-            "short", expires=sy.TimeStamp.now() + sy.TimeSpan.SECOND
-        )
-        assert key.expires is not None
+        assert never.expires == sy.TimeStamp.MAX
+        expires = sy.TimeStamp.now() + sy.TimeSpan.SECOND
+        token, key = admin.auth.api_keys.create("short", expires=expires)
+        assert key.expires == expires
         keyed = sy.Synnax(host=host, port=port, api_key=token, secure=False)
         time.sleep(1.5)
         with pytest.raises(sy.AuthError):

@@ -68,7 +68,7 @@ describe("apiKey", () => {
     it("should create a key that never expires by default", async () => {
       const owner = createTestClient().auth;
       const { key } = await owner.apiKeys.create({ name: "never" });
-      expect(key.expires).toBeUndefined();
+      expect(key.expires.equals(TimeStamp.MAX)).toBe(true);
       await owner.apiKeys.delete(key.key);
     });
 
@@ -76,11 +76,11 @@ describe("apiKey", () => {
       const owner = createTestClient().auth;
       const expires = TimeStamp.now().add(TimeSpan.days(90));
       const { key } = await owner.apiKeys.create({ name: "expiring", expires });
-      expect(key.expires?.equals(expires)).toBe(true);
+      expect(key.expires.equals(expires)).toBe(true);
       const [retrieved] = (await owner.apiKeys.retrieve()).filter(
         (k) => k.key === key.key,
       );
-      expect(retrieved.expires?.equals(expires)).toBe(true);
+      expect(retrieved.expires.equals(expires)).toBe(true);
       await owner.apiKeys.delete(key.key);
     });
 

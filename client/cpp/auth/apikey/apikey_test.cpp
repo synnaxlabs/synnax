@@ -62,7 +62,7 @@ TEST(TestAPIKeys, DeletedKey) {
 TEST(TestAPIKeys, Expiry) {
     auto client = new_test_client();
     const auto never = ASSERT_NIL_P(client.api_keys.create("never"));
-    ASSERT_FALSE(never.key.expires.has_value());
+    ASSERT_EQ(never.key.expires, x::telem::TIME_STAMP_MAX);
     const auto expires = x::telem::TimeStamp::now() + x::telem::SECOND;
     const auto created = ASSERT_NIL_P(client.api_keys.create("short", {}, expires));
     ASSERT_EQ(created.key.expires, expires);

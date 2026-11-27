@@ -19,7 +19,7 @@ from x.telem import CrudeTimeStamp, TimeStamp
 class _CreateRequest(BaseModel):
     subject: resource.ID | None = None
     name: str
-    expires: TimeStamp | None = None
+    expires: TimeStamp
 
 
 class _CreateResponse(BaseModel):
@@ -56,11 +56,12 @@ class Client:
         self,
         name: str,
         subject: resource.ID | None = None,
-        expires: CrudeTimeStamp | None = None,
+        expires: CrudeTimeStamp = TimeStamp.MAX,
     ) -> tuple[str, APIKey]:
         """Creates an API key for the subject, or for the caller when none is given.
 
-        :param expires: when the key stops logging in. Defaults to never.
+        :param expires: when the key stops logging in. Defaults to TimeStamp.MAX,
+            which never expires.
         :returns: the token to log in with, the only copy of its secret, and the key.
         :raises AccessDenied: if the caller may not create a key for the subject.
         :raises NotFoundError: if the subject does not exist.
@@ -72,7 +73,7 @@ class Client:
             _CreateRequest(
                 subject=subject,
                 name=name,
-                expires=None if expires is None else TimeStamp(expires),
+                expires=TimeStamp(expires),
             ),
             _CreateResponse,
         )
