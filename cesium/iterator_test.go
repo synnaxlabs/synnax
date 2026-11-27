@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	xerrors "github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -1147,6 +1148,66 @@ var _ = Describe("Iterator Behavior", func() {
 				)
 
 				DescribeTable(
+					"Should return false and the error of emit, and emit nothing after it",
+					func(
+						ctx SpecContext,
+						seek func(*cesium.Iterator) bool,
+						prev bool,
+						span telem.TimeSpan,
+					) {
+						pdb := openAB(ctx, cesium.WithChunkSize(8))
+						it := MustSucceed(pdb.OpenIterator(cesium.IteratorConfig{
+							Bounds: telem.TimeRangeMax,
+							Channels: []cesium.ChannelKey{
+								idxA,
+								dataA,
+								idxB,
+								dataB,
+							},
+						}))
+						Expect(seek(it)).To(BeTrue())
+						errEmit := xerrors.New("emit failed")
+						emitted := 0
+						read := it.NextChunks
+						if prev {
+							read = it.PrevChunks
+						}
+						ok, err := read(ctx, span, func(cesium.Frame) error {
+							emitted++
+							return errEmit
+						})
+						Expect(ok).To(BeFalse())
+						Expect(err).To(MatchError(errEmit))
+						Expect(emitted).To(Equal(1))
+						Expect(it.Close()).To(Succeed())
+					},
+					Entry(
+						"Next of a fixed span",
+						(*cesium.Iterator).SeekFirst,
+						false,
+						10*telem.Second,
+					),
+					Entry(
+						"Prev of a fixed span",
+						(*cesium.Iterator).SeekLast,
+						true,
+						10*telem.Second,
+					),
+					Entry(
+						"Next of AutoSpan",
+						(*cesium.Iterator).SeekFirst,
+						false,
+						cesium.AutoSpan,
+					),
+					Entry(
+						"Prev of AutoSpan",
+						(*cesium.Iterator).SeekLast,
+						true,
+						cesium.AutoSpan,
+					),
+				)
+
+				DescribeTable(
 					"Should split a strided fixed span into chunks that keep the samples "+
 						"of one read",
 					func(ctx SpecContext, seek func(*cesium.Iterator) bool, prev bool) {
@@ -1767,11 +1828,12 @@ var _ = Describe("Iterator Behavior", func() {
 				// a fault-injecting file system and returns the keys of both.
 				openFaulty := func(
 					ctx SpecContext,
+					opts ...cesium.Option,
 				) (*FaultyFS, *cesium.DB, []cesium.ChannelKey) {
 					GinkgoHelper()
 					var (
 						faulty   = WrapFaultyFS(openFS())
-						faultyDB = mustOpenDBOnFS(ctx, faulty)
+						faultyDB = mustOpenDBOnFS(ctx, faulty, opts...)
 						indexKey = GenerateChannelKey()
 						dataKey  = GenerateChannelKey()
 					)
@@ -1832,6 +1894,49 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(BeFalse())
 					Expect(emitted).To(BeZero())
 					Expect(i.Close()).To(MatchError(ErrFault))
+				})
+
+				It("Should return no read error from a chunked Prev, and return it "+
+					"on Close", func(ctx SpecContext) {
+					faulty, faultyDB, keys := openFaulty(ctx)
+					i := MustSucceed(faultyDB.OpenIterator(cesium.IteratorConfig{
+						Bounds:   telem.TimeRangeMax,
+						Channels: keys,
+					}))
+					Expect(i.SeekLast()).To(BeTrue())
+					faulty.SetOptions(WithFailReadAt())
+					emitted := 0
+					Expect(i.PrevChunks(ctx, 10*telem.Second, func(cesium.Frame) error {
+						emitted++
+						return nil
+					})).To(BeFalse())
+					Expect(emitted).To(BeZero())
+					Expect(i.Close()).To(MatchError(ErrFault))
+				})
+
+				It("Should fail a chunked read whose index lookup fails after its "+
+					"first chunk", func(ctx SpecContext) {
+					faulty, faultyDB, keys := openFaulty(ctx, cesium.WithChunkSize(4))
+					i := MustSucceed(faultyDB.OpenIterator(cesium.IteratorConfig{
+						Bounds:   telem.TimeRangeMax,
+						Channels: keys,
+					}))
+					Expect(i.SeekFirst()).To(BeTrue())
+					emitted := 0
+					ok, err := i.NextChunks(
+						ctx,
+						10*telem.Second,
+						func(cesium.Frame) error {
+							emitted++
+							faulty.SetOptions(WithFailReadAt())
+							return nil
+						},
+					)
+					Expect(ok).To(BeFalse())
+					Expect(err).To(MatchError(ErrFault))
+					Expect(emitted).To(Equal(1))
+					faulty.SetOptions()
+					Expect(i.Close()).To(Succeed())
 				})
 
 				It("Should close cleanly once a seek clears the read error", func(
