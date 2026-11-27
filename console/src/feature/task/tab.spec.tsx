@@ -25,7 +25,11 @@ import { createHTTPDevice } from "@/feature/http/testutil";
 import { Task } from "@/feature/task";
 import { Panel } from "@/platform/panel";
 import type { Task as PTask } from "@/platform/task";
-import { createTaskStatus, renderTaskFormTab } from "@/platform/task/testutil";
+import {
+  createTaskStatus,
+  findListButton,
+  renderTaskFormTab,
+} from "@/platform/task/testutil";
 import { countEditableText } from "@/testutil";
 
 const client = createTestClient();
@@ -61,7 +65,7 @@ describe("task tab", () => {
       config: { ...HTTP.Task.READ_SCHEMAS.config.parse({}), device: dev.key },
     });
     await renderContent(draft.key);
-    await screen.findByRole("button", { name: "Add endpoint" });
+    await findListButton("Add endpoint");
   });
 
   it("should show an error for a task type with no registered editor", async () => {

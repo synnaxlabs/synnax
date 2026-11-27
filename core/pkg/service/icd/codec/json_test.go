@@ -11,6 +11,7 @@ package codec_test
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"math"
 	"os"
@@ -54,14 +55,16 @@ type binding struct {
 	DataType telem.DataType `json:"data_type"`
 }
 
-// decodeCase is one document. A document that belongs to no message sets unmatched, and
-// one that fails as a whole names the error, and the message it belongs to when it
-// belongs to one. Otherwise message names the message it belongs to, samples holds one
-// JSON value for each binding of that message, or null for a binding with no sample,
-// and failures holds each field that does not decode, in binding order.
+// decodeCase is one input: a document, the text of a line, or the hex of a payload. An
+// input that belongs to no message sets unmatched, and one that fails as a whole names
+// the error, and the message it belongs to when it belongs to one. Otherwise message
+// names the message it belongs to, samples holds one JSON value for each binding of
+// that message, or null for a binding with no sample, and failures holds each field
+// that does not decode, in binding order.
 type decodeCase struct {
 	Document  json.RawMessage   `json:"document"`
 	Text      *string           `json:"text"`
+	Hex       *string           `json:"hex"`
 	Unmatched bool              `json:"unmatched"`
 	Error     string            `json:"error"`
 	Message   string            `json:"message"`
@@ -253,8 +256,11 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 	for i, c := range f.Cases {
 		By("case " + strconv.Itoa(i))
 		doc := []byte(c.Document)
-		if c.Text != nil {
+		switch {
+		case c.Text != nil:
 			doc = []byte(*c.Text)
+		case c.Hex != nil:
+			doc = MustSucceed(hex.DecodeString(*c.Hex))
 		}
 		samples := f.newSamples()
 		m, ok, failures, err := decode(doc, samples)

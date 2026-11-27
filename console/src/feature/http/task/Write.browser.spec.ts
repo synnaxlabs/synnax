@@ -15,7 +15,10 @@ import {
   type Synnax,
   type task,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -26,6 +29,9 @@ import { createHTTPDevice } from "@/feature/http/testutil";
 import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -86,9 +92,11 @@ const createEndpoint = (
   },
 });
 
+// `as` is the client that renders the form, when not the one that saves the task.
 const renderWrite = async (
   endpoints: HTTP.Task.WriteEndpoint[] = [],
   dev?: device.Device,
+  as: Synnax = client,
 ) => {
   dev ??= await createHTTPDevice(client);
   const draft = await createDraft(client, {
@@ -98,6 +106,7 @@ const renderWrite = async (
   });
   const result = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE], {
     client,
+    as,
     taskKey: draft.key,
   });
   return { ...result, dev, draft };
@@ -131,7 +140,7 @@ const deployEndpoint = async (
 };
 
 const addEndpoint = async (): Promise<void> => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add endpoint" }));
+  fireEvent.click(await findListButton("Add endpoint"));
   await screen.findByText("Request");
 };
 
@@ -148,7 +157,7 @@ describe("Write", () => {
   // a loaded CI runner.
   it("should add an endpoint that sends a new message, in an ICD named after the task", async () => {
     const { draft } = await renderWrite();
-    await screen.findByText("Add an endpoint to send requests to");
+    await screen.findByText("No endpoint selected");
     await addEndpoint();
     let endpoints: HTTP.Task.WriteEndpoint[] = [];
     await waitFor(async () => {
@@ -175,6 +184,19 @@ describe("Write", () => {
       const ic = await client.icds.retrieve(endpoints[0].icd as icd.Key);
       expect(ic.messages.map(({ name }) => name)).toEqual(["POST", "POST 2"]);
     });
+  });
+
+  it("should add an endpoint from the empty details pane", async () => {
+    await renderWrite();
+    fireEvent.click(await findDetailsButton("Add endpoint"));
+    await screen.findByText("Request");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderWrite([], undefined, await createTestClientWithRole(client, "Viewer"));
+    const details = await findDetailsPane();
+    await within(details).findByText("No endpoint selected");
+    expect(within(details).queryByRole("button", { name: "Add endpoint" })).toBeNull();
   });
 
   it("should rename the message of an endpoint after its new method and path", async () => {

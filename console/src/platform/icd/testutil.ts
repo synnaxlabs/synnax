@@ -132,6 +132,13 @@ export const focusedIn = (
 ): icd.FieldKey | undefined =>
   documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.focused;
 
+/** @returns whether the store marks the ICD as just created, in the main window. */
+export const createdIn = (
+  store: { getState: () => Session.State },
+  key: icd.Key,
+): boolean | undefined =>
+  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.created;
+
 /** @returns the title of the group of the field picker that note marks. */
 export const titleOf = (note: HTMLElement): string =>
   note.parentElement?.firstChild?.textContent ?? "";
