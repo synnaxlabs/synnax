@@ -9,6 +9,7 @@
 
 import { type panel, UnexpectedError, view } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Flux } from "@synnaxlabs/pluto";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import {
   act,
@@ -16,11 +17,12 @@ import {
   type RenderHookResult,
   waitFor,
 } from "@testing-library/react";
-import type { PropsWithChildren } from "react";
-import { describe, expect, it, onTestFinished } from "vitest";
+import { Component, type PropsWithChildren, type ReactNode } from "react";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { View } from "@/platform/view";
 import { createTabWrapper } from "@/platform/view/testutil";
+import { renderSuspended } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,6 +67,26 @@ const showing = (saved: view.View): panel.NewTab => ({
   variant: "resource",
   resource: view.resourceID(saved.key),
 });
+
+/** Holds the error that its children throw while they render. */
+class Catch extends Component<
+  PropsWithChildren<{ onError: (error: Error) => void }>,
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: Error): void {
+    this.props.onError(error);
+  }
+
+  override render(): ReactNode {
+    return this.state.failed ? null : this.props.children;
+  }
+}
 
 describe("View", () => {
   describe("useInitialView", () => {
@@ -119,6 +141,43 @@ describe("View", () => {
         expect(stored).toMatchObject({ type: "range", layout: "tree" });
       });
       await waitFor(() => expect(result.current[0]).toBe("tree"));
+    });
+  });
+
+  describe("Form", () => {
+    it("should throw when the frame holds views of another resource type", async () => {
+      // React reports the error that the boundary catches.
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { wrapper: Tab } = await createTabWrapper({ client, tab: EXPLORER });
+      const StatusForm = () => {
+        const listProps = Flux.useList((client) => client.statuses, {
+          name: "statuses",
+          query: {},
+        });
+        return (
+          <View.Form
+            type="status"
+            {...listProps}
+            onWhereChange={() => {}}
+            itemHeight={40}
+          />
+        );
+      };
+      const errors: Error[] = [];
+      await renderSuspended(
+        <Tab>
+          <View.Frame resourceType="range" icon="Range" tabType="explorer">
+            <Catch onError={(e) => errors.push(e)}>
+              <StatusForm />
+            </Catch>
+          </View.Frame>
+        </Tab>,
+      );
+      await waitFor(() => expect(errors).not.toHaveLength(0));
+      expect(errors[0]).toBeInstanceOf(UnexpectedError);
+      expect(errors[0].message).toContain(
+        "A status form cannot show the views of a range frame",
+      );
     });
   });
 });
