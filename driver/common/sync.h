@@ -134,12 +134,10 @@ class Sync {
         present.status->time = x::telem::TimeStamp::now();
     }
 
-    /// @brief marks resource as disconnected, and keeps the time it was last seen.
+    /// @brief marks resource as disconnected, and keeps the time it was last seen. A
+    /// resource with no status gets the current time, as the Core refuses a zero time.
     static void set_missing(D &resource) {
-        if (!resource.status.has_value()) {
-            resource.status.emplace();
-            resource.status->time = x::telem::TimeStamp(0);
-        }
+        if (!resource.status.has_value()) resource.status.emplace();
         resource.status->name = resource.name;
         resource.status->variant = synnax::status::VARIANT_WARNING;
         resource.status->message = "Device disconnected";

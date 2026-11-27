@@ -81,12 +81,19 @@ struct Resource;
 
 template<>
 struct Resource<synnax::ni::chassis::Chassis> {
+    /// @brief the filter of a retrieve.
     using Where = synnax::ni::chassis::Where;
+    /// @brief the options of a retrieve.
     using RetrieveOptions = synnax::ni::chassis::RetrieveOptions;
+    /// @brief the write of the identity group.
     using IdentityUpdate = synnax::ni::chassis::IdentityUpdate;
+    /// @brief the status of the resource.
     using Status = synnax::ni::chassis::Status;
+    /// @brief the member of synnax::ni::Client that holds the client of the resource.
     static constexpr auto client = &synnax::ni::Client::chassis;
 
+    /// @brief sets the owner and the details of status from the resource, replacing
+    /// the details it held.
     static void set_owner(Status &status, const synnax::ni::chassis::Chassis &c) {
         status.owner = synnax::ni::chassis::resource_id(c.key);
         status.details = {.rack = c.rack, .chassis = c.key};
@@ -95,12 +102,19 @@ struct Resource<synnax::ni::chassis::Chassis> {
 
 template<>
 struct Resource<synnax::ni::device::Device> {
+    /// @brief the filter of a retrieve.
     using Where = synnax::ni::device::Where;
+    /// @brief the options of a retrieve.
     using RetrieveOptions = synnax::ni::device::RetrieveOptions;
+    /// @brief the write of the identity group.
     using IdentityUpdate = synnax::ni::device::IdentityUpdate;
+    /// @brief the status of the resource.
     using Status = synnax::ni::device::Status;
+    /// @brief the member of synnax::ni::Client that holds the client of the resource.
     static constexpr auto client = &synnax::ni::Client::devices;
 
+    /// @brief sets the owner and the details of status from the resource, replacing
+    /// the details it held.
     static void set_owner(Status &status, const synnax::ni::device::Device &d) {
         status.owner = synnax::ni::device::resource_id(d.key);
         status.details = {.rack = d.rack, .device = d.key};

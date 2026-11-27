@@ -190,4 +190,80 @@ TEST(ChassisStore, CreatesFoundChassis) {
     ASSERT_EQ(got.name, "NI cDAQ-9189");
     ASSERT_EQ(got.status.value().details.chassis, got.key);
 }
+
+/// @brief it should mark a device that a client created and a scan does not find as
+/// disconnected.
+TEST(DeviceStore, MarksMissingDeviceThatAClientCreated) {
+    auto [client, rack] = create_env();
+    auto dev = found_device(rack.key, x::uuid::create().to_string());
+    ASSERT_NIL(client->ni.devices.create(dev));
+    common::Sync<synnax::ni::device::Device> sync(
+        std::make_unique<DeviceStore>(client),
+        rack.key,
+        ""
+    );
+    ASSERT_NIL(sync.sync({}));
+    const auto got = ASSERT_NIL_P(
+        client->ni.devices.retrieve(dev.key, {.include_status = true})
+    );
+    ASSERT_EQ(got.status.value().message, "Device disconnected");
+}
+
+namespace {
+synnax::ni::chassis::Chassis
+found_chassis(const synnax::rack::Key rack, const std::string &serial) {
+    return {
+        .rack = rack,
+        .name = "NI cDAQ-9189",
+        .serial = serial,
+        .resource_name = x::uuid::create().to_string(),
+        .model = "cDAQ-9189",
+    };
+}
+}
+
+/// @brief it should write the identity group of a chassis and keep the name that a
+/// user wrote.
+TEST(ChassisStore, KeepsConfigurationOnRescan) {
+    auto [client, rack] = create_env();
+    common::Sync<synnax::ni::chassis::Chassis> sync(
+        std::make_unique<ChassisStore>(client),
+        rack.key,
+        ""
+    );
+    const auto serial = x::uuid::create().to_string();
+    auto found = found_chassis(rack.key, serial);
+    ASSERT_NIL(sync.sync({found}));
+    const auto stored = ASSERT_NIL_P(client->ni.chassis.retrieve(
+        synnax::ni::chassis::Where{.serial = serial},
+        x::filter::one
+    ));
+    synnax::ni::chassis::ConfigurationUpdate config;
+    config.name = "Bench chassis";
+    ASSERT_NIL_P(client->ni.chassis.update(stored.key, config));
+    found.model = "cDAQ-9189 (rev B)";
+    ASSERT_NIL(sync.sync({found}));
+    const auto got = ASSERT_NIL_P(client->ni.chassis.retrieve(stored.key));
+    ASSERT_EQ(got.model, "cDAQ-9189 (rev B)");
+    ASSERT_EQ(got.name, "Bench chassis");
+}
+
+/// @brief it should mark a chassis that a scan no longer finds as disconnected.
+TEST(ChassisStore, MarksMissingChassis) {
+    auto [client, rack] = create_env();
+    common::Sync<synnax::ni::chassis::Chassis> sync(
+        std::make_unique<ChassisStore>(client),
+        rack.key,
+        ""
+    );
+    const auto serial = x::uuid::create().to_string();
+    ASSERT_NIL(sync.sync({found_chassis(rack.key, serial)}));
+    ASSERT_NIL(sync.sync({}));
+    const auto got = ASSERT_NIL_P(client->ni.chassis.retrieve(
+        synnax::ni::chassis::Where{.serial = serial},
+        x::filter::one,
+        {.include_status = true}
+    ));
+    ASSERT_EQ(got.status.value().message, "Device disconnected");
+}
 }
