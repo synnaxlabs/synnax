@@ -532,21 +532,21 @@ alignment and inputs of two clocks by sample time:
   and keeps the live samples past it.
 - **Inputs with no clock**: A live-only input pairs by arrival with hold. Such a
   calculation has no historical values, and its live blocks are not replaced.
-- **Running operations** (Phase 55, founder delegation): A running operation looks back
-  to its last reset, or to its first sample when it never resets (D-063), through stored
-  states. The calculation service stores the state of each running calculator at the end
-  of each chunk of 16,384 primary samples, in a table of its own (NEW,
-  `calculation.State` in `schemas/synnax/calculation.oracle`): the calculation key, the
-  primary stamp at the chunk end, and the calculator state. A history read starts at the
-  nearest state at or before its start, so it reads at most one chunk more than `main`,
-  and no value depends on where a read starts. A background step of the service computes
-  the states over stored data, from the last reset on, and follows the primary's
-  commits. A history change of an input (`DB.OnHistoryChange`, `cesium/history.go:32`)
-  or a save of new text drops the states from the change on, and the step computes them
-  again. Until the step reaches a read's start, the read looks back the whole way. The
-  live calculator starts from the newest state and runs the stored samples after it, so
-  live agrees with history. A state is about 48 bytes per 16,384 samples, under 0.1% of
-  a `float32` primary.
+- **Running operations** (Phase 55, D-518): A running operation looks back to its last
+  reset, or to its first sample when it never resets (D-063), through stored states. The
+  calculation service stores the state of each running calculator at the end of each
+  chunk of 16,384 primary samples, in a table of its own (NEW, `calculation.State` in
+  `schemas/synnax/calculation.oracle`): the calculation key, the primary stamp at the
+  chunk end, and the calculator state. A history read starts at the nearest state at or
+  before its start, so it reads at most one chunk more than `main`, and no value depends
+  on where a read starts. A background step of the service computes the states over
+  stored data, from the last reset on, and follows the primary's commits. A history
+  change of an input (`DB.OnHistoryChange`, `cesium/history.go:32`) or a save of new
+  text drops the states from the change on, and the step computes them again. Until the
+  step reaches a read's start, the read looks back the whole way. The live calculator
+  starts from the newest state and runs the stored samples after it, so live agrees with
+  history. A state is about 48 bytes per 16,384 samples, under 0.1% of a `float32`
+  primary.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
@@ -946,12 +946,12 @@ The migration changes metadata only and runs at the first start, before any writ
    kept segment of another key names, or lists no data for it. It reads `Keys` after the
    start deletes of the pending-drop notes (RFC 0121 §4.1). For each retired record it
    writes an entry to the retired index table (NEW, in `core/pkg/service/channel`,
-   founder delegation): the key and the path, the one fact that no other record or
-   Cesium keeps once the record goes. The data channels that a key times are not copied:
-   each reader takes them from `DB.Keys`. The holder steps read the entries in the same
-   upgrade, and imports read them later. An entry goes in the transaction that ends its
-   clock (RFC 0121 §4.1), and no API shows the table. It keeps every other index record
-   as a timestamp channel, which times itself. So this step and the start check read one
+   D-518): the key and the path, the one fact that no other record or Cesium keeps once
+   the record goes. The data channels that a key times are not copied: each reader takes
+   them from `DB.Keys`. The holder steps read the entries in the same upgrade, and
+   imports read them later. An entry goes in the transaction that ends its clock (RFC
+   0121 §4.1), and no API shows the table. It keeps every other index record as a
+   timestamp channel, which times itself. So this step and the start check read one
    fact, and data of a kept key with no record also counts. It mints channel v3, which
    drops `is_index`, `local_index`, and `concurrency`, keeps `data_type` as the declared
    type, and stores `key` whole (RFC 0119 §4.0). The retired records go after the holder
@@ -965,7 +965,7 @@ The migration changes metadata only and runs at the first start, before any writ
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
    must never take a write. The Core starts with an error status that names the channel,
    the framer refuses writes to that channel, and continuation never picks its key
-   (founder delegation, D-425 (3)). It is the one check that Gorp and Cesium agree.
+   (D-518, D-425 (3)). It is the one check that Gorp and Cesium agree.
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
@@ -989,14 +989,14 @@ The migration changes metadata only and runs at the first start, before any writ
   already ran do not run again. No writer opens during the upgrade (D-460): from Phase
   50 the metrics service opens after the composition migrations, where today it opens
   before them (`core/pkg/service/layer.go:1144`, `:1158-1180`).
-- **Imports**: Imports always migrate (founder delegation). A line plot, log, graph
-  node, or Sift list key that has no record and that `DB.Keys` marks as a clock takes
-  its step's rule, so an old plot draws against time. Arc or calculation text that names
-  a retired index binds the name through the retired index table, and the text pass
-  rewrites it to `time.of` of a data channel that `DB.Keys` gives for that key, by the
-  rule for Arc text in the holders table above, so no import reads a stale copy. A name
-  that is both a live channel and a retired entry stays, and the import reports it. A
-  name whose clock has ended has no entry, and the compile error names `time.of`.
+- **Imports**: Imports always migrate (D-518). A line plot, log, graph node, or Sift
+  list key that has no record and that `DB.Keys` marks as a clock takes its step's rule,
+  so an old plot draws against time. Arc or calculation text that names a retired index
+  binds the name through the retired index table, and the text pass rewrites it to
+  `time.of` of a data channel that `DB.Keys` gives for that key, by the rule for Arc
+  text in the holders table above, so no import reads a stale copy. A name that is both
+  a live channel and a retired entry stays, and the import reports it. A name whose
+  clock has ended has no entry, and the compile error names `time.of`.
 - **Specs**: Each step copies the Kafka three-layer specs
   (`core/pkg/service/kafka/versions/v1/migrate_test.go`,
   `core/pkg/service/kafka/migrate_test.go`), one per holder.
@@ -1278,8 +1278,8 @@ index channel in `core/v0.62.0`, keeps that name in its config from Phase 42. Ke
 ## 7 Resolved decisions
 
 The founder delegated every open rule of this RFC to the most robust option, with a stop
-for a new plan at a failed gate (founder delegation). Decisions 10, 13, 19, 29, 32, and
-35 to 44 settle them.
+for a new plan at a failed gate (D-518). Decisions 10, 13, 19, 29, 32, and 35 to 44
+settle them.
 
 1. **Sparse overrides over dense fields**: Rejected: a type byte on every series of a
    frame that is not steady, a shared clock per frame, and defaults fixed for the life
