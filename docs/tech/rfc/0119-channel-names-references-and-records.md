@@ -63,9 +63,9 @@ the key counter. RFC 0121 owns the Cesium formats and the storage half of a dele
 5. **A lower layer learns a rule, never a type**: Gorp learns "unique in a space" and
    "weak", and the group service learns "sibling names are unique". Not "channel".
 6. **Ambiguity fails and names every match**: No lookup keeps the first of several.
-7. **Every link change is one plan**: The impact and path services plan a rename, move,
-   or delete, the caller picks, and one transaction applies it. A create heals with the
-   defaults (§4.12).
+7. **Every link change is one plan**: `channel/tree` and `impact` plan a rename, move,
+   or delete in one plan format, the caller picks, and one transaction applies it. A
+   create heals with the defaults (§4.12).
 
 ## 4 Design
 
@@ -359,7 +359,7 @@ Rewire struct {
   (`gorp/retarget.go:33`) needs both entries to exist and moves every holder, so a plan
   calls NEW `Table.RetargetHolders(to, holders...)`, which takes a dead key and moves
   only the holders that the plan picks: never a `rewires` link or a holder that keeps.
-  The Tag stays the direction alone; the wiring site gives the path service the list of
+  The Tag stays the direction alone; the wiring site gives `channel/tree` the list of
   holders that `keep` instead (§4.11).
 
 | Holder                       | Field                                                           | Kind              | On delete                                                | Direction       | On heal or rewire                                                                                                           |
@@ -548,7 +548,7 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   parse. With the quotes, it writes the quoted form, with `\` and `'` escaped. A quoted
   token stays quoted. Two entries of one key merge into one.
 - **Text that does not parse**: An edit rewrites its lexer tokens, and the plan notes
-  it. The LSP rename calls `path.Apply` (§4.11).
+  it. The LSP rename plans through `channel/tree` (§4.11).
 
 ### 4.6 Files
 
@@ -568,20 +568,20 @@ TDMS) reads measured.
 
 ### 4.7 Package boundaries
 
-| Package                                                 | Owns                                                                                                     | May import                                                                                                     | Must not import                             |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| `gorp`                                                  | Unique index and spaces, weak policy, dependents with their reference                                    | `x`                                                                                                            | Any Core package; the meaning of a tag      |
-| `core/pkg/service/imex/session`                         | Import and export sessions: the link reads and writes of one file                                        | `imex`, `service/channel`                                                                                      | -                                           |
-| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules                                                       | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`            |
-| `core/pkg/service/channel`                              | The record, the name rule, paths, the built-in set, tombstones, `rewires`, the meaning of the tag        | `service/group`, `service/status`, `distribution/channel`                                                      | `arc`, `service/arc`, `service/calculation` |
-| `core/pkg/service/channel/resolver` (NEW)               | Channels as Arc symbols, consistent lookups for one compile                                              | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`        |
-| `core/pkg/service/calculation`                          | The record, analyzer, compiler, graph, status, `reads`, its text holder                                  | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                               |
-| `core/pkg/service/arc`                                  | Arc records, `reads` and `writes`, the deployed keys, its text holder, the remap of graph inputs         | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                       |
-| `arc/go`                                                | Grammar, quoted paths, the text edit helper                                                              | `x`                                                                                                            | Any Core package                            |
-| `core/pkg/service/framer`                               | Finds a calculation by its output key; stitches measured reads; maps piece changes to holders            | `service/calculation`                                                                                          | Key bits                                    |
-| `core/pkg/service/impact` (NEW)                         | Record delete plans, choices, defaults, apply, the `Deleters` map                                        | `gorp`, `service/resource`, `x`                                                                                | Any channel, group, or task package         |
-| `core/pkg/service/path` (NEW)                           | Folder deletes and ungroups, tombstone entries, the policy map, renames, moves, rewires, the text passes | `service/channel`, `service/group`, `service/resource`, `gorp`, and `impact` from Phase 36                     | `service/arc`, `service/calculation`, `api` |
-| `core/pkg/api/channel`, `api/calculation`, `api/impact` | `path`, `uses`, and the plan and apply routes                                                            | Services                                                                                                       | -                                           |
+| Package                                                 | Owns                                                                                                                                         | May import                                                                                                     | Must not import                             |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `gorp`                                                  | Unique index and spaces, weak policy, dependents with their reference                                                                        | `x`                                                                                                            | Any Core package; the meaning of a tag      |
+| `core/pkg/service/imex/session`                         | Import and export sessions: the link reads and writes of one file                                                                            | `imex`, `service/channel`                                                                                      | -                                           |
+| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules                                                                                           | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`            |
+| `core/pkg/service/channel`                              | The record, the name rule, paths, the built-in set, tombstones, `rewires`, the meaning of the tag                                            | `service/group`, `service/status`, `distribution/channel`                                                      | `arc`, `service/arc`, `service/calculation` |
+| `core/pkg/service/channel/resolver` (NEW)               | Channels as Arc symbols, consistent lookups for one compile                                                                                  | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`        |
+| `core/pkg/service/calculation`                          | The record, analyzer, compiler, graph, status, `reads`, its text holder                                                                      | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                               |
+| `core/pkg/service/arc`                                  | Arc records, `reads` and `writes`, the deployed keys, its text holder, the remap of graph inputs                                             | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                       |
+| `arc/go`                                                | Grammar, quoted paths, the text edit helper                                                                                                  | `x`                                                                                                            | Any Core package                            |
+| `core/pkg/service/framer`                               | Finds a calculation by its output key; stitches measured reads; maps piece changes to holders                                                | `service/calculation`                                                                                          | Key bits                                    |
+| `core/pkg/service/impact` (NEW)                         | The one plan format for every change, the closed effect list, record delete plans, apply, the `Deleters` map                                 | `gorp`, `service/resource`, `x`                                                                                | Any channel, group, or task package         |
+| `core/pkg/service/channel/tree` (NEW)                   | Channel renames and moves, channel folder renames, moves, deletes, and ungroups, tombstone entries, the policy map, rewires, the text passes | `service/channel`, `service/group`, `service/resource`, `gorp`, `impact`                                       | `service/arc`, `service/calculation`, `api` |
+| `core/pkg/api/channel`, `api/calculation`, `api/impact` | `path`, `uses`, and the plan and apply routes                                                                                                | Services                                                                                                       | -                                           |
 
 The table is the state after Phase 3. RFC 0120 Phase 1 moves `channel/calculation`, its
 `compiler`, and its `graph` to `core/pkg/service/calculation` as a pure move. The
@@ -713,50 +713,66 @@ or without the flag.
 
 ### 4.11 Impact plans
 
-- **Two services**: `core/pkg/service/impact` (NEW) plans and applies the delete of any
-  record type, and knows only Gorp and resource IDs. Each record type plugs in at
-  `core/pkg/service/layer.go` as one `impact.Deleter`, a plan and a delete function, in
-  a `Deleters` map, so a range or a new task kind adds one entry and no import.
-  Construction fails when a holder's type has no `Deleter`. `core/pkg/service/path`
-  (NEW) owns paths: folder deletes and ungroups with their tombstones, the heal
-  policies, and the renames, moves, rewires, and text passes. It reaches channels and
-  folders through their public services. The tombstone table and the heal at each create
-  stay in `channel`, as its own records and writes. A plan lists every record that an
-  action touches (a rename, move, or delete of a channel or a folder, a delete of data
-  by path or by a key whose range another channel's history uses, or an import), the
-  choices for each, and the default. Key holders that write nothing are one `kept`
-  count, not entries. The change of a plan is the union `Change`.
+- **Two services**: `core/pkg/service/impact` (NEW) holds the one plan format for every
+  change, and plans and applies the delete of any record type. It imports only Gorp,
+  `service/resource`, and `x`. Each record type plugs in at `core/pkg/service/layer.go`
+  as one `impact.Deleter`, a plan and a delete function, in a `Deleters` map, so a range
+  or a new task kind adds one entry and no import. `core/pkg/service/channel/tree` (NEW)
+  makes the channel tree edits: a channel rename or move, and a channel folder rename,
+  move, delete, or ungroup, with their tombstones, heal policies, rewires, and text
+  passes. It returns `impact.Plan` and `impact.PlanChangedError`, and reaches channels
+  and folders through their public services. The tombstone table and the heal at each
+  create stay in `channel`, as its own records and writes. A plan lists every record
+  that an action touches (a rename, move, or delete of a channel or a folder, a delete
+  of data by path or by a key whose range another channel's history uses, or an import),
+  the choices for each, and the default. Key holders that need no change and offer no
+  choice are one `kept` count, not entries.
+- **Effects**: One closed list holds every effect and every choice, in words that fit
+  any record: `restrict`, `cascade`, `detach`, `delete`, `drop`, `retarget`, `keep`,
+  `update_text`, `cancel`, and `rename`. A plan checks the words that each kind of entry
+  allows. A restrict holder offers `cancel` (default), and offers `delete` only when its
+  type has a `Deleter`. So a device holder offers only `cancel`, and a delete of a
+  channel that a device binds is refused, as on `main`. A `delete` pick on an entry that
+  does not offer it fails as an invalid choice. A heal link offers `retarget` (default)
+  or `keep`, a text holder `update_text` (default) or `keep`, and an arriving channel's
+  list `drop` (default) or `cancel`, which cancels the whole action. Each entry names
+  its record by resource ID. A tombstone entry uses the dead channel's ID and carries
+  its path. Hidden entries are one count per effect.
 - **Policies**: Each pair of a Gorp table and a reference with a channel link maps to
-  exactly one policy: `retarget`, `keep`, or a text holder. The wiring site gives `path`
-  the map and injects the two text holders, Arc and calculation, which implement
-  `path.Holder`. The channel config takes `Retargets`, which the wiring site fills from
-  the same map, so the heal at each create keeps what a plan keeps. Every table that
-  `config.TaskOf` names (`core/pkg/service/task/config/config.go:319`) and the device
-  ports map to `keep`, so a new integration never moves its hardware ports. After the
-  last table opens, construction fails on an unmapped pair. `path` imports only
-  `service/channel`, `service/group`, `service/resource`, and `gorp`, and `impact` from
-  Phase 36, when a rewire plans the delete of the displaced channel.
-- **One gate**: A write that changes an existing path (a channel rename or move, or a
-  folder rename, move, or delete) needs a `PathWriter`. Only the channel and group
-  services make one: each hands its one writer, once, to a sink in its config, and only
-  `layer.go` sets the sinks, for `path`. So the compiler refuses any other caller, and
-  no CI check runs. Creates stay on the plain writers: a create changes no path that
-  stored text names, text that names its path binds at its next compile (§4.5), and the
-  channel writer heals at every create (§4.12). Migrations keep their own writers.
-  Today's rename, delete, and folder routes call apply with no picks. That runs the
-  action with the defaults and returns no entries; a plan is made only when picks come.
-  `Declare`, inside `channel`, creates the built-ins that a service makes at open, such
-  as the task command channel or a signals channel. It runs before the text holders
-  open, so it reports the channels that it creates and renames; before the API serves,
-  `path` applies their heals and text passes with the defaults. A migration that moves a
-  channel onto a tombstone's path runs the same heal, so a live channel and a tombstone
-  never share a path. `Declare` renames a user channel and creates the built-in as two
-  actions, the rename first, so text that names the user channel follows it. Before any
-  compile and before the API serves, the rename's text pass runs from the stored old
-  path, with `update_text` for each of its tokens whatever holds the path by then, and
-  deletes the stored path. A crash before the pass runs it at the next start. Every
-  first free suffix in this RFC (`Declare`, the Phase 7 migration, a displaced channel)
-  skips tombstone paths.
+  exactly one policy: `retarget`, `keep`, or a text holder. The wiring site gives
+  `channel/tree` the map and injects the two text holders, Arc and calculation. The
+  channel config takes `Retargets`, which the wiring site fills from the same map, so
+  the heal at each create keeps what a plan keeps. Every table that `config.TaskOf`
+  names (`core/pkg/service/task/config/config.go:319`) and the channel references of
+  every typed device (`ni_device`, `opcua_server`, and any that `main` adds) map to
+  `keep`, so a heal never rewrites a hardware binding. After the last table opens,
+  construction fails on an unmapped pair. `channel/tree` imports only `service/channel`,
+  `service/group`, `service/resource`, `gorp`, and `impact`.
+- **Writers**: How every write applies its effects, and any gate that sends each path
+  write through a plan, belong to the link framework of SY-6990. That framework later
+  replaces the link mechanism of this RFC and migrates the link data that a stable
+  release stored: tombstones, rewires, the Arc lists, and the deployed keys. Until then
+  the API routes and the LSP rename plan through `impact` and `channel/tree`, and every
+  other caller keeps the plain writers, as on `main`. Creates stay on the plain writers:
+  a create changes no path that stored text names, text that names its path binds at its
+  next compile (§4.5), and the channel writer heals at every create (§4.12). Migrations
+  keep their own writers. Today's rename, delete, and folder routes call apply with no
+  picks. That runs the action with the defaults and returns no entries; a plan is made
+  only when picks come. The channel delete route looks up its keys and paths and deletes
+  in one transaction: one apply over its keys, then one over the keys of its paths, in
+  `main`'s order, so no request changes `main`'s answer. `Declare`, inside `channel`,
+  creates the built-ins that a service makes at open, such as the task command channel
+  or a signals channel. It runs before the text holders open, so it reports the channels
+  that it creates and renames; before the API serves, `channel/tree` applies their heals
+  and text passes with the defaults. A migration that moves a channel onto a tombstone's
+  path runs the same heal, so a live channel and a tombstone never share a path.
+  `Declare` renames a user channel and creates the built-in as two actions, the rename
+  first, so text that names the user channel follows it. Before any compile and before
+  the API serves, the rename's text pass runs from the stored old path, with
+  `update_text` for each of its tokens whatever holds the path by then, and deletes the
+  stored path. A crash before the pass runs it at the next start. Every first free
+  suffix in this RFC (`Declare`, the Phase 7 migration, a displaced channel) skips
+  tombstone paths.
 - **Access**: The plan and apply routes refuse a request that names a record the caller
   cannot retrieve, before any plan, so an apply never acts on effects that the caller
   could not see. The refusal names the key that the caller sent. An entry for any other
@@ -768,21 +784,34 @@ or without the flag.
   cascade or detach of the action's own write still names a hidden record, as on `main`,
   until a fix of `main` changes that answer. One pick covers all hidden entries that
   restrict the change. A delete of data by path needs delete access on each piece.
-- **Folders**: A folder delete deletes the folder's tombstones first, and lists them, so
-  the group guard sees only live members (`core/pkg/service/group/service.go:397-423`).
-  An ungroup (`ungroup_groups`) moves each folder's live members and tombstones to its
-  parent and deletes the folder, in one action. Each member type moves through its own
-  service, from a move table that the wiring site gives. A tombstone that lands on a
-  taken path drops, and the plan lists it as dropped. A live member that lands on a
-  tombstone's path heals (§4.12).
+- **Running tasks**: A delete stops each running task that it removes before its record
+  goes, as `/task/delete` does. The task's `impact.Deleter` holds an optional stop hook.
+  The apply route's prepare phase finds the tasks to stop, checks delete access on each,
+  and stops them outside any transaction. A stop error deletes nothing. A plan that
+  changes between the stop and the apply fails with `impact.PlanChangedError`, and the
+  stopped tasks stay stopped, as on `main` when the delete of `/task/delete` fails.
+- **Folders**: Only channel folders go through `channel/tree`. Other folders ungroup as
+  on `main`, so `layer.go` holds no move table. A folder delete deletes the folder's
+  tombstones first, and lists each with the effect `delete`, so the group guard sees
+  only live members (`core/pkg/service/group/service.go:397-423`). The tombstone's group
+  link stays `restrict`, so Gorp never cascades it. An ungroup (`ungroup_groups`) moves
+  each folder's live members and tombstones to its parent and deletes the folder, in one
+  action. A tombstone that lands on a taken path drops, and the plan lists it as
+  dropped. A live member that lands on a tombstone's path heals (§4.12). A folder delete
+  or ungroup takes no picks: its entries offer none, and the API refuses one that holds
+  a pick or a hidden pick.
 - **Routes**: `/impact/plan` and `/impact/apply` take one change union, with a record
-  arm that `impact` serves and the path arms that `path` serves, and the response is a
-  union keyed like it. A plan carries a token, an 8 B xxHash-64 over length-prefixed
-  fields: the change, each visible entry, and the hidden count for each effect. It holds
-  no hidden data. A pick names an entry by its record and covers every change of that
-  record in the plan, so its text edit and its heal follow or keep together. A tombstone
-  entry carries its `path`, with segments joined by `.`. The Console shows one dialog
-  for every plan; the clients, imports, and Git apply pass picks.
+  arm that `impact` serves and the channel tree arms that `channel/tree` serves. The
+  response holds an `impact.Plan`, keyed like the change. The change union and the route
+  types live in their own schema, `schemas/synnax/impact_api.oracle`, which imports
+  `impact`, `channel`, and `group`. `impact.oracle` keeps the plan, its entries, the
+  hidden counts, and the effect list, and imports only `resource`. A plan carries a
+  token, an 8 B xxHash-64 over length-prefixed fields: the change, each visible entry,
+  and the hidden count for each effect. It holds no hidden data. A pick names an entry
+  by its record and covers every change of that record in the plan, so its text edit and
+  its heal follow or keep together. A tombstone entry carries its `path`, with segments
+  joined by `.`. The Console shows one dialog for every plan; the clients, imports, and
+  Git apply pass picks.
 - **Check at apply**: Parses and lexing run outside the write lock. Under it, the Core
   plans the Gorp entries again and compares each text holder's hash; a holder that
   changed reruns its edit once, inline, with no retry loop. It also lexes each text
@@ -855,10 +884,10 @@ Tombstone struct {
   renamed channel takes the displaced channel's list and adds
   `{the displaced channel, at}`, and its own list gets the entry of §4.12. A plain
   rename or move keeps the list: the measurement moves with its channel. Display links
-  of the displaced channel `retarget`, and task configs and device ports `keep`. Text
-  that names the path keeps it. Text that names the renamed channel's old path gets
-  `keep` (default) or `update_text`: that path named the old measurement, which does not
-  move with the port.
+  of the displaced channel `retarget`, and task configs and the channel references of
+  typed devices `keep`. Text that names the path keeps it. Text that names the renamed
+  channel's old path gets `keep` (default) or `update_text`: that path named the old
+  measurement, which does not move with the port.
 - **Order**: An action orders its renames so that names stay unique after each write,
   with a temporary name inside the transaction for a cycle. The check per write stays.
 - **Notes**: The plan lists the holders of the renamed channel, whose reads gain the
@@ -898,9 +927,9 @@ Tombstone struct {
 
 Each phase is a piece with its own issue. PRs group the pieces along the plan's PR
 lines, about 2,000 hand-written lines each. Phase 13 landed on `main` in #6416
-(SY-5020); its row keeps the numbers that other RFCs cite. Phase 31 is a small switch,
-Phase 39 is documentation, Phases 40 and 41 split the impact service, and Phase 42
-brings the number rule to every lookup.
+(SY-5020); the table keeps its number, which other RFCs cite. Phase 31 is a small
+switch, Phase 39 is documentation, Phases 40 and 41 split the impact service, and Phase
+42 brings the number rule to every lookup.
 
 - **Names**: Phase 5 gives Arc the quoted token, and Phase 10 the path filter. Phases 25
   to 30 add bare paths, the two lists, the lookup at each compile, the text pass, the
@@ -911,10 +940,12 @@ brings the number rule to every lookup.
   Form of Phase 29, the free-text rule for channel names (Phase 8), and the number rule
   of §4.2 (Phase 42) land last, as one group after Phase 38. Until then every text pass
   writes the bare form (§4.1, §4.5).
-- **The path service**: Phase 15 plans the delete of any record type. Phase 40 moves the
-  folder changes and heal policies to `path`. Phase 41 routes every path write through
-  `path`, with no plan yet, and gates them by capability (§4.11). Phases 29 and 30 add
-  the rename and move plans, and Phases 35 and 36 build on `path` too.
+- **The channel tree**: Phase 15 plans the delete of any record type. Phase 40 moves the
+  channel folder changes and heal policies to `channel/tree`. Phases 29 and 30 add the
+  rename and move plans on it, and Phases 35 and 36 build on it too. Phase 41 routes
+  every other path write through `channel/tree`. It waits for SY-6990, the link
+  framework, which decides how every write applies its effects (§4.11). Until then other
+  callers keep the plain writers, as on `main`.
 - **Phase 22: Uses.** The inspector builds on the shared used-by list
   (`console/src/platform/settings/UsedBy.tsx`), which learns to group uses by direction,
   with no copy.
@@ -934,18 +965,18 @@ brings the number rule to every lookup.
   Phase 1.
 
 Waits that the phase table cannot hold: its depends-on cells name only earlier phases of
-this RFC, so a wait on a later phase or on another RFC goes here, and the issues of
-these phases take their blockers from this table too.
+this RFC, so a wait on a later phase, on another RFC, or on other work goes here, and
+the issues of these phases take their blockers from this table too.
 
 | Phase    | Waits for                                                                                                                         |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | 3        | Phase 7, so no Core holds calculation records without its text pass, and RFC 0120 Phase 1, which carries code moves that it needs |
 | 5, 8     | Phase 38, since the quotes land last                                                                                              |
 | 25       | RFC 0120 Phase 1, which carries code moves that it needs                                                                          |
-| 29       | Phase 41, which routes path writes through the path service                                                                       |
+| 29, 35   | Phase 40, which builds `channel/tree`                                                                                             |
 | 34 to 38 | RFC 0120 Phase 9, which pairs series by clock, and RFC 0121 Phase 8, which brings one alignment counter per database              |
-| 35       | Phase 40, which builds the path service                                                                                           |
 | 39       | RFC 0120 Phases 20 to 28 and 52                                                                                                   |
+| 41       | SY-6990, the link framework, which decides how every write applies its effects                                                    |
 
 Other RFCs wait on this one: RFC 0120 Phases 21 and 24 on Phase 3, the calculation
 record, which also stops the Core from reading node bits; RFC 0120 Phase 43 on Phase 29,
@@ -971,7 +1002,7 @@ RFC 0121 moves the storage half of create, rename, and delete out of the commit 
 | 13    | Rename the Gorp detach hook to OnRewrite                    | `gorp`, `core/pkg/service`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | 1              |
 | 14    | Generate a retarget for every key reference                 | `gorp`, `oracle/plugin/go/query`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/schematic`, `core/pkg/service/table`                                                                                                                                                                                                                                                                                                                                                                                                                             | 13             |
 | 15    | Plan the records that a channel delete touches              | `gorp`, `core/pkg/service/impact`, `core/pkg/service/channel`, `core/pkg/service/task`, `core/pkg/api/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 1              |
-| 16    | Serve impact plans and apply them in the Core API           | `core/pkg/api/impact`, `schemas/synnax/impact.oracle`, `core/pkg/api/channel`, `core/pkg/api/group`                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 15             |
+| 16    | Serve impact plans and apply them in the Core API           | `core/pkg/api/impact`, `schemas/synnax/impact.oracle`, `schemas/synnax/impact_api.oracle`, `core/pkg/api/channel`, `core/pkg/api/group`                                                                                                                                                                                                                                                                                                                                                                                                                                   | 15             |
 | 17    | Keep a tombstone of a deleted channel's path                | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 4, 7, 15       |
 | 18    | Heal display links when a channel takes a tombstone path    | `gorp`, `core/pkg/service/impact`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 14, 17         |
 | 19    | Plan and apply impact in the TS and Python clients          | `client/ts/src/impact`, `client/py/synnax/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 16             |
@@ -984,19 +1015,19 @@ RFC 0121 moves the storage half of create, rename, and delete out of the commit 
 | 26    | Store the keys of each compile on Arcs and calculations     | `schemas/synnax/arc.oracle`, `schemas/synnax/drift.oracle`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/channel/resolver`                                                                                                                                                                                                                                                                                                                                                                                                                   | 3, 25          |
 | 27    | Show the used-by-nothing filter in the explorer             | `console/src/feature/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 20, 21, 26     |
 | 28    | Name channels by path in exported files                     | `oracle/plugin/go`, `core/pkg/service/imex`, `core/pkg/service/imex/session`, `core/pkg/service/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 16, 25         |
-| 29    | Edit Arc and calculation text in rename plans               | `arc/go/text`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/path`, `core/pkg/api/calculation`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `schemas/synnax/calculation.oracle`, `pluto/src/calculation`, `console/src/platform/channel`                                                                                                                                                                                                                                                                                     | 18, 26         |
-| 30    | Plan every channel rename and move, the LSP rename included | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/path`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 29             |
+| 29    | Edit Arc and calculation text in rename plans               | `arc/go/text`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/channel/tree`, `core/pkg/api/calculation`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `schemas/synnax/calculation.oracle`, `pluto/src/calculation`, `console/src/platform/channel`                                                                                                                                                                                                                                                                             | 18, 26         |
+| 30    | Plan every channel rename and move, the LSP rename included | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/channel/tree`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 29             |
 | 31    | Make channel names unique only within their folder          | `core/pkg/service/channel`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `schemas/synnax/arc.oracle`                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 9, 21, 23, 30  |
 | 32    | Add naming rules to folders                                 | `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/api/group`, `client/ts/src/group`, `client/py/synnax/group`, `console/src/platform/group`, `console/src/feature/group`, `core/pkg/service/channel`, `core/pkg/service/color`, `core/pkg/service/legacy/device`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/panel`, `core/pkg/service/project`, `core/pkg/service/rack`, `core/pkg/service/schematic`, `core/pkg/service/schematic/symbol`, `core/pkg/service/table`                                                        | 21, 31         |
 | 33    | Keep dead channel keys in line plots and logs               | `core/pkg/service/lineplot`, `core/pkg/service/log`, `schemas/synnax/log.oracle`, `pluto/src/lineplot`, `pluto/src/log`                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 1, 18          |
 | 34    | Read channels as measurements on request                    | `core/pkg/service/framer/iterator`, `core/pkg/api/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 17             |
-| 35    | Check access and delete by path over measured pieces        | `core/pkg/api/framer`, `core/pkg/service/path`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 34             |
-| 36    | Rewire a path to another channel                            | `core/pkg/service/path`, `core/pkg/service/channel`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 30, 34         |
+| 35    | Check access and delete by path over measured pieces        | `core/pkg/api/framer`, `core/pkg/service/channel/tree`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 34             |
+| 36    | Rewire a path to another channel                            | `core/pkg/service/channel/tree`, `core/pkg/service/channel`, `core/pkg/service/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | 30, 34         |
 | 37    | Publish a history change when a rewire commits              | `core/pkg/service/framer`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 36             |
 | 38    | Ask for measured reads in clients and calculations          | `client/ts/src/framer`, `client/py/synnax/framer`, `console/src`, `core/pkg/service/calculation`, `core/pkg/service/sift`                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 11, 12, 19, 34 |
 | 39    | Document the new model                                      | `site/docs`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 3, 31, 32      |
-| 40    | Move folder changes and heal policies to the path service   | `core/pkg/service/path`, `core/pkg/service/impact`, `schemas/synnax/path.oracle`, `core/pkg/api/impact`, `client/ts/src/impact`, `client/py/synnax/impact`                                                                                                                                                                                                                                                                                                                                                                                                                | 15, 16, 18     |
-| 41    | Route path writes through the path service and gate them    | `core/pkg/service/channel`, `core/pkg/service/group`, `core/pkg/service`, `core/pkg/service/path`, `core/pkg/api/channel`, `core/pkg/api/arc`, `core/pkg/api/group`                                                                                                                                                                                                                                                                                                                                                                                                       | 40             |
+| 40    | Move channel folder edits and heal policies to channel/tree | `core/pkg/service/channel/tree`, `core/pkg/service/impact`, `schemas/synnax/impact_api.oracle`, `core/pkg/api/impact`, `client/ts/src/impact`, `client/py/synnax/impact`                                                                                                                                                                                                                                                                                                                                                                                                  | 15, 16, 18     |
+| 41    | Route every path write through channel/tree                 | `core/pkg/service/channel`, `core/pkg/service/group`, `core/pkg/service`, `core/pkg/service/channel/tree`, `core/pkg/api/channel`, `core/pkg/api/arc`, `core/pkg/api/group`                                                                                                                                                                                                                                                                                                                                                                                               | 40             |
 | 42    | Read a digit-only string as a path in every lookup          | `core/pkg/service/channel`, `client/ts/src/channel`, `client/ts/src/framer`, `client/py/synnax/channel`, `client/cpp/channel`, `console/src/feature/labjack/task`, `console/src/feature/modbus/task`, `console/src/feature/ni/task`                                                                                                                                                                                                                                                                                                                                       | 12, 38         |
 
 ## 6 Resolved decisions
