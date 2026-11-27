@@ -122,9 +122,10 @@ writer opens. No channel record, task config, or client library keeps it.
   serves virtual channels, such as signals and calculation outputs. The v3 record of
   Phase 50 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
   from then one counter serves both, above the largest key issued below `0xFFF00000`,
-  and it never enters the free range. So no value is both a channel and a clock. Storage
-  makes a clock only when continuation finds none, and one new clock per second lasts
-  136 years.
+  and it never enters the free range. So no value is both a channel and a clock. The
+  Core raises a warning status at half of the clock range, and at its end an open that
+  needs a new clock fails with a typed error. Storage makes a clock only when
+  continuation finds none, and one new clock per second lasts 136 years.
 - **Index keys become clock keys**: The key of each index channel of today becomes the
   key of its clock, so stored data, stored positions, and frames keep their numbers.
 
@@ -345,7 +346,7 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   name one clock; an XY plot across clocks pairs by time (§4.7).
 - **Order**: A reader orders the stretches of a channel by time and uses alignment only
   inside one. The floor walk of the TypeScript cache compares alignments across blocks
-  today (`client/ts/src/framer/cache/store/store.ts:370-387`) and changes to time.
+  today (`client/ts/src/framer/cache/store/store.ts:369-388`) and changes to time.
 - **Reader API**: `frame.time(channel)` gives one time series per data series of the
   channel, with the same lengths, and `frame.time(series)` the times of one series: the
   time series under `series.clock` whose alignments hold the data's. Each fails when the
@@ -547,7 +548,7 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   session. The authority filter runs after the group check: a channel that the writer
   does not control pauses, and the rest of its group writes. The cost is one presence
   count per declared group per frame, as `main` counts per index group
-  (`cesium/writer_stream.go:987-1048`).
+  (`cesium/writer_stream.go:1012-1052`).
 - **Kinds**: A writer picks one at open. **Supplied**, the default: each present group
   has its time in the frame, and a write of stored channels with no `"time"` fails.
   **`arrival_timed`**: the framer stamps each present group on arrival, and a write that
@@ -571,12 +572,13 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   path either (RFC 0121 §5.8).
 - **Control writers**: The Python `Controller` and Pluto control declare one group per
   command channel, and Arc does so by default, so each command channel has its own
-  clock. Pluto and the `Controller` stamp on arrival. Authority covers channels only.
-  Until Phase 50 an index channel stays under write control, so two command channels
-  that share one still share its authority; after it they do not. A commit after a
-  handoff whose stamps go back past the old holder's fails, as on `main`
-  (`cesium/internal/unary/writer.go:436-450`), so clock skew between two hosts that
-  write one command channel can fail a commit.
+  clock. Pluto and the `Controller` stamp on arrival. A Pluto acquire of a channel that
+  Arc holds leases a clock and makes two files at open, off the frame path, and Phase 28
+  measures acquire time. Authority covers channels only. Until Phase 50 an index channel
+  stays under write control, so two command channels that share one still share its
+  authority; after it they do not. A commit after a handoff whose stamps go back past
+  the old holder's fails, as on `main` (`cesium/internal/unary/writer.go:436-450`), so
+  clock skew between two hosts that write one command channel can fail a commit.
 - **Arc**: The compiler fills the groups of a program (`time_groups` in
   `schemas/arc/ir.oracle`, NEW). Each output channel has a group of its own, so a cycle
   that writes part of its outputs stays legal: an early `return`, a trap, a `=>` edge,
@@ -588,9 +590,13 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   (`arc/go/analyzer/statement/statement.go:1113`). The runtimes group a cycle's writes
   by group, not by index (`arc/go/stl/channels/state.go:173-198`), and stop adding index
   keys to a program's writes (`core/pkg/service/arc/runtime/dependencies.go:110-112`).
+  The compiler tells a virtual output by its record's virtual flag, not by its index
+  (`dependencies.go:51-56` today).
 - **Types**: A writer may name the type of each key at open; the default is the declared
   type. The validator checks each series against the session's type, so a Driver spool
   that holds an old type drains after a type change.
+- **One channel writes**: `Channel.write` and `Range.write` take the time series beside
+  the data from Phase 30, or write with `arrival_timed`.
 - **DataFrames**: A `time` column is the time; with none, a `DatetimeIndex` is. A
   DataFrame write with a blank cell fails: a read on two clocks leaves blanks, and they
   are not samples.
@@ -731,16 +737,17 @@ continuation. A partial group from a task fails loud, as a partial index group d
 `main`. Every Driver integration and both ICD readers change in the same release as the
 Core (§5).
 
-| Producer                                                   | Groups                                                             |
-| ---------------------------------------------------------- | ------------------------------------------------------------------ |
-| Driver read task: NI, LabJack, Modbus, EtherCAT, OPC UA    | One group of every enabled stored channel                          |
-| Driver state writer (`driver/common/write_task.h:144-155`) | One group of every state channel                                   |
-| HTTP read, Kafka read, MQTT plain topics, both ICD readers | One group per message read                                         |
-| MQTT Sparkplug                                             | One group per tag. A history fill writes the tag's group           |
-| Sparkplug edge commands                                    | One writer for the task's life, with one group per command channel |
-| Arc, Pluto control, the Python `Controller`                | §4.8                                                               |
-| The metrics service, scripts                               | None: one adaptive group                                           |
-| Calculations, signals, statuses, task commands             | None: free or virtual channels                                     |
+| Producer                                                   | Groups                                                                                                                                     |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Driver read task: NI, LabJack, Modbus, EtherCAT, OPC UA    | One group of every enabled stored channel                                                                                                  |
+| Driver state writer (`driver/common/write_task.h:144-155`) | One group of every state channel                                                                                                           |
+| HTTP read, Kafka read, MQTT plain topics, both ICD readers | One group per message read                                                                                                                 |
+| MQTT Sparkplug                                             | One group per tag. A history fill writes the tag's group on a new clock, since it writes before the live stamps: two files per tag and gap |
+| Sparkplug edge commands                                    | One writer per command, as today, with one group                                                                                           |
+| Arc, Pluto control, the Python `Controller`                | §4.8                                                                                                                                       |
+| The metrics service                                        | One adaptive group, `arrival_timed`, and no index channel from Phase 29                                                                    |
+| Scripts                                                    | None: one adaptive group                                                                                                                   |
+| Calculations, signals, statuses, task commands             | None: free or virtual channels                                                                                                             |
 
 - **Time fields**: A message read takes its time from its time field, else the record
   time (Kafka) or arrival (MQTT, HTTP). The ICD field `ReadMessage.index` becomes `time`
@@ -749,6 +756,8 @@ Core (§5).
   An OPC UA read task has one task-level `time` node (NEW `ReadConfig.time`), in place
   of `is_index` on a read channel (`schemas/synnax/opcua.oracle:52-54`); with none, the
   Driver stamps the samples. A time field may also bind a timestamp data channel.
+- **Failed fields**: A message reader that fails a field drops its group's sample and
+  never writes part of a group.
 - **Replay floors**: A Kafka or MQTT replay drops what is at or before the latest last
   stamp of its group's channels, in place of the last stamp of its index channel
   (`core/pkg/service/kafka/read_task.go:529-545`,
@@ -1254,4 +1263,5 @@ config from Phase 43. Keys of `core/v0.62.0` keep their numbers.
 Each is a parameter with a default: P, the pauses per open segment before a move (64,
 measured by §4.13); the clock keys per lease (256); the rare-path read bar (2 times);
 the gap, in steps, across which a stretch continues (3); and the step between the
-arrival stamps of one frame.
+arrival stamps of one frame (the samples of a frame spread evenly from the last frame's
+arrival to this one, and 1 ns apart in a first frame).
