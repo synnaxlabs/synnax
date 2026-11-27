@@ -11,7 +11,14 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, dispatchReqZ, dispatchResZ } from "@/labjack/device/actions.gen";
+import { actions } from "@/actions";
+import { createOf, reduceAll } from "@/labjack/device/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+} from "@/labjack/device/actions.gen";
 import {
   type Device,
   deviceZ,
@@ -27,6 +34,7 @@ import {
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -36,6 +44,7 @@ import type { status } from "@/status";
 import { util } from "@/util";
 
 export const SET_CHANNEL_NAME = "sy_labjack_device_set";
+export const ACTION_CHANNEL_NAME = "sy_labjack_device_action_set";
 export const DELETE_CHANNEL_NAME = "sy_labjack_device_delete";
 
 type Stored = Omit<Device, "status">;
@@ -102,6 +111,7 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Stored>;
+  private readonly dispatcher: actions.Controller<Key, Stored, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache, statuses } = cfg;
@@ -115,11 +125,28 @@ export class Client extends query.Retriever<
         (
           await this.fetchThrough({ ...query.keysRequest(keys), includeStatus: true })
         ).map(stripStatus),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, deviceZ, { value: stripStatus }),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a device reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Stored, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
+      send: actions.sender(
+        cfg.unary,
+        "/labjack/device/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      reduce: reduceAll,
+      createOf: (action) => {
+        const created = createOf(action);
+        return created == null ? undefined : stripStatus(created);
+      },
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     const composed = cache.derive<Key, Stored, Device>({
       name: "labjack.device.composed",
       source: store,
@@ -163,6 +190,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   /**
@@ -203,20 +231,16 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Applies actions to the device, in order, in one transaction. Paths and values take
-   * the snake_case form that the Core stores. The cached device takes the result.
+   * Applies the actions to the cached device until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Paths and values take the snake_case form
+   * that the Core stores.
+   * @throws {Error} if the cached device cannot hold an action, before any send.
    * @throws {NotFoundError} if the device does not exist.
    * @throws {ValidationError} if an action fails, or the result is invalid or changes
    * the model.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/labjack/device/dispatch",
-      { key, dispatchKey: "", actions: array.toArray(actions) },
-      dispatchReqZ,
-      dispatchResZ,
-    );
-    await this.fetchThrough(query.keysRequest([key]));
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /** Deletes the devices with their statuses. */
