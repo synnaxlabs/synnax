@@ -101,11 +101,16 @@ interface PayloadProps {
 }
 
 const Payload = ({ payload, sample }: PayloadProps): ReactElement => {
+  if (sample.payload === "") return <Note>The last payload is empty.</Note>;
   if (sample.format === "binary") return <Bytes hex={sample.payload} />;
   if (payload.format === "text")
     return <Parts line={sample.payload} delimiter={payload.delimiter} />;
   return (
-    <Text.Text level="small" variant="code">
+    <Text.Text
+      level="small"
+      variant="code"
+      className={CSS.BE("icd-last-payload", "text")}
+    >
       {sample.payload}
     </Text.Text>
   );
