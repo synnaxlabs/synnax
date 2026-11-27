@@ -10,16 +10,13 @@
 #include <algorithm>
 #include <chrono>
 #include <cstddef>
-#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
 #include <span>
 #include <sstream>
 #include <string>
-#include <type_traits>
 #include <utility>
-#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -67,72 +64,6 @@ x::json::json framing_of(const synnax::icd::ICD &ic) {
     if (!ic.framing.has_value()) return nullptr;
     return synnax::icd::to_json(*ic.framing);
 }
-
-/// @brief returns the name of the message with key in ic.
-std::string
-message_name(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
-    const auto m = std::ranges::find(ic.messages, key, &synnax::icd::Message::key);
-    return m == ic.messages.end() ? key.to_string() : m->name;
-}
-
-/// @brief returns the payload of the message with key, which must be in ic.
-const synnax::icd::Payload &
-payload_of(const synnax::icd::ICD &ic, const synnax::icd::MessageKey &key) {
-    return std::ranges::find(ic.messages, key, &synnax::icd::Message::key)->payload;
-}
-
-/// @brief returns true when a message of payload matches every frame that its decoder
-/// sees: a binary message with no identifier, a text message with no prefix, or a JSON
-/// message with no match rule.
-bool matches_all(const synnax::icd::Payload &payload) {
-    return std::visit(
-        []<typename P>(const P &p) {
-            if constexpr (std::is_same_v<P, synnax::icd::BinaryPayload>)
-                return !p.identifier.has_value();
-            else if constexpr (std::is_same_v<P, synnax::icd::TextPayload>)
-                return p.prefix.empty();
-            else
-                return !p.match.has_value();
-        },
-        payload
-    );
-}
-
-/// @brief CatchAll is an entry message that matches every frame its decoder sees.
-struct CatchAll {
-    std::size_t entry;
-    const synnax::icd::ICD *ic;
-    synnax::icd::MessageKey message;
-};
-
-/// @brief returns the error when the message of a matches every what that entry b could
-/// get.
-x::errors::Error
-shadowed(const CatchAll &a, const std::size_t b, const std::string &what) {
-    return refuse(
-        "message " + message_name(*a.ic, a.message) + " of ICD " + a.ic->name +
-        " in entry " + std::to_string(a.entry) + " matches every " + what +
-        ", so entry " + std::to_string(b) + " never gets one"
-    );
-}
-
-/// @brief returns the error when entries a and b, both on ic, read one message.
-x::errors::Error check_shared(
-    const std::size_t a,
-    const std::size_t b,
-    const std::vector<synnax::icd::ReadEntry> &entries,
-    const synnax::icd::ICD &ic
-) {
-    for (const auto &first: entries[a].messages)
-        for (const auto &second: entries[b].messages)
-            if (first.message == second.message)
-                return refuse(
-                    "entries " + std::to_string(a) + " and " + std::to_string(b) +
-                    " both read message " + message_name(ic, first.message) +
-                    " of ICD " + ic.name
-                );
-    return x::errors::NIL;
-}
 }
 
 std::pair<Receiver, x::errors::Error> Receiver::create(
@@ -145,17 +76,16 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
     Receiver r;
     r.datagram = datagram;
     r.now = std::move(now);
-    std::vector<const synnax::icd::ICD *> found;
-    std::optional<CatchAll> every;
-    std::optional<CatchAll> json;
+    std::vector<Reader::Source> sources;
+    sources.reserve(entries.size());
     for (std::size_t i = 0; i < entries.size(); i++) {
-        const auto context = "entry " + std::to_string(i) + ": ";
         const auto ic = std::ranges::find(icds, entries[i].icd, &synnax::icd::ICD::key);
         if (ic == icds.end())
             return {
                 Receiver{},
                 refuse(
-                    context + "ICD " + entries[i].icd.to_string() + " does not exist"
+                    "entry " + std::to_string(i) + ": ICD " +
+                    entries[i].icd.to_string() + " does not exist"
                 ),
             };
         if (!datagram && !ic->framing.has_value())
@@ -163,44 +93,22 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
                 Receiver{},
                 refuse("ICD " + ic->name + " has no framing to split the stream with"),
             };
-        if (!found.empty() && framing_of(*found.front()) != framing_of(*ic))
+        if (!sources.empty() && framing_of(sources.front().ic) != framing_of(*ic))
             return {
                 Receiver{},
                 refuse(
-                    "ICDs " + found.front()->name + " and " + ic->name +
+                    "ICDs " + sources.front().ic.name + " and " + ic->name +
                     " frame the stream differently"
                 ),
             };
-        for (std::size_t j = 0; j < i; j++)
-            if (found[j]->key == ic->key)
-                if (auto err = check_shared(j, i, entries, *ic))
-                    return {Receiver{}, err};
-        auto [reader, err] = Reader::create(entries[i].messages, *ic, channels);
-        if (err) return {Receiver{}, x::errors::Error(err, context + err.data)};
-        const auto &messages = entries[i].messages;
-        const bool reads_json = !messages.empty() &&
-                                std::holds_alternative<synnax::icd::JSONPayload>(
-                                    payload_of(*ic, messages.front().message)
-                                );
-        if (every.has_value()) return {Receiver{}, shadowed(*every, i, "frame")};
-        if (json.has_value() && reads_json)
-            return {Receiver{}, shadowed(*json, i, "JSON document")};
-        if (const auto m = std::ranges::find_if(
-                messages,
-                [&](const auto &rm) { return matches_all(payload_of(*ic, rm.message)); }
-            );
-            m != messages.end()) {
-            const CatchAll c{.entry = i, .ic = &*ic, .message = m->message};
-            if (reads_json)
-                json = c;
-            else
-                every = c;
-        }
-        r.readers.push_back(std::move(reader));
-        found.push_back(&*ic);
+        sources.push_back({.ic = *ic, .reads = entries[i].messages});
+        r.owners.insert(r.owners.end(), entries[i].messages.size(), i);
     }
-    if (!found.empty())
-        if (const auto &framing = found.front()->framing; framing.has_value()) {
+    auto [reader, reader_err] = Reader::create(sources, channels);
+    if (reader_err) return {Receiver{}, reader_err};
+    r.reader = std::move(reader);
+    if (!sources.empty())
+        if (const auto &framing = sources.front().ic.framing; framing.has_value()) {
             auto [framer, err] = codec::framing::create(*framing);
             if (err) return {Receiver{}, err};
             r.framer = std::move(framer);
@@ -230,28 +138,20 @@ std::pair<Receiver, x::errors::Error> Receiver::create(
     return {std::move(r), x::errors::NIL};
 }
 
-void Receiver::dispatch(
+void Receiver::parse(
     const std::span<const std::uint8_t> payload,
     x::telem::Frame &fr,
     common::Warning &warning
 ) {
     this->stamp = std::max(this->received, this->stamp + x::telem::NANOSECOND);
-    x::errors::Error read_err;
-    for (std::size_t i = 0; i < this->readers.size(); i++) {
-        auto &reader = this->readers[i];
-        const auto [message, err] = reader.read(payload, this->stamp, fr, BATCH);
-        if (!message.has_value()) {
-            if (!read_err) read_err = err;
-            continue;
-        }
-        if (this->reply.has_value() && this->reply->entry == i) this->reply.reset();
-        read_err = err;
-        if (!err && !reader.failures().empty())
-            read_err = reader.failures().front().error;
-        break;
-    }
-    if (read_err && warning.empty())
-        warning = {.message = "Failed to decode message", .description = read_err.data};
+    auto [message, err] = this->reader.read(payload, this->stamp, fr, BATCH);
+    if (message.has_value() && this->reply.has_value() &&
+        this->reply->entry == this->owners[*message])
+        this->reply.reset();
+    if (!err && !this->reader.failures().empty())
+        err = this->reader.failures().front().error;
+    if (err && warning.empty())
+        warning = {.message = "Failed to decode message", .description = err.data};
 }
 
 std::size_t
@@ -264,7 +164,7 @@ Receiver::drain(std::size_t n, x::telem::Frame &fr, common::Warning &warning) {
         }
         if (!frame.has_value()) break;
         n++;
-        this->dispatch(*frame, fr, warning);
+        this->parse(*frame, fr, warning);
     }
     return n;
 }
@@ -313,10 +213,7 @@ Receiver::send(transport::Transport &t) {
 }
 
 std::vector<synnax::channel::Key> Receiver::channels() const {
-    std::vector<synnax::channel::Key> keys;
-    for (const auto &reader: this->readers)
-        std::ranges::copy(reader.channels(), std::back_inserter(keys));
-    return keys;
+    return this->reader.channels();
 }
 
 void Receiver::clear() {
@@ -339,7 +236,7 @@ common::ReadResult Receiver::read(transport::Transport &t, x::telem::Frame &fr) 
         res.warning = line_errors(chunk);
     if (this->framer == nullptr) {
         this->received = chunk.time;
-        if (!chunk.data.empty()) this->dispatch(chunk.data, fr, res.warning);
+        if (!chunk.data.empty()) this->parse(chunk.data, fr, res.warning);
         return res;
     }
     if (!chunk.data.empty()) {

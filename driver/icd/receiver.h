@@ -45,9 +45,8 @@ const x::telem::TimeSpan READ_TIMEOUT = 50 * x::telem::MILLISECOND;
 const x::telem::TimeSpan REPLY_TIMEOUT = 100 * x::telem::MILLISECOND;
 
 /// @brief Receiver reads the messages that the entries of a task receive on one
-/// transport into their channels. Each frame goes to the first entry, in task order,
-/// with a message that matches it, and later entries never see it. A frame that is not
-/// a JSON document matches no message of a JSON entry. It sends one poll query at a
+/// transport into their channels. One decoder matches each frame against the messages
+/// of all entries, as if one entry read them all. It sends one poll query at a
 /// time, so replies on a shared bus do not collide: the next query waits until a frame
 /// of the entry that sent the last one arrives, or until REPLY_TIMEOUT passes. It is
 /// not safe for concurrent use.
@@ -75,8 +74,10 @@ class Receiver {
     /// framing, which each hold one message.
     std::unique_ptr<codec::framing::Framer> framer;
     bool datagram = false;
-    /// @brief readers holds the reader of each entry, in task order.
-    std::vector<Reader> readers;
+    Reader reader;
+    /// @brief owners holds the position in task order of the entry that reads each
+    /// message of reader.
+    std::vector<std::size_t> owners;
     std::vector<Poll> polls;
     /// @brief reply holds back the next poll query, and is empty when no reply is due.
     std::optional<Reply> reply;
@@ -89,10 +90,9 @@ class Receiver {
     x::telem::TimeSpan quiet;
     transport::Clock now;
 
-    /// @brief reads payload with the first reader that has a message of it, and sets
-    /// warning to its decoding error when it is empty. With no such reader, it sets
-    /// warning to the first error of a reader that could not match payload.
-    void dispatch(
+    /// @brief reads payload, one frame, into fr, and sets warning to its decoding error
+    /// when warning is empty.
+    void parse(
         std::span<const std::uint8_t> payload,
         x::telem::Frame &fr,
         common::Warning &warning
@@ -126,12 +126,9 @@ public:
     /// with no framing holds one message.
     /// @param now is the steady clock that schedules the queries.
     /// @returns CONFIGURATION_ERROR when icds has no ICD that an entry names, a stream
-    /// ICD has no framing, two ICDs frame the bytes differently, two entries read one
-    /// message of one ICD, an entry reads a message that matches every frame a later
-    /// entry could get, a poll rate is not above 0 Hz or is above 1 GHz, the framing
-    /// cannot hold a poll query, or the Reader of an entry fails to create. A binary
-    /// message with no identifier and a text message with no prefix match every frame,
-    /// and a JSON message with no match rule matches every JSON document.
+    /// ICD has no framing, two ICDs frame the bytes differently, a poll rate is not
+    /// above 0 Hz or is above 1 GHz, the framing cannot hold a poll query, or a Reader
+    /// of the messages of all entries fails to create.
     static std::pair<Receiver, x::errors::Error> create(
         const std::vector<synnax::icd::ReadEntry> &entries,
         const std::vector<synnax::icd::ICD> &icds,

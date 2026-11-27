@@ -228,94 +228,118 @@ std::pair<std::vector<codec::Binding>, x::errors::Error> Reader::bind(
 }
 
 std::pair<Reader, x::errors::Error> Reader::create(
-    const std::vector<synnax::icd::ReadMessage> &reads,
-    const synnax::icd::ICD &ic,
+    const std::vector<Source> &sources,
     const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
 ) {
     Reader r;
     Decoded decoded;
     Writers writers;
-    const synnax::icd::Message *first = nullptr;
-    for (const auto &rm: reads) {
-        const auto msg = std::ranges::find(
-            ic.messages,
-            rm.message,
-            &synnax::icd::Message::key
-        );
-        if (msg == ic.messages.end())
-            return {
-                Reader{},
-                x::errors::Error(
-                    driver::errors::CONFIGURATION_ERROR,
-                    "message " + rm.message.to_string() + " does not exist in ICD " +
-                        ic.name
-                ),
-            };
-        const auto &name = msg->name;
-        if (first == nullptr) first = &*msg;
-        if (first->payload.index() != msg->payload.index())
-            return {
-                Reader{},
-                x::errors::Error(
-                    driver::errors::CONFIGURATION_ERROR,
-                    "messages " + first->name + " and " + name +
-                        " have different formats"
-                ),
-            };
-        if (rm.bindings.empty())
-            return {
-                Reader{},
-                x::errors::Error(
-                    driver::errors::CONFIGURATION_ERROR,
-                    "message " + name + " binds no fields"
-                ),
-            };
-        Message m;
-        auto [bindings, err] = bind(rm, *msg, channels, m);
-        if (!err)
-            err = std::visit(
-                [&](const auto &p) { return check_index(rm, p); },
+    const bool several = std::ranges::any_of(sources, [&](const Source &src) {
+        return src.ic.key != sources.front().ic.key;
+    });
+    std::optional<std::string> first;
+    std::size_t format = 0;
+    std::vector<const synnax::icd::Message *> seen;
+    for (const auto &[ic, reads]: sources)
+        for (const auto &rm: reads) {
+            const auto msg = std::ranges::find(
+                ic.messages,
+                rm.message,
+                &synnax::icd::Message::key
+            );
+            if (msg == ic.messages.end())
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "message " + rm.message.to_string() +
+                            " does not exist in ICD " + ic.name
+                    ),
+                };
+            const auto name = several ? msg->name + " of ICD " + ic.name : msg->name;
+            if (std::ranges::contains(seen, &*msg))
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "message " + name + " is read twice"
+                    ),
+                };
+            seen.push_back(&*msg);
+            if (!first.has_value()) {
+                first = name;
+                format = msg->payload.index();
+            }
+            if (format != msg->payload.index())
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "messages " + *first + " and " + name +
+                            " have different formats"
+                    ),
+                };
+            if (rm.bindings.empty())
+                return {
+                    Reader{},
+                    x::errors::Error(
+                        driver::errors::CONFIGURATION_ERROR,
+                        "message " + name + " binds no fields"
+                    ),
+                };
+            Message m;
+            auto [bindings, err] = bind(rm, *msg, channels, m);
+            if (!err)
+                err = std::visit(
+                    [&](const auto &p) { return check_index(rm, p); },
+                    msg->payload
+                );
+            if (const auto *p = std::get_if<synnax::icd::BinaryPayload>(&msg->payload);
+                p != nullptr && !err) {
+                std::vector<synnax::channel::Key> keys;
+                keys.reserve(m.indexes.size());
+                for (const auto &idx: m.indexes)
+                    keys.push_back(idx.key);
+                err = check_selections(rm, *p, m.groups, keys);
+            }
+            if (err) return {Reader{}, err.wrap("message " + name)};
+            for (const auto &idx: m.indexes)
+                if (auto claim_err = claim(writers, idx.key, name))
+                    return {Reader{}, claim_err};
+            for (std::size_t k = 0; k < m.channels.size(); k++) {
+                if (k == m.index_field) continue;
+                if (auto claim_err = claim(writers, m.channels[k], name))
+                    return {Reader{}, claim_err};
+            }
+            std::visit(
+                [&]<typename P>(const P &p) {
+                    if constexpr (std::is_same_v<P, synnax::icd::BinaryPayload>)
+                        decoded.binary.push_back(
+                            {.name = name,
+                             .payload = p,
+                             .bindings = std::move(bindings)}
+                        );
+                    else if constexpr (std::is_same_v<P, synnax::icd::TextPayload>)
+                        decoded.text.push_back(
+                            {.name = name,
+                             .payload = p,
+                             .bindings = std::move(bindings)}
+                        );
+                    else
+                        decoded.json.push_back(
+                            {.name = name,
+                             .payload = p,
+                             .bindings = std::move(bindings)}
+                        );
+                },
                 msg->payload
             );
-        if (const auto *p = std::get_if<synnax::icd::BinaryPayload>(&msg->payload);
-            p != nullptr && !err) {
-            std::vector<synnax::channel::Key> keys;
-            keys.reserve(m.indexes.size());
-            for (const auto &idx: m.indexes)
-                keys.push_back(idx.key);
-            err = check_selections(rm, *p, m.groups, keys);
+            r.messages.push_back(std::move(m));
         }
-        if (err) return {Reader{}, err.wrap("message " + name)};
-        for (const auto &idx: m.indexes)
-            if (auto claim_err = claim(writers, idx.key, name))
-                return {Reader{}, claim_err};
-        for (std::size_t k = 0; k < m.channels.size(); k++) {
-            if (k == m.index_field) continue;
-            if (auto claim_err = claim(writers, m.channels[k], name))
-                return {Reader{}, claim_err};
-        }
-        std::visit(
-            [&]<typename P>(const P &p) {
-                if constexpr (std::is_same_v<P, synnax::icd::BinaryPayload>)
-                    decoded.binary.push_back(
-                        {.name = name, .payload = p, .bindings = std::move(bindings)}
-                    );
-                else if constexpr (std::is_same_v<P, synnax::icd::TextPayload>)
-                    decoded.text.push_back(
-                        {.name = name, .payload = p, .bindings = std::move(bindings)}
-                    );
-                else
-                    decoded.json.push_back(
-                        {.name = name, .payload = p, .bindings = std::move(bindings)}
-                    );
-            },
-            msg->payload
-        );
-        r.messages.push_back(std::move(m));
-    }
+    // With no messages, the reader holds a Binary decoder, which matches no payload.
     x::errors::Error err;
-    if (!decoded.binary.empty()) {
-        auto [d, d_err] = codec::Binary::create(decoded.binary);
+    if (!decoded.json.empty()) {
+        auto [d, d_err] = codec::JSON::create(decoded.json);
         r.decoder = std::move(d);
         err = d_err;
     } else if (!decoded.text.empty()) {
@@ -323,7 +347,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
         r.decoder = std::move(d);
         err = d_err;
     } else {
-        auto [d, d_err] = codec::JSON::create(decoded.json);
+        auto [d, d_err] = codec::Binary::create(decoded.binary);
         r.decoder = std::move(d);
         err = d_err;
     }
