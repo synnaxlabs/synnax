@@ -482,9 +482,11 @@ func (e *Engine) read(
 		return err
 	}
 	defer func() { err = errors.Combine(err, idx.Close()) }()
+	keys := channel.KeysFromChannels(channels)
 	data, err := e.cfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.KeysFromChannels(channels),
-		Bounds: tr,
+		Keys:        keys,
+		UntimedKeys: keys,
+		Bounds:      tr,
 	})
 	if err != nil {
 		return err
