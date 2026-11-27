@@ -43,10 +43,10 @@ func Prepare(fs xfs.FS, generation uint64, size int64) error {
 	if err != nil {
 		return err
 	}
-	zeros := make([]byte, min(size, 1<<20))
-	for off := int64(0); off < size; off += int64(len(zeros)) {
+	buf := make([]byte, min(size, 1<<20))
+	for off := int64(0); off < size; off += int64(len(buf)) {
 		if _, err = f.WriteAt(
-			zeros[:min(int64(len(zeros)), size-off)],
+			buf[:min(int64(len(buf)), size-off)],
 			off,
 		); err != nil {
 			return errors.Join(err, f.Close())

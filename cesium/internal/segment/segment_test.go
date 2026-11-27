@@ -342,11 +342,11 @@ var _ = Describe("Segment", func() {
 					"Should put the sample count and block state back to the last "+
 						"commit",
 					func() {
-						first, _ := samples(5, 70_000)
+						old, _ := samples(5, 70_000)
 						w := create(varCfg)
-						Expect(w.Write(first[:9])).To(Succeed())
+						Expect(w.Write(old[:9])).To(Succeed())
 						w.Commit()
-						Expect(w.Write(first[9:])).To(Succeed())
+						Expect(w.Write(old[9:])).To(Succeed())
 						w.PutBack()
 						stream, starts := samples(5, 100, 140_000, 7)
 						Expect(w.Write(stream[9:])).To(Succeed())
