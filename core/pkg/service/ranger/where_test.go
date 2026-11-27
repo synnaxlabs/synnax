@@ -19,6 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/testutil/vectors"
@@ -270,7 +271,13 @@ var _ = Describe("Where", func() {
 				cfg := ranger.ServiceConfig{
 					DB: db,
 					Group: MustOpen(
-						group.OpenService(ctx, group.ServiceConfig{DB: db}),
+						group.OpenService(
+							ctx,
+							group.ServiceConfig{
+								DB:        db,
+								NameRules: grouptestutil.NameRules(),
+							},
+						),
 					),
 				}
 				written := MustSucceed(ranger.OpenService(ctx, cfg))

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
@@ -43,7 +44,12 @@ var _ = Describe("Service", func() {
 		rackKey rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
-		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))

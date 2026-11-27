@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
@@ -334,7 +335,13 @@ var _ = Describe("Orphan removal", func() {
 		orphanSvc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 			DB: orphanDB,
 			Group: MustOpen(
-				group.OpenService(ctx, group.ServiceConfig{DB: orphanDB}),
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{
+						DB:        orphanDB,
+						NameRules: grouptestutil.NameRules(),
+					},
+				),
 			),
 			ImEx:        imex.NewService(),
 			Enumeration: openEnumerations(ctx, orphanDB),

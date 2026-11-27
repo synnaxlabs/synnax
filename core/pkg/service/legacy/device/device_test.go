@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -48,7 +49,8 @@ var _ = Describe("Device", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			NameRules: grouptestutil.NameRules(),
+			DB:        db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
@@ -1315,7 +1317,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: db,
+				NameRules: grouptestutil.NameRules(),
+				DB:        db,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				DB: db,

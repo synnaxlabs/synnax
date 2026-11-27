@@ -26,6 +26,7 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -67,7 +68,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := testutil.NewNode(ctx)
 	clock = timetestutil.NewClock(time.Now())
 	db = node.DB
-	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	groupSvc = MustOpen(
+		group.OpenService(
+			ctx,
+			group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+		),
+	)
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
 	}))

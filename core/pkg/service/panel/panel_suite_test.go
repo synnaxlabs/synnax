@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
@@ -63,7 +64,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = testutil.NewNode(ctx)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: node.DB,
+		NameRules: grouptestutil.NameRules(),
+		DB:        node.DB,
 	}))
 	db = node.DB
 	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{

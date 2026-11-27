@@ -29,6 +29,7 @@ import (
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -94,7 +95,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	importer = &recordingImporter{}
 	Expect(imexSvc.RegisterImporter(string(importer.Type()), importer)).To(Succeed())
 	Expect(imexSvc.RegisterExporter(namingExporter{})).To(Succeed())
-	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	groupSvc = MustOpen(
+		group.OpenService(
+			ctx,
+			group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+		),
+	)
 	MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 		DB:    db,
 		Group: groupSvc,

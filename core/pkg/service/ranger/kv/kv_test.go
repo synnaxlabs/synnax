@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
@@ -41,7 +42,8 @@ var _ = Describe("KV", Ordered, func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			NameRules: grouptestutil.NameRules(),
+			DB:        db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,
@@ -257,7 +259,12 @@ var _ = Describe("Dispatch", func() {
 	BeforeEach(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		g := MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:    db,

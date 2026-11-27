@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -67,7 +68,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
 	db = node.DB
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	groupSvc := MustOpen(
+		group.OpenService(
+			ctx,
+			group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+		),
+	)
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 	roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))

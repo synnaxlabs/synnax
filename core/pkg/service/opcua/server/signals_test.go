@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -47,7 +48,12 @@ var _ = Describe("Signals", Ordered, func() {
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		node = testutil.NewNode(ctx)
-		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: node.DB}))
+		MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: node.DB, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: node.DB}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: node.DB}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: node.DB}))

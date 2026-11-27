@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/defaults"
@@ -30,7 +31,8 @@ var _ = Describe("Service", func() {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(testDB.Run)
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: testDB,
+				NameRules: grouptestutil.NameRules(),
+				DB:        testDB,
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
@@ -67,7 +69,8 @@ var _ = Describe("Service", func() {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(testDB.Run)
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: testDB,
+				NameRules: grouptestutil.NameRules(),
+				DB:        testDB,
 			}))
 			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
 			// over earlier ones, so the service opens only because cfg2 fills the gap.
@@ -102,7 +105,8 @@ var _ = Describe("Service", func() {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(testDB.Run)
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: testDB,
+				NameRules: grouptestutil.NameRules(),
+				DB:        testDB,
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
