@@ -22,6 +22,7 @@
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/payload/types.gen.h"
 #include "x/cpp/telem/frame.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
@@ -315,5 +316,21 @@ x::errors::Error Writer::encode(const Send &send) {
         ))
         return err;
     return send(this->payload);
+}
+
+std::string Writer::format() const {
+    return std::visit(
+        []<typename E>(const E &) -> std::string {
+            if constexpr (std::is_same_v<E, codec::BinaryEncoder>)
+                return x::payload::FORMAT_BINARY;
+            else if constexpr (std::is_same_v<E, codec::TextEncoder>)
+                return x::payload::FORMAT_TEXT;
+            else {
+                static_assert(std::is_same_v<E, codec::JSONEncoder>);
+                return x::payload::FORMAT_JSON;
+            }
+        },
+        this->encoder
+    );
 }
 }
