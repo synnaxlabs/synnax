@@ -299,26 +299,26 @@ supported, `sy login` and Synnax Desktop also write their files to `~/.synnax`.
 The clients read these environment variables. They take an API key, not a username and
 password.
 
-| Variable                 | Value                                                                              |
-| ------------------------ | ---------------------------------------------------------------------------------- |
-| `SYNNAX_HOST`            | The host of the Core.                                                              |
-| `SYNNAX_API_KEY`         | An API key.                                                                        |
-| `SYNNAX_PORT`            | The port of the Core. The default is `9090`.                                       |
-| `SYNNAX_CLIENT_INSECURE` | TypeScript: `true` or `1` to not use TLS, `false` or `0` to use TLS.               |
-| `SYNNAX_SECURE`          | `true` or `1` to use TLS, `false` or `0` to not use TLS. Deprecated in TypeScript. |
-| `SYNNAX_CA_CERT`         | The path to the PEM file of the CA certificate of the Core.                        |
+| Python           | TypeScript               | Value                                                       |
+| ---------------- | ------------------------ | ----------------------------------------------------------- |
+| `SYNNAX_HOST`    | `SYNNAX_CLIENT_HOST`     | The host of the Core.                                       |
+| `SYNNAX_API_KEY` | `SYNNAX_CLIENT_API_KEY`  | An API key.                                                 |
+| `SYNNAX_PORT`    | `SYNNAX_CLIENT_PORT`     | The port of the Core. The default is `9090`.                |
+| `SYNNAX_SECURE`  |                          | `true` or `1` to use TLS, `false` or `0` to not use TLS.    |
+|                  | `SYNNAX_CLIENT_INSECURE` | `true` or `1` to not use TLS, `false` or `0` to use TLS.    |
+| `SYNNAX_CA_CERT` | `SYNNAX_CLIENT_CA_CERT`  | The path to the PEM file of the CA certificate of the Core. |
 
 Each client takes each option from the first source that sets it: the argument, then its
 variable, then its default.
 
-| Python    | TypeScript | Variable                 | Default |
-| --------- | ---------- | ------------------------ | ------- |
-| `host`    | `host`     | `SYNNAX_HOST`            | None    |
-| `port`    | `port`     | `SYNNAX_PORT`            | `9090`  |
-| `api_key` | `apiKey`   | `SYNNAX_API_KEY`         | None    |
-| `secure`  |            | `SYNNAX_SECURE`          | False   |
-|           | `insecure` | `SYNNAX_CLIENT_INSECURE` | False   |
-| `ca_cert` | `caCert`   | `SYNNAX_CA_CERT`         | None    |
+| Python    | TypeScript | Default |
+| --------- | ---------- | ------- |
+| `host`    | `host`     | None    |
+| `port`    | `port`     | `9090`  |
+| `api_key` | `apiKey`   | None    |
+| `secure`  |            | False   |
+|           | `insecure` | False   |
+| `ca_cert` | `caCert`   | None    |
 
 <Client.Tabs exclude={["console"]}>
 
@@ -354,13 +354,15 @@ a value that is not valid, the client raises `sy.ValidationError`.
   <Fragment slot="typescript">
 
 `insecure` and [`caCert`](#typescript-ca-cert) come as a pair from the first source that
-sets one of them: the arguments, then `SYNNAX_CLIENT_INSECURE` and `SYNNAX_CA_CERT`,
-then Synnax Desktop. An `insecure` argument with no `caCert` ignores `SYNNAX_CA_CERT`.
-`SYNNAX_CA_CERT` with `SYNNAX_CLIENT_INSECURE=true` is an error. `caCert` takes the PEM
-text, and `SYNNAX_CA_CERT` takes the path of the file. A leading `~` in the path is your
+sets one of them: the arguments, then `SYNNAX_CLIENT_INSECURE` and
+`SYNNAX_CLIENT_CA_CERT`, then Synnax Desktop. An `insecure` argument with no `caCert`
+ignores `SYNNAX_CLIENT_CA_CERT`. `SYNNAX_CLIENT_CA_CERT` with
+`SYNNAX_CLIENT_INSECURE=true` is an error. `caCert` takes the PEM text, and
+`SYNNAX_CLIENT_CA_CERT` takes the path of the file. A leading `~` in the path is your
 home directory.
 
-To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
+To keep the API key out of your code, give the host and set only
+`SYNNAX_CLIENT_API_KEY`:
 
 ```typescript
 import { Synnax } from "@synnaxlabs/client";
@@ -369,23 +371,27 @@ const client = new Synnax({ host: "core.example.com", port: 9090 });
 ```
 
 ```bash
-export SYNNAX_API_KEY=syk_...
+export SYNNAX_CLIENT_API_KEY=syk_...
 node my_script.js
 ```
 
-`secure` and `SYNNAX_SECURE` still work in 0.63 as the inverse of `insecure` and
-`SYNNAX_CLIENT_INSECURE`, and they stop working in 0.64. The client warns when it reads
-one of them. When you give both `secure` and `insecure` with values that disagree, the
-client throws `ValidationError`. When `SYNNAX_CLIENT_INSECURE` is set, the client does
-not read `SYNNAX_SECURE`, because the Core reads some `SYNNAX_` variables as its own
-flags.
+The Core reads `SYNNAX_` variables as its own flags, so the TypeScript client reads
+`SYNNAX_CLIENT_` variables. The old names, `SYNNAX_HOST`, `SYNNAX_PORT`,
+`SYNNAX_API_KEY`, `SYNNAX_CA_CERT`, and `SYNNAX_SECURE` (the inverse of
+`SYNNAX_CLIENT_INSECURE`), still work in 0.63, and they stop working in 0.64. The client
+reads an old name only when its new name is unset, and then warns. When the new name is
+set, the client does not read the old one, so a shell can keep it for a Core.
 
-The client does not read `SYNNAX_API_KEY` when you give a username, a password, or a
-token. With no host from the argument or `SYNNAX_HOST`, the client fills the options
-that are still missing from [Synnax Desktop](#connect-to-synnax-desktop). When no source
-gives a host, when `SYNNAX_PORT` or `SYNNAX_CLIENT_INSECURE` has a value that is not
-valid, or when the file of `SYNNAX_CA_CERT` is missing, empty, or not PEM text, the
-constructor throws `ValidationError`.
+`secure` still works in 0.63 as the inverse of `insecure`, with a warning. When you give
+both `secure` and `insecure` with values that disagree, the client throws
+`ValidationError`.
+
+The client does not read `SYNNAX_CLIENT_API_KEY` when you give a username, a password,
+or a token. With no host from the argument or `SYNNAX_CLIENT_HOST`, the client fills the
+options that are still missing from [Synnax Desktop](#connect-to-synnax-desktop). When
+no source gives a host, when `SYNNAX_CLIENT_PORT` or `SYNNAX_CLIENT_INSECURE` has a
+value that is not valid, or when the file of `SYNNAX_CLIENT_CA_CERT` is missing, empty,
+or not PEM text, the constructor throws `ValidationError`.
 
 The client reads the variables in Node.js, Deno, and Bun. A browser has no environment
 variables. In Deno, run the script with `--allow-env` to read the variables. Without it,
@@ -498,13 +504,13 @@ const client = new Synnax({
 ```
 
 `caCert` works in Node.js and Bun. In Deno, leave out `caCert` and give Deno the CA file
-with `--cert /path/to/ca.crt` or `DENO_CERT`. In Deno, `SYNNAX_CA_CERT` turns on TLS,
-but the client does not read the file. Set `DENO_CERT` to the same file. Deno does not
-expand `~`, so give both variables an absolute path:
+with `--cert /path/to/ca.crt` or `DENO_CERT`. In Deno, `SYNNAX_CLIENT_CA_CERT` turns on
+TLS, but the client does not read the file. Set `DENO_CERT` to the same file. Deno does
+not expand `~`, so give both variables an absolute path:
 
 ```bash
-export SYNNAX_CA_CERT="$HOME/ca.crt"
-export DENO_CERT="$SYNNAX_CA_CERT"
+export SYNNAX_CLIENT_CA_CERT="$HOME/ca.crt"
+export DENO_CERT="$SYNNAX_CLIENT_CA_CERT"
 ```
 
 A browser cannot use `caCert`.
@@ -743,19 +749,19 @@ A Node.js script does not exit until you close the client.
 <Field.List>
 
 <Field.Item name="host" id="typescript-host" type="string">
-  The hostname or IP address of the Core. The default is `SYNNAX_HOST`, then [Synnax
-  Desktop](#connect-to-synnax-desktop). See [Connect with environment
+  The hostname or IP address of the Core. The default is `SYNNAX_CLIENT_HOST`, then
+  [Synnax Desktop](#connect-to-synnax-desktop). See [Connect with environment
   variables](#connect-with-environment-variables).
 </Field.Item>
 
 <Field.Item name="port" id="typescript-port" type="number | string">
-  The port of the Core. The default is `SYNNAX_PORT`, then the port of Synnax Desktop
-  when it gives the host, then `9090`.
+  The port of the Core. The default is `SYNNAX_CLIENT_PORT`, then the port of Synnax
+  Desktop when it gives the host, then `9090`.
 </Field.Item>
 
 <Field.Item name="apiKey" id="typescript-api-key" type="string">
-  The API key to log in with. The default is `SYNNAX_API_KEY`, then the key of Synnax
-  Desktop when it gives the host. See [Connect with an API
+  The API key to log in with. The default is `SYNNAX_CLIENT_API_KEY`, then the key of
+  Synnax Desktop when it gives the host. See [Connect with an API
   key](#connect-with-an-api-key).
 </Field.Item>
 
@@ -798,8 +804,8 @@ A Node.js script does not exit until you close the client.
   Connect without TLS. Set it to `true` for a Core that runs with `--insecure`. With
   [`caCert`](#typescript-ca-cert), the default is `false`, and the client does not read
   `SYNNAX_CLIENT_INSECURE` or Synnax Desktop. Without it, the default is
-  `SYNNAX_CLIENT_INSECURE` (`false` with `SYNNAX_CA_CERT`), then the value of Synnax
-  Desktop when it gives the host, then `false`.
+  `SYNNAX_CLIENT_INSECURE` (`false` with `SYNNAX_CLIENT_CA_CERT`), then the value of
+  Synnax Desktop when it gives the host, then `false`.
 </Field.Item>
 
 <Field.Item name="secure" id="typescript-secure" type="boolean">
@@ -812,8 +818,8 @@ A Node.js script does not exit until you close the client.
   The PEM text of the CA certificate that signs the certificate of the Core. With
   `caCert` and `insecure` set to true, the client throws an error. The client also
   trusts the default CA certificates of the runtime. With no `caCert` and no `insecure`,
-  the default is the text of the file at `SYNNAX_CA_CERT`. Node.js and Bun only. In
-  Deno, use `--cert` or `DENO_CERT`.
+  the default is the text of the file at `SYNNAX_CLIENT_CA_CERT`. Node.js and Bun only.
+  In Deno, use `--cert` or `DENO_CERT`.
 </Field.Item>
 
 <Field.Item

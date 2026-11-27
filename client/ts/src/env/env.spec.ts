@@ -13,15 +13,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { env } from "@/env";
 import { ValidationError } from "@/index";
 
 const ENV = {
-  SYNNAX_HOST: "core.env",
-  SYNNAX_PORT: "9091",
-  SYNNAX_API_KEY: "syk_env",
+  SYNNAX_CLIENT_HOST: "core.env",
+  SYNNAX_CLIENT_PORT: "9091",
+  SYNNAX_CLIENT_API_KEY: "syk_env",
   SYNNAX_CLIENT_INSECURE: "false",
 };
 
@@ -71,28 +71,28 @@ describe("resolveParams", () => {
     [
       "the defaults fill last",
       {},
-      { SYNNAX_HOST: "core.env" },
+      { SYNNAX_CLIENT_HOST: "core.env" },
       { host: "core.env", port: 9090, apiKey: undefined, insecure: false },
     ],
     [
       "an empty host is unset",
       { host: "" },
-      { SYNNAX_HOST: "core.env" },
+      { SYNNAX_CLIENT_HOST: "core.env" },
       { host: "core.env", port: 9090, apiKey: undefined, insecure: false },
     ],
     [
       "values are trimmed, and an empty value is unset",
       {},
       {
-        SYNNAX_HOST: " core.env\n",
-        SYNNAX_PORT: "",
-        SYNNAX_API_KEY: "syk_env\n",
+        SYNNAX_CLIENT_HOST: " core.env\n",
+        SYNNAX_CLIENT_PORT: "",
+        SYNNAX_CLIENT_API_KEY: "syk_env\n",
         SYNNAX_CLIENT_INSECURE: " ",
       },
       { host: "core.env", port: 9090, apiKey: "syk_env", insecure: false },
     ],
     [
-      "credentials in the params keep SYNNAX_API_KEY out",
+      "credentials in the params keep SYNNAX_CLIENT_API_KEY out",
       { username: "u", password: "p" },
       ENV,
       {
@@ -105,13 +105,13 @@ describe("resolveParams", () => {
       },
     ],
     [
-      "a token in the params keeps SYNNAX_API_KEY out",
+      "a token in the params keeps SYNNAX_CLIENT_API_KEY out",
       { host: "rig", token: "t" },
       ENV,
       { host: "rig", port: 9091, token: "t", apiKey: undefined, insecure: false },
     ],
     [
-      "an OpenID Connect code in the params keeps SYNNAX_API_KEY out",
+      "an OpenID Connect code in the params keeps SYNNAX_CLIENT_API_KEY out",
       { host: "rig", oidc: CODE },
       ENV,
       { host: "rig", port: 9091, oidc: CODE, apiKey: undefined, insecure: false },
@@ -164,6 +164,54 @@ describe("resolveParams", () => {
     warn.mockRestore();
   });
 
+  describe("deprecated variable names", () => {
+    const resolve = (vars: env.Env) =>
+      env.resolveParams({ username: "u", password: "p" }, vars);
+
+    it.each<[string, env.Env, Partial<ReturnType<typeof resolve>>]>([
+      ["SYNNAX_HOST", { SYNNAX_HOST: "old" }, { host: "old" }],
+      ["SYNNAX_PORT", { SYNNAX_CLIENT_HOST: "h", SYNNAX_PORT: "9092" }, { port: 9092 }],
+    ])("should read %s alone with a warning", (name, vars, expected) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      expect(resolve(vars)).toMatchObject(expected);
+      expect(warn).toHaveBeenCalledExactlyOnceWith(
+        `${name} is deprecated and goes in 0.64. Use SYNNAX_CLIENT_${name.slice(7)}.`,
+      );
+      warn.mockRestore();
+    });
+
+    it("should read SYNNAX_API_KEY alone with a warning", () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const vars = { SYNNAX_CLIENT_HOST: "h", SYNNAX_API_KEY: "syk_old" };
+      expect(env.resolveParams({}, vars).apiKey).toBe("syk_old");
+      expect(warn).toHaveBeenCalledOnce();
+      warn.mockRestore();
+    });
+
+    it.each<[string, env.Env, Partial<ReturnType<typeof resolve>>]>([
+      [
+        "SYNNAX_HOST",
+        { SYNNAX_CLIENT_HOST: "new", SYNNAX_HOST: "old" },
+        { host: "new" },
+      ],
+      [
+        "SYNNAX_PORT",
+        { SYNNAX_CLIENT_HOST: "h", SYNNAX_CLIENT_PORT: "9093", SYNNAX_PORT: "9092" },
+        { port: 9093 },
+      ],
+      [
+        "SYNNAX_PORT that is not valid",
+        { SYNNAX_CLIENT_HOST: "h", SYNNAX_CLIENT_PORT: "9093", SYNNAX_PORT: "abc" },
+        { port: 9093 },
+      ],
+    ])("should ignore %s when its new name is set", (_, vars, expected) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      expect(resolve(vars)).toMatchObject(expected);
+      expect(warn).not.toHaveBeenCalled();
+      warn.mockRestore();
+    });
+  });
+
   it.each<[string, env.Given, env.Env, boolean]>([
     [
       "secure next to an agreeing insecure",
@@ -209,11 +257,23 @@ describe("resolveParams", () => {
   });
 
   it.each<[env.Given, env.Env, string]>([
-    [{}, {}, "give a host, or set SYNNAX_HOST"],
-    [{ apiKey: "k" }, { SYNNAX_HOST: " " }, "give a host, or set SYNNAX_HOST"],
-    [{ host: "rig" }, { SYNNAX_PORT: "abc" }, "SYNNAX_PORT must be a port"],
-    [{ host: "rig" }, { SYNNAX_PORT: "0" }, "SYNNAX_PORT must be a port"],
-    [{ host: "rig" }, { SYNNAX_PORT: "65536" }, "SYNNAX_PORT must be a port"],
+    [{}, {}, "give a host, or set SYNNAX_CLIENT_HOST"],
+    [
+      { apiKey: "k" },
+      { SYNNAX_CLIENT_HOST: " " },
+      "give a host, or set SYNNAX_CLIENT_HOST",
+    ],
+    [
+      { host: "rig" },
+      { SYNNAX_CLIENT_PORT: "abc" },
+      "SYNNAX_CLIENT_PORT must be a port",
+    ],
+    [{ host: "rig" }, { SYNNAX_CLIENT_PORT: "0" }, "SYNNAX_CLIENT_PORT must be a port"],
+    [
+      { host: "rig" },
+      { SYNNAX_CLIENT_PORT: "65536" },
+      "SYNNAX_CLIENT_PORT must be a port",
+    ],
     [
       { host: "rig" },
       { SYNNAX_CLIENT_INSECURE: "maybe" },
@@ -288,7 +348,7 @@ describe("resolveParams with Synnax Desktop", () => {
 
   it("should let the params and variables win over Synnax Desktop", () => {
     const system = desktop();
-    const vars = { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_API_KEY: "syk_env" };
+    const vars = { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CLIENT_API_KEY: "syk_env" };
     expect(env.resolveParams({ port: 80 }, vars, system)).toEqual({
       host: "localhost",
       port: 80,
@@ -360,14 +420,14 @@ describe("resolveParams with Synnax Desktop", () => {
   it("should not name Synnax Desktop when there is no file", () => {
     const error = thrown(desktop(null));
     expect(error).toBeInstanceOf(ValidationError);
-    expect(error).toHaveProperty("message", "give a host, or set SYNNAX_HOST");
+    expect(error).toHaveProperty("message", "give a host, or set SYNNAX_CLIENT_HOST");
   });
 
   it("should not name Synnax Desktop when Deno cannot read the file", () => {
     const cause = notCapable();
     const error = thrown(reading(cause));
     expect(error).toBeInstanceOf(ValidationError);
-    expect(error).toHaveProperty("message", "give a host, or set SYNNAX_HOST");
+    expect(error).toHaveProperty("message", "give a host, or set SYNNAX_CLIENT_HOST");
     expect(error).toHaveProperty("cause", cause);
   });
 
@@ -696,7 +756,7 @@ const files = (map: Record<string, string>): env.System => ({
   run: async () => null,
 });
 
-describe("resolveParams with SYNNAX_CA_CERT", () => {
+describe("resolveParams with SYNNAX_CLIENT_CA_CERT", () => {
   const system = files({
     "~/ca.pem": PEM,
     "/empty.pem": " \n",
@@ -704,7 +764,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   });
 
   it("should turn on TLS with the PEM text of the file", () => {
-    const vars = { SYNNAX_CA_CERT: " ~/ca.pem\n" };
+    const vars = { SYNNAX_CLIENT_CA_CERT: " ~/ca.pem\n" };
     expect(env.resolveParams({ host: "rig" }, vars, system)).toMatchObject({
       insecure: false,
       caCert: PEM,
@@ -712,15 +772,43 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   });
 
   it("should take SYNNAX_CLIENT_INSECURE=false with the file", () => {
-    const vars = { SYNNAX_CLIENT_INSECURE: "false", SYNNAX_CA_CERT: "~/ca.pem" };
+    const vars = { SYNNAX_CLIENT_INSECURE: "false", SYNNAX_CLIENT_CA_CERT: "~/ca.pem" };
     expect(env.resolveParams({ host: "rig" }, vars, system)).toMatchObject({
       insecure: false,
       caCert: PEM,
     });
   });
 
+  it("should read SYNNAX_CA_CERT alone with a warning", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const vars = { SYNNAX_CA_CERT: "~/ca.pem" };
+    expect(env.resolveParams({ host: "rig" }, vars, system).caCert).toBe(PEM);
+    expect(warn).toHaveBeenCalledExactlyOnceWith(
+      "SYNNAX_CA_CERT is deprecated and goes in 0.64. Use SYNNAX_CLIENT_CA_CERT.",
+    );
+    warn.mockRestore();
+  });
+
+  it("should ignore SYNNAX_CA_CERT when SYNNAX_CLIENT_CA_CERT is set", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // The Core reads SYNNAX_CA_CERT as its own --ca-cert, relative to its certs folder.
+    const vars = { SYNNAX_CLIENT_CA_CERT: "~/ca.pem", SYNNAX_CA_CERT: "ca.crt" };
+    expect(env.resolveParams({ host: "rig" }, vars, system).caCert).toBe(PEM);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("should name SYNNAX_CA_CERT in the error for its file", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const vars = { SYNNAX_CA_CERT: "/empty.pem" };
+    expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(
+      'SYNNAX_CA_CERT names "/empty.pem", which is empty',
+    );
+    vi.restoreAllMocks();
+  });
+
   it("should take caCert in the params over the variable", () => {
-    const vars = { SYNNAX_CA_CERT: "/missing.pem" };
+    const vars = { SYNNAX_CLIENT_CA_CERT: "/missing.pem" };
     expect(
       env.resolveParams({ host: "rig", caCert: "pem" }, vars, system),
     ).toMatchObject({
@@ -730,7 +818,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
   });
 
   it("should ignore the variable when the params give insecure true", () => {
-    const vars = { SYNNAX_CA_CERT: "/missing.pem" };
+    const vars = { SYNNAX_CLIENT_CA_CERT: "/missing.pem" };
     const resolved = env.resolveParams({ host: "rig", insecure: true }, vars, system);
     expect(resolved.insecure).toBe(true);
     expect(resolved.caCert).toBeUndefined();
@@ -744,7 +832,9 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
         path === "~/ca.pem" ? PEM : JSON.stringify({ ...DESKTOP_FILE, insecure: true }),
       run: async () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
     };
-    expect(env.resolveParams({}, { SYNNAX_CA_CERT: "~/ca.pem" }, system)).toEqual({
+    expect(
+      env.resolveParams({}, { SYNNAX_CLIENT_CA_CERT: "~/ca.pem" }, system),
+    ).toEqual({
       host: "localhost",
       port: 9095,
       loadAPIKey: expect.any(Function),
@@ -753,36 +843,104 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     });
   });
 
-  it.each<[string, env.Env, env.System | undefined, string]>([
-    [
-      "SYNNAX_CLIENT_INSECURE is true",
-      { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" },
+  it.each<[string, string, env.Env]>([
+    ["SYNNAX_CLIENT_INSECURE", "~/ca.pem", { SYNNAX_CLIENT_INSECURE: "true" }],
+    ["SYNNAX_SECURE", "~/ca.pem", { SYNNAX_SECURE: "false" }],
+    ["SYNNAX_CLIENT_INSECURE", "/missing.pem", { SYNNAX_CLIENT_INSECURE: "true" }],
+  ])("should ignore SYNNAX_CA_CERT when %s is insecure, for %s", (_, path, vars) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
+    const resolved = env.resolveParams(
+      { host: "rig" },
+      { ...vars, SYNNAX_CA_CERT: path },
       system,
-      "SYNNAX_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out",
+    );
+    expect(resolved.insecure).toBe(true);
+    expect(resolved.caCert).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(
+      "SYNNAX_CA_CERT is deprecated and goes in 0.64. Use SYNNAX_CLIENT_CA_CERT. The " +
+        "client is insecure, so it ignores SYNNAX_CA_CERT.",
+    );
+  });
+
+  it("should ignore SYNNAX_CA_CERT when Synnax Desktop is insecure", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      warn.mockRestore();
+    });
+    const desktop: env.System = {
+      platform: "linux",
+      modified: () => 0,
+      readFile: () => JSON.stringify({ ...DESKTOP_FILE, insecure: true }),
+      run: async () => ({ status: 0, stdout: "syk_desktop\n", stderr: "" }),
+    };
+    const resolved = env.resolveParams({}, { SYNNAX_CA_CERT: "ca.crt" }, desktop);
+    expect(resolved.insecure).toBe(true);
+    expect(resolved.caCert).toBeUndefined();
+  });
+
+  it("should keep caCert in the params with insecure true", () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    const vars = { SYNNAX_CA_CERT: "~/ca.pem" };
+    const params = { host: "rig", insecure: true, caCert: "pem" };
+    expect(env.resolveParams(params, vars, system)).toMatchObject({
+      insecure: true,
+      caCert: "pem",
+    });
+  });
+
+  it.each<[string, env.Env, string]>([
+    [
+      "the new names",
+      { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CLIENT_CA_CERT: "~/ca.pem" },
+      "SYNNAX_CLIENT_CA_CERT requires TLS; leave SYNNAX_CLIENT_INSECURE out or set it " +
+        "to false",
     ],
     [
+      "an old insecure name and a new CA name",
+      { SYNNAX_SECURE: "false", SYNNAX_CLIENT_CA_CERT: "~/ca.pem" },
+      "SYNNAX_CLIENT_CA_CERT requires TLS; leave SYNNAX_SECURE out or set it to true",
+    ],
+  ])("should name the variables it read when TLS is off with %s", (_, vars, msg) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    onTestFinished(() => {
+      vi.restoreAllMocks();
+    });
+    expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(
+      ValidationError,
+    );
+    expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(msg);
+  });
+
+  it.each<[string, env.Env, env.System | undefined, string]>([
+    [
       "the file does not exist",
-      { SYNNAX_CA_CERT: "/missing.pem" },
+      { SYNNAX_CLIENT_CA_CERT: "/missing.pem" },
       system,
-      'SYNNAX_CA_CERT names "/missing.pem", which does not exist',
+      'SYNNAX_CLIENT_CA_CERT names "/missing.pem", which does not exist',
     ],
     [
       "the file is empty",
-      { SYNNAX_CA_CERT: "/empty.pem" },
+      { SYNNAX_CLIENT_CA_CERT: "/empty.pem" },
       system,
-      'SYNNAX_CA_CERT names "/empty.pem", which is empty',
+      'SYNNAX_CLIENT_CA_CERT names "/empty.pem", which is empty',
     ],
     [
       "the file is not PEM text",
-      { SYNNAX_CA_CERT: "/ca.der" },
+      { SYNNAX_CLIENT_CA_CERT: "/ca.der" },
       system,
-      'SYNNAX_CA_CERT names "/ca.der", which is not PEM text',
+      'SYNNAX_CLIENT_CA_CERT names "/ca.der", which is not PEM text',
     ],
     [
       "the runtime has no file access",
-      { SYNNAX_CA_CERT: "~/ca.pem" },
+      { SYNNAX_CLIENT_CA_CERT: "~/ca.pem" },
       undefined,
-      'Cannot read SYNNAX_CA_CERT file "~/ca.pem": this runtime has no file access',
+      'Cannot read SYNNAX_CLIENT_CA_CERT file "~/ca.pem": this runtime has no file access',
     ],
   ])("should reject when %s", (_, vars, system, message) => {
     expect(() => env.resolveParams({ host: "rig" }, vars, system)).toThrow(
@@ -801,7 +959,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     };
     const resolved = env.resolveParams(
       { host: "rig" },
-      { SYNNAX_CA_CERT: "~/ca.pem" },
+      { SYNNAX_CLIENT_CA_CERT: "~/ca.pem" },
       deno,
     );
     expect(resolved.insecure).toBe(false);
@@ -811,9 +969,9 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
 
   it("should reject SYNNAX_CLIENT_INSECURE true when the CA is unsupported", () => {
     const deno: env.System = { ...system, caCertUnsupported: true };
-    const vars = { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CA_CERT: "~/ca.pem" };
+    const vars = { SYNNAX_CLIENT_INSECURE: "true", SYNNAX_CLIENT_CA_CERT: "~/ca.pem" };
     expect(() => env.resolveParams({ host: "rig" }, vars, deno)).toThrow(
-      "SYNNAX_CA_CERT requires TLS",
+      "SYNNAX_CLIENT_CA_CERT requires TLS",
     );
   });
 
@@ -829,14 +987,14 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
     };
     let error: unknown;
     try {
-      env.resolveParams({ host: "rig" }, { SYNNAX_CA_CERT: "/ca.pem" }, system);
+      env.resolveParams({ host: "rig" }, { SYNNAX_CLIENT_CA_CERT: "/ca.pem" }, system);
     } catch (e) {
       error = e;
     }
     expect(error).toBeInstanceOf(ValidationError);
     expect(error).toHaveProperty(
       "message",
-      'Cannot read SYNNAX_CA_CERT file "/ca.pem": Requires env access',
+      'Cannot read SYNNAX_CLIENT_CA_CERT file "/ca.pem": Requires env access',
     );
     expect(error).toHaveProperty("cause", cause);
   });
@@ -847,7 +1005,7 @@ describe("resolveParams with SYNNAX_CA_CERT", () => {
       vi.stubEnv("HOME", home);
       try {
         writeFileSync(join(home, "ca.pem"), PEM);
-        const vars = { SYNNAX_CA_CERT: "~/ca.pem" };
+        const vars = { SYNNAX_CLIENT_CA_CERT: "~/ca.pem" };
         expect(
           env.resolveParams({ host: "rig" }, vars, env.nodeSystem()).caCert,
         ).toEqual(PEM);

@@ -164,10 +164,11 @@ interface ClientParams extends Omit<
 }
 
 /**
- * The parameters of the client constructor. The SYNNAX_HOST, SYNNAX_PORT,
- * SYNNAX_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT environment variables fill
- * the fields left out, and so does the deprecated SYNNAX_SECURE. With no host from
- * either, Synnax Desktop on this computer fills them.
+ * The parameters of the client constructor. The SYNNAX_CLIENT_HOST, SYNNAX_CLIENT_PORT,
+ * SYNNAX_CLIENT_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CLIENT_CA_CERT environment
+ * variables fill the fields left out, and so do their deprecated names without
+ * SYNNAX_CLIENT_ (with SYNNAX_SECURE for SYNNAX_CLIENT_INSECURE) when the new name is
+ * unset. With no host from either, Synnax Desktop on this computer fills them.
  */
 export interface ConstructorParams extends Omit<SynnaxParams, "host" | "port"> {
   host?: string;
@@ -310,15 +311,17 @@ export default class Synnax extends framer.Client {
   readonly clientVersion: string = __VERSION__;
 
   /**
-   * @param props.host - Hostname of a node in the cluster. Defaults to SYNNAX_HOST,
-   * then the Core of Synnax Desktop on this computer.
-   * @param props.port - Port of the node in the cluster. Defaults to SYNNAX_PORT, then
-   * the port of Synnax Desktop when it gives the host, then 9090.
+   * @param props.host - Hostname of a node in the cluster. Defaults to
+   * SYNNAX_CLIENT_HOST, then the Core of Synnax Desktop on this computer.
+   * @param props.port - Port of the node in the cluster. Defaults to
+   * SYNNAX_CLIENT_PORT, then the port of Synnax Desktop when it gives the host, then
+   * 9090.
    * @param props.username - Username for authentication, with props.password.
    * @param props.password - Password for authentication, with props.username.
    * @param props.apiKey - API key for authentication, in place of a username and
-   * password. Defaults to SYNNAX_API_KEY, then the key of Synnax Desktop when it gives
-   * the host. Used only when no credentials, token, or OpenID Connect code are given.
+   * password. Defaults to SYNNAX_CLIENT_API_KEY, then the key of Synnax Desktop when it
+   * gives the host. Used only when no credentials, token, or OpenID Connect code are
+   * given.
    * @param props.oidc - An OpenID Connect authorization code to log in with once. Later
    * logins resume the session it opened.
    * @param props.token - The token of an earlier login to resume instead.
@@ -330,26 +333,25 @@ export default class Synnax extends framer.Client {
    * healthy. Defaults to 30 seconds.
    * @param props.insecure - Whether to connect without TLS. Set it to true for a Core
    * that runs with --insecure. Defaults to false with props.caCert, else to
-   * SYNNAX_CLIENT_INSECURE (false with SYNNAX_CA_CERT), then the value of Synnax
+   * SYNNAX_CLIENT_INSECURE (false with SYNNAX_CLIENT_CA_CERT), then the value of Synnax
    * Desktop when it gives the host, then false.
    * @param props.secure - Deprecated, and removed in 0.64: the opposite of
    * props.insecure. Alone, it logs a warning; it throws if props.insecure disagrees.
-   * SYNNAX_SECURE logs a warning, and applies only when SYNNAX_CLIENT_INSECURE is
-   * unset. A Synnax client must be closed when it is no longer needed. This stops the
+   * The deprecated variables log a warning, and apply only when the new name is unset.
+   * A Synnax client must be closed when it is no longer needed. This stops the
    * connection machine and closes the change stream.
    * @param props.caCert - The PEM text of a CA certificate that signs the Core's
    * certificate. When props.insecure and props.caCert are both left out, defaults to
-   * the text of the file at SYNNAX_CA_CERT, except in Deno, where TLS trusts the store
-   * that --cert or DENO_CERT fills.
-   * The key helper of Synnax Desktop runs before the first login. If it is gone or
-   * fails, that login rejects with an APIKeyUnavailableError, and the connection status
-   * gives the reason "auth".
+   * the text of the file at SYNNAX_CLIENT_CA_CERT, except in Deno, where TLS trusts the
+   * store that --cert or DENO_CERT fills. The key helper of Synnax Desktop runs before
+   * the first login. If it is gone or fails, that login rejects with an
+   * APIKeyUnavailableError, and the connection status gives the reason "auth".
    * @throws {ValidationError} If no host is given, set, or saved by Synnax Desktop, if
-   * SYNNAX_PORT, SYNNAX_CLIENT_INSECURE, or the SYNNAX_SECURE it reads is not valid, if
-   * insecure and secure disagree, if SYNNAX_CA_CERT is set with SYNNAX_CLIENT_INSECURE
-   * true, if the SYNNAX_CA_CERT file is missing, empty, not PEM text, or cannot be
-   * read, if the desktop.json of Synnax Desktop cannot be read, or if Synnax Desktop is
-   * too old.
+   * SYNNAX_CLIENT_PORT, SYNNAX_CLIENT_INSECURE, or a deprecated name it reads is not
+   * valid, if insecure and secure disagree, if SYNNAX_CLIENT_CA_CERT is set with
+   * SYNNAX_CLIENT_INSECURE true, if the SYNNAX_CLIENT_CA_CERT file is missing, empty,
+   * not PEM text, or cannot be read, if the desktop.json of Synnax Desktop cannot be
+   * read, or if Synnax Desktop is too old.
    * @throws {Error} if props.caCert is set with props.insecure true, in a browser, or
    * in Deno.
    * @throws {Error} in Node, if HTTP_PROXY or HTTPS_PROXY is set to a value that is not
