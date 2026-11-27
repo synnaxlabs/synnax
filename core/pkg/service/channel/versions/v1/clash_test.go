@@ -21,6 +21,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -259,7 +260,7 @@ var _ = Describe("NewClashMigration", func() {
 		It("Should write the new name of a renamed channel into a calculation",
 			func(ctx SpecContext) {
 				calc := channel(2, "doubled", nil)
-				calc.Expression = "return Metrics * 2 // Metrics"
+				calc.Expression = "// Metrics\nreturn Metrics * 2"
 				migrate(
 					ctx,
 					text,
@@ -268,7 +269,30 @@ var _ = Describe("NewClashMigration", func() {
 				)
 				Expect(
 					expressionOf(ctx, 2),
-				).To(Equal("return Metrics_2 * 2 // Metrics"))
+				).To(Equal("// Metrics\nreturn Metrics_2 * 2"))
+				Expect(resource.StagedTextSites(db)).To(BeEmpty())
+			})
+
+		It("Should leave a calculation that a v0.62 Core could not parse, and stage it",
+			func(ctx SpecContext) {
+				// A v0.62 Core wrapped the expression in braces, so the comment hides
+				// the closing one.
+				calc := channel(2, "doubled", nil)
+				calc.Expression = "return Metrics * 2 // Metrics"
+				migrate(
+					ctx,
+					text,
+					[]v1.Channel{channel(1, groupv1.MetricsFolder, nil), calc},
+					folder(first, groupv1.MetricsFolder, nil),
+				)
+				Expect(expressionOf(ctx, 2)).To(Equal(calc.Expression))
+				Expect(resource.StagedTextSites(db)).To(ConsistOf(resource.TextSite{
+					Holder:  calc.ResourceID(),
+					Name:    groupv1.MetricsFolder,
+					NewName: "Metrics_2",
+					Line:    1,
+					Column:  7,
+				}))
 			})
 
 		It("Should leave a name that a channel still holds", func(ctx SpecContext) {
@@ -291,6 +315,13 @@ var _ = Describe("TextRename", func() {
 	id := func(key v1.Key) resource.ID {
 		return resource.ID{Type: resource.TypeChannel, Key: key.String()}
 	}
+	named := func(names map[v1.Key]string) map[v1.Key]v1.TextChannel {
+		channels := make(map[v1.Key]v1.TextChannel, len(names))
+		for k, n := range names {
+			channels[k] = v1.TextChannel{Name: n, DataType: telem.Float32T}
+		}
+		return channels
+	}
 	stage := func(ctx SpecContext, renames ...resource.Rename) {
 		GinkgoHelper()
 		for _, r := range renames {
@@ -308,12 +339,12 @@ var _ = Describe("TextRename", func() {
 			)
 			rename := MustSucceed(v1.TextRename(
 				db,
-				map[v1.Key]string{3: "Metrics_2", 7: "Metrics_3", 9: "pt"},
+				named(map[v1.Key]string{3: "Metrics_2", 7: "Metrics_3", 9: "pt"}),
 			))
-			to, ok := rename("Metrics")
+			to, ok := rename.Rename("Metrics")
 			Expect(ok).To(BeTrue())
 			Expect(to).To(Equal("Metrics_3"))
-			_, ok = rename("pt")
+			_, ok = rename.Rename("pt")
 			Expect(ok).To(BeFalse())
 		})
 
@@ -323,9 +354,9 @@ var _ = Describe("TextRename", func() {
 		stage(ctx, resource.Rename{ID: id(3), From: "Metrics"})
 		rename := MustSucceed(v1.TextRename(
 			db,
-			map[v1.Key]string{3: "Metrics_2", 7: "Metrics"},
+			named(map[v1.Key]string{3: "Metrics_2", 7: "Metrics"}),
 		))
-		_, ok := rename("Metrics")
+		_, ok := rename.Rename("Metrics")
 		Expect(ok).To(BeFalse())
 	})
 
@@ -336,12 +367,12 @@ var _ = Describe("TextRename", func() {
 			stage(ctx, resource.Rename{ID: id(3), From: "cafe\u0301"})
 			rename := MustSucceed(v1.TextRename(
 				db,
-				map[v1.Key]string{3: "cafe_2", 7: "café"},
+				named(map[v1.Key]string{3: "cafe_2", 7: "café"}),
 			))
-			to, ok := rename("cafe\u0301")
+			to, ok := rename.Rename("cafe\u0301")
 			Expect(ok).To(BeTrue())
 			Expect(to).To(Equal("cafe_2"))
-			_, ok = rename("café")
+			_, ok = rename.Rename("café")
 			Expect(ok).To(BeFalse())
 		})
 
@@ -350,20 +381,20 @@ var _ = Describe("TextRename", func() {
 			ID:   resource.ID{Type: resource.TypeGroup, Key: uuid.New().String()},
 			From: "Rigs",
 		})
-		rename := MustSucceed(v1.TextRename(db, map[v1.Key]string{3: "pt"}))
-		_, ok := rename("Rigs")
+		rename := MustSucceed(v1.TextRename(db, named(map[v1.Key]string{3: "pt"})))
+		_, ok := rename.Rename("Rigs")
 		Expect(ok).To(BeFalse())
 	})
 
 	It("Should return no rename when the upgrade staged none", func() {
-		Expect(v1.TextRename(db, map[v1.Key]string{3: "pt"})).To(BeNil())
+		Expect(v1.TextRename(db, named(map[v1.Key]string{3: "pt"}))).To(BeNil())
 	})
 
 	It("Should fail on a staged rename of a channel that has no record", func(
 		ctx SpecContext,
 	) {
 		stage(ctx, resource.Rename{ID: id(3), From: "pt"})
-		Expect(v1.TextRename(db, map[v1.Key]string{})).Error().
+		Expect(v1.TextRename(db, named(map[v1.Key]string{}))).Error().
 			To(MatchError(ContainSubstring("names no record")))
 	})
 })
