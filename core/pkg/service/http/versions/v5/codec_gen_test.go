@@ -61,7 +61,7 @@ var _ = Describe("Codec", func() {
 									{
 										Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"),
 										Channel:  channel.Key(25),
-										DataType: telem.DataType("test_25"),
+										DataType: new(telem.DataType("test_25")),
 									},
 								},
 							},
@@ -118,7 +118,7 @@ var _ = Describe("Codec", func() {
 							{
 								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 								Channel:  channel.Key(19),
-								DataType: telem.DataType("test_19"),
+								DataType: new(telem.DataType("test_19")),
 							},
 						},
 					},
@@ -285,7 +285,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 							{
 								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"),
 								Channel:  channel.Key(25),
-								DataType: telem.DataType("test_25"),
+								DataType: new(telem.DataType("test_25")),
 							},
 						},
 					},
@@ -327,7 +327,7 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 					{
 						Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 						Channel:  channel.Key(19),
-						DataType: telem.DataType("test_19"),
+						DataType: new(telem.DataType("test_19")),
 					},
 				},
 			},
@@ -455,7 +455,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 								{
 									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567817"),
 									Channel:  channel.Key(25),
-									DataType: telem.DataType("test_25"),
+									DataType: new(telem.DataType("test_25")),
 								},
 							},
 						},
@@ -543,7 +543,7 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 						{
 							Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
 							Channel:  channel.Key(19),
-							DataType: telem.DataType("test_19"),
+							DataType: new(telem.DataType("test_19")),
 						},
 					},
 				},

@@ -21,6 +21,7 @@ import (
 	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	icdv1 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/mqtt/versions/v3"
 	"github.com/synnaxlabs/x/content"
 )
 
@@ -53,7 +54,7 @@ func (r readResolver) resolve(
 	name string,
 	cfg *ReadConfig,
 ) (func(context.Context, gorp.Tx) error, error) {
-	staged, ok, err := v2.ResolveReadConfig(
+	staged, ok, err := v3.ResolveReadConfig(
 		ctx, snap, r.channels, name, cfg, v2.NoteLift(r.ins, cfg.Key),
 	)
 	if err != nil {

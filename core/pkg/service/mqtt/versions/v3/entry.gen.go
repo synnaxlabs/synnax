@@ -13,6 +13,12 @@ package v3
 
 import "uuid"
 
+// CustomTypeName returns the name of the Gorp table that stores ReadConfig.
+func (ReadConfig) CustomTypeName() string { return "mqtt_read_config" }
+
+// GorpKey implements gorp.Entry.
+func (r ReadConfig) GorpKey() uuid.UUID { return r.Key }
+
 // CustomTypeName returns the name of the Gorp table that stores WriteConfig.
 func (WriteConfig) CustomTypeName() string { return "mqtt_write_config" }
 

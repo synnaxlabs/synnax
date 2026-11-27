@@ -137,7 +137,6 @@ const createEntry = async ({
   const bindings = Object.entries(bound).map(([field, channel]) => ({
     field,
     channel,
-    dataType: "",
   }));
   return mqtt.plainReadEntryZ.parse({
     type: "plain",
@@ -303,7 +302,7 @@ const addMessage = async (
       after: entry.messages.at(-1)?.message,
     }),
   );
-  const bindings = fields.map(({ key }) => ({ field: key, channel: 0, dataType: "" }));
+  const bindings = fields.map(({ key }) => ({ field: key, channel: 0 }));
   entry.messages.push(icd.readMessageZ.parse({ message: message.key, bindings }));
   return message;
 };
@@ -518,8 +517,8 @@ describe("MQTT read form", () => {
     });
     await waitFor(async () =>
       expect(await retrieveBindings(draft.key)).toEqual([
-        { field: temperature.key, channel: 0, dataType: "" },
-        { field: label.key, channel: 0, dataType: "" },
+        { field: temperature.key, channel: 0 },
+        { field: label.key, channel: 0 },
       ]),
     );
     expect(await retrieveEntries(draft.key)).toHaveLength(1);
@@ -1218,7 +1217,7 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect(await retrieveBindings(draft.key)).toEqual([
         messages[0].bindings[0],
-        { field: added.key, channel: 0, dataType: "" },
+        { field: added.key, channel: 0 },
       ]),
     );
   });
@@ -1357,7 +1356,7 @@ describe("MQTT read form", () => {
         plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
       ).toEqual([
         kiln.messages[0].bindings[0],
-        { field: expect.any(String), channel: 0, dataType: "" },
+        { field: expect.any(String), channel: 0 },
       ]),
     );
   });
@@ -1412,7 +1411,7 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect(
         plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
-      ).toEqual([{ field: expect.any(String), channel: flow.key, dataType: "" }]),
+      ).toEqual([{ field: expect.any(String), channel: flow.key }]),
     );
   });
 
@@ -1558,7 +1557,7 @@ describe("MQTT read form", () => {
       expect(messages).toEqual([
         {
           message: expect.any(String),
-          bindings: [{ field: expect.any(String), channel: 0, dataType: "" }],
+          bindings: [{ field: expect.any(String), channel: 0 }],
         },
       ]);
       expect((await client.icds.retrieve(entry.icd)).messages).toMatchObject([
@@ -1611,8 +1610,8 @@ describe("MQTT read form", () => {
         message: expect.any(String),
         index: time.key,
         bindings: [
-          { field: temperature.key, channel: 0, dataType: "" },
-          { field: time.key, channel: 0, dataType: "" },
+          { field: temperature.key, channel: 0 },
+          { field: time.key, channel: 0 },
         ],
       }),
     );
@@ -1622,7 +1621,7 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0]).toEqual({
         message: expect.any(String),
-        bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+        bindings: [{ field: temperature.key, channel: 0 }],
       }),
     );
     const box = await screen.findByRole("checkbox", { name: "Read time" });
@@ -2006,8 +2005,8 @@ describe("MQTT read form", () => {
       expect(copy.key).not.toBe(temperature.key);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: temperature.key, channel: ch.key, dataType: "" },
-          { field: copy.key, channel: 0, dataType: "" },
+          { field: temperature.key, channel: ch.key },
+          { field: copy.key, channel: 0 },
         ]),
       );
       await screen.findByRole("treeitem", { name: /^temperature_2/, selected: true });
@@ -2053,12 +2052,12 @@ describe("MQTT read form", () => {
           ),
         ).toEqual([
           [
-            { field: temperature.key, channel: ch.key, dataType: "" },
-            { field: copy.key, channel: 0, dataType: "" },
+            { field: temperature.key, channel: ch.key },
+            { field: copy.key, channel: 0 },
           ],
           [
-            { field: temperature.key, channel: 0, dataType: "" },
-            { field: copy.key, channel: 0, dataType: "" },
+            { field: temperature.key, channel: 0 },
+            { field: copy.key, channel: 0 },
           ],
         ]),
       );
@@ -2095,10 +2094,10 @@ describe("MQTT read form", () => {
           ),
         ).toEqual([
           [
-            { field: temperature.key, channel: ch.key, dataType: "" },
-            { field: copy.key, channel: 0, dataType: "" },
+            { field: temperature.key, channel: ch.key },
+            { field: copy.key, channel: 0 },
           ],
-          [{ field: temperature.key, channel: 0, dataType: "" }],
+          [{ field: temperature.key, channel: 0 }],
         ]),
       );
     });
@@ -2122,7 +2121,7 @@ describe("MQTT read form", () => {
         messages: [
           {
             ...original.messages[0],
-            bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+            bindings: [{ field: temperature.key, channel: 0 }],
           },
         ],
       });
@@ -2220,8 +2219,8 @@ describe("MQTT read form", () => {
             {
               message: message.key,
               bindings: [
-                { field: pressure.key, channel: 0, dataType: "" },
-                { field: mode.key, channel: 0, dataType: "" },
+                { field: pressure.key, channel: 0 },
+                { field: mode.key, channel: 0 },
               ],
             },
           ],
@@ -2394,7 +2393,6 @@ describe("MQTT read form", () => {
           expect(read.bindings).toContainEqual({
             field: pressure.key,
             channel: 0,
-            dataType: "",
           });
         });
       },
@@ -2475,7 +2473,7 @@ describe("MQTT read form", () => {
       const { ch, next, draft } = await switchTemperature("integer");
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: next.key, channel: ch.key, dataType: "" },
+          { field: next.key, channel: ch.key },
         ]),
       );
     });
@@ -2537,7 +2535,7 @@ describe("MQTT read form", () => {
       const { next, draft } = await switchTemperature("string");
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: next.key, channel: 0, dataType: "" },
+          { field: next.key, channel: 0 },
         ]),
       );
     });
@@ -2571,7 +2569,7 @@ describe("MQTT read form", () => {
       fireEvent.click(read());
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: count.key, channel: 0, dataType: "" },
+          { field: count.key, channel: 0 },
         ]),
       );
     });
@@ -2710,7 +2708,7 @@ describe("MQTT read form", () => {
       fireEvent.click(box);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: temperature.key, channel: ch.key, dataType: "" },
+          { field: temperature.key, channel: ch.key },
         ]),
       );
       await screen.findByDisplayValue(ch.name);
@@ -2740,14 +2738,12 @@ describe("MQTT read form", () => {
         expect(await retrieveBindings(draft.key)).toContainEqual({
           field: temperature.key,
           channel: ch,
-          dataType: "",
         }),
       );
       const again = await deploy(container, draft.key);
       expect(plainOf(again.config.entries[0]).messages[0].bindings).toContainEqual({
         field: temperature.key,
         channel: ch,
-        dataType: "",
       });
       expect((await retrieveStored(dev.key, firstMessage(again))).channels).toEqual(
         channels,
@@ -2767,7 +2763,7 @@ describe("MQTT read form", () => {
       fireEvent.click(await screen.findByText("Enable"));
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: temperature.key, channel: 0, dataType: "" },
+          { field: temperature.key, channel: 0 },
         ]),
       );
     });
@@ -2859,7 +2855,7 @@ describe("MQTT read form", () => {
       });
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: count.key, channel: 0, dataType: "" },
+          { field: count.key, channel: 0 },
         ]),
       );
     });
@@ -2882,7 +2878,7 @@ describe("MQTT read form", () => {
       fireEvent.blur(scale);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: count.key, channel: 0, dataType: "" },
+          { field: count.key, channel: 0 },
         ]),
       );
     });
@@ -2910,7 +2906,7 @@ describe("MQTT read form", () => {
       fireEvent.blur(scale);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: count.key, channel: 0, dataType: "" },
+          { field: count.key, channel: 0 },
         ]),
       );
     });
@@ -2937,7 +2933,7 @@ describe("MQTT read form", () => {
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).messages[0]).toEqual({
           message: entry.messages[0].message,
-          bindings: [{ field: temperature.key, channel: 0, dataType: "" }],
+          bindings: [{ field: temperature.key, channel: 0 }],
         }),
       );
     });
@@ -2951,7 +2947,7 @@ describe("MQTT read form", () => {
       await removeField(client, messageOf(entry), pressure);
       await waitFor(async () =>
         expect(await retrieveBindings(draft.key)).toEqual([
-          { field: temperature.key, channel: 0, dataType: "" },
+          { field: temperature.key, channel: 0 },
         ]),
       );
     });
@@ -3222,7 +3218,7 @@ describe("MQTT read form", () => {
     const created = await deploy(container, draft.key);
     const [first, second] = plainOf(created.config.entries[0]).messages;
     expect(first.bindings).toEqual([
-      { field: temperatureField.key, channel: temperature.key, dataType: "" },
+      { field: temperatureField.key, channel: temperature.key },
     ]);
     const moved = await client.channels.retrieve(second.bindings[0].channel);
     expect(moved.key).not.toBe(flow.key);
@@ -3447,8 +3443,8 @@ describe("MQTT read form", () => {
           message: expect.any(String),
           index: time.key,
           bindings: [
-            { field: time.key, channel: index, dataType: "" },
-            { field: temperature.key, channel: dataCh.key, dataType: "" },
+            { field: time.key, channel: index },
+            { field: temperature.key, channel: dataCh.key },
           ],
         },
       ]);
@@ -3835,9 +3831,9 @@ describe("MQTT read form", () => {
       expect(replaced.name).toBe(name);
       expect((await client.channels.retrieve(countCh.key)).name).toBe(`${name}_2`);
       expect(plainOf(created.config.entries[0]).messages[0].bindings).toEqual([
-        { field: timeField.key, channel: time.key, dataType: "" },
-        { field: temperature.key, channel: temperatureCh.key, dataType: "" },
-        { field: count.key, channel: replaced.key, dataType: "" },
+        { field: timeField.key, channel: time.key },
+        { field: temperature.key, channel: temperatureCh.key },
+        { field: count.key, channel: replaced.key },
       ]);
     });
 
@@ -3865,8 +3861,8 @@ describe("MQTT read form", () => {
       const added = await waitFor(async () => {
         const bindings = await retrieveBindings(draft.key);
         expect(bindings).toEqual([
-          { field: temperature.key, channel: ch.key, dataType: "" },
-          { field: expect.any(String), channel: 0, dataType: "" },
+          { field: temperature.key, channel: ch.key },
+          { field: expect.any(String), channel: 0 },
         ]);
         return bindings[1].field;
       });
@@ -3875,8 +3871,8 @@ describe("MQTT read form", () => {
       const { channels } = await retrieveStored(dev.key, firstMessage(draft));
       expect(channels["/temperature"]).not.toBe(ch.key);
       expect(plainOf(created.config.entries[0]).messages[0].bindings).toEqual([
-        { field: temperature.key, channel: ch.key, dataType: "" },
-        { field: added, channel: channels["/temperature"], dataType: "" },
+        { field: temperature.key, channel: ch.key },
+        { field: added, channel: channels["/temperature"] },
       ]);
     });
 
@@ -3897,8 +3893,8 @@ describe("MQTT read form", () => {
       const value = createField("value", "float");
       const status = await addMessage(entry, "status", [time, value], KIND_MATCH);
       const bindings = [
-        { field: time.key, channel: own.key, dataType: "" },
-        { field: value.key, channel: valueCh.key, dataType: "" },
+        { field: time.key, channel: own.key },
+        { field: value.key, channel: valueCh.key },
       ];
       entry.messages = [{ message: status.key, index: time.key, bindings }];
       const { container, draft } = await renderRead({
@@ -3992,9 +3988,7 @@ describe("MQTT read form", () => {
       );
       const valueField = createField("value", "float");
       const owner = await addMessage(entry, "owner", [valueField], match("owner"));
-      entry.messages[2].bindings = [
-        { field: valueField.key, channel: value.key, dataType: "" },
-      ];
+      entry.messages[2].bindings = [{ field: valueField.key, channel: value.key }];
       const legacy = { index: time.key, channels: { "/value": value.key } };
       const { container, dev, statuses } = await renderRead({
         entries: [entry],
@@ -4082,7 +4076,7 @@ describe("MQTT read form", () => {
       await waitFor(async () =>
         expect(
           plainOf((await retrieveEntries(draft.key))[1]).messages[0].bindings,
-        ).toContainEqual({ field: stamp.key, channel: time.key, dataType: "" }),
+        ).toContainEqual({ field: stamp.key, channel: time.key }),
       );
     });
 

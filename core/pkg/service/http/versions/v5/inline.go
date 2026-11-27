@@ -96,7 +96,11 @@ func ResolveReadConfig(
 		)
 		lifted.Messages[i] = msg
 		ep.ICD = new(lifted.Key)
-		ep.Messages = []icdv0.ReadMessage{read}
+		liftedRead, err := icdv1.MigrateReadMessage(ctx, read)
+		if err != nil {
+			return icdv1.ICD{}, false, err
+		}
+		ep.Messages = []icdv1.ReadMessage{liftedRead}
 		if !ep.Disabled && len(e.Fields) > 0 &&
 			lo.EveryBy(e.Fields, func(f ReadField) bool { return f.Disabled }) {
 			ep.Disabled = true

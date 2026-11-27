@@ -53,7 +53,7 @@ var _ = Describe("Codec", func() {
 									{
 										Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 										Channel:  channel.Key(13),
-										DataType: telem.DataType("test_13"),
+										DataType: new(telem.DataType("test_13")),
 									},
 								},
 							},
@@ -145,7 +145,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 							{
 								Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 								Channel:  channel.Key(13),
-								DataType: telem.DataType("test_13"),
+								DataType: new(telem.DataType("test_13")),
 							},
 						},
 					},
@@ -226,7 +226,7 @@ func FuzzDecodeReadConfig(f *testing.F) {
 								{
 									Field:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"),
 									Channel:  channel.Key(13),
-									DataType: telem.DataType("test_13"),
+									DataType: new(telem.DataType("test_13")),
 								},
 							},
 						},

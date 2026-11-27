@@ -53,7 +53,7 @@ class TestMQTTReadTask:
         assert message.index is None
         assert message.bindings[0].field == field_key
         assert message.bindings[0].channel == 12
-        assert message.bindings[0].data_type == ""
+        assert message.bindings[0].data_type is None
         assert cfg.auto_start is False
         assert cfg.data_saving_disabled is False
 

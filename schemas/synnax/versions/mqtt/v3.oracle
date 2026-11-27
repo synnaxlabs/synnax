@@ -11,6 +11,7 @@ import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/icd/v1"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
 
 QoS = v1.QoS
 
@@ -24,9 +25,9 @@ InlineEntry = v2.InlineEntry
 
 InlineRead = v2.InlineRead
 
-ReadEntry = v2.ReadEntry
+ReadEntry union on type extends v2.ReadEntry {}
 
-ReadConfig = v2.ReadConfig
+ReadConfig struct extends v2.ReadConfig {}
 
 ChannelField = v1.ChannelField
 

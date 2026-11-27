@@ -129,11 +129,7 @@ export const planMessage = (
   const prefixOf = (name: string): string => (clashes.has(name) ? kindPrefix : prefix);
   const held = { ...props?.channels };
   const bindingOf = (f: icd.JSONField): icd.ReadBinding =>
-    read.bindings.find(({ field }) => field === f.key) ?? {
-      field: f.key,
-      channel: 0,
-      dataType: "",
-    };
+    read.bindings.find(({ field }) => field === f.key) ?? { field: f.key, channel: 0 };
   const own = new Set(read.bindings.map(({ channel }) => channel));
   const elsewhere = [...written].filter((key) => !own.has(key));
   const retrieve = (keys: channel.Key[]): channel.Channel[] =>
@@ -198,8 +194,9 @@ export const planMessage = (
   const planned = fields.map((f, i): MessageField => {
     const binding = bindingOf(f);
     const isIndex = f.key === index;
-    const suited = binding.dataType !== "" && converts(f, binding.dataType);
-    const dataType = suited ? binding.dataType : "";
+    const { dataType: stored, ...unTyped } = binding;
+    const dataType =
+      stored != null && stored !== "" && converts(f, stored) ? stored : undefined;
     const ch = live.get(reused[i]);
     // A deleted channel, or one on an index that another message writes, needs a new
     // channel too.
@@ -215,7 +212,7 @@ export const planMessage = (
         : bindingDataType({ dataType }, f),
       channel: replaced ? 0 : binding.channel,
       replaces: replaced && ch != null ? ch.key : 0,
-      binding: { ...binding, dataType },
+      binding: dataType == null ? unTyped : { ...unTyped, dataType },
     };
   });
   const channels = Task.planReadChannels({

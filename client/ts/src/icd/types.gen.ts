@@ -490,10 +490,11 @@ export const readBindingZ = z.object({
   /** channel is the channel the value of the field is written to. */
   channel: channel.keyZ.default(0),
   /**
-   * dataType is the data type of the channel that a client creates for the field. Empty
-   * takes the default of the field's kind. The Core ignores it once the channel exists.
+   * dataType is the data type of the channel that a client creates for the field.
+   * Absent takes the default of the field's kind. The Core ignores it once the channel
+   * exists.
    */
-  dataType: z.string().default(""),
+  dataType: z.string().optional(),
 });
 export interface ReadBinding extends z.infer<typeof readBindingZ> {}
 
