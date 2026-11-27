@@ -352,18 +352,20 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
 - **Reader API**: `frame.time(channel)` gives one time series per data series of the
   channel, with the same lengths, and `frame.time(series)` the times of one series: the
   time series under `series.clock` whose alignments hold the data's. Each fails when the
-  frame holds no time for it, as for an untimed key. A `min_max` read keeps real
-  samples, so it carries their stamps. Until Phase 50 a read can name an index channel
-  that is the clock of another requested key; the frame then holds that series once, as
-  the time series, and the reader also shows it under the channel. A channel that times
-  itself, such as a kept timestamp channel, comes once too, and `frame.time` of it
-  returns that series. Time series sit in a store of the frame of their own, keyed by
-  clock, and never appear among its channels, keys, or columns. `frame["time"]` fails
-  and names `frame.time`. `to_df()` has a `DatetimeIndex` named `time`: an outer join on
-  time across clocks, with blanks, as today. A range channel has `time` (Python
-  `ScopedChannel.time`). A TypeScript cache `Snapshot` has `time`, one time series per
-  series, and its old `time`, the end of the newest sample, becomes `end`
-  (`client/ts/src/framer/subscription.ts:81`).
+  frame holds no time for it, as for an untimed key. A reduced read reduces the clock
+  over the same groups as the data (`x/go/telem/reduce.go:66-70`): `frame.time` of a
+  `min_max` series gives the first and last stamp of each group, of an `average` series
+  the mean stamp, and of a `decimate` series the first stamp. Until Phase 50 a read can
+  name an index channel that is the clock of another requested key; the frame then holds
+  that series once, as the time series, and the reader also shows it under the channel.
+  A channel that times itself, such as a kept timestamp channel, comes once too, and
+  `frame.time` of it returns that series. Time series sit in a store of the frame of
+  their own, keyed by clock, and never appear among its channels, keys, or columns.
+  `frame["time"]` fails and names `frame.time`. `to_df()` has a `DatetimeIndex` named
+  `time`: an outer join on time across clocks, with blanks, as today. A range channel
+  has `time` (Python `ScopedChannel.time`). A TypeScript cache `Snapshot` has `time`,
+  one time series per series, and its old `time`, the end of the newest sample, becomes
+  `end` (`client/ts/src/framer/subscription.ts:81`).
 - **Mixed types**: Series lists and frames hold more than one type in TypeScript,
   Python, and C++. A read of one series keeps its exact type. A read of a whole channel
   as one array widens by the NumPy rule (`int64` with `float64` gives `float64`), which
@@ -373,17 +375,17 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   each clock in an alignment space of its own, so a type or clock change keeps history
   and no read loses part of a tile. One stamp block per clock and tile serves every
   channel on the clock, and floors are kept per clock (Phase 14). A pause leaves a gap
-  in a key's alignments while its clock's stay whole, so the cache join treats a gap as
-  a pause when the frame's time series of the key's clock covers it. Only the `missed`
-  flag of a stream shows a drop (`core/pkg/transport/grpc/framer/framer.proto:89`,
-  `:96`), and only a drop starts a catch-up read (Phase 15). The cache trusts the Core
-  it is connected to, not `leaseholder` (`cache/store/store.ts:289`). A line plot draws
-  one line through a change and through a pause: from Phase 17, Pluto joins two draw
-  operations of one key on one clock in one stretch, where today it joins only
-  operations whose time spans touch (`pluto/src/vis/line/aether/draw.ts:95-96`). So an
-  on-change channel in an adaptive group draws one line, with a spec, and a task stop
-  still breaks the line. A TDMS export writes one column per type, and an Arc node
-  converts an input per series with no recompile.
+  in a key's alignments. A gap in a stream is a pause unless the stream reports `missed`
+  (`core/pkg/transport/grpc/framer/framer.proto:89`, `:96`). Of the gaps, only a drop
+  starts a catch-up read (Phase 15). A new member still waits for its first one
+  (`cache/join/join.ts:190-191`). The cache trusts the Core it is connected to, not
+  `leaseholder` (`cache/store/store.ts:289`). A line plot draws one line through a
+  change and through a pause: from Phase 17, Pluto joins two draw operations of one key
+  on one clock in one stretch, where today it joins only operations whose time spans
+  touch (`pluto/src/vis/line/aether/draw.ts:95-96`). So an on-change channel in an
+  adaptive group draws one line, with a spec, and a task stop still breaks the line. A
+  TDMS export writes one column per type, and an Arc node converts an input per series
+  with no recompile.
 - **Pluto**: A line plot with no x channel draws y against `telem.timeOf(y)` (NEW), the
   time series of y's own series, in place of y's index channel
   (`pluto/src/lineplot/LinePlot.tsx:257-263`). `useIndexOfChannel` goes.
@@ -423,7 +425,9 @@ names no clock key.
   a clock of its own (§4.8). A `time_of` writer's relay frame holds the stored stamps
   that the writer waits for (RFC 0121 §5.8). The storage iterator adds, per chunk and
   clock, the stamps of the alignment ranges of its data series, within the chunk size. A
-  reduced read reduces them as it does the data.
+  reduced read reduces them as it does the data. The sources, the filters, and the
+  encoder use one test: a time series is in a frame only beside a data series of the
+  same frame that names its clock.
 - **Storage reads**: A key's clock can change between segments, so the iterator takes
   the clock per segment. Keys whose newest segment names one clock share a view. Each
   view loads its keys and every clock that their segments name in one state step: the
@@ -448,8 +452,10 @@ names no clock key.
   new clock are never dropped. That check also finds a clock move and updates the set.
   The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep
   only demanded keys today (`relay/tap.go:287`), the calculation transform, and the
-  iterator's calculation step take the rule. A spec streams only a data key and gets its
-  time after a handoff and after a pause move.
+  iterator's calculation step take the rule. Until RFC 0121 Phase 5, the storage tap
+  also subscribes the index of each stored demanded key (`relay/tap.go:233-236` opens it
+  on `keys.Storage()`). A spec streams only a data key and gets its time after a handoff
+  and after a pause move.
 - **Requests**: A request names channel keys only. Clients stop sending
   `TimestampsIncluded` and adding index keys at Phases 46 and 49
   (`client/ts/src/framer/reader.ts:172-181`,
@@ -462,9 +468,11 @@ names no clock key.
   with a description that index channels are retired and that names
   `frame.time(channel)`.
 - **Access**: A time series leaves the Core only beside data that the subject may read.
-  No check runs on a hidden clock. Until Phase 50 a clock that is an index channel keeps
-  `main`'s check of each index that the caller never named
-  (`core/pkg/api/framer/framer.go:344`).
+  No check runs on a hidden clock. Until Phase 50 a timed key whose index the subject
+  may not read comes untimed, on reads, iterators, and streams, and `frame.time` fails
+  for it. `main` checks that index only in `Read` (`core/pkg/api/framer/framer.go:344`),
+  and the latest cache already reads a key alone when the index is refused
+  (`client/ts/src/framer/cache/latest/latest.ts:462-472`).
 - **Cost**: A reader that marks its keys untimed pays nothing for time. A reader that
   draws a timed key with no time pays 8 bytes of time per sample.
 - **Phases**: Phase 8 lands the codec field. Phase 12 turns the rule on, with untimed
@@ -985,8 +993,10 @@ branch against `main` and reports to the founder session.
   misses it today on point and full reads (D-459): the 64 KiB block read per search
   step, the block cache mutex, and `ReadSamples`. Hidden clocks neither cause nor fix
   those misses and add clock finding on top, so they wait on D-459's fixes. A timed read
-  compares with `main`'s read of the same keys and their index channels, and an untimed
-  read with `main`'s read of the keys alone.
+  or stream compares with `main`'s read or stream of the same keys and their index
+  channels, and an untimed one with `main`'s of the keys alone. The one exception is a
+  running operation whose last reset is far back, pending the founder (D-063, §4.7). The
+  8-reader reads run on the OS file system at the shapes of D-481.
 - **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
   today's index keys as clocks and no format change. Phases 24 to 54 start only when the
   one-clock reads are within 15% of `main`, the prototype is within 3% of the storage
@@ -1010,8 +1020,9 @@ branch against `main` and reports to the founder session.
 - **Method**: Each benchmark runs 10 rounds, base and head interleaved on one quiet
   host, after one run of `main` against `main` that measures the noise.
 - **Bar**: Outside reads, a time rise over 5% at p < 0.05 in `benchstat`, or any rise in
-  allocations per operation. TypeScript and Python measure time only. New work that the
-  base never did is held to its bound in RFC 0119 §4.8 instead.
+  allocations per operation. TypeScript and Python measure time, and TypeScript bytes
+  are held to the read bar. New work that the base never did is held to its bound in RFC
+  0119 §4.8 instead.
 - **Floors**: A target is a ratio to a floor measured in the same run by a Go benchmark
   of the standard library: `BenchmarkFloorCopy`, the time of `copy` over n bytes. A
   floor never gates. Each ratio is on a shape that the box records on `main`, as
@@ -1025,7 +1036,7 @@ branch against `main` and reports to the founder session.
 | Write                       | framer `BenchmarkWrite`, `BenchmarkOpen`                                      | Within noise. One store per series, no new map lookup                                                                                                                                          | The validator already looks up each series (`validator.go:75`); the clock sits in the same value                                                                                         |
 | Stream                      | `BenchmarkStreamKeyChange`, TypeScript cache and line plot benchmarks         | Within noise. One compare per series in each filter and per series pair in a reader                                                                                                            | A relay filter over 501 series is 501 lookups (10 µs) today; 501 compares add about 0.25 µs                                                                                              |
 | Live calculator             | Box benchmarks: 1 kHz on one clock, 1 kHz with 1 Hz, 10 kHz                   | One clock: within noise. Two clocks: no worse than arrival pairing on the baseline. No allocation and no scheduler cycle per sample                                                            | The join steps one cursor per input per output sample, about 5 ns, and each input keeps its last 16 intervals sorted, about 20 ns per sample. At 10 kHz, 250 µs of CPU per second        |
-| Historical calculation read | `BenchmarkIteratorHistorical`, `BenchmarkIteratorCalc_TwoClocks`              | One clock: within noise. Two clocks: at most 2 times the one-clock time per output sample                                                                                                      | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
+| Historical calculation read | `BenchmarkIteratorHistorical`, `BenchmarkIteratorCalc_TwoClocks`              | One clock: within noise, except a running operation (R2). Two clocks: at most 2 times the one-clock time per output sample                                                                     | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
 | Driver frame build          | the Driver frame build benchmark, `write_task_bench.cpp`                      | 8n bytes of stamps written per clock, once. Time within noise for one clock, lower for a task that had several index keys                                                                      | 1000 stamps are 8 kB. A task with k index keys writes them k times today (`driver/common/sample_clock.h:237-242`)                                                                        |
 
 ## 5 Implementation phases
