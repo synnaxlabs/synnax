@@ -1080,11 +1080,14 @@ update backup of RFC 0102.
    delete left.
 2. Read the `meta.json` and `index.domain` of each key, and `Stat` each data file. Skip
    a virtual channel. The old files hold no checksum, so each is read twice and used
-   only when the reads agree; with no two agreeing reads in three, the conversion stops
-   with an error that names the file. The old layout never syncs, so a power loss can
-   leave a pointer that ends past its file: cut it to the file length, at a whole
-   sample, and log the cut. It can also leave a channel directory with no `meta.json`:
-   the conversion skips that directory, leaves it in place, and reports its key.
+   only when the reads agree; with no two agreeing reads in three, the conversion leaves
+   the file unread in place, where an undo still finds it, converts the channel without
+   its samples, and raises a status that names the file and its time range (D-425 (2)).
+   Data that such a clock file timed goes with it, by step 3. The old layout never
+   syncs, so a power loss can leave a pointer that ends past its file: cut it to the
+   file length, at a whole sample, and log the cut. It can also leave a channel
+   directory with no `meta.json`: the conversion skips that directory, leaves it in
+   place, and reports its key.
 3. Apply the rule of `TruncateToIndex` once, in memory: a data pointer keeps the samples
    that its clock has stamps for. Log each cut. The cut of step 2 runs first, so a
    pointer that covers index bytes past the end of their file never keeps data samples
@@ -1102,7 +1105,8 @@ update backup of RFC 0102.
      the clock, the keys, the file, and the time range of the samples cut.
    - Below that range, a torn area that reads as zeros: the pointer becomes empty, and a
      warning names the file. Those samples were never durable.
-   - At or past the end of its own range: the open refuses and names the file. So does a
+   - At or past the end of its own range: the pointer becomes empty, with the data that
+     it times, and a status names the file and the time range (D-425 (2)). So does a
      pointer whose own range starts at or below the stamps before it.
 4. Build the state. Each `N.domain` with a pointer is a sealed version 0 segment with a
    new identity and the old index key as its clock key. Each stretch of an old index
