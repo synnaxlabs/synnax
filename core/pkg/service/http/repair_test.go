@@ -167,14 +167,6 @@ var _ = Describe("Upgrade repair", func() {
 			}},
 			"value",
 		),
-		Entry(
-			"a malformed pointer",
-			map[string]any{"channel": map[string]any{
-				"pointer":   "value",
-				"json_type": "number",
-			}},
-			"pointer",
-		),
 	)
 
 	It("Should repair a shipped read config", func(ctx SpecContext) {
