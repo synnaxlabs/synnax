@@ -588,29 +588,37 @@ alignment and inputs of two clocks by sample time:
   that keeps state across samples with no window: `avg`, `min`, and `max` with no
   window, and a stateful variable of a calculation. It looks back to its last reset, or
   to its first sample when it never resets, with no stored state, so no history value
-  depends on where a read starts. A `count` reset (`arc/go/stl/math/math.go:77`) finds
-  its last reset from the sample counts of the pointers, with no data read. A history
-  read runs the look back before its start, paced as above. Live starts at its open, as
-  on `main`: it opens its streams first, and its output covers the data from the open,
-  under a status with message `Computing history` and a description that says so and
-  that a reset bounds the look back. In the background the calculator reads from the
-  last reset until each input's stored data reaches the alignment of its first stream
-  sample, drops the overlap, and takes the caught-up state at one primary stamp, which
-  clears the status. The service keeps in memory, and never stores, the state of the
-  newest look back of each calculation at a primary stamp T, taken only once each
-  input's newest stored stamp is at or past T, so a later commit at or before T is a
-  backfill, and dropped at a history change of an input (`DB.OnHistoryChange`) or a
-  change of the compiled module. A live open, a group rebuild, and a history read that
-  starts after T resume from it, so a look back runs once per Core start and per history
-  change. At most one look back of a calculation runs at a time, a read that starts
-  before T runs its own pass, and a closed request cancels its pass. A group rebuild
-  keeps the calculator of each running operation whose module did not change, so its
-  neighbors in the group never wait on it. Every look back runs in one bounded pool
-  under a read rate limit, as the version 0 check pass does (RFC 0121 §5.1), so no live
-  `Sync` and no other read waits (R6), and the box benchmarks a common read beside one.
-  The look back is a rare-path exception to R2 (§4.13): its cost grows with the samples
-  since the reset, at about 25 ns a sample, so a year of a 25 kHz input takes about 5.5
-  hours of one core.
+  depends on where a read starts. A `count` reset (`arc/go/stl/math/math.go:77`) looks
+  back to the first sample, since a node counts its join outputs, not stored samples. A
+  history read runs the look back before its start, paced as above. Live starts at its
+  open, as on `main`: it opens its streams first, and its output covers the data from
+  the open, under a status with message `Computing history` and a description that says
+  so and that a reset bounds the look back. In the background the calculator reads from
+  the last reset over stored data, past its first stream sample, until it reaches the
+  newest stored primary stamp; an input with no stream sample stops at its stored end.
+  Meanwhile it keeps the stream frames past the newest stored primary stamp in a buffer
+  under the cap of Buffers. It then runs those frames through the look back's state and
+  takes that state at the next primary frame, which clears the status. So the value
+  after the hand-over covers every sample since the reset, also those since the open,
+  and a spec holds a `max` whose peak lands during the pass and a stateful sum, each
+  equal to a history read after the hand-over.
+- **Kept states**: The service keeps in memory, and never stores, up to 64 states per
+  calculation at the chunk ends that its passes reach, the oldest dropped first, each
+  taken at a primary stamp T only once each input's newest stored stamp is at or past T,
+  so a later commit at or before T is a backfill. The reset channel takes no part in
+  that test, and a reset sample at or before T drops the states from T on. A history
+  change of an input (`DB.OnHistoryChange`) drops only the states at or after its start,
+  and a change of the compiled module drops them all. A read, a live open, and a group
+  rebuild start from the newest kept state at or before their start. A read waits for a
+  running pass of its calculation that will reach its start, else it runs its own, and a
+  closed request's pass keeps the states it recorded. A group rebuild keeps the
+  calculator of each running operation whose module did not change, so its neighbors in
+  the group never wait on it. Every pass runs in one bounded pool under a read rate
+  limit, as the version 0 check pass does (RFC 0121 §5.1), so no live `Sync` and no
+  other read waits (R6), and the box benchmarks a common read beside one. The look back
+  is a rare-path exception to R2 (§4.13): its cost grows with the samples since the
+  reset, at about 25 ns a sample, so a year of a 25 kHz input takes about 5.5 hours of
+  one core.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
