@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -39,11 +40,12 @@ var _ = Describe("TypeScript Formatter", func() {
 		)
 
 		// The temporary root holds no node_modules, so Node finds no ESLint or
-		// Prettier from it.
+		// Prettier.
 		BeforeEach(func() {
 			root = GinkgoT().TempDir()
-			template := MustSucceed(os.ReadFile(
-				filepath.Join(repoRoot, "licenses", "headers", "template.txt"),
+			template := MustSucceed(paths.ReadFile(
+				filepath.Join("licenses", "headers", "template.txt"),
+				repoRoot,
 			))
 			headers := filepath.Join(root, "licenses", "headers")
 			Expect(os.MkdirAll(headers, 0o755)).To(Succeed())
@@ -94,7 +96,7 @@ var _ = Describe("TypeScript Formatter", func() {
 				for i, dir := range []string{pkg, pkg, loose} {
 					Expect(out[i].Err).To(MatchError(And(
 						ContainSubstring("node failed"),
-						ContainSubstring(dir),
+						ContainSubstring(strconv.Quote(dir)),
 						ContainSubstring("eslint"),
 					)))
 				}
