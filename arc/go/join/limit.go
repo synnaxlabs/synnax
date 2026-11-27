@@ -38,9 +38,6 @@ func (iv *intervals) limit() telem.TimeSpan {
 	return iv.limitSpan
 }
 
-// unsteady reports whether there are intervals but no steady rate, so no hold limit.
-func (iv *intervals) unsteady() bool { return iv.n > 0 && iv.limit() == 0 }
-
 // within returns 3 times the median of the intervals, or 0 when there are none.
 func (iv *intervals) within() telem.TimeSpan {
 	iv.update()
@@ -67,7 +64,7 @@ func (iv *intervals) update() {
 	// The median is the mean of the two middle intervals, which are one for an odd
 	// count.
 	lo, hi := sorted[(n-1)/2], sorted[n/2]
-	iv.withinSpan = sum(scale(lo, 3), scale(hi-lo, 3)/2)
+	iv.withinSpan = sum(thrice(lo), thrice(hi-lo)/2)
 	iv.limitSpan = 0
 	if steady(sorted[:n], sum(lo, hi)) {
 		iv.limitSpan = iv.withinSpan
@@ -79,19 +76,20 @@ func (iv *intervals) update() {
 func steady(sorted []telem.TimeSpan, twiceMedian telem.TimeSpan) bool {
 	near := 0
 	for _, span := range sorted {
-		if span <= twiceMedian && twiceMedian <= scale(span, 4) {
+		if span <= twiceMedian &&
+			(span > telem.TimeSpanMax/4 || twiceMedian <= 4*span) {
 			near++
 		}
 	}
 	return 4*near >= 3*len(sorted)
 }
 
-// scale returns k times span, or TimeSpanMax when that overflows.
-func scale(span, k telem.TimeSpan) telem.TimeSpan {
-	if span > telem.TimeSpanMax/k {
+// thrice returns 3 times span, or TimeSpanMax when that overflows.
+func thrice(span telem.TimeSpan) telem.TimeSpan {
+	if span > telem.TimeSpanMax/3 {
 		return telem.TimeSpanMax
 	}
-	return k * span
+	return 3 * span
 }
 
 // sum returns a plus b, or TimeSpanMax when that overflows.

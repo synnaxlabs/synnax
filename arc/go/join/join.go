@@ -407,10 +407,10 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 		}
 		j.emit(p.first, out)
 	}
-	// No later primary stamp comes at or before the primary's last, so the other inputs
-	// pass it too, which bounds their buffers across a gap of the primary.
-	if p.added {
-		j.pass(min(until, p.last))
+	// No later primary stamp comes at or before until, so the other inputs pass it too,
+	// which bounds their buffers across a gap of the primary.
+	if p.first < len(p.stamps) {
+		j.pass(until)
 	}
 	for i, in := range j.inputs {
 		if j.live && i != j.primary {
@@ -481,7 +481,8 @@ func (j *Join) holds(in *input, stamp telem.TimeStamp) bool {
 	}
 	limit := in.intervals.limit()
 	switch {
-	case in.intervals.unsteady():
+	case limit == 0 && in.intervals.n > 0:
+		// The input has no steady rate, so it holds with no limit.
 		return true
 	case j.live && in.frames.framed && in.first == len(in.stamps):
 		return j.arrivedWithin(in, limit)
