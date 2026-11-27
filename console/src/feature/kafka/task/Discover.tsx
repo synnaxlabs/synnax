@@ -42,6 +42,7 @@ import {
   splitOf,
   takenPointers,
 } from "@/feature/kafka/task/additions";
+import type { Plan, TopicPick } from "@/feature/kafka/task/plan";
 import { browseTopics, sampleTopic } from "@/feature/kafka/task/scan";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
@@ -78,15 +79,11 @@ export interface Params {
   formats?: ICD.Formats;
   /** The ICD that the most records of the task read. */
   home?: icd.Key;
-}
-
-/** The fields picked from the shapes of a sample of one topic. */
-export interface TopicPick {
-  topic: string;
-  shapes: json.Shape[];
-  picks: Picks;
-  /** The ICD that the new records of the topic read. Absent for no fit or a tie. */
-  reading?: ICD.Reuse.Reading;
+  /**
+   * @returns what an add of the picks of topics puts in the ICDs and the task, as the
+   * add plans it. Absent, the panes say what the ICDs fit.
+   */
+  plan?: (topics: TopicPick[]) => Plan;
 }
 
 /** A topic picked whole. */
@@ -272,17 +269,18 @@ const reusedReading = (
 };
 
 /**
- * @returns what the new records of a shape read, by the position of the shape in the
- * free shapes of its sample.
+ * @returns what the new records of a shape read: the message of fit, else the count of
+ * messages that tie for it. i is the position of the shape in the free shapes of its
+ * sample.
  */
 const readingNote = (
   found: ICD.Reuse.Result,
+  fit: ICD.Reuse.Fit | undefined,
   shape: json.Shape,
   i: number,
 ): string | undefined => {
   if (i < 0) return undefined;
   const { reading, candidates } = found;
-  const fit = reusedFit(found, shape, i);
   if (reading != null && fit != null)
     return `Reads ${fit.message.name} of ${reading.name}`;
   const tied = candidates
@@ -430,6 +428,11 @@ interface TopicValuesProps {
   reads: Reads;
   /** The ICD messages that the new records of the topic read. */
   found: ICD.Reuse.Result;
+  /**
+   * The keys of the picked shapes whose new records read a held message in the planned
+   * add. Absent, each picked shape reads the message that found fits to it.
+   */
+  reused?: Set<string>;
   label: Params["label"];
   value: Picks;
   onChange: (value: Picks) => void;
@@ -443,6 +446,7 @@ const TopicValues = ({
   sample,
   reads,
   found,
+  reused,
   label,
   value,
   onChange,
@@ -457,13 +461,17 @@ const TopicValues = ({
     const split = splitOf(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
+    const shapeKey = json.shapeKey(shape);
+    const reuses = !value.has(shapeKey) || reused == null || reused.has(shapeKey);
     const fit =
-      split == null ? reusedFit(found, shape, free.indexOf(shape)) : undefined;
+      split == null && reuses
+        ? reusedFit(found, shape, free.indexOf(shape))
+        : undefined;
     return {
       title: titleOf(shape, label),
       note:
         split == null
-          ? readingNote(found, shape, free.indexOf(shape))
+          ? readingNote(found, fit, shape, free.indexOf(shape))
           : ICD.Picker.splitNote(split),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
@@ -573,6 +581,7 @@ const Content = ({
   label,
   formats = NO_FORMATS,
   home,
+  plan,
   close,
   kind,
 }: ContentProps) => {
@@ -649,6 +658,38 @@ const Content = ({
       void loadSample(activeEntry.name);
   }, [activeEntry, activeSample, loadSample]);
 
+  // The picks that the add makes. A shape that its pane locks picks nothing.
+  const added = [...picks.values()]
+    .flatMap((pick): TopicPick[] => {
+      const held = readsOf(pick.topic);
+      const extendable = new Set(
+        pick.shapes.filter((s) => isExtendable(s, held)).map(json.shapeKey),
+      );
+      const kept: Picks = new Map(
+        [...pick.picks].filter(([key]) => extendable.has(key)),
+      );
+      if (kept.size === 0) return [];
+      const next = { ...pick, picks: kept };
+      const sample = reads.get(pick.topic);
+      if (sample?.variant !== "success") return [next];
+      const found = findReading(pick.topic, sample.data, held, device, icds, home);
+      const free = freeShapes(sample.data.shapes, held);
+      const reading = reusedReading(found, free, kept);
+      return [reading == null ? next : { ...next, reading }];
+    })
+    .sort(compare.by(({ topic }) => topic));
+  const addedOf = (topic: string): Picks | undefined =>
+    added.find((pick) => pick.topic === topic)?.picks;
+  const planned = plan?.(added);
+  const reusedIn = (topic: string): Set<string> | undefined =>
+    planned == null
+      ? undefined
+      : new Set(
+          (planned.additions.get(topic)?.added ?? []).flatMap(({ shape, reused }) =>
+            reused === true && shape != null ? [shape] : [],
+          ),
+        );
+
   const trimmed = term.trim();
   const visible = entries.filter(({ name }) => search.matches(name, trimmed));
   // The pane shows the active topic only while the list shows it.
@@ -657,7 +698,7 @@ const Content = ({
   const items = visible.map((entry): ICD.Picker.TreeItem => {
     const { name, listed: topic } = entry;
     const sample = reads.get(name);
-    let picked = countOf(picks.get(name)?.picks);
+    let picked = countOf(addedOf(name));
     let free =
       sample?.variant === "success"
         ? countOf(defaultsOf(sample.data.shapes, readsOf(name)))
@@ -836,8 +877,9 @@ const Content = ({
           sample={data}
           reads={readsOf(topic)}
           found={findReading(topic, data, readsOf(topic), device, icds, home)}
+          reused={reusedIn(topic)}
           label={label}
-          value={picks.get(topic)?.picks ?? new Map()}
+          value={addedOf(topic) ?? new Map()}
           onChange={(value) =>
             setPicks((prev) => withTopic(prev, topic, data.shapes, value))
           }
@@ -865,20 +907,10 @@ const Content = ({
 
   const count = whole
     ? wholePicks.size
-    : [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
+    : added.reduce((n, p) => n + countOf(p.picks), 0);
   const finish = (record: string | null) =>
     close({
-      topics: [...picks.values()]
-        .map((pick): TopicPick => {
-          const sample = reads.get(pick.topic);
-          if (sample?.variant !== "success") return pick;
-          const held = readsOf(pick.topic);
-          const found = findReading(pick.topic, sample.data, held, device, icds, home);
-          const free = freeShapes(sample.data.shapes, held);
-          const reading = reusedReading(found, free, pick.picks);
-          return reading == null ? pick : { ...pick, reading };
-        })
-        .sort(compare.by(({ topic }) => topic)),
+      topics: added,
       record,
       whole: [...wholePicks]
         .map(([topic, shape]): WholePick => ({ topic, shape }))
