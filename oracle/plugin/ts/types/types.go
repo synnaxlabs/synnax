@@ -3454,9 +3454,8 @@ type structData struct {
 	// unknown keys, so a stale field fails instead of selecting every record. Each
 	// leaves its defaults to the Core, so the cache sees only the fields a caller set.
 	Strict bool
-	// Refines holds the Zod refinements that the struct's lt rules emit, appended to
-	// its
-	// object schema.
+	// Refines holds the Zod refinements of the struct's lt rules, appended to its object
+	// schema.
 	Refines            string
 	IsAlias            bool
 	IsSingleParam      bool

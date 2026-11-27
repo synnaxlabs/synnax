@@ -26,7 +26,7 @@ describe("ClosedBounds", () => {
     ])("should refuse %s", (_, value) => {
       const result = closedBounds.closedBoundsZ().safeParse(value);
       expect(result.success).toBe(false);
-      expect(result.error?.issues[0].path).toEqual(["lower"]);
+      expect(result.error?.issues.map((issue) => issue.path)).toEqual([["lower"]]);
     });
   });
 
