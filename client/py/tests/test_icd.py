@@ -626,6 +626,11 @@ class TestICD:
             client.icds.import_file(b"BO_ not a message", "dbc", name=name)
         assert [ic for ic in client.icds.retrieve() if ic.name == name] == []
 
+    def test_import_empty_name(self, client: sy.Synnax) -> None:
+        """Should reject an empty name for a new ICD."""
+        with pytest.raises(ValueError, match="a name that is not empty"):
+            client.icds.import_file(DBC, "dbc", name="")
+
     @pytest.mark.parametrize(
         "target",
         [{}, {"key": uuid4(), "name": "Both"}],

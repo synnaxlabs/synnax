@@ -745,6 +745,13 @@ describe("icd", () => {
       expect(named.map(({ key }) => key)).toEqual([imported.key]);
     });
 
+    it("should reject an empty name for a new ICD", async () => {
+      const csv = encode("message,field,start_bit,bit_length\nEngine,Rpm,0,16");
+      await expect(client.icds.import({ name: "" }, csv, "csv")).rejects.toThrow(
+        new ValidationError("name is required"),
+      );
+    });
+
     it("should create no ICD when the document of a new ICD does not parse", async () => {
       const name = `${id.create()} Import`;
       await expect(

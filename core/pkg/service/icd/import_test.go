@@ -319,6 +319,16 @@ var _ = Describe("ImportNew", func() {
 		Expect(retrieveICD(ctx, key)).To(Equal(res))
 	})
 
+	It("Should refuse a key that exists and keep its ICD", func(ctx SpecContext) {
+		ic := icd.ICD{Name: "Stored"}
+		w := svc.NewWriter(tx)
+		Expect(w.Create(ctx, &ic)).To(Succeed())
+		data := []byte(importDBC)
+		Expect(w.ImportNew(ctx, ic.Key, "Replaced", icd.ImportFormatDBC, data)).
+			Error().To(MatchError(ContainSubstring("icd %s already exists", ic.Key)))
+		Expect(retrieveICD(ctx, ic.Key)).To(Equal(ic))
+	})
+
 	It("Should create nothing when the data does not parse", func(ctx SpecContext) {
 		key := uuid.New()
 		Expect(svc.NewWriter(tx).

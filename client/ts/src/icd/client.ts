@@ -214,13 +214,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
    * @param data - The raw bytes of the document.
    * @param format - The file format of the document.
    * @returns The ICD as the Core stored it.
-   * @throws {ValidationError} if the format is unknown or the document is invalid.
+   * @throws {ValidationError} if the format is unknown, the document is invalid, or the
+   * name is empty.
    */
   async import(
     target: Key | { name: string },
     data: Uint8Array,
     format: ImportFormat,
   ): Promise<ICD> {
+    if (typeof target !== "string" && target.name === "")
+      throw new ValidationError("name is required");
     const { key, name } =
       typeof target === "string"
         ? { key: target, name: "" }

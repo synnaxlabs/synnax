@@ -200,11 +200,14 @@ class Client:
         :param name: The name of a new ICD that the import creates to hold the
             messages. A file that fails to import creates no ICD.
         :returns: The ICD after the import.
-        :raises ValueError: If neither or both of key and name are given.
+        :raises ValueError: If neither or both of key and name are given, or the name
+            is empty.
         :raises ValidationError: If the file cannot be parsed or the result is invalid.
         """
         if (key is None) == (name is None):
             raise ValueError("import_file takes exactly one of key and name")
+        if name == "":
+            raise ValueError("import_file takes a name that is not empty")
         req = _ImportRequest(
             key=uuid4() if key is None else key,
             name=name or "",
