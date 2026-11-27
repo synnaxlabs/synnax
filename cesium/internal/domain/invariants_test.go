@@ -24,11 +24,13 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// pointerRecord returns the index file record of a domain over tr.
+// pointerRecordSize is the size of an index file record.
+const pointerRecordSize = 26
+
 // pointerRecord encodes the index record of a domain in file 1 that holds size bytes
 // from offset.
 func pointerRecord(tr telem.TimeRange, offset, size uint32) []byte {
-	b := make([]byte, 26)
+	b := make([]byte, pointerRecordSize)
 	binary.LittleEndian.PutUint64(b[0:], uint64(tr.Start))
 	binary.LittleEndian.PutUint64(b[8:], uint64(tr.End))
 	binary.LittleEndian.PutUint16(b[16:], 1)
@@ -38,43 +40,11 @@ func pointerRecord(tr telem.TimeRange, offset, size uint32) []byte {
 }
 
 var _ = Describe("Invariants", func() {
-	It(
-		"Should panic when a commit leaves two domains that overlap",
-		func(ctx SpecContext) {
+	DescribeTable(
+		"Should panic when a commit leaves its domain or a neighbor out of order",
+		func(ctx SpecContext, index []byte, panicText string) {
 			fs := xfs.NewMem()
-			Expect(xfs.WriteFile(fs, "index.domain", append(
-				pointerRecord((10*telem.SecondTS).Range(20*telem.SecondTS), 0, 0),
-				pointerRecord((15*telem.SecondTS).Range(25*telem.SecondTS), 0, 0)...,
-			))).To(Succeed())
-			// The panic leaves the index locked, so the spec does not close the DB.
-			db := MustSucceed(domain.Open(domain.Config{
-				FS:              fs,
-				Instrumentation: PanicLogger(),
-			}))
-			// The writer stays open: its close would wait on the index that the panic
-			// leaves locked.
-			w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
-				End: 31 * telem.SecondTS,
-			}))
-			Expect(w.SetStart(30 * telem.SecondTS)).To(Succeed())
-			MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8}))
-			Expect(func() {
-				Expect(w.Commit(ctx, 31*telem.SecondTS, nil)).To(Succeed())
-			}).To(PanicWith(MatchError(ContainSubstring("are not sorted and apart"))))
-		},
-	)
-
-	It("Should panic when a commit sits next to a domain that ends before it starts",
-		func(ctx SpecContext) {
-			fs := xfs.NewMem()
-			Expect(xfs.WriteFile(
-				fs,
-				"index.domain",
-				pointerRecord(telem.TimeRange{
-					Start: 20 * telem.SecondTS,
-					End:   10 * telem.SecondTS,
-				}, 0, 0),
-			)).To(Succeed())
+			Expect(xfs.WriteFile(fs, "index.domain", index)).To(Succeed())
 			// The panic leaves the index locked, so the spec closes neither the DB nor
 			// the writer.
 			db := MustSucceed(domain.Open(domain.Config{
@@ -88,34 +58,50 @@ var _ = Describe("Invariants", func() {
 			MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6, 7, 8}))
 			Expect(func() {
 				Expect(w.Commit(ctx, 31*telem.SecondTS, nil)).To(Succeed())
-			}).To(PanicWith(MatchError(ContainSubstring("ends before it starts"))))
+			}).To(PanicWith(MatchError(ContainSubstring(panicText))))
 		},
+		Entry(
+			"two domains that overlap",
+			append(
+				pointerRecord((10*telem.SecondTS).Range(20*telem.SecondTS), 0, 0),
+				pointerRecord((15*telem.SecondTS).Range(25*telem.SecondTS), 0, 0)...,
+			),
+			"are not sorted and apart",
+		),
+		Entry(
+			"a neighbor that ends before it starts",
+			pointerRecord(telem.TimeRange{
+				Start: 20 * telem.SecondTS,
+				End:   10 * telem.SecondTS,
+			}, 0, 0),
+			"ends before it starts",
+		),
 	)
 
 	// open opens a DB over four domains of 8 bytes in file 1, whose last two overlap.
 	open := func() *domain.DB {
 		GinkgoHelper()
 		fs := xfs.NewMem()
-		var index []byte
-		for i, tr := range []telem.TimeRange{
+		domains := []telem.TimeRange{
 			(10 * telem.SecondTS).Range(20 * telem.SecondTS),
 			(30 * telem.SecondTS).Range(40 * telem.SecondTS),
 			(50 * telem.SecondTS).Range(60 * telem.SecondTS),
 			(55 * telem.SecondTS).Range(65 * telem.SecondTS),
-		} {
+		}
+		index := make([]byte, 0, len(domains)*pointerRecordSize)
+		for i, tr := range domains {
 			index = append(index, pointerRecord(tr, uint32(i*8), 8)...)
 		}
 		Expect(xfs.WriteFile(fs, "index.domain", index)).To(Succeed())
 		Expect(xfs.WriteFile(fs, "1.domain", make([]byte, 32))).To(Succeed())
 		// The counter names file 1, so a collection visits it.
 		Expect(xfs.WriteFile(fs, "counter.domain", []byte{1, 0, 0, 0})).To(Succeed())
-		// The panic leaves the index locked, so the spec does not close the DB.
-		return MustSucceed(domain.Open(domain.Config{
+		return DeferClose(MustSucceed(domain.Open(domain.Config{
 			FS:              fs,
 			FileSize:        9 * telem.Byte,
 			GCThreshold:     math.SmallestNonzeroFloat32,
 			Instrumentation: PanicLogger(),
-		}))
+		})))
 	}
 
 	It("Should panic when a delete splices a domain next to two that overlap",
