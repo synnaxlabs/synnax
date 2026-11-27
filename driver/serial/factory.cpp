@@ -18,6 +18,7 @@
 #include "driver/serial/port.h"
 #include "driver/serial/read_task.h"
 #include "driver/serial/serial.h"
+#include "driver/serial/write_task.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
@@ -64,6 +65,14 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
             ctx,
             task,
             configure_read(ctx, task, this->connections),
+            cmd_key,
+            cancel
+        );
+    if (task.type == WRITE_TASK_TYPE)
+        return common::handle_config_err(
+            ctx,
+            task,
+            configure_write(ctx, task, this->connections),
             cmd_key,
             cancel
         );

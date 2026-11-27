@@ -42,8 +42,8 @@ std::pair<std::shared_ptr<transport::Connection>, x::errors::Error> acquire(
     const synnax::serial::Properties &props
 );
 
-/// @brief Factory configures the tasks that read ICD messages from serial ports. The
-/// tasks on one device share its port.
+/// @brief Factory configures the tasks that read and send ICD messages on serial ports.
+/// The tasks on one device share its port.
 class Factory final : public task::Factory {
     std::shared_ptr<transport::Connections>
         connections = std::make_shared<transport::Connections>();
