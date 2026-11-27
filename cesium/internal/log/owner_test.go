@@ -28,7 +28,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const logSize = 2 << 20
+const (
+	logSize = 2 << 20
+	full    = "does not fit in log 3: log file is full"
+)
 
 // goExec runs each step of a log owner on a new goroutine, as production does.
 func goExec(f func()) { go f() }
@@ -397,7 +400,7 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
 				Expect(l.Append(commitEntry(n)).Wait()).Error().
-					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+					To(MatchError(ContainSubstring(full)))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
 			})
 
@@ -446,7 +449,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				n := logSize - 2*log.BlockSize - log.FramesStart - 32
 				Expect(l.Append(bigEntry(n + 8)).Wait()).Error().
-					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+					To(MatchError(ContainSubstring(full)))
 				Expect(l.Append(bigEntry(n)).Wait()).To(Equal(uint64(5)))
 				Eventually(func() []int64 { return writes(fs.Ops()) }).
 					Should(Equal([]int64{8_192, logSize - 2*log.BlockSize}))
@@ -461,7 +464,7 @@ var _ = Describe("Log", func() {
 				open(logSize)
 				DeferCleanup(closeLog)
 				Expect(l.Append(bigEntry(log.MaxFrame)).Wait()).Error().
-					To(MatchError(ContainSubstring("does not fit in log 3: log file is full")))
+					To(MatchError(ContainSubstring(full)))
 			})
 
 			DescribeTable(
