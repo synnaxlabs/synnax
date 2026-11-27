@@ -60,8 +60,8 @@ bool unseal(const std::filesystem::path &path) {
     return true;
 }
 
-/// @brief appends a record that passes its checksum to the segment at path, after
-/// the frames of a segment that a crash left without a close record.
+/// @brief appends a record that passes its checksum to the segment at path, after the
+/// frames of a segment that a crash left without a close record.
 void append_record(const std::filesystem::path &path, const journal::Record &record) {
     unseal(path);
     auto writer = ASSERT_NIL_P(
@@ -705,8 +705,7 @@ TEST_F(SpoolTest, RejectsCommitAfterRemove) {
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.offset"));
 }
 
-/// @brief it should leave no read offset when a commit races the remove of its
-/// segment.
+/// @brief it should leave no read offset when a commit races the remove of its segment.
 TEST_F(SpoolTest, LeavesNoOffsetWhenCommitRacesRemove) {
     const auto spool = this->open_spool();
     for (int i = 0; i < 50; i++) {
@@ -726,8 +725,8 @@ TEST_F(SpoolTest, LeavesNoOffsetWhenCommitRacesRemove) {
     }
 }
 
-/// @brief it should keep every commit when readers of the same segment open at the
-/// same time.
+/// @brief it should keep every commit when readers of the same segment open at the same
+/// time.
 TEST_F(SpoolTest, KeepsCommitsWhileReadersOpen) {
     const auto spool = this->open_spool();
     this->write_frames(*spool, header_of(1), 1);
@@ -788,8 +787,8 @@ TEST_F(SpoolTest, RejectsOffsetInHeader) {
     ASSERT_OCCURRED_AS_P(spool->open_reader(0), CORRUPT);
 }
 
-/// @brief it should sync each segment it keeps when it opens, before any reader
-/// commits past bytes that a power loss can still take.
+/// @brief it should sync each segment it keeps when it opens, before any reader commits
+/// past bytes that a power loss can still take.
 TEST_F(SpoolTest, SyncsSegmentsAtOpen) {
     {
         const auto spool = this->open_spool();
@@ -856,9 +855,8 @@ TEST_F(SpoolTest, ClosesRecoveredSegment) {
     ASSERT_FALSE(ASSERT_NIL_P(reader->read()).has_value());
 }
 
-/// @brief it should read damage in a closed segment as CORRUPT, so the drainer sets
-/// it aside, also where a crash could leave damage in a segment without a close
-/// record.
+/// @brief it should read damage in a closed segment as CORRUPT, so the drainer sets it
+/// aside, also where a crash could leave damage in a segment without a close record.
 TEST_F(SpoolTest, ReadsDamageInClosedSegmentAsCorrupt) {
     const auto path = this->write_segment();
     auto data = read_file(path);

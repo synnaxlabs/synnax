@@ -305,8 +305,8 @@ journal::Record close_record(const std::uint64_t pos) {
     return {.type = CLOSE_TYPE, .payload = std::move(payload)};
 }
 
-/// @returns the byte position of the close record that ends the first size bytes of
-/// the segment at path, or std::nullopt when they do not end with one.
+/// @returns the byte position of the close record that ends the first size bytes of the
+/// segment at path, or std::nullopt when they do not end with one.
 std::optional<std::uint64_t>
 close_pos(const std::filesystem::path &path, const std::uint64_t size) {
     if (size < journal::HEADER_SIZE + CLOSE_RECORD_SIZE) return std::nullopt;
@@ -652,8 +652,8 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
 }
 
 x::errors::Error Spool::recover(const std::filesystem::path &path) {
-    // Cuts a torn tail and syncs the rest, so a reader never commits past bytes that
-    // a power loss can still take.
+    // Cuts a torn tail and syncs the rest, so a reader never commits past bytes that a
+    // power loss can still take.
     auto [file, err] = journal::Writer::open({
         .path = path,
         .magic = SEGMENT_MAGIC,
@@ -805,8 +805,7 @@ Spool::open_reader(const std::uint64_t key) {
     std::error_code ec;
     const auto size = std::filesystem::file_size(path, ec);
     if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
-    // A segment that a failed writer left without a close record keeps the crash
-    // rules.
+    // A segment that a failed writer left without a close record keeps the crash rules.
     const auto end = close_pos(path, size);
     auto [file, err] = open_segment(path, 0, end);
     if (err) return {nullptr, err};

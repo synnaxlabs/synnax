@@ -80,9 +80,9 @@ struct Config {
     std::function<
         std::pair<std::uint64_t, x::errors::Error>(const std::filesystem::path &dir)>
         available = disk_available;
-    /// @brief the largest byte size of one segment. A writer starts a new segment
-    /// when a frame would make its segment larger, so the spool frees space as
-    /// segments drain. A segment with one frame can be larger.
+    /// @brief the largest byte size of one segment. A writer starts a new segment when
+    /// a frame would make its segment larger, so the spool frees space as segments
+    /// drain. A segment with one frame can be larger.
     std::uint64_t segment_bytes = DEFAULT_SEGMENT_BYTES;
     /// @brief the reserved bytes between two checks of the free disk space.
     std::uint64_t space_check_bytes = DEFAULT_SPACE_CHECK_BYTES;
@@ -135,9 +135,9 @@ struct BadSegment {
 
 class Spool;
 
-/// @brief appends frames to new segments, and starts the next segment when one
-/// reaches Config::segment_bytes. Not safe for concurrent use. The spool must outlive
-/// the writer.
+/// @brief appends frames to new segments, and starts the next segment when one reaches
+/// Config::segment_bytes. Not safe for concurrent use. The spool must outlive the
+/// writer.
 class Writer {
     friend class Spool;
     Spool &spool;
@@ -167,11 +167,11 @@ public:
     /// @param frame the frame to append. Each of its channels must be in the header,
     /// with the data type of the header.
     /// @returns FULL when the spool has no room for the frame now. TOO_LARGE when the
-    /// encoded frame is larger than Config::max_payload or Config::cap. BASE_ERROR
-    /// when the frame does not match the header or the writer is closed. After a write
-    /// fails to store a valid frame, the writer returns the same error for every later
-    /// frame. Spool::refused counts each of these frames. When only the sync after the
-    /// frame fails, the frame stays in the segment, and readers can read it.
+    /// encoded frame is larger than Config::max_payload or Config::cap. BASE_ERROR when
+    /// the frame does not match the header or the writer is closed. After a write fails
+    /// to store a valid frame, the writer returns the same error for every later frame.
+    /// Spool::refused counts each of these frames. When only the sync after the frame
+    /// fails, the frame stays in the segment, and readers can read it.
     x::errors::Error write(const x::telem::Frame &frame);
 
     /// @brief syncs the segment when a sync is due. Call it when no frames come, so the
