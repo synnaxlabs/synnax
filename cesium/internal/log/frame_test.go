@@ -32,9 +32,11 @@ func sealedFrame(b []byte, offset uint64) []byte {
 	return b
 }
 
-// sealedHeader sets the checksum of the header copy in b at offset.
+// sealedHeader sets the checksum of the header copy in b at offset 0, with the format
+// version that b holds, as the binary that writes that version does.
 func sealedHeader(b []byte) []byte {
-	crc := place.Log(db, generation, 0, 1).Sum(b[:60])
+	version := binary.LittleEndian.Uint16(b[8:])
+	crc := place.Log(db, generation, 0, version).Sum(b[:60])
 	binary.LittleEndian.PutUint32(b[60:], crc)
 	return b
 }
