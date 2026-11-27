@@ -247,6 +247,8 @@ export class StreamMultiChannelLog
     this.filter = filter;
     this.hidden = new Set(filter.hiddenChannels);
     this.cancelPage();
+    this.start = null;
+    if (this.client != null) void this.readStart(this.client);
     this.reload();
   }
 
@@ -618,7 +620,9 @@ export class StreamMultiChannelLog
   private async readStart(client: telem.Client): Promise<void> {
     const read = ++this.startRead;
     this.startReadAt = this.now();
-    const keys = [...this.metas].filter(([, { stored }]) => stored).map(([key]) => key);
+    const keys = this.shownMetas()
+      .filter(([, { stored }]) => stored)
+      .map(([key]) => key);
     this.startBreaker.reset();
     this.startPending = true;
     while (read === this.startRead)

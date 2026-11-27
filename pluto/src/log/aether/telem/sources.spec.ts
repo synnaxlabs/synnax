@@ -1032,6 +1032,22 @@ describe("StreamMultiChannelLog", () => {
       expect(log.timeRange?.end.valueOf()).toBe(newest);
     });
 
+    it("should read the oldest stored time of the shown channels only", async () => {
+      const core = deep();
+      const [a, b] = core.data.map((c) => c.key);
+      const asked: number[][] = [];
+      const client = connect(core, {
+        readFirst: async (keys) => {
+          asked.push(Array.from(keys));
+          return core.readFirst(keys);
+        },
+      });
+      const log = open(core, client, { channels: [a, b] });
+      await settle(log, 2 * PAGE);
+      log.setFilter({ hiddenChannels: [b] });
+      await expect.poll(() => asked.at(-1), POLL).toEqual([a]);
+    });
+
     it("should retry the oldest stored time after a connectivity failure", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
