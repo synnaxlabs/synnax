@@ -21,9 +21,9 @@ import (
 
 var _ = Describe("Join", func() {
 	Describe("Random live and history", func() {
-		// Each run builds a primary and two other inputs with random rates, gaps,
-		// and primary alignment jumps. Live pushes no input late: each other sample
-		// arrives before the primary frame that reaches its stamp.
+		// Each run builds a primary and two other inputs with random rates, gaps, and
+		// primary alignment jumps. Live pushes no input late: each other sample arrives
+		// before the primary frame that reaches its stamp.
 		for run := range uint64(48) {
 			It("Should join live and chunked reads to the history samples", func() {
 				r := rand.New(rand.NewPCG(run, run^0x9e3779b97f4a7c15))
@@ -140,8 +140,8 @@ var _ = Describe("Join", func() {
 				history.Next(telem.TimeStampMax, &want)
 				wantFlat := flatten(want)
 
-				// Chunked history: push a chunk of the input with the earliest
-				// newest stamp, then pass the earliest newest stamp.
+				// Chunked history: push a chunk of the input with the earliest newest
+				// stamp, then pass the earliest newest stamp.
 				chunked := newJ()
 				var gotChunked join.Output
 				pos := make([]int, 3)
@@ -215,9 +215,9 @@ var _ = Describe("Join", func() {
 	})
 
 	Describe("Random live in stamp order", func() {
-		// Each run builds a primary and two steady inputs at random rates, each
-		// sample in its own frame that arrives at its stamp, with random stops. Live
-		// then owes the history output exactly.
+		// Each run builds a primary and two steady inputs at random rates, each sample
+		// in its own frame that arrives at its stamp, with random stops. Live then owes
+		// the history output exactly.
 		for run := range uint64(48) {
 			It("Should join a live read in stamp order to the history samples",
 				func() {

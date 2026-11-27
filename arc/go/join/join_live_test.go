@@ -24,6 +24,7 @@ var _ = Describe("Join", func() {
 		var now telem.TimeStamp
 
 		newLive := func(from telem.TimeStamp, arrivalTimed bool) *join.Join {
+			GinkgoHelper()
 			return MustSucceed(join.New(join.Config{
 				Inputs: []join.Input{
 					{DataType: telem.Float64T},
