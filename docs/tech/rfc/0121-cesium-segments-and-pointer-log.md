@@ -212,7 +212,7 @@ of the first head.
 | `DB.Identity`                                                         | NEW                           | Returns the database identity, whether this open converted the old layout, and each file that the conversion left unread or emptied, with its time range, for the Core's statuses (§9). After an open that converted, the Core stores it in the metadata store before it serves (§9.0)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `DB.OpenWriter`                                                       | Changed                       | From RFC 0120 Phase 25 (one clock key before it), takes the groups (`Group`, NEW: its keys; the key whose stored stamps time them, or zero; and `Index`, until RFC 0120 Phase 50 the index key that is the group's clock, or zero), the type of each key, `Adaptive` (NEW: the one group may arrive in part, and a key that pauses often moves to a clock of its own), a start, `Bounded` (the claim grows with commits, as in `cesium/internal/unary/writer.go:128-133`), and `Unstored` (NEW, for a stream-only write of a stored channel: it checks, stamps, and commits as any writer, takes no claim, writes no bytes, and streams with a number from 2^31 up that steps once per session, §5.7). Picks the clock of each group (§5.8), which `Writer.Clocks` (NEW) returns in the order of the groups. Refuses an overlap (§5.8)                                                                                                                                                                                                                                         |
 | `Writer.Write`, `Writer.Commit`                                       | Changed                       | `Write` appends with no sync and returns the frame with alignments set. `Commit` makes the written samples visible and returns the end stamp. Both take the skip predicate of Phase 5 (§12); in test builds, a call into Cesium from inside it panics (`x/go/invariants`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entries. It is safe beside `Write` and `Commit`: under a short lock it moves the writer's entry to the end of its pending list (NEW) and waits with no lock, so a `Commit` during the wait goes into a new entry. It syncs the segments that the list names, then queues the list to the log owner in order. An entry stays in the list, reachable under the lock, until it is queued (§5.4). `Close` does the same and releases the claims after its last entry is acked. While the log is failing (§6), it returns the error at once and releases them: its commits stay visible, so the overlap rules of §5.8 still see them, and no writer takes over its segments before they are durable                                                                                                                                                                                                                                                                                 |
+| `Writer.Sync`, `Writer.Close`                                         | NEW, changed                  | `Sync` makes every commit of the writer durable and returns when the log is durable through its entries. It is safe beside `Write` and `Commit`: under a short lock it moves the writer's entry to the end of its pending list (NEW) and waits with no lock, so a `Commit` during the wait goes into a new entry. It syncs the segments that the list names, then queues the list to the log owner in order. An entry stays in the list, reachable under the lock, until it is queued (§5.4). `Close` does the same and releases the claims and its segments after its last entry is acked. While the log is failing (§6), it returns the error at once and releases them: its commits stay visible, so the overlap rules of §5.8 still see them, and no writer takes over its segments before they are durable                                                                                                                                                                                                                                                                |
 | `Writer.EndStretch`                                                   | NEW, replaces `EndDomain`     | Takes no keys. Commits, then ends the stretch of each of the writer's clocks (RFC 0095 §4.2)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `DB.Handoff`                                                          | NEW                           | Pointer log only; on the old layout it fails. Moves keys from one writer to another as one event. The writer that loses a key commits its samples of the key first, then the claim moves, so no sample waits across the move. A writer that gains a key on the same clock takes over its open segment at once. Under the loser's lock, its entry takes the loser's records of that clock that are not yet queued, from the pending list and then the entry, in order, ahead of its own. Records that the loser already queued are ahead of them in the log owner's queue. So the log keeps commit order, no sync waits, and the moved records become durable with the gainer's entry. On another clock the key starts a new segment. A handoff starts a new stretch. A key that stays keeps its uncommitted samples for the next commit. A start in stored data is refused, as at an open. A failed commit drops the uncommitted samples of every key of that clock write (§5.4), the claim still moves, and both sessions get a status that names the keys and the time range |
 | `DB.OpenIterator`, `DB.Read`                                          | Kept                          | One series per pointer, in time order, with its stored type, clock key, and alignment. `cesium.Iterator` is the one iterator: the stream iterator (`cesium/iterator_stream.go`) leaves Cesium, and the framer builds its stream stage over `cesium.Iterator`. Each read step loads every key of the read on one clock, and that clock, from one state step. A cursor never offers a range outside its current load                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -602,6 +602,30 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
 
 ### 5.4 Commit and group commit
 
+The write path keeps eight invariants. Each step below, the handoff (§4.2), the switch
+(§5.3), the delete's Seal (§5.6), and pause moves and takeovers (§5.8) keep all eight,
+and the specs of the storage phases test each one (§12).
+
+1. **Log order**: The records of one segment reach the log in commit order, and each
+   Commit starts at the length where the one before it ended.
+2. **Seal last**: A Seal of a segment reaches the log only after every Commit of that
+   segment, in the log or ahead of the Seal in the log owner's queue.
+3. **One claim**: A key holds at most one live claim (§5.8).
+4. **Durable before logged**: An entry is queued only after a sync of each segment that
+   it names passed, and each such sync started after the entry left the writer's current
+   entry.
+5. **One sync per file**: One sync of a file runs at a time, a failed sync marks the
+   file before the next sync of it starts, and that sync returns the same error.
+6. **One holder**: Every open segment has one holder, the writer that created it or took
+   it over, until a same-clock handoff moves it to the gainer in one step or the
+   holder's `Close` releases it after its last entry is acked.
+7. **The state owner seals for no holder**: The state owner keeps the holder of each
+   open segment, and only it seals a segment that no writer holds, in the step that
+   serves takeovers.
+8. **An entry fits a frame**: A writer entry holds at most 4 MiB.
+
+The steps:
+
 1. `Write` appends to the writer's open segment of each key and advances its running
    CRC, with no sync. The first write of a stretch takes an alignment number (§5.7). A
    write that needs a new segment takes an identity and creates the file.
@@ -610,10 +634,10 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
    the segments it names. The clock and its channels become visible together. `Commit`
    never syncs or waits: an entry past its limit (4 MiB, a quarter of a frame) moves to
    the pending list and wakes the writer's background `Sync`.
-3. `Sync` takes the committed length and `tail_crc` of each segment of the writer that
-   has unsynced bytes, and syncs those files through the pool (§8.0). A new segment file
-   also syncs its channel directory, and the root for a new directory, once. After its
-   own sync of a segment returns, `Sync` checks the failed mark of that segment.
+3. `Sync` takes the committed length and `tail_crc` of each segment that its pending
+   list names, and syncs those files through the pool (§8.0). A new segment file also
+   syncs its channel directory, and the root for a new directory, once. After its own
+   sync of a segment returns, `Sync` checks the failed mark of that segment.
 4. The clock write is the unit of failure. When one segment is marked failed, the writer
    sends no Commit: every segment of the clock write seals at its last durable length,
    the visible samples of all its channels leave the pointer sets, and `Sync` returns
@@ -623,9 +647,9 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
    sees it and takes the path.
 5. If not, `Sync` queues its pending list to the log owner, in list order, with the
    order of §5.2 inside each entry. An entry is queued only after the syncs of its
-   segments pass, so no entry passes an earlier one, and the `Sync` task runs again
-   while the list holds entries. A writer of data against stored stamps first waits
-   until those stamps are durable. The wait ends with an error when the stamps are
+   segments pass (invariant 4), so no entry passes an earlier one, and the `Sync` task
+   runs again while the list holds entries. A writer of data against stored stamps first
+   waits until those stamps are durable. The wait ends with an error when the stamps are
    pulled back.
 6. The log owner writes every queued entry as one frame with one `WriteAt`, syncs it,
    and acks each entry, which the state owner then applies to its durable view. There is
@@ -802,40 +826,44 @@ for the key.
   the migration keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard
   rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
-  claim. The state owner keeps the writer of each clock (NEW).
+  claim. The state owner keeps the writer of each clock and the holder of each open
+  segment (NEW).
 - **Pauses**: In an `Adaptive` writer, the keys that reach three quarters of P pauses
   (48 of 64) in their open segments at one frame, with one last present frame, get one
   clock from a background step off the frame path. The step reuses a clock that a
   segment of one of those keys names and that no writer holds, and takes over their open
   segments on it, as at open. If not, it leases a key and makes the files. At P pauses
   the keys move to that clock at the first commit after its files exist. Their open
-  segments on the clock they leave stay open, so a later open or move takes them over,
-  and a script that runs again reuses its clocks and files. The writer then stores the
-  group's stamps on that clock for each frame that holds one of its keys: the one copy
-  of stored stamps, at most one per presence pattern per frame, until the keys rejoin
-  the group's clock at the next open. A clock stores no stamps for a frame in which no
-  key on it has a sample. A file that the step made and no move used is a spare, which a
-  close removes.
-- **Segments**: An open segment belongs to one writer. At open, a later session with the
-  same key, type, and clock key takes it over only after the commits of the earlier
-  writer are durable. At a handoff, the gainer takes it over at once, with the loser's
-  records of the clock that are not yet queued (§4.2). Crash tests cover it: two open
-  writers, a handoff, the gainer's sync first, then a restart; and a handoff while the
-  loser's `Sync` waits on its segment syncs, once with the gainer's sync first and once
-  with the loser's segment sync failed. A takeover appends at the committed length. It
-  first checks the tail through the same helper as the open check (§5.5 step 10), and
-  for a variable type rebuilds the sample cursor from the file. A tail that fails its
-  check takes the failure path of the open check (§5.5 step 10, D-482): a Tombstone per
-  pointer from the first sample in the bad range, over the same stamp range on every key
-  that the clock times, then a Seal, and an error to the error handler (§7). The key
-  then starts a new segment. At a handoff the gainer takes the loser's running CRC and
-  sample cursor from memory instead and checks nothing, so a handoff does no file I/O on
-  the frame path (D-475 (2)). Two writers on one key at once have two open segments. No
-  segment file is made on the frame path. A writer makes at open the files of its new
-  clocks and of each key new to a clock, a key that another writer holds included. A
-  handoff makes a spare file for the key on the clock of the writer that loses it, so a
-  move back opens no file. A close removes its unused spares, and the orphan pass (§5.5
-  step 10) removes any that a crash leaves.
+  segments on the clock they leave stay open, and the writer still holds them (§5.4,
+  invariant 6), so the switch cannot seal them ahead of their last Commits. A move back
+  or a later open after its `Close` takes them over, and a script that runs again reuses
+  its clocks and files. The writer then stores the group's stamps on that clock for each
+  frame that holds one of its keys: the one copy of stored stamps, at most one per
+  presence pattern per frame, until the keys rejoin the group's clock at the next open.
+  A clock stores no stamps for a frame in which no key on it has a sample. A file that
+  the step made and no move used is a spare, which a close removes.
+- **Segments**: An open segment belongs to one writer, its holder (§5.4, invariant 6).
+  At open, a later session with the same key, type, and clock key takes it over only
+  after the commits of the earlier writer are durable. At a handoff, the gainer takes it
+  over at once, with the loser's records of the clock that are not yet queued (§4.2).
+  Crash tests cover it: two open writers, a handoff, the gainer's sync first, then a
+  restart; and a handoff while the loser's `Sync` waits on its segment syncs, once with
+  the gainer's sync first and once with the loser's segment sync failed; and a pause
+  move of keys with old stamps, then a switch before the writer's next `Sync`. A
+  takeover appends at the committed length. It first checks the tail through the same
+  helper as the open check (§5.5 step 10), and for a variable type rebuilds the sample
+  cursor from the file. A tail that fails its check takes the failure path of the open
+  check (§5.5 step 10, D-482): a Tombstone per pointer from the first sample in the bad
+  range, over the same stamp range on every key that the clock times, then a Seal, and
+  an error to the error handler (§7). The key then starts a new segment. At a handoff
+  the gainer takes the loser's running CRC and sample cursor from memory instead and
+  checks nothing, so a handoff does no file I/O on the frame path (D-475 (2)). Two
+  writers on one key at once have two open segments. No segment file is made on the
+  frame path. A writer makes at open the files of its new clocks and of each key new to
+  a clock, a key that another writer holds included. A handoff makes a spare file for
+  the key on the clock of the writer that loses it, so a move back opens no file. A
+  close removes its unused spares, and the orphan pass (§5.5 step 10) removes any that a
+  crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, a `Bounded` claim that starts inside another claim, and a group whose key of
   stored stamps times itself, naming that key, so no data takes a self-timed key as its
@@ -1288,26 +1316,34 @@ stays for data channels that the holder lacks until RFC 0120 Phase 50. One clock
 writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6, on the
 pointer log. Phase 6 builds the log, heads, `Sync` and the framer's call to it,
 recovery, the state owner, the handle budget, version 1 segments, and replay from a run
-key, behind a Cesium open option that keeps the old layout the default. RFC 0120 Phases
-2 to 4 then build takeover at open, one number per clock per session with continued
-stretches, and the commit-first handoff (§5.7, §5.8) on the pointer log. Phase 7 builds
-D-459's read fixes: with checks off, a search step reads only the 8 bytes it needs, not
-the whole block; the block cache splits its lock; and the cause of the `ReadSamples` gap
-is found and fixed. Phase 8 merges only after a box run shows every read within 15% of
-`main` in time, bytes, and allocations, at 1 and 8 readers (D-459). Phase 8 builds
-parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test at
-each of its steps, the backup change, `synnax repair` with its two ways on (§6.0, §9.0),
-the Core's repair at start, and makes the new layout the only one that opens. It then
-removes `CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC 0120
-Phase 24 leases clock keys, Phase 25 opens each writer on groups (§4.2, §5.8), Phase 26
-moves often paused keys, Phase 27 ends a clock with its last user (§4.1), and Phase 53
-deletes the old code, except the old-layout reader of the conversion. Phase 5 comes
-after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 18 come after Phase 6, Phases 2 to 4
-land before Phase 8, and RFC 0120 Phases 24 to 54 come after Phase 8. Phases 6 and 8 are
-the exceptions to one PR per phase: each lands as its reviewed pieces, one PR of about
-2,000 hand-written lines each (D-392), behind the open option until the last piece of
-Phase 8 switches the layout, so each piece merges alone and leaves `main` green. Every
-other phase is one PR.
+key, behind a Cesium open option that keeps the old layout the default. The specs of
+Phases 6 and 8, and of RFC 0120 Phases 2 to 4 and 24 to 27, test each invariant of §5.4
+with crash cases and interleavings on the tools of Phases 2 and 3, which are on `main`
+(#7754, #7755): `crash.Run` (`x/go/io/fs/testutil/crash/run.go:72`) under each of its
+profiles, and the fault file system (`x/go/io/fs/testutil/fault/fs.go:31`). Its
+`SyncErrorAt` (`:55`) fails a chosen sync, its `Crash` (`fault/crash.go:58`) takes the
+disk at a chosen point, and it gives a failed sync to each open handle once
+(`fault/fs.go:44-48`). The injected executor of §7 sets the order of owner steps and
+syncs from the run key, so each interleaving case replays. No other test framework is
+added. RFC 0120 Phases 2 to 4 then build takeover at open, one number per clock per
+session with continued stretches, and the commit-first handoff (§5.7, §5.8) on the
+pointer log. Phase 7 builds D-459's read fixes: with checks off, a search step reads
+only the 8 bytes it needs, not the whole block; the block cache splits its lock; and the
+cause of the `ReadSamples` gap is found and fixed. Phase 8 merges only after a box run
+shows every read within 15% of `main` in time, bytes, and allocations, at 1 and 8
+readers (D-459). Phase 8 builds parts, versions 0 and 2, tombstones, compaction, the
+conversion with a crash test at each of its steps, the backup change, `synnax repair`
+with its two ways on (§6.0, §9.0), the Core's repair at start, and makes the new layout
+the only one that opens. It then removes `CreateChannel`, the channel list, and the
+channel file (§4.0, §5.0). RFC 0120 Phase 24 leases clock keys, Phase 25 opens each
+writer on groups (§4.2, §5.8), Phase 26 moves often paused keys, Phase 27 ends a clock
+with its last user (§4.1), and Phase 53 deletes the old code, except the old-layout
+reader of the conversion. Phase 5 comes after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4
+and 18 come after Phase 6, Phases 2 to 4 land before Phase 8, and RFC 0120 Phases 24 to
+54 come after Phase 8. Phases 6 and 8 are the exceptions to one PR per phase: each lands
+as its reviewed pieces, one PR of about 2,000 hand-written lines each (D-392), behind
+the open option until the last piece of Phase 8 switches the layout, so each piece
+merges alone and leaves `main` green. Every other phase is one PR.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                  | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
