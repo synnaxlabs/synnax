@@ -142,17 +142,27 @@ describe("Resource", () => {
       await expect.poll(() => read()?.map((r) => r.id)).toContainEqual(id);
     });
 
-    // Two seconds stays inside the five second grace window after an unsubscribe.
-    const GRACE_POLL = { timeout: 2_000 };
+    // A window stays maintained for five seconds after its last unsubscribe. A poll
+    // that ends half a second before then reads the maintained window, not a fetch
+    // after teardown, and still gives a slow Core most of the window.
+    const GRACE_MS = 5_000;
+    const GRACE_MARGIN_MS = 500;
 
     const subscribeThenLeave = async (
       params: resource.SearchParams,
-    ): Promise<query.list.List<resource.Resource, string>> => {
+    ): Promise<{
+      list: query.list.List<resource.Resource, string>;
+      inGrace: () => { timeout: number };
+    }> => {
       const list = client.resources.watch(params);
       const off = list.onChange(() => {});
       await list.retrieve();
       off();
-      return list;
+      const left = performance.now();
+      const inGrace = () => ({
+        timeout: GRACE_MS - GRACE_MARGIN_MS - (performance.now() - left),
+      });
+      return { list, inGrace };
     };
 
     it("should show a rename made after the last unsubscribe", async () => {
@@ -160,20 +170,20 @@ describe("Resource", () => {
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({ project: proj.key, name: token });
       const params: resource.SearchParams = { searchTerm: token, types: ["lineplot"] };
-      const list = await subscribeThenLeave(params);
+      const { list, inGrace } = await subscribeThenLeave(params);
       await client.lineplots.rename(plot.key, `${token} renamed`);
       await expect
-        .poll(async () => (await list.retrieve()).records[0]?.name, GRACE_POLL)
+        .poll(async () => (await list.retrieve()).records[0]?.name, inGrace())
         .toEqual(`${token} renamed`);
     });
 
     it("should show a resource created after the last unsubscribe", async () => {
       const token = randomToken();
       const params: resource.SearchParams = { searchTerm: token, types: ["label"] };
-      const list = await subscribeThenLeave(params);
+      const { list, inGrace } = await subscribeThenLeave(params);
       const l = await createLabel(token);
       await expect
-        .poll(async () => (await list.retrieve()).records.map((r) => r.id), GRACE_POLL)
+        .poll(async () => (await list.retrieve()).records.map((r) => r.id), inGrace())
         .toEqual([l]);
     });
 

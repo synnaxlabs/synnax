@@ -49,12 +49,16 @@ var _ = Describe("WriteConfigLadder", func() {
 			},
 		))
 		Expect(cfg.Endpoints).To(HaveLen(1))
-		ch := cfg.Endpoints[0].Channel
+		Expect(cfg.Inline).ToNot(BeNil())
+		Expect(cfg.Inline.Endpoints).To(HaveLen(1))
+		staged := cfg.Inline.Endpoints[0]
+		Expect(staged.Key).To(Equal("ep"))
+		ch := staged.Channel
 		Expect(ch.JSONType).To(Equal(payload.JSONTypeString))
 		Expect(*ch.TimeFormat).To(Equal(payload.TimeFormatUnixMs))
 		Expect(ch.EnumValues).To(Equal([]payload.EnumEntry{{Label: "ON", Value: 1}}))
-		Expect(cfg.Endpoints[0].Fields).To(HaveLen(1))
-		g, ok := cfg.Endpoints[0].Fields[0].Variant.(versions.GeneratedWriteField)
+		Expect(staged.Fields).To(HaveLen(1))
+		g, ok := staged.Fields[0].Variant.(versions.GeneratedWriteField)
 		Expect(ok).To(BeTrue())
 		Expect(g.Generator).To(Equal(payload.GeneratorTypeTimestamp))
 		Expect(*g.TimeFormat).To(Equal(payload.TimeFormatUnixNs))
@@ -62,7 +66,7 @@ var _ = Describe("WriteConfigLadder", func() {
 })
 
 var _ = Describe("ReadConfigLadder", func() {
-	It("Should stage the fields of a v4 body and apply the NaN fill rule",
+	It("Should stage the fields of a v4 body and leave NaN fill off",
 		func(ctx SpecContext) {
 			cfg := MustSucceed(versions.ReadConfigLadder.Decode(
 				ctx,
@@ -86,7 +90,7 @@ var _ = Describe("ReadConfigLadder", func() {
 					}},
 				},
 			))
-			Expect(cfg.NanFillEnabled).To(BeTrue())
+			Expect(cfg.NanFillEnabled).To(BeFalse())
 			Expect(cfg.Endpoints).To(HaveLen(1))
 			Expect(cfg.Endpoints[0].Path).To(Equal("/values"))
 			Expect(cfg.Endpoints[0].ICD).To(BeNil())

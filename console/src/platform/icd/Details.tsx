@@ -20,12 +20,11 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
 import type { FC, ReactElement, ReactNode } from "react";
 
-import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import type { MessagePlan } from "@/platform/icd/configure";
 import { defaultDataType } from "@/platform/icd/dataType";
 import { FieldsStatus, JSONField } from "@/platform/icd/Fields";
-import type { FormatForm } from "@/platform/icd/Formats";
+import { type FormatForm, useFormats } from "@/platform/icd/Formats";
 import { Match } from "@/platform/icd/Match";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { usePlan } from "@/platform/icd/Plans";
@@ -236,7 +235,9 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
         <PForm.Form<typeof PICD.formSchema> {...format}>
           <JSONField
             path={fieldsPath(message)[field.key]}
-            actions={<OpenInEditor icdKey={icdKey} message={message} />}
+            actions={
+              <OpenInEditor icdKey={icdKey} message={message} field={field.key} />
+            }
           />
         </PForm.Form>
         <PForm.Section title="Channel">
@@ -270,53 +271,104 @@ export interface MessageSectionsProps extends Omit<
   missingDescription: string;
 }
 
-export interface MessageStatusProps {
+export interface MessageWarningProps {
   /** The message in the ICD, or null when the ICD has no message with its key. */
   message: icd.Message | null;
   /** Says why the ICD has no such message, and what to do now. */
   missingDescription: string;
+}
+
+interface MessageStatusProps extends MessageWarningProps {
   /** Actions beside the note on a message that is not JSON. */
   actions?: ReactNode;
 }
 
-/**
- * Warns when the ICD has no such message, when the message is not JSON, or when it has
- * no fields.
- */
-export const MessageStatus = ({
+interface Problem {
+  message: string;
+  description: string;
+}
+
+const NOT_JSON: Problem = {
+  message: "Message is not JSON",
+  description:
+    "A task uses only JSON messages. Open the message in the editor to change its format.",
+};
+
+const NO_FIELDS: Problem = {
+  message: "Message has no fields",
+  description:
+    "A task cannot deploy a message with no fields. Add a field to the message.",
+};
+
+/** @returns what is wrong with the message, or null when nothing is. */
+const problemOf = ({
   message,
   missingDescription,
-  actions,
-}: MessageStatusProps): ReactElement | null => {
+}: MessageWarningProps): Problem | null => {
   if (message == null)
-    return (
-      <PForm.Section title="Message">
-        <Status.Summary
-          variant="warning"
-          message="Message not found"
-          description={missingDescription}
-          center={false}
-        />
-      </PForm.Section>
-    );
-  if (message.payload.format !== "json")
-    return (
-      <PForm.Section title="Message" actions={actions}>
-        <Text.Text color={9}>
-          The format of this message is not JSON.
-          {FLAGS.icds && " Open it in the editor to change its format."}
-        </Text.Text>
-      </PForm.Section>
-    );
-  if (message.payload.fields.length > 0) return null;
+    return { message: "Message not found", description: missingDescription };
+  if (message.payload.format !== "json") return NOT_JSON;
+  return message.payload.fields.length > 0 ? null : NO_FIELDS;
+};
+
+const warningOf = (props: MessageWarningProps): ReactElement | null => {
+  const problem = problemOf(props);
+  return problem == null ? null : (
+    <Status.Summary variant="warning" {...problem} center={false} />
+  );
+};
+
+/**
+ * Warns when the ICD has no such message, when the message is not JSON, or when it has
+ * no fields. Place it in the section that holds the message.
+ */
+export const MessageWarning = (props: MessageWarningProps): ReactElement | null =>
+  warningOf(props);
+
+export interface MessageMarkProps {
+  icdKey: icd.Key;
+  /** The messages of the item. The mark shows the problem of the first bad one. */
+  messages: icd.MessageKey[];
+  /** @returns why the ICD lacks the message at the index, and what to do now. */
+  missingDescription: (index: number) => string;
+}
+
+/**
+ * Marks a tree item when the ICD has no such message, when the message is not JSON, or
+ * when it has no fields. Its tooltip says which.
+ */
+export const MessageMark = ({
+  icdKey,
+  messages,
+  missingDescription,
+}: MessageMarkProps): ReactElement | null => {
+  const held = PForm.useFieldValue(PICD.formPath.messages, {
+    optional: true,
+    ctx: useFormats().get(icdKey),
+  });
+  const problem =
+    messages
+      .map((key, i) =>
+        problemOf({
+          message: held?.find((m) => m.key === key) ?? null,
+          missingDescription: missingDescription(i),
+        }),
+      )
+      .find((p) => p != null) ?? null;
+  return problem == null ? null : <Task.Views.TreeWarning {...problem} />;
+};
+
+/** Shows the warning of {@link MessageWarning} in a section of its own. */
+const MessageStatus = ({
+  actions,
+  ...rest
+}: MessageStatusProps): ReactElement | null => {
+  const warning = warningOf(rest);
+  if (warning == null) return null;
+  const notJSON = rest.message != null && rest.message.payload.format !== "json";
   return (
-    <PForm.Section title="Message">
-      <Status.Summary
-        variant="warning"
-        message="Message has no fields"
-        description="A task cannot deploy a message with no fields. Add a field to the message."
-        center={false}
-      />
+    <PForm.Section title="Message" actions={notJSON ? actions : undefined}>
+      {warning}
     </PForm.Section>
   );
 };

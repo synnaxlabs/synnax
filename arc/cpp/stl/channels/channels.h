@@ -48,7 +48,7 @@ inline types::ChannelKey bound_key(
 /// @brief returns the samples of s from index from to the end.
 inline ::x::telem::Series tail(const ::x::telem::Series &s, const size_t from) {
     const auto n = s.size();
-    const auto dt = s.data_type();
+    const auto &dt = s.data_type();
     ::x::telem::Series out(dt, dt.is_variable() ? s.byte_size() : n - from);
     out.time_range = s.time_range;
     if (dt.is_variable()) {

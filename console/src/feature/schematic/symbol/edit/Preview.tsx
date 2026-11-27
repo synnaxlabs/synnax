@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming as Base } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Schematic, Theming } from "@synnaxlabs/pluto";
-import { bounds, type color, dimensions, TimeSpan } from "@synnaxlabs/x";
+import { bounds, type color, deep, dimensions, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { FileDrop } from "@/feature/schematic/symbol/edit/FileDrop";
@@ -43,11 +43,14 @@ const ZOOM_IN_TOOLTIP = (
   </Triggers.Text>
 );
 
-const RESET_ZOOM_TOOLTIP = (
+const FIT_TOOLTIP = (
   <Triggers.Text trigger={ZOOM_TRIGGERS.modes.reset[0]} level="small">
-    Reset zoom
+    Fit drawing
   </Triggers.Text>
 );
+
+// The share of the preview that a fit drawing fills.
+const FIT_SHARE = 0.6;
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
@@ -62,8 +65,8 @@ const DEFAULT_VIEWPORT: Viewport = { zoom: 1, position: { x: 0, y: 0 } };
 const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
 
 interface PreviewProps {
-  /** selectedValue is the value of the state that the preview draws. */
-  selectedValue: number;
+  /** value holds the state values. A state with no value draws at its default. */
+  value: Schematic.Node.Custom.StateValues;
   selectedHandle?: string;
   /** selectedPart is the part whose shapes the preview marks. */
   selectedPart?: string;
@@ -79,7 +82,7 @@ interface PreviewProps {
 
 interface DrawingProps {
   spec: schematic.symbol.Spec;
-  value: number;
+  value: Schematic.Node.Custom.StateValues;
   nodeColor: color.Crude;
   onMount: (drawing: SVGGElement) => void;
 }
@@ -93,7 +96,7 @@ const Drawing = ({ spec, value, nodeColor, onMount }: DrawingProps): ReactElemen
 };
 
 export const Preview = ({
-  selectedValue,
+  value,
   selectedHandle,
   selectedPart,
   onElementClick,
@@ -131,7 +134,32 @@ export const Preview = ({
     form.set(path.data.previewViewport, { ...current, ...change(current) });
   };
 
-  const resetViewport = () => form.set(path.data.previewViewport, DEFAULT_VIEWPORT);
+  // Fit zooms so the drawing fills a share of the preview, at its center. It reads the
+  // size of the drawing itself, which a zoom still in transition does not change.
+  const fit = () => {
+    if (svg == null || themeContainer == null) return;
+    const width = svg.width.baseVal.value;
+    const height = svg.height.baseVal.value;
+    if (width === 0 || height === 0) return;
+    const room = themeContainer.getBoundingClientRect();
+    const scale = Math.min(
+      (room.width * FIT_SHARE) / width,
+      (room.height * FIT_SHARE) / height,
+    );
+    form.set(path.data.previewViewport, {
+      zoom: bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, scale),
+      position: { x: 0, y: 0 },
+    });
+  };
+
+  // A drawing that opens at the default view fits the preview instead.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || svg == null || themeContainer == null) return;
+    opened.current = true;
+    const stored = form.get(path.data.previewViewport, { optional: true })?.value;
+    if (stored == null || deep.equal(stored, DEFAULT_VIEWPORT)) fit();
+  }, [svg, themeContainer]);
 
   const stepZoom = (factor: number) =>
     setViewport(({ zoom }) => ({
@@ -140,7 +168,7 @@ export const Preview = ({
 
   const handleZoomIn = () => stepZoom(ZOOM_STEP);
   const handleZoomOut = () => stepZoom(1 / ZOOM_STEP);
-  const handleResetZoom = () => resetViewport();
+  const handleFit = () => fit();
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -182,7 +210,7 @@ export const Preview = ({
       if (stage === "end") return stopRepeat();
       if (stage !== "start") return;
       const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
-      if (mode === "reset") return handleResetZoom();
+      if (mode === "reset") return handleFit();
       if (mode !== "in" && mode !== "out") return;
       const step = mode === "in" ? handleZoomIn : handleZoomOut;
       step();
@@ -308,6 +336,7 @@ export const Preview = ({
                 variant="text"
                 size="small"
                 onClick={() => setDarkMode({ app: isDark, dark: !isDarkMode })}
+                tooltip={isDarkMode ? "Preview in light mode" : "Preview in dark mode"}
               >
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>
@@ -326,11 +355,7 @@ export const Preview = ({
                 >
                   <Icon.Add />
                 </Button.Button>
-                <Button.Button
-                  onClick={handleResetZoom}
-                  size="small"
-                  tooltip={RESET_ZOOM_TOOLTIP}
-                >
+                <Button.Button onClick={handleFit} size="small" tooltip={FIT_TOOLTIP}>
                   <Icon.Expand />
                 </Button.Button>
               </Flex.Box>
@@ -354,6 +379,7 @@ export const Preview = ({
                 {dims != null && (
                   <svg
                     ref={setSVG}
+                    className={Schematic.Node.Custom.DRAWING_CLASS}
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox={dimensions.svgViewBox(dims)}
                     {...dimensions.scale(
@@ -363,7 +389,7 @@ export const Preview = ({
                   >
                     <Drawing
                       spec={spec}
-                      value={selectedValue}
+                      value={value}
                       nodeColor={nodeColor}
                       onMount={onMount}
                     />

@@ -50,6 +50,10 @@ public:
     /// call.
     virtual void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) {}
 
+    /// @brief returns true if the task refuses every start. A disabled task answers a
+    /// start before exec returns, so no loading status announces its auto-start.
+    [[nodiscard]] virtual bool disabled() const { return false; }
+
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
     /// a call to the destructor.
@@ -142,6 +146,12 @@ public:
     std::vector<synnax::task::Status> snapshot() {
         std::lock_guard lock(this->mu);
         return this->statuses;
+    }
+
+    /// @brief drops every status, safe to call while tasks send more.
+    void clear() {
+        std::lock_guard lock(this->mu);
+        this->statuses.clear();
     }
 };
 
@@ -241,9 +251,11 @@ public:
 
     /// @brief closes op. A later status for its command is written as it is, unless
     /// op was cancelled. Then the status still goes through op, so it answers nothing.
+    /// deployed_hash is the config hash of the instance that runs, or empty for none.
     /// @returns the joined starts that got no final status.
-    std::vector<synnax::task::Command> end(const std::shared_ptr<Operation> &op) {
-        auto joined = op->close();
+    std::vector<synnax::task::Command>
+    end(const std::shared_ptr<Operation> &op, const std::string &deployed_hash) {
+        auto joined = op->close(deployed_hash);
         std::lock_guard lock{this->operations_mu};
         const auto it = this->operations.find(op->cmd.key);
         if (it == this->operations.end() || it->second != op) return joined;
@@ -643,8 +655,12 @@ private:
     /// as stopped responding counts as running. Replaces only a status for this rack,
     /// does nothing once this Driver wrote a status for the task, and never starts the
     /// task. Call it after a boot deploy that configured the task, unless the deploy
-    /// was cancelled.
-    void replace_interrupted_status(const synnax::task::Task &tsk);
+    /// was cancelled. deployed_hash is the config hash of the instance that the deploy
+    /// built, or empty for none.
+    void replace_interrupted_status(
+        const synnax::task::Task &tsk,
+        const std::string &deployed_hash
+    );
     /// @brief answers a pinned start whose config changed after the sender saw it.
     void refuse_pinned_start(const synnax::task::Task &tsk, Operation &operation);
     /// @brief answers a stop that cancelled the start of a task, which left no live

@@ -197,9 +197,29 @@ resource "aws_iam_role_policy_attachment" "host_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_role_policy_attachment" "host_ecr" {
-  role       = aws_iam_role.host.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+# The host pulls the Core and sample images. The other images come from public
+# registries.
+resource "aws_iam_role_policy" "host_images" {
+  role = aws_iam_role.host.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = aws_ecr_repository.preview.arn
+      },
+    ]
+  })
 }
 
 data "aws_caller_identity" "current" {}
@@ -275,8 +295,11 @@ resource "aws_instance" "host" {
     volume_size = 60
     volume_type = "gp3"
   }
+  # A hop limit of 1 keeps the role from bridge network containers, such as the
+  # preview Cores.
   metadata_options {
-    http_tokens = "required"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
   }
   tags = { Name = "synnax-preview" }
   # The first upgrade gets the certificate through the role.

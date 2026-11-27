@@ -73,7 +73,7 @@ TEST(BasePipeline, testUnknownExceptionHandling) {
     {
         std::lock_guard lock(pipeline.mu);
         ASSERT_MATCHES(pipeline.err, x::errors::INTERNAL);
-        ASSERT_EQ(pipeline.err.data, "unknown exception");
+        ASSERT_EQ(pipeline.err.data(), "unknown exception");
     }
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());
@@ -89,7 +89,7 @@ TEST(BasePipeline, testStdExceptionHandling) {
     {
         std::lock_guard lock(pipeline.mu);
         ASSERT_MATCHES(pipeline.err, x::errors::INTERNAL);
-        ASSERT_EQ(pipeline.err.data, "test std::exception");
+        ASSERT_EQ(pipeline.err.data(), "test std::exception");
     }
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_FALSE(pipeline.running());

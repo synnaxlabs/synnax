@@ -265,6 +265,7 @@ knip:
   - *arc_ts
   - *console
   - *ts
+  - oracle/format/typescript.mjs
   - oracle/lsp/extensions/vscode/**
   - scripts/check_exports_ts.py
   - site/common/**
@@ -369,6 +370,7 @@ driver: &driver
   - *freighter_cpp
   - *x_cpp
   - core/pkg/service/icd/testdata/decode/**
+  - core/pkg/service/icd/testdata/encode/**
   - driver/**
   - vendor/**
 
@@ -492,6 +494,7 @@ runners:
 tls:
   - *client_py
   - *client_ts
+  - .github/workflows/build.core.cross.yaml
   - .github/workflows/test.tls.yaml
 
 console_deps:

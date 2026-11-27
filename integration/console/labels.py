@@ -25,7 +25,7 @@ _POLL_MS = 100
 
 
 class LabelClient(ResourceClient):
-    """Console label client for managing labels on the Labels page of Settings."""
+    """Console label client for managing labels on the Labels page of the Library."""
 
     def __init__(self, *, layout: LayoutClient, client: sy.Synnax) -> None:
         super().__init__(layout)
@@ -99,8 +99,8 @@ class LabelClient(ResourceClient):
         pick_color(self.page, swatch, hex_color=new_color)
 
     def _show_page(self) -> None:
-        """Show the Labels page of Settings."""
-        nav = self.layout.open_settings()
+        """Show the Labels page of the Library."""
+        nav = self.layout.open_library()
         nav.get_by_role("menuitem", name="Labels", exact=True).click()
         self.page.get_by_placeholder(_SEARCH_PLACEHOLDER, exact=True).wait_for(
             state="visible", timeout=5000

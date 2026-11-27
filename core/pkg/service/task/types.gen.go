@@ -116,4 +116,6 @@ type Where struct {
 	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
 	// Arcs matches the tasks that run any of the Arcs with the given keys.
 	Arcs []uuid.UUID `json:"arcs,omitzero" msgpack:"arcs,omitempty"`
+	// ICDs matches the tasks that use any of the ICDs with the given keys.
+	ICDs []uuid.UUID `json:"icds,omitzero" msgpack:"icds,omitempty"`
 }

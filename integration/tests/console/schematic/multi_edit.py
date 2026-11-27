@@ -20,7 +20,8 @@ INDEX_NAME = "multi_edit_index"
 
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
-GREEN = (0, 255, 0)
+# A symbol node draws a color in the theme band, which keeps this green as it is.
+GREEN = (0, 160, 0)
 
 
 def expect_stroke(symbol: Symbol, rgb: tuple[int, int, int]) -> None:
@@ -28,6 +29,13 @@ def expect_stroke(symbol: Symbol, rgb: tuple[int, int, int]) -> None:
     r, g, b = rgb
     pattern = re.compile(rf"--pluto-symbol-color:\s*{r},\s*{g},\s*{b},\s*1\b")
     expect(symbol.colored).to_have_attribute("style", pattern)
+
+
+def expect_color(symbol: Symbol, rgb: tuple[int, int, int]) -> None:
+    """Wait until the symbol node strokes its drawing in the given color."""
+    r, g, b = rgb
+    pattern = re.compile(rf"stroke:\s*rgb\({r},\s*{g},\s*{b}\)")
+    expect(symbol.stroked).to_have_attribute("style", pattern)
 
 
 class MultiEdit(ConsoleCase):
@@ -84,8 +92,8 @@ class MultiEdit(ConsoleCase):
             value_a=value_a,
             value_b=value_b,
         )
-        self.test_stroke_applies_to_selection(
-            schematic, symbols=[valve_a, valve_b, value_a]
+        self.test_color_applies_to_selection(
+            schematic, valves=[valve_a, valve_b], value=value_a
         )
         self.test_mixed_and_selection_recolor(
             schematic, valve_a=valve_a, valve_b=valve_b, value_a=value_a
@@ -105,34 +113,40 @@ class MultiEdit(ConsoleCase):
         colors = schematic.colors
 
         schematic.select([valve_a, valve_b])
-        expect(colors.field("Stroke")).to_be_visible()
+        expect(colors.field("Color")).to_be_visible()
+        expect(colors.field("Stroke")).to_have_count(0)
         expect(colors.field("Fill")).to_have_count(0)
         expect(colors.field("Text")).to_have_count(0)
         expect(schematic.layout.form_section("Symbol size")).to_be_visible()
 
         schematic.select([valve_a, value_a])
+        expect(colors.field("Stroke")).to_be_visible()
         expect(colors.field("Fill")).to_be_visible()
         expect(colors.field("Text")).to_be_visible()
 
         schematic.select([value_a, value_b])
         expect(colors.field("Stroke")).to_be_visible()
+        expect(colors.field("Color")).to_have_count(0)
         expect(schematic.layout.form_section("Symbol size")).to_have_count(0)
 
-    def test_stroke_applies_to_selection(
-        self, schematic: Schematic, *, symbols: list[Symbol]
+    def test_color_applies_to_selection(
+        self, schematic: Schematic, *, valves: list[Symbol], value: Symbol
     ) -> None:
-        """Test that a stroke set on the selection recolors every selected symbol
-        and joins the Selection control as one swatch."""
-        self.log("Testing a stroke set on the selection")
+        """Test that a color and a stroke set on the selection recolor every selected
+        symbol and join the Selection control as one swatch."""
+        self.log("Testing a color and a stroke set on the selection")
         colors = schematic.colors
 
-        schematic.select(symbols)
+        schematic.select([*valves, value])
+        expect(colors.field("Color")).to_have_attribute("placeholder", "Auto")
         expect(colors.field("Stroke")).to_have_attribute("placeholder", "Auto")
         expect(colors.selection_swatches()).to_have_count(0)
 
+        colors.set("Color", "ff0000")
         colors.set("Stroke", "ff0000")
-        for symbol in symbols:
-            expect_stroke(symbol, RED)
+        for valve in valves:
+            expect_color(valve, RED)
+        expect_stroke(value, RED)
         expect(colors.selection_swatches()).to_have_count(1)
 
     def test_mixed_and_selection_recolor(
@@ -143,22 +157,23 @@ class MultiEdit(ConsoleCase):
         valve_b: Symbol,
         value_a: Symbol,
     ) -> None:
-        """Test that differing strokes show Mixed, and that a Selection swatch
+        """Test that differing colors show Mixed, and that a Selection swatch
         recolors only the symbols that hold its color."""
         self.log("Testing Mixed and a Selection swatch recolor")
         colors = schematic.colors
 
         schematic.select([valve_a, value_a])
+        colors.set("Color", "0000ff")
         colors.set("Stroke", "0000ff")
-        expect_stroke(valve_a, BLUE)
+        expect_color(valve_a, BLUE)
         expect_stroke(value_a, BLUE)
 
         schematic.select([valve_a, valve_b, value_a])
-        expect(colors.field("Stroke")).to_have_attribute("placeholder", "Mixed")
+        expect(colors.field("Color")).to_have_attribute("placeholder", "Mixed")
         expect(colors.selection_swatches()).to_have_count(2)
         red = colors.selection_colors().index("#ff0000")
 
-        colors.recolor(colors.selection_swatches().nth(red), "00ff00")
-        expect_stroke(valve_b, GREEN)
-        expect_stroke(valve_a, BLUE)
+        colors.recolor(colors.selection_swatches().nth(red), "00a000")
+        expect_color(valve_b, GREEN)
+        expect_color(valve_a, BLUE)
         expect_stroke(value_a, BLUE)

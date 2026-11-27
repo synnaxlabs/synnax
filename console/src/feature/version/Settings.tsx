@@ -14,6 +14,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Page } from "@/platform/page";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { Version } from "@/platform/version";
 import { Session } from "@/session";
@@ -22,7 +23,7 @@ import { Session } from "@/session";
 export const Settings = (): ReactElement => {
   const version = Session.Version.use();
   return (
-    <PlatformSettings.Card title="Console">
+    <Page.Card title="Console">
       {version != null && (
         <PlatformSettings.Entry label="Version">
           <Text.Text color={10} className={CSS.BE("version-settings", "value")}>
@@ -38,6 +39,6 @@ export const Settings = (): ReactElement => {
           </Flex.Box>
         </PlatformSettings.Entry>
       )}
-    </PlatformSettings.Card>
+    </Page.Card>
   );
 };

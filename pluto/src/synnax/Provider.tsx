@@ -137,7 +137,7 @@ export const Provider = ({
     connParams != null &&
     pageClient.params.host === connParams.host &&
     Number(pageClient.params.port) === Number(connParams.port) &&
-    pageClient.params.secure === (connParams.secure ?? false);
+    pageClient.params.secure === (connParams.secure ?? true);
   const token =
     current && state.status.details.authenticated ? pageClient.auth.token : undefined;
   let workerParams: SynnaxParams | null = null;

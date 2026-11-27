@@ -244,6 +244,55 @@ inline x::json::json WriteMessage::to_json() const {
     return j;
 }
 
+inline Poll Poll::parse(x::json::Parser parser) {
+    return Poll{
+        .query = parser.field<std::vector<std::uint8_t>>("query"),
+        .rate = parser.field<::x::telem::Rate>("rate", ::x::telem::Rate(1)),
+    };
+}
+
+inline x::json::json Poll::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["query"] = x::json::to_json(this->query);
+    j["rate"] = this->rate;
+    return j;
+}
+
+inline ReadEntry ReadEntry::parse(x::json::Parser parser) {
+    return ReadEntry{
+        .icd = parser.field<Key>("icd"),
+        .messages = parser.field<std::vector<ReadMessage>>(
+            "messages",
+            std::vector<ReadMessage>{}
+        ),
+        .poll = parser.field<std::optional<Poll>>("poll"),
+    };
+}
+
+inline x::json::json ReadEntry::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["icd"] = this->icd.to_json();
+    j["messages"] = x::json::to_array(this->messages);
+    if (this->poll.has_value()) j["poll"] = this->poll->to_json();
+    return j;
+}
+
+inline WriteTarget WriteTarget::parse(x::json::Parser parser) {
+    return WriteTarget{
+        .icd = parser.field<Key>("icd"),
+        .message = parser.field<WriteMessage>("message"),
+        .period = parser.field<std::optional<::x::telem::TimeSpan>>("period"),
+    };
+}
+
+inline x::json::json WriteTarget::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["icd"] = this->icd.to_json();
+    j["message"] = this->message.to_json();
+    if (this->period.has_value()) j["period"] = this->period->nanoseconds();
+    return j;
+}
+
 inline BinaryBaseField BinaryBaseField::parse(x::json::Parser parser) {
     BinaryBaseField result;
     static_cast<BaseField &>(result) = BaseField::parse(parser);
