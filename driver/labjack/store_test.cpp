@@ -189,4 +189,43 @@ TEST(Store, TakesOverDeviceFromSilentRack) {
     ASSERT_EQ(got.status.value().details.rack, env.rack.key);
     ASSERT_EQ(got.status.value().message, "Device present");
 }
+/// @brief it should refuse a task device key that is not a serial number.
+TEST(RetrieveTaskDevice, RejectsKeysThatAreNotSerials) {
+    const auto client = new_test_client();
+    for (const auto *key: {"", "labjack_abc", "4294967296", "+5", " 5", "5 ", "-1"}) {
+        SCOPED_TRACE(key);
+        ASSERT_OCCURRED_AS_P(retrieve_task_device(client, key), x::errors::VALIDATION);
+    }
+}
+
+/// @brief it should report a serial number that no device has as not found.
+TEST(RetrieveTaskDevice, ReportsMissingSerial) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS_P(
+        retrieve_task_device(client, std::to_string(new_serial())),
+        x::errors::NOT_FOUND
+    );
+}
+
+/// @brief it should pick the most recently reported device when two hold the serial.
+TEST(RetrieveTaskDevice, PicksMostRecentlyReportedDevice) {
+    auto env = create_env();
+    synnax::rack::Rack other{.name = "labjack_task_device_rack"};
+    ASSERT_NIL(env.client->racks.create(other));
+    const auto serial = new_serial();
+    auto older = found_device(env.rack.key, serial);
+    auto newer = found_device(other.key, serial);
+    ASSERT_NIL(env.client->labjack.devices.create(older));
+    ASSERT_NIL(env.client->labjack.devices.create(newer));
+    newer.status = synnax::labjack::device::Status{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Device present",
+        .time = x::telem::TimeStamp::now(),
+    };
+    ASSERT_NIL(Store(env.client).set_statuses({newer}));
+    const auto got = ASSERT_NIL_P(
+        retrieve_task_device(*env.client, std::to_string(serial))
+    );
+    ASSERT_EQ(got.key, newer.key);
+}
 }

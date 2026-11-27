@@ -62,7 +62,6 @@ cc_library(
         "//client/cpp/labjack/device",
         "//driver/common",
         "//x/cpp/errors",
-        "//x/cpp/filter",
         "//x/cpp/telem",
     ],
 )

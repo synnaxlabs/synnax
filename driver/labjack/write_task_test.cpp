@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <string>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
@@ -45,10 +49,13 @@ protected:
         .is_virtual = true
     };
 
+    /// @brief the key of the device of the parsed config, which is its serial number.
+    std::string dev_key;
+
     void parse_config() {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-        const auto dev_key = create_task_device(*client, rack.key);
+        this->dev_key = create_task_device(*client, rack.key);
         ASSERT_NIL(client->channels.create(state_idx_ch));
         state_ch.index = state_idx_ch.key;
         ASSERT_NIL(client->channels.create(state_ch));
@@ -84,6 +91,7 @@ TEST_F(SinkClaimTest, testSinkClaimsDeviceOnStart) {
     EXPECT_EQ(devs->dev.use_count(), 1);
     ASSERT_NIL(sink.start("start_cmd", this->cancel));
     EXPECT_EQ(devs->acquire_call_count, 1);
+    EXPECT_EQ(devs->acquired, std::vector{this->dev_key});
     EXPECT_EQ(devs->dev.use_count(), 2);
     ASSERT_NIL(sink.stop());
     EXPECT_EQ(devs->dev.use_count(), 1);
@@ -152,5 +160,29 @@ TEST_F(SinkClaimTest, testSinkWritesStateAfterReconnect) {
     EXPECT_EQ(mock->name_write_calls[2].at("DAC0"), 3);
     EXPECT_EQ(mock->name_write_calls[3].at("DAC0"), 5);
     ASSERT_NIL(sink.stop());
+}
+
+/// @brief it should fail to parse a config whose device key is not a serial number.
+TEST(WriteTaskConfigTest, RejectsDeviceKeyThatIsNotASerial) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto p = x::json::Parser(
+        x::json::json{
+            {"device", "not-a-serial"},
+            {"state_rate", 10},
+            {"channels",
+             x::json::json::array(
+                 {{{"type", "analog"},
+                   {"port", "DAC0"},
+                   {"cmd_channel", 1},
+                   {"state_channel", 2}}}
+             )}
+        }
+    );
+    WriteTaskConfig cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    EXPECT_TRUE(std::ranges::any_of(errs, [](const auto &e) {
+        return e["path"] == "device";
+    })) << errs.dump();
 }
 }

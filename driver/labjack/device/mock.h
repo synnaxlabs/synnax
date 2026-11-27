@@ -247,6 +247,8 @@ public:
         int connection_type = LJM_ctUSB;
         int serial_number = 0;
     };
+    /// @brief the serial number of each acquire, in order.
+    std::vector<std::string> acquired;
     /// @brief the devices that list_all() reports on their connection type. As in
     /// LJM, a TCP scan reports Ethernet and Wi-Fi devices.
     std::vector<Listing> listed;
@@ -277,7 +279,8 @@ public:
     }
 
     std::pair<std::shared_ptr<Device>, x::errors::Error>
-    acquire(const std::string &) override {
+    acquire(const std::string &serial_number) override {
+        this->acquired.push_back(serial_number);
         const auto i = this->acquire_call_count++;
         if (i < this->acquire_errors.size() && this->acquire_errors[i])
             return {nullptr, this->acquire_errors[i]};
