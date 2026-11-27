@@ -963,7 +963,7 @@ func (w Writer) refuseTakenNames(
 	}
 	taken := make(map[string]Key, len(holders))
 	for _, h := range holders {
-		taken[h.Name] = h.Key()
+		taken[validate.NormalizeName(h.Name)] = h.Key()
 	}
 	for _, i := range newIndices {
 		if k, ok := taken[channels[i].Name]; ok {
