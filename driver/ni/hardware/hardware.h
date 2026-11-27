@@ -61,7 +61,7 @@ struct Writer : virtual Hardware {
 };
 
 namespace daqmx {
-/// @brief Base DAQmx hardware implementation that manages task lifecycle
+/// @brief Base NI-DAQmx hardware implementation that manages task lifecycle
 struct Base : virtual Hardware {
 protected:
     /// @brief the handle for the task.
@@ -76,21 +76,21 @@ protected:
 public:
     ~Base() override;
 
-    /// @brief implements HardwareInterface to start the DAQmx task.
+    /// @brief implements HardwareInterface to start the NI-DAQmx task.
     x::errors::Error start() override;
 
-    /// @brief implements the HardwareInterface to stop the DAQmx task.
+    /// @brief implements the HardwareInterface to stop the NI-DAQmx task.
     x::errors::Error stop() override;
 
-    /// @brief aborts the DAQmx task. A blocked read returns at once.
+    /// @brief aborts the NI-DAQmx task. A blocked read returns at once.
     x::errors::Error abort() override;
 };
 
-/// @brief Implementation of digital output writing using DAQmx
+/// @brief Implementation of digital output writing using NI-DAQmx
 struct DigitalWriter final : Base, Writer<uint8_t> {
     /// @brief Constructs a new digital writer
-    /// @param dmx The DAQmx API interface
-    /// @param task_handle Handle to the DAQmx task
+    /// @param dmx The NI-DAQmx API interface
+    /// @param task_handle Handle to the NI-DAQmx task
     DigitalWriter(
         const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
@@ -98,11 +98,11 @@ struct DigitalWriter final : Base, Writer<uint8_t> {
     x::errors::Error write(const std::vector<uint8_t> &data) override;
 };
 
-/// @brief Implementation of analog output writing using DAQmx
+/// @brief Implementation of analog output writing using NI-DAQmx
 struct AnalogWriter final : Base, Writer<double> {
     /// @brief Constructs a new analog writer
-    /// @param dmx The DAQmx API interface
-    /// @param task_handle Handle to the DAQmx task
+    /// @param dmx The NI-DAQmx API interface
+    /// @param task_handle Handle to the NI-DAQmx task
     AnalogWriter(
         const std::shared_ptr<ni::daqmx::SugaredAPI> &dmx,
         TaskHandle task_handle
@@ -128,7 +128,7 @@ protected:
     /// the user.
     size_t total_samples_requested = 0;
     /// @brief the total number of samples actually acquired from the hardware
-    /// by DAQmx.
+    /// by NI-DAQmx.
     uInt64 total_samples_acquired = 0;
 
     SkewTrackingReader(
@@ -214,7 +214,7 @@ public:
         x::errors::Error error = x::errors::NIL;
         int64 skew = 0;
         /// @brief whether the read waits up to five seconds for abort() before it
-        /// returns, as a DAQmx read waits for samples that never arrive.
+        /// returns, as a NI-DAQmx read waits for samples that never arrive.
         bool waits_for_abort = false;
     };
 

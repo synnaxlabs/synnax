@@ -207,7 +207,7 @@ public:
         unsigned int,
         void *value
     ) override {
-        // As on a simulated device, the resource name is not the DAQmx name.
+        // As on a simulated device, the resource name is not the NI-DAQmx name.
         const char *v = property == NISysCfgIndexedPropertyExpertUserAlias
                           ? "Dev1"
                           : "\"3BA1A71A-1D33-4C5E-9F6A-0B7C8D9E0F12\"";
@@ -236,7 +236,7 @@ loaded(const std::shared_ptr<syscfg::API> &api) {
     });
 }
 
-/// @brief returns a DAQmx library that loads api on first use.
+/// @brief returns a NI-DAQmx library that loads api on first use.
 std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>>
 loaded(const std::shared_ptr<daqmx::API> &api) {
     return std::make_shared<x::lib::Lazy<daqmx::SugaredAPI>>([api] {
@@ -423,7 +423,7 @@ TEST(ScannerTest, testIgnoresSavedPatterns) {
     );
 }
 
-/// @brief a DAQmx API whose device reads fail while failing is true.
+/// @brief a NI-DAQmx API whose device reads fail while failing is true.
 class FlakyAPI final : public daqmx::MockAPI {
 public:
     bool failing = false;
@@ -439,7 +439,7 @@ public:
         int32 *value
     ) override {
         MockAPI::GetDeviceAttributeInt32(name, attr, value);
-        // DAQmx knows a device only by its alias.
+        // NI-DAQmx knows a device only by its alias.
         if (this->failing || std::string(name) != "Dev1")
             return DAQmxErrorInvalidDeviceID;
         return 0;
@@ -536,7 +536,7 @@ public:
     }
 };
 
-/// @brief a scanner over one physical device and a DAQmx API.
+/// @brief a scanner over one physical device and a NI-DAQmx API.
 struct HardwareScanner {
     std::shared_ptr<FlakyAPI> dmx = std::make_shared<FlakyAPI>();
     Scanner scanner;
