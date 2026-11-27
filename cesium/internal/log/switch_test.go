@@ -151,6 +151,28 @@ var _ = Describe("Switch", func() {
 				},
 			)
 
+			It("Should take Commits again in the next log after a Commit that did not "+
+				"fit in the last one", func() {
+				done := make(chan uint64, 4)
+				open(func(next uint64) {
+					ready(next)
+					done <- next
+				})
+				Eventually(done).Should(Receive(Equal(uint64(generation + 1))))
+				Expect(l.Append(commitEntry(log.MaxFrame)).Wait()).Error().
+					To(MatchError(ContainSubstring("does not fit in log 3")))
+				Expect(l.Append(commitEntry(64)).Wait()).Error().To(MatchError(
+					ContainSubstring(
+						"log 3 refuses each Commit after one that did not " +
+							"fit",
+					),
+				))
+				Expect(fill()).To(Equal(uint64(7)))
+				Expect(l.Append(commitEntry(64)).Wait()).To(Equal(uint64(8)))
+				_, switched := calls.get()
+				Expect(switched).To(Equal([]uint64{4}))
+			})
+
 			It("Should stay in the live log when the next file fails, and ask again",
 				func() {
 					open(func(next uint64) { l.Prepared(next, errors.New("no space")) })
