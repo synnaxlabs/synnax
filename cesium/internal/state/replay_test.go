@@ -22,31 +22,43 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// draft is a head before sample builds the Channels of keys 5 and 6 from five and six.
+type draft struct {
+	*state.Snapshot
+	five, six []state.Segment
+}
+
 // sample is a durable state: clock 5 with a sealed and an open segment, and key 6 on
-// clock 5.
-func sample() *state.Snapshot {
-	return &state.Snapshot{
+// clock 5. Each edit changes the draft before sample builds the Channels.
+func sample(edits ...func(d *draft)) *state.Snapshot {
+	d := &draft{Snapshot: &state.Snapshot{
 		Sequence: 9,
 		Limits:   state.Limits{Segments: 20, Alignments: 10},
-		Channels: []*state.Channel{
-			{Key: 5, Segments: []state.Segment{
-				{
-					ID: 2, Clock: 5, Version: 1, DataType: 7, Sealed: true,
-					Length: 24, TailCRC: 1,
-					Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 24, 3)},
-				},
-				{
-					ID: 4, Clock: 5, Version: 1, DataType: 7, Length: 16, TailCRC: 2,
-					Pointers: []state.Pointer{pointer(2, 0, 40, 50, 0, 16, 2)},
-				},
-			}},
-			{Key: 6, Segments: []state.Segment{{
-				ID: 3, Clock: 5, Version: 1, DataType: 4, Length: 12, TailCRC: 3,
-				Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
-			}}},
+		Intents:  []uint32{8},
+	}}
+	d.five = []state.Segment{
+		{
+			ID: 2, Clock: 5, Version: 1, DataType: 7, Sealed: true,
+			Length: 24, TailCRC: 1,
+			Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 24, 3)},
 		},
-		Intents: []uint32{8},
+		{
+			ID: 4, Clock: 5, Version: 1, DataType: 7, Length: 16, TailCRC: 2,
+			Pointers: []state.Pointer{pointer(2, 0, 40, 50, 0, 16, 2)},
+		},
 	}
+	d.six = []state.Segment{{
+		ID: 3, Clock: 5, Version: 1, DataType: 4, Length: 12, TailCRC: 3,
+		Pointers: []state.Pointer{pointer(1, 0, 10, 30, 0, 12, 3)},
+	}}
+	for _, e := range edits {
+		e(d)
+	}
+	d.Channels = []*state.Channel{
+		state.NewChannel(5, d.five...),
+		state.NewChannel(6, d.six...),
+	}
+	return d.Snapshot
 }
 
 var _ = Describe("Config", func() {
@@ -74,60 +86,59 @@ var _ = Describe("Load", func() {
 		run(s)
 		Expect(MustSucceed(s.Snapshot())).To(Equal(sample()))
 		ch := s.Channel(5)
-		Expect(ch.Segments).To(Equal(sample().Channels[0].Segments))
+		Expect(segments(ch)).To(Equal(segments(sample().Channels[0])))
 		Expect(s.Channel(7)).To(BeNil())
 	})
 
 	DescribeTable(
 		"Should refuse a head whose values break a rule",
-		func(change func(*state.Snapshot), wraps types.GomegaMatcher, msg string) {
-			h := sample()
-			change(h)
+		func(change func(d *draft), wraps types.GomegaMatcher, msg string) {
+			h := sample(change)
 			Expect(state.Open(config(&appended{}), h)).Error().To(SatisfyAll(
 				wraps,
 				MatchError(ContainSubstring(msg)),
 			))
 		},
-		Entry("an alignment number limit above stored data", func(h *state.Snapshot) {
-			h.Limits.Alignments = 1<<31 + 1
+		Entry("an alignment number limit above stored data", func(d *draft) {
+			d.Limits.Alignments = 1<<31 + 1
 		}, refused(), "alignment number limit 2147483649"),
-		Entry("segment 0", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].ID = 0
+		Entry("segment 0", func(d *draft) {
+			d.six[0].ID = 0
 		}, refused(), "head names segment 0"),
-		Entry("a segment at the limit", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].ID = 20
+		Entry("a segment at the limit", func(d *draft) {
+			d.six[0].ID = 20
 		}, refused(), "segment 20, not from 1 to below the limit 20"),
-		Entry("a segment in two keys", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].ID = 2
+		Entry("a segment in two keys", func(d *draft) {
+			d.six[0].ID = 2
 		}, refused(), "head names segment 2 twice"),
-		Entry("a version this binary does not read", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Version = 2
+		Entry("a version this binary does not read", func(d *draft) {
+			d.six[0].Version = 2
 		}, MatchError(log.ErrUnknown), "segment 3 has format version 2"),
-		Entry("a pointer of no samples", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Pointers[0].Samples = 0
+		Entry("a pointer of no samples", func(d *draft) {
+			d.six[0].Pointers[0].Samples = 0
 		}, refused(), "a pointer of 0 samples"),
-		Entry("fewer bytes than samples", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Pointers[0].Length = 2
+		Entry("fewer bytes than samples", func(d *draft) {
+			d.six[0].Pointers[0].Length = 2
 		}, refused(), "a pointer of 3 samples in 2 bytes"),
-		Entry("a first stamp after the last", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Pointers[0].First = 31
+		Entry("a first stamp after the last", func(d *draft) {
+			d.six[0].Pointers[0].First = 31
 		}, refused(), "from 31 to 30"),
-		Entry("one sample with two stamps", func(h *state.Snapshot) {
-			p := &h.Channels[1].Segments[0].Pointers[0]
+		Entry("one sample with two stamps", func(d *draft) {
+			p := &d.six[0].Pointers[0]
 			p.Samples, p.Length = 1, 4
 		}, refused(), "a pointer of 1 samples in 4 bytes from 10 to 30"),
-		Entry("pointers that share stream bytes", func(h *state.Snapshot) {
-			seg := &h.Channels[0].Segments[1]
+		Entry("pointers that share stream bytes", func(d *draft) {
+			seg := &d.five[1]
 			seg.Pointers = append(seg.Pointers, pointer(3, 0, 60, 70, 8, 8, 2))
 		}, refused(), "a pointer at 8, before the end 16"),
-		Entry("alignment number 0", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Pointers[0] = pointer(0, 0, 10, 30, 0, 12, 3)
+		Entry("alignment number 0", func(d *draft) {
+			d.six[0].Pointers[0] = pointer(0, 0, 10, 30, 0, 12, 3)
 		}, refused(), "with alignment 0 of 3 samples"),
-		Entry("an alignment number at the limit", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Pointers[0] = pointer(10, 0, 10, 30, 0, 12, 3)
+		Entry("an alignment number at the limit", func(d *draft) {
+			d.six[0].Pointers[0] = pointer(10, 0, 10, 30, 0, 12, 3)
 		}, refused(), "with alignment 42949672960"),
-		Entry("a sample index past its stretch", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Pointers[0] = pointer(
+		Entry("a sample index past its stretch", func(d *draft) {
+			d.six[0].Pointers[0] = pointer(
 				1,
 				1<<32-2,
 				10,
@@ -137,11 +148,11 @@ var _ = Describe("Load", func() {
 				3,
 			)
 		}, refused(), "of 3 samples"),
-		Entry("a pointer past the length", func(h *state.Snapshot) {
-			h.Channels[1].Segments[0].Length = 11
+		Entry("a pointer past the length", func(d *draft) {
+			d.six[0].Length = 11
 		}, refused(), "segment 3 has a pointer past its length 11"),
-		Entry("pointers of one key that overlap", func(h *state.Snapshot) {
-			h.Channels[0].Segments[1].Pointers[0] = pointer(2, 0, 30, 50, 0, 16, 2)
+		Entry("pointers of one key that overlap", func(d *draft) {
+			d.five[1].Pointers[0] = pointer(2, 0, 30, 50, 0, 16, 2)
 		}, refused(), "key 5 has pointers that overlap at 30"),
 	)
 })
@@ -185,7 +196,7 @@ var _ = Describe("Replay", func() {
 			Expect(snap.Sequence).To(Equal(uint64(11)))
 			Expect(snap.Intents).To(BeNil())
 			Expect(snap.Channels).To(HaveLen(2))
-			Expect(snap.Channels[0].Segments[1]).To(Equal(state.Segment{
+			Expect(segments(snap.Channels[0])[1]).To(Equal(state.Segment{
 				ID: 4, Clock: 5, Version: 1, DataType: 7, Sealed: true, Length: 32,
 				TailCRC: 96,
 				Pointers: []state.Pointer{
@@ -194,16 +205,14 @@ var _ = Describe("Replay", func() {
 					pointer(5, 0, 90, 90, 28, 4, 1),
 				},
 			}))
-			Expect(
-				snap.Channels[1],
-			).To(Equal(&state.Channel{Key: 9, Segments: []state.Segment{{
+			Expect(snap.Channels[1]).To(Equal(state.NewChannel(9, state.Segment{
 				ID: 7, Clock: 5, Version: 1, DataType: 4, Length: 16, TailCRC: 48,
 				Pointers: []state.Pointer{
 					pointer(3, 0, 60, 80, 0, 12, 3),
 					pointer(5, 0, 90, 90, 12, 4, 1),
 				},
-			}}}))
-			Expect(s.Channel(9).Segments).To(Equal(snap.Channels[1].Segments))
+			})))
+			Expect(segments(s.Channel(9))).To(Equal(segments(snap.Channels[1])))
 			Expect(s.Channel(6)).To(BeNil())
 		},
 	)
@@ -213,7 +222,7 @@ var _ = Describe("Replay", func() {
 		run(s)
 		snap := MustSucceed(s.Snapshot())
 		for _, ch := range snap.Channels {
-			for _, seg := range ch.Segments {
+			for seg := range ch.All() {
 				Expect(seg.Sealed).To(BeTrue())
 			}
 		}

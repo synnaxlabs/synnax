@@ -13,7 +13,11 @@
 // does no I/O.
 package state
 
-import "github.com/synnaxlabs/x/telem"
+import (
+	"iter"
+
+	"github.com/synnaxlabs/x/telem"
+)
 
 // Pointer is a committed byte range of a segment.
 type Pointer struct {
@@ -47,11 +51,51 @@ type Segment struct {
 }
 
 // Channel is the state of one key. A Channel that the state publishes never changes.
+// Read its segments with All.
 type Channel struct {
 	Key uint32
-	// Segments are in rising order of identity.
-	Segments []Segment
+	// sealed holds the sealed segments and open the others, each in rising order of
+	// identity. Published Channels share sealed, and the state appends to it only past
+	// every published length.
+	sealed, open []Segment
 }
+
+// NewChannel returns the Channel of key with segs, which are in rising order of
+// identity.
+func NewChannel(key uint32, segs ...Segment) *Channel {
+	c := &Channel{Key: key}
+	for _, seg := range segs {
+		if seg.Sealed {
+			c.sealed = append(c.sealed, seg)
+		} else {
+			c.open = append(c.open, seg)
+		}
+	}
+	return c
+}
+
+// All returns the segments of c in rising order of identity. The caller must not change
+// them.
+func (c *Channel) All() iter.Seq[*Segment] {
+	return func(yield func(*Segment) bool) {
+		i, j := 0, 0
+		for i < len(c.sealed) || j < len(c.open) {
+			var seg *Segment
+			if j == len(c.open) ||
+				(i < len(c.sealed) && c.sealed[i].ID < c.open[j].ID) {
+				seg, i = &c.sealed[i], i+1
+			} else {
+				seg, j = &c.open[j], j+1
+			}
+			if !yield(seg) {
+				return
+			}
+		}
+	}
+}
+
+// Len returns how many segments c holds.
+func (c *Channel) Len() int { return len(c.sealed) + len(c.open) }
 
 // Limits are the values below which the database gives out identities and numbers.
 type Limits struct {

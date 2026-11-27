@@ -11,7 +11,6 @@ package state_test
 
 import (
 	"context"
-	"slices"
 	"strconv"
 	"sync"
 	"time"
@@ -136,7 +135,7 @@ var _ = Describe("Writer", func() {
 				seal(at)
 			}
 			old := s.Channel(5)
-			first := slices.Clone(old.Segments)
+			first := segments(old)
 			Expect(first).To(HaveLen(5))
 			var (
 				read  = make(chan struct{})
@@ -146,7 +145,7 @@ var _ = Describe("Writer", func() {
 			go func() {
 				defer GinkgoRecover()
 				for n := 1; ; n++ {
-					Expect(old.Segments).To(Equal(first))
+					Expect(segments(old)).To(Equal(first))
 					if n == 1 {
 						close(read)
 					}
@@ -164,7 +163,7 @@ var _ = Describe("Writer", func() {
 			}
 			close(done)
 			Eventually(reads).Should(Receive(BeNumerically(">", 1)))
-			Expect(s.Channel(5).Segments).To(HaveLen(25))
+			Expect(s.Channel(5).Len()).To(Equal(25))
 		})
 
 	It("Should give out segment 1 and alignment number 1 first in a new database",
@@ -243,14 +242,14 @@ var _ = Describe("Writer", func() {
 			func() {
 				before := s.Channel(5)
 				Expect(w.Commit(first())).To(Succeed())
-				Expect(s.Channel(5).Segments[0].Pointers).
+				Expect(segments(s.Channel(5))[0].Pointers).
 					To(Equal([]state.Pointer{pointer(number, 0, 100, 110, 0, 16, 2)}))
-				Expect(before.Segments[0].Pointers).To(BeEmpty(), "copy on write")
+				Expect(segments(before)[0].Pointers).To(BeEmpty(), "copy on write")
 				Expect(MustSucceed(s.Snapshot()).Channels).To(BeEmpty())
 				durable(create(clk, 5, 5), create(data, 6, 5), first())
 				snap := MustSucceed(s.Snapshot())
 				Expect(snap.Channels).To(HaveLen(2))
-				Expect(snap.Channels[1].Segments[0].Pointers).
+				Expect(segments(snap.Channels[1])[0].Pointers).
 					To(Equal([]state.Pointer{pointer(number, 0, 100, 110, 0, 8, 2)}))
 			})
 
@@ -258,7 +257,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Commit(first())).To(Succeed())
 			Expect(w.Commit(commit(1, number, 2, 120, 120, slot(clk, 24),
 				slot(data, 12)))).To(Succeed())
-			Expect(s.Channel(6).Segments[0].Pointers).
+			Expect(segments(s.Channel(6))[0].Pointers).
 				To(Equal([]state.Pointer{pointer(number, 0, 100, 120, 0, 12, 3)}))
 		})
 
@@ -344,7 +343,7 @@ var _ = Describe("Writer", func() {
 				MatchError(ContainSubstring("at 50 goes back inside its stretch, "+
 					"which reaches 110")),
 			))
-			Expect(s.Channel(5).Segments[0].Pointers).
+			Expect(segments(s.Channel(5))[0].Pointers).
 				To(Equal([]state.Pointer{pointer(number, 0, 100, 110, 0, 16, 2)}))
 		})
 
@@ -353,7 +352,7 @@ var _ = Describe("Writer", func() {
 				Expect(w.Commit(first())).To(Succeed())
 				durable(create(clk, 5, 5))
 				Expect(w.TakeBack()).To(Equal([]log.Seal{{Segment: clk}}))
-				Expect(s.Channel(6).Segments).To(BeEmpty())
+				Expect(s.Channel(6).Len()).To(BeZero())
 				Expect(s.TakeDead()).To(Equal([]uint64{data}))
 				durable(&log.Seal{Segment: clk})
 			})
@@ -385,7 +384,7 @@ var _ = Describe("Writer", func() {
 		It("Should seal the held segment of a key at its committed length", func() {
 			Expect(w.Commit(first())).To(Succeed())
 			Expect(w.Seal(6)).To(Equal(log.Seal{Segment: data, Length: 8, TailCRC: 24}))
-			Expect(s.Channel(6).Segments[0].Sealed).To(BeTrue())
+			Expect(segments(s.Channel(6))[0].Sealed).To(BeTrue())
 			Expect(w.Seal(6)).Error().To(MatchError(ContainSubstring(
 				"writer holds no open segment of key 6",
 			)))
@@ -402,7 +401,7 @@ var _ = Describe("Writer", func() {
 				{Segment: clk, Length: 16, TailCRC: 48},
 				{Segment: data, Length: 8, TailCRC: 24},
 			}))
-			seg := s.Channel(6).Segments[0]
+			seg := segments(s.Channel(6))[0]
 			Expect(seg.Sealed).To(BeTrue())
 			Expect(seg.Length).To(Equal(uint32(8)))
 			Expect(seg.Pointers).
@@ -598,9 +597,9 @@ var _ = Describe("Writer", func() {
 			Expect(
 				a.seals(),
 			).To(Equal([]log.Seal{{Segment: a5, Length: 8, TailCRC: 24}}))
-			Expect(s.Channel(5).Segments[0].Sealed).To(BeTrue())
-			Expect(s.Channel(7).Segments[0].Sealed).To(BeFalse())
-			Expect(a.switched()[0].Channels[0].Segments[0].Sealed).
+			Expect(segments(s.Channel(5))[0].Sealed).To(BeTrue())
+			Expect(segments(s.Channel(7))[0].Sealed).To(BeFalse())
+			Expect(segments(a.switched()[0].Channels[0])[0].Sealed).
 				To(BeFalse(), "the seal is not durable at the switch")
 		})
 
@@ -630,7 +629,7 @@ var _ = Describe("Writer", func() {
 			Expect(s.Switch(4)).To(Succeed())
 			Eventually(a.switched).Should(HaveLen(1))
 			Expect(a.seals()).To(BeEmpty())
-			Expect(s.Channel(5).Segments).To(BeEmpty())
+			Expect(s.Channel(5).Len()).To(BeZero())
 			Expect(s.TakeDead()).To(Equal([]uint64{id}))
 			Expect(s.TakeDead()).To(BeEmpty())
 		})
@@ -680,9 +679,9 @@ var _ = Describe("Writer", func() {
 			snap := MustSucceed(s.Snapshot())
 			Expect(snap.Channels).To(HaveLen(4))
 			for _, ch := range snap.Channels {
-				Expect(ch.Segments[0].Pointers).To(HaveLen(1))
-				Expect(ch.Segments[0].Pointers[0].Samples).To(Equal(uint32(50)))
-				Expect(s.Channel(ch.Key).Segments).To(Equal(ch.Segments))
+				Expect(segments(ch)[0].Pointers).To(HaveLen(1))
+				Expect(segments(ch)[0].Pointers[0].Samples).To(Equal(uint32(50)))
+				Expect(segments(s.Channel(ch.Key))).To(Equal(segments(ch)))
 			}
 		})
 })

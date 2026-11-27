@@ -22,10 +22,10 @@ import (
 // history returns a durable state of key 5, its own clock, with sealed segments 1 to n
 // of one pointer each, then the open segment n+1 with no pointer.
 func history(n uint32) *state.Snapshot {
-	ch := &state.Channel{Key: 5, Segments: make([]state.Segment, 0, n+1)}
+	segs := make([]state.Segment, 0, n+1)
 	for id := uint32(1); id <= n; id++ {
 		at := int64(id) * 10
-		ch.Segments = append(ch.Segments, state.Segment{
+		segs = append(segs, state.Segment{
 			ID:       uint64(id),
 			Clock:    5,
 			Version:  1,
@@ -36,13 +36,10 @@ func history(n uint32) *state.Snapshot {
 		})
 	}
 	open := uint64(n) + 1
-	ch.Segments = append(
-		ch.Segments,
-		state.Segment{ID: open, Clock: 5, Version: 1, DataType: 4},
-	)
+	segs = append(segs, state.Segment{ID: open, Clock: 5, Version: 1, DataType: 4})
 	return &state.Snapshot{
 		Limits:   state.Limits{Segments: open + 1, Alignments: open + 1},
-		Channels: []*state.Channel{ch},
+		Channels: []*state.Channel{state.NewChannel(5, segs...)},
 	}
 }
 

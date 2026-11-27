@@ -163,6 +163,15 @@ func config(a *appended) state.Config {
 	}
 }
 
+// segments returns the segments of ch, in rising order of identity.
+func segments(ch *state.Channel) []state.Segment {
+	out := make([]state.Segment, 0, ch.Len())
+	for seg := range ch.All() {
+		out = append(out, *seg)
+	}
+	return out
+}
+
 // head returns an empty durable state with limits.
 func head(segments, alignments uint64) *state.Snapshot {
 	return &state.Snapshot{

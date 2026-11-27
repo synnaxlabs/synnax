@@ -33,7 +33,8 @@ func (c *core) load(s *Snapshot) error {
 	c.sequence, c.limits, c.reserved = s.Sequence, s.Limits, s.Limits
 	for _, ch := range s.Channels {
 		cs := c.channel(ch.Key)
-		for _, seg := range ch.Segments {
+		for p := range ch.All() {
+			seg := *p
 			if err := c.checkSegment(ch.Key, seg); err != nil {
 				return err
 			}
@@ -100,7 +101,7 @@ func (c *core) checkSegment(key uint32, seg Segment) error {
 // checkApart checks that the pointers of ch lie apart in time, across its segments.
 func checkApart(ch *Channel) error {
 	var all []Pointer
-	for _, seg := range ch.Segments {
+	for seg := range ch.All() {
 		all = append(all, seg.Pointers...)
 	}
 	slices.SortFunc(
@@ -131,6 +132,7 @@ func (c *core) endReplay() {
 		}
 	}
 	for _, ch := range c.channels {
+		ch.split()
 		ch.respan()
 		ch.publish()
 	}
@@ -146,7 +148,7 @@ func (c *core) snapshot() *Snapshot {
 	}
 	slices.Sort(keys)
 	for _, k := range keys {
-		ch := &Channel{Key: k}
+		var segs []Segment
 		for _, seg := range c.channels[k].segs {
 			if !seg.dur.created {
 				continue
@@ -158,10 +160,10 @@ func (c *core) snapshot() *Snapshot {
 			if !seg.dur.sealed {
 				d.Pointers = slices.Clone(seg.dur.pointers)
 			}
-			ch.Segments = append(ch.Segments, d)
+			segs = append(segs, d)
 		}
-		if len(ch.Segments) > 0 {
-			s.Channels = append(s.Channels, ch)
+		if len(segs) > 0 {
+			s.Channels = append(s.Channels, NewChannel(k, segs...))
 		}
 	}
 	s.Intents = c.intents.Slice()

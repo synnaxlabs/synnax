@@ -11,6 +11,7 @@ package state
 
 import (
 	"cmp"
+	"reflect"
 	"slices"
 	"sync/atomic"
 
@@ -77,25 +78,73 @@ func (s span) overlaps(first, last telem.TimeStamp) bool {
 // keyEntry is the state of one key: its segments, in rising order of identity, and the
 // visible Channel that readers load.
 type keyEntry struct {
-	key    uint32
-	segs   []*segEntry
+	key  uint32
+	segs []*segEntry
+	// opens holds the open segments and sealed the visible views of the others, each in
+	// rising order of identity once replay ends. Published Channels share sealed: only
+	// seal appends to it, and every other change makes a new array.
+	opens  []*segEntry
+	sealed []Segment
 	claims []*claim
 	pub    atomic.Pointer[Channel]
 	// visSpan and durSpan join the spans of every segment in each view.
 	visSpan, durSpan span
 }
 
-// insert adds s to c in order of identity.
+func byID(o *segEntry, id uint64) int { return cmp.Compare(o.vis.ID, id) }
+
+// insert adds s, which is open, to c in order of identity.
 func (c *keyEntry) insert(s *segEntry) {
-	i, _ := slices.BinarySearchFunc(c.segs, s.vis.ID, func(o *segEntry, id uint64) int {
-		return cmp.Compare(o.vis.ID, id)
-	})
+	i, _ := slices.BinarySearchFunc(c.segs, s.vis.ID, byID)
 	c.segs = slices.Insert(c.segs, i, s)
+	i, _ = slices.BinarySearchFunc(c.opens, s.vis.ID, byID)
+	c.opens = slices.Insert(c.opens, i, s)
 }
 
-func (c *keyEntry) remove(id uint64) {
-	c.segs = slices.DeleteFunc(c.segs, func(s *segEntry) bool { return s.vis.ID == id })
+// seal seals the visible view of s, and moves it from the open segments of c to the
+// sealed ones. It appends to the sealed views when s comes after them, and makes a new
+// array when it does not.
+func (c *keyEntry) seal(s *segEntry) {
+	s.vis.Sealed = true
+	c.opens = slices.DeleteFunc(c.opens, func(o *segEntry) bool { return o == s })
+	n := len(c.sealed)
+	if n == 0 || c.sealed[n-1].ID < s.vis.ID {
+		c.sealed = append(c.sealed, s.vis)
+		return
+	}
+	i, _ := slices.BinarySearchFunc(
+		c.sealed,
+		s.vis.ID,
+		func(o Segment, id uint64) int { return cmp.Compare(o.ID, id) },
+	)
+	c.sealed = slices.Concat(c.sealed[:i], []Segment{s.vis}, c.sealed[i:])
+}
+
+func (c *keyEntry) remove(s *segEntry) {
+	c.segs = slices.DeleteFunc(c.segs, func(o *segEntry) bool { return o == s })
+	if s.vis.Sealed {
+		i := slices.IndexFunc(
+			c.sealed,
+			func(o Segment) bool { return o.ID == s.vis.ID },
+		)
+		c.sealed = slices.Concat(c.sealed[:i], c.sealed[i+1:])
+	} else {
+		c.opens = slices.DeleteFunc(c.opens, func(o *segEntry) bool { return o == s })
+	}
 	c.respan()
+}
+
+// split sets the open segments and the sealed views of c from its segments, in new
+// arrays.
+func (c *keyEntry) split() {
+	c.opens, c.sealed = nil, nil
+	for _, s := range c.segs {
+		if s.vis.Sealed {
+			c.sealed = append(c.sealed, s.vis)
+		} else {
+			c.opens = append(c.opens, s)
+		}
+	}
 }
 
 // respan sets the spans of c from the spans of its segments.
@@ -109,12 +158,17 @@ func (c *keyEntry) respan() {
 // checkViews panics when the pointers of c, in the visible view or the durable one, are
 // not apart in time, or not in stream order inside a segment, or when a durable view
 // runs past the visible one, or a span of c or of a segment is not the span of its
-// pointers. It runs only in a build with invariants.
+// pointers, or the open segments or sealed views of c are stale. It runs only in a
+// build with invariants.
 func (c *keyEntry) checkViews() {
 	if !invariants.Enabled {
 		return
 	}
-	vis, dur := &Channel{Key: c.key}, &Channel{Key: c.key}
+	var (
+		vis, dur []Segment
+		opens    []*segEntry
+		sealed   []Segment
+	)
 	visSpan, durSpan := noSpan(), noSpan()
 	for _, s := range c.segs {
 		if s.dur.length > s.vis.Length || len(s.dur.pointers) > len(s.vis.Pointers) {
@@ -125,11 +179,13 @@ func (c *keyEntry) checkViews() {
 			panic(errors.Newf("state: span of segment %d is stale", s.vis.ID))
 		}
 		visSpan, durSpan = visSpan.join(s.visSpan), durSpan.join(s.dur.span)
-		vis.Segments = append(vis.Segments, s.vis)
-		dur.Segments = append(
-			dur.Segments,
-			Segment{ID: s.vis.ID, Pointers: s.dur.pointers},
-		)
+		if s.vis.Sealed {
+			sealed = append(sealed, s.vis)
+		} else {
+			opens = append(opens, s)
+		}
+		vis = append(vis, s.vis)
+		dur = append(dur, Segment{ID: s.vis.ID, Pointers: s.dur.pointers})
 		for _, ptrs := range [][]Pointer{s.vis.Pointers, s.dur.pointers} {
 			for i := 1; i < len(ptrs); i++ {
 				if ptrs[i].Offset < ptrs[i-1].Offset+ptrs[i-1].Length {
@@ -142,18 +198,26 @@ func (c *keyEntry) checkViews() {
 	if c.visSpan != visSpan || c.durSpan != durSpan {
 		panic(errors.Newf("state: span of key %d is stale", c.key))
 	}
-	for _, ch := range []*Channel{vis, dur} {
-		if err := checkApart(ch); err != nil {
+	if !slices.Equal(c.opens, opens) ||
+		!slices.EqualFunc(c.sealed, sealed, func(a, b Segment) bool {
+			return reflect.DeepEqual(a, b)
+		}) {
+		panic(errors.Newf("state: open or sealed segments of key %d are stale", c.key))
+	}
+	for _, segs := range [][]Segment{vis, dur} {
+		if err := checkApart(NewChannel(c.key, segs...)); err != nil {
 			panic(err)
 		}
 	}
 }
 
-// publish stores a new visible Channel of c for readers.
+// publish stores a new visible Channel of c for readers. The Channel shares the sealed
+// views of c, and copies the open ones.
 func (c *keyEntry) publish() {
-	ch := &Channel{Key: c.key, Segments: make([]Segment, 0, len(c.segs))}
-	for _, s := range c.segs {
-		ch.Segments = append(ch.Segments, s.vis)
+	ch := &Channel{Key: c.key, sealed: c.sealed}
+	ch.open = make([]Segment, 0, len(c.opens))
+	for _, s := range c.opens {
+		ch.open = append(ch.open, s.vis)
 	}
 	c.pub.Store(ch)
 }

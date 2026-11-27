@@ -537,7 +537,8 @@ func (r *sealRequest) run(s *State) {
 
 // sealVisible seals seg in the visible view, takes it from w, and returns its Seal.
 func (s *State) sealVisible(w *Writer, seg *segEntry) log.Seal {
-	seg.vis.Sealed, seg.holder = true, nil
+	s.core.channels[seg.key].seal(seg)
+	seg.holder = nil
 	delete(w.held, seg.key)
 	return log.Seal{
 		Segment: seg.vis.ID,
@@ -625,7 +626,7 @@ func (r *switchRequest) run(s *State) {
 			s.discard(seg)
 			continue
 		}
-		seg.vis.Sealed = true
+		s.core.channels[seg.key].seal(seg)
 		seals = append(seals, log.Seal{
 			Segment: id,
 			Length:  seg.vis.Length,
@@ -651,7 +652,7 @@ func (*switchRequest) fail(error) {}
 // unlink its file.
 func (s *State) discard(seg *segEntry) {
 	ch := s.core.channels[seg.key]
-	ch.remove(seg.vis.ID)
+	ch.remove(seg)
 	delete(s.core.segments, seg.vis.ID)
 	s.core.dead = append(s.core.dead, seg.vis.ID)
 	ch.publish()
