@@ -92,10 +92,10 @@ a transient or interrupted Core error never ends `read`.
 ### 3.3 The spool
 
 RFC 0120 §4.9 amends this section: the spool records the keys that the authority filter
-dropped, the drainer opens on the present keys of each frame with `AlwaysAutoPersist`
-and moves its read offset only after a durable commit returns, and it retries each
-storage error of the Core with backoff, setting aside only a segment that fails its own
-checks.
+dropped, the drainer opens on the present keys of each frame, with auto commit off, and
+moves its read offset only after a commit, which then persists, returns, and it retries
+each storage error of the Core with backoff, setting aside only a segment that fails its
+own checks.
 
 `spool::Spool` (NEW) is one per Driver, in the state directory
 (`driver/rack/state.h:17-28`), capped at 10 GB by default in the Driver config. A full
@@ -218,10 +218,10 @@ outage and offline data is dropped with a count; phase 7 keeps it.
 Dependencies on other RFCs: the phase table names only phases of this RFC, so the issues
 of these phases take their blockers from this table too.
 
-| Phase    | Waits for                                                                                                                                      |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 7        | RFC 0121 Phase 6, whose framer serves `AlwaysAutoPersist` as a durable commit; it takes RFC 0120 §4.9 item 2, and RFC 0120 Phase 31 follows it |
-| 10 to 11 | RFC 0120 Phase 56, the C++ join of rack calculations                                                                                           |
+| Phase    | Waits for                                                                                                                                          |
+| -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7        | RFC 0121 Phase 6, whose commit with auto commit off returns only once it persists; it takes RFC 0120 §4.9 item 2, and RFC 0120 Phase 31 follows it |
+| 10 to 11 | RFC 0120 Phase 56, the C++ join of rack calculations                                                                                               |
 
 | Phase | Scope                                                      | Touches                                                                                                                      | Depends on |
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
