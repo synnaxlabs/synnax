@@ -135,6 +135,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 				data *channel.Channel
 			)
 			BeforeAll(func(ctx SpecContext) {
+				ShouldNotLeakGoroutines()
 				idx = &channel.Channel{
 					Name:     "time_index",
 					DataType: telem.TimestampT,
