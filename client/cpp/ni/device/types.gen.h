@@ -238,6 +238,9 @@ struct StatusDetails {
     ::synnax::rack::Key rack = 0;
     /// @brief device is the key of the device.
     Key device;
+    /// @brief connected is true while the Driver confirms that it can reach the device.
+    /// A device whose state is unknown is not connected.
+    bool connected = false;
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
