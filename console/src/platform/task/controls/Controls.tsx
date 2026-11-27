@@ -117,11 +117,14 @@ export const Controls = ({
   const type = Form.useFieldValue(formPath.type);
   const rackKey = Form.useFieldValue(formPath.rack, { optional: true }) ?? null;
   const integration = useRegistry().getIntegration(type);
-  const blocked = Rack.useBlockedReason(
+  const args =
     integration == null
       ? null
-      : { integration: integration.prefix, name: integration.name, rack: rackKey },
-  );
+      : { integration: integration.prefix, name: integration.name };
+  // A deploy moves the task to the rack of its device, so only a block on every rack
+  // disables Start.
+  const blocked = Rack.useBlockedReason(args && { ...args, rack: null });
+  const warning = Rack.useBlockedReason(args && { ...args, rack: rackKey });
 
   const handleDeploy = () => {
     if (key == null) return;
@@ -145,11 +148,11 @@ export const Controls = ({
     failure.taskStatusTime?.valueOf() === taskStatus?.time.valueOf()
   )
     shownStatus = failure.status;
-  else if (blocked != null && !running)
+  else if (warning != null && !running)
     shownStatus = status.create({
       name: taskStatus?.name ?? "",
       variant: "warning",
-      ...blocked,
+      ...warning,
     });
   let startStopVariant = status.keepVariants(taskStatus?.variant, "loading");
   // On a running task, a loading variant disables Redeploy and keeps Stop enabled.

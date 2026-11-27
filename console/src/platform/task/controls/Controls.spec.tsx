@@ -10,11 +10,13 @@
 import { task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { deep } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
+import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
+import { createRunningRack } from "@/platform/device/testutil";
 import { Task } from "@/platform/task";
 import {
   clickRedeploy,
@@ -73,6 +75,49 @@ describe("Controls.Controls", () => {
     expect(screen.getByText("Start a Driver with Acme enabled.")).toBeTruthy();
     const play = await findIconButton(container, "play");
     expect(play.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("should warn about a stopped task rack and keep Start enabled", async () => {
+    // A prefix of its own, so no rack of another spec can run it.
+    const beta: Task.Integration = {
+      ...ACME,
+      prefix: `beta${id.create()}`,
+      name: "Beta",
+    };
+    await createRunningRack(client, beta.prefix);
+    const stopped = await client.racks.create({
+      name: uniqueName("rack"),
+      integrations: [beta.prefix],
+    });
+    const onDeploy = vi.fn();
+    const { container } = await renderInTaskFormWithClient(
+      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      {
+        client,
+        values: { key: "1", type: `${beta.prefix}_read`, rack: stopped.key },
+        registry: createRegistry({ integrations: [beta] }),
+      },
+    );
+    expect(await screen.findByText(`${stopped.name} is not running`)).toBeTruthy();
+    expect(screen.getByText(`Start the Driver on ${stopped.name}.`)).toBeTruthy();
+    fireEvent.click(await findIconButton(container, "play"));
+    expect(onDeploy).toHaveBeenCalledTimes(1);
+  });
+
+  it("should keep Stop and the status of a running task no rack can run", async () => {
+    const onStop = vi.fn();
+    const { container } = await renderInTaskFormWithClient(
+      <Task.Controls.Controls onDeploy={vi.fn()} onStop={onStop} />,
+      {
+        client,
+        values: { ...runningValues(), type: "acme_read" },
+        registry: createRegistry({ integrations: [ACME] }),
+      },
+    );
+    await screen.findByText("Running smoothly");
+    expect(screen.queryByText("No running Driver has Acme enabled")).toBeNull();
+    fireEvent.click(await findIconButton(container, "stop"));
+    expect(onStop).toHaveBeenCalledTimes(1);
   });
 
   it("should not block Start for a task type of no integration", async () => {
