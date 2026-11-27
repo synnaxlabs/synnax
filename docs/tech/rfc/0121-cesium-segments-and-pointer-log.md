@@ -660,8 +660,9 @@ The steps:
 
 1. `Write` appends to the writer's open segment of each key and advances its running
    CRC, with no sync. The first write of a stretch takes an alignment number (§5.7). A
-   write that needs a new segment takes an identity and the spare file of the segment
-   that it rolls, or makes a file when there is none (§5.8).
+   write that needs a new segment takes the spare file of the segment that it rolls,
+   with the spare's identity, or takes an identity and makes a file when there is none
+   (§5.8).
 2. `Commit` asks the state owner to check the claim (§5.8) and to publish, for each
    channel, a new immutable pointer set. A reader loads a set, takes no lock, and pins
    the segments it names. The clock and its channels become visible together. `Commit`
@@ -883,18 +884,20 @@ open made ready for the key (Segments, below).
   segment of one of those keys names, with the drop rules of continuation: it drops a
   key of the writer, a clock that an open writer holds, and a clock whose last stamp is
   not before the first stamp of the frame that starts the step. It picks among the rest
-  as continuation does, takes over the open segments of the keys on that clock, as at
-  open, and makes the files of the keys whose segment there is sealed, missing, or of
-  another type. If no clock is left, it leases a key and makes the files. At P pauses
-  the keys move to that clock at the first commit after its files exist. Their open
-  segments on the clock they leave stay open, and the writer still holds them (§5.4,
-  invariant 6), so the switch cannot seal them ahead of their last Commits. A move back
-  or a later open after its `Close` takes them over, and a script that runs again reuses
-  its clocks and files. The writer then stores the group's stamps on that clock for each
-  frame that holds one of its keys: the one copy of stored stamps, at most one per
-  cohort of keys that moved together per frame, until the keys rejoin the group's clock
-  at the next open. A clock stores no stamps for a frame in which no key on it has a
-  sample. A file that the step made and no move used is a spare, which a close removes.
+  as continuation does, and in one state owner step takes the clock's claim and takes
+  over the open segments of the keys on that clock, as at open, so no other open takes
+  the clock between three quarters of P and the move, and makes the files of the keys
+  whose segment there is sealed, missing, or of another type. If no clock is left, it
+  leases a key and makes the files. At P pauses the keys move to that clock at the first
+  commit after its files exist. Their open segments on the clock they leave stay open,
+  and the writer still holds them (§5.4, invariant 6), so the switch cannot seal them
+  ahead of their last Commits. A move back or a later open after its `Close` takes them
+  over, and a script that runs again reuses its clocks and files. The writer then stores
+  the group's stamps on that clock for each frame that holds one of its keys: the one
+  copy of stored stamps, at most one per cohort of keys that moved together per frame,
+  until the keys rejoin the group's clock at the next open. A clock stores no stamps for
+  a frame in which no key on it has a sample. A file that the step made and no move used
+  is a spare, which a close removes.
 - **Segments**: An open segment belongs to one writer, its holder (§5.4, invariant 6).
   At open, a later session with the same key, type, and clock key takes it over only
   after the commits of the earlier writer are durable. At a handoff, the gainer takes it
@@ -915,7 +918,10 @@ open made ready for the key (Segments, below).
   have two open segments. A background step makes and opens one spare file for each held
   segment past three quarters of a §5.1 limit, by its pointers, its sample bytes, or the
   span of its stamps, as a pause move makes its files at three quarters of P, and a roll
-  at that limit takes it. So a session that ends far from a limit, such as one call of a
+  at that limit takes it. A spare takes its identity when the step makes it, since a
+  file name is its identity and no file is renamed. A segment that its holder no longer
+  writes, such as a left segment of a pause move or a kept segment of a cross-clock
+  loser, gets no spare. So a session that ends far from a limit, such as one call of a
   `client.write` loop, makes and removes no file. A roll with no spare, such as a burst
   that crosses the last quarter before the step runs, makes its file in the write. A
   writer makes at open the files of its new clocks and of each key new to a clock. For a
@@ -1388,24 +1394,28 @@ profiles, and the fault file system (`x/go/io/fs/testutil/fault/fs.go:31`). Its
 `SyncErrorAt` (`:55`) fails a chosen sync, its `Crash` (`fault/crash.go:58`) takes the
 disk at a chosen point, and it gives a failed sync to each open handle once
 (`fault/fs.go:44-48`). The injected executor of §7 sets the order of owner steps and
-syncs from the run key, so each interleaving case replays. No other test framework is
-added. RFC 0120 Phases 2 to 4 then build takeover at open, one number per clock per
-session with continued stretches, and the commit-first handoff (§5.7, §5.8) on the
-pointer log. Phase 7 builds D-459's read fixes: with checks off, a search step reads
-only the 8 bytes it needs, not the whole block; the block cache splits its lock; and the
-cause of the `ReadSamples` gap is found and fixed. Phase 8 merges only after a box run
-shows every read within 15% of `main` in time, bytes, and allocations, at 1 and 8
-readers (D-459). Phase 8 builds parts, versions 0 and 2, tombstones, compaction, the
-conversion with a crash test at each of its steps, the backup change, `synnax repair`
-with its two ways on (§6.0, §9.0), the Core's repair at start, and makes the new layout
-the only one that opens. It moves the create checks into the channel service, then
-removes `CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC 0120
-Phase 24 leases clock keys, Phase 25 opens each writer on groups (§4.2, §5.8), Phase 26
-moves often paused keys, Phase 27 ends a clock with its last user (§4.1), and Phase 53
-deletes the old code, except the old-layout reader of the conversion. Phase 5 comes
-after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 18 come after Phase 6, Phases 2 to 4
-land before Phase 8, and RFC 0120 Phases 24 to 54 come after Phase 8. Phases 5, 6, and 8
-are the exceptions to one PR per phase. Phase 5 lands as the pieces of SY-6397 (D-454).
+syncs from the run key, so each interleaving case replays. Phase 6 extends `crash.Run`,
+and adds no other test framework: a stream per record with R3 per stream, a fault gate
+on R0 and R3 for Visible acks, which a failed `Sync` takes back by design, and a delete
+whose records never come back. W1-N2's order is its own case: the loser's sync of a
+shared handle fails first, and the gainer's sync of it then returns that error. RFC 0120
+Phases 2 to 4 then build takeover at open, one number per clock per session with
+continued stretches, and the commit-first handoff (§5.7, §5.8) on the pointer log. Phase
+7 builds D-459's read fixes: with checks off, a search step reads only the 8 bytes it
+needs, not the whole block; the block cache splits its lock; and the cause of the
+`ReadSamples` gap is found and fixed. Phase 8 merges only after a box run shows every
+read within 15% of `main` in time, bytes, and allocations, at 1 and 8 readers (D-459).
+Phase 8 builds parts, versions 0 and 2, tombstones, compaction, the conversion with a
+crash test at each of its steps, the backup change, `synnax repair` with its two ways on
+(§6.0, §9.0), the Core's repair at start, and makes the new layout the only one that
+opens. It moves the create checks into the channel service, then removes
+`CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC 0120 Phase 24
+leases clock keys, Phase 25 opens each writer on groups (§4.2, §5.8), Phase 26 moves
+often paused keys, Phase 27 ends a clock with its last user (§4.1), and Phase 53 deletes
+the old code, except the old-layout reader of the conversion. Phase 5 comes after RFC
+0120 Phase 1. RFC 0120 Phases 2 to 4 and 18 come after Phase 6, Phases 2 to 4 land
+before Phase 8, and RFC 0120 Phases 24 to 54 come after Phase 8. Phases 5, 6, and 8 are
+the exceptions to one PR per phase. Phase 5 lands as the pieces of SY-6397 (D-454).
 Phases 6 and 8 each land as their reviewed pieces, one PR of about 2,000 hand-written
 lines each (D-392), behind the open option until the last piece of Phase 8 switches the
 layout, so each piece merges alone and leaves `main` green. Every other phase is one PR.
@@ -1417,7 +1427,7 @@ layout, so each piece merges alone and leaves `main` green. Every other phase is
 | 3     | Add a crash harness with a durable-ack oracle              | `cesium`, `x/go/io/fs/testutil/fault`                                                                                                                                    | 2          |
 | 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                                | 3          |
 | 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `cesium/internal/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge` | 1          |
-| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                                                          | 3, 4, 5    |
+| 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`, `x/go/io/fs/testutil/crash`                                                             | 3, 4, 5    |
 | 7     | Fix the read costs that D-459 names                        | `cesium/internal/segment`, `cesium`                                                                                                                                      | 6          |
 | 8     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`, `core/cmd/update`      | 6, 7       |
 
