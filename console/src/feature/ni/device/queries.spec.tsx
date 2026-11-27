@@ -21,20 +21,20 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 
-const DeviceName = () => <span>{NI.Device.useFromConfig()?.name ?? "no device"}</span>;
+const DeviceName = () => (
+  <span>{NI.Device.useViewFromConfig()?.name ?? "no device"}</span>
+);
 
 const MappedPortCount = () => {
-  const dev = NI.Device.useFromConfig();
+  const dev = NI.Device.useTargetFromConfig("analogOutput");
   return (
     <span>
-      {dev == null
-        ? "no device"
-        : `ports:${Object.keys(dev.properties.analogOutput.channels).length}`}
+      {dev == null ? "no device" : `ports:${Object.keys(dev.channels.channels).length}`}
     </span>
   );
 };
 
-describe("useFromConfig", () => {
+describe("useViewFromConfig and useTargetFromConfig", () => {
   it("should return the device the form's config names", async () => {
     const dev = await createNIDevice(client);
     await renderWithDeviceForm(<DeviceName />, { deviceKey: dev.key, client });
