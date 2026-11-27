@@ -358,28 +358,15 @@ TEST_F(ConfigTLS, DeprecatedCACertFromEnvironmentUsesTLS) {
     EXPECT_EQ(res.payload(), "Read request: ping");
 }
 
-/// @brief it should fail every call when SYNNAX_CLIENT_CA_CERT and SYNNAX_CA_CERT
-/// differ.
-TEST_F(ConfigTLS, DifferentEnvironmentCACertsIsError) {
+/// @brief it should ignore SYNNAX_CA_CERT when SYNNAX_CLIENT_CA_CERT is set.
+TEST_F(ConfigTLS, ClientCACertOverridesDeprecatedCACert) {
     x::env::set("SYNNAX_CLIENT_CA_CERT", CA_CERT_PATH);
-    x::env::set("SYNNAX_CA_CERT", "/etc/synnax/ca.pem");
+    x::env::set("SYNNAX_CA_CERT", "ca.crt");
     x::defer::defer unset_env([] {
         x::env::unset("SYNNAX_CLIENT_CA_CERT");
         x::env::unset("SYNNAX_CA_CERT");
     });
-    ASSERT_OCCURRED_AS_P(synnax::env_ca_cert(), x::errors::VALIDATION);
-    ASSERT_OCCURRED_AS_P(send(synnax::Config{}), x::errors::VALIDATION);
-}
-
-/// @brief it should accept SYNNAX_CLIENT_CA_CERT and SYNNAX_CA_CERT when they match.
-TEST_F(ConfigTLS, MatchingEnvironmentCACertsUsesTLS) {
-    x::env::set("SYNNAX_CLIENT_CA_CERT", CA_CERT_PATH);
-    x::env::set("SYNNAX_CA_CERT", CA_CERT_PATH);
-    x::defer::defer unset_env([] {
-        x::env::unset("SYNNAX_CLIENT_CA_CERT");
-        x::env::unset("SYNNAX_CA_CERT");
-    });
-    EXPECT_EQ(ASSERT_NIL_P(synnax::env_ca_cert()), CA_CERT_PATH);
+    EXPECT_EQ(synnax::env_ca_cert(), CA_CERT_PATH);
     const auto res = ASSERT_NIL_P(send(synnax::Config{}));
     EXPECT_EQ(res.payload(), "Read request: ping");
 }

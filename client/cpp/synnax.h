@@ -173,29 +173,19 @@ struct Config {
     }
 };
 
-/// @brief reads the CA certificate path from SYNNAX_CLIENT_CA_CERT, or from the
-/// deprecated SYNNAX_CA_CERT, which logs a warning.
-/// @returns the path, empty when neither variable is set, or a validation error when
-/// both are set and differ.
-inline std::pair<std::string, x::errors::Error> env_ca_cert() {
+/// @brief reads the CA certificate path from SYNNAX_CLIENT_CA_CERT. Only when it is
+/// unset, reads the deprecated SYNNAX_CA_CERT and logs a warning. A Core also reads
+/// SYNNAX_CA_CERT as its --ca-cert.
+/// @returns the path, or an empty string when neither variable is set.
+inline std::string env_ca_cert() {
     x::env::Parser client_env("SYNNAX_CLIENT");
+    if (auto ca_cert = client_env.field("ca_cert", std::string()); !ca_cert.empty())
+        return ca_cert;
     x::env::Parser deprecated_env("SYNNAX");
-    const auto ca_cert = client_env.field("ca_cert", std::string());
-    const auto deprecated = deprecated_env.field("ca_cert", std::string());
-    if (deprecated.empty()) return {ca_cert, x::errors::NIL};
-    if (ca_cert.empty()) {
+    auto deprecated = deprecated_env.field("ca_cert", std::string());
+    if (!deprecated.empty())
         LOG(WARNING) << "SYNNAX_CA_CERT is deprecated. Use SYNNAX_CLIENT_CA_CERT";
-        return {deprecated, x::errors::NIL};
-    }
-    if (ca_cert == deprecated) return {ca_cert, x::errors::NIL};
-    return {
-        "",
-        x::errors::Error(
-            x::errors::VALIDATION,
-            "SYNNAX_CLIENT_CA_CERT is " + ca_cert + ", but the deprecated " +
-                "SYNNAX_CA_CERT is " + deprecated + ". Unset SYNNAX_CA_CERT"
-        )
-    };
+    return deprecated;
 }
 
 namespace details {
@@ -203,9 +193,7 @@ namespace details {
 /// the lowest source of the TLS pair. A pool for an invalid TLS configuration fails
 /// every call with the reason.
 inline std::shared_ptr<freighter::grpc::Pool> new_pool(Config cfg) {
-    const auto [env_ca, env_err] = env_ca_cert();
-    if (env_err) return std::make_shared<freighter::grpc::Pool>(env_err);
-    cfg.override_tls_default(env_ca);
+    cfg.override_tls_default(env_ca_cert());
     const auto [tls, tls_err] = cfg.tls();
     if (tls_err) return std::make_shared<freighter::grpc::Pool>(tls_err);
     if (!tls.enabled) return std::make_shared<freighter::grpc::Pool>();
