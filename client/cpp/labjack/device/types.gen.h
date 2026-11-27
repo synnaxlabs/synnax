@@ -39,6 +39,7 @@ struct CommandStatePair;
 struct StatusDetails;
 struct Cursor;
 struct Where;
+struct Order;
 struct RetrieveRequest;
 struct Device;
 struct RetrieveResponse;
@@ -50,6 +51,8 @@ constexpr const char *CONNECTION_WIFI = "LJM_ctWIFI";
 constexpr const char *MODEL_T_4 = "t4";
 constexpr const char *MODEL_T_7 = "t7";
 constexpr const char *MODEL_T_8 = "t8";
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 constexpr const char *ANALOG_OUTPUT_PORT_DAC_0 = "DAC0";
 constexpr const char *ANALOG_OUTPUT_PORT_DAC_1 = "DAC1";
@@ -276,6 +279,9 @@ struct StatusDetails {
 struct Cursor {
     /// @brief key is the key of the device at the position.
     Key key;
+    /// @brief name is the name of the device at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -430,12 +436,31 @@ to_proto(const Ports &value);
 std::pair<Ports, x::errors::Error>
 ports_from_proto(const ::service::labjack_device::pb::Ports &pb);
 
+/// @brief Order is a sort of devices.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::labjack_device::pb::Order;
+    [[nodiscard]] std::pair<::api::labjack_device::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::labjack_device::pb::Order &pb);
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
     /// @brief search_term keeps the devices that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
     /// @brief after starts the devices strictly past this position in their order.
     std::optional<Cursor> after;
     /// @brief limit is the most devices to return.
@@ -451,6 +476,8 @@ struct RetrieveRequest {
     std::optional<Where> where;
     /// @brief search_term keeps the devices that match the term, closest match first.
     std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
     /// @brief after starts the devices strictly past this position in their order.
     std::optional<Cursor> after;
     /// @brief limit is the most devices to return.
@@ -463,6 +490,7 @@ struct RetrieveRequest {
         return {
             .where = std::move(where),
             .search_term = options.search_term,
+            .order = options.order,
             .after = options.after,
             .limit = options.limit,
             .include_status = options.include_status,

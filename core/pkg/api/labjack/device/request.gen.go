@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 
+	"github.com/synnaxlabs/gorp"
 	labjackdevice "github.com/synnaxlabs/synnax/pkg/service/labjack/device"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
@@ -47,9 +48,21 @@ func ApplyRetrieve(r RetrieveRequest, q labjackdevice.Retrieve) (labjackdevice.R
 				"after",
 			)
 		}
+		if r.Order != nil {
+			return labjackdevice.Retrieve{}, validate.PathedError(
+				errors.Wrap(validate.ErrValidation, "a search sorts by relevance"),
+				"order",
+			)
+		}
 		q = q.Where(labjackdevice.MatchSearch(r.SearchTerm))
 	}
-	if r.After != nil {
+	if r.Order != nil {
+		o, err := r.order()
+		if err != nil {
+			return labjackdevice.Retrieve{}, err
+		}
+		q = q.OrderBy(o)
+	} else if r.After != nil {
 		q = q.After(r.After.Key)
 	}
 	if r.Limit != nil {
@@ -60,6 +73,45 @@ func ApplyRetrieve(r RetrieveRequest, q labjackdevice.Retrieve) (labjackdevice.R
 		q = q.Limit(int(*r.Limit))
 	}
 	return q, nil
+}
+
+// order returns the walk that the request's order selects, starting past the request's
+// cursor when it has one.
+func (r RetrieveRequest) order() (labjackdevice.Order, error) {
+	dir := gorp.DirectionAsc
+	if r.Order.Descending {
+		dir = gorp.DirectionDesc
+	}
+	switch r.Order.Field {
+	case OrderFieldName:
+		if r.After == nil {
+			return labjackdevice.OrderByName(dir), nil
+		}
+		if r.After.Name == nil {
+			return nil, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"is required to resume an order by name",
+				),
+				"after",
+				"name",
+			)
+		}
+		return labjackdevice.OrderByNameAfter(
+			dir,
+			*r.After.Name,
+			r.After.Key,
+		), nil
+	}
+	return nil, validate.PathedError(
+		errors.Wrapf(
+			validate.ErrValidation,
+			"%q is not a field to sort by",
+			r.Order.Field,
+		),
+		"order",
+		"field",
+	)
 }
 
 // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
