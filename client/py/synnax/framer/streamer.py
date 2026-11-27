@@ -72,23 +72,18 @@ class _Liveness:
     def __init__(self, keep_alive: TimeSpan) -> None:
         self.keep_alive = keep_alive
         self.deadline = keep_alive * _KEEP_ALIVE_DEADLINE_FACTOR
-        # Set once the Core proves keep-alive support by sending one, so the deadline
-        # never arms against a Core that will not send them.
-        self._armed = False
-        self._last_response = 0.0
+        self._last_response = time.monotonic()
         self._grace: float | None = None
 
-    def received(self, res: _Response) -> None:
+    def received(self) -> None:
         self._last_response = time.monotonic()
         self._grace = None
-        if res.keep_alive and self.deadline > 0:
-            self._armed = True
 
     def dead_at(self) -> float | None:
         """Returns the monotonic time at which the connection is presumed dead, or
-        None if the deadline is not armed.
+        None if keep-alives are off.
         """
-        if not self._armed:
+        if self.deadline <= 0:
             return None
         dead = self._last_response + self.deadline.seconds
         now = time.monotonic()
@@ -176,7 +171,7 @@ class Streamer:
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
         # non-keep-alive response.
-        while self._receive(None).keep_alive:
+        while self._receive_with_deadline().keep_alive:
             pass
 
     @overload
@@ -214,8 +209,8 @@ class Streamer:
         frame is received.
         :returns: The next frame of telemetry, or None if no frame is received within
             the timeout.
-        :raises Unreachable: If keep-alives were flowing and then no response arrives,
-        across reads, for the keep-alive deadline: the connection is presumed dead.
+        :raises Unreachable: If no response arrives, across reads, for the keep-alive
+        deadline: the connection is presumed dead.
         """
         seconds = TimeSpan.to_seconds(timeout)
         end = None if seconds is None else time.monotonic() + seconds
@@ -235,9 +230,18 @@ class Streamer:
             elif not res.keep_alive:
                 return self._adapter.adapt(Frame(res.frame))
 
+    def _receive_with_deadline(self) -> _Response:
+        dead = self._liveness.dead_at()
+        if dead is None:
+            return self._receive(None)
+        try:
+            return self._receive(max(dead - time.monotonic(), 0))
+        except TimeoutError as e:
+            raise self._liveness.unreachable() from e
+
     def _receive(self, timeout: float | None) -> _Response:
         res = self._stream.receive(timeout=timeout)
-        self._liveness.received(res)
+        self._liveness.received()
         return res
 
     def update_channels(self, channels: channel.Params) -> None:
@@ -331,9 +335,10 @@ class AsyncStreamer:
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate
         self._exclude_groups = exclude_groups or []
-        self._liveness = _Liveness(TimeSpan.from_seconds(keep_alive))
+        self._keep_alive = TimeSpan.from_seconds(keep_alive)
 
     async def _open(self) -> None:
+        self._liveness = _Liveness(self._keep_alive)
         client = self._client.with_codec(_WSStreamerCodec(self._adapter.codec))
         self._stream = await client.stream(_ENDPOINT, _Request, _Response)
         await self._stream.send(
@@ -342,21 +347,21 @@ class AsyncStreamer:
                 downsample_factor=self._downsample_factor,
                 throttle_rate=self._throttle_rate,
                 exclude_groups=self._exclude_groups,
-                keep_alive=self._liveness.keep_alive,
+                keep_alive=self._keep_alive,
                 missed_requested=True,
             )
         )
         # A keep-alive can beat the open ack onto the wire, so the ack is the first
         # non-keep-alive response.
-        while (await self._receive()).keep_alive:
+        while (await self._receive_with_deadline()).keep_alive:
             pass
 
     async def read(self) -> Frame:
         """Reads the next frame of telemetry from the streamer. If an error occurs while
         reading the frame, an exception will be raised.
 
-        :raises Unreachable: If keep-alives were flowing and then no response arrives,
-        across reads, for the keep-alive deadline: the connection is presumed dead.
+        :raises Unreachable: If no response arrives, across reads, for the keep-alive
+        deadline: the connection is presumed dead.
         """
         while True:
             res = await self._receive_with_deadline()
@@ -377,7 +382,7 @@ class AsyncStreamer:
 
     async def _receive(self) -> _Response:
         res = await self._stream.receive()
-        self._liveness.received(res)
+        self._liveness.received()
         return res
 
     async def close_loop(self) -> None:
