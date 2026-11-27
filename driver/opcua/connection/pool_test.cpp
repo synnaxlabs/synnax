@@ -810,7 +810,14 @@ TEST_F(ConnectionPoolTest, AcquireStopsWaitingAtDeadline) {
     Pool pool(testutil::create_store());
     server->probe_delay = 200 * x::telem::MILLISECOND;
     std::thread first([&] { ASSERT_NIL_P(pool.acquire(conn_cfg, "[test] ")); });
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // An open channel shows that the first caller is mid-connect, which the slow server
+    // keeps it in for several more requests.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        server->channels.load(),
+        size_t{1},
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(1)
+    );
     ASSERT_OCCURRED_AS_P(
         pool.acquire(
             conn_cfg,
