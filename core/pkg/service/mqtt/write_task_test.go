@@ -676,6 +676,22 @@ var _ = Describe("Write task", func() {
 			)
 		}
 
+		It("Should return the error of a channel retrieve that fails", func(
+			ctx SpecContext,
+		) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			missing := channel.Channel{Name: "missing", DataType: telem.Float64T}
+			t := newTask(ctx, rackKey, mqtt.WriteTaskType, writeConfig(
+				dev,
+				valueTarget(ctx, "plant/a", data[0]),
+				valueTarget(ctx, "plant/b", missing),
+			))
+			limited.Store(true)
+			DeferCleanup(func() { limited.Store(false) })
+			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
+				To(MatchError(errChannelLimit))
+		})
+
 		It("Should fail to configure after an ICD edit adds a field that has no "+
 			"channel and no default", func(ctx SpecContext) {
 			ch := createVirtual(ctx, telem.Float64T)
