@@ -14,10 +14,12 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 
 	"github.com/cockroachdb/pebble/v2/vfs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/storage"
@@ -29,6 +31,9 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 type entry struct {
@@ -37,6 +42,19 @@ type entry struct {
 }
 
 func (e entry) GorpKey() int32 { return e.Key }
+
+// syncFailFS fails each SyncDir of dir with EIO.
+type syncFailFS struct {
+	xfs.FS
+	dir string
+}
+
+func (f syncFailFS) SyncDir(name string) error {
+	if name == f.dir {
+		return syscall.EIO
+	}
+	return f.FS.SyncDir(name)
+}
 
 var _ = Describe("storage", func() {
 	It("Should open the stores on the file systems that the config injects", func(
@@ -79,6 +97,27 @@ var _ = Describe("storage", func() {
 		value, closer := MustSucceed2(open(image).KV.Get([]byte("key")))
 		Expect(value).To(Equal([]byte("value")))
 		Expect(closer.Close()).To(Succeed())
+	})
+
+	It("Should open and log a warning when a sync of the storage directory fails", func(
+		ctx SpecContext,
+	) {
+		core, logs := observer.New(zapcore.WarnLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
+			Instrumentation: alamos.New("storage", alamos.WithLogger(logger)),
+			Dirname:         "data",
+			Version:         "0.0.0",
+			KVFS:            vfs.NewMem(),
+			TSFS:            syncFailFS{FS: xfs.NewMem(), dir: "data"},
+		}))
+		entries := logs.FilterMessage("failed to sync storage directory").All()
+		Expect(entries).To(HaveLen(1))
+		fields := entries[0].ContextMap()
+		Expect(fields).To(HaveKeyWithValue("dir", "data"))
+		Expect(fields).To(HaveKeyWithValue("error", syscall.EIO.Error()))
 	})
 
 	Describe("Run", func() {

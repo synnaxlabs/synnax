@@ -302,9 +302,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}
 	// The stores do not sync the entries of the directories that configureStorageDir
 	// made, nor the entry of Cesium's directory.
-	if err = syncStorageDir(cfg, tsFS, made); !ok(err, nil) {
-		return nil, err
-	}
+	syncStorageDir(cfg, tsFS, made)
 	l.Update = update
 	return l, nil
 }
@@ -390,10 +388,11 @@ func configureStorageDir(cfg LayerConfig, vfs vfs.FS, tsFS xfs.FS) ([]string, er
 
 // syncStorageDir makes durable the entries of the storage directory and of the parent
 // of each directory in made. The two file systems are one on disk, so the syncs on
-// tsFS also cover the key-value store.
-func syncStorageDir(cfg LayerConfig, tsFS xfs.FS, made []string) error {
+// tsFS also cover the key-value store. A failed sync leaves its entries no less durable
+// than no sync, so syncStorageDir logs it and goes on.
+func syncStorageDir(cfg LayerConfig, tsFS xfs.FS, made []string) {
 	if *cfg.InMemory {
-		return nil
+		return
 	}
 	dirs := []string{cfg.Dirname}
 	for _, dir := range made {
@@ -401,10 +400,13 @@ func syncStorageDir(cfg LayerConfig, tsFS xfs.FS, made []string) error {
 	}
 	for _, dir := range dirs {
 		if err := tsFS.SyncDir(dir); err != nil {
-			return errors.Wrapf(err, "failed to sync storage directory %s", dir)
+			cfg.L.Warn(
+				"failed to sync storage directory",
+				zap.String("dir", dir),
+				zap.Error(err),
+			)
 		}
 	}
-	return nil
 }
 
 const insufficientDirPermissions = `
