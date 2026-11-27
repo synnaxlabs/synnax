@@ -21,6 +21,7 @@ from tests.driver.task import (
     assert_sample_counts_in_range,
     collect_samples,
 )
+from x import http
 
 
 def create_read_endpoint(
@@ -28,7 +29,7 @@ def create_read_endpoint(
     *,
     path: str,
     bindings: list[tuple[sy.icd.JSONField, int]],
-    method: sy.http.Method = "GET",
+    method: http.Method = "GET",
     index: sy.icd.JSONField | None = None,
 ) -> sy.http.ReadEndpoint:
     """Create an ICD with one JSON message, named after path, that holds the fields of
