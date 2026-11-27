@@ -61,7 +61,7 @@ var _ = Describe("UniqueIndex failed open", func() {
 			}
 			opened := make(chan error, 1)
 			go func() {
-				// Two indexes of one table in one space: the join fails after the
+				// Two indexes of one table in one space: the join fails before the
 				// table registers its reference to folder.
 				_, err := gorp.OpenTable(ctx, gorp.TableConfig[uint32, refBreakerItem]{
 					DB:   db,
@@ -102,7 +102,7 @@ var _ = Describe("UniqueIndex failed open", func() {
 					Where(gorp.MatchKeys[string, uniqueFolder]("a")).
 					Exec(timeout, db)
 			}()
-			// The delete walks the references to folder while the open still fails.
+			// The delete runs while the open still fails.
 			time.Sleep(500 * time.Millisecond)
 			release()
 			Eventually(opened).Should(Receive(MatchError(ContainSubstring(
