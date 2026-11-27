@@ -628,7 +628,11 @@ var _ = Describe("Scan task", func() {
 
 		field := func(pointer, t, sample string, kind payload.Kind) map[string]any {
 			return map[string]any{
-				"pointer": pointer, "type": t, "sample": sample, "kind": string(kind),
+				"pointer": pointer,
+				"type":    t,
+				"sample":  sample,
+				"kind":    string(kind),
+				"enum":    []any{},
 			}
 		}
 
@@ -756,6 +760,25 @@ var _ = Describe("Scan task", func() {
 			},
 		)
 
+		It("Should give the labels of a string field that repeats a few values",
+			func(ctx SpecContext) {
+				broker.publish("plant/a", `{"state": "ON"}`, true)
+				publishUntilDone(broker, "plant/a", `{"state": "OFF"}`)
+				stat := browse(ctx, msgpack.EncodedJSON{"duration": 300})
+				topics, ok := stat.Details.Data["topics"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(topics[0]).To(oneShape(HaveKeyWithValue("fields", []any{
+					map[string]any{
+						"pointer": "/state",
+						"type":    "string",
+						"sample":  `"OFF"`,
+						"kind":    "string",
+						"enum":    []any{"OFF", "ON"},
+					},
+				})))
+			},
+		)
+
 		It("Should give every scalar of a payload longer than its sample",
 			func(ctx SpecContext) {
 				long := strings.Repeat("x", 300)
@@ -834,6 +857,7 @@ var _ = Describe("Scan task", func() {
 							"sample":      strconv.FormatInt(ms+1, 10),
 							"kind":        "timestamp",
 							"time_format": "unix_ms",
+							"enum":        []any{},
 						},
 						field("/v", "number", "2", payload.KindFloat),
 					}),
@@ -872,6 +896,7 @@ var _ = Describe("Scan task", func() {
 								"sample":      strconv.FormatInt(ms, 10),
 								"kind":        "timestamp",
 								"time_format": "unix_ms",
+								"enum":        []any{},
 							},
 							field("/code", "number", "3", payload.KindInteger),
 						}),

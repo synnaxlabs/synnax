@@ -285,7 +285,7 @@ const valueOf = (
   key,
   name: field.pointer === "" ? "Whole value" : field.pointer,
   sample: show(newestValue(newest, field.pointer)),
-  dataType: ICD.VALUE_TYPES[field.kind],
+  dataType: ICD.VALUE_TYPES[ICD.fieldKind(field)],
 });
 
 /**

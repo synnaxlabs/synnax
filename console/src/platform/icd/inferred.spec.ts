@@ -15,7 +15,7 @@ describe("ICD inferred formats", () => {
   describe("createField", () => {
     it("should create a timestamp field with the inferred time format", () => {
       const field = ICD.createField(
-        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns" },
+        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns", enum: [] },
         "time",
       );
       expect(field).toMatchObject({
@@ -29,25 +29,51 @@ describe("ICD inferred formats", () => {
     it.each(["integer", "unsigned", "float", "boolean", "string"] as const)(
       "should create a %s field with no time format",
       (kind) => {
-        const field = ICD.createField({ pointer: "/v", kind }, "v");
+        const field = ICD.createField({ pointer: "/v", kind, enum: [] }, "v");
         expect(field).toMatchObject({ name: "v", pointer: "/v", type: kind });
         expect(field).not.toHaveProperty("timeFormat");
       },
     );
 
+    it("should create an integer field with a value for each enum label", () => {
+      const field = ICD.createField(
+        { pointer: "/state", kind: "string", enum: ["OFF", "ON"] },
+        "state",
+      );
+      expect(field).toMatchObject({
+        name: "state",
+        pointer: "/state",
+        type: "integer",
+        enumValues: [
+          { label: "OFF", value: "0" },
+          { label: "ON", value: "1" },
+        ],
+      });
+    });
+
     it("should give each field its own key", () => {
-      const inferred = { pointer: "/v", kind: "float" } as const;
+      const inferred = { pointer: "/v", kind: "float" as const, enum: [] };
       expect(ICD.createField(inferred, "v").key).not.toEqual(
         ICD.createField(inferred, "v").key,
       );
     });
   });
 
+  describe("fieldKind", () => {
+    it("should give an integer for a field with enum labels", () => {
+      expect(ICD.fieldKind({ kind: "string", enum: ["OFF", "ON"] })).toEqual("integer");
+    });
+
+    it("should give the inferred kind for a field with no enum labels", () => {
+      expect(ICD.fieldKind({ kind: "string", enum: [] })).toEqual("string");
+    });
+  });
+
   describe("createFields", () => {
     it("should name each field after its pointer", () => {
       const fields = ICD.createFields([
-        { pointer: "/motor/speed", kind: "float" },
-        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns" },
+        { pointer: "/motor/speed", kind: "float", enum: [] },
+        { pointer: "/time", kind: "timestamp", timeFormat: "unix_ns", enum: [] },
       ]);
       expect(fields).toMatchObject([
         { name: "motor_speed", pointer: "/motor/speed", type: "float" },
@@ -69,7 +95,7 @@ describe("ICD inferred formats", () => {
   });
 
   describe("createMessage", () => {
-    const field = ICD.createField({ pointer: "/v", kind: "float" }, "v");
+    const field = ICD.createField({ pointer: "/v", kind: "float", enum: [] }, "v");
 
     it("should create a JSON message of the fields with the name", () => {
       expect(ICD.createMessage("plant/oven", [field], [])).toMatchObject({

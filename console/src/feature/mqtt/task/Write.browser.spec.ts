@@ -1227,8 +1227,20 @@ describe("MQTT Write form", () => {
       shapes: [
         {
           fields: [
-            { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
-            { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+            {
+              pointer: "/setpoint",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
+            {
+              pointer: "/mode",
+              type: "string",
+              kind: "string",
+              sample: '"auto"',
+              enum: [],
+            },
           ],
           count: 1,
         },
@@ -1313,15 +1325,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: 1,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: 3,
@@ -1355,15 +1379,27 @@ describe("MQTT Write form", () => {
         shapes: [
           {
             fields: [
-              { pointer: "/setpoint", type: "number", kind: "float", sample: "1" },
+              {
+                pointer: "/setpoint",
+                type: "number",
+                kind: "float",
+                sample: "1",
+                enum: [],
+              },
             ],
             present: "/setpoint",
             count: setpoints,
           },
           {
             fields: [
-              { pointer: "/rpm", type: "number", kind: "float", sample: "5" },
-              { pointer: "/mode", type: "string", kind: "string", sample: '"auto"' },
+              { pointer: "/rpm", type: "number", kind: "float", sample: "5", enum: [] },
+              {
+                pointer: "/mode",
+                type: "string",
+                kind: "string",
+                sample: '"auto"',
+                enum: [],
+              },
             ],
             present: "/rpm",
             count: rpms,
@@ -1412,6 +1448,7 @@ describe("MQTT Write form", () => {
         sample: "1700000000000",
         kind: "timestamp",
         timeFormat: "unix_ms",
+        enum: [],
       };
       const [shape] = TOPIC.shapes;
       const { dialog, draft } = await openOnPickedTopic([], {

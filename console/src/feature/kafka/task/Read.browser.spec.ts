@@ -1305,6 +1305,44 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should add a string field with enum labels as an integer with a value for each label", async () => {
+      const { draft, dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [
+          { ...createInferredField("/state", "string", "string"), enum: ["OFF", "ON"] },
+        ],
+        index: -1,
+        count: 3,
+        present: -1,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      const state = await dialog.findByRole("checkbox", { name: "Record /state" });
+      const option = state.closest<HTMLElement>('[role="option"]');
+      assertDefined(option);
+      within(option).getByText("int64");
+      fireEvent.click(state);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages[0].payload).toMatchObject({
+        fields: [
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "OFF", value: "0" },
+              { label: "ON", value: "1" },
+            ],
+          },
+        ],
+      });
+    });
+
     it("should name fields apart when their pointers give one name", async () => {
       const { draft, dev } = await renderRead();
       const pump = {

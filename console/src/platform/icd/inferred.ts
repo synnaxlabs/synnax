@@ -8,17 +8,34 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { type json, uuid } from "@synnaxlabs/x";
+import { type json, type payload, uuid } from "@synnaxlabs/x";
 
 import { fieldNames } from "@/platform/icd/fieldNames";
 
-type Inferred = Pick<json.InferredField, "pointer" | "kind" | "timeFormat">;
+type Inferred = Pick<json.InferredField, "pointer" | "kind" | "timeFormat" | "enum">;
 
-/** @returns a field named name that reads the values of an inferred field. */
-export const createField = (
-  { pointer, kind, timeFormat }: Inferred,
-  name: string,
-): icd.JSONField => icd.jsonFieldZ.parse({ name, pointer, type: kind, timeFormat });
+/**
+ * @returns the kind of the field that createField makes from an inferred field: an
+ * integer for a string field with enum labels, so that its values plot.
+ */
+export const fieldKind = ({
+  kind,
+  enum: labels,
+}: Pick<Inferred, "kind" | "enum">): payload.Kind =>
+  labels.length > 0 ? "integer" : kind;
+
+/**
+ * @returns a field named name that reads the values of an inferred field. A field with
+ * enum labels reads each label as its position in the labels.
+ */
+export const createField = (inferred: Inferred, name: string): icd.JSONField => {
+  const { pointer, timeFormat, enum: labels } = inferred;
+  const type = fieldKind(inferred);
+  if (labels.length === 0)
+    return icd.jsonFieldZ.parse({ name, pointer, type, timeFormat });
+  const enumValues = labels.map((label, i) => ({ label, value: i.toString() }));
+  return icd.jsonFieldZ.parse({ name, pointer, type, enumValues });
+};
 
 /** @returns a field for each inferred field, named after its pointer. */
 export const createFields = (inferred: Inferred[]): icd.JSONField[] => {

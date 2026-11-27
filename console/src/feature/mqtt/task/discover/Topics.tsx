@@ -377,7 +377,7 @@ const TopicValues = ({
           key: keyOf(i, l.pointer),
           name: pointerLabel(l.pointer),
           sample: shape.samples.get(l.pointer) ?? null,
-          dataType: ICD.VALUE_TYPES[l.kind],
+          dataType: ICD.VALUE_TYPES[ICD.fieldKind(l)],
           lock,
         };
       }),
