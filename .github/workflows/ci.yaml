@@ -476,7 +476,7 @@ jobs:
       coverage_flag: console
       directory: console
       package: console
-      shards: 3
+      shards: 5
       webkit: *full
       # A page keeps each file it runs (microsoft/playwright#44290); 4 stay under 2 GB.
       webkit_files_per_page: 4
