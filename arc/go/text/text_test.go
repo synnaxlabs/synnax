@@ -8828,6 +8828,37 @@ time.wait(duration=500ms) -> output`
 			)
 
 			It(
+				"Should exit a sequence inside an inline stage body from its last stage",
+				func(ctx SpecContext) {
+					source := `
+				sequence main {
+				    stage first {
+				        flag -> stage {
+				            sequence inner {
+				                stage only {
+				                    flag => next
+				                }
+				            }
+				        }
+				    }
+				}`
+					resolver := []symbol.Symbol{{
+						Name: "flag",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.Bool()),
+						ID:   10097,
+					}}
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					_, diag := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+				},
+			)
+
+			It(
 				"Should exit a sequence declared inside a stage from its last stage",
 				func(ctx SpecContext) {
 					source := `
