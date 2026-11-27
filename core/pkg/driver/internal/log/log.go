@@ -26,7 +26,7 @@ import (
 const StartedMessage = "started successfully"
 
 // isCrashBanner reports whether line is the first line of a crash dump emitted by the
-// driver's crash handler (x::crash). The dump is raw text rather than glog-formatted:
+// Driver's crash handler (x::crash). The dump is raw text rather than glog-formatted:
 // a banner, an optional what() line, "stack trace:", and one line per frame.
 func isCrashBanner(line string) bool {
 	return strings.Contains(line, "*** ") &&

@@ -101,7 +101,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	return d, nil
 }
 
-// registerRack writes the driver's integrations and version to its rack and reads the
+// registerRack writes the Driver's integrations and version to its rack and reads the
 // rack back.
 func (d *Driver) registerRack(ctx context.Context) error {
 	integrations := make([]string, len(d.cfg.Factories))
@@ -329,7 +329,7 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	if tsk.Rack != d.rack.Key {
 		// The task moved racks: the start deploys it on the new rack, and doubles
 		// as the teardown signal for the instance this Driver still holds. The
-		// teardown is silent: the new rack's driver owns status reporting.
+		// teardown is silent: the new rack's Driver owns status reporting.
 		if d.release(cmd.Task, false) {
 			d.cfg.L.Info("stopped task moved to another rack",
 				zap.Stringer("task", cmd.Task),

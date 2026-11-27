@@ -271,7 +271,7 @@ void apply_config(const Config &cfg) {
     // also get pinned. This is acceptable because the Driver is a purpose-built process
     // with a bounded memory footprint. The main cost is thread stacks (~8 MB each,
     // fully faulted in), but the Driver creates a fixed number of threads, so total
-    // locked memory stays predictable. If the driver's memory usage grows
+    // locked memory stays predictable. If the Driver's memory usage grows
     // significantly, consider switching to MCL_CURRENT only (locks code/libraries
     // without pinning future allocations) plus targeted mlock() on RT-specific buffers.
     if (cfg.lock_memory) {
