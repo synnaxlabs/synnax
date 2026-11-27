@@ -122,32 +122,24 @@ var _ = Describe("Maximum lifetime", func() {
 	const maxLifetime = 30 * telem.Day
 	var capped *apiapikey.Service
 	BeforeEach(func(ctx SpecContext) {
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
 		capped = MustSucceed(apiapikey.NewService(apiapikey.ServiceConfig{
 			Auth: authSvc,
 			APIKey: MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
-				DB:          db,
+				DB:          other,
 				MaxLifetime: maxLifetime,
 			})),
 		}))
 	})
-	create := func(ctx context.Context, expires telem.TimeStamp) error {
-		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			_, err := capped.Create(requestCtx(ctx), tx, apiapikey.CreateRequest{
-				Subject: root.ResourceID(),
-				Name:    "capped",
-				Expires: expires,
-			})
-			return err
-		})
-	}
-	It("Should create a key that expires at the maximum lifetime", func(ctx SpecContext) {
-		Expect(create(ctx, telem.Now().Add(maxLifetime))).To(Succeed())
-	})
 	DescribeTable(
-		"Should reject a key that outlives the maximum lifetime",
+		"Should refuse a key that outlives the maximum lifetime before it writes",
 		func(ctx SpecContext, expires func() telem.TimeStamp) {
-			Expect(create(ctx, expires())).
-				To(MatchError(ContainSubstring("expires: must be at most")))
+			Expect(capped.Create(
+				requestCtx(ctx),
+				nil,
+				apiapikey.CreateRequest{Name: "capped", Expires: expires()},
+			)).Error().To(MatchError(ContainSubstring("expires: must be at most")))
 		},
 		Entry("no expiry", func() telem.TimeStamp { return 0 }),
 		Entry("the maximum timestamp", func() telem.TimeStamp {

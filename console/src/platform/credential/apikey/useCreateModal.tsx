@@ -17,6 +17,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import { Credential } from "@synnaxlabs/pluto";
@@ -118,6 +119,13 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
         <Text.Text level="small" color={9}>
           Name the key after the script or service that uses it.
         </Text.Text>
+        {lifetime.variant === "error" && (
+          <Status.Summary
+            variant="error"
+            message="Failed to retrieve the key lifetime limit"
+            description={lifetime.status.description}
+          />
+        )}
         {loaded && (
           <Input.Item
             label="Expiry"

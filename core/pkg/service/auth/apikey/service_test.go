@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	xtime "github.com/synnaxlabs/x/time"
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -249,8 +250,10 @@ var _ = Describe("Service", func() {
 				limit  telem.TimeStamp
 			)
 			BeforeEach(func(ctx SpecContext) {
+				other := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(other.Run)
 				capped = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
-					DB:          db,
+					DB:          other,
 					Clock:       clock,
 					MaxLifetime: telem.Day,
 				}))

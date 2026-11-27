@@ -100,7 +100,8 @@ const SideEffect = (): null => {
 
 // setTimeout fires at once for a longer delay.
 const MAX_TIMEOUT = TimeSpan.milliseconds(2 ** 31 - 1);
-const RETRY_INTERVAL = TimeSpan.seconds(10);
+const FIRST_RETRY = TimeSpan.seconds(10);
+const MAX_RETRY_DOUBLINGS = 6;
 
 /**
  * Keeps an API key for the scripts on this computer saved with the Core address, and
@@ -113,20 +114,25 @@ const APIKeySideEffect = (): null => {
     if (client == null || !Session.Runtime.isMainWindow()) return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
+    let failures = 0;
     const after = (span: TimeSpan): void => {
       if (disposed) return;
       const wait = span.greaterThan(MAX_TIMEOUT) ? MAX_TIMEOUT : span;
       timer = setTimeout(keep, wait.milliseconds);
     };
+    // A failure reports once, then retries with backoff until a save works.
     const keep = (): void =>
       handleError(async () => {
         let expires: TimeStamp;
         try {
           ({ expires } = await ensure(client));
         } catch (e) {
-          after(RETRY_INTERVAL);
-          throw errors.fromUnknown(e);
+          after(FIRST_RETRY.mult(2 ** Math.min(failures, MAX_RETRY_DOUBLINGS)));
+          failures += 1;
+          if (failures === 1) throw errors.fromUnknown(e);
+          return;
         }
+        failures = 0;
         if (!expires.equals(TimeStamp.MAX))
           after(TimeStamp.now().span(expires).add(TimeSpan.SECOND));
       }, "Failed to save API key for scripts");

@@ -205,6 +205,22 @@ describe("useModal", () => {
     });
   });
 
+  it("should show why it cannot read the key lifetime limit", async () => {
+    const client = createTestClient();
+    vi.spyOn(client.auth, "retrieveAPIKeyMaxLifetime").mockRejectedValue(
+      new Error("Core restarted"),
+    );
+    const { key: role } = await createEmptyRole(client);
+    const subject = await client.users.create({ name: uniqueName("user"), role });
+    await openModal(Credential.useModal, {
+      client,
+      params: { subject: user.resourceID(subject.key) },
+    });
+    fireEvent.click(await screen.findByText("Create key"));
+    await screen.findByText("Failed to retrieve the key lifetime limit");
+    expect(screen.queryByText("Custom")).toBeNull();
+  });
+
   it("should create a key with no expiry", async () => {
     const client = createTestClient();
     const { key: role } = await createEmptyRole(client);
