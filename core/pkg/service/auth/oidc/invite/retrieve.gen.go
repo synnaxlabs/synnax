@@ -46,9 +46,9 @@ func newIndexes() indexes {
 			Targets: func(e *Invite) []user.Key {
 				return []user.Key{e.User}
 			},
-			Retarget: func(e *Invite, from, to user.Key) {
-				if e.User == from {
-					e.User = to
+			Retarget: func(e *Invite, to map[user.Key]user.Key) {
+				if t, ok := to[e.User]; ok {
+					e.User = t
 				}
 			},
 		}),
