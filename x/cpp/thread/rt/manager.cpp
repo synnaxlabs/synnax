@@ -62,7 +62,10 @@ void Manager::release_core(int core) {
     this->available.push_back(core);
 }
 
-Manager::Manager(): all_cores(discover_rt_cores()), available(this->all_cores) {
+Manager::Manager(): Manager(discover_rt_cores()) {}
+
+Manager::Manager(std::vector<int> cores):
+    all_cores(std::move(cores)), available(this->all_cores) {
     const auto total = this->all_cores.size();
     if (total > 0)
         LOG(INFO) << "[rt.manager] managing " << total << " RT cores";

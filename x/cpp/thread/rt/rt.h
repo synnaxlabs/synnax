@@ -255,7 +255,11 @@ class Manager : public std::enable_shared_from_this<Manager> {
     void release_core(int core);
 
 public:
+    /// @brief manages the isolated cores of the host.
     Manager();
+
+    /// @brief manages cores, in place of the isolated cores of the host.
+    explicit Manager(std::vector<int> cores);
 
     /// @brief Allocates a core from the pool and returns a Handle with the given base
     /// config. If no cores are available, returns a Handle with CPU_AFFINITY_NONE.

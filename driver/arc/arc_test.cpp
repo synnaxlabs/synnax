@@ -23,6 +23,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -206,6 +207,78 @@ TEST(ArcTests, testCalcDoubling) {
     EXPECT_FLOAT_EQ(output_val, 10.0f);
 
     task->stop("test_stop", true);
+}
+
+/// @brief an Arc task takes its RT core at start and returns it at stop, so a task
+/// built beside a running one gets the core once the running one stops.
+TEST(ArcTests, testRTCoreHeldOnlyWhileRunning) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("rt_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(idx));
+    auto input = synnax::channel::Channel{
+        .name = make_unique_channel_name("rt_in"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = idx.key,
+    };
+    auto output = synnax::channel::Channel{
+        .name = make_unique_channel_name("rt_out"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = idx.key,
+    };
+    ASSERT_NIL(client->channels.create(input));
+    ASSERT_NIL(client->channels.create(output));
+    synnax::arc::AutomationArc arc_prog{{.name = make_unique_channel_name("rt_test")}};
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input.name + " -> calc() -> " + output.name + "\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(client->racks.create(make_unique_channel_name("rt_rack")));
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_rt_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto rt = std::make_shared<x::thread::rt::Manager>(std::vector{0});
+    const auto build = [&] {
+        return ASSERT_NIL_P(
+            arc::Task::create(
+                task_meta,
+                ctx,
+                task_cfg,
+                std::make_shared<driver::pipeline::testutil::WriterFactory>(),
+                driver::pipeline::testutil::simple_streamer_factory(
+                    {idx.key, input.key},
+                    std::make_shared<std::vector<x::telem::Frame>>()
+                ),
+                rt
+            )
+        );
+    };
+    auto running = build();
+    EXPECT_EQ(rt->available_cores(), 1);
+    running->start("start-1");
+    ASSERT_EVENTUALLY_EQ(rt->available_cores(), 0);
+    auto built = build();
+    EXPECT_EQ(rt->available_cores(), 0);
+    running->stop("stop-1", true);
+    EXPECT_EQ(rt->available_cores(), 1);
+    built->start("start-2");
+    ASSERT_EVENTUALLY_EQ(rt->available_cores(), 0);
+    built->stop("stop-2", true);
+    EXPECT_EQ(rt->available_cores(), 1);
 }
 
 TEST(ArcTests, testBasicSequence) {
