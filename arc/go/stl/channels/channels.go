@@ -307,19 +307,19 @@ func (s *source) Next(ctx node.Context) {
 	}
 }
 
-// convert returns ser in the output type. The data types that Arc reads as a string
-// share one Arc type, so such a series passes to a string output as it is.
+// convert returns ser in the output type. A series of text passes to a text output as
+// it is, since Arc reads every kind of text as one string type.
 func (s *source) convert(ser telem.Series) (telem.Series, error) {
-	if ser.DataType == s.dataType || (isString(ser.DataType) && isString(s.dataType)) {
+	if ser.DataType == s.dataType || (isText(ser.DataType) && isText(s.dataType)) {
 		return ser, nil
 	}
 	return telem.Convert(ser, s.dataType)
 }
 
-func isString(
-	dt telem.DataType,
-) bool {
-	return types.FromTelem(dt).Kind == types.KindString
+// isText reports whether dt holds length-prefixed text. Arc gives a uuid its string
+// type too, but a uuid sample is 16 bytes and not text.
+func isText(dt telem.DataType) bool {
+	return dt == telem.StringT || dt == telem.JSONT
 }
 
 // alignToIndex returns ser and its timestamps from the index series that holds it,
@@ -576,7 +576,7 @@ func bindStr(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			if !isString(series.DataType) {
+			if !isText(series.DataType) {
 				panic(ps.readError(chID, telem.ConversionError{
 					From: series.DataType,
 					To:   telem.StringT,
