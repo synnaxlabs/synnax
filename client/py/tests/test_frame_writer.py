@@ -111,6 +111,27 @@ class TestWriter:
         for idx, _ in pairs:
             assert list(client.read(sy.TimeRange.MAX, idx.key)) == [start]
 
+    def test_write_time_onto_stored_stamps(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should refuse time for a channel whose index already holds data from the
+        writer's start, and take the stored stamps for its data"""
+        idx_ch, data_ch = indexed_pair
+        start = sy.TimeStamp(sy.TimeSpan.SECOND)
+        with client.open_writer(start=start, channels=[idx_ch.key]) as w:
+            w.write({idx_ch.key: [start]})
+            w.commit()
+        with client.open_writer(start=start, channels=[data_ch.key]) as w:
+            with pytest.raises(
+                sy.ValidationError,
+                match=rf"^{data_ch.name} takes its time from the stamps that its index "
+                r'already stores, so the write cannot hold "time" for it$',
+            ):
+                w.write({"time": start, data_ch.key: 1.5})
+            w.write({data_ch.key: 1.5})
+            w.commit()
+        assert list(client.read(sy.TimeRange.MAX, data_ch.key)) == [1.5]
+
     def test_write_time_with_no_channels(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:

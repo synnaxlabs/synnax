@@ -801,6 +801,17 @@ var _ = Describe("Framer", func() {
 				Expect(res.Clocks).To(Equal(channel.Keys{index.Key()}))
 			})
 
+			It("Should leave out an index that holds data from the start", func(
+				ctx SpecContext,
+			) {
+				task := openTask(ctx, channel.Keys{index.Key()}, 100)
+				Expect(
+					committed(task, frame.NewUnary(index.Key(), stamps())),
+				).To(BeTrue())
+				_, res := open(ctx, channel.Keys{data.Key()}, 100)
+				Expect(res.Clocks).To(BeEmpty())
+			})
+
 			It("Should give no clock to a virtual channel", func(ctx SpecContext) {
 				virtual := channel.Channel{
 					Name:     UniqueChannelName(),

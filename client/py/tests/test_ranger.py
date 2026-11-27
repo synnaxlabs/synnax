@@ -592,7 +592,7 @@ class TestRangeClient:
                 w.write({idx.key: stamps, data.key: [1.0, 2.0]})
                 w.commit()
             assert list(rng[data.key].time) == stamps
-            assert list(rng[data.key]) == [1.0, 2.0]
+            assert rng[data.key].to_numpy().tolist() == [1.0, 2.0]
 
         def test_access_by_key(
             self, rng: sy.Range, two_channels: list[sy.Channel]
