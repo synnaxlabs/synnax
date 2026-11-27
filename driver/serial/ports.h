@@ -36,12 +36,11 @@ struct Device {
 std::pair<Device, x::errors::Error>
 retrieve_device(const synnax::device::Client &devices, const std::string &key);
 
-/// @brief Ports shares the serial ports of an integration among its tasks. It gives
-/// each port to one read task, and to the tasks of one device at a time. Two paths to
-/// one port, such as a symlink and its target, are one port. It is safe for concurrent
-/// use.
+/// @brief Ports shares the serial ports of an integration among its tasks. Each device
+/// has one read task. Each open port belongs to one device, whatever path names it. It
+/// is safe for concurrent use.
 class Ports {
-    /// @brief Holders gives each port to one holder at a time.
+    /// @brief Holders gives each key to one holder at a time.
     class Holders;
 
     transport::Connections connections;
@@ -51,10 +50,10 @@ class Ports {
 public:
     Ports();
 
-    /// @brief Claim holds a port until it is destroyed.
+    /// @brief Claim holds a device for a read task, or a port for a device, until it is
+    /// destroyed.
     class Claim {
         std::shared_ptr<Holders> holders;
-        /// @brief key is the native::identity of the path of the port when claimed.
         std::string key;
         Claim(std::shared_ptr<Holders> holders, std::string key);
         friend class Ports;
@@ -65,26 +64,20 @@ public:
         Claim &operator=(const Claim &) = delete;
     };
 
-    /// @brief Lease is the use of the port of a device by a running task. Destroying it
-    /// releases the port, which closes when no other task on the device holds it.
-    struct Lease {
-        /// @brief claim holds the port path for the device.
-        std::unique_ptr<Claim> claim;
-        /// @brief conn is the connection to the port.
-        std::shared_ptr<transport::Connection> conn;
-    };
-
-    /// @brief claims the port at path for task until the claim is destroyed.
-    /// @returns CONFIGURATION_ERROR naming the read task that holds the port.
+    /// @brief claims the device with key for task until the claim is destroyed. A task
+    /// can claim a device that it holds again.
+    /// @returns CONFIGURATION_ERROR naming the read task that holds the device.
     std::pair<std::unique_ptr<Claim>, x::errors::Error>
-    claim_read(const std::string &path, const synnax::task::Task &task);
+    claim_read(const std::string &device, const synnax::task::Task &task);
 
     /// @brief acquires the connection to the port of dev, and opens the port when no
-    /// task on dev holds it open. A missing or busy port does not fail, since each turn
-    /// on the connection opens it again.
-    /// @returns transport::CONFIG_ERROR naming the device that uses the port, or when
-    /// another task holds dev with other properties or the port cannot apply them, and
-    /// transport::CRITICAL_ERROR when reopening cannot fix the failure.
-    std::pair<Lease, x::errors::Error> acquire(const Device &dev);
+    /// task on dev holds it open. Each open claims the port for dev until the port
+    /// closes. A missing or busy port does not fail, since each turn on the connection
+    /// opens it again.
+    /// @returns transport::CONFIG_ERROR naming the device that has the port open, or
+    /// when another task holds dev with other properties or the port cannot apply them,
+    /// and transport::CRITICAL_ERROR when reopening cannot fix the failure.
+    std::pair<std::shared_ptr<transport::Connection>, x::errors::Error>
+    acquire(const Device &dev);
 };
 }

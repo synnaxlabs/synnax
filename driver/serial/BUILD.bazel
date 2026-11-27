@@ -60,6 +60,7 @@ cc_library(
         "//driver/transport",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/telem",
     ],
 )
 
@@ -67,10 +68,7 @@ cc_test(
     name = "ports_test",
     size = "small",
     srcs = ["ports_test.cpp"] + select({
-        "@platforms//os:windows": [
-            "open_windows_test.cpp",
-            "ports_windows_test.cpp",
-        ],
+        "@platforms//os:windows": ["open_windows_test.cpp"],
         "//conditions:default": [
             "open_posix_test.cpp",
             "ports_posix_test.cpp",
@@ -83,7 +81,7 @@ cc_test(
         "//client/cpp/task",
         "//driver/errors",
         "//driver/transport",
-        "//x/cpp/defer",
+        "//x/cpp/errors",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
@@ -120,6 +118,21 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "retrieve_device_test",
+    srcs = ["retrieve_device_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":ports",
+        "//client/cpp/serial",
+        "//client/cpp/testutil",
+        "//x/cpp/errors",
+        "//x/cpp/json",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
     ],
 )
 
