@@ -849,8 +849,9 @@ func (rd *renderer) detachElemBody(
 	return b.String()
 }
 
-// retargetBody returns the code that moves e from the target from to the target to
-// through every leaf under nodes. A @ref array that holds to drops from instead.
+// retargetBody returns the code that moves e from each target that to holds to the
+// target it maps to, through every leaf under nodes. A @ref array drops a moved element
+// whose new target it already holds.
 func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 	var b strings.Builder
 	rd.walk(
@@ -860,55 +861,62 @@ func (rd *renderer) retargetBody(nodes []*stepNode, mode leafMode) string {
 		walkWrite,
 		nil,
 		func(b *strings.Builder, expr string, _ []string) {
+			// Each statement scopes t to itself, and the walk's own variables carry a
+			// number, so t shadows nothing. An index needs no parentheses around a
+			// composite literal.
+			const t = "t"
 			switch mode {
 			case leafRequired, leafZero:
 				fmt.Fprintf(
 					b,
-					"if %s == from {\n%s\n}\n",
-					rd.operand(expr),
+					"if %s, ok := to[%s]; ok {\n%s\n}\n",
+					t,
+					rd.target(expr),
 					rd.assign(expr),
 				)
 			case leafOptional:
-				assign := "*" + expr + " = to"
+				assign := "*" + expr + " = " + t
 				if rd.info.IsID {
 					assign = rd.assign(expr)
 				}
 				fmt.Fprintf(
 					b,
-					"if %s != nil && %s == from {\n%s\n}\n",
+					"if %s != nil {\nif %s, ok := to[%s]; ok {\n%s\n}\n}\n",
 					expr,
-					rd.operand("*"+expr),
+					t,
+					rd.target("*"+expr),
 					assign,
 				)
 			case leafSlice:
-				rd.usesSlices = true
-				k, i := rd.nextVar("k"), rd.nextVar("i")
-				elem := fmt.Sprintf("%s[%s]", expr, i)
+				k := rd.nextVar("k")
+				set := "*" + k + " = " + t
+				if rd.info.IsID {
+					set = rd.assign(k)
+				}
 				fmt.Fprintf(
 					b,
-					"if slices.ContainsFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
-						"return %[4]s == to\n}) {\n"+
-						"%[1]s = slices.DeleteFunc(%[1]s, func(%[2]s %[3]s) bool {\n"+
-						"return %[4]s == from\n})\n"+
-						"} else {\nfor %[5]s := range %[1]s {\n"+
-						"if %[6]s == from {\n%[7]s\n}\n}\n}\n",
+					"%[1]s = gorp.RetargetEach(\n%[1]s,\nto,\n"+
+						"func(%[2]s %[3]s) %[4]s {\nreturn %[5]s\n},\n"+
+						"func(%[2]s *%[3]s, %[6]s %[4]s) {\n%[7]s\n},\n)\n",
 					expr,
 					k,
 					rd.info.ElemGoType,
-					rd.operand(k),
-					i,
-					rd.operand(elem),
-					rd.assign(elem),
+					rd.info.TargetType(),
+					rd.target(k),
+					t,
+					set,
 				)
 			case leafMap:
 				k, v := rd.nextVar("k"), rd.nextVar("v")
 				fmt.Fprintf(
 					b,
-					"for %s, %s := range %s {\nif %s == from {\n%s\n%s[%s] = %s\n}\n}\n",
+					"for %s, %s := range %s {\nif %s, ok := to[%s]; ok {\n"+
+						"%s\n%s[%s] = %s\n}\n}\n",
 					k,
 					v,
 					expr,
-					rd.operand(v),
+					t,
+					rd.target(v),
 					rd.assign(v),
 					expr,
 					k,
@@ -929,13 +937,13 @@ func (rd *renderer) operand(expr string) string {
 	return rd.target(expr)
 }
 
-// assign returns the statement that points the field at expr to the target to. A
-// resource ID changes only its key, as from and to share a table.
+// assign returns the statement that points the field at expr to the target t. A
+// resource ID changes only its key, as a retarget moves within one table.
 func (rd *renderer) assign(expr string) string {
 	if rd.info.IsID {
-		return expr + ".Key = to.Key"
+		return expr + ".Key = t.Key"
 	}
-	return expr + " = to"
+	return expr + " = t"
 }
 
 // renderRetarget sets the RetargetBody of info, a reference on a top-level field.
