@@ -376,12 +376,14 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   the high 32 bits of the alignment, as Sift does, and mark, as a cursor, the ingest
   number that the program state gives each series of a key, taking only a series after
   the last one it took, so neither a re-pass in one cycle nor a series already taken
-  fires again, and inside one stretch they also keep the alignment compare, while the
-  entry stamp still drops samples from before a stage's entry (`channels.go:196-198`).
-  Phase 41 keeps that rule per clock. Each of those phases has a spec that reads across
-  a backfill with a higher number and a channel that skipped a session; the `on` node
-  specs stream an `Unstored` session, then a stored one, and a refusal window, and fire
-  on each later sample. RFC 0121 Phase 8 waits for all four.
+  fires again, and inside one stretch they also keep the alignment compare; a Reset and
+  a rebind move the cursor to the newest buffered series, while the entry stamp still
+  drops samples from before a stage's entry (`channels.go:196-198`). Phase 41 keeps that
+  rule per clock. Each of those phases has a spec that reads across a backfill with a
+  higher number and a channel that skipped a session; the `on` node specs stream an
+  `Unstored` session, then a stored one, and a refusal window, and fire on each later
+  sample, and read a buffer of two stretches on two passes of one cycle, and across a
+  Reset, and fire on each series once. RFC 0121 Phase 8 waits for all four.
 - **Reader API**: `frame.time(channel)` gives one time series per data series of the
   channel, with the same lengths, and `frame.time(series)` the times of one series: the
   time series under `series.clock` whose alignments hold the data's. Each fails when the
@@ -391,15 +393,19 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   the mean stamp, and of a `decimate` series the first stamp. Until Phase 50 a read can
   name an index channel that is the clock of another requested key; the frame then holds
   that series once, as the time series, and the reader also shows it under the channel,
-  but only in a frame that holds a data series whose record names that index, so a
-  calculation's frame adds no entry to it. The Python and TypeScript readers build the
-  rule at Phase 13, the Driver at Phase 31, and Arc at Phase 41. A channel that times
-  itself, such as a kept timestamp channel, comes once too, and `frame.time` of it
-  returns that series. Time series sit in a store of the frame of their own, keyed by
-  clock, and never appear among its channels, keys, or columns. In C++,
-  `x::telem::Frame` gains that store at Phase 31; until then the C++ decoder puts each
-  time series among the channels under its clock key, an index key until Phase 44, which
-  every Driver sink skips as a key that it does not command
+  except in a frame that holds a calculated data series on that clock and no data series
+  whose record names that index, so a calculation's frame adds no entry to it while a
+  stream of the index alone still gets its own samples. The Python and TypeScript
+  readers build the rule at Phase 13 and the C++ time store at Phase 31, with a spec of
+  a calculation's frame built by hand and one of `["time"]` alone. A reader keeps one
+  copy of a clock's stamps per alignment range, which the cache builds at Phase 14 with
+  a spec of two frames that carry one clock's stamps. Phase 44 runs those specs live. A
+  channel that times itself, such as a kept timestamp channel, comes once too, and
+  `frame.time` of it returns that series. Time series sit in a store of the frame of
+  their own, keyed by clock, and never appear among its channels, keys, or columns. In
+  C++, `x::telem::Frame` gains that store at Phase 31; until then the C++ decoder puts
+  each time series among the channels under its clock key, an index key until Phase 44,
+  which every Driver sink skips as a key that it does not command
   (`driver/common/write_task.h:157-165`). `frame["time"]` fails and names `frame.time`.
   `to_df()` has a `DatetimeIndex` named `time`: an outer join on time across clocks,
   with blanks, as today. A range channel has `time` (Python `ScopedChannel.time`). A
@@ -509,23 +515,23 @@ names no clock key.
   `["time", "temperature"]` or of `temperature` alone gets no frame from a live
   calculation on `temperature`, and a spec holds both. From Phase 44 until Phase 50 a
   calculation's frame keeps the primary's time series, so Arc and every reader that
-  pairs by clock find it beside the output, and the readers show it under the index
-  channel's key only beside a data series whose record names that index (§4.4), so a
-  calculation's frame adds no entry to `frame["time"]`. A spec streams
-  `["time", "temperature", "temp_f"]` beside a live calculation and gets equal time and
-  temperature lengths, and an Arc `on temp_f` that also reads `temperature` fires on
-  each output. Before Phase 44 a calculation's clock is its `<name>_time` key, and a
-  read or stream that names it gets its series as on `main`, which a spec at Phase 21
-  holds: a read and a stream of `["temp_f", "temp_f_time"]`, and an Arc `on temp_f`. A
-  time series whose clock is not yet in the set is kept when a kept timed series of the
-  same frame names it, which the filter checks after the frame's data series, so the
-  first stamps of a new clock are never dropped. That check also finds a clock move and
-  updates the set. The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), its
-  taps, which keep only demanded keys today (`relay/tap.go:287`), the calculation
-  transform, and the iterator's calculation step take the rule. Until RFC 0121 Phase 5,
-  the storage tap also subscribes the index of each stored demanded key
-  (`relay/tap.go:233-236` opens it on `keys.Storage()`). A spec streams only a data key
-  and gets its time after a handoff and after a pause move.
+  pairs by clock find it beside the output, and the readers keep it out of the index
+  channel's entry in a calculation's frame (§4.4), so a calculation's frame adds no
+  entry to `frame["time"]`. A spec streams `["time", "temperature", "temp_f"]` beside a
+  live calculation and gets equal time and temperature lengths, and an Arc `on temp_f`
+  that also reads `temperature` fires on each output. Before Phase 44 a calculation's
+  clock is its `<name>_time` key, and a read or stream that names it gets its series as
+  on `main`, which a spec at Phase 21 holds: a read and a stream of
+  `["temp_f", "temp_f_time"]`, and an Arc `on temp_f`. A time series whose clock is not
+  yet in the set is kept when a kept timed series of the same frame names it, which the
+  filter checks after the frame's data series, so the first stamps of a new clock are
+  never dropped. That check also finds a clock move and updates the set. The relay
+  (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep only
+  demanded keys today (`relay/tap.go:287`), the calculation transform, and the
+  iterator's calculation step take the rule. Until RFC 0121 Phase 5, the storage tap
+  also subscribes the index of each stored demanded key (`relay/tap.go:233-236` opens it
+  on `keys.Storage()`). A spec streams only a data key and gets its time after a handoff
+  and after a pause move.
 - **Requests**: A request names channel keys only. Clients stop sending
   `TimestampsIncluded` and adding index keys at Phases 46 and 49
   (`client/ts/src/framer/reader.ts:172-181`,
