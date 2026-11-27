@@ -117,6 +117,36 @@ describe("Log Slice", () => {
     });
   });
 
+  describe("setRange", () => {
+    const RANGE = { start: "10", end: "20" };
+
+    it("should set the range", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY, hold: true }));
+        store.dispatch(Log.setRange({ key: KEY, range: RANGE }));
+      });
+      expect(docOf()?.range).toEqual(RANGE);
+    });
+
+    it("should clear the range when the hold ends", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY, hold: true }));
+        store.dispatch(Log.setRange({ key: KEY, range: RANGE }));
+        store.dispatch(Log.setHold({ key: KEY, hold: false }));
+      });
+      expect(docOf()?.range).toBeNull();
+    });
+
+    it("should keep the range while the hold stays", () => {
+      act(() => {
+        store.dispatch(Log.create({ key: KEY, hold: true }));
+        store.dispatch(Log.setRange({ key: KEY, range: RANGE }));
+        store.dispatch(Log.setHold({ key: KEY, hold: true }));
+      });
+      expect(docOf()?.range).toEqual(RANGE);
+    });
+  });
+
   describe("setPosition", () => {
     it("should set the position", () => {
       act(() => {
