@@ -45,8 +45,11 @@ func MigrateReadEndpoint(
 	old v4.ReadEndpoint,
 ) (ReadEndpoint, error) {
 	ep, err := autoMigrateReadEndpoint(ctx, old)
+	if err != nil {
+		return ep, err
+	}
 	ep.Headers = valuedHeaders(ep.Headers)
-	return ep, err
+	return ep, nil
 }
 
 // MigrateWriteConfig lifts a v4 write config to v5, with the key, channel, and fields
@@ -75,8 +78,11 @@ func MigrateWriteEndpoint(
 	old v4.WriteEndpoint,
 ) (WriteEndpoint, error) {
 	ep, err := autoMigrateWriteEndpoint(ctx, old)
+	if err != nil {
+		return ep, err
+	}
 	ep.Headers = valuedHeaders(ep.Headers)
-	return ep, err
+	return ep, nil
 }
 
 // valuedHeaders returns the headers of hs that have a value, in a new slice.
