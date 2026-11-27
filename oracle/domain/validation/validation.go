@@ -106,6 +106,19 @@ func Parse(domain resolution.Domain) *Rules {
 	return rules
 }
 
+// NonEmpty reports whether field must hold at least one element: a field that is not
+// optional, has a T[] type, and has a required rule. The analyzer rejects a required
+// rule on any other collection.
+func NonEmpty(field resolution.Field) bool {
+	return !field.Optional && IsList(field.Type) &&
+		Parse(field.Domains["validate"]).Required
+}
+
+// IsList reports whether ref is a variable-size array written as T[].
+func IsList(ref resolution.TypeRef) bool {
+	return ref.Name == "Array" && ref.ArraySize == nil
+}
+
 // LessThan returns the rule that domains set with `@<lang> validate lt <field>
 // ["message"]`, or nil when they set none.
 func LessThan(domains map[string]resolution.Domain, lang string) *Comparison {

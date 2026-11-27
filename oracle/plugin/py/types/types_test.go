@@ -415,6 +415,22 @@ var _ = Describe("Python Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`tags: list[str] | None = None`))
 		})
 
+		It("Should require a required list to hold an element", func() {
+			source := `
+				@py output "out"
+
+				Cluster struct {
+					brokers string[] @validate required
+					tags    string[]? @validate required
+				}
+			`
+			resp := MustGenerate(source, "cluster", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`brokers: list[str] = Field(min_length=1)`,
+				`tags: list[str] | None = None`,
+			)
+		})
+
 		It(
 			"Should refuse the zero value of a required string or unsigned field",
 			func() {
@@ -865,6 +881,33 @@ var _ = Describe("Python Types Plugin", func() {
 				).To(ContainSubstring(`AxisKey = Literal["x1", "x2", "y1", "y2"]`))
 			},
 		)
+
+		It("Should generate a narrowing enum as a Literal of the kept members", func() {
+			source := `
+				@py output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				RegisterType enum of DataType {
+					int16
+					float64
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+			resp := MustSucceed(
+				typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(
+				`RegisterType = Literal["int16", "float64"]`,
+			))
+		})
 
 		It(
 			"Should generate screaming snake case for multi-word enum names",
@@ -2578,6 +2621,72 @@ var _ = Describe("Python Types Plugin", func() {
 						),
 					))
 				})
+		})
+
+		Context("schemas that share an output", func() {
+			It("Should declare the enums of each schema that no field names", func() {
+				loader.Add("schemas/synnax/thing", `
+					Shade enum {
+						light = "light"
+					}
+
+					Plan struct {
+						key string
+
+						@py output "client/py/synnax/thing"
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					Mode enum {
+						fast = "fast"
+					}
+
+					Request struct {
+						name string
+
+						@py output "client/py/synnax/thing"
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/py/synnax/thing/types_gen.py").ToContain(
+					`Shade = Literal["light"]`,
+					`Mode = Literal["fast"]`,
+				)
+			})
+
+			It("Should reference each type of the output with no import", func() {
+				loader.Add("schemas/synnax/thing", `
+					@py output "client/py/synnax/thing"
+
+					Kind enum {
+						solid = "solid"
+						empty = "empty"
+					}
+
+					Plan struct {
+						kind Kind
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					import "schemas/synnax/thing"
+
+					@py output "client/py/synnax/thing"
+
+					Change struct {
+						name string
+					}
+
+					Request struct {
+						change Change
+						plan   thing.Plan
+						kind   thing.Kind
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/py/synnax/thing/types_gen.py").
+					ToContain("change: Change", "plan: Plan", "kind: Kind").
+					ToNotContain("from synnax.thing import", "types_gen.")
+			})
 		})
 
 		Context("schemas with the same file name", func() {

@@ -174,20 +174,31 @@ func (f StructForm) isFieldOmitted(name string) bool {
 type EnumForm struct {
 	// Values are the enum's members, fully resolved. For an extending enum the
 	// analyzer expands this to the union of the parents' members plus any
-	// members declared in the enum's own body.
+	// members declared in the enum's own body. For a narrowing enum it holds the
+	// superset's members that the body names, in body order, or for an exclusion the
+	// superset's members that the body does not name, in superset order.
 	Values []EnumValue
 	// Declared holds the members the enum's own body declares, set only when the
-	// enum extends. Only a renderer writing the declaration back wants it.
+	// enum extends or narrows. Only a renderer writing the declaration back wants it.
 	Declared []EnumValue
 	// IsIntEnum reports whether members carry integer (vs string) values. An
-	// extending enum matches the kind of the enums it extends.
+	// extending or narrowing enum matches the kind of the enums it derives from.
 	IsIntEnum bool
 	// Extends names the enums this enum is the union of. Empty for a plain
 	// (non-extending) enum.
 	Extends []TypeRef
+	// Superset names the enum this enum narrows. The zero TypeRef means the enum
+	// does not narrow one.
+	Superset TypeRef
+	// Exclusion is true when a narrowing enum's body names the superset members to
+	// leave out, instead of the members to keep.
+	Exclusion bool
 }
 
 func (EnumForm) typeForm() {}
+
+// Narrows reports whether the enum keeps a subset of another enum's members.
+func (f EnumForm) Narrows() bool { return f.Superset.Name != "" }
 
 // IntBase returns the name of the smallest integer primitive that holds every member
 // of an integer enum: unsigned, unless a member is negative. It returns "uint8" for an

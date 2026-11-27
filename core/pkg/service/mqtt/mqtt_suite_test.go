@@ -32,8 +32,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -48,6 +48,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -59,9 +60,16 @@ var (
 	statusSvc  *status.Service
 	taskSvc    *task.Service
 	icdSvc     *icd.Service
+	mqttSvc    *mqtt.Service
 	// host is the key of the Core that the services run on.
 	host node.Key
+	// limited makes channelSvc refuse each external channel that it retrieves, as past
+	// the channel limit.
+	limited atomic.Bool
 )
+
+// errChannelLimit is the error of a channel that limited refuses.
+var errChannelLimit = errors.New("channel limit exceeded")
 
 func TestMQTT(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -99,9 +107,16 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: core.Channel,
+		TS:      core.Storage.TS,
 		DB:      db,
 		HostKey: core.Identity.HostKey,
 		Status:  statusSvc,
+		Limit: func(types.Uint20) error {
+			if limited.Load() {
+				return errChannelLimit
+			}
+			return nil
+		},
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,
@@ -118,7 +133,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:   db,
 		ImEx: imex.NewService(),
 	}))
-	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
+	mqttSvc = MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		DB:      db,
 		Channel: channelSvc,
 		ICD:     icdSvc,

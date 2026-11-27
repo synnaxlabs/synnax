@@ -1,0 +1,32 @@
+{
+  "description": "A field at the root pointer writes its sample as the whole document.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "value",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "pointer": "",
+          "type": "float"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [12.5],
+      "document": 12.5
+    }
+  ]
+}

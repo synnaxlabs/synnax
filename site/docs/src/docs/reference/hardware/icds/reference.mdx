@@ -90,13 +90,15 @@ These properties are the same for each message format.
 <Field.Item label="Min" field="min" type="number">
   The smallest value, after the scale and offset, that a write task accepts. Empty
   leaves the limit to the bits or the type of the field. Only a number field can have a
-  min. The Console does not show it.
+  min. The grid of a binary or text message has a Min column, and a JSON field sets it
+  in its options.
 </Field.Item>
 
 <Field.Item label="Max" field="max" type="number">
   The largest value, after the scale and offset, that a write task accepts. It cannot be
   less than the min. Empty leaves the limit to the bits or the type of the field. Only a
-  number field can have a max. The Console does not show it.
+  number field can have a max. The grid of a binary or text message has a Max column,
+  and a JSON field sets it in its options.
 </Field.Item>
 
 </Field.List>
@@ -240,6 +242,9 @@ no value at the pointer of the field:
 
 The scale and offset apply to a number default. When a field that a task reads has no
 default, the task skips each document that has no value for the field.
+
+A float default can be NaN, so that a read writes NaN for a missing value. A write of a
+JSON message cannot send a NaN default. A float default cannot be infinite.
 
 A JSON default is JSON text, and a bytes default is base64 text, such as `AQI=`. A
 timestamp default is now, the time of each read or write, or a constant time. In Python,
@@ -513,6 +518,20 @@ code, `client.icds.check` returns the problems of an ICD.
   <Problem.Fix>Enter a number, or clear the default.</Problem.Fix>
 </Problem.Item>
 
+<Problem.Item
+  message={[
+    "scale must be finite",
+    "offset must be finite",
+    "min must be finite",
+    "max must be finite",
+  ]}
+>
+  <Problem.Cause>
+    The scale, offset, min, or max is not a finite number, such as infinity or NaN.
+  </Problem.Cause>
+  <Problem.Fix>Enter a finite number.</Problem.Fix>
+</Problem.Item>
+
 </Problem.List>
 
 ### Names and keys
@@ -562,30 +581,24 @@ code, `client.icds.check` returns the problems of an ICD.
   </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item
-  message={[
-    "scale must be finite and non-zero",
-    "offset must be finite",
-    "min must be finite",
-    "max must be finite",
-  ]}
->
+<Problem.Item message={"scale must be non-zero"}>
   <Problem.Cause>
-    The scale is 0, or the scale, offset, min, or max is not a finite number.
+    The scale of a number field is 0, so the field reads and writes each value as its
+    offset. Synnax saves the ICD, but a read or write task that binds the field does not
+    save or start.
   </Problem.Cause>
-  <Problem.Fix>Enter a finite number. A scale cannot be 0.</Problem.Fix>
+  <Problem.Fix>Enter a scale other than 0.</Problem.Fix>
 </Problem.Item>
 
 <Problem.Item
   message={[
-    "default must be finite",
+    "default cannot be infinite",
     "default <n> does not fit a 32-bit float",
     "default <n> does not fit the field",
   ]}
 >
   <Problem.Cause>
-    A float default is not a finite number, or a binary default does not fit the bits of
-    its field.
+    A float default is infinite, or a binary default does not fit the bits of its field.
   </Problem.Cause>
   <Problem.Fix>Enter a value that the field can hold.</Problem.Fix>
 </Problem.Item>
@@ -689,6 +702,29 @@ code, `client.icds.check` returns the problems of an ICD.
     Driver removes these from the start of each item, so no item can start with the tag.
   </Problem.Cause>
   <Problem.Fix>Remove the whitespace from the start of the tag.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={'the tag "<tag>" is also the tag of field <name>'}>
+  <Problem.Cause>
+    Two tagged fields of one message have the same tag. The Driver cannot tell which
+    field an item of the line belongs to.
+  </Problem.Cause>
+  <Problem.Fix>Enter a different tag for one of the two fields.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  message={'a value of field <name> after its tag "<tag>" reads as this tag'}
+>
+  <Problem.Cause>
+    The tag of the named field is the start of this tag, and the rest of this tag can
+    start a number, such as `T` and `T1`. The Driver gives each item to the longest tag
+    that starts it, so a value of the named field, such as `T1.5`, reads as a value of
+    this field.
+  </Problem.Cause>
+  <Problem.Fix>
+    Change one of the tags so that no number can follow the shorter tag inside the
+    longer tag, such as `T=` and `T1=`.
+  </Problem.Fix>
 </Problem.Item>
 
 </Problem.List>

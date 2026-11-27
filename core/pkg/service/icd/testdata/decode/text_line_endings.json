@@ -1,0 +1,52 @@
+{
+  "description": "A carriage return around a value is trimmed, but a line feed stays in the value.",
+  "messages": [
+    {
+      "name": "line",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 0
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "text": "1\n",
+      "message": "line",
+      "error": "field a: invalid number \"1\\n\": validation error"
+    },
+    {
+      "text": "1\r\n",
+      "message": "line",
+      "error": "field a: invalid number \"1\\r\\n\": validation error"
+    },
+    {
+      "text": "1\r",
+      "message": "line",
+      "samples": [1]
+    },
+    {
+      "text": "1\n2",
+      "message": "line",
+      "error": "field a: invalid number \"1\\n2\": validation error"
+    }
+  ]
+}

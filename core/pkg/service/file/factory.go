@@ -36,13 +36,16 @@ const (
 type FactoryConfig struct {
 	alamos.Instrumentation
 	// DB is the database that the task statuses are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores the answers of the task.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// SecretsDir is the secrets folder of the Core's rack. A listing never reads the
 	// files in it.
+	//
 	// [OPTIONAL]
 	SecretsDir string
 }

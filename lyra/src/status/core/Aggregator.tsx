@@ -128,11 +128,9 @@ const identity = ({ variant, name, message, description }: Status): string =>
   JSON.stringify([variant, name, message, description]);
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
-const DEFAULT_EXPIRATION_POLL = TimeSpan.seconds(1);
 
 interface UseNotificationsProps {
   expiration?: CrudeTimeSpan;
-  poll?: CrudeTimeSpan;
 }
 
 // A `{}` default makes a new object on each call, so the compiler cannot cache the
@@ -146,7 +144,7 @@ const group = (
 ): NotificationSpec[] => {
   const active = received
     .filter(
-      ({ status, time }) => time.afterEq(threshold) && !silencedKeys.has(status.key),
+      ({ status, time }) => time.after(threshold) && !silencedKeys.has(status.key),
     )
     .map(({ status }) => status);
   const grouped = active.reduce((acc, status) => {
@@ -166,6 +164,19 @@ const group = (
   return Array.from(grouped.values());
 };
 
+/** @returns when the next shown status expires, or null when none is shown. */
+const nextExpiry = (
+  received: Received[],
+  now: TimeStamp,
+  expiration: CrudeTimeSpan,
+  silencedKeys: Set<string>,
+): TimeStamp | null =>
+  received.reduce<TimeStamp | null>((next, { status, time }) => {
+    const expiry = time.add(expiration);
+    if (silencedKeys.has(status.key) || !expiry.after(now)) return next;
+    return next == null || expiry.before(next) ? expiry : next;
+  }, null);
+
 /**
  * @returns the statuses recent enough to show as notifications, with identical ones
  * folded into a single entry carrying a count. They drop off on their own after the
@@ -173,11 +184,10 @@ const group = (
  */
 export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
-  poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = NO_PROPS): UseNotificationsReturn => {
   const received = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
-  const now = useNow((now) => now.add(poll));
+  const now = useNow((now) => nextExpiry(received, now, expiration, silencedKeys));
   const statusesRef = useSyncedRef(received.map(({ status }) => status));
 
   const filtered = group(received, now.sub(expiration), silencedKeys);

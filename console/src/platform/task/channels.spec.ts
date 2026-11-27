@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  requestsTo,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { describe, expect, it } from "vitest";
 
@@ -29,16 +34,12 @@ const createField = (
 const configure = async ({
   stored,
   ...args
-}: Omit<
-  Task.PlanReadChannelsArgs<Task.ReadChannelField>,
-  "client" | "namer" | "props"
-> & { stored?: Task.StoredChannels }): Promise<void> => {
-  const plan = await Task.planReadChannels({
-    ...args,
-    client,
-    namer: Task.createNamer(client),
-    props: stored?.read[stored.key],
-  });
+}: Omit<Task.PlanReadChannelsArgs<Task.ReadChannelField>, "planner" | "props"> & {
+  stored?: Task.StoredChannels;
+}): Promise<void> => {
+  const plan = await Task.planChannels(client, (planner) =>
+    Task.planReadChannels({ ...args, planner, props: stored?.read[stored.key] }),
+  );
   await Task.applyReadChannels(client, plan, args.fields, stored);
 };
 
@@ -59,7 +60,7 @@ describe("channels", () => {
         indexKey: "ts",
       });
       const { index } = read.src;
-      expect((await client.channels.retrieve(index)).name).toBe(`${prefix}_time`);
+      expect((await client.channels.retrieve(index)).name).toBe(`${prefix}_ts`);
       const data = await client.channels.retrieve(fields[0].channel);
       expect(data.name).toBe(`${prefix}_temperature`);
       expect(data.index).toBe(index);
@@ -70,6 +71,30 @@ describe("channels", () => {
         "/label": fields[1].channel,
       });
     });
+
+    it.each([
+      { source: "a ts index field", pointer: "/ts", indexKey: "f2", name: "ts" },
+      { source: "a time index field", pointer: "/time", indexKey: "f2", name: "time" },
+      { source: "arrival time", pointer: "/ts", indexKey: "", name: "time" },
+    ])(
+      "should name a new index for $source after it",
+      async ({ pointer, indexKey, name }) => {
+        const prefix = uniqueName("src");
+        const read: Record<string, Task.ReadChannelProps> = {};
+        await configure({
+          stored: { read, key: "src" },
+          fields: [
+            createField("f1", "/temperature"),
+            createField("f2", pointer, indexKey === "" ? "float64" : "timestamp"),
+          ],
+          namePrefix: prefix,
+          indexKey,
+        });
+        expect((await client.channels.retrieve(read.src.index)).name).toBe(
+          `${prefix}_${name}`,
+        );
+      },
+    );
 
     it("should number a new index whose name a field takes", async () => {
       const prefix = uniqueName("src");
@@ -157,7 +182,7 @@ describe("channels", () => {
         indexKey: "ts",
       });
       const index = await client.channels.retrieve(fields[1].channel);
-      expect(index).toMatchObject({ name: `${prefix}_time`, isIndex: true });
+      expect(index).toMatchObject({ name: `${prefix}_ts`, isIndex: true });
       const data = await client.channels.retrieve(fields[0].channel);
       expect(data).toMatchObject({ name: `${prefix}_temperature`, index: index.key });
     });
@@ -331,17 +356,18 @@ describe("channels", () => {
         createField("f1", "/temperature"),
         createField("ts", "/ts", "timestamp"),
       ];
-      const plan = await Task.planReadChannels({
-        client,
-        namer: Task.createNamer(client),
-        props,
-        fields,
-        namePrefix: prefix,
-        indexKey: "ts",
-      });
+      const plan = await Task.planChannels(client, (planner) =>
+        Task.planReadChannels({
+          planner,
+          props,
+          fields,
+          namePrefix: prefix,
+          indexKey: "ts",
+        }),
+      );
       expect(plan).toEqual({
         props: { index: 0, channels: {} },
-        newIndex: `${prefix}_time`,
+        newIndex: `${prefix}_ts`,
         indexField: "ts",
         channels: {},
         creates: [{ key: "f1", name: `${prefix}_temperature_2`, indexed: true }],
@@ -350,7 +376,7 @@ describe("channels", () => {
       expect(fields.map(({ channel }) => channel)).toEqual([0, 0]);
       expect(props).toEqual({ index: 0, channels: {} });
       expect(
-        await client.channels.retrieve([`${prefix}_temperature_2`, `${prefix}_time`]),
+        await client.channels.retrieve([`${prefix}_temperature_2`, `${prefix}_ts`]),
       ).toEqual([]);
     });
 
@@ -358,34 +384,170 @@ describe("channels", () => {
       const prefix = uniqueName("src");
       const old = await createIndex(`${prefix}_mode`);
       const fields = [{ ...createField("f1", "/mode", "string"), replaces: old.key }];
-      const plan = await Task.planReadChannels({
-        client,
-        namer: Task.createNamer(client),
-        fields,
-        namePrefix: prefix,
-        indexKey: "",
-      });
+      const plan = await Task.planChannels(client, (planner) =>
+        Task.planReadChannels({ planner, fields, namePrefix: prefix, indexKey: "" }),
+      );
       expect(plan.renames).toEqual([{ key: old.key, name: `${prefix}_mode_2` }]);
       expect(plan.creates).toEqual([
         { key: "f1", name: `${prefix}_mode`, indexed: false },
       ]);
       expect((await client.channels.retrieve(old.key)).name).toBe(`${prefix}_mode`);
     });
-    it("should number a name that an earlier plan of the same namer claims", async () => {
-      const name = uniqueName("temperature");
-      const namer = Task.createNamer(client);
-      const plan = async (source: string) =>
-        await Task.planReadChannels({
-          client,
-          namer,
-          fields: [{ ...createField("f1", "/temperature"), name }],
-          namePrefix: uniqueName(source),
+    it("should move the replaced channel of the index field off the name of the new index", async () => {
+      const prefix = uniqueName("src");
+      const old = await client.channels.create({
+        name: `${prefix}_ts`,
+        dataType: "string",
+        virtual: true,
+      });
+      const fields = [
+        createField("f1", "/temperature"),
+        { ...createField("ts", "/ts", "timestamp"), replaces: old.key },
+      ];
+      const plan = await Task.planChannels(client, (planner) =>
+        Task.planReadChannels({ planner, fields, namePrefix: prefix, indexKey: "ts" }),
+      );
+      expect(plan.renames).toEqual([{ key: old.key, name: `${prefix}_ts_2` }]);
+      expect(plan.newIndex).toBe(`${prefix}_ts`);
+    });
+
+    it("should plan a new channel for a field whose channel is gone", async () => {
+      const prefix = uniqueName("src");
+      const plan = await Task.planChannels(client, (planner) =>
+        Task.planReadChannels({
+          planner,
+          fields: [{ ...createField("v", "/v", "string"), channel: MISSING_KEY }],
+          namePrefix: prefix,
           indexKey: "",
-        });
-      expect((await plan("a")).creates).toEqual([{ key: "f1", name, indexed: true }]);
-      expect((await plan("b")).creates).toEqual([
-        { key: "f1", name: `${name}_2`, indexed: true },
+        }),
+      );
+      expect(plan.channels).toEqual({});
+      expect(plan.creates).toEqual([{ key: "v", name: `${prefix}_v`, indexed: false }]);
+    });
+
+    it("should number a name that an earlier plan of the same planner claims", async () => {
+      const name = uniqueName("temperature");
+      const plans = await Task.planChannels(client, (planner) =>
+        ["a", "b"].map((source) =>
+          Task.planReadChannels({
+            planner,
+            fields: [{ ...createField("f1", "/temperature"), name }],
+            namePrefix: source,
+            indexKey: "",
+          }),
+        ),
+      );
+      expect(plans.map(({ creates }) => creates)).toEqual([
+        [{ key: "f1", name, indexed: true }],
+        [{ key: "f1", name: `${name}_2`, indexed: true }],
       ]);
+    });
+  });
+
+  describe("planChannels", () => {
+    it("should retrieve channels at most 3 times for a task with many sources", async () => {
+      const prefix = uniqueName("src");
+      const index = await createIndex(`${prefix}_index`);
+      const takenIndex = await createIndex(`${prefix}_taken_index`);
+      const taken = await client.channels.create({
+        name: `${prefix}_s0_v`,
+        dataType: "float64",
+        index: takenIndex.key,
+      });
+      const sources = Array.from({ length: 20 }, (_, i) => ({
+        props: { index: index.key, channels: { "/v": i === 1 ? taken.key : 0 } },
+        fields: [createField("v", "/v")],
+        namePrefix: `${prefix}_s${i}`,
+      }));
+      const fresh = createTestClient();
+      try {
+        await waitForStreamLive(fresh.connection);
+        const send = spyOnSend(fresh);
+        const plans = await Task.planChannels(fresh, (planner) =>
+          sources.map((s) => Task.planReadChannels({ ...s, planner, indexKey: "" })),
+        );
+        expect(requestsTo(send, "/channel/retrieve")).toHaveLength(3);
+        expect(plans[0].creates).toEqual([
+          { key: "v", name: `${prefix}_s0_v_2`, indexed: true },
+        ]);
+        expect(plans[1].channels).toEqual({ v: taken.key });
+        expect(plans[19].creates).toEqual([
+          { key: "v", name: `${prefix}_s19_v`, indexed: true },
+        ]);
+      } finally {
+        await fresh.close();
+      }
+    });
+
+    it("should load the index of each channel that a plan reads", async () => {
+      const index = await createIndex(uniqueName("index"));
+      const data = await client.channels.create({
+        name: uniqueName("data"),
+        dataType: "float64",
+        index: index.key,
+      });
+      const planned = await Task.planChannels(client, (planner) =>
+        planner.retrieve(planner.retrieve(data.key)?.index ?? 0),
+      );
+      expect(planned?.key).toBe(index.key);
+    });
+
+    it("should throw when a plan reads a key only after the load", async () => {
+      const [data, other] = await client.channels.create([
+        { name: uniqueName("data"), dataType: "float64", virtual: true },
+        { name: uniqueName("other"), dataType: "float64", virtual: true },
+      ]);
+      await expect(
+        Task.planChannels(client, (planner) =>
+          planner.retrieve(data.key) == null ? null : planner.retrieve(other.key),
+        ),
+      ).rejects.toThrow(
+        `a channel plan read keys [${other.key}] and names [] only after its load`,
+      );
+    });
+  });
+
+  describe("planCommandChannels", () => {
+    it("should plan the name that deploying gives each new command channel, in deploy order", async () => {
+      const held = uniqueName("cmd");
+      await client.channels.create({ name: held, dataType: "float64", virtual: true });
+      const free = uniqueName("cmd");
+      const specs = ["/a", "/b", "/c"].map((propertiesKey, i) => ({
+        propertiesKey,
+        channel: 0,
+        name: i === 0 ? held : free,
+        dataType: "float64",
+      }));
+      const planned = await Task.planChannels(client, (planner) =>
+        Task.planCommandChannels(planner, {}, specs),
+      );
+      expect(planned).toEqual(
+        new Map([
+          ["/a", { creates: `${held}_2` }],
+          ["/b", { creates: free }],
+          ["/c", { creates: `${free}_2` }],
+        ]),
+      );
+      const write: Record<string, number> = {};
+      for (const spec of specs) await Task.configureCommandChannel(client, write, spec);
+      for (const [key, plan] of planned)
+        expect((await client.channels.retrieve(write[key])).name).toBe(
+          Task.newCommandChannelName(plan),
+        );
+    });
+
+    it("should plan to keep the stored channel of a target with no channel", async () => {
+      const ch = await client.channels.create({
+        name: uniqueName("cmd"),
+        dataType: "string",
+        virtual: true,
+      });
+      const planned = await Task.planChannels(client, (planner) =>
+        Task.planCommandChannels(planner, { "/cmd": ch.key }, [
+          { propertiesKey: "/cmd", channel: 0, name: ch.name, dataType: "string" },
+        ]),
+      );
+      expect(planned).toEqual(new Map([["/cmd", { keeps: ch.key }]]));
     });
   });
 
@@ -440,6 +602,27 @@ describe("channels", () => {
       expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_time`);
     });
 
+    it("should give a new channel the first free number when another target holds its name", async () => {
+      const name = uniqueName("cmd");
+      const held = await Task.configureCommandChannel(
+        client,
+        {},
+        { propertiesKey: "/a", channel: 0, name, dataType: "float64" },
+      );
+      const write: Record<string, number> = {};
+      const key = await Task.configureCommandChannel(client, write, {
+        propertiesKey: "/b",
+        channel: 0,
+        name,
+        dataType: "float64",
+      });
+      expect(key).not.toBe(held);
+      expect(write).toEqual({ "/b": key });
+      const ch = await client.channels.retrieve(key);
+      expect(ch.name).toBe(`${name}_2`);
+      expect((await client.channels.retrieve(ch.index)).name).toBe(`${name}_2_time`);
+    });
+
     it("should replace a channel that does not suit the target, and move it", async () => {
       const name = uniqueName("cmd");
       const write: Record<string, number> = {};
@@ -456,7 +639,7 @@ describe("channels", () => {
         channel: old.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(old.key);
       expect(write).toEqual({ "/cmd": key });
@@ -479,7 +662,7 @@ describe("channels", () => {
         channel: 0,
         name: uniqueName("cmd"),
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(stored.key);
       expect(write).toEqual({ "/cmd": key });
@@ -508,7 +691,7 @@ describe("channels", () => {
         channel: picked.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect((await client.channels.retrieve(key)).name).toBe(name);
       const [moved, movedIndex, kept] = await client.channels.retrieve([
@@ -541,7 +724,7 @@ describe("channels", () => {
         channel: old.key,
         name,
         dataType: "float64",
-        suits: (ch) => ch.dataType.isFloat,
+        dataTypes: ["float32", "float64"],
       });
       expect(key).not.toBe(old.key);
       expect(write).toEqual({ "/cmd": key });
@@ -567,7 +750,7 @@ describe("channels", () => {
           channel: current.key,
           name: "unused",
           dataType: "float64",
-          suits: (ch) => ch.dataType.isFloat,
+          dataTypes: ["float32", "float64"],
         }),
       ).toBe(stored.key);
     });

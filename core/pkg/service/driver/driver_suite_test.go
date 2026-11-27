@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -106,6 +106,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,
+		TS:      node.Storage.TS,
 		DB:      node.DB,
 		HostKey: node.Identity.HostKey,
 		Status:  statusSvc,
@@ -248,25 +249,12 @@ func (f *mockFactory) ConfigureTask(
 
 // writeConfigFailure writes the status a factory owes for a failed configure.
 func writeConfigFailure(ctx context.Context, t task.Task, cmdKey string, err error) {
-	GinkgoHelper()
 	// A configure that ran out of time can't write anything, and nothing is left
 	// waiting on it.
 	if ctx.Err() != nil {
 		return
 	}
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmdKey
-	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return statusSvc.NewWriter(tx).Set(ctx, &task.Status{
-			Owner:       new(t.ResourceID()),
-			Name:        t.Name,
-			Time:        telem.Now(),
-			Variant:     status.VariantError,
-			Message:     "Failed to configure task",
-			Description: err.Error(),
-			Details:     details,
-		})
-	})).To(Succeed())
+	driver.ConfigReporter{DB: db, Status: statusSvc}.Report(ctx, t, cmdKey, err)
 }
 
 func (f *mockFactory) InitialTasks() []task.Task { return f.initialTasks }

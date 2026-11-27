@@ -31,7 +31,8 @@ The CA certificate is `ca.crt` in the certificate folder of the Core:
   `docker cp synnax:/usr/local/synnax/certs/ca.crt ./synnax-ca.crt`.
 
 If the Core started with `--certs-dir`, the file is in that folder. Copy only `ca.crt`.
-Never copy `ca.key` to another computer.
+Never copy `ca.key` to another computer. On Linux and macOS, only the user that runs the
+Core can read the folder, so copy the file as that user or with `sudo`.
 
 <Divider.Divider x />
 

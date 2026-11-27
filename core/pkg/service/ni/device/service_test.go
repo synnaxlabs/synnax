@@ -17,8 +17,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
@@ -31,6 +33,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -41,6 +44,7 @@ var _ = Describe("Service", func() {
 		stat       *status.Service
 		rackSvc    *rack.Service
 		chassisSvc *chassis.Service
+		channelSvc *channel.Service
 		svc        *device.Service
 		tx         gorp.Tx
 		rackKey    rack.Key
@@ -52,11 +56,18 @@ var _ = Describe("Service", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
-			HostKey:    1,
+			HostKey:    node.Identity.HostKey,
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			TS:      node.Storage.TS,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  stat,
+		}))
 		chassisSvc = MustOpen(chassis.OpenService(ctx, chassis.ServiceConfig{
 			DB:     db,
 			Status: stat,
@@ -82,6 +93,19 @@ var _ = Describe("Service", func() {
 		d := newDevice()
 		Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 		return d
+	}
+	createChannels := func(ctx context.Context, count int) channel.Keys {
+		GinkgoHelper()
+		channels := make([]channel.Channel, count)
+		for i := range channels {
+			channels[i] = channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.Float64T,
+				Virtual:  true,
+			}
+		}
+		Expect(channelSvc.NewWriter(tx).CreateMany(ctx, &channels)).To(Succeed())
+		return channel.KeysFromChannels(channels)
 	}
 	createChassis := func(ctx context.Context) chassis.Key {
 		GinkgoHelper()
@@ -433,13 +457,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			d := create(ctx)
+			keys := createChannels(ctx, 2)
 			Expect(svc.NewWriter(tx).Update(
 				ctx,
 				d.Key,
 				func(d device.Device) (device.Device, error) {
 					d.AnalogInput = device.AnalogInputPorts{
-						Index:    1,
-						Channels: map[uint16]channel.Key{0: 2},
+						Index:    keys[0],
+						Channels: map[uint16]channel.Key{0: keys[1]},
 					}
 					return d, nil
 				},
@@ -578,6 +603,40 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Channels", func() {
+		bind := func(ctx context.Context, key device.Key, ch channel.Key) error {
+			return svc.NewWriter(tx).Update(
+				ctx,
+				key,
+				func(d device.Device) (device.Device, error) {
+					d.AnalogInput.Channels = map[uint16]channel.Key{0: ch}
+					d.DigitalOutput = map[uint16]device.DigitalOutputChannels{
+						1: {Lines: map[uint8]device.CommandStatePair{
+							2: {Command: ch},
+						}},
+					}
+					return d, nil
+				},
+			)
+		}
+
+		It("Should reject a binding to a missing channel", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(bind(ctx, d.Key, 99999)).
+				To(MatchError(ContainSubstring("channel 99999 does not exist")))
+		})
+
+		It("Should keep a channel that a device binds from being deleted", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			ch := createChannels(ctx, 1)[0]
+			Expect(bind(ctx, d.Key, ch)).To(Succeed())
+			Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
+				To(MatchError(validate.ErrValidation))
+		})
+	})
+
 	Describe("Migration", func() {
 		It("Should require an identity update before a migrated physical device is "+
 			"configured", func(ctx SpecContext) {
@@ -630,6 +689,67 @@ var _ = Describe("Service", func() {
 				},
 			}})).To(Succeed())
 			Expect(apply(configure)).To(Succeed())
+		})
+
+		It("Should drop the bindings to channels deleted before the upgrade", func(
+			ctx SpecContext,
+		) {
+			mNode := testutil.NewNode(ctx)
+			mDB := mNode.DB
+			mStat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: mDB}))
+			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: mDB}))
+			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: mDB}))
+			mRole := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: mDB}))
+			mRack := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+				DB:         mDB,
+				HostKey:    mNode.Identity.HostKey,
+				Status:     mStat,
+				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, mDB, mRole)),
+			}))
+			MustOpen(chassis.OpenService(ctx, chassis.ServiceConfig{
+				DB:     mDB,
+				Status: mStat,
+			}))
+			mChannel := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+				Channel: mNode.Channel,
+				TS:      mNode.Storage.TS,
+				DB:      mDB,
+				HostKey: mNode.Identity.HostKey,
+				Status:  mStat,
+			}))
+			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, mDB, mChannel, 2))
+			kept, deleted := keys[0], keys[1]
+			Expect(mDB.WithTx(ctx, func(tx gorp.Tx) error {
+				return mChannel.NewWriter(tx).Delete(ctx, deleted, false)
+			})).To(Succeed())
+			old := v0.Device{
+				Key:       uuid.New(),
+				Rack:      mRack.EmbeddedKey,
+				Name:      "PXI-6255",
+				Serial:    "Mod1",
+				Model:     "PXI-6255",
+				Simulated: true,
+				AnalogInput: v0.InputPorts{
+					Index:    deleted,
+					Channels: map[string]channel.Key{"0": kept, "1": deleted},
+				},
+			}
+			MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v0.Key, v0.Device]{DB: mDB}))
+			Expect(gorp.NewCreate[v0.Key, v0.Device]().Entry(&old).Exec(ctx, mDB)).
+				To(Succeed())
+			mSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+				DB:     mDB,
+				Status: mStat,
+			}))
+			var got device.Device
+			Expect(mSvc.NewRetrieve().
+				Where(device.MatchKeys(old.Key)).
+				Entry(&got).
+				Exec(ctx, mDB)).To(Succeed())
+			Expect(got.AnalogInput.Index).To(BeZero())
+			Expect(got.AnalogInput.Channels).
+				To(Equal(map[uint16]channel.Key{0: kept}))
+			Expect(got.Validate()).To(Succeed())
 		})
 	})
 

@@ -17,11 +17,19 @@ const CONTEXT_KEY = "pluto-theming-context";
 
 // A ligature in Geist Mono is one cell wide, so it breaks a fixed character grid.
 const DESCRIPTORS: FontFaceDescriptors = { featureSettings: '"liga" 0' };
+// The face loads the variable font, so it spans every weight.
+const TABULAR_DESCRIPTORS: FontFaceDescriptors = {
+  featureSettings: '"liga" 0, "tnum" 1',
+  weight: "100 900",
+};
 
 export const fontSpecZ = z.object({
   name: z.string(),
   url: z.string(),
+  /** If true, the face draws digits at one width. */
+  tabular: z.boolean().default(false),
 });
+export interface FontSpec extends z.input<typeof fontSpecZ> {}
 
 const providerStateZ = z.object({
   theme: theme.themeZ,
@@ -39,28 +47,48 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     ctx.set(CONTEXT_KEY, this.state.theme);
     const runAsync = status.useErrorHandler(ctx);
     runAsync(async () => {
-      await this.loadFonts();
+      await this.loadFonts(ctx);
     }, "Failed to load theme fonts");
   }
 
-  private async loadFonts(): Promise<void> {
+  private async loadFonts(ctx: aether.Context): Promise<void> {
     // Hosts without a font registry (jsdom, some worker runtimes) have no FontFace.
     // A throw reports an error that re-renders consumers, looping any that suspend.
-    if (typeof FontFace === "undefined") return;
+    if (typeof FontFace === "undefined" || this.state.fontURLs.length === 0) return;
+    const fonts = fontSet();
     await Promise.all(
-      this.state.fontURLs.map(async ({ name, url }) => {
-        const face = new FontFace(name, `url(${url})`, DESCRIPTORS);
+      this.state.fontURLs.map(async ({ name, url, tabular }) => {
+        const descriptors = tabular ? TABULAR_DESCRIPTORS : DESCRIPTORS;
+        const face = new FontFace(name, `url(${url})`, descriptors);
         try {
           await face.load();
-          // @ts-expect-error - font loading
-          self.fonts.add(face);
         } catch (e) {
           console.error(e);
+          return;
         }
+        fonts.add(face);
       }),
     );
+    // Text drawn before the fonts loaded has fallback glyphs. A new theme value makes
+    // its consumers draw again.
+    ctx.set(CONTEXT_KEY, { ...this.state.theme });
+    this.propagate();
   }
 }
+
+// The provider runs in a worker, or on the main thread with in-process comms. A canvas
+// draws only with the faces in the font set of its own scope. Each supported browser
+// has a font set in a worker, so a host without one is an error.
+const fontSet = (): FontFaceSet => {
+  if (typeof document !== "undefined") return document.fonts;
+  if (
+    typeof FontFaceSet !== "undefined" &&
+    "fonts" in self &&
+    self.fonts instanceof FontFaceSet
+  )
+    return self.fonts;
+  throw new Error("This worker has no font set. Canvas text uses a fallback font.");
+};
 
 export const use = (ctx: aether.Context): theme.Theme =>
   ctx.get<theme.Theme>(CONTEXT_KEY);

@@ -427,7 +427,7 @@ describe("icd", () => {
         { path: "messages.1.name", message: 'duplicate message name "Mode"' },
         {
           path: "messages.2.payload.fields.0.scale",
-          message: "scale must be finite and non-zero",
+          message: "scale must be non-zero",
         },
       ]);
     });
@@ -524,7 +524,7 @@ describe("icd", () => {
         expect(problemsOf(problems)).toEqual([
           {
             path: "messages.0.payload.fields.0.default",
-            message: "default must be finite",
+            message: "default cannot be infinite",
           },
         ]);
       },
@@ -587,12 +587,8 @@ describe("icd", () => {
     it("should search for ICDs by name", async () => {
       const name = `${id.create()} ICD`;
       const ic = await client.icds.create(createNew(name));
-      await expect
-        .poll(async () => {
-          const res = await client.icds.retrieve({ searchTerm: name });
-          return res.map((i) => i.key);
-        })
-        .toContain(ic.key);
+      const res = await client.icds.retrieve({ searchTerm: name });
+      expect(res.map((i) => i.key)).toContain(ic.key);
     });
   });
 
@@ -765,13 +761,8 @@ describe("icd", () => {
     it("should find an ICD by its name in a resource search", async () => {
       const name = id.create();
       const ic = await client.icds.create(createNew(name));
-      await expect
-        .poll(async () =>
-          (await client.resources.search({ searchTerm: name, types: ["icd"] })).map(
-            (r) => r.id,
-          ),
-        )
-        .toContainEqual(icd.resourceID(ic.key));
+      const found = await client.resources.search({ searchTerm: name, types: ["icd"] });
+      expect(found.map((r) => r.id)).toContainEqual(icd.resourceID(ic.key));
     });
   });
 });

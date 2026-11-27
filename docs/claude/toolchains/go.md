@@ -180,6 +180,9 @@ role, units, valid range, invariants. An unexported field gets one only for a re
 invariant or lock discipline (`// mu guards pending and closed.`). Never a restatement
 of the type, never trailing inline.
 
+A config field comment ends with a blank `//` line, then its `[REQUIRED]` or
+`[OPTIONAL]` marker line.
+
 ## Testing (Ginkgo/Gomega)
 
 Suites in `*_suite_test.go`, tests in `*_test.go`, blackbox `package foo_test`. BDD

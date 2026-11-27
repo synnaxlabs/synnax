@@ -55,6 +55,39 @@ public:
     }
 };
 
+/// @brief it should give a connection that names no read node timeout one of 20 s.
+TEST(ConfigTest, testReadNodeTimeoutDefault) {
+    x::json::Parser parser(x::json::json{{"endpoint", "opc.tcp://localhost:4840"}});
+    const Config cfg(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(cfg.read_node_timeout, 20 * x::telem::SECOND);
+}
+
+/// @brief it should read the read node timeout of a connection in nanoseconds.
+TEST(ConfigTest, testReadNodeTimeout) {
+    x::json::Parser parser(
+        x::json::json{
+            {"endpoint", "opc.tcp://localhost:4840"},
+            {"read_node_timeout", "45000000000"},
+        }
+    );
+    const Config cfg(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(cfg.read_node_timeout, 45 * x::telem::SECOND);
+}
+
+/// @brief it should refuse a read node timeout that is not positive.
+TEST(ConfigTest, testReadNodeTimeoutNotPositive) {
+    x::json::Parser parser(
+        x::json::json{
+            {"endpoint", "opc.tcp://localhost:4840"},
+            {"read_node_timeout", 0},
+        }
+    );
+    const Config cfg(parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+}
+
 /// @brief it should establish basic connection and read node value.
 TEST(ConnectionTest, testBasicConn) {
     UA_Variant float_val;

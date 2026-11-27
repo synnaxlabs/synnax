@@ -123,6 +123,10 @@ already on `main` do not block. The rule waits for a CodeQL analysis of each lan
 pull request scans each language whose inputs it changes and uploads an empty analysis
 for the others. GitHub does not apply the rule to a merge queue group.
 
+The required `CodeQL gate` check also fails a pull request on each CodeQL alert that is
+open on it and not open on its base, at any severity and on any line. A merge queue
+group passes it. To clear a false positive, dismiss the alert and run the check again.
+
 ## Size
 
 A reviewer finishes a PR in one sitting; a couple hundred lines is the target. The

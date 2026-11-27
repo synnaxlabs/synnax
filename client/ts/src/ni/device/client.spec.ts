@@ -317,13 +317,9 @@ describe("NI device", async () => {
     it("should rename a device in a subscribed search", async () => {
       const token = `nidev${Math.random().toString(36).slice(2)}`;
       const d = await create(token);
-      await expect
-        .poll(
-          async () =>
-            (await client.resources.search({ searchTerm: token, types: ["ni_device"] }))
-              .length,
-        )
-        .toBe(1);
+      expect(
+        await client.resources.search({ searchTerm: token, types: ["ni_device"] }),
+      ).toHaveLength(1);
       const list = client.resources.watch({ searchTerm: token, types: ["ni_device"] });
       onTestFinished(list.onChange(() => {}));
       await list.retrieve();

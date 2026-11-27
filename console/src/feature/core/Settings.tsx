@@ -17,6 +17,7 @@ import type { ReactElement } from "react";
 
 import { Connection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
+import { Page } from "@/platform/page";
 import { Settings as PlatformSettings } from "@/platform/settings";
 import { Session } from "@/session";
 
@@ -28,7 +29,7 @@ export const Settings = (): ReactElement | null => {
   if (core == null) return null;
   const address = `${core.host}:${core.port}`;
   return (
-    <PlatformSettings.Card title="Core">
+    <Page.Card title="Core">
       <PlatformSettings.Entry label="Address">
         <Flex.Box x align="center" gap="small">
           <Text.Text color={10} className={CSS.BE("core-settings", "value")}>
@@ -52,6 +53,6 @@ export const Settings = (): ReactElement | null => {
           </Text.Text>
         </PlatformSettings.Entry>
       )}
-    </PlatformSettings.Card>
+    </Page.Card>
   );
 };

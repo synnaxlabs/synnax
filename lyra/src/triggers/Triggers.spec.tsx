@@ -132,6 +132,41 @@ describe("Triggers", () => {
       });
     });
     describe("Config", () => {
+      describe("compareModeConfigs", () => {
+        it("should equate configs with the same triggers in new arrays", () => {
+          const a: Triggers.ModeConfig<"a" | "b"> = {
+            defaultMode: "a",
+            modes: { a: [["Shift"]], b: [["Shift", "Control"]] },
+          };
+          const b: Triggers.ModeConfig<"a" | "b"> = {
+            defaultMode: "a",
+            modes: { a: [["Shift"]], b: [["Control", "Shift"]] },
+          };
+          expect(Triggers.compareModeConfigs([a], [b])).toBe(true);
+        });
+        it("should tell apart configs with different triggers", () => {
+          const a: Triggers.ModeConfig<"a"> = {
+            defaultMode: "a",
+            modes: { a: [["Shift"]] },
+          };
+          const b: Triggers.ModeConfig<"a"> = {
+            defaultMode: "a",
+            modes: { a: [["Control"]] },
+          };
+          expect(Triggers.compareModeConfigs([a], [b])).toBe(false);
+        });
+        it("should tell apart configs with different modes of the same count", () => {
+          const a: Triggers.ModeConfig<string> = {
+            defaultMode: "a",
+            modes: { a: [["Shift"]] },
+          };
+          const b: Triggers.ModeConfig<string> = {
+            defaultMode: "a",
+            modes: { b: [["Shift"]] },
+          };
+          expect(Triggers.compareModeConfigs([a], [b])).toBe(false);
+        });
+      });
       describe("determineMode", () => {
         it("should select the matching mode with the highest complexity", () => {
           const config: Triggers.ModeConfig<"a" | "b"> = {

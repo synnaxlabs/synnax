@@ -41,7 +41,7 @@ export const FileDrop = ({
       addStatus({
         variant: "error",
         name,
-        message: "Failed to load symbol",
+        message: "Failed to read file",
         description: "The file is not an SVG.",
       });
       return;
@@ -54,7 +54,7 @@ export const FileDrop = ({
           nameWithoutExt === "" ? undefined : strings.toProperNoun(nameWithoutExt);
         onContentsChange(contents, properName);
       },
-      { message: "Failed to load symbol", name },
+      { message: "Failed to read file", name },
     );
   };
 

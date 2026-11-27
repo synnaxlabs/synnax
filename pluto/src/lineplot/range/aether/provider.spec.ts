@@ -524,12 +524,15 @@ describe("Provider", () => {
       };
       await pollDrawn(texts).toContain(rng.name);
       expect(texts()).toContain("T+0:01:30");
+      expect(canvasTest.fontOf(recorder, "T+0:01:30")).toContain("Inter Tabular");
       // The bar runs past the view, so it has no head.
       expect(recorder.upper2d.calls.some((c) => c.op === "arcTo")).toBe(false);
       provider.setState((s) => ({ ...s, cursor: { x: 800, y: -14 } }));
       provider.render(props);
       expect(provider.state.hovered?.key).toEqual(rng.key);
-      expect(texts().some((t) => t.startsWith("Running for "))).toBe(true);
+      const running = texts().find((t) => t.startsWith("Running for "));
+      if (running == null) throw new Error("the tooltip drew no running time");
+      expect(canvasTest.fontOf(recorder, running)).toContain("Inter Tabular");
     });
 
     it("should end its bar at the newest sample of a live plot", async () => {

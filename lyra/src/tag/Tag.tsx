@@ -59,6 +59,7 @@ export const Tag = ({
         CSS.B("tag"),
         CSS.M("reveals"),
         onClose != null && CSS.BM("tag", "closeable"),
+        rest.onClick == null && CSS.BM("tag", "passive"),
       )}
       size={size}
       // Tags are metadata, so a small tag prints a level below a small control's label.

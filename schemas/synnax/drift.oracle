@@ -39,6 +39,7 @@ Record struct {
     }
 
     @doc value  "records what changed in an automation since its task was deployed."
+    @go entry
     @go marshal
     @go migrate
 }

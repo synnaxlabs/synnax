@@ -34,6 +34,14 @@ func jsonField(name string, v icd.JSONFieldVariant) icd.JSONField {
 	return f
 }
 
+// withZeroScale returns f with a scale of zero.
+func withZeroScale(f icd.JSONField) icd.JSONField {
+	b := f.Base()
+	b.Scale = 0
+	f.SetBase(b)
+	return f
+}
+
 // withMax returns f with limit as its max.
 func withMax(f icd.JSONField, limit float64) icd.JSONField {
 	b := f.Base()
@@ -203,10 +211,15 @@ var _ = Describe("NewDocuments", func() {
 			icd.BytesWriteValue{Value: "AQI"},
 			"bindings.1.value: field v: must be base64",
 		),
-		Entry("a float that is not finite",
+		Entry("an infinite float",
 			jsonField("v", icd.FloatJSONField{}),
 			icd.FloatWriteValue{Value: payload.Float(math.Inf(1))},
-			"bindings.1.value: field v: must be finite",
+			"bindings.1.value: field v: cannot be infinite",
+		),
+		Entry("a NaN float, which JSON cannot hold",
+			jsonField("v", icd.FloatJSONField{}),
+			icd.FloatWriteValue{Value: payload.Float(math.NaN())},
+			"bindings.1.value: field v: NaN is not a JSON number",
 		),
 		Entry("a float above the max",
 			withMax(jsonField("v", icd.FloatJSONField{}), 100),

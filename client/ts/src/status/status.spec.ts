@@ -501,13 +501,8 @@ describe("Status", () => {
         time: TimeStamp.now(),
       });
 
-      await expect
-        .poll(async () =>
-          (await client.statuses.retrieve({ searchTerm: uniqueName })).some(
-            (s) => s.name === uniqueName,
-          ),
-        )
-        .toBe(true);
+      const results = await client.statuses.retrieve({ searchTerm: uniqueName });
+      expect(results.some((s) => s.name === uniqueName)).toBe(true);
     });
 
     it("should page with a limit and a cursor", async () => {

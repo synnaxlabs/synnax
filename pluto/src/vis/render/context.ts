@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Instrumentation } from "@synnaxlabs/alamos";
+import type { theme } from "@synnaxlabs/lyra/theme";
 import {
   box,
   color,
@@ -24,6 +25,7 @@ import { alamos } from "@/alamos/aether";
 import { CSS } from "@/css";
 import { status } from "@/status/aether";
 import { text } from "@/text/aether";
+import { theming } from "@/theming/aether";
 import { applyOverScan, SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";
@@ -114,6 +116,7 @@ export class Context {
   private readonly restoreHandlers = new Set<() => void>();
   private readonly restore2DHandlers = new Set<() => void>();
   private readonly atlases = new text.AtlasRegistry();
+  private theme?: theme.Theme;
   private frames?: Frames;
   // glScissors holds the box of each GL scissor in place, outermost first.
   private readonly glScissors: box.Box[] = [];
@@ -227,6 +230,10 @@ export class Context {
   }
 
   update(ctx: aether.Context): void {
+    // A new theme can bring fonts that loaded after the atlases drew their glyphs.
+    const next = theming.use(ctx);
+    if (next !== this.theme) this.atlases.clear();
+    this.theme = next;
     ctx.set(Context.CONTEXT_KEY, this);
   }
 

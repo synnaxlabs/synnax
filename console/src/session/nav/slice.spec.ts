@@ -338,20 +338,33 @@ describe("Nav Slice", () => {
     });
   });
 
-  describe("selectSettingsSection", () => {
-    it("should keep the Settings section of each window apart", () => {
+  describe("selectSection", () => {
+    it("should keep the section of each window apart", () => {
       const s = run(
-        Nav.selectSettingsSection({ section: "labels" }),
-        Nav.selectSettingsSection({ windowKey: "window-2", section: "license" }),
+        Nav.selectSection({ page: "settings", section: "about" }),
+        Nav.selectSection({
+          windowKey: "window-2",
+          page: "settings",
+          section: "license",
+        }),
       );
-      expect(s.windows()[MAIN_WINDOW]?.settings.section).toBe("labels");
+      expect(s.windows()[MAIN_WINDOW]?.settings.section).toBe("about");
       expect(s.windows()["window-2"]?.settings.section).toBe("license");
+    });
+
+    it("should keep the section of each page apart", () => {
+      const s = run(
+        Nav.selectSection({ page: "settings", section: "about" }),
+        Nav.selectSection({ page: "library", section: "colors" }),
+      );
+      expect(s.windows()[MAIN_WINDOW]?.settings.section).toBe("about");
+      expect(s.windows()[MAIN_WINDOW]?.library.section).toBe("colors");
     });
 
     it("should clear the item when a section opens without one", () => {
       const s = run(
-        Nav.selectSettingsSection({ section: "certificates", item: "a" }),
-        Nav.selectSettingsSection({ section: "certificates" }),
+        Nav.selectSection({ page: "settings", section: "certificates", item: "a" }),
+        Nav.selectSection({ page: "settings", section: "certificates" }),
       );
       expect(s.windows()[MAIN_WINDOW]?.settings.item).toBeUndefined();
     });

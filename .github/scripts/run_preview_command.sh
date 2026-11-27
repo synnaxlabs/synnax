@@ -9,15 +9,16 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs COMMAND on the preview host INSTANCE through SSM, prints its output, and exits
-# non-zero when the command fails or runs longer than ten minutes.
+# Runs COMMAND on the preview host INSTANCE through the SSM document DOCUMENT, prints
+# its output, and exits non-zero when the command fails or runs longer than ten minutes.
+# DOCUMENT defaults to synnax-preview, which runs only the preview commands CI sends.
 
 set -euo pipefail
 
 : "${COMMAND:?}" "${INSTANCE:?}"
 
 id=$(aws ssm send-command --instance-ids "$INSTANCE" \
-    --document-name AWS-RunShellScript \
+    --document-name "${DOCUMENT:-synnax-preview}" \
     --parameters "$(jq -nc --arg c "$COMMAND" '{commands: [$c]}')" \
     --timeout-seconds 600 --query Command.CommandId --output text)
 

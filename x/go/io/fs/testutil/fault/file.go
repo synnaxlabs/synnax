@@ -191,10 +191,10 @@ func (d *disk) write(n *node, p []byte, off int64, path string) (int, error) {
 // fit returns size, or the longest length under size that the disk has space to give
 // the file n.
 func (d *disk) fit(n *node, size int64) int64 {
-	if d.cfg.Capacity == 0 || size <= int64(len(n.data)) {
+	if !d.capped || size <= int64(len(n.data)) {
 		return size
 	}
-	return min(size, int64(len(n.data))+max(d.cfg.Capacity-d.used(), 0))
+	return min(size, int64(len(n.data))+max(d.capacity-d.used(), 0))
 }
 
 // used returns the bytes that the disk holds: each file under the root, and each
@@ -227,7 +227,8 @@ func (d *disk) usedUnder(n *node, seen set.Set[*node]) int64 {
 // fault. After it, only the first read of a block does, unless the faults repeat. So a
 // second read of bytes that a read got before is good.
 func (d *disk) spoil(p []byte, n *node, off int64) {
-	if len(p) == 0 || d.cfg.ReadCorruptionRate == 0 && d.cfg.MisdirectedReadRate == 0 {
+	if len(p) == 0 || d.cfg.ReadCorruptionRate == 0 && d.cfg.MisdirectedReadRate == 0 &&
+		d.cfg.ReadFaultAt == 0 {
 		return
 	}
 	end := off + int64(len(p))
@@ -235,13 +236,15 @@ func (d *disk) spoil(p []byte, n *node, off int64) {
 		at := place{file: n.id, block: block}
 		nth := d.reads[at]
 		d.reads[at] = nth + 1
-		if len(d.faults) > 0 && nth > 0 && !d.cfg.ReadFaultsRepeated {
+		d.blockReads++
+		forced := d.blockReads == d.cfg.ReadFaultAt
+		if !forced && len(d.faults) > 0 && nth > 0 && !d.cfg.ReadFaultsRepeated {
 			continue
 		}
 		from := max(off, block*blockSize)
 		part := p[from-off : min(end, (block+1)*blockSize)-off]
 		misdirected := d.misdirect(part, n, at, nth, from)
-		if corrupted := d.corrupt(part, at, nth); misdirected || corrupted {
+		if corrupted := d.corrupt(part, at, nth, forced); misdirected || corrupted {
 			read := Span{From: off, To: end}
 			d.faults = append(d.faults, Fault{File: n.id, Block: block, Read: read})
 		}
@@ -249,10 +252,10 @@ func (d *disk) spoil(p []byte, n *node, off int64) {
 }
 
 // corrupt flips one bit of p, the bytes that the read nth of the block at gets, at the
-// read corruption rate. It reports if it did.
-func (d *disk) corrupt(p []byte, at place, nth uint64) bool {
+// read corruption rate, or for sure when forced is true. It reports if it did.
+func (d *disk) corrupt(p []byte, at place, nth uint64, forced bool) bool {
 	file, block := uint64(at.file), uint64(at.block)
-	if d.draw(drawRead, file, block, nth) >= d.cfg.ReadCorruptionRate {
+	if !forced && d.draw(drawRead, file, block, nth) >= d.cfg.ReadCorruptionRate {
 		return false
 	}
 	bit := int(d.draw(drawReadBit, file, block, nth) * float64(len(p)*8))

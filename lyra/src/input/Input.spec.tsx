@@ -193,6 +193,24 @@ describe("Input", () => {
       });
     });
 
+    describe("selectOnFocus", () => {
+      it("should select the value of an input that focuses itself on mount", () => {
+        render(
+          <Input.Text value="Field 5" onChange={vi.fn()} autoFocus selectOnFocus />,
+        );
+        const input = screen.getByRole<HTMLInputElement>("textbox");
+        expect(document.activeElement).toBe(input);
+        expect([input.selectionStart, input.selectionEnd]).toEqual([0, 7]);
+      });
+
+      it("should not select the value of an input without selectOnFocus", () => {
+        render(<Input.Text value="Field 5" onChange={vi.fn()} autoFocus />);
+        const input = screen.getByRole<HTMLInputElement>("textbox");
+        expect(document.activeElement).toBe(input);
+        expect(input.selectionStart).toBe(input.selectionEnd);
+      });
+    });
+
     describe("resetOnBlurIfEmpty", () => {
       it("should reset to the original value with no onChange on blur if empty", () => {
         const onChange = vi.fn();

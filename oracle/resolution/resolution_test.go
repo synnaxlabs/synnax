@@ -448,6 +448,28 @@ var _ = Describe("Table", func() {
 			Expect(sorted[1].Name).To(Equal("BaseDistinct"))
 		})
 
+		It("handles narrowed enum dependencies", func() {
+			base := resolution.Type{
+				Name: "Base", QualifiedName: "ns.Base", Namespace: "ns",
+				Form: resolution.EnumForm{},
+			}
+			subset := resolution.Type{
+				Name: "Subset", QualifiedName: "ns.Subset", Namespace: "ns",
+				Form: resolution.EnumForm{
+					Superset: resolution.TypeRef{Name: "ns.Base"},
+				},
+			}
+			Expect(table.Add(base)).To(Succeed())
+			Expect(table.Add(subset)).To(Succeed())
+
+			sorted := table.TopologicalSort([]resolution.Type{
+				table.MustGet("ns.Subset"),
+				table.MustGet("ns.Base"),
+			})
+			Expect(sorted[0].Name).To(Equal("Base"))
+			Expect(sorted[1].Name).To(Equal("Subset"))
+		})
+
 		It("handles extends dependencies", func() {
 			parent := resolution.Type{
 				Name: "Parent", QualifiedName: "ns.Parent", Namespace: "ns",

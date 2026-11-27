@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { TimeSpan } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
@@ -87,6 +88,17 @@ describe("OPC UA propertiesZ v2 defaults", () => {
     expect(result.success).toBe(true);
     if (result.success)
       expect(result.data.connection.certificateValidationDisabled).toBe(false);
+  });
+
+  it("should give a connection without a node read timeout one of 20 seconds", () => {
+    const { readNodeTimeout: _, ...connection } =
+      OPCUA.Device.ZERO_PROPERTIES.connection;
+    const result = v2.connectionConfigZ.safeParse(connection);
+    expect(result.success).toBe(true);
+    if (result.success)
+      expect(result.data.readNodeTimeout).toEqual(
+        Number(TimeSpan.seconds(20).valueOf()),
+      );
   });
 
   it("should refuse a certificate that is not the key of a certificate", () => {

@@ -135,6 +135,7 @@ Certificate union on source secret.Source extends Base {
         is a public certificate that a device uses to secure a connection, with the
         private key that proves it when there is one.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "certificate"

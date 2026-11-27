@@ -67,6 +67,32 @@ Ref = A
 		))
 	})
 
+	It("Should mark the superset of a transient subset transient", func() {
+		r := resolverFor(map[string]string{
+			"schemas/synnax/versions/task/v0.oracle": `
+Task struct {
+	key uuid @key
+	status Kept {
+		@go marshal omit
+	}
+
+	@go marshal
+}
+
+State enum {
+	ok = "ok"
+	failed = "failed"
+}
+
+Kept enum of State {
+	ok
+}
+`,
+		})
+		f := MustSucceed(r.File("schemas/synnax/task", 0))
+		Expect(f.Transient().Slice()).To(ConsistOf("Kept", "State"))
+	})
+
 	It("Should report nothing for a file without marshal declarations", func() {
 		r := resolverFor(map[string]string{
 			"schemas/synnax/versions/task/v0.oracle": `

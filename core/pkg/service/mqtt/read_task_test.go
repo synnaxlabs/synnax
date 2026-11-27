@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"maps"
 	"strconv"
 	"sync"
@@ -389,8 +390,8 @@ var _ = Describe("Read task", func() {
 				}).Should(Succeed())
 				Expect(stored(ctx, data[0]).Len()).To(BeZero())
 			},
-			Entry("a string into a number channel", telem.Float64T, `{"v":"1"}`,
-				`field v: unknown enum label "1"`),
+			Entry("a string that holds no number into a number channel", telem.Float64T,
+				`{"v":"x"}`, `field v: invalid number "x"`),
 			Entry("a repeated member at a field", telem.Float64T, `{"v":1,"v":2}`,
 				"duplicate value at /v"),
 			Entry("a payload that is not UTF-8", telem.StringT, "\xff",
@@ -836,11 +837,12 @@ var _ = Describe("Read task", func() {
 			),
 			Entry("a topic that appears two times",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.Float64T, telem.Float64T)
+					_, a := createIndexed(ctx, telem.Float64T)
+					_, b := createIndexed(ctx, telem.Float64T)
 					return readConfig(
 						ctx, dev,
-						plainEntry("plant/x", field("a", data[0], "/a")),
-						plainEntry("plant/x", field("b", data[1], "/b")),
+						plainEntry("plant/x", field("a", a[0], "/a")),
+						plainEntry("plant/x", field("b", b[0], "/b")),
 					), "entries: topic plant/x appears more than once"
 				},
 			),
@@ -854,7 +856,8 @@ var _ = Describe("Read task", func() {
 						"pointer": "",
 					}
 					return readConfig(ctx, dev, plainEntry("plant/x", missing)),
-						"message plant/x: channel 4000000 does not exist"
+						"entries.0.messages.0.bindings.0.channel: channel 4000000 " +
+							"does not exist"
 				},
 			),
 			Entry("an enum value that does not fit the channel",
@@ -874,26 +877,26 @@ var _ = Describe("Read task", func() {
 					f := field("v", data[0], "")
 					f["type"] = "float"
 					return readConfig(ctx, dev, plainEntry("plant/x", f)),
-						"field v: cannot write float values to int8 channels"
-				},
-			),
-			Entry("fields of one topic on different indexes",
-				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, a := createIndexed(ctx, telem.Float64T)
-					_, b := createIndexed(ctx, telem.Float64T)
-					return readConfig(ctx, dev, plainEntry(
-						"plant/x", field("a", a[0], "/a"), field("b", b[0], "/b"),
-					)), "every channel must share one index channel"
+						fmt.Sprintf(
+							"field v of kind float cannot read into channel %s of "+
+								"data type int8",
+							data[0].Name,
+						)
 				},
 			),
 			Entry("two topics that write to one channel",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, data := createIndexed(ctx, telem.Float64T)
 					return readConfig(
-						ctx, dev,
-						plainEntry("plant/x", field("v", data[0], "")),
-						plainEntry("plant/y", field("v", data[0], "")),
-					), "write to the same channel"
+							ctx, dev,
+							plainEntry("plant/x", field("v", data[0], "")),
+							plainEntry("plant/y", field("v", data[0], "")),
+						), fmt.Sprintf(
+							"entries.1.messages.0.bindings.0.channel: channel %d is "+
+								"also written by "+
+								"entries.0.messages.0.bindings.0.channel",
+							data[0].Key(),
+						)
 				},
 			),
 			Entry("an index field that does not exist",
@@ -902,7 +905,7 @@ var _ = Describe("Read task", func() {
 					entry := plainEntry("plant/x", field("v", data[0], "/v"))
 					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field has no channel"
+						"does not exist in message plant/x"
 				},
 			),
 			Entry("an index field that is disabled",
@@ -914,16 +917,18 @@ var _ = Describe("Read task", func() {
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
 					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field has no channel"
+						"the index field time has no binding"
 				},
 			),
 			Entry("an index field on a channel that is not an index",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
-					_, data := createIndexed(ctx, telem.Float64T)
-					entry := plainEntry("plant/x", field("v", data[0], "/v"))
-					entry["index"] = "v"
+					_, stamps := createIndexed(ctx, telem.TimestampT)
+					time := field("time", stamps[0], "/ts")
+					time["time_format"] = "unix_ms"
+					entry := plainEntry("plant/x", time)
+					entry["index"] = "time"
 					return readConfig(ctx, dev, entry),
-						"message plant/x: the index field must write to an index channel"
+						"the index field time must write to an index channel"
 				},
 			),
 			Entry("an index channel field on a topic with arrival timing",
@@ -932,8 +937,11 @@ var _ = Describe("Read task", func() {
 					time := field("time", idx, "/ts")
 					time["time_format"] = "unix_ms"
 					entry := plainEntry("plant/x", time, field("v", data[0], "/v"))
-					return readConfig(ctx, dev, entry),
-						"message plant/x: only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry), fmt.Sprintf(
+						"field time cannot write to index channel %s, because "+
+							"only the index field can",
+						idx.Name,
+					)
 				},
 			),
 			Entry("a second index channel field",
@@ -947,8 +955,11 @@ var _ = Describe("Read task", func() {
 						"plant/x", time, again, field("v", data[0], "/v"),
 					)
 					entry["index"] = "time"
-					return readConfig(ctx, dev, entry),
-						"message plant/x: only the index field can write to an index channel"
+					return readConfig(ctx, dev, entry), fmt.Sprintf(
+						"field again cannot write to index channel %s, because "+
+							"only the index field can",
+						idx.Name,
+					)
 				},
 			),
 			Entry("an invalid JSON Pointer",
@@ -987,7 +998,22 @@ var _ = Describe("Read task", func() {
 			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
 		})
 
-		It("Should answer the command when the task fails to start",
+		It("Should leave the start to the start command of a deploy", func(
+			ctx SpecContext,
+		) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			cfg := readConfig(
+				ctx,
+				dev,
+				plainEntry("plant/auto", field("v", data[0], "")),
+			)
+			cfg["auto_start"] = true
+			t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
+			configure(ctx, factory, t)
+			Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
+		})
+
+		It("Should report a task that fails to start at boot",
 			func(ctx SpecContext) {
 				_, data := createIndexed(ctx, telem.Float64T)
 				port := broker.port
@@ -1003,14 +1029,15 @@ var _ = Describe("Read task", func() {
 				)
 				cfg["auto_start"] = true
 				t := newTask(ctx, rackKey, mqtt.ReadTaskType, cfg)
-				Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
-					ContainSubstring("refused the subscription to plant/denied"),
-				))
+				Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().To(
+					MatchError(
+						ContainSubstring("refused the subscription to plant/denied"),
+					),
+				)
 				stat := taskStatus(ctx, t)
 				Expect(stat.Variant).To(Equal(status.VariantError))
 				Expect(stat.Message).To(Equal("Failed to start task"))
 				Expect(stat.Details.Running).To(BeFalse())
-				Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 			},
 		)
 	})

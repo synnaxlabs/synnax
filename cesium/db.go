@@ -64,12 +64,17 @@ type DB struct {
 	// run orders the start of Run against Close.
 	run lifetime.Guard
 	mu  struct {
-		dbs struct {
-			unary   map[ChannelKey]unary.DB
-			virtual map[ChannelKey]virtual.DB
-		}
+		dbs channelDBs
+		// indexDeletes holds a record for each DeleteTimeRange running on an index.
+		indexDeletes []*indexDelete
 		sync.RWMutex
 	}
+}
+
+// channelDBs holds the unary and virtual DB of each channel.
+type channelDBs struct {
+	unary   map[ChannelKey]unary.DB
+	virtual map[ChannelKey]virtual.DB
 }
 
 // Write writes the frame to database at the specified start time. It returns

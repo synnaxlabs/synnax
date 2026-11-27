@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 // String returns a formatted string representation of the Status.
@@ -76,15 +75,3 @@ func (s Status[D]) String() string {
 }
 
 var _ gorp.Entry[Key] = (*Status[any])(nil)
-
-// GorpKey implements gorp.Entry.
-func (s Status[D]) GorpKey() Key { return s.Key }
-
-// ResourceID returns the unique resource identifier for the status.
-func (s Status[D]) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeStatus, Key: s.Key}
-}
-
-// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
-// not conflict with any other types in Gorp.
-func (Status[D]) CustomTypeName() string { return "Status" }

@@ -12,7 +12,6 @@ package v0
 import (
 	"strconv"
 
-	"github.com/synnaxlabs/gorp"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
@@ -33,11 +32,3 @@ func (k Key) IsValid() bool { return !k.Rack().IsZero() && k.LocalKey() != 0 }
 func (k Key) ResourceID() resource.ID {
 	return resource.ID{Type: resource.TypeTask, Key: k.String()}
 }
-
-var _ gorp.Entry[Key] = Task{}
-
-// GorpKey implements gorp.Entry.
-func (t Task) GorpKey() Key { return t.Key }
-
-// ResourceID returns the unique resource identifier for the task.
-func (t Task) ResourceID() resource.ID { return t.Key.ResourceID() }

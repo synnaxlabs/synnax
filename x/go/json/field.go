@@ -19,7 +19,6 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
-	xmath "github.com/synnaxlabs/x/math"
 	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -37,9 +36,9 @@ const (
 	Boolean
 )
 
-// ParseType parses the config form of a Type: "number", "string", or "boolean". It
+// parseType parses the config form of a Type: "number", "string", or "boolean". It
 // returns an error wrapping validate.ErrValidation for any other text.
-func ParseType(text string) (Type, error) {
+func parseType(text string) (Type, error) {
 	switch text {
 	case "number":
 		return Number, nil
@@ -73,7 +72,7 @@ func (t Type) MarshalText() ([]byte, error) { return []byte(t.String()), nil }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (t *Type) UnmarshalText(text []byte) (err error) {
-	*t, err = ParseType(string(text))
+	*t, err = parseType(string(text))
 	return err
 }
 
@@ -195,14 +194,16 @@ func NewDecoder(f Field) (*Decoder, error) {
 
 // Append appends the sample of raw, one JSON value, to dst. A variable-density sample
 // starts with its length.
-//   - A timestamp takes a string in ISO8601 format, and a number or a string holding
-//     one in a Unix format.
+//   - A timestamp takes a string in ISO8601 format. A Unix format takes a number, or a
+//     string that C's strtod reads whole as one after trimming whitespace from each
+//     end, and drops what is below a nanosecond.
 //   - A string takes a string, or the label of an enum. Any other value writes its
 //     JSON text, as for JSON. JSON takes any value, compacted but spelled as raw.
 //   - A UUID takes its string form.
 //   - Bytes take a string of standard, padded base64.
 //   - A numeric or boolean sample takes a number that it can hold exactly, a boolean
-//     as 0 or 1, or the label of an enum.
+//     as 0 or 1, the label of an enum, or a string that C's strtod reads whole as such
+//     a number, after trimming whitespace from each end.
 //
 // When raw does not convert, Append returns an error wrapping validate.ErrValidation.
 func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
@@ -323,32 +324,47 @@ func appendBase64(dst, text []byte) ([]byte, error) {
 }
 
 func (d *Decoder) appendNumeric(dst []byte, raw jsontext.Value) ([]byte, error) {
+	var (
+		n   number
+		err error
+	)
 	if raw.Kind() == '"' {
-		if err := d.unquote(raw); err != nil {
+		if err = d.unquote(raw); err != nil {
 			return nil, err
 		}
 		if sample, ok := d.enum(); ok {
 			return append(dst, sample...), nil
 		}
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "unknown enum label %q", d.text,
-		)
+		if n, err = parseQuoted(d.text); err != nil && len(d.enums) > 0 {
+			return nil, errors.Wrapf(
+				validate.ErrValidation, "unknown enum label %q", d.text,
+			)
+		}
+	} else {
+		n, err = d.number(raw)
 	}
-	n, err := d.number(raw)
 	if err != nil {
 		return nil, err
 	}
 	return d.appendNumber(dst, n)
 }
 
+// Labeled reports whether raw is a JSON string that is the label of an enum of the
+// field.
+func (d *Decoder) Labeled(raw jsontext.Value) bool {
+	if len(d.enums) == 0 || raw.Kind() != '"' || d.unquote(raw) != nil {
+		return false
+	}
+	_, ok := d.enum()
+	return ok
+}
+
 // AppendFloat appends the sample of v to dst, as Append does for a JSON number equal to
-// v. It returns an error wrapping validate.ErrValidation when v is not finite, the data
-// type is not numeric, or v does not convert to it.
+// v. A float data type takes any float, NaN and infinity included. It returns an error
+// wrapping validate.ErrValidation when the data type is not numeric or v does not
+// convert to it.
 func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
 	n := number{kind: floatNumber, f: v}
-	if !xmath.Finite(v) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%s is not finite", n)
-	}
 	if dt := d.field.DataType; !numeric(dt) {
 		return nil, errors.Wrapf(
 			validate.ErrValidation, "cannot convert a float to %s", dt,
@@ -403,7 +419,7 @@ func (d *Decoder) enum() ([]byte, bool) {
 
 func (d *Decoder) timeStamp(raw jsontext.Value) (telem.TimeStamp, error) {
 	format := d.field.TimeFormat
-	if format == ISO8601 {
+	if format == iso8601 {
 		if raw.Kind() != '"' {
 			return 0, errors.Wrapf(
 				validate.ErrValidation,
@@ -537,6 +553,24 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 		return appendJSONNumber(dst, n)
 	}
 	panic(fmt.Sprintf("json: invalid type %d", e.field.Type))
+}
+
+// Number returns sample as a number. ok is false when sample matches an enum, whose
+// label Append writes instead. It returns an error wrapping validate.ErrValidation when
+// sample is NaN or infinite. It panics when the data type of the field does not hold
+// numbers.
+func (e *Encoder) Number(sample []byte) (n ParsedNumber, ok bool, err error) {
+	dt := e.field.DataType
+	for _, en := range e.enums {
+		if matches(dt, en.sample, sample) {
+			return ParsedNumber{}, false, nil
+		}
+	}
+	v := sampleNumber(dt, sample)
+	if err = checkFinite(v); err != nil {
+		return ParsedNumber{}, false, err
+	}
+	return ParsedNumber{n: v}, true, nil
 }
 
 // matches reports whether a and b, samples of dt, are equal. Floats are equal by value,

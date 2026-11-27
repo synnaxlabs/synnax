@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { computed, renderThemed, resolve } from "@/styletest";
@@ -38,5 +39,30 @@ describe("Tag", () => {
     );
     const label = tag.lastElementChild!;
     expect(label.scrollWidth).toBeGreaterThan(label.clientWidth);
+  });
+
+  it("should keep the cursor and face of what holds a tag with no click", async () => {
+    const { container } = await renderThemed(
+      <div style={{ cursor: "default" }}>
+        <Tag.Tag>Owner</Tag.Tag>
+      </div>,
+    );
+    const tag = container.querySelector(`.${CSS.B("tag")}`)!;
+    const face = computed(tag, "background-color");
+    await userEvent.hover(tag);
+    expect(computed(tag, "cursor")).toBe("default");
+    expect(computed(tag, "background-color")).toBe(face);
+    expect(tag.hasAttribute("tabindex")).toBe(false);
+  });
+
+  it("should show a pointer on a tag with a click", async () => {
+    const { container } = await renderThemed(
+      <div style={{ cursor: "default" }}>
+        <Tag.Tag onClick={() => {}}>Owner</Tag.Tag>
+      </div>,
+    );
+    expect(computed(container.querySelector(`.${CSS.B("tag")}`)!, "cursor")).toBe(
+      "pointer",
+    );
   });
 });

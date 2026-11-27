@@ -97,6 +97,17 @@ var _ = Describe("Documents", func() {
 			To(HaveExactElements(`{"x":1,"y":5}`))
 	})
 
+	It("Should skip each document that would send a NaN default", func() {
+		d := point(icd.FloatJSONField{Default: new(payload.Float(math.NaN()))})
+		Expect(from(d, frame.NewUnary(xKey, telem.NewSeriesV(1.0)))).To(BeEmpty())
+		w := skips.Warning(time.Now())
+		Expect(w).ToNot(BeNil())
+		Expect(w.Description).To(Equal("Command for target plant/point: message " +
+			"Point: field y: default: NaN is not a JSON number: validation error"))
+		Expect(from(d, frame.NewUnary(yKey, telem.NewSeriesV(2.0)))).
+			To(HaveExactElements(`{"x":1,"y":2}`))
+	})
+
 	It("Should send an empty command instead of the default", func() {
 		x, mode := jsonField("x", icd.FloatJSONField{}), jsonField(
 			"mode", icd.StringJSONField{Default: new("auto")},

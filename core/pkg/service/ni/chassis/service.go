@@ -26,15 +26,19 @@ import (
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
 	// DB is the database chassis are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores each chassis's status.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Signals publishes sy_ni_chassis_set and sy_ni_chassis_delete.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
 	// [OPTIONAL]
 	alamos.Instrumentation
 }

@@ -23,7 +23,9 @@ Directory struct {
         @doc value "is the directory that holds this directory. The root has none."
     }
 
-    @doc value  "holds Arcs and other directories below the Arcs root."
+    @doc value     "holds Arcs and other directories below the Arcs root."
+    @go entry
     @go marshal
     @go migrate
+    @resource type "arc_directory"
 }

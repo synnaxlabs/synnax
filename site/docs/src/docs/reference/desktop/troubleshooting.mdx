@@ -59,10 +59,11 @@ Synnax writes its log to `core.log` in the log folder. To open the folder, run t
 logs" command. When Synnax crashes, the crash output is in `core-stderr.log`. The crash
 output of the start before is in `core-stderr.previous.log`.
 
-| Operating system | Log folder                                   |
-| ---------------- | -------------------------------------------- |
-| macOS            | `~/Library/Logs/com.synnaxlabs.desktop`      |
-| Windows          | `%LOCALAPPDATA%\com.synnaxlabs.desktop\logs` |
+| Operating system | Log folder                                                      |
+| ---------------- | --------------------------------------------------------------- |
+| Linux            | `$XDG_STATE_HOME/synnax`, or `~/.local/state/synnax` when unset |
+| macOS            | `~/Library/Logs/com.synnaxlabs.desktop`                         |
+| Windows          | `%LOCALAPPDATA%\com.synnaxlabs.desktop\logs`                    |
 
 <Divider.Divider x />
 

@@ -1,0 +1,33 @@
+{
+  "description": "The default of a 32-bit float field must fit a float32.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "kind": "float",
+            "default": 1e300
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "error": "message frame: field v: default: 1e+300 overflows float32: validation error"
+}

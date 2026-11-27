@@ -49,6 +49,9 @@ export type Content<
   Result = unknown,
 > = ComponentType<ContentProps<Params, Result>>;
 
+/** Resolves true to let a modal close, or false to keep it open. */
+export type Guard = () => Promise<boolean>;
+
 /**
  * A single open modal. Its render and dismiss closures already have the modal's params
  * and result type bound (at push time, where they are known), so the entry itself is
@@ -61,10 +64,15 @@ export interface Entry {
   key: string;
   /** Renders the modal's content with its bound params and close callback. */
   render: () => ReactNode;
-  /** Dismisses the modal, resolving its caller with null. Does nothing while busy. */
+  /**
+   * Dismisses the modal, resolving its caller with null. Does nothing while busy. With
+   * a guard, it dismisses only when the guard resolves true.
+   */
   dismiss: () => void;
   /** Marks the modal busy or idle. */
   setBusy: (busy: boolean) => void;
+  /** Sets the guard that a dismiss asks first, or removes it. */
+  setGuard: (guard: Guard | undefined) => void;
 }
 
 type Listener = () => void;
@@ -109,6 +117,7 @@ export class Store {
     // factory), so an empty object is a valid Params.
     const bound = params ?? ({} as Params);
     let busy = false;
+    let guard: Guard | undefined;
     const settle = (result?: Result): void => {
       this.emit(this.stack.filter((e) => e.key !== key));
       resolve(result ?? null);
@@ -117,10 +126,17 @@ export class Store {
       key,
       render: () => <Component {...bound} close={settle} />,
       dismiss: () => {
-        if (!busy) settle();
+        if (busy) return;
+        if (guard == null) return settle();
+        void guard().then((allowed) => {
+          if (allowed) settle();
+        });
       },
       setBusy: (next) => {
         busy = next;
+      },
+      setGuard: (next) => {
+        guard = next;
       },
     };
     this.emit([...this.stack, entry]);
@@ -131,10 +147,11 @@ export class Store {
     this.stack.at(-1)?.dismiss();
   }
 
-  /** clear dismisses every open modal, busy ones included. */
+  /** clear dismisses every open modal, busy and guarded ones included. */
   clear(): void {
     this.stack.forEach((e) => {
       e.setBusy(false);
+      e.setGuard(undefined);
       e.dismiss();
     });
   }

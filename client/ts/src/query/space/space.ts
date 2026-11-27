@@ -121,6 +121,8 @@ export interface Hooks {
    * reconnect. Defaults to a stream that is always live.
    */
   epoch?: () => number;
+  /** Whether the change stream is up now. Defaults to true. */
+  live?: () => boolean;
   /**
    * Whether change delivery keeps subscribed answers current. False when the
    * cache is detached or the cluster refused the stream. Defaults to true.
@@ -141,6 +143,19 @@ export interface Hooks {
 
 export const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
 export const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
+
+/**
+ * Whether a failed refetch of an answer needs a report. An answer that its triggers
+ * cover keeps showing, and the reconnect of a down stream refetches. Otherwise each
+ * subscriber waits on the answer with nothing to show.
+ */
+export const reportsFailedRefetch = (
+  hooks: Hooks,
+  { subscribed, covered }: { subscribed: boolean; covered: boolean },
+): boolean =>
+  subscribed &&
+  !covered &&
+  !(hooks.maintained?.() !== false && hooks.live?.() === false);
 
 /**
  * Opens change delivery in the background, since a streaming failure must never block
@@ -794,7 +809,17 @@ export class Space<
       if (query.generation !== generation) return;
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away, but reads stop trusting it.
-      if (query.state.variant === "ready") return this.markStale(query);
+      if (query.state.variant === "ready") {
+        this.markStale(query);
+        if (
+          reportsFailedRefetch(this.hooks, {
+            subscribed: query.handlers.size > 0,
+            covered: this.triggersCover(query.params, query.state.keys),
+          })
+        )
+          this.report(reason);
+        return;
+      }
       query.state = { variant: "error", error: errors.fromUnknown(reason) };
       return;
     }

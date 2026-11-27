@@ -112,13 +112,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	if err = c.typeDefs.ForEach(
 		func(outputPath string, typeDefs []resolution.Type) error {
-			enums := enum.CollectNamespaceEnums(
-				typeDefs[0].Namespace,
-				outputPath,
-				req.Resolutions,
-				"ts",
-				nil,
-			)
+			enums := enum.CollectOutputEnums(outputPath, req.Resolutions, "ts", nil)
 			return p.appendFile(resp, outputPath, typeDefs[0], fileTypes{
 				enums:    enums,
 				typeDefs: typeDefs,
@@ -188,7 +182,7 @@ func take(c *framework.Collector, outputPath string) []resolution.Type {
 }
 
 // fileEnums returns the enums of the file at outputPath: those that types reference,
-// those that enums holds for the file, and those of the file's namespace. It removes
+// those that enums holds for the file, and every other enum of the output. It removes
 // the file's entries from enums.
 func fileEnums(
 	types []resolution.Type,
@@ -200,13 +194,7 @@ func fileEnums(
 	result = framework.MergeTypesByName(result, take(enums, outputPath))
 	return framework.MergeTypesByName(
 		result,
-		enum.CollectNamespaceEnums(
-			types[0].Namespace,
-			outputPath,
-			req.Resolutions,
-			"ts",
-			nil,
-		),
+		enum.CollectOutputEnums(outputPath, req.Resolutions, "ts", nil),
 	)
 }
 
@@ -221,7 +209,6 @@ func (p *Plugin) appendFile(
 ) error {
 	content, err := p.generateFile(
 		first.Namespace,
-		first.FilePath,
 		outputPath,
 		types.structs,
 		types.enums,
@@ -274,7 +261,6 @@ func hasNonPrimitiveDependency(typ resolution.Type) bool {
 // imports, it renders the file again with aliases.
 func (p *Plugin) generateFile(
 	namespace string,
-	filePath string,
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
@@ -283,14 +269,14 @@ func (p *Plugin) generateFile(
 	req *plugin.Request,
 ) ([]byte, error) {
 	content, conflicts, err := p.renderFile(
-		namespace, filePath, outputPath, structs, enums, typeDefs, unions, req, nil,
+		namespace, outputPath, structs, enums, typeDefs, unions, req, nil,
 	)
 	if err != nil || len(conflicts) == 0 {
 		return content, err
 	}
 	aliases := imports.Aliases(conflicts)
 	content, conflicts, err = p.renderFile(
-		namespace, filePath, outputPath, structs, enums, typeDefs, unions, req, aliases,
+		namespace, outputPath, structs, enums, typeDefs, unions, req, aliases,
 	)
 	if err != nil {
 		return nil, err
@@ -307,7 +293,6 @@ func (p *Plugin) generateFile(
 // alias. It returns the names that two modules export to the file.
 func (p *Plugin) renderFile(
 	namespace string,
-	filePath string,
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
@@ -318,7 +303,6 @@ func (p *Plugin) renderFile(
 ) ([]byte, map[string][]string, error) {
 	data := &templateData{
 		Namespace:       namespace,
-		FilePath:        filePath,
 		OutputPath:      outputPath,
 		Request:         req,
 		aliases:         aliases,
@@ -996,7 +980,7 @@ func (p *Plugin) collectExtendsParents(
 		parentTSName := domain.GetName(parentType, "ts")
 		schemaName := casing.CamelAcronym(parentTSName) + "Z"
 		importLocalHand(parentType, schemaName, data)
-		if parentType.FilePath != data.FilePath {
+		if !data.declares(parentType) {
 			ns := importNamespace(
 				parentType.Namespace,
 				output.GetPath(parentType, "ts"),
@@ -1377,11 +1361,16 @@ func qualifier(
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	outputPath := output.GetPath(typ, "ts")
+	return importNamespace(typ.Namespace, outputOf(typ, table), data)
+}
+
+// outputOf returns the TypeScript output of typ. An enum with no output of its own
+// takes the output of a struct in its schema.
+func outputOf(typ resolution.Type, table *resolution.Table) string {
 	if _, isEnum := typ.Form.(resolution.EnumForm); isEnum {
-		outputPath = enum.FindOutputPath(typ, table, "ts")
+		return enum.FindOutputPath(typ, table, "ts")
 	}
-	return importNamespace(typ.Namespace, outputPath, data)
+	return output.GetPath(typ, "ts")
 }
 
 // FieldName converts a field identifier to camelCase using the naive conversion the
@@ -1435,7 +1424,7 @@ func parentSchemaName(
 	parent, _ := ref.Resolve(table)
 	name := casing.CamelAcronym(domain.GetName(parent, "ts")) + "Z"
 	importLocalHand(parent, name, data)
-	if parent.FilePath != data.FilePath {
+	if !data.declares(parent) {
 		ns := importNamespace(parent.Namespace, output.GetPath(parent, "ts"), data)
 		name = ns + "." + name
 	}
@@ -1486,7 +1475,7 @@ func (p *Plugin) createNewRefForField(
 		return "", false
 	}
 	newName := "New"
-	if resolved.FilePath != data.FilePath {
+	if !data.declares(resolved) {
 		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		newName = ns + ".New"
 	}
@@ -1519,7 +1508,7 @@ func (p *Plugin) detailsSchemaRef(
 		data,
 	)
 	prefix := ""
-	if resolved.FilePath != data.FilePath {
+	if !data.declares(resolved) {
 		ns := importNamespace(resolved.Namespace, output.GetPath(resolved, "ts"), data)
 		prefix = ns + "."
 	}
@@ -1683,7 +1672,7 @@ func enumNames(
 	declared, _ := ref.Resolve(table)
 	typeName = domain.GetName(declared, "ts")
 	schema = casing.CamelAcronym(typeName) + "Z"
-	if declared.FilePath == data.FilePath {
+	if data.declares(declared) {
 		return typeName, schema, true
 	}
 	outputPath := output.GetPath(declared, "ts")
@@ -1877,15 +1866,23 @@ func (p *Plugin) wrapArray(
 	table *resolution.Table,
 	data *templateData,
 ) {
-	isAnyOptional := field.Optional
-	if isAnyOptional {
+	switch {
+	case field.Optional:
 		addXImport(data, xImport{name: "zod", submodule: "zod"})
 		fd.ZodType = fmt.Sprintf("zod.nullToUndefined(%s.array())", fd.ZodType)
 		fd.ZodSchemaType = fmt.Sprintf(
 			"ReturnType<typeof zod.nullToUndefined<z.ZodArray<%s>>>",
 			fd.ZodSchemaType,
 		)
-	} else {
+	case validation.NonEmpty(field):
+		// The analyzer refuses a default here, so a missing list fails too.
+		fd.ZodType = fmt.Sprintf(
+			"%s.array().min(1, \"%s is required\")",
+			fd.ZodType,
+			field.Name,
+		)
+		fd.ZodSchemaType = fmt.Sprintf("z.ZodArray<%s>", fd.ZodSchemaType)
+	default:
 		// The server omits a nil ("not loaded") array, so a missing array defaults to
 		// []; an allocated empty array still arrives as [].
 		arrayZod := fd.ZodType + ".array()"
@@ -2306,7 +2303,7 @@ func referenceName(
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	if typ.FilePath == data.FilePath {
+	if data.declares(typ) {
 		return name
 	}
 	return qualifier(typ, table, data) + "." + name
@@ -2656,7 +2653,7 @@ func (p *Plugin) typeRefToZodSchemaType(
 	}
 
 	var prefix string
-	if resolved.FilePath != data.FilePath {
+	if !data.declares(resolved) {
 		prefix = qualifier(resolved, table, data) + "."
 	}
 
@@ -2717,7 +2714,7 @@ func isInXPackage(outputPath string) bool {
 // hand-written or omitted in the namespace being generated, since the generated file
 // declares no such type. A missing module is recorded so generation fails.
 func importLocalHand(typ resolution.Type, ident string, data *templateData) {
-	if typ.FilePath != data.FilePath || !omit.IsSkipped(typ, "ts") {
+	if !data.declares(typ) || !omit.IsSkipped(typ, "ts") {
 		return
 	}
 	module := domain.GetStringFromType(typ, "ts", "include")
@@ -2894,7 +2891,11 @@ func applyStringRules(
 	data *templateData,
 ) string {
 	if rules.Required {
-		zodType = fmt.Sprintf("%s.min(1, \"%s is required\")", zodType, fieldName)
+		zodType = fmt.Sprintf(
+			"%s.min(1, \"%s is required\")",
+			zodType,
+			casing.Label(fieldName),
+		)
 	}
 	// Zod's .min and .max count UTF-16 code units, but the other languages count code
 	// points. The two agree on whether a string is empty.
@@ -2942,7 +2943,7 @@ func applyNumberRules(
 		zodType = fmt.Sprintf(
 			"%s.refine((v) => v !== 0, \"%s is required\")",
 			zodType,
-			fieldName,
+			casing.Label(fieldName),
 		)
 	}
 	if rules.Min != nil {
@@ -3321,7 +3322,7 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 	}
 	enumName := domain.GetName(ev.Type, "ts")
 	variantRef := fmt.Sprintf("%s.%s", enumName, ev.Variant.Name)
-	if ev.Type.FilePath != data.FilePath {
+	if !data.declares(ev.Type) {
 		ns := qualifier(ev.Type, data.Request.Resolutions, data)
 		variantRef = ns + "." + variantRef
 	}
@@ -3340,14 +3341,17 @@ type templateData struct {
 	SortedDecls      []sortedDeclData
 	CurrentDeclIndex int
 	GenerateTypes    bool
-	// FilePath is the schema file that this file renders. A type is local when it comes
-	// from this file: two schemas with one file name share a namespace.
-	FilePath string
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no `@ts include` module.
 	missingIncludes set.Set[string]
 	// aliases holds the alias of each imported name that two modules export.
 	aliases map[imports.Key]string
+}
+
+// declares reports whether the file declares typ, which holds when typ has the file's
+// output. Two schemas may share one output.
+func (d *templateData) declares(typ resolution.Type) bool {
+	return outputOf(typ, d.Request.Resolutions) == d.OutputPath
 }
 
 type sortedDeclData struct {

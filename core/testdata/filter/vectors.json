@@ -2364,5 +2364,165 @@
         "expected": []
       }
     ]
+  },
+  "opcua_servers": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000020a",
+        "rack": 65538,
+        "name": "Boiler PLC",
+        "connection": { "endpoint": "opc.tcp://boiler:4840" }
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000020b",
+        "rack": 65538,
+        "name": "Pump PLC",
+        "connection": { "endpoint": "opc.tcp://pump:4840" }
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000020c",
+        "rack": 131073,
+        "name": "Kepware",
+        "connection": { "endpoint": "opc.tcp://kepware:49320" }
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every server",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": { "key": { "eq": "00000000-0000-4000-8000-00000000020a" } },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000020a",
+              "00000000-0000-4000-8000-00000000020c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": { "key": { "in": [] } },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": { "key": { "eq": "00000000-0000-4000-8000-0000000002ff" } },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000020a",
+              "00000000-0000-4000-8000-0000000002ff"
+            ]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": { "name": { "eq": "Pump PLC" } },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": { "name": { "in": ["Boiler PLC", "Kepware"] } },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "name contains",
+        "where": { "name": { "contains": "PLC" } },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name contains compares case",
+        "where": { "name": { "contains": "plc" } },
+        "expected": []
+      },
+      {
+        "name": "name starts_with",
+        "where": { "name": { "starts_with": "Kep" } },
+        "expected": ["c"]
+      },
+      {
+        "name": "name eq ignores case",
+        "where": { "name": { "eq": "boiler plc", "case_insensitive": true } },
+        "expected": ["a"]
+      },
+      {
+        "name": "name regex",
+        "where": { "name": { "regex": "PLC$" } },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "rack eq",
+        "where": { "rack": { "eq": 65538 } },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "rack in",
+        "where": { "rack": { "in": [131073] } },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "name": { "contains": "PLC" },
+          "rack": { "eq": 65538 },
+          "key": { "eq": "00000000-0000-4000-8000-00000000020b" }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "an empty and matches every server",
+        "where": { "and": [] },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": { "or": [] },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            { "rack": { "eq": 65538 } },
+            { "not": { "name": { "eq": "Boiler PLC" } } }
+          ]
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [{ "rack": { "eq": 131073 } }, { "name": { "eq": "Boiler PLC" } }]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not",
+        "where": { "not": { "name": { "contains": "PLC" } } },
+        "expected": ["c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": { "not": {} },
+        "expected": []
+      }
+    ]
   }
 }

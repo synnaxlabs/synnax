@@ -551,7 +551,7 @@ var _ = Describe("TS Types Plugin", func() {
 				ExpectContent(
 					resp,
 					"types.gen.ts",
-				).ToContain(`rack: keyZ.refine((v) => v !== 0, "rack is required")`)
+				).ToContain(`rack: keyZ.refine((v) => v !== 0, "Rack is required")`)
 			},
 		)
 
@@ -701,6 +701,66 @@ var _ = Describe("TS Types Plugin", func() {
 				Expect(
 					content,
 				).To(ContainSubstring(`export const axisKeyZ = z.enum(AXIS_KEYS)`))
+			},
+		)
+
+		It("Should generate an exclusion as a Zod enum of the kept members", func() {
+			source := `
+				@ts output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				Numeric enum of DataType omit {
+					json
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			resp := MustSucceed(
+				typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			Expect(string(resp.Files[0].Content)).To(ContainSubstring(
+				`export const NUMERICS = ["float64", "int16"] as const`,
+			))
+		})
+
+		It(
+			"Should generate a narrowing enum as a Zod enum of the kept members",
+			func() {
+				source := `
+				@ts output "out"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+
+					@ts omit
+				}
+
+				RegisterType enum of DataType {
+					int16
+					float64
+				}
+			`
+				table, diag := Analyze(source, "modbus", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`export const REGISTER_TYPES = ["int16", "float64"] as const`,
+				))
+				Expect(content).To(ContainSubstring(
+					`export const registerTypeZ = z.enum(REGISTER_TYPES)`,
+				))
+				Expect(content).ToNot(ContainSubstring(`json`))
 			},
 		)
 
@@ -1179,10 +1239,10 @@ var _ = Describe("TS Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(
 					content,
-				).To(ContainSubstring(`username: z.string().min(1, "username is required")`))
+				).To(ContainSubstring(`username: z.string().min(1, "Username is required")`))
 				Expect(
 					content,
-				).To(ContainSubstring(`firstName: z.string().min(1, "first_name is required")`))
+				).To(ContainSubstring(`firstName: z.string().min(1, "First name is required")`))
 			},
 		)
 
@@ -2795,6 +2855,72 @@ var _ = Describe("TS Types Plugin", func() {
 						`import { common } from "@/common"`,
 						`common.infoZ`,
 					)
+			})
+		})
+
+		Context("schemas that share an output", func() {
+			It("Should declare the enums of each schema that no field names", func() {
+				loader.Add("schemas/synnax/thing", `
+					Shade enum {
+						light = "light"
+					}
+
+					Plan struct {
+						key string
+
+						@ts output "client/ts/src/thing"
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					Mode enum {
+						fast = "fast"
+					}
+
+					Request struct {
+						name string
+
+						@ts output "client/ts/src/thing"
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/thing/types.gen.ts").ToContain(
+					"export const shadeZ = z.enum(SHADES);",
+					"export const modeZ = z.enum(MODES);",
+				)
+			})
+
+			It("Should reference each type of the output with no import", func() {
+				loader.Add("schemas/synnax/thing", `
+					@ts output "client/ts/src/thing"
+
+					Kind enum {
+						solid = "solid"
+						empty = "empty"
+					}
+
+					Plan struct {
+						kind Kind
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					import "schemas/synnax/thing"
+
+					@ts output "client/ts/src/thing"
+
+					Change struct {
+						name string
+					}
+
+					Request struct {
+						change Change
+						plan   thing.Plan
+						kind   thing.Kind
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/thing/types.gen.ts").
+					ToContain("change: changeZ,", "plan: planZ,", "kind: kindZ,").
+					ToNotContain(`from "@/thing"`, "thingAPI.", "thing.")
 			})
 		})
 

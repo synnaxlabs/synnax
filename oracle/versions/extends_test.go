@@ -374,6 +374,47 @@ Node union on variant {
     }
 }
 `),
+		Entry("a variant omit removes the parent variant", `
+Extra = v0.Extra
+Holder = v0.Holder
+
+Node union on variant extends v0.Node {
+    -box
+}
+`, `
+Extra = v0.Extra
+Holder = v0.Holder
+
+Node union on variant {
+    leaf {
+        value int32
+    }
+}
+`),
+		Entry("a new variant takes the place of an omitted one at the end", `
+Extra = v0.Extra
+Holder = v0.Holder
+
+Node union on variant extends v0.Node {
+    -leaf
+    tree {
+        size int32
+    }
+}
+`, `
+Extra = v0.Extra
+Holder = v0.Holder
+
+Node union on variant {
+    box {
+        width int32
+        height int32 = 4
+    }
+    tree {
+        size int32
+    }
+}
+`),
 		Entry("a named variant replaces the parent variant in place", `
 Extra = v0.Extra
 Holder = v0.Holder
@@ -643,6 +684,82 @@ Node union on variant extends v0.Node {}
 			),
 		))
 	})
+
+	It("Should keep a variant omitted through a chain of patches", func() {
+		v1 := `
+Extra = v0.Extra
+Holder = v0.Holder
+
+Node union on variant extends v0.Node {
+    -box
+}
+`
+		Expect(renderVersion(map[string]string{
+			extendsV0Path: extendsV0,
+			extendsV1Path: v1,
+			extendsV2Path: `
+Extra = v0.Extra
+Holder = v0.Holder
+
+Node union on variant extends v1.Node {
+    tree {
+        size int32
+    }
+}
+`,
+		}, 2)).To(Equal(renderVersion(map[string]string{
+			extendsV0Path: extendsV0,
+			extendsV1Path: v1,
+			extendsV2Path: `
+Extra = v0.Extra
+Holder = v0.Holder
+
+Node union on variant {
+    leaf {
+        value int32
+    }
+    tree {
+        size int32
+    }
+}
+`,
+		}, 2)))
+	})
+
+	DescribeTable("Should reject a variant omit", func(v1, message string) {
+		Expect(resolverFor(map[string]string{
+			extendsV0Path: extendsV0,
+			extendsV1Path: v1,
+		}).File("schemas/synnax/channel", 1)).Error().To(MatchError(
+			ContainSubstring(message),
+		))
+	},
+		Entry("of a variant the earlier version lacks", `
+Holder = v0.Holder
+
+Node union on variant extends v0.Node {
+    -tree
+}
+`, `union Node: omits variant "tree", which v0.Node does not declare`),
+		Entry("of a variant the patch also declares", `
+Holder = v0.Holder
+
+Node union on variant extends v0.Node {
+    -box
+    box {
+        depth int32
+    }
+}
+`, `union Node: omits and declares variant "box"`),
+		Entry("in a union that extends no earlier version of itself", `
+Node = v0.Node
+Holder = v0.Holder
+
+Tree union on variant extends v0.Node {
+    -box
+}
+`, `union Tree: omits variant "box", but extends no earlier version of itself`),
+	)
 
 	It("Should reject a struct that extends an earlier union of its name", func() {
 		Expect(resolverFor(map[string]string{

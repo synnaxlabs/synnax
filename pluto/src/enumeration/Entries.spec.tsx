@@ -63,8 +63,6 @@ describe("Enumeration.Table", () => {
   interface HarnessProps {
     initial: enumeration.Entry[];
     onChange?: OnChange;
-    abnormalHidden?: boolean;
-    colorHidden?: boolean;
     preview?: boolean;
   }
 
@@ -494,43 +492,13 @@ describe("Enumeration.Table", () => {
       renderTable({
         initial: [createEntry("Fault", 0, { color: fixed, abnormal: true })],
       });
-      expect(screen.queryByLabelText(/alarm color/)).toBeNull();
+      expect(screen.queryByLabelText(/reads as an alarm/)).toBeNull();
     });
 
     it("should warn about an alarm color on an entry that is not abnormal", () => {
       const fixed = { type: "fixed" as const, value: ALARM };
       renderTable({ initial: [createEntry("Locked out", 0, { color: fixed })] });
-      expect(screen.getByLabelText(/alarm color/)).toBeTruthy();
-    });
-
-    it("should not warn about an alarm color when no entry can be abnormal", () => {
-      const fixed = { type: "fixed" as const, value: ALARM };
-      renderTable({
-        initial: [createEntry("Locked out", 0, { color: fixed })],
-        abnormalHidden: true,
-      });
-      expect(screen.queryByLabelText(/alarm color/)).toBeNull();
-    });
-
-    it("should leave out the Color column when color is hidden", () => {
-      renderTable({ initial: [createEntry("", 0)], colorHidden: true });
-      expect(screen.queryByLabelText("Color 1")).toBeNull();
-      expect(screen.queryByText("Color")).toBeNull();
-      expect(input("Abnormal 1").classList).toContain("lyra-input__switch-input");
-    });
-
-    it("should keep the color of an entry when color is hidden", () => {
-      const onChange = vi.fn<OnChange>();
-      const fixed = { type: "fixed" as const, value: color.construct("#2e7d32") };
-      renderTable({
-        initial: [createEntry("Off", 0, { color: fixed })],
-        colorHidden: true,
-        onChange,
-      });
-      commit(input("Name 1"), "Closed");
-      expect(changes(onChange)).toContainEqual([
-        expect.objectContaining({ name: "Closed", color: fixed }),
-      ]);
+      expect(screen.getByLabelText(/reads as an alarm/)).toBeTruthy();
     });
   });
 
@@ -544,28 +512,6 @@ describe("Enumeration.Table", () => {
       expect(changes(onChange)).toContainEqual([
         expect.objectContaining({ abnormal: true }),
       ]);
-    });
-
-    it("should leave out the Abnormal column when abnormal is hidden", () => {
-      renderTable({ initial: [createEntry("Open", 0)], abnormalHidden: true });
-      expect(screen.queryByLabelText("Abnormal 1")).toBeNull();
-      expect(screen.queryByText("Abnormal")).toBeNull();
-    });
-
-    it("should paste only the shown columns when both are hidden", () => {
-      const onChange = vi.fn<OnChange>();
-      renderTable({
-        initial: [createEntry("Off", 0)],
-        colorHidden: true,
-        abnormalHidden: true,
-        onChange,
-      });
-      paste(input("Name 1"), "Off\t0\nOn\t1");
-      expect(onChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          added: [expect.objectContaining({ name: "On", value: 1, abnormal: false })],
-        }),
-      );
     });
 
     it("should show a read-only switch in preview", () => {

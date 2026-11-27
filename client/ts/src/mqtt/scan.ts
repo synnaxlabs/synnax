@@ -97,7 +97,7 @@ export interface SampledTopic extends z.infer<typeof sampledTopicZ> {}
 /** The data that answers a sample command of the MQTT scan task. */
 export const sampleResultZ = z.object({
   topics: z.array(sampledTopicZ),
-  /** shapes group the topics by the set of fields that their payloads hold. */
+  /** shapes group the payloads read by the set of fields that they hold. */
   shapes: z.array(json.shapeZ),
   /**
    * truncated is true when the broker delivered more than a sample holds, or when the

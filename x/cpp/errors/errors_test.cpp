@@ -30,11 +30,16 @@ TEST(TestXErrors, testErrorEqualsExactlyEqual) {
     ASSERT_EQ(err1, err2);
 }
 
-/// @brief it should match errors with the same type prefix.
-TEST(TestXErrors, testErrorHequalHasPrefix) {
-    const auto err1 = Error("test", "");
-    const auto err2 = Error("test-specific", "");
-    ASSERT_TRUE(err2.matches(err1));
+/// @brief it should match an error of a sub-type.
+TEST(TestXErrors, testErrorMatchesSubType) {
+    ASSERT_TRUE(Error("test.specific", "").matches(Error("test", "")));
+}
+
+/// @brief it should not match a type that only shares a prefix with the error type.
+TEST(TestXErrors, testErrorDoesNotMatchPrefixWithoutDot) {
+    ASSERT_FALSE(Error("test-specific", "").matches(Error("test", "")));
+    ASSERT_FALSE(Error("sy.query_x", "").matches(QUERY));
+    ASSERT_FALSE(Error("sy.query", "").matches("sy.query."));
 }
 
 /// @brief it should match errors against a vector of possible matches.
@@ -101,6 +106,20 @@ TEST(TestXErrors, testReparentMethod) {
     const auto unchanged = no_dot_err.reparent(new_parent);
     ASSERT_EQ(unchanged.type, "nodot");
     ASSERT_EQ(unchanged.data, "data");
+}
+
+/// @brief it should put context before the data of an error and keep its type.
+TEST(TestXErrors, testWrapMethod) {
+    const auto wrapped = Error("a.b", "data").wrap("outer").wrap("outermost");
+    ASSERT_EQ(wrapped.type, "a.b");
+    ASSERT_EQ(wrapped.data, "outermost: outer: data");
+}
+
+/// @brief it should return NIL when it wraps NIL.
+TEST(TestXErrors, testWrapNil) {
+    const auto wrapped = NIL.wrap("context");
+    ASSERT_EQ(wrapped.type, TYPE_NIL);
+    ASSERT_TRUE(wrapped.data.empty());
 }
 
 /// @brief it should return true for ok() on nil errors and false otherwise.
@@ -297,14 +316,14 @@ TEST(TestXErrors, testMatchesPatternLongerThanType) {
     ASSERT_FALSE(nil_err.matches("any.longer.string"));
 }
 
-/// @brief it should handle empty strings in matches correctly.
+/// @brief it should match an empty type only against an empty type.
 TEST(TestXErrors, testMatchesEmptyStrings) {
     const auto empty_type = Error("", "data");
     ASSERT_TRUE(empty_type.matches(""));
     ASSERT_FALSE(empty_type.matches("any"));
 
     const auto normal_err = Error("test.error", "");
-    ASSERT_TRUE(normal_err.matches(""));
+    ASSERT_FALSE(normal_err.matches(""));
 }
 
 /// @brief it should handle exact length matches correctly.

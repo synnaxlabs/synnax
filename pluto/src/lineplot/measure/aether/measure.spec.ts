@@ -77,12 +77,16 @@ const mount = (relative: boolean, broken = false) => {
     region: REGION,
   });
   const lines = recorder.upper2d.calls.filter((c) => c.op === "lineTo").length;
-  return { texts: texts(recorder), lines };
+  return { texts: texts(recorder), lines, recorder };
 };
 
 describe("Measure", () => {
   it("should report a negative slope when the second point is left of the first", () => {
     expect(mount(false).texts).toContain("-1");
+  });
+
+  it("should draw values with tabular digits", () => {
+    expect(canvasTest.fontOf(mount(false).recorder, "-1")).toContain("Inter Tabular");
   });
 
   it("should label a point with its time from zero on a relative axis", () => {

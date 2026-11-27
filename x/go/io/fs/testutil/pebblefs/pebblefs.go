@@ -46,9 +46,8 @@ var _ vfs.FS = (*fs)(nil)
 
 // New returns a vfs.FS of Pebble whose calls go to inner, with the semantics of
 // vfs.Default on Linux. Paths use slashes. A lock is held in memory, so it excludes
-// only
-// the opens on the returned FS, and a directory handle follows only the renames made
-// through it.
+// only the opens on the returned FS, and a directory handle follows only the renames
+// made through it.
 func New(inner xfs.FS) vfs.FS {
 	return &fs{inner: inner, locked: set.Set[string]{}, dirs: set.Set[*dir]{}}
 }

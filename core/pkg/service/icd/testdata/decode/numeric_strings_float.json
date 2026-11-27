@@ -1,0 +1,195 @@
+{
+  "description": "A float field reads a number in a string as C's strtod reads a whole string, after trimming whitespace: decimal, exponent, hex, inf, infinity, nan, and nan(chars) forms, in any case, with a sign. NaN and infinite samples are written as strings.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/v",
+            "type": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "v": " \t12.5\n "
+      },
+      "message": "reading",
+      "samples": [12.5]
+    },
+    {
+      "document": {
+        "v": "+12.5"
+      },
+      "message": "reading",
+      "samples": [12.5]
+    },
+    {
+      "document": {
+        "v": "-12.5"
+      },
+      "message": "reading",
+      "samples": [-12.5]
+    },
+    {
+      "document": {
+        "v": "1.25e2"
+      },
+      "message": "reading",
+      "samples": [125]
+    },
+    {
+      "document": {
+        "v": "125E-2"
+      },
+      "message": "reading",
+      "samples": [1.25]
+    },
+    {
+      "document": {
+        "v": ".5"
+      },
+      "message": "reading",
+      "samples": [0.5]
+    },
+    {
+      "document": {
+        "v": "5."
+      },
+      "message": "reading",
+      "samples": [5]
+    },
+    {
+      "document": {
+        "v": "0x1F"
+      },
+      "message": "reading",
+      "samples": [31]
+    },
+    {
+      "document": {
+        "v": "-0X1f"
+      },
+      "message": "reading",
+      "samples": [-31]
+    },
+    {
+      "document": {
+        "v": "0x1.8p1"
+      },
+      "message": "reading",
+      "samples": [3]
+    },
+    {
+      "document": {
+        "v": "0x1.8"
+      },
+      "message": "reading",
+      "samples": [1.5]
+    },
+    {
+      "document": {
+        "v": "NaN"
+      },
+      "message": "reading",
+      "samples": ["NaN"]
+    },
+    {
+      "document": {
+        "v": "nan(chars_1)"
+      },
+      "message": "reading",
+      "samples": ["NaN"]
+    },
+    {
+      "document": {
+        "v": "inf"
+      },
+      "message": "reading",
+      "samples": ["Infinity"]
+    },
+    {
+      "document": {
+        "v": "-INFINITY"
+      },
+      "message": "reading",
+      "samples": ["-Infinity"]
+    },
+    {
+      "document": {
+        "v": ""
+      },
+      "error": "field v: no value at /v: validation error"
+    },
+    {
+      "document": {
+        "v": "abc"
+      },
+      "error": "field v: invalid number \"abc\": validation error"
+    },
+    {
+      "document": {
+        "v": "1 2"
+      },
+      "error": "field v: invalid number \"1 2\": validation error"
+    },
+    {
+      "document": {
+        "v": "+-1"
+      },
+      "error": "field v: invalid number \"+-1\": validation error"
+    },
+    {
+      "document": {
+        "v": "1_000"
+      },
+      "error": "field v: invalid number \"1_000\": validation error"
+    },
+    {
+      "document": {
+        "v": "0x"
+      },
+      "error": "field v: invalid number \"0x\": validation error"
+    },
+    {
+      "document": {
+        "v": "0x1p"
+      },
+      "error": "field v: invalid number \"0x1p\": validation error"
+    },
+    {
+      "document": {
+        "v": "0x1_0"
+      },
+      "error": "field v: invalid number \"0x1_0\": validation error"
+    },
+    {
+      "document": {
+        "v": "nan(-)"
+      },
+      "error": "field v: invalid number \"nan(-)\": validation error"
+    },
+    {
+      "document": {
+        "v": "1e999"
+      },
+      "error": "field v: invalid number \"1e999\": validation error"
+    }
+  ]
+}

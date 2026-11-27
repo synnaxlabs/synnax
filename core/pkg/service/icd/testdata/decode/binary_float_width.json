@@ -1,0 +1,32 @@
+{
+  "description": "A float field must be 32 or 64 bits.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "kind": "float"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float32"
+        }
+      ]
+    }
+  ],
+  "error": "message frame: field v: a float field must be 32 or 64 bits, not 16: validation error"
+}

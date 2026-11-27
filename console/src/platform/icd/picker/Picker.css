@@ -66,6 +66,15 @@
         margin: 0.5rem 1rem 1.5rem;
     }
 
+    .console-icd-picker__side-lead {
+        flex-shrink: 0;
+        padding: 1.5rem 2rem 0;
+
+        .console-icd-picker__side-action {
+            margin: 0 -1.5rem;
+        }
+    }
+
     /* Its border sets the footer apart from the panes, so it pads its top too. */
     .console-icd-picker__footer {
         padding-top: var(--pluto-modal-inset);
@@ -159,6 +168,15 @@
         background: var(--pluto-gray-l2);
         border-top: var(--console-divider);
         border-bottom: var(--console-divider);
+    }
+
+    .console-icd-picker__section-note {
+        margin-left: auto;
+        color: var(--pluto-primary-text);
+    }
+
+    .console-icd-picker__value-list.console--dimmed .console-icd-picker__value > * {
+        color: var(--pluto-text-disabled);
     }
 
     /* The table head already draws the line above the first section. */

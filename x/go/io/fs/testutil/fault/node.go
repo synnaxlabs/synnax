@@ -30,6 +30,10 @@ type disk struct {
 	changes uint64
 	// syncedThrough is the seq of the newest change that a SyncDir made durable.
 	syncedThrough uint64
+	// syncs counts the Syncs and SyncDirs with changes, for SyncErrorAt.
+	syncs uint64
+	// blockReads counts the block reads of the disk, for ReadFaultAt.
+	blockReads uint64
 	// calls counts the calls of each kind at each path and offset. The count is a part
 	// of each draw, so a second call gets its own draw.
 	calls map[call]uint64
@@ -41,6 +45,10 @@ type disk struct {
 	// none.
 	open map[*node]int
 	cfg  Config
+	// capacity is the size of the disk in bytes when capped is true: the Capacity of
+	// cfg, or the size that a Fill set. A Fill can set zero, which caps the disk.
+	capacity int64
+	capped   bool
 	// clock counts the changes to the disk. It gives each one a later mod time.
 	clock int64
 	// ids counts the files that the disk made. It gives each one its ID.
@@ -74,8 +82,13 @@ type node struct {
 // ID names one file of a disk. A rename does not change it, and a crash image keeps it.
 type ID uint64
 
-// Span is a range of the bytes of a file, from From up to To.
-type Span struct{ From, To int64 }
+// Span is a range of the bytes of a file.
+type Span struct {
+	// From is the offset of the first byte of the range.
+	From int64
+	// To is the offset one past the last byte of the range.
+	To int64
+}
 
 // Stat is what the Sys method of the info of a file returns.
 type Stat struct {
@@ -223,8 +236,12 @@ type place struct {
 // Fault is a read fault: the 4 KiB block of a file that it hit, and the bytes of the
 // read that got it.
 type Fault struct {
-	Read  Span
-	File  ID
+	// Read is the range of the read call that got the fault, which can hold more than
+	// the block.
+	Read Span
+	// File is the file of the block.
+	File ID
+	// Block is the index of the block in the file, its offset over 4 KiB.
 	Block int64
 }
 
@@ -236,13 +253,15 @@ type call struct {
 
 func newDisk(cfg Config, root *node, clock int64, ids ID) *disk {
 	return &disk{
-		cfg:   cfg,
-		root:  root,
-		clock: clock,
-		ids:   ids,
-		calls: map[call]uint64{},
-		open:  map[*node]int{},
-		reads: map[place]uint64{},
+		cfg:      cfg,
+		capacity: cfg.Capacity,
+		capped:   cfg.Capacity > 0,
+		root:     root,
+		clock:    clock,
+		ids:      ids,
+		calls:    map[call]uint64{},
+		open:     map[*node]int{},
+		reads:    map[place]uint64{},
 	}
 }
 

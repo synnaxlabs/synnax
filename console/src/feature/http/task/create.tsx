@@ -22,6 +22,7 @@ import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 export const DEFAULT_READ_NAME = "HTTP read task";
+export const DEFAULT_WRITE_NAME = "HTTP write task";
 
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
@@ -51,7 +52,7 @@ const getWriteInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
-  return { name: "HTTP write task", type: WRITE_TYPE, config: cfg };
+  return { name: DEFAULT_WRITE_NAME, type: WRITE_TYPE, config: cfg };
 };
 
 export const useCreateWrite = Task.createUseCreate({

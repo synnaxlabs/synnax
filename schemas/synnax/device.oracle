@@ -161,6 +161,7 @@ Device struct<
         Devices represent external equipment like LabJack, National Instruments, OPC UA
         servers, or Modbus devices.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type     "device"

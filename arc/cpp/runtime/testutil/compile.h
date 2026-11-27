@@ -84,13 +84,13 @@ public:
     }
 };
 
-/// @brief Compiles an Arc program via the Synnax client.
+/// @brief Compiles an Arc program from source via the Synnax client.
 inline arc::program::Program
-compile_text(const synnax::Synnax &client, const std::string &source) {
+compile(const synnax::Synnax &client, synnax::arc::Source source) {
     synnax::arc::AutomationArc automation{
         {.name = make_unique_channel_name("test_arc")}
     };
-    automation.source = synnax::arc::TextSource{.text = {.raw = source}};
+    automation.source = std::move(source);
     synnax::arc::Arc arc = automation;
     if (const auto create_err = client.arcs.create(arc))
         throw std::runtime_error("Failed to create arc: " + create_err.message());
@@ -102,5 +102,11 @@ compile_text(const synnax::Synnax &client, const std::string &source) {
     const auto &program = std::get<synnax::arc::AutomationArc>(compiled).program;
     if (!program.has_value()) throw std::runtime_error("Compiled arc has no program");
     return *program;
+}
+
+/// @brief Compiles an Arc program from text via the Synnax client.
+inline arc::program::Program
+compile_text(const synnax::Synnax &client, const std::string &source) {
+    return compile(client, synnax::arc::TextSource{.text = {.raw = source}});
 }
 }

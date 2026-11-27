@@ -38,7 +38,7 @@ export type FlexAlignment = z.infer<typeof flexAlignmentZ>;
 /** Column is a single column in a table, with a key and width. */
 export const columnZ = z.object({
   /** key is the unique identifier for this column within the table. */
-  key: z.string().min(1, "key is required").default(id.create),
+  key: z.string().min(1, "Key is required").default(id.create),
   /** size is the width of the column in pixels. */
   size: z.number().min(1).default(72),
 });
@@ -214,7 +214,7 @@ export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 /** Row is a single row in a table, with a key, height, and cells. */
 export const rowZ = z.object({
   /** key is the unique identifier for this row within the table. */
-  key: z.string().min(1, "key is required").default(id.create),
+  key: z.string().min(1, "Key is required").default(id.create),
   /** size is the height of the row in pixels. */
   size: z.number().min(1).default(36),
   /** cells are the cells of the row, from left to right. */
@@ -231,7 +231,7 @@ export const tableZ = z.object({
   /** key is the unique identifier for this table. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the table. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /** rows are the table rows in display order, top to bottom. */
   rows: rowZ.array().default(() => []),
   /** columns are the table columns in display order, left to right. */

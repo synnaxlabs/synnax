@@ -133,6 +133,7 @@ Task struct<
         hardware operations such as reading sensor data, writing control signals, or
         scanning for devices.
     """
+    @go entry
     @go marshal
     @go migrate
     @py name                 "Payload"
@@ -152,6 +153,10 @@ Where filter Task {
     arcs     uuid[] {
         @cpp omit
         @doc value "matches the tasks that run any of the Arcs with the given keys."
+    }
+    icds     uuid[] {
+        @cpp omit
+        @doc value "matches the tasks that use any of the ICDs with the given keys."
     }
 
     @doc value         "is a filter that selects tasks."
@@ -197,6 +202,7 @@ KeyedConfig struct {
     }
 
     @doc value "is the base for every stored task configuration record."
+    @go entry
     @pb omit
 }
 

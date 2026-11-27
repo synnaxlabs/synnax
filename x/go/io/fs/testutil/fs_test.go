@@ -24,7 +24,7 @@ import (
 
 // tempDirPrefix is the prefix of every directory osFS creates in os.TempDir.
 func tempDirPrefix() string {
-	return fmt.Sprintf("testdata-p%d-", GinkgoParallelProcess())
+	return fmt.Sprintf("testdata-p%d-%d-", GinkgoParallelProcess(), os.Getpid())
 }
 
 // matchingTempDirs returns the basenames of every entry in os.TempDir that

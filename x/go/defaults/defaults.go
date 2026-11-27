@@ -25,8 +25,9 @@ type grouped interface {
 
 // Fill returns v with every zero field replaced by its schema default. Each value whose
 // type has a SetDefaults method, at any depth, starts from its defaults, and every
-// non-zero field of v replaces the default. A default group takes its defaults only
-// when all of its members are zero in v.
+// non-zero field of v replaces the default. A non-zero struct of only numbers, with no
+// defaults of its own, replaces its default whole, zero members included. A default
+// group takes its defaults only when all of its members are zero in v.
 func Fill[T any](v T) T {
 	out := reflect.New(reflect.TypeFor[T]()).Elem()
 	fillFresh(out, reflect.ValueOf(&v).Elem())
@@ -69,7 +70,7 @@ func overlay(dst, src reflect.Value) {
 	}
 	switch src.Kind() {
 	case reflect.Struct:
-		if opaque(src.Type()) {
+		if opaque(src.Type()) || numbersOnly(src.Type()) {
 			dst.Set(src)
 			return
 		}
@@ -102,6 +103,27 @@ func overlay(dst, src reflect.Value) {
 	default:
 		dst.Set(src)
 	}
+}
+
+// numbersOnly reports whether t holds only numbers and has no defaults of its own, such
+// as a range. Its default comes whole from a parent, and a zero member is a real value,
+// so a non-zero value replaces that default whole.
+func numbersOnly(t reflect.Type) bool {
+	p := reflect.PointerTo(t)
+	if p.Implements(reflect.TypeFor[setter]()) ||
+		p.Implements(reflect.TypeFor[grouped]()) {
+		return false
+	}
+	for f := range t.Fields() {
+		switch f.Type.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+			reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+			reflect.Float32, reflect.Float64:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // opaque reports whether t has an unexported field, such as time.Time. Fill cannot

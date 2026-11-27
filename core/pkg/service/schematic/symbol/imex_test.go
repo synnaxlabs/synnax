@@ -51,7 +51,7 @@ var _ = Describe("ImEx", func() {
 		It("Should export a symbol as a versioned envelope", func(ctx SpecContext) {
 			sym := defaults.Fill(symbol.Symbol{
 				Name: "exported",
-				Data: symbol.Spec{Drawing: svg("<svg/>"), Variant: "valve"},
+				Data: symbol.Spec{Drawing: svg("<svg/>")},
 			})
 			// Export reads committed data, so the symbol must be deleted to keep the
 			// shared DB's counts intact.
@@ -131,7 +131,6 @@ var _ = Describe("ImEx", func() {
 				)
 				Expect(res.Name).To(Equal("Server Symbol"))
 				Expect(res.Data.Drawing).To(Equal(svg("<svg><rect/></svg>")))
-				Expect(res.Data.Variant).To(Equal("valve"))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.States).To(HaveLen(1))
 				state, ok := res.Data.States[0].Variant.(symbol.EnumerationState)
@@ -159,7 +158,6 @@ var _ = Describe("ImEx", func() {
 					createImportGroup(ctx, tx),
 				)
 				Expect(res.Name).To(Equal("Console Symbol"))
-				Expect(res.Data.Variant).To(Equal("sensor"))
 				Expect(res.Data.Scale).To(Equal(2.0))
 				Expect(res.Data.StrokeScaled).To(BeTrue())
 				Expect(res.Data.Looks).To(HaveLen(1))
@@ -177,7 +175,12 @@ var _ = Describe("ImEx", func() {
 
 		DescribeTable(
 			"Should keep the colors of an old symbol file as color looks with no enumeration",
-			func(ctx SpecContext, path string, colors [][2]string) {
+			func(
+				ctx SpecContext,
+				path string,
+				colors [][2]string,
+				whens []*symbol.Condition,
+			) {
 				countEnumerations := func() int {
 					GinkgoHelper()
 					var all []enumeration.Enumeration
@@ -195,12 +198,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Data.Looks).To(HaveLen(len(colors)))
 				for i, c := range colors {
 					look := res.Data.Looks[i]
-					Expect(look.When).To(HaveValue(Equal(symbol.Condition{
-						Variant: symbol.EqualsCondition{
-							State:  "active",
-							Values: []float64{float64(i)},
-						},
-					})))
+					Expect(look.When).To(Equal(whens[i]))
 					Expect(look.Stroke).To(HaveValue(Equal(colorPaint(c[0]))))
 					Expect(look.Fill).To(HaveValue(Equal(colorPaint(c[1]))))
 				}
@@ -209,11 +207,13 @@ var _ = Describe("ImEx", func() {
 				"a v2 file with one state",
 				"versions/testdata/import_v2.json",
 				[][2]string{{"#ff0000", "#00ff00"}},
+				[]*symbol.Condition{nil},
 			),
 			Entry(
 				"a v3 file with the states Base and Active",
 				"versions/testdata/import_v3.json",
 				[][2]string{{"#111111", "#222222"}, {"#333333", "#444444"}},
+				[]*symbol.Condition{equals("active", 0), equals("active", 1)},
 			),
 		)
 
@@ -283,7 +283,6 @@ var _ = Describe("ImEx", func() {
 			GinkgoHelper()
 			sym := defaults.Fill(symbol.Symbol{Name: "valve", Data: symbol.Spec{
 				Drawing: svg("<svg/>"),
-				Variant: "static",
 				States: []symbol.State{{Variant: symbol.EnumerationState{
 					Key:         "active",
 					Name:        "Active",
@@ -352,7 +351,6 @@ var _ = Describe("ImEx", func() {
 					Name: "round-trip",
 					Data: symbol.Spec{
 						Drawing:      svg("<svg/>"),
-						Variant:      "valve",
 						StrokeScaled: true,
 					},
 				})
@@ -391,7 +389,6 @@ var _ = Describe("ImEx", func() {
 					Commands:     []symbol.Command{},
 					Looks:        []symbol.Look{},
 					Interactions: []symbol.Interaction{},
-					Variant:      "valve",
 					StrokeScaled: true,
 					Scale:        original.Data.Scale,
 				}))

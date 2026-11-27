@@ -192,6 +192,18 @@ describe("device/tree", () => {
     expect(await screen.findByText("Save and create read task")).toBeTruthy();
   });
 
+  // A menu that grows while open can resize inside a ResizeObserver loop in WebKit.
+  it("should open the menu of a found device with its integration items", async () => {
+    const dev = await createTestDevice(client, {
+      make: NI.Device.MAKE,
+      configured: false,
+    });
+    await renderDeviceTree(hostDevices(dev));
+    await openTreeRowContextMenu(dev.name);
+    await screen.findByText("Rename");
+    expect(screen.queryByText("Configure")).not.toBeNull();
+  });
+
   it("should open the EtherCAT form from Configure on a configured slave", async () => {
     const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
     const identifier = createIdentifier();

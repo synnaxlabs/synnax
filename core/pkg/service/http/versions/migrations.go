@@ -22,3 +22,6 @@ var ReadMigrations = []gorp.Migration{
 	v4.Migration,
 	v5.ReadMigration,
 }
+
+// WriteMigrations is the ordered migration chain for stored HTTP write task configs.
+var WriteMigrations = []gorp.Migration{v5.WriteMigration}

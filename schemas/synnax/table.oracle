@@ -388,6 +388,7 @@ Table struct {
         Tables support multiple columns, channel data sources, and customizable
         formatting options.
     """
+    @go entry
     @go imex
     @go marshal
     @go migrate

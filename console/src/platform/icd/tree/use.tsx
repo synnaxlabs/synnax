@@ -14,16 +14,10 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
 import { deep, id, map, type record, unique, uuid } from "@synnaxlabs/x";
-import {
-  type Dispatch,
-  type FC,
-  type ReactElement,
-  type RefObject,
-  type SetStateAction,
-  useSyncExternalStore,
-} from "react";
+import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
+import { MessageMark } from "@/platform/icd/Details";
 import { copyName } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
@@ -49,6 +43,7 @@ import {
   type Node,
   type SourceNode,
 } from "@/platform/icd/tree/nodes";
+import { useStructure } from "@/platform/icd/tree/structure";
 import { Task } from "@/platform/task";
 
 /** A source of a read task, such as a topic or a record, in the task's form. */
@@ -102,35 +97,26 @@ const useIndex = <S extends Source>(
   sourceOf: (source: S) => ReadSource | null,
   formats: Formats,
 ): Index => {
-  const { bind, get } = PForm.useContext();
-  const subscribe = (onChange: () => void) => {
-    const unbinds = [
-      bind(onChange),
-      ...[...formats.values()].map((f) => f.bind(onChange)),
-    ];
-    return () => unbinds.forEach((unbind) => unbind());
-  };
-  const getStructure = () =>
-    JSON.stringify(
-      lists().map(([group, sources]): Structure[number] => [
-        group,
-        get(sources).value.map((s): Sources[number] => {
-          const source = sourceOf(s);
-          return [
-            s.key,
-            source == null
-              ? null
-              : source.messages.map(({ message, index }) => [
-                  message,
-                  fieldsOf(formats, source.icd, message)
-                    .filter(({ key }) => key !== index)
-                    .map(treeFieldOf),
-                ]),
-          ];
-        }),
-      ]),
-    );
-  const structure = useSyncExternalStore(subscribe, getStructure, getStructure);
+  const { get } = PForm.useContext();
+  const structure = useStructure(formats, (): Structure =>
+    lists().map(([group, sources]): Structure[number] => [
+      group,
+      get(sources).value.map((s): Sources[number] => {
+        const source = sourceOf(s);
+        return [
+          s.key,
+          source == null
+            ? null
+            : source.messages.map(({ message, index }) => [
+                message,
+                fieldsOf(formats, source.icd, message)
+                  .filter(({ key }) => key !== index)
+                  .map(treeFieldOf),
+              ]),
+        ];
+      }),
+    ]),
+  );
   const byKey = new Map<string, Node>();
   const groups = new Set<string>();
   const sourceNode = ([source, reads]: Sources[number]): Tree.Node => {
@@ -155,28 +141,42 @@ const useIndex = <S extends Source>(
     });
     return { key: source, children };
   };
-  const nodes = (JSON.parse(structure) as Structure).flatMap(
-    ([group, sources]): Tree.Node[] => {
-      const children = sources.map(sourceNode);
-      if (group == null) return children;
-      groups.add(group);
-      return [{ key: group, children }];
-    },
-  );
+  const nodes = structure.flatMap(([group, sources]): Tree.Node[] => {
+    const children = sources.map(sourceNode);
+    if (group == null) return children;
+    groups.add(group);
+    return [{ key: group, children }];
+  });
   return { nodes, byKey, groups };
 };
 
 interface MessageItemProps extends Tree.ItemRenderProps<string> {
   path: deep.Path<ReadSource>;
   read: number;
+  missingDescription: string;
 }
 
-const MessageItem = ({ path, read, ...props }: MessageItemProps) => (
-  <Task.Views.TreeGroupItem
-    {...props}
-    label={<MessageLabel path={path} read={read} />}
-  />
-);
+const MessageItem = ({
+  path,
+  read,
+  missingDescription,
+  ...props
+}: MessageItemProps) => {
+  const icdKey = PForm.useFieldValue(path.icd);
+  const message = PForm.useFieldValue(path.messages[read].message);
+  return (
+    <Task.Views.TreeGroupItem
+      {...props}
+      label={<MessageLabel path={path} read={read} />}
+    >
+      <MessageMark
+        icdKey={icdKey}
+        messages={[message]}
+        missingDescription={() => missingDescription}
+      />
+    </Task.Views.TreeGroupItem>
+  );
+};
 
 interface FieldItemProps extends Tree.ItemRenderProps<string> {
   path: deep.Path<ReadSource>;
@@ -252,6 +252,8 @@ interface BaseArgs<S extends Source> {
   pathOf: (key: string) => deep.Path<ReadSource>;
   /** Renders the tree item of a source. */
   SourceItem: FC<Tree.ItemRenderProps<string>>;
+  /** @returns why the ICD lacks the message of a read, and what to do now. */
+  missingDescription: (read: number) => string;
   /** @returns the binding of a field that the task starts to read. */
   bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
   /** Disables each control that binds a field to a channel. */
@@ -262,7 +264,7 @@ interface BaseArgs<S extends Source> {
   messageName: (source: string, held: icd.Message[]) => string;
   /**
    * The key of each message that the task made. The hook adds each message it makes.
-   * Keep it outside of each {@link WithFormat}, as a new ICD mounts the hook again.
+   * Keep it outside of {@link WithFormats}, as a new ICD mounts the hook again.
    */
   made: RefObject<Set<string>>;
   /** The key of each selected tree item. */
@@ -307,8 +309,8 @@ export interface UseReturn {
 
 /**
  * The tree of the sources of a read task, with each message and field that they read.
- * It edits the ICDs of the sources through their open forms, so call it inside a
- * {@link WithFormat} for the ICD of each source. Source keys must be unique across
+ * It edits the ICDs of the sources through their open forms, so call it inside
+ * {@link WithFormats} with the ICD of each source. Source keys must be unique across
  * groups.
  */
 export const use = <
@@ -318,6 +320,7 @@ export const use = <
   sourceOf,
   pathOf,
   SourceItem,
+  missingDescription,
   bindingOf,
   bindDisabled = false,
   tareable = false,
@@ -731,7 +734,13 @@ export const use = <
       );
     if (node?.kind === "message")
       return (
-        <MessageItem key={key} {...p} path={pathOf(node.source)} read={node.read} />
+        <MessageItem
+          key={key}
+          {...p}
+          path={pathOf(node.source)}
+          read={node.read}
+          missingDescription={missingDescription(node.read)}
+        />
       );
     return <SourceItem key={key} {...p} />;
   };

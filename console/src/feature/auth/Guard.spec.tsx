@@ -21,7 +21,9 @@ import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library
 import type { FC, PropsWithChildren, ReactElement } from "react";
 import { beforeEach, describe, expect, it, onTestFinished, vi } from "vitest";
 
-const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+const mocks = vi.hoisted((): { engine: "web" | "tauri"; coreSelectable?: boolean } => ({
+  engine: "web",
+}));
 
 vi.mock("@/session/runtime", async (importOriginal) => {
   const { mockRuntimeEngine } = await import("@/testutil/runtime");
@@ -48,20 +50,23 @@ import {
 
 const LOCAL = createCore("Local", { username: "", password: "" });
 const CORE_KEY = LOCAL.key;
+// a password typed in this page, which a Core on another origin needs to log in
+const TYPED = { ...LOCAL, password: "seldon" };
 
-const CoreState = (): Session.Core.SliceState => ({
+const CoreState = (core = LOCAL): Session.Core.SliceState => ({
   ...Session.Core.ZERO_SLICE_STATE,
-  cores: { [CORE_KEY]: LOCAL },
+  cores: { [CORE_KEY]: core },
+  order: [CORE_KEY],
 });
 
-const renderGuard = async (selected?: string): Promise<TestStore> => {
+const renderGuard = async (selected?: string, core = LOCAL): Promise<TestStore> => {
   const { store } = await renderWithConsole(
     <Auth.Guard>
       <span>authenticated content</span>
     </Auth.Guard>,
     {
       preloadedState: {
-        [Session.Core.SLICE_NAME]: { ...CoreState(), selected },
+        [Session.Core.SLICE_NAME]: { ...CoreState(core), selected },
       },
     },
   );
@@ -83,6 +88,7 @@ const renderUnreachable = async (): Promise<void> => {
             port: 9098,
           }),
         },
+        order: [DEAD_KEY],
         selected: DEAD_KEY,
       },
     },
@@ -111,13 +117,21 @@ const submitCredentials = (username: string, password: string): void => {
 
 beforeEach(() => {
   mocks.engine = "web";
+  mocks.coreSelectable = undefined;
 });
 
 describe("auth guard", () => {
   it("should render children when a Core is already selected", async () => {
-    await renderGuard(CORE_KEY);
+    await renderGuard(CORE_KEY, TYPED);
     expect(screen.getByText("authenticated content")).toBeTruthy();
     expect(screen.queryByText("Log in")).toBeNull();
+  });
+
+  it("should render the login screen for a selected Core with no login", async () => {
+    pinLocationOrigin("http://localhost:5173");
+    await renderGuard(CORE_KEY);
+    expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
+    expect(screen.queryByText("authenticated content")).toBeNull();
   });
 
   it("should finish a browser login even when a Core is already selected", async () => {
@@ -230,6 +244,14 @@ describe("auth guard", () => {
     expect(screen.queryByText("Edit connection")).toBeNull();
   });
 
+  it("should offer to edit the connection on the dev server", async () => {
+    mocks.coreSelectable = true;
+    await renderUnreachable();
+    expect(
+      await screen.findByText("Edit connection", {}, { timeout: 10000 }),
+    ).toBeTruthy();
+  });
+
   it("should offer to edit the connection on desktop", async () => {
     mocks.engine = "tauri";
     mockWindows("main");
@@ -314,7 +336,7 @@ describe("connection guard permissions", () => {
     const { wrapper } = await createConsoleWrapper({
       client,
       preloadedState: {
-        [Session.Core.SLICE_NAME]: { ...CoreState(), selected: CORE_KEY },
+        [Session.Core.SLICE_NAME]: { ...CoreState(TYPED), selected: CORE_KEY },
       },
       skipPermissionLoad: true,
     });

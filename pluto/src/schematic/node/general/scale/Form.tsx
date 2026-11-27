@@ -30,6 +30,7 @@ export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
         <Base.Sections x>
           <Base.Section title="Label">
             <Label.Form path={path.label} />
+            <Orientation.Field path={path} hideInner label="Position" />
           </Base.Section>
           <Base.Section title="Dimensions">
             <Base.NumericField
@@ -62,7 +63,6 @@ export const ScaleForm = ({ tab, onTabChange }: FormProps): ReactElement => {
           <Base.Section title="Appearance">
             <Scale.StyleFields />
           </Base.Section>
-          <Orientation.Section path={path} hideInner />
         </Base.Sections>
       </Tabs.Content>
       <Tabs.Content itemKey="telemetry">

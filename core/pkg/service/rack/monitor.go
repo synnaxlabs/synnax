@@ -12,7 +12,6 @@ package rack
 import (
 	"context"
 	"fmt"
-	"io"
 	"maps"
 	"slices"
 	"sync"
@@ -26,7 +25,6 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -65,7 +63,6 @@ type rackState struct {
 }
 
 type monitor struct {
-	shutdownRoutines         io.Closer
 	svc                      *Service
 	disconnectStatusObserver observe.Disconnect
 	alamos.Instrumentation
@@ -95,11 +92,25 @@ func (m *monitor) onSuspect(handler SuspectHandler) observe.Disconnect {
 }
 
 func (m *monitor) Close() error {
-	// Shut down background routines first so checkAlive stops calling suspect handlers,
-	// then disconnect the status observer to avoid a deadlock.
-	err := m.shutdownRoutines.Close()
 	m.disconnectStatusObserver()
-	return err
+	return nil
+}
+
+// run checks the health of the racks on each health check interval until ctx ends.
+func (m *monitor) run(ctx context.Context) {
+	ticker := time.NewTicker(m.svc.HealthCheckInterval.Duration())
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		// An error from a stop in the middle of a check is not a failure.
+		if err := m.checkAlive(ctx); err != nil && ctx.Err() == nil {
+			m.L.Error("failed to check alive status", zap.Error(err))
+		}
+	}
 }
 
 func (m *monitor) checkAlive(ctx context.Context) error {
@@ -379,9 +390,9 @@ func (m *monitor) handleTaskStatus(key status.Key, stat status.Status[any]) {
 	}
 }
 
-// openMonitor watches the health of every stored rack. A rack that sends no status
-// within one health check interval is marked as not running, even when its stored
-// status is healthy.
+// openMonitor watches the health of every stored rack. While run runs, a rack that
+// sends no status within one health check interval is marked as not running, even when
+// its stored status is healthy.
 func openMonitor(
 	ctx context.Context,
 	ins alamos.Instrumentation,
@@ -409,12 +420,7 @@ func openMonitor(
 		return nil, err
 	}
 	obs := svc.Status.Observe()
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
-	s := &monitor{
-		Instrumentation:  ins,
-		svc:              svc,
-		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
-	}
+	s := &monitor{Instrumentation: ins, svc: svc}
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
 	// A task status stored before the Core started is one the monitor has seen, so an
@@ -428,15 +434,5 @@ func openMonitor(
 		s.mu.racks[r.Key] = rackState{lastUpdated: now}
 	}
 	s.disconnectStatusObserver = obs.OnChange(s.handleChange)
-	signal.GoTick(
-		sCtx,
-		svc.HealthCheckInterval.Duration(),
-		func(ctx context.Context, t time.Time) error {
-			if err := s.checkAlive(ctx); err != nil {
-				s.L.Error("failed to check alive status", zap.Error(err))
-			}
-			return nil
-		},
-	)
 	return s, nil
 }

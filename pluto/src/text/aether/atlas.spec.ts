@@ -11,10 +11,8 @@ import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { text } from "@/text/aether";
 
+// The advance of a digit. A tabular font gives every digit this one.
 const ADVANCE = 6;
-// The atlas pads every cell by this much on each axis.
-const PADDING = 2;
-const CELL_WIDTH = ADVANCE + PADDING;
 const DIGIT_ASCENT = 8;
 // Taller than a digit and with a tail below the baseline, as a real glyph set is.
 const SET_ASCENT = 9;
@@ -23,10 +21,27 @@ const SET_DESCENT = 3;
 // device pixels while the glyph positions it records are in atlas pixels.
 const SCALE_FACTOR = 2;
 
-const metrics = (ascent: number, descent: number): TextMetrics =>
+// Advances of glyphs that are not one digit wide, as a proportional font sets them.
+const ADVANCES: Record<string, number> = { ":": 3, ".": 3, m: 10, s: 5, μ: 7 };
+const advanceOf = (char: string): number => ADVANCES[char] ?? ADVANCE;
+// Glyphs whose ink starts this far right of their origin, as most Inter glyphs do.
+const BEARINGS: Record<string, number> = { "1": 2, "7": 3 };
+const bearing = (char: string): number => BEARINGS[char] ?? 0;
+// Glyphs whose ink reaches past their advance.
+const OVERHANGS: Record<string, number> = { f: 2 };
+const inkRight = (char: string): number => advanceOf(char) + (OVERHANGS[char] ?? 0);
+
+const metrics = (
+  ascent: number,
+  descent: number,
+  right = ADVANCE,
+  left = 0,
+  width = ADVANCE,
+): TextMetrics =>
   ({
-    actualBoundingBoxLeft: 0,
-    actualBoundingBoxRight: ADVANCE,
+    width,
+    actualBoundingBoxLeft: left,
+    actualBoundingBoxRight: right,
     actualBoundingBoxAscent: ascent,
     actualBoundingBoxDescent: descent,
   }) as TextMetrics;
@@ -68,9 +83,9 @@ const overlaps = (a: Bounds, b: Bounds): boolean =>
   a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom;
 
 // Ink a glyph covers in atlas pixels, measured from the baseline it was drawn on.
-const inkOf = ({ x, y }: Glyph, descent = SET_DESCENT): Bounds => ({
-  left: x,
-  right: x + ADVANCE,
+const inkOf = ({ char, x, y }: Glyph, descent = SET_DESCENT): Bounds => ({
+  left: x + bearing(char),
+  right: x + inkRight(char),
   top: y - SET_ASCENT,
   bottom: y + descent,
 });
@@ -84,12 +99,14 @@ const sourceOf = ({ sx, sy, sw, sh }: Copy): Bounds => ({
 });
 
 interface Harness {
-  atlas: text.MonospacedAtlas;
+  atlas: text.Atlas;
   glyphs: Glyph[];
   glyphOf: (char: string) => Glyph;
   copy: (text: string, x: number, y: number, baseline?: CanvasTextBaseline) => Copy[];
   /** Baseline the copies of `text` landed on, given the baseline asked for. */
   baselineOf: (text: string, y: number, baseline?: CanvasTextBaseline) => number;
+  /** Origin of each glyph of `text` drawn from x. */
+  originsOf: (text: string, x: number) => number[];
 }
 
 const setup = (characters?: string, descent = SET_DESCENT): Harness => {
@@ -114,7 +131,13 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
           const shift = shifts[ctx.textBaseline];
           return t === "0"
             ? metrics(DIGIT_ASCENT - shift, shift)
-            : metrics(SET_ASCENT - shift, descent + shift);
+            : metrics(
+                SET_ASCENT - shift,
+                descent + shift,
+                inkRight(t),
+                -bearing(t),
+                advanceOf(t),
+              );
         },
         fillText: (char: string, x: number, y: number) => glyphs.push({ char, x, y }),
       };
@@ -122,7 +145,7 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
     }
   }
   vi.stubGlobal("OffscreenCanvas", Canvas);
-  const atlas = new text.MonospacedAtlas({
+  const atlas = new text.Atlas({
     font: "12px mono",
     textColor: "#ffffff",
     characters,
@@ -150,6 +173,9 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
     atlas.fillText(ctx, text, x, y);
     return copies;
   };
+  // Where each copy puts its glyph's origin, from the glyph's place in its cell.
+  const originsOf = (text: string, x: number): number[] =>
+    copy(text, x, 0).map((c, i) => c.dx + (glyphOf(text[i]).x - sourceOf(c).left));
   const glyphOf = (char: string): Glyph => {
     const glyph = glyphs.find((g) => g.char === char);
     assert(glyph != null, `${char} is not in the atlas`);
@@ -165,10 +191,10 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
     const [c] = copy(text, 0, y, baseline);
     return c.dy + (glyphOf(text[0]).y - sourceOf(c).top);
   };
-  return { atlas, glyphs, glyphOf, copy, baselineOf };
+  return { atlas, glyphs, glyphOf, copy, baselineOf, originsOf };
 };
 
-describe("MonospacedAtlas", () => {
+describe("Atlas", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -230,17 +256,20 @@ describe("MonospacedAtlas", () => {
       expect(setup().copy("25μs", 0, 0)).toHaveLength(4);
     });
 
-    it("should advance one character width per character", () => {
-      const { copy } = setup();
-      const [first, second] = copy("12", 40, 60);
-      expect(second.dx - first.dx).toEqual(CELL_WIDTH);
+    it("should move each glyph by its own advance", () => {
+      expect(setup().originsOf("14:05s", 40)).toEqual([40, 46, 52, 55, 61, 67]);
+    });
+
+    it("should read out the ink of a glyph that reaches past its advance", () => {
+      const { glyphOf, copy } = setup("0f");
+      const source = sourceOf(copy("f", 0, 0)[0]);
+      expect(inkOf(glyphOf("f")).right).toBeLessThanOrEqual(source.right);
     });
   });
 
   describe("measureText", () => {
-    it("should report one character width per character", () => {
-      const { atlas } = setup();
-      expect(atlas.measureText("123").width).toEqual(CELL_WIDTH * 3);
+    it("should report the sum of the advances", () => {
+      expect(setup().atlas.measureText("14:05s").width).toEqual(32);
     });
 
     // Callers center text on this height, so it must be the ink, not the cell.

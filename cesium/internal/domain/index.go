@@ -30,6 +30,10 @@ type index struct {
 		// not see yet. It is empty outside of a commit, and holds one domain for each
 		// writer that is in one.
 		staged []staged
+		// lastID is the last pointer id handed out.
+		lastID uint64
+		// rewrites counts the GC rewrites of each file.
+		rewrites map[uint16]uint64
 		sync.RWMutex
 	}
 	// persistHead is the position of the first pointer that the index file may not
@@ -134,23 +138,45 @@ func (idx *index) report(change historyChange) {
 }
 
 // unprotectedVisible returns the first domain that readers see, from position i in the
-// direction of step, as readers see it.
-func (idx *index) unprotectedVisible(i, step int) (int, pointer, bool) {
+// direction of step, as readers see it, and the GC rewrite count of its file.
+func (idx *index) unprotectedVisible(i, step int) (int, pointer, uint64, bool) {
 	for ; i >= 0 && i < len(idx.mu.pointers); i += step {
 		ptr := idx.mu.pointers[i]
+		rewrites := idx.mu.rewrites[ptr.fileKey]
 		if len(idx.mu.staged) == 0 {
-			return i, ptr, true
+			return i, ptr, rewrites, true
 		}
 		j := idx.unprotectedStaged(ptr.Start)
 		if j < 0 || idx.mu.staged[j].visible() {
-			return i, ptr, true
+			return i, ptr, rewrites, true
 		}
 		if s := idx.mu.staged[j]; !s.inserted {
 			ptr.End, ptr.size = s.end, s.size
-			return i, ptr, true
+			return i, ptr, rewrites, true
 		}
 	}
-	return i, pointer{}, false
+	return i, pointer{}, 0, false
+}
+
+// locate returns the domain in the index that is ptr, and the GC rewrite count of its
+// file. found is false if a delete removed the domain or cut any bytes of ptr from it.
+func (idx *index) locate(ptr pointer) (current pointer, rewrites uint64, found bool) {
+	idx.read(func() {
+		rewrites = idx.mu.rewrites[ptr.fileKey]
+		i, exact := idx.unprotectedSearch(ptr.Start.SpanRange(0))
+		if !exact {
+			return
+		}
+		if p := idx.mu.pointers[i]; p.id == ptr.id && p.size >= ptr.size {
+			current, found = p, true
+		}
+	})
+	return current, rewrites, found
+}
+
+func (idx *index) unprotectedNextID() uint64 {
+	idx.mu.lastID++
+	return idx.mu.lastID
 }
 
 // insert adds a new pointer to the index, in g when g is not nil. When persist is true,
@@ -192,6 +218,7 @@ func (idx *index) insert(
 		}
 	}
 
+	p.id = idx.unprotectedNextID()
 	appended := insertAt == len(idx.mu.pointers)
 	switch {
 	case insertAt == 0:
@@ -307,6 +334,7 @@ func (idx *index) update(
 		return preparedWrite{}, span.Error(err)
 	}
 	sizeDelta := int64(p.size) - int64(oldP.size)
+	p.id = oldP.id
 	idx.mu.pointers[updateAt] = p
 	idx.totalSize.Add(sizeDelta)
 	var change historyChange
@@ -346,21 +374,21 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 func (idx *index) searchLE(
 	ctx context.Context,
 	ts telem.TimeStamp,
-) (i int, ptr pointer, ok bool) {
+) (i int, ptr pointer, rewrites uint64, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchLE")
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
-		i, ptr, ok = idx.unprotectedVisible(i, -1)
+		i, ptr, rewrites, ok = idx.unprotectedVisible(i, -1)
 	})
 	span.End()
-	return i, ptr, ok
+	return i, ptr, rewrites, ok
 }
 
 // searchGE is searchLE for the closest domain after ts.
 func (idx *index) searchGE(
 	ctx context.Context,
 	ts telem.TimeStamp,
-) (i int, ptr pointer, ok bool) {
+) (i int, ptr pointer, rewrites uint64, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchGE")
 	idx.read(func() {
 		var exact bool
@@ -373,14 +401,14 @@ func (idx *index) searchGE(
 			}
 		}
 		at := i
-		i, ptr, ok = idx.unprotectedVisible(i, 1)
+		i, ptr, rewrites, ok = idx.unprotectedVisible(i, 1)
 		// Readers do not see the part of the domain that holds ts yet.
 		if ok && exact && i == at && !ptr.End.After(ts) {
-			i, ptr, ok = idx.unprotectedVisible(i+1, 1)
+			i, ptr, rewrites, ok = idx.unprotectedVisible(i+1, 1)
 		}
 	})
 	span.End()
-	return i, ptr, ok
+	return i, ptr, rewrites, ok
 }
 
 // unprotectedSearch returns the position in the index of a domain that overlaps with
@@ -413,30 +441,34 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 // domain, and its position. It finds both under one lock, so a concurrent insert
 // cannot shift one off the other. A delete can trim the start of the current domain but
 // not its end.
-func (idx *index) next(end telem.TimeStamp) (i int, ptr pointer, ok bool) {
+func (idx *index) next(
+	end telem.TimeStamp,
+) (i int, ptr pointer, rewrites uint64, ok bool) {
 	idx.read(func() {
 		var exact bool
 		i, exact = idx.unprotectedSearch(end.SpanRange(0))
 		if !exact || idx.mu.pointers[i].Start != end {
 			i++
 		}
-		i, ptr, ok = idx.unprotectedVisible(i, 1)
+		i, ptr, rewrites, ok = idx.unprotectedVisible(i, 1)
 	})
-	return i, ptr, ok
+	return i, ptr, rewrites, ok
 }
 
 // prev returns the last domain that starts before start, the start of the current
 // domain, and its position. A delete can trim the end of the current domain but not its
 // start.
-func (idx *index) prev(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
+func (idx *index) prev(
+	start telem.TimeStamp,
+) (i int, ptr pointer, rewrites uint64, ok bool) {
 	idx.read(func() {
 		var exact bool
 		if i, exact = idx.unprotectedSearch(start.SpanRange(0)); exact {
 			i--
 		}
-		i, ptr, ok = idx.unprotectedVisible(i, -1)
+		i, ptr, rewrites, ok = idx.unprotectedVisible(i, -1)
 	})
-	return i, ptr, ok
+	return i, ptr, rewrites, ok
 }
 
 func (idx *index) read(f func()) {

@@ -11,22 +11,24 @@
 
 # Manages the preview Cores on this host.
 #
-#   preview up <pr> <image> [human|none <time>]
-#                             Starts or replaces the Core for a pull request, and
-#                             marks it as mark does. At the cap, it first removes a
-#                             preview: ones not marked human before ones marked
-#                             human, and within each, the one deployed or viewed
-#                             longest ago.
+#   preview up <pr> <image> <sample image> [human|none <time>]
+#                             Starts or replaces the Core for a pull request, runs
+#                             the sample image against it, and marks it as mark does.
+#                             At the cap, it first removes a preview: ones not marked
+#                             human before ones marked human, and within each, the
+#                             one deployed or viewed longest ago.
 #   preview mark <pr> human|none <time>
 #                             Sets whether a pull request waits on a human review, as
 #                             its labels showed at <time> (Unix seconds). A mark older
 #                             than the saved one changes nothing.
-#   preview upgrade           Starts Caddy, or recreates it without its access log
-#                             mount, and applies the CPU limit to the running
-#                             previews. Memory limits apply from the next deploy.
+#   preview upgrade           Gets the wildcard certificate, restarts the GitHub login,
+#                             rewrites the site of each preview, starts Caddy or
+#                             recreates it without its access log mount, and applies
+#                             the CPU limit to the running previews. Memory limits
+#                             apply from the next deploy.
 #   preview down <pr>         Removes the Core for a pull request.
 #   preview sweep             Removes every Core marked none and not deployed or
-#                             viewed for the TTL.
+#                             viewed for the TTL, and renews the certificate when due.
 #   preview notices           Prints the notices of removed previews, one per line:
 #                             "<pr> <UTC time> evicted <pr that took its place>" or
 #                             "<pr> <UTC time> expired".
@@ -38,6 +40,8 @@ set -euo pipefail
 # shellcheck source=/dev/null
 source "${PREVIEW_ENV:-/etc/synnax-preview.env}"
 : "${PREVIEW_DOMAIN:?}" "${PREVIEW_SITES:?}" "${PREVIEW_TTL_DAYS:?}"
+: "${PREVIEW_ZONE_ID:?}" "${PREVIEW_ACME:?}" "${PREVIEW_LOGIN_PARAMETERS:?}"
+: "${PREVIEW_GITHUB_ORG:?}"
 : "${PREVIEW_LICENSE_PARAMETER:?}" "${PREVIEW_REGION:?}"
 : "${PREVIEW_MAX:?}" "${PREVIEW_CPUS:?}" "${PREVIEW_MEMORY:?}" "${PREVIEW_LOGS:?}"
 : "${PREVIEW_GO_MEMORY:?}"
@@ -51,7 +55,61 @@ container() { echo "synnax-pr-$1"; }
 # Each deploy pulls a new image, so the replaced one must go or the disk fills.
 prune_images() { docker image prune --all --force > /dev/null; }
 
-reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile; }
+reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile "$@"; }
+
+# One wildcard certificate covers every preview, so a new preview never counts against
+# the Let's Encrypt limit for the domain.
+CERT=$PREVIEW_ACME/certificates/_.$PREVIEW_DOMAIN
+LEGO=goacme/lego:v5.7.0
+LEGO+=@sha256:9fe6151508c0e1ddc51a6d3e474353520f4b008782bf0c6d31676da72e6d4766
+
+AUTH=auth.$PREVIEW_DOMAIN
+OAUTH2_PROXY=quay.io/oauth2-proxy/oauth2-proxy:v7.15.6
+OAUTH2_PROXY+=@sha256:c3415e8660af553f5e18f5d90db050614c02493c0ac6260ac59442f6d9b12048
+
+parameter() {
+    aws ssm get-parameter --region "$PREVIEW_REGION" --name "$1" --with-decryption \
+        --query Parameter.Value --output text
+}
+
+# Starts the GitHub login that every preview site checks. Its cookie is on the parent
+# domain, so one sign-in covers every preview.
+start_login() {
+    OAUTH2_PROXY_CLIENT_ID=$(parameter "$PREVIEW_LOGIN_PARAMETERS/client-id")
+    OAUTH2_PROXY_CLIENT_SECRET=$(parameter "$PREVIEW_LOGIN_PARAMETERS/client-secret")
+    OAUTH2_PROXY_COOKIE_SECRET=$(parameter "$PREVIEW_LOGIN_PARAMETERS/cookie-secret")
+    export OAUTH2_PROXY_CLIENT_ID OAUTH2_PROXY_CLIENT_SECRET OAUTH2_PROXY_COOKIE_SECRET
+    docker pull --quiet "$OAUTH2_PROXY" > /dev/null
+    docker rm --force login > /dev/null
+    docker run --detach --name login --network preview --restart unless-stopped \
+        --env OAUTH2_PROXY_CLIENT_ID --env OAUTH2_PROXY_CLIENT_SECRET \
+        --env OAUTH2_PROXY_COOKIE_SECRET "$OAUTH2_PROXY" --provider=github \
+        --github-org="$PREVIEW_GITHUB_ORG" --email-domain='*' \
+        --http-address=0.0.0.0:4180 --reverse-proxy --upstream=static://202 \
+        --redirect-url="https://$AUTH/oauth2/callback" \
+        --cookie-domain=".$PREVIEW_DOMAIN" --whitelist-domain=".$PREVIEW_DOMAIN" \
+        > /dev/null
+    cat > "$PREVIEW_SITES/auth.caddy" << SITE
+$AUTH {
+    tls $CERT.crt $CERT.key
+    reverse_proxy login:4180
+}
+SITE
+}
+
+cert_hash() { sha256sum "$CERT.crt" 2> /dev/null || true; }
+
+# Gets the certificate, or renews it when it is due. The host may send DNS only to the
+# VPC resolver, so lego checks the challenge record there and not at the name servers
+# of the zone. lego gets the role from the instance metadata, which only the host
+# network can reach.
+renew_cert() {
+    docker run --rm --network host --volume "$PREVIEW_ACME:/acme" \
+        --env AWS_REGION="$PREVIEW_REGION" \
+        --env AWS_HOSTED_ZONE_ID="$PREVIEW_ZONE_ID" "$LEGO" run --accept-tos \
+        --no-random-sleep --dns route53 --dns.resolvers 169.254.169.253:53 \
+        --dns.propagation.disable-ans --domains "*.$PREVIEW_DOMAIN" --path /acme
+}
 
 # Prints "<pr> <deployed>" for each preview.
 previews() {
@@ -116,16 +174,38 @@ mark() {
     if (($3 >= saved)); then echo "$3 $2" > "$file"; fi
 }
 
+# Routes the site of pull request $1 to its Core, behind the GitHub login.
+write_site() {
+    # A Caddy reload closes every proxied websocket unless delayed, so without the delay
+    # one preview's deploy breaks the streams of all the others.
+    cat > "$PREVIEW_SITES/pr-$1.caddy" << SITE
+pr-$1.$PREVIEW_DOMAIN {
+    tls $CERT.crt $CERT.key
+    log {
+        output file $PREVIEW_LOGS/pr-$1.log
+    }
+    forward_auth login:4180 {
+        uri /oauth2/auth
+        @signed_out status 401
+        handle_response @signed_out {
+            redir * https://$AUTH/oauth2/start?rd={scheme}://{host}{uri}
+        }
+    }
+    reverse_proxy $(container "$1"):9090 {
+        stream_close_delay 1h
+    }
+}
+SITE
+}
+
 up() {
-    local pr=$1 image=$2 name
+    local pr=$1 image=$2 sample=$3 name
     check_pr "$pr"
-    mark "$pr" "${3:-none}" "${4:-0}"
+    mark "$pr" "${4:-none}" "${5:-0}"
     name=$(container "$pr")
     # An unlicensed Core rejects every request but login. The license and the image come
     # first, so a failure to get either leaves every running Core in place.
-    SYNNAX_LICENSE_KEY=$(aws ssm get-parameter --region "$PREVIEW_REGION" \
-        --name "$PREVIEW_LICENSE_PARAMETER" --with-decryption \
-        --query Parameter.Value --output text)
+    SYNNAX_LICENSE_KEY=$(parameter "$PREVIEW_LICENSE_PARAMETER")
     export SYNNAX_LICENSE_KEY
     docker pull --quiet "$image"
     local order others=() other i
@@ -153,19 +233,12 @@ up() {
         if docker exec "$name" curl -fsS -o /dev/null -X POST \
             -H "Content-Type: application/json" -d '{}' \
             http://localhost:9090/api/v1/connectivity/check; then
-            # A Caddy reload closes every proxied websocket unless delayed, so without
-            # the delay one preview's deploy breaks the streams of all the others.
-            cat > "$PREVIEW_SITES/pr-$pr.caddy" << SITE
-pr-$pr.$PREVIEW_DOMAIN {
-    log {
-        output file $PREVIEW_LOGS/pr-$pr.log
-    }
-    reverse_proxy $name:9090 {
-        stream_close_delay 1h
-    }
-}
-SITE
+            write_site "$pr"
             reload_caddy
+            # The load takes about half a minute, so other commands need not wait on it.
+            flock --unlock 9
+            docker run --rm --network preview --memory "$PREVIEW_MEMORY" \
+                --cpus "$PREVIEW_CPUS" "$sample" "http://$name:9090"
             return
         fi
         sleep 2
@@ -188,7 +261,11 @@ down() {
 }
 
 upgrade() {
-    local mounts preview
+    local mounts preview pr
+    renew_cert
+    start_login
+    # A running preview gets its site in the current form, so it needs no redeploy.
+    previews | while read -r pr _; do write_site "$pr"; done
     # No Caddy container yet, on a new host, reads as no mounts.
     mounts=$(docker inspect -f '{{range .Mounts}}{{.Destination}} {{end}}' caddy \
         2> /dev/null || true)
@@ -199,6 +276,8 @@ upgrade() {
             --publish 443:443 --volume /etc/caddy:/etc/caddy:ro \
             --volume "$PREVIEW_LOGS:$PREVIEW_LOGS" --volume caddy_data:/data \
             caddy:2.10 > /dev/null
+    else
+        reload_caddy --force
     fi
     # A running Core cannot get GOMEMLIMIT, so a lower memory limit could kill it.
     for preview in $(docker ps --all --quiet --filter label=synnax.preview); do
@@ -207,7 +286,7 @@ upgrade() {
 }
 
 sweep() {
-    local cutoff pr deployed
+    local cutoff pr deployed before
     cutoff=$(($(date +%s) - PREVIEW_TTL_DAYS * 86400))
     previews | while read -r pr deployed _; do
         if ! marked_none "$pr" || (($(active "$pr" "$deployed") >= cutoff)); then
@@ -218,6 +297,10 @@ sweep() {
     done
     # A failed deploy can leave a pulled image that no container uses.
     prune_images
+    before=$(cert_hash)
+    renew_cert
+    # Caddy loads a changed certificate file only on a forced reload.
+    if [[ $(cert_hash) != "$before" ]]; then reload_caddy --force; fi
 }
 
 notices() { if [[ -f $NOTICES ]]; then cat "$NOTICES"; fi; }
@@ -243,7 +326,7 @@ ack() {
 }
 
 case "${1:-}" in
-    up) up "$2" "$3" "${4:-}" "${5:-}" ;;
+    up) up "$2" "$3" "${4:-}" "${5:-}" "${6:-}" ;;
     mark) mark "$2" "${3:-}" "${4:-}" ;;
     upgrade) upgrade ;;
     down) down "$2" ;;
@@ -251,7 +334,7 @@ case "${1:-}" in
     notices) notices ;;
     ack) ack "${@:2}" ;;
     *)
-        echo "usage: preview up <pr> <image> [human|none <time>]" \
+        echo "usage: preview up <pr> <image> <sample image> [human|none <time>]" \
             "| mark <pr> human|none <time> | upgrade | down <pr> | sweep" \
             "| notices | ack [<pr> <UTC time>]..." >&2
         exit 2

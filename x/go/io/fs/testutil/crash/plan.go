@@ -29,8 +29,13 @@ type plan struct {
 	image fault.Config
 	// survival sets what a crash keeps of the state that is not durable.
 	survival fault.CrashConfig
-	runKey   uint64
-	profile  Profile
+	// fills is true when the disk of the workload fills after commit fillAfter, zero
+	// for the open, with room bytes left.
+	fills     bool
+	fillAfter int
+	room      int64
+	runKey    uint64
+	profile   Profile
 }
 
 func newPlan(cfg Config) plan {
@@ -46,12 +51,23 @@ func newPlan(cfg Config) plan {
 			EntriesOrdered:    cfg.EntriesOrdered,
 		}
 	}
+	// Run arms the faults of the workload once the engine opens. One sync from then
+	// fails for sure, and the disk fills after a commit of the second half, with less
+	// room than the payload of the next commit, so each fault fires on any engine.
 	if cfg.Profile == SyncErrors || mixed {
 		p.workload.SyncErrorRate = rate(0.02, 0.1, 0.3)
 		p.workload.EvictionRate = rate(0, 0.5, 1)
+		durable := 0
+		for _, ack := range wants(cfg.RunKey, cfg.Commits) {
+			durable += btoi(ack == Durable)
+		}
+		p.workload.SyncErrorAt = 1 + uint64(rng.IntN(max(durable/2, 1)))
 	}
 	if cfg.Profile == FullDisk || mixed {
-		p.workload.Capacity = 4096 + rng.Int64N(60<<10)
+		p.fillAfter = cfg.Commits/2 + rng.IntN(max((cfg.Commits+1)/2, 1))
+		next := payloadSize(cfg.RunKey, uint64(p.fillAfter+1))
+		p.room = rng.Int64N(int64(next))
+		p.fills = true
 	}
 	if cfg.Profile == OneTimeReadFaults || cfg.Profile == RepeatedReadFaults || mixed {
 		p.image.ReadCorruptionRate = rate(0.05, 0.2, 0.5)

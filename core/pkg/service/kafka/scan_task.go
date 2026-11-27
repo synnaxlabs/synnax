@@ -61,7 +61,9 @@ func (s scanner) Check(ctx context.Context, dev device.Device) error {
 	if err != nil {
 		return err
 	}
-	return s.ping(ctx, props)
+	ctx, cancel := context.WithTimeout(ctx, s.timeout.Duration())
+	defer cancel()
+	return ping(ctx, props)
 }
 
 // Exec implements driver.Scanner.
@@ -81,7 +83,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
+		props, err := s.properties(ctx, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +103,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
+		props, err := s.properties(ctx, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -122,10 +124,14 @@ func unmarshalArgs(cmd task.Command, args any) error {
 	return nil
 }
 
-func (s scanner) ping(ctx context.Context, props Properties) error {
-	ctx, cancel := context.WithTimeout(ctx, s.timeout.Duration())
-	defer cancel()
-	return ping(ctx, props)
+// properties returns the properties of the cluster device with key. It returns a
+// driver.Failure when the device holds settings that cannot open a client.
+func (s scanner) properties(ctx context.Context, key device.Key) (Properties, error) {
+	props, err := resolveProperties(ctx, s.db, s.device, key)
+	if errors.Is(err, validate.ErrValidation) {
+		return Properties{}, settingsFailure(err)
+	}
+	return props, err
 }
 
 func validateScanConfig(cfg *ScanConfig) error {

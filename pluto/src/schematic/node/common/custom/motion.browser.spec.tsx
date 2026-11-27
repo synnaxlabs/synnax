@@ -56,7 +56,6 @@ const createSpec = (
   commands: [],
   looks,
   interactions: [],
-  variant: "static",
   scale: 1,
   strokeScaled: false,
 });
@@ -365,6 +364,22 @@ describe("Custom.Drawing motion", () => {
     it("should leave the loop while a later look hides the part", async () => {
       const hide: schematic.symbol.Look = { key: "hide", part: "rotor", hidden: true };
       const { pending } = await setup({ spec: createSpec([SPIN, hide]) });
+      expect(pending()).toBe(0);
+    });
+
+    it("should read an unknown number state in when at its lower bound", async () => {
+      const hide: schematic.symbol.Look = {
+        key: "hide",
+        part: "rotor",
+        when: { type: "equals", state: "speed", values: [0] },
+        hidden: true,
+      };
+      const { pending, rerender } = await setup({
+        spec: createSpec([SPIN, hide]),
+        readings: { speed: reading(50) },
+      });
+      expect(pending()).toBe(1);
+      await rerender({ readings: { speed: reading(NaN) } });
       expect(pending()).toBe(0);
     });
 

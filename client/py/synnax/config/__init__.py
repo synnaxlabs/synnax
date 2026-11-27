@@ -10,6 +10,7 @@
 import json
 import os
 import subprocess
+import sys
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any, TypedDict
@@ -23,7 +24,7 @@ from synnax.config.clusters import (
     Clusters,
     Keyring,
 )
-from synnax.config.file import File
+from synnax.config.file import File, read_latest
 from synnax.exceptions import ConfigurationError, ValidationError
 from synnax.options import Options
 
@@ -36,6 +37,7 @@ __all__ = [
     "Keyring",
     "PartialOptions",
     "RunHelper",
+    "config_dirs",
     "default_clusters",
     "load_desktop_options",
     "load_env_options",
@@ -48,12 +50,42 @@ NO_HOME_MSG = (
 )
 
 
-def _config_dir() -> Path:
+def _absolute(path: str | None) -> Path | None:
+    return Path(path) if path and Path(path).is_absolute() else None
+
+
+def config_dirs(
+    home: Path | None = None,
+    env: Mapping[str, str] | None = None,
+    platform: str = sys.platform,
+    *,
+    local: bool = False,
+) -> tuple[Path, Path]:
+    """Returns the directory where Synnax keeps its config files on this operating
+    system, then ~/.synnax, where older versions kept them. Readers read the newer copy.
+
+    :param home: The home directory. Defaults to the one of the current user.
+    :param env: The environment variables. Defaults to os.environ.
+    :param platform: The operating system, as sys.platform names it.
+    :param local: Whether the files hold data of this computer only, such as the
+        desktop.json of Synnax Desktop. On Windows, they then go in %LOCALAPPDATA%,
+        which does not roam, instead of %APPDATA%.
+    :raises ConfigurationError: If the home directory is unknown.
+    """
     # An unknown home stays "~", a path relative to the working directory.
-    home = Path(os.path.expanduser("~"))
+    home = Path(os.path.expanduser("~")) if home is None else home
     if not home.is_absolute():
         raise ConfigurationError(NO_HOME_MSG)
-    return home / ".synnax"
+    env = os.environ if env is None else env
+    if platform == "win32":
+        var, default = ("LOCALAPPDATA", "Local") if local else ("APPDATA", "Roaming")
+        base = _absolute(env.get(var)) or home / "AppData" / default
+        current = base / "Synnax"
+    elif platform == "darwin":
+        current = home / "Library" / "Application Support" / "Synnax"
+    else:
+        current = (_absolute(env.get("XDG_CONFIG_HOME")) or home / ".config") / "synnax"
+    return current, home / ".synnax"
 
 
 def default_clusters() -> Clusters:
@@ -62,7 +94,8 @@ def default_clusters() -> Clusters:
     :raises ConfigurationError: If the home directory is unknown, or if the config file
         cannot be read.
     """
-    return Clusters(File(config_dir=_config_dir()), keyring.get_keyring())
+    current, legacy = config_dirs()
+    return Clusters(File(config_dir=current, legacy_dir=legacy), keyring.get_keyring())
 
 
 OLD_DESKTOP_MSG = (
@@ -100,20 +133,19 @@ def _run_helper(path: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _read_desktop_file(path: Path | None) -> dict[str, Any] | None:
-    if path is None:
-        path = _config_dir() / "desktop.json"
-    try:
-        text = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    paths = (
+        [path]
+        if path is not None
+        else [d / "desktop.json" for d in config_dirs(local=True)]
+    )
+    read = read_latest(paths)
+    if read is None:
         return None
-    except OSError as e:
-        raise ConfigurationError(f"Cannot read {path}: {e.strerror}.") from e
-    except UnicodeDecodeError as e:
-        raise ConfigurationError(f"{path} is not valid JSON: {e}.") from e
+    p, data = read
     try:
-        raw: dict[str, Any] = json.loads(text)
-    except json.JSONDecodeError as e:
-        raise ConfigurationError(f"{path} is not valid JSON: {e}.") from e
+        raw: dict[str, Any] = json.loads(data.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise ConfigurationError(f"{p} is not valid JSON: {e}.") from e
     return raw
 
 
@@ -146,8 +178,8 @@ def load_desktop_options(
     """Loads the options that Synnax Desktop saved for scripts on this computer: the
     address in a file, and the API key that the key helper named in the file prints.
 
-    :param path: The file Synnax Desktop writes. Defaults to the one in the home
-        directory.
+    :param path: The file Synnax Desktop writes. Defaults to the newer desktop.json in
+        config_dirs(local=True).
     :param run: Runs the key helper.
     :returns: The options, or None if Synnax Desktop has saved none.
     :raises ConfigurationError: If the home directory is unknown, if the file exists
@@ -279,7 +311,7 @@ def load_options(
     :param env: The environment variables, such as os.environ. Defaults to none.
     :param clusters: The saved logins. Defaults to those of the current user.
     :param desktop_file: The file where Synnax Desktop saves its options. Defaults to
-        the one in the home directory.
+        the newer desktop.json in config_dirs(local=True).
     :param run_desktop_helper: Runs the key helper of Synnax Desktop.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
     :raises ValidationError: If the environment variables are not valid, or if no source

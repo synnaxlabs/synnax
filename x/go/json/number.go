@@ -48,20 +48,14 @@ type number struct {
 // parseNumber converts the text of a JSON number into an int64 or uint64 when it is an
 // integer that fits, and a float64 otherwise.
 func parseNumber(text []byte) (number, error) {
-	if !bytes.ContainsAny(text, ".eE") {
-		if i, err := strconv.ParseInt(string(text), 10, 64); err == nil {
-			return number{kind: intNumber, i: i}, nil
-		}
-		if u, err := strconv.ParseUint(string(text), 10, 64); err == nil {
-			return number{kind: uintNumber, u: u}, nil
-		}
-	}
-	d, ok := parseDecimal(text, 0)
+	t, ok := scanDecimal(text)
 	if !ok {
 		return number{}, invalidNumber(text)
 	}
-	// A negative zero keeps its sign as a float.
-	if !d.fraction && !d.overflow && d.magnitude != 0 {
+	d := t.decimal(0)
+	// Integer text keeps its kind, and a negative zero with a point or an exponent
+	// keeps its sign as a float.
+	if !d.overflow && (t.integer || (!d.fraction && d.magnitude != 0)) {
 		switch {
 		case !d.negative && d.magnitude <= math.MaxInt64:
 			return number{kind: intNumber, i: int64(d.magnitude)}, nil
@@ -71,9 +65,12 @@ func parseNumber(text []byte) (number, error) {
 			return number{kind: intNumber, i: int64(-d.magnitude)}, nil
 		}
 	}
-	f, err := strconv.ParseFloat(string(text), 64)
-	if err != nil {
-		return number{}, invalidNumber(text)
+	f, exact := t.float()
+	if !exact {
+		var err error
+		if f, err = strconv.ParseFloat(string(text), 64); err != nil {
+			return number{}, invalidNumber(text)
+		}
 	}
 	return number{
 		kind:       floatNumber,
@@ -82,6 +79,130 @@ func parseNumber(text []byte) (number, error) {
 		outOfRange: !d.fraction && d.magnitude != 0,
 		text:       text,
 	}, nil
+}
+
+// quotedSpace is the whitespace that parseQuoted and parseUnix trim from each end of
+// their text.
+const quotedSpace = " \t\n\v\f\r"
+
+// parseQuoted parses text, the content of a JSON string, as C's strtod reads a whole
+// string: a decimal or 0x hex number, inf, infinity, nan, or nan(chars) in any case,
+// each with an optional sign. It also trims whitespace from each end. A hex integer
+// that 64 bits hold stays exact.
+func parseQuoted(text []byte) (number, error) {
+	trimmed := bytes.Trim(text, quotedSpace)
+	body, negative := trimmed, false
+	if len(body) > 0 && (body[0] == '-' || body[0] == '+') {
+		body, negative = body[1:], body[0] == '-'
+	}
+	switch {
+	case bytes.EqualFold(body, []byte("inf")),
+		bytes.EqualFold(body, []byte("infinity")):
+		sign := 1
+		if negative {
+			sign = -1
+		}
+		return number{kind: floatNumber, f: math.Inf(sign), text: trimmed}, nil
+	case isNaN(body):
+		return number{kind: floatNumber, f: math.NaN(), text: trimmed}, nil
+	case len(body) > 1 && body[0] == '0' && (body[1] == 'x' || body[1] == 'X'):
+		return parseHex(trimmed, body[2:], negative)
+	}
+	return parseNumber(trimmed)
+}
+
+// isNaN reports whether text is nan or nan(chars) in any case, where chars are letters,
+// digits, and underscores.
+func isNaN(text []byte) bool {
+	if len(text) < 3 || !bytes.EqualFold(text[:3], []byte("nan")) {
+		return false
+	}
+	rest := text[3:]
+	if len(rest) == 0 {
+		return true
+	}
+	if len(rest) < 2 || rest[0] != '(' || rest[len(rest)-1] != ')' {
+		return false
+	}
+	for _, c := range rest[1 : len(rest)-1] {
+		if !isAlphanumeric(c) && c != '_' {
+			return false
+		}
+	}
+	return true
+}
+
+// parseHex parses digits, the text after the 0x of text, as strtod does: hex digits
+// with an optional point, then an optional binary exponent after p.
+func parseHex(text, digits []byte, negative bool) (number, error) {
+	mantissa, exponent := digits, []byte(nil)
+	if i := bytes.IndexAny(digits, "pP"); i >= 0 {
+		if _, ok := parseExponent(digits[i+1:]); !ok {
+			return number{}, invalidNumber(text)
+		}
+		mantissa, exponent = digits[:i], digits[i+1:]
+	}
+	whole, frac := mantissa, []byte(nil)
+	point := bytes.IndexByte(mantissa, '.')
+	if point >= 0 {
+		whole, frac = mantissa[:point], mantissa[point+1:]
+	}
+	if len(whole)+len(frac) == 0 || !isHexDigits(whole) || !isHexDigits(frac) {
+		return number{}, invalidNumber(text)
+	}
+	integer := point < 0 && exponent == nil
+	if u, ok := hexMagnitude(whole); integer && ok {
+		switch {
+		case !negative && u <= math.MaxInt64:
+			return number{kind: intNumber, i: int64(u)}, nil
+		case !negative:
+			return number{kind: uintNumber, u: u}, nil
+		case u <= 1<<63:
+			return number{kind: intNumber, i: int64(-u)}, nil
+		}
+	}
+	// strconv requires the binary exponent that strtod makes optional.
+	s := string(text)
+	if exponent == nil {
+		s += "p0"
+	}
+	f, err := strconv.ParseFloat(s, 64)
+	if err != nil {
+		return number{}, invalidNumber(text)
+	}
+	return number{kind: floatNumber, f: f, outOfRange: integer, text: text}, nil
+}
+
+// hexMagnitude returns the value of digits, hex digits. ok is false when the value does
+// not fit a uint64.
+func hexMagnitude(digits []byte) (u uint64, ok bool) {
+	for _, c := range digits {
+		if u > math.MaxUint64>>4 {
+			return 0, false
+		}
+		u = u<<4 | uint64(hexValue(c))
+	}
+	return u, true
+}
+
+func isHexDigits(text []byte) bool {
+	for _, c := range text {
+		if (c < '0' || c > '9') && (c|0x20 < 'a' || c|0x20 > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+func hexValue(c byte) byte {
+	if c <= '9' {
+		return c - '0'
+	}
+	return (c | 0x20) - 'a' + 10
+}
+
+func isAlphanumeric(c byte) bool {
+	return (c >= '0' && c <= '9') || (c|0x20 >= 'a' && c|0x20 <= 'z')
 }
 
 // ParsedNumber is a JSON number held without losing precision.
@@ -124,6 +245,25 @@ func (n ParsedNumber) Uint64() (v uint64, ok bool) {
 // Float64 returns the float64 nearest to n.
 func (n ParsedNumber) Float64() float64 { return n.n.float() }
 
+// ParseFloat64 parses text, which ParseNumber accepts, as the nearest float64. Unlike
+// ParseNumber, it keeps the sign of an integer negative zero. It returns an error
+// wrapping validate.ErrValidation when text is not a decimal number, or is past the
+// range of a float64.
+func ParseFloat64(text []byte) (float64, error) {
+	t, ok := scanDecimal(text)
+	if !ok {
+		return 0, invalidNumber(text)
+	}
+	if f, exact := t.float(); exact {
+		return f, nil
+	}
+	f, err := strconv.ParseFloat(string(text), 64)
+	if err != nil {
+		return 0, invalidNumber(text)
+	}
+	return f, nil
+}
+
 func invalidNumber(text []byte) error {
 	return errors.Wrapf(validate.ErrValidation, "invalid number %q", text)
 }
@@ -139,39 +279,75 @@ type decimal struct {
 	overflow bool
 }
 
-// maxExponent bounds the exponent parseDecimal reads. Any larger one overflows or
-// truncates to zero.
+// maxExponent bounds the exponent of a number. A number with a larger one is not valid,
+// as it overflows or truncates to zero.
 const maxExponent = 1 << 20
 
 // parseDecimal returns the decimal number text times 10^scale. ok is false when text is
 // not a decimal number.
 func parseDecimal(text []byte, scale int) (d decimal, ok bool) {
-	if len(text) > 0 && (text[0] == '-' || text[0] == '+') {
-		d.negative, text = text[0] == '-', text[1:]
-	}
-	exp := 0
-	if i := bytes.IndexAny(text, "eE"); i >= 0 {
-		if exp, ok = parseExponent(text[i+1:]); !ok {
-			return decimal{}, false
-		}
-		text = text[:i]
-	}
-	whole, frac := text, []byte(nil)
-	if i := bytes.IndexByte(text, '.'); i >= 0 {
-		whole, frac = text[:i], text[i+1:]
-	}
-	if len(whole)+len(frac) == 0 || !isDigits(whole) || !isDigits(frac) {
+	t, ok := scanDecimal(text)
+	if !ok {
 		return decimal{}, false
 	}
+	return t.decimal(scale), true
+}
+
+// decimalText is the parts of the text of a decimal number: an optional sign, whole,
+// an optional point and frac, and an optional exponent.
+type decimalText struct {
+	negative    bool
+	whole, frac []byte
+	exp         int
+	// integer is true when the text has no point and no exponent.
+	integer bool
+}
+
+// scanDecimal splits text into the parts of a decimal number. ok is false when text is
+// not a decimal number.
+func scanDecimal(text []byte) (t decimalText, ok bool) {
+	i := 0
+	if i < len(text) && (text[i] == '-' || text[i] == '+') {
+		t.negative = text[i] == '-'
+		i++
+	}
+	start := i
+	for i < len(text) && isDigit(text[i]) {
+		i++
+	}
+	t.whole, t.integer = text[start:i], true
+	if i < len(text) && text[i] == '.' {
+		i++
+		start = i
+		for i < len(text) && isDigit(text[i]) {
+			i++
+		}
+		t.frac, t.integer = text[start:i], false
+	}
+	if len(t.whole)+len(t.frac) == 0 {
+		return decimalText{}, false
+	}
+	if i < len(text) && (text[i] == 'e' || text[i] == 'E') {
+		if t.exp, ok = parseExponent(text[i+1:]); !ok {
+			return decimalText{}, false
+		}
+		t.integer, i = false, len(text)
+	}
+	return t, i == len(text)
+}
+
+// decimal returns the number of t times 10^scale.
+func (t decimalText) decimal(scale int) (d decimal) {
+	d.negative = t.negative
 	// The value is the digits of whole and frac times 10^shift.
-	shift := exp + scale - len(frac)
-	count := len(whole) + len(frac)
+	shift := t.exp + scale - len(t.frac)
+	count := len(t.whole) + len(t.frac)
 	for i := range count {
 		var c byte
-		if i < len(whole) {
-			c = whole[i] - '0'
+		if i < len(t.whole) {
+			c = t.whole[i] - '0'
 		} else {
-			c = frac[i-len(whole)] - '0'
+			c = t.frac[i-len(t.whole)] - '0'
 		}
 		if i >= count+shift {
 			d.fraction = d.fraction || c != 0
@@ -179,23 +355,63 @@ func parseDecimal(text []byte, scale int) (d decimal, ok bool) {
 		}
 		if d.magnitude > (math.MaxUint64-uint64(c))/10 {
 			d.overflow = true
-			return d, true
+			return d
 		}
 		d.magnitude = d.magnitude*10 + uint64(c)
 	}
 	for i := 0; d.magnitude != 0 && i < shift; i++ {
 		if d.magnitude > math.MaxUint64/10 {
 			d.overflow = true
-			return d, true
+			return d
 		}
 		d.magnitude *= 10
 	}
-	return d, true
+	return d
 }
 
-// parseExponent parses the signed decimal exponent of a number, clamped to
-// ±maxExponent.
-func parseExponent(text []byte) (int, bool) {
+// exactPowers holds each power of ten that a float64 holds exactly.
+var exactPowers = [...]float64{
+	1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11,
+	1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22,
+}
+
+// float returns the float64 nearest to t. exact is false when t has more digits or a
+// larger exponent than one float64 operation rounds correctly, and then f is zero.
+func (t decimalText) float() (f float64, exact bool) {
+	var m uint64
+	digits := 0
+	for _, part := range [...][]byte{t.whole, t.frac} {
+		for _, c := range part {
+			if m == 0 && c == '0' {
+				continue
+			}
+			if digits == 19 {
+				return 0, false
+			}
+			m, digits = m*10+uint64(c-'0'), digits+1
+		}
+	}
+	e := t.exp - len(t.frac)
+	switch {
+	case m > 1<<53:
+		return 0, false
+	case m == 0:
+	case e < -len(exactPowers)+1 || e >= len(exactPowers):
+		return 0, false
+	case e < 0:
+		f = float64(m) / exactPowers[-e]
+	default:
+		f = float64(m) * exactPowers[e]
+	}
+	if t.negative {
+		f = -f
+	}
+	return f, true
+}
+
+// parseExponent parses the signed decimal exponent of a number. ok is false when the
+// exponent is not valid or is past ±maxExponent.
+func parseExponent(text []byte) (e int, ok bool) {
 	negative := false
 	if len(text) > 0 && (text[0] == '-' || text[0] == '+') {
 		negative, text = text[0] == '-', text[1:]
@@ -203,9 +419,10 @@ func parseExponent(text []byte) (int, bool) {
 	if len(text) == 0 || !isDigits(text) {
 		return 0, false
 	}
-	e := 0
 	for _, c := range text {
-		e = min(e*10+int(c-'0'), maxExponent)
+		if e = e*10 + int(c-'0'); e > maxExponent {
+			return 0, false
+		}
 	}
 	if negative {
 		return -e, true
@@ -215,12 +432,14 @@ func parseExponent(text []byte) (int, bool) {
 
 func isDigits(text []byte) bool {
 	for _, c := range text {
-		if c < '0' || c > '9' {
+		if !isDigit(c) {
 			return false
 		}
 	}
 	return true
 }
+
+func isDigit(c byte) bool { return c >= '0' && c <= '9' }
 
 func (n number) float() float64 {
 	switch n.kind {
@@ -336,6 +555,34 @@ func (n number) within(lo int64, hi uint64) bool {
 	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
 }
 
+// int64Times returns n times factor, which is positive, truncated toward zero. ok is
+// false when an int64 does not hold the result.
+func (n number) int64Times(factor int64) (product int64, ok bool) {
+	switch n.kind {
+	case intNumber:
+		if n.i > math.MaxInt64/factor || n.i < math.MinInt64/factor {
+			return 0, false
+		}
+		return n.i * factor, true
+	case uintNumber:
+		if n.u > math.MaxInt64 {
+			return 0, false
+		}
+		i := int64(n.u)
+		if i > math.MaxInt64/factor {
+			return 0, false
+		}
+		return i * factor, true
+	case floatNumber:
+		f := n.f * float64(factor)
+		if n.outOfRange || !(f >= -0x1p63 && f < 0x1p63) {
+			return 0, false
+		}
+		return int64(f), true
+	}
+	panic(fmt.Sprintf("json: invalid number kind %d", n.kind))
+}
+
 // appendNumber appends n as a sample of dt, which must be numeric or boolean. Check
 // that n fits dt first.
 func appendNumber(dst []byte, dt telem.DataType, n number) []byte {
@@ -409,10 +656,19 @@ func appendJSONNumber(dst []byte, n number) ([]byte, error) {
 	if n.kind != floatNumber {
 		return n.appendText(dst), nil
 	}
-	if !xmath.Finite(n.f) {
-		return nil, errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
+	if err := checkFinite(n); err != nil {
+		return nil, err
 	}
 	return xstrconv.AppendFloat(dst, n.f, 64), nil
+}
+
+// checkFinite returns an error wrapping validate.ErrValidation when n is NaN or
+// infinite, which no JSON number holds.
+func checkFinite(n number) error {
+	if n.kind == floatNumber && !xmath.Finite(n.f) {
+		return errors.Wrapf(validate.ErrValidation, "%s is not a JSON number", n)
+	}
+	return nil
 }
 
 // numeric reports whether dt holds numbers: an integer, float, or boolean type.

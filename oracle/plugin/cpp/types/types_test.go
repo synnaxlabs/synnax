@@ -1308,6 +1308,35 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
+		It("Should emit a narrowing enum as the kept members", func() {
+			source := `
+				@cpp output "client/cpp/modbus"
+
+				DataType enum {
+					float64 = "float64"
+					int16   = "int16"
+					json    = "json"
+				}
+
+				RegisterType enum of DataType {
+					int16
+				}
+
+				Register struct {
+					register_type RegisterType
+				}
+			`
+			table, diag := Analyze(source, "modbus", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+			resp := MustSucceed(
+				cppPlugin.Generate(&plugin.Request{Resolutions: table}),
+			)
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`REGISTER_TYPE_INT_16 = "int16";`))
+			Expect(content).ToNot(ContainSubstring(`REGISTER_TYPE_JSON`))
+		})
+
 		It(
 			"Should use indirect for self-referential optional fields",
 			func() {
@@ -2530,6 +2559,27 @@ var _ = Describe("C++ Union Generation", func() {
 				)
 		},
 	)
+
+	It("Should escape an enum constant that a Windows SDK macro would expand", func() {
+		source := `
+			@cpp output "out"
+
+			Parity enum {
+				none = "none"
+				odd  = "odd"
+			}
+			Properties struct {
+				parity Parity = none
+			}
+		`
+		resp := MustGenerate(source, "serial", loader, cppPlugin)
+		ExpectContent(resp, "types.gen.h").
+			ToContain(
+				`constexpr const char* PARITY_NONE_ = "none";`,
+				`constexpr const char* PARITY_ODD_ = "odd";`,
+				`std::string parity = PARITY_NONE_;`,
+			)
+	})
 
 	It("Should include the header of a borrowed enum from another namespace", func() {
 		loader.Add("schemas/auth", `

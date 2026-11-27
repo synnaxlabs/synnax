@@ -43,11 +43,11 @@ variable "region" {
 
 variable "domain" {
   description = <<-EOT
-    Parent domain of the previews, with a wildcard record to the host. A preview is at
-    pr-<number>.<domain>. Empty uses <host IP>.sslip.io, which needs no DNS record.
+    Parent domain of the previews. Terraform creates its Route 53 zone, which the
+    parent zone must delegate to. A preview is at pr-<number>.<domain>.
   EOT
   type        = string
-  default     = ""
+  default     = "preview.synnaxlabs.com"
 }
 
 variable "repository" {
@@ -66,6 +66,21 @@ variable "license_parameter" {
   description = "SSM SecureString parameter that holds the Core license key."
   type        = string
   default     = "/synnax-preview/license-key"
+}
+
+variable "login_parameters" {
+  description = <<-EOT
+    Path of the SSM SecureString parameters of the GitHub login: client-id and
+    client-secret of the GitHub OAuth app, and cookie-secret.
+  EOT
+  type        = string
+  default     = "/synnax-preview/oauth2-proxy"
+}
+
+variable "github_org" {
+  description = "GitHub organization whose members may open a preview."
+  type        = string
+  default     = "synnaxlabs"
 }
 
 variable "instance_type" {
@@ -182,25 +197,80 @@ resource "aws_iam_role_policy_attachment" "host_ssm" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
-resource "aws_iam_role_policy_attachment" "host_ecr" {
-  role       = aws_iam_role.host.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+# The host pulls the Core and sample images. The other images come from public
+# registries.
+resource "aws_iam_role_policy" "host_images" {
+  role = aws_iam_role.host.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "ecr:GetAuthorizationToken"
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:GetDownloadUrlForLayer",
+        ]
+        Resource = aws_ecr_repository.preview.arn
+      },
+    ]
+  })
 }
 
 data "aws_caller_identity" "current" {}
 
-resource "aws_iam_role_policy" "host_license" {
+locals {
+  parameter_arn = join("", [
+    "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
+    ":parameter/",
+  ])
+}
+
+moved {
+  from = aws_iam_role_policy.host_license
+  to   = aws_iam_role_policy.host_parameters
+}
+
+resource "aws_iam_role_policy" "host_parameters" {
   role = aws_iam_role.host.id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
       Action = "ssm:GetParameter"
-      Resource = join("", [
-        "arn:aws:ssm:${var.region}:${data.aws_caller_identity.current.account_id}",
-        ":parameter/${trimprefix(var.license_parameter, "/")}",
-      ])
+      Resource = [
+        "${local.parameter_arn}${trimprefix(var.license_parameter, "/")}",
+        "${local.parameter_arn}${trimprefix(var.login_parameters, "/")}/*",
+      ]
     }]
+  })
+}
+
+# lego on the host gets the wildcard certificate through a DNS-01 challenge.
+resource "aws_iam_role_policy" "host_dns" {
+  role = aws_iam_role.host.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "route53:ChangeResourceRecordSets",
+          "route53:ListResourceRecordSets",
+        ]
+        Resource = aws_route53_zone.preview.arn
+      },
+      {
+        Effect   = "Allow"
+        Action   = "route53:GetChange"
+        Resource = "arn:aws:route53:::change/*"
+      },
+    ]
   })
 }
 
@@ -225,10 +295,15 @@ resource "aws_instance" "host" {
     volume_size = 60
     volume_type = "gp3"
   }
+  # A hop limit of 1 keeps the role from bridge network containers, such as the
+  # preview Cores.
   metadata_options {
-    http_tokens = "required"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
   }
   tags = { Name = "synnax-preview" }
+  # The first upgrade gets the certificate through the role.
+  depends_on = [aws_iam_role_policy.host_dns]
   # User data only bootstraps a new host. install.sh brings a running host up to date,
   # so a script or setting change never replaces the host under live previews.
   lifecycle {
@@ -238,10 +313,14 @@ resource "aws_instance" "host" {
 
 locals {
   host_env = <<-EOT
-    PREVIEW_DOMAIN=${local.domain}
+    PREVIEW_DOMAIN=${var.domain}
+    PREVIEW_ZONE_ID=${aws_route53_zone.preview.zone_id}
+    PREVIEW_ACME=/etc/caddy/acme
     PREVIEW_SITES=/etc/caddy/sites
     PREVIEW_TTL_DAYS=${var.ttl_days}
     PREVIEW_LICENSE_PARAMETER=${var.license_parameter}
+    PREVIEW_LOGIN_PARAMETERS=${var.login_parameters}
+    PREVIEW_GITHUB_ORG=${var.github_org}
     PREVIEW_REGION=${var.region}
     PREVIEW_MAX=${var.max_previews}
     PREVIEW_CPUS=${var.preview_cpus}
@@ -260,8 +339,18 @@ resource "aws_eip_association" "host" {
   instance_id   = aws_instance.host.id
 }
 
-locals {
-  domain = coalesce(var.domain, "${replace(aws_eip.host.public_ip, ".", "-")}.sslip.io")
+resource "aws_route53_zone" "preview" {
+  # checkov:skip=CKV2_AWS_38:The parent zone is unsigned, so signing adds no trust.
+  # checkov:skip=CKV2_AWS_39:The zone holds one record to a public host.
+  name = var.domain
+}
+
+resource "aws_route53_record" "previews" {
+  zone_id = aws_route53_zone.preview.zone_id
+  name    = "*.${var.domain}"
+  type    = "A"
+  ttl     = 300
+  records = [aws_eip.host.public_ip]
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -299,6 +388,47 @@ data "aws_iam_policy_document" "ci_trust" {
   }
 }
 
+locals {
+  image = join("", [
+    replace(aws_ecr_repository.preview.repository_url, ".", "\\."),
+    ":pr-[0-9]+-[0-9a-f]{40}-[0-9]+-[0-9]+",
+  ])
+  notice_time = "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z"
+}
+
+# Any workflow on a pull request branch can assume the CI role, so the role may send
+# only this document. Its pattern admits the preview commands that preview.yaml sends,
+# and no shell syntax.
+resource "aws_ssm_document" "preview" {
+  name            = "synnax-preview"
+  document_type   = "Command"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "2.2"
+    description   = "Runs one preview command on the preview host."
+    parameters = {
+      commands = {
+        type        = "String"
+        description = "The preview command line."
+        allowedPattern = join("", [
+          "^/usr/local/bin/preview (",
+          "up [0-9]+ ${local.image} ${local.image}-sample (human|none) [0-9]+",
+          "|mark [0-9]+ (human|none) [0-9]+",
+          "|down [0-9]+",
+          "|notices",
+          "|ack( [0-9]+ ${local.notice_time})+",
+          ")$",
+        ])
+      }
+    }
+    mainSteps = [{
+      action = "aws:runShellScript"
+      name   = "preview"
+      inputs = { runCommand = ["{{ commands }}"] }
+    }]
+  })
+}
+
 data "aws_iam_policy_document" "ci" {
   statement {
     actions   = ["ecr:GetAuthorizationToken"]
@@ -316,11 +446,8 @@ data "aws_iam_policy_document" "ci" {
     resources = [aws_ecr_repository.preview.arn]
   }
   statement {
-    actions = ["ssm:SendCommand"]
-    resources = [
-      aws_instance.host.arn,
-      "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
-    ]
+    actions   = ["ssm:SendCommand"]
+    resources = [aws_instance.host.arn, aws_ssm_document.preview.arn]
   }
   statement {
     actions   = ["ssm:GetCommandInvocation"]
@@ -348,12 +475,16 @@ output "instance_id" {
 }
 
 output "public_ip" {
-  description = "Target of the wildcard DNS record *.<domain>."
-  value       = aws_eip.host.public_ip
+  value = aws_eip.host.public_ip
 }
 
 output "domain" {
-  value = local.domain
+  value = var.domain
+}
+
+output "name_servers" {
+  description = "The NS records the parent zone needs for <domain>."
+  value       = aws_route53_zone.preview.name_servers
 }
 
 output "ecr_repository_url" {

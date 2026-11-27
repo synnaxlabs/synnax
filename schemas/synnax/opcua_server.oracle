@@ -12,6 +12,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/opcua/server"
@@ -176,10 +177,14 @@ Read struct {
     }
     index   channel.Key {
         @doc value         "is the index channel of the channel."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
     channel channel.Key {
         @doc value         "is the channel that holds the samples of the node."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
 
@@ -197,6 +202,8 @@ Write struct {
     }
     channel channel.Key {
         @doc value         "is the channel that commands the node."
+        @ref kind          use
+        @ref on_delete     restrict
         @validate required
     }
 
@@ -255,8 +262,62 @@ Server struct {
 
     @create
     @doc value     "is an OPC UA server that a rack's Driver connects to."
+    @go entry      "opcua_server"
     @go marshal
     @go migrate
     @resource type "opcua_server"
     @retrieve
+}
+
+Identity struct {
+    rack       rack.Key   {
+        @doc value         "is the key of the rack whose Driver connects to the server."
+        @validate required
+    }
+    name       string     {
+        @doc value         "is a human-readable name for the server."
+        @validate required
+    }
+    connection Connection {
+        @doc value "holds the settings that the Driver connects with."
+    }
+
+    @doc value """
+        holds the server fields that the connect form and the scanner's certificate pin
+        own.
+    """
+}
+
+Configuration struct {
+    reads  Read[] = [] {
+        @doc value "bind the nodes that read tasks sample to channels."
+    }
+    writes Write[] = [] {
+        @doc value "bind the nodes that write tasks command to channels."
+    }
+
+    @doc value "holds the server fields that the task forms own."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the rack, name, and connection of the server."
+    }
+    configuration Configuration {
+        @doc value """
+            replaces the bindings of the server. A client sends the whole group, because
+            a field it leaves out is cleared.
+        """
+    }
+
+    @doc value "is a write to one field group of a server."
+}
+
+Where filter Server {
+    key
+    name
+    rack
+
+    @doc value         "is a filter that selects OPC UA servers."
+    @go request_output "core/pkg/api/opcua/server"
 }

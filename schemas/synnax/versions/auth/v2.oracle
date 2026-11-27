@@ -40,6 +40,7 @@ Session struct {
         is a logged-in subject. It ends when it is revoked or when no request has used
         it for the idle timeout.
     """
+    @go entry
     @go marshal
     @go migrate
 }

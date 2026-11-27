@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { schematic } from "@synnaxlabs/client";
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { Options } from "@/schematic/node/common/options";
 import { Primitive } from "@/schematic/node/general/stateIndicator/primitive";
 
-const OPTIONS: schematic.StateMapping[] = [{ key: "1", name: "Active", value: 1 }];
+const OPTIONS: Options.State[] = [{ key: "1", name: "Active", value: 1 }];
 
 describe("Primitive.StateIndicator", () => {
   it("should size the text from the size", () => {

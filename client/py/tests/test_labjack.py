@@ -8,9 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Iterator
+from typing import ClassVar
+from uuid import UUID
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
 from tests.json_value import obj
@@ -671,3 +673,63 @@ class TestLabJackDevicePropertyUpdates:
         assert obj(props, "DO", "channels") == {
             "DIO4": {"command": fio4_cmd.key, "state": fio4_state.key}
         }
+
+
+@pytest.mark.labjack
+class TestLabJackDeviceResource:
+    """Tests for the typed LabJack device resource."""
+
+    KEY = UUID("11111111-1111-4111-8111-111111111111")
+    DEVICE: ClassVar[dict[str, object]] = {
+        "rack": 1,
+        "name": "T7-0001",
+        "serial": 470010001,
+        "connection": "LJM_ctUSB",
+        "model": "t7",
+        "ports": {"model": "t7"},
+    }
+
+    def test_parses_the_ports_of_the_model(self) -> None:
+        """Should parse the ports that the model names and leave it unconfigured."""
+        device = TypeAdapter(sy.labjack.device.Device).validate_python(self.DEVICE)
+        assert isinstance(device.ports, sy.labjack.device.T7Ports)
+        assert not device.ports.mux80_attached
+        assert device.identifier == ""
+        assert device.read_index == 0
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            {"model": "t9"},
+            {"ports": {"model": "t9"}},
+            {"connection": "LJM_ctTCP"},
+            {"serial": None},
+        ],
+    )
+    def test_rejects_an_invalid_device(self, change: dict[str, object]) -> None:
+        """Should reject an unknown model, ports, or connection and a missing serial."""
+        data = {k: v for k, v in {**self.DEVICE, **change}.items() if v is not None}
+        with pytest.raises(ValidationError):
+            TypeAdapter(sy.labjack.device.Device).validate_python(data)
+
+    def test_parses_a_configuration_update(self) -> None:
+        """Should parse a configuration update with the ports of its model."""
+        update = TypeAdapter(sy.labjack.device.Update).validate_python(
+            {"group": "configuration", "name": "T7-0001", "ports": {"model": "t7"}}
+        )
+        assert isinstance(update, sy.labjack.device.ConfigurationUpdate)
+        assert isinstance(update.ports, sy.labjack.device.T7Ports)
+        assert not update.ports.mux80_attached
+
+    def test_parses_an_identity_update(self) -> None:
+        """Should parse an identity update."""
+        update = TypeAdapter(sy.labjack.device.Update).validate_python(
+            {**self.DEVICE, "group": "identity", "connection": "LJM_ctWIFI"}
+        )
+        assert isinstance(update, sy.labjack.device.IdentityUpdate)
+        assert update.connection == "LJM_ctWIFI"
+
+    def test_resource_id(self) -> None:
+        """Should name the device by its key under the labjack_device type."""
+        assert sy.labjack.device.resource_id(self.KEY).type == "labjack_device"
+        assert sy.labjack.device.resource_id(self.KEY).key == str(self.KEY)

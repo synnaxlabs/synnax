@@ -45,8 +45,10 @@ Driver that restarts while the Core is down still starts with no tasks.
 3. **Nothing is lost silently**: Data, statuses, and ranges reach the Core with their
    original times, or the task's status reports their loss, with a count where the
    Driver knows it.
-4. **Only an unreachable Core is an outage**: Every other Core error reaches the task's
-   status as today.
+4. **Only a transient Core error is an outage**: The Driver waits out an error that §3.8
+   classifies as transient, such as an unreachable Core or a missing license, and an
+   interrupted one for a call that is safe to send twice. Every other Core error reaches
+   the task's status as today.
 
 ## 3 Design
 
@@ -57,9 +59,10 @@ the bus and hands the frame to a `bypass::pipeline::Forwarder` (NEW), which open
 writes, and reopens the task's Core writer on its own thread. `open_writer` returns at
 once. The handoff queue holds 64 MB.
 
-When the Core is unreachable, the forwarder closes the live writer, spools the queued
-frames in order, and reopens the live writer only after the queue is empty. Every
-spooled frame therefore comes before the next live session, as RFC 0095 §4.4 requires.
+After a transient or interrupted Core error (§3.8), the forwarder closes the live
+writer, spools the queued frames in order, and reopens the live writer only after the
+queue is empty. Every spooled frame therefore comes before the next live session, as RFC
+0095 §4.4 requires.
 
 gRPC finds a silent network loss only when a keepalive ping goes unanswered, so the
 Driver pings the Core every 10 s and closes a connection whose ping goes 20 s without an
@@ -84,7 +87,7 @@ forwarders open before the task manager retrieves control states
 
 `bypass::pipeline::StreamerFactory::open_streamer` (`streamer.h:128-159`) subscribes to
 the bus and returns. Its Core half (`streamer.h:94-115`) reopens on its own thread, and
-an unreachable Core never ends `read`.
+a transient or interrupted Core error never ends `read`.
 
 ### 3.3 The spool
 
@@ -125,9 +128,10 @@ latest status per task, it keeps every call, so the Core sees what happened.
   Core keeps a client key (`core/pkg/service/ranger/writer.go:45-46`).
 - **`range.end`**: Queued after its create.
 
-The outbox retries while the Core is unreachable. When a create fails validation, it
-retrieves the key, and a range that exists counts as sent. Any other error drops and
-counts the call. A full outbox refuses and counts new calls, except `range.end`.
+The outbox retries after a transient or interrupted Core error (§3.8), since each of its
+calls is safe to send twice. When a create fails validation, it retrieves the key, and a
+range that exists counts as sent. Any other error drops and counts the call. A full
+outbox refuses and counts new calls, except `range.end`.
 
 `SetByKeyOrNameRequest` gains `time`
 (`core/pkg/transport/grpc/status/status.proto:56-60`). A zero time means now, and a set
@@ -146,8 +150,10 @@ Driver go stale during an outage. The Core keeps computing the channel for the C
 
 ### 3.6 Reconnect and new minors
 
-The rack breaker waits for an unreachable Core with no limit. On reconnect the task
-manager deploys again only tasks whose config changed
+After its first run, the rack breaker waits out a transient or interrupted Core error
+(§3.8) with no limit, since a reopened task manager stream only reads. Before it, an
+interrupted enrollment is not sent again, since a rack create is not safe to send twice.
+On reconnect the task manager deploys again only tasks whose config changed
 (`driver/task/manager.cpp:714-724`).
 
 When `check_core` finds a Core on another minor (`driver/rack/remote.cpp:209-218`), the
@@ -165,6 +171,20 @@ start with a format version, and a Driver reads every version a stable release w
 The Console reaches tasks only through the Core, so nobody can see or stop an Arc while
 the Core is down. The Driver adds no local stop. The docs say so and name the hardware's
 own controls as the fallback.
+
+### 3.8 Error classification
+
+`synnax::errors::classify` (`client/cpp/errors`) sorts each Core error into one kind,
+from one table. The first matching row wins. Each caller sets how long it waits. A
+caller may retry a `REJECTED` error that it knows clears, as the drainer of §3.3 retries
+`sy.control.unauthorized`.
+
+| Kind          | Types                                                                                                                                                                  | Caller                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| `TRANSIENT`   | `freighter.unreachable`, `.timeout`, `.transport`, `.cancelled`, `.stream_closed`, `.eof`, `sy.license.missing`, `.expired`, `sy.auth` token and session               | Waits, then retries                                |
+| `INTERRUPTED` | `freighter.interrupted`: the Core stopped while it handled the call                                                                                                    | Waits, then resends only a call that is safe twice |
+| `REJECTED`    | `freighter.resource_exhausted` (a message over the size limit), other `sy.license` and `sy.auth`, `sy.validation`, `sy.query`, `sy.control`, `sy.not_supported`, `arc` | Reports it, no retry                               |
+| `BUG`         | Any other type: `unknown`, `freighter.unknown`, `sy.internal`                                                                                                          | Fails loud, no retry                               |
 
 ## 4 What this RFC does not cover
 
@@ -190,7 +210,7 @@ outage and offline data is dropped with a count; phase 7 keeps it.
 | Phase | Scope                                                      | Touches                                                                                                                      | Depends on |
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
 | 1     | Set the `status.set` time in the Driver                    | `core/pkg/transport/grpc/status`, `core/pkg/api/status`, `core/pkg/service/status`, `client/cpp/status`, `driver/arc/status` | -          |
-| 2     | Wait for an unreachable Core with no limit in the rack     | `driver/rack`                                                                                                                | -          |
+| 2     | Wait out a transient Core error with no limit in the rack  | `driver/rack`                                                                                                                | -          |
 | 3     | Deliver bypass writer frames to the Core in the background | `driver/bypass/pipeline`, `freighter/cpp/grpc`, `core/pkg/server`                                                            | -          |
 | 4     | Hand off authority locally while the Core is down          | `driver/control`, `driver/bypass/pipeline`, `driver/task`                                                                    | 3          |
 | 5     | Read the bypass bus while the Core is down                 | `driver/bypass/pipeline`                                                                                                     | -          |

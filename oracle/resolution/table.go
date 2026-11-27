@@ -325,6 +325,9 @@ func (t *Table) collectDependencies(typ Type) []string {
 		for _, extendsRef := range form.Extends {
 			addDep(extendsRef)
 		}
+		if form.Narrows() {
+			addDep(form.Superset)
+		}
 	}
 
 	return deps

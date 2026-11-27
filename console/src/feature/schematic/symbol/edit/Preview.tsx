@@ -43,25 +43,38 @@ const ZOOM_IN_TOOLTIP = (
   </Triggers.Text>
 );
 
-const RESET_ZOOM_TOOLTIP = (
+const FIT_TOOLTIP = (
   <Triggers.Text trigger={ZOOM_TRIGGERS.modes.reset[0]} level="small">
-    Reset zoom
+    Fit drawing
   </Triggers.Text>
 );
+
+// The share of the preview that a fit drawing fills.
+const FIT_SHARE = 0.6;
 
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 5;
 const ZOOM_STEP = 1.2;
 const ZOOM_REPEAT = TimeSpan.milliseconds(70);
 
-const VIEWPORT_PATH = deep.present(path.data.previewViewport);
-const ZOOM_PATH = VIEWPORT_PATH.zoom;
+type Viewport = NonNullable<schematic.symbol.Spec["previewViewport"]>;
+
+// A stored symbol can have no preview viewport, so the preview starts from this one.
+const DEFAULT_VIEWPORT: Viewport = { zoom: 1, position: { x: 0, y: 0 } };
+
+const SELECTED_CLASS = CSS.BEM("schematic", "svg-region", "selected");
 
 interface PreviewProps {
-  /** selectedValue is the value of the state that the preview draws. */
-  selectedValue: number;
+  /** value holds the state values. A state with no value draws at its default. */
+  value: Schematic.Node.Custom.StateValues;
   selectedHandle?: string;
-  onElementClick: (selector: string) => void;
+  /** selectedPart is the part whose shapes the preview marks. */
+  selectedPart?: string;
+  /** onElementClick receives the markup with a name on the clicked shape. */
+  onElementClick: (
+    shape: Schematic.Node.Region.Named,
+    click: Pick<MouseEvent, "detail" | "altKey">,
+  ) => void;
   onContentsChange: (contents: string) => void;
   onHandleSelect: (handleKey: string) => void;
   onHandlePlace: (handleKey: string, position: { x: number; y: number }) => void;
@@ -69,7 +82,7 @@ interface PreviewProps {
 
 interface DrawingProps {
   spec: schematic.symbol.Spec;
-  value: number;
+  value: Schematic.Node.Custom.StateValues;
   nodeColor: color.Crude;
   onMount: (drawing: SVGGElement) => void;
 }
@@ -83,21 +96,24 @@ const Drawing = ({ spec, value, nodeColor, onMount }: DrawingProps): ReactElemen
 };
 
 export const Preview = ({
-  selectedValue,
+  value,
   selectedHandle,
+  selectedPart,
   onElementClick,
   onContentsChange,
   onHandlePlace,
   onHandleSelect,
 }: PreviewProps): ReactElement | null => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [drawingEl, setDrawingEl] = useState<SVGGElement | null>(null);
   const svgWrapperRef = useRef<HTMLDivElement>(null);
   // State, not a ref: the theme provider takes the element as a prop, and a ref filled
   // after the first render would never re-render it into place.
   const [themeContainer, setThemeContainer] = useState<HTMLDivElement | null>(null);
   const spec = Form.useFieldValue(path.data);
-  const pan = Form.useField(VIEWPORT_PATH.position);
-  const zoom = Form.useField(ZOOM_PATH);
+  const viewport =
+    Form.useFieldValue(path.data.previewViewport, { optional: true }) ??
+    DEFAULT_VIEWPORT;
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const { dark: isDark, colors } = Base.use();
@@ -109,24 +125,50 @@ export const Preview = ({
   const [svg, setSVG] = useState<SVGSVGElement | null>(null);
   const form = Form.useContext();
 
-  const resetViewport = () => {
-    zoom.onChange(1);
-    pan.onChange({ x: 0, y: 0 });
+  // A held chord steps on an interval, so a change reads the live viewport from the
+  // form rather than the one captured when the hold started.
+  const setViewport = (change: (current: Viewport) => Partial<Viewport>) => {
+    const current =
+      form.get(path.data.previewViewport, { optional: true })?.value ??
+      DEFAULT_VIEWPORT;
+    form.set(path.data.previewViewport, { ...current, ...change(current) });
   };
 
-  // A held chord steps on an interval, so the step reads the live zoom from the form
-  // rather than the one captured when the hold started.
-  const stepZoom = (factor: number) => {
-    const current = form.get<number>(ZOOM_PATH).value;
-    form.set(
-      ZOOM_PATH,
-      bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, current * factor),
+  // Fit zooms so the drawing fills a share of the preview, at its center. It reads the
+  // size of the drawing itself, which a zoom still in transition does not change.
+  const fit = () => {
+    if (svg == null || themeContainer == null) return;
+    const width = svg.width.baseVal.value;
+    const height = svg.height.baseVal.value;
+    if (width === 0 || height === 0) return;
+    const room = themeContainer.getBoundingClientRect();
+    const scale = Math.min(
+      (room.width * FIT_SHARE) / width,
+      (room.height * FIT_SHARE) / height,
     );
+    form.set(path.data.previewViewport, {
+      zoom: bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, scale),
+      position: { x: 0, y: 0 },
+    });
   };
+
+  // A drawing that opens at the default view fits the preview instead.
+  const opened = useRef(false);
+  useEffect(() => {
+    if (opened.current || svg == null || themeContainer == null) return;
+    opened.current = true;
+    const stored = form.get(path.data.previewViewport, { optional: true })?.value;
+    if (stored == null || deep.equal(stored, DEFAULT_VIEWPORT)) fit();
+  }, [svg, themeContainer]);
+
+  const stepZoom = (factor: number) =>
+    setViewport(({ zoom }) => ({
+      zoom: bounds.clamp({ lower: MIN_ZOOM, upper: MAX_ZOOM }, zoom * factor),
+    }));
 
   const handleZoomIn = () => stepZoom(ZOOM_STEP);
   const handleZoomOut = () => stepZoom(1 / ZOOM_STEP);
-  const handleResetZoom = () => resetViewport();
+  const handleFit = () => fit();
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
@@ -138,15 +180,17 @@ export const Preview = ({
       e.preventDefault();
       setIsDragging(true);
       setDragStart({
-        x: e.clientX - pan.value.x,
-        y: e.clientY - pan.value.y,
+        x: e.clientX - viewport.position.x,
+        y: e.clientY - viewport.position.y,
       });
     }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (isDragging)
-      pan.onChange({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+      setViewport(() => ({
+        position: { x: e.clientX - dragStart.x, y: e.clientY - dragStart.y },
+      }));
   };
 
   const handleMouseUp = () => setIsDragging(false);
@@ -166,7 +210,7 @@ export const Preview = ({
       if (stage === "end") return stopRepeat();
       if (stage !== "start") return;
       const mode = Triggers.determineMode(ZOOM_TRIGGERS, triggers);
-      if (mode === "reset") return handleResetZoom();
+      if (mode === "reset") return handleFit();
       if (mode !== "in" && mode !== "out") return;
       const step = mode === "in" ? handleZoomIn : handleZoomOut;
       step();
@@ -177,9 +221,15 @@ export const Preview = ({
   });
 
   const onMount = (drawing: SVGGElement) => {
+    setDrawingEl(drawing);
     const addInteractivity = (el: Element) => {
       if (!(el instanceof SVGElement) || el.tagName === "svg") return;
       el.classList.add(CSS.BEM("schematic", "svg-region", "hoverable"));
+      // The CSS filter of a hover or a selection replaces the filter of the drawing.
+      const own = el.style.filter || el.getAttribute("filter");
+      el.style.removeProperty("filter");
+      if (own != null && own !== "" && own !== "none")
+        el.style.setProperty("--console-schematic-own-filter", own);
       if (
         el.tagName === "line" ||
         el.tagName === "polyline" ||
@@ -194,40 +244,31 @@ export const Preview = ({
         }
       }
 
-      el.addEventListener("mouseenter", () => {
-        if (el.tagName === "line" || el.tagName === "polyline")
-          el.style.filter = "drop-shadow(0 0 3px rgba(99, 102, 241, 0.8))";
-        else {
-          const fillAttr = el.getAttribute("fill");
-          const hasVisibleFill =
-            fillAttr && fillAttr !== "none" && fillAttr !== "transparent";
-          if (hasVisibleFill) el.style.filter = "brightness(1.3)";
-          else {
-            el.style.fill = "rgba(99, 102, 241, 0.2)";
-            el.style.fillOpacity = "1";
-          }
-        }
-        el.classList.add(CSS.BEM("schematic", "svg-region", "hover"));
-      });
-
-      el.addEventListener("mouseleave", () => {
-        el.style.filter = "";
-        el.style.fill = "";
-        el.style.fillOpacity = "";
-        el.classList.remove(CSS.BEM("schematic", "svg-region", "hover"));
-      });
-
-      el.addEventListener("click", () => {
+      el.addEventListener("click", (e) => {
+        // The groups around the shape have their own listeners.
+        e.stopPropagation();
+        // Shift+drag pans the preview.
+        if (e.shiftKey) return;
         const markup = form.get(path.data.drawing.markup).value;
-        const named = Schematic.Node.Region.name(markup, drawing, el);
-        if (named.markup !== markup) form.set(path.data.drawing.markup, named.markup);
-        onElementClick(named.selector);
+        onElementClick(Schematic.Node.Region.name(markup, drawing, el), e);
       });
 
-      Array.from(el.children).forEach(addInteractivity);
+      // The spans of a text are part of its shape, so their clicks reach the text.
+      if (el.tagName !== "text") Array.from(el.children).forEach(addInteractivity);
     };
     Array.from(drawing.children).forEach(addInteractivity);
   };
+
+  const selected =
+    spec.parts.find((p) => p.key === selectedPart)?.selectors.join(", ") ?? "";
+  useEffect(() => {
+    if (drawingEl == null || selected === "") return;
+    const shapes = Array.from(drawingEl.querySelectorAll(selected));
+    for (const el of shapes) el.classList.add(SELECTED_CLASS);
+    return () => {
+      for (const el of shapes) el.classList.remove(SELECTED_CLASS);
+    };
+  }, [drawingEl, selected]);
 
   // A schematic node gives the node color, so the preview draws a sample of it.
   const nodeColor = colors.primary.z;
@@ -255,7 +296,9 @@ export const Preview = ({
   const fileDropEnabled = spec.drawing.markup.length === 0;
 
   const svgWrapperStyle = {
-    transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
+    transform:
+      `translate(${viewport.position.x}px, ${viewport.position.y}px) ` +
+      `scale(${viewport.zoom})`,
     transition: isDragging ? "none" : "transform 0.2s ease-out",
     cursor: isDragging ? "grabbing" : "default",
   };
@@ -287,12 +330,13 @@ export const Preview = ({
           {spec.drawing.markup.length > 0 && (
             <Flex.Box x className={CSS.B("schematic-preview-controls")}>
               <Text.Text level="small" color={9}>
-                {Math.round(zoom.value * 100)}%
+                {Math.round(viewport.zoom * 100)}%
               </Text.Text>
               <Button.Button
                 variant="text"
                 size="small"
                 onClick={() => setDarkMode({ app: isDark, dark: !isDarkMode })}
+                tooltip={isDarkMode ? "Preview in light mode" : "Preview in dark mode"}
               >
                 {isDarkMode ? <Icon.DarkMode /> : <Icon.LightMode />}
               </Button.Button>
@@ -311,11 +355,7 @@ export const Preview = ({
                 >
                   <Icon.Add />
                 </Button.Button>
-                <Button.Button
-                  onClick={handleResetZoom}
-                  size="small"
-                  tooltip={RESET_ZOOM_TOOLTIP}
-                >
+                <Button.Button onClick={handleFit} size="small" tooltip={FIT_TOOLTIP}>
                   <Icon.Expand />
                 </Button.Button>
               </Flex.Box>
@@ -339,6 +379,7 @@ export const Preview = ({
                 {dims != null && (
                   <svg
                     ref={setSVG}
+                    className={Schematic.Node.Custom.DRAWING_CLASS}
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox={dimensions.svgViewBox(dims)}
                     {...dimensions.scale(
@@ -348,7 +389,7 @@ export const Preview = ({
                   >
                     <Drawing
                       spec={spec}
-                      value={selectedValue}
+                      value={value}
                       nodeColor={nodeColor}
                       onMount={onMount}
                     />

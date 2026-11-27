@@ -25,16 +25,23 @@ export interface Paint {
   hidden?: boolean;
 }
 
+/**
+ * StateValues is the value of every state of a symbol, or the value of each state by
+ * its key. A state with no value in the map, or a NaN value, reads its default entry,
+ * or the lower bound of a number state.
+ */
+export type StateValues = number | ReadonlyMap<string, number>;
+
 /** PaintContext holds what a look needs to resolve its colors. */
 export interface PaintContext {
-  /** value is the value of each state of the symbol. */
-  value: number;
+  /** value is the value of the states of the symbol. */
+  value: StateValues;
   resolve: (ref: clientColor.Ref) => color.Color | undefined;
   enumerations: ReadonlyMap<enumeration.Key, enumeration.Enumeration>;
   /** nodeColor is the color that `node` paint draws. */
   nodeColor?: color.Color;
   /** defaultEntryColor is the color of an entry that has no color. */
-  defaultEntryColor?: color.Color;
+  defaultEntryColor: color.Color;
 }
 
 type Field = "stroke" | "fill";
@@ -54,11 +61,18 @@ const banded = (
   builtIn: boolean,
 ): boolean => field === "stroke" || (builtIn && (type === "entry" || type === "node"));
 
-/** @returns value as a state reads it after its match. */
-export const matched = (state: schematic.symbol.State, value: number): number => {
-  if (state.type !== "enumeration" || state.match.type === "exact") return value;
+/**
+ * @returns the value of the state after its match. A number state with no value, or a
+ * NaN value, reads its lower bound. An enumeration state with no value, or a NaN value,
+ * reads its default entry, which needs no match.
+ */
+export const matched = (state: schematic.symbol.State, value: StateValues): number => {
+  const v = typeof value === "number" ? value : value.get(state.key);
+  if (v == null || Number.isNaN(v))
+    return state.type === "enumeration" ? state.default : state.bounds.lower;
+  if (state.type !== "enumeration" || state.match.type === "exact") return v;
   const { lower, upper } = state.match.bounds;
-  return value >= lower && value < upper ? 1 : 0;
+  return v >= lower && v < upper ? 1 : 0;
 };
 
 const entryColor = (
@@ -122,10 +136,14 @@ const resolvePaint = (
   return show(field, paint.type);
 };
 
-const applies = (
+/**
+ * @returns whether look applies when the states of a symbol are at value. A look on a
+ * state that states lacks never applies.
+ */
+export const applies = (
   look: schematic.symbol.Look,
-  states: Map<string, schematic.symbol.State>,
-  value: number,
+  states: ReadonlyMap<string, schematic.symbol.State>,
+  value: StateValues,
 ): boolean => {
   if (look.when == null) return true;
   const state = states.get(look.when.state);
@@ -156,51 +174,17 @@ const resolveLooks = (
 };
 
 // resolvePaints returns the paints of spec at ctx.value as band shows them, in the
-// order that they apply. A state override at index ctx.value replaces the looks with
-// its regions.
+// order that they apply.
 const resolvePaints = (
   spec: schematic.symbol.Spec,
-  overrides: schematic.symbol.StateOverride[] | undefined,
   ctx: PaintContext,
   band: Band,
 ): Paint[] => {
-  const override = overrides?.[ctx.value];
-  // An override color draws as a `color` paint does.
-  const overridden = (field: Field, c: color.Color | undefined) =>
-    c != null && banded(field, "color", band.builtIn)
-      ? theme.legible(c, band.theme)
-      : c;
-  if (override != null)
-    return override.regions.map(({ selectors, strokeColor, fillColor }) => ({
-      selectors,
-      stroke: overridden("stroke", strokeColor),
-      fill: overridden("fill", fillColor),
-    }));
   const parts = new Map(spec.parts.map((p) => [p.key, p]));
   return resolveLooks(spec, ctx, band).map(({ part, ...rest }) => ({
     selectors: part == null ? undefined : (parts.get(part)?.selectors ?? []),
     ...rest,
   }));
-};
-
-/**
- * @returns a region for each part of spec, with the colors that its looks give it at
- * ctx.value, before the theme band.
- */
-export const resolveRegions = (
-  spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks">,
-  ctx: PaintContext,
-): schematic.symbol.Region[] => {
-  const looks = resolveLooks(spec, ctx);
-  return spec.parts.map(({ key, name, selectors }) => {
-    const region: schematic.symbol.Region = { key, name, selectors };
-    for (const look of looks) {
-      if (look.part != null && look.part !== key) continue;
-      region.strokeColor = look.stroke ?? region.strokeColor;
-      region.fillColor = look.fill ?? region.fillColor;
-    }
-    return region;
-  });
 };
 
 /** Value is a value of a symbol's state that its node draws. */
@@ -210,23 +194,11 @@ export interface Value {
   name: string;
 }
 
-const UNNAMED: Value[] = [
+/** UNNAMED_VALUES are the values of a state with no enumeration. */
+export const UNNAMED_VALUES: readonly Value[] = [
   { key: "base", value: 0, name: "Base" },
   { key: "active", value: 1, name: "Active" },
 ];
-
-/**
- * @returns the values that the node of spec draws: Base and Active for an actuator, and
- * Base for a static symbol. A value takes the key and name of its entry in entries.
- */
-export const listValues = (
-  spec: Pick<schematic.symbol.Spec, "variant">,
-  entries: enumeration.Entry[] = [],
-): Value[] =>
-  UNNAMED.slice(0, spec.variant === "actuator" ? 2 : 1).map((v) => {
-    const entry = entries.find((e) => e.value === v.value);
-    return entry == null ? v : { key: entry.key, value: v.value, name: entry.name };
-  });
 
 const enumerationKeys = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
@@ -237,50 +209,67 @@ const enumerationKeys = (
 
 /**
  * @returns the context that resolves the looks of spec, with no value, or undefined
- * while the enumerations of its states load. An enumeration that fails to load draws no
- * entry colors.
+ * while the enumerations of its states load. An entry with no color draws nodeColor,
+ * else the theme gray. An enumeration that fails to load gives its entries no color.
  */
-export const usePaintContext = (
+const usePaintContext = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
   const resolve = Color.useResolve();
-  const keys = enumerationKeys(spec);
-  const res = Enumeration.useResultMultiple(keys.length === 0 ? null : { keys });
-  if (keys.length > 0 && res.variant === "loading") return undefined;
+  const t = Theming.use();
+  const enumerations = useEnumerations(spec);
+  if (enumerations == null) return undefined;
+  const node = nodeColor == null ? undefined : color.construct(nodeColor);
   return {
     resolve,
-    enumerations: new Map(
-      (res.variant === "success" ? res.data : []).map((e) => [e.key, e]),
-    ),
-    nodeColor: nodeColor == null ? undefined : color.construct(nodeColor),
+    enumerations,
+    nodeColor: node,
+    defaultEntryColor: node ?? t.colors.gray.l11,
   };
 };
 
+// useEnumerations returns the enumerations of the states of spec by key, or undefined
+// while they load. An enumeration that fails to load is absent.
+const useEnumerations = (
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
+): ReadonlyMap<enumeration.Key, enumeration.Enumeration> | undefined => {
+  const keys = enumerationKeys(spec);
+  const res = Enumeration.useResultMultiple(keys.length === 0 ? null : { keys });
+  if (keys.length > 0 && res.variant === "loading") return undefined;
+  return new Map((res.variant === "success" ? res.data : []).map((e) => [e.key, e]));
+};
+
 /**
- * @returns a region for each part of spec, with the colors that its looks give it at
- * value, or undefined while spec or the enumerations of its states load.
+ * @returns whether a state that has a value in value and a loaded enumeration finds no
+ * entry of that enumeration after its match. It is false while the enumerations load.
  */
-export const useRegions = (
-  spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks"> | undefined,
-  value: number,
-): schematic.symbol.Region[] | undefined => {
-  const ctx = usePaintContext(spec);
-  return useMemoDeepEqual(
-    spec == null || ctx == null ? undefined : resolveRegions(spec, { ...ctx, value }),
-  );
+export const useUnmatched = (
+  spec: Pick<schematic.symbol.Spec, "states"> | undefined,
+  value: StateValues,
+): boolean => {
+  const enumerations = useEnumerations(spec);
+  if (spec == null || enumerations == null || typeof value === "number") return false;
+  return spec.states.some((state) => {
+    if (state.type !== "enumeration" || state.enumeration == null) return false;
+    if (!value.has(state.key)) return false;
+    const loaded = enumerations.get(state.enumeration);
+    if (loaded == null) return false;
+    const v = matched(state, value);
+    return !loaded.entries.some((e) => e.value === v);
+  });
 };
 
 const NO_PAINTS: Paint[] = [];
 
 export interface UsePaintsParams {
-  /** overrides replace the looks at the value of their index. */
-  overrides?: schematic.symbol.StateOverride[];
-  /** nodeColor is the color that `node` paint draws. */
+  /**
+   * nodeColor is the color that `node` paint draws. An entry with no color draws it,
+   * else the theme gray.
+   */
   nodeColor?: color.Crude;
   /**
-   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills,
-   * and an entry with no color draws the node color, else the theme gray.
+   * builtIn marks a drawing that ships with Pluto. It bands its entry and node fills.
    */
   builtIn?: boolean;
 }
@@ -292,20 +281,14 @@ export interface UsePaintsParams {
  */
 export const usePaints = (
   spec: schematic.symbol.Spec | undefined,
-  value: number,
-  { overrides, nodeColor, builtIn = false }: UsePaintsParams = {},
+  value: StateValues,
+  { nodeColor, builtIn = false }: UsePaintsParams = {},
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
-  const defaultEntryColor = builtIn ? (ctx?.nodeColor ?? t.colors.gray.l11) : undefined;
   return useMemoDeepEqual(
     spec == null || ctx == null
       ? NO_PAINTS
-      : resolvePaints(
-          spec,
-          overrides,
-          { ...ctx, value, defaultEntryColor },
-          { theme: t, builtIn },
-        ),
+      : resolvePaints(spec, { ...ctx, value }, { theme: t, builtIn }),
   );
 };

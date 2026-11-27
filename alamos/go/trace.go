@@ -39,10 +39,12 @@ type Span interface {
 // TracingConfig is the configuration for a Tracer.
 type TracingConfig struct {
 	// OtelProvider sets the open telemetry tracing provider used to create spans.
+	//
 	// [REQUIRED]
 	OtelProvider oteltrace.TracerProvider
 	// OtelPropagator sets the open telemetry propagator used to propagate spans across
 	// process boundaries.
+	//
 	// [REQUIRED]
 	OtelPropagator propagation.TextMapPropagator
 	// Filter is a function that is called to determine if a span should be created for

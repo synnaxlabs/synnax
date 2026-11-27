@@ -19,6 +19,7 @@ import type { CSSProperties, ReactElement, ReactNode } from "react";
 
 import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
+import type { Options } from "@/schematic/node/common/options";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { size as nodeSize } from "@/schematic/node/common/size";
 
@@ -29,7 +30,7 @@ interface RenderProps extends Partial<
   >
 > {
   fillColor?: color.Crude;
-  options: schematic.SelectNodeConfig["options"];
+  options: Options.State[];
   className?: string;
   /** value is the key of the last sent option, or null when none is known. */
   value?: string | null;
@@ -39,8 +40,7 @@ interface RenderProps extends Partial<
 }
 
 /** @returns the name an option shows, falling back to its value. */
-export const optionName = (o: schematic.SelectNodeConfig["options"][number]): string =>
-  o.name || `Option ${o.value}`;
+export const optionName = (o: Options.State): string => o.name || `Option ${o.value}`;
 
 const DIALOG_PROPS: Dialog.DialogProps = {
   className: CSS.BE("select-symbol", "dialog"),

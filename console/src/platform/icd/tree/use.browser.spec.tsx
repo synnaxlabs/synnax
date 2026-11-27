@@ -53,6 +53,7 @@ const Sources: FC = () => {
     sourceOf: (e) => (e.type === "plain" ? e : null),
     pathOf: topicPath,
     SourceItem,
+    missingDescription: () => "The ICD has no such message.",
     bindingOf: (_, __, { key }) => icd.readBindingZ.parse({ field: key }),
     tareable: true,
     messageName: () => "Message",
@@ -82,11 +83,11 @@ const Form: FC = () => {
   const [entry] = entries ?? [];
   if (entry?.type !== "plain") return null;
   return (
-    <ICD.WithFormat icdKey={entry.icd}>
+    <ICD.WithFormats icdKeys={[entry.icd]}>
       <ICD.Plans plans={[]}>
         <Sources />
       </ICD.Plans>
-    </ICD.WithFormat>
+    </ICD.WithFormats>
   );
 };
 

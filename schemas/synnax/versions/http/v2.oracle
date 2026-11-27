@@ -186,6 +186,7 @@ ReadConfig struct extends task.PersistConfig {
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
+    @go entry   "http_read_config"
     @go marshal
     @go migrate
 }
@@ -339,6 +340,7 @@ WriteConfig struct extends task.StartConfig {
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
+    @go entry   "http_write_config"
     @go imex    body
     @go marshal
     @go migrate
@@ -346,6 +348,7 @@ WriteConfig struct extends task.StartConfig {
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures an HTTP scan task."
+    @go entry   "http_scan_config"
     @go imex    body
     @go marshal
     @go migrate

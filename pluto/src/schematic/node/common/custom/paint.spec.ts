@@ -17,7 +17,7 @@ import { createElement, type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Custom } from "@/schematic/node/common/custom";
-import { createAsyncSynnaxWrapper } from "@/testutil";
+import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil";
 
 const fixed = (hex: string) => ({
   type: "fixed" as const,
@@ -29,39 +29,159 @@ const createSpec = (
 ): schematic.symbol.Spec =>
   schematic.symbol.specZ.parse({
     drawing: { type: "svg", markup: "<svg/>" },
-    variant: "static",
     parts: [{ key: "body", name: "Body", selectors: [".body"] }],
     ...spec,
   });
 
-describe("Custom.listValues", () => {
-  const entries: enumeration.Entry[] = [
-    { key: "closed", value: 0, name: "Closed", abnormal: false },
-    { key: "open", value: 1, name: "Open", abnormal: false },
-  ];
-
-  it("should list Base and Active for an actuator", () => {
-    expect(Custom.listValues(createSpec({ variant: "actuator" }))).toEqual([
-      { key: "base", value: 0, name: "Base" },
-      { key: "active", value: 1, name: "Active" },
-    ]);
+describe("Custom.applies", () => {
+  const fault: schematic.symbol.State = {
+    type: "enumeration",
+    key: "fault",
+    name: "Fault",
+    match: { type: "exact" },
+    default: 2,
+  };
+  const states = new Map([[fault.key, fault]]);
+  const onFault = (value: number): schematic.symbol.Look => ({
+    key: "look",
+    when: { type: "equals", state: fault.key, values: [value] },
   });
 
-  it("should list only Base for a static symbol, whatever its entries", () => {
-    expect(Custom.listValues(createSpec({ variant: "static" }), entries)).toEqual([
-      { key: "closed", value: 0, name: "Closed" },
-    ]);
+  it("should apply a look with no condition at every value", () => {
+    expect(Custom.applies({ key: "look" }, new Map(), 5)).toBe(true);
   });
 
-  it("should name each value after its entry", () => {
-    const one = entries.slice(0, 1);
-    expect(Custom.listValues(createSpec({ variant: "actuator" }), one)).toEqual([
-      { key: "closed", value: 0, name: "Closed" },
-      { key: "active", value: 1, name: "Active" },
-    ]);
+  it("should apply a look on a state with no value at the default of the state", () => {
+    const values = new Map([["active", 1]]);
+    expect(Custom.applies(onFault(2), states, values)).toBe(true);
+    expect(Custom.applies(onFault(1), states, values)).toBe(false);
+  });
+
+  it("should not apply a look on a state that the symbol lacks", () => {
+    expect(Custom.applies(onFault(2), new Map(), 2)).toBe(false);
   });
 });
 
+describe("Custom.usePaints state values", () => {
+  const RED = color.construct("#ff0000");
+  const BLUE = color.construct("#0000ff");
+
+  const createValueSpec = () =>
+    createSpec({
+      states: [
+        { type: "enumeration", key: "a", name: "A", default: 1 },
+        { type: "enumeration", key: "b", name: "B" },
+        {
+          type: "number",
+          key: "level",
+          name: "Level",
+          bounds: { lower: 5, upper: 10 },
+        },
+      ],
+      looks: [
+        {
+          key: "a",
+          part: "body",
+          when: { type: "equals", state: "a", values: [1] },
+          fill: { type: "color", value: fixed("#ff0000") },
+        },
+        {
+          key: "b",
+          part: "body",
+          when: { type: "equals", state: "b", values: [1] },
+          fill: { type: "color", value: fixed("#0000ff") },
+        },
+        {
+          key: "level",
+          part: "body",
+          when: { type: "equals", state: "level", values: [5] },
+          hidden: true,
+        },
+      ],
+    });
+
+  const renderValues = async (
+    value: Custom.StateValues,
+    spec: schematic.symbol.Spec = createValueSpec(),
+  ): Promise<Custom.Paint[]> => {
+    const { result } = renderHook(() => Custom.usePaints(spec, value), {
+      wrapper: createSynnaxWrapper({ client: null }),
+    });
+    await waitFor(() => expect(result.current).not.toHaveLength(0));
+    return result.current;
+  };
+
+  it("should read each state by its key", async () => {
+    const values = new Map([
+      ["a", 0],
+      ["b", 1],
+      ["level", 7],
+    ]);
+    expect(await renderValues(values)).toEqual([{ selectors: [".body"], fill: BLUE }]);
+  });
+
+  it("should read a state with no value at its default", async () => {
+    expect(await renderValues(new Map([["level", 7]]))).toEqual([
+      { selectors: [".body"], fill: RED },
+    ]);
+  });
+
+  it("should read a NaN value as no value", async () => {
+    const values = new Map([
+      ["a", NaN],
+      ["b", NaN],
+      ["level", NaN],
+    ]);
+    expect(await renderValues(values)).toEqual([
+      { selectors: [".body"], fill: RED },
+      { selectors: [".body"], hidden: true },
+    ]);
+  });
+
+  it.each([
+    ["no value", new Map<string, number>()],
+    ["a NaN value", new Map([["a", NaN]])],
+  ])(
+    "should read a within state with %s at its default, with no match",
+    async (_, values) => {
+      const spec = createSpec({
+        states: [
+          {
+            type: "enumeration",
+            key: "a",
+            name: "A",
+            match: { type: "within", bounds: { lower: 50, upper: 100 } },
+            default: 1,
+          },
+        ],
+        looks: [
+          {
+            key: "a",
+            part: "body",
+            when: { type: "equals", state: "a", values: [1] },
+            fill: { type: "color", value: fixed("#ff0000") },
+          },
+        ],
+      });
+      expect(await renderValues(values, spec)).toEqual([
+        { selectors: [".body"], fill: RED },
+      ]);
+    },
+  );
+
+  it("should read a number state with no value at its lower bound", async () => {
+    expect(await renderValues(new Map([["a", 0]]))).toEqual([
+      { selectors: [".body"], hidden: true },
+    ]);
+  });
+
+  it("should read one number as the value of every state", async () => {
+    expect(await renderValues(1)).toEqual([
+      { selectors: [".body"], fill: RED },
+      { selectors: [".body"], fill: BLUE },
+    ]);
+  });
+});
 const LIGHT = theme.themeZ.parse(theme.SYNNAX_LIGHT);
 const NODE = "#abcdef";
 const BANDED_NODE = theme.legible(NODE, LIGHT);
@@ -92,7 +212,7 @@ describe("Custom.usePaints", () => {
 
   const renderPaints = async (
     spec: schematic.symbol.Spec,
-    value: number,
+    value: Custom.StateValues,
     options?: Custom.UsePaintsParams,
   ): Promise<Custom.Paint[]> => {
     const { result } = renderHook(() => Custom.usePaints(spec, value, options), {
@@ -101,29 +221,6 @@ describe("Custom.usePaints", () => {
     await waitFor(() => expect(result.current).not.toHaveLength(0));
     return result.current;
   };
-
-  describe("useRegions", () => {
-    it("should give each part the colors of its looks at the value", async () => {
-      const spec = createSpec({
-        states: [
-          { type: "enumeration", key: "active", name: "Active", enumeration: valve },
-        ],
-        looks: [
-          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
-        ],
-      });
-      const { result } = renderHook(() => Custom.useRegions(spec, 1), { wrapper });
-      await waitFor(() => expect(result.current).toBeDefined());
-      expect(result.current).toEqual([
-        {
-          key: "body",
-          name: "Body",
-          selectors: [".body"],
-          fillColor: color.construct("#00ff00"),
-        },
-      ]);
-    });
-  });
 
   describe("entry paint", () => {
     const createEntrySpec = (match: schematic.symbol.Matcher = { type: "exact" }) =>
@@ -151,6 +248,23 @@ describe("Custom.usePaints", () => {
     it("should draw the default entry for a value that no entry has", async () => {
       expect(await renderPaints(createEntrySpec(), 7)).toEqual([
         { selectors: [".body"], fill: color.construct("#ff0000") },
+      ]);
+    });
+
+    it("should draw the entry of each state at its own value, or at its default", async () => {
+      const spec = createSpec({
+        states: [
+          { type: "enumeration", key: "a", name: "A", enumeration: valve },
+          { type: "enumeration", key: "b", name: "B", enumeration: valve, default: 2 },
+        ],
+        looks: [
+          { key: "a", part: "body", fill: { type: "entry", state: "a" } },
+          { key: "b", part: "body", fill: { type: "entry", state: "b" } },
+        ],
+      });
+      expect(await renderPaints(spec, new Map([["a", 1]]))).toEqual([
+        { selectors: [".body"], fill: color.construct("#00ff00") },
+        { selectors: [".body"], fill: color.construct("#000080") },
       ]);
     });
 
@@ -240,25 +354,6 @@ describe("Custom.usePaints", () => {
         { selectors: [".body"], stroke: BANDED_NODE },
       ]);
     });
-
-    it("should draw the override at the value in place of the looks", async () => {
-      const spec = createSpec({ looks: [STROKE] });
-      const regions = [
-        {
-          key: "body",
-          name: "Body",
-          selectors: [".body"],
-          strokeColor: color.construct("#123456"),
-        },
-      ];
-      const overrides = [
-        { key: "closed", name: "Closed", regions },
-        { key: "open", name: "Open", regions: [] },
-      ];
-      expect(await renderPaints(spec, 0, { overrides })).toEqual([
-        { selectors: [".body"], stroke: color.construct("#123456") },
-      ]);
-    });
   });
 
   describe("theme band", () => {
@@ -297,19 +392,6 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
-    it("should draw an override that copies the looks the same as the looks", async () => {
-      const spec = createEntryFillSpec();
-      const { result } = renderHook(() => Custom.useRegions(spec, 1), { wrapper });
-      await waitFor(() => expect(result.current).toBeDefined());
-      const overrides = [
-        { key: "closed", name: "Closed", regions: [] },
-        { key: "open", name: "Open", regions: result.current ?? [] },
-      ];
-      expect(await renderPaints(spec, 1, { overrides })).toEqual(
-        await renderPaints(spec, 1),
-      );
-    });
-
     it("should draw a color stroke in the band and a color fill as stored", async () => {
       const spec = createSpec({
         looks: [
@@ -322,22 +404,6 @@ describe("Custom.usePaints", () => {
         ],
       });
       expect(await renderPaints(spec, 0)).toEqual([
-        { selectors: [".body"], stroke: BANDED_WHITE, fill: WHITE },
-      ]);
-    });
-
-    it("should draw an override stroke in the band and its fill as stored", async () => {
-      const regions = [
-        {
-          key: "body",
-          name: "Body",
-          selectors: [".body"],
-          strokeColor: WHITE,
-          fillColor: WHITE,
-        },
-      ];
-      const overrides = [{ key: "base", name: "Base", regions }];
-      expect(await renderPaints(createSpec({}), 0, { overrides })).toEqual([
         { selectors: [".body"], stroke: BANDED_WHITE, fill: WHITE },
       ]);
     });
@@ -363,9 +429,15 @@ describe("Custom.usePaints", () => {
       ]);
     });
 
-    it("should keep the stored fill for an entry with no color on a custom drawing", async () => {
+    it("should draw the node color for an entry with no color on a custom drawing", async () => {
+      expect(await renderPaints(createNoColorSpec(), 0, { nodeColor: NODE })).toEqual([
+        { selectors: [".body"], fill: color.construct(NODE) },
+      ]);
+    });
+
+    it("should draw the theme gray for an entry with no color on a custom drawing", async () => {
       expect(await renderPaints(createNoColorSpec(), 0)).toEqual([
-        { selectors: [".body"] },
+        { selectors: [".body"], fill: LIGHT.colors.gray.l11 },
       ]);
     });
 
@@ -399,6 +471,37 @@ describe("Custom.usePaints", () => {
       expect(await renderPaints(spec, 0, options)).toEqual([
         { selectors: [".body"], stroke: color.construct("#ffffffe6") },
       ]);
+    });
+  });
+
+  describe("useUnmatched", () => {
+    // The entry fill shows once the enumeration loads.
+    const createStateSpec = () =>
+      createSpec({
+        states: [
+          { type: "enumeration", key: "active", name: "Active", enumeration: valve },
+        ],
+        looks: [
+          { key: "fill", part: "body", fill: { type: "entry", state: "active" } },
+        ],
+      });
+
+    it.each([
+      ["a value that names no entry", new Map([["active", 5]]), true],
+      ["a value that names an entry", new Map([["active", 2]]), false],
+      ["no value", new Map<string, number>(), false],
+      ["one number for every state", 5, false],
+    ] as const)("should read %s", async (_, value, unmatched) => {
+      const spec = createStateSpec();
+      const { result } = renderHook(
+        () => ({
+          unmatched: Custom.useUnmatched(spec, value),
+          paints: Custom.usePaints(spec, value),
+        }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.paints).not.toHaveLength(0));
+      expect(result.current.unmatched).toBe(unmatched);
     });
   });
 });

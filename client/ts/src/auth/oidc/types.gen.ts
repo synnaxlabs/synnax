@@ -30,8 +30,8 @@ export const linkZ = z.object({
    * issuer is the issuer URL of the provider that proved the account, its `iss` claim.
    * With account, it identifies the provider account.
    */
-  issuer: z.string().min(1, "issuer is required"),
+  issuer: z.string().min(1, "Issuer is required"),
   /** account is the provider's permanent ID for the account, its `sub` claim. */
-  account: z.string().min(1, "account is required"),
+  account: z.string().min(1, "Account is required"),
 });
 export interface Link extends z.infer<typeof linkZ> {}

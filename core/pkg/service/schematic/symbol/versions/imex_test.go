@@ -40,7 +40,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	It("Should decode a server-exported envelope", func(ctx SpecContext) {
 		sym := decode(ctx, "testdata/import_v2.json")
 		Expect(sym.Data.Drawing).To(Equal(svg("<svg><rect/></svg>")))
-		Expect(sym.Data.Variant).To(Equal("valve"))
 		Expect(sym.Data.Scale).To(Equal(1.0))
 		Expect(sym.Data.StrokeScaled).To(BeTrue())
 		Expect(sym.Data.Looks).To(HaveLen(1))
@@ -59,7 +58,6 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	It("Should decode the camelCase Console export", func(ctx SpecContext) {
 		sym := decode(ctx, "testdata/import_console.json")
 		Expect(sym.Data.Drawing).To(Equal(svg("<svg><circle/></svg>")))
-		Expect(sym.Data.Variant).To(Equal("sensor"))
 		Expect(sym.Data.Scale).To(Equal(2.0))
 		Expect(sym.Data.StrokeScaled).To(BeTrue())
 		Expect(sym.Data.Parts).To(Equal([]versions.Part{{
@@ -74,12 +72,8 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			},
 		}}))
 		Expect(sym.Data.Looks).To(Equal([]versions.Look{{
-			Key:  "look-1",
-			Part: new("r1"),
-			When: &versions.Condition{Variant: versions.EqualsCondition{
-				State:  "active",
-				Values: []float64{0},
-			}},
+			Key:    "look-1",
+			Part:   new("r1"),
 			Stroke: colorPaint("#123456"),
 			Fill:   colorPaint("#654321"),
 		}}))

@@ -455,6 +455,61 @@
       "receiver": "Writer",
       "name": "Write",
       "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "ErrChannelNotFound",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "Writer",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "Iterator",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
+      "name": "Writeback",
+      "caller": "https://linear.app/synnax/issue/SY-6385"
+    },
+    {
+      "module": "x/go",
+      "package": "github.com/synnaxlabs/x/query",
+      "name": "NotFound",
+      "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "TextMessage",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "Text",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "NewText",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "Text",
+      "name": "Decode",
+      "caller": "sy-6979-text-reads"
     }
   ]
 }

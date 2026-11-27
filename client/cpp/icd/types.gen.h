@@ -36,6 +36,7 @@
 namespace synnax::icd {
 
 struct JSONBaseMatch;
+struct Poll;
 struct Where;
 struct Cursor;
 struct BaseField;
@@ -47,7 +48,9 @@ struct TextBaseField;
 struct JSONBaseField;
 struct BinaryBaseField;
 struct ReadMessage;
+struct ReadEntry;
 struct WriteMessage;
+struct WriteTarget;
 struct Message;
 struct ICD;
 struct RetrieveResponse;
@@ -86,6 +89,18 @@ struct JSONBaseMatch {
     to_proto() const;
     static std::pair<JSONBaseMatch, x::errors::Error>
     from_proto(const ::service::icd::pb::JSONBaseMatch &pb);
+};
+
+/// @brief Poll is a query that a read task sends at a fixed rate.
+struct Poll {
+    /// @brief query is the request that the device must receive before it answers. The
+    /// task frames it with the framing of the ICD.
+    std::vector<std::uint8_t> query;
+    /// @brief rate is how often the task sends the query, in Hertz.
+    ::x::telem::Rate rate = ::x::telem::Rate(1);
+
+    static Poll parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief ConstantTimestampDefault is one fixed timestamp.
@@ -1164,6 +1179,21 @@ binary_field_from_proto(const ::service::icd::pb::BinaryField &pb);
     );
 }
 
+/// @brief ReadEntry reads the messages of one device on a serial port or a socket.
+struct ReadEntry {
+    /// @brief icd is the key of the ICD that holds the messages of the entry.
+    Key icd;
+    /// @brief messages are the messages the device sends. Each frame is read as the
+    /// message whose match rule it meets.
+    std::vector<ReadMessage> messages = {};
+    /// @brief poll is the query that asks the device to send. Absent when the device
+    /// sends on its own.
+    std::optional<Poll> poll;
+
+    static ReadEntry parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief WriteMessage sends one message of an ICD.
 struct WriteMessage {
     /// @brief message is the key of the ICD message to send.
@@ -1247,6 +1277,21 @@ Payload parse_payload(x::json::Parser parser);
 to_proto(const Payload &value);
 std::pair<Payload, x::errors::Error>
 payload_from_proto(const ::service::icd::pb::Payload &pb);
+
+/// @brief WriteTarget sends one message to one device on a serial port or a socket.
+struct WriteTarget {
+    /// @brief icd is the key of the ICD that holds the message.
+    Key icd;
+    /// @brief message is the message the target sends.
+    WriteMessage message;
+    /// @brief period is how often the target sends the message, with the last command
+    /// of each bound channel. Absent when the target sends one message for each
+    /// command.
+    std::optional<::x::telem::TimeSpan> period;
+
+    static WriteTarget parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Message is the layout of one message a system sends or receives.
 struct Message {

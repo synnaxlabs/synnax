@@ -49,7 +49,7 @@ export const baseZ = z.object({
   /** key is the unique identifier for this view. */
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the view. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * icon is the key of the icon that marks the view in lists. When null, the Console
    * draws its default view icon.

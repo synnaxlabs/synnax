@@ -12,10 +12,10 @@
 # Prints the work a pull request needs before it is done, one item per line, and
 # nothing when it is done. Usage: shepherd_work.sh <pr>. The items are "conflict", "ci
 # <run id>" for a failed CI run on the head, "codeql <path>:<line> <rule> <message>"
-# for each open alert that blocks a merge when the CodeQL check failed, "queue [<run
-# id>]" for a merge queue removal after the head commit, with the failed merge group
-# run when found, "threads <count>" for review threads that need action, and
-# "outside-diff" for open Sedosaur findings outside the diff.
+# for each open alert that blocks a merge when the CodeQL check or the CodeQL gate
+# failed, "queue [<run id>]" for a merge queue removal after the head commit, with the
+# failed merge group run when found, "threads <count>" for review threads that need
+# action, and "outside-diff" for open Sedosaur findings outside the diff.
 
 set -euo pipefail
 
@@ -25,8 +25,9 @@ HERE=$(dirname "$0")
 
 # GitHub computes the mergeable state on the first read after a change.
 for _ in 1 2 3; do
-    PULL=$(gh api "repos/${REPO}/pulls/${PR}" --jq '"\(.head.sha) \(.mergeable_state)"')
-    read -r SHA STATE <<< "$PULL"
+    PULL=$(gh api "repos/${REPO}/pulls/${PR}" \
+        --jq '"\(.head.sha) \(.mergeable_state) \(.base.ref)"')
+    read -r SHA STATE BASE <<< "$PULL"
     [ "$STATE" = unknown ] || break
     sleep "${SHEPHERD_RETRY_SECONDS:-5}"
 done
@@ -64,6 +65,18 @@ if [ "$(gh api "$SCANS" --jq '.workflow_runs[0].status')" = completed ] \
         | .most_recent_instance as $at
         | "codeql \($at.location.path):\($at.location.start_line) \(.rule.id)"
             + " \($at.message.text | gsub("\\s+"; " "))"'
+fi
+
+# The CodeQL gate fails on alerts open on the merge ref and not on the base, also on
+# lines the pull request did not change. GitHub keeps only 10 of its annotations, so
+# this repeats its comparison against the last analyzed merge commit.
+GATE="repos/${REPO}/commits/${SHA}/check-runs?check_name=CodeQL%20gate"
+if [ "$(gh api "$GATE" --jq '.check_runs[0].conclusion')" = failure ]; then
+    MERGE_REF="refs/pull/${PR}/merge"
+    ANALYSES="code-scanning/analyses?ref=${MERGE_REF}&tool_name=CodeQL&per_page=1"
+    MERGE=$(gh api "repos/${REPO}/${ANALYSES}" --jq '.[0].commit_sha')
+    python3 "$HERE/codeql_new_alerts.py" --work "$MERGE_REF" "refs/heads/${BASE}" \
+        "$MERGE"
 fi
 
 # The span from the head commit to a later merge queue removal for failed checks that

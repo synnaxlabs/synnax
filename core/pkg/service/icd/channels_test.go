@@ -41,6 +41,7 @@ var _ = Describe("ReadChannels", Ordered, func() {
 		}))
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: core.Channel,
+			TS:      core.Storage.TS,
 			DB:      core.DB,
 			HostKey: core.Identity.HostKey,
 			Status:  statusSvc,
@@ -75,8 +76,17 @@ var _ = Describe("ReadChannels", Ordered, func() {
 				[]channel.Key{idx.Key(), data.Key()},
 			))
 			Expect(found).To(Equal(map[channel.Key]v0.Channel{
-				idx.Key():  {Name: idx.Name, DataType: telem.TimestampT, Index: true},
-				data.Key(): {Name: data.Name, DataType: telem.Float32T},
+				idx.Key(): {
+					Name:     idx.Name,
+					DataType: telem.TimestampT,
+					Index:    true,
+					IndexKey: idx.Key(),
+				},
+				data.Key(): {
+					Name:     data.Name,
+					DataType: telem.Float32T,
+					IndexKey: idx.Key(),
+				},
 			}))
 		},
 	)
@@ -85,7 +95,11 @@ var _ = Describe("ReadChannels", Ordered, func() {
 		missing := distchannel.NewKey(core.Identity.HostKey, 60000)
 		Expect(channels(ctx, core.DB, []channel.Key{data.Key(), missing})).
 			To(Equal(map[channel.Key]v0.Channel{
-				data.Key(): {Name: data.Name, DataType: telem.Float32T},
+				data.Key(): {
+					Name:     data.Name,
+					DataType: telem.Float32T,
+					IndexKey: idx.Key(),
+				},
 			}))
 	})
 })

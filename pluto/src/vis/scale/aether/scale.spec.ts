@@ -116,6 +116,11 @@ describe("scale/aether/Scale", () => {
       expect(texts(recorder)).toContain("50.00");
     });
 
+    it("should draw the readout with tabular digits", () => {
+      const { recorder } = setup({ showFill: false, showScale: false });
+      expect(canvasTest.fontOf(recorder, "50.00")).toContain("Inter Tabular");
+    });
+
     it("should draw no readout when the caret is off", () => {
       const { recorder } = setup({ showCaret: false, showScale: false });
       expect(texts(recorder)).toHaveLength(0);

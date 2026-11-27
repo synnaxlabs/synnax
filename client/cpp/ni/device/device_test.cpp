@@ -107,7 +107,12 @@ TEST(Client, UpdatesConfigurationAndKeepsIdentity) {
     ConfigurationUpdate configuration;
     configuration.name = "Thermocouples";
     configuration.identifier = "tc";
-    configuration.analog_input.channels[0] = 0;
+    const auto ch = ASSERT_NIL_P(client.channels.create(
+        make_unique_channel_name("ni_device_port"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    configuration.analog_input.channels[0] = ch.key;
     const auto got = ASSERT_NIL_P(
         client.ni.devices.update(dev.key, Update(configuration))
     );
@@ -115,6 +120,7 @@ TEST(Client, UpdatesConfigurationAndKeepsIdentity) {
     ASSERT_EQ(got.identifier, "tc");
     ASSERT_EQ(got.resource_name, dev.resource_name);
     ASSERT_EQ(got.model, "9205");
+    ASSERT_EQ(got.analog_input.channels.at(0), ch.key);
 }
 
 /// @brief it should reject a retrieve of one device with a limit.

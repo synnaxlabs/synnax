@@ -19,9 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
-	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
+	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -67,21 +66,6 @@ var _ = Describe("Codec", func() {
 								},
 							},
 						},
-						Fields: []v5.ReadField{
-							{
-								Key:        "test_27",
-								Name:       "test_28",
-								Disabled:   true,
-								Optional:   false,
-								FillValue:  new(any(map[string]any{"key_31": "value_31"})),
-								Channel:    channel.Key(33),
-								Pointer:    "test_33",
-								DataType:   telem.DataType("test_34"),
-								TimeFormat: new(payload.TimeFormat("iso8601")),
-								EnumValues: []payload.EnumEntry{{Label: "test_37", Value: 38.5}},
-							},
-						},
-						Index: "test_39",
 					},
 				},
 				NanFillEnabled: false,
@@ -139,21 +123,6 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				Fields: []v5.ReadField{
-					{
-						Key:        "test_21",
-						Name:       "test_22",
-						Disabled:   true,
-						Optional:   false,
-						FillValue:  new(any(map[string]any{"key_25": "value_25"})),
-						Channel:    channel.Key(27),
-						Pointer:    "test_27",
-						DataType:   telem.DataType("test_28"),
-						TimeFormat: new(payload.TimeFormat("iso8601")),
-						EnumValues: []payload.EnumEntry{{Label: "test_31", Value: 32.5}},
-					},
-				},
-				Index: "test_33",
 			}),
 			Entry("zero values", v5.ReadEndpoint{
 				Key:         "",
@@ -165,8 +134,6 @@ var _ = Describe("Codec", func() {
 				Body:        "",
 				ICD:         nil,
 				Messages:    []icd.ReadMessage{},
-				Fields:      []v5.ReadField{},
-				Index:       "",
 			}),
 			Entry("empty collections", v5.ReadEndpoint{
 				Key:         "test_1",
@@ -178,8 +145,116 @@ var _ = Describe("Codec", func() {
 				Body:        "test_7",
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 				Messages:    []icd.ReadMessage{},
-				Fields:      []v5.ReadField{},
-				Index:       "test_11",
+			}),
+		)
+	})
+	Describe("WriteConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.WriteConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.WriteConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v5.WriteConfig{
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart: false,
+				Device:    "test_3",
+				Endpoints: []v5.WriteEndpoint{
+					{
+						Key:         "test_5",
+						Disabled:    false,
+						Method:      v5.Method("GET"),
+						Path:        "test_8",
+						Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
+						QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
+						ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
+						Message: new(icd.WriteMessage{
+							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+							Bindings: []icd.WriteBinding{
+								{Variant: icd.ChannelWriteBinding{
+									WriteBaseBinding: icd.WriteBaseBinding{
+										Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+									},
+									Channel:  channel.Key(21),
+									DataType: new(telem.DataType("test_21")),
+								}},
+							},
+						}),
+					},
+				},
+			}),
+			Entry("zero values", v5.WriteConfig{
+				Key:       uuid.Nil(),
+				AutoStart: false,
+				Device:    "",
+				Endpoints: []v5.WriteEndpoint{},
+			}),
+			Entry("empty collections", v5.WriteConfig{
+				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart: false,
+				Device:    "test_3",
+				Endpoints: []v5.WriteEndpoint{},
+			}),
+		)
+	})
+	Describe("WriteEndpoint", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v5.WriteEndpoint) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v5.WriteEndpoint
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v5.WriteEndpoint{
+				Key:         "test_1",
+				Disabled:    false,
+				Method:      v5.Method("GET"),
+				Path:        "test_4",
+				Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
+				QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
+				Message: new(icd.WriteMessage{
+					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+					Bindings: []icd.WriteBinding{
+						{Variant: icd.ChannelWriteBinding{
+							WriteBaseBinding: icd.WriteBaseBinding{
+								Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+							},
+							Channel:  channel.Key(17),
+							DataType: new(telem.DataType("test_17")),
+						}},
+					},
+				}),
+			}),
+			Entry("zero values", v5.WriteEndpoint{
+				Key:         "",
+				Disabled:    false,
+				Method:      v5.Method(""),
+				Path:        "",
+				Headers:     []v5.Header{},
+				QueryParams: []v5.QueryParam{},
+				ICD:         nil,
+				Message:     nil,
+			}),
+			Entry("empty collections", v5.WriteEndpoint{
+				Key:         "test_1",
+				Disabled:    false,
+				Method:      v5.Method("GET"),
+				Path:        "test_4",
+				Headers:     []v5.Header{},
+				QueryParams: []v5.QueryParam{},
+				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+				Message: new(icd.WriteMessage{
+					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+					Bindings: []icd.WriteBinding{},
+				}),
 			}),
 		)
 	})
@@ -215,21 +290,6 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 						},
 					},
 				},
-				Fields: []v5.ReadField{
-					{
-						Key:        "test_27",
-						Name:       "test_28",
-						Disabled:   true,
-						Optional:   false,
-						FillValue:  new(any(map[string]any{"key_31": "value_31"})),
-						Channel:    channel.Key(33),
-						Pointer:    "test_33",
-						DataType:   telem.DataType("test_34"),
-						TimeFormat: new(payload.TimeFormat("iso8601")),
-						EnumValues: []payload.EnumEntry{{Label: "test_37", Value: 38.5}},
-					},
-				},
-				Index: "test_39",
 			},
 		},
 		NanFillEnabled: false,
@@ -272,21 +332,6 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 				},
 			},
 		},
-		Fields: []v5.ReadField{
-			{
-				Key:        "test_21",
-				Name:       "test_22",
-				Disabled:   true,
-				Optional:   false,
-				FillValue:  new(any(map[string]any{"key_25": "value_25"})),
-				Channel:    channel.Key(27),
-				Pointer:    "test_27",
-				DataType:   telem.DataType("test_28"),
-				TimeFormat: new(payload.TimeFormat("iso8601")),
-				EnumValues: []payload.EnumEntry{{Label: "test_31", Value: 32.5}},
-			},
-		},
-		Index: "test_33",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -296,6 +341,87 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v5.ReadEndpoint
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
+	seed := v5.WriteConfig{
+		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart: false,
+		Device:    "test_3",
+		Endpoints: []v5.WriteEndpoint{
+			{
+				Key:         "test_5",
+				Disabled:    false,
+				Method:      v5.Method("GET"),
+				Path:        "test_8",
+				Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
+				QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
+				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
+				Message: new(icd.WriteMessage{
+					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+					Bindings: []icd.WriteBinding{
+						{Variant: icd.ChannelWriteBinding{
+							WriteBaseBinding: icd.WriteBaseBinding{
+								Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+							},
+							Channel:  channel.Key(21),
+							DataType: new(telem.DataType("test_21")),
+						}},
+					},
+				}),
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.WriteConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
+	seed := v5.WriteEndpoint{
+		Key:         "test_1",
+		Disabled:    false,
+		Method:      v5.Method("GET"),
+		Path:        "test_4",
+		Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
+		QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+		ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
+		Message: new(icd.WriteMessage{
+			Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+			Bindings: []icd.WriteBinding{
+				{Variant: icd.ChannelWriteBinding{
+					WriteBaseBinding: icd.WriteBaseBinding{
+						Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+					},
+					Channel:  channel.Key(17),
+					DataType: new(telem.DataType("test_17")),
+				}},
+			},
+		}),
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v5.WriteEndpoint
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -334,21 +460,6 @@ func FuzzDecodeReadConfig(f *testing.F) {
 							},
 						},
 					},
-					Fields: []v5.ReadField{
-						{
-							Key:        "test_27",
-							Name:       "test_28",
-							Disabled:   true,
-							Optional:   false,
-							FillValue:  new(any(map[string]any{"key_31": "value_31"})),
-							Channel:    channel.Key(33),
-							Pointer:    "test_33",
-							DataType:   telem.DataType("test_34"),
-							TimeFormat: new(payload.TimeFormat("iso8601")),
-							EnumValues: []payload.EnumEntry{{Label: "test_37", Value: 38.5}},
-						},
-					},
-					Index: "test_39",
 				},
 			},
 			NanFillEnabled: false,
@@ -437,21 +548,6 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 					},
 				},
 			},
-			Fields: []v5.ReadField{
-				{
-					Key:        "test_21",
-					Name:       "test_22",
-					Disabled:   true,
-					Optional:   false,
-					FillValue:  new(any(map[string]any{"key_25": "value_25"})),
-					Channel:    channel.Key(27),
-					Pointer:    "test_27",
-					DataType:   telem.DataType("test_28"),
-					TimeFormat: new(payload.TimeFormat("iso8601")),
-					EnumValues: []payload.EnumEntry{{Label: "test_31", Value: 32.5}},
-				},
-			},
-			Index: "test_33",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -470,8 +566,6 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Body:        "",
 			ICD:         nil,
 			Messages:    []icd.ReadMessage{},
-			Fields:      []v5.ReadField{},
-			Index:       "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -490,8 +584,6 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Body:        "test_7",
 			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			Messages:    []icd.ReadMessage{},
-			Fields:      []v5.ReadField{},
-			Index:       "test_11",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -511,6 +603,178 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v5.ReadEndpoint
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWriteConfig(f *testing.F) {
+	{
+		seed := v5.WriteConfig{
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart: false,
+			Device:    "test_3",
+			Endpoints: []v5.WriteEndpoint{
+				{
+					Key:         "test_5",
+					Disabled:    false,
+					Method:      v5.Method("GET"),
+					Path:        "test_8",
+					Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
+					QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
+					ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
+					Message: new(icd.WriteMessage{
+						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
+						Bindings: []icd.WriteBinding{
+							{Variant: icd.ChannelWriteBinding{
+								WriteBaseBinding: icd.WriteBaseBinding{
+									Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567813"),
+								},
+								Channel:  channel.Key(21),
+								DataType: new(telem.DataType("test_21")),
+							}},
+						},
+					}),
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.WriteConfig{
+			Key:       uuid.Nil(),
+			AutoStart: false,
+			Device:    "",
+			Endpoints: []v5.WriteEndpoint{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.WriteConfig{
+			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart: false,
+			Device:    "test_3",
+			Endpoints: []v5.WriteEndpoint{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.WriteConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.WriteConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWriteEndpoint(f *testing.F) {
+	{
+		seed := v5.WriteEndpoint{
+			Key:         "test_1",
+			Disabled:    false,
+			Method:      v5.Method("GET"),
+			Path:        "test_4",
+			Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
+			QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
+			Message: new(icd.WriteMessage{
+				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
+				Bindings: []icd.WriteBinding{
+					{Variant: icd.ChannelWriteBinding{
+						WriteBaseBinding: icd.WriteBaseBinding{
+							Field: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
+						},
+						Channel:  channel.Key(17),
+						DataType: new(telem.DataType("test_17")),
+					}},
+				},
+			}),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.WriteEndpoint{
+			Key:         "",
+			Disabled:    false,
+			Method:      v5.Method(""),
+			Path:        "",
+			Headers:     []v5.Header{},
+			QueryParams: []v5.QueryParam{},
+			ICD:         nil,
+			Message:     nil,
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v5.WriteEndpoint{
+			Key:         "test_1",
+			Disabled:    false,
+			Method:      v5.Method("GET"),
+			Path:        "test_4",
+			Headers:     []v5.Header{},
+			QueryParams: []v5.QueryParam{},
+			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
+			Message: new(icd.WriteMessage{
+				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
+				Bindings: []icd.WriteBinding{},
+			}),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v5.WriteEndpoint
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v5.WriteEndpoint
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

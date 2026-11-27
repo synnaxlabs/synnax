@@ -19,6 +19,7 @@ import {
   CERTIFICATE,
   createTestClient,
   expectLive,
+  requestsTo,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -359,9 +360,9 @@ describe("Certificate", () => {
         source: "stored",
         pem: PEM,
       });
-      await expect
-        .poll(async () => await client.certificates.retrieve({ searchTerm: name }))
-        .toContainEqual(created);
+      expect(await client.certificates.retrieve({ searchTerm: name })).toContainEqual(
+        created,
+      );
     });
 
     it("should retrieve a certificate by name", async () => {
@@ -444,7 +445,7 @@ describe("Certificate", () => {
           certificate.set({ path: ["pem"], value: "x" }),
         ),
       ).rejects.toThrow('no editable field at "pem"');
-      expect(send).not.toHaveBeenCalled();
+      expect(requestsTo(send, "/certificate/dispatch")).toEqual([]);
     });
   });
 

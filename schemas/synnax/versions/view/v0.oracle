@@ -31,10 +31,12 @@ View struct {
         """
     }
 
-    @doc value  """
+    @doc value     """
         is a persisted view configuration storing visualization settings and query
         parameters for line plots, tables, schematics, and other view types.
     """
+    @go entry
     @go marshal
     @go migrate
+    @resource type "view"
 }

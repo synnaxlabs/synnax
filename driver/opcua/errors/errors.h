@@ -30,6 +30,11 @@ const x::errors::Error SESSION_REJECTED = TEMPORARY.sub("session_rejected");
 /// @brief the server or the Driver did not write a command to one or more nodes. The
 /// write task warns and keeps running.
 const x::errors::Error COMMAND_REJECTED = TEMPORARY.sub("command_rejected");
+/// @brief the server used up the time given to a set of requests.
+const x::errors::Error DEADLINE_EXCEEDED(
+    TEMPORARY.sub("deadline_exceeded"),
+    "The server took too long to answer."
+);
 
 /// @brief security-related errors for certificate and encryption issues
 const x::errors::Error SECURITY = CRITICAL.sub("security");

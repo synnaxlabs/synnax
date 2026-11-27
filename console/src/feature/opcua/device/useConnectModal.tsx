@@ -63,6 +63,7 @@ import { Analytics } from "@/platform/analytics";
 import { Certificate } from "@/platform/certificate";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Rack } from "@/platform/rack";
 import { Secret } from "@/platform/secret";
 
 const path = deep.path<Device>();
@@ -236,7 +237,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION_KEY,
     name: "OPC UA",
     rack: rackKey,
@@ -424,6 +425,7 @@ export const Connect = ({
                   padHelpText={false}
                 />
               </Flex.Box>
+              <ReadNodeTimeoutField />
             </Form.Section>
           </Form.Sections>
         </Form.Form>
@@ -433,6 +435,7 @@ export const Connect = ({
         variant={variant}
         message={stat.description}
         onConnect={() => save()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -519,7 +522,7 @@ const HEADER = ["Device", "Connect", "OPC UA server"];
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "OPC UA server",
+  placeholder: "Server name",
   "aria-label": "Name",
 } as const;
 
@@ -529,3 +532,27 @@ const ENDPOINT_INPUT_PROPS = {
 } as const;
 
 const TIMING_BOUNDS = { lower: TimeSpan.MILLISECOND };
+
+const checkReadNodeTimeout = (span: TimeSpan): string | null =>
+  span.lessThan(TimeSpan.SECOND) ? "Node read timeout must be 1s or more" : null;
+
+/** Stores nanoseconds, and reads a number typed alone as seconds. */
+const ReadNodeTimeoutField = () => (
+  <Form.Field<number>
+    path={path.properties.connection.readNodeTimeout}
+    label="Node read timeout"
+    helpText="The longest time to read the details of one node."
+  >
+    {({ value, onChange, ...p }) => (
+      <Input.TimeSpan
+        {...p}
+        inline
+        unit={TimeSpan.SECOND}
+        precision={TimeSpan.NANOSECOND}
+        value={value}
+        onChange={onChange}
+        check={checkReadNodeTimeout}
+      />
+    )}
+  </Form.Field>
+);

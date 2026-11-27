@@ -50,7 +50,9 @@ Panel struct {
         @doc value "is the color of the panel's icon. When null, the theme picks it."
     }
 
-    @doc value  "is a project-owned tree of visualization tabs."
+    @doc value     "is a project-owned tree of visualization tabs."
+    @go entry
     @go marshal
     @go migrate
+    @resource type "panel"
 }

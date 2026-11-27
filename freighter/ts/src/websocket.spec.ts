@@ -203,6 +203,11 @@ describe("unreachable server", () => {
     ],
     ["a Bun refused upgrade", new Error("Expected 101 status code: 404"), "runtime"],
     ["a Deno refused upgrade", networkError("Invalid status code: 502"), "runtime"],
+    [
+      "a Node 22 failed dial",
+      new Error("Received network error or non-101 status code."),
+      "unreachable",
+    ],
   ])("should map %s", async (_, error, kind) => {
     const err = await streamError(
       failingConnector((socket) => socket.onerror?.({ error })),

@@ -71,6 +71,11 @@ private:
         Method method;
         std::string base_url;
         x::telem::TimeStamp start;
+        CURL *handle = nullptr;
+        /// @brief scheme, host, and port of the request URL.
+        std::string origin;
+        /// @brief origin of a redirect target the transfer refused to send to.
+        std::string refused_origin;
     };
 
     /// @brief a pending request waiting to be picked up by the event loop.
@@ -99,6 +104,11 @@ private:
     /// @brief builds a Response + Error pair from a completed curl handle.
     static std::pair<Response, x::errors::Error>
     build_result(CURL *handle, CURLcode result_code, ActiveTransfer &t);
+
+    /// @brief curl callback before each request is sent. Ends the transfer on a
+    /// redirect to another origin, as curl sends custom headers, such as an API key,
+    /// to any redirect target.
+    static int prereq_callback(void *data, char *, char *, int, int);
 
     /// @brief creates a curl easy handle from a Request and ActiveTransfer.
     static CURL *create_handle(const Request &req, ActiveTransfer &t);

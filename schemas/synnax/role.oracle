@@ -65,6 +65,7 @@ Role struct {
         group-based permission management. Roles define what actions users can perform
         on resources.
     """
+    @go entry
     @go marshal
     @go migrate
     @resource type "role"

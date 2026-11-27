@@ -184,7 +184,6 @@ func (e *crashEngine) openServices(ctx context.Context, store kv.DB) (err error)
 	dist, err := distchannel.NewService(ctx, distchannel.ServiceConfig{
 		HostKey: 1,
 		KV:      store,
-		TS:      e.cesium,
 	})
 	if err != nil {
 		return err
@@ -206,6 +205,7 @@ func (e *crashEngine) openServices(ctx context.Context, store kv.DB) (err error)
 	e.closers = append(e.closers, statuses.Close)
 	if e.svc, err = channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: dist,
+		TS:      e.cesium,
 		DB:      e.db,
 		HostKey: 1,
 		Status:  statuses,
@@ -257,9 +257,9 @@ func (e *crashEngine) Commit(
 	}
 	frame := telem.MultiFrame(
 		[]cesium.ChannelKey{
-			e.clock.Key().StorageKey(),
-			data.Key().StorageKey(),
-			scratch.Key().StorageKey(),
+			cesium.ChannelKey(e.clock.Key()),
+			cesium.ChannelKey(data.Key()),
+			cesium.ChannelKey(scratch.Key()),
 		},
 		[]telem.Series{
 			stamps(r.ID, len(r.Payload)),
@@ -307,7 +307,7 @@ func (e *crashEngine) removed() error {
 // read returns the samples of the channel in Cesium, or nil when Cesium has no such
 // channel.
 func (e *crashEngine) read(ctx context.Context, ch channel.Channel) ([]byte, error) {
-	frame, err := e.cesium.Read(ctx, telem.TimeRangeMax, ch.Key().StorageKey())
+	frame, err := e.cesium.Read(ctx, telem.TimeRangeMax, cesium.ChannelKey(ch.Key()))
 	if errors.Is(err, cesium.ErrChannelNotFound) {
 		return nil, nil
 	}
@@ -332,7 +332,7 @@ func (e *crashEngine) Recovered(ctx context.Context) ([]crash.Record, error) {
 	stored := set.Set[cesium.ChannelKey]{}
 	byName := map[string]channel.Channel{}
 	for _, ch := range channels {
-		stored.Add(ch.Key().StorageKey())
+		stored.Add(cesium.ChannelKey(ch.Key()))
 		byName[ch.Name] = ch
 	}
 	infos, err := e.ts.List("")
@@ -454,7 +454,7 @@ func runOnCore(ctx context.Context, dirsDurable bool) (crash.Result, error) {
 func orphans(locals ...distchannel.LocalKey) []string {
 	out := make([]string, len(locals))
 	for i, local := range locals {
-		key := distchannel.NewKey(1, local).StorageKey()
+		key := cesium.ChannelKey(distchannel.NewKey(1, local))
 		out[i] = fmt.Sprintf(
 			"R5: the audit failed: cesium channel %d has no record",
 			key,
@@ -472,7 +472,7 @@ func emptyMeta(cause string, locals ...distchannel.LocalKey) []string {
 			"R4: %s: error decoding meta in folder for channel %d: failed to decode "+
 				"channel.Channel: EOF",
 			cause,
-			distchannel.NewKey(1, local).StorageKey(),
+			cesium.ChannelKey(distchannel.NewKey(1, local)),
 		)
 	}
 	return out
@@ -533,9 +533,9 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		Expect(e.create(ctx, &scratch)).To(Succeed())
 		Expect(e.cesium.Write(ctx, telem.SecondTS, telem.MultiFrame(
 			[]cesium.ChannelKey{
-				e.clock.Key().StorageKey(),
-				data.Key().StorageKey(),
-				scratch.Key().StorageKey(),
+				cesium.ChannelKey(e.clock.Key()),
+				cesium.ChannelKey(data.Key()),
+				cesium.ChannelKey(scratch.Key()),
 			},
 			[]telem.Series{
 				stamps(1, len(payload)),
@@ -598,7 +598,9 @@ var _ = Describe("Crash adapter on the channel services", func() {
 		func(ctx SpecContext) {
 			_, scratch := write(ctx, []byte("taco"))
 			Expect(e.store.Set(ctx, written(scratch), nil)).To(Succeed())
-			Expect(e.cesium.DeleteChannel(scratch.Key().StorageKey())).To(Succeed())
+			Expect(
+				e.cesium.DeleteChannel(cesium.ChannelKey(scratch.Key())),
+			).To(Succeed())
 			Expect(e.removed()).To(Succeed())
 			MustSucceed(e.Recovered(ctx))
 			Expect(

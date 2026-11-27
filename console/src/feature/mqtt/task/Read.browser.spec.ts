@@ -20,8 +20,14 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
 import {
+  createBroker,
+  openAddData,
+  openScanner,
+  type ScannerReply,
+} from "@/feature/mqtt/testutil";
+import {
+  focusedIn,
   pickMessageFormat,
   removeField,
   retype,
@@ -43,6 +49,16 @@ import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
+/** The reply of the Core when it cannot reach the broker. */
+const UNREACHABLE = {
+  variant: "error",
+  message: "Failed to reach broker",
+  description:
+    "Could not reach dev1:1883: dial tcp 127.0.0.1:1883: connect: connection " +
+    "refused. Check the host and the port, and that the network of the Core can " +
+    "reach the broker.",
+} as const satisfies ScannerReply;
+
 preloadForms(MQTT.Task.FORMS);
 
 const TOPIC = "plant/oven";
@@ -53,10 +69,10 @@ const PAGE_SIZE = 50;
 const createField = (name: string, kind: payload.Kind): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
 
-const createTimeField = (): icd.JSONField =>
+const createTimeField = (name = "time"): icd.JSONField =>
   icd.jsonFieldZ.parse({
-    name: "time",
-    pointer: "/time",
+    name,
+    pointer: `/${name}`,
     type: "timestamp",
     timeFormat: "unix_ms",
   });
@@ -83,6 +99,7 @@ interface EntryParams {
   bound?: Record<string, number>;
   /** The key of the ICD that holds the message. Random by default. */
   icdKey?: icd.Key;
+  match?: icd.JSONMatch;
 }
 
 interface RenderParams extends Partial<Omit<EntryParams, "topic">> {
@@ -105,11 +122,12 @@ const createEntry = async ({
   index,
   bound = Object.fromEntries(fields.map(({ key }) => [key, 0])),
   icdKey,
+  match,
 }: EntryParams): Promise<MQTT.Task.PlainReadEntry> => {
   const message: icd.Message = {
     key: uuid.create(),
     name: topic,
-    payload: { format: "json", fields },
+    payload: { format: "json", match, fields },
   };
   const format = await client.icds.create({
     key: icdKey,
@@ -200,8 +218,7 @@ const setTextFormat = async ({ icd: key, messages }: MQTT.Task.PlainReadEntry) =
     }),
   );
 
-const NOT_JSON_NOTE =
-  "The format of this message is not JSON. Open it in the editor to change its format.";
+const NOT_JSON_NOTE = "Message is not JSON";
 
 /** @returns the ICD and key of the first message that the entry reads. */
 const messageOf = ({ icd: key, messages }: MQTT.Task.PlainReadEntry) => ({
@@ -220,11 +237,15 @@ const addField = async (rackKey: rack.Key, topic: string, name: string) => {
   const scanned = {
     topic,
     payload: `{"${name}": 1}`,
-    fields: [{ pointer: `/${name}`, type: "number", sample: "1" }],
+    shapes: [
+      {
+        fields: [{ pointer: `/${name}`, type: "number", kind: "float", sample: "1" }],
+        count: 1,
+      },
+    ],
     retained: true,
   };
   await scanner.answer({ data: { topics: [scanned], truncated: false } });
-  scanner.close();
   fireEvent.click(await dialog.findByRole("checkbox", { name: `Record ${name}` }));
   fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
 };
@@ -300,25 +321,30 @@ const TIMED_TOPIC = {
   payload:
     '{"time": 1763900000000000000, "count": 3, "temperature": 21.5, ' +
     '"updated": "2026-11-23T10:00:00Z"}',
-  fields: [
+  shapes: [
     {
-      pointer: "/time",
-      type: "number",
-      sample: "1763900000000000000",
-      kind: "timestamp",
-      timeFormat: "unix_ns",
-    },
-    { pointer: "/count", type: "number", sample: "3", kind: "integer" },
-    { pointer: "/temperature", type: "number", sample: "21.5", kind: "float" },
-    {
-      pointer: "/updated",
-      type: "string",
-      sample: '"2026-11-23T10:00:00Z"',
-      kind: "timestamp",
-      timeFormat: "iso8601",
+      fields: [
+        {
+          pointer: "/time",
+          type: "number",
+          sample: "1763900000000000000",
+          kind: "timestamp",
+          timeFormat: "unix_ns",
+        },
+        { pointer: "/count", type: "number", sample: "3", kind: "integer" },
+        { pointer: "/temperature", type: "number", sample: "21.5", kind: "float" },
+        {
+          pointer: "/updated",
+          type: "string",
+          sample: '"2026-11-23T10:00:00Z"',
+          kind: "timestamp",
+          timeFormat: "iso8601",
+        },
+      ],
+      index: "/time",
+      count: 1,
     },
   ],
-  index: "/time",
   retained: true,
 };
 
@@ -327,7 +353,40 @@ const openTimedTopic = async (rackKey: rack.Key) => {
   const scanner = await openScanner(client, rackKey);
   const dialog = await openAddData();
   await scanner.answer({ data: { topics: [TIMED_TOPIC], truncated: false } });
-  scanner.close();
+  return dialog;
+};
+
+/** @returns a shape with the time of TIMED_TOPIC and a number that only it holds. */
+const createShape = (pointer: string, kind: string, count: number) => ({
+  fields: [
+    TIMED_TOPIC.shapes[0].fields[0],
+    { pointer, type: "number", sample: "1", kind },
+  ],
+  index: "/time",
+  present: pointer,
+  count,
+});
+
+/** Opens Add data on a topic of 44 messages with /temperature and 11 with /fault. */
+const openShapedTopic = async (rackKey: rack.Key) => {
+  const scanner = await openScanner(client, rackKey);
+  const dialog = await openAddData();
+  await scanner.answer({
+    data: {
+      topics: [
+        {
+          topic: TOPIC,
+          payload: '{"time": 1763900000000000000, "fault": 1}',
+          shapes: [
+            createShape("/temperature", "float", 44),
+            createShape("/fault", "integer", 11),
+          ],
+          retained: true,
+        },
+      ],
+      truncated: false,
+    },
+  });
   return dialog;
 };
 
@@ -351,14 +410,24 @@ const retrieveFields = async (key: string): Promise<icd.JSONField[]> => {
 describe("MQTT read form", () => {
   // This first test pays the one-time load of the lazy form, which takes over 10 s on
   // a loaded CI runner.
-  it("should create a format named after the task and add later picks to it", async () => {
+  it("should create a format named after the device and add later picks to it", async () => {
     const TOPICS = [
       {
         topic: TOPIC,
         payload: '{"temperature": 21.5, "label": "ok"}',
-        fields: [
-          { pointer: "/temperature", type: "number", sample: "21.5" },
-          { pointer: "/label", type: "string", sample: '"ok"' },
+        shapes: [
+          {
+            fields: [
+              {
+                pointer: "/temperature",
+                type: "number",
+                kind: "float",
+                sample: "21.5",
+              },
+              { pointer: "/label", type: "string", kind: "string", sample: '"ok"' },
+            ],
+            count: 1,
+          },
         ],
         retained: true,
       },
@@ -379,12 +448,11 @@ describe("MQTT read form", () => {
     });
     dialog = await openAddData();
     await scanner.answer({ data: { topics: TOPICS, truncated: false } });
-    scanner.close();
     fireEvent.click(await dialog.findByRole("checkbox", { name: "Record label" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
     const [temperature, label] = await waitFor(async () => {
       const format = await client.icds.retrieve(entry.icd);
-      expect(format.name).toBe("MQTT read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toMatchObject([
         {
           key: entry.messages[0].message,
@@ -421,9 +489,19 @@ describe("MQTT read form", () => {
           {
             topic: TOPIC,
             payload: '{"temperature": 21.5, "label": "ok"}',
-            fields: [
-              { pointer: "/temperature", type: "number", sample: "21.5" },
-              { pointer: "/label", type: "string", sample: '"ok"' },
+            shapes: [
+              {
+                fields: [
+                  {
+                    pointer: "/temperature",
+                    type: "number",
+                    kind: "float",
+                    sample: "21.5",
+                  },
+                  { pointer: "/label", type: "string", kind: "string", sample: '"ok"' },
+                ],
+                count: 1,
+              },
             ],
             retained: true,
           },
@@ -431,7 +509,6 @@ describe("MQTT read form", () => {
         truncated: false,
       },
     });
-    scanner.close();
     fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
     await waitFor(async () =>
@@ -555,13 +632,14 @@ describe("MQTT read form", () => {
           {
             ...TIMED_TOPIC,
             payload: '{"time": 1763900000000000000}',
-            fields: [TIMED_TOPIC.fields[0]],
+            shapes: [
+              { ...TIMED_TOPIC.shapes[0], fields: [TIMED_TOPIC.shapes[0].fields[0]] },
+            ],
           },
         ],
         truncated: false,
       },
     });
-    scanner.close();
     expect((await findValue(dialog, "time")).queryByText("Index")).toBeNull();
     fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
     fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
@@ -573,6 +651,372 @@ describe("MQTT read form", () => {
       ]);
       expect(entry.messages[0].index).toBe(fields[0].key);
     });
+  });
+
+  it("should show a partial pick of a topic with some of its fields picked, and pick the rest on a click", async () => {
+    const { dev } = await renderRead();
+    const dialog = await openShapedTopic(dev.rack);
+    fireEvent.click(
+      await dialog.findByRole("checkbox", { name: "Record temperature" }),
+    );
+    const topic = dialog.getByRole<HTMLInputElement>("checkbox", { name: "Pick oven" });
+    await waitFor(() => expect(topic.closest(".lyra--indeterminate")).not.toBeNull());
+    expect(topic.checked).toBe(false);
+    fireEvent.click(topic);
+    await waitFor(() => expect(topic.checked).toBe(true));
+    expect(topic.closest(".lyra--indeterminate")).toBeNull();
+    expect(dialog.getByRole("button", { name: "Add 2 fields" })).toBeTruthy();
+  });
+
+  it("should list the type of a boolean value as boolean", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [
+          {
+            topic: TOPIC,
+            payload: '{"running": true}',
+            shapes: [
+              {
+                fields: [
+                  {
+                    pointer: "/running",
+                    type: "boolean",
+                    kind: "boolean",
+                    sample: "true",
+                  },
+                ],
+                count: 1,
+              },
+            ],
+            retained: true,
+          },
+        ],
+        truncated: false,
+      },
+    });
+    const value = await findValue(dialog, "running");
+    expect(value.getByText("boolean")).toBeTruthy();
+  });
+
+  it("should add a message for each shape of a new topic, named after the field that matches its documents", async () => {
+    const { dev, draft } = await renderRead();
+    const dialog = await openShapedTopic(dev.rack);
+    await dialog.findByText("Messages that have /temperature");
+    expect(dialog.getByText("Messages that have /fault")).toBeTruthy();
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Pick oven" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(entries).toHaveLength(1);
+      const { messages } = await client.icds.retrieve(entries[0].icd);
+      expect(messages).toMatchObject([
+        {
+          name: `${TOPIC} temperature`,
+          payload: {
+            match: { type: "present", pointer: "/temperature" },
+            fields: [{ pointer: "/time" }, { pointer: "/temperature" }],
+          },
+        },
+        {
+          name: `${TOPIC} fault`,
+          payload: {
+            match: { type: "present", pointer: "/fault" },
+            fields: [{ pointer: "/time" }, { pointer: "/fault" }],
+          },
+        },
+      ]);
+      const timeKeys = messages.map((m) =>
+        m.payload.format === "json" ? m.payload.fields[0].key : "",
+      );
+      expect(entries[0].messages).toMatchObject(
+        messages.map(({ key }, i) => ({ message: key, index: timeKeys[i] })),
+      );
+    });
+  });
+
+  it("should read the whole payload of a topic that is not JSON as a string", async () => {
+    const { dev, draft } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({
+      data: {
+        topics: [{ topic: TOPIC, payload: "ON", shapes: [], retained: true }],
+        truncated: false,
+      },
+    });
+    (await findValue(dialog, "Whole payload")).getByText("ON");
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record Whole payload" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+    await waitFor(async () => {
+      const [entry] = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(await retrieveFields(entry.icd)).toMatchObject([
+        { pointer: "", type: "string" },
+      ]);
+    });
+  });
+
+  it("should append the picks of each shape to the message of a topic that the task reads", async () => {
+    const { dev, draft } = await renderRead({
+      fields: [createField("count", "integer")],
+    });
+    const dialog = await openShapedTopic(dev.rack);
+    fireEvent.click(
+      await dialog.findByRole("checkbox", { name: "Record temperature" }),
+    );
+    fireEvent.click(dialog.getByRole("checkbox", { name: "Record fault" }));
+    fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+    await waitFor(async () => {
+      const entries = (await retrieveEntries(draft.key)).map(plainOf);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].messages).toHaveLength(1);
+      expect(await retrieveFields(entries[0].icd)).toMatchObject([
+        { pointer: "/count" },
+        { pointer: "/temperature" },
+        { pointer: "/fault" },
+      ]);
+    });
+  });
+
+  describe("a topic with a message for each kind", () => {
+    const STATUS = {
+      pointer: "/status",
+      type: "string",
+      sample: '"ok"',
+      kind: "string",
+    };
+
+    // Opens Add data on the shapes of TOPIC, each named by the pointer that it holds.
+    const openKinds = async (rackKey: rack.Key, ...shapes: object[]) => {
+      const scanner = await openScanner(client, rackKey);
+      const dialog = await openAddData();
+      await scanner.answer({
+        data: {
+          topics: [{ topic: TOPIC, payload: "{}", shapes, retained: true }],
+          truncated: false,
+        },
+      });
+      return dialog;
+    };
+
+    const withStatus = (shape: ReturnType<typeof createShape>) => ({
+      ...shape,
+      fields: [...shape.fields, STATUS],
+    });
+
+    it("should offer a field of a kind that only the message of another kind reads, and add it to the message of its kind", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [
+          time,
+          createField("temperature", "float"),
+          createField("status", "string"),
+        ],
+        index: time.key,
+      });
+      await addMessage(
+        entry,
+        `${TOPIC} fault`,
+        [createTimeField(), createField("fault", "integer")],
+        {
+          type: "present",
+          pointer: "/fault",
+        },
+      );
+      const { dev, draft } = await renderRead({ entries: [entry] });
+      const dialog = await openKinds(
+        dev.rack,
+        withStatus(createShape("/temperature", "float", 44)),
+        withStatus(createShape("/fault", "integer", 11)),
+      );
+      const [taken, free] = await dialog.findAllByRole<HTMLInputElement>("checkbox", {
+        name: "Record status",
+      });
+      expect(taken.disabled).toBe(true);
+      expect(free.disabled).toBe(false);
+      fireEvent.click(free);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve(entry.icd);
+        expect(
+          messages.map((m) =>
+            (m.payload.format === "json" ? m.payload.fields : []).map((f) => f.pointer),
+          ),
+        ).toEqual([
+          ["/time", "/temperature", "/status"],
+          ["/time", "/fault", "/status"],
+        ]);
+        const [, read] = plainOf((await retrieveEntries(draft.key))[0]).messages;
+        expect(read.bindings).toHaveLength(3);
+      });
+    });
+
+    it("should count a field that two shapes of one held message share once", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+      });
+      const { dev } = await renderRead({ entries: [entry] });
+      const dialog = await openKinds(
+        dev.rack,
+        withStatus(createShape("/temperature", "float", 44)),
+        withStatus(createShape("/fault", "integer", 11)),
+      );
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Pick oven" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      await waitFor(async () =>
+        expect((await retrieveFields(entry.icd)).map((f) => f.pointer)).toEqual([
+          "/time",
+          "/temperature",
+          "/status",
+          "/fault",
+        ]),
+      );
+    });
+
+    describe("split by value", () => {
+      const KIND = {
+        pointer: "/kind",
+        type: "string",
+        sample: '"status"',
+        kind: "string",
+      };
+
+      // Holds a message of each value at /kind: status with /code and reading with
+      // /temperature.
+      const renderKinds = async (...pointers: string[]) => {
+        const time = createTimeField();
+        const kind = createField("kind", "string");
+        const entry = await createEntry({
+          fields: [time, kind, createField("code", "integer")],
+          index: time.key,
+          match: KIND_MATCH,
+        });
+        const reading = await addMessage(
+          entry,
+          `${TOPIC} reading`,
+          [
+            createTimeField(),
+            createField("kind", "string"),
+            createField("temperature", "float"),
+          ],
+          { ...KIND_MATCH, value: "reading" },
+        );
+        const { dev } = await renderRead({ entries: [entry] });
+        const dialog = await openKinds(dev.rack, {
+          fields: [
+            TIMED_TOPIC.shapes[0].fields[0],
+            KIND,
+            ...pointers.map((pointer) => ({
+              pointer,
+              type: "number",
+              sample: "1",
+              kind: "float",
+            })),
+          ],
+          index: "/time",
+          count: 5,
+        });
+        return { dialog, entry, reading };
+      };
+
+      it("should give a shape to the message of a value that reads the most of its fields", async () => {
+        const { dialog, entry, reading } = await renderKinds("/temperature", "/rpm");
+        const temperature = await dialog.findByRole<HTMLInputElement>("checkbox", {
+          name: "Record temperature",
+        });
+        expect(temperature.disabled).toBe(true);
+        fireEvent.click(dialog.getByRole("checkbox", { name: "Record rpm" }));
+        fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+        await waitFor(async () => {
+          const { messages } = await client.icds.retrieve(entry.icd);
+          const held = messages.find(({ key }) => key === reading.key);
+          if (held?.payload.format !== "json") throw new Error("reading is not JSON");
+          expect(held.payload.fields.map((f) => f.pointer)).toEqual([
+            "/time",
+            "/kind",
+            "/temperature",
+            "/rpm",
+          ]);
+          expect(messages).toHaveLength(2);
+        });
+      });
+
+      it("should lock a shape that two messages of a value read as much of", async () => {
+        const { dialog } = await renderKinds("/flow");
+        await dialog.findByText(
+          "Split by the value at /kind. Add fields in the ICD editor.",
+        );
+        const flow = dialog.getByRole<HTMLInputElement>("checkbox", {
+          name: "Record flow",
+        });
+        expect(flow.disabled).toBe(true);
+        expect(flow.checked).toBe(false);
+      });
+    });
+
+    it("should add a message for a new kind of a held topic after its other messages", async () => {
+      const time = createTimeField();
+      const entry = await createEntry({
+        fields: [time, createField("temperature", "float")],
+        index: time.key,
+        match: { type: "present", pointer: "/temperature" },
+      });
+      const { dev, draft } = await renderRead({ entries: [entry] });
+      const dialog = await openKinds(
+        dev.rack,
+        createShape("/temperature", "float", 44),
+        createShape("/fault", "integer", 11),
+      );
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record fault" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      await waitFor(async () => {
+        const reads = plainOf((await retrieveEntries(draft.key))[0]).messages;
+        expect(reads).toHaveLength(2);
+        const { messages } = await client.icds.retrieve(entry.icd);
+        expect(messages).toMatchObject([
+          { key: reads[0].message, payload: { fields: [{}, {}] } },
+          {
+            key: reads[1].message,
+            name: `${TOPIC} fault`,
+            payload: {
+              match: { type: "present", pointer: "/fault" },
+              fields: [{ pointer: "/time" }, { pointer: "/fault" }],
+            },
+          },
+        ]);
+      });
+    });
+  });
+
+  it("should show the reply of a broker that the Core cannot reach", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer(UNREACHABLE);
+    await dialog.findByText("Failed to list topics");
+    dialog.getByText(`${UNREACHABLE.message}. ${UNREACHABLE.description}`);
+  });
+
+  it("should show the reply when it cannot list the Sparkplug B nodes", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({ data: { topics: [], truncated: false } });
+    fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+    await scanner.answer(UNREACHABLE);
+    await dialog.findByText("Failed to list tags");
+    dialog.getByText(`${UNREACHABLE.message}. ${UNREACHABLE.description}`);
+  });
+
+  it("should show the error of a rack that has no scan task", async () => {
+    const { dev } = await renderRead();
+    const dialog = await openAddData();
+    await dialog.findByText("Failed to list topics");
+    dialog.getByText(`Found no task where rack = ${dev.rack} and type = "mqtt_scan"`);
   });
 
   it("should focus the topic of a topic added by name", async () => {
@@ -611,7 +1055,7 @@ describe("MQTT read form", () => {
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
   });
 
-  it("should give the ICD a default name while the task has none", async () => {
+  it("should name a new ICD after the device while the task has no name", async () => {
     const { dev, draft } = await renderRead();
     const name = await screen.findByLabelText("Name");
     fireEvent.change(name, { target: { value: "" } });
@@ -622,9 +1066,7 @@ describe("MQTT read form", () => {
       expect(entries).toHaveLength(1);
       return entries;
     });
-    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(
-      "MQTT read task",
-    );
+    expect((await client.icds.retrieve(plainOf(entry).icd)).name).toBe(dev.name);
   });
 
   it("should show the format of a field from the ICD of its entry", async () => {
@@ -740,6 +1182,8 @@ describe("MQTT read form", () => {
     await selectField("count");
     await screen.findByText("int64");
     const scale = await screen.findByLabelText("Scale");
+    // A read multiplies, as the label says, so only a write field explains its scale.
+    expect(screen.queryByText("The task sends (value − offset) ÷ scale.")).toBeNull();
     fireEvent.change(scale, { target: { value: "0.5" } });
     fireEvent.blur(scale);
     await screen.findByText("float64");
@@ -890,6 +1334,74 @@ describe("MQTT read form", () => {
     await screen.findByText("Message not found");
   });
 
+  it("should show the format and the message of a topic whose message is text", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    await renderRead({ entries: [entry], beforeRender: () => setTextFormat(entry) });
+    await screen.findByText(NOT_JSON_NOTE);
+    await screen.findByRole("treeitem", { name: /TEXT.*plant\/oven/ });
+    // The message format field shows the name of the message.
+    await screen.findByRole("button", { name: /plant\/oven/ });
+  });
+
+  it.each([
+    { name: "gone", mark: "Message not found", change: removeMessage },
+    { name: "not JSON", mark: NOT_JSON_NOTE, change: setTextFormat },
+  ])(
+    "should mark a topic whose message is $name in the tree",
+    async ({ mark, change }) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry], beforeRender: () => change(entry) });
+      const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+      await within(item).findByRole("img", { name: mark });
+    },
+  );
+
+  it("should drop the mark of a topic once its message has a field", async () => {
+    const entry = await createEntry({ fields: [] });
+    await renderRead({ entries: [entry] });
+    const item = await screen.findByRole("treeitem", { name: /plant\/oven/ });
+    await within(item).findByRole("img", { name: "Message has no fields" });
+    await client.icds.dispatch(
+      entry.icd,
+      icd.set({
+        path: ["messages", entry.messages[0].message, "payload"],
+        value: { format: "json", fields: [createField("temperature", "float")] },
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        within(item).queryByRole("img", { name: "Message has no fields" }),
+      ).toBeNull(),
+    );
+  });
+
+  it("should mark a later message that is not JSON and its topic", async () => {
+    const entry = await createEntry({ fields: [createField("temperature", "float")] });
+    const status = await addMessage(
+      entry,
+      "status",
+      [createField("mode", "string")],
+      KIND_MATCH,
+    );
+    await renderRead({
+      entries: [entry],
+      beforeRender: async () =>
+        await client.icds.dispatch(
+          entry.icd,
+          icd.set({
+            path: ["messages", status.key, "payload"],
+            value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+          }),
+        ),
+    });
+    const message = await screen.findByRole("treeitem", { name: /^status/ });
+    await within(message).findByRole("img", { name: NOT_JSON_NOTE });
+    const topic = screen.getByRole("treeitem", { name: /JSON.*plant\/oven/ });
+    within(topic).getByRole("img", { name: NOT_JSON_NOTE });
+  });
+
   it.each([
     { name: "gone", note: "Message not found", change: removeMessage },
     { name: "not JSON", note: NOT_JSON_NOTE, change: setTextFormat },
@@ -959,6 +1471,14 @@ describe("MQTT read form", () => {
     await waitFor(async () =>
       expect((await retrieveEntries(draft.key))[0].disabled).toBe(false),
     );
+  });
+
+  it("should preview a new index after its index field while the entry is disabled", async () => {
+    const ts = createTimeField("ts");
+    const temperature = createField("temperature", "float");
+    const entry = await createEntry({ fields: [temperature, ts], index: ts.key });
+    const { dev } = await renderRead({ entries: [{ ...entry, disabled: true }] });
+    await screen.findByDisplayValue(`${dev.name}_plant_oven_ts`);
   });
 
   it("should read the time from the first timestamp field on payload timing", async () => {
@@ -1079,6 +1599,57 @@ describe("MQTT read form", () => {
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
     });
 
+    it("should not offer the editor at a message that its ICD no longer holds", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await addMessage(entry, "status", [createField("mode", "string")], KIND_MATCH);
+      await renderRead({ entries: [entry], beforeRender: () => removeMessage(entry) });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: /^Message not found/ }),
+      );
+      await screen.findByText(
+        "The ICD has no message for this topic. Add data to make one.",
+      );
+      expect(screen.queryByRole("button", { name: "Open in editor" })).toBeNull();
+    });
+
+    it.each([
+      { item: "topic", name: /JSON.*plant\/oven/ },
+      { item: "message", name: /^Message not found/ },
+    ])(
+      "should tell the user to remove a later message that is gone from the $item",
+      async ({ name }) => {
+        const entry = await createEntry({
+          fields: [createField("temperature", "float")],
+        });
+        const status = await addMessage(
+          entry,
+          "status",
+          [createField("mode", "string")],
+          KIND_MATCH,
+        );
+        await renderRead({
+          entries: [entry],
+          beforeRender: () =>
+            client.icds.dispatch(
+              entry.icd,
+              icd.remove({ path: ["messages"], key: status.key }),
+            ),
+        });
+        const removeIt =
+          "The ICD no longer has this message. Remove it from the topic.";
+        fireEvent.click(
+          await screen.findByRole("treeitem", { name: /^Message not found/ }),
+        );
+        await screen.findByText(removeIt);
+        const item = screen.getByRole("treeitem", { name });
+        const mark = within(item).getByRole("img", { name: "Message not found" });
+        fireEvent.pointerOver(mark, { pointerType: "mouse" });
+        expect((await screen.findByRole("tooltip")).textContent).toContain(removeIt);
+      },
+    );
+
     it("should open the editor at a message that is not JSON", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
@@ -1090,6 +1661,7 @@ describe("MQTT read form", () => {
       await screen.findByText(NOT_JSON_NOTE);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([entry.messages[0].message]);
+      expect(focusedIn(store, entry.icd)).toBeUndefined();
     });
 
     it("should open the editor at a later message that is not JSON", async () => {
@@ -1113,7 +1685,7 @@ describe("MQTT read form", () => {
             }),
           ),
       });
-      fireEvent.click(await screen.findByRole("treeitem", { name: "status" }));
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^status/ }));
       await screen.findByText(NOT_JSON_NOTE);
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
@@ -1134,6 +1706,7 @@ describe("MQTT read form", () => {
       fireEvent.click(await screen.findByRole("treeitem", { name: /^mode/ }));
       fireEvent.click(await screen.findByRole("button", { name: "Open in editor" }));
       expect(selectedIn(store, entry.icd)).toEqual([status.key]);
+      expect(focusedIn(store, entry.icd)).toBe(status.payload.fields[0].key);
     });
 
     it("should add a message that matches at the pointer of the others", async () => {
@@ -1198,7 +1771,7 @@ describe("MQTT read form", () => {
         await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ }),
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-      await screen.findByRole("treeitem", { name: `${TOPIC} 2` });
+      await screen.findByRole("treeitem", { name: new RegExp(`^${TOPIC} 2`) });
       await waitFor(async () =>
         expect(plainOf((await retrieveEntries(draft.key))[0]).messages).toHaveLength(2),
       );
@@ -2498,7 +3071,7 @@ describe("MQTT read form", () => {
     await screen.findByDisplayValue(`${dev.name}_plant_oven_temperature_2`);
   });
 
-  it("should move only the message that borrows a channel on another's index", async () => {
+  it("should move only the message that borrows a channel on another's index when its entry turns on", async () => {
     const time = await createTimeChannel();
     const createOnTime = async (name: string) =>
       await client.channels.create({
@@ -2514,10 +3087,12 @@ describe("MQTT read form", () => {
       bound: { [temperatureField.key]: temperature.key },
     });
     await addMessage(entry, "status", [createField("flow", "float")], KIND_MATCH);
-    // The second message took the channel that the first stores for /flow.
+    // The second message took the channel that the first stores for /flow. The Core
+    // checks only enabled entries, so a disabled entry can hold this state.
     entry.messages[1].bindings[0].channel = flow.key;
+    entry.disabled = true;
     const channels = { "/temperature": temperature.key, "/flow": flow.key };
-    await renderRead({
+    const { container, draft } = await renderRead({
       entries: [entry],
       properties: {
         read: {
@@ -2525,12 +3100,16 @@ describe("MQTT read form", () => {
         },
       },
     });
-    const isNew = (name: RegExp) =>
-      within(screen.getByRole("treeitem", { name })).queryByRole("img", {
-        name: "New channel",
-      });
-    await waitFor(() => expect(isNew(/^flow/)).not.toBeNull());
-    expect(isNew(/^temperature/)).toBeNull();
+    const item = await screen.findByRole("treeitem", { name: /JSON.*plant\/oven/ });
+    fireEvent.click(within(item).getByRole("checkbox", { name: "Enabled" }));
+    const created = await deploy(container, draft.key);
+    const [first, second] = plainOf(created.config.entries[0]).messages;
+    expect(first.bindings).toEqual([
+      { field: temperatureField.key, channel: temperature.key, dataType: "" },
+    ]);
+    const moved = await client.channels.retrieve(second.bindings[0].channel);
+    expect(moved.key).not.toBe(flow.key);
+    expect(moved.index).not.toBe(time.key);
   });
 
   describe("Sparkplug B entries", () => {
@@ -2616,7 +3195,6 @@ describe("MQTT read form", () => {
         ]),
       );
       dialog = await browseTag();
-      scanner.close();
       expect(dialog.getByText("In task")).toBeTruthy();
       fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -2631,7 +3209,14 @@ describe("MQTT read form", () => {
       const topic = {
         topic: TOPIC,
         payload: '{"temperature": 1}',
-        fields: [{ pointer: "/temperature", type: "number", sample: "1" }],
+        shapes: [
+          {
+            fields: [
+              { pointer: "/temperature", type: "number", kind: "float", sample: "1" },
+            ],
+            count: 1,
+          },
+        ],
         retained: true,
       };
       await scanner.answer({ data: { topics: [topic], truncated: false } });
@@ -2656,7 +3241,6 @@ describe("MQTT read form", () => {
         dialog.getByRole("button", { name: "Add 1 field and 1 tag" }),
       ).toBeTruthy();
       dialog.getByText("1 value from 1 topic and 1 Sparkplug B tag selected");
-      scanner.close();
     });
 
     it("should lock the data type of a tag to that of its channel", async () => {
@@ -3050,7 +3634,7 @@ describe("MQTT read form", () => {
       );
     });
 
-    it("should time and deploy each message of a topic on its own", async () => {
+    it("should time and deploy each message of a topic on its own, named after its topic", async () => {
       const time = createTimeField();
       const entry = await createEntry({
         fields: [createField("temperature", "float"), time],
@@ -3078,7 +3662,7 @@ describe("MQTT read form", () => {
       expect(deployed.index).toBeUndefined();
       expect(deployed.bindings[0].channel).toBe(channels["/mode"]);
       const ch = await client.channels.retrieve(channels["/mode"]);
-      expect(ch.name).toBe(`${dev.name}_plant_oven_status_mode`);
+      expect(ch.name).toBe(`${dev.name}_plant_oven_mode`);
     });
 
     it("should replace the stored channel of a field whose kind changed and keep its name", async () => {

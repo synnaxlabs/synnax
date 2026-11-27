@@ -9,21 +9,6 @@
 
 package v0
 
-import (
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-)
-
-var _ gorp.Entry[Key] = Named{}
-
-// GorpKey implements gorp.Entry.
-func (n Named) GorpKey() Key { return n.Key }
-
-// ResourceID returns the resource ID of the named color.
-func (n Named) ResourceID() resource.ID {
-	return resource.ID{Type: resource.TypeColor, Key: n.Key.String()}
-}
-
 // Inline returns the fixed color that takes the place of a reference to n when n is
 // deleted. The fixed color keeps the light value of n.
 func (n Named) Inline() FixedRef { return FixedRef{Value: n.Light} }

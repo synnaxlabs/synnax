@@ -38,7 +38,7 @@ export const groupZ = z.object({
   /** key is the unique identifier for this group. */
   key: keyZ,
   /** name is a human-readable name for the group. */
-  name: z.string().min(1, "name is required"),
+  name: z.string().min(1, "Name is required"),
   /**
    * scope is the type of resource the group's tree holds. It stays the same down a
    * chain of groups.

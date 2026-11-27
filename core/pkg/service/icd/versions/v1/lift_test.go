@@ -278,6 +278,32 @@ var _ = Describe("LiftWrite", func() {
 		Expect(write.Bindings).To(HaveLen(1))
 	})
 
+	It("Should bind each value field to its value and give it no default",
+		func(ctx SpecContext) {
+			f, write, notes := lift(
+				ctx,
+				valueChannel(),
+				icd.ValueInlineField{Pointer: "/channel", Value: "valve_cmd"},
+			)
+			Expect(f).To(HaveLen(2))
+			Expect(f[1].Variant).To(Equal(icd.StringJSONField{
+				JSONBaseField: f[1].Base(),
+			}))
+			Expect(f[1].Base().Name).To(Equal("channel"))
+			Expect(f[1].Base().Pointer).To(Equal("/channel"))
+			Expect(write.Bindings).To(Equal([]icd.WriteBinding{
+				{Variant: icd.ChannelWriteBinding{Field: f[0].Base().Key, Channel: 7}},
+				{Variant: icd.ValueWriteBinding{
+					Field: f[1].Base().Key,
+					Value: icd.WriteValue{
+						Variant: icd.StringWriteValue{Value: "valve_cmd"},
+					},
+				}},
+			}))
+			Expect(notes).To(BeEmpty())
+		},
+	)
+
 	It("Should give each generated field a generator default", func(ctx SpecContext) {
 		format := payload.TimeFormatUnixNs
 		f, write, _ := lift(
@@ -331,18 +357,20 @@ var _ = Describe("LiftWrite", func() {
 		},
 	)
 
-	It("Should name the field of an empty pointer value and keep names unique",
+	It("Should name each field by its pointer as a read lift names it",
 		func(ctx SpecContext) {
 			ch := valueChannel()
-			ch.Pointer = ""
+			ch.Pointer = "/motor/speed"
 			f, _, _ := lift(
 				ctx,
 				ch,
-				icd.StaticInlineField{Pointer: "/value", Value: 1.0},
+				icd.StaticInlineField{Pointer: "/motor_speed", Value: 1.0},
+				icd.StaticInlineField{Pointer: "", Value: 2.0},
 			)
-			Expect(f[0].Base().Name).To(Equal("value"))
-			Expect(f[0].Base().Pointer).To(Equal(""))
-			Expect(f[1].Base().Name).To(Equal("value (2)"))
+			Expect(f[0].Base().Name).To(Equal("motor_speed"))
+			Expect(f[1].Base().Name).To(Equal("motor_speed_2"))
+			Expect(f[2].Base().Name).To(Equal("value"))
+			Expect(f[2].Base().Pointer).To(Equal(""))
 		},
 	)
 

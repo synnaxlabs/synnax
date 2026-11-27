@@ -33,6 +33,7 @@ APIKey struct {
     }
 
     @doc value  "is a stored API key. A subject holds any number of them."
+    @go entry
     @go marshal
     @go migrate
 }

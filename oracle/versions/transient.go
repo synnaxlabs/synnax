@@ -83,6 +83,9 @@ func formRefs(form resolution.TypeForm, persistedOnly bool) []resolution.TypeRef
 	case resolution.StructForm:
 		return structRefs(form, persistedOnly)
 	case resolution.EnumForm:
+		if form.Narrows() {
+			return []resolution.TypeRef{form.Superset}
+		}
 		return form.Extends
 	case resolution.UnionForm:
 		refs := make([]resolution.TypeRef, 0, len(form.Variants)+len(form.Extends)+1)

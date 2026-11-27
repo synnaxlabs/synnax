@@ -14,32 +14,28 @@ export interface ConnectionParams extends Pick<
   "key" | "name" | "host" | "port" | "secure"
 > {}
 
-const DEV_CONNECTION: ConnectionParams = {
-  key: Session.Core.SERVED_KEY,
-  name: "Core",
-  host: "localhost",
-  port: CORE_PORT,
-  secure: false,
-};
-
 /**
- * Overrides the dev connection's port, for tooling (the docs video studio) that
- * runs the dev Console against a Core on a non-default port.
+ * Pins the dev Console to the Core on this port, as the browser build pins to the Core
+ * that serves it. Test tooling (the integration tests and the docs video studio) uses
+ * it to run single-Core flows on the dev Console, which otherwise starts on the Cores
+ * list like the desktop build.
  */
 const DEV_PORT_KEY = "synnax-dev-connection-port";
 
-/**
- * Drops the dev connection, so the dev Console starts on the Cores list like the
- * desktop build. The same tooling uses it to record the connection flow, which
- * the browser build otherwise skips.
- */
+/** Drops the pin, so the same tooling can record the connection flow. */
 const DEV_DETACH_KEY = "synnax-dev-connection-detach";
 
 const devConnection = (): ConnectionParams | null => {
   if (localStorage.getItem(DEV_DETACH_KEY) != null) return null;
   const port = Number(localStorage.getItem(DEV_PORT_KEY));
-  if (!Number.isInteger(port) || port <= 0) return DEV_CONNECTION;
-  return { ...DEV_CONNECTION, port };
+  if (!Number.isInteger(port) || port <= 0) return null;
+  return {
+    key: Session.Core.SERVED_KEY,
+    name: "Core",
+    host: "localhost",
+    port,
+    secure: false,
+  };
 };
 
 const pageConnection = (origin: string): ConnectionParams => {
@@ -56,7 +52,7 @@ const pageConnection = (origin: string): ConnectionParams => {
 export const detectConnection = (): ConnectionParams | null => {
   if (Session.Runtime.ENGINE === "tauri") return null;
   if (new URLSearchParams(window.location.search).has("select-core")) return null;
-  if (IS_DEV) return devConnection();
+  if (Session.Runtime.CORE_SELECTABLE) return devConnection();
   return pageConnection(window.location.origin);
 };
 

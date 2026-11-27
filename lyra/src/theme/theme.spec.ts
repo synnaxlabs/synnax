@@ -67,4 +67,15 @@ describe("theme", () => {
       );
     });
   });
+
+  describe("fontString", () => {
+    it("should name the face that Pluto registers for each Inter weight", () => {
+      expect(theme.fontString(LIGHT, { level: "p", weight: 200 })).toContain(
+        "Inter Two,",
+      );
+      expect(theme.fontString(LIGHT, { level: "p", weight: 300 })).toContain(
+        "Inter Three,",
+      );
+    });
+  });
 });

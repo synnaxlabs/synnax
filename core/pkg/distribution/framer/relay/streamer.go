@@ -177,15 +177,23 @@ func (s *streamer) Flow(ctx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-// sendMissed sends a missed marker that covers every drop signaled so far, with the
-// missed ranges of the streamer's channels.
-func (s *streamer) sendMissed(ctx context.Context, sub *subscriber) error {
-	ranges := sub.takeMissed()
+// sendMissed sends a missed marker for the drops whose buffered frames are among the
+// first received frames, with the missed ranges of the streamer's channels. It
+// returns whether drops remain that wait for later frames.
+func (s *streamer) sendMissed(
+	ctx context.Context,
+	sub *subscriber,
+	received uint64,
+) (bool, error) {
+	ranges, ok, pending := sub.takeMissed(received)
+	if !ok {
+		return pending, nil
+	}
 	keys := *s.keys.Load()
 	maps.DeleteFunc(ranges, func(k channel.Key, _ telem.TimeRange) bool {
 		return !keys.Contains(k)
 	})
-	return signal.SendUnderContext(
+	return pending, signal.SendUnderContext(
 		ctx,
 		s.Out.Inlet(),
 		Response{Missed: true, MissedRanges: ranges},
@@ -223,13 +231,16 @@ func (s *streamer) forward(
 	// Waiting here instead of blocking on the send keeps frames for live keys flowing
 	// while an update propagates.
 	var pendingAcks []chan struct{}
-	// The relay drops a frame only when responses is full, so once responses empties,
-	// every frame buffered before the drop has been sent.
 	lost := false
+	// received counts the frames taken from responses. At the top of the loop, the
+	// streamer has forwarded all of them.
+	var received uint64
 	for {
-		if lost && len(responses) == 0 {
-			lost = false
-			if err := s.sendMissed(ctx, sub); err != nil {
+		// Checking missed here, not only in the select, sends a marker right after
+		// the frames due before it.
+		if lost || len(missed) > 0 {
+			var err error
+			if lost, err = s.sendMissed(ctx, sub, received); err != nil {
 				return err
 			}
 		}
@@ -271,12 +282,13 @@ func (s *streamer) forward(
 			if !ok {
 				// The select can take the closed responses before a pending signal.
 				if len(missed) > 0 {
-					if err := s.sendMissed(ctx, sub); err != nil {
+					if _, err := s.sendMissed(ctx, sub, received); err != nil {
 						return err
 					}
 				}
 				return errDropped
 			}
+			received++
 			// A frame buffered before a key update can hold channels the streamer no
 			// longer wants.
 			filtered := r.Frame.KeepKeys(*s.keys.Load())

@@ -78,7 +78,7 @@ var _ = Describe("Search", func() {
 
 	Describe("Committed writes", func() {
 		It("Should replace the text of a key", func() {
-			s.Set(3, []string{"pressure valve"})
+			s.Stage(nil, 3, []string{"pressure valve"})
 			Expect(keys(s, nil, "valve")).To(Equal([]int{3}))
 			Expect(keys(s, nil, "pressure")).To(Equal([]int{1, 2, 3}))
 		})
@@ -92,8 +92,8 @@ var _ = Describe("Search", func() {
 		})
 
 		It("Should remove a deleted key", func() {
-			s.Delete(1)
-			s.Delete(99)
+			s.StageDelete(nil, 1)
+			s.StageDelete(nil, 99)
 			Expect(keys(s, nil, "pressure")).To(Equal([]int{2}))
 		})
 	})

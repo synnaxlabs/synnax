@@ -13,8 +13,11 @@ import { query } from "@/query";
 export const expectLive = <D extends query.Data>(
   value: query.Cached<D> | undefined,
 ): D => {
-  if (!query.isLive<D>(value)) throw new Error("expected a live cached answer");
-  return value;
+  if (query.isLive<D>(value)) return value;
+  const got = query.Deleted.matches<D>(value)
+    ? `a deletion at ${value.deletedAt.toString()}`
+    : "undefined";
+  throw new Error(`expected a live cached answer, got ${got}`);
 };
 
 /** Asserts the cached answer is a deletion and returns it. */

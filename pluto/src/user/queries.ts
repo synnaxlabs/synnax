@@ -59,11 +59,28 @@ export const { useUpdate: useSetRole } = Flux.createUpdate<SetRoleParams>({
   },
 });
 
-export const formSchema = user.userZ.pick({ role: true }).extend({
-  username: z.string().min(1, "username is required"),
-  password: z.string().min(1, "Password is required"),
-  name: z.string().min(1, "Name is required"),
-});
+export const formSchema = user.userZ
+  .pick({ role: true })
+  .extend({
+    key: user.keyZ.optional(),
+    username: z.string(),
+    password: z.string(),
+    name: z.string().min(1, "Name is required"),
+  })
+  .superRefine(({ username, password }, ctx) => {
+    if (username !== "" && password === "")
+      ctx.addIssue({
+        code: "custom",
+        path: ["password"],
+        message: "Password is required",
+      });
+    if (password !== "" && username === "")
+      ctx.addIssue({
+        code: "custom",
+        path: ["username"],
+        message: "Username is required",
+      });
+  });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 
@@ -82,20 +99,22 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: "user",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  update: async ({ client, value }) => {
-    const { username, password, ...u } = value();
-    const created = await client.users.create(u);
-    try {
-      await client.auth.passwords.create({
-        subject: user.resourceID(created.key),
-        username,
-        password,
-      });
-    } catch (e) {
-      // a user with no password cannot log in, so a failed registration removes it
-      await client.users.delete(created.key).catch(console.error);
-      throw errors.fromUnknown(e);
-    }
+  update: async ({ client, value, set }) => {
+    const { username, password, name, role } = value();
+    const created = await client.users.create({ name, role });
+    if (password !== "")
+      try {
+        await client.auth.passwords.create({
+          subject: user.resourceID(created.key),
+          username,
+          password,
+        });
+      } catch (e) {
+        // the caller asked for a login, so a user without it is removed
+        await client.users.delete(created.key).catch(console.error);
+        throw errors.fromUnknown(e);
+      }
+    set(formPath.key, created.key);
   },
 });
 

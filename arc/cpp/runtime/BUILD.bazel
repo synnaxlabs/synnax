@@ -44,8 +44,11 @@ cc_binary(
     srcs = ["program_bench.cpp"],
     tags = ["requires-core"],
     deps = [
+        "//arc/cpp/graph",
+        "//arc/cpp/ir",
         "//arc/cpp/runtime/testutil:compile",
         "//arc/cpp/runtime/testutil:harness",
+        "//arc/cpp/types",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/bench",
