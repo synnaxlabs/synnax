@@ -26,6 +26,7 @@
 #include <termios.h>
 #include <unistd.h>
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/port.h"
@@ -282,6 +283,14 @@ TEST_F(PtyTest, OpensAgainAfterTheFirstPortCloses) {
 
 /// @brief it should drop the bytes that arrived before it applied the settings.
 TEST_F(PtyTest, FlushesBytesThatArrivedBeforeTheSettings) {
+    // macOS holds a write to the controller until the terminal side is open.
+    const int terminal = ::open(this->path().c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK);
+    ASSERT_GE(terminal, 0);
+    x::defer::defer close_terminal([terminal] { ::close(terminal); });
+    ::termios raw{};
+    ASSERT_EQ(::tcgetattr(terminal, &raw), 0);
+    ::cfmakeraw(&raw);
+    ASSERT_EQ(::tcsetattr(terminal, TCSANOW, &raw), 0);
     this->peer_write("stale");
     const auto port = ASSERT_NIL_P(Port::open(this->props()));
     this->peer_write("fresh");
