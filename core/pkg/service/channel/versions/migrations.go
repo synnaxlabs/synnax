@@ -28,6 +28,7 @@ func NewMigrations(host node.Key, cfg parser.Config) []gorp.Migration {
 		v1.IndexGroupMigration,
 		v1.NameMigration,
 		v1.NameRuleMigration,
+		v1.FolderNameRuleMigration,
 		v1.NewClashMigration(host),
 		v1.NewCalculationTextMigration(cfg),
 	}

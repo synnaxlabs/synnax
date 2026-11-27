@@ -32,7 +32,9 @@ var _ = Describe("Paths breaker", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc = MustOpen(
+			group.OpenService(ctx, group.ServiceConfig{DB: db, NameRules: nameRules}),
+		)
 	})
 	// chain creates depth nested channel folders through the writer, one per level, and
 	// returns the key of the deepest.

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
@@ -43,7 +44,8 @@ func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
 	node := testutil.OpenNode(b.Context())
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
-		DB: node.DB,
+		NameRules: grouptestutil.NameRules(),
+		DB:        node.DB,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -36,7 +37,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(db.Run)
 	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db,
+		NameRules: grouptestutil.NameRules(),
+		DB:        db,
 	}))
 	roleSvc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB: db,

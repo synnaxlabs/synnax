@@ -145,18 +145,22 @@ func (cs Configs) ValidateAdvertiseSource() error {
 	return v.Error()
 }
 
-// advertised returns the listener the embedded Driver dials: the one marked advertise,
-// or the first when none is marked. It assumes a non-empty set.
-func (cs Configs) advertised() Config {
-	for _, c := range cs {
+// AdvertiseIndex returns the index of the listener the embedded Driver dials: the one
+// marked advertise, or the first when none is marked.
+func (cs Configs) AdvertiseIndex() int {
+	for i, c := range cs {
 		if c.Advertise {
-			return c
+			return i
 		}
 	}
-	return cs[0]
+	return 0
 }
 
-// AdvertiseAddress returns the address the embedded Driver dials.
+// advertised returns the listener at AdvertiseIndex. It assumes a non-empty set.
+func (cs Configs) advertised() Config { return cs[cs.AdvertiseIndex()] }
+
+// AdvertiseAddress returns the configured address of the advertised listener. Its port
+// is 0 when the operating system chooses the port at bind time.
 func (cs Configs) AdvertiseAddress() address.Address { return cs.advertised().Address }
 
 // Loopback reports whether every listener binds the loopback interface only.

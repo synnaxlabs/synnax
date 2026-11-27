@@ -32,7 +32,10 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:        db,
+			NameRules: nameRules,
+		}))
 	})
 	unique := func(prefix string) string { return prefix + " " + uuid.New().String() }
 	write := func(ctx context.Context, f func(w group.Writer) error) error {
@@ -160,20 +163,6 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 			MustSucceed(create(ctx, name, scope, nil))
 			MustSucceed(create(ctx, name, scope, nil))
 		}
-	})
-
-	It("Should refuse an empty or blank name in the channel scope", func(
-		ctx SpecContext,
-	) {
-		Expect(
-			createErr(ctx, "", resource.TypeChannel, nil),
-		).To(MatchError(validate.ErrValidation))
-		Expect(
-			createErr(ctx, "   ", resource.TypeChannel, nil),
-		).To(MatchError(validate.ErrValidation))
-		Expect(
-			createErr(ctx, "a\u200Bb", resource.TypeChannel, nil),
-		).To(MatchError(validate.ErrValidation))
 	})
 
 	It(

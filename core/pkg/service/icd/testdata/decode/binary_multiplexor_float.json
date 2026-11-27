@@ -1,0 +1,45 @@
+{
+  "description": "A multiplexor cannot be a float field.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "mode",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 32,
+            "byte_order": "little_endian",
+            "kind": "float"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "a",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [1],
+            "start_bit": 32,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned",
+            "multiplexor": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "error": "message frame: field a: multiplexor mode is a float field: validation error"
+}

@@ -10,19 +10,15 @@
 package group_test
 
 import (
-	"slices"
-	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
-	"github.com/synnaxlabs/x/types"
 )
 
 var _ = Describe("Sibling breaker 2", func() {
@@ -41,7 +37,12 @@ var _ = Describe("Sibling breaker 2", func() {
 		func(ctx SpecContext, parent resource.ID, parentScope string) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			svc := MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			g := group.Group{Name: "pt", Scope: resource.TypeChannel, Parent: &parent}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &g)
@@ -61,7 +62,12 @@ var _ = Describe("Sibling breaker 2", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			g := badParent()
 			var err error
 			Expect(func() {
@@ -78,13 +84,23 @@ var _ = Describe("Sibling breaker 2", func() {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
 			// The first open runs the migrations, so the reopen keeps the folder.
-			first := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			first := MustSucceed(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			Expect(first.Close()).To(Succeed())
 			g := badParent()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return gorp.WrapWriter[group.Key, group.Group](tx).Set(ctx, g)
 			})).To(Succeed())
-			svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			svc := MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			// The create waits for the index scan of the stored folder, which exempts
 			// the folder whose parent is not a group.
 			other := group.Group{Name: "other", Scope: resource.TypeChannel}
@@ -98,7 +114,12 @@ var _ = Describe("Sibling breaker 2", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			svc := MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			suffix := uuid.New().String()
 			nfd := MustSucceed(svc.CreateOrRetrieve(
 				ctx, "A\u030A "+suffix, resource.TypeProject,
@@ -108,47 +129,6 @@ var _ = Describe("Sibling breaker 2", func() {
 				ctx, "A\u030A "+suffix, resource.TypeProject,
 			))
 			Expect(again.Key).To(Equal(nfd.Key))
-		},
-	)
-
-	// openOverNFD opens a group service over a stored root channel folder whose name a
-	// v0.62 Core kept as sent, in NFD, so the upgrade runs over it.
-	openOverNFD := func(ctx SpecContext) (*gorp.DB, *group.Service, group.Group) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		StartRun(db.Run)
-		upgrade := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
-			return strings.HasPrefix(m.Key(), "v63_")
-		})
-		Expect(upgrade).To(BeNumerically(">", 0))
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:         db,
-			Namespace:  types.Name[group.Group](),
-			Migrations: versions.Migrations[:upgrade],
-		})).To(Succeed())
-		stored := group.Group{
-			Key:   uuid.New(),
-			Name:  "Stand A\u030A",
-			Scope: resource.TypeChannel,
-		}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.WrapWriter[group.Key, group.Group](tx).Set(ctx, stored)
-		})).To(Succeed())
-		return db, MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db})), stored
-	}
-
-	It("Should refuse a root folder beside a stored root folder of its name in NFD",
-		func(ctx SpecContext) {
-			db, svc, stored := openOverNFD(ctx)
-			var upgraded group.Group
-			Expect(svc.NewRetrieve().
-				Where(group.MatchKeys(stored.Key)).
-				Entry(&upgraded).
-				Exec(ctx, db)).To(Succeed())
-			Expect(upgraded.Name).To(Equal("Stand \u00C5"))
-			again := group.Group{Name: "Stand \u00C5", Scope: resource.TypeChannel}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &again)
-			})).To(MatchError(ContainSubstring("already exists at the top level")))
 		},
 	)
 })

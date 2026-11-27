@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
@@ -51,7 +52,8 @@ var _ = Describe("Where", Ordered, func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			NameRules: grouptestutil.NameRules(),
+			DB:        db,
 		}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB: db,

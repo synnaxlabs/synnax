@@ -16,6 +16,7 @@ cc_library(
     hdrs = ["framing.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/icd",
         "//driver/errors",
         "//x/cpp/errors",
     ],
@@ -26,6 +27,7 @@ cc_test(
     srcs = ["framing_test.cpp"],
     deps = [
         ":framing",
+        "//client/cpp/icd",
         "//x/cpp/bench:alloc",
         "//x/cpp/errors",
         "//x/cpp/testutil",

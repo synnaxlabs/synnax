@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -65,7 +66,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(db.Run)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db,
+		NameRules: grouptestutil.NameRules(),
+		DB:        db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{

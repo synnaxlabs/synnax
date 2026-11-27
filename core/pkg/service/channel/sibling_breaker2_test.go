@@ -11,6 +11,7 @@ package channel_test
 
 import (
 	"context"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -289,6 +290,33 @@ var _ = Describe("Sibling breaker 2", Ordered, ContinueOnFailure, func() {
 })
 
 var _ = Describe("Sibling breaker 2 over stored names", func() {
+	It("Should refuse a root folder beside a stored root folder of its name in NFD",
+		func(ctx SpecContext) {
+			fresh := dtestutil.NewNode(ctx)
+			cfg, groupSvc := serviceConfig(ctx, fresh, fresh.DB)
+			// A v0.62 Core stored a folder name as sent, and the upgrade stores it in
+			// NFC.
+			stored := group.Group{
+				Key:   uuid.New(),
+				Name:  "Stand A\u030A brk3",
+				Scope: resource.TypeChannel,
+			}
+			Expect(gorp.WrapWriter[group.Key, group.Group](fresh.DB).Set(ctx, stored)).
+				To(Succeed())
+			createV062(ctx, fresh.DB)
+			MustOpen(channel.OpenService(ctx, cfg))
+			var upgraded group.Group
+			Expect(groupSvc.NewRetrieve().
+				Where(group.MatchKeys(stored.Key)).
+				Entry(&upgraded).
+				Exec(ctx, fresh.DB)).To(Succeed())
+			Expect(upgraded.Name).To(Equal("Stand \u00C5 brk3"))
+			again := group.Group{Name: "Stand \u00C5 brk3", Scope: resource.TypeChannel}
+			Expect(fresh.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return groupSvc.NewWriter(tx).Create(ctx, &again)
+			})).To(MatchError(ContainSubstring("already exists at the top level")))
+		})
+
 	It("Should refuse a folder beside a stored channel of its name in another normal "+
 		"form", func(ctx SpecContext) {
 		fresh := dtestutil.NewNode(ctx)

@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/streamer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
@@ -58,7 +59,10 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
 	ctx := b.Context()
 	node := testutil.OpenNode(ctx)
-	groupSvc, err := group.OpenService(ctx, group.ServiceConfig{DB: node.DB})
+	groupSvc, err := group.OpenService(
+		ctx,
+		group.ServiceConfig{DB: node.DB, NameRules: grouptestutil.NameRules()},
+	)
 	groupSvc = mustOpen(b, "group service", groupSvc, err)
 	labelSvc, err := label.OpenService(ctx, label.ServiceConfig{DB: node.DB})
 	labelSvc = mustOpen(b, "label service", labelSvc, err)

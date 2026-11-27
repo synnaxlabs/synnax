@@ -1,13 +1,7 @@
 {
   "gated": [
-    {
-      "module": "freighter/integration",
-      "usage": "tests-only"
-    },
-    {
-      "module": "freighter/integration",
-      "usage": "unused"
-    }
+    { "module": "freighter/integration", "usage": "tests-only" },
+    { "module": "freighter/integration", "usage": "unused" }
   ],
   "pending": [
     {
@@ -33,6 +27,38 @@
       "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
       "name": "Writeback",
       "caller": "https://linear.app/synnax/issue/SY-6385"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "UniqueIndex",
+      "name": "Filter",
+      "caller": "https://linear.app/synnax/issue/SY-6524"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "TextMessage",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "Text",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "NewText",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "Text",
+      "name": "Decode",
+      "caller": "sy-6979-text-reads"
     },
     {
       "module": "x/go",

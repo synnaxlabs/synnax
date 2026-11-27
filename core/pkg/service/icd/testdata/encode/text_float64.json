@@ -1,0 +1,50 @@
+{
+  "description": "A float64 sample writes the shortest text that reads back as it, and must be finite.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 0
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [1e300],
+      "text": "1e+300"
+    },
+    {
+      "samples": [1e-5],
+      "text": "1e-05"
+    },
+    {
+      "samples": [1234567],
+      "text": "1234567"
+    },
+    {
+      "samples": ["Infinity"],
+      "error": "message cmd: field a: Infinity is not finite: validation error"
+    },
+    {
+      "samples": ["NaN"],
+      "error": "message cmd: field a: NaN is not finite: validation error"
+    }
+  ]
+}

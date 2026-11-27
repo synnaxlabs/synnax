@@ -35,7 +35,6 @@ export const SIFT: Server = {
   rack: CORE_RACK,
   command: "Connect Sift",
   title: "Sift",
-  defaultName: "Sift",
   name: CONNECTION,
   fill: async (session, modal) => {
     const { page } = session;

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -47,7 +48,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	StartRun(db.Run)
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db,
+		NameRules: grouptestutil.NameRules(),
+		DB:        db,
 	}))
 	colorSvc = MustOpen(color.OpenService(ctx, color.ServiceConfig{
 		DB:    db,

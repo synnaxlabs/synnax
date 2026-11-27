@@ -8,33 +8,106 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
+import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { renderPalette } from "@/feature/command/testutil";
 import { ICD } from "@/feature/icd";
-import { client } from "@/feature/icd/testutil";
+import { client, ENGINE_CSV } from "@/feature/icd/testutil";
 import { Session } from "@/session";
-import { resolveFocusedTab } from "@/testutil";
+import {
+  createTestClientWithGrants,
+  fakePickedFile,
+  interceptFilePicker,
+  resolveFocusedTab,
+} from "@/testutil";
+
+/** Opens the palette in a new project, capturing raised statuses. */
+const openPalette = async () => {
+  const project = await client.projects.create({ name: uniqueName("project") });
+  const statuses: Status.NotificationSpec[] = [];
+  const palette = await renderPalette({
+    commands: ICD.COMMANDS,
+    client,
+    onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+  });
+  palette.store.dispatch(Session.Project.select(project.key));
+  await palette.openCommandPalette();
+  return { ...palette, statuses };
+};
+
+/** Picks file through the Import ICD command. */
+const importFile = async (file: File) => {
+  const picker = interceptFilePicker();
+  const palette = await openPalette();
+  await palette.selectCommand("Import ICD");
+  await waitFor(() => picker.lastInput());
+  picker.selectFiles([file]);
+  return palette;
+};
+
+const retrieveFocusedICD = async (
+  palette: Awaited<ReturnType<typeof openPalette>>,
+): Promise<icd.ICD> => {
+  const tab = await resolveFocusedTab(palette.store, client);
+  if (tab.variant !== "resource") throw new Error("expected a resource tab");
+  expect(tab.resource.type).toBe(icd.TYPE_RESOURCE_ID.type);
+  return await client.icds.retrieve({ key: tab.resource.key });
+};
 
 describe("ICD commands", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("should create an ICD and open it in a tab", async () => {
-    const project = await client.projects.create({ name: uniqueName("project") });
-    const { store, openCommandPalette } = await renderPalette({
+    const palette = await openPalette();
+    await palette.selectCommand("Create ICD");
+    expect(await retrieveFocusedICD(palette)).toMatchObject({
+      name: "ICD",
+      messages: [],
+    });
+  });
+
+  it("should create an ICD named after an imported file and open it in a tab", async () => {
+    const name = uniqueName("engine");
+    const palette = await importFile(fakePickedFile(`${name}.csv`, ENGINE_CSV));
+    const created = await retrieveFocusedICD(palette);
+    expect(created.name).toBe(name);
+    expect(created.messages.map((m) => m.name)).toEqual(["Engine"]);
+  });
+
+  it("should hide Import ICD from a user who cannot update ICDs", async () => {
+    const creator = await createTestClientWithGrants(client, {
+      retrieve: [icd.TYPE_RESOURCE_ID],
+      create: [icd.TYPE_RESOURCE_ID],
+    });
+    const { openCommandPalette } = await renderPalette({
       commands: ICD.COMMANDS,
-      client,
+      client: creator,
     });
-    store.dispatch(Session.Project.select(project.key));
     await openCommandPalette();
-    const item = await screen.findByText("Create ICD");
-    await act(async () => {
-      fireEvent.click(item);
+    await screen.findByText("Create ICD");
+    expect(screen.queryByText("Import ICD")).toBeNull();
+  });
+
+  it("should list the accepted columns of a file with an unknown column", async () => {
+    const name = uniqueName("plant");
+    const { statuses } = await importFile(
+      fakePickedFile(`${name}.csv`, "Name,ID\nrpm,1\n"),
+    );
+    await waitFor(() => expect(statuses).toHaveLength(1));
+    expect(statuses[0]).toMatchObject({
+      variant: "error",
+      message: "Failed to import ICD",
+      description:
+        'data: row 1: unknown column "Name": expected message, id, extended, ' +
+        "length, field, start_bit, bit_length, byte_order, kind, scale, offset, " +
+        "units, min, or max",
     });
-    const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "resource") throw new Error("expected a resource tab");
-    expect(tab.resource.type).toBe(icd.TYPE_RESOURCE_ID.type);
-    const created = await client.icds.retrieve({ key: tab.resource.key });
-    expect(created).toMatchObject({ name: "ICD", messages: [] });
+    const named = (await client.icds.retrieve({})).filter((ic) => ic.name === name);
+    expect(named).toEqual([]);
   });
 });

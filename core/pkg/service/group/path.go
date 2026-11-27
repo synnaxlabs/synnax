@@ -11,6 +11,7 @@ package group
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -38,7 +39,9 @@ func Ancestors(ctx context.Context, snap gorp.Snapshot, keys ...Key) ([]Group, e
 }
 
 // Paths returns the path of each group with keys, as seen by snap. A path stops at a
-// group whose parent is not a group. It reads the groups one level at a time, and
+// group whose parent is not a group, and at a group that it already holds, since a
+// v0.62 Core stored a parent with no cycle check: the path of a group in a cycle starts
+// at the group of the cycle just above it. It reads the groups one level at a time, and
 // returns query.ErrNotFound when a group does not exist.
 func Paths(ctx context.Context, snap gorp.Snapshot, keys ...Key) (map[Key]Path, error) {
 	groups, parents, err := chain(ctx, snap, keys)
@@ -47,15 +50,15 @@ func Paths(ctx context.Context, snap gorp.Snapshot, keys ...Key) (map[Key]Path, 
 	}
 	paths := make(map[Key]Path, len(keys))
 	for _, k := range keys {
-		depth := 1
-		for at, ok := parents[k]; ok; at, ok = parents[at] {
-			depth++
+		var (
+			p      Path
+			passed = make(set.Set[Key])
+		)
+		for at, ok := k, true; ok && !passed.Contains(at); at, ok = parents[at] {
+			passed.Add(at)
+			p = append(p, groups[at])
 		}
-		p := make(Path, depth)
-		at := k
-		for i := depth - 1; i >= 0; i-- {
-			p[i], at = groups[at], parents[at]
-		}
+		slices.Reverse(p)
 		paths[k] = p
 	}
 	return paths, nil

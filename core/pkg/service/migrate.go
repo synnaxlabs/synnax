@@ -331,9 +331,12 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 	switch {
 	case site.Captured:
 		why = "a symbol that the text declares holds one of these names there"
-	case site.FolderUnreadable:
-		why = "its folder cannot be read in Arc yet"
-		fix = "Rename the folder so that Arc can read it, then edit the text so " +
+	case site.Folder != "":
+		why = fmt.Sprintf(
+			"the folder %q on its path cannot be read in Arc yet",
+			site.Folder,
+		)
+		fix = "Rename that folder so that Arc can read it, then edit the text so " +
 			"that it reads the channel."
 	}
 	return status.Status[any]{
@@ -439,7 +442,7 @@ func renameReason(reason resourcev0.Reason, noun string) (string, error) {
 	case resourcev0.ReasonMetricsFolder:
 		return fmt.Sprintf(
 			"the Core keeps the top-level name %q for its metrics folder",
-			groupv1.MetricsFolder,
+			channelv1.MetricsFolder,
 		), nil
 	}
 	return "", errors.Newf("unknown reason %d", reason)

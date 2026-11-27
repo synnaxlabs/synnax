@@ -85,7 +85,8 @@ var _ = Describe("Member", func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			NameRules: nameRules,
+			DB:        db,
 		}))
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, rack]{
 			DB:   db,

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
@@ -116,7 +117,10 @@ func BenchmarkOpenService(b *testing.B) {
 	gomega.RegisterTestingT(b)
 	ctx := b.Context()
 	node := testutil.OpenNode(ctx)
-	groupSvc, err := group.OpenService(ctx, group.ServiceConfig{DB: node.DB})
+	groupSvc, err := group.OpenService(
+		ctx,
+		group.ServiceConfig{DB: node.DB, NameRules: grouptestutil.NameRules()},
+	)
 	if err != nil {
 		b.Fatal(err)
 	}

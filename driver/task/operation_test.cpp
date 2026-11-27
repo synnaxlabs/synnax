@@ -124,7 +124,7 @@ TEST_F(OperationTest, NoWarningStatusWithoutAStep) {
 /// after its operation ends stays the latest one.
 TEST_F(OperationTest, NoWarningAfterClose) {
     op.step(loading("Starting bus"), x::telem::SECOND);
-    op.close();
+    op.close("");
     op.check(x::telem::TimeStamp::now() + x::telem::HOUR);
     EXPECT_EQ(written.size(), 1);
 }
@@ -142,7 +142,7 @@ TEST_F(OperationTest, JoinedStartGetsTheStepAndTheFinal) {
     ASSERT_EQ(written.size(), 4);
     EXPECT_EQ(written[2].details.cmd, "cmd");
     EXPECT_EQ(written[3].details.cmd, "cmd-2");
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("").empty());
 }
 
 /// @brief it should refuse a start of another config, and any start after a cancel.
@@ -194,7 +194,7 @@ TEST_F(OperationTest, ChangeConfigReleasesJoinedStarts) {
 TEST_F(OperationTest, CloseReturnsUnansweredJoins) {
     op.step(loading("Starting task"), x::telem::MINUTE);
     ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
-    const auto unanswered = op.close();
+    const auto unanswered = op.close("");
     ASSERT_EQ(unanswered.size(), 1);
     EXPECT_EQ(unanswered[0].key, "cmd-2");
 }
@@ -205,7 +205,7 @@ TEST_F(OperationTest, CloseAnswersAStoppedStartOnce) {
     op.step(loading("Starting task"), x::telem::MINUTE);
     ASSERT_TRUE(op.join({.type = "start", .key = "cmd-2"}, "hash"));
     ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("deployed").empty());
     ASSERT_EQ(written.size(), 3);
     EXPECT_EQ(written[1].details.cmd, "cmd");
     EXPECT_EQ(written[2].details.cmd, "cmd-2");
@@ -214,6 +214,7 @@ TEST_F(OperationTest, CloseAnswersAStoppedStartOnce) {
         EXPECT_EQ(written[i].message, "Stopped task");
         EXPECT_EQ(written[i].description, "A stop ended the start before it finished.");
         EXPECT_FALSE(written[i].details.running);
+        EXPECT_EQ(written[i].details.config_hash, "deployed");
     }
     op.answer(final_status("started late"));
     ASSERT_EQ(written.size(), 4);
@@ -225,7 +226,7 @@ TEST_F(OperationTest, CloseAnswersAStoppedStartOnce) {
 TEST_F(OperationTest, CloseAnswersAStartStoppedBeforeAShutdown) {
     ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
     op.cancel("The Driver stopped");
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("").empty());
     ASSERT_EQ(written.size(), 1);
     EXPECT_EQ(written[0].message, "Stopped task");
 }
@@ -233,7 +234,7 @@ TEST_F(OperationTest, CloseAnswersAStartStoppedBeforeAShutdown) {
 /// @brief it should fail a start that the task manager cancelled as it stopped.
 TEST_F(OperationTest, CloseFailsAStartCancelledAtShutdown) {
     ASSERT_TRUE(op.cancel("The Driver stopped"));
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("").empty());
     ASSERT_EQ(written.size(), 1);
     EXPECT_EQ(written[0].details.cmd, "cmd");
     EXPECT_EQ(written[0].variant, synnax::status::VARIANT_ERROR);
@@ -248,7 +249,7 @@ TEST_F(OperationTest, CloseFailsAStartCancelledAtShutdown) {
 TEST_F(OperationTest, CloseKeepsTheAnswerOfACancelledStart) {
     ASSERT_TRUE(op.cancel("The Driver stopped"));
     op.answer(final_status("start cancelled"));
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("").empty());
     ASSERT_EQ(written.size(), 1);
     EXPECT_EQ(written[0].message, "start cancelled");
 }
@@ -257,7 +258,7 @@ TEST_F(OperationTest, CloseKeepsTheAnswerOfACancelledStart) {
 TEST_F(OperationTest, EndedByStopOnlyWhenCloseAnswers) {
     ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
     EXPECT_FALSE(op.ended_by_stop());
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("").empty());
     EXPECT_TRUE(op.ended_by_stop());
 }
 
@@ -265,7 +266,7 @@ TEST_F(OperationTest, EndedByStopOnlyWhenCloseAnswers) {
 TEST_F(OperationTest, NotEndedByStopAfterTheTaskAnswers) {
     ASSERT_TRUE(op.cancel({.type = "stop", .key = "stop"}));
     op.answer(final_status("Failed to configure task"));
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("").empty());
     EXPECT_FALSE(op.ended_by_stop());
 }
 
@@ -285,7 +286,7 @@ TEST_F(OperationTest, CancelStopsTheTokenAndAnswersTheStop) {
 /// start.
 TEST_F(OperationTest, CloseNamesTheCauseOfACancel) {
     ASSERT_TRUE(op.cancel("The Driver lost its connection to the Core"));
-    EXPECT_TRUE(op.close().empty());
+    EXPECT_TRUE(op.close("").empty());
     ASSERT_EQ(written.size(), 1);
     EXPECT_EQ(
         written[0].description,
@@ -310,11 +311,11 @@ TEST(OperationBootTest, EndedByStopForAnOperationWithNoCommand) {
     };
     const auto stopped = new_op();
     ASSERT_TRUE(stopped->cancel(synnax::task::Command{.type = "stop", .key = "stop"}));
-    EXPECT_TRUE(stopped->close().empty());
+    EXPECT_TRUE(stopped->close("").empty());
     EXPECT_TRUE(stopped->ended_by_stop());
     const auto shut_down = new_op();
     ASSERT_TRUE(shut_down->cancel("The Driver stopped"));
-    EXPECT_TRUE(shut_down->close().empty());
+    EXPECT_TRUE(shut_down->close("").empty());
     EXPECT_FALSE(shut_down->ended_by_stop());
     EXPECT_TRUE(written.empty());
 }

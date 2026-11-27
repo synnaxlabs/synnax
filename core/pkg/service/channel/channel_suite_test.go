@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
@@ -52,6 +53,9 @@ func serviceConfig(
 	GinkgoHelper()
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db,
+		NameRules: map[resource.Type]group.NameRule{
+			resource.TypeChannel: channel.CheckFolderName,
+		},
 	}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,

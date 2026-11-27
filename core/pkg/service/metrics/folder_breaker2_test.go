@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -40,7 +41,12 @@ var _ = Describe("Folder breaker 2", func() {
 	BeforeEach(func(ctx SpecContext) {
 		node := testutil.NewNode(ctx)
 		db = node.DB
-		groups = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: node.DB}))
+		groups = MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: node.DB, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: node.DB}))
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: node.DB}))
 		channels = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{

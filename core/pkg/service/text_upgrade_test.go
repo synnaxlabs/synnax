@@ -23,7 +23,6 @@ import (
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
-	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -93,9 +92,9 @@ var _ = Describe("Text upgrade", func() {
 		storeV062(
 			ctx,
 			n,
-			[]string{groupv1.MetricsFolder},
+			[]string{channelv1.MetricsFolder},
 			func([]channelv1.Channel) {},
-			folder(groupv1.MetricsFolder),
+			folder(channelv1.MetricsFolder),
 		)
 	}
 

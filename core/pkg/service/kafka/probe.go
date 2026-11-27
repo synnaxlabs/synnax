@@ -36,11 +36,10 @@ const defaultPort = "9092"
 
 // testConnection tests a connection to the cluster of props one stage at a time: dial,
 // TLS, SASL, metadata, and each broker that the cluster advertises. It returns a
-// driver.Failure for the first stage that fails, and a validation error when props
-// cannot open a client.
+// driver.Failure for the first stage that fails.
 func testConnection(ctx context.Context, props Properties) error {
 	if err := validateProperties(props); err != nil {
-		return err
+		return settingsFailure(err)
 	}
 	conn, addr, err := dialSeed(ctx, props.Brokers)
 	if err != nil {
@@ -61,11 +60,9 @@ func testConnection(ctx context.Context, props Properties) error {
 // dialSeed opens a TCP connection to the first seed broker that answers, and returns
 // its address.
 func dialSeed(ctx context.Context, brokers []string) (net.Conn, string, error) {
-	var (
-		dialer   net.Dialer
-		failures []string
-	)
-	for _, addr := range brokers {
+	var dialer net.Dialer
+	errs := make([]error, len(brokers))
+	for i, addr := range brokers {
 		addr = withPort(addr)
 		dialCtx, cancel := context.WithTimeout(ctx, stageTimeout)
 		conn, err := dialer.DialContext(dialCtx, "tcp", addr)
@@ -73,9 +70,48 @@ func dialSeed(ctx context.Context, brokers []string) (net.Conn, string, error) {
 		if err == nil {
 			return conn, addr, nil
 		}
-		failures = append(failures, fmt.Sprintf("Could not reach %s: %s.", addr, err))
+		errs[i] = err
 	}
-	return nil, "", driver.Failure{
+	return nil, "", unreachable(brokers, errs)
+}
+
+// reachCluster dials every seed broker of props at once and returns props with only the
+// first that takes a TCP connection, so that each client of the result starts from a
+// broker that answers. It fails as dialSeed does when no seed broker answers.
+func reachCluster(ctx context.Context, props Properties) (Properties, error) {
+	brokers := props.Brokers
+	ctx, cancel := context.WithTimeout(ctx, stageTimeout)
+	defer cancel()
+	var dialer net.Dialer
+	errs := make([]error, len(brokers))
+	done := make(chan int, len(brokers))
+	for i, addr := range brokers {
+		go func() {
+			conn, err := dialer.DialContext(ctx, "tcp", withPort(addr))
+			if err == nil {
+				err = conn.Close()
+			}
+			errs[i] = err
+			done <- i
+		}()
+	}
+	for range brokers {
+		if i := <-done; errs[i] == nil {
+			props.Brokers = []string{withPort(brokers[i])}
+			return props, nil
+		}
+	}
+	return Properties{}, unreachable(brokers, errs)
+}
+
+// unreachable returns the failure for seed brokers that each failed to connect with the
+// error at the same index of errs.
+func unreachable(brokers []string, errs []error) error {
+	failures := make([]string, len(brokers))
+	for i, addr := range brokers {
+		failures[i] = fmt.Sprintf("Could not reach %s: %s.", withPort(addr), errs[i])
+	}
+	return driver.Failure{
 		Message: "Failed to reach broker",
 		Description: strings.Join(failures, " ") + " Check the address and port of " +
 			"each broker, and that the network of the Core can reach them.",
@@ -114,10 +150,7 @@ func testCluster(ctx context.Context, props Properties) error {
 		kgo.WithHooks(&auth),
 	)
 	if err != nil {
-		return driver.Failure{
-			Message:     "Failed to open client",
-			Description: err.Error() + ".",
-		}
+		return settingsFailure(err)
 	}
 	defer cl.Close()
 	mdCtx, cancel := context.WithTimeout(ctx, stageTimeout)
@@ -126,6 +159,21 @@ func testCluster(ctx context.Context, props Properties) error {
 	if err == nil {
 		return testBrokers(ctx, cl, md.Brokers)
 	}
+	return clusterFailure(props, &auth, err)
+}
+
+// settingsFailure returns the failure for err, the reason that the cluster settings
+// cannot open a client.
+func settingsFailure(err error) error {
+	return driver.Failure{
+		Message:     "Invalid cluster settings",
+		Description: err.Error() + ". Edit the cluster settings.",
+	}
+}
+
+// clusterFailure returns the failure for err, the error of a metadata request that a
+// client with the hook auth sent to the cluster of props.
+func clusterFailure(props Properties, auth *authHook, err error) error {
 	if props.Sasl.Mechanism() != NoneSASLType &&
 		(saslFailure(err) || auth.dropped.Load()) {
 		return driver.Failure{

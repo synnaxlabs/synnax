@@ -25,25 +25,25 @@ var _ = Describe("Lookup holders across sizes", func() {
 
 	It("Should keep every holder of a value as it grows and shrinks", func() {
 		Expect(l.Get(nil, "v")).To(BeEmpty())
-		l.Set(1, "v")
-		l.Set(1, "v")
+		l.Stage(nil, 1, "v")
+		l.Stage(nil, 1, "v")
 		Expect(l.Get(nil, "v")).To(ConsistOf(1))
-		l.Set(2, "v")
+		l.Stage(nil, 2, "v")
 		Expect(l.Get(nil, "v")).To(ConsistOf(1, 2))
-		l.Delete(1)
+		l.StageDelete(nil, 1)
 		Expect(l.Get(nil, "v")).To(ConsistOf(2))
-		l.Delete(2)
+		l.StageDelete(nil, 2)
 		Expect(l.Get(nil, "v")).To(BeEmpty())
-		l.Set(3, "v")
+		l.Stage(nil, 3, "v")
 		Expect(l.Get(nil, "v")).To(ConsistOf(3))
 		var all []int
 		for k := 3; k <= 40; k++ {
-			l.Set(k, "v")
+			l.Stage(nil, k, "v")
 			all = append(all, k)
 		}
 		Expect(l.Get(nil, "v")).To(ConsistOf(all))
 		for k := 4; k <= 40; k++ {
-			l.Delete(k)
+			l.StageDelete(nil, k)
 		}
 		Expect(l.Get(nil, "v")).To(ConsistOf(3))
 	})

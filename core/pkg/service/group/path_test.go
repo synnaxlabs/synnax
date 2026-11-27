@@ -32,7 +32,9 @@ var _ = Describe("Paths", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		svc = MustOpen(
+			group.OpenService(ctx, group.ServiceConfig{DB: db, NameRules: nameRules}),
+		)
 	})
 	create := func(ctx SpecContext, g group.Group) group.Group {
 		GinkgoHelper()

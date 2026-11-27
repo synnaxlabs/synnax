@@ -27,6 +27,7 @@ import (
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/enumeration"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -120,7 +121,12 @@ func retrieveSchematic(
 func openService(ctx SpecContext, db *gorp.DB) *schematic.Service {
 	GinkgoHelper()
 	enums := MustOpen(enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}))
-	groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	groups := MustOpen(
+		group.OpenService(
+			ctx,
+			group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+		),
+	)
 	return MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 		DB:          db,
 		Group:       groups,
@@ -1337,7 +1343,12 @@ var _ = Describe("Stored v13 selects", func() {
 		enums := MustOpen(
 			enumeration.OpenService(ctx, enumeration.ServiceConfig{DB: db}),
 		)
-		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		groups := MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		svc := MustOpen(schematic.OpenService(ctx, schematic.ServiceConfig{
 			DB:          db,
 			Group:       groups,

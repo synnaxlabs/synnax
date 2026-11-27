@@ -32,7 +32,7 @@ func siblingSpace(scope resource.Type) string { return "namespace." + string(sco
 // NewMemberIndex returns the index that keeps the name of each record of the namespaced
 // scope unique among the records and the groups in its group. sibling returns the
 // Sibling of a record. Names compare as stored, so each writer of a record, a migration
-// through gorp.WrapWriter included, must store its name in NFC.
+// through gorp.WrapWriter included, must store its name in one normal form.
 func NewMemberIndex[K gorp.Key, E gorp.Entry[K]](
 	scope resource.Type,
 	sibling func(*E) Sibling,
@@ -85,10 +85,10 @@ func newSiblingIndexes() map[resource.Type]siblingIndex {
 }
 
 // newSiblingIndex returns the index that keeps the names of the groups of the
-// namespaced scope unique among siblings, compared as stored in NFC. A group of that
-// scope sits at the top or in a group, since only a pinned scope takes another parent.
-// A group whose parent is not a group has no place among siblings, so the index exempts
-// it.
+// namespaced scope unique among siblings, compared as stored: the rule of the scope
+// (ServiceConfig.NameRules) puts each name in its stored form. A group of that scope
+// sits at the top or in a group, since only a pinned scope takes another parent. The
+// index exempts a group whose parent is not a group, as it has no place among siblings.
 func newSiblingIndex(scope resource.Type) siblingIndex {
 	return gorp.NewUniqueIndex(
 		"sibling_"+string(scope),
@@ -101,40 +101,17 @@ func newSiblingIndex(scope resource.Type) siblingIndex {
 			if g.Parent == nil {
 				return s, true
 			}
+			if g.Parent.Type != resource.TypeGroup {
+				return Sibling{}, false
+			}
 			parent, err := KeyFromResourceID(*g.Parent)
 			if err != nil {
+				// A raw write can store a malformed key. The group stays out of the
+				// index, so the Core still opens over it.
 				return Sibling{}, false
 			}
 			s.Parent = parent
 			return s, true
 		},
 	)
-}
-
-// isNamespaced reports whether the names in the groups of scope are unique.
-func isNamespaced(scope resource.Type) bool {
-	for _, r := range memberRules {
-		if r.scope == scope {
-			return r.namespaced
-		}
-	}
-	return false
-}
-
-// checkName puts the name of g in NFC and checks it against the name rule
-// (validate.IsPathSegment) when the scope of g is namespaced.
-func checkName(g *Group) error {
-	if !isNamespaced(g.Scope) {
-		return nil
-	}
-	g.Name = validate.NormalizeName(g.Name)
-	if g.Name == "" || validate.IsPathSegment(g.Name) {
-		return nil
-	}
-	return validate.PathedError(errors.Wrapf(
-		validate.ErrValidation,
-		"group name '%s' must hold a visible character, and no '.' or invisible "+
-			"character",
-		g.Name,
-	), "name")
 }
