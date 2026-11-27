@@ -557,6 +557,7 @@ var _ = Describe("License", func() {
 				Expect(svc.Close()).To(Succeed())
 				clock.Store(now.Add(-2 * day).UnixNano())
 				svc = open(ctx, clocked)
+				StartRun(svc.Run)
 				Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
 				clock.Store(now.Add(time.Hour).UnixNano())
 				Eventually(state(svc)).Should(Equal(license.StateOk))
@@ -570,6 +571,7 @@ var _ = Describe("License", func() {
 				Expect(svc.Close()).To(Succeed())
 				clock.Store(now.Add(-2 * day).UnixNano())
 				svc = open(ctx, clocked)
+				StartRun(svc.Run)
 				keys := announcements(svc)
 				clock.Store(now.Add(time.Hour).UnixNano())
 				Eventually(keys).Should(Receive(Equal(license.ResourceKey)))
@@ -577,11 +579,13 @@ var _ = Describe("License", func() {
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
 			svc := open(ctx, clocked, license.ServiceConfig{Key: sign(newLicense())})
+			stop := StartRun(svc.Run)
 			Expect(mark()()).To(Equal(now.UnixNano()))
 			clock.Store(now.Add(-2 * day).UnixNano())
 			Consistently(mark()).
 				WithTimeout(100 * time.Millisecond).
 				Should(Equal(now.UnixNano()))
+			stop()
 			Expect(svc.Close()).To(Succeed())
 			svc = open(ctx, clocked)
 			Expect(svc.Retrieve().State).To(Equal(license.StateExpired))
@@ -613,6 +617,28 @@ var _ = Describe("License", func() {
 				Expect(info.Warning).To(ContainSubstring("clock"))
 			},
 		)
+	})
+
+	Describe("Run", func() {
+		It("Should return an error when called twice", func(ctx SpecContext) {
+			svc := open(ctx)
+			StartRun(svc.Run)
+			Expect(svc.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+		It("Should not close while Run runs", func(ctx SpecContext) {
+			svc := open(ctx)
+			stop := StartRun(svc.Run)
+			Expect(svc.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+			stop()
+			Expect(svc.Close()).To(Succeed())
+		})
+		It("Should return an error when called after Close", func(ctx SpecContext) {
+			svc := open(ctx)
+			Expect(svc.Close()).To(Succeed())
+			Expect(svc.Run(ctx)).
+				To(MatchError(ContainSubstring("run called after close")))
+		})
 	})
 
 	Describe("Activate", func() {

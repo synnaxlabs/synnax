@@ -91,4 +91,25 @@ describe("ICD inferred formats", () => {
       expect(ICD.createMessage("", [], []).name).toEqual("Untitled");
     });
   });
+
+  describe("namedBy", () => {
+    it.each([
+      ["plant/oven", "plant/oven"],
+      ["plant/oven 2", "plant/oven"],
+      ["Untitled", ""],
+      ["Untitled 3", ""],
+    ])("should accept %j as a name for %j", (name, base) => {
+      expect(ICD.namedBy(name, base)).toBe(true);
+    });
+
+    it.each([
+      ["Oven", "plant/oven"],
+      ["plant/oven 2a", "plant/oven"],
+      ["plant/oven2", "plant/oven"],
+      ["plant/oven ", "plant/oven"],
+      ["Untitled", "plant/oven"],
+    ])("should reject %j as a name for %j", (name, base) => {
+      expect(ICD.namedBy(name, base)).toBe(false);
+    });
+  });
 });

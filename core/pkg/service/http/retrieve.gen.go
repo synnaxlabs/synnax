@@ -138,51 +138,6 @@ func readConfigReferences() []gorp.Reference[uuid.UUID, ReadConfig] {
 			},
 		}),
 		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
-			Name:     "endpoints.fields.channel",
-			Table:    "channel",
-			OnDelete: gorp.Restrict,
-			Kind:     gorp.Use,
-			Targets: func(e *ReadConfig) []channel.Key {
-				var targets []channel.Key
-				for _, v1 := range e.Endpoints {
-					for _, v2 := range v1.Fields {
-						if v2.Channel != 0 {
-							targets = append(targets, v2.Channel)
-						}
-					}
-				}
-				return targets
-			},
-			Locate: func(e *ReadConfig, t channel.Key) []string {
-				for i7, v8 := range e.Endpoints {
-					for i9, v10 := range v8.Fields {
-						if v10.Channel == t {
-							return []string{"endpoints", strconv.Itoa(i7), "fields", strconv.Itoa(i9), "channel"}
-						}
-					}
-				}
-				return nil
-			},
-			Detach: func(e *ReadConfig, t channel.Key) {
-				for i3 := range e.Endpoints {
-					for i4 := range e.Endpoints[i3].Fields {
-						if e.Endpoints[i3].Fields[i4].Channel == t {
-							e.Endpoints[i3].Fields[i4].Channel = 0
-						}
-					}
-				}
-			},
-			Retarget: func(e *ReadConfig, from, to channel.Key) {
-				for i5 := range e.Endpoints {
-					for i6 := range e.Endpoints[i5].Fields {
-						if e.Endpoints[i5].Fields[i6].Channel == from {
-							e.Endpoints[i5].Fields[i6].Channel = to
-						}
-					}
-				}
-			},
-		}),
-		gorp.NewKeyReference(gorp.KeyReferenceConfig[uuid.UUID, ReadConfig, channel.Key]{
 			Name:     "inline.endpoints.fields.channel",
 			Table:    "channel",
 			OnDelete: gorp.Restrict,

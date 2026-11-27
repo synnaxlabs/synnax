@@ -35,6 +35,27 @@ describe("ICD slice", () => {
     expect(documentIn(slice, KEY, AUX_WINDOW)?.selected).toEqual(["telemetry"]);
   });
 
+  it("should hold a field to focus until the editor clears it", () => {
+    const store = storeWith();
+    store.dispatch(
+      ICD.setSelected({ key: KEY, selected: ["alarm"], focused: "level" }),
+    );
+    expect(documentIn(store.getState()[ICD.SLICE_NAME], KEY)?.focused).toBe("level");
+    store.dispatch(ICD.clearFocused({ key: KEY }));
+    expect(documentIn(store.getState()[ICD.SLICE_NAME], KEY)).toEqual({
+      selected: ["alarm"],
+    });
+  });
+
+  it("should drop a field to focus when a selection names none", () => {
+    const store = storeWith();
+    store.dispatch(
+      ICD.setSelected({ key: KEY, selected: ["alarm"], focused: "level" }),
+    );
+    store.dispatch(ICD.setSelected({ key: KEY, selected: ["telemetry"] }));
+    expect(documentIn(store.getState()[ICD.SLICE_NAME], KEY)?.focused).toBeUndefined();
+  });
+
   it("should remove an ICD from every window", () => {
     const store = storeWith({
       windows: {

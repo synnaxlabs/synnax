@@ -60,7 +60,7 @@ var _ = Describe("Start", func() {
 	)
 
 	It("Should write the error that ends it as the first line of stderr", func() {
-		session, _, _ := launchCore("--session-idle-timeout", "-1s")
+		session, _ := launchCore("--session-idle-timeout", "-1s")
 		Eventually(session, 30*time.Second).Should(gexec.Exit())
 		Expect(session.ExitCode()).ToNot(BeZero())
 		first, _, _ := bytes.Cut(session.Err.Contents(), []byte("\n"))
@@ -130,7 +130,7 @@ var _ = Describe("Start", func() {
 
 	It("Should refuse a secrets folder that does not exist", func() {
 		dir := filepath.Join(GinkgoT().TempDir(), "missing")
-		session, _, _ := launchCore("--secrets-dir", dir)
+		session, _ := launchCore("--secrets-dir", dir)
 		Eventually(session, 30*time.Second).Should(gexec.Exit())
 		Expect(session.ExitCode()).ToNot(BeZero())
 		Expect(string(session.Err.Contents())).To(ContainSubstring(

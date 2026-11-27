@@ -12,7 +12,7 @@
 import json
 import sys
 from abc import abstractmethod
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from uuid import uuid4
 
@@ -177,12 +177,33 @@ def wait_for_record(
     :returns: The records of topic from start, which hold the matching record.
     :raises AssertionError: If no record matches in time.
     """
+    return wait_for_match(
+        consumer, topic=topic, start=start, key=key, matches=lambda v: v == expected
+    )
+
+
+def wait_for_match(
+    consumer: Consumer,
+    *,
+    topic: str,
+    start: int,
+    key: str | None = None,
+    matches: Callable[[object], bool],
+) -> list[Record]:
+    """Wait at most 20 seconds until matches returns true for the JSON value of the
+    newest record of key on topic, from offset start.
+
+    :param start: The high watermark of topic before the commands went out, so that an
+        older record cannot match.
+    :returns: The records of topic from start, which hold the matching record.
+    :raises AssertionError: If no record matches in time.
+    """
     last: object = None
     timer = sy.Timer()
     while timer.elapsed() < WRITE_TIMEOUT:
         records = tail(consumer, topic, start)
         values = [v for k, v in records if k == key]
-        if values and (last := values[-1]) == expected:
+        if values and matches(last := values[-1]):
             return records
         # Blocks until the topic has a new record, for at most a second.
         consumer.poll(1)

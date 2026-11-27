@@ -14,7 +14,23 @@ import {
   formatHexBytes,
   parseEscaped,
   parseHexBytes,
+  parseUnsigned,
 } from "@/feature/icd/editor/FormattedField";
+
+describe("parseUnsigned", () => {
+  it.each([
+    ["0", 0],
+    ["256", 256],
+    ["0x1F0", 0x1f0],
+    [" 0x18ff50e5 ", 0x18ff50e5],
+  ])("should parse %j", (text, want) => {
+    expect(parseUnsigned(text)).toBe(want);
+  });
+
+  it.each(["", "  ", "-1", "1.5", "0x18FF5G", "1F0"])("should refuse %j", (text) => {
+    expect(parseUnsigned(text)).toBeNull();
+  });
+});
 
 describe("formatHexBytes", () => {
   it("should write each byte as two uppercase digits split by spaces", () => {

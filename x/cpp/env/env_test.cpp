@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <random>
 
 #include "gtest/gtest.h"
 
@@ -310,7 +311,8 @@ protected:
     void SetUp() override {
         const auto *info = ::testing::UnitTest::GetInstance()->current_test_info();
         path = std::filesystem::temp_directory_path() /
-               (std::string(info->name()) + ".env");
+               (std::string(info->name()) + "_" +
+                std::to_string(std::random_device()()) + ".env");
     }
 
     void TearDown() override {

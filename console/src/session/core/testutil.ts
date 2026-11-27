@@ -22,8 +22,8 @@ export const CONNECTION_PARAMS: Omit<Core, "key" | "name"> = {
 };
 
 /** The keychain account that holds the token of a Core. */
-export const keychainAccount = ({ host, port, key }: Core): string =>
-  `http://synnax@${host}:${port}#${key}`;
+export const keychainAccount = ({ host, port, key, username }: Core): string =>
+  `http://${encodeURIComponent(username)}@${host}:${port}#${key}`;
 
 /**
  * A Core that has already connected, so it caches a cluster key and links to it can be

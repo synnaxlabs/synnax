@@ -59,8 +59,8 @@ The task reads a field into a channel only when the record binds the field to on
    becomes the index of the message.
 4. Click <Icon.Play /> (**Start**).
 
-The first message creates an ICD named after the task. For a topic with no records yet,
-click **Add an empty record** in the dialog, then click **Add field** to set the
+The first message creates an ICD named after the device. For a topic with no records
+yet, click **Add an empty record** in the dialog, then click **Add field** to set the
 **Name**, **Pointer**, and **Type** of each field.
 
 A key with no record of its own goes to the **Any key** record of its topic. The dialog
@@ -335,8 +335,8 @@ Pointers start with `/` and are case sensitive.
 <Problem.Cause>
 
 The Core cannot reach the cluster while the task runs. The task keeps trying, and the
-status changes to "Reconnected to cluster" when records arrive again. The task then
-continues from its committed offset.
+warning clears when records arrive again. The task then continues from its committed
+offset.
 
 </Problem.Cause>
 </Problem.Item>
@@ -399,11 +399,12 @@ that the kind converts to.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Failed to fetch records"}>
+<Problem.Item message={"Failed to run task"}>
 <Problem.Cause>
 
-The cluster refused to send records, for example because the user cannot read the topic.
-The task stops. The description gives the reason.
+The task stopped on an error that a retry cannot fix. For example, the cluster refused
+to send records because the user cannot read the topic. The description gives the
+reason.
 
 </Problem.Cause>
 <Problem.Fix>

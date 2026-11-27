@@ -1,0 +1,39 @@
+{
+  "auto_start": false,
+  "data_saving_disabled": false,
+  "device": "kafka-plant",
+  "group": "synnax",
+  "name": "kafka_read",
+  "records": [
+    {
+      "fields": [
+        {
+          "channel": 1048583,
+          "data_type": "timestamp",
+          "disabled": false,
+          "enum_values": [],
+          "key": "3d3fcf71-ed1a-4274-9076-3851b6bfe0d6",
+          "name": "kafka_timed_time",
+          "pointer": "/timestamp",
+          "time_format": "unix_ns"
+        },
+        {
+          "channel": 1048584,
+          "data_type": "float64",
+          "disabled": false,
+          "enum_values": [],
+          "key": "aee0b742-a8d8-4ad9-afa2-356b0ccc28f2",
+          "name": "kafka_timed_value",
+          "pointer": "/value"
+        }
+      ],
+      "index": "3d3fcf71-ed1a-4274-9076-3851b6bfe0d6",
+      "key": "276cb8e6-4f1e-4569-9783-6a924ca74b14",
+      "record_key": ""
+    }
+  ],
+  "start_offset": "latest",
+  "topic": "plant.timed",
+  "type": "kafka_read",
+  "version": 0
+}
