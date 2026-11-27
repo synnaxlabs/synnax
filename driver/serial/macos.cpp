@@ -87,6 +87,9 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
 }
 
 namespace native {
+// The port cannot prove that TIOCEXCL is its own, and the last close clears it.
+void unlock(Handle) {}
+
 std::pair<bool, std::error_code> exclusive(int) {
     return {false, {}};
 }
