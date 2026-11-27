@@ -325,17 +325,21 @@ var _ = Describe("StatusHandler", func() {
 			},
 		)
 
-		It("should replace an active warning", func(ctx SpecContext) {
-			Expect(handler.Send(
-				ctx, "cmd-1", status.VariantSuccess, true, "Started task", "",
-			)).To(Succeed())
-			Expect(handler.Warn(ctx, driver.Warning{Message: "Node failed"})).
-				To(Succeed())
-			Expect(handler.SendRunning(ctx, "Idle", "", data)).To(Succeed())
-			stat := retrieve(ctx)
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
-			Expect(stat.Message).To(Equal("Idle"))
-		})
+		It(
+			"should keep an active warning and take only the data",
+			func(ctx SpecContext) {
+				Expect(handler.Send(
+					ctx, "cmd-1", status.VariantSuccess, true, "Started task", "",
+				)).To(Succeed())
+				Expect(handler.Warn(ctx, driver.Warning{Message: "Node failed"})).
+					To(Succeed())
+				Expect(handler.SendRunning(ctx, "Idle", "", data)).To(Succeed())
+				stat := retrieve(ctx)
+				Expect(stat.Variant).To(Equal(status.VariantWarning))
+				Expect(stat.Message).To(Equal("Node failed"))
+				Expect(stat.Details.Data).To(HaveKey("scopes"))
+			},
+		)
 
 		DescribeTable("should write nothing",
 			func(ctx SpecContext, variant status.Variant, running bool) {

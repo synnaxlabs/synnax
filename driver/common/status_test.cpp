@@ -1111,7 +1111,8 @@ TEST(TestSendRunning, SendsNothingForAStoppedOrFailedTask) {
     EXPECT_EQ(statuses[2].details.cmd, "stop");
 }
 
-/// @brief it should keep the data through a warning, and drop it on an error.
+/// @brief it should keep a warning's text when the scopes change, and drop the data on
+/// an error.
 TEST(TestSendRunning, KeepsTheDataThroughAWarningAndDropsItOnAnError) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const synnax::task::Task task{.name = "task1", .type = "arc"};
@@ -1126,8 +1127,17 @@ TEST(TestSendRunning, KeepsTheDataThroughAWarningAndDropsItOnAnError) {
     handler.send_warning("Node failed", "");
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 3);
     EXPECT_TRUE(ctx->snapshot()[2].details.data.has_value());
-    handler.send_error(x::errors::Error(x::errors::INTERNAL, "boom"), "Failed");
+    handler.send_running(
+        "Running main › hold",
+        "",
+        x::json::json::object_t{{"scopes", x::json::json::array({1})}}
+    );
     ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 4);
-    EXPECT_FALSE(ctx->snapshot()[3].details.data.has_value());
+    const auto kept = ctx->snapshot()[3];
+    EXPECT_EQ(kept.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(kept.message, "Node failed");
+    handler.send_error(x::errors::Error(x::errors::INTERNAL, "boom"), "Failed");
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 5);
+    EXPECT_FALSE(ctx->snapshot()[4].details.data.has_value());
 }
 }
