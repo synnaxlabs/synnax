@@ -12,6 +12,7 @@ package unary
 import (
 	"context"
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/alignment"
@@ -42,6 +43,8 @@ type DB struct {
 	// on the DB.
 	pending          *atomic.Int32
 	leadingAlignment *alignment.Counter
+	// writers is the lock of an index channel. It is nil for any other channel.
+	writers *sync.Mutex
 	// resolver handles sample-to-byte offset translation. Fixed-density channels
 	// carry a zero cache; variable-length channels carry a per-domain offset cache.
 	resolver *offsetResolver
@@ -74,6 +77,12 @@ func (db *DB) index() *index.Domain {
 }
 
 func (db *DB) SetIndex(idx *index.Domain) { db.idx = idx }
+
+// WriterLock returns the lock of an index channel. Each writer of the index or of a
+// channel it indexes holds the lock across a write, a commit, and a change of control
+// of those channels, so that a write or commit never sees control of some of them move
+// without the rest. WriterLock returns nil when the channel is not an index.
+func (db *DB) WriterLock() *sync.Mutex { return db.writers }
 
 // WriteCursor returns the alignment a channel indexed by this one should stamp a write
 // starting at ts with. When a writer holds the region covering ts, the cursor is that
