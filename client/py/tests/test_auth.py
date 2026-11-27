@@ -255,6 +255,17 @@ class TestMethods:
         assert sorted(client.auth.retrieve_methods()) == ["api_key", "password"]
         client.close()
 
+    def test_retrieve_api_key_max_lifetime(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should return None when the Core sets no API key lifetime limit."""
+        host, port, username, password = login_info
+        client = sy.Synnax(
+            host=host, port=port, username=username, password=password, secure=False
+        )
+        assert client.auth.retrieve_api_key_max_lifetime() is None
+        client.close()
+
     def test_retrieve_methods_logged_out(
         self, login_info: tuple[str, int, str, str]
     ) -> None:

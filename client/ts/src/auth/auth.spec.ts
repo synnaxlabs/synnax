@@ -170,6 +170,12 @@ describe("auth", () => {
     });
   });
 
+  describe("retrieveAPIKeyMaxLifetime", () => {
+    it("should return null when the Core sets no limit", async () => {
+      expect(await createTestClient().auth.retrieveAPIKeyMaxLifetime()).toBeNull();
+    });
+  });
+
   describe("createSession", () => {
     const tokenless = auth.createTokenlessClient({
       host: testClientParams().host,
