@@ -425,13 +425,13 @@ names no clock key.
   a series of the key that comes with no time. A read of one channel that returns a bare
   series, such as Python `client.read(tr, "temperature")`, marks its key untimed.
 - **Sources**: A writer's relay frame holds the time series of each present group under
-  the group's clock, and a copy under the clock of each channel that a pause move put on
-  a clock of its own (§4.8). A `time_of` writer's relay frame holds the stored stamps
-  that the writer waits for (RFC 0121 §5.8). The storage iterator adds, per chunk and
-  clock, the stamps of the alignment ranges of its data series, within the chunk size. A
-  reduced read reduces them as it does the data. The sources, the filters, and the
-  encoder use one test: a time series is in a frame only beside a data series of the
-  same frame that names its clock.
+  the group's clock, and a copy under each clock that a pause move put channels on
+  (§4.8). A `time_of` writer's relay frame holds the stored stamps that the writer waits
+  for (RFC 0121 §5.8). The storage iterator adds, per chunk and clock, the stamps of the
+  alignment ranges of its data series, within the chunk size. A reduced read reduces
+  them as it does the data. The sources, the filters, and the encoder use one test: a
+  time series is in a frame only beside a data series of the same frame that names its
+  clock.
 - **Storage reads**: A key's clock can change between segments, so the iterator takes
   the clock per segment. Keys whose newest segment names one clock share a view. Each
   view loads its keys and every clock that their segments name in one state step: the
@@ -1301,7 +1301,7 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
     task that was configured and never run leaves one. The test is Cesium's, not the
     records': a test of records (a data record names the index) deletes an index whose
     data channels are empty, and keeps one that times data of a kept key, which then
-    fails the start check.
+    meets the start check.
 29. **`time.of(channel)` and a text rewrite**: Arc and calculations read a channel's
     stamps with one builtin. Rejected: a hidden alias, and a compile error with no
     rewrite, which breaks stored programs.
