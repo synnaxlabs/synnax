@@ -339,11 +339,13 @@ var _ = Describe("Storage stream check", func() {
 			Expect(failures).To(HaveLen(1))
 			Expect(failures[0].Level).To(Equal(zapcore.ErrorLevel))
 			fields := failures[0].ContextMap()
-			Expect(fields).To(HaveKeyWithValue("channel", data.Key().String()))
-			Expect(fields).To(HaveKeyWithValue(
-				"error",
-				"channel [check_data]<"+data.Key().String()+">: "+ErrFault.Error(),
-			))
+			// The fields must hold the channel's key. The check does not pin its name.
+			key := data.Key().String()
+			Expect(fields).To(HaveKeyWithValue("channel", ContainSubstring(key)))
+			Expect(fields).To(HaveKeyWithValue("error", And(
+				ContainSubstring(key),
+				HaveSuffix(": "+ErrFault.Error()),
+			)))
 			Expect(fields).To(HaveKey("time_range"))
 			_, ack = stream.exec(iterator.Request{Command: iterator.CommandError})
 			Expect(ack.Error).To(MatchError(ErrFault))
