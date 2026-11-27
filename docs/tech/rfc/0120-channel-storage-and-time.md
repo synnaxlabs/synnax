@@ -456,11 +456,16 @@ names no clock key.
   with no search.
 - **Calculations**: A calculation session stores nothing, names no clock, and takes no
   claim: its series carry the clocks of its inputs. Its relay frame holds the outputs,
-  with `Clock` set to the primary's clock key, and the primary's time series for the
-  same alignments. The calculator reads a relay stream and writes through a writer
-  (`core/pkg/service/framer/calculation/transform.go:45-63`), so its outputs cannot ride
-  in the input's frame. A subscriber of both gets those stamps twice: 8 bytes per output
-  sample.
+  with `Clock` set to its `<name>_time` key until Phase 44 and to the primary's clock
+  key from Phase 44 (§4.7), at the primary's alignments live and in history, and the
+  primary's time series for the same alignments. The calculator reads a relay stream and
+  writes through a writer (`core/pkg/service/framer/calculation/transform.go:45-63`), so
+  its outputs cannot ride in the input's frame. From Phase 21 that writer keeps the
+  clock and alignment of each series that the calculator sets, and the free writer
+  numbers and stamps only the series that name no clock
+  (`core/pkg/distribution/framer/writer/free.go:113-127`). A spec streams a calculation
+  and its primary, reads both in history, and finds one alignment space for the clock. A
+  subscriber of both gets those stamps twice: 8 bytes per output sample.
 - **Filters**: A filter keeps a series whose key was asked for, and a time series that
   the clock of a kept timed key names, at one compare per series. A time series whose
   clock is not yet in the set is kept when a kept timed series of the same frame names
@@ -572,13 +577,13 @@ alignment and inputs of two clocks by sample time:
   step. No builtin gives a sample's stamp today (`arc/go/stl/time/time.go:34-38`).
 - **Stored `<name>_time` records**: From Phase 21 to Phase 44 a calculation keeps its
   `<name>_time` index as its clock, and the calculator writes its primary's stamps under
-  that key, so every reader that keys on a calculation's index works as today. Phase 44
-  deletes each `<name>_time` index channel and clears the index of each calculation
-  record. First it retargets every reference to the record onto the output's new clock,
-  through the references of RFC 0119: the index of the stored input at the end of the
-  primary chain, since a primary can be another calculation. A calculation whose chain
-  ends at no stored input has no clock, so the references detach. A status lists each
-  holder that it detaches.
+  that key at the primary's alignments, so every reader that keys on a calculation's
+  index works as today. Phase 44 deletes each `<name>_time` index channel and clears the
+  index of each calculation record. First it retargets every reference to the record
+  onto the output's new clock, through the references of RFC 0119: the index of the
+  stored input at the end of the primary chain, since a primary can be another
+  calculation. A calculation whose chain ends at no stored input has no clock, so the
+  references detach. A status lists each holder that it detaches.
 
 An XY plot whose x and y are on two clocks pairs them by time in Pluto with the same
 hold rule (`pluto/src/vis/line/aether/pair/pair.ts`). The y channel gives the stamps and
@@ -1237,7 +1242,7 @@ index channel in `core/v0.62.0`, keeps that name in its config from Phase 42. Ke
 | 18    | Find each segment's clock in one storage read step           | `cesium`, `cesium/internal/unary`, `cesium/internal/domain`, `core/pkg/service/framer/iterator`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 2, 12                                              |
 | 19    | Export one time column in CSV and TDMS                       | `core/pkg/transport/http/framer`, `core/pkg/api/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 12                                                 |
 | 20    | Pair calculation inputs by sample time in a join node        | `arc/go/stl`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 11                                                 |
-| 21    | Join calculations live and in history from a primary         | `core/pkg/service/calculation`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `client/ts/src/framer/cache`                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 13, 17, 19, 20                                     |
+| 21    | Join calculations live and in history from a primary         | `core/pkg/service/calculation`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/distribution/framer/writer`, `client/ts/src/framer/cache`                                                                                                                                                                                                                                                                                                                                                                                                                    | 13, 17, 19, 20                                     |
 | 22    | Join string inputs of calculations                           | `arc/go/stl`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 21                                                 |
 | 23    | Pair XY plots across clocks by time                          | `pluto/src/vis/line`, `pluto/src/lineplot`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 17, 20                                             |
 | 24    | Lease clock keys from a counter of their own                 | `core/pkg/distribution/channel`, `cesium`, `core/pkg/storage`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 3                                                  |
