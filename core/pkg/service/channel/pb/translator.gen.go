@@ -400,9 +400,9 @@ func WhereToPB(r channel.Where) (*Where, error) {
 			return nil, err
 		}
 	}
-	if r.Internal != nil {
+	if r.BuiltIn != nil {
 		var err error
-		pb.Internal, err = filterpb.BoolToPB(*r.Internal)
+		pb.BuiltIn, err = filterpb.BoolToPB(*r.BuiltIn)
 		if err != nil {
 			return nil, err
 		}
@@ -481,12 +481,12 @@ func WhereFromPB(pb *Where) (channel.Where, error) {
 		}
 		r.IsIndex = &val
 	}
-	if pb.Internal != nil {
-		val, err := filterpb.BoolFromPB(pb.Internal)
+	if pb.BuiltIn != nil {
+		val, err := filterpb.BoolFromPB(pb.BuiltIn)
 		if err != nil {
 			return channel.Where{}, err
 		}
-		r.Internal = &val
+		r.BuiltIn = &val
 	}
 	if pb.Virtual != nil {
 		r.Virtual = pb.Virtual

@@ -116,12 +116,12 @@ func MatchWhere(w Where) (Filter, error) {
 			fs = append(fs, MatchIsIndex(*l.Eq))
 		}
 	}
-	if l := w.Internal; l != nil {
+	if l := w.BuiltIn; l != nil {
 		if l.Eq == nil {
-			return nil, validate.PathedError(filter.ErrNoOperator, "internal")
+			return nil, validate.PathedError(filter.ErrNoOperator, "built_in")
 		}
 		if l.Eq != nil {
-			fs = append(fs, MatchInternal(*l.Eq))
+			fs = append(fs, MatchBuiltIn(*l.Eq))
 		}
 	}
 	if l := w.Virtual; l != nil {

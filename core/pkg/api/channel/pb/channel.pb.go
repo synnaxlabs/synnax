@@ -104,8 +104,8 @@ type Channel struct {
 	// virtual is true if this channel does not store data in the database but can still
 	// be used for streaming purposes.
 	Virtual bool `protobuf:"varint,7,opt,name=virtual,proto3" json:"virtual,omitempty"`
-	// internal is true if this is a system channel hidden from normal user queries.
-	Internal bool `protobuf:"varint,8,opt,name=internal,proto3" json:"internal,omitempty"`
+	// built_in is true for a channel that a Core service makes for its own work.
+	BuiltIn bool `protobuf:"varint,8,opt,name=built_in,json=builtIn,proto3" json:"built_in,omitempty"`
 	// expression is an Arc expression for calculated channels. If set, the channel is
 	// automatically configured as virtual.
 	Expression string `protobuf:"bytes,9,opt,name=expression,proto3" json:"expression,omitempty"`
@@ -202,9 +202,9 @@ func (x *Channel) GetVirtual() bool {
 	return false
 }
 
-func (x *Channel) GetInternal() bool {
+func (x *Channel) GetBuiltIn() bool {
 	if x != nil {
-		return x.Internal
+		return x.BuiltIn
 	}
 	return false
 }
@@ -496,7 +496,7 @@ var File_core_pkg_api_channel_pb_channel_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
-	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xdf\x03\n" +
+	"%core/pkg/api/channel/pb/channel.proto\x12\x0eapi.channel.pb\x1a)core/pkg/service/channel/pb/channel.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1dx/go/control/pb/control.proto\"\xde\x03\n" +
 	"\aChannel\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\rR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12 \n" +
@@ -504,8 +504,8 @@ const file_core_pkg_api_channel_pb_channel_proto_rawDesc = "" +
 	"\tdata_type\x18\x04 \x01(\tR\bdataType\x12\x19\n" +
 	"\bis_index\x18\x05 \x01(\bR\aisIndex\x12\x14\n" +
 	"\x05index\x18\x06 \x01(\rR\x05index\x12\x18\n" +
-	"\avirtual\x18\a \x01(\bR\avirtual\x12\x1a\n" +
-	"\binternal\x18\b \x01(\bR\binternal\x12\x1e\n" +
+	"\avirtual\x18\a \x01(\bR\avirtual\x12\x19\n" +
+	"\bbuilt_in\x18\b \x01(\bR\abuiltIn\x12\x1e\n" +
 	"\n" +
 	"expression\x18\t \x01(\tR\n" +
 	"expression\x12=\n" +

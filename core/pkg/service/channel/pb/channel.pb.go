@@ -710,8 +710,8 @@ type Where struct {
 	DataType *TelemDataTypeSet `protobuf:"bytes,7,opt,name=data_type,json=dataType,proto3,oneof" json:"data_type,omitempty"`
 	// is_index selects by is_index.
 	IsIndex *pb1.Bool `protobuf:"bytes,8,opt,name=is_index,json=isIndex,proto3,oneof" json:"is_index,omitempty"`
-	// internal matches the built-in channels, or every other channel when false.
-	Internal *pb1.Bool `protobuf:"bytes,9,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
+	// built_in matches the built-in channels, or every other channel when false.
+	BuiltIn *pb1.Bool `protobuf:"bytes,9,opt,name=built_in,json=builtIn,proto3,oneof" json:"built_in,omitempty"`
 	// virtual matches virtual channels that are not calculated, or every other channel
 	// when false.
 	Virtual *bool `protobuf:"varint,10,opt,name=virtual,proto3,oneof" json:"virtual,omitempty"`
@@ -809,9 +809,9 @@ func (x *Where) GetIsIndex() *pb1.Bool {
 	return nil
 }
 
-func (x *Where) GetInternal() *pb1.Bool {
+func (x *Where) GetBuiltIn() *pb1.Bool {
 	if x != nil {
-		return x.Internal
+		return x.BuiltIn
 	}
 	return nil
 }
@@ -887,7 +887,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\x02in\x18\x02 \x01(\v2%.service.channel.pb.TelemDataTypeListR\x02inB\x05\n" +
 	"\x03_eq\"&\n" +
 	"\fGroupKeyList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\xd1\x05\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xd0\x05\n" +
 	"\x05Where\x12/\n" +
 	"\x03and\x18\x01 \x01(\v2\x1d.service.channel.pb.WhereListR\x03and\x12-\n" +
 	"\x02or\x18\x02 \x01(\v2\x1d.service.channel.pb.WhereListR\x02or\x120\n" +
@@ -896,8 +896,8 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12E\n" +
 	"\vleaseholder\x18\x06 \x01(\v2\x1e.service.channel.pb.NodeKeySetH\x03R\vleaseholder\x88\x01\x01\x12F\n" +
 	"\tdata_type\x18\a \x01(\v2$.service.channel.pb.TelemDataTypeSetH\x04R\bdataType\x88\x01\x01\x121\n" +
-	"\bis_index\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\aisIndex\x88\x01\x01\x122\n" +
-	"\binternal\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\binternal\x88\x01\x01\x12\x1d\n" +
+	"\bis_index\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\aisIndex\x88\x01\x01\x121\n" +
+	"\bbuilt_in\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\abuiltIn\x88\x01\x01\x12\x1d\n" +
 	"\avirtual\x18\n" +
 	" \x01(\bH\aR\avirtual\x88\x01\x01\x128\n" +
 	"\x06groups\x18\v \x01(\v2 .service.channel.pb.GroupKeyListR\x06groups\x12\x1d\n" +
@@ -909,7 +909,7 @@ const file_core_pkg_service_channel_pb_channel_proto_rawDesc = "" +
 	"\n" +
 	"_data_typeB\v\n" +
 	"\t_is_indexB\v\n" +
-	"\t_internalB\n" +
+	"\t_built_inB\n" +
 	"\n" +
 	"\b_virtualB\n" +
 	"\n" +
@@ -969,7 +969,7 @@ var file_core_pkg_service_channel_pb_channel_proto_depIdxs = []int32{
 	7,  // 12: service.channel.pb.Where.leaseholder:type_name -> service.channel.pb.NodeKeySet
 	9,  // 13: service.channel.pb.Where.data_type:type_name -> service.channel.pb.TelemDataTypeSet
 	14, // 14: service.channel.pb.Where.is_index:type_name -> x.filter.pb.Bool
-	14, // 15: service.channel.pb.Where.internal:type_name -> x.filter.pb.Bool
+	14, // 15: service.channel.pb.Where.built_in:type_name -> x.filter.pb.Bool
 	10, // 16: service.channel.pb.Where.groups:type_name -> service.channel.pb.GroupKeyList
 	17, // [17:17] is the sub-list for method output_type
 	17, // [17:17] is the sub-list for method input_type

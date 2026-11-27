@@ -77,9 +77,9 @@ struct Where {
     ::x::filter::Field<::x::filter::Set<::x::telem::DataType>> data_type;
     /// @brief is_index selects by is_index.
     ::x::filter::Field<::x::filter::Bool> is_index;
-    /// @brief internal matches the built-in channels, or every other channel when
+    /// @brief built_in matches the built-in channels, or every other channel when
     /// false.
-    ::x::filter::Field<::x::filter::Bool> internal;
+    ::x::filter::Field<::x::filter::Bool> built_in;
     /// @brief virtual_ matches virtual channels that are not calculated, or every other
     /// channel when false.
     std::optional<bool> virtual_;
@@ -204,9 +204,9 @@ struct Channel {
     /// @brief is_virtual is true if this channel does not store data in the database
     /// but can still be used for streaming purposes.
     bool is_virtual = false;
-    /// @brief internal is true if this is a system channel hidden from normal user
-    /// queries.
-    bool internal = false;
+    /// @brief built_in is true for a channel that a Core service makes for its own
+    /// work.
+    bool built_in = false;
     /// @brief expression is an Arc expression for calculated channels. If set, the
     /// channel is automatically configured as virtual.
     std::string expression = "";

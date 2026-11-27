@@ -55,7 +55,7 @@ inline Channel Channel::parse(x::json::Parser parser) {
         .is_index = parser.field<bool>("is_index", false),
         .index = parser.field<Key>("index", Key(0)),
         .is_virtual = parser.field<bool>("virtual", false),
-        .internal = parser.field<bool>("internal", false),
+        .built_in = parser.field<bool>("built_in", false),
         .expression = parser.field<std::string>("expression", ""),
         .operations = parser.field<std::vector<Operation>>(
             "operations",
@@ -78,7 +78,7 @@ inline x::json::json Channel::to_json() const {
     j["is_index"] = this->is_index;
     j["index"] = this->index;
     j["virtual"] = this->is_virtual;
-    j["internal"] = this->internal;
+    j["built_in"] = this->built_in;
     j["expression"] = this->expression;
     j["operations"] = x::json::to_array(this->operations);
     j["concurrency"] = this->concurrency;
@@ -102,7 +102,7 @@ inline Where Where::parse(x::json::Parser parser) {
                              "data_type"
                          ),
         .is_index = parser.field<std::optional<::x::filter::Bool>>("is_index"),
-        .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
+        .built_in = parser.field<std::optional<::x::filter::Bool>>("built_in"),
         .virtual_ = parser.field<std::optional<bool>>("virtual"),
     };
 }
@@ -117,7 +117,7 @@ inline x::json::json Where::to_json() const {
     if (this->leaseholder.has_value()) j["leaseholder"] = this->leaseholder->to_json();
     if (this->data_type.has_value()) j["data_type"] = this->data_type->to_json();
     if (this->is_index.has_value()) j["is_index"] = this->is_index->to_json();
-    if (this->internal.has_value()) j["internal"] = this->internal->to_json();
+    if (this->built_in.has_value()) j["built_in"] = this->built_in->to_json();
     if (this->virtual_.has_value()) j["virtual"] = *this->virtual_;
     return j;
 }
