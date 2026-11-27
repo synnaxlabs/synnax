@@ -1195,6 +1195,49 @@ describe("Kafka read form", () => {
       expect(record.messages.map(({ bindings }) => bindings.length)).toEqual([3, 2]);
     });
 
+    it("should give a field that two kinds of one held message share the labels of both", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float")],
+        recordKey: "pump",
+        index: time.key,
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const withState = (kind: ReturnType<typeof createKind>, labels: string[]) => ({
+        ...kind,
+        fields: [
+          ...kind.fields,
+          { ...createInferredField("/state", "string", "string"), enum: labels },
+        ],
+      });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(
+          withState(createKind("/rpm"), ["OFF", "ON"]),
+          withState(createKind("/fault"), ["FAULT", "OFF"]),
+        ),
+      });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+      await waitFor(async () => {
+        const [record] = await retrieveRecords(draft.key);
+        const { messages } = await client.icds.retrieve(record.icd);
+        expect(ICD.jsonFields(messages[0])).toMatchObject([
+          { pointer: "/time" },
+          { pointer: "/rpm" },
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "FAULT", value: "0" },
+              { label: "OFF", value: "1" },
+              { label: "ON", value: "2" },
+            ],
+          },
+          { pointer: "/fault" },
+        ]);
+      });
+    });
+
     it("should offer a field of a kind that only the message of another kind reads", async () => {
       const time = createTimeField();
       const rec = await createRecord({
