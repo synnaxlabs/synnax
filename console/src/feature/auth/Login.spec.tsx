@@ -341,6 +341,38 @@ describe("Auth login", () => {
       expect(button.querySelector("svg")).not.toBeNull();
   });
 
+  it("should draw the provider logos in brand color", async () => {
+    const core = await serveAuth(
+      ["oidc"],
+      [
+        {
+          provider: "gitlab",
+          issuer: "https://gitlab.com",
+          authorizationEndpoint: "https://gitlab.com/oauth/authorize",
+          clientId: "synnax",
+        },
+        {
+          provider: "microsoft",
+          issuer: "https://login.microsoftonline.com",
+          authorizationEndpoint: "https://login.microsoftonline.com/acme/authorize",
+          clientId: "synnax",
+        },
+      ],
+    );
+    await renderLogin(core);
+    fireEvent.click(await screen.findByText(ALPHA.name));
+    const gitlab = await screen.findByRole("button", { name: "Log in with GitLab" });
+    const microsoft = screen.getByRole("button", { name: "Log in with Microsoft" });
+    expect(gitlab.querySelector("svg")?.style.color).toEqual("rgb(226, 67, 41)");
+    const parts = Array.from(microsoft.querySelectorAll<SVGGElement>("svg g"));
+    expect(parts.map((part) => part.style.color)).toEqual([
+      "rgb(242, 80, 34)",
+      "rgb(127, 186, 0)",
+      "rgb(0, 164, 239)",
+      "rgb(255, 185, 0)",
+    ]);
+  });
+
   it("should explain that provider login needs HTTPS", async () => {
     setSecureContext(false);
     const core = await serveAuth(

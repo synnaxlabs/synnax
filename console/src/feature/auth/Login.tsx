@@ -338,22 +338,24 @@ export const Login = (): ReactElement => {
                     full="x"
                     className={CSS.BE("login", "providers")}
                   >
-                    {providers.map((login) => {
-                      const { label, icon } = display(login);
-                      return (
-                        <Button.Button
-                          key={login.provider}
-                          onClick={() => handleProvider(login)}
-                          variant="outlined"
-                          size="large"
-                          full="x"
-                          justify="center"
-                        >
-                          {icon}
-                          Log in with {label}
-                        </Button.Button>
-                      );
-                    })}
+                    <Icon.Colored>
+                      {providers.map((login) => {
+                        const { label, icon } = display(login);
+                        return (
+                          <Button.Button
+                            key={login.provider}
+                            onClick={() => handleProvider(login)}
+                            variant="outlined"
+                            size="large"
+                            full="x"
+                            justify="center"
+                          >
+                            {icon}
+                            Log in with {label}
+                          </Button.Button>
+                        );
+                      })}
+                    </Icon.Colored>
                   </Flex.Box>
                 )}
                 {errorNote}
