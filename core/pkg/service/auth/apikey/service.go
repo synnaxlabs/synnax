@@ -118,13 +118,8 @@ func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.
 // there is no limit.
 func (s *Service) MaxLifetime() telem.TimeSpan { return s.cfg.MaxLifetime }
 
-// lifetimeSkew is how far ahead of the Core's clock a client's clock may run when it
-// asks for the longest lifetime allowed.
-const lifetimeSkew = telem.Minute
-
 // ValidateLifetime returns a validation error when there is a maximum lifetime and
-// expires is zero or later than now plus that lifetime. It allows a minute of clock
-// skew between the client and the Core.
+// expires is zero or later than now plus that lifetime.
 func (s *Service) ValidateLifetime(expires telem.TimeStamp) error {
 	maxLifetime := s.cfg.MaxLifetime
 	if maxLifetime == 0 {
@@ -133,7 +128,7 @@ func (s *Service) ValidateLifetime(expires telem.TimeStamp) error {
 	v := validate.New("api_key")
 	v.Ternaryf(
 		"expires",
-		expires == 0 || expires > s.now().Add(maxLifetime+lifetimeSkew),
+		expires == 0 || expires > s.now().Add(maxLifetime),
 		"must be at most %s from now",
 		maxLifetime,
 	)

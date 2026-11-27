@@ -265,9 +265,6 @@ var _ = Describe("Service", func() {
 			It("Should accept an expiry at the maximum lifetime", func() {
 				Expect(capped.ValidateLifetime(limit)).To(Succeed())
 			})
-			It("Should allow a client clock up to a minute ahead", func() {
-				Expect(capped.ValidateLifetime(limit.Add(telem.Minute))).To(Succeed())
-			})
 			DescribeTable(
 				"Should reject an expiry past the maximum lifetime",
 				func(expires func() telem.TimeStamp) {
@@ -276,8 +273,8 @@ var _ = Describe("Service", func() {
 					))
 				},
 				Entry("no expiry", func() telem.TimeStamp { return 0 }),
-				Entry("past the limit", func() telem.TimeStamp {
-					return limit.Add(telem.Minute) + 1
+				Entry("a second past the limit", func() telem.TimeStamp {
+					return limit.Add(telem.Second)
 				}),
 				Entry("the maximum timestamp", func() telem.TimeStamp {
 					return telem.TimeStampMax

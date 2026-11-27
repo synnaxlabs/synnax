@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type auth, rack, TimeStamp } from "@synnaxlabs/client";
+import { auth, rack } from "@synnaxlabs/client";
 import { errors, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -116,7 +116,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateRe
       const { key, token } = await client.auth.apiKeys.create({
         subject: rack.resourceID(created.key),
         name,
-        expires: maxLifetime == null ? TimeStamp.MAX : TimeStamp.now().add(maxLifetime),
+        expires: auth.apiKey.longestExpiry(maxLifetime),
       });
       return { rack: created, key, token };
     } catch (keyErr) {

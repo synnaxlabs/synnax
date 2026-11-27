@@ -268,7 +268,7 @@ class TestLogin:
         client: sy.Synnax,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        """Should save a key that expires at the Core's maximum key lifetime."""
+        """Should save a key that expires an hour short of the Core's limit."""
         monkeypatch.setattr(
             AuthClient,
             "retrieve_api_key_max_lifetime",
@@ -284,7 +284,9 @@ class TestLogin:
         assert saved is not None
         key = sy.auth.api_key_id(saved.options.api_key)
         [record] = [k for k in client.auth.api_keys.retrieve() if k.key == key]
-        assert round(sy.TimeSpan(record.expires - start).days) == 7
+        lifetime = sy.TimeSpan(record.expires - start)
+        expected = sy.TimeSpan.DAY * 7 - sy.TimeSpan.HOUR
+        assert expected <= lifetime < expected + sy.TimeSpan.MINUTE
         delete_new_keys(client, before)
 
     def test_replaces_previous_key(

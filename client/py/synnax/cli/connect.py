@@ -15,13 +15,12 @@ from keyring.errors import KeyringError
 
 from freighter.exceptions import Timeout, Unreachable
 from synnax import Synnax
-from synnax.auth import api_key_id
+from synnax.auth import api_key_id, apikey
 from synnax.cli.prompt import Prompt
 from synnax.config import Cluster, Clusters
 from synnax.exceptions import AuthError, ConfigurationError
 from synnax.options import Options
 from x.exceptions import Error
-from x.telem import TimeStamp
 
 
 def _prompt_client_options(prompt: Prompt) -> Options:
@@ -59,9 +58,7 @@ def _save_api_key(
     max_lifetime = client.auth.retrieve_api_key_max_lifetime()
     token, key = client.auth.api_keys.create(
         name=f"Python CLI on {socket.gethostname()}",
-        expires=TimeStamp.MAX
-        if max_lifetime is None
-        else TimeStamp.now() + max_lifetime,
+        expires=apikey.longest_expiry(max_lifetime),
     )
     try:
         clusters.set(

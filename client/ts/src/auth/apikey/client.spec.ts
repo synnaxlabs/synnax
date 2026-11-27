@@ -15,6 +15,27 @@ import { InvalidCredentialsError, InvalidTokenError } from "@/index";
 import { createTestAuthClient, createTestClient } from "@/testutil";
 
 describe("apiKey", () => {
+  describe("longestExpiry", () => {
+    const now = TimeStamp.seconds(1_000_000);
+    it("should never expire with no limit", () => {
+      expect(apiKey.longestExpiry(null, now).equals(TimeStamp.MAX)).toBe(true);
+    });
+    it("should stop an hour short of the limit", () => {
+      expect(
+        apiKey
+          .longestExpiry(TimeSpan.days(30), now)
+          .equals(now.add(TimeSpan.days(30)).sub(TimeSpan.hours(1))),
+      ).toBe(true);
+    });
+    it("should stop half the limit short of a limit under two hours", () => {
+      expect(
+        apiKey
+          .longestExpiry(TimeSpan.minutes(90), now)
+          .equals(now.add(TimeSpan.minutes(45))),
+      ).toBe(true);
+    });
+  });
+
   it("should create a key, log in with it, list it, and delete it", async () => {
     const owner = createTestClient().auth;
     const { token, key } = await owner.apiKeys.create({ name: "spec" });

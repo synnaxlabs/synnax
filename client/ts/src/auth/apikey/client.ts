@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
-import { binary, type CrudeTimeStamp, TimeStamp, uuid } from "@synnaxlabs/x";
+import { binary, type CrudeTimeStamp, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type APIKey, apiKeyZ, type Key, keyZ } from "@/auth/apikey/types.gen";
@@ -35,6 +35,26 @@ export const keyOf = (token: string): Key => {
   }
   if (raw.length !== TOKEN_LENGTH) throw new InvalidTokenError("malformed API key");
   return uuid.fromBytes(raw);
+};
+
+// A client clock that runs ahead of the Core's must not push a key past the limit.
+const EXPIRY_MARGIN = TimeSpan.hours(1);
+
+/**
+ * @param maxLifetime - The longest lifetime of a new key, or null for no limit.
+ * @returns The longest expiry to ask for: TimeStamp.MAX with no limit, else an hour
+ * short of now plus the limit, or half the limit short when the limit is under two
+ * hours.
+ */
+export const longestExpiry = (
+  maxLifetime: TimeSpan | null,
+  now: TimeStamp = TimeStamp.now(),
+): TimeStamp => {
+  if (maxLifetime == null) return TimeStamp.MAX;
+  const margin = maxLifetime.lessThan(EXPIRY_MARGIN.mult(2))
+    ? maxLifetime.div(2)
+    : EXPIRY_MARGIN;
+  return now.add(maxLifetime).sub(margin);
 };
 
 export interface New {

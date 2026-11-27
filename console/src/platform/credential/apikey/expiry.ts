@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { auth, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 const LIFETIMES = {
   "30d": TimeSpan.days(30),
@@ -47,15 +47,18 @@ export const preselect = (maxLifetime: TimeSpan | null): Expiry => {
   return choices(maxLifetime).findLast((e) => e !== "custom") ?? "custom";
 };
 
-/** @returns the custom expiry to preselect for a key created at now. */
+/**
+ * @returns the custom expiry to preselect for a key created at now: the default
+ * lifetime when it fits within maxLifetime, else the longest expiry the Core allows.
+ */
 export const preselectCustom = (
   now: TimeStamp,
   maxLifetime: TimeSpan | null,
 ): TimeStamp => {
   const lifetime = LIFETIMES[DEFAULT_LIFETIME];
-  return now.add(
-    maxLifetime == null || lifetime.lessThan(maxLifetime) ? lifetime : maxLifetime,
-  );
+  return maxLifetime == null || lifetime.lessThan(maxLifetime)
+    ? now.add(lifetime)
+    : auth.apiKey.longestExpiry(maxLifetime, now);
 };
 
 /**

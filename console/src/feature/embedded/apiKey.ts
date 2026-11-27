@@ -70,7 +70,7 @@ const create = async (
   const maxLifetime = await client.auth.retrieveAPIKeyMaxLifetime();
   const { token, key } = await client.auth.apiKeys.create({
     name: NAME,
-    expires: maxLifetime == null ? TimeStamp.MAX : TimeStamp.now().add(maxLifetime),
+    expires: auth.apiKey.longestExpiry(maxLifetime),
   });
   let saved: boolean;
   try {
