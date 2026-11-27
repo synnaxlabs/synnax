@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { auth } from "@synnaxlabs/client";
 import { fireEvent, type RenderResult, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { type MockInstance, onTestFinished, vi } from "vitest";
@@ -37,16 +38,20 @@ export const renderCoreUI = async (
   );
 
 /**
- * Answers every request for a Core's login methods with the given methods, because no
- * test Core turns passwords off. Other requests reach their Core.
+ * Answers every request for a Core's login methods with the given methods and
+ * providers, because no test Core turns passwords off or accepts a provider. Other
+ * requests reach their Core.
  * @returns The fetch spy, which restores itself when the test finishes.
  */
-export const answerMethods = (methods: string[]): MockInstance<typeof fetch> => {
+export const answerMethods = (
+  methods: string[],
+  providers: auth.OIDCLogin[] = [],
+): MockInstance<typeof fetch> => {
   const real = globalThis.fetch;
   const spy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
     const url = input instanceof Request ? input.url : input.toString();
     if (!url.endsWith("/auth/methods")) return await real(input, init);
-    const body = JSON.stringify({ methods, providers: [] });
+    const body = JSON.stringify({ methods, providers });
     return new Response(body, { headers: { "Content-Type": "application/json" } });
   });
   onTestFinished(() => spy.mockRestore());
