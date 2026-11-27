@@ -164,8 +164,8 @@ class Client:
 
     def update(self, key: Key, update: Update) -> Chassis:
         """Writes one field group of an NI chassis and keeps the other group as stored.
-        A configuration update replaces the whole group, so a field it leaves out is
-        cleared.
+        The update replaces the whole group, so a field it leaves out is cleared, such
+        as the serial of an identity update.
 
         :param key: The key of the chassis.
         :param update: The identity or configuration group to write.
