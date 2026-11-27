@@ -617,21 +617,11 @@ export const START_FAILURE = expect.objectContaining({
   message: "Failed to start task",
 });
 
-/**
- * Keeps each failed save that a form reports. A failure replaces the toast of the one
- * before it, so one look at the toasts shows at most one failure.
- */
-export const createFailedSaves = () => {
-  const times = new Set<bigint>();
-  return {
-    /** Takes the toasts on each change, as the onStatuses option of a render. */
-    record: (statuses: Status.NotificationSpec[]): void =>
-      statuses
-        .filter(({ message }) => message === "Failed to save change")
-        .forEach(({ time }) => times.add(time.valueOf())),
-    count: (): number => times.size,
-  };
-};
+/** @returns how many saves of the task the form reported as failed. */
+export const countFailedSaves = (statuses: Status.NotificationSpec[]): number =>
+  statuses
+    .filter(({ message }) => message === "Failed to save change")
+    .reduce((n, { count }) => n + count, 0);
 
 /**
  * Toggles the switch labeled label, then waits for the Core to refuse the save, the

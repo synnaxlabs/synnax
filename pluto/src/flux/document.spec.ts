@@ -18,7 +18,16 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { deep, id, uuid } from "@synnaxlabs/x";
 import { act, waitFor } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  type Mock,
+  vi,
+} from "vitest";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -99,6 +108,7 @@ const setRoutingKey = (value: string) => ({
 describe("createDocumentForm", () => {
   let testRack: rack.Rack;
   let wrapper: FC<PropsWithChildren>;
+  let log: Mock<(message: string) => void>;
 
   beforeAll(async () => {
     testRack = await client.racks.create({ name: "document-form" });
@@ -114,7 +124,8 @@ describe("createDocumentForm", () => {
   });
 
   beforeEach(async () => {
-    wrapper = await createAsyncSynnaxWrapper({ client: formClient });
+    log = vi.fn();
+    wrapper = await createAsyncSynnaxWrapper({ client: formClient, log });
     await waitForStreamLive(formClient.connection);
   });
 
@@ -661,12 +672,16 @@ describe("createDocumentForm", () => {
 
   const renderWithToasts = async (key: task.Key, beforeSend?: () => Promise<unknown>) =>
     await renderHookSuspended(
-      () => ({
-        ...useForm({ query: { key }, beforeSend }),
-        failures: Status.useNotifications().statuses.filter(
-          ({ message }) => message === "Failed to save change",
-        ),
-      }),
+      () => {
+        const { statuses, silence } = Status.useNotifications();
+        return {
+          ...useForm({ query: { key }, beforeSend }),
+          failures: statuses.filter(
+            ({ message }) => message === "Failed to save change",
+          ),
+          silence,
+        };
+      },
       { wrapper },
     );
 
@@ -685,25 +700,23 @@ describe("createDocumentForm", () => {
       ]),
     );
     expect(result.current.form.get(path.name).value).toBe(t.name);
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining(`ERROR [${t.name}]: Failed to save change`),
+    );
   });
 
-  it("should replace the report of the document when another send fails", async () => {
+  it("should report a refused send after the user closes the last report", async () => {
     const t = await createTask();
     const { result } = await renderWithToasts(t.key);
-    act(() => result.current.form.set(path.name, ""));
-    await act(async () => expect(await result.current.flush()).toBe(false));
-    const missing = uuid.create();
-    act(() => result.current.form.set(path.config.routingKey, missing));
-    await act(async () => expect(await result.current.flush()).toBe(false));
-    const raw = `routing_key: secret ${missing} does not exist`;
-    await waitFor(() =>
-      expect(result.current.failures).toEqual([
-        expect.objectContaining({
-          name: t.name,
-          description: `Secret ${missing} does not exist. ${NEXT_STEP} ${raw}`,
-        }),
-      ]),
-    );
+    const refuse = async (): Promise<void> => {
+      act(() => result.current.form.set(path.name, ""));
+      await act(async () => expect(await result.current.flush()).toBe(false));
+      await waitFor(() => expect(result.current.failures).toHaveLength(1));
+    };
+    await refuse();
+    act(() => result.current.silence(result.current.failures[0].key));
+    expect(result.current.failures).toHaveLength(0);
+    await refuse();
   });
 
   it("should report a refused send that was in flight when it flushes", async () => {

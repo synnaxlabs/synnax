@@ -551,8 +551,11 @@ export interface UseDocumentForm<Query, Schema extends z.ZodType> {
 
 const WHOLE_DOCUMENT = (): string[] => [];
 
-/** @returns the stored name of the document, or "" once it left the cache. */
-const storedName = <Key extends record.Key, Doc extends Document>(
+/**
+ * @returns the cached name of the document, which can hold a rename not yet saved, or
+ * "" once the document left the cache.
+ */
+const cachedName = <Key extends record.Key, Doc extends Document>(
   docs: DocumentDomain<Key, Doc>,
   key: Key,
 ): string => {
@@ -562,11 +565,11 @@ const storedName = <Key extends record.Key, Doc extends Document>(
 
 const UNDONE = "The change was undone.";
 
-/** Says why a send failed and what to do now, with the raw error last. */
-const describeFailure = (error: unknown, raw: string): string => {
-  if (!PathError.matchExact(error)) return `${UNDONE} ${raw}`;
+/** Says why a send failed and what to do now. The raw error goes after it. */
+const describeFailure = (error: unknown): string => {
+  if (!PathError.matchExact(error)) return UNDONE;
   const plain = strings.capitalize(error.error.message.replace(/\.$/, ""));
-  return `${plain}. Fix it, then make the change again. ${UNDONE} ${raw}`;
+  return `${plain}. Fix it, then make the change again. ${UNDONE}`;
 };
 
 /**
@@ -599,23 +602,12 @@ export const createDocumentForm = <
   }: UseDocumentFormParams<Query>): UseDocumentFormReturn<Schema> => {
     useEnsure({ key: query.key });
     const client = Synnax.use();
-    const addStatus = Status.useAdder();
+    const handleError = Status.useErrorHandler();
     const beforeSendRef = useSyncedRef(beforeSend);
     const create = (): DocumentStore<Key, Doc, Query, z.infer<Schema>> => {
       if (client == null)
         throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
       const docs = domain(client);
-      const handleError = (error: unknown): void => {
-        const failed = Status.fromException(error, "Failed to save change");
-        addStatus({
-          ...failed,
-          // One key for each document, so a new failure replaces the last one.
-          key: `${name}-${query.key}`,
-          // A failed send rolls the cached document back to the stored one.
-          name: storedName(docs, query.key),
-          description: describeFailure(error, failed.description),
-        });
-      };
       return new DocumentStore({
         client,
         query,
@@ -623,7 +615,12 @@ export const createDocumentForm = <
         schema,
         toValues,
         path: pathOf(query),
-        onError: handleError,
+        onError: (error) =>
+          handleError(error, {
+            message: "Failed to save change",
+            name: cachedName(docs, query.key),
+            description: describeFailure(error),
+          }),
         beforeSend: beforeSendRef,
       });
     };
