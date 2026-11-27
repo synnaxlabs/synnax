@@ -67,6 +67,7 @@ func (db *DB) OpenIterator(cfg IteratorConfig) (iter *Iterator, err error) {
 		cache:     cache,
 		limited:   limited,
 		chunkSize: db.chunkSize,
+		ins:       db.Instrumentation,
 		stopped:   make([]bool, len(internal)),
 	}, nil
 }
