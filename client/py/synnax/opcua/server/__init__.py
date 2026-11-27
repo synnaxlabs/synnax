@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.opcua.server.client import Client
 from synnax.opcua.server.types_gen import (
     SECURITY_POLICY_AES128_SHA256_RSA_OAEP,
     SECURITY_POLICY_AES256_SHA256_RSA_PSS,
@@ -56,6 +57,7 @@ __all__ = [
     "AnonymousAuth",
     "Auth",
     "CertificateAuth",
+    "Client",
     "Configuration",
     "ConfigurationUpdate",
     "Connection",
