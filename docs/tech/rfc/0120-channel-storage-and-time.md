@@ -604,64 +604,18 @@ alignment and inputs of two clocks by sample time:
 | History                                       | One pass over the stored inputs. State carries across the chunks of one read. Each read starts new calculators. The read paces its inputs (D-378): one storage iterator per clock of the inputs, and each step moves the clock whose newest stamp is earliest, by a chunk of at most 32,768 samples, half the buffer cap. The unit is a view of §4.5, so a key whose clock changes in the range steps on each clock in turn. The read ends when the primary ends, and an input that ends stops stepping and holds its last sample. A run of equal stamps longer than the buffer cap fails the read loud (Buffers). An input's held sample is its last one at or before the next primary stamp, and its samples before the held one drop, also across a gap of the primary. So no input runs ahead of the join by more than one chunk, and a gap of the primary shows at its next chunk. A spec reads 10 chunks of the slower input with a 10-minute gap of the primary inside them, and a second case takes the slow input as the primary. A backward or `Latest` read, as the Core drains with `SeekLast` and `Prev` (`core/pkg/transport/http/framer/read.go:198-200`), finds its start on the primary alone, takes each input's look back from that start, and runs the forward pass up to where the step before began, so each later `Prev` covers the chunk before. A `Latest` read whose newest primary stamps lie past an input's hold limit returns fewer values than it asks for. A nested input paces through the stored inputs at the end of its chain. A spec reads the latest value when the slow input wrote last |
 | Live open                                     | Each input opens its stream first, then reads its last 17 stored samples, one read per input, and drops a sample that the stream already holds by clock and alignment. So its hold limit equals history's. Its newest sample is held when it lies within one hold limit of the open                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Buffers                                       | Each input other than the primary keeps at most 65,536 samples past its held one. Live drops the oldest at the cap. A history read that reaches it fails with an error that names the input                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the last reset for a running operation (Phase 55); until Phase 55, to the read start, as on `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the read start for a running operation, as on `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 - **History is the canonical value**: Live output is the value at arrival: with a wait
-  budget of 0 it differs from history only where an input was late, and for a running
-  operation until its first reset after the open. The TypeScript cache replaces the
-  alignment range that a historical read of a calculation output covered, and keeps the
-  live samples past it.
+  budget of 0 it differs from history only where an input was late. The TypeScript cache
+  replaces the alignment range that a historical read of a calculation output covered,
+  and keeps the live samples past it.
 - **Inputs with no clock**: A live-only input pairs by arrival with hold. Such a
   calculation has no historical values, and its live blocks are not replaced.
-- **Running operations** (Phase 55, D-063, D-518 (3)): A running operation is a node
-  that keeps state across samples with no window: `avg`, `min`, and `max` with no
-  window, and every stateful variable of a calculation, since a latch, a peak set in an
-  `if`, and the first value that `$=` keeps all hold state across samples. A history
-  read looks back to its last reset, or to its first sample when it never resets, with
-  no stored state, so no history value depends on where a read starts. A `count` reset
-  (`arc/go/stl/math/math.go:77`) looks back to the first sample, since a node counts its
-  join outputs, not stored samples. A history change of an input makes the Core report a
-  history change of each running operation's output from the change's start to the end
-  of time, so the TypeScript cache drops the values that the change made stale
-  (`client/ts/src/framer/feed.ts:269-290`). Live starts at its open, as on `main` and as
-  D-063 accepted: its value covers the data from the open until the first stored `true`
-  reset at or after the open, and from that reset on it equals history. Until then the
-  calculation's status has message `Live since open` and a description that says that
-  the live value covers the data from the open and that a history read covers all of it
-  since the last reset. A `count` reset, and a reset channel that stores nothing, keep
-  that status, since live and history never count from one start. So no live open reads
-  history, and only a history read pays the far look back.
-- **The look back pool** (D-543): Only a running operation's look back past its hold
-  window enters the pool, with no kept state, so no Core cache can hold a value that
-  storage lost. The pool is a scheduler of its own, with a fixed number of slots, a
-  config default: it runs its passes by turns, one chunk each, under one read rate limit
-  that they share. So a pass of n chunks ends within n times the active passes' chunk
-  time, a far reset never holds back a near one, and no live `Sync` and no other read
-  waits (R6). The Core runs at most one pass of a calculation at a time, which serves
-  every queued read of it in time order, and past a small queue a read fails at once
-  with a status, so retries add no load. A look back past a stated limit, 2^31 input
-  samples by default, about 54 s of one core at 25 ns a sample, fails that output's read
-  at once with a status whose message is `Look back too long` and whose description
-  names the calculation, the samples since its last reset, and the limit, and says that
-  a reset bounds it; the request's other keys return. A value is either right or absent,
-  so D-063 holds. The look back below the limit is a rare-path exception to R2 (§4.13).
-- **Reads of a running operation**: The TypeScript cache reads a running operation in a
-  read of its own, never batched with other keys, and closes its request through an
-  `AbortSignal` when its tile or display goes; `Reader.read` and the download take the
-  signal, and the Core cancels the pass. The Core sends a progress frame after each
-  chunk of a pass, and the cache's read deadline
-  (`client/ts/src/framer/cache/tile/tile.ts:114`) starts again at each one. The latest
-  cache takes a running operation's value from the stream, as for a virtual channel, so
-  a readout never waits on a pass. A backward read keeps, for the life of its request,
-  the state at each chunk end that its pass reached, so each later `Prev` step starts
-  from the nearest one. A group rebuild opens each calculator again, as on `main`, so
-  live restarts there too. The calculator sets `Live since open` again when it clears
-  another status, such as `Input stale`, since a calculation has one runtime status.
-  Specs: a plot of `pressure` and `max(pressure)` over a stored month draws `pressure`
-  at once; after 10 retries the Core runs one pass; a look back past the limit returns
-  the status and the other keys. The box benchmarks a near `max` pass beside a far one
-  at the pool's rate, the near one within 2 times its time alone, with `BenchmarkCommit`
-  p99 at most 1.2 times and a plain read within 15% of their values alone, in §4.13 too.
+- **Running operations**: An operation that keeps state across samples with no window,
+  such as `max` with no window or a stateful variable, keeps `main`'s behavior: a
+  history read starts it at the read start, and live starts it at its open. A later RFC
+  owns their history.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
@@ -1076,13 +1030,11 @@ new fields and no break):
    them and an index-keyed segment, with a spec that spools a group with no index and
    drains it, and one that spools on one release and drains on the next with no loss.
 4. **Calculations on a rack** (RFC 0113 §3.5): The Driver runs a calculation through a
-   C++ twin of the join node, with the live rules of §4.7, built at Phase 56 in
+   C++ twin of the join node, with the live rules of §4.7, built at Phase 55 in
    `arc/cpp/stl`, so a rack never pairs inputs of two clocks by position (hard rule 2).
    On the bus the join takes a series' clock from its writer identity and group
-   position, as Arc does from Phase 41. A running operation on a rack starts at the Arc
-   task's open, as on `main`, with no look back, and its status says that its value can
-   differ from the Core's until the next reset. RFC 0113 Phases 10 and 11, which are not
-   built, follow Phase 56, and RFC 0113 §3.3, §3.5, and §6 name these amendments.
+   position, as Arc does from Phase 41. RFC 0113 Phases 10 and 11, which are not built,
+   follow Phase 55, and RFC 0113 §3.3, §3.5, and §6 name these amendments.
 
 ### 4.10 Migration
 
@@ -1235,10 +1187,8 @@ branch against `main` and reports to the founder session.
   step, the block cache mutex, and `ReadSamples`. Hidden clocks neither cause nor fix
   those misses and add clock finding on top, so they wait on D-459's fixes. A timed read
   or stream compares with `main`'s read or stream of the same keys and their index
-  channels, and an untimed one with `main`'s of the keys alone. One exception, by D-518
-  (3): a running operation reads from its last reset, which `main` does not, so its cost
-  grows with the samples since the reset (§4.7). The 8-reader reads run on the OS file
-  system at the shapes of D-481.
+  channels, and an untimed one with `main`'s of the keys alone. The 8-reader reads run
+  on the OS file system at the shapes of D-481.
 - **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
   today's index keys as clocks and no format change. It ships with one-clock specs; the
   multi-clock specs land with the first phase that moves a key, and the reads with two
@@ -1260,10 +1210,8 @@ branch against `main` and reports to the founder session.
   `RunParallel` forms of the read benchmarks at 8 readers; a point read and `SeekGE` on
   both layouts; a relay benchmark from writer to streamer at 1 and 100 subscribers, with
   timed and untimed keys; a calculation at a 10:1 rate ratio over 10 chunks of the
-  slower input; a near running `max` pass beside a far one at the pool's rate, with
-  `BenchmarkCommit` p99 and a plain read measured beside them (§4.7); a persist-only
-  auto commit case in `BenchmarkWrite`; and bytes for the TypeScript cache and codec
-  benchmarks.
+  slower input; a persist-only auto commit case in `BenchmarkWrite`; and bytes for the
+  TypeScript cache and codec benchmarks.
 - **P**: `BenchmarkReadDomains` with `jumps` of 16, 32, 64, and 128 measures one key
   against the same key on a clock of its own. P is the largest count whose read costs at
   most 2 times the own clock.
@@ -1286,7 +1234,7 @@ branch against `main` and reports to the founder session.
 | Write                       | framer `BenchmarkWrite`, `BenchmarkOpen`                                                                | Within noise. One store per series, no new map lookup                                                                                                                                          | The validator already looks up each series (`validator.go:75`); the clock sits in the same value                                                                                         |
 | Stream                      | `BenchmarkStreamKeyChange`, TypeScript cache and line plot benchmarks                                   | Within noise. One compare per series in each filter and per series pair in a reader                                                                                                            | A relay filter over 501 series is 501 lookups (10 µs) today; 501 compares add about 0.25 µs                                                                                              |
 | Live calculator             | Box benchmarks: 1 kHz on one clock, 1 kHz with 1 Hz, 10 kHz                                             | One clock: within noise. Two clocks: no worse than arrival pairing on the baseline. No allocation and no scheduler cycle per sample                                                            | The join steps one cursor per input per output sample, about 5 ns, and each input keeps its last 16 intervals sorted, about 20 ns per sample. At 10 kHz, 250 µs of CPU per second        |
-| Historical calculation read | `BenchmarkIteratorHistorical`, `BenchmarkIteratorCalc_TwoClocks`                                        | One clock: within noise. A running operation: within noise per sample of its look back, which R2 exempts (§4.7). Two clocks: at most 2 times the one-clock time per output sample              | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
+| Historical calculation read | `BenchmarkIteratorHistorical`, `BenchmarkIteratorCalc_TwoClocks`                                        | One clock: within noise. Two clocks: at most 2 times the one-clock time per output sample                                                                                                      | Open costs about 1.9 ms, mostly compile. A merge of 1 M samples at 5 ns is 5 ms                                                                                                          |
 | Driver frame build          | the Driver frame build benchmark, `write_task_bench.cpp`, with the bus publish under its exclusive hold | 8n bytes of stamps written per clock, once. Time within noise for one clock, lower for a task that had several index keys                                                                      | 1000 stamps are 8 kB. A task with k index keys writes them k times today (`driver/common/sample_clock.h:237-242`)                                                                        |
 
 ## 5 Implementation phases
@@ -1296,12 +1244,11 @@ records baselines on `main`; none of it merges (D-430). The phases then follow o
 order: the shared storage fixes (Phases 2 to 4), the additive parts while index channels
 exist (Phases 5 to 17), the read prototype (Phase 18), the export (Phase 19), the join
 (Phases 20 to 23), hidden clocks (Phases 24 to 28), the producers and readers (Phases 29
-to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow. Phase 55, the look
-back of running operations to their last reset, may land any time after Phase 21, and
-Phase 56, the C++ join of rack calculations, any time after Phase 41. Each phase is one
-PR of up to about 2,000 hand-written lines, specs and generated code not counted. Phase
-8 is an exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases
-41 and 50 are the others: each is one PR, past the target if it must be, since D-519 (2)
+to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow, and Phase 55, the
+C++ join of rack calculations, may land any time after Phase 41. Each phase is one PR of
+up to about 2,000 hand-written lines, specs and generated code not counted. Phase 8 is
+an exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases 41
+and 50 are the others: each is one PR, past the target if it must be, since D-519 (2)
 gives each phase one PR and a split would leave a release between the parts. At the
 upgrade, Phase 50 runs: the detach of each data channel's index on channel v2, whose
 `index` reference is `Restrict` (`core/pkg/service/channel/index.go:16-29`); the channel
@@ -1337,11 +1284,8 @@ splits along its touches before it opens, each part green alone.
   that names a retired index by name or key, such as
   `client.read(tr, ["time", "temperature"])`, which fails with an error that names
   `frame.time`. No old field stays as an input, since no `core/v0.62.0` script is owed
-  (D-252). The notes also say that from Phase 55 a running operation's live value covers
-  the data from its open until its first reset after it, as on `main`, while a history
-  read covers all of it since the last reset, so a plot of a far-reset running operation
-  loads after one full pass. Phases 36 and 37 move the repository's own integration
-  tests and examples that set the old fields.
+  (D-252). Phases 36 and 37 move the repository's own integration tests and examples
+  that set the old fields.
 - **No channel before its readers**: No stored channel and no calculation exists with no
   index channel before Phase 44, and Phase 44 follows every reader that keys on an
   index: the export (19), the cache and Pluto (17), `frame.time` (13), the client
@@ -1375,7 +1319,7 @@ this RFC, so the issues of these phases take their blockers from this table too.
 Other RFCs wait on this one: RFC 0119 Phases 3 and 25 and RFC 0121 Phase 5 on Phase 1,
 which carries code moves that they need; RFC 0121 Phase 8 on Phases 2 to 4, 8, 9, 14,
 and 19 (RFC 0121 §12); RFC 0119 Phases 34 to 38, the measured reads and rewires, on
-Phase 9, which pairs series by clock; and RFC 0113 Phases 10 and 11 on Phase 56 (§4.9).
+Phase 9, which pairs series by clock; and RFC 0113 Phases 10 and 11 on Phase 55 (§4.9).
 
 Compatibility: Phase 8 changes the wire once, with the handshake of §4.2. Phase 28 adds
 the writer fields and keeps field 9 (`auto_index`) as `arrival_timed` until Phase 50.
@@ -1460,8 +1404,7 @@ Phase 42. Keys of `core/v0.62.0` keep their numbers.
 | 52    | Allow data type changes                                      | `core/pkg/service/channel`, `core/pkg/service/framer`, `core/pkg/transport/http/framer`, `console/src/feature/channel`, `core/pkg/service/sift`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 11, 14                                             |
 | 53    | Delete the old Cesium format                                 | `cesium`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 1                                                  |
 | 54    | Create task channels in the Core at task save                | `core/pkg/service/task`, `core/pkg/service/ni`, `core/pkg/service/labjack`, `core/pkg/service/opcua`, `console/src/platform/task`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | 50                                                 |
-| 55    | Look back to the last reset in running operations            | `core/pkg/service/framer/calculation`, `core/pkg/service/framer/iterator`, `client/ts/src/framer/cache`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 21                                                 |
-| 56    | Pair rack calculation inputs in a C++ join node              | `arc/cpp/stl`, `driver/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 21, 41                                             |
+| 55    | Pair rack calculation inputs in a C++ join node              | `arc/cpp/stl`, `driver/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 21, 41                                             |
 
 ## 6 What this RFC does not cover
 
@@ -1470,8 +1413,9 @@ Phase 42. Keys of `core/v0.62.0` keep their numbers.
 - The constant-step time series and frame compression (PR #6147).
 - Units, limits, the link from a channel to an enumeration, T-zero, templates, the
   maximum length of a string sample, state and command pairs, and clock correction.
-- Stored calculation outputs and linear interpolation. Calculations on a rack are RFC
-  0113's; this RFC adds only their join (§4.9 item 4).
+- Stored calculation outputs, linear interpolation, and the history of running
+  operations, which a later RFC owns. Calculations on a rack are RFC 0113's; this RFC
+  adds only their join (§4.9 item 4).
 
 ## 7 Resolved decisions
 
@@ -1524,16 +1468,9 @@ settle them.
 12. **Pair by sample time, hold only, budget 0; history is canonical**: Arrival pairing
     gives different numbers live, in history, and per client. A wait budget above 0
     would make live equal history and make a fast input wait.
-13. **A running operation's history looks back to its last reset, with no stored state,
-    and its live value starts at its open**: History numbers never depend on where a
-    read starts (D-063, Phase 55), and a far reset is a rare-path exception to R2 (D-518
-    (3)). Live starts at its open until its next reset, as D-063 accepted. Rejected: a
-    bounded look back, under which a value depends on the read start; a stored
-    calculator state per chunk, which missed inputs that commit after the primary, was
-    not crash safe, missed input changes that make no history change, and stored about 5
-    GB a year per calculation; and a live catch-up to the reset, which needs every
-    sample streamed since the open, or a merge of two states that a stateful variable
-    cannot do, and loads the Core at each open.
+13. **Running operations keep `main`'s behavior**: A later RFC owns their history, since
+    each look back that this RFC tried, to the last reset with stored states, with live
+    catch-up, or with a cap, opened new defects in each review round.
 14. **Port links on the device, not in the task config**: A port keeps its channel
     across a task delete and create, at the cost of two hops from channel to task.
 15. **An exact lookup accepts device paths**: A string that matches a channel path and a

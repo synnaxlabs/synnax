@@ -154,7 +154,7 @@ to the `arc.Program` the Driver runs
 each module on its base inputs and streams those inputs instead. Inputs from another
 Driver go stale during an outage. The Core keeps computing the channel for the Console.
 RFC 0120 §4.9 amends this section: the Driver pairs inputs through a C++ twin of the
-join node, and a running operation starts at the Arc task's open.
+join node, and running operations keep `main`'s behavior.
 
 ### 3.6 Reconnect and new minors
 
@@ -221,7 +221,7 @@ of these phases take their blockers from this table too.
 | Phase    | Waits for                                                                                                                                          |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 7        | RFC 0121 Phase 6, whose commit with auto commit off returns only once it persists; it takes RFC 0120 §4.9 item 2, and RFC 0120 Phase 31 follows it |
-| 10 to 11 | RFC 0120 Phase 56, the C++ join of rack calculations                                                                                               |
+| 10 to 11 | RFC 0120 Phase 55, the C++ join of rack calculations                                                                                               |
 
 | Phase | Scope                                                      | Touches                                                                                                                      | Depends on |
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
