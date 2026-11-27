@@ -28,8 +28,8 @@ import (
 )
 
 var _ = Describe("Path checks", func() {
-	// D-214: a path through a folder that the subject cannot retrieve matches nothing,
-	// so a lookup cannot probe whether a hidden folder's name exists.
+	// A path through a folder that the subject cannot retrieve matches nothing, so a
+	// lookup cannot probe whether a hidden folder's name exists.
 	It("Should match nothing for a path through a folder the subject cannot retrieve",
 		func(ctx SpecContext) {
 			g := createChannelGroup(ctx, "hidden-"+uuid.New().String()[:8])
