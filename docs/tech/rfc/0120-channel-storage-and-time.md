@@ -515,11 +515,12 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 - **Rules per frame**: A declared group is whole: a frame holds all of its channels or
   none, and a partial group fails with an error that stays, as a missing channel does
   today. An adaptive group takes any subset, and an absent channel pauses. A frame holds
-  the time of each present group, with the length of its channels' series. A channel
-  keeps its group for the life of the session. The authority filter runs after the group
-  check: a channel that the writer does not control pauses, and the rest of its group
-  writes. The cost is one presence count per declared group per frame, as `main` counts
-  per index group (`cesium/writer_stream.go:987-1048`).
+  the time of each present group, with the length of its channels' series. A series with
+  no samples makes nothing present. A channel keeps its group for the life of the
+  session. The authority filter runs after the group check: a channel that the writer
+  does not control pauses, and the rest of its group writes. The cost is one presence
+  count per declared group per frame, as `main` counts per index group
+  (`cesium/writer_stream.go:987-1048`).
 - **Kinds**: A writer picks one at open. **Supplied**, the default: each present group
   has its time in the frame, and a write of stored channels with no `"time"` fails.
   **`arrival_timed`**: the framer stamps each present group on arrival, and a write that
@@ -560,13 +561,18 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   declared in field 5 of the codec (§4.2). A data series names no clock: the Core knows
   each channel's group from the open and sets `Series.clock` on relayed series, also for
   a channel that a pause move put on its own clock. Live-only channels have no clock.
-- **Index channels** (until Phase 50): A group whose channels share an index channel
-  takes that index key as its clock, and its time is the index's stamps. A group that
-  mixes channels of two index channels, or of one and none, fails at open. With no
-  groups, the channels of each index channel form one whole group, as on `main`. From
-  Phase 13 a client maps `"time"` to the index channel of each group, and until Phase 28
-  a writer of channels without their index channel takes the stored kind, as today.
-  `is_index=`, `index=`, and index keys in a write work until Phase 50.
+- **Index channels** (until Phase 50): The channels of each index channel form one whole
+  group on that index's clock, as on `main`, whatever groups the writer declares, and
+  the index's stamps are its time. A declared group whose channels span several index
+  channels writes its time to each of them, one copy per index, as the Driver does today
+  (`driver/common/sample_clock.h:237-242`). Declared groups that hold channels of one
+  index channel merge into that index's group. A channel with no index channel keeps its
+  declared group, on a clock that storage picks. The framer names each index to Cesium
+  in `Group.Index` (NEW), which skips continuation (RFC 0121 §4.2). From Phase 13 a
+  client maps `"time"` to the index channel of each group, and until Phase 28 a writer
+  of channels without their index channel takes the stored kind, as today. From Phase 28
+  the Core makes a stored channel with no index channel. `is_index=`, `index=`, and
+  index keys in a write work until Phase 50.
 - **Other producers**: The metrics service and scripts give no groups. Driver common
   code builds one time series per group, where `generate_index_data` copies one per
   index channel today (`driver/common/sample_clock.h:222-244`).
