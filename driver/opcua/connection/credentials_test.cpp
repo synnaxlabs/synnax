@@ -52,7 +52,7 @@ TEST_F(ReadCertificatesTest, LoginCertificateFromGrant) {
         }
     ));
     ASSERT_TRUE(cfg.login_identity.has_value());
-    ASSERT_EQ(cfg.login_identity->private_key, x::x509::testutil::KEY);
+    ASSERT_EQ(cfg.login_identity.value().private_key, x::x509::testutil::KEY);
     ASSERT_FALSE(cfg.client_identity.has_value());
 }
 
