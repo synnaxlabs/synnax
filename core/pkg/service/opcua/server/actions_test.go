@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -83,6 +84,56 @@ var _ = Describe("Actions", func() {
 		)))
 		Expect(res.Connection.Auth.Variant).
 			To(Equal(server.UsernameAuth{Username: "op"}))
+	})
+
+	It("Should remove the password of a user name login", func() {
+		password := uuid.New()
+		base.Connection.Auth = server.Auth{Variant: server.UsernameAuth{
+			Username: "op",
+			Password: &password,
+		}}
+		res := MustSucceed(server.Reduce(base, server.NewRemoveAction(
+			server.RemovePayload{
+				Path: []string{"connection", "auth"},
+				Key:  "password",
+				Guards: []patch.Guard{
+					{Path: []string{"connection", "auth", "type"}, Value: "username"},
+				},
+			},
+		)))
+		Expect(res.Connection.Auth.Variant).
+			To(Equal(server.UsernameAuth{Username: "op"}))
+	})
+
+	It("Should ignore a set guarded for another login type", func() {
+		res := MustSucceed(server.Reduce(base, server.NewSetAction(server.SetPayload{
+			Path:  []string{"connection", "auth", "username"},
+			Value: "op",
+			Guards: []patch.Guard{
+				{Path: []string{"connection", "auth", "type"}, Value: "username"},
+			},
+		})))
+		Expect(res).To(Equal(base))
+	})
+
+	DescribeTable("Should reject a list edit of the bindings",
+		func(act server.Action) {
+			Expect(server.Reduce(base, act)).Error().
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("an insert into the reads", server.NewInsertAction(server.InsertPayload{
+			Path:  []string{"reads"},
+			Value: map[string]any{"node": "i=85", "index": 1, "channel": 3},
+		})),
+		Entry("a move in the writes", server.NewMoveAction(server.MovePayload{
+			Path: []string{"writes"},
+			Key:  "0",
+		})),
+	)
+
+	It("Should reject a path past the rack", func() {
+		Expect(server.Reduce(base, set([]string{"rack", "key"}, 2))).Error().
+			To(MatchError(validate.ErrValidation))
 	})
 
 	DescribeTable("Should reject a path that names no editable field",
