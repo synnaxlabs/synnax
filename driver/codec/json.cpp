@@ -558,6 +558,7 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     field.scale = b.scale;
     field.offset = b.offset;
     field.base = static_cast<const icd::BaseField &>(b);
+    field.density = dt.is_variable() ? 0 : dt.density();
     auto [v, variant_err] = read_variant(f, dt);
     if (variant_err) return {Field{}, variant_err};
     field.kind = v.kind;
@@ -592,6 +593,19 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
     if (err) return {Field{}, err};
     field.encoder = std::move(encoder);
     return {std::move(field), x::errors::NIL};
+}
+
+std::string_view
+JSONEncoder::Field::bytes(const x::telem::Series &s, std::size_t i) const {
+    const auto *p = s.data();
+    if (this->density != 0)
+        return {reinterpret_cast<const char *>(p + (i * this->density)), this->density};
+    auto size = VARIABLE_LENGTH_PREFIX_SIZE + read_u32_le(p);
+    for (; i > 0; i--) {
+        p += size;
+        size = VARIABLE_LENGTH_PREFIX_SIZE + read_u32_le(p);
+    }
+    return {reinterpret_cast<const char *>(p), size};
 }
 
 x::errors::Error JSONEncoder::Field::append(
@@ -742,6 +756,11 @@ x::errors::Error JSONEncoder::encode(
             if (!s.binding.has_value()) return s.fallback.append(out);
             const auto &f = this->fields[*s.binding];
             const auto &sample = samples[*s.binding];
+            if (!f.sample.empty() && !sample.empty() &&
+                f.bytes(sample, 0) == f.sample) {
+                out += f.text;
+                return x::errors::NIL;
+            }
             const auto err = sample.empty() ? f.fallback.append(out)
                                             : f.append(sample, 0, out);
             if (err) return err.wrap("field " + f.name);
@@ -758,10 +777,12 @@ x::errors::Error JSONEncoder::check(
     const x::telem::Series &s,
     const std::size_t i
 ) {
-    const auto &f = this->fields[binding];
+    auto &f = this->fields[binding];
     this->text.clear();
     if (auto err = f.append(s, i, this->text))
         return err.wrap("message " + this->name + ": field " + f.name);
+    f.sample.assign(f.bytes(s, i));
+    f.text.assign(this->text);
     return x::errors::NIL;
 }
 }

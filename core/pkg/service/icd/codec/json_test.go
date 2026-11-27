@@ -543,7 +543,7 @@ var _ = Describe("JSON", func() {
 			for i, k := range kinds {
 				docs[i] = xjson.Document{Source: "pump", Data: []byte(k)}
 			}
-			shapes := xjson.Infer(docs)
+			shapes, _ := xjson.Infer(docs)
 			messages := make([]codec.JSONMessage, len(shapes))
 			for i, shape := range shapes {
 				key, field := uuid.New(), shape.Fields[0]
