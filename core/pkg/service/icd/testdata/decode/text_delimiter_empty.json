@@ -1,0 +1,16 @@
+{
+  "description": "A message needs a delimiter.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "text",
+        "delimiter": "",
+        "prefix": "",
+        "fields": []
+      },
+      "bindings": []
+    }
+  ],
+  "error": "message a: the delimiter is empty: validation error"
+}
