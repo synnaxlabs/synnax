@@ -9,7 +9,7 @@
 
 import { device, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { caseconv, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -462,7 +462,10 @@ describe("CounterRead hardware", () => {
     expect(screen.queryByText("The device has no counter ctr4")).toBeNull();
     await client.devices.dispatch(
       dev.key,
-      device.set({ path: ["properties", "hardware"], value: createHardware() }),
+      device.set({
+        path: ["properties", "hardware"],
+        value: caseconv.camelToSnake(createHardware()),
+      }),
     );
     expect(await screen.findByText("The device has no counter ctr4")).toBeTruthy();
   });
