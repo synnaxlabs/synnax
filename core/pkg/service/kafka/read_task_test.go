@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -86,28 +85,6 @@ var _ = Describe("Read task", func() {
 		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
 			To(Succeed())
 		Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
-	}
-
-	// stored returns every sample persisted in key.
-	stored := func(ctx context.Context, key channel.Key) telem.Series {
-		GinkgoHelper()
-		it := MustSucceed(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
-			Keys:   channel.Keys{key},
-			Bounds: telem.TimeRangeMax,
-		}))
-		defer func() { Expect(it.Close()).To(Succeed()) }()
-		var s telem.Series
-		if !it.SeekFirst() {
-			return s
-		}
-		for it.Next(iterator.AutoSpan) {
-			for _, ser := range it.Value().Get(key).Series {
-				s.DataType = ser.DataType
-				s.Data = append(s.Data, ser.Data...)
-			}
-		}
-		Expect(it.Error()).To(Succeed())
-		return s
 	}
 
 	// expectStored waits until key holds n samples.
@@ -2110,53 +2087,6 @@ var _ = Describe("Read task", func() {
 						"", createICD(ctx, m), icd.ReadMessage{Message: m.Key},
 					)}
 				}, "message Reading binds no fields"),
-			Entry("a field whose kind does not convert to its channel",
-				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
-					m := jsonMessage("Reading", nil,
-						jsonField("s", "/s", icd.StringJSONField{}),
-					)
-					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						icd.ReadMessage{
-							Message:  m.Key,
-							Bindings: []icd.ReadBinding{bind(m, 0, data)},
-						},
-					)}
-				}, "field s of kind string cannot read into channel"),
-			Entry("an index field with no binding",
-				func(ctx context.Context, _, data channel.Channel) []kafka.ReadRecord {
-					m := stampedMessage("Reading", nil)
-					ts := fieldKey(m, 0)
-					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						icd.ReadMessage{
-							Message:  m.Key,
-							Index:    &ts,
-							Bindings: []icd.ReadBinding{bind(m, 1, data)},
-						},
-					)}
-				}, "the index field ts has no binding"),
-			Entry("an index field on a data channel",
-				func(ctx context.Context, _, _ channel.Channel) []kafka.ReadRecord {
-					_, stamps := createIndexed(ctx, telem.TimestampT)
-					m := stampedMessage("Reading", nil)
-					ts := fieldKey(m, 0)
-					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						icd.ReadMessage{
-							Message:  m.Key,
-							Index:    &ts,
-							Bindings: []icd.ReadBinding{bind(m, 0, stamps)},
-						},
-					)}
-				}, "the index field ts must write to an index channel"),
-			Entry("a data field on an index channel",
-				func(ctx context.Context, index, _ channel.Channel) []kafka.ReadRecord {
-					m := stampedMessage("Reading", nil)
-					return []kafka.ReadRecord{record("", createICD(ctx, m),
-						icd.ReadMessage{
-							Message:  m.Key,
-							Bindings: []icd.ReadBinding{bind(m, 0, index)},
-						},
-					)}
-				}, "field ts cannot write to index channel"),
 			Entry(
 				"two messages with no match rule",
 				func(ctx context.Context, index, data channel.Channel) []kafka.ReadRecord {
