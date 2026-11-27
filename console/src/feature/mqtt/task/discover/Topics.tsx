@@ -469,6 +469,7 @@ export const TopicPicker = ({
         .map((t) => ({ ...t, shapes: shapesOf(t) }));
       return { key: id.create(), topics, truncated: r.truncated };
     },
+    Device.browseFailure(device),
     [device, scope],
   );
   const listing = result.data;

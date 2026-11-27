@@ -929,6 +929,28 @@ describe("MQTT read form", () => {
     });
   });
 
+  it("should name the broker that the Core cannot reach and say why", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({ variant: "error", message: "connection refused" });
+    await dialog.findByText(`Cannot reach ${dev.name}`);
+    dialog.getByText(
+      "The Core cannot connect to dev1. Check that the broker runs and that the Core " +
+        "can reach it. connection refused",
+    );
+  });
+
+  it("should name the broker when it cannot list the Sparkplug B nodes", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    await scanner.answer({ data: { topics: [], truncated: false } });
+    fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
+    await scanner.answer({ variant: "error", message: "connection refused" });
+    await dialog.findByText(`Cannot reach ${dev.name}`);
+  });
+
   it("should focus the topic of a topic added by name", async () => {
     await renderRead();
     const dialog = await openAddData();

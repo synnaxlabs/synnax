@@ -18,7 +18,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { compare, id, json, search, TimeSpan, TimeStamp, unique } from "@synnaxlabs/x";
 import pluralize from "pluralize";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import type { Device } from "@/feature/kafka/device";
 import {
@@ -460,10 +460,17 @@ const Content = ({
   const [picks, setPicks] = useState<Map<string, TopicPick>>(() => new Map());
   const [wholePicks, setWholePicks] = useState<WholePicks>(() => new Map());
   const [format, setFormat] = useState<Format | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const { result, listen, follow, reads } = ICD.Picker.useListen<Listing, Sample>(
     async (client) => {
       const answer = await browseTopics(client, device);
       return { ...answer, key: id.create(), listedAt: TimeStamp.now() };
+    },
+    {
+      message: `Cannot reach ${device.name}`,
+      description:
+        `The Core cannot connect to ${device.properties.brokers.join(", ")}. ` +
+        "Check that the cluster runs and that the Core can reach it.",
     },
     [device.key],
   );
@@ -736,19 +743,14 @@ const Content = ({
       format,
     });
 
-  let sideAction: ReactNode = null;
-  if (unknownTerm)
-    sideAction = (
-      <ICD.Picker.SideAction onClick={handleTerm}>
-        {`${kind.verb} “${trimmed}”`}
-      </ICD.Picker.SideAction>
-    );
-  else if (
+  let emptyRecord: ReactNode = null;
+  if (
+    !unknownTerm &&
     !whole &&
     activeEntry != null &&
     (activeTopic == null || activeTopic.readable)
   )
-    sideAction = (
+    emptyRecord = (
       <ICD.Picker.SideAction onClick={() => finish(activeEntry.name)}>
         Add an empty record
       </ICD.Picker.SideAction>
@@ -766,12 +768,18 @@ const Content = ({
         />
         <ICD.Picker.Side>
           <ICD.Picker.Search
+            ref={searchRef}
             value={term}
             onChange={setTerm}
             placeholder="Search topics"
           />
           <ICD.Picker.SideList>{tree}</ICD.Picker.SideList>
-          {sideAction}
+          <ICD.Picker.SideAction
+            onClick={unknownTerm ? handleTerm : () => searchRef.current?.focus()}
+          >
+            {unknownTerm ? `${kind.verb} “${trimmed}”` : `${kind.verb} a topic by name`}
+          </ICD.Picker.SideAction>
+          {emptyRecord}
           {whole && (
             <Flex.Box y empty className={CSS.BE("kafka-discover", "format")}>
               <ICD.MessageFormatField

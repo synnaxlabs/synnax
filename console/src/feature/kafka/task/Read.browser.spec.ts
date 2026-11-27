@@ -546,6 +546,40 @@ describe("Kafka read form", () => {
       expect(dialog.queryByRole("button", { name: "Add an empty record" })).toBeNull();
     });
 
+    it("should name the cluster that the Core cannot reach and say why", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(client, dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "browse", {
+        browse: {
+          variant: "error",
+          message: "Failed to browse",
+          description: "dial tcp 127.0.0.1:9092: connect: connection refused",
+        },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      await dialog.findByText(`Cannot reach ${dev.name}`);
+      dialog.getByText(
+        "The Core cannot connect to localhost:9092. Check that the cluster runs and " +
+          "that the Core can reach it. Failed to browse. dial tcp 127.0.0.1:9092: " +
+          "connect: connection refused",
+      );
+    });
+
+    it("should focus the search to read a topic by name", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const browse = browseOf(listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, "plant", browse);
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.click(dialog.getByRole("button", { name: "Read a topic by name" }));
+      expect(document.activeElement).toBe(search);
+      fireEvent.change(search, { target: { value: "kiln" } });
+      await dialog.findByRole("button", { name: "Read “kiln”" });
+      expect(dialog.queryByRole("button", { name: "Read a topic by name" })).toBeNull();
+    });
+
     it("should list and read the topics again on Listen again", async () => {
       const { dev } = await renderRead();
       const scan = await createScanTask(client, dev);

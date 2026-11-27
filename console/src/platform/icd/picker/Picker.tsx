@@ -148,7 +148,7 @@ export const Side = ({ children }: PropsWithChildren): ReactElement => (
 
 export interface SearchProps extends Pick<
   Input.TextProps,
-  "value" | "onChange" | "placeholder"
+  "value" | "onChange" | "placeholder" | "ref"
 > {}
 
 /** A field at the head of a {@link Side} that filters its list. */

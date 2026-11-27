@@ -17,6 +17,7 @@ import {
   BROWSE_SPARKPLUG_COMMAND_TYPE,
 } from "@/feature/mqtt/device/scan";
 import type { Device } from "@/feature/mqtt/device/types";
+import type { ICD } from "@/platform/icd";
 
 const browsedFieldZ = json.inferredFieldZ
   .pick({ pointer: true, type: true, kind: true, timeFormat: true })
@@ -81,6 +82,14 @@ const browseSparkplugResultZ = z.object({
 export const BROWSE_DURATION = TimeSpan.seconds(3);
 
 export const LISTENING = `Listening for ${BROWSE_DURATION.seconds} seconds`;
+
+/** @returns the status text of a browse of the broker that fails. */
+export const browseFailure = (device: Device): ICD.Picker.Failure => ({
+  message: `Cannot reach ${device.name}`,
+  description:
+    `The Core cannot connect to ${device.location}. ` +
+    "Check that the broker runs and that the Core can reach it.",
+});
 
 // The Core listens for up to 20 s before it replies.
 const BROWSE_TIMEOUT = TimeSpan.seconds(25);

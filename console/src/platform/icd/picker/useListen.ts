@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, status, type Synnax as Client } from "@synnaxlabs/client";
 import { useAsyncEffect, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { Flux, Synnax } from "@synnaxlabs/pluto";
 import type { state } from "@synnaxlabs/x";
@@ -49,13 +49,28 @@ interface ReadMaps<V> {
 
 const OP = "listen to the broker";
 
+/** The status text of a failed listen. */
+export type Failure = Pick<status.Status, "message" | "description">;
+
+const failedResult = <T extends state.State>(
+  { message, description }: Failure,
+  exc: unknown,
+): Flux.Result<T> => {
+  const failed = status.fromException(exc, message);
+  failed.description = `${description} ${failed.description}`;
+  return { variant: "error", status: failed, data: undefined };
+};
+
 /**
  * Listens to the broker on mount, when a dependency changes, and on each call to
  * `listen`. A listen is not a Flux query: nothing tells the Console when a broker
  * publishes, so only a new listen brings new data.
+ * @param failure - The status text of a failed listen. Its description says why and
+ * what to do now, and the error of the listen follows it.
  */
 export const useListen = <T extends state.State, V = never>(
   request: Request<T>,
+  failure: Failure,
   deps: DependencyList,
 ): UseListenReturn<T, V> => {
   const client = Synnax.use();
@@ -87,7 +102,7 @@ export const useListen = <T extends state.State, V = never>(
         setResult(Flux.successResult(OP, data));
         setReads(({ current }) => ({ current, before: new Map() }));
       } catch (e) {
-        if (!signal.aborted) setResult(Flux.errorResult(OP, e));
+        if (!signal.aborted) setResult(failedResult(failure, e));
       }
     },
     [client, round, ...deps],
