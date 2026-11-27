@@ -332,7 +332,11 @@ the block, stored in the log with each commit. A writer continues from that valu
   1,024 handles bounds the others, of readers and background passes, and replaces the
   cap per channel (`cesium/internal/domain/db.go:76`). A handle with unsynced bytes is
   synced before the budget closes it, in the job that needs the slot. A sync that fails,
-  from any caller, marks the segment failed (§5.4).
+  from any caller, marks the segment failed (§5.4). One sync of a file runs at a time,
+  under a sync lock of the file that no write takes (§5.4, invariant 5). A failed sync
+  sets the mark before it releases the lock, so the next sync of the file returns the
+  same error, also when the disk reports the failure to one handle only, and a write
+  never waits for a sync. The directory sync of a new segment takes the same lock.
 
 **Version 2, a sealed clock as progressions**: The compactor rewrites a sealed version 1
 clock segment when the result is at most half the size. The file is a version 1 block
@@ -848,22 +852,22 @@ for the key.
   over at once, with the loser's records of the clock that are not yet queued (§4.2).
   Crash tests cover it: two open writers, a handoff, the gainer's sync first, then a
   restart; and a handoff while the loser's `Sync` waits on its segment syncs, once with
-  the gainer's sync first and once with the loser's segment sync failed; and a pause
-  move of keys with old stamps, then a switch before the writer's next `Sync`. A
-  takeover appends at the committed length. It first checks the tail through the same
-  helper as the open check (§5.5 step 10), and for a variable type rebuilds the sample
-  cursor from the file. A tail that fails its check takes the failure path of the open
-  check (§5.5 step 10, D-482): a Tombstone per pointer from the first sample in the bad
-  range, over the same stamp range on every key that the clock times, then a Seal, and
-  an error to the error handler (§7). The key then starts a new segment. At a handoff
-  the gainer takes the loser's running CRC and sample cursor from memory instead and
-  checks nothing, so a handoff does no file I/O on the frame path (D-475 (2)). Two
-  writers on one key at once have two open segments. No segment file is made on the
-  frame path. A writer makes at open the files of its new clocks and of each key new to
-  a clock, a key that another writer holds included. A handoff makes a spare file for
-  the key on the clock of the writer that loses it, so a move back opens no file. A
-  close removes its unused spares, and the orphan pass (§5.5 step 10) removes any that a
-  crash leaves.
+  the gainer's sync first and once with the loser's segment sync failed after the
+  gainer's sync of the same segment passed; and a pause move of keys with old stamps,
+  then a switch before the writer's next `Sync`. A takeover appends at the committed
+  length. It first checks the tail through the same helper as the open check (§5.5 step
+  10), and for a variable type rebuilds the sample cursor from the file. A tail that
+  fails its check takes the failure path of the open check (§5.5 step 10, D-482): a
+  Tombstone per pointer from the first sample in the bad range, over the same stamp
+  range on every key that the clock times, then a Seal, and an error to the error
+  handler (§7). The key then starts a new segment. At a handoff the gainer takes the
+  loser's running CRC and sample cursor from memory instead and checks nothing, so a
+  handoff does no file I/O on the frame path (D-475 (2)). Two writers on one key at once
+  have two open segments. No segment file is made on the frame path. A writer makes at
+  open the files of its new clocks and of each key new to a clock, a key that another
+  writer holds included. A handoff makes a spare file for the key on the clock of the
+  writer that loses it, so a move back opens no file. A close removes its unused spares,
+  and the orphan pass (§5.5 step 10) removes any that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, a `Bounded` claim that starts inside another claim, and a group whose key of
   stored stamps times itself, naming that key, so no data takes a self-timed key as its
