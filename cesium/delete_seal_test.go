@@ -10,8 +10,8 @@
 package cesium_test
 
 import (
-	"fmt"
 	"path"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"syscall"
@@ -89,24 +89,30 @@ var _ = Describe("Deletes on a full disk", func() {
 			cesium.WithPointerLog(),
 		)
 		idx := GenerateChannelKey()
-		keys := []cesium.ChannelKey{idx}
-		channels := []cesium.Channel{
-			{Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT},
+		keys := make([]cesium.ChannelKey, 1, 64)
+		channels := make([]cesium.Channel, 1, 64)
+		keys[0] = idx
+		channels[0] = cesium.Channel{
+			Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
 		}
 		for range 63 {
 			key := GenerateChannelKey()
 			keys = append(keys, key)
 			channels = append(channels, cesium.Channel{
-				Key: key, Name: fmt.Sprint(key), Index: idx, DataType: telem.Int64T,
+				Key:      key,
+				Name:     strconv.Itoa(int(key)),
+				Index:    idx,
+				DataType: telem.Int64T,
 			})
 		}
 		Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
 		// write writes and commits one sample of each key at i seconds, and syncs, so
 		// each commit goes to the log as its own entry.
 		write := func(w *cesium.Writer, i int) error {
-			series := []telem.Series{telem.NewSeriesSecondsTSV(telem.TimeStamp(i))}
-			for range keys[1:] {
-				series = append(series, telem.NewSeriesV(int64(i)))
+			series := make([]telem.Series, len(keys))
+			series[0] = telem.NewSeriesSecondsTSV(telem.TimeStamp(i))
+			for k := range keys[1:] {
+				series[k+1] = telem.NewSeriesV(int64(i))
 			}
 			if _, _, err := w.Write(
 				ctx,
@@ -134,7 +140,7 @@ var _ = Describe("Deletes on a full disk", func() {
 			err = write(filler, last)
 		}
 		Expect(err).To(MatchError(ContainSubstring("log file is full")))
-		_ = filler.Close()
+		Expect(filler.Close()).To(MatchError(ContainSubstring("log file is full")))
 		segmentsFull.Store(true)
 		held := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 			Channels: keys,
@@ -144,18 +150,18 @@ var _ = Describe("Deletes on a full disk", func() {
 		// The failed segment sync is step 4: it logs only the Seals, which the full log
 		// refuses.
 		Expect(write(held, last+1)).To(MatchError(syscall.ENOSPC))
-		_ = held.Close()
+		Expect(held.Close()).To(MatchError(syscall.ENOSPC))
 		Expect(db.DeleteTimeRange(ctx, keys[1:2], telem.TimeRangeMax)).To(Succeed())
 		Expect(MustSucceed(db.Read(ctx, telem.TimeRangeMax, keys[1])).Len()).
 			To(BeZero())
-		Eventually(func() []string {
-			var names []string
-			for _, info := range MustSucceed(mem.List(fmt.Sprint(keys[1]))) {
+		Eventually(func() int {
+			segments := 0
+			for _, info := range MustSucceed(mem.List(channelKeyToPath(keys[1]))) {
 				if strings.HasSuffix(info.Name(), ".seg") {
-					names = append(names, info.Name())
+					segments++
 				}
 			}
-			return names
-		}).WithTimeout(10 * time.Second).Should(BeEmpty())
+			return segments
+		}).WithTimeout(10 * time.Second).Should(BeZero())
 	})
 })
