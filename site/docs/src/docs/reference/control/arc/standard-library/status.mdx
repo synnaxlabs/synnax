@@ -50,10 +50,8 @@ when it runs.
   key. On a Driver, the key of the last set with this `key_or_name` that reached the
   Core, also from before a restart, or an empty key when the Driver knows none. A failed
   call does not change it. The Driver keeps the keys of the names it used last, 1,024 by
-  default (`outbox_status_keys`), and forgets older ones. A set that waits on disk
-  through a restart gives no key until a later set with that `key_or_name` reaches the
-  Core. A sequence step on a Driver moves on once the set is queued, before the Core has
-  it.
+  default (`outbox_status_keys`), and forgets older ones. A sequence step on a Driver
+  moves on once the set is queued, before the Core has it.
 - Function form -> `status.set(key_or_name, message, variant) str`.
 
 Synnax looks for a status with the key first, then for one with the name. When more than
