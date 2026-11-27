@@ -97,9 +97,30 @@ export const queryParamsZ = http.queryParamZ.array().check(
   ),
 );
 
+/** Refuses a header with an empty name or value, as the Driver does. */
+const validateHeaders = ({ value, issues }: z.core.ParsePayload<http.Header[]>) =>
+  value.forEach(({ name, value: headerValue }, i) => {
+    if (name === "")
+      issues.push({
+        continue: true,
+        code: "custom",
+        input: value,
+        message: "Name is required",
+        path: [i, "name"],
+      });
+    if (headerValue === "")
+      issues.push({
+        continue: true,
+        code: "custom",
+        input: value,
+        message: "Value is required",
+        path: [i, "value"],
+      });
+  });
+
 const sharedHealthCheckZ = z.object({
   path: z.string(),
-  headers: headersZ.optional(),
+  headers: headersZ.check(validateHeaders).optional(),
   queryParams: queryParamsZ.optional(),
 });
 
