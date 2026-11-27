@@ -80,12 +80,26 @@ const emptyResZ = z.object({});
 const CREATE_ENDPOINT = "/auth/api-key/create";
 const RETRIEVE_ENDPOINT = "/auth/api-key/retrieve";
 const DELETE_ENDPOINT = "/auth/api-key/delete";
+const ROTATE_ENDPOINT = "/auth/api-key/rotate";
+
+export interface Rotated {
+  /** The token to log in with. It is the only copy of the new key's secret. */
+  token: string;
+  /** The new key. */
+  key: APIKey;
+}
 
 export class Client {
   private readonly client: UnaryClient;
+  private readonly onRotate: (rotated: Rotated) => void;
 
-  constructor(client: UnaryClient) {
+  /**
+   * @param onRotate - receives each key that replaces the key the client logged in
+   * with.
+   */
+  constructor(client: UnaryClient, onRotate: (rotated: Rotated) => void = () => {}) {
     this.client = client;
+    this.onRotate = onRotate;
   }
 
   /**
@@ -96,6 +110,20 @@ export class Client {
    */
   async create(key: New): Promise<{ token: string; key: APIKey }> {
     return await this.client.send(CREATE_ENDPOINT, key, createReqZ, createResZ);
+  }
+
+  /**
+   * Replaces the API key that the client logged in with by a new key for the same
+   * subject and name. The new key lasts as long as the old key did, or an hour short
+   * of the lifetime cap of the Core. The client's session stays open and later logins
+   * use the new key. The old key cannot log in again.
+   * @throws {ValidationError} when the client did not log in with an API key.
+   * @throws {AuthError} when the key has expired.
+   */
+  async rotate(): Promise<Rotated> {
+    const rotated = await this.client.send(ROTATE_ENDPOINT, {}, emptyResZ, createResZ);
+    this.onRotate(rotated);
+    return rotated;
   }
 
   /**

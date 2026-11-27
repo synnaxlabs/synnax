@@ -757,6 +757,45 @@ var _ = Describe("Service", func() {
 				MustSucceed(svc.Authenticate(ctx, token))
 			})
 		})
+		Describe("MoveCredential", func() {
+			It("Should move every session of the credential", func(ctx SpecContext) {
+				first, firstToken := login(ctx)
+				_, secondToken := login(ctx)
+				bob, bobName := subject(), uuid.New().String()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return pw.NewWriter(tx).Set(ctx, bob, bobName, hash(pw, "secret"))
+				})).To(Succeed())
+				target, _ := MustSucceed2(svc.Login(ctx, proof(bobName, "secret")))
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).MoveCredential(
+						ctx,
+						first.Credential,
+						target.Credential,
+						target.CredentialVersion,
+					)
+				})).To(Succeed())
+				for _, token := range []string{firstToken, secondToken} {
+					session := MustSucceed(svc.Authenticate(ctx, token))
+					Expect(session.Subject).To(Equal(alice))
+					Expect(session.Credential).To(Equal(target.Credential))
+				}
+			})
+			It("Should end the moved sessions on a stale version", func(
+				ctx SpecContext,
+			) {
+				first, token := login(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).MoveCredential(
+						ctx,
+						first.Credential,
+						first.Credential,
+						first.CredentialVersion-1,
+					)
+				})).To(Succeed())
+				Expect(svc.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			})
+		})
 		Describe("Open", func() {
 			It(
 				"Should open a session on the credential's version in the transaction",

@@ -225,10 +225,9 @@ Ends a login session after this long with no request from its client.
 
 The longest time that a new API key can work. The Core refuses a new key that does not
 expire, or that expires later than this. Zero means no limit. Keys that already exist
-keep their expiry.
-
-Do not set a limit on a Core with remote Drivers. A remote Driver cannot renew its key
-yet, so it stops when its key expires.
+keep their expiry. Drivers, the embedded Driver included, renew their keys before they
+expire. See
+[API key renewal](/reference/enterprise/driver/configuration#api-key-renewal).
 
 </Field.Item>
 

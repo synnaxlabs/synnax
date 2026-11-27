@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -69,6 +70,30 @@ func (w Writer) Create(
 		return APIKey{}, "", err
 	}
 	return k, token, nil
+}
+
+// Rotate replaces the API key with a new key for the same subject and name, and returns
+// the new key with its token. The new key gets [Service.LongestExpiry] when the service
+// has a maximum lifetime, and otherwise as long as the old key did, so a key that never
+// expires is replaced by one that never expires. Rotate returns
+// [auth.ErrInvalidCredentials] when the key has expired, and an error wrapping
+// [query.ErrNotFound] when it does not exist.
+func (w Writer) Rotate(ctx context.Context, key Key) (APIKey, string, error) {
+	var old APIKey
+	if err := w.svc.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&old).
+		Exec(ctx, w.tx); err != nil {
+		return APIKey{}, "", err
+	}
+	if w.svc.expired(old) {
+		return APIKey{}, "", errors.Wrap(auth.ErrInvalidCredentials, "API key expired")
+	}
+	k, token, err := w.Create(ctx, old.Subject, old.Name, w.svc.renewedExpiry(old))
+	if err != nil {
+		return APIKey{}, "", err
+	}
+	return k, token, w.Delete(ctx, old.Key)
 }
 
 // Delete removes the API keys with the given keys. Unknown keys are ignored.

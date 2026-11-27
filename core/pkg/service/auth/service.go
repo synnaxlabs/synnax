@@ -589,6 +589,27 @@ func (w Writer) RevokeCredential(ctx context.Context, credentials ...uuid.UUID) 
 		Exec(ctx, w.tx)
 }
 
+// MoveCredential moves every session that credential from opened onto credential to at
+// version, so the sessions outlive from.
+func (w Writer) MoveCredential(
+	ctx context.Context,
+	from, to uuid.UUID,
+	version telem.TimeStamp,
+) error {
+	var sessions []Session
+	if err := w.svc.NewRetrieve().
+		Where(MatchCredentials(from)).
+		Entries(&sessions).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for i := range sessions {
+		sessions[i].Credential = to
+		sessions[i].CredentialVersion = version
+	}
+	return w.svc.table.NewCreate().Entries(&sessions).Exec(ctx, w.tx)
+}
+
 // Open opens a session for the subject on the credential at its version in tx, and
 // returns the session and its token, which is shown once. It returns an error wrapping
 // query.ErrNotFound when no authenticator holds the credential.

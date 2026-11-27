@@ -201,8 +201,14 @@ public:
         }
     }
 
+    /// @brief replaces the proof that later logins send. The open session stays.
+    void set_proof(grpc::auth::Proof proof) {
+        std::lock_guard lock(mu);
+        this->proof = std::move(proof);
+    }
+
     /// @brief opens a session with the proof provided when constructing the Synnax
-    /// client.
+    /// client, or the one set since.
     x::errors::Error authenticate() {
         std::lock_guard lock(mu);
         grpc::auth::SessionCreateRequest req;

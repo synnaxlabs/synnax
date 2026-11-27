@@ -269,7 +269,11 @@ export class Client {
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
     this.observer = observer;
-    this.apiKeys = new apiKey.Client(client);
+    this.apiKeys = new apiKey.Client(client, ({ token, key }) => {
+      this.apiKey = token;
+      if (this.authState.authenticated)
+        this.authState.session = { ...this.authState.session, credential: key.key };
+    });
     this.sessions = new session.Client(client);
     this.passwords = new password.Client(client, {
       cookie: this.cookie,

@@ -1224,7 +1224,9 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x19AuthAPIKeyRetrieveService\x12K\n" +
 	"\x04Exec\x12 .grpc.auth.APIKeyRetrieveRequest\x1a!.grpc.auth.APIKeyRetrieveResponse2Y\n" +
 	"\x17AuthAPIKeyDeleteService\x12>\n" +
-	"\x04Exec\x12\x1e.grpc.auth.APIKeyDeleteRequest\x1a\x16.google.protobuf.EmptyB\x95\x01\n" +
+	"\x04Exec\x12\x1e.grpc.auth.APIKeyDeleteRequest\x1a\x16.google.protobuf.Empty2Z\n" +
+	"\x17AuthAPIKeyRotateService\x12?\n" +
+	"\x04Exec\x12\x16.google.protobuf.Empty\x1a\x1f.grpc.auth.APIKeyCreateResponseB\x95\x01\n" +
 	"\rcom.grpc.authB\tAuthProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/transport/grpc/auth\xa2\x02\x03GAX\xaa\x02\tGrpc.Auth\xca\x02\tGrpc\\Auth\xe2\x02\x15Grpc\\Auth\\GPBMetadata\xea\x02\n" +
 	"Grpc::Authb\x06proto3"
 
@@ -1289,17 +1291,19 @@ var file_core_pkg_transport_grpc_auth_auth_proto_depIdxs = []int32{
 	15, // 21: grpc.auth.AuthAPIKeyCreateService.Exec:input_type -> grpc.auth.APIKeyCreateRequest
 	17, // 22: grpc.auth.AuthAPIKeyRetrieveService.Exec:input_type -> grpc.auth.APIKeyRetrieveRequest
 	19, // 23: grpc.auth.AuthAPIKeyDeleteService.Exec:input_type -> grpc.auth.APIKeyDeleteRequest
-	2,  // 24: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
-	4,  // 25: grpc.auth.AuthMethodsService.Exec:output_type -> grpc.auth.MethodsResponse
-	9,  // 26: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
-	10, // 27: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
-	12, // 28: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
-	20, // 29: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
-	16, // 30: grpc.auth.AuthAPIKeyCreateService.Exec:output_type -> grpc.auth.APIKeyCreateResponse
-	18, // 31: grpc.auth.AuthAPIKeyRetrieveService.Exec:output_type -> grpc.auth.APIKeyRetrieveResponse
-	20, // 32: grpc.auth.AuthAPIKeyDeleteService.Exec:output_type -> google.protobuf.Empty
-	24, // [24:33] is the sub-list for method output_type
-	15, // [15:24] is the sub-list for method input_type
+	20, // 24: grpc.auth.AuthAPIKeyRotateService.Exec:input_type -> google.protobuf.Empty
+	2,  // 25: grpc.auth.AuthLoginService.Exec:output_type -> grpc.auth.LoginResponse
+	4,  // 26: grpc.auth.AuthMethodsService.Exec:output_type -> grpc.auth.MethodsResponse
+	9,  // 27: grpc.auth.AuthSessionCreateService.Exec:output_type -> grpc.auth.SessionCreateResponse
+	10, // 28: grpc.auth.AuthSessionRenewService.Exec:output_type -> grpc.auth.SessionRenewResponse
+	12, // 29: grpc.auth.AuthSessionRetrieveService.Exec:output_type -> grpc.auth.SessionRetrieveResponse
+	20, // 30: grpc.auth.AuthSessionDeleteService.Exec:output_type -> google.protobuf.Empty
+	16, // 31: grpc.auth.AuthAPIKeyCreateService.Exec:output_type -> grpc.auth.APIKeyCreateResponse
+	18, // 32: grpc.auth.AuthAPIKeyRetrieveService.Exec:output_type -> grpc.auth.APIKeyRetrieveResponse
+	20, // 33: grpc.auth.AuthAPIKeyDeleteService.Exec:output_type -> google.protobuf.Empty
+	16, // 34: grpc.auth.AuthAPIKeyRotateService.Exec:output_type -> grpc.auth.APIKeyCreateResponse
+	25, // [25:35] is the sub-list for method output_type
+	15, // [15:25] is the sub-list for method input_type
 	15, // [15:15] is the sub-list for extension type_name
 	15, // [15:15] is the sub-list for extension extendee
 	0,  // [0:15] is the sub-list for field type_name
@@ -1320,7 +1324,7 @@ func file_core_pkg_transport_grpc_auth_auth_proto_init() {
 			NumEnums:      0,
 			NumMessages:   20,
 			NumExtensions: 0,
-			NumServices:   9,
+			NumServices:   10,
 		},
 		GoTypes:           file_core_pkg_transport_grpc_auth_auth_proto_goTypes,
 		DependencyIndexes: file_core_pkg_transport_grpc_auth_auth_proto_depIdxs,

@@ -388,4 +388,56 @@ var _ = Describe("API keys", func() {
 			MustSucceed(authSvc.Authenticate(ctx, bobToken))
 		})
 	})
+	Describe("Rotate", func() {
+		rotate := func(ctx context.Context, token string) (apiapikey.CreateResponse, error) {
+			return rotateKey(authed(ctx, token), struct{}{})
+		}
+		It("Should replace the key and keep the sessions of the old key", func(
+			ctx SpecContext,
+		) {
+			old := MustSucceed(create(ctx, rootToken, rackID))
+			rackToken := login(ctx, keyProof(old.Token))
+			other := login(ctx, keyProof(old.Token))
+			res := MustSucceed(rotate(ctx, rackToken))
+			Expect(res.Key.Key).ToNot(Equal(old.Key.Key))
+			Expect(res.Key.Subject).To(Equal(rackID))
+			Expect(res.Key.Name).To(Equal(old.Key.Name))
+			for _, token := range []string{rackToken, other} {
+				session := MustSucceed(authSvc.Authenticate(ctx, token))
+				Expect(session.Credential).To(Equal(res.Key.Key))
+			}
+			Expect(authSvc.Login(ctx, keyProof(old.Token))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
+			session := MustSucceed(authSvc.Authenticate(
+				ctx,
+				login(ctx, keyProof(res.Token)),
+			))
+			Expect(session.Subject).To(Equal(rackID))
+		})
+		It("Should keep the lifetime of the old key", func(ctx SpecContext) {
+			lifetime := telem.TimeSpan(30 * 24 * time.Hour)
+			old := MustSucceed(createKey(
+				authed(ctx, bobToken),
+				apiapikey.CreateRequest{
+					Name:    "ci",
+					Expires: telem.Now().Add(lifetime),
+				},
+			))
+			res := MustSucceed(rotate(ctx, login(ctx, keyProof(old.Token))))
+			Expect(res.Key.Created.Span(res.Key.Expires)).
+				To(BeNumerically("~", lifetime, telem.Second))
+		})
+		It("Should replace a key that never expires with one that never expires", func(
+			ctx SpecContext,
+		) {
+			old := MustSucceed(create(ctx, bobToken, resource.ID{}))
+			res := MustSucceed(rotate(ctx, login(ctx, keyProof(old.Token))))
+			Expect(res.Key.Expires).To(Equal(telem.TimeStampMax))
+		})
+		It("Should refuse a session that logged in with a password", func(
+			ctx SpecContext,
+		) {
+			Expect(rotate(ctx, bobToken)).Error().To(MatchError(validate.ErrValidation))
+		})
+	})
 })

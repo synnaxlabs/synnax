@@ -79,6 +79,10 @@ service AuthAPIKeyDeleteService {
   rpc Exec(APIKeyDeleteRequest) returns (google.protobuf.Empty);
 }
 
+service AuthAPIKeyRotateService {
+  rpc Exec(google.protobuf.Empty) returns (APIKeyCreateResponse);
+}
+
 // Proof is what a subject presents to log in. The method selects which fields apply.
 message Proof {
   string method = 1;

@@ -106,7 +106,7 @@ Config started_config() {
 
 /// @brief it should find no change when the Driver reaches the Core it started with.
 TEST_F(RackConfigTest, CheckCoreFindsTheSameCore) {
-    ASSERT_NIL(started_config().check_core());
+    ASSERT_NIL(started_config().check_core(new_test_client()));
 }
 
 /// @brief it should stop the Driver when the Core is now another cluster.
@@ -114,7 +114,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherCluster) {
     auto cfg = started_config();
     const auto core_key = cfg.remote_info.cluster_key;
     cfg.remote_info.cluster_key = x::uuid::create();
-    const auto err = cfg.check_core();
+    const auto err = cfg.check_core(new_test_client());
     ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
         err.data,
@@ -130,7 +130,7 @@ TEST_F(RackConfigTest, CheckCoreFindsAnotherVersion) {
     auto cfg = started_config();
     cfg.incompatible_core_version = "99.1.0";
     const auto version = new_test_client().connectivity->check().node_version;
-    const auto err = cfg.check_core();
+    const auto err = cfg.check_core(new_test_client());
     ASSERT_OCCURRED_AS(err, CORE_CHANGED);
     EXPECT_EQ(
         err.data,

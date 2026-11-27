@@ -203,8 +203,7 @@ x::errors::Error Config::load_remote() {
     );
 }
 
-x::errors::Error Config::check_core() const {
-    const auto client = synnax::Synnax(this->connection);
+x::errors::Error Config::check_core(const synnax::Synnax &client) const {
     const auto core = client.connectivity->check();
     const auto [cluster_key, err] = parse_cluster_key(core);
     if (err) return err;

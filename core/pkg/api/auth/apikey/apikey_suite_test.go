@@ -62,6 +62,7 @@ var (
 		apiapikey.RetrieveResponse,
 	]
 	deleteKeys freighter.UnaryHandler[apiapikey.DeleteRequest, struct{}]
+	rotateKey  freighter.UnaryHandler[struct{}, apiapikey.CreateResponse]
 	root       user.User
 	creds      = auth.Credentials{Username: "api-apikey-suite-root", Password: "p"}
 )
@@ -113,6 +114,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		return apiSvc.Retrieve(ctx, snap, req)
 	})
 	deleteKeys = bind.Write(binder, apiSvc.Delete)
+	rotateKey = bind.Write(binder, apiSvc.Rotate)
 })
 
 func newService(svc *auth.Service) *apiapikey.Service {

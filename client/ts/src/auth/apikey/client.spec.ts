@@ -11,7 +11,7 @@ import { sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { apiKey } from "@/auth/apikey";
-import { InvalidCredentialsError, InvalidTokenError } from "@/index";
+import { InvalidCredentialsError, InvalidTokenError, ValidationError } from "@/index";
 import { createTestAuthClient, createTestClient } from "@/testutil";
 
 describe("apiKey", () => {
@@ -126,6 +126,59 @@ describe("apiKey", () => {
       await sleep.sleep(TimeSpan.milliseconds(1500));
       await expect(keyed.sessions.retrieve()).rejects.toThrow(InvalidCredentialsError);
       await owner.apiKeys.delete(key.key);
+    });
+  });
+
+  describe("rotate", () => {
+    it("should replace the key and keep the session", async () => {
+      const owner = createTestClient().auth;
+      const { token, key } = await owner.apiKeys.create({ name: "rotated" });
+      const keyed = createTestAuthClient({ apiKey: token });
+      await keyed.sessions.retrieve();
+      const session = keyed.session?.key;
+      const rotated = await keyed.apiKeys.rotate();
+      expect(rotated.key.key).not.toEqual(key.key);
+      expect(rotated.key.name).toEqual("rotated");
+      expect(rotated.key.subject).toEqual(key.subject);
+      await keyed.sessions.retrieve();
+      expect(keyed.session?.key).toEqual(session);
+      expect(keyed.session?.credential).toEqual(rotated.key.key);
+      const old = createTestAuthClient({ apiKey: token });
+      await expect(old.sessions.retrieve()).rejects.toThrow(InvalidCredentialsError);
+      await owner.apiKeys.delete(rotated.key.key);
+    });
+
+    it("should log in again with the new key", async () => {
+      const owner = createTestClient().auth;
+      const { token } = await owner.apiKeys.create({ name: "relogin" });
+      const keyed = createTestAuthClient({ apiKey: token });
+      await keyed.sessions.retrieve();
+      const old = keyed.session?.key;
+      const rotated = await keyed.apiKeys.rotate();
+      if (old != null) await owner.sessions.delete(old);
+      await keyed.sessions.retrieve();
+      expect(keyed.session?.key).not.toEqual(old);
+      expect(keyed.session?.credential).toEqual(rotated.key.key);
+      await owner.apiKeys.delete(rotated.key.key);
+    });
+
+    it("should keep the lifetime of the old key", async () => {
+      const owner = createTestClient().auth;
+      const lifetime = TimeSpan.days(30);
+      const { token } = await owner.apiKeys.create({
+        name: "lifetime",
+        expires: TimeStamp.now().add(lifetime),
+      });
+      const keyed = createTestAuthClient({ apiKey: token });
+      const { key } = await keyed.apiKeys.rotate();
+      const kept = key.created.span(key.expires);
+      expect(kept.sub(lifetime).abs().lessThan(TimeSpan.SECOND)).toBe(true);
+      await owner.apiKeys.delete(key.key);
+    });
+
+    it("should refuse a session that logged in with a password", async () => {
+      const owner = createTestClient().auth;
+      await expect(owner.apiKeys.rotate()).rejects.toThrow(ValidationError);
     });
   });
 });

@@ -64,9 +64,15 @@ std::string mismatch_message(const std::string &core_version) {
 
 /// @brief adds the rack status, which reports an error when the Core runs another
 /// minor.
-void configure_state(const Config &config, FactoryList &factories) {
+void configure_state(
+    const Config &config,
+    FactoryList &factories,
+    status::Problem key_problem
+) {
     if (!config.incompatible_core_version) {
-        factories.push_back(std::make_unique<status::Factory>());
+        factories.push_back(
+            std::make_unique<status::Factory>(status::Health{}, std::move(key_problem))
+        );
         return;
     }
     const auto message = mismatch_message(*config.incompatible_core_version);
@@ -163,14 +169,15 @@ void configure_http(const Config &config, FactoryList &factories) {
 
 std::unique_ptr<task::Factory> Config::new_factory(
     const std::shared_ptr<synnax::Synnax> &client,
-    const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+    const std::shared_ptr<x::thread::rt::Manager> &rt_manager,
+    status::Problem key_problem
 ) const {
     FactoryList factories;
     const auto reader = std::make_shared<secret::Reader>(
         client,
         secret::Config{.secrets_dir = this->secrets_dir, .rack = this->rack.key}
     );
-    configure_state(*this, factories);
+    configure_state(*this, factories, std::move(key_problem));
     configure_opcua(*this, factories, reader);
     configure_ni(*this, factories);
     configure_labjack(*this, factories);

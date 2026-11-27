@@ -43,6 +43,12 @@ type (
 		struct{},
 		*emptypb.Empty,
 	]
+	rotateServer = grpc.UnaryServer[
+		struct{},
+		*emptypb.Empty,
+		apikey.CreateResponse,
+		*grpcauth.APIKeyCreateResponse,
+	]
 )
 
 type (
@@ -159,8 +165,15 @@ func New(t *api.Transport, errs *errors.Codec) grpc.BindableTransport {
 		ServiceDesc:        &grpcauth.AuthAPIKeyDeleteService_ServiceDesc,
 		Errors:             errs,
 	}
+	rotate := &rotateServer{
+		RequestTranslator:  grpc.EmptyTranslator{},
+		ResponseTranslator: createResponseTranslator{},
+		ServiceDesc:        &grpcauth.AuthAPIKeyRotateService_ServiceDesc,
+		Errors:             errs,
+	}
 	t.AuthAPIKeyCreate = create
 	t.AuthAPIKeyRetrieve = retrieve
 	t.AuthAPIKeyDelete = del
-	return grpc.CompoundBindableTransport{create, retrieve, del}
+	t.AuthAPIKeyRotate = rotate
+	return grpc.CompoundBindableTransport{create, retrieve, del, rotate}
 }

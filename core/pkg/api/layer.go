@@ -84,6 +84,7 @@ type Transport struct {
 	AuthAPIKeyCreate    freighter.UnaryServer[apikey.CreateRequest, apikey.CreateResponse]
 	AuthAPIKeyRetrieve  freighter.UnaryServer[apikey.RetrieveRequest, apikey.RetrieveResponse]
 	AuthAPIKeyDelete    freighter.UnaryServer[apikey.DeleteRequest, struct{}]
+	AuthAPIKeyRotate    freighter.UnaryServer[struct{}, apikey.CreateResponse]
 	// AuthOIDCLink links a provider account to the caller.
 	AuthOIDCLink freighter.UnaryServer[oidc.LinkRequest, oidc.LinkResponse]
 	// AuthOIDCRetrieve lists provider links.
@@ -358,7 +359,7 @@ type Layer struct {
 	Auth         *auth.Service
 	// Session logs in and lists, renews, and ends sessions.
 	Session *session.Service
-	// APIKey creates, lists, and deletes API keys.
+	// APIKey creates, lists, rotates, and deletes API keys.
 	APIKey *apikey.Service
 	// Password creates, sets, renames, and lists passwords.
 	Password *password.Service
@@ -445,6 +446,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthAPIKeyCreate,
 		t.AuthAPIKeyRetrieve,
 		t.AuthAPIKeyDelete,
+		t.AuthAPIKeyRotate,
 		t.AuthOIDCLink,
 		t.AuthOIDCRetrieve,
 		t.AuthOIDCUnlink,
@@ -703,6 +705,7 @@ func (l *Layer) BindTo(t Transport) {
 		return l.APIKey.Retrieve(ctx, snap, req)
 	}))
 	t.AuthAPIKeyDelete.BindHandler(bind.Write(l.binder, l.APIKey.Delete))
+	t.AuthAPIKeyRotate.BindHandler(bind.Write(l.binder, l.APIKey.Rotate))
 	t.AuthOIDCLink.BindHandler(bind.WritePrepared(
 		l.binder,
 		l.OIDC.PrepareLink,

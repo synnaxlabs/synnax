@@ -60,6 +60,26 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     VLOG(1) << "loaded config. starting task manager";
     const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
     const auto client = cfg.new_client();
+    // A Driver that logs in with a password has no key to renew.
+    std::shared_ptr<key::Renewer> renewer;
+    status::Problem key_problem;
+    if (!cfg.connection.api_key.empty()) {
+        key::Save save;
+        if (cfg.api_key_persisted)
+            save = [&args, conn = cfg.connection](const std::string &token) mutable {
+                conn.api_key = token;
+                return Config::save_api_key(args, conn);
+            };
+        renewer = std::make_shared<key::Renewer>(
+            cfg.key_renewal,
+            client,
+            std::move(save)
+        );
+        key_problem = [renewer] { return renewer->health(); };
+    }
+    x::defer::defer stop_renewer([renewer] {
+        if (renewer != nullptr) renewer->stop();
+    });
     {
         std::lock_guard lock{this->mu};
         // A stop that came first sees no task manager, so none starts.
@@ -69,7 +89,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
             client,
-            cfg.new_factory(client, rt_manager),
+            cfg.new_factory(client, rt_manager, std::move(key_problem)),
             cfg.manager
         );
     }
@@ -81,7 +101,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
             return;
         // The factories hold the Core version and cluster from startup, so a new one
         // needs a new Driver process. No run starts before a check passes.
-        while (const auto check_err = cfg.check_core()) {
+        while (const auto check_err = cfg.check_core(*client)) {
             if (check_err.matches(CORE_CHANGED))
                 LOG(ERROR) << "Core changed cluster or version, restarting: "
                            << check_err.data;

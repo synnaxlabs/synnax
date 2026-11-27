@@ -82,6 +82,10 @@ Transport::Transport(
         grpc::auth::APIKeyDeleteRequest,
         google::protobuf::Empty,
         grpc::auth::AuthAPIKeyDeleteService>>(pool, base_target);
+    this->auth_api_key_rotate = std::make_unique<freighter::grpc::UnaryClient<
+        google::protobuf::Empty,
+        grpc::auth::APIKeyCreateResponse,
+        grpc::auth::AuthAPIKeyRotateService>>(pool, base_target);
     this->frame_stream = std::make_unique<freighter::grpc::StreamClient<
         grpc::framer::StreamerRequest,
         grpc::framer::StreamerResponse,
@@ -276,6 +280,7 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     auth_api_key_create->use(mw);
     auth_api_key_retrieve->use(mw);
     auth_api_key_delete->use(mw);
+    auth_api_key_rotate->use(mw);
     frame_stream->use(mw);
     frame_write->use(mw);
     chan_create->use(mw);

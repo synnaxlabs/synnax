@@ -110,6 +110,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/api-key/delete",
 		),
+		AuthAPIKeyRotate: unary[struct{}, apikey.CreateResponse](
+			router,
+			"/api/v1/auth/api-key/rotate",
+		),
 		AuthOIDCLink: unary[oidc.LinkRequest, oidc.LinkResponse](
 			router,
 			"/api/v1/auth/oidc/link",

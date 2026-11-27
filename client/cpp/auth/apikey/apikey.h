@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <utility>
@@ -36,6 +37,9 @@ using RetrieveClient = freighter::
 /// @brief transport that deletes API keys.
 using DeleteClient = freighter::
     UnaryClient<grpc::auth::APIKeyDeleteRequest, google::protobuf::Empty>;
+/// @brief transport that rotates the API key of the caller's session.
+using RotateClient = freighter::
+    UnaryClient<google::protobuf::Empty, grpc::auth::APIKeyCreateResponse>;
 
 /// @brief returns the API key in a gRPC message. Returns an error when its key is not
 /// a UUID.
@@ -62,21 +66,36 @@ struct New {
     APIKey key;
 };
 
-/// @brief creates, lists, and deletes API keys.
+/// @brief returns the API key and its token in a gRPC create or rotate response.
+inline std::pair<New, x::errors::Error>
+new_from_pb(const grpc::auth::APIKeyCreateResponse &res) {
+    auto [key, err] = from_pb(res.key());
+    if (err) return {{}, err};
+    return {New{res.token(), key}, x::errors::NIL};
+}
+
+/// @brief creates, lists, rotates, and deletes API keys.
 class Client {
     std::unique_ptr<CreateClient> create_client;
     std::unique_ptr<RetrieveClient> retrieve_client;
     std::unique_ptr<DeleteClient> delete_client;
+    std::unique_ptr<RotateClient> rotate_client;
+    /// @brief receives the token of each rotated key, so later logins use it.
+    std::function<void(const std::string &)> on_rotate;
 
 public:
     Client(
         std::unique_ptr<CreateClient> create_client,
         std::unique_ptr<RetrieveClient> retrieve_client,
-        std::unique_ptr<DeleteClient> delete_client
+        std::unique_ptr<DeleteClient> delete_client,
+        std::unique_ptr<RotateClient> rotate_client,
+        std::function<void(const std::string &)> on_rotate
     ):
         create_client(std::move(create_client)),
         retrieve_client(std::move(retrieve_client)),
-        delete_client(std::move(delete_client)) {}
+        delete_client(std::move(delete_client)),
+        rotate_client(std::move(rotate_client)),
+        on_rotate(std::move(on_rotate)) {}
 
     /// @brief creates an API key for the subject, or for the caller when the subject
     /// is empty. The key never expires when expires is TIME_STAMP_MAX, the default.
@@ -91,9 +110,22 @@ public:
         req.set_expires(expires.nanoseconds());
         auto [res, err] = this->create_client->send("/auth/api-key/create", req);
         if (err) return {{}, err};
-        auto [key, key_err] = from_pb(res.key());
-        if (key_err) return {{}, key_err};
-        return {New{res.token(), key}, x::errors::NIL};
+        return new_from_pb(res);
+    }
+
+    /// @brief replaces the API key that the client logged in with by a new key for the
+    /// same subject and name, and returns the new key. The client's session stays open
+    /// and later logins use the new key. The old key cannot log in again. Returns a
+    /// validation error when the client did not log in with an API key, and
+    /// ERR_INVALID_CREDENTIALS when the key has expired.
+    [[nodiscard]] std::pair<New, x::errors::Error> rotate() const {
+        google::protobuf::Empty req;
+        auto [res, err] = this->rotate_client->send("/auth/api-key/rotate", req);
+        if (err) return {{}, err};
+        auto [rotated, rotated_err] = new_from_pb(res);
+        if (rotated_err) return {{}, rotated_err};
+        this->on_rotate(rotated.token);
+        return {rotated, x::errors::NIL};
     }
 
     /// @brief lists the caller's API keys, or those of the given subjects when the

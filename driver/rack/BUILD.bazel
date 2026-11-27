@@ -69,6 +69,7 @@ cc_library(
         "//driver/modbus:names",
         "//driver/ni:names",
         "//driver/opcua",
+        "//driver/rack/key",
         "//driver/rack/status",
         "//driver/secret",
         "//driver/task",
