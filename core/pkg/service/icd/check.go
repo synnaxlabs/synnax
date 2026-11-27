@@ -356,24 +356,23 @@ func (c *checker) checkJSONFields(path []string, p JSONPayload) {
 			c.addf(pathOf(fieldPath, "default"), "default %s", message)
 		}
 		b := f.Base()
+		if pointer, err := xjson.ParsePointer(b.Pointer); err != nil {
+			c.addf(pathOf(fieldPath, "pointer"), "invalid JSON Pointer %q", b.Pointer)
+		} else {
+			for _, r := range reads {
+				if msg, ok := nested(pointer, r.pointer); ok {
+					c.addf(pathOf(fieldPath, "pointer"), msg, b.Pointer, r.name)
+					break
+				}
+			}
+			reads = append(reads, read{name: b.Name, pointer: pointer})
+		}
 		var number bool
 		switch f.Variant.(type) {
 		case FloatJSONField, IntegerJSONField, UnsignedJSONField:
 			number = true
 		}
 		c.checkBase(fieldPath, b.BaseField, number, fields)
-		pointer, err := xjson.ParsePointer(b.Pointer)
-		if err != nil {
-			c.addf(pathOf(fieldPath, "pointer"), "invalid JSON Pointer %q", b.Pointer)
-			continue
-		}
-		for _, r := range reads {
-			if msg, ok := nested(pointer, r.pointer); ok {
-				c.addf(pathOf(fieldPath, "pointer"), msg, b.Pointer, r.name)
-				break
-			}
-		}
-		reads = append(reads, read{name: b.Name, pointer: pointer})
 	}
 }
 
