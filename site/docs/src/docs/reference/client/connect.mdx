@@ -823,6 +823,16 @@ A Node.js script does not exit until you close the client.
   client prints a warning.
 </Field.Item>
 
+<Field.Item
+  name="streamOpenTimeout"
+  id="typescript-stream-open-timeout"
+  type="TimeSpan"
+  default="10 s"
+>
+  The longest a stream waits to open. A streamer that reconnects tries again after an
+  open that times out. Set it to zero for no limit.
+</Field.Item>
+
 <Field.Item name="name" id="typescript-name" type="string">
   A name for the Core, which the client shows in its connection status messages.
 </Field.Item>

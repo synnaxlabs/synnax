@@ -120,7 +120,7 @@ const DEFAULT_TIMEOUT = TimeSpan.seconds(60);
 const MAX_TIMEOUT = TimeSpan.milliseconds(2 ** 31 - 1);
 
 /** Returns the timeout as a limit, or null when it sets no limit. */
-const limitOf = (timeout: CrudeTimeSpan): TimeSpan | null => {
+export const limitOf = (timeout: CrudeTimeSpan): TimeSpan | null => {
   if (typeof timeout === "number" && !Number.isFinite(timeout)) return null;
   const span = new TimeSpan(timeout);
   return span.greaterThan(TimeSpan.ZERO) && span.lessThanOrEqual(MAX_TIMEOUT)
