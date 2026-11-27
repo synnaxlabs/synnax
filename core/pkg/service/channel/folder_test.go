@@ -66,9 +66,11 @@ var _ = Describe("CheckFolderName", func() {
 
 	It("Should allocate nothing for an ASCII name or a name in NFC", func() {
 		for _, name := range []string{"pt_unique_01", "Stand A-01", "\u5727\u529b \u00E9"} {
+			var err error
 			Expect(testing.AllocsPerRun(10, func() {
-				_, _ = channel.CheckFolderName(name)
+				_, err = channel.CheckFolderName(name)
 			})).To(BeZero())
+			Expect(err).ToNot(HaveOccurred())
 		}
 	})
 })
