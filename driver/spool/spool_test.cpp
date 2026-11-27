@@ -921,6 +921,28 @@ TEST_F(SpoolTest, SetsAsideSegmentWithInvalidName) {
     this->expect_set_aside("abc.seg", CORRUPT);
 }
 
+/// @brief it should refuse each setting that is out of its range.
+TEST_F(SpoolTest, RefusesInvalidConfig) {
+    const std::vector<std::function<void(Config &)>> edits = {
+        [](Config &c) { c.dir.clear(); },
+        [](Config &c) { c.cap = 0; },
+        [](Config &c) { c.sync_bytes = 0; },
+        [](Config &c) { c.sync_interval = x::telem::TimeSpan(0); },
+        [](Config &c) { c.sync_interval = x::telem::TimeSpan(-1); },
+        [](Config &c) { c.max_payload = 0; },
+        [](Config &c) { c.max_payload = journal::MAX_PAYLOAD + 1; },
+        [](Config &c) { c.available = nullptr; },
+        [](Config &c) { c.on_create = nullptr; },
+        [](Config &c) { c.on_sync = nullptr; },
+    };
+    for (const auto &edit: edits) {
+        Config cfg{.dir = this->dir};
+        edit(cfg);
+        ASSERT_OCCURRED_AS_P(Spool::open(std::move(cfg)), INVALID_CONFIG);
+    }
+    ASSERT_FALSE(std::filesystem::exists(this->dir));
+}
+
 /// @brief it should report at most the capacity of the disk as free.
 TEST_F(SpoolTest, ReportsFreeSpaceWithinDiskCapacity) {
     std::filesystem::create_directories(this->dir);
@@ -979,7 +1001,7 @@ TEST_F(SpoolTest, KeepsFrameWhenSyncFails) {
         Spool::open(
             Config{
                 .dir = this->dir,
-                .sync_interval = x::telem::TimeSpan(0),
+                .sync_interval = x::telem::TimeSpan(1),
                 .on_sync = [failing, sync_err](const x::errors::Error &err) {
                     return *failing ? sync_err : err;
                 },
@@ -1010,7 +1032,7 @@ TEST_F(SpoolTest, RemovesSegmentWhenFirstSyncFails) {
         Spool::open(
             Config{
                 .dir = this->dir,
-                .sync_interval = x::telem::TimeSpan(0),
+                .sync_interval = x::telem::TimeSpan(1),
                 .on_sync = [sync_err](const x::errors::Error &) { return sync_err; },
             }
         )

@@ -50,6 +50,8 @@ const x::errors::Error BASE_ERROR = x::errors::Error("spool", "");
 const x::errors::Error FULL = BASE_ERROR.sub("full");
 /// @brief a record passes its checksum but is not a valid header or frame.
 const x::errors::Error CORRUPT = BASE_ERROR.sub("corrupt");
+/// @brief a setting of the config is out of its range.
+const x::errors::Error INVALID_CONFIG = BASE_ERROR.sub("invalid_config");
 
 /// @returns true when err shows that a segment fails its checks, not that the disk
 /// failed. Set such a segment aside with Spool::set_aside.
@@ -245,8 +247,9 @@ public:
     /// when it does not exist. Removes segments that a crash left without a header,
     /// read offsets without a segment, and temp files. Sets aside each segment that
     /// fails its checks, as set_aside does.
-    /// @returns x::fs::LOCKED when another process has the spool open. An error when
-    /// the spool cannot read or change its directory.
+    /// @returns INVALID_CONFIG when a setting is out of its range. x::fs::LOCKED when
+    /// another process has the spool open. An error when the spool cannot read or
+    /// change its directory.
     static std::pair<std::unique_ptr<Spool>, x::errors::Error> open(Config cfg);
 
     /// @brief starts a new segment for the header. The writer creates the file at its

@@ -304,6 +304,28 @@ std::pair<std::optional<Header>, x::errors::Error> read_header(journal::Reader &
 }
 }
 
+namespace {
+/// @returns INVALID_CONFIG when a setting of cfg is out of its range.
+x::errors::Error validate(const Config &cfg) {
+    const auto invalid = [](const std::string &msg) {
+        return x::errors::Error(INVALID_CONFIG, msg);
+    };
+    if (cfg.dir.empty()) return invalid("dir must not be empty");
+    if (cfg.cap == 0) return invalid("cap must be more than 0");
+    if (cfg.sync_bytes == 0) return invalid("sync_bytes must be more than 0");
+    if (cfg.sync_interval <= x::telem::TimeSpan(0))
+        return invalid("sync_interval must be more than 0");
+    if (cfg.max_payload == 0 || cfg.max_payload > journal::MAX_PAYLOAD)
+        return invalid(
+            "max_payload must be from 1 to " + std::to_string(journal::MAX_PAYLOAD)
+        );
+    if (!cfg.available) return invalid("available must be set");
+    if (!cfg.on_create) return invalid("on_create must be set");
+    if (!cfg.on_sync) return invalid("on_sync must be set");
+    return x::errors::NIL;
+}
+}
+
 bool is_bad(const x::errors::Error &err) {
     return err.matches(
         {CORRUPT,
@@ -496,6 +518,7 @@ Spool::Spool(Config cfg, std::unique_ptr<journal::Lock> lock):
     cfg(std::move(cfg)), lock(std::move(lock)) {}
 
 std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
+    if (const auto err = validate(cfg)) return {nullptr, err};
     std::error_code ec;
     std::filesystem::create_directories(cfg.dir, ec);
     if (ec) return {nullptr, fs_error("failed to create spool directory", ec)};
