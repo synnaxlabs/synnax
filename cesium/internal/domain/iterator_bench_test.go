@@ -54,8 +54,7 @@ func BenchmarkIteratorCutPass(b *testing.B) {
 
 // BenchmarkIteratorStale steps an iterator from a domain that k deletes cut into k+1
 // pieces, with a write in each cut, after the iterator reached the domain. One op is
-// one
-// step.
+// one step.
 func BenchmarkIteratorStale(b *testing.B) {
 	for _, k := range []int{10, 100, 1_000} {
 		for _, dir := range []string{"next", "prev"} {
