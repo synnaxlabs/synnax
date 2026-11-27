@@ -887,9 +887,10 @@ Tombstone struct {
   moves them (§4.11). A plain rename or move runs no heal, so it can put a live channel
   on a tombstone's path. That tombstone waits, since a heal needs a free path. So a
   rewire onto that path leaves it waiting under the new holder. If the live channel's
-  delete writes a tombstone (Write), the new one replaces the waiting one, and the plan
-  lists the old one with the effect `delete`. The old list's entries go ahead of the new
-  one, oldest first, while their `at` is before the new list's first `at`. The rest
+  delete writes a tombstone (Write), the new one replaces the waiting one, and from
+  Phase 40 the plan lists the old one with the effect `delete`, with the other tombstone
+  entries. Phase 17 replaces it with no entry. The old list's entries go ahead of the
+  new one, oldest first, while their `at` is before the new list's first `at`. The rest
   drop. A dropped entry with a past holder (`from` not 0) is history that the path
   loses. Past holders exist only from Phase 36's rewires, so before then only gap
   entries drop. The old tombstone's display links keep the dead key, as on `main`. A
@@ -1026,15 +1027,16 @@ Waits that the phase table cannot hold: its depends-on cells name only earlier p
 this RFC, so a wait on a later phase, on another RFC, or on other work goes here, and
 the issues of these phases take their blockers from this table too.
 
-| Phase    | Waits for                                                                                                                         |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| 3        | Phase 7, so no Core holds calculation records without its text pass, and RFC 0120 Phase 1, which carries code moves that it needs |
-| 5, 8     | Phase 38, since the quotes land last                                                                                              |
-| 25       | RFC 0120 Phase 1, which carries code moves that it needs                                                                          |
-| 29, 35   | Phase 40, which moves the folder edits to `channel/tree`                                                                          |
-| 34 to 38 | RFC 0120 Phase 9, which pairs series by clock, and RFC 0121 Phase 8, which brings one alignment counter per database              |
-| 39       | RFC 0120 Phases 20 to 28 and 52                                                                                                   |
-| 41       | SY-6990, the link framework, which decides how every write applies its effects                                                    |
+| Phase    | Waits for                                                                                                                                  |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 3        | Phase 7, so no Core holds calculation records without its text pass, and RFC 0120 Phase 1, which carries code moves that it needs          |
+| 5, 8     | Phase 38, since the quotes land last                                                                                                       |
+| 25       | RFC 0120 Phase 1, which carries code moves that it needs                                                                                   |
+| 29, 35   | Phase 40, which moves the folder edits to `channel/tree`                                                                                   |
+| 34 to 38 | RFC 0120 Phase 9, which pairs series by clock, and RFC 0121 Phase 8, which brings one alignment counter per database                       |
+| 36       | Phase 40, whose tombstone entries list a tombstone that a delete replaces, before any rewire makes a past holder that a replace could drop |
+| 39       | RFC 0120 Phases 20 to 28 and 52                                                                                                            |
+| 41       | SY-6990, the link framework, which decides how every write applies its effects                                                             |
 
 Other RFCs wait on this one: RFC 0120 Phases 21 and 24 on Phase 3, the calculation
 record, which also stops the Core from reading node bits; RFC 0120 Phase 43 on Phase 29,
