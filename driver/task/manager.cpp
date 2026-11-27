@@ -707,7 +707,11 @@ void Manager::execute_op(
         case Op::Type::DEPLOY: {
             this->statuses->claim(op.task_key);
             auto tsk = op.task;
+            auto cmd_key = op.cmd.key;
+            // A start follows a deploy for a command, so the instance it replaces stops
+            // silently.
             bool silent = true;
+            bool replaced_running = false;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
             if (tsk.key.is_nil()) {
@@ -757,6 +761,9 @@ void Manager::execute_op(
                     this->refuse_pinned_start(tsk, operation);
                     break;
                 }
+                // Read before the loading status of the start replaces it.
+                if (entry->instance != nullptr)
+                    tsk.status = this->statuses->latest(tsk.key);
                 this->announce_start(tsk.key, operation);
                 std::string deployed;
                 {
@@ -795,31 +802,56 @@ void Manager::execute_op(
                 if (entry->instance != nullptr && deployed == tsk.config_hash &&
                     !failed)
                     return;
-                silent = failed;
                 operation.set_task(tsk.name, tsk.config_hash);
                 this->announce_start(tsk.key, operation);
+                if (entry->instance != nullptr && failed) {
+                    // A failed instance runs nothing, and keeps the error that says
+                    // why.
+                    entry->instance->stop(true);
+                    entry->instance = nullptr;
+                } else if (entry->instance != nullptr) {
+                    // The config changed during a Core outage. The replacement starts
+                    // only if the instance ran, and one that did not reports its stop.
+                    cmd_key = REDEPLOY;
+                    tsk.status = latest;
+                    replaced_running = latest.has_value() && latest->details.running;
+                    silent = replaced_running;
+                }
             }
-            if (entry->instance != nullptr) {
-                // A start follows a deploy for a command. At boot, a live instance
-                // reports its own stop, and a failed one keeps the error that says
-                // why.
-                entry->instance->stop(silent);
-                entry->instance = nullptr;
-            }
-            auto [driver_task, handled] = this->configure(tsk, op, entry, operation);
-            {
-                std::lock_guard entry_lock{entry->mu};
-                entry->deployed_hash = driver_task != nullptr ? tsk.config_hash : "";
-            }
+            // A live instance runs until its replacement builds, and runs on if the
+            // build fails.
+            auto [driver_task, handled] = this->configure(
+                tsk,
+                op,
+                cmd_key,
+                entry,
+                operation
+            );
             if (driver_task != nullptr) {
+                if (entry->instance != nullptr) entry->instance->stop(silent);
                 entry->instance = std::move(driver_task);
+                {
+                    std::lock_guard entry_lock{entry->mu};
+                    entry->deployed_hash = tsk.config_hash;
+                }
                 if (!op.cmd.type.empty()) {
                     auto cmd = op.cmd;
                     LOG(INFO) << "executing command " << cmd << " on task "
                               << entry->instance->name();
                     entry->instance->exec(cmd, operation.token());
+                } else if (replaced_running) {
+                    synnax::task::Command cmd{
+                        .task = tsk.key,
+                        .type = synnax::task::START_CMD_TYPE,
+                    };
+                    LOG(INFO) << "starting replaced task " << entry->instance->name();
+                    entry->instance->exec(cmd, operation.token());
                 }
                 break;
+            }
+            if (entry->instance == nullptr) {
+                std::lock_guard entry_lock{entry->mu};
+                entry->deployed_hash.clear();
             }
             if (!handled) {
                 LOG(WARNING) << "failed to find integration to handle task" << tsk;
@@ -962,6 +994,7 @@ void Manager::replace_interrupted_status(const synnax::task::Task &tsk) {
 std::pair<std::unique_ptr<Task>, bool> Manager::configure(
     synnax::task::Task &tsk,
     const Op &op,
+    const std::string &cmd_key,
     const std::shared_ptr<Entry> &entry,
     Operation &operation
 ) {
@@ -977,8 +1010,12 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
         status.variant = variant;
         status.message = message;
         status.description = description;
-        status.details.running = false;
         status.details.config_hash = tsk.config_hash;
+        // A live instance runs on with its last deployed config.
+        if (tsk.status.has_value() && tsk.status->details.running) {
+            status.details.running = true;
+            status.details.config_hash = tsk.status->details.config_hash;
+        }
         operation.answer(status);
     };
     for (int attempt = 1;; attempt++) {
@@ -986,7 +1023,7 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
         auto [built, handled] = this->factory->configure_task(
             this->ctx,
             tsk,
-            op.cmd.key,
+            cmd_key,
             operation.token()
         );
         if (built == nullptr) return {nullptr, handled};
@@ -1007,6 +1044,11 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
             // The Driver of the new rack dropped the start, since it read the task
             // before the move.
             LOG(INFO) << "releasing task moved to another rack: " << tsk;
+            if (entry->instance != nullptr) {
+                entry->instance->stop(true);
+                entry->instance = nullptr;
+            }
+            tsk.status.reset();
             fail(
                 synnax::status::VARIANT_WARNING,
                 "Task moved to another rack",
@@ -1019,6 +1061,7 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
             return {nullptr, true};
         }
         LOG(INFO) << "config of task " << tsk << " changed while it was configured";
+        stored.status = std::move(tsk.status);
         tsk = std::move(stored);
         const auto released = operation.change_config(tsk.name, tsk.config_hash);
         if (!released.empty()) {

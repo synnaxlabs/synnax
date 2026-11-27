@@ -327,14 +327,15 @@ inline std::string config_err_description(const x::errors::Error &err) {
 
 /// @brief a utility function that appropriately handles configuration errors and
 /// communicates them back to Synnax in the standard format. cmd_key is the start
-/// command driving the deploy, or NO_COMMAND at boot. A failed configure writes an
-/// error status, except at boot for a task that another rack runs. A successful
-/// configure writes no status: the start that follows it answers the command. Only a
-/// configure with no command auto-starts the task, because a start command that drives
-/// a deploy starts the task with its own key. An auto-start first writes a loading
-/// status, which the task replaces when it answers the start. cancel is passed to the
-/// auto-start. A configure that fails with x::errors::CANCELLED writes no status, so
-/// the start is answered as stopped.
+/// command driving the deploy, NO_COMMAND at boot, or REDEPLOY. A failed configure
+/// writes an error status, except at boot for a task that another rack runs. One that
+/// replaces a running instance keeps the running state and config hash of task.status,
+/// since that instance runs on. A successful configure writes no status: the start that
+/// follows it answers the command. Only a configure with no command auto-starts the
+/// task: a start command starts it with its own key, and the task manager starts a
+/// redeploy. An auto-start first writes a loading status, which the task replaces when
+/// it answers the start. cancel is passed to the auto-start. A configure that fails
+/// with x::errors::CANCELLED writes no status, so the start is answered as stopped.
 inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -354,8 +355,17 @@ inline std::pair<std::unique_ptr<task::Task>, bool> handle_config_err(
         status.variant = synnax::status::VARIANT_ERROR;
         status.message = "Failed to configure task";
         status.description = config_err_description(res.second);
-        // Ack the start so a waiting caller resolves with the failure, not a timeout.
-        status.details.cmd = cmd_key;
+        if (commanded && task.status.has_value() && task.status->details.running) {
+            status.details = task.status->details;
+            status.details.data.reset();
+            status.message = "Failed to deploy changes";
+            status.description = "The task still runs its last deployed config. " +
+                                 status.description;
+        }
+        // Ack the start so a waiting caller resolves with the failure, not a timeout. A
+        // redeploy answers no command, so its status shows as the state of the task.
+        const bool redeploy = cmd_key == driver::task::REDEPLOY;
+        status.details.cmd = redeploy ? driver::task::NO_COMMAND : cmd_key;
         // A task moved here runs on its old Driver until a start arrives.
         const bool moved = task.status.has_value() && task.status->details.running &&
                            task.status->details.rack != task.rack;

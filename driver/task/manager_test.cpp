@@ -14,6 +14,7 @@
 #include <functional>
 #include <future>
 #include <mutex>
+#include <optional>
 #include <set>
 #include <string>
 #include <thread>
@@ -1416,43 +1417,48 @@ void report(
     const bool running,
     const std::string &cmd = "",
     const std::string &variant = synnax::status::VARIANT_SUCCESS,
-    const std::string &message = ""
+    const std::string &message = "",
+    const std::string &config_hash = ""
 ) {
     synnax::task::Status status{
         .variant = variant,
         .message = message,
-        .details = {.running = running, .cmd = cmd},
+        .details = {.running = running, .cmd = cmd, .config_hash = config_hash},
         .owner = synnax::task::resource_id(task),
     };
     ctx->set_status(status);
 }
+
+/// @brief a rate that RunningTaskFactory fails to build.
+constexpr int BROKEN_RATE = 13;
 
 /// @brief builds tasks that report running when they start and stopped when they stop,
 /// as a real task does. Each command answers with the running state.
 class RunningTaskFactory final : public Factory {
     class Instance final : public Task {
         const std::shared_ptr<Context> ctx;
-        const synnax::task::Key key;
+        const synnax::task::Task task;
         const std::shared_ptr<TrackingTaskState> state;
         bool running = false;
 
     public:
         Instance(
             std::shared_ptr<Context> ctx,
-            const synnax::task::Key &key,
+            synnax::task::Task task,
             std::shared_ptr<TrackingTaskState> state,
             const bool auto_start
         ):
-            ctx(std::move(ctx)), key(key), state(std::move(state)) {
+            ctx(std::move(ctx)), task(std::move(task)), state(std::move(state)) {
             if (!auto_start) return;
             this->running = true;
             report(
                 this->ctx,
-                this->key,
+                this->task.key,
                 true,
                 "",
                 synnax::status::VARIANT_SUCCESS,
-                "Started task"
+                "Started task",
+                this->task.config_hash
             );
         }
 
@@ -1460,7 +1466,15 @@ class RunningTaskFactory final : public Factory {
             ++this->state->exec_count;
             if (cmd.type == synnax::task::START_CMD_TYPE) this->running = true;
             if (cmd.type == synnax::task::STOP_CMD_TYPE) this->running = false;
-            report(this->ctx, this->key, this->running, cmd.key);
+            report(
+                this->ctx,
+                this->task.key,
+                this->running,
+                cmd.key,
+                synnax::status::VARIANT_SUCCESS,
+                "",
+                this->task.config_hash
+            );
         }
 
         void stop(const bool will_reconfigure) override {
@@ -1472,32 +1486,76 @@ class RunningTaskFactory final : public Factory {
     const bool auto_start;
 
 public:
+    /// @brief what one configure received.
+    struct Build {
+        std::string cmd_key;
+        std::optional<synnax::task::Status> status;
+        /// @brief the number of instances built before that were not stopped.
+        size_t live = 0;
+    };
+
     std::mutex mu;
     std::vector<std::shared_ptr<TrackingTaskState>> task_states;
+    std::vector<Build> builds;
     /// @brief the context of the last build.
     std::shared_ptr<Context> ctx;
+    /// @brief runs during each configure, as a save would.
+    std::function<void(const synnax::task::Task &)> during;
 
-    /// @param auto_start true for tasks that start when built.
+    /// @param auto_start true for tasks that start when built with no command.
     explicit RunningTaskFactory(const bool auto_start = false):
         auto_start(auto_start) {}
 
+    /// @brief fails the configure of a task with BROKEN_RATE.
     std::pair<std::unique_ptr<Task>, bool> configure_task(
         const std::shared_ptr<Context> &ctx,
         const synnax::task::Task &task,
-        const std::string &,
+        const std::string &cmd_key,
         x::breaker::Breaker &
     ) override {
         if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
-        auto state = std::make_shared<TrackingTaskState>();
         std::lock_guard lock(this->mu);
-        this->task_states.push_back(state);
+        this->builds.push_back({
+            .cmd_key = cmd_key,
+            .status = task.status,
+            .live = static_cast<size_t>(
+                std::ranges::count_if(this->task_states, [](const auto &state) {
+                    return !state->stopped.load();
+                })
+            ),
+        });
         this->ctx = ctx;
+        if (this->during) this->during(task);
+        if (task.config.contains("rate") && task.config.at("rate") == BROKEN_RATE) {
+            synnax::task::Status status{
+                .name = task.name,
+                .variant = synnax::status::VARIANT_ERROR,
+                .message = "Failed to configure task",
+                .details = {.cmd = cmd_key, .config_hash = task.config_hash},
+                .owner = synnax::task::resource_id(task.key),
+            };
+            ctx->set_status(status);
+            return {nullptr, true};
+        }
+        auto state = std::make_shared<TrackingTaskState>();
+        this->task_states.push_back(state);
         return {
-            std::make_unique<Instance>(ctx, task.key, state, this->auto_start),
+            std::make_unique<Instance>(
+                ctx,
+                task,
+                state,
+                this->auto_start && cmd_key == NO_COMMAND
+            ),
             true
         };
     }
 };
+
+/// @brief returns what each configure of f received.
+std::vector<RunningTaskFactory::Build> builds(RunningTaskFactory &f) {
+    std::lock_guard lock(f.mu);
+    return f.builds;
+}
 
 /// @brief it should keep a running task alive through a lost Core connection, with no
 /// stop and no second configure.
@@ -1675,9 +1733,10 @@ TEST_F(TaskManagerTest, CloseStopsTheTasksOfARunThatLostTheCore) {
     EXPECT_FALSE(manager->worker_detached());
 }
 
-/// @brief it should deploy a task again when its config changed during a Core outage,
-/// and let the old instance report its stop.
-TEST_F(TaskManagerTest, TaskChangedDuringAnOutageIsDeployedAgain) {
+/// @brief it should build a running task whose config changed during a Core outage
+/// before it stops the live instance, then start the new one. The Core marks the task
+/// as stopped responding meanwhile, so only the Driver knows that it runs.
+TEST_F(TaskManagerTest, RunningTaskChangedDuringAnOutageIsReplacedAndStarted) {
     auto factory = std::make_unique<RunningTaskFactory>();
     auto *f = factory.get();
     start_piped_manager(std::move(factory));
@@ -1691,7 +1750,15 @@ TEST_F(TaskManagerTest, TaskChangedDuringAnOutageIsDeployedAgain) {
     send_start(client, task);
     ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
     ASSERT_EVENTUALLY_EQ(built(*f)[0]->exec_count.load(), 1);
+    const auto deployed = task.config_hash;
     pipe->pause();
+    store_status(
+        client,
+        task,
+        synnax::status::VARIANT_WARNING,
+        "Task stopped responding",
+        false
+    );
     edit_task(
         client,
         task,
@@ -1701,9 +1768,268 @@ TEST_F(TaskManagerTest, TaskChangedDuringAnOutageIsDeployedAgain) {
     ASSERT_TRUE(wait_for_run(2));
     ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
     const auto states = built(*f);
+    ASSERT_EVENTUALLY_EQ(states[1]->exec_count.load(), 1);
+    EXPECT_TRUE(states[0]->stopped.load());
+    EXPECT_TRUE(states[0]->stop_will_reconfigure.load());
+    EXPECT_FALSE(states[1]->stopped.load());
+    const auto replacement = builds(*f).at(1);
+    EXPECT_EQ(replacement.cmd_key, REDEPLOY);
+    EXPECT_EQ(replacement.live, 1);
+    ASSERT_TRUE(replacement.status.has_value());
+    EXPECT_TRUE(replacement.status->details.running);
+    EXPECT_EQ(replacement.status->details.config_hash, deployed);
+}
+
+/// @brief it should leave the replacement of a stopped task stopped when its config
+/// changed during a Core outage, even for a task that starts when built.
+TEST_F(TaskManagerTest, StoppedTaskChangedDuringAnOutageIsReplacedStopped) {
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    auto factory = std::make_unique<RunningTaskFactory>(true);
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    send_cmd(
+        client,
+        {.task = task.key, .type = synnax::task::STOP_CMD_TYPE, .key = "stop-cmd"}
+    );
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "stop-cmd" &&
+               s.variant != synnax::status::VARIANT_LOADING;
+    });
+    pipe->pause();
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
+    for (const auto &s: statuses_until_command(task))
+        EXPECT_FALSE(s.details.running);
+    const auto states = built(*f);
     EXPECT_TRUE(states[0]->stopped.load());
     EXPECT_FALSE(states[0]->stop_will_reconfigure.load());
-    EXPECT_FALSE(states[1]->stopped.load());
+    EXPECT_EQ(builds(*f).at(1).cmd_key, REDEPLOY);
+}
+
+/// @brief it should keep a running task running on its last deployed config when the
+/// config it got during a Core outage fails to build.
+TEST_F(TaskManagerTest, RunningTaskKeepsRunningWhenItsRedeployFails) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_piped_manager(std::move(factory));
+    ASSERT_TRUE(wait_for_run(1));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    pipe->pause();
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = BROKEN_RATE})}
+    );
+    pipe->resume();
+    ASSERT_TRUE(wait_for_run(2));
+    ASSERT_EVENTUALLY_EQ(builds(*f).size(), 2);
+    statuses_until_command(task);
+    EXPECT_EQ(state->exec_count.load(), 2);
+    EXPECT_FALSE(state->stopped.load());
+    EXPECT_EQ(built(*f).size(), 1);
+}
+
+/// @brief it should build a running task whose config changed before it stops the live
+/// instance, then start the new one with the command.
+TEST_F(TaskManagerTest, StartOfAChangedTaskBuildsBeforeItStopsTheLiveInstance) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "start-1");
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    ASSERT_EVENTUALLY_EQ(built(*f)[0]->exec_count.load(), 1);
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    send_start(client, task, "start-2");
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
+    const auto states = built(*f);
+    ASSERT_EVENTUALLY_EQ(states[1]->exec_count.load(), 1);
+    EXPECT_TRUE(states[0]->stopped.load());
+    EXPECT_TRUE(states[0]->stop_will_reconfigure.load());
+    const auto replacement = builds(*f).at(1);
+    EXPECT_EQ(replacement.cmd_key, "start-2");
+    EXPECT_EQ(replacement.live, 1);
+}
+
+/// @brief it should keep a running task running on its last deployed config when a
+/// start with a changed config fails to build, so a start of that config runs it again.
+TEST_F(TaskManagerTest, StartWhoseBuildFailsKeepsTheLiveInstance) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "start-1");
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    const auto deployed = task.config_hash;
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = BROKEN_RATE})}
+    );
+    send_start(client, task, "start-2");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-2" &&
+               s.variant != synnax::status::VARIANT_LOADING;
+    });
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 50})}
+    );
+    ASSERT_EQ(task.config_hash, deployed);
+    send_start(client, task, "start-3");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "start-3" &&
+               s.variant != synnax::status::VARIANT_LOADING;
+    });
+    EXPECT_EQ(state->exec_count.load(), 2);
+    EXPECT_FALSE(state->stopped.load());
+    EXPECT_EQ(built(*f).size(), 1);
+    const auto got = builds(*f);
+    ASSERT_EQ(got.size(), 2);
+    EXPECT_EQ(got[1].live, 1);
+    ASSERT_TRUE(got[1].status.has_value());
+    EXPECT_TRUE(got[1].status->details.running);
+    EXPECT_EQ(got[1].status->details.config_hash, deployed);
+}
+
+/// @brief it should stop the live instance of a task that a save moved to another rack
+/// while the Driver built its replacement.
+TEST_F(TaskManagerTest, TaskMovedDuringARedeployStopsItsLiveInstance) {
+    const auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "start-1");
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    {
+        std::lock_guard lock(f->mu);
+        f->during = [this, target = other.key](const synnax::task::Task &t) {
+            EXPECT_NIL(client->tasks.dispatch(
+                t.key,
+                {synnax::task::set({.path = {"rack"}, .value = target}),
+                 synnax::task::set({.path = {"config", "rate"}, .value = 200})}
+            ));
+        };
+    }
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    send_start(client, task, "start-2");
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-2" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(s.message, "Task moved to another rack");
+    EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(state->stopped.load());
+    EXPECT_TRUE(state->stop_will_reconfigure.load());
+}
+
+/// @brief it should keep a running task running on its last deployed config when its
+/// config moves during the build of a pinned start.
+TEST_F(TaskManagerTest, RefusedRedeployOfARunningTaskKeepsItRunning) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "start-1");
+    ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
+    const auto state = built(*f)[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    const auto deployed = task.config_hash;
+    {
+        std::lock_guard lock(f->mu);
+        f->during = [this](const synnax::task::Task &t) {
+            EXPECT_NIL(client->tasks.dispatch(
+                t.key,
+                {synnax::task::set({.path = {"config", "rate"}, .value = 200})}
+            ));
+        };
+    }
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "start-2",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    const auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-2" &&
+                   s.variant != synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(s.message, "Config changed");
+    EXPECT_TRUE(s.details.running);
+    EXPECT_EQ(s.details.config_hash, deployed);
+    EXPECT_FALSE(state->stopped.load());
 }
 
 /// @brief it should stop a task deleted during a Core outage silently, so no status
