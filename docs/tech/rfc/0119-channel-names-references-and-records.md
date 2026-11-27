@@ -172,13 +172,15 @@ Rewire struct {
   name at the root, or creates it, and adds the key to a set on the channel service
   (precedent: `core/pkg/service/task/service.go:231-250`). The delete and rename guards
   (`writer.go:979`, `:1027`), a new guard that refuses a move of a built-in, Arc
-  (`resolver.go:44`, `:82`), the `Hidden` hook (`resource.go:26`), and the `internal`
+  (`resolver.go:44`, `:82`), the `Hidden` hook (`resource.go:26`), and the `built_in`
   filter line read the set. No route serves it: the filter line is the one way to ask.
-  The line becomes a typed line of an operator type, `internal filter.Bool`, which
-  Oracle generates like a bare line in every client, so a caller writes `internal=False`
-  or `{eq: false}`. The TypeScript client keeps the set privately for its cache, filled
-  by one retrieve with `internal` true per epoch. `Declare` takes the key out of the set
-  that the license check counts (`service.go:119-121`).
+  The line becomes a typed line of an operator type, `built_in filter.Bool`, which
+  Oracle generates like a bare line in every client, so a caller writes `built_in=False`
+  or `{eq: false}`. Built-in is the one word in every layer: `built_in` on the wire and
+  in Python, `builtIn` in TypeScript, and `BuiltIn` in Go. The create parameter
+  `internal` goes from both clients. The TypeScript client keeps the set privately for
+  its cache, filled by one retrieve with `builtIn` true per epoch. `Declare` takes the
+  key out of the set that the license check counts (`service.go:119-121`).
 - **Name clash with a built-in**: `Declare` adopts a channel at the root with the same
   name, `data_type`, and `virtual`, unless a calculation computes it. Any other holder
   of the name is a user channel: `Declare` renames it with the first free suffix and
@@ -190,20 +192,23 @@ Rewire struct {
 
 ### 4.1 Names and folders
 
-- **Rule**: NEW `validate.IsPathSegment` in `x/go/validate` (precedent: `IsIdentifier`,
+- **Rule**: A NEW check in `core/pkg/service/channel`, the one home of the rule for
+  channels and channel folders (precedent: `validate.IsIdentifier`,
   `x/go/validate/identifier.go:18`). A name is valid UTF-8, is not empty after trimming,
   and holds no `.` and no character that shows as nothing or as a space other than
   U+0020: the categories `Cc`, `Cf`, `Zl`, `Zp`, and `Zs` except U+0020, the default
   ignorable code points, and U+2800 (Braille pattern blank). Look-alike letters of two
-  scripts are out of scope. `PT-FU-01` and `Stand A` are legal. The rule also covers
-  folders of a scope with the namespace policy.
+  scripts are out of scope. `PT-FU-01` and `Stand A` are legal. Group's folder writer
+  checks the rule on each create, rename, and move of a folder of scope `channel`,
+  through a check per scope that `layer.go` injects, so `group` imports nothing of
+  `channel`. Other folder types take no rule, as on `main`.
 - **One form**: The Core stores a name in NFC: it normalizes a name on write and a
   lookup string on read (`x/go/go.mod:26`). Two names are the same when their bytes are.
-- **Until the quotes land** (§5): Folder names take the rule from Phase 6. Channel names
-  keep `main`'s rule and message, `^[a-zA-Z_][a-zA-Z0-9_]*$`, on a default Core. A Core
-  that runs with name validation off checks no syntax, as on `main`, except that a name
-  holds no `.` and is valid UTF-8, which paths need (§4.9). Its flag also switches the
-  dashed-name lexer of Arc (`core/cmd/start/flags.go:38`,
+- **Until the quotes land** (§5): Channel folder names take the rule from Phase 6.
+  Channel names keep `main`'s rule and message, `^[a-zA-Z_][a-zA-Z0-9_]*$`, on a default
+  Core. A Core that runs with name validation off checks no syntax, as on `main`, except
+  that a name holds no `.` and is valid UTF-8, which paths need (§4.9). Its flag also
+  switches the dashed-name lexer of Arc (`core/cmd/start/flags.go:38`,
   `arc/go/parser/parser.go:47-49`, `:62-86`). No name is refused for being an Arc
   keyword. Phase 6 checks only a name that a write sets or changes, so a stored name
   that breaks a rule stays writable, and Phase 7 renames only what paths and uniqueness
@@ -219,6 +224,12 @@ Rewire struct {
   holds for that key, so a stored duplicate stays writable and never spreads. A clash
   fails with NEW `gorp.UniqueError`, which names the holder and wraps
   `query.ErrUniqueViolation` (`x/go/query/errors.go:24`).
+- **Create pre-check**: A channel create checks its new names with one retrieve on the
+  unique index, in its transaction and before `Allocate`, with the same error and
+  position. So a create that fails spends no key: the key counter persists outside the
+  transaction and stays capped until RFC 0120 Phase 50. The check at commit stays the
+  one rule for uniqueness, across a race too. A race of two creates into one name can
+  still spend the keys of the one that loses, as on `main`.
 - **The sibling space**: The value is NEW `group.Sibling{Parent Key; Name string}` (32
   B), with the zero parent at the root. `@group namespaced` on a member's group field
   (precedent: `@group pinned`, `oracle/domain/group/group.go:157`) makes Oracle generate
@@ -572,8 +583,8 @@ TDMS) reads measured.
 | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
 | `gorp`                                                  | Unique index and spaces, weak policy, dependents with their reference                                                                        | `x`                                                                                                            | Any Core package; the meaning of a tag      |
 | `core/pkg/service/imex/session`                         | Import and export sessions: the link reads and writes of one file                                                                            | `imex`, `service/channel`                                                                                      | -                                           |
-| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules                                                                                           | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`            |
-| `core/pkg/service/channel`                              | The record, the name rule, paths, the built-in set, tombstones, `rewires`, the meaning of the tag                                            | `service/group`, `service/status`, `distribution/channel`                                                      | `arc`, `service/arc`, `service/calculation` |
+| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules, the folder name check per scope that `layer.go` injects                                  | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`            |
+| `core/pkg/service/channel`                              | The record, the name rule of channels and channel folders, paths, the built-in set, tombstones, `rewires`, the meaning of the tag            | `service/group`, `service/status`, `distribution/channel`                                                      | `arc`, `service/arc`, `service/calculation` |
 | `core/pkg/service/channel/resolver` (NEW)               | Channels as Arc symbols, consistent lookups for one compile                                                                                  | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`        |
 | `core/pkg/service/calculation`                          | The record, analyzer, compiler, graph, status, `reads`, its text holder                                                                      | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                               |
 | `core/pkg/service/arc`                                  | Arc records, `reads` and `writes`, the deployed keys, its text holder, the remap of graph inputs                                             | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                       |
@@ -602,7 +613,7 @@ map probe and a 1 to 2 µs keyed read. The sibling index costs about 175 B per c
 | Retrieve by key; by name         | Within 5% of base's time on the same API benchmark, no more allocations. On the bench host: a page of 100 at most 1.34 x F_keys(100), one key at most 6.0 x F_keys(1) | Same paths; the v3 value is 16 B smaller. Base: a page is 1.27 x F_keys(100) and one key 5.7 x F_keys(1), since the API call adds access and translation to the Gorp read |
 | Retrieve by path, depth d        | <= (d + 1) x F_name, no scan                                                                                                                                          | d + 1 probes, 1 read: 1.5 µs at depth 3                                                                                                                                   |
 | Path fill, page of 100           | <= 1.5 x the page; 0 when not asked                                                                                                                                   | 10 folders per level: 30 reads against 100                                                                                                                                |
-| Create, rename, move             | <= 1.10 x F_create per entry that adds no link                                                                                                                        | 3 probes with the tombstone index, 1 staged entry: 0.5 µs; the name query per batch goes                                                                                  |
+| Create, rename, move             | <= 1.10 x F_create per entry that adds no link                                                                                                                        | 3 probes with the tombstone index, 1 staged entry: 0.5 µs; a create keeps one name query per batch                                                                        |
 | A write that adds n weak links   | <= 1.00 x the same write with n restrict links                                                                                                                        | A weak link skips the existence check of a restrict link: 6.4 µs against 9.5 µs for one link on the bench host                                                            |
 | `include_uses`, page of 100      | <= 2 x the page; 0 when not asked                                                                                                                                     | 30 references x 0.1 µs per channel, one access check per holder                                                                                                           |
 | "Used by nothing" at 100,000     | <= 50 ms, no Pebble read                                                                                                                                              | 300,000 links x 0.1 µs = 30 ms                                                                                                                                            |
@@ -645,10 +656,11 @@ change:
   the first free suffix (`_2`, `_3`). A renamed name that is taken takes the first free
   suffix too; until Phase 31, "taken" means anywhere in the Core. Every other stored
   name stays as stored, and the skip rule keeps it writable (§4.1). A built-in is never
-  renamed. The same pass runs on folders in the group chain, in key order; after both
-  tables open, in a clash of a folder and a sibling channel, the name that a pass
-  rewrote takes a suffix, and the folder does when both or neither were rewritten. A
-  folder that the Core makes by name (`Metrics`) never takes the suffix; the clashing
+  renamed. The same pass runs on channel folders in the channel chain, with a frozen
+  copy of the rule, in key order, and other folders keep their names, as on `main`;
+  after both tables open, in a clash of a folder and a sibling channel, the name that a
+  pass rewrote takes a suffix, and the folder does when both or neither were rewritten.
+  A folder that the Core makes by name (`Metrics`) never takes the suffix; the clashing
   item does. Duplicates in different folders stay. Each rename writes a warning status
   (`core/pkg/service/migrate.go:62`).
 - **Phase 7: Text.** The name pass writes each change under a staging prefix in its own
@@ -992,9 +1004,9 @@ RFC 0121 moves the storage half of create, rename, and delete out of the commit 
 | 3     | Give calculations their own record                          | `schemas/synnax/channel.oracle`, `schemas/synnax/status.oracle`, `core/pkg/service/calculation`, `core/pkg/service/channel`, `core/pkg/service/channel/resolver`, `core/pkg/service/framer`, `core/pkg/service/arc`, `core/pkg/api/calculation`, `core/pkg/api/channel`, `client/ts/src/channel`, `client/py/synnax/channel`, `client/cpp/channel`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `pluto/src/calculation`, `console/src/platform/channel`, `client/ts/src/framer/cache`, `schemas/synnax/arc.oracle`, `core/pkg/api/arc`, `client/cpp/arc` | 1              |
 | 4     | Add unique indexes and spaces to Gorp                       | `gorp`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 1              |
 | 5     | Read single-quoted channel names in Arc                     | `arc/go/parser`, `arc/go/analyzer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | 4              |
-| 6     | Check the name rule on writes                               | `x/go/validate`, `core/pkg/service/channel`, `core/cmd/start`, `arc/go/lsp`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | 4              |
+| 6     | Check the name rule on writes                               | `core/pkg/service/channel`, `core/pkg/service/group`, `core/pkg/service`, `core/cmd/start`, `arc/go/lsp`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 4              |
 | 7     | Migrate stored names, folders, and text to the name rule    | `core/pkg/service`, `core/pkg/service/channel`, `core/pkg/service/group`, `core/pkg/service/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 6              |
-| 8     | Give channel names the rule and remove the flag and lexer   | `arc/go/parser`, `core/pkg/service/calculation`, `core/cmd/start`, `core/pkg/service/arc`, `x/go/validate`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                    | 5, 7           |
+| 8     | Give channel names the rule and remove the flag and lexer   | `arc/go/parser`, `core/pkg/service/calculation`, `core/cmd/start`, `core/pkg/service/arc`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                     | 5, 7           |
 | 9     | Make sibling names unique in each folder                    | `oracle/domain/group`, `oracle/plugin/go/group`, `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                      | 7              |
 | 10    | Look channels up by path and add descriptions               | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/api/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 9              |
 | 11    | Look channels up by path in the TS client                   | `client/ts/src/channel`, `client/ts/src/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 10             |
@@ -1097,7 +1109,8 @@ link hold a key that a later channel takes.
 **6.11 No stored `internal`, no reserved prefix.** The flag stores a fact that the
 makers know, and a reserved `sy_` prefix refuses legal names. The cost: `Declare` adopts
 a user channel with the same name and shape. The set lives on the channel service, which
-every maker already holds, not on a second injected instance.
+every maker already holds, not on a second injected instance. One word, built-in, names
+these channels in every layer.
 
 **6.12 Smaller shapes.** A calculation delete leaves its output: deleting both would be
 the only cascade to a channel. `data_type` stays a name: a code saves 10 B and freezes a
