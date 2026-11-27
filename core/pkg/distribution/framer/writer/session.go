@@ -88,7 +88,11 @@ func (s *Service) newSession(
 func (s *session) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
-	sCtx.Go(func(ctx context.Context) error { return s.close(s.run(ctx)) }, o.Signal...)
+	sCtx.Go(func(ctx context.Context) (err error) {
+		// A panic in run that the caller recovers still closes the writer.
+		defer func() { err = s.close(err) }()
+		return s.run(ctx)
+	}, o.Signal...)
 }
 
 // run serves requests until the inlet closes or ctx ends.
