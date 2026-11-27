@@ -16,26 +16,35 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Apply replaces the field group that update carries on the server stored under key and
-// keeps the other group as stored. It returns an error wrapping query.ErrNotFound when
-// no server is stored under key and a validation error when update is invalid.
-func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
-	switch v := update.Variant.(type) {
+// ApplyUpdate replaces the field group that update carries on the server stored under
+// key and keeps the other group as stored. It applies the group as one set action per
+// field, so subscribers to the action channel see the write. It returns an error
+// wrapping query.ErrNotFound when no server is stored under key and a validation error
+// when update is invalid.
+func (w Writer) ApplyUpdate(ctx context.Context, key Key, update Update) error {
+	acts, err := update.actions()
+	if err != nil {
+		return err
+	}
+	return w.Apply(ctx, key, acts...)
+}
+
+// actions returns one set action for each field of the group that u replaces.
+func (u Update) actions() ([]Action, error) {
+	set := func(path string, value any) Action {
+		return NewSetAction(SetPayload{Path: []string{path}, Value: value})
+	}
+	switch v := u.Variant.(type) {
 	case IdentityUpdate:
-		return w.update(ctx, key, func(s Server) (Server, error) {
-			s.Rack = v.Rack
-			s.Name = v.Name
-			s.Connection = v.Connection
-			return s, nil
-		})
+		return []Action{
+			set("rack", v.Rack),
+			set("name", v.Name),
+			set("connection", v.Connection),
+		}, nil
 	case ConfigurationUpdate:
-		return w.update(ctx, key, func(s Server) (Server, error) {
-			s.Reads = v.Reads
-			s.Writes = v.Writes
-			return s, nil
-		})
+		return []Action{set("reads", v.Reads), set("writes", v.Writes)}, nil
 	default:
-		return errors.Wrapf(
+		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"server update has no field group",
 		)

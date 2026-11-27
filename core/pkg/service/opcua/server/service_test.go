@@ -313,14 +313,14 @@ var _ = Describe("Service", func() {
 		)
 	})
 
-	Describe("Apply", func() {
+	Describe("ApplyUpdate", func() {
 		It("Should write the identity group and keep the bindings", func(
 			ctx SpecContext,
 		) {
 			s := newServer()
 			s.Reads = []server.Read{{Node: "nsu=urn:plc;s=Temp", Index: 1, Channel: 5}}
 			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			Expect(e.svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+			Expect(e.svc.NewWriter(tx).ApplyUpdate(ctx, s.Key, server.Update{
 				Variant: server.IdentityUpdate{Identity: server.Identity{
 					Rack:       s.Rack,
 					Name:       "Renamed",
@@ -338,7 +338,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			s := create(ctx)
-			Expect(e.svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+			Expect(e.svc.NewWriter(tx).ApplyUpdate(ctx, s.Key, server.Update{
 				Variant: server.ConfigurationUpdate{Configuration: server.Configuration{
 					Reads: []server.Read{
 						{Node: "NSU=urn:plc;s=Temp", Field: "a", Index: 1, Channel: 2},
@@ -368,7 +368,7 @@ var _ = Describe("Service", func() {
 				conn.Security = server.Security{
 					Variant: server.SignSecurity{SecuredChannel: channel},
 				}
-				Expect(e.svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+				Expect(e.svc.NewWriter(tx).ApplyUpdate(ctx, s.Key, server.Update{
 					Variant: server.IdentityUpdate{Identity: server.Identity{
 						Rack:       s.Rack,
 						Name:       s.Name,
@@ -382,7 +382,7 @@ var _ = Describe("Service", func() {
 			s := create(ctx)
 			other := rack.Rack{Name: "Other"}
 			Expect(e.racks.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			Expect(e.svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
+			Expect(e.svc.NewWriter(tx).ApplyUpdate(ctx, s.Key, server.Update{
 				Variant: server.IdentityUpdate{Identity: server.Identity{
 					Rack:       other.Key,
 					Name:       s.Name,
@@ -395,7 +395,7 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject an invalid update",
 			func(ctx SpecContext, update server.Update) {
 				s := create(ctx)
-				Expect(e.svc.NewWriter(tx).Apply(ctx, s.Key, update)).
+				Expect(e.svc.NewWriter(tx).ApplyUpdate(ctx, s.Key, update)).
 					To(MatchError(validate.ErrValidation))
 				Expect(retrieve(ctx, s.Key)).To(Equal(s))
 			},
@@ -414,7 +414,7 @@ var _ = Describe("Service", func() {
 		)
 
 		It("Should return not found for a missing server", func(ctx SpecContext) {
-			Expect(e.svc.NewWriter(tx).Apply(ctx, uuid.New(), server.Update{
+			Expect(e.svc.NewWriter(tx).ApplyUpdate(ctx, uuid.New(), server.Update{
 				Variant: server.ConfigurationUpdate{},
 			})).To(MatchError(query.ErrNotFound))
 		})

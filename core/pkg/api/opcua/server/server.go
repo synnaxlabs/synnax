@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -112,14 +113,16 @@ type UpdateResponse struct {
 }
 
 // Update writes the field group of req to the server stored under req.Key, as
-// server.Writer.Apply does. It returns the stored server, or a validation error when
+// server.Writer.ApplyUpdate does. It returns the stored server, or a validation error
+// when
 // the request carries no group.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
 	req UpdateRequest,
 ) (UpdateResponse, error) {
-	if err := s.cfg.Server.NewWriter(tx).Apply(ctx, req.Key, req.Update); err != nil {
+	if err := s.cfg.Server.NewWriter(tx).
+		ApplyUpdate(ctx, req.Key, req.Update); err != nil {
 		return UpdateResponse{}, err
 	}
 	var res UpdateResponse
@@ -128,6 +131,23 @@ func (s *Service) Update(
 		Entry(&res.Server).
 		Exec(ctx, tx)
 	return res, err
+}
+
+// DispatchRequest carries an action sequence to apply to one server. DispatchKey is a
+// client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[server.Key, server.Action]
+
+// Dispatch applies the action sequence to the server atomically. Subscribers to
+// sy_opcua_server_action_set receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Server.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
 }
 
 // DeleteRequest carries the keys of the servers to delete.

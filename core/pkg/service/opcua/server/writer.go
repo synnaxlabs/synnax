@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -28,11 +29,19 @@ import (
 // Writer creates, updates, and deletes OPC UA servers in the transaction given to
 // Service.NewWriter.
 type Writer struct {
-	tx       gorp.Tx
-	status   status.Writer
-	statuses *status.Service
-	table    *gorp.Table[Key, Server]
-	certs    *certificate.Service
+	tx         gorp.Tx
+	status     status.Writer
+	statuses   *status.Service
+	table      *gorp.Table[Key, Server]
+	certs      *certificate.Service
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // prepare validates s, normalizes the node ID of each binding, and refuses a read on
@@ -142,7 +151,8 @@ func (w Writer) setStatus(ctx context.Context, s Server) error {
 // Create stores s and writes an unknown status when it has none. An existing status
 // takes the name and rack of s. A server with a nil key gets a new one. It returns a
 // validation error when s is invalid, or when its rack, password, or certificates do
-// not exist.
+// not exist. After the transaction commits, Create broadcasts a create action that
+// carries the stored server.
 func (w Writer) Create(ctx context.Context, s *Server) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
@@ -156,7 +166,29 @@ func (w Writer) Create(ctx context.Context, s *Server) error {
 	if err := w.checkPrivateKeys(ctx, *s); err != nil {
 		return err
 	}
-	return w.setStatus(ctx, *s)
+	if err := w.setStatus(ctx, *s); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewCreateAction(CreatePayload{Server: *s}))
+	return nil
+}
+
+// Apply applies the actions to the server stored under key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Each
+// action edits only its path of the server that the transaction reads, so edits to
+// other paths that committed before it survive. The scanner writes only the identity
+// paths (rack, name, and connection), and the task forms write reads and writes. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result is invalid, and an error wrapping query.ErrNotFound when no server is stored
+// under key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	if err := w.update(ctx, key, func(s Server) (Server, error) {
+		return Reduce(s, acts...)
+	}); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, acts...)
+	return nil
 }
 
 // update applies change to the server stored under key. A rename or rack move updates

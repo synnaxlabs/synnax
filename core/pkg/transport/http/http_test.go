@@ -210,6 +210,11 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/opcua/server/update",
 			),
 			Entry(
+				"unary OPC UA server dispatch",
+				http.MethodPost,
+				"/api/v1/opcua/server/dispatch",
+			),
+			Entry(
 				"unary OPC UA server delete",
 				http.MethodPost,
 				"/api/v1/opcua/server/delete",

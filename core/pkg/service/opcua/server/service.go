@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -40,7 +41,8 @@ type ServiceConfig struct {
 	// Certificate holds the client and server certificates of each server.
 	// [REQUIRED]
 	Certificate *certificate.Service
-	// Signals publishes sy_opcua_server_set and sy_opcua_server_delete.
+	// Signals publishes sy_opcua_server_set, sy_opcua_server_delete, and
+	// sy_opcua_server_action_set.
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
@@ -79,6 +81,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Server]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a Service. The service must be closed by calling Close.
@@ -87,7 +90,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Server]{
@@ -113,6 +120,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		); !ok(err, nil) {
 			return nil, err
 		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_opcua_server_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -124,11 +138,12 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a writer that runs its operations in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:       tx,
-		status:   s.cfg.Status.NewWriter(tx),
-		statuses: s.cfg.Status,
-		table:    s.table,
-		certs:    s.cfg.Certificate,
+		tx:         tx,
+		status:     s.cfg.Status.NewWriter(tx),
+		statuses:   s.cfg.Status,
+		table:      s.table,
+		certs:      s.cfg.Certificate,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
