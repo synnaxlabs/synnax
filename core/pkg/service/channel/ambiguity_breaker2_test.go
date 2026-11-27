@@ -26,7 +26,7 @@ import (
 
 // A quoted path escapes each backslash and each single quote in it.
 var _ = Describe("Ambiguity breaker 2", func() {
-	It("Should escape a quote inside each quoted path", func(ctx SpecContext) {
+	It("Should quote each path as plain display text", func(ctx SpecContext) {
 		fresh := testutil.NewNode(ctx)
 		db := fresh.DB
 		cfg, groupSvc := serviceConfig(ctx, fresh, fresh.DB)
@@ -59,6 +59,6 @@ var _ = Describe("Ambiguity breaker 2", func() {
 		Expect(svc.DescribeAmbiguity(ctx, db, channel.AmbiguousNameError{
 			Name:    "it's",
 			Holders: channel.Keys{inA.Key(), inB.Key()},
-		}, all)).To(MatchError(ContainSubstring(`'a.it\'s', 'b.it\'s'`)))
+		}, all)).To(MatchError(ContainSubstring(`'a.it's', 'b.it's'`)))
 	})
 })
