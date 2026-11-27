@@ -776,10 +776,10 @@ TEST(BatchTest, RepeatsAShorterInput) {
         "diff"
     );
     const auto a = x::telem::Series(std::vector<int32_t>{1, 2, 3, 4, 5});
-    for (const auto &b: frames_of(
-             x::telem::Series(static_cast<int32_t>(7)),
-             x::telem::Series(std::vector<int32_t>{7, -3})
-         )) {
+    std::vector<x::telem::Series> shorter;
+    shorter.emplace_back(static_cast<int32_t>(7));
+    shorter.emplace_back(std::vector<int32_t>{7, -3});
+    for (const auto &b: shorter) {
         auto out = x::telem::Series(x::telem::INT32_T, 5);
         out.resize(5);
         ASSERT_TRUE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 5, out)));
