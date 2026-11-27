@@ -525,6 +525,9 @@ const Content = ({
 
   const trimmed = term.trim();
   const visible = entries.filter(({ name }) => search.matches(name, trimmed));
+  // The pane shows the active topic only while the list shows it.
+  const shown =
+    activeEntry != null && visible.includes(activeEntry) ? activeEntry : null;
   const items = visible.map((entry): ICD.Picker.TreeItem => {
     const { name, listed: topic } = entry;
     const sample = reads.get(name);
@@ -607,8 +610,13 @@ const Content = ({
   let emptyMessage = "The cluster has no topics.";
   if (trimmed !== "") emptyMessage = `No topic matches “${trimmed}”.`;
   else if (listing == null) emptyMessage = "Search for a topic to read it by name.";
+  const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
+  const addTerm = `${kind.verb} “${trimmed}”`;
+  // The tree shows its empty content once a browse answers.
+  const answered = listing != null || browseFailed;
+  const termInEmpty = unknownTerm && answered && visible.length === 0;
   let tree: ReactNode;
-  if (listing != null || browseFailed)
+  if (answered)
     tree = (
       <ICD.Picker.Tree
         key={listing?.key ?? "unlisted"}
@@ -617,19 +625,25 @@ const Content = ({
         active={active}
         onActivate={setSelected}
         onPick={(topic) => void handlePick(topic)}
-        emptyContent={<ICD.Picker.Notice message={emptyMessage} />}
+        emptyContent={
+          <ICD.Picker.Notice
+            message={emptyMessage}
+            action={termInEmpty ? addTerm : undefined}
+            onClick={handleTerm}
+          />
+        }
       />
     );
   else tree = <ICD.Picker.TreeSkeleton items={SKELETON} />;
 
-  const activeTopic = activeEntry?.listed ?? null;
+  const activeTopic = shown?.listed ?? null;
   const fill = whole ? NO_FIELDS : ADD_EMPTY;
   let pane: ReactNode;
-  if (activeEntry == null && browseFailed)
+  if (shown == null && browseFailed)
     pane = <Status.Summary center status={result.status} />;
-  else if (activeEntry == null && listing == null)
+  else if (shown == null && listing == null)
     pane = <ICD.Picker.PaneSkeleton noun="Field" />;
-  else if (activeEntry == null)
+  else if (shown == null)
     pane = <ICD.Picker.Notice message="Select a topic to see its records." />;
   else if (whole && format != null)
     pane = (
@@ -642,9 +656,9 @@ const Content = ({
   else if (activeTopic != null && !holdsRecords(activeTopic))
     pane = <ICD.Picker.Notice message={`${NO_RECORDS} ${fill}`} />;
   else if (activeSample == null || activeSample.variant === "loading")
-    pane = <ICD.Picker.PaneSkeleton noun="Field" title={activeEntry.name} />;
+    pane = <ICD.Picker.PaneSkeleton noun="Field" title={shown.name} />;
   else if (activeSample.variant === "error" && whole) {
-    const topic = activeEntry.name;
+    const topic = shown.name;
     pane = (
       <Flex.Box center>
         <Flex.Box y align="start" gap="medium">
@@ -659,7 +673,7 @@ const Content = ({
   } else if (activeSample.variant === "error")
     pane = <Status.Summary center status={activeSample.status} />;
   else if (activeSample.data.shapes.length > 0) {
-    const topic = activeEntry.name;
+    const topic = shown.name;
     const { data } = activeSample;
     const warning = [
       activeTopic == null || activeTopic.error === ""
@@ -725,7 +739,6 @@ const Content = ({
   const count = whole
     ? wholePicks.size
     : [...picks.values()].reduce((n, p) => n + countOf(p.picks), 0);
-  const unknownTerm = trimmed !== "" && !entries.some(({ name }) => name === trimmed);
   const finish = (record: string | null) =>
     close({
       topics: [...picks.values()].sort(compare.by(({ topic }) => topic)),
@@ -737,19 +750,13 @@ const Content = ({
     });
 
   let sideAction: ReactNode = null;
-  if (unknownTerm)
+  if (unknownTerm && !termInEmpty)
     sideAction = (
-      <ICD.Picker.SideAction onClick={handleTerm}>
-        {`${kind.verb} “${trimmed}”`}
-      </ICD.Picker.SideAction>
+      <ICD.Picker.SideAction onClick={handleTerm}>{addTerm}</ICD.Picker.SideAction>
     );
-  else if (
-    !whole &&
-    activeEntry != null &&
-    (activeTopic == null || activeTopic.readable)
-  )
+  else if (!whole && shown != null && (activeTopic == null || activeTopic.readable))
     sideAction = (
-      <ICD.Picker.SideAction onClick={() => finish(activeEntry.name)}>
+      <ICD.Picker.SideAction onClick={() => finish(shown.name)}>
         Add an empty record
       </ICD.Picker.SideAction>
     );

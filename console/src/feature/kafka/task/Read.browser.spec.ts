@@ -633,7 +633,7 @@ describe("Kafka read form", () => {
       });
       const search = dialog.getByPlaceholderText("Search topics");
       fireEvent.change(search, { target: { value: "plant" } });
-      fireEvent.click(await dialog.findByRole("button", { name: "Read “plant”" }));
+      fireEvent.click(await dialog.findByText("Read “plant”"));
       expect((await second.answered)[0].args.topics).toEqual(["plant"]);
       await dialog.findByText("Not listed by the cluster");
       dialog.getByRole("checkbox", { name: "Record /temperature" });
@@ -761,8 +761,28 @@ describe("Kafka read form", () => {
         expect(dialog.queryByRole("checkbox", { name: `Pick ${TOPIC}` })).toBeNull(),
       );
       dialog.getByRole("checkbox", { name: "Pick plant" });
+      dialog.getByRole("button", { name: "Read “pla”" });
       fireEvent.change(search, { target: { value: "boiler" } });
       await dialog.findByText("No topic matches “boiler”.");
+      dialog.getByText("Read “boiler”");
+      expect(dialog.queryByRole("button", { name: "Read “boiler”" })).toBeNull();
+    });
+
+    it("should clear the pane while the search hides the active topic", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+      const sample = { data: sampleOf(OVEN_SHAPE) };
+      const dialog = await openAddData(dev, sample, TOPIC, browse);
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.change(search, { target: { value: "boiler" } });
+      await dialog.findByText("Select a topic to see its records.");
+      expect(
+        dialog.queryByRole("checkbox", { name: "Record /temperature" }),
+      ).toBeNull();
+      expect(dialog.queryByText("Add an empty record")).toBeNull();
+      fireEvent.change(search, { target: { value: "" } });
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
     });
 
     it("should open Add data on the topic of the selected record", async () => {

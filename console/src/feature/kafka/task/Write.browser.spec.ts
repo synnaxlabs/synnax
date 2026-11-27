@@ -350,7 +350,7 @@ describe("Kafka Write form", () => {
     fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
-    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    fireEvent.click(await dialog.findByText(`Write “${TOPIC}”`));
     await answered;
     fireEvent.click(await dialog.findByRole("button", { name: "Add 1 target" }));
     const target = await waitFor(async () => {
@@ -394,7 +394,7 @@ describe("Kafka Write form", () => {
     fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
-    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    fireEvent.click(await dialog.findByText(`Write “${TOPIC}”`));
     await answered;
     fireEvent.click(await dialog.findByRole("button", { name: "Add 1 target" }));
     await waitFor(async () =>
@@ -414,7 +414,7 @@ describe("Kafka Write form", () => {
     fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
-    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    fireEvent.click(await dialog.findByText(`Write “${TOPIC}”`));
     await answered;
     await dialog.findByText("Topic does not exist yet");
     dialog.getByText(
@@ -436,7 +436,7 @@ describe("Kafka Write form", () => {
     fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
-    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    fireEvent.click(await dialog.findByText(`Write “${TOPIC}”`));
     await answered;
     await dialog.findByText("Read no records");
     dialog.getByText(error);
@@ -453,7 +453,7 @@ describe("Kafka Write form", () => {
     fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });
-    fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+    fireEvent.click(await dialog.findByText(`Write “${TOPIC}”`));
     await answered;
     await dialog.findByText("/speed");
     expect(dialog.queryByText("Topic does not exist yet")).toBeNull();
@@ -473,7 +473,7 @@ describe("Kafka Write form", () => {
       fireEvent.change(await dialog.findByPlaceholderText("Search topics"), {
         target: { value: TOPIC },
       });
-      fireEvent.click(await dialog.findByRole("button", { name: `Write “${TOPIC}”` }));
+      fireEvent.click(await dialog.findByText(`Write “${TOPIC}”`));
       await answered;
       await dialog.findByText("/speed");
       await answerCommand(client, scan, browse, { data: browseOf() });
