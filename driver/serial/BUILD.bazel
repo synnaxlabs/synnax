@@ -93,13 +93,11 @@ cc_library(
     deps = [
         ":ports",
         "//client/cpp/serial",
-        "//driver/bus:device",
         "//driver/bus:holders",
         "//driver/bus:tasks",
         "//driver/common",
         "//driver/task",
         "//x/cpp/breaker",
-        "//x/cpp/json",
     ],
 )
 
