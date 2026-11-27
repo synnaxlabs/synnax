@@ -507,8 +507,10 @@ returns each segment in its stored type. A task save that changes an output's ty
 changes the channel's declared type. A type change on an index channel fails. A Sift
 flow declares each channel's type at configure
 (`core/pkg/service/sift/ingest/flow.go:29-42`), so from Phase 52 a type change starts a
-new flow config, whose type widens the old one and the new one by the rule of §4.4. The
-encoder casts each value to the flow's type, where it takes the series' type today
+new flow config, whose type widens the types of the segments in the task's range by the
+rule of §4.4, since no record keeps the old type. A flow whose types cannot widen, such
+as a number and text, fails its task with a status that names the channel. The encoder
+casts each value to the flow's type, where it takes the series' type today
 (`encode.go:129-160`). A clock move is not a channel edit: storage moves a key at
 continuation, at a handoff, and at a pause move (§4.0, §4.8), from Phase 25.
 
@@ -855,13 +857,13 @@ continuation. A partial group from a task fails loud, as a partial index group d
   time series of each kept series' group (`driver/bypass/bypass.h:97-127` keeps keys
   only today). One alignment counter per writer and group position sets the alignment of
   each series of the group and of its time series, in place of a counter per key that
-  starts a new key at 0 (`driver/bypass/bypass.h:172-180`). A counter starts above, and
-  `advance_alignments` keeps it above, the highest alignment that any key of its group
-  took on the bus or in a Core frame (`:229-247`), so the alignments of a key rise
-  across writers, as today. The bus keeps its mark per key. The forwarder maps positions
-  to clock keys only where it writes to the Core. A local reader, such as Arc from Phase
-  41, pairs a series with its group's time in the same frame, never by bus alignment
-  across groups.
+  starts a new key at 0 (`driver/bypass/bypass.h:172-180`). A counter starts above the
+  highest alignment that any key of its group took on the bus or in a Core frame
+  (`:229-247`), and each publish raises it to the mark of each key in the frame, one
+  atomic max per series, so the alignments of a key rise across concurrent writers, as
+  today. The bus keeps its mark per key. The forwarder maps positions to clock keys only
+  where it writes to the Core. A local reader, such as Arc from Phase 41, pairs a series
+  with its group's time in the same frame, never by bus alignment across groups.
 - **Console forms**: From Phase 47, task forms make data channels only, with no `_time`
   channels (`console/src/feature/ni/task/AnalogRead.tsx:211-215` and its siblings).
   Until then they make index channels as today, which form whole groups (§4.8), and the
