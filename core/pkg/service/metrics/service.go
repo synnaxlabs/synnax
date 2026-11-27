@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"slices"
 	"time"
 
 	"github.com/samber/lo"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
@@ -269,55 +271,52 @@ func (s *Service) createChannels(
 	return metrics, metricsChannels, nil
 }
 
+// createCalculatedChannels finds or creates the calculated metrics. A calculated metric
+// that does not compile, such as one that reads a name that several channels hold, is
+// a status and never stops the service.
 func (s *Service) createCalculatedChannels(
 	ctx context.Context,
 	namePrefix string,
 ) error {
-	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.findOrCreate(ctx, tx, createCalculatedMetrics(namePrefix))
+	})
+	diags, ok := errors.AsType[*diagnostics.Diagnostics](err)
+	if !ok {
+		return err
+	}
+	st := status.Status[any]{
+		Name:        "Calculated metrics",
+		Variant:     status.VariantError,
+		Message:     "Failed to create calculated metrics",
+		Description: diags.Error(),
+		Time:        telem.Now(),
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.cfg.Status.NewWriter(tx).Set(ctx, &st)
 	})
 }
 
-// findOrCreate sets each of chs to the stored channel of its name in any folder, and
-// creates each other one in the folder of the metrics. Of stored channels in two
-// folders with one name, it takes the one with the highest key, as a v0.62 Core did.
+// findOrCreate sets each of chs to the stored channel of its name, in the folder of the
+// metrics or else in any folder (channel.RetrieveIfNameExistsInGroup), and creates each
+// other one in the folder of the metrics.
 func (s *Service) findOrCreate(
 	ctx context.Context,
 	tx gorp.Tx,
 	chs []channel.Channel,
 ) error {
-	var stored []channel.Channel
-	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.MatchNames(channel.Names(chs)...)).
-		Entries(&stored).
-		Exec(ctx, tx); err != nil {
+	created := slices.Clone(chs)
+	for i := range created {
+		created[i].Group = &s.group.Key
+	}
+	if err := s.cfg.Channel.NewWriter(tx).CreateMany(
+		ctx,
+		&created,
+		channel.RetrieveIfNameExistsInGroup(),
+	); err != nil {
 		return err
 	}
-	found := make(map[string]channel.Channel, len(stored))
-	for _, ch := range stored {
-		if prev, ok := found[ch.Name]; !ok || ch.Key() > prev.Key() {
-			found[ch.Name] = ch
-		}
-	}
-	var missing []int
-	for i, ch := range chs {
-		if st, ok := found[ch.Name]; ok {
-			chs[i] = st
-			continue
-		}
-		chs[i].Group = &s.group.Key
-		missing = append(missing, i)
-	}
-	if len(missing) == 0 {
-		return nil
-	}
-	created := lo.Map(missing, func(i, _ int) channel.Channel { return chs[i] })
-	if err := s.cfg.Channel.NewWriter(tx).CreateMany(ctx, &created); err != nil {
-		return err
-	}
-	for j, i := range missing {
-		chs[i] = created[j]
-	}
+	copy(chs, created)
 	return nil
 }
 

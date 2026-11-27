@@ -207,7 +207,7 @@ func (p *Provider) createChannels(
 		return p.cfg.Channel.NewWriter(tx).CreateMany(
 			ctx,
 			&channels,
-			channel.RetrieveIfNameExists(),
+			channel.RetrieveIfNameExistsInGroup(),
 			channel.OverwriteIfNameExistsAndDifferentProperties(),
 		)
 	}); err != nil {
