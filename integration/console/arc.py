@@ -15,7 +15,7 @@ from console.base import ResourceClient
 from console.notifications import click_past
 
 # A running automation shows "Started task", then "Idle" or the scopes that run.
-RUNNING_STATUS = re.compile(r"^(Started task|Idle|Running .+)$")
+_RUNNING_STATUS = re.compile(r"^(Started task|Idle|Running .+)$")
 
 
 class ArcClient(ResourceClient):
@@ -166,7 +166,7 @@ class ArcClient(ResourceClient):
             play_btn = controls.locator("button:has(.lyra-icon--play)")
             play_btn.wait_for(state="visible", timeout=5000)
             click_past(play_btn)
-        controls.get_by_text(RUNNING_STATUS).wait_for(state="visible", timeout=30000)
+        controls.get_by_text(_RUNNING_STATUS).wait_for(state="visible", timeout=30000)
 
     def get_status(self) -> str:
         """Expand the diagnostics panel, click copy, and return clipboard text."""
