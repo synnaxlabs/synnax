@@ -244,20 +244,6 @@ interface PersistParams<
 }
 
 /**
- * Asks the part of the form that shows the first error to take focus.
- * @throws {Error} with the error's message when no part takes it.
- */
-const focusFirstError = ({
-  getStatuses,
-  focus,
-}: Pick<Form.ContextValue, "getStatuses" | "focus">): void => {
-  const first = getStatuses().find(({ variant }) => variant === "error");
-  if (first == null) return;
-  if (first.key == null || !focus(toTarget(first.key), { optional: true }))
-    throw new Error(first.message);
-};
-
-/**
  * Validates and writes the form, reporting progress through `setResult`. When
  * `explicit` and the form is invalid, the part that shows the first error takes focus,
  * or a toast shows the error.
@@ -282,7 +268,7 @@ const persist = async <
   try {
     if (beforeValidate?.(params) === false) return undefined;
     if (!(await params.validateAsync())) {
-      if (explicit) focusFirstError(params);
+      if (explicit) Form.focusFirstError(params);
       return undefined;
     }
     setResult(loadingResult(`updating ${name}`, undefined));
