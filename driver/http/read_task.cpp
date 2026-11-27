@@ -10,9 +10,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <iterator>
-#include <limits>
 #include <map>
-#include <optional>
 #include <set>
 #include <span>
 #include <utility>
@@ -96,7 +94,7 @@ std::pair<Readers, x::errors::Error> build_readers(
             *ic,
             readers.channels
         );
-        if (err) return {Readers{}, x::errors::Error(err, name + ": " + err.data)};
+        if (err) return {Readers{}, err.wrap(name)};
         for (const auto key: reader.channels()) {
             const auto [other, claimed] = writers.try_emplace(key, name);
             if (!claimed)
@@ -174,8 +172,6 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
     std::size_t rejected = 0;
     std::size_t unreachable = 0;
 
-    std::optional<double> fill;
-    if (this->cfg.nan_fill_enabled) fill = std::numeric_limits<double>::quiet_NaN();
     for (std::size_t i = 0; i < this->requests.size(); i++) {
         const auto &[resp, req_err] = results[i];
         const auto &req = this->requests[i];
@@ -214,7 +210,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
             x::telem::TimeStamp::midpoint(resp.time_range.start, resp.time_range.end),
             fr,
             1,
-            fill
+            this->cfg.nan_fill_enabled
         );
         if (read_err) {
             warnings.push_back(
