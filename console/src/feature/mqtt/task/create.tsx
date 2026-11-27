@@ -24,7 +24,7 @@ import {
 import type { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-export const DEFAULT_READ_NAME = "MQTT read task";
+const DEFAULT_READ_NAME = "MQTT read task";
 const DEFAULT_WRITE_NAME = "MQTT write task";
 
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({

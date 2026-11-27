@@ -53,7 +53,7 @@ preloadForms(Kafka.Task.FORMS);
 
 // Drafts carry no key; the created task mints its own.
 const ZERO_DRAFT: task.New<Kafka.Task.WriteSchemas> = {
-  name: Kafka.Task.DEFAULT_WRITE_NAME,
+  name: "Kafka write task",
   type: Kafka.Task.WRITE_TYPE,
   config: Kafka.Task.WRITE_SCHEMAS.config.parse({}),
 };

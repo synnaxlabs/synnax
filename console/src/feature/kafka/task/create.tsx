@@ -23,7 +23,7 @@ import { Task } from "@/platform/task";
 
 const DEFAULT_READ_NAME = "Kafka read task";
 
-export const DEFAULT_WRITE_NAME = "Kafka write task";
+const DEFAULT_WRITE_NAME = "Kafka write task";
 
 const getReadInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   deviceKey,
