@@ -85,7 +85,8 @@ forwarder opens each Core writer with the authorities in effect. While the Core 
 connected, its holder of a channel decides for the writers open on the Core. A writer
 that has not opened on the Core yet competes with that holder by the Core's rule, so a
 reconnect never hands a channel to a writer with less authority. The read of control
-state after a reconnect makes every forwarder open its Core writer at once.
+state after a reconnect makes the forwarders open their Core writers again one at a
+time, in the order their gates opened, so the Core breaks ties as the gates do.
 
 Authority changes go through the forwarder queue in order with the frames. While the
 Core is up, only an increase applies to the local mirror at once. A decrease reaches the

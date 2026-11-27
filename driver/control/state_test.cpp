@@ -1117,4 +1117,21 @@ TEST(StatesTest, SetConnectsTheNextGateWhenAReopenFails) {
     states.closed_on_core(ARC);
     ASSERT_EQ(calls, (std::vector<std::string>{"arc", "operator"}));
 }
+
+/// @brief it should ask the next writer to reopen when the one asked before closes
+/// before it reopens.
+TEST(StatesTest, CloseGateConnectsTheNextGate) {
+    States states;
+    std::vector<std::string> calls;
+    states.open_gate(ARC, {1}, {100}, [&calls] { calls.emplace_back("arc"); });
+    states.open_gate(OPERATOR, {1}, {100}, [&calls] {
+        calls.emplace_back("operator");
+    });
+    states.disconnect();
+    states.set({});
+    states.close_gate(ARC);
+    ASSERT_EQ(calls, (std::vector<std::string>{"arc", "operator"}));
+    states.closed_on_core(ARC);
+    ASSERT_EQ(calls.size(), 2);
+}
 }

@@ -958,4 +958,26 @@ TEST(ForwarderTest, RetryWhileOpenKeepsTheNextBackoff) {
     ASSERT_EQ(server->writer_opens.load(), 1);
     ASSERT_NIL(forwarder.close());
 }
+
+/// @brief it should call on_close when a Core writer fails to open, so the writers
+/// after it can reopen.
+TEST(ForwarderTest, ReportsAFailedOpenAsAClose) {
+    const auto server = factory({freighter::UNREACHABLE});
+    std::atomic<size_t> opens = 0;
+    std::atomic<size_t> closes = 0;
+    Forwarder forwarder(
+        server,
+        {.channels = {1}},
+        {
+            .drain_timeout = SHORT_DRAIN,
+            .on_open = [&opens] { opens++; },
+            .on_close = [&closes] { closes++; },
+            .breaker = {.base_interval = x::telem::MILLISECOND},
+        }
+    );
+    ASSERT_EVENTUALLY_EQ(opens.load(), 1);
+    ASSERT_EQ(closes.load(), 1);
+    ASSERT_NIL(forwarder.close());
+    ASSERT_EQ(closes.load(), 2);
+}
 }

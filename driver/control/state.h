@@ -570,13 +570,13 @@ public:
     void closed_on_core(const x::control::Subject &subject) {
         std::unique_lock lock(this->mu);
         this->on_core.erase(subject.key);
+        // A writer that fails to reopen must not hold back the gates after it.
+        if (this->connected && this->signalled.contains(subject.key))
+            this->connect_next_locked();
         const auto it = this->gates.find(subject.key);
         if (it == this->gates.end()) return;
         for (const auto &[channel, _]: it->second.authorities)
             this->recompute(channel);
-        // A writer that fails to reopen must not hold back the gates after it.
-        if (this->connected && this->signalled.contains(subject.key))
-            this->connect_next_locked();
     }
 
     /// @brief opens a gate for a local writer with the authorities it opens with, one
@@ -624,6 +624,9 @@ public:
         const auto channels = it->second.authorities;
         const bool waits = this->decided_by_core(subject.key);
         this->gates.erase(it);
+        if (this->connected && this->signalled.contains(subject.key) &&
+            !this->on_core.contains(subject.key))
+            this->connect_next_locked();
         if (waits) {
             this->closed.insert(subject.key);
             return;

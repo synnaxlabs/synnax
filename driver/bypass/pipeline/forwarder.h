@@ -111,8 +111,8 @@ struct ForwarderConfig {
     /// newest authorities: at the open, or once it sends the authority changes queued
     /// before the open.
     std::function<void()> on_open;
-    /// @brief called from the forwarder thread each time an open Core writer closes,
-    /// fails, or loses its stream.
+    /// @brief called from the forwarder thread each time a Core writer fails to open,
+    /// and each time an open one closes, fails, or loses its stream.
     std::function<void()> on_close;
     /// @brief the backoff from an unreachable Core. The forwarder retries with no
     /// limit, so only the intervals apply.
@@ -525,6 +525,7 @@ class Forwarder {
             this->report();
             auto [writer, open_err] = this->server->open_writer(this->config);
             if (open_err) {
+                if (this->on_close) this->on_close();
                 if (this->wait(open_err)) continue;
                 return;
             }
