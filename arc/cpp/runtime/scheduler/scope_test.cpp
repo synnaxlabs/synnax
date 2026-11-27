@@ -112,7 +112,7 @@ TEST_F(ScopeTest, DoesNotReportACycleThatChangesNoPath) {
 /// @brief it should report the paths again on the first cycle after a reset.
 TEST_F(ScopeTest, ReportsAgainAfterAReset) {
     this->tick();
-    this->sched->reset();
+    (*this->sched).reset();
     this->tick();
     EXPECT_EQ(this->reports.size(), 2);
     EXPECT_EQ(this->reports.back(), (std::vector<Path>{{"main", "first"}}));

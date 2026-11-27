@@ -1034,7 +1034,12 @@ inline Scheduler::Scheduler(
 ):
     error_handler(std::move(error_handler)),
     prog(std::move(prog)),
-    scope_handler(std::move(scope_handler)) {
+    scope_handler(std::move(scope_handler)),
+    scoped(std::ranges::any_of(this->prog.root.strata, [](const ir::Members &stratum) {
+        return std::ranges::any_of(stratum, [](const ir::Member &m) {
+            return static_cast<bool>(m.scope);
+        });
+    })) {
     this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
     this->ctx.mark_self_changed = std::bind_front(&Scheduler::mark_self_changed, this);
     this->ctx.mark_done = std::bind_front(&Scheduler::mark_done, this);
@@ -1046,9 +1051,6 @@ inline Scheduler::Scheduler(
     this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
     this->ctx.reserve_stamps = std::bind_front(&Scheduler::reserve_stamps, this);
     detail::Builder().build(*this, node_impls);
-    this->scoped = std::ranges::any_of(this->scopes[0].members, [](const auto &m) {
-        return m.scope != NO_INDEX;
-    });
 }
 
 }
