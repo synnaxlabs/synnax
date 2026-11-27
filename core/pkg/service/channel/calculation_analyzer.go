@@ -143,9 +143,7 @@ func (a *CalculationAnalyzer) Analyze(
 	inferredDataType, ok := dataType.ToTelem()
 	if !ok {
 		aCtx.Diagnostics.Add(diagnostics.Errorf(
-			t,
-			"the expression of calculated channel %q returns no typed value",
-			ch.Name,
+			t, "the expression of calculated channel %q returns no value", ch.Name,
 		))
 		return CalculationAnalysisResult{}, aCtx.Diagnostics
 	}
