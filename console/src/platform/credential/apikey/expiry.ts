@@ -48,31 +48,43 @@ export const preselect = (maxLifetime: TimeSpan | null): Expiry => {
 };
 
 /**
- * @returns the custom expiry to preselect for a key created at now: the default
- * lifetime when it fits within maxLifetime, else the longest expiry the Core allows.
+ * @returns how far from now the latest expiry that the Core accepts with certainty
+ * lies, or null when there is no limit.
  */
-export const preselectCustom = (
+export const reach = (now: TimeStamp, maxLifetime: TimeSpan | null): TimeSpan | null =>
+  maxLifetime == null ? null : now.span(auth.apiKey.longestExpiry(maxLifetime, now));
+
+// A preset at the limit stops short of it, like every key that asks for the longest.
+const lifetime = (
+  span: TimeSpan,
   now: TimeStamp,
   maxLifetime: TimeSpan | null,
 ): TimeStamp => {
-  const lifetime = LIFETIMES[DEFAULT_LIFETIME];
-  return maxLifetime == null || lifetime.lessThan(maxLifetime)
-    ? now.add(lifetime)
-    : auth.apiKey.longestExpiry(maxLifetime, now);
+  const longest = auth.apiKey.longestExpiry(maxLifetime, now);
+  const at = now.add(span);
+  return at.after(longest) ? longest : at;
 };
 
+/** @returns the custom expiry to preselect for a key created at now. */
+export const preselectCustom = (
+  now: TimeStamp,
+  maxLifetime: TimeSpan | null,
+): TimeStamp => lifetime(LIFETIMES[DEFAULT_LIFETIME], now, maxLifetime);
+
 /**
- * @returns when a key created at now expires: the custom time for "custom", and
- * TimeStamp.MAX for "never".
+ * @returns when a key created at now expires: the custom time for "custom",
+ * TimeStamp.MAX for "never", and for a preset its lifetime, stopped short of
+ * maxLifetime like the longest key a client asks for.
  */
 export const resolve = (
   expiry: Expiry,
   custom: TimeStamp,
   now: TimeStamp,
+  maxLifetime: TimeSpan | null,
 ): TimeStamp => {
   if (expiry === "never") return TimeStamp.MAX;
   if (expiry === "custom") return custom;
-  return now.add(LIFETIMES[expiry]);
+  return lifetime(LIFETIMES[expiry], now, maxLifetime);
 };
 
 const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "always" });

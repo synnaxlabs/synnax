@@ -191,6 +191,13 @@ describe("useModal", () => {
       expect(Math.round((await create(client, id)).days)).toBe(30);
     });
 
+    it("should stop a preset at the limit an hour short of it", async () => {
+      const { client, id } = await openCreate(TimeSpan.days(30));
+      const lifetime = await create(client, id);
+      expect(lifetime.lessThan(TimeSpan.days(30).sub(TimeSpan.minutes(59)))).toBe(true);
+      expect(lifetime.greaterThan(TimeSpan.days(30).sub(TimeSpan.hours(2)))).toBe(true);
+    });
+
     it("should preselect a custom date at the limit when no preset fits", async () => {
       const { client, id } = await openCreate(TimeSpan.days(7));
       await screen.findByLabelText("Expiry date");
@@ -201,7 +208,7 @@ describe("useModal", () => {
     it("should refuse a custom date past the limit", async () => {
       await openCreate(TimeSpan.days(7));
       await setExpiryDate(localTime(TimeStamp.now().add(TimeSpan.days(8)).date()));
-      await screen.findByText("Expiry must be at most 7d from now");
+      await screen.findByText(/^Expiry must be at most 6d 23h/);
     });
   });
 

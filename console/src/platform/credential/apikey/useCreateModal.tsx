@@ -29,6 +29,7 @@ import {
   type Expiry,
   preselect,
   preselectCustom,
+  reach,
   resolve,
 } from "@/platform/credential/apikey/expiry";
 import { CSS } from "@/platform/css";
@@ -85,20 +86,22 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const customAt = new TimeStamp(custom);
   const now = useNow((now) => {
     if (expiry !== "custom" || !customAt.after(now)) return null;
-    const fitsAt = maxLifetime == null ? null : customAt.sub(maxLifetime);
+    const span = reach(now, maxLifetime);
+    const fitsAt = span == null ? null : customAt.sub(span);
     return fitsAt?.after(now) === true ? fitsAt : customAt;
   });
+  const longest = reach(now, maxLifetime);
   const past = expiry === "custom" && !customAt.after(now);
   const tooLate =
-    expiry === "custom" && maxLifetime != null && customAt.after(now.add(maxLifetime));
+    expiry === "custom" && longest != null && customAt.after(now.add(longest));
   const customError = past
     ? "Expiry must be in the future"
     : tooLate
-      ? `Expiry must be at most ${maxLifetime.toString()} from now`
+      ? `Expiry must be at most ${longest.toString()} from now`
       : undefined;
   const handleCreate = (): void => {
     if (!loaded || empty || customError != null) return;
-    const expires = resolve(expiry, customAt, TimeStamp.now());
+    const expires = resolve(expiry, customAt, TimeStamp.now(), maxLifetime);
     update({ subject, name: name.trim(), expires });
   };
   return (
