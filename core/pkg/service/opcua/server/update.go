@@ -26,7 +26,8 @@ func (w Writer) ApplyUpdate(ctx context.Context, key Key, update Update) error {
 	if err != nil {
 		return err
 	}
-	return w.Apply(ctx, key, acts...)
+	_, err = w.Apply(ctx, key, acts...)
+	return err
 }
 
 // actions returns one set action for each field of the group that u replaces.

@@ -279,7 +279,7 @@ type Transport struct {
 	OPCUAServerCreate   freighter.UnaryServer[server.CreateRequest, server.CreateResponse]
 	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, server.UpdateResponse]
-	OPCUAServerDispatch freighter.UnaryServer[server.DispatchRequest, struct{}]
+	OPCUAServerDispatch freighter.UnaryServer[server.DispatchRequest, server.DispatchResponse]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]

@@ -658,7 +658,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/update",
 		),
-		OPCUAServerDispatch: unary[server.DispatchRequest, struct{}](
+		OPCUAServerDispatch: unary[server.DispatchRequest, server.DispatchResponse](
 			router,
 			"/api/v1/opcua/server/dispatch",
 		),

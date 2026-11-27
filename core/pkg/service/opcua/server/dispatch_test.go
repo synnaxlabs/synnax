@@ -31,10 +31,24 @@ var _ = Describe("Dispatch", func() {
 	set := func(path []string, value any) server.Action {
 		return server.NewSetAction(server.SetPayload{Path: path, Value: value})
 	}
-	dispatch := func(ctx context.Context, key server.Key, acts ...server.Action) error {
-		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return e.svc.NewWriter(tx).WithDispatchKey("dk").Apply(ctx, key, acts...)
+	// apply applies acts in a transaction of its own and returns the sets that the Core
+	// added.
+	apply := func(
+		ctx context.Context,
+		key server.Key,
+		acts ...server.Action,
+	) (added []server.Action, err error) {
+		err = db.WithTx(ctx, func(tx gorp.Tx) error {
+			added, err = e.svc.NewWriter(tx).
+				WithDispatchKey("dk").
+				Apply(ctx, key, acts...)
+			return err
 		})
+		return added, err
+	}
+	dispatch := func(ctx context.Context, key server.Key, acts ...server.Action) error {
+		_, err := apply(ctx, key, acts...)
+		return err
 	}
 	retrieve := func(ctx context.Context) server.Server {
 		GinkgoHelper()
@@ -98,13 +112,28 @@ var _ = Describe("Dispatch", func() {
 	It("Should store dispatched node IDs in the form the Driver writes", func(
 		ctx SpecContext,
 	) {
-		Expect(dispatch(ctx, s.Key, set(
+		stored := []server.Write{{Node: "nsu=urn:plc;s=Valve", Channel: 4}}
+		added := MustSucceed(apply(ctx, s.Key, set(
 			[]string{"writes"},
 			[]map[string]any{{"node": "NSU=urn:plc;s=Valve", "channel": 4}},
-		))).To(Succeed())
-		Expect(retrieve(ctx).Writes).To(Equal([]server.Write{
-			{Node: "nsu=urn:plc;s=Valve", Channel: 4},
+		)))
+		Expect(retrieve(ctx).Writes).To(Equal(stored))
+		Expect(added).To(Equal([]server.Action{
+			server.NewSetAction(server.SetPayload{
+				Path:  []string{"writes"},
+				Value: stored,
+			}),
 		}))
+	})
+
+	It("Should add no sets when the Core stores the node IDs as sent", func(
+		ctx SpecContext,
+	) {
+		Expect(apply(ctx, s.Key, set([]string{"name"}, "Mixer PLC"))).To(BeEmpty())
+	})
+
+	It("Should do nothing for an empty action list", func(ctx SpecContext) {
+		Expect(apply(ctx, uuid.New())).To(BeEmpty())
 	})
 
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {

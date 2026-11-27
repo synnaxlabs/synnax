@@ -46,7 +46,7 @@ var (
 	create   freighter.UnaryHandler[apiserver.CreateRequest, apiserver.CreateResponse]
 	update   freighter.UnaryHandler[apiserver.UpdateRequest, apiserver.UpdateResponse]
 	del      freighter.UnaryHandler[apiserver.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apiserver.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apiserver.DispatchRequest, apiserver.DispatchResponse]
 	retrieve freighter.UnaryHandler[
 		apiserver.RetrieveRequest,
 		apiserver.RetrieveResponse,

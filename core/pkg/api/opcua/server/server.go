@@ -114,8 +114,7 @@ type UpdateResponse struct {
 
 // Update writes the field group of req to the server stored under req.Key, as
 // server.Writer.ApplyUpdate does. It returns the stored server, or a validation error
-// when
-// the request carries no group.
+// when the request carries no group.
 func (s *Service) Update(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -138,16 +137,23 @@ func (s *Service) Update(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[server.Key, server.Action]
 
+// DispatchResponse carries the actions the Core added to a dispatch: a set of the
+// stored
+// reads or writes when the Core stored a node ID in another form.
+type DispatchResponse = actions.DispatchResponse[server.Action]
+
 // Dispatch applies the action sequence to the server atomically. Subscribers to
-// sy_opcua_server_action_set receive the sequence after the transaction commits.
+// sy_opcua_server_action_set receive the sequence and the added sets after the
+// transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.cfg.Server.NewWriter(tx).
+) (DispatchResponse, error) {
+	added, err := s.cfg.Server.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
+	return DispatchResponse{Actions: added}, err
 }
 
 // DeleteRequest carries the keys of the servers to delete.

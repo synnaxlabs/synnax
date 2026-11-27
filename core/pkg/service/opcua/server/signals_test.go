@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -43,6 +44,7 @@ var _ = Describe("Signals", Ordered, func() {
 		channelSvc *channel.Service
 		framerSvc  *framer.Service
 		rackSvc    *rack.Service
+		svc        *server.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
@@ -83,7 +85,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Framer:  node.Framer,
 		}))
 		secrets := secrettestutil.OpenService(ctx, node.DB)
-		MustOpen(server.OpenService(ctx, server.ServiceConfig{
+		svc = MustOpen(server.OpenService(ctx, server.ServiceConfig{
 			DB:     node.DB,
 			Status: stat,
 			Secret: secrets,
@@ -160,5 +162,53 @@ var _ = Describe("Signals", Ordered, func() {
 			removed = append(removed, uuid.UUID(sample))
 		}
 		Expect(removed).To(ContainElement(s.Key))
+	})
+
+	It("Should broadcast the create action and each dispatch", func(ctx SpecContext) {
+		acts := openStreamer(ctx, "sy_opcua_server_action_set")
+		s := server.Server{
+			Rack:       rackSvc.EmbeddedKey,
+			Name:       "Boiler PLC",
+			Connection: newConnection("opc.tcp://boiler:4840"),
+		}
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Create(ctx, &s)
+		})).To(Succeed())
+		next := func() actions.Scoped[server.Key, server.Action] {
+			GinkgoHelper()
+			var res framer.StreamerResponse
+			Eventually(acts.Outlet(), 5*time.Second).Should(Receive(&res))
+			var scoped actions.Scoped[server.Key, server.Action]
+			for sample := range res.Frame.SeriesAt(0).Samples() {
+				Expect(json.Unmarshal(sample, &scoped)).To(Succeed())
+			}
+			return scoped
+		}
+		created := next()
+		Expect(created.Key).To(Equal(s.Key))
+		Expect(created.Actions).To(HaveLen(1))
+		Expect(created.Actions[0].Create.Server.Name).To(Equal("Boiler PLC"))
+		writes := server.NewSetAction(server.SetPayload{
+			Path:  []string{"writes"},
+			Value: []map[string]any{{"node": "NSU=urn:plc;s=Valve", "channel": 4}},
+		})
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := svc.NewWriter(tx).WithDispatchKey("dk").Apply(ctx, s.Key, writes)
+			return err
+		})).To(Succeed())
+		dispatched := next()
+		Expect(dispatched.Key).To(Equal(s.Key))
+		Expect(dispatched.DispatchKey).To(Equal("dk"))
+		Expect(dispatched.Actions).To(HaveLen(2))
+		Expect(dispatched.Actions[1].Set.Path).To(Equal([]string{"writes"}))
+		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).ApplyUpdate(ctx, s.Key, server.Update{
+				Variant: server.ConfigurationUpdate{},
+			})
+		})).To(Succeed())
+		updated := next()
+		Expect(len(updated.Actions)).To(BeNumerically(">=", 2))
+		Expect(updated.Actions[0].Set.Path).To(Equal([]string{"reads"}))
+		Expect(updated.Actions[1].Set.Path).To(Equal([]string{"writes"}))
 	})
 })
