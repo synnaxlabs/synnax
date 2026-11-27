@@ -93,7 +93,7 @@ var _ = Describe("Reader", func() {
 			)
 			BeforeEach(func() {
 				budget = MustSucceed(segment.NewBudget(4, 4, segment.GoExecutor))
-				rd = segment.NewReader(true)
+				rd = segment.NewReader()
 			})
 
 			// write writes stream to a new segment of c and returns its committed part.
@@ -106,6 +106,7 @@ var _ = Describe("Reader", func() {
 				length, tail := w.Commit()
 				return segment.Committed{
 					Config:  c,
+					Key:     6,
 					Length:  int64(length),
 					TailCRC: tail,
 				}
@@ -186,33 +187,23 @@ var _ = Describe("Reader", func() {
 			})
 
 			DescribeTable(
-				"Should read only the bytes of each range when unchecked, with one read "+
+				"Should read only the bytes of each range as stored, with one read "+
 					"for each block that the range crosses",
 				func(c segment.Config, stream []byte, ranges [][2]int) {
 					com := write(c, stream)
-					stored := segment.NewReader(false)
-					reads := map[string]func(r io.ReaderAt, p []byte, off int64) error{
-						"Reader.Read": func(r io.ReaderAt, p []byte, off int64) error {
-							return stored.Read(r, com, p, off)
-						},
-						"ReadStored": func(r io.ReaderAt, p []byte, off int64) error {
-							return com.ReadStored(r, p, off)
-						},
-					}
-					for name, read := range reads {
-						for _, r := range ranges {
-							lr := &lengthReader{ReaderAt: h}
-							p := make([]byte, r[1]-r[0])
-							Expect(read(lr, p, int64(r[0]))).To(Succeed())
-							Expect(p).To(Equal(stream[r[0]:r[1]]), "%s %v", name, r)
-							n := 0
-							for _, l := range lr.lengths {
-								n += l
-							}
-							Expect(n).To(Equal(r[1]-r[0]), "%s %v", name, r)
-							blocks := (r[1]-1)/segment.BlockSize - r[0]/segment.BlockSize + 1
-							Expect(lr.lengths).To(HaveLen(blocks), "%s %v", name, r)
+					for _, r := range ranges {
+						lr := &lengthReader{ReaderAt: h}
+						p := make([]byte, r[1]-r[0])
+						Expect(com.ReadStored(lr, p, int64(r[0]))).To(Succeed())
+						Expect(p).To(Equal(stream[r[0]:r[1]]), "%v", r)
+						n := 0
+						for _, l := range lr.lengths {
+							n += l
 						}
+						Expect(n).To(Equal(r[1]-r[0]), "%v", r)
+						first := r[0] / segment.BlockSize
+						last := (r[1] - 1) / segment.BlockSize
+						Expect(lr.lengths).To(HaveLen(last-first+1), "%v", r)
 					}
 				},
 				Entry("fixed, one stamp", cfg, pattern(3*segment.BlockSize+77),
@@ -226,13 +217,13 @@ var _ = Describe("Reader", func() {
 					[][2]int{{segment.BlockSize - 3, 131_008}}),
 			)
 
-			It("Should return a changed byte with no error when unchecked, and refuse "+
-				"it when checked", func() {
+			It("Should return a changed byte with no error as stored, and refuse it "+
+				"when checked", func() {
 				stream := pattern(2 * segment.BlockSize)
 				com := write(cfg, stream)
 				bad := &flipReader{ReaderAt: h, at: 50, left: -1}
 				p := make([]byte, 8)
-				Expect(segment.NewReader(false).Read(bad, com, p, 48)).To(Succeed())
+				Expect(com.ReadStored(bad, p, 48)).To(Succeed())
 				want := append([]byte{}, stream[48:56]...)
 				want[2] ^= 1
 				Expect(p).To(Equal(want))
@@ -320,22 +311,26 @@ var _ = Describe("Reader", func() {
 			It("Should refuse a missing file as corrupt", func() {
 				missing := budget.Open(makeFS(), "9.seg")
 				DeferCleanup(func() { Expect(missing.Close()).To(Succeed()) })
-				com := segment.Committed{Config: cfg, Length: 10}
+				com := segment.Committed{Config: cfg, Key: 6, Length: 10}
 				Expect(rd.Read(missing, com, make([]byte, 10), 0)).
 					To(MatchError(place.ErrCorrupt))
 			})
 
 			It("Should return a read error that is not corruption as it is", func() {
 				fault := errors.New("device fault")
-				com := segment.Committed{Config: cfg, Length: 10}
+				com := segment.Committed{Config: cfg, Key: 6, Length: 10}
 				Expect(rd.Read(failReader{err: fault}, com, make([]byte, 10), 0)).
 					To(SatisfyAll(MatchError(fault), Not(MatchError(place.ErrCorrupt))))
 			})
 
-			It("Should refuse a read past the committed length", func() {
+			It("Should refuse a read past the committed length as corrupt", func() {
 				com := write(cfg, pattern(100))
-				Expect(rd.Read(h, com, make([]byte, 10), 95)).
-					To(MatchError(ContainSubstring("past the committed length 100")))
+				past := SatisfyAll(
+					MatchError(place.ErrCorrupt),
+					MatchError(ContainSubstring("past the committed length 100")),
+				)
+				Expect(rd.Read(h, com, make([]byte, 10), 95)).To(past)
+				Expect(com.ReadStored(h, make([]byte, 10), 95)).To(past)
 			})
 
 			It("Should read with no allocation", func() {

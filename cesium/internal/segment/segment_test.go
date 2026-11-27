@@ -27,9 +27,8 @@ import (
 )
 
 var (
-	cfg    = segment.Config{Key: 6, DB: 7, ID: 3, DataType: 4, Clock: 0x00200001}
+	cfg    = segment.Config{DB: 7, ID: 3, DataType: 4, Clock: 0x00200001}
 	varCfg = segment.Config{
-		Key:      6,
 		DB:       7,
 		ID:       3,
 		DataType: 9,

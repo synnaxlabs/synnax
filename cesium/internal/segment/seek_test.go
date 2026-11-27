@@ -37,6 +37,10 @@ var _ = Describe("Seek", func() {
 				w.Commit()
 				return stream, starts
 			}
+			// committed returns the committed part of a segment that holds stream.
+			committed := func(stream []byte) *segment.Committed {
+				return &segment.Committed{Config: varCfg, Length: int64(len(stream))}
+			}
 
 			DescribeTable(
 				"Should find where each sample starts from the start of the stream",
@@ -44,7 +48,7 @@ var _ = Describe("Seek", func() {
 					stream, starts := write(sizes...)
 					buf := make([]byte, bufSize)
 					for pos := range uint32(len(starts)) {
-						Expect(varCfg.SeekFrom(h, buf, 0, pos, int64(len(stream)))).
+						Expect(committed(stream).SeekFrom(h, buf, 0, pos)).
 							To(Equal(starts[pos]), "position %d", pos)
 					}
 				},
@@ -75,12 +79,11 @@ var _ = Describe("Seek", func() {
 							if k < 0 || i+k >= n {
 								continue
 							}
-							Expect(varCfg.SeekFrom(
+							Expect(committed(stream).SeekFrom(
 								h,
 								buf,
 								starts[i],
 								uint32(k),
-								int64(len(stream)),
 							)).To(Equal(starts[i+k]), "sample %d, k %d", i, k)
 						}
 					}
@@ -108,10 +111,10 @@ var _ = Describe("Seek", func() {
 					r := &countingReader{ReaderAt: h}
 					buf := make([]byte, segment.BlockSize)
 					Expect(
-						varCfg.SeekFrom(r, buf, starts[11], 130, int64(len(stream))),
+						committed(stream).SeekFrom(r, buf, starts[11], 130),
 					).
 						To(Equal(starts[141]))
-					Expect(r.reads.Load()).To(BeNumerically("<=", 12))
+					Expect(r.reads).To(BeNumerically("<=", 12))
 				},
 			)
 
@@ -125,12 +128,11 @@ var _ = Describe("Seek", func() {
 					).
 						To(Equal(4))
 					Expect(
-						varCfg.SeekFrom(
+						committed(stream).SeekFrom(
 							h,
 							make([]byte, 16),
 							0,
 							150,
-							int64(len(stream)),
 						),
 					).
 						Error().
@@ -174,12 +176,11 @@ var _ = Describe("Seek", func() {
 						).To(Equal(4))
 					}
 					Expect(
-						varCfg.SeekFrom(
+						committed(stream).SeekFrom(
 							h,
 							make([]byte, 16),
 							starts[2],
 							10,
-							int64(len(stream)),
 						),
 					).Error().To(SatisfyAll(
 						MatchError(place.ErrCorrupt),
@@ -211,7 +212,7 @@ var _ = Describe("Seek", func() {
 					h.WriteAt(binary.LittleEndian.AppendUint32(nil, 1<<20), starts[1]),
 				).
 					To(Equal(4))
-				Expect(varCfg.SeekFrom(h, make([]byte, 16), 0, 2, int64(len(stream)))).
+				Expect(committed(stream).SeekFrom(h, make([]byte, 16), 0, 2)).
 					Error().To(And(
 					MatchError(place.ErrCorrupt),
 					MatchError(ContainSubstring("sample 2 at stream offset")),

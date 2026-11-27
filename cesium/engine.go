@@ -120,7 +120,7 @@ func openEngine(o *options) (*engine, error) {
 		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
 		readers: sync.Pool{
-			New: func() any { return segment.NewReader(o.readsChecked) },
+			New: func() any { return segment.NewReader() },
 		},
 		readsChecked: o.readsChecked,
 		pins:         pins{readers: map[uint64]int{}, dead: map[uint64]ChannelKey{}},
@@ -617,8 +617,8 @@ func (e *engine) orphansOf(key ChannelKey, named map[string]state.Segment) error
 			removed = true
 			continue
 		}
-		if end := e.segmentConfig(seg).
-			FileOffset(int64(seg.Length)); info.Size() > end {
+		com := e.committed(key, seg)
+		if end := com.FileOffset(com.Length); info.Size() > end {
 			if err = e.cut(name, end); err != nil {
 				return err
 			}
@@ -651,14 +651,18 @@ func (e *engine) reader() *segment.Reader {
 	return rd
 }
 
-// segmentConfig returns the identity and block layout of seg.
-func (e *engine) segmentConfig(seg state.Segment) segment.Config {
-	return segment.Config{
+// committed returns the identity, block layout, and committed part of seg, a segment
+// of key.
+func (e *engine) committed(key ChannelKey, seg state.Segment) segment.Committed {
+	return segment.Committed{
 		DB:       e.db,
 		ID:       seg.ID,
 		DataType: seg.DataType,
 		Clock:    seg.Clock,
 		Variable: telem.DataTypeCode(seg.DataType).DataType().IsVariable(),
+		Key:      key,
+		Length:   int64(seg.Length),
+		TailCRC:  seg.TailCRC,
 	}
 }
 

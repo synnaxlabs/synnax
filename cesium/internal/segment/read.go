@@ -21,19 +21,19 @@ import (
 // Committed is the committed part of a segment that a read covers.
 type Committed struct {
 	Config
+	// Key is the key whose samples the segment holds. Errors name it.
+	Key uint32
 	// Length is the committed length in stream bytes.
 	Length int64
 	// TailCRC is the running checksum of the unfinished last block at Length.
 	TailCRC uint32
 }
 
-// Reader reads stream bytes of segments, checked or as stored. A checked reader keeps
-// the last block that it checked on its own until Reset, so a later read inside that
-// block reads no bytes again. It is not safe for concurrent use.
+// Reader reads and checks stream bytes of segments. It keeps the last block that it
+// checked until Reset, so a later read inside that block reads no bytes again. It is
+// not safe for concurrent use.
 type Reader struct {
-	// checked makes the reader check every block that it reads.
-	checked bool
-	block   []byte
+	block []byte
 	// held names the checked bytes of block: their segment, the stream offset of the
 	// block, and their size. size is zero when block holds none.
 	held struct {
@@ -42,38 +42,21 @@ type Reader struct {
 	}
 }
 
-// NewReader returns a reader that checks every block that it reads when checked, and
-// that reads only the bytes asked for otherwise.
-func NewReader(checked bool) *Reader {
-	rd := &Reader{checked: checked}
-	if checked {
-		rd.block = make([]byte, BlockSize+VariableTrailer)
-	}
-	return rd
+// NewReader returns a reader that holds no block.
+func NewReader() *Reader {
+	return &Reader{block: make([]byte, BlockSize+VariableTrailer)}
 }
 
 // Read reads len(p) stream bytes from stream offset off of the committed segment s in
-// r. A checked reader checks every block that it reads: a full block against its
-// trailer, and the unfinished last block against s.TailCRC. It reads each block with
-// one ReadAt, and reads a block that fails its check once more before it decides. A
-// block that fails twice returns an error that wraps place.ErrCorrupt and names the
-// key, the segment, and the stream offset of the block. An unchecked reader reads only
-// the bytes of p, with one ReadAt for each block that they cross. With either, a file
-// that is missing or shorter than s.Length returns an error that wraps
-// place.ErrCorrupt.
+// r, and checks every block that it reads: a full block against its trailer, and the
+// unfinished last block against s.TailCRC. It reads each block with one ReadAt, and
+// reads a block that fails its check once more before it decides. A block that fails
+// twice returns an error that wraps place.ErrCorrupt and names the key, the segment,
+// and the stream offset of the block. A read past s.Length, or of a file that is
+// missing or shorter than s.Length, returns an error that wraps place.ErrCorrupt.
 func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
-	if off < 0 || off+int64(len(p)) > s.Length {
-		return errors.Newf(
-			"read of %d bytes at stream offset %d is past the committed "+
-				"length %d of segment %d",
-			len(p),
-			off,
-			s.Length,
-			s.ID,
-		)
-	}
-	if !rd.checked {
-		return s.ReadStored(r, p, off)
+	if err := s.covers(p, off); err != nil {
+		return err
 	}
 	for len(p) > 0 {
 		start := off - off%BlockSize
@@ -125,19 +108,41 @@ func (rd *Reader) holds(s Committed, start, size int64) bool {
 	return h.size >= size && h.db == s.DB && h.id == s.ID && h.start == start
 }
 
-// ReadStored reads the stream bytes of p at stream offset off of the segment from r as
-// stored, with no check, in one ReadAt for each block that they cross, past the
-// trailers between blocks.
-func (c Config) ReadStored(r io.ReaderAt, p []byte, off int64) error {
+// ReadStored reads the stream bytes of p at stream offset off of s from r as stored,
+// with no check, in one ReadAt for each block that they cross, past the trailers
+// between blocks. Its errors are those of Reader.Read for a file or a read that does
+// not fit s.
+func (s *Committed) ReadStored(r io.ReaderAt, p []byte, off int64) error {
+	if err := s.covers(p, off); err != nil {
+		return err
+	}
 	for len(p) > 0 {
 		n := min(int(BlockSize-off%BlockSize), len(p))
-		if _, err := r.ReadAt(p[:n], c.FileOffset(off)); err != nil {
+		if _, err := r.ReadAt(p[:n], s.FileOffset(off)); err != nil {
 			return errors.Wrapf(corruptIfShort(err), "read at stream offset %d of "+
-				"segment %d of key %d", off, c.ID, c.Key)
+				"segment %d of key %d", off, s.ID, s.Key)
 		}
 		p, off = p[n:], off+int64(n)
 	}
 	return nil
+}
+
+// covers returns an error that wraps place.ErrCorrupt when the len(p) bytes at stream
+// offset off are not all in s, since only a corrupt pointer names such bytes.
+func (s *Committed) covers(p []byte, off int64) error {
+	if off >= 0 && off+int64(len(p)) <= s.Length {
+		return nil
+	}
+	return errors.Wrapf(
+		place.ErrCorrupt,
+		"read of %d bytes at stream offset %d is past the committed length %d of "+
+			"segment %d of key %d",
+		len(p),
+		off,
+		s.Length,
+		s.ID,
+		s.Key,
+	)
 }
 
 // corruptIfShort marks err with place.ErrCorrupt when it is the error of a file that is

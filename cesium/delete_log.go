@@ -296,7 +296,8 @@ func (r *stampReader) load(s int, off int64) error {
 	to := min(max(start+segment.BlockSize, off+8), sp.off+int64(sp.hi-sp.lo)*8)
 	r.buf = slices.Grow(r.buf[:0], int(to-from))[:to-from]
 	r.span = -1
-	if err := r.e.segmentConfig(sp.seg).ReadStored(r.h, r.buf, from); err != nil {
+	com := r.e.committed(r.clock, sp.seg)
+	if err := com.ReadStored(r.h, r.buf, from); err != nil {
 		return err
 	}
 	r.span, r.from = s, from
@@ -323,13 +324,9 @@ func (e *engine) variableOffset(
 ) (uint32, error) {
 	p := edge.Pointer
 	h := e.budget.Open(e.fs, segmentName(key, edge.Segment.ID))
-	at, err := e.segmentConfig(edge.Segment).SeekFrom(
-		h,
-		make([]byte, segment.BlockSize),
-		int64(p.Offset),
-		uint32(k),
-		int64(edge.Segment.Length),
-	)
+	com := e.committed(key, edge.Segment)
+	buf := make([]byte, segment.BlockSize)
+	at, err := com.SeekFrom(h, buf, int64(p.Offset), uint32(k))
 	if err = errors.Join(err, h.Close()); err != nil {
 		return 0, err
 	}
