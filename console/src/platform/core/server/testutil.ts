@@ -135,6 +135,8 @@ export const serveOIDC = async ({
 export const pointAtOIDC = (client: Synnax, { address }: OIDCServer): void => {
   Object.assign(client.params, address);
   Object.assign(client.auth, {
-    oidc: new auth.oidc.Client(auth.createTokenlessClient(address)),
+    oidc: new auth.oidc.Client(
+      auth.createTokenlessClient({ ...address, secure: false }),
+    ),
   });
 };
