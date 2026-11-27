@@ -42,7 +42,7 @@ type Reader struct {
 	}
 }
 
-// NewReader returns a reader that holds no block.
+// NewReader returns a reader that holds no checked block yet.
 func NewReader() *Reader {
 	return &Reader{block: make([]byte, BlockSize+VariableTrailer)}
 }
