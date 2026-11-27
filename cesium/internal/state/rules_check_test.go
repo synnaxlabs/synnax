@@ -126,7 +126,7 @@ var _ = Describe("Check: state", func() {
 			),
 			MatchError(ContainSubstring("refused by the state")),
 		))
-		Expect(s.Channel(5).Segments[0].Pointers).To(HaveEach(
+		Expect(segments(s.Channel(5))[0].Pointers).To(HaveEach(
 			Satisfy(func(p state.Pointer) bool { return p.First <= p.Last }),
 		))
 	})
