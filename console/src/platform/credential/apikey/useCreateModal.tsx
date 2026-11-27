@@ -60,7 +60,10 @@ const LABELS: Record<Expiry, string> = {
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const [name, setName] = useState("");
   const [opened] = useState(() => TimeStamp.now());
-  const { data: maxLifetime = null } = Credential.APIKey.useMaxLifetime({});
+  const lifetime = Credential.APIKey.useMaxLifetime({});
+  // The choices wait for the limit, so a click never picks one the Core refuses.
+  const loaded = lifetime.variant === "success";
+  const maxLifetime = loaded ? lifetime.data : null;
   const allowed = choices(maxLifetime);
   const [picked, setExpiry] = useState<Expiry | null>(null);
   const expiry =
@@ -93,7 +96,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
       ? `Expiry must be at most ${maxLifetime.toString()} from now`
       : undefined;
   const handleCreate = (): void => {
-    if (empty || customError != null) return;
+    if (!loaded || empty || customError != null) return;
     const expires = resolve(expiry, customAt, TimeStamp.now());
     update({ subject, name: name.trim(), expires });
   };
@@ -115,21 +118,23 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
         <Text.Text level="small" color={9}>
           Name the key after the script or service that uses it.
         </Text.Text>
-        <Input.Item
-          label="Expiry"
-          helpText={
-            expiry === "never" ? "The key works until you delete it." : undefined
-          }
-        >
-          <Select.Buttons<Expiry> value={expiry} onChange={setExpiry}>
-            {allowed.map((e) => (
-              <Select.Item<Expiry> key={e} itemKey={e}>
-                {LABELS[e]}
-              </Select.Item>
-            ))}
-          </Select.Buttons>
-        </Input.Item>
-        {expiry === "custom" && (
+        {loaded && (
+          <Input.Item
+            label="Expiry"
+            helpText={
+              expiry === "never" ? "The key works until you delete it." : undefined
+            }
+          >
+            <Select.Buttons<Expiry> value={expiry} onChange={setExpiry}>
+              {allowed.map((e) => (
+                <Select.Item<Expiry> key={e} itemKey={e}>
+                  {LABELS[e]}
+                </Select.Item>
+              ))}
+            </Select.Buttons>
+          </Input.Item>
+        )}
+        {loaded && expiry === "custom" && (
           <Input.Item
             label="Expiry date"
             status={customError != null ? "error" : undefined}
@@ -156,7 +161,7 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
           <Button.Button
             variant="filled"
             status={status.keepVariants(variant, "loading")}
-            disabled={empty}
+            disabled={!loaded || empty}
             onClick={handleCreate}
             trigger={Triggers.SAVE}
             triggerIndicator

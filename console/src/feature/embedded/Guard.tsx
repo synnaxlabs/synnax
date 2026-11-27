@@ -14,6 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
   type ReactElement,
@@ -97,15 +98,33 @@ const SideEffect = (): null => {
   return null;
 };
 
-/** Keeps an API key for the scripts on this computer saved with the Core address. */
+// setTimeout fires at once for a longer delay.
+const MAX_TIMEOUT = TimeSpan.milliseconds(2 ** 31 - 1);
+
+/**
+ * Keeps an API key for the scripts on this computer saved with the Core address, and
+ * saves a new one when it expires.
+ */
 const APIKeySideEffect = (): null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   useEffect(() => {
     if (client == null || !Session.Runtime.isMainWindow()) return;
-    handleError(async () => {
-      await ensure(client);
-    }, "Failed to save API key for scripts");
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    const keep = (): void =>
+      handleError(async () => {
+        const { expires } = await ensure(client);
+        if (disposed || expires.equals(TimeStamp.MAX)) return;
+        const left = TimeStamp.now().span(expires).add(TimeSpan.SECOND);
+        const wait = left.greaterThan(MAX_TIMEOUT) ? MAX_TIMEOUT : left;
+        timer = setTimeout(keep, wait.milliseconds);
+      }, "Failed to save API key for scripts");
+    keep();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
   }, [client, handleError]);
   return null;
 };

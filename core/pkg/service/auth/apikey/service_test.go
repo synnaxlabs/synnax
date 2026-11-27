@@ -243,22 +243,43 @@ var _ = Describe("Service", func() {
 			Expect(svc.ValidateLifetime(0)).To(Succeed())
 			Expect(svc.ValidateLifetime(telem.TimeStampMax)).To(Succeed())
 		})
-		It("Should accept an expiry at most the maximum lifetime away", func(
-			ctx SpecContext,
-		) {
-			capped := MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
-				DB:          db,
-				Clock:       clock,
-				MaxLifetime: telem.Day,
-			}))
-			Expect(capped.MaxLifetime()).To(Equal(telem.Day))
-			limit := telem.NewTimeStamp(clock.Now()).Add(telem.Day)
-			Expect(capped.ValidateLifetime(limit)).To(Succeed())
-			for _, expires := range []telem.TimeStamp{0, limit + 1, telem.TimeStampMax} {
-				Expect(capped.ValidateLifetime(expires)).To(MatchError(
-					ContainSubstring("expires: must be at most"),
-				))
-			}
+		Describe("With a maximum lifetime", func() {
+			var (
+				capped *apikey.Service
+				limit  telem.TimeStamp
+			)
+			BeforeEach(func(ctx SpecContext) {
+				capped = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+					DB:          db,
+					Clock:       clock,
+					MaxLifetime: telem.Day,
+				}))
+				limit = telem.NewTimeStamp(clock.Now()).Add(telem.Day)
+			})
+			It("Should report the maximum lifetime", func() {
+				Expect(capped.MaxLifetime()).To(Equal(telem.Day))
+			})
+			It("Should accept an expiry at the maximum lifetime", func() {
+				Expect(capped.ValidateLifetime(limit)).To(Succeed())
+			})
+			It("Should allow a client clock up to a minute ahead", func() {
+				Expect(capped.ValidateLifetime(limit.Add(telem.Minute))).To(Succeed())
+			})
+			DescribeTable(
+				"Should reject an expiry past the maximum lifetime",
+				func(expires func() telem.TimeStamp) {
+					Expect(capped.ValidateLifetime(expires())).To(MatchError(
+						ContainSubstring("expires: must be at most"),
+					))
+				},
+				Entry("no expiry", func() telem.TimeStamp { return 0 }),
+				Entry("past the limit", func() telem.TimeStamp {
+					return limit.Add(telem.Minute) + 1
+				}),
+				Entry("the maximum timestamp", func() telem.TimeStamp {
+					return telem.TimeStampMax
+				}),
+			)
 		})
 	})
 	Describe("Subject", func() {

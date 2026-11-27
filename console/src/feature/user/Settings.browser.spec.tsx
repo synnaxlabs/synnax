@@ -133,6 +133,8 @@ describe("User.KeySettings", () => {
     fireEvent.click(findButton("Create key"));
     const name = uniqueName("key");
     await type("Key name", name);
+    // Create waits for the expiry choices.
+    await screen.findByText("Custom");
     fireEvent.click(findButton("Create"));
     await screen.findByText(`Copy the key for ${name}`);
     // Copying the token is the main action, so its button carries a label.

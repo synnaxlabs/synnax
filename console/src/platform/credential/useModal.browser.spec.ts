@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, TimeSpan, TimeStamp, user } from "@synnaxlabs/client";
+import {
+  rack,
+  type resource,
+  type Synnax,
+  TimeSpan,
+  TimeStamp,
+  user,
+} from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -34,10 +41,12 @@ const type = async (placeholder: string, value: string): Promise<void> => {
   });
 };
 
-// Fills and submits the create modal over the dialog.
+// Fills and submits the create modal over the dialog. Create waits for the expiry
+// choices, which show once the Core's key lifetime limit loads.
 const createKey = async (name: string): Promise<void> => {
   fireEvent.click(await screen.findByText("Create key"));
   await type("Key name", name);
+  await screen.findByText("Custom");
   fireEvent.click(findButton("Create"));
 };
 
@@ -152,14 +161,13 @@ describe("useModal", () => {
       await screen.findByText("No API keys");
       fireEvent.click(await screen.findByText("Create key"));
       await type("Key name", uniqueName("key"));
+      // Every limit allows a custom date, so it shows once the limit loads.
+      await screen.findByText("Custom");
       return { client, id };
     };
 
     // Creates the key and returns how long it lives.
-    const create = async (
-      client: ReturnType<typeof createTestClient>,
-      id: ReturnType<typeof user.resourceID>,
-    ): Promise<TimeSpan> => {
+    const create = async (client: Synnax, id: resource.ID): Promise<TimeSpan> => {
       const before = TimeStamp.now();
       fireEvent.click(findButton("Create"));
       await screen.findByText(/^syk_/);

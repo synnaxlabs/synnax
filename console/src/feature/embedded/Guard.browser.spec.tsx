@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { auth } from "@synnaxlabs/client";
+import { auth, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 import { testClientParams } from "@synnaxlabs/client/testutil";
-import { scheduler } from "@synnaxlabs/x";
+import { scheduler, sleep } from "@synnaxlabs/x";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -211,6 +211,64 @@ describe("Embedded.Guard API key for scripts", () => {
       return file.apiKey;
     });
     await createScriptClient(apiKey).auth.sessions.retrieve();
+  });
+
+  it("should replace and delete a saved key that has expired", async () => {
+    await deleteKeysCreatedByTest(client);
+    const { token, key } = await client.auth.apiKeys.create({
+      name: "expired",
+      expires: TimeStamp.now().add(TimeSpan.milliseconds(500)),
+    });
+    await sleep.sleep(TimeSpan.seconds(1));
+    const { file, handlers } = createDiscoveryFile(token);
+    mockSupervisor(() => live, handlers);
+    await renderGuard();
+    const apiKey = await waitFor(() => {
+      if (file.apiKey == null || file.apiKey === token)
+        throw new Error("saved key not replaced");
+      return file.apiKey;
+    });
+    await expect.poll(async () => await retrieveKeyIDs(client)).not.toContain(key.key);
+    await createScriptClient(apiKey).auth.sessions.retrieve();
+  });
+
+  it("should save a key that lives as long as the Core allows", async () => {
+    await deleteKeysCreatedByTest(client);
+    vi.spyOn(auth.Client.prototype, "retrieveAPIKeyMaxLifetime").mockResolvedValue(
+      TimeSpan.days(7),
+    );
+    const { file, handlers } = createDiscoveryFile();
+    mockSupervisor(() => live, handlers);
+    const before = TimeStamp.now();
+    await renderGuard();
+    const apiKey = await waitFor(() => {
+      if (file.apiKey == null) throw new Error("no key saved");
+      return file.apiKey;
+    });
+    const saved = (await client.auth.apiKeys.retrieve()).find(
+      (k) => k.key === auth.apiKey.keyOf(apiKey),
+    );
+    expect(Math.round(before.span(saved?.expires ?? before).days)).toBe(7);
+  });
+
+  it("should save a new key when the saved one expires", async () => {
+    await deleteKeysCreatedByTest(client);
+    vi.spyOn(auth.Client.prototype, "retrieveAPIKeyMaxLifetime").mockResolvedValue(
+      TimeSpan.seconds(2),
+    );
+    const { file, handlers } = createDiscoveryFile();
+    mockSupervisor(() => live, handlers);
+    await renderGuard();
+    const first = await waitFor(() => {
+      if (file.apiKey == null) throw new Error("no key saved");
+      return file.apiKey;
+    });
+    await waitFor(
+      () => {
+        if (file.apiKey === first) throw new Error("key not renewed");
+      },
+      { timeout: 10_000 },
+    );
   });
 
   it("should revoke a Desktop 1.1 key and save a new one in its place", async () => {

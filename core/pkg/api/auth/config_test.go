@@ -14,12 +14,17 @@ import (
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiauth.ServiceConfig {
-		return apiauth.ServiceConfig{Auth: &auth.Service{}, OIDC: &oidc.Service{}}
+		return apiauth.ServiceConfig{
+			Auth:   &auth.Service{},
+			OIDC:   &oidc.Service{},
+			APIKey: &apikey.Service{},
+		}
 	}
 
 	Describe("Validate", func() {
@@ -44,6 +49,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiauth.ServiceConfig) { c.OIDC = nil },
 				"oidc: must be non-nil",
 			),
+			Entry(
+				"api key",
+				func(c *apiauth.ServiceConfig) { c.APIKey = nil },
+				"api_key: must be non-nil",
+			),
 		)
 	})
 
@@ -53,6 +63,7 @@ var _ = Describe("ServiceConfig", func() {
 			merged := apiauth.ServiceConfig{}.Override(cfg)
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
+			Expect(merged.APIKey).To(BeIdenticalTo(cfg.APIKey))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -60,6 +71,7 @@ var _ = Describe("ServiceConfig", func() {
 			merged := cfg.Override(apiauth.ServiceConfig{})
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
+			Expect(merged.APIKey).To(BeIdenticalTo(cfg.APIKey))
 		})
 	})
 })

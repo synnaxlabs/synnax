@@ -226,8 +226,8 @@ const ConnectModal = (): ReactElement => {
     async (signal) => {
       if (client == null) return;
       try {
-        const next = await ensure(client);
-        if (!signal.aborted) show(next);
+        const { token } = await ensure(client);
+        if (!signal.aborted) show(token);
       } catch (err) {
         if (!signal.aborted) handleError(err, "Failed to load API key");
       }
