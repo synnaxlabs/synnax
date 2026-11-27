@@ -1071,4 +1071,18 @@ TEST(StatesTest, DisconnectHandsOffAClosedHolderThatAReadStillNamed) {
     ASSERT_TRUE(states.is_authorized(1, OPERATOR));
     ASSERT_FALSE(states.is_authorized(1, ARC));
 }
+
+/// @brief it should ignore a read that began before a disconnect, so the Core stays
+/// lost until a later read lands.
+TEST(StatesTest, DisconnectOutdatesAnOpenRead) {
+    States states;
+    states.open_gate(ARC, {1}, {100});
+    const auto read = states.begin_read();
+    states.disconnect();
+    ASSERT_FALSE(
+        states.set({{.subject = OPERATOR, .resource = 1, .authority = 200}}, read)
+    );
+    ASSERT_TRUE(states.is_authorized(1, ARC));
+    ASSERT_FALSE(states.is_authorized(1, OPERATOR));
+}
 }

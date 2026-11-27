@@ -510,8 +510,11 @@ public:
 
     /// @brief marks the Core as lost, so the local gates compete by the Core's rule
     /// until the next set. A holder outside the Driver stays until a gate with more
-    /// authority takes its channel.
+    /// authority takes its channel. A read that began before this call is ignored.
     void disconnect() {
+        std::lock_guard hold_lock(this->hold_mu);
+        // A read that began before the loss must not mark the Core connected.
+        ++this->gen;
         std::unique_lock lock(this->mu);
         this->connected = false;
         std::erase_if(this->core, [this](const auto &entry) {
