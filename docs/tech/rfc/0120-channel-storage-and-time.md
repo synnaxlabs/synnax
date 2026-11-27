@@ -555,18 +555,18 @@ alignment and inputs of two clocks by sample time:
   stamps as `i64 ns`, on that channel's clock: a source in a flow, and an expression in
   a function body or a calculation. The migration rewrites a read of a retired index
   channel to `time.of` of a data channel that it times, from `DB.Keys` by the rule of
-  §4.10. The text pass follows D-504 to D-506. Its candidates are the channel tokens of
-  the release's grammar: bare, path, and quoted. It resolves each from the program's
-  parse, so a local, input, parameter, stage, or module member of that name keeps its
-  token, and it binds each channel token by the live resolver, by key, before the
-  retire. It rewrites only a token that binds to a staged key, so a live channel never
-  loses its reads, and it writes the new token in the form of RFC 0119 §4.5 "Form". When
-  RFC 0119's flip runs at the same start, this pass runs after it. It leaves unchanged,
-  and reports, a reference where the new text would be captured, such as by a local
-  named `time`, and text that does not parse. A golden corpus spec in
-  `core/pkg/service/arc/versions/v4` covers bare text, and the step's own spec holds
-  path and quoted text. No builtin gives a sample's stamp today
-  (`arc/go/stl/time/time.go:34-38`).
+  §4.10. The text pass follows D-504's scope rules and departs from D-505 (3) and D-506
+  (decision 45). Its candidates are the channel tokens of the release's grammar: bare,
+  path, and quoted. It resolves each from the program's parse, so a local, input,
+  parameter, stage, or module member of that name keeps its token, and it binds each
+  channel token by the live resolver, by key, before the retire. It rewrites only a
+  token that binds to a staged key, so a live channel never loses its reads, and it
+  writes the new token in the form of RFC 0119 §4.5 "Form". When RFC 0119's flip runs at
+  the same start, this pass runs after it. It leaves unchanged, and reports, a reference
+  where the new text would be captured, such as by a local named `time`, and text that
+  does not parse. The step's own spec holds bare, path, and quoted text; the golden
+  corpus in `core/pkg/service/arc/versions/v4` records RFC 0119's rename pass, not this
+  step. No builtin gives a sample's stamp today (`arc/go/stl/time/time.go:34-38`).
 - **Stored `<name>_time` records**: Phase 21 deletes each `<name>_time` index channel
   that a v0.62 Core stored. First it retargets every reference to the record onto the
   output's new clock, through the references of RFC 0119: the index of the stored input
@@ -851,8 +851,12 @@ continuation. A partial group from a task fails loud, as a partial index group d
 - **Console forms**: From Phase 47, task forms make data channels only, with no `_time`
   channels (`console/src/feature/ni/task/AnalogRead.tsx:211-215` and its siblings).
   Until then they make index channels as today, which form whole groups (§4.8), and the
-  shared helper `console/src/platform/task/channels.ts` keeps its index form. OPC UA's
-  "Use as index" becomes "Use as time" at Phase 36.
+  shared helper `console/src/platform/task/channels.ts` keeps its index form. Today a
+  form finds its shared index through the device
+  (`console/src/feature/ni/task/AnalogRead.tsx:199-216`). From the phase that drops a
+  device's index fields, it finds the index by name instead, with the
+  `retrieveIfNameExists` option of a create (`client/ts/src/channel/client.ts:85`). OPC
+  UA's "Use as index" becomes "Use as time" at Phase 36.
 - **Writes out**: From Phases 39 and 40, the Kafka write task and the MQTT edge writer
   take each sample's stamp from `frame.time`, in place of the index series of the frame
   (`core/pkg/service/kafka/write_task.go:685-697`,
@@ -955,16 +959,16 @@ The migration changes metadata only and runs at the first start, before any writ
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
-| Holder                                                                                          | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| NI, LabJack, and OPC UA server devices                                                          | A new schema version drops the index fields (§4.9)                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| EtherCAT devices, the `core/v0.62.0` LabJack, HTTP, Modbus, and MQTT devices, and Kafka devices | A composition step drops the index keys from untyped JSON, by shape and not by release, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1174`). A Kafka device's `read` sources hold `index` (`console/src/feature/kafka/device/types.ts:27`, `console/src/platform/task/channels.ts:58-61`), so a stable release before Phase 50 ships them                                                                                                             |
-| HTTP, Kafka, MQTT, and ICD messages                                                             | The index field becomes the time field, and its channel binding drops                                                                                                                                                                                                                                                                                                                                                                                               |
-| OPC UA read                                                                                     | A read channel with `is_index` becomes the task's time node, and its binding drops. A channel CSV import maps a line of its `index` column to the time node (`console/src/feature/opcua/task/csv/csv.ts:17`)                                                                                                                                                                                                                                                        |
-| Sift                                                                                            | Phase 42 groups Sift flows by the clock of each series, where it refuses a channel with no index today (`core/pkg/service/sift/ingest/flow.go:129-130`). A composition step drops retired keys from `channels`, by the staged entries, before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock. A flow for a new clock takes the name of its task, or of its first channel, and no status text shows a clock key |
-| Line plot, log                                                                                  | A composition step, by the staged entries, sets a line plot axis that names a retired key to x 0, which shows time (`schemas/synnax/lineplot.oracle:230`), and drops a y line or a log channel that names one. Not `DropDangling`, which keeps a dead key that the Core issued (RFC 0119)                                                                                                                                                                           |
-| Arc and calculation text and graph nodes                                                        | A read of a retired key, by the staged entries, becomes `time.of` of a data channel that it times, from `DB.Keys` (RFC 0121 §4.1): one that the same program reads, else the lowest key. A graph `on` or `write` node that names one takes the same source. A retired key that times no data channel stays, and the compile fails with an error that names `time.of`. The step drops `authority` entries for index channels, and a write to one fails at compile    |
-| Schematic symbol, table cell                                                                    | Keeps a weak link, and the Console shows a missing channel. The release notes name the loss                                                                                                                                                                                                                                                                                                                                                                         |
+| Holder                                                                                          | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NI, LabJack, and OPC UA server devices                                                          | A new schema version drops the index fields (§4.9)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| EtherCAT devices, the `core/v0.62.0` LabJack, HTTP, Modbus, and MQTT devices, and Kafka devices | A composition step drops the index keys from untyped JSON, by shape and not by release, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1174`). A Kafka device's `read` sources hold `index` (`console/src/feature/kafka/device/types.ts:27`, `console/src/platform/task/channels.ts:58-61`), so a stable release before Phase 50 ships them                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| HTTP, Kafka, MQTT, and ICD messages                                                             | The index field becomes the time field, and its channel binding drops                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| OPC UA read                                                                                     | A read channel with `is_index` becomes the task's time node, and its binding drops. A channel CSV import maps a line of its `index` column to the time node (`console/src/feature/opcua/task/csv/csv.ts:17`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| Sift                                                                                            | Phase 42 groups Sift flows by the clock of each series, where it refuses a channel with no index today (`core/pkg/service/sift/ingest/flow.go:129-130`). A composition step drops retired keys from `channels`, by the staged entries, before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock. A flow for a new clock takes the name of its task, or of its first channel, and no status text shows a clock key                                                                                                                                                                                                                                                                                                                                   |
+| Line plot, log                                                                                  | A composition step, by the staged entries, sets a line plot axis that names a retired key to x 0, which shows time (`schemas/synnax/lineplot.oracle:230`), and drops a y line or a log channel that names one. Not `DropDangling`, which keeps a dead key that the Core issued (RFC 0119)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Arc and calculation text and graph nodes                                                        | A read of a retired key, by the staged entries, becomes `time.of` of a data channel that it times, from `DB.Keys` (RFC 0121 §4.1): one that the same program reads, else, among the keys with a record, the one with the latest last stamp, which the upgrade status names. A graph `on` or `write` node that names one takes the same source. A calculation's `primary` or `reset` that names one moves to the data channel of its `time.of` rewrite, and the step compiles the record in the same action, as RFC 0119's retarget does, with a spec for a calculation that reads only an index. A retired key that times no data channel stays, and the compile fails with an error that names `time.of`. The step drops `authority` entries for index channels, and a write to one fails at compile |
+| Schematic symbol, table cell                                                                    | Keeps a weak link, and the Console shows a missing channel. The release notes name the loss                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 
 - **Order**: The channel step stages the entries. The holder steps merge dark at Phases
   42 and 43 and register at Phase 50 as composition migrations after the channel step
@@ -972,7 +976,9 @@ The migration changes metadata only and runs at the first start, before any writ
   their edits. Each runs once, as a Gorp migration does. The retire runs last, so no
   `restrict` link blocks it. A crash before the retire leaves the entries for the next
   start, and the steps that already ran do not run again. No writer opens during the
-  upgrade (D-460).
+  upgrade (D-460): from Phase 50 the metrics service opens after the composition
+  migrations, where today it opens before them (`core/pkg/service/layer.go:1144`,
+  `:1158-1180`).
 - **Imports**: Imports always migrate (founder delegation). A line plot, log, graph
   node, or Sift list key that has no record and that `DB.Keys` marks as a clock takes
   its step's rule, so an old plot draws against time. Arc or calculation text that names
@@ -1370,9 +1376,10 @@ for a new plan at a failed gate (founder delegation). Decisions 10, 13, 19, 29, 
     `ReadMessage.index` becomes `time`, and a replay floor is the latest last stamp of a
     group's channels. Rejected: a time flag per OPC UA channel, which allows two.
 34. **Continuation picks by most keys**: Then by the latest last stamp, then by the
-    lowest key. Rejected: the latest stamp first, under which one key's new clock pulls
-    a whole group. A clock whose last stamp is not before the start is no candidate, so
-    a backfill takes a new clock instead of failing on another session's stamps.
+    lowest key, and on a tie the earlier group of the open. Rejected: the latest stamp
+    first, under which one key's new clock pulls a whole group. A clock whose last stamp
+    is not before the start is no candidate, so a backfill takes a new clock instead of
+    failing on another session's stamps.
 35. **A reserved `time`, with stored names kept**: A new channel whose path is `time`
     fails at create. Rejected: a rename of stored ones, against D-448, and no rule,
     which lets a write by name meet a channel and the reserved key at once.
@@ -1418,6 +1425,10 @@ for a new plan at a failed gate (founder delegation). Decisions 10, 13, 19, 29, 
     framer refuses writes to that channel, so no stamps reach it, and the Core stays
     operational (D-425). Rejected: a refused start, under which one bad record stops a
     running system.
+45. **The `time.of` text pass departs from D-505 (3) and D-506**: It takes path and
+    quoted tokens, not bare ones only, and binds by the live resolver, since it runs on
+    text after RFC 0119's flip. Rejected: bare tokens bound by v0.62's binding, which
+    miss a path or a name that the flip changed.
 
 ## 8 Open questions
 
