@@ -420,8 +420,8 @@ x::errors::Error Outbox::push(pb::Call request, Call call) {
         std::unique_lock lock(this->mu);
         if (this->tail.writer == nullptr || this->tail_calls >= this->cfg.segment_calls)
             if (const auto err = this->next_tail(lock)) return err;
-        call.over_cap = this->bytes + size > this->cfg.max_bytes ||
-                        this->calls.size() >= this->cfg.max_calls;
+        const bool bytes_full = this->bytes + size > this->cfg.max_bytes;
+        call.over_cap = bytes_full || this->calls.size() >= this->cfg.max_calls;
         // A full outbox still takes the first end of a range, so the range does not
         // stay open.
         if (call.over_cap && !this->takes_when_full(*call.request)) {
@@ -432,9 +432,12 @@ x::errors::Error Outbox::push(pb::Call request, Call call) {
             }
             return x::errors::Error(
                 FULL,
-                "The Driver holds " + std::to_string(this->calls.size()) +
-                    " calls that the Core has not taken, the most it can hold. "
-                    "Check the connection to the Core."
+                bytes_full ? "The Driver holds " + std::to_string(this->cfg.max_bytes) +
+                                 " bytes of calls that the Core has not taken. Check "
+                                 "the connection to the Core."
+                           : "The Driver holds " + std::to_string(this->calls.size()) +
+                                 " calls that the Core has not taken, the most it "
+                                 "can hold. Check the connection to the Core."
             );
         }
         if (const auto err = this->tail.writer->write(

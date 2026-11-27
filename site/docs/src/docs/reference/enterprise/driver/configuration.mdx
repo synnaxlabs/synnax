@@ -51,9 +51,10 @@ path of the computer, when the path of the computer holds no login yet.
 The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
 path. The service always uses the default path.
 
-The Driver keeps the Arc status sets that the Core has not received in the `data` folder
-next to the state file. For the Linux service, the `synnax` user owns that folder. A
-Driver that root runs gives each file it creates there to the owner of the folder.
+The Driver keeps the Arc status sets and range changes that the Core has not received in
+the `data` folder next to the state file. For the Linux service, the `synnax` user owns
+that folder. A Driver that root runs gives each file it creates there to the owner of
+the folder.
 
 On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
 missing state file with mode `0600`. From Driver 0.61.5, `start` and `clear` do not
@@ -266,15 +267,17 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 </Field.Item>
 
 <Field.Item name="outbox_size" default="67108864">
-  The number of bytes of Arc status sets that wait for the Core while it is slow or
-  unreachable. When it is full, the Driver keeps only the last set of each status, then
-  drops new sets and shows a warning. In the configuration file, it goes in `outage`.
+  The number of bytes of Arc status sets and range changes that wait for the Core while
+  it is slow or unreachable. When it is full, the Driver keeps only the last set of each
+  status and every range change, then drops new sets and new ranges and shows a warning.
+  It still takes the end of a range it holds. In the configuration file, it goes in
+  `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_max_calls" default="200000">
-  The number of Arc status sets that wait for the Core at most. Each takes some memory
-  as it waits. When the Driver holds this many, it treats the outbox as full. In the
-  configuration file, it goes in `outage`.
+  The number of Arc status sets and range changes that wait for the Core at most. Each
+  takes some memory as it waits. When the Driver holds this many, it treats the outbox
+  as full. In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="outbox_max_open_ranges" default="10000">

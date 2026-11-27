@@ -72,8 +72,9 @@ spec_of(const std::string &type, const std::vector<std::string> &inputs) {
     return spec_of("end", {"key"});
 }
 
-/// @brief the byte cap of an outbox that holds one range create and no more.
-constexpr std::uint64_t ONE_CREATE_BYTES = 150;
+/// @brief the byte cap of an outbox that holds one range create and no more, with or
+/// without the header of its spare segment.
+constexpr std::uint64_t ONE_CREATE_BYTES = 180;
 
 /// @brief a report captured by recordingReporter.
 struct Report {
