@@ -123,8 +123,8 @@ var _ = Describe("Clash upgrade breaker", func() {
 			Expect(renameStatuses(ctx, n)["scaled"].Description).To(Equal(
 				`The upgrade renamed channel "Metrics" to "Metrics_2", but the text of ` +
 					`calculated channel "scaled" still reads the old name at line 2, ` +
-					`column 8, because a symbol in scope there holds the name ` +
-					`"Metrics_2". Edit the text so that it reads the channel.`,
+					`column 8, because a symbol that the text declares holds one of ` +
+					`these names there. Edit the text so that it reads the channel.`,
 			))
 		})
 
