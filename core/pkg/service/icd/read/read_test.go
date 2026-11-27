@@ -237,6 +237,17 @@ var _ = Describe("Read", func() {
 					"cannot read into channel value of data type float64",
 			))
 		})
+
+		It("Should refuse two reads that write one index channel", func(
+			ctx SpecContext,
+		) {
+			Expect(resolver.Check(ctx, db, []read.Read{
+				readAt(0, plant.Key, readOf(status, bind(temp, valueKey))),
+				readAt(1, plant.Key, readOf(status, bind(temp, levelKey))),
+			}, icds)).To(MatchError(
+				"reads.1.messages.0: channel 1 is also written by reads.0.messages.0",
+			))
+		})
 	})
 
 	Describe("Checker", func() {

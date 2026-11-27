@@ -11,6 +11,7 @@ package http_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -216,6 +217,21 @@ var _ = Describe("Read config", func() {
 		}, "endpoints.1.messages.0.bindings.0.channel",
 			"is also written by endpoints.0.messages.0.bindings.0.channel"),
 	)
+
+	It("Should reject two endpoints that write one index channel", func(
+		ctx SpecContext,
+	) {
+		f := createFormat(ctx)
+		level := createChannel(ctx, telem.Float64T, f.idx)
+		Expect(svc.Read.Prepare(ctx, db, uuid.New(), "Pump", readConfigOf(
+			f.ic,
+			readMessage(f.m, binding(f.m, 1, f.value)),
+			readMessage(f.m, binding(f.m, 1, level)),
+		))).Error().To(MatchError(fmt.Sprintf(
+			"endpoints.1.messages.0: channel %d is also written by endpoints.0.messages.0",
+			f.idx.Key(),
+		)))
+	})
 
 	DescribeTable(
 		"Should save a disabled endpoint without checking its reads",
