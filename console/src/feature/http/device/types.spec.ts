@@ -680,9 +680,10 @@ describe("HTTP Device Properties", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should default a missing header name to empty", () => {
-      const result = HTTP.Device.headersZ.parse([{ value: "text/html" }]);
-      expect(result).toEqual([{ name: "", value: "text/html" }]);
+    it("should reject a header with no name", () => {
+      expect(HTTP.Device.headersZ.safeParse([{ value: "text/html" }]).success).toBe(
+        false,
+      );
     });
 
     it("should default a missing header value to empty", () => {
@@ -699,9 +700,8 @@ describe("HTTP Device Properties", () => {
       expect(result.success).toBe(true);
     });
 
-    it("should default a missing parameter to empty", () => {
-      const result = HTTP.Device.queryParamsZ.parse([{ value: "10" }]);
-      expect(result).toEqual([{ parameter: "", value: "10" }]);
+    it("should reject a query parameter with no name", () => {
+      expect(HTTP.Device.queryParamsZ.safeParse([{ value: "10" }]).success).toBe(false);
     });
 
     it("should default a missing value to empty", () => {
