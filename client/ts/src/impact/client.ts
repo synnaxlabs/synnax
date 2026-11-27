@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { UnaryClient } from "@synnaxlabs/freighter";
+import { caseconv } from "@synnaxlabs/x";
 import type { z } from "zod";
 
 import { channel } from "@/channel";
@@ -85,4 +86,4 @@ export const deleteChannels = (keys: channel.Key[]): Change => ({
 
 /** Returns the plan as it is now, which error carries. */
 export const planOf = (error: PlanChangedError): Plan =>
-  planZ.parse(JSON.parse(error.plan));
+  planZ.parse(caseconv.snakeToCamel(JSON.parse(error.plan), { schema: planZ }));
