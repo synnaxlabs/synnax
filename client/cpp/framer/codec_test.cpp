@@ -667,7 +667,7 @@ TEST(CodecTests, Rejects) {
         const auto [_, err] = dec.decode(b);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
         ASSERT_EQ(err.data, msg);
-        const auto [__, dropped] = dec.decode(from_hex(CLOCK_FRAME));
+        const auto [next, dropped] = dec.decode(from_hex(CLOCK_FRAME));
         ASSERT_EQ(
             dropped.data,
             "remote sent a frame for state 1 after a frame of it failed to decode"
