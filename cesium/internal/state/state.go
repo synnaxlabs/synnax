@@ -59,7 +59,7 @@ type Limits struct {
 	Segments uint64
 	// Alignments is the alignment number limit.
 	Alignments uint64
-	// Parts is the part identity limit.
+	// Parts is the identity limit of part records. This package gives out no part yet.
 	Parts uint64
 }
 
