@@ -10,7 +10,9 @@
 package channel
 
 import (
+	"cmp"
 	"context"
+	"slices"
 	"strconv"
 	"sync"
 
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // symbolResolver resolves cluster channels into Arc symbols by name or numeric key. It
@@ -67,9 +70,9 @@ func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 	})), nil
 }
 
-// Resolve resolves a single cluster channel by numeric key, or by path
-// (Service.KeysByPaths), so a name with no validate.PathSeparator is the channel of
-// that name at the top level. The symbol of a path takes the path as its name.
+// Resolve resolves a single cluster channel by name, compared in NFC, or by numeric
+// key. Of channels in two folders with the name, it resolves the one with the highest
+// key, as a v0.62 Core did.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
@@ -78,24 +81,25 @@ func (r *symbolResolver) Resolve(
 	if err != nil {
 		return nil, err
 	}
-	var ch Channel
+	var matches []Channel
+	q = q.Entries(&matches)
 	if key, err := strconv.ParseUint(name, 10, 32); err == nil {
-		if err = q.Where(MatchKeys(Key(key))).Entry(&ch).Exec(ctx, r.snap); err != nil {
-			return nil, err
-		}
-		return toSymbol(ch), nil
+		q = q.Where(MatchKeys(Key(key)))
+	} else {
+		q = q.Where(MatchNames(validate.NormalizeName(name)))
 	}
-	if err = q.Where(MatchPaths(name)).Entry(&ch).Exec(ctx, r.snap); err != nil {
+	if err = q.Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	sym := toSymbol(ch)
-	sym.Name = name
-	return sym, nil
+	if len(matches) == 0 {
+		return nil, errors.Wrapf(query.ErrNotFound, "no channel named %q", name)
+	}
+	return toSymbol(slices.MaxFunc(matches, func(a, b Channel) int {
+		return cmp.Compare(a.Key(), b.Key())
+	})), nil
 }
 
-// Search fuzzy-searches non-internal cluster channels by name, and names each symbol by
-// the path of its channel, so a name that is not found suggests the paths of the
-// channels that hold it.
+// Search fuzzy-searches non-internal cluster channels by name.
 func (r *symbolResolver) Search(
 	ctx context.Context,
 	name string,
@@ -111,15 +115,8 @@ func (r *symbolResolver) Search(
 		Entries(&results).Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
-	paths, err := Paths(ctx, r.snap, results)
-	if err != nil {
-		return nil, err
-	}
-	texts := PathTexts(paths)
-	return lo.Map(results, func(item Channel, i int) *symbol.Symbol {
-		sym := toSymbol(item)
-		sym.Name = texts[i]
-		return sym
+	return lo.Map(results, func(item Channel, _ int) *symbol.Symbol {
+		return toSymbol(item)
 	}), nil
 }
 
