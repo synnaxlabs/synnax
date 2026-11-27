@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import pytest
+from pydantic import ValidationError
 
 import synnax as sy
 from tests.json_value import arr, obj
