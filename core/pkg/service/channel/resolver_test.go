@@ -19,7 +19,10 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -152,6 +155,57 @@ var _ = Describe("NewArcSymbolResolver", func() {
 					ContainElement(HaveField("ID", int(visible.Key()))),
 					Not(ContainElement(HaveField("ID", int(hidden.Key())))),
 				))
+		})
+	})
+
+	Context("Bare names in folders", Ordered, func() {
+		var (
+			db     *gorp.DB
+			svc    *channel.Service
+			folder group.Group
+		)
+		BeforeAll(func(ctx SpecContext) {
+			node := testutil.NewNode(ctx)
+			db = node.DB
+			cfg, groupSvc := serviceConfig(ctx, node, node.DB)
+			svc = MustOpen(channel.OpenService(ctx, cfg))
+			folder = MustSucceed(
+				groupSvc.CreateOrRetrieve(ctx, "Stand A", resource.TypeChannel),
+			)
+		})
+		create := func(ctx SpecContext, name string, g *group.Key) channel.Channel {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:     name,
+				DataType: telem.Float32T,
+				Virtual:  true,
+				Group:    g,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			return ch
+		}
+
+		It("Should resolve a bare name whose one holder sits in a folder", func(
+			ctx SpecContext,
+		) {
+			ch := create(ctx, UniqueChannelName(), &folder.Key)
+			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, ch.Name)).
+				To(HaveField("ID", int(ch.Key())))
+		})
+
+		It("Should resolve the highest key of a bare name in two folders", func(
+			ctx SpecContext,
+		) {
+			lower := create(ctx, UniqueChannelName(), nil)
+			higher := create(ctx, UniqueChannelName(), &folder.Key)
+			// A v0.62 Core can store one name twice. The highest key wins, as there.
+			higher.Name = lower.Name
+			Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).Set(ctx, higher)).
+				To(Succeed())
+			Expect(svc.NewArcSymbolResolver(db).Resolve(ctx, lower.Name)).
+				To(HaveField("ID", int(higher.Key())))
 		})
 	})
 })
