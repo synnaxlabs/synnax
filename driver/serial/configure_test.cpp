@@ -159,9 +159,9 @@ TEST_F(SerialConfigure, NamesChannelOfBadBinding) {
     );
 }
 
-/// @brief it should refuse a second read task on the port of a device and name the
-/// first, and configure the second once the first is gone.
-TEST_F(SerialConfigure, RefusesSecondReadTaskOnPort) {
+/// @brief it should refuse a second read task on a device and name the first, and
+/// configure the second once the first is gone.
+TEST_F(SerialConfigure, RefusesSecondReadTaskOnDevice) {
     const auto entry = this->lines(this->channel().key);
     auto first = this->configure_task(entry, "oven");
     ASSERT_NE(first, nullptr);
@@ -169,8 +169,8 @@ TEST_F(SerialConfigure, RefusesSecondReadTaskOnPort) {
     EXPECT_EQ(status.message, "Failed to configure task");
     EXPECT_EQ(
         status.description,
-        "A serial port runs one read task at a time, and the task 'oven' reads from "
-        "/dev/synnax-missing-port. Add these entries to that task."
+        "A serial device runs one read task at a time, and the task 'oven' reads from "
+        "this device. Add these entries to that task."
     );
     first.reset();
     EXPECT_NE(this->configure_task(entry), nullptr);

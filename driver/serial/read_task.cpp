@@ -47,19 +47,19 @@ std::vector<synnax::channel::Channel> Source::channels() const {
 }
 
 x::errors::Error Source::start(const std::string &, x::breaker::Breaker &) {
-    auto [lease, err] = this->ports->acquire(this->device);
-    this->lease = std::move(lease);
+    auto [conn, err] = this->ports->acquire(this->device);
+    this->conn = std::move(conn);
     this->opens = 0;
     return err;
 }
 
 x::errors::Error Source::stop() {
-    this->lease = {};
+    this->conn = nullptr;
     return x::errors::NIL;
 }
 
 common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
-    auto guard = this->lease.conn->lock();
+    auto guard = this->conn->lock();
     const auto [t, err] = guard.transport();
     if (err) return {.error = err};
     if (const auto opens = guard.opens(); opens != this->opens) {
@@ -101,7 +101,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         false
     );
     if (receiver_err) return {common::ConfigureResult{}, receiver_err};
-    auto [claim, claim_err] = ports->claim_read(dev.props.port, task);
+    auto [claim, claim_err] = ports->claim_read(dev.key, task);
     if (claim_err) return {common::ConfigureResult{}, claim_err};
     std::vector<synnax::channel::Channel> bound;
     bound.reserve(resources.channels.size());

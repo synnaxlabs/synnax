@@ -109,7 +109,7 @@ protected:
         t.key = x::uuid::create();
         t.name = "serial read";
         const auto ports = std::make_shared<Ports>();
-        auto claim = ASSERT_NIL_P(ports->claim_read(props.port, t));
+        auto claim = ASSERT_NIL_P(ports->claim_read("device", t));
         this->task = std::make_unique<common::ReadTask>(
             t,
             this->ctx,

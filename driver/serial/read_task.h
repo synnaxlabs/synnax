@@ -28,6 +28,7 @@
 #include "driver/serial/ports.h"
 #include "driver/serial/serial.h"
 #include "driver/task/task.h"
+#include "driver/transport/connection.h"
 
 namespace driver::serial {
 /// @brief READ_TASK_TYPE is the type of the task that reads ICD messages from a serial
@@ -39,21 +40,21 @@ const std::string READ_TASK_TYPE = INTEGRATION_NAME + "_read";
 class Source final : public common::Source {
     std::shared_ptr<Ports> ports;
     Device device;
-    /// @brief claim holds the port of the device for the task until it is destroyed.
+    /// @brief claim holds the device for the task until it is destroyed.
     std::unique_ptr<Ports::Claim> claim;
     icd::Receiver receiver;
     /// @brief bound holds the channel of each binding.
     std::vector<synnax::channel::Channel> bound;
     bool data_saving_disabled;
-    /// @brief lease is the use of the port while the source runs.
-    Ports::Lease lease;
+    /// @brief conn is the connection to the port while the source runs.
+    std::shared_ptr<transport::Connection> conn;
     /// @brief opens is the open count of the connection at the last read.
     std::uint64_t opens = 0;
 
 public:
     /// @param ports the ports that the tasks of the integration share.
     /// @param device the device that the task reads from.
-    /// @param claim the read claim on the port of the device.
+    /// @param claim the read claim on the device.
     /// @param receiver reads the messages of the entries.
     /// @param bound the channel of each binding of the entries.
     /// @param data_saving_disabled true when the task streams its data without saving
