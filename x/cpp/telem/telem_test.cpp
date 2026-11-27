@@ -1371,6 +1371,25 @@ TEST(SizeTests, testMultiplyByDouble) {
     ASSERT_EQ(MEGABYTE * 1.5f, Size(1'500'000));
 }
 
+/// @brief it should saturate a scaled size to the int64 range on every platform.
+TEST(SizeTests, testMultiplyByDoubleSaturates) {
+    constexpr auto max = std::numeric_limits<std::int64_t>::max();
+    constexpr auto min = std::numeric_limits<std::int64_t>::min();
+    constexpr auto inf = std::numeric_limits<double>::infinity();
+    ASSERT_EQ(TERABYTE * 1e10, Size(max));
+    ASSERT_EQ(TERABYTE * -1e10, Size(min));
+    ASSERT_EQ(BYTE * inf, Size(max));
+    ASSERT_EQ(BYTE * -inf, Size(min));
+    ASSERT_EQ(Size(max) * 1.0, Size(max));
+    ASSERT_EQ(Size(min) * 1.0, Size(min));
+}
+
+/// @brief it should give zero for a NaN scale.
+TEST(SizeTests, testMultiplyByNaN) {
+    ASSERT_EQ(KILOBYTE * std::numeric_limits<double>::quiet_NaN(), Size());
+    ASSERT_EQ(Size() * std::numeric_limits<double>::infinity(), Size());
+}
+
 /// @brief it should add, subtract, scale, and divide sizes.
 TEST(SizeTests, testArithmetic) {
     auto s = 2 * MEGABYTE;

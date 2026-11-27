@@ -837,9 +837,15 @@ public:
         return rhs * lhs;
     }
 
-    /// @brief scales the size, rounding to the nearest byte.
+    /// @brief scales the size, rounding to the nearest byte. A result outside the int64
+    /// range, infinity included, saturates to the nearest bound. A NaN result is zero.
     Size operator*(const double other) const {
-        return Size(std::llround(static_cast<double>(value) * other));
+        const double scaled = static_cast<double>(value) * other;
+        constexpr double bound = 0x1p63;
+        if (std::isnan(scaled)) return Size();
+        if (scaled >= bound) return Size(std::numeric_limits<std::int64_t>::max());
+        if (scaled < -bound) return Size(std::numeric_limits<std::int64_t>::min());
+        return Size(std::llround(scaled));
     }
 
     friend Size operator*(const double lhs, const Size &rhs) { return rhs * lhs; }
