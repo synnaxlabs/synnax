@@ -498,7 +498,28 @@ func checkCreatedNames(
 	}
 	// A repeat fails here on every Core, so a clash of the name index names one
 	// position.
-	return validateRepeatedNames(Names(channels))
+	return validateRepeatedSiblings(channels)
+}
+
+// validateRepeatedSiblings rejects a request that holds two channels of one name in one
+// folder.
+func validateRepeatedSiblings(channels []Channel) error {
+	seen := make(set.Set[group.Sibling], len(channels))
+	for i := range channels {
+		s := siblingOf(&channels[i])
+		if seen.Contains(s) {
+			return validate.PathedError(
+				errors.Wrapf(
+					validate.ErrValidation,
+					"duplicate channel name '%s' in request",
+					channels[i].Name,
+				),
+				fmt.Sprintf("[%d].name", i),
+			)
+		}
+		seen.Add(s)
+	}
+	return nil
 }
 
 // prepareCreate sets the leaseholder of each channel. A calculated channel is virtual
