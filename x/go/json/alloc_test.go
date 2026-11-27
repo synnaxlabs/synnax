@@ -38,7 +38,8 @@ var _ = Describe("Allocation", func() {
 		)
 		decoders := []*xjson.Decoder{
 			MustSucceed(xjson.NewDecoder(xjson.Field{
-				DataType: telem.TimestampT, TimeFormat: xjson.ISO8601,
+				DataType:   telem.TimestampT,
+				TimeFormat: MustSucceed(xjson.ParseTimeFormat("iso8601")),
 			})),
 			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.Float64T})),
 			MustSucceed(xjson.NewDecoder(xjson.Field{DataType: telem.StringT})),
@@ -85,7 +86,10 @@ var _ = Describe("Allocation", func() {
 
 	It("Should render a document from samples without allocating", func() {
 		fields := []xjson.Field{
-			{DataType: telem.TimestampT, TimeFormat: xjson.UnixSecond},
+			{
+				DataType:   telem.TimestampT,
+				TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+			},
 			{DataType: telem.Float64T},
 			{DataType: telem.StringT, Type: xjson.String},
 			{DataType: telem.Uint8T, Type: xjson.String, Enums: onOff},

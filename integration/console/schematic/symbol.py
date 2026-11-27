@@ -40,6 +40,15 @@ class Properties(TypedDict, total=False):
     show_control_legend: bool
 
 
+def edit_toggle(page: Page, name: str) -> Locator:
+    """Return the edit toggle of the diagram controls, labeled name. The toolbar of a
+    schematic that is not editable shows an action of the same name.
+    """
+    return page.locator(".console-controls").get_by_role(
+        "button", name=name, exact=True
+    )
+
+
 def option_text(value: float) -> str:
     """Return the text of an option value, with no digits lost and no trailing ".0"."""
     return repr(value).removesuffix(".0")
@@ -142,7 +151,7 @@ class Symbol(ABC):
         )
         if disable_btn.count() > 0:
             click_past(disable_btn)
-            self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
+            edit_toggle(self.page, "Enable editing").wait_for(
                 state="visible", timeout=3000
             )
 
@@ -156,7 +165,7 @@ class Symbol(ABC):
                 "button", name="Disable editing", exact=True
             ).wait_for(state="visible", timeout=2000)
             return
-        enable_btn = self.page.get_by_role("button", name="Enable editing", exact=True)
+        enable_btn = edit_toggle(self.page, "Enable editing")
         if enable_btn.count() > 0:
             click_past(enable_btn)
 

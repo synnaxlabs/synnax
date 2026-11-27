@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { device, Synnax, task } from "@synnaxlabs/client";
-import { payload } from "@synnaxlabs/x";
+import type { payload } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { onTestFinished } from "vitest";
 
@@ -75,19 +75,16 @@ export const sampleOfTopic = (topic: string, ...shapes: object[]) => ({
   truncated: false,
 });
 
-/** @returns a field of a sampled shape, held by two records. */
+/** @returns a field of a sampled shape. */
 export const createInferredField = (
   pointer: string,
-  dataType: string,
+  kind: payload.Kind,
   type: "number" | "boolean" | "string",
   timeFormat?: payload.TimeFormat,
 ) => ({
   pointer,
-  dataType,
-  kind: payload.kindOf(dataType),
+  kind,
   type,
   timeFormat,
   enum: [],
-  count: 2,
-  mismatched: 0,
 });

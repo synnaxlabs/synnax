@@ -509,7 +509,7 @@ var _ = Describe("Read task ICD messages", func() {
 			}, "must not hold the wildcards + or #"),
 			Entry("a topic that reads no message", func(f format) []map[string]any {
 				return []map[string]any{icdEntry("plant/status", f.ic)}
-			}, "topic plant/status reads no messages"),
+			}, "entries.0: reads no messages"),
 			Entry("a message that the ICD lacks", func(f format) []map[string]any {
 				other := jsonMessage(
 					"Other", nil, jsonField("v", "/v", icd.FloatJSONField{}),
@@ -518,11 +518,12 @@ var _ = Describe("Read task ICD messages", func() {
 			}, "does not exist in ICD Plant"),
 			Entry("a message that binds no field", func(f format) []map[string]any {
 				return status(f, readMessage(f.m))
-			}, "message Status binds no fields"),
+			}, "entries.0.messages.0: message Status binds no fields"),
 			Entry("a channel that does not exist", func(f format) []map[string]any {
 				missing := map[string]any{"field": fieldKey(f.m, 1), "channel": 1 << 30}
 				return status(f, readMessage(f.m, missing))
-			}, "message Status: channel 1073741824 does not exist"),
+			}, "entries.0.messages.0.bindings.0.channel: channel 1073741824 does not "+
+				"exist"),
 			Entry("an index field on a data channel", func(f format) []map[string]any {
 				read := readMessage(f.m, binding(f.m, 0, f.stamp))
 				read["index"] = fieldKey(f.m, 0)
@@ -610,7 +611,7 @@ var _ = Describe("Read task ICD messages", func() {
 			Expect(configureErr(ctx, readConfig(ctx, dev, entry))).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
-					"icd: ICD %s does not exist", missing.Key,
+					"entries.0.icd: ICD %s does not exist", missing.Key,
 				)),
 			))
 		})

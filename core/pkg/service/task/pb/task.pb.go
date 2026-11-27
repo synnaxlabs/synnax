@@ -498,7 +498,9 @@ type Where struct {
 	// internal selects by internal.
 	Internal *pb1.Bool `protobuf:"bytes,8,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
 	// arcs matches the tasks that run any of the Arcs with the given keys.
-	Arcs          *UuidList `protobuf:"bytes,9,opt,name=arcs,proto3" json:"arcs,omitempty"`
+	Arcs *UuidList `protobuf:"bytes,9,opt,name=arcs,proto3" json:"arcs,omitempty"`
+	// icds matches the tasks that use any of the ICDs with the given keys.
+	Icds          *UuidList `protobuf:"bytes,10,opt,name=icds,proto3" json:"icds,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -592,6 +594,13 @@ func (x *Where) GetInternal() *pb1.Bool {
 func (x *Where) GetArcs() *UuidList {
 	if x != nil {
 		return x.Arcs
+	}
+	return nil
+}
+
+func (x *Where) GetIcds() *UuidList {
+	if x != nil {
+		return x.Icds
 	}
 	return nil
 }
@@ -728,7 +737,7 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"RackKeySet\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12,\n" +
 	"\x02in\x18\x02 \x01(\v2\x1c.service.task.pb.RackKeyListR\x02inB\x05\n" +
-	"\x03_eq\"\xee\x03\n" +
+	"\x03_eq\"\x9d\x04\n" +
 	"\x05Where\x12,\n" +
 	"\x03and\x18\x01 \x01(\v2\x1a.service.task.pb.WhereListR\x03and\x12*\n" +
 	"\x02or\x18\x02 \x01(\v2\x1a.service.task.pb.WhereListR\x02or\x12-\n" +
@@ -738,7 +747,9 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\x04type\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04type\x88\x01\x01\x124\n" +
 	"\x04rack\x18\a \x01(\v2\x1b.service.task.pb.RackKeySetH\x04R\x04rack\x88\x01\x01\x122\n" +
 	"\binternal\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\binternal\x88\x01\x01\x12-\n" +
-	"\x04arcs\x18\t \x01(\v2\x19.service.task.pb.UuidListR\x04arcsB\x06\n" +
+	"\x04arcs\x18\t \x01(\v2\x19.service.task.pb.UuidListR\x04arcs\x12-\n" +
+	"\x04icds\x18\n" +
+	" \x01(\v2\x19.service.task.pb.UuidListR\x04icdsB\x06\n" +
 	"\x04_notB\x06\n" +
 	"\x04_keyB\a\n" +
 	"\x05_nameB\a\n" +
@@ -799,12 +810,13 @@ var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
 	6,  // 12: service.task.pb.Where.rack:type_name -> service.task.pb.RackKeySet
 	12, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
 	3,  // 14: service.task.pb.Where.arcs:type_name -> service.task.pb.UuidList
-	9,  // 15: service.task.pb.Command.args:type_name -> google.protobuf.Struct
-	16, // [16:16] is the sub-list for method output_type
-	16, // [16:16] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	3,  // 15: service.task.pb.Where.icds:type_name -> service.task.pb.UuidList
+	9,  // 16: service.task.pb.Command.args:type_name -> google.protobuf.Struct
+	17, // [17:17] is the sub-list for method output_type
+	17, // [17:17] is the sub-list for method input_type
+	17, // [17:17] is the sub-list for extension type_name
+	17, // [17:17] is the sub-list for extension extendee
+	0,  // [0:17] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_task_pb_task_proto_init() }

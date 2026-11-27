@@ -96,7 +96,7 @@ describe("UtilityButtons", () => {
             type: TYPE,
             config: { channels },
           },
-          registry: createRegistry({ [TYPE]: plotChannels }),
+          registry: createRegistry({ plotChannels: { [TYPE]: plotChannels } }),
         },
       );
       const proj = await client.projects.create({ name: uniqueName("proj") });

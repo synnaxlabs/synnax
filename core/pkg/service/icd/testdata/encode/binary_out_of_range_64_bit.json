@@ -1,0 +1,35 @@
+{
+  "description": "An unsigned sample must fit a 64-bit integer field.",
+  "message": {
+    "name": "frame",
+    "payload": {
+      "format": "binary",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "v",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 0,
+          "bit_length": 64,
+          "byte_order": "little_endian",
+          "kind": "integer"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "uint64"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [9223372036854775808],
+      "error": "message frame: field v: 9223372036854775808 is out of range for 64 bits: validation error"
+    }
+  ]
+}

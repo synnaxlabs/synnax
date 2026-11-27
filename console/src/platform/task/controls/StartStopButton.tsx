@@ -15,6 +15,8 @@ import type { ReactElement } from "react";
 export interface StartStopButtonProps extends Omit<Button.ButtonProps, "onClick"> {
   /** Whether the task is currently running */
   running: boolean;
+  /** Whether a start also deploys the task's changes. */
+  deploys?: boolean;
   /** Click handler */
   onClick: () => void;
   /** Button status variant */
@@ -23,6 +25,7 @@ export interface StartStopButtonProps extends Omit<Button.ButtonProps, "onClick"
 
 export const StartStopButton = ({
   running,
+  deploys = false,
   onClick,
   statusVariant,
   ...props
@@ -35,7 +38,7 @@ export const StartStopButton = ({
     }}
     size="medium"
     variant="filled"
-    tooltip={running ? "Stop" : "Start"}
+    tooltip={running ? "Stop" : deploys ? "Deploy and start" : "Start"}
     {...props}
   >
     {running ? <Icon.Stop /> : <Icon.Play />}

@@ -47,16 +47,29 @@ export const availableName = (name: string, taken: icd.Message[]): string => {
   return next;
 };
 
+const baseName = (name: string): string => (name === "" ? "Untitled" : name);
+
 /**
- * @returns a JSON message of fields named name, or `Untitled` when name is empty. A
- * name that a message in taken holds gets a number, as availableName gives.
+ * @returns name for a new message, or `Untitled` when name is empty. A name that a
+ * message in taken holds gets a number, as availableName gives.
  */
+export const messageName = (name: string, taken: icd.Message[]): string =>
+  availableName(baseName(name), taken);
+
+/** @returns whether messageName can give name for base, with or without a number. */
+export const namedBy = (name: string, base: string): boolean => {
+  const given = baseName(base);
+  if (name === given) return true;
+  return name.startsWith(`${given} `) && /^\d+$/.test(name.slice(given.length + 1));
+};
+
+/** @returns a JSON message of fields, named as messageName gives. */
 export const createMessage = (
   name: string,
   fields: icd.JSONField[],
   taken: icd.Message[],
 ): icd.Message => ({
   key: uuid.create(),
-  name: availableName(name === "" ? "Untitled" : name, taken),
+  name: messageName(name, taken),
   payload: { format: "json", fields },
 });
