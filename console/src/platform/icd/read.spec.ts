@@ -42,33 +42,6 @@ const level = icd.jsonFieldZ.parse({
 });
 
 describe("ICD", () => {
-  describe("suit", () => {
-    it.each([
-      [
-        "keep a data type that the field converts to",
-        DataType.FLOAT64.toString(),
-        true,
-      ],
-      [
-        "drop a data type that the field cannot convert to",
-        DataType.INT64.toString(),
-        false,
-      ],
-    ] as const)("should %s", (_, dataType, kept) => {
-      const binding = { field: level.key, channel: 7, dataType };
-      const suited = ICD.suit({ message: uuid.create(), bindings: [binding] }, [level]);
-      expect(suited.bindings).toEqual([
-        kept ? binding : { field: level.key, channel: 7 },
-      ]);
-    });
-
-    it("should keep a binding with no data type", () => {
-      const binding = { field: level.key, channel: 7 };
-      const suited = ICD.suit({ message: uuid.create(), bindings: [binding] }, [level]);
-      expect(suited.bindings).toEqual([binding]);
-    });
-  });
-
   describe("reindex", () => {
     it("should bind the new index field to the index channel with no data type", () => {
       const message = uuid.create();
@@ -137,14 +110,39 @@ describe("ICD", () => {
   });
 
   describe("suit", () => {
+    it.each([
+      [
+        "keep a data type that the field converts to",
+        DataType.FLOAT64.toString(),
+        true,
+      ],
+      [
+        "drop a data type that the field cannot convert to",
+        DataType.INT64.toString(),
+        false,
+      ],
+    ] as const)("should %s", (_, dataType, kept) => {
+      const binding = { field: level.key, channel: 7, dataType };
+      const suited = ICD.suit({ message: uuid.create(), bindings: [binding] }, [level]);
+      expect(suited.bindings).toEqual([
+        kept ? binding : { field: level.key, channel: 7 },
+      ]);
+    });
+
+    it("should keep a binding with no data type", () => {
+      const binding = { field: level.key, channel: 7 };
+      const suited = ICD.suit({ message: uuid.create(), bindings: [binding] }, [level]);
+      expect(suited.bindings).toEqual([binding]);
+    });
+
     const message = uuid.create();
 
     it("should drop the binding of a field that the message no longer holds", () => {
       const read = {
         message,
         bindings: [
-          { field: textField.key, channel: 1, dataType: "" },
-          { field: uuid.create(), channel: 2, dataType: "" },
+          { field: textField.key, channel: 1 },
+          { field: uuid.create(), channel: 2 },
         ],
       };
       expect(ICD.suit(read, [textField]).bindings).toEqual([read.bindings[0]]);
@@ -159,8 +157,8 @@ describe("ICD", () => {
         ],
       };
       expect(ICD.suit(read, [textField, binaryField]).bindings).toEqual([
-        { field: textField.key, channel: 1, dataType: "" },
-        { field: binaryField.key, channel: 2, dataType: "" },
+        { field: textField.key, channel: 1 },
+        { field: binaryField.key, channel: 2 },
       ]);
     });
 
@@ -168,7 +166,7 @@ describe("ICD", () => {
       const read = {
         message,
         index: textField.key,
-        bindings: [{ field: textField.key, channel: 1, dataType: "" }],
+        bindings: [{ field: textField.key, channel: 1 }],
       };
       expect(ICD.suit(read, [textField])).toEqual({ message, bindings: [] });
     });
@@ -177,7 +175,7 @@ describe("ICD", () => {
       const read = {
         message,
         index: timestamp.key,
-        bindings: [{ field: timestamp.key, channel: 1, dataType: "" }],
+        bindings: [{ field: timestamp.key, channel: 1 }],
       };
       expect(ICD.suit(read, [timestamp])).toEqual(read);
     });
