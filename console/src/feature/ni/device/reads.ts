@@ -56,15 +56,35 @@ const writeGeneric = async (
   client: Synnax,
   key: device.Key,
   kind: ReadKind,
-  channels: ReadChannels,
+  before: ReadChannels,
+  after: ReadChannels,
 ): Promise<void> => {
   const { properties } = await client.devices.retrieve({ key, schemas: SCHEMAS });
   await PlatformDevice.setProperties(
     client,
-    { key, properties: { ...properties, [kind]: channels } },
-    properties,
+    { key, properties: { ...properties, [kind]: after } },
+    { ...properties, [kind]: before },
     SCHEMAS,
   );
+};
+
+/** Applies the changes from before to after onto stored, and keeps other keys. */
+const merge = (
+  stored: ReadChannels,
+  before: ReadChannels,
+  after: ReadChannels,
+): ReadChannels => {
+  const channels = { ...stored.channels };
+  Object.keys(before.channels).forEach((k) => {
+    if (!(k in after.channels)) delete channels[k];
+  });
+  Object.entries(after.channels).forEach(([k, c]) => {
+    if (c !== before.channels[k]) channels[k] = c;
+  });
+  return {
+    index: after.index === before.index ? stored.index : after.index,
+    channels,
+  };
 };
 
 const orZero = (key?: channel.Key): channel.Key => key ?? 0;
@@ -135,14 +155,20 @@ const writeTyped = async (
   client: Synnax,
   key: device.Key,
   kind: ReadKind,
-  channels: ReadChannels,
+  before: ReadChannels,
+  after: ReadChannels,
 ): Promise<void> => {
   const stored = await client.ni.devices.retrieve({ key });
-  await client.ni.devices.update(key, {
+  const merged = merge(TYPED_CHANNELS[kind](stored), before, after);
+  const written = await client.ni.devices.update(key, {
     ...ni.device.configurationZ.parse(stored),
-    ...TO_TYPED[kind](channels),
+    ...TO_TYPED[kind](merged),
     group: "configuration",
   });
+  // A typed map without a device-level index drops an index that has no channels.
+  const { index } = TYPED_CHANNELS[kind](written);
+  if (primitive.isNonZero(merged.index) && index !== merged.index)
+    await client.channels.delete(merged.index);
 };
 
 /**
@@ -154,8 +180,9 @@ export const retrieveReadTargets = FLAGS.typedNIDevices
   : retrieveGeneric;
 
 /**
- * Stores the read channels of the kind on the device, and keeps its other fields.
- * Writes the typed device table when `typedNIDevices` is on.
+ * Applies the changes from before to after to the read channels of the kind on the
+ * device, and keeps the keys that another write stored since before. Writes the typed
+ * device table when `typedNIDevices` is on.
  */
 export const writeReadChannels = FLAGS.typedNIDevices ? writeTyped : writeGeneric;
 

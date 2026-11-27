@@ -170,6 +170,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
     const ci = dev.channels;
+    const before = deep.copy(ci);
     let devModified = false;
 
     let shouldCreateIndex = primitive.isZero(ci.index);
@@ -224,7 +225,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
       });
     } finally {
       if (devModified)
-        await Device.writeReadChannels(client, dev.key, "counterInput", ci);
+        await Device.writeReadChannels(client, dev.key, "counterInput", before, ci);
     }
   }
 

@@ -194,6 +194,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   for (const dev of allDevices) {
     PlatformDevice.checkConfigured(dev);
     const ai = dev.channels;
+    const before = deep.copy(ai);
     rackKey = dev.rack;
     let modified = false;
     let shouldCreateIndex = primitive.isZero(ai.index);
@@ -245,7 +246,8 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         });
       }
     } finally {
-      if (modified) await Device.writeReadChannels(client, dev.key, "analogInput", ai);
+      if (modified)
+        await Device.writeReadChannels(client, dev.key, "analogInput", before, ai);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;

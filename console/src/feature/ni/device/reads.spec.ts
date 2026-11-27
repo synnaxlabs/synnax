@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ni } from "@synnaxlabs/client";
+import { ni, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -21,6 +21,8 @@ vi.mock("@/flags", async (importOriginal) => {
 });
 
 const client = createTestClient();
+
+const EMPTY: NI.Device.ReadChannels = { index: 0, channels: {} };
 
 const createDevice = async () => {
   const rack = await client.racks.create({ name: uniqueName("ni_rack") });
@@ -57,7 +59,7 @@ describe("NI.Device read channels with typed devices", () => {
     const index = await createIndex();
     const [ai0, ai3, temp] = await Promise.all([1, 2, 3].map(() => createData(index)));
     const channels = { "0": ai0, "3": ai3, [NI.Device.BUILT_IN_TEMP_KEY]: temp };
-    await NI.Device.writeReadChannels(client, dev.key, "analogInput", {
+    await NI.Device.writeReadChannels(client, dev.key, "analogInput", EMPTY, {
       index,
       channels,
     });
@@ -80,7 +82,7 @@ describe("NI.Device read channels with typed devices", () => {
     const dev = await createDevice();
     const index = await createIndex();
     const ctr1 = await createData(index);
-    await NI.Device.writeReadChannels(client, dev.key, "counterInput", {
+    await NI.Device.writeReadChannels(client, dev.key, "counterInput", EMPTY, {
       index,
       channels: { "1": ctr1 },
     });
@@ -98,11 +100,11 @@ describe("NI.Device read channels with typed devices", () => {
     const dev = await createDevice();
     const index = await createIndex();
     const [ctr0, ai0] = await Promise.all([1, 2].map(() => createData(index)));
-    await NI.Device.writeReadChannels(client, dev.key, "counterInput", {
+    await NI.Device.writeReadChannels(client, dev.key, "counterInput", EMPTY, {
       index,
       channels: { "0": ctr0 },
     });
-    await NI.Device.writeReadChannels(client, dev.key, "analogInput", {
+    await NI.Device.writeReadChannels(client, dev.key, "analogInput", EMPTY, {
       index,
       channels: { "0": ai0 },
     });
@@ -125,5 +127,34 @@ describe("NI.Device read channels with typed devices", () => {
       "analogInput",
     );
     expect(target.configured).toBe(false);
+  });
+
+  it("should keep the channels another write stored since the snapshot", async () => {
+    const dev = await createDevice();
+    const index = await createIndex();
+    const [ai0, ai1] = await Promise.all([1, 2].map(() => createData(index)));
+    await NI.Device.writeReadChannels(client, dev.key, "analogInput", EMPTY, {
+      index,
+      channels: { "0": ai0 },
+    });
+    await NI.Device.writeReadChannels(
+      client,
+      dev.key,
+      "analogInput",
+      { index, channels: {} },
+      { index, channels: { "1": ai1 } },
+    );
+    const { analogInput } = await client.ni.devices.retrieve({ key: dev.key });
+    expect(analogInput.channels).toEqual({ 0: ai0, 1: ai1 });
+  });
+
+  it("should delete a counter index that has no counters to hold it", async () => {
+    const dev = await createDevice();
+    const index = await createIndex();
+    await NI.Device.writeReadChannels(client, dev.key, "counterInput", EMPTY, {
+      index,
+      channels: {},
+    });
+    await expect(client.channels.retrieve(index)).rejects.toThrow(NotFoundError);
   });
 });
