@@ -138,6 +138,7 @@ const resZ = z.object({
   end: TimeStamp.z,
   err: errors.payloadZ.optional(),
   authorized: z.boolean(),
+  clocks: z.array(z.number()).nullish(),
 });
 
 /** The result of a commit. */
@@ -226,10 +227,11 @@ export class Writer {
     client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
-    await writer.execute({
+    const res = await writer.execute({
       command: WriterCommand.Open,
       config: { ...cfg, keys: adapter.keys },
     });
+    adapter.clocks = res.clocks ?? [];
     return writer;
   }
 
