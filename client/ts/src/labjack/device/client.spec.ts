@@ -240,7 +240,7 @@ describe("LabJack device", async () => {
       expect(retrieved.serial).toBe(d.serial);
     });
 
-    it("should set one port of a channel map", async () => {
+    it("should set a channel map of the ports", async () => {
       const d = await create();
       const ch = await client.channels.create({
         name: `lj_di_${uuid.create()}`,
@@ -249,7 +249,10 @@ describe("LabJack device", async () => {
       });
       await client.labjack.devices.dispatch(
         d.key,
-        labjack.device.set({ path: ["ports", "digital_input", "DIO2"], value: ch.key }),
+        labjack.device.set({
+          path: ["ports", "digital_input"],
+          value: { DIO2: ch.key },
+        }),
       );
       const retrieved = await client.labjack.devices.retrieve({ key: d.key });
       expect(retrieved.ports).toMatchObject({ digitalInput: { DIO2: ch.key } });
