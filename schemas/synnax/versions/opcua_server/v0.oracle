@@ -123,7 +123,7 @@ Security union on mode {
 }
 
 Connection struct {
-    endpoint                string         {
+    endpoint                string          {
         @doc value   "is the endpoint URL of the server."
         @go validate pattern "^opc[.]tcp://([^][/:[:space:]]+|[[][0-9A-Fa-f:.]+[]])(:[0-9]{1,5})?(/[^[:space:]]*)?$" "Endpoint must be an opc.tcp:// URL with a host and an optional port and path"
     }
