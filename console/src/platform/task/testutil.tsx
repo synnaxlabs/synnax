@@ -630,7 +630,7 @@ export const START_FAILURE = expect.objectContaining({
 /** @returns how many saves of the task the form reported as failed. */
 export const countFailedSaves = (statuses: Status.NotificationSpec[]): number =>
   statuses
-    .filter(({ message }) => message === "Failed to save task")
+    .filter(({ message }) => message === "Failed to save change")
     .reduce((n, { count }) => n + count, 0);
 
 /**
