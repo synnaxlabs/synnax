@@ -7,21 +7,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { suggestIdentifiers } from "@/feature/ni/device/identifier";
+import { use, useChangeIdentifier, useSave } from "@/feature/ni/device/queries";
 import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/ni/device/types";
 import { SCAN_TYPE } from "@/feature/ni/task/types";
+import { FLAGS } from "@/flags";
 import { Device } from "@/platform/device";
 
 const ICON = <Icon.Logo.NI />;
 
-/** Binds the configure form and menu items to the generic device table. */
-export const ADAPTER = Device.createLegacyAdapter({
+const LEGACY_ADAPTER = Device.createLegacyAdapter({
   make: MAKE,
   zeroProperties: ZERO_PROPERTIES,
   suggestIdentifiers,
 });
+
+const useConfigurable = (key: ni.device.Key): Device.Configurable => {
+  const { name, identifier } = use({ key });
+  return {
+    key,
+    name,
+    identifier,
+    // A typed device holds no DAQmx alias. The Driver finds it when a task starts.
+    location: "",
+    configured: identifier !== "",
+    suggestIdentifiers: (name) => suggestIdentifiers({ location: "", name }),
+  };
+};
+
+/** Binds the configure form and menu items to the typed NI device table. */
+export const TYPED_ADAPTER: Device.Adapter = {
+  make: MAKE,
+  resourceID: ni.device.resourceID,
+  use: useConfigurable,
+  useSave,
+  useChangeIdentifier,
+};
+
+/** Binds the configure form and menu items to the table that stores NI devices. */
+export const ADAPTER = FLAGS.typedNIDevices ? TYPED_ADAPTER : LEGACY_ADAPTER;
 
 export const HARDWARE: Device.Hardware = {
   key: INTEGRATION_KEY,
