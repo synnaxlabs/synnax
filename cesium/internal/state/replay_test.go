@@ -244,8 +244,7 @@ var _ = Describe("Replay", func() {
 			Expect(MustSucceed(s.Snapshot()).Channels).To(HaveLen(2))
 			Expect(s.Channel(9).Segments).To(BeEmpty())
 			Expect(s.HasDead()).To(BeTrue())
-			Expect(s.TakeDead()).
-				To(Equal([]state.Dead{{Segment: 7, Key: 9, Sequence: 10}}))
+			Expect(s.TakeDead()).To(HaveExactElements(deadSegment(7, 9, 10)))
 			Expect(s.HasDead()).To(BeFalse())
 		},
 		Entry("a Seal", &log.Seal{Segment: 7}),

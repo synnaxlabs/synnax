@@ -273,7 +273,11 @@ func (c *core) bury(s *segState) {
 	ch.publish()
 }
 
+// addDead gives d to TakeDead with the publish count at the end of this step, in which
+// the caller takes the segment out of what readers see.
 func (c *core) addDead(d Dead) {
+	c.count.begin()
+	d.Count = c.count.n.Load() + 1
 	c.dead = append(c.dead, d)
 	c.hasDead.Store(true)
 }

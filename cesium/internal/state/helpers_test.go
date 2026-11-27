@@ -15,6 +15,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/state"
 	"github.com/synnaxlabs/x/set"
@@ -220,4 +222,14 @@ func pointer(
 		Length:    length,
 		Samples:   samples,
 	}
+}
+
+// deadSegment matches the Dead of segment of key that the entry of sequence took out,
+// at any publish count.
+func deadSegment(segment uint64, key uint32, sequence uint64) types.GomegaMatcher {
+	return MatchFields(IgnoreExtras, Fields{
+		"Segment":  Equal(segment),
+		"Key":      Equal(key),
+		"Sequence": Equal(sequence),
+	})
 }
