@@ -151,7 +151,7 @@ jobs:
           # a pull request starts again in a new run, with the flags of its title. A
           # replay has no check run, and a restore has no Review job. Each new run
           # starts at attempt 1, so the cap counts the failed reviews of the pull
-          # request in the last day instead, whatever their flags.
+          # request in the last day instead, with or without repeat.
           read -r pr flags <<< "$TITLE"
           if [ "$name" = Review ] && [[ " $flags " != *" replay "* ]]; then
             repeat=false
@@ -160,7 +160,7 @@ jobs:
             since=$(date -u -d '-1 day' +%FT%TZ)
             failed=$(gh api "$review/runs?created=>$since&status=failure&per_page=100" \
               --jq "[.workflow_runs[]
-                | select((.display_title | split(\" \") | .[0]) == \"$pr\")] | length")
+                | select(.display_title | IN(\"$pr\", \"$pr repeat\"))] | length")
             if [ "$failed" -ge 3 ]; then
               echo "::error::The review of #$pr failed $failed times in a day." \
                 "It does not run again."
