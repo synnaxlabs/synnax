@@ -44,24 +44,17 @@ void apply_channel(Config &cfg, const srv::SecuredChannel &channel) {
 }
 }
 
-std::pair<Config, x::errors::Error> from_server(const srv::Connection &conn) {
+Config from_server(const srv::Connection &conn) {
     Config cfg;
     cfg.endpoint = conn.endpoint;
     cfg.client_timeout_ms = to_ms(conn.client_timeout);
     cfg.secure_channel_lifetime_ms = to_ms(conn.secure_channel_lifetime);
     cfg.session_timeout_ms = to_ms(conn.session_timeout);
-    if (std::holds_alternative<srv::CertificateAuth>(conn.auth))
-        return {
-            Config(),
-            x::errors::Error(
-                x::errors::VALIDATION,
-                "the Driver does not support certificate login"
-            )
-        };
     if (const auto *auth = std::get_if<srv::UsernameAuth>(&conn.auth)) {
         cfg.username = auth->username;
         if (auth->password.has_value()) cfg.password_secret = *auth->password;
-    }
+    } else if (const auto *auth = std::get_if<srv::CertificateAuth>(&conn.auth))
+        cfg.login_certificate_item = auth->certificate;
     if (const auto *sign = std::get_if<srv::SignSecurity>(&conn.security)) {
         cfg.security_mode = "Sign";
         apply_channel(cfg, *sign);
@@ -71,6 +64,6 @@ std::pair<Config, x::errors::Error> from_server(const srv::Connection &conn) {
         cfg.security_mode = "SignAndEncrypt";
         apply_channel(cfg, *enc);
     }
-    return {std::move(cfg), x::errors::NIL};
+    return cfg;
 }
 }

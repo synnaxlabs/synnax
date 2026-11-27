@@ -12,7 +12,6 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/errors/errors.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -27,7 +26,7 @@ TEST(FromServer, Anonymous) {
         .endpoint = "opc.tcp://plc:4840",
         .client_timeout = x::telem::SECOND * 2,
     };
-    const auto cfg = ASSERT_NIL_P(from_server(conn));
+    const auto cfg = from_server(conn);
     ASSERT_EQ(cfg.endpoint, "opc.tcp://plc:4840");
     ASSERT_TRUE(cfg.username.empty());
     ASSERT_TRUE(cfg.password_secret.is_nil());
@@ -44,7 +43,7 @@ TEST(FromServer, LongTimeout) {
         .endpoint = "opc.tcp://plc:4840",
         .session_timeout = x::telem::DAY * 100,
     };
-    const auto cfg = ASSERT_NIL_P(from_server(conn));
+    const auto cfg = from_server(conn);
     ASSERT_EQ(cfg.session_timeout_ms, std::numeric_limits<uint32_t>::max());
 }
 
@@ -55,7 +54,7 @@ TEST(FromServer, Username) {
         .endpoint = "opc.tcp://plc:4840",
         .auth = srv::UsernameAuth{.username = "op", .password = password},
     };
-    const auto cfg = ASSERT_NIL_P(from_server(conn));
+    const auto cfg = from_server(conn);
     ASSERT_EQ(cfg.username, "op");
     ASSERT_EQ(cfg.password_secret, password);
 }
@@ -69,7 +68,7 @@ TEST(FromServer, SignPinned) {
     security.client_certificate = client;
     security.server_trust = srv::PinnedServerTrust{.certificate = pinned};
     const srv::Connection conn{.endpoint = "opc.tcp://plc:4840", .security = security};
-    const auto cfg = ASSERT_NIL_P(from_server(conn));
+    const auto cfg = from_server(conn);
     ASSERT_EQ(cfg.security_mode, "Sign");
     ASSERT_EQ(cfg.security_policy, "Basic256Sha256");
     ASSERT_EQ(cfg.client_certificate_item, client);
@@ -83,7 +82,7 @@ TEST(FromServer, SignAndEncryptFirstUse) {
     srv::SignAndEncryptSecurity security;
     security.policy = srv::SECURITY_POLICY_AES_256_SHA_256_RSA_PSS;
     const srv::Connection conn{.endpoint = "opc.tcp://plc:4840", .security = security};
-    const auto cfg = ASSERT_NIL_P(from_server(conn));
+    const auto cfg = from_server(conn);
     ASSERT_EQ(cfg.security_mode, "SignAndEncrypt");
     ASSERT_EQ(cfg.security_policy, "Aes256_Sha256_RsaPss");
     ASSERT_TRUE(cfg.client_certificate_item.is_nil());
@@ -97,16 +96,19 @@ TEST(FromServer, ValidationDisabled) {
     security.policy = srv::SECURITY_POLICY_BASIC_256_SHA_256;
     security.server_trust = srv::ValidationDisabledServerTrust{};
     const srv::Connection conn{.endpoint = "opc.tcp://plc:4840", .security = security};
-    const auto cfg = ASSERT_NIL_P(from_server(conn));
+    const auto cfg = from_server(conn);
     ASSERT_TRUE(cfg.certificate_validation_disabled);
 }
 
-/// @brief it should refuse a certificate login.
+/// @brief it should log in with the user certificate.
 TEST(FromServer, CertificateLogin) {
+    const auto login = x::uuid::create();
     const srv::Connection conn{
         .endpoint = "opc.tcp://plc:4840",
-        .auth = srv::CertificateAuth{.certificate = x::uuid::create()},
+        .auth = srv::CertificateAuth{.certificate = login},
     };
-    ASSERT_OCCURRED_AS_P(from_server(conn), x::errors::VALIDATION);
+    const auto cfg = from_server(conn);
+    ASSERT_EQ(cfg.login_certificate_item, login);
+    ASSERT_TRUE(cfg.username.empty());
 }
 }

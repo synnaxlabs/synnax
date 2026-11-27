@@ -9,18 +9,12 @@
 
 #pragma once
 
-#include <utility>
-
 #include "client/cpp/opcua/server/types.gen.h"
-#include "x/cpp/errors/errors.h"
 
 #include "driver/opcua/connection/connection.h"
 
 namespace driver::opcua::connection {
 /// @brief returns the configuration that connects to a stored OPC UA server. The
 /// password and certificates stay unread, as for a Config parsed from JSON.
-/// @returns a validation error for a certificate login, which the Driver does not
-/// support yet.
-std::pair<Config, x::errors::Error>
-from_server(const ::synnax::opcua::server::Connection &conn);
+Config from_server(const ::synnax::opcua::server::Connection &conn);
 }
