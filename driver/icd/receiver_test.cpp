@@ -777,23 +777,26 @@ TEST(Receiver, ListsChannelsOfEachEntry) {
 TEST(Receiver, GivesLineToLongestPrefixAcrossEntries) {
     const auto a = lines("$GP", 2, 1, "first");
     const auto b = lines("$GPGGA", 3, 4, "second");
-    auto r = ASSERT_NIL_P(
-        Receiver::create(
-            {a.entry(), b.entry()},
-            {a.ic, b.ic},
-            merged(a.channels, b.channels),
-            false
-        )
-    );
-    Memory t;
-    t.push("$GPGGA,5\n$GPRMC,7\n");
-    x::telem::Frame fr;
-    const auto res = r.read(t, fr);
-    ASSERT_NIL(res.error);
-    ASSERT_TRUE(res.warning.empty());
-    ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
-    ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
-    ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
+    for (const auto &entries:
+         {std::vector{a.entry(), b.entry()}, {b.entry(), a.entry()}}) {
+        auto r = ASSERT_NIL_P(
+            Receiver::create(
+                entries,
+                {a.ic, b.ic},
+                merged(a.channels, b.channels),
+                false
+            )
+        );
+        Memory t;
+        t.push("$GPGGA,5\n$GPRMC,7\n");
+        x::telem::Frame fr;
+        const auto res = r.read(t, fr);
+        ASSERT_NIL(res.error);
+        ASSERT_TRUE(res.warning.empty());
+        ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{4, 3, 1, 2}));
+        ASSERT_EQ(fr.series->at(1).values<double>(), (std::vector{5.0}));
+        ASSERT_EQ(fr.series->at(3).values<double>(), (std::vector{7.0}));
+    }
 }
 
 /// @brief it should refuse two entries whose messages have the same prefix.

@@ -239,7 +239,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
     });
     std::optional<std::string> first;
     std::size_t format = 0;
-    std::vector<const synnax::icd::Message *> seen;
+    std::vector<std::pair<synnax::icd::Key, synnax::icd::MessageKey>> seen;
     for (const auto &[ic, reads]: sources)
         for (const auto &rm: reads) {
             const auto msg = std::ranges::find(
@@ -257,7 +257,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
                     ),
                 };
             const auto name = several ? msg->name + " of ICD " + ic.name : msg->name;
-            if (std::ranges::contains(seen, &*msg))
+            if (std::ranges::contains(seen, std::pair{ic.key, rm.message}))
                 return {
                     Reader{},
                     x::errors::Error(
@@ -265,7 +265,7 @@ std::pair<Reader, x::errors::Error> Reader::create(
                         "message " + name + " is read twice"
                     ),
                 };
-            seen.push_back(&*msg);
+            seen.emplace_back(ic.key, rm.message);
             if (!first.has_value()) {
                 first = name;
                 format = msg->payload.index();
