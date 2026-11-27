@@ -12,8 +12,10 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "device",
+    srcs = ["device.cpp"],
     hdrs = [
         "actions.gen.h",
+        "device.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",
@@ -21,11 +23,14 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/channel",
+        "//client/cpp/errors",
         "//client/cpp/rack:key",
         "//client/cpp/resource",
         "//client/cpp/status",
         "//core/pkg/api/labjack/device:device_grpc",
         "//core/pkg/service/labjack/device:device_grpc",
+        "//core/pkg/transport/grpc:api_grpc",
+        "//freighter/cpp:freighter",
         "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/json",
@@ -41,6 +46,19 @@ cc_test(
     srcs = ["device_test.cpp"],
     deps = [
         ":device",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "client_test",
+    srcs = ["client_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":device",
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

@@ -24,6 +24,7 @@
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/icd/icd.h"
+#include "client/cpp/labjack/client.h"
 #include "client/cpp/ni/client.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/ranger/ranger.h"
@@ -211,6 +212,8 @@ public:
     rack::Client racks;
     /// @brief Client for managing devices.
     device::Client devices;
+    /// @brief Clients for managing LabJack devices.
+    ::synnax::labjack::Client labjack;
     /// @brief Clients for managing NI devices and chassis.
     ::synnax::ni::Client ni;
     /// @brief Client for managing statuses.
@@ -292,6 +295,14 @@ public:
             std::move(this->t.device_delete),
             std::move(this->t.device_dispatch)
         ),
+        labjack{
+            .devices = ::synnax::labjack::device::Client(
+                std::move(this->t.labjack_device_create),
+                std::move(this->t.labjack_device_retrieve),
+                std::move(this->t.labjack_device_dispatch),
+                std::move(this->t.labjack_device_delete)
+            ),
+        },
         ni{
             .devices = ::synnax::ni::device::Client(
                 std::move(this->t.ni_device_create),

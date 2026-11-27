@@ -32,6 +32,8 @@ cc_library(
         "//client/cpp/device",
         "//client/cpp/framer",
         "//client/cpp/icd",
+        "//client/cpp/labjack:client",
+        "//client/cpp/labjack/device",
         "//client/cpp/ni:client",
         "//client/cpp/ni/chassis",
         "//client/cpp/ni/device",
