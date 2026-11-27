@@ -45,8 +45,8 @@ type core struct {
 	// keysChanged is true when a key joined or left channels since the owner last
 	// published the keys.
 	keysChanged bool
-	// dead holds the segments that left the state with a file left to unlink once no
-	// reader pins it, and hasDead is true while it holds one.
+	// dead holds the segments that left the state with a file left to unlink, and
+	// hasDead is true while it holds one.
 	dead    []Dead
 	hasDead atomic.Bool
 	keys    set.Set[uint32]
@@ -315,7 +315,7 @@ func (c *core) drop(key uint32) error {
 	c.dropped[key] = c.drops.Add(1)
 	if ch, ok := c.channels[key]; ok {
 		// The database unlinks the file of each segment once the log covers the Drop
-		// and no reader pins it.
+		// and no read may use it.
 		for _, s := range ch.segs {
 			c.removeSegment(s)
 			c.addDead(Dead{Segment: s.vis.ID, Key: key, Sequence: c.sequence + 1})

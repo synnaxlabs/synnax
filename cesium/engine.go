@@ -78,20 +78,23 @@ type engine struct {
 	stored set.Set[ChannelKey]
 	// cover holds the dead segments whose files wait until the log covers the record
 	// that took them out of the state, so no crash cuts that record while the file is
-	// gone. Every entry below covered is covered.
+	// gone, and until no read may use them. Every entry below covered is covered.
 	cover struct {
 		sync.Mutex
 		covered uint64
 		dead    []state.Dead
 		// advanced is closed and replaced each time covered rises.
 		advanced chan struct{}
+		// reads holds the publish counts that reads registered, in rising order.
+		reads []readCount
 	}
+	// reaping is held by each reap, from its TakeDead until its segments are in cover.
+	reaping sync.Mutex
 	// reaps asks Run for a reap. A reap waits for a step of the state, so it never runs
 	// on the executor that runs those steps.
 	reaps    chan struct{}
 	shutdown sync.Once
 	closeErr error
-	pins     pins
 }
 
 // openEngine recovers the database of the root of o, or makes a new one in an empty
@@ -123,7 +126,6 @@ func openEngine(o *options) (*engine, error) {
 			New: func() any { return segment.NewReader() },
 		},
 		readsChecked: o.readsChecked,
-		pins:         pins{readers: map[uint64]int{}, dead: map[uint64]ChannelKey{}},
 	}
 	e.cover.advanced = make(chan struct{})
 	e.handles.m = make(map[ChannelKey]map[uint64]*segmentHandles)
@@ -300,22 +302,25 @@ func (e *engine) onHead(
 }
 
 // reap unlinks the file of each segment that left the state once the log covers the
-// record that took it out and no reader pins it.
+// record that took it out and no read may use it.
 func (e *engine) reap() error {
+	e.reaping.Lock()
 	dead, err := e.state.TakeDead()
-	if err != nil {
-		return err
+	var free []state.Dead
+	if err == nil {
+		free = e.uncover(0, dead)
 	}
-	return e.release(e.uncover(0, dead))
+	e.reaping.Unlock()
+	return errors.Join(err, e.unlink(free))
 }
 
 // covered unlinks, off the step of the log, the file of each dead segment whose record
-// the log now covers and that no reader pins, and asks Run to take the segments that
+// the log now covers and that no read may use, and asks Run to take the segments that
 // left the state since the last reap.
 func (e *engine) covered(sequence uint64) {
 	if free := e.uncover(sequence, nil); len(free) > 0 {
 		e.exec(func() {
-			if err := e.release(free); err != nil {
+			if err := e.unlink(free); err != nil {
 				e.ins.L.Error(
 					"failed to unlink the file of a dead segment",
 					zap.Error(err),
@@ -337,7 +342,7 @@ func (e *engine) askReap() {
 }
 
 // uncover raises the covered sequence to covered, adds dead to the segments that wait,
-// and returns those whose record the log covers.
+// and returns those whose record the log covers and that no read may use.
 func (e *engine) uncover(covered uint64, dead []state.Dead) []state.Dead {
 	e.cover.Lock()
 	defer e.cover.Unlock()
@@ -347,17 +352,7 @@ func (e *engine) uncover(covered uint64, dead []state.Dead) []state.Dead {
 		e.cover.advanced = make(chan struct{})
 	}
 	e.cover.dead = append(e.cover.dead, dead...)
-	var free []state.Dead
-	waiting := e.cover.dead[:0]
-	for _, d := range e.cover.dead {
-		if d.Sequence < e.cover.covered {
-			free = append(free, d)
-		} else {
-			waiting = append(waiting, d)
-		}
-	}
-	e.cover.dead = waiting
-	return free
+	return e.free()
 }
 
 // waitCovered returns once the log covers the entry of sequence, or with the error of

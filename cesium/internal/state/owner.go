@@ -454,7 +454,7 @@ func (s *State) HasDead() bool { return s.core.hasDead.Load() }
 // TakeDead returns the segments that left the state since the last call: by a Drop, or
 // by a Tombstone, a Seal, or a Restart that left them sealed with no durable pointer or
 // with no durable byte. The database unlinks their files once the log covers the record
-// that took them out and no reader pins them.
+// that took them out and no read may use them.
 func (s *State) TakeDead() ([]Dead, error) {
 	r := &deadRequest{done: make(chan error, 1)}
 	if err := s.enqueue(r); err != nil {
