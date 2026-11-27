@@ -169,8 +169,9 @@ var _ = Describe("Service", func() {
 
 		DescribeTable(
 			"Should keep a channel that a port map holds from being deleted",
-			func(ctx SpecContext, ports func(channel.Key) device.T7Ports) {
-				ch := createChannels(ctx, 1)[0]
+			func(ctx SpecContext, ports func(ch, other channel.Key) device.T7Ports) {
+				channels := createChannels(ctx, 2)
+				ch := channels[0]
 				d := device.Device{
 					Key:        uuid.New(),
 					Rack:       rackKey,
@@ -178,7 +179,7 @@ var _ = Describe("Service", func() {
 					Serial:     nextSerial(),
 					Connection: device.ConnectionUSB,
 					Model:      device.ModelT7,
-					Ports:      device.Ports{Variant: ports(ch)},
+					Ports:      device.Ports{Variant: ports(ch, channels[1])},
 				}
 				Expect(gorp.NewCreate[device.Key, device.Device]().
 					Entry(&d).
@@ -186,31 +187,31 @@ var _ = Describe("Service", func() {
 				Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
 					To(MatchError(validate.ErrValidation))
 			},
-			Entry("an analog input", func(ch channel.Key) device.T7Ports {
+			Entry("an analog input", func(ch, _ channel.Key) device.T7Ports {
 				return device.T7Ports{
 					AnalogInput: map[device.T7AnalogInputPort]channel.Key{
 						device.T7AnalogInputPortAin0: ch,
 					},
 				}
 			}),
-			Entry("a digital input", func(ch channel.Key) device.T7Ports {
+			Entry("a digital input", func(ch, _ channel.Key) device.T7Ports {
 				return device.T7Ports{
 					DigitalInput: map[device.T7DigitalPort]channel.Key{
 						device.T7DigitalPortDio0: ch,
 					},
 				}
 			}),
-			Entry("an output command", func(ch channel.Key) device.T7Ports {
+			Entry("an output command", func(ch, _ channel.Key) device.T7Ports {
 				return device.T7Ports{
 					AnalogOutput: map[device.AnalogOutputPort]device.CommandStatePair{
 						device.AnalogOutputPortDac0: {Command: ch},
 					},
 				}
 			}),
-			Entry("an output state", func(ch channel.Key) device.T7Ports {
+			Entry("an output state", func(ch, other channel.Key) device.T7Ports {
 				return device.T7Ports{
 					DigitalOutput: map[device.T7DigitalPort]device.CommandStatePair{
-						device.T7DigitalPortDio0: {Command: ch, State: new(ch)},
+						device.T7DigitalPortDio0: {Command: other, State: new(ch)},
 					},
 				}
 			}),
@@ -543,7 +544,12 @@ var _ = Describe("Service", func() {
 
 		DescribeTable(
 			"Should refuse a pin with two roles",
-			func(ctx SpecContext, ports device.PortsVariant, model device.Model, message string) {
+			func(
+				ctx SpecContext,
+				ports device.PortsVariant,
+				model device.Model,
+				message string,
+			) {
 				d := newModel(model, ports)
 				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
