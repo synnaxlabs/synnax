@@ -109,10 +109,10 @@ func (h *StatusHandler) Warn(ctx context.Context, w Warning) error {
 	return nil
 }
 
-// ClearWarning restores the status that the active warning replaced. It writes
+// clearWarning restores the status that the active warning replaced. It writes
 // nothing when no warning is active. A failed write leaves the warning active, so the
 // next call clears it again.
-func (h *StatusHandler) ClearWarning(ctx context.Context) error {
+func (h *StatusHandler) clearWarning(ctx context.Context) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.stat.Variant != status.VariantWarning {
