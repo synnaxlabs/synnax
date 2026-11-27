@@ -14,6 +14,7 @@ import { uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it } from "vitest";
+import { userEvent } from "vitest/browser";
 
 import type { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -206,15 +207,27 @@ describe("useCreateModal", () => {
       expect(screen.getByText(index.name)).toBeTruthy();
     });
 
-    it("should move the kind with the arrow keys and Enter while focus is on it", async () => {
+    it("should pick a kind once with Enter on its focused button", async () => {
       await openModal();
+      selectKind("Data");
+      const index = getKind("Index");
+      index.focus();
+      await userEvent.keyboard("{Enter}");
+      await waitFor(() => expect(index.getAttribute("aria-pressed")).toBe("true"));
+      expect(getKind("Data").getAttribute("aria-pressed")).toBe("false");
+      expect(screen.queryByText("Select channel")).toBeNull();
+    });
+
+    it("should keep the index when Enter lands on the kind that is already picked", async () => {
+      const index = await createTestIndexChannel(client);
+      await openModal();
+      fireEvent.click(screen.getByText("Select channel"));
+      await pickOption(index.name, "Search channels...");
       const data = getKind("Data");
       data.focus();
-      press(data, "ArrowDown");
-      press(data, "Enter");
-      await waitFor(() =>
-        expect(getKind("Index").getAttribute("aria-pressed")).toBe("true"),
-      );
+      await userEvent.keyboard("{ArrowDown}{Enter}");
+      await waitFor(() => expect(data.getAttribute("aria-pressed")).toBe("true"));
+      expect(screen.getByText(index.name)).toBeTruthy();
     });
   });
 
@@ -242,8 +255,8 @@ describe("useCreateModal", () => {
     it("should create the channel in the folder picked in the modal", async () => {
       const folder = await createFolder();
       await openModal();
-      fireEvent.click(screen.getByText("Select group"));
-      await pickOption(folder.name, "Search groups...");
+      fireEvent.click(screen.getByText("Select folder"));
+      await pickOption(folder.name, "Search folders...");
       const name = uniqueName("virt");
       createVirtual(name);
       await clickCreate();

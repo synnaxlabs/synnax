@@ -49,6 +49,22 @@ describe("Group select", () => {
       .toEqual([outer.name, `${outer.name}.${middle.name}`].sort());
   });
 
+  it("should not widen a trigger that sizes to its content for the groups above", async () => {
+    let parent = await createGroup();
+    for (let i = 0; i < 3; i++) parent = await createGroup(parent);
+    const c = await render(
+      <div style={{ display: "inline-flex" }}>
+        <Group.SelectSingle value={parent.key} onChange={vi.fn()} />
+      </div>,
+      { wrapper: Wrapper },
+    );
+    await expect.poll(() => c.container.textContent ?? "").toContain(parent.name);
+    const end = c.container.querySelector<HTMLElement>(
+      ".lyra-select-single-trigger__end",
+    );
+    expect(end?.clientWidth).toEqual(0);
+  });
+
   it("should show the groups above the selected group in the trigger", async () => {
     const outer = await createGroup();
     const inner = await createGroup(outer);
