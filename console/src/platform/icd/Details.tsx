@@ -25,6 +25,8 @@ import type { MessagePlan } from "@/platform/icd/configure";
 import { defaultDataType } from "@/platform/icd/dataType";
 import { BinaryField, FieldsStatus, JSONField, TextField } from "@/platform/icd/Fields";
 import { type FormatForm, useFormats } from "@/platform/icd/Formats";
+import { FormattedField, orError, parseUnsigned } from "@/platform/icd/FormattedField";
+import { Identifier, IdentifierFields } from "@/platform/icd/Identifier";
 import { Match } from "@/platform/icd/Match";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { usePlan } from "@/platform/icd/Plans";
@@ -418,6 +420,51 @@ const MessageStatus = ({
   );
 };
 
+interface FrameProps {
+  path: deep.Path<icd.Message["payload"]>;
+  format: payload.Format;
+}
+
+const Frame = ({ path, format }: FrameProps): ReactElement | null => {
+  switch (format) {
+    case "json":
+      return null;
+    case "text": {
+      const text = deep.variant(path, "format", "text");
+      return (
+        <PForm.Section title="Frame">
+          <PForm.TextField path={text.prefix} label="Prefix" padHelpText={false} />
+          <PForm.TextField
+            path={text.delimiter}
+            label="Delimiter"
+            padHelpText={false}
+          />
+        </PForm.Section>
+      );
+    }
+    case "binary": {
+      const binary = deep.variant(path, "format", "binary");
+      return (
+        <PForm.Section title="Frame">
+          <Identifier path={binary} />
+          <IdentifierFields path={binary} />
+          <FormattedField<number>
+            path={binary.length}
+            label="Length"
+            placeholder="Variable"
+            unit="bytes"
+            optional
+            format={String}
+            parse={(text) =>
+              orError(parseUnsigned(text), "Length must be a whole number of bytes")
+            }
+          />
+        </PForm.Section>
+      );
+    }
+  }
+};
+
 /** The timestamp of a message that a source reads, and the problems of its format. */
 export const MessageSections: FC<MessageSectionsProps> = ({
   format,
@@ -434,10 +481,6 @@ export const MessageSections: FC<MessageSectionsProps> = ({
     ctx: format,
   });
   const fields = jsonFields(message);
-  const text =
-    message?.payload.format === "text" && isTaskFormat(message.payload.format)
-      ? deep.variant(PICD.formPath.messages[message.key].payload, "format", "text")
-      : undefined;
   return (
     <>
       <MessageStatus
@@ -448,16 +491,12 @@ export const MessageSections: FC<MessageSectionsProps> = ({
           several && <OpenInEditor icdKey={icdKey} message={readMessage.message} />
         }
       />
-      {text != null && (
+      {message != null && isTaskFormat(message.payload.format) && (
         <PForm.Form<typeof PICD.formSchema> {...format}>
-          <PForm.Section title="Frame">
-            <PForm.TextField path={text.prefix} label="Prefix" padHelpText={false} />
-            <PForm.TextField
-              path={text.delimiter}
-              label="Delimiter"
-              padHelpText={false}
-            />
-          </PForm.Section>
+          <Frame
+            path={PICD.formPath.messages[message.key].payload}
+            format={message.payload.format}
+          />
         </PForm.Form>
       )}
       <PForm.Section title="Timestamp">
