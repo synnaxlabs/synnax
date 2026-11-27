@@ -125,8 +125,8 @@ type Filter struct {
 	// Target is the struct or union the filter selects.
 	Target TypeRef
 	// Lines are the lines as declared. A bare line has no type and names a field of the
-	// target. A typed line names a hand-written matcher that takes its type, or one
-	// value of its type when the type is an operator type.
+	// target. A typed line names a hand-written matcher that takes its type, or the
+	// values of its type when the type is an operator type.
 	Lines []Field
 	// Request and Response are the qualified names of the derived retrieve request and
 	// response, or empty when the analyzer derived none.
