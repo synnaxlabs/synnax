@@ -11,15 +11,18 @@ import {
   type channel,
   DisconnectedError,
   type icd,
-  type lineplot,
+  lineplot,
+  NotFoundError,
   type Synnax as Client,
   type task,
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { DataType, strings, unique } from "@synnaxlabs/x";
+import { DataType, errors, strings, unique, uuid } from "@synnaxlabs/x";
 
 import { LinePlot } from "@/platform/lineplot";
+import { Panel } from "@/platform/panel";
+import { Session } from "@/session";
 
 /** A channel that a plot of a task shows, with the ICD field that fills it, if any. */
 export interface PlotChannel {
@@ -51,7 +54,7 @@ export const readChannels = (key: icd.Key, reads: icd.ReadMessage[]): PlotChanne
   );
 
 /** A read task to plot, with the function that finds the channels of its config. */
-export interface PlotSource extends Pick<task.Task, "name" | "config"> {
+export interface PlotSource extends Pick<task.Task, "key" | "name" | "config"> {
   plotChannels: PlotChannels;
 }
 
@@ -74,45 +77,80 @@ const retrieveUnits = async (
   });
 };
 
-const Y_AXES = ["y1", "y2", "y3", "y4"] as const;
+const Y_AXES = lineplot.Y_AXIS_KEYS;
+
+/** Where channels go on a plot: the channels each axis gains, and its new label. */
+interface Placement {
+  channels: Record<lineplot.YAxisKey, channel.Key[]>;
+  labels: Partial<Record<lineplot.YAxisKey, string>>;
+}
 
 /**
- * @returns the y axes of a plot of channels, one for each unit in the order of its
- * first channel. Channels with no units go on y1, and units past the fourth axis share
- * y4. Each axis is labeled with its units.
+ * @returns where channels go on plot, channels with no units first. A channel goes on
+ * an axis with channels whose label lists its units, else on the first axis with no
+ * channels, labeled with its units, else on y4, whose label gains its units.
  */
-const createAxes = (
+const place = (
+  plot: Pick<lineplot.LinePlot, "channels" | "axes">,
   channels: { key: channel.Key; units: string }[],
-): Pick<lineplot.New, "channels" | "axes"> => {
-  const seen = unique.unique(channels.map(({ units }) => units));
-  const order = seen.includes("") ? ["", ...seen.filter((u) => u !== "")] : seen;
-  const axisOf = (units: string) =>
-    Y_AXES[Math.min(order.indexOf(units), Y_AXES.length - 1)];
-  const used = Y_AXES.slice(0, Math.min(order.length, Y_AXES.length));
-  return {
-    channels: Object.fromEntries(
-      used.map((axis) => [
-        axis,
-        channels.filter(({ units }) => axisOf(units) === axis).map(({ key }) => key),
-      ]),
-    ),
-    axes: Object.fromEntries(
-      used.map((axis) => [
-        axis,
-        {
-          key: axis,
-          labelDirection: "y" as const,
-          label: order.filter((units) => axisOf(units) === axis).join(", "),
-        },
-      ]),
-    ),
+): Placement => {
+  const placement: Placement = {
+    channels: { y1: [], y2: [], y3: [], y4: [] },
+    labels: {},
   };
+  const labelOf = (axis: lineplot.YAxisKey) =>
+    placement.labels[axis] ?? plot.axes[axis].label;
+  const used = new Set(Y_AXES.filter((axis) => plot.channels[axis].length > 0));
+  const sorted = [
+    ...channels.filter(({ units }) => units === ""),
+    ...channels.filter(({ units }) => units !== ""),
+  ];
+  for (const { key, units } of sorted) {
+    let axis = Y_AXES.find(
+      (a) => used.has(a) && labelOf(a).split(", ").includes(units),
+    );
+    if (axis == null) {
+      axis = Y_AXES.find((a) => !used.has(a)) ?? "y4";
+      const label = used.has(axis)
+        ? [labelOf(axis), units].filter((l) => l !== "").join(", ")
+        : units;
+      if (label !== labelOf(axis)) placement.labels[axis] = label;
+      used.add(axis);
+    }
+    placement.channels[axis].push(key);
+  }
+  return placement;
 };
 
-/** @returns a function that opens one line plot of the tasks' numeric channels. */
+const EMPTY_PLOT = {
+  channels: lineplot.channelsZ.parse({}),
+  axes: lineplot.axesZ.parse({}),
+};
+
+/** @returns the line plot with key, or null when it no longer exists. */
+const retrieveIfExists = async (
+  client: Client,
+  key: lineplot.Key,
+): Promise<lineplot.LinePlot | null> => {
+  try {
+    return await client.lineplots.retrieve(key);
+  } catch (e) {
+    if (NotFoundError.matches(e)) return null;
+    throw errors.fromUnknown(e);
+  }
+};
+
+/**
+ * @returns a function that opens the line plot of the tasks' numeric channels. Each
+ * unit gets its own y axis. It reopens the plot that it made for the same tasks before,
+ * with any channel that the plot lacks added, and creates a plot when there is none.
+ */
 export const usePlot = (): ((tasks: PlotSource[]) => void) => {
   const client = Synnax.use();
   const create = LinePlot.useCreate();
+  const openTab = Panel.useOpenTab();
+  const dispatch = Session.useDispatch();
+  const getOfTasks = Session.LinePlot.useGetOfTasks();
   const handleError = Status.useErrorHandler();
   return (tasks) =>
     handleError(async () => {
@@ -122,18 +160,57 @@ export const usePlot = (): ((tasks: PlotSource[]) => void) => {
         ({ channel }) => channel,
       );
       const keys = plotted.map(({ channel }) => channel);
-      const channels = keys.length === 0 ? [] : await client.channels.retrieve(keys);
-      const plottable = new Set(channels.filter(isPlottable).map(({ key }) => key));
+      const retrieved = keys.length === 0 ? [] : await client.channels.retrieve(keys);
+      const plottable = new Set(retrieved.filter(isPlottable).map(({ key }) => key));
       const shown = plotted.filter(({ channel }) => plottable.has(channel));
       if (shown.length === 0)
         throw new Error("The task has no enabled channels with numeric values.");
       const units = await retrieveUnits(client, shown);
-      const names = tasks.map(({ name }) => name);
-      create({
-        name: `Plot for ${strings.naturalLanguageJoin(names, "task")}`,
-        ...createAxes(
-          shown.map(({ channel }, i) => ({ key: channel, units: units[i] })),
-        ),
+      const withUnits = shown.map(({ channel }, i) => ({
+        key: channel,
+        units: units[i],
+      }));
+      const ofTasks = tasks
+        .map(({ key }) => key)
+        .sort()
+        .join(",");
+      const linked = getOfTasks(ofTasks);
+      const plot = linked == null ? null : await retrieveIfExists(client, linked);
+      if (plot == null) {
+        const key = uuid.create();
+        dispatch(Session.LinePlot.setOfTasks({ tasks: ofTasks, key }));
+        const { channels, labels } = place(EMPTY_PLOT, withUnits);
+        const names = tasks.map(({ name }) => name);
+        create({
+          key,
+          name: `Plot for ${strings.naturalLanguageJoin(names, "task")}`,
+          channels,
+          axes: Object.fromEntries(
+            Y_AXES.flatMap((axis) => {
+              const label = labels[axis];
+              return label == null
+                ? []
+                : [[axis, { key: axis, labelDirection: "y", label }]];
+            }),
+          ),
+        });
+        return;
+      }
+      const present = new Set(Y_AXES.flatMap((axis) => plot.channels[axis]));
+      const { channels, labels } = place(
+        plot,
+        withUnits.filter(({ key }) => !present.has(key)),
+      );
+      const actions = Y_AXES.flatMap((axis) => {
+        const label = labels[axis];
+        return [
+          ...(label == null ? [] : [lineplot.setAxisLabel({ key: axis, label })]),
+          ...channels[axis].map((channel) =>
+            lineplot.addChannel({ axisKey: axis, channel }),
+          ),
+        ];
       });
+      if (actions.length > 0) await client.lineplots.dispatch(plot.key, actions);
+      openTab({ variant: "resource", resource: lineplot.resourceID(plot.key) });
     }, "Failed to plot task");
 };
