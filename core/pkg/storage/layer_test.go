@@ -76,10 +76,15 @@ var _ = Describe("storage", func() {
 		Expect(tsFS.Exists(filepath.Join("data", "cesium", "1"))).To(BeTrue())
 	})
 
-	It("Should keep a committed write in a new storage directory through a crash", func(
+	DescribeTable("Should keep a committed write through a crash", func(
 		ctx SpecContext,
+		existing string,
 	) {
 		disk := MustSucceed(fault.New(fault.Config{}))
+		if existing != "" {
+			// An open that failed, or another process, made it with no sync.
+			MustSucceed(disk.Sub(existing))
+		}
 		open := func(fs *fault.FS) *storage.Layer {
 			GinkgoHelper()
 			l := MustOpen(storage.OpenLayer(ctx, storage.LayerConfig{
@@ -97,7 +102,17 @@ var _ = Describe("storage", func() {
 		value, closer := MustSucceed2(open(image).KV.Get([]byte("key")))
 		Expect(value).To(Equal([]byte("value")))
 		Expect(closer.Close()).To(Succeed())
-	})
+	},
+		Entry("in a new storage directory", ""),
+		Entry(
+			"in a storage directory that exists with no durable entry",
+			filepath.Join("parent", "data"),
+		),
+		Entry(
+			"in a storage directory whose parent exists with no durable entry",
+			"parent",
+		),
+	)
 
 	It("Should open and log a warning when a sync of the storage directory fails", func(
 		ctx SpecContext,
