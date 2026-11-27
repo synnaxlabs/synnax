@@ -121,8 +121,7 @@ public:
         auto [data, index_data, ok] = this->state.read_series(this->curr_key);
         if (!ok) return x::errors::NIL;
 
-        for (size_t i = 0; i < data.series.size(); i++) {
-            auto &ser = data.series[i];
+        for (auto &ser: data.series) {
             auto lower = ser.alignment;
             const auto upper_val = lower.uint64() + (!ser.empty() ? ser.size() - 1 : 0);
 
