@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -115,15 +114,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}
 	}
 	return s, nil
-}
-
-// OnAction calls handler with each action batch that a transaction attaches, after the
-// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
-// commit on its own goroutine. The returned Disconnect removes the handler.
-func (s *Service) OnAction(
-	handler func(context.Context, actions.Scoped[Key, Action]),
-) observe.Disconnect {
-	return s.state.OnChange(handler)
 }
 
 // Close closes the service and releases the resources it holds. Close is not safe to

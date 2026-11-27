@@ -17,7 +17,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
@@ -96,18 +95,6 @@ var _ = Describe("Dispatch", func() {
 		Expect(got.Name).To(Equal("Bench"))
 		Expect(got.Model).To(Equal("PXIe-1071 (rev B)"))
 		Expect(got.ResourceName).To(Equal(c.ResourceName))
-	})
-
-	It("Should broadcast the actions with the dispatch key", func(ctx SpecContext) {
-		rec := &Recorder[chassis.Key, chassis.Action]{}
-		DeferCleanup(svc.OnAction(rec.Record))
-		acts := []chassis.Action{set([]string{"name"}, "Bench")}
-		Expect(dispatch(ctx, c.Key, acts...)).To(Succeed())
-		frames := rec.Snapshot()
-		Expect(frames).To(HaveLen(1))
-		Expect(frames[0].Key).To(Equal(c.Key))
-		Expect(frames[0].DispatchKey).To(Equal("dk"))
-		Expect(frames[0].Actions).To(Equal(acts))
 	})
 
 	It("Should apply none of the actions when one fails", func(ctx SpecContext) {
