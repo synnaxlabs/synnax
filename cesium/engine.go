@@ -142,6 +142,7 @@ func openEngine(o *options) (*engine, error) {
 		Append:   e.append,
 		Executor: e.exec,
 		OnHead:   e.onHead,
+		OnDead:   e.askReap,
 	}, snapshot); err != nil {
 		return nil, err
 	}
@@ -322,10 +323,15 @@ func (e *engine) covered(sequence uint64) {
 		})
 	}
 	if e.state.HasDead() {
-		select {
-		case e.reaps <- struct{}{}:
-		default:
-		}
+		e.askReap()
+	}
+}
+
+// askReap asks Run for a reap, and returns at once.
+func (e *engine) askReap() {
+	select {
+	case e.reaps <- struct{}{}:
+	default:
 	}
 }
 

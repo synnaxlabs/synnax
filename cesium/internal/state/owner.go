@@ -321,11 +321,15 @@ type durableRequest struct {
 func (*durableRequest) fail(error) {}
 
 func (r *durableRequest) run(s *State) {
+	dead := len(s.core.dead)
 	if err := s.core.apply(r.sequence, r.records); err != nil {
 		s.fail(err)
 		return
 	}
 	s.sealDeleted(r.records)
+	if len(s.core.dead) > dead && s.cfg.OnDead != nil {
+		s.cfg.OnDead()
+	}
 	if invariants.Enabled {
 		s.checkCommits(r.records)
 	}
