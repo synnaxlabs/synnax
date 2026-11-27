@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// FS wraps a file system, records each operation of the kinds that New names, and
-// can fail or hold a sync. It is safe for concurrent use.
+// FS wraps a file system, records each operation of the kinds that New names, and can
+// fail or hold a sync. It is safe for concurrent use.
 type FS struct {
 	xfs.FS
 	record   set.Set[string]
@@ -37,8 +37,8 @@ type FS struct {
 	release chan struct{}
 }
 
-// New returns an FS over fs that records each operation of the kinds in record:
-// "open", "close", "write", "sync", or "syncdir". It panics on another kind.
+// New returns an FS over fs that records each operation of the kinds in record: "open",
+// "close", "write", "sync", or "syncdir". It panics on another kind.
 func New(fs xfs.FS, record ...string) *FS {
 	for _, kind := range record {
 		switch kind {
@@ -134,8 +134,8 @@ func (f *FS) FailWrite(err error) {
 	f.writeErr = err
 }
 
-// Sub panics, since a file system of a subdirectory would skip the recorder, the
-// holds, and the failures of f.
+// Sub panics, since a file system of a subdirectory would skip the recorder, the holds,
+// and the failures of f.
 func (f *FS) Sub(name string) (xfs.FS, error) {
 	panic("opfs: an FS cannot give the file system of " + name)
 }
