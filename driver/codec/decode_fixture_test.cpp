@@ -111,9 +111,20 @@ decode_input(Decoder &dec, const std::string &doc, const std::string &c) {
     }
 }
 
-/// @brief checks the decode of one case of a fixture. A case with an error and a
-/// message checks that the document fails after it matches that message. A null sample
-/// checks that its binding has no sample.
+/// @brief checks that err is a validation error with the text of expected, a Go error.
+void check_error(const x::errors::Error &err, const std::string &expected) {
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    if (const auto syntax = expected.find(SYNTAX_PREFIX); syntax != std::string::npos) {
+        EXPECT_TRUE(err.data.starts_with(expected.substr(0, syntax))) << err.data;
+        return;
+    }
+    EXPECT_EQ(err.data, error_data(expected));
+}
+
+/// @brief checks the decode of one case of a fixture. A case with an error checks that
+/// the input fails as a whole, after it matches the message when it names one. A case
+/// with failures checks each field that does not decode. A null sample checks that its
+/// binding has no sample.
 template<typename Decoder, typename Message>
 void check_case(
     Decoder &dec,
@@ -121,24 +132,13 @@ void check_case(
     const std::string &doc,
     const std::string &c
 ) {
-    const auto [message, decode_err] = decode_input(dec, doc, c);
-    // The Core fails a document on the first field that does not decode.
-    auto err = decode_err;
-    if constexpr (std::is_same_v<Decoder, JSON>)
-        if (!err && message.has_value() && !dec.failures(*message).empty())
-            err = dec.failures(*message).front().error;
+    const auto [message, err] = decode_input(dec, doc, c);
     const auto name = string_at(doc, c + "/message");
     const auto want = static_cast<std::size_t>(
         std::ranges::find(messages, name, &Message::name) - messages.begin()
     );
     if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
-        ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        if (const auto syntax = expected.find(SYNTAX_PREFIX);
-            syntax != std::string::npos) {
-            ASSERT_TRUE(err.data.starts_with(expected.substr(0, syntax))) << err.data;
-        } else {
-            ASSERT_EQ(err.data, error_data(expected));
-        }
+        check_error(err, expected);
         if (!name.empty()) { ASSERT_EQ(message, want); }
         return;
     }
@@ -150,6 +150,22 @@ void check_case(
     ASSERT_LT(want, messages.size()) << "no message " << name;
     ASSERT_EQ(message, want);
     const auto expected = nlohmann::json::parse(required_at(doc, c + "/samples"));
+    const auto failures = nlohmann::json::parse(
+        raw_at(doc, c + "/failures").value_or("[]")
+    );
+    if constexpr (std::is_same_v<Decoder, JSON>) {
+        const auto &actual = dec.failures(want);
+        ASSERT_EQ(actual.size(), failures.size());
+        for (std::size_t j = 0; j < actual.size(); j++) {
+            SCOPED_TRACE("failure " + std::to_string(j));
+            EXPECT_EQ(actual[j].binding, failures[j].at("binding").get<std::size_t>());
+            EXPECT_EQ(actual[j].missing, failures[j].at("missing").get<bool>());
+            check_error(actual[j].error, failures[j].at("error").get<std::string>());
+            EXPECT_TRUE(expected.at(actual[j].binding).is_null());
+        }
+    } else {
+        ASSERT_TRUE(failures.empty()) << "only the JSON decoder reports failed fields";
+    }
     const auto &samples = dec.samples(want);
     ASSERT_EQ(samples.size(), expected.size());
     for (std::size_t k = 0; k < samples.size(); k++) {

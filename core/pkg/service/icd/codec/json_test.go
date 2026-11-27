@@ -55,9 +55,10 @@ type binding struct {
 }
 
 // decodeCase is one document. A document that belongs to no message sets unmatched, and
-// one that does not decode names the error, and the message it belongs to when it
-// belongs to one. Otherwise message names the message it belongs to, and samples holds
-// one JSON value for each binding of that message.
+// one that fails as a whole names the error, and the message it belongs to when it
+// belongs to one. Otherwise message names the message it belongs to, samples holds one
+// JSON value for each binding of that message, or null for a binding with no sample,
+// and failures holds each field that does not decode, in binding order.
 type decodeCase struct {
 	Document  json.RawMessage   `json:"document"`
 	Text      *string           `json:"text"`
@@ -65,6 +66,14 @@ type decodeCase struct {
 	Error     string            `json:"error"`
 	Message   string            `json:"message"`
 	Samples   []json.RawMessage `json:"samples"`
+	Failures  []failureCase     `json:"failures"`
+}
+
+// failureCase is a field that a case does not decode.
+type failureCase struct {
+	Binding int    `json:"binding"`
+	Missing bool   `json:"missing"`
+	Error   string `json:"error"`
 }
 
 func fixtureEntry(path string) TableEntry {
@@ -160,10 +169,15 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 	return nil
 }
 
-// expectSample checks that data, the sample of binding i with data type dt, is want.
-// MatchJSON reads each number as a float64, so an integer compares as text.
+// expectSample checks that data, the sample of binding i with data type dt, is want, or
+// that it is empty when want is null. MatchJSON reads each number as a float64, so an
+// integer compares as text.
 func expectSample(dt telem.DataType, data []byte, want json.RawMessage, i int) {
 	GinkgoHelper()
+	if string(want) == "null" {
+		Expect(data).To(BeEmpty(), "binding %d", i)
+		return
+	}
 	actual := MustSucceed(json.Marshal(sampleJSON(dt, data)))
 	switch dt {
 	case telem.Int8T, telem.Int16T, telem.Int32T, telem.Int64T, telem.Uint8T,
@@ -246,19 +260,11 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 		m, ok, failures, err := decode(doc, samples)
 		switch {
 		case c.Error != "":
-			if err == nil {
-				Expect(failures).ToNot(BeEmpty())
-				err = failures[0].Err
-				for _, failure := range failures {
-					Expect(samples[m][failure.Binding]).To(BeEmpty())
-				}
-			} else {
-				Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
-			}
 			Expect(err).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(c.Error),
 			))
+			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
 			if c.Message != "" {
 				Expect(ok).To(BeTrue())
 				Expect(f.Messages[m].Name).To(Equal(c.Message))
@@ -269,11 +275,20 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
 		default:
 			Expect(err).ToNot(HaveOccurred())
-			Expect(failures).To(BeNil())
 			Expect(ok).To(BeTrue())
 			Expect(f.Messages[m].Name).To(Equal(c.Message))
 			bindings := f.Messages[m].Bindings
 			Expect(c.Samples).To(HaveLen(len(bindings)))
+			Expect(failures).To(HaveLen(len(c.Failures)))
+			for j, want := range c.Failures {
+				Expect(failures[j].Binding).To(Equal(want.Binding))
+				Expect(failures[j].Missing).To(Equal(want.Missing))
+				Expect(failures[j].Err).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(want.Error),
+				))
+				Expect(string(c.Samples[want.Binding])).To(Equal("null"))
+			}
 			for k, b := range bindings {
 				expectSample(b.DataType, samples[m][k], c.Samples[k], k)
 			}
