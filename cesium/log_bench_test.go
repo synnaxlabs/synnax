@@ -12,9 +12,11 @@ package cesium_test
 import (
 	"fmt"
 	"math/rand/v2"
+	"sync"
 	"testing"
 
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -82,6 +84,93 @@ func BenchmarkSeekPointerLog(b *testing.B) {
 			b.Error(err)
 		}
 	})
+}
+
+// BenchmarkSeekPointerLogUnderWrite is BenchmarkSeekPointerLog with 8 readers while one
+// writer commits a sample in a loop, so most seeks load a new state of the data channel
+// and its clock. The allocations of the writer count too.
+func BenchmarkSeekPointerLogUnderWrite(b *testing.B) {
+	const (
+		n       = 100_000
+		readers = 8
+	)
+	db := openBenchDB(b, true, cesium.WithPointerLog())
+	keys := []cesium.ChannelKey{1, 2}
+	createBenchChannels(b, db, keys)
+	stamps := make([]telem.TimeStamp, n)
+	for i := range stamps {
+		stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+	}
+	if err := write(b.Context(), db, stamps[0], telem.MultiFrame(
+		keys,
+		[]telem.Series{
+			telem.NewSeriesV(stamps...),
+			telem.NewSeriesV(make([]float32, n)...),
+		},
+	)); err != nil {
+		b.Fatal(err)
+	}
+	w, err := db.OpenWriter(b.Context(), cesium.WriterConfig{
+		Channels: keys,
+		Clock:    keys[0],
+		Start:    stamps[n-1] + 1,
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	done, written := make(chan struct{}), make(chan error, 1)
+	go func() {
+		for stamp := stamps[n-1] + 1; ; stamp++ {
+			select {
+			case <-done:
+				written <- w.Close()
+				return
+			default:
+			}
+			_, _, err := w.Write(b.Context(), telem.MultiFrame(keys, []telem.Series{
+				telem.NewSeriesV(stamp),
+				telem.NewSeriesV[float32](0),
+			}), nil)
+			if err == nil {
+				_, _, err = w.Commit(b.Context(), nil)
+			}
+			if err != nil {
+				written <- errors.Join(err, w.Close())
+				return
+			}
+		}
+	}()
+	b.ReportAllocs()
+	b.ResetTimer()
+	var wg sync.WaitGroup
+	for r := range readers {
+		wg.Go(func() {
+			iter, err := db.OpenIterator(cesium.IteratorConfig{
+				Bounds:   telem.TimeRangeMax,
+				Channels: keys[1:],
+			})
+			if err != nil {
+				b.Error(err)
+				return
+			}
+			rng := rand.New(rand.NewPCG(1, uint64(r)))
+			for i := r; i < b.N; i += readers {
+				if !iter.SeekGE(stamps[rng.IntN(n)]) {
+					b.Error("seek found no sample")
+					break
+				}
+			}
+			if err := iter.Close(); err != nil {
+				b.Error(err)
+			}
+		})
+	}
+	wg.Wait()
+	b.StopTimer()
+	close(done)
+	if err := <-written; err != nil {
+		b.Fatal(err)
+	}
 }
 
 // BenchmarkCutPointerLog measures the delete of the end of one pointer of n samples on
