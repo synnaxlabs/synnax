@@ -273,6 +273,13 @@
     {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium/internal/log",
+      "receiver": "Frame",
+      "name": "Size",
+      "caller": "sy-6398-17c-pointer-log-engine"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium/internal/log",
       "receiver": "Header",
       "name": "Encode",
       "caller": "sy-6398-17c-pointer-log-engine"
