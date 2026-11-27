@@ -146,9 +146,9 @@ std::string hex_bytes(const std::string &h) {
     return out;
 }
 
-/// @brief replays the responses a Core sends over gRPC: the open ack of state 1, a
-/// missed marker that is the first frame of state 2 after a key change, and then a
-/// steady frame of state 2 with one float32 sample.
+/// @brief replays the responses a Core sends over gRPC: the open ack, a missed marker
+/// after a key change, and then the first frame of state 2, which declares its types
+/// and holds one float32 sample.
 class KeyChangeThenMissedStream final : public StreamerStream {
     int received = 0;
 
@@ -157,14 +157,12 @@ public:
         grpc::framer::StreamerResponse res;
         switch (this->received++) {
             case 0:
-                res.set_buffer(hex_bytes("BE010000000109FFFFFFFF"));
                 break;
             case 1:
                 res.set_missed(true);
-                res.set_buffer(hex_bytes("BE020000000109FFFFFFFF"));
                 break;
             default:
-                res.set_buffer(hex_bytes("3F02000000010000000000803F"));
+                res.set_buffer(hex_bytes("BF020000000109010000000000803F"));
         }
         return {res, x::errors::NIL};
     }
@@ -187,9 +185,8 @@ public:
 };
 }
 
-/// @brief it should decode a frame of a state whose first frame came in a missed
-/// marker.
-TEST(StreamerStream, DecodesAfterMissedMarkerOpensState) {
+/// @brief it should decode the first frame of a state that comes after a missed marker.
+TEST(StreamerStream, DecodesFirstFrameAfterMissedMarker) {
     const Client client{
         std::make_unique<KeyChangeThenMissedClient>(),
         nullptr,

@@ -541,7 +541,7 @@ void put_u32(std::vector<uint8_t> &b, const size_t at, const uint32_t v) {
 /// @brief it should encode and decode each golden frame byte for byte. The frames are
 /// shared with the Go, TypeScript, and Python codecs.
 TEST(CodecTests, GoldenFrames) {
-    std::ifstream file("x/testdata/framecodec/vectors.json");
+    std::ifstream file("core/testdata/framecodec/vectors.json");
     ASSERT_TRUE(file.good());
     const auto vectors = nlohmann::json::parse(file);
     ASSERT_FALSE(vectors["cases"].empty());

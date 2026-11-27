@@ -646,7 +646,7 @@ class TestCodec:
 
 
 _VECTORS_PATH = (
-    pathlib.Path(__file__).parents[3] / "x" / "testdata" / "framecodec" / "vectors.json"
+    pathlib.Path(__file__).parents[3] / "core/testdata/framecodec/vectors.json"
 )
 """The golden frames that the Go, TypeScript, and C++ codecs share."""
 

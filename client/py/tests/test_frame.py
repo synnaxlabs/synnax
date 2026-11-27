@@ -11,7 +11,7 @@ import subprocess
 import sys
 from datetime import UTC
 from types import MappingProxyType
-from typing import Any, override
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -19,7 +19,7 @@ import pytest
 
 import synnax as sy
 from freighter.mock import MockUnaryClient
-from synnax.channel.payload import Payload as ChannelPayload, normalize_params
+from synnax.channel.payload import Payload as ChannelPayload
 from synnax.channel.retrieve import Retriever
 from synnax.channel.types_gen import RetrieveResponse
 from synnax.framer.adapter import ReadFrameAdapter, WriteFrameAdapter
@@ -1263,18 +1263,6 @@ class TestFramePandasLoading:
         assert result.stdout.strip() == "False"
 
 
-class _FixedRetriever(Retriever):
-    """Retrieves channels from a fixed list, with no Core."""
-
-    def __init__(self, channels: list[ChannelPayload]) -> None:
-        self._channels = channels
-
-    @override
-    def retrieve(self, channels: sy.channel.Params) -> list[ChannelPayload]:
-        wanted = set(normalize_params(channels).channels)
-        return [c for c in self._channels if c.key in wanted or c.name in wanted]
-
-
 _A = ChannelPayload(
     key=1, name="a_time", data_type=sy.DataType.TIMESTAMP, is_index=True
 )
@@ -1307,7 +1295,8 @@ class TestReadFrameAdapterClocks:
     def test_refuses_a_channel_on_two_clocks(self) -> None:
         """Should refuse a frame that holds the series of one channel on two clocks,
         since a channel's samples pair with one index."""
-        adapter = ReadFrameAdapter(_FixedRetriever([_A, _B, _D]))
+        client = MockUnaryClient(responses=[RetrieveResponse(channels=[_A, _B, _D])])
+        adapter = ReadFrameAdapter(Retriever(client=client))
         adapter.update([1, 2, 3])
         frame = sy.Frame(
             [1, 2, 3, 3],

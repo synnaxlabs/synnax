@@ -1,0 +1,241 @@
+{
+  "description": "The data types that a field reads into and that write to it, for the Core and the Console. Each case adds its field to the base field of its format, in the payload of that format. Writes are of JSON fields. A default is the data type of the channel that a client creates for a binding that names none, so the Core must accept it.",
+  "payloads": {
+    "json": {
+      "format": "json"
+    },
+    "text": {
+      "format": "text",
+      "delimiter": ","
+    },
+    "binary": {
+      "format": "binary"
+    }
+  },
+  "fields": {
+    "json": {
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "value",
+      "scale": 1,
+      "pointer": "/value"
+    },
+    "text": {
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "value",
+      "scale": 1,
+      "encoding": "delimited"
+    },
+    "binary": {
+      "key": "00000000-0000-4000-8000-000000000001",
+      "name": "value",
+      "scale": 1,
+      "byte_order": "little_endian"
+    }
+  },
+  "reads": {
+    "json": [
+      { "field": { "type": "float" }, "data_type": "float64", "accepted": true },
+      { "field": { "type": "float" }, "data_type": "float32", "accepted": true },
+      { "field": { "type": "float" }, "data_type": "int64", "accepted": false },
+      { "field": { "type": "integer" }, "data_type": "int64", "accepted": true },
+      { "field": { "type": "integer" }, "data_type": "float32", "accepted": true },
+      { "field": { "type": "integer" }, "data_type": "uint32", "accepted": false },
+      { "field": { "type": "unsigned" }, "data_type": "uint64", "accepted": true },
+      { "field": { "type": "unsigned" }, "data_type": "int16", "accepted": true },
+      { "field": { "type": "unsigned" }, "data_type": "float64", "accepted": true },
+      { "field": { "type": "boolean" }, "data_type": "uint8", "accepted": true },
+      { "field": { "type": "boolean" }, "data_type": "boolean", "accepted": true },
+      { "field": { "type": "boolean" }, "data_type": "float64", "accepted": true },
+      { "field": { "type": "string" }, "data_type": "string", "accepted": true },
+      { "field": { "type": "string" }, "data_type": "float64", "accepted": false },
+      {
+        "field": { "type": "timestamp", "time_format": "unix_ms" },
+        "data_type": "timestamp",
+        "accepted": true
+      },
+      {
+        "field": { "type": "timestamp", "time_format": "unix_ms" },
+        "data_type": "int64",
+        "accepted": false
+      },
+      { "field": { "type": "json" }, "data_type": "json", "accepted": true },
+      { "field": { "type": "json" }, "data_type": "string", "accepted": false },
+      { "field": { "type": "uuid" }, "data_type": "uuid", "accepted": true },
+      { "field": { "type": "bytes" }, "data_type": "bytes", "accepted": true },
+      {
+        "field": { "type": "integer", "scale": 0.5 },
+        "data_type": "float32",
+        "accepted": true
+      },
+      {
+        "field": { "type": "integer", "scale": 0.5 },
+        "data_type": "int64",
+        "accepted": false
+      },
+      {
+        "field": { "type": "unsigned", "offset": 4 },
+        "data_type": "float64",
+        "accepted": true
+      },
+      {
+        "field": { "type": "unsigned", "offset": 4 },
+        "data_type": "uint64",
+        "accepted": false
+      },
+      {
+        "field": { "type": "string", "scale": 2 },
+        "data_type": "float64",
+        "accepted": false
+      },
+      {
+        "field": { "type": "timestamp", "time_format": "unix_ms", "scale": 2 },
+        "data_type": "float64",
+        "accepted": false
+      }
+    ],
+    "text": [
+      { "field": {}, "data_type": "float64", "accepted": true },
+      { "field": {}, "data_type": "float32", "accepted": true },
+      { "field": {}, "data_type": "int64", "accepted": false },
+      { "field": {}, "data_type": "string", "accepted": false },
+      { "field": { "scale": 2 }, "data_type": "float64", "accepted": true },
+      { "field": { "scale": 2 }, "data_type": "int32", "accepted": false }
+    ],
+    "binary": [
+      {
+        "field": { "kind": "unsigned", "bit_length": 16 },
+        "data_type": "uint16",
+        "accepted": true
+      },
+      {
+        "field": { "kind": "unsigned", "bit_length": 16 },
+        "data_type": "int16",
+        "accepted": false
+      },
+      {
+        "field": { "kind": "unsigned", "bit_length": 16 },
+        "data_type": "int32",
+        "accepted": true
+      },
+      {
+        "field": { "kind": "unsigned", "bit_length": 16 },
+        "data_type": "uint8",
+        "accepted": false
+      },
+      {
+        "field": { "kind": "unsigned", "bit_length": 16 },
+        "data_type": "float32",
+        "accepted": true
+      },
+      {
+        "field": { "kind": "unsigned", "bit_length": 64 },
+        "data_type": "uint64",
+        "accepted": true
+      },
+      {
+        "field": { "kind": "unsigned", "bit_length": 64 },
+        "data_type": "int64",
+        "accepted": false
+      },
+      {
+        "field": { "kind": "integer", "bit_length": 8 },
+        "data_type": "int8",
+        "accepted": true
+      },
+      {
+        "field": { "kind": "integer", "bit_length": 8 },
+        "data_type": "uint8",
+        "accepted": false
+      },
+      {
+        "field": { "kind": "integer", "bit_length": 16, "scale": 0.1 },
+        "data_type": "float64",
+        "accepted": true
+      },
+      {
+        "field": { "kind": "integer", "bit_length": 16, "scale": 0.1 },
+        "data_type": "int32",
+        "accepted": false
+      },
+      {
+        "field": { "kind": "float", "bit_length": 32 },
+        "data_type": "float32",
+        "accepted": true
+      },
+      {
+        "field": { "kind": "float", "bit_length": 32 },
+        "data_type": "int64",
+        "accepted": false
+      }
+    ]
+  },
+  "writes": [
+    { "field": { "type": "float" }, "data_type": "int32", "accepted": true },
+    { "field": { "type": "integer" }, "data_type": "float64", "accepted": true },
+    { "field": { "type": "unsigned" }, "data_type": "int64", "accepted": true },
+    { "field": { "type": "boolean" }, "data_type": "uint8", "accepted": true },
+    { "field": { "type": "boolean" }, "data_type": "float64", "accepted": true },
+    { "field": { "type": "string" }, "data_type": "string", "accepted": true },
+    { "field": { "type": "string" }, "data_type": "float64", "accepted": false },
+    {
+      "field": { "type": "timestamp", "time_format": "unix_ms" },
+      "data_type": "timestamp",
+      "accepted": true
+    },
+    {
+      "field": { "type": "timestamp", "time_format": "unix_ms" },
+      "data_type": "int64",
+      "accepted": false
+    },
+    { "field": { "type": "json" }, "data_type": "json", "accepted": true },
+    { "field": { "type": "json" }, "data_type": "string", "accepted": false },
+    { "field": { "type": "uuid" }, "data_type": "uuid", "accepted": true },
+    {
+      "field": { "type": "integer", "scale": 0.5 },
+      "data_type": "float32",
+      "accepted": true
+    },
+    {
+      "field": { "type": "integer", "scale": 0.5 },
+      "data_type": "int64",
+      "accepted": false
+    },
+    {
+      "field": { "type": "float", "offset": 4 },
+      "data_type": "float64",
+      "accepted": true
+    },
+    {
+      "field": { "type": "string", "scale": 2 },
+      "data_type": "float64",
+      "accepted": false
+    }
+  ],
+  "defaults": {
+    "json": [
+      { "field": { "type": "float" }, "data_type": "float64" },
+      { "field": { "type": "integer" }, "data_type": "int64" },
+      { "field": { "type": "unsigned" }, "data_type": "uint64" },
+      { "field": { "type": "boolean" }, "data_type": "uint8" },
+      { "field": { "type": "string" }, "data_type": "string" },
+      {
+        "field": { "type": "timestamp", "time_format": "unix_ms" },
+        "data_type": "timestamp"
+      },
+      { "field": { "type": "json" }, "data_type": "json" },
+      { "field": { "type": "uuid" }, "data_type": "uuid" },
+      { "field": { "type": "bytes" }, "data_type": "bytes" },
+      { "field": { "type": "integer", "scale": 0.5 }, "data_type": "float64" },
+      { "field": { "type": "unsigned", "offset": 4 }, "data_type": "float64" }
+    ],
+    "text": [
+      { "field": {}, "data_type": "float64" },
+      { "field": { "scale": 2 }, "data_type": "float64" }
+    ],
+    "binary": [
+      { "field": { "kind": "float", "bit_length": 32 }, "data_type": "float64" },
+      { "field": { "kind": "integer", "bit_length": 12 }, "data_type": "int64" },
+      { "field": { "kind": "unsigned", "bit_length": 16 }, "data_type": "uint64" }
+    ]
+  }
+}

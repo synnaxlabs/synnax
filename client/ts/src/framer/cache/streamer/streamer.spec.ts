@@ -241,6 +241,35 @@ describe("Multiplexed", () => {
       await streamer.close();
     });
 
+    it("should keep a channel streamed on another clock from the handlers", async () => {
+      const store = new cacheStore.Store();
+      const joins = new join.Joins(store);
+      joins.join(2, 1);
+      const frame = new framer.Frame(
+        [1, 2],
+        [
+          new Series({
+            data: new BigInt64Array([1n]),
+            dataType: DataType.TIMESTAMP,
+            clock: 1,
+          }),
+          new Series({ data: new Float32Array([1]), clock: 9 }),
+        ],
+      );
+      const streamer = new cacheStreamer.Multiplexed({
+        store,
+        joins,
+        onWait: () => {},
+        openStreamer: createStreamOpener([oneFrameStreamer([1, 2], frame)]),
+        instrumentation: createErrorSpy().instrumentation,
+      });
+      const handled: channel.Key[][] = [];
+      streamer.demand([1, 2], (grouped) => handled.push([...grouped.keys()]));
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(handled).toEqual([[1]]);
+      await streamer.close();
+    });
+
     it("should stream a key opened after a rejected one", async () => {
       const streamer = new cacheStreamer.Multiplexed({
         ...createCache(),

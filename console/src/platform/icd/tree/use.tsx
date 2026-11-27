@@ -13,23 +13,31 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { deep, id, map, type record, unique, uuid } from "@synnaxlabs/x";
+import { deep, id, map, type payload, type record, unique, uuid } from "@synnaxlabs/x";
 import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "react";
 
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { MessageMark } from "@/platform/icd/Details";
 import { copyName } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
-import { fieldsOf, formatOf, type Formats, useFormats } from "@/platform/icd/Formats";
+import {
+  formatOf,
+  type Formats,
+  heldMessage,
+  useFormats,
+} from "@/platform/icd/Formats";
 import { createMatch } from "@/platform/icd/Match";
+import { createPayload } from "@/platform/icd/payload";
 import { usePlan } from "@/platform/icd/Plans";
 import {
+  type Field,
   fieldsPath,
   isIndexable,
   isReadable,
   jsonFields,
   type ReadSource,
   reindex,
+  taskFields,
   type TreeField,
   treeFieldOf,
 } from "@/platform/icd/read";
@@ -51,6 +59,13 @@ export interface Source extends record.Keyed<string> {
   disabled: boolean;
 }
 
+/** @returns the fields of a message of an open ICD that a task takes. */
+const fieldsOf = (
+  formats: Formats,
+  icdKey: icd.Key,
+  message: icd.MessageKey,
+): Field[] => taskFields(heldMessage(formats, icdKey, message)) ?? [];
+
 /** Starts or stops reading a field of a message. */
 const setRead = (
   ctx: PForm.ContextValue,
@@ -63,7 +78,7 @@ const setRead = (
   const bindings = path.messages[read].bindings;
   const value = ctx.get(bindings).value;
   const bound = value.some(({ field: key }) => key === field.key);
-  if (bound === on || (on && !isReadable(field))) return;
+  if (bound === on || (on && !field.readable)) return;
   ctx.set(
     bindings,
     on ? [...value, bindingOf()] : value.filter(({ field: k }) => k !== field.key),
@@ -255,7 +270,7 @@ interface BaseArgs<S extends Source> {
   /** @returns why the ICD lacks the message of a read, and what to do now. */
   missingDescription: (read: number) => string;
   /** @returns the binding of a field that the task starts to read. */
-  bindingOf: (source: string, r: number, field: icd.JSONField) => icd.ReadBinding;
+  bindingOf: (source: string, r: number, field: Field) => icd.ReadBinding;
   /** Disables each control that binds a field to a channel. */
   bindDisabled?: boolean;
   /** The fields with float channels can tare while the task runs. */
@@ -305,6 +320,12 @@ export interface UseReturn {
    * after a reload or a reopened tab, an empty message stays.
    */
   setMessage: (source: string, icdKey: icd.Key, message: icd.Message) => void;
+  /**
+   * Adds a message of the format with no fields to the ICD of a source that reads one
+   * message, and makes the source read it, as setMessage does. It takes the name that
+   * addMessage gives.
+   */
+  setNewMessage: (source: string, format: payload.Format) => void;
 }
 
 /**
@@ -362,7 +383,7 @@ export const use = <
   const disabledPath = (source: string) =>
     deep.widen<Source[]>(listOf(source))[source].disabled;
   /** @returns the field of a read of a source, as its message format holds it. */
-  const fullField = (source: string, r: number, key: icd.FieldKey): icd.JSONField => {
+  const fullField = (source: string, r: number, key: icd.FieldKey): Field => {
     const { icd: icdKey, messages } = ctx.get(pathOf(source)).value;
     const { message } = messages[r];
     const field = fieldsOf(formats, icdKey, message).find((f) => f.key === key);
@@ -375,7 +396,7 @@ export const use = <
     r: number,
     field: TreeField,
     on: boolean,
-    full?: icd.JSONField,
+    full?: Field,
   ) =>
     setRead(ctx, pathOf(source), r, field, on, () =>
       bindingOf(source, r, full ?? fullField(source, r, field.key)),
@@ -422,9 +443,9 @@ export const use = <
     const source = ctx.get(path).value;
     const [prior] = source.messages;
     if (source.icd === icdKey && prior.message === message.key) return;
-    const fields = jsonFields(message);
+    const fields = taskFields(message) ?? [];
     const readable = fields.filter(isReadable);
-    const timestamps = fields.filter(({ type }) => type === "timestamp");
+    const timestamps = fields.filter((f) => "type" in f && f.type === "timestamp");
     const index =
       timestamps.length === 1 && isIndexable(timestamps[0]) ? timestamps[0] : undefined;
     const priorFormat = formatOf(formats, source.icd);
@@ -436,8 +457,7 @@ export const use = <
     );
     if (
       made.current.has(prior.message) &&
-      held?.payload.format === "json" &&
-      held.payload.fields.length === 0 &&
+      held?.payload.fields.length === 0 &&
       !readElsewhere
     )
       priorFormat.remove(PICD.formPath.messages[prior.message]);
@@ -453,29 +473,38 @@ export const use = <
     });
   };
 
+  const setNewMessage = (sourceKey: string, format: payload.Format) => {
+    const { icd: icdKey } = ctx.get(pathOf(sourceKey)).value;
+    const form = formatOf(formats, icdKey);
+    const held = form.value().messages;
+    const message: icd.Message = {
+      key: uuid.create(),
+      name: messageName(sourceKey, held),
+      payload: createPayload(format),
+    };
+    form.insert(PICD.formPath.messages, message, held.at(-1)?.key);
+    made.current.add(message.key);
+    setMessage(sourceKey, icdKey, message);
+  };
+
   /** Whether the ICD holds the message of a read of a source, as JSON. */
   const holdsJSON = (sourceKey: string, r: number): boolean => {
     const { icd: icdKey, messages } = ctx.get(pathOf(sourceKey)).value;
-    const message = messages[r].message;
-    return (
-      formats
-        .get(icdKey)
-        ?.value()
-        .messages.find(({ key }) => key === message)?.payload.format === "json"
-    );
+    const message = heldMessage(formats, icdKey, messages[r].message);
+    return message?.payload.format === "json";
   };
 
   const addField = (sourceKey: string, r: number) => {
     const source = ctx.get(pathOf(sourceKey)).value;
     const { message } = source.messages[r];
-    const fields = fieldsOf(formats, source.icd, message);
+    const fields = jsonFields(heldMessage(formats, source.icd, message));
     const field = createJSONField(fields);
     formatOf(formats, source.icd).insert(
       fieldsPath(message),
       field,
       fields.at(-1)?.key,
     );
-    read(sourceKey, r, field, true, field);
+    read(sourceKey, r, treeFieldOf(field), true, field);
     const parent = source.messages.length > 1 ? [messageKey(sourceKey, message)] : [];
     onExpand((prev) => unique.unique([...prev, sourceKey, ...parent]));
     onSelect([fieldKey(sourceKey, message, field.key)]);
@@ -508,7 +537,7 @@ export const use = <
    * field reads its copy into a new channel, as with Add field. Selects the first copy.
    */
   const duplicateFields = (chosen: FieldNode[]) => {
-    const copies = new Map<string, icd.JSONField>();
+    const copies = new Map<string, Field>();
     const keys: string[] = [];
     ctx.batch(() => {
       for (const { source, read: r, field } of chosen) {
@@ -758,5 +787,6 @@ export const use = <
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   };
 };
