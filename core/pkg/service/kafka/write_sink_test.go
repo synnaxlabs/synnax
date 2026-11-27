@@ -164,8 +164,11 @@ var _ = Describe("Write task with targets", func() {
 		func(ctx SpecContext, cfg func(context.Context, device.Key) any) {
 			dev := createDevice(ctx, clusterProperties())
 			t := newTask(ctx, kafka.WriteTaskType, cfg(ctx, dev.Key))
-			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
-				"targets: the task has no enabled targets: validation error",
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					"targets: the task has no enabled targets: validation error",
+				),
 			))
 		},
 		Entry("a config from before ICDs, which has channels and no targets",

@@ -85,9 +85,7 @@ var _ = Describe("Discover", func() {
 		})).To(Succeed())
 		var stat task.Status
 		Eventually(func(g Gomega) {
-			var err error
-			stat, err = retrieveTaskStatus(ctx, t)
-			g.Expect(err).ToNot(HaveOccurred())
+			stat = retrieveTaskStatus(ctx, g, t)
 			g.Expect(stat.Details.Cmd).To(Equal(key))
 		}).WithTimeout(15 * time.Second).Should(Succeed())
 		if stat.Variant == status.VariantSuccess {

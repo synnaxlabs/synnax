@@ -267,17 +267,18 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 // taskStatus retrieves the status of t, which must exist.
 func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
-	return MustSucceed(retrieveTaskStatus(ctx, t))
+	return retrieveTaskStatus(ctx, Default, t)
 }
 
-// retrieveTaskStatus retrieves the status of t.
-func retrieveTaskStatus(ctx context.Context, t task.Task) (task.Status, error) {
+// retrieveTaskStatus retrieves the status of t, and fails g when t has none.
+func retrieveTaskStatus(ctx context.Context, g Gomega, t task.Task) task.Status {
+	GinkgoHelper()
 	var stat task.Status
-	err := statusSvc.NewRetrieve[task.StatusDetails]().
+	g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, db)
-	return stat, err
+		Exec(ctx, db)).To(Succeed())
+	return stat
 }
 
 // deviceStatus retrieves the status of dev.
