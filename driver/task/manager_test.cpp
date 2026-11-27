@@ -1776,8 +1776,8 @@ TEST_F(TaskManagerTest, RunningTaskChangedDuringAnOutageIsReplacedAndStarted) {
     EXPECT_EQ(replacement.cmd_key, REDEPLOY);
     EXPECT_EQ(replacement.live, 1);
     ASSERT_TRUE(replacement.status.has_value());
-    EXPECT_TRUE(replacement.status->details.running);
-    EXPECT_EQ(replacement.status->details.config_hash, deployed);
+    EXPECT_TRUE(replacement.status.value().details.running);
+    EXPECT_EQ(replacement.status.value().details.config_hash, deployed);
 }
 
 /// @brief it should leave the replacement of a stopped task stopped when its config
@@ -1928,8 +1928,26 @@ TEST_F(TaskManagerTest, StartWhoseBuildFailsKeepsTheLiveInstance) {
     ASSERT_EQ(got.size(), 2);
     EXPECT_EQ(got[1].live, 1);
     ASSERT_TRUE(got[1].status.has_value());
-    EXPECT_TRUE(got[1].status->details.running);
-    EXPECT_EQ(got[1].status->details.config_hash, deployed);
+    EXPECT_TRUE(got[1].status.value().details.running);
+    EXPECT_EQ(got[1].status.value().details.config_hash, deployed);
+}
+
+/// @brief it should give the factory no status for a start with no live instance, even
+/// when the stored status shows the task running.
+TEST_F(TaskManagerTest, StartWithNoLiveInstanceGivesTheFactoryNoStatus) {
+    auto factory = std::make_unique<RunningTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    store_status(client, task, synnax::status::VARIANT_SUCCESS, "Started task", true);
+    send_start(client, task, "start-1");
+    ASSERT_EVENTUALLY_EQ(builds(*f).size(), 1);
+    EXPECT_FALSE(builds(*f).at(0).status.has_value());
 }
 
 /// @brief it should stop the live instance of a task that a save moved to another rack
