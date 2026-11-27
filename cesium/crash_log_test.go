@@ -37,14 +37,8 @@ func runLog(
 	opts := []func() cesium.Option{
 		cesium.WithPointerLog,
 		func() cesium.Option { return cesium.WithRandom(rand.NewPCG(1, 2)) },
-	}
-	// The smallest log keeps the scan of the log at each recovery short. Mixed keeps
-	// the default log: a failed log sync fails each later commit, so its full disk
-	// fires only on the prepare of the next log.
-	if profile != crash.Mixed {
-		opts = append(opts, func() cesium.Option {
-			return cesium.WithLogFileSize(log.MinFileSize)
-		})
+		// The smallest log keeps the scan of the log at each recovery short.
+		func() cesium.Option { return cesium.WithLogFileSize(log.MinFileSize) },
 	}
 	if faultsReads(profile) {
 		opts = append(opts, cesium.WithReadsChecked)
