@@ -90,14 +90,14 @@ rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
 - **Create checks**: Phase 8 moves the checks that `CreateChannel` runs on each channel
   that the Core leases (`cesium/internal/channel/channel.go:114-138`,
   `cesium/channel.go:154`, `:169-185`) into the validation of the channel service, with
-  the same messages and one spec per message: a stored channel has a data type, a data
-  channel names an index, an index channel is of type timestamp and names no other
-  index, a virtual channel names no index and is no index (`channel.go:120-121`), and
-  the named index exists, is an index, and is not virtual. The existence check runs
-  under the lock of §4.1 step 2. A calculation's `<name>_time` is a free virtual index
-  that the Core never leases, so these checks never see it. RFC 0120 Phase 44 drops the
-  check that a data channel names an index, and Phase 50 drops the index checks; the
-  data type check stays.
+  the same messages and one spec per message: every leased channel has a data type,
+  virtual ones too (`channel.go:117`), a data channel names an index, an index channel
+  is of type timestamp and names no other index, a virtual channel names no index and is
+  no index (`channel.go:120-121`), and the named index exists, is an index, and is not
+  virtual. The existence check runs under the lock of §4.1 step 2. A calculation's
+  `<name>_time` is a free virtual index that the Core never leases, so these checks
+  never see it. RFC 0120 Phase 44 drops the check that a data channel names an index,
+  and Phase 50 drops the index checks; the data type check stays.
 - **Channel lookup**: The framer reads channels from Cesium today. It gains a lookup
   that the channel service provides: for a key, the declared type (RFC 0120), the
   live-only flag, and the index key until RFC 0120 Phase 50 retires it. The framer opens
@@ -1456,13 +1456,14 @@ green. Every other phase is one PR.
 Dependencies on other RFCs: the phase table names only phases of this RFC, so the issues
 of these phases take their blockers from this table too.
 
-| Phase | Waits for                                                                                                                                                                  |
-| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 5     | RFC 0120 Phase 1, which carries code moves that it needs                                                                                                                   |
-| 8     | RFC 0120 Phases 2 to 4, the shared storage fixes, and Phases 8 and 14, since a backfill takes a higher number than later data (§5.7) and no reader may then sort by number |
+| Phase | Waits for                                                                                                                                                                                                                   |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 5     | RFC 0120 Phase 1, which carries code moves that it needs                                                                                                                                                                    |
+| 8     | RFC 0120 Phases 2 to 4, the shared storage fixes, and Phases 8, 9, 14, and 19, since a backfill takes a higher number than later data (§5.7), and no reader may then compare numbers across stretches (RFC 0120 §4.4 Order) |
 
-Other RFCs wait on this one: RFC 0120 Phases 2 to 4 and 18 on Phase 6, and RFC 0120
-Phases 24 to 54 on Phases 7 and 8 (RFC 0120 §5).
+Other RFCs wait on this one: RFC 0120 Phases 2 to 4 and 18 on Phase 6; RFC 0120 Phases
+24 to 54 on Phases 7 and 8 (RFC 0120 §5); and RFC 0119 Phases 34 to 38, the measured
+reads and rewires, on Phase 8, the one alignment counter per database.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                  | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
