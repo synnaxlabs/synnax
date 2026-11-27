@@ -179,3 +179,31 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "list",
+    srcs = ["list_linux.cpp"],
+    hdrs = ["list.h"],
+    target_compatible_with = ["@platforms//os:linux"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":serial",
+        "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "list_test",
+    size = "small",
+    srcs = [
+        "list_linux_test.cpp",
+        "list_test.cpp",
+    ],
+    deps = [
+        ":list",
+        "//driver/transport",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
