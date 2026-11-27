@@ -319,28 +319,26 @@ export class Joins {
   /**
    * Writes the series of joined channels in a streamed frame, holding those of members
    * that wait. Other channels' series stay out of the store.
-   * @param fail - Receives a data channel whose series in the frame include one that
-   * does not pair with the time of its index, and the channel's error status. The
-   * channel's series in the frame stay out of the store. By default it throws the
-   * status as an error.
-   * @returns the index channels of the joins that wait.
+   * @returns waiting, the index channels of the joins that wait, and refused, each data
+   * channel whose series in the frame include one that does not pair with the time of
+   * its index, with its error status. A refused channel's series stay out of the store.
    */
-  write(
-    frame: Map<channel.Key, Series[]>,
-    fail: (ch: channel.Key, failure: status.Status) => void = throwStatus,
-  ): Set<channel.Key> {
+  write(frame: Map<channel.Key, Series[]>): {
+    waiting: Set<channel.Key>;
+    refused: Map<channel.Key, status.Status>;
+  } {
     frame.forEach((series, ch) => {
       const j = this.joins.get(ch);
       if (j != null) this.writeIndex(j, series);
     });
+    const refused = new Map<channel.Key, status.Status>();
     frame.forEach((series, ch) => {
       const m = this.members.get(ch);
       if (m == null || this.joins.has(ch)) return;
-      for (const s of series)
-        if (s.clock !== m.join.index) return fail(ch, this.unpaired(ch, m.join.index));
-      this.writeData(m, series);
+      if (series.every((s) => s.clock === m.join.index)) this.writeData(m, series);
+      else refused.set(ch, this.unpaired(ch, m.join.index));
     });
-    return this.drain();
+    return { waiting: this.drain(), refused };
   }
 
   // Returns the error status of data channel ch, whose samples do not pair with the
@@ -647,10 +645,6 @@ const newestOf = (block: cacheBlock.Raw): { end: bigint; count: number } => {
     end: BigInt(newest.data[newest.length - 1]) + 1n,
     count: cacheBlock.offsetOf(newest.alignment) + newest.length,
   };
-};
-
-const throwStatus = (_: channel.Key, failure: status.Status): never => {
-  throw status.toError(failure);
 };
 
 // Returns the samples [from, to) of the series with block alignment and the time range
