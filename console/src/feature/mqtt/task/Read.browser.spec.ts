@@ -20,7 +20,12 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
-import { createBroker, openAddData, openScanner } from "@/feature/mqtt/testutil";
+import {
+  createBroker,
+  openAddData,
+  openScanner,
+  type ScannerReply,
+} from "@/feature/mqtt/testutil";
 import {
   pickMessageFormat,
   removeField,
@@ -42,6 +47,16 @@ import {
 import { createKeyEndingIn, findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
+
+/** The reply of the Core when it cannot reach the broker. */
+const UNREACHABLE = {
+  variant: "error",
+  message: "Failed to reach broker",
+  description:
+    "Could not reach dev1:1883: dial tcp 127.0.0.1:1883: connect: connection " +
+    "refused. Check the host and the port, and that the network of the Core can " +
+    "reach the broker.",
+} as const satisfies ScannerReply;
 
 preloadForms(MQTT.Task.FORMS);
 
@@ -929,26 +944,31 @@ describe("MQTT read form", () => {
     });
   });
 
-  it("should name the broker that the Core cannot reach and say why", async () => {
+  it("should show the reply of a broker that the Core cannot reach", async () => {
     const { dev } = await renderRead();
     const scanner = await openScanner(client, dev.rack);
     const dialog = await openAddData();
-    await scanner.answer({ variant: "error", message: "connection refused" });
-    await dialog.findByText(`Cannot reach ${dev.name}`);
-    dialog.getByText(
-      "The Core cannot connect to dev1. Check that the broker runs and that the Core " +
-        "can reach it. connection refused",
-    );
+    await scanner.answer(UNREACHABLE);
+    await dialog.findByText("Failed to list topics");
+    dialog.getByText(`${UNREACHABLE.message}. ${UNREACHABLE.description}`);
   });
 
-  it("should name the broker when it cannot list the Sparkplug B nodes", async () => {
+  it("should show the reply when it cannot list the Sparkplug B nodes", async () => {
     const { dev } = await renderRead();
     const scanner = await openScanner(client, dev.rack);
     const dialog = await openAddData();
     await scanner.answer({ data: { topics: [], truncated: false } });
     fireEvent.click(dialog.getByRole("button", { name: "Sparkplug B" }));
-    await scanner.answer({ variant: "error", message: "connection refused" });
-    await dialog.findByText(`Cannot reach ${dev.name}`);
+    await scanner.answer(UNREACHABLE);
+    await dialog.findByText("Failed to list tags");
+    dialog.getByText(`${UNREACHABLE.message}. ${UNREACHABLE.description}`);
+  });
+
+  it("should show the error of a rack that has no scan task", async () => {
+    const { dev } = await renderRead();
+    const dialog = await openAddData();
+    await dialog.findByText("Failed to list topics");
+    dialog.getByText(`Found no task where rack = ${dev.rack} and type = "mqtt_scan"`);
   });
 
   it("should focus the topic of a topic added by name", async () => {

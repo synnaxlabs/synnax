@@ -60,6 +60,10 @@ import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
+const REFUSED = "unable to dial: dial tcp 127.0.0.1:9092: connect: connection refused";
+const TLS_HINT =
+  "Check that the TLS and SASL settings match the listener of the broker.";
+
 preloadForms(Kafka.Task.FORMS);
 
 const TOPIC = "oven";
@@ -546,25 +550,23 @@ describe("Kafka read form", () => {
       expect(dialog.queryByRole("button", { name: "Add an empty record" })).toBeNull();
     });
 
-    it("should name the cluster that the Core cannot reach and say why", async () => {
+    it("should show the reply of a cluster that the Core cannot reach", async () => {
       const { dev } = await renderRead({ empty: true });
       await screen.findByText("No topics");
       const scan = await createScanTask(client, dev);
       const { answered } = await answerCommandsUntil(client, [scan], "browse", {
         browse: {
           variant: "error",
-          message: "Failed to browse",
-          description: "dial tcp 127.0.0.1:9092: connect: connection refused",
+          message: "Failed to read cluster metadata",
+          description: `${REFUSED}. ${TLS_HINT}`,
         },
       });
       const dialog = await clickAddData();
       await answered;
-      await dialog.findByText(`Cannot reach ${dev.name}`);
-      dialog.getByText(
-        "The Core cannot connect to localhost:9092. Check that the cluster runs and " +
-          "that the Core can reach it. Failed to browse. dial tcp 127.0.0.1:9092: " +
-          "connect: connection refused",
+      await dialog.findByText(
+        `Failed to read cluster metadata. ${REFUSED}. ${TLS_HINT}`,
       );
+      expect(dialog.getAllByText("Failed to list topics")).toHaveLength(2);
     });
 
     it("should focus the search to read a topic by name", async () => {
@@ -666,7 +668,7 @@ describe("Kafka read form", () => {
       const dialog = await clickAddData();
       await first.answered;
       await dialog.findByText(/Failed to reach the cluster/);
-      dialog.getByText("Failed to list topics");
+      expect(dialog.getAllByText("Failed to list topics")).toHaveLength(2);
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOf(OVEN_SHAPE) },
       });

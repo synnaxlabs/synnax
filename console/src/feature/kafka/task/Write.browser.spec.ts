@@ -346,7 +346,7 @@ describe("Kafka Write form", () => {
       sample: failed,
     });
     const dialog = await clickAddTargets();
-    await dialog.findByText("Failed to list topics");
+    await dialog.findByText(/Failed to reach the cluster/);
     fireEvent.change(dialog.getByPlaceholderText("Search topics"), {
       target: { value: TOPIC },
     });

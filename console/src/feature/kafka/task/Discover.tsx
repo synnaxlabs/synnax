@@ -466,12 +466,7 @@ const Content = ({
       const answer = await browseTopics(client, device);
       return { ...answer, key: id.create(), listedAt: TimeStamp.now() };
     },
-    {
-      message: `Cannot reach ${device.name}`,
-      description:
-        `The Core cannot connect to ${device.properties.brokers.join(", ")}. ` +
-        "Check that the cluster runs and that the Core can reach it.",
-    },
+    { message: "Failed to list topics", name: device.name },
     [device.key],
   );
   const listing = result.data;
