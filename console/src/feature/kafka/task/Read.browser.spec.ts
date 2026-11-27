@@ -64,6 +64,28 @@ import {
 } from "@/platform/task/testutil";
 import { findDialogTriggerByText } from "@/testutil";
 
+const flags = vi.hoisted((): { textMessages: boolean } => ({ textMessages: true }));
+
+vi.mock("@/flags", async (importOriginal) => {
+  const { FLAGS } = await importOriginal<{ FLAGS: object }>();
+  return {
+    FLAGS: {
+      ...FLAGS,
+      get textMessages() {
+        return flags.textMessages;
+      },
+    },
+  };
+});
+
+/** Takes only JSON messages in the task for the rest of the test, as a release does. */
+const hideTextMessages = () => {
+  flags.textMessages = false;
+  onTestFinished(() => {
+    flags.textMessages = true;
+  });
+};
+
 const client = createTestClient();
 
 const REFUSED = "unable to dial: dial tcp 127.0.0.1:9092: connect: connection refused";
@@ -1085,6 +1107,7 @@ describe("Kafka read form", () => {
     ])(
       "should not offer Add field for a record whose message is $name",
       async ({ note, change }) => {
+        hideTextMessages();
         const rec = await createRecord({
           fields: [createField("temperature", "float")],
         });
@@ -1100,6 +1123,7 @@ describe("Kafka read form", () => {
     );
 
     it("should mark a later message that is not JSON and its record", async () => {
+      hideTextMessages();
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
       const status = await addMessage(
         rec,
