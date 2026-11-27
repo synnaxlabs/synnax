@@ -13,7 +13,6 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
-	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
 
 var (
@@ -41,17 +40,12 @@ func (u Transport) EncodeMsgpack(enc *msgpack.Encoder) error {
 	}
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
-// an omitted field takes its default, as in the JSON encoding. It returns a validation
-// error for an unknown type.
+// DecodeMsgpack implements msgpack.CustomDecoder. An omitted field takes its default,
+// as in the JSON encoding. It returns a validation error for an unknown type.
 func (u *Transport) DecodeMsgpack(dec *msgpack.Decoder) error {
 	raw, err := dec.DecodeRaw()
 	if err != nil {
 		return err
-	}
-	if len(raw) == 1 && raw[0] == msgpcode.Nil {
-		u.Variant = nil
-		return nil
 	}
 	var disc struct {
 		Type TransportType `msgpack:"type"`
@@ -103,17 +97,12 @@ func (u Auth) EncodeMsgpack(enc *msgpack.Encoder) error {
 	}
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
-// an omitted field takes its default, as in the JSON encoding. It returns a validation
-// error for an unknown type.
+// DecodeMsgpack implements msgpack.CustomDecoder. An omitted field takes its default,
+// as in the JSON encoding. It returns a validation error for an unknown type.
 func (u *Auth) DecodeMsgpack(dec *msgpack.Decoder) error {
 	raw, err := dec.DecodeRaw()
 	if err != nil {
 		return err
-	}
-	if len(raw) == 1 && raw[0] == msgpcode.Nil {
-		u.Variant = nil
-		return nil
 	}
 	var disc struct {
 		Type AuthType `msgpack:"type"`
@@ -161,17 +150,12 @@ func (u SparkplugMode) EncodeMsgpack(enc *msgpack.Encoder) error {
 	}
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
-// an omitted field takes its default, as in the JSON encoding. It returns a validation
-// error for an unknown type.
+// DecodeMsgpack implements msgpack.CustomDecoder. An omitted field takes its default,
+// as in the JSON encoding. It returns a validation error for an unknown type.
 func (u *SparkplugMode) DecodeMsgpack(dec *msgpack.Decoder) error {
 	raw, err := dec.DecodeRaw()
 	if err != nil {
 		return err
-	}
-	if len(raw) == 1 && raw[0] == msgpcode.Nil {
-		u.Variant = nil
-		return nil
 	}
 	var disc struct {
 		Type SparkplugModeType `msgpack:"type"`
@@ -224,17 +208,12 @@ func (u Read) EncodeMsgpack(enc *msgpack.Encoder) error {
 	}
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
-// an omitted field takes its default, as in the JSON encoding. It returns a validation
-// error for an unknown type.
+// DecodeMsgpack implements msgpack.CustomDecoder. An omitted field takes its default,
+// as in the JSON encoding. It returns a validation error for an unknown type.
 func (u *Read) DecodeMsgpack(dec *msgpack.Decoder) error {
 	raw, err := dec.DecodeRaw()
 	if err != nil {
 		return err
-	}
-	if len(raw) == 1 && raw[0] == msgpcode.Nil {
-		u.Variant = nil
-		return nil
 	}
 	var disc struct {
 		Type ReadType `msgpack:"type"`
@@ -287,17 +266,12 @@ func (u Write) EncodeMsgpack(enc *msgpack.Encoder) error {
 	}
 }
 
-// DecodeMsgpack implements msgpack.CustomDecoder. A nil value clears the variant, and
-// an omitted field takes its default, as in the JSON encoding. It returns a validation
-// error for an unknown type.
+// DecodeMsgpack implements msgpack.CustomDecoder. An omitted field takes its default,
+// as in the JSON encoding. It returns a validation error for an unknown type.
 func (u *Write) DecodeMsgpack(dec *msgpack.Decoder) error {
 	raw, err := dec.DecodeRaw()
 	if err != nil {
 		return err
-	}
-	if len(raw) == 1 && raw[0] == msgpcode.Nil {
-		u.Variant = nil
-		return nil
 	}
 	var disc struct {
 		Type WriteType `msgpack:"type"`

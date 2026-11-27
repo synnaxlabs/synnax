@@ -329,6 +329,7 @@ var _ = Describe("msgpack", func() {
 		Entry("primary", v0.SparkplugMode{
 			Variant: v0.PrimarySparkplugMode{HostID: "scada"},
 		}),
+		Entry("no variant", v0.SparkplugMode{}),
 	)
 
 	DescribeTable("Should round trip a read",
@@ -352,6 +353,7 @@ var _ = Describe("msgpack", func() {
 			Index:    1,
 			Channel:  2,
 		}}),
+		Entry("no variant", v0.Read{}),
 	)
 
 	DescribeTable("Should round trip a write",
@@ -371,6 +373,7 @@ var _ = Describe("msgpack", func() {
 			Tag:      "Speed",
 			Channel:  4,
 		}}),
+		Entry("no variant", v0.Write{}),
 	)
 
 	DescribeTable("Should reject an unknown type",
@@ -411,7 +414,20 @@ var _ = Describe("msgpack", func() {
 			"type": "sparkplug",
 			"tag":  1,
 		}),
-		Entry("TCP", &v0.Transport{}, map[string]any{"type": []int{1}}),
+		Entry("Sparkplug read", &v0.Read{}, map[string]any{
+			"type":  "sparkplug",
+			"group": 1,
+		}),
+		Entry("plain write", &v0.Write{}, map[string]any{"type": "plain", "topic": 1}),
+		Entry("transport type", &v0.Transport{}, map[string]any{"type": []int{1}}),
+		Entry("auth type", &v0.Auth{}, map[string]any{"type": []int{1}}),
+		Entry(
+			"Sparkplug mode type",
+			&v0.SparkplugMode{},
+			map[string]any{"type": []int{1}},
+		),
+		Entry("read type", &v0.Read{}, map[string]any{"type": []int{1}}),
+		Entry("write type", &v0.Write{}, map[string]any{"type": []int{1}}),
 	)
 
 	DescribeTable("Should reject truncated input",
