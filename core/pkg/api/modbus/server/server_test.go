@@ -33,6 +33,8 @@ import (
 var (
 	serverType = resource.ID{Type: resource.TypeModbusServer}
 	statusType = resource.ID{Type: resource.TypeStatus}
+	// channelType lets a user bind any channel, which a write needs to use it.
+	channelType = resource.ID{Type: resource.TypeChannel}
 	allWrites  = []access.Action{
 		access.ActionCreate,
 		access.ActionUpdate,
@@ -383,6 +385,7 @@ var _ = Describe("Service", func() {
 			ch := createChannels(ctx, 1)
 			s := createServer(ctx)
 			grantWrites(ctx, s.Rack)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
 			MustSucceed(update(
 				testutil.AuthedCtx(ctx, u),
 				apiserver.UpdateRequest{
