@@ -204,8 +204,7 @@ TEST(RackTest, RunsWithoutOutbox) {
         return !err && remote.status.has_value() &&
                remote.status->message == OUTBOX_FAILURE_MSG &&
                remote.status->variant == synnax::status::VARIANT_ERROR &&
-               remote.status->description.find("Update the Driver") !=
-                   std::string::npos &&
+               remote.status->description.contains("Update the Driver") &&
                remote.status->details.running;
     };
     ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
