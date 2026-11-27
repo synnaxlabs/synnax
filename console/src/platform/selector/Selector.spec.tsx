@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -115,21 +114,21 @@ describe("Selector.create", () => {
           ],
         },
       ]);
-      const logo = (name: string): Element | null =>
-        screen.getByText(name).querySelector("svg");
+      const logo = (name: string): string | undefined =>
+        screen.getByText(name).querySelector("svg")?.style.color;
       return { search, logo };
     };
 
     it("should draw the logo of a group in its brand color", async () => {
       const { logo } = await renderShop();
-      expect(logo("NI")?.classList).toContain(PCSS.symbolColored);
+      expect(logo("NI")).toEqual("rgb(3, 181, 133)");
     });
 
     it("should draw the logo of a dimmed group in the text color", async () => {
       const { search, logo } = await renderShop();
       fireEvent.change(search, { target: { value: "sparkplug" } });
-      expect(logo("NI")?.classList).not.toContain(PCSS.symbolColored);
-      expect(logo("MQTT")?.classList).toContain(PCSS.symbolColored);
+      expect(logo("NI")).toEqual("");
+      expect(logo("MQTT")).toEqual("rgb(102, 0, 102)");
     });
   });
 

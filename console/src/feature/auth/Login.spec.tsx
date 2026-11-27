@@ -21,7 +21,6 @@ import {
   SessionEndedError,
 } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { CSS as PCSS } from "@synnaxlabs/lyra/css";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { clearMocks, mockIPC, mockWindows } from "@tauri-apps/api/mocks";
@@ -359,10 +358,14 @@ describe("Auth login", () => {
     fireEvent.click(await screen.findByText(ALPHA.name));
     const gitlab = await screen.findByRole("button", { name: "Log in with GitLab" });
     const microsoft = screen.getByRole("button", { name: "Log in with Microsoft" });
-    expect(gitlab.querySelector("svg")?.classList).toContain(PCSS.symbolColored);
-    const parts = Array.from(microsoft.querySelectorAll("svg g"));
-    expect(parts).toHaveLength(4);
-    for (const part of parts) expect(part.classList).toContain(PCSS.symbolColored);
+    expect(gitlab.querySelector("svg")?.style.color).toEqual("rgb(226, 67, 41)");
+    const parts = Array.from(microsoft.querySelectorAll<SVGGElement>("svg g"));
+    expect(parts.map((part) => part.style.color)).toEqual([
+      "rgb(242, 80, 34)",
+      "rgb(127, 186, 0)",
+      "rgb(0, 164, 239)",
+      "rgb(255, 185, 0)",
+    ]);
   });
 
   it("should explain that provider login needs HTTPS", async () => {
