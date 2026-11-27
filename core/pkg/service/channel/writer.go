@@ -282,7 +282,7 @@ func (w Writer) DeleteManyByNames(
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
-		Where(MatchNames(NormalizeNames(names)...)).
+		Where(MatchNames(normalizeNames(names)...)).
 		Entries(&res).
 		Exec(ctx, w.tx); err != nil {
 		return err
@@ -357,7 +357,7 @@ func (w Writer) Rename(
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
-	newNames = NormalizeNames(newNames)
+	newNames = normalizeNames(newNames)
 	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
 		return err
 	}
@@ -584,7 +584,7 @@ func (w Writer) resetStoredNames(
 	channels []Channel,
 	reset set.Set[int],
 ) (set.Set[int], error) {
-	names := NormalizeNames(Names(channels))
+	names := normalizeNames(Names(channels))
 	var existing []Channel
 	if err := w.svc.newRetrieve().
 		Where(MatchNames(names...)).
@@ -612,7 +612,7 @@ func (w Writer) resetStoredNames(
 			channels[i] = holders[0]
 			reset = addPosition(reset, i)
 		default:
-			return nil, AmbiguousName(ch.Name, KeysFromChannels(holders))
+			return nil, ambiguousName(ch.Name, KeysFromChannels(holders))
 		}
 	}
 	return reset, nil

@@ -223,9 +223,9 @@ func quotePath(path string) string {
 	return b.String()
 }
 
-// AmbiguousName returns the query.MultipleResults error that holds the
+// ambiguousName returns the query.MultipleResults error that holds the
 // AmbiguousNameError of name and holders.
-func AmbiguousName(name string, holders Keys) error {
+func ambiguousName(name string, holders Keys) error {
 	err := AmbiguousNameError{Name: name, Holders: holders}
 	return query.MultipleResults(err, "%s", err.Error())
 }
@@ -238,7 +238,7 @@ func (s *Service) KeysByNames(
 	snap gorp.Snapshot,
 	names []string,
 ) (Keys, error) {
-	normal := NormalizeNames(names)
+	normal := normalizeNames(names)
 	var holders []Channel
 	if err := s.newRetrieve().
 		Where(MatchNames(normal...)).
@@ -252,7 +252,7 @@ func (s *Service) KeysByNames(
 	}
 	for i, n := range normal {
 		if keys := byName[n]; len(keys) > 1 {
-			return nil, AmbiguousName(names[i], keys)
+			return nil, ambiguousName(names[i], keys)
 		}
 	}
 	return KeysFromChannels(holders), nil
