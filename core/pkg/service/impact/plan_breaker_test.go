@@ -219,8 +219,8 @@ var _ = Describe("Plan breaker", Ordered, ContinueOnFailure, func() {
 		},
 	)
 
-	// D-225 length-prefixes each field. With no lengths, two holders whose keys shift a
-	// field boundary hash the same text with the same entry count.
+	// The token writes each field after its length. With no lengths, two holders whose
+	// keys shift a field boundary would hash the same text with the same entry count.
 	It("Should give a new token when two status keys shift a field boundary", func(
 		ctx SpecContext,
 	) {

@@ -183,22 +183,20 @@ var _ = Describe("Routes", Ordered, func() {
 			Error().To(MatchError(access.ErrDenied))
 	})
 
-	It("Should refuse to apply a channel that the subject cannot retrieve", func(
-		ctx SpecContext,
-	) {
-		ch := createChannel(ctx)
-		createTask(ctx, ch)
-		u := createUser(ctx)
-		for _, token := range []string{"zz", ""} {
-			applied, err := apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+	DescribeTable("Should refuse to apply a channel that the subject cannot retrieve",
+		func(ctx SpecContext, token string) {
+			ch := createChannel(ctx)
+			createTask(ctx, ch)
+			u := createUser(ctx)
+			Expect(apply(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
 				Change: deleteOf(ch),
 				Token:  token,
-			})
-			Expect(applied).To(BeZero())
-			Expect(err).To(MatchError(access.ErrDenied))
-		}
-		Expect(exists(ctx, ch)).To(BeTrue())
-	})
+			})).Error().To(MatchError(access.ErrDenied))
+			Expect(exists(ctx, ch)).To(BeTrue())
+		},
+		Entry("with a token", "zz"),
+		Entry("with no token", ""),
+	)
 
 	It("Should name the record that the subject named in a retrieve denial", func(
 		ctx SpecContext,

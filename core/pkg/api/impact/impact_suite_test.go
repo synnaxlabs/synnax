@@ -27,6 +27,7 @@ func planOf[RQ freighter.Payload](
 	h freighter.UnaryHandler[RQ, apiimpact.Response],
 ) freighter.UnaryHandler[RQ, impact.Plan] {
 	return func(ctx context.Context, req RQ) (impact.Plan, error) {
+		GinkgoHelper()
 		res, err := h(ctx, req)
 		if err != nil {
 			return impact.Plan{}, err

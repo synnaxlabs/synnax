@@ -612,13 +612,13 @@ var _ = Describe("PlanDelete breaker", func() {
 						Tasks: []uint32{1},
 					})
 				}
-				effects, err := channels.PlanDelete(ctx, db, []uint32{1})
 				if tooLarge {
-					Expect(err).To(MatchError(ContainSubstring(
-						"more than 3 entries refuse deleting channel 1",
-					)))
+					Expect(channels.PlanDelete(ctx, db, []uint32{1})).Error().
+						To(MatchError(ContainSubstring(
+							"more than 3 entries refuse deleting channel 1",
+						)))
 				} else {
-					Expect(err).ToNot(HaveOccurred())
+					effects := MustSucceed(channels.PlanDelete(ctx, db, []uint32{1}))
 					Expect(effects.Restricts).To(HaveLen(n))
 				}
 				Expect(deleteChannels(ctx, db, 1)).To(MatchError(ContainSubstring(
@@ -672,9 +672,9 @@ var _ = Describe("PlanDelete breaker", func() {
 			open(ctx)
 			create(ctx, db, pdHolder{Key: "h", Tasks: []uint32{1}})
 			Expect(db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-				effects, err := channels.PlanDelete(ctx, snap, []uint32{1})
+				effects := MustSucceed(channels.PlanDelete(ctx, snap, []uint32{1}))
 				Expect(effects.Restricts).To(HaveLen(1))
-				return err
+				return nil
 			})).To(Succeed())
 		})
 

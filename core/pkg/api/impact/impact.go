@@ -16,7 +16,6 @@ import (
 
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -146,13 +145,13 @@ func (s *Service) Plan(
 	return Response{Variant: DeleteResponse{Plan: plan}}, nil
 }
 
-// ApplyHandler returns the apply route on binder. It first stops what the delete must
-// stop, such as running tasks, once the subject may delete each, outside any
-// transaction. It then plans and applies the change and checks access on what it wrote,
-// in one transaction, and returns the plan under the type of the change. As the plan
-// route does, it refuses a change that names a record the subject cannot retrieve,
-// before it plans. A denial on a record that the subject cannot retrieve and did not
-// name names no record.
+// ApplyHandler returns the apply route on binder. It plans and applies the change and
+// checks access on what it wrote, in one transaction, and returns the plan under the
+// type of the change. When the delete must stop records first, such as running tasks,
+// it runs the write once and rolls it back, then stops them outside any transaction, so
+// a write that its checks refuse stops nothing. As the plan route does, it refuses a
+// change that names a record the subject cannot retrieve, before it plans. A denial on
+// a record that the subject cannot retrieve and did not name names no record.
 func (s *Service) ApplyHandler(
 	binder *bind.Service,
 ) freighter.UnaryHandler[ApplyRequest, Response] {
@@ -184,8 +183,15 @@ func (s *Service) ApplyHandler(
 		if err != nil {
 			return Response{}, err
 		}
-		if err = s.cfg.Impact.Stop(ctx, ids); err != nil {
-			return Response{}, err
+		if len(ids) > 0 {
+			// A write that its checks refuse must stop nothing, so it runs once and
+			// rolls back before the stop.
+			if err = bind.RehearseRetrievable(binder, apply)(ctx, req); err != nil {
+				return Response{}, redact(err, visible)
+			}
+			if err = s.cfg.Impact.Stop(ctx, ids); err != nil {
+				return Response{}, err
+			}
 		}
 		plan, err := bind.WriteRetrievable(binder, apply)(ctx, req)
 		if err != nil {
@@ -196,7 +202,7 @@ func (s *Service) ApplyHandler(
 }
 
 // stopping returns the records that the delete of req must stop before it deletes, as
-// impact.Service.Stopping does, once the subject may delete each.
+// impact.Service.Stopping does.
 func (s *Service) stopping(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -210,24 +216,12 @@ func (s *Service) stopping(
 	if err != nil {
 		return nil, err
 	}
-	ids, err := s.cfg.Impact.Stopping(ctx, snap, records, impact.ApplyOptions{
+	return s.cfg.Impact.Stopping(ctx, snap, records, impact.ApplyOptions{
 		Token:   req.Token,
 		Picks:   picks,
 		Hidden:  req.Hidden,
 		Visible: snap.Allowed,
 	})
-	if err != nil || len(ids) == 0 {
-		return nil, err
-	}
-	err = s.cfg.RBAC.NewEnforcer(snap).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: ids,
-	})
-	if err != nil {
-		return nil, redact(err, snap.Allowed)
-	}
-	return ids, nil
 }
 
 // redact returns err, or for a denial on a record that visible hides, a denial that

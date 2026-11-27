@@ -66,6 +66,19 @@ func Write[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
+	return write(s, apply, false)
+}
+
+// errRehearsed rolls back the transaction of a rehearsal once its checks pass.
+var errRehearsed = errors.New("[bind] - a rehearsal rolls back")
+
+// write runs apply and the checks of Write in one transaction, then commits it, or
+// rolls it back when rehearse is true.
+func write[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, RQ) (RS, error),
+	rehearse bool,
+) freighter.UnaryHandler[RQ, RS] {
 	return func(ctx context.Context, req RQ) (RS, error) {
 		var (
 			res, zero RS
@@ -83,8 +96,15 @@ func Write[RQ, RS freighter.Payload](
 			if res, err = apply(ctx, tx, req); err != nil {
 				return err
 			}
-			return s.check(ctx, tx, append(slices.Clip(sources), unchanged(tx, res)...))
-		}); err != nil {
+			if err = s.check(
+				ctx,
+				tx,
+				append(slices.Clip(sources), unchanged(tx, res)...),
+			); err != nil || !rehearse {
+				return err
+			}
+			return errRehearsed
+		}); err != nil && !errors.Is(err, errRehearsed) {
 			return zero, err
 		}
 		return res, nil
@@ -141,7 +161,31 @@ func WriteRetrievable[RQ, RS freighter.Payload](
 	s *Service,
 	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
 ) freighter.UnaryHandler[RQ, RS] {
-	return Write(s, func(ctx context.Context, tx gorp.Tx, req RQ) (RS, error) {
+	return write(s, withRetrievable(s, apply), false)
+}
+
+// RehearseRetrievable returns a handler that runs a write as WriteRetrievable does,
+// then rolls back every write. It returns the error that the write fails with, or nil
+// when the write would commit. Use it before work outside the transaction that a
+// refused write must not do, such as stopping a running task.
+func RehearseRetrievable[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
+) func(context.Context, RQ) error {
+	rehearsal := write(s, withRetrievable(s, apply), true)
+	return func(ctx context.Context, req RQ) error {
+		_, err := rehearsal(ctx, req)
+		return err
+	}
+}
+
+// withRetrievable returns apply with what the subject can retrieve, by the committed
+// policies that Write checks.
+func withRetrievable[RQ, RS freighter.Payload](
+	s *Service,
+	apply func(context.Context, gorp.Tx, Retrievable, RQ) (RS, error),
+) func(context.Context, gorp.Tx, RQ) (RS, error) {
+	return func(ctx context.Context, tx gorp.Tx, req RQ) (RS, error) {
 		allowed, err := s.cfg.RBAC.NewEnforcer(s.cfg.DB).
 			Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
 		if err != nil {
@@ -149,7 +193,7 @@ func WriteRetrievable[RQ, RS freighter.Payload](
 			return zero, err
 		}
 		return apply(ctx, tx, allowed, req)
-	})
+	}
 }
 
 // WriteUnchecked returns a handler that runs apply in one write transaction of db and

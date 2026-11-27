@@ -285,6 +285,37 @@ var _ = Describe("Running task deletes", Ordered, func() {
 		Expect(channelExists(ctx, ch)).To(BeTrue())
 	})
 
+	It("Should stop nothing when the write refuses a record that the delete removes",
+		func(ctx SpecContext) {
+			ch := createChannel(ctx)
+			t := createRunningTask(ctx, ch)
+			u := createUser(ctx)
+			grant(ctx, u, access.ActionRetrieve, channel.ResourceID(ch), t.ResourceID())
+			grant(ctx, u, access.ActionDelete, t.ResourceID())
+			grant(ctx, u, access.ActionDelete, resource.ID{Type: resource.TypeStatus})
+			grant(ctx, u, access.ActionUpdate, t.Rack.ResourceID())
+			commands := streamCommands(ctx)
+			Expect(svc.ApplyHandler(binder)(AuthedCtx(ctx, u), apiimpact.ApplyRequest{
+				Change: deleteOf(ch),
+				Picks: map[string]impact.Effect{
+					t.ResourceID().String(): impact.EffectDelete,
+				},
+			})).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"cannot %s %s",
+					access.ActionDelete,
+					channel.ResourceID(ch),
+				)),
+			))
+			Consistently(commands).
+				WithTimeout(500 * time.Millisecond).
+				ShouldNot(Receive())
+			Expect(taskExists(ctx, t.Key)).To(BeTrue())
+			Expect(channelExists(ctx, ch)).To(BeTrue())
+		},
+	)
+
 	It("Should delete nothing when the stop fails", func(ctx SpecContext) {
 		ch := createChannel(ctx)
 		t := createRunningTask(ctx, ch)
