@@ -3984,8 +3984,8 @@ Run run(const std::string &source, const std::vector<float> &pressures) {
     );
     tsk->start("start");
     Run r;
-    r.ctx = ctx;
-    r.writer = writer;
+    r.ctx = std::move(ctx);
+    r.writer = std::move(writer);
     r.out = out.key;
     r.task = std::move(tsk);
     return r;
@@ -4011,9 +4011,11 @@ synnax::arc::task::StatusData data_of(const synnax::task::Status &status) {
 TEST(ArcScopeStatus, ShowsTheActiveStage) {
     const auto r = scope_status::run(
         R"(
+import time
+
 sequence main {
     stage pressurize {
-        %pt% > 50 => next
+        time.wait(duration=200ms) => next
     }
     stage hold {
         %pt% > 80 => pressurize
@@ -4021,7 +4023,7 @@ sequence main {
 }
 %start% => main
 )",
-        {10, 60}
+        {}
     );
     const auto &ctx = r.ctx;
     // The flusher sends one status per window, so a change can wait a window.
