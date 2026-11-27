@@ -21,14 +21,21 @@ import { Triggers } from "@/app/triggers";
 import { Guard } from "@/app/window/guard";
 import { Device } from "@/feature/device";
 import { EtherCAT } from "@/feature/ethercat";
+import { NI } from "@/feature/ni";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
 import { Project } from "@/feature/project";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Session } from "@/session";
 
+const useListenForNIDevices = FLAGS.typedNIDevices
+  ? NI.Device.useListenForChanges
+  : () => {};
+
 const SideEffect = (): null => {
   Device.useListenForChanges();
+  useListenForNIDevices();
   EtherCAT.Device.useListenForReplacements();
   Notifications.useForward();
   Link.useDeep();

@@ -15,15 +15,18 @@ import { ICD } from "@/feature/icd";
 import { LinePlot } from "@/feature/lineplot";
 import { Link } from "@/feature/link";
 import { Log } from "@/feature/log";
+import { NI } from "@/feature/ni";
 import { Project } from "@/feature/project";
 import { Range } from "@/feature/range";
 import { Schematic } from "@/feature/schematic";
 import { Table } from "@/feature/table";
 import { Task } from "@/feature/task";
+import { FLAGS } from "@/flags";
 import { Session } from "@/session";
 
 // Keyed by the resource type, the segment after the cluster key in a deep link.
 const useLinks = (): void => {
+  const niDevice = NI.Device.useLink();
   Link.useDeep(Core.useLink(), {
     arc: Arc.useLink(),
     channel: Channel.useLink(),
@@ -31,6 +34,7 @@ const useLinks = (): void => {
     icd: ICD.useLink(),
     lineplot: LinePlot.useLink(),
     log: Log.useLink(),
+    ...(FLAGS.typedNIDevices ? { ni_device: niDevice } : {}),
     project: Project.useLink(),
     range: Range.useLink(),
     schematic: Schematic.useLink(),
