@@ -181,6 +181,23 @@ const Widening = (): ReactElement => {
   );
 };
 
+/** A dropdown whose content a button in it widens and narrows again. */
+const Stretching = (): ReactElement => {
+  const [width, setWidth] = useState(100);
+  return (
+    <div style={{ display: "flex", justifyContent: "flex-end", width: "724px" }}>
+      <Dialog.Frame>
+        <Dialog.Trigger>Menu</Dialog.Trigger>
+        <Dialog.Dialog>
+          <button style={{ width }} onClick={() => setWidth(width === 100 ? 500 : 100)}>
+            Resize
+          </button>
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </div>
+  );
+};
+
 const ITEMS = Array.from({ length: 200 }, (_, i) => `item-${i}`);
 
 const VirtualList = (): ReactElement => (
@@ -1328,6 +1345,29 @@ describe("Dialog", () => {
     });
   });
 
+  describe("side", () => {
+    it("should open on its first side again after it closes", async () => {
+      await renderThemed(<Stretching />);
+      await userEvent.click(button("Menu"));
+      const trigger = button("Menu").getBoundingClientRect();
+      const dialog = (): DOMRect =>
+        page.getByRole("dialog").element().getBoundingClientRect();
+      const endsAtTrigger = (): boolean => Math.abs(dialog().right - trigger.right) < 1;
+      await expect.poll(() => dialog().left).toBeCloseTo(trigger.left, 0);
+      // Too wide to hang from the trigger's left, so it ends at the trigger's right.
+      await userEvent.click(button("Resize"));
+      await expect.poll(endsAtTrigger).toBe(true);
+      // Narrow again, it keeps that side while it stays open.
+      await userEvent.click(button("Resize"));
+      await expect.poll(() => dialog().width < 200 && endsAtTrigger()).toBe(true);
+      await userEvent.click(button("Menu"));
+      await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      await userEvent.click(button("Menu"));
+      await expect.element(page.getByRole("dialog")).toBeVisible();
+      await expect.poll(() => dialog().left).toBeCloseTo(trigger.left, 0);
+    });
+  });
+
   describe("window fit", () => {
     afterEach(() => {
       vi.restoreAllMocks();
@@ -1430,36 +1470,17 @@ describe("Dialog", () => {
       expect(variable(el, "available-height")).toBe(`${500 - top - 6}px`);
     });
 
-    describe("a dialog that a narrow window moved to its other side", () => {
+    it("should go back to its first side when the window widens again", () => {
       // Below and left-aligned fits the full window. At 650 pixels, only below and
       // right-aligned fits.
-      const narrow = (): { el: HTMLElement; widen: () => void } => {
-        const el = open(rect(400, 100, 100, 30), rect(0, 0, 300, 100));
-        expect(el.style.left).toBe("400px");
-        const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(650);
-        resize();
-        expect(el.style.left).toBe("200px");
-        return { el, widen: () => width.mockRestore() };
-      };
-
-      it("should go back to its first side when the window widens", () => {
-        const { el, widen } = narrow();
-        widen();
-        resize();
-        expect(el.style.left).toBe("400px");
-      });
-
-      it("should open on its first side again after it closes", async () => {
-        const { widen } = narrow();
-        const toggle = page.getByText("Toggle").element();
-        fireEvent.click(toggle);
-        // No resize event, so only the open places the dialog.
-        widen();
-        fireEvent.click(toggle);
-        await expect
-          .poll(() => (page.getByRole("dialog").element() as HTMLElement).style.left)
-          .toBe("400px");
-      });
+      const el = open(rect(400, 100, 100, 30), rect(0, 0, 300, 100));
+      expect(el.style.left).toBe("400px");
+      const width = vi.spyOn(window, "innerWidth", "get").mockReturnValue(650);
+      resize();
+      expect(el.style.left).toBe("200px");
+      width.mockRestore();
+      resize();
+      expect(el.style.left).toBe("400px");
     });
 
     describe("a connected dialog with a min-width", () => {
