@@ -105,7 +105,8 @@ class JSON {
         [[nodiscard]] std::vector<x::json::Pointer> pointers() const;
         /// @brief returns the message of a document, or nothing when it belongs to no
         /// message. values starts with the values of the document at pointers().
-        /// @returns VALIDATION when the document meets two rules.
+        /// @returns VALIDATION, with the first of their messages, when the document
+        /// meets two rules.
         std::pair<std::optional<std::size_t>, x::errors::Error>
         find(const std::vector<std::optional<std::string_view>> &values);
         /// @brief returns the message of the value rule that value meets, or nothing.
@@ -179,21 +180,25 @@ public:
     /// its bindings into its samples. A field with no value and no default, or with a
     /// value that does not convert, gets no sample and goes into its failures.
     /// @returns the index of the message in create order, or nothing when doc belongs
-    /// to no message.
-    /// @returns VALIDATION when doc is not JSON, or it meets two match rules.
+    /// to no message or is not JSON. When doc meets two match rules, the first of their
+    /// messages.
+    /// @returns VALIDATION when doc is not JSON, or, with the message, when it meets
+    /// two match rules.
     std::pair<std::optional<std::size_t>, x::errors::Error>
     decode(std::string_view doc);
 
     /// @brief returns the samples of the last decode of message: one series for each
     /// binding, in binding order, each holding one sample, or none for a field in its
-    /// failures. They are unspecified after a decode that does not return message.
+    /// failures. They are unspecified after a decode that does not return message, or
+    /// returns an error.
     [[nodiscard]] const std::vector<x::telem::Series> &
     samples(const std::size_t message) const {
         return this->messages[message].samples;
     }
 
     /// @brief returns the fields that the last decode of message could not decode, in
-    /// binding order. They are unspecified after a decode that does not return message.
+    /// binding order. They are unspecified after a decode that does not return message,
+    /// or returns an error.
     [[nodiscard]] const std::vector<Failure> &
     failures(const std::size_t message) const {
         return this->messages[message].failures;
