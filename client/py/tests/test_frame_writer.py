@@ -59,6 +59,71 @@ class TestWriter:
             )
             w.commit()
 
+    def test_write_time_of_a_channel_alone(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should write the time of a channel that the writer opens without its index"""
+        _, data_ch = indexed_pair
+        stamps = [
+            sy.TimeStamp(sy.TimeSpan.SECOND),
+            sy.TimeStamp(2 * sy.TimeSpan.SECOND),
+        ]
+        with client.open_writer(start=stamps[0], channels=[data_ch.key]) as w:
+            w.write({"time": stamps, data_ch.key: [1.5, 2.5]})
+            w.commit()
+        fr = client.read(sy.TimeRange.MAX, [data_ch.key])
+        assert list(fr[data_ch.key]) == [1.5, 2.5]
+        assert list(fr.time(data_ch.key)) == stamps
+
+    def test_write_time_by_name(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should write the time of a writer opened by channel name"""
+        _, data_ch = indexed_pair
+        start = sy.TimeStamp(sy.TimeSpan.SECOND)
+        with client.open_writer(start=start, channels=[data_ch.name]) as w:
+            w.write({"time": start, data_ch.name: 1.5})
+            w.commit()
+        assert list(client.read(sy.TimeRange.MAX, [data_ch.key]).time(data_ch.key)) == [
+            start
+        ]
+
+    def test_write_time_of_two_groups(self, client: sy.Synnax) -> None:
+        """Should write one time to the index of each group in the write"""
+        pairs = []
+        for _ in range(2):
+            idx = client.channels.create(
+                name=f"test_{random_name()}_time",
+                is_index=True,
+                data_type=sy.DataType.TIMESTAMP,
+            )
+            data = client.channels.create(
+                name=f"test_{random_name()}_data",
+                index=idx.key,
+                data_type=sy.DataType.FLOAT64,
+            )
+            pairs.append((idx, data))
+        start = sy.TimeStamp(sy.TimeSpan.SECOND)
+        keys = [data.key for _, data in pairs]
+        with client.open_writer(start=start, channels=keys) as w:
+            w.write({"time": start, keys[0]: 1.5, keys[1]: 2.5})
+            w.commit()
+        for idx, _ in pairs:
+            assert list(client.read(sy.TimeRange.MAX, idx.key)) == [start]
+
+    def test_write_time_with_no_channels(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should refuse a write that holds time and no channels"""
+        _, data_ch = indexed_pair
+        with client.open_writer(start=sy.TimeSpan.SECOND, channels=[data_ch.key]) as w:
+            with pytest.raises(
+                sy.ValidationError,
+                match=r'^The write holds "time" and no channels\. An empty series, '
+                r"time or data, makes nothing present$",
+            ):
+                w.write({"time": sy.TimeStamp(sy.TimeSpan.SECOND)})
+
     def test_write_without_start(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
