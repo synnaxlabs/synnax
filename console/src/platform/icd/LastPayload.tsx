@@ -79,7 +79,10 @@ const Parts = ({ line, payload, field }: PartsProps) => {
   const parts = line.split(payload.delimiter);
   const tags = tagsOf(
     parts,
-    payload.fields.flatMap((f) => (f.encoding === "tagged" ? [f.tag] : [])),
+    // The Core refuses an empty tag, so it reads no part.
+    payload.fields.flatMap((f) =>
+      f.encoding === "tagged" && f.tag !== "" ? [f.tag] : [],
+    ),
   );
   const marked = payload.fields.find(({ key }) => key === field);
   let position = -1;
@@ -216,16 +219,19 @@ export const useLastPayload = ({
     settle(source);
     return () => settle.cancel();
   }, [source, settle]);
+  // The result belongs to the listen that started last, until a newer one starts.
+  const [listened, setListened] = useState(settled);
   const { result, listen } = useListen<{ sample: Sample | null }>(
-    async (client) => ({
-      sample: settled.source === "" ? null : await sample(client),
-    }),
+    async (client) => {
+      setListened(settled);
+      return { sample: settled.source === "" ? null : await sample(client) };
+    },
     { message: "Failed to read the last payload", name: settled.source },
     [settled.key, settled.source],
   );
   return {
     result,
-    settling: settled.key !== key || settled.source !== source,
+    settling: listened.key !== key || listened.source !== source,
     listen,
   };
 };
