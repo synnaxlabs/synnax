@@ -15,15 +15,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Service", func() {
@@ -31,11 +35,9 @@ var _ = Describe("Service", func() {
 		svc        *labjack.Service
 		channelSvc *channel.Service
 		tasks      *tasktestutil.Tasks
+		deviceKeys map[string]device.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
-		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB: db,
-		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
 			TS:      node.Storage.TS,
@@ -43,21 +45,42 @@ var _ = Describe("Service", func() {
 			HostKey: node.Identity.HostKey,
 			Status:  statusSvc,
 		}))
+		models := []device.Device{
+			{Name: "T4", Model: "LJM_dtT4"},
+			{Name: "T7", Model: "LJM_dtT7"},
+			{Name: "T8", Model: "LJM_dtT8"},
+		}
+		deviceKeys = map[string]device.Key{"": ""}
+		for i := range models {
+			models[i].Key = uuid.New().String()
+			deviceKeys[models[i].Name] = models[i].Key
+			models[i].Rack, models[i].Make, models[i].Location = rackSvc.EmbeddedKey, "LabJack", "usb"
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return devices.NewWriter(tx).CreateMany(ctx, &models)
+		})).To(Succeed())
 		svc = MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
-			DB: db,
+			DB:     db,
+			Device: devices,
 		}))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
 			DB:     db,
 			Status: statusSvc,
+			Rack:   rackSvc,
+			Device: devices,
 			Stores: svc.Stores(),
 		}))
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(labjack.OpenService(ctx, labjack.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string) {
+				Expect(labjack.OpenService(ctx, labjack.ServiceConfig{})).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db"),
+			Entry("device", "device"),
+		)
 	})
 
 	Describe("Stores", func() {
@@ -186,6 +209,110 @@ var _ = Describe("Service", func() {
 			Entry("past AIN12", "analog", "AIN13", 14),
 			Entry("thermocouple wrong pair", "thermocouple", "AIN0", 2),
 		)
+
+		It("Should lower a stored range to the largest range of the model", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(svc.Read.Normalize(ctx, db, v2.Version,
+				msgpack.EncodedJSON{
+					"device": deviceKeys["T7"],
+					"channels": []any{map[string]any{
+						"type": "analog", "key": "ai", "port": "AIN0", "range": 20,
+						"scale": map[string]any{"type": "none"},
+					}},
+				},
+			))
+			Expect(out["channels"]).To(ConsistOf(
+				HaveKeyWithValue("range", BeNumerically("==", 10)),
+			))
+		})
+
+		rangeConfig := func(dev string, rng float64) msgpack.EncodedJSON {
+			return msgpack.EncodedJSON{
+				"device":      dev,
+				"stream_rate": 10,
+				"channels": []any{map[string]any{
+					"type": "analog", "port": "AIN0", "range": rng,
+				}},
+			}
+		}
+
+		DescribeTable(
+			"Should accept an analog range the model of the device covers",
+			func(ctx SpecContext, dev string, rng float64) {
+				MustSucceed(svc.Read.Prepare(
+					ctx, db, uuid.New(), "", rangeConfig(deviceKeys[dev], rng),
+				))
+			},
+			Entry("T7 at its largest range", "T7", 10.0),
+			Entry("T8 at its largest range", "T8", 11.0),
+			Entry("T4, whose ranges are fixed", "T4", 20.0),
+			Entry("no device", "", 20.0),
+		)
+
+		DescribeTable(
+			"Should reject an analog range above the largest range of the model",
+			func(ctx SpecContext, dev string, rng float64) {
+				Expect(svc.Read.Prepare(
+					ctx, db, uuid.New(), "", rangeConfig(deviceKeys[dev], rng),
+				)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("channels.0.range")),
+				))
+			},
+			Entry("T7", "T7", 10.5),
+			Entry("T8", "T8", 12.0),
+		)
+
+		It("Should reject a device that does not exist as a validation error", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Read.Prepare(
+				ctx, db, uuid.New(), "", rangeConfig(uuid.New().String(), 20),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("device")),
+			))
+		})
+
+		It("Should lower a stored range above the largest range of the model on open",
+			func(ctx SpecContext) {
+				stored := labjack.ReadConfig{
+					Key:    uuid.New(),
+					Device: deviceKeys["T7"],
+					Channels: []labjack.ReadChannel{{
+						Variant: labjack.AnalogReadChannel{
+							BaseReadChannel: labjack.BaseReadChannel{
+								Key:  "ai",
+								Port: "AIN0",
+							},
+							Range: 20,
+							Scale: task.Scale{Variant: task.NoneScale{}},
+						},
+					}},
+				}
+				fresh := DeferClose(gorp.Wrap(memkv.New()))
+				StartRun(fresh.Run)
+				Expect(gorp.NewCreate[uuid.UUID, labjack.ReadConfig]().
+					Entry(&stored).Exec(ctx, fresh)).To(Succeed())
+				var t7 device.Device
+				Expect(devices.NewRetrieve().
+					Where(device.MatchKeys(deviceKeys["T7"])).
+					Entry(&t7).Exec(ctx, db)).To(Succeed())
+				Expect(gorp.NewCreate[device.Key, device.Device]().
+					Entry(&t7).Exec(ctx, fresh)).To(Succeed())
+				MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+					DB:     fresh,
+					Device: devices,
+				}))
+				var got labjack.ReadConfig
+				Expect(gorp.NewRetrieve[uuid.UUID, labjack.ReadConfig]().
+					Where(gorp.MatchKeys[uuid.UUID, labjack.ReadConfig](stored.Key)).
+					Entry(&got).Exec(ctx, fresh)).To(Succeed())
+				Expect(got.Channels[0].Variant).To(
+					HaveField("Range", BeNumerically("==", 10)),
+				)
+			})
 
 		DescribeTable(
 			"Should lift a v2 negative channel",
