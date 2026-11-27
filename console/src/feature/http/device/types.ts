@@ -121,7 +121,7 @@ export const validateHeaders = (
 
 const sharedHealthCheckZ = z.object({
   path: z.string(),
-  headers: headersZ.check((p) => validateHeaders(p, p.value)).optional(),
+  headers: headersZ.optional(),
   queryParams: queryParamsZ.optional(),
 });
 

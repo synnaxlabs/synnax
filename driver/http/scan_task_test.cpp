@@ -236,6 +236,7 @@ TEST(HTTPScanTask, HealthCheckConfigHeaderMissingValueErrors) {
     );
 }
 
+/// @brief it should reject a health check header with an empty value.
 TEST(HTTPScanTask, HealthCheckConfigHeaderEmptyValueErrors) {
     auto j = x::json::json{
         {"method", "GET"},
@@ -250,6 +251,7 @@ TEST(HTTPScanTask, HealthCheckConfigHeaderEmptyValueErrors) {
     );
 }
 
+/// @brief it should reject a health check header with an empty name.
 TEST(HTTPScanTask, HealthCheckConfigHeaderEmptyNameErrors) {
     auto j = x::json::json{
         {"method", "GET"},

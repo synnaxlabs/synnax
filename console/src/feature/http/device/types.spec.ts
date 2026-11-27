@@ -375,24 +375,21 @@ describe("HTTP Device Properties", () => {
       expect(result.healthCheck.path).toBe("/health");
     });
 
-    it("should reject a health check header with an empty name or value", () => {
-      const config: HTTP.Device.Properties = {
+    it("should accept a stored health check header with an empty name or value", () => {
+      const headers = [
+        { name: "X-Key", value: "" },
+        { name: "", value: "abc" },
+      ];
+      const result = HTTP.Device.propertiesZ.parse({
         ...HTTP.Device.ZERO_PROPERTIES,
         healthCheck: {
           method: "GET",
           path: "/health",
-          headers: [
-            { name: "Accept", value: "application/json" },
-            { name: "X-Key", value: "" },
-            { name: "", value: "abc" },
-          ],
+          headers,
           validateResponse: false,
         },
-      };
-      expect(HTTP.Device.propertiesZ.safeParse(config).error?.issues).toMatchObject([
-        { message: "Value is required", path: ["healthCheck", "headers", 1, "value"] },
-        { message: "Name is required", path: ["healthCheck", "headers", 2, "name"] },
-      ]);
+      });
+      expect(result.healthCheck.headers).toEqual(headers);
     });
 
     it("should reject validateResponse true without response field", () => {
