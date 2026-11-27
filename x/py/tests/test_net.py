@@ -36,9 +36,15 @@ class TestAddress:
 
     @pytest.mark.parametrize(
         "address",
-        [{}, {"host": ""}, {"host": "plc", "port": 0}, {"host": "plc", "port": 65536}],
+        [
+            {},
+            {"host": ""},
+            {"host": "a" * 254},
+            {"host": "plc", "port": 0},
+            {"host": "plc", "port": 65536},
+        ],
     )
     def test_rejects_an_invalid_address(self, address: dict[str, object]) -> None:
-        """Should reject no host, an empty host, port 0, and a port over 65535."""
+        """Should reject no host, an empty or long host, and a port out of range."""
         with pytest.raises(ValidationError):
             Address.model_validate(address)

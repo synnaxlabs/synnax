@@ -221,6 +221,18 @@
       "package": "github.com/synnaxlabs/gorp",
       "name": "RetargetOnly",
       "caller": "https://linear.app/synnax/issue/SY-6526"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/tls",
+      "name": "Validate",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7582"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/tls",
+      "name": "Certificates",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7582"
     }
   ]
 }

@@ -25,8 +25,8 @@ ServerTrust union on type {
     }
 
     @doc value  """
-        is which server certificates the client trusts. A certificate authority
-        replaces the system roots.
+        is which server certificates the client trusts. A certificate authority replaces
+        the system roots.
     """
     @go marshal
 }

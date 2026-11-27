@@ -35,7 +35,7 @@ import (
 
 var _ = Describe("Certificates", func() {
 	It("Should return no certificates for the system roots", func() {
-		Expect(tls.TLS{}.Certificates()).To(BeEmpty())
+		Expect(tls.Certificates(tls.TLS{})).To(BeEmpty())
 	})
 
 	It("Should return the authority and the client certificate", func() {
@@ -46,7 +46,7 @@ var _ = Describe("Certificates", func() {
 			}},
 			ClientCertificate: &client,
 		}
-		Expect(t.Certificates()).To(Equal([]certificate.Key{ca, client}))
+		Expect(tls.Certificates(t)).To(Equal([]certificate.Key{ca, client}))
 	})
 })
 
@@ -117,7 +117,7 @@ var _ = Describe("Validate", func() {
 			To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("client_certificate")),
-				MatchError(ContainSubstring(`certificate "Broker" has no private key`)),
+				MatchError(ContainSubstring("certificate has no private key")),
 			))
 	})
 })

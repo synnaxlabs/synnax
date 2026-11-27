@@ -98,12 +98,23 @@ func (w Writer) checkPrivateKeys(ctx context.Context, s Server) error {
 		}
 		v.Ternaryf(
 			path,
-			!c.HasPrivateKey(),
+			!hasPrivateKey(c),
 			"certificate %q has no private key",
 			c.Base().Name,
 		)
 	}
 	return v.Error()
+}
+
+func hasPrivateKey(c certificate.Certificate) bool {
+	switch v := c.Variant.(type) {
+	case certificate.StoredCertificate:
+		return v.PrivateKey != nil
+	case certificate.FileCertificate:
+		return v.PrivateKeyFile != nil
+	default:
+		return false
+	}
 }
 
 func (w Writer) setStatus(ctx context.Context, s Server) error {

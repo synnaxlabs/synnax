@@ -28,27 +28,19 @@ func Validate(
 	if t.ClientCertificate == nil {
 		return nil
 	}
-	var c certificate.Certificate
-	if err := certs.NewRetrieve().
-		Where(certificate.MatchKeys(*t.ClientCertificate)).
-		Entry(&c).
-		Exec(ctx, tx); err != nil {
+	hasKey, err := certs.HasPrivateKey(ctx, tx, *t.ClientCertificate)
+	if err != nil {
 		return err
 	}
 	v := validate.New("TLS")
-	v.Ternaryf(
-		"client_certificate",
-		!c.HasPrivateKey(),
-		"certificate %q has no private key",
-		c.Base().Name,
-	)
+	v.Ternary("client_certificate", !hasKey, "certificate has no private key")
 	return v.Error()
 }
 
 // Certificates returns the keys of the certificates that t names. An owner returns them
 // from the Targets of a certificate.NewReference, so a certificate in use cannot be
 // deleted.
-func (t TLS) Certificates() []certificate.Key {
+func Certificates(t TLS) []certificate.Key {
 	var keys []certificate.Key
 	if ca, ok := t.ServerTrust.Variant.(CertificateAuthorityServerTrust); ok {
 		keys = append(keys, ca.Certificate)

@@ -34,6 +34,7 @@ describe("addressZ", () => {
   const INVALID: [string, Record<string, unknown>][] = [
     ["no host", {}],
     ["an empty host", { host: "" }],
+    ["a host over 253 characters", { host: "a".repeat(254) }],
     ["port 0", { host: "plc", port: 0 }],
     ["a port over 65535", { host: "plc", port: 65536 }],
   ];
