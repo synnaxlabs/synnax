@@ -780,19 +780,25 @@ transfers, and control state belong to the framer, which gates its own writers o
 (`core/pkg/distribution/framer/writer`). A key holds at most one live claim. A session
 that writes a key that another session's writer holds gets no claim on it at open. At
 its first write of the key, the key moves into that session's writer through
-`DB.Handoff` (§4.2), the one path that moves a key.
+`DB.Handoff` (§4.2), the one path that moves a key. When the holder has closed, that
+first write takes the free claim, as an open does, and uses the file that the open made
+for the key.
 
 - **Continuation**: A group with an `Index` takes that key as its clock with no
   continuation (RFC 0120 §4.8). At open, for each other group, Cesium takes as
-  candidates the clock of the newest segment of each key of the group, from the state or
-  from the key's newest part record. It drops a candidate that is a key of the group,
-  one that an open writer holds, and one whose last stamp is not before the writer's
-  start. It takes the candidate that the most keys name, then the one with the latest
-  last stamp, then the lowest key, and else leases a new key (RFC 0120 §4.0). A key of
-  the group on another clock starts a new segment on the chosen clock. The first drop
-  rule keeps a group's stamps out of a key that times itself, such as an index channel
-  that the migration keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11,
-  hard rule 4).
+  candidates the clock of the newest segment of each key of the group (the one with the
+  latest last stamp), from the state or from the key's newest part record. When an open
+  writer holds that clock, the key's newest open segment on a clock that no writer holds
+  stands in, so a session that takes a command channel again reuses its clock. It drops
+  a candidate that is a key of the group, one that an open writer holds, one that
+  another group of the same open took, and one whose last stamp is not before the
+  writer's start. The group with the most keys on one candidate picks first. Each group
+  takes the candidate that the most of its keys name, then the one with the latest last
+  stamp, then the lowest key, and else leases a new key (RFC 0120 §4.0). A key of the
+  group on another clock starts a new segment on the chosen clock. The first drop rule
+  keeps a group's stamps out of a key that times itself, such as an index channel that
+  the migration keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard
+  rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock (NEW).
 - **Pauses**: In an `Adaptive` writer, the keys that reach three quarters of P pauses
@@ -829,8 +835,10 @@ its first write of the key, the key moves into that session's writer through
   move back opens no file. A close removes its unused spares, and the orphan pass (§5.5
   step 10) removes any that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
-  keys, and a `Bounded` claim that starts inside another claim. These checks run before
-  continuation leases a key or makes a file, so a refused open costs neither.
+  keys, a `Bounded` claim that starts inside another claim, and a group whose key of
+  stored stamps times itself, naming that key, so no data takes a self-timed key as its
+  clock (RFC 0120 §4.11, hard rule 4). These checks run before continuation leases a key
+  or makes a file, so a refused open costs neither.
 - **At commit**: Cesium refuses a commit whose time range overlaps any stored pointer or
   reaches another claim. The commits of one writer only touch. Stamps strictly increase
   within each segment, so out-of-order writes stay refused.
