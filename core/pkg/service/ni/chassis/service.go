@@ -14,10 +14,12 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
@@ -33,7 +35,8 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Signals publishes sy_ni_chassis_set and sy_ni_chassis_delete.
+	// Signals publishes sy_ni_chassis_set, sy_ni_chassis_delete, and
+	// sy_ni_chassis_action_set.
 	//
 	// [OPTIONAL]
 	Signals *signals.Provider
@@ -68,6 +71,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Chassis]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a Service. The service must be closed by calling Close.
@@ -76,7 +80,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Chassis]{
@@ -98,8 +106,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		); !ok(err, nil) {
 			return nil, err
 		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_ni_chassis_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	return s, nil
+}
+
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnChange(handler)
 }
 
 // Close closes the service and releases the resources it holds. Close is not safe to
@@ -109,10 +133,11 @@ func (s *Service) Close() error { return s.closer.Close() }
 // NewWriter opens a writer that runs its operations in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:       tx,
-		status:   s.cfg.Status.NewWriter(tx),
-		statuses: s.cfg.Status,
-		table:    s.table,
+		tx:         tx,
+		status:     s.cfg.Status.NewWriter(tx),
+		statuses:   s.cfg.Status,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 

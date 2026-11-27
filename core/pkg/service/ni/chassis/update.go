@@ -79,11 +79,12 @@ func (u *Update) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-// Apply replaces the field group that update carries on the chassis stored under key
-// and keeps the other group as stored. It returns an error wrapping query.ErrNotFound
-// when no chassis is stored under key and a validation error when update is invalid. A
-// transaction that commits between the read and the write of this one is overwritten.
-func (w Writer) Apply(ctx context.Context, key Key, update Update) error {
+// ApplyUpdate replaces the field group that update carries on the chassis stored under
+// key and keeps the other group as stored. It returns an error wrapping
+// query.ErrNotFound when no chassis is stored under key and a validation error when
+// update is invalid. A transaction that commits between the read and the write of this
+// one is overwritten.
+func (w Writer) ApplyUpdate(ctx context.Context, key Key, update Update) error {
 	switch v := update.Variant.(type) {
 	case IdentityUpdate:
 		if err := v.Validate(); err != nil {
