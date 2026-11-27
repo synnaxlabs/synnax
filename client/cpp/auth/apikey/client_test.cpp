@@ -83,4 +83,45 @@ TEST(TestAPIKeyClient, RetrieveReadsExpiry) {
     ASSERT_EQ(keys[0].expires, x::telem::TimeStamp(42));
     ASSERT_EQ(keys[1].expires, x::telem::TIME_STAMP_MAX);
 }
+
+/// @brief it should ask for a key that never expires when there is no lifetime limit.
+TEST(TestAPIKeyClient, LongestExpiryWithoutLimit) {
+    ASSERT_EQ(longest_expiry(x::telem::TimeSpan(0)), x::telem::TIME_STAMP_MAX);
+}
+
+/// @brief it should stop an hour short of a lifetime limit.
+TEST(TestAPIKeyClient, LongestExpiryStopsAnHourShort) {
+    const auto now = x::telem::TimeStamp(1'000'000 * x::telem::SECOND.nanoseconds());
+    ASSERT_EQ(
+        longest_expiry(30 * x::telem::DAY, now),
+        now + 30 * x::telem::DAY - x::telem::HOUR
+    );
+}
+
+/// @brief it should stop half a lifetime limit short when the limit is under two
+/// hours.
+TEST(TestAPIKeyClient, LongestExpiryStopsHalfAShortLimit) {
+    const auto now = x::telem::TimeStamp(1'000'000 * x::telem::SECOND.nanoseconds());
+    ASSERT_EQ(longest_expiry(90 * x::telem::MINUTE, now), now + 45 * x::telem::MINUTE);
+}
+
+/// @brief it should read the lifetime limit from the login methods.
+TEST(TestAPIKeyClient, LongestExpiryReadsLimit) {
+    grpc::auth::MethodsResponse res;
+    res.set_api_key_max_lifetime(x::telem::DAY.nanoseconds());
+    const Client client(
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr,
+        std::make_unique<freighter::testutil::UnaryClient<
+            google::protobuf::Empty,
+            grpc::auth::MethodsResponse>>(res, x::errors::NIL),
+        nullptr
+    );
+    const auto before = x::telem::TimeStamp::now();
+    const auto expires = ASSERT_NIL_P(client.longest_expiry());
+    ASSERT_GE(expires, before + x::telem::DAY - x::telem::HOUR);
+    ASSERT_LE(expires, x::telem::TimeStamp::now() + x::telem::DAY - x::telem::HOUR);
+}
 }

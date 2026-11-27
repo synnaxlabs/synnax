@@ -214,8 +214,8 @@ func (s *Service) Authenticate(
 	}, nil
 }
 
-// Version implements [auth.Authenticator]. An API key keeps one version for life. An
-// expired key returns [auth.ErrInvalidCredentials], so its sessions end.
+// Version implements [auth.Authenticator]. An API key gets a new version at each
+// rotation. An expired key returns [auth.ErrInvalidCredentials], so its sessions end.
 func (s *Service) Version(
 	ctx context.Context,
 	snap gorp.Snapshot,

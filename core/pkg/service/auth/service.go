@@ -288,8 +288,8 @@ func (s *Service) version(
 }
 
 // current returns true when the session holds the current version of its credential in
-// snap. A session's version never changes after login. A session whose method is off,
-// or whose credential no longer logs in, is never current.
+// snap. A session's version changes only through SetCredentialVersion. A session whose
+// method is off, or whose credential no longer logs in, is never current.
 func (s *Service) current(
 	ctx context.Context,
 	snap gorp.Snapshot,

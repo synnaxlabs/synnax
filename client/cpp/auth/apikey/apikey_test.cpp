@@ -104,6 +104,14 @@ TEST(TestAPIKeys, RotatePasswordSession) {
     ASSERT_OCCURRED_AS_P(client.api_keys.rotate(), x::errors::VALIDATION);
 }
 
+/// @brief it should ask for a key that never expires from a Core with no limit.
+TEST(TestAPIKeys, LongestExpiryWithoutLimit) {
+    ASSERT_EQ(
+        ASSERT_NIL_P(new_test_client().api_keys.longest_expiry()),
+        x::telem::TIME_STAMP_MAX
+    );
+}
+
 /// @brief it should reject a key the Core never issued.
 TEST(TestAPIKeys, UnknownKey) {
     const auto keyed = keyed_client("syk_00000000-0000-0000-0000-000000000000secret");
