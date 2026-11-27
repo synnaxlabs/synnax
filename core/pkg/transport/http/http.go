@@ -664,10 +664,22 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/opcua/server/delete",
 		),
 		// KAFKA CLUSTER
+		KafkaClusterCreate: unary[
+			kafkacluster.CreateRequest,
+			kafkacluster.CreateResponse,
+		](router, "/api/v1/kafka/cluster/create"),
 		KafkaClusterRetrieve: unary[
 			kafkacluster.RetrieveRequest,
 			kafkacluster.RetrieveResponse,
 		](router, "/api/v1/kafka/cluster/retrieve"),
+		KafkaClusterUpdate: unary[kafkacluster.UpdateRequest, struct{}](
+			router,
+			"/api/v1/kafka/cluster/update",
+		),
+		KafkaClusterDelete: unary[kafkacluster.DeleteRequest, struct{}](
+			router,
+			"/api/v1/kafka/cluster/delete",
+		),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

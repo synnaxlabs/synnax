@@ -188,6 +188,17 @@ Auth = Annotated[
     Field(discriminator="mechanism"),
 ]
 
+
+class Configuration(BaseModel):
+    """Holds the cluster fields that the task forms own.
+
+    Attributes:
+        reads: Bind the values that read tasks consume to channels.
+    """
+
+    reads: list[Read] = Field(default_factory=list)
+
+
 Status: TypeAlias = status_.Status[StatusDetails]
 
 
@@ -209,6 +220,26 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
+
+
+class Identity(BaseModel):
+    """Holds the cluster fields that the connect form owns.
+
+    Attributes:
+        rack: Is the key of the rack that connects to the cluster.
+        name: Is a human-readable name for the cluster.
+        brokers: Are the bootstrap brokers of the cluster. A cluster has at least one.
+        transport: Is the transport that the Core connects to the brokers over.
+        auth: Is the authentication that the brokers require.
+    """
+
+    rack: rack_.Key = Field(gt=0, le=4294967295)
+    name: str = Field(min_length=1)
+    brokers: list[Broker] = Field(min_length=1)
+    transport: Transport = Field(
+        default_factory=lambda: PlaintextTransport(type="plaintext")
+    )
+    auth: Auth = Field(default_factory=lambda: NoneAuth(mechanism="none"))
 
 
 class Cluster(BaseModel):
@@ -239,6 +270,27 @@ class Cluster(BaseModel):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class IdentityUpdate(Identity):
+    """Writes the fields of the cluster that the connect form owns."""
+
+    group: Literal["identity"] = "identity"
+
+
+class ConfigurationUpdate(Configuration):
+    """Replaces the reads of the cluster. A client sends the whole group, because a
+    field it leaves out is cleared.
+    """
+
+    group: Literal["configuration"] = "configuration"
+
+
+# Is a write to one field group of a cluster.
+Update = Annotated[
+    IdentityUpdate | ConfigurationUpdate,
+    Field(discriminator="group"),
+]
 
 
 class RetrieveResponse(BaseModel):

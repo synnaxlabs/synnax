@@ -14,6 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -65,6 +66,69 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{cfg: cfg}, nil
+}
+
+type (
+	// CreateRequest carries the clusters to create.
+	CreateRequest struct {
+		// Clusters are the clusters to store. A nil key mints a new one.
+		Clusters []cluster.Cluster `json:"clusters" msgpack:"clusters"`
+	}
+	// CreateResponse carries the created clusters with their keys.
+	CreateResponse struct {
+		// Clusters are the stored clusters, without their statuses.
+		Clusters []cluster.Cluster `json:"clusters" msgpack:"clusters"`
+	}
+)
+
+// Create stores the given clusters.
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	w := s.cfg.Cluster.NewWriter(tx)
+	for i := range req.Clusters {
+		req.Clusters[i].Status = nil
+		if err := w.Create(ctx, &req.Clusters[i]); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	return CreateResponse(req), nil
+}
+
+// UpdateRequest carries one field group to write to a stored cluster.
+type UpdateRequest struct {
+	// Update is the field group to write.
+	Update cluster.Update `json:"update" msgpack:"update"`
+	// Key selects the cluster to update.
+	Key cluster.Key `json:"key" msgpack:"key"`
+}
+
+// Update writes the field group of req to the cluster stored under req.Key, as
+// cluster.Writer.Apply does. It returns a validation error when the request carries no
+// group.
+func (s *Service) Update(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UpdateRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Cluster.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+}
+
+// DeleteRequest carries the keys of the clusters to delete.
+type DeleteRequest struct {
+	// Keys selects the clusters to delete.
+	Keys []cluster.Key `json:"keys" msgpack:"keys"`
+}
+
+// Delete removes the given clusters with their statuses.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Cluster.NewWriter(tx).Delete(ctx, req.Keys...)
 }
 
 var _ bind.Named = RetrieveRequest{}

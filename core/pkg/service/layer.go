@@ -1025,6 +1025,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		DB:              cfg.Distribution.DB,
 		Channel:         l.Channel,
 		ICD:             l.ICD,
+		Status:          l.Status,
+		Secret:          l.Secret,
+		Certificate:     l.Certificate,
+		Rack:            l.Rack,
 		Signals:         l.Signals,
 	}); !ok(err, l.Kafka) {
 		return nil, err

@@ -19,6 +19,8 @@ import (
 	apicluster "github.com/synnaxlabs/synnax/pkg/api/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -30,21 +32,28 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var clusterType = resource.ID{Type: resource.TypeKafkaCluster}
+var (
+	clusterType = resource.ID{Type: resource.TypeKafkaCluster}
+	statusType  = resource.ID{Type: resource.TypeStatus}
+	channelType = resource.ID{Type: resource.TypeChannel}
+	allWrites   = []access.Action{
+		access.ActionCreate,
+		access.ActionUpdate,
+		access.ActionDelete,
+	}
+)
 
 var _ = Describe("Service", func() {
 	var u user.User
 	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
 
 	newCluster := func(overrides ...func(*cluster.Cluster)) cluster.Cluster {
-		s := cluster.Cluster{
-			Key:       uuid.New(),
-			Rack:      svc.Rack.EmbeddedKey,
-			Name:      "API-" + uuid.New().String(),
-			Transport: cluster.Transport{Variant: cluster.PlaintextTransport{}},
-			Brokers:   []cluster.Broker{{Host: "plc.example.com"}},
-			Auth:      cluster.Auth{Variant: cluster.NoneAuth{}},
-		}
+		var s cluster.Cluster
+		s.SetDefaults()
+		s.Key = uuid.New()
+		s.Rack = svc.Rack.EmbeddedKey
+		s.Name = "API-" + uuid.New().String()
+		s.Brokers = []cluster.Broker{{Host: "kafka.example.com"}}
 		for _, override := range overrides {
 			override(&s)
 		}
@@ -54,18 +63,33 @@ var _ = Describe("Service", func() {
 		GinkgoHelper()
 		grant(ctx, u, []access.Action{access.ActionRetrieve}, clusterType)
 	}
-	createCluster := func(ctx SpecContext, overrides ...func(*cluster.Cluster)) cluster.Cluster {
+	// grantWrites lets u write any Kafka cluster, its status, and the rack it sits on.
+	grantWrites := func(ctx SpecContext, r rack.Key) {
+		GinkgoHelper()
+		grant(ctx, u, allWrites, clusterType, statusType)
+		grant(ctx, u, []access.Action{access.ActionUpdate}, r.ResourceID())
+	}
+	retrieveCluster := func(ctx SpecContext, key cluster.Key) cluster.Cluster {
+		GinkgoHelper()
+		var s cluster.Cluster
+		Expect(svc.Kafka.Clusters.NewRetrieve().
+			Where(cluster.MatchKeys(key)).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		return s
+	}
+	createCluster := func(
+		ctx SpecContext,
+		overrides ...func(*cluster.Cluster),
+	) cluster.Cluster {
 		GinkgoHelper()
 		s := newCluster(overrides...)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.NewCreate[cluster.Key, cluster.Cluster]().Entry(&s).
-				Exec(ctx, tx)
+			return svc.Kafka.Clusters.NewWriter(tx).Create(ctx, &s)
 		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewDelete[cluster.Key, cluster.Cluster]().
-					Where(gorp.MatchKeys[cluster.Key, cluster.Cluster](s.Key)).
-					Exec(ctx, tx)
+				return svc.Kafka.Clusters.NewWriter(tx).Delete(ctx, s.Key)
 			})).To(Succeed())
 		})
 		return s
@@ -249,6 +273,227 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Clusters).To(BeEmpty())
+		})
+	})
+
+	Describe("Create", func() {
+		It("Should mint a key when writes are granted", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			s := newCluster()
+			s.Key = uuid.Nil()
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.CreateRequest{Clusters: []cluster.Cluster{s}},
+			))
+			key := res.Clusters[0].Key
+			Expect(key).ToNot(Equal(uuid.Nil()))
+			Expect(retrieveCluster(ctx, key).Name).To(Equal(s.Name))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Kafka.Clusters.NewWriter(tx).Delete(ctx, key)
+			})).To(Succeed())
+		})
+
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			s := newCluster()
+			s.Status = &cluster.Status{Message: "Cluster connected"}
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.CreateRequest{Clusters: []cluster.Cluster{s}},
+			))
+			Expect(res.Clusters[0].Status).To(BeNil())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Kafka.Clusters.NewWriter(tx).Delete(ctx, s.Key)
+			})).To(Succeed())
+		})
+
+		It("Should reject the request without update access on the rack", func(
+			ctx SpecContext,
+		) {
+			grant(ctx, u, allWrites, clusterType, statusType)
+			s := newCluster()
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.CreateRequest{Clusters: []cluster.Cluster{s}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject the request when create is not granted", func(
+			ctx SpecContext,
+		) {
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.CreateRequest{Clusters: []cluster.Cluster{newCluster()}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should reject an invalid cluster", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.CreateRequest{Clusters: []cluster.Cluster{
+					newCluster(
+						func(s *cluster.Cluster) { s.Brokers = nil },
+					),
+				}},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+	})
+
+	Describe("Update", func() {
+		rename := func(s cluster.Cluster) apicluster.UpdateRequest {
+			return apicluster.UpdateRequest{
+				Key: s.Key,
+				Update: cluster.Update{Variant: cluster.IdentityUpdate{
+					Identity: cluster.Identity{
+						Rack:      s.Rack,
+						Name:      "Renamed",
+						Brokers:   s.Brokers,
+						Transport: s.Transport,
+						Auth:      s.Auth,
+					},
+				}},
+			}
+		}
+
+		It("Should write only the identity group", func(ctx SpecContext) {
+			chs := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
+			s := createCluster(ctx, func(s *cluster.Cluster) {
+				s.Reads = []cluster.Read{{
+					Topic:   "plant",
+					Message: uuid.New(),
+					Index:   chs[0],
+					Channel: chs[1],
+				}}
+			})
+			grantWrites(ctx, s.Rack)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
+			got := retrieveCluster(ctx, s.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Reads).To(Equal(s.Reads))
+		})
+
+		// readsOf returns one read of the channels chs.
+		readsOf := func(chs []channel.Key) []cluster.Read {
+			return []cluster.Read{{
+				Topic:     "plant",
+				RecordKey: new("pump"),
+				Message:   uuid.UUID{1},
+				Index:     chs[0],
+				Channel:   chs[1],
+			}}
+		}
+		// bindReads returns an update that replaces the reads of s with reads.
+		bindReads := func(s cluster.Cluster, reads []cluster.Read) apicluster.UpdateRequest {
+			return apicluster.UpdateRequest{
+				Key: s.Key,
+				Update: cluster.Update{Variant: cluster.ConfigurationUpdate{
+					Configuration: cluster.Configuration{Reads: reads},
+				}},
+			}
+		}
+
+		It("Should write only the configuration group", func(ctx SpecContext) {
+			chs := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
+			s := createCluster(ctx)
+			grantWrites(ctx, s.Rack)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
+			reads := readsOf(chs)
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), bindReads(s, reads)))
+			got := retrieveCluster(ctx, s.Key)
+			Expect(got.Reads).To(Equal(reads))
+			Expect(got.Name).To(Equal(s.Name))
+		})
+
+		It("Should reject a read of a channel the user cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			chs := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
+			s := createCluster(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), bindReads(s, readsOf(chs)))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveCluster(ctx, s.Key).Reads).To(BeEmpty())
+		})
+
+		It("Should move a cluster only with update access on the new rack", func(
+			ctx SpecContext,
+		) {
+			other := rack.Rack{
+				Name:         "Other",
+				Integrations: []string{cluster.Integration},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Rack.NewWriter(tx).Create(ctx, &other)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.Rack.NewWriter(tx).Delete(ctx, nil, other.Key)
+				})).To(Succeed())
+			})
+			s := createCluster(ctx)
+			move := apicluster.UpdateRequest{
+				Key: s.Key,
+				Update: cluster.Update{Variant: cluster.IdentityUpdate{
+					Identity: cluster.Identity{
+						Rack:      other.Key,
+						Name:      s.Name,
+						Brokers:   s.Brokers,
+						Transport: s.Transport,
+						Auth:      s.Auth,
+					},
+				}},
+			}
+			grantWrites(ctx, s.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), move)).
+				Error().To(MatchError(access.ErrDenied))
+			grant(ctx, u, []access.Action{access.ActionUpdate}, other.ResourceID())
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), move))
+			Expect(retrieveCluster(ctx, s.Key).Rack).To(Equal(other.Key))
+		})
+
+		It("Should reject a request with no group", func(ctx SpecContext) {
+			s := createCluster(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.UpdateRequest{Key: s.Key},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createCluster(ctx)
+			Expect(update(testutil.AuthedCtx(ctx, u), rename(s))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveCluster(ctx, s.Key).Name).To(Equal(s.Name))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the cluster when delete is granted", func(ctx SpecContext) {
+			s := createCluster(ctx)
+			grantWrites(ctx, s.Rack)
+			MustSucceed(del(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.DeleteRequest{Keys: []cluster.Key{s.Key}},
+			))
+			Expect(svc.Kafka.Clusters.NewRetrieve().
+				Where(cluster.MatchKeys(s.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should reject the request when delete is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createCluster(ctx)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apicluster.DeleteRequest{Keys: []cluster.Key{s.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveCluster(ctx, s.Key).Key).To(Equal(s.Key))
 		})
 	})
 })

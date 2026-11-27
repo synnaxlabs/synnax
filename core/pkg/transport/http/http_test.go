@@ -215,9 +215,24 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/opcua/server/delete",
 			),
 			Entry(
+				"unary Kafka cluster create",
+				http.MethodPost,
+				"/api/v1/kafka/cluster/create",
+			),
+			Entry(
 				"unary Kafka cluster retrieve",
 				http.MethodPost,
 				"/api/v1/kafka/cluster/retrieve",
+			),
+			Entry(
+				"unary Kafka cluster update",
+				http.MethodPost,
+				"/api/v1/kafka/cluster/update",
+			),
+			Entry(
+				"unary Kafka cluster delete",
+				http.MethodPost,
+				"/api/v1/kafka/cluster/delete",
 			),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
 			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),

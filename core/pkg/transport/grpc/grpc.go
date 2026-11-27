@@ -172,10 +172,16 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerUpdate = noop.UnaryServer[server.UpdateRequest, struct{}]{}
 	t.OPCUAServerDelete = noop.UnaryServer[server.DeleteRequest, struct{}]{}
 	// KAFKA CLUSTER
+	t.KafkaClusterCreate = noop.UnaryServer[
+		kafkacluster.CreateRequest,
+		kafkacluster.CreateResponse,
+	]{}
 	t.KafkaClusterRetrieve = noop.UnaryServer[
 		kafkacluster.RetrieveRequest,
 		kafkacluster.RetrieveResponse,
 	]{}
+	t.KafkaClusterUpdate = noop.UnaryServer[kafkacluster.UpdateRequest, struct{}]{}
+	t.KafkaClusterDelete = noop.UnaryServer[kafkacluster.DeleteRequest, struct{}]{}
 
 	// STATUS
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}

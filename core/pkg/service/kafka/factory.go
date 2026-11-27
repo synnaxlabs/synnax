@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -141,7 +142,7 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 }
 
 // Name implements driver.Factory.
-func (f *factory) Name() string { return Make }
+func (f *factory) Name() string { return cluster.Integration }
 
 // InitialTasks implements driver.Factory, returning the rack's scan task.
 func (f *factory) InitialTasks() []task.Task {

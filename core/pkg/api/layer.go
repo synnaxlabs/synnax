@@ -282,10 +282,16 @@ type Transport struct {
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, struct{}]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
 	// KAFKA CLUSTER
+	KafkaClusterCreate freighter.UnaryServer[
+		kafkacluster.CreateRequest,
+		kafkacluster.CreateResponse,
+	]
 	KafkaClusterRetrieve freighter.UnaryServer[
 		kafkacluster.RetrieveRequest,
 		kafkacluster.RetrieveResponse,
 	]
+	KafkaClusterUpdate freighter.UnaryServer[kafkacluster.UpdateRequest, struct{}]
+	KafkaClusterDelete freighter.UnaryServer[kafkacluster.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -623,7 +629,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
 		// KAFKA CLUSTER
+		t.KafkaClusterCreate,
 		t.KafkaClusterRetrieve,
+		t.KafkaClusterUpdate,
+		t.KafkaClusterDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -929,7 +938,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
 	// KAFKA CLUSTER
+	t.KafkaClusterCreate.BindHandler(bind.Write(l.binder, l.KafkaCluster.Create))
 	t.KafkaClusterRetrieve.BindHandler(bind.Read(l.binder, l.KafkaCluster.Retrieve))
+	t.KafkaClusterUpdate.BindHandler(bind.Write(l.binder, l.KafkaCluster.Update))
+	t.KafkaClusterDelete.BindHandler(bind.Write(l.binder, l.KafkaCluster.Delete))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
