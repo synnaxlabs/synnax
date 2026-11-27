@@ -2244,6 +2244,32 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should read a text field by its tag instead of its position", async () => {
+      const retrievePayload = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name: "temperature",
+            encoding: "delimited",
+            position: 2,
+            units: "°C",
+          }),
+        ],
+      });
+      await selectField("temperature");
+      fireEvent.click(await screen.findByRole("button", { name: "Tag" }));
+      await edit("Tag", "T");
+      expect(screen.queryByLabelText("Position")).toBeNull();
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          fields: [{ name: "temperature", encoding: "tagged", tag: "T", units: "°C" }],
+        }),
+      );
+    });
+
     it("should read a field of a text message", async () => {
       await renderPayload({
         format: "text",

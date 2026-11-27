@@ -816,12 +816,38 @@ export interface TextFieldProps {
   actions?: ReactNode;
 }
 
+/** A text field read the other way keeps its name, conversion, and limits. */
+const withTextEncoding = (
+  field: icd.TextField,
+  encoding: icd.TextFieldType,
+): icd.TextField => {
+  const { key, name, scale, offset, units, min, max } = field;
+  const base = { key, name, scale, offset, units, min, max, default: field.default };
+  return encoding === "delimited"
+    ? { ...base, encoding, position: 0 }
+    : { ...base, encoding, tag: "" };
+};
+
 /** Edits one field of a text message: its name, where it sits, and its conversion. */
 export const TextField = ({ path, actions }: TextFieldProps): ReactElement => {
+  const { get, set, mode } = Form.useContext();
   const encoding = Form.useFieldValue(path.encoding);
+  const handleEncoding = (next: icd.TextFieldType) => {
+    if (next !== encoding) set(path, withTextEncoding(get(path).value, next));
+  };
   return (
     <Form.Section title="Field" actions={actions}>
       <Form.TextField path={path.name} label="Name" padHelpText={false} />
+      <Input.Item label="Read by" padHelpText={false}>
+        <Select.Buttons<icd.TextFieldType>
+          value={encoding}
+          onChange={handleEncoding}
+          disabled={mode === "preview"}
+        >
+          <Select.Item<icd.TextFieldType> itemKey="delimited">Position</Select.Item>
+          <Select.Item<icd.TextFieldType> itemKey="tagged">Tag</Select.Item>
+        </Select.Buttons>
+      </Input.Item>
       {encoding === "delimited" ? (
         <Form.NumericField
           path={deep.variant(path, "encoding", "delimited").position}
