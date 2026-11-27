@@ -52,6 +52,16 @@ DEADLINE = 3 * KEEP_ALIVE
 AFTER_KEEP_ALIVE = 2.5
 
 
+def await_client_close(proxy: Proxy) -> None:
+    """Waits for the client to close its blackholed socket. The proxy sees the close
+    on its own thread, after the client returns.
+    """
+    deadline = time.monotonic() + READ_TIMEOUT
+    while proxy.blackholed_closed_by_client != 1:
+        assert time.monotonic() < deadline, "the client kept its socket open"
+        time.sleep(0.01)
+
+
 def write(client: sy.Synnax, ch: sy.Channel, data: list[float]) -> None:
     with client.open_writer(sy.TimeStamp.now(), ch.key) as w:
         w.write({ch.key: data})
@@ -561,7 +571,7 @@ class TestStreamerKeepAlive:
             stalled_proxied_client.open_streamer(
                 virtual_channel.key, keep_alive=KEEP_ALIVE
             )
-        assert stalled_proxy.blackholed_closed_by_client == 1
+        await_client_close(stalled_proxy)
 
     def test_disabled(
         self, virtual_channel: sy.Channel, proxy: Proxy, proxied_client: sy.Synnax
@@ -686,7 +696,7 @@ class TestAsyncStreamerKeepAlive:
             await stalled_proxied_client.open_async_streamer(
                 virtual_channel.key, keep_alive=KEEP_ALIVE
             )
-        assert stalled_proxy.blackholed_closed_by_client == 1
+        await_client_close(stalled_proxy)
 
 
 @pytest.mark.framer

@@ -26,7 +26,14 @@ PASSWORD = "seldon"
 
 # Fixtures that reach the Core. Every other Core fixture depends on one of these.
 CORE_FIXTURES = frozenset(
-    ("client", "login_info", "counted_client", "proxy", "early_proxy")
+    (
+        "client",
+        "login_info",
+        "counted_client",
+        "proxy",
+        "early_proxy",
+        "stalled_proxy",
+    )
 )
 
 
