@@ -15,9 +15,9 @@
 
 #include "client/cpp/device/device.h"
 #include "client/cpp/serial/types.gen.h"
-#include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 
+#include "driver/bus/holders.h"
 #include "driver/transport/connection.h"
 
 namespace driver::serial {
@@ -36,40 +36,14 @@ struct Device {
 std::pair<Device, x::errors::Error>
 retrieve_device(const synnax::device::Client &devices, const std::string &key);
 
-/// @brief Ports shares the serial ports of an integration among its tasks. Each device
-/// has one read task. Each open port belongs to one device, whatever path names it. It
-/// is safe for concurrent use.
+/// @brief Ports shares the serial ports of an integration among its tasks. Each open
+/// port belongs to one device, whatever path names it. It is safe for concurrent use.
 class Ports {
-    /// @brief Holders gives each key to one holder at a time.
-    class Holders;
-
     transport::Connections connections;
-    std::shared_ptr<Holders> readers;
-    std::shared_ptr<Holders> devices;
+    /// @brief devices holds each open port for its device.
+    std::shared_ptr<bus::Holders> devices = std::make_shared<bus::Holders>();
 
 public:
-    Ports();
-
-    /// @brief Claim holds a device for a read task, or a port for a device, until it is
-    /// destroyed.
-    class Claim {
-        std::shared_ptr<Holders> holders;
-        std::string key;
-        Claim(std::shared_ptr<Holders> holders, std::string key);
-        friend class Ports;
-
-    public:
-        ~Claim();
-        Claim(const Claim &) = delete;
-        Claim &operator=(const Claim &) = delete;
-    };
-
-    /// @brief claims the device with key for task until the claim is destroyed. A task
-    /// can claim a device that it holds again.
-    /// @returns CONFIGURATION_ERROR naming the read task that holds the device.
-    std::pair<std::unique_ptr<Claim>, x::errors::Error>
-    claim_read(const std::string &device, const synnax::task::Task &task);
-
     /// @brief acquires the connection to the port of dev, and opens the port when no
     /// task on dev holds it open. Each open claims the port for dev until the port
     /// closes. A missing or busy port does not fail, since each turn on the connection

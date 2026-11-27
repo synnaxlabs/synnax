@@ -12,7 +12,6 @@
 
 #include "gtest/gtest.h"
 
-#include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
@@ -76,15 +75,11 @@ TEST_F(PtyTest, FollowsOpenPortWhenLinkMoves) {
     ASSERT_EQ(err.data(), refused("oven", other.path()));
 }
 
-/// @brief it should configure and start a device on a missing port, and claim the port
-/// only when it opens.
+/// @brief it should start a device on a missing port, and claim the port only when it
+/// opens.
 TEST_F(PtyTest, ClaimsPortOnlyWhenItOpens) {
     Ports ports;
     const Link link;
-    synnax::task::Task t;
-    t.key = x::uuid::create();
-    t.name = "oven";
-    const auto claim = ASSERT_NIL_P(ports.claim_read("oven_key", t));
     const auto oven = ASSERT_NIL_P(ports.acquire(device("oven", link.path.string())));
     const auto press = ASSERT_NIL_P(ports.acquire(device("press", this->path())));
     link.point(this->path());

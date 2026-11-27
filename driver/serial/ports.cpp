@@ -7,21 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <cstddef>
 #include <cstdint>
 #include <memory>
-#include <mutex>
-#include <optional>
 #include <span>
 #include <string>
-#include <unordered_map>
 #include <utility>
 
 #include "client/cpp/serial/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
 
-#include "driver/errors/errors.h"
 #include "driver/serial/native.h"
 #include "driver/serial/port.h"
 #include "driver/serial/ports.h"
@@ -42,50 +37,16 @@ retrieve_device(const synnax::device::Client &devices, const std::string &key) {
     };
 }
 
-class Ports::Holders {
-    /// @brief Holder is the holder of a key.
-    struct Holder {
-        /// @brief id is the key of the task or device that holds the key.
-        std::string id;
-        std::string name;
-        /// @brief claims is the number of claims that the holder has on the key.
-        std::size_t claims = 0;
-    };
-
-    std::mutex mu;
-    std::unordered_map<std::string, Holder> held;
-
-public:
-    /// @brief claims key for the holder with id.
-    /// @returns the name of the holder of key when another holder has it.
-    std::optional<std::string>
-    take(const std::string &key, const std::string &id, const std::string &name) {
-        std::lock_guard lock(this->mu);
-        auto &holder = this->held[key];
-        if (holder.claims > 0 && holder.id != id) return holder.name;
-        if (holder.claims == 0) holder = {.id = id, .name = name};
-        holder.claims++;
-        return std::nullopt;
-    }
-
-    /// @brief releases one claim on key.
-    void release(const std::string &key) {
-        std::lock_guard lock(this->mu);
-        const auto it = this->held.find(key);
-        if (--it->second.claims == 0) this->held.erase(it);
-    }
-};
-
 namespace {
 /// @brief Held is an open port and the claim of its device on the port, which ends when
 /// the port closes.
 class Held final : public transport::Transport {
-    std::unique_ptr<Ports::Claim> claim;
+    std::unique_ptr<bus::Holders::Claim> claim;
     std::unique_ptr<transport::Transport> port;
 
 public:
     Held(
-        std::unique_ptr<Ports::Claim> claim,
+        std::unique_ptr<bus::Holders::Claim> claim,
         std::unique_ptr<transport::Transport> port
     ):
         claim(std::move(claim)), port(std::move(port)) {}
@@ -104,32 +65,6 @@ public:
 };
 }
 
-Ports::Ports():
-    readers(std::make_shared<Holders>()), devices(std::make_shared<Holders>()) {}
-
-Ports::Claim::Claim(std::shared_ptr<Holders> holders, std::string key):
-    holders(std::move(holders)), key(std::move(key)) {}
-
-Ports::Claim::~Claim() {
-    this->holders->release(this->key);
-}
-
-std::pair<std::unique_ptr<Ports::Claim>, x::errors::Error>
-Ports::claim_read(const std::string &device, const synnax::task::Task &task) {
-    if (const auto holder = this->readers
-                                ->take(device, task.key.to_string(), task.name))
-        return {
-            nullptr,
-            x::errors::Error(
-                driver::errors::CONFIGURATION_ERROR,
-                "A serial device runs one read task at a time, and the task '" +
-                    *holder +
-                    "' reads from this device. Add these entries to that task."
-            ),
-        };
-    return {std::unique_ptr<Claim>(new Claim(this->readers, device)), x::errors::NIL};
-}
-
 std::pair<std::shared_ptr<transport::Connection>, x::errors::Error>
 Ports::acquire(const Device &dev) {
     auto [conn, err] = this->connections.acquire(
@@ -139,7 +74,8 @@ Ports::acquire(const Device &dev) {
              -> std::pair<std::unique_ptr<transport::Transport>, x::errors::Error> {
             auto [key, key_err] = native::identity(dev.props.port);
             if (key_err) return {nullptr, key_err};
-            if (const auto holder = devices->take(key, dev.key, dev.name))
+            auto [claim, holder] = bus::Holders::take(devices, key, dev.key, dev.name);
+            if (holder.has_value())
                 return {
                     nullptr,
                     x::errors::Error(
@@ -150,7 +86,6 @@ Ports::acquire(const Device &dev) {
                             "port of one of them."
                     ),
                 };
-            auto claim = std::unique_ptr<Claim>(new Claim(devices, std::move(key)));
             auto [port, open_err] = Port::open(dev.props);
             if (open_err) return {nullptr, open_err};
             return {

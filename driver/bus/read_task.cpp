@@ -13,23 +13,18 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/serial/json.gen.h"
-#include "x/cpp/json/json.h"
-
+#include "driver/bus/tasks.h"
 #include "driver/icd/retrieve.h"
-#include "driver/serial/read_task.h"
 
-namespace driver::serial {
+namespace driver::bus {
 Source::Source(
-    std::shared_ptr<Ports> ports,
-    Device device,
-    std::unique_ptr<Ports::Claim> claim,
+    Acquire acquire,
+    std::unique_ptr<Holders::Claim> claim,
     icd::Receiver receiver,
     std::vector<synnax::channel::Channel> bound,
     const bool data_saving_disabled
 ):
-    ports(std::move(ports)),
-    device(std::move(device)),
+    acquire(std::move(acquire)),
     claim(std::move(claim)),
     receiver(std::move(receiver)),
     bound(std::move(bound)),
@@ -47,7 +42,7 @@ std::vector<synnax::channel::Channel> Source::channels() const {
 }
 
 x::errors::Error Source::start(const std::string &, x::breaker::Breaker &) {
-    auto [conn, err] = this->ports->acquire(this->device);
+    auto [conn, err] = this->acquire();
     this->conn = std::move(conn);
     this->opens = 0;
     return err;
@@ -74,19 +69,15 @@ common::ReadResult Source::read(x::breaker::Breaker &, x::telem::Frame &fr) {
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<Ports> &ports
+    const synnax::task::PersistConfig &cfg,
+    const std::vector<synnax::icd::ReadEntry> &entries,
+    const std::string &device,
+    Acquire acquire,
+    Readers &readers
 ) {
-    x::json::Parser parser(task.config);
-    const auto cfg = synnax::serial::ReadConfig::parse(parser);
-    if (cfg.device.empty()) parser.field_err("device", "this field is required");
-    if (cfg.entries.empty())
-        parser.field_err("entries", "at least one entry is required");
-    if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
-    auto [dev, dev_err] = retrieve_device(ctx->client->devices, cfg.device);
-    if (dev_err) return {common::ConfigureResult{}, dev_err};
     std::set<synnax::icd::Key> icds;
     std::set<synnax::channel::Key> channels;
-    for (const auto &entry: cfg.entries) {
+    for (const auto &entry: entries) {
         icds.insert(entry.icd);
         for (const auto &rm: entry.messages)
             for (const auto &b: rm.bindings)
@@ -95,13 +86,13 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     auto [resources, retrieve_err] = icd::retrieve(*ctx->client, icds, channels);
     if (retrieve_err) return {common::ConfigureResult{}, retrieve_err};
     auto [receiver, receiver_err] = icd::Receiver::create(
-        cfg.entries,
+        entries,
         resources.icds,
         resources.channels,
         false
     );
     if (receiver_err) return {common::ConfigureResult{}, receiver_err};
-    auto [claim, claim_err] = ports->claim_read(dev.key, task);
+    auto [claim, claim_err] = readers.claim(device, task);
     if (claim_err) return {common::ConfigureResult{}, claim_err};
     std::vector<synnax::channel::Channel> bound;
     bound.reserve(resources.channels.size());
@@ -114,8 +105,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
                 ctx,
                 common::unlimited_retry_config(task.name),
                 std::make_unique<Source>(
-                    ports,
-                    std::move(dev),
+                    std::move(acquire),
                     std::move(claim),
                     std::move(receiver),
                     std::move(bound),
