@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"regexp"
 	"strconv"
 
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
@@ -25,6 +26,8 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
+
+var validatePattern0 = regexp.MustCompile("^[^?#[:space:]]*$")
 
 // Method is the HTTP method used when requesting an endpoint.
 type Method = v4.Method
@@ -111,6 +114,15 @@ func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadEndpoint) Validate() error {
 	v := validate.New("ReadEndpoint")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	v.Ternary("path", !validatePattern0.MatchString(string(r.Path)), "Path must not hold a query, a fragment, or whitespace")
+	for i := range r.Headers {
+		v.Exec(func() error { return validate.PathedError(r.Headers[i].Validate(), "headers", strconv.Itoa(i)) })
+	}
+	for i := range r.QueryParams {
+		v.Exec(func() error {
+			return validate.PathedError(r.QueryParams[i].Validate(), "query_params", strconv.Itoa(i))
+		})
+	}
 	return v.Error()
 }
 
@@ -199,6 +211,8 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.GreaterThan("rate", r.Rate, 0)
+	v.LessThanEq("rate", r.Rate, 1000)
+	v.Finite("rate", r.Rate)
 	for i := range r.Endpoints {
 		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
 	}
@@ -288,6 +302,15 @@ func (w *WriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (w WriteEndpoint) Validate() error {
 	v := validate.New("WriteEndpoint")
 	v.Ternaryf("method", !w.Method.IsValid(), "invalid method: %v", w.Method)
+	v.Ternary("path", !validatePattern0.MatchString(string(w.Path)), "Path must not hold a query, a fragment, or whitespace")
+	for i := range w.Headers {
+		v.Exec(func() error { return validate.PathedError(w.Headers[i].Validate(), "headers", strconv.Itoa(i)) })
+	}
+	for i := range w.QueryParams {
+		v.Exec(func() error {
+			return validate.PathedError(w.QueryParams[i].Validate(), "query_params", strconv.Itoa(i))
+		})
+	}
 	if w.Message != nil {
 		v.Exec(func() error { return validate.PathedError(w.Message.Validate(), "message") })
 	}

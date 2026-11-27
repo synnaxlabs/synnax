@@ -33,7 +33,7 @@ export type Method = z.infer<typeof methodZ>;
 /** Header is a single HTTP header sent with a request. */
 export const headerZ = z.object({
   /** name is the header name, unique within a request. */
-  name: z.string().min(1, "name is required").default(""),
+  name: z.string().min(1, "Name is required").default(""),
   /** value is the header value. */
   value: z.string().default(""),
 });
@@ -42,7 +42,7 @@ export interface Header extends z.infer<typeof headerZ> {}
 /** QueryParam is a single URL query parameter sent with a request. */
 export const queryParamZ = z.object({
   /** parameter is the parameter name, unique within a request. */
-  parameter: z.string().min(1, "parameter is required").default(""),
+  parameter: z.string().min(1, "Parameter is required").default(""),
   /** value is the parameter value. */
   value: z.string().default(""),
 });
@@ -106,7 +106,7 @@ export interface WriteEndpoint extends z.infer<typeof writeEndpointZ> {}
 
 export const readConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
-  rate: z.number().gt(0).default(1),
+  rate: z.number().gt(0).max(1000).default(1),
   endpoints: readEndpointZ.array().default(() => []),
   nanFillEnabled: z.boolean().default(false),
 });
