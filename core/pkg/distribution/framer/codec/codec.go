@@ -950,13 +950,9 @@ func (c *Codec) readKey(h *decodeHeader) (int, error) {
 	}
 	pos, ok := h.state.dec.positions[channel.Key(k)]
 	if !ok {
-		return 0, unknownKeyError(channel.Key(k))
+		return 0, errors.Wrapf(validate.ErrValidation, "unknown channel key: %v", k)
 	}
 	return pos, nil
-}
-
-func unknownKeyError(key channel.Key) error {
-	return errors.Newf("unknown channel key: %v", key)
 }
 
 func (c *Codec) readHeader(h *decodeHeader) error {
