@@ -44,26 +44,25 @@ func (e *engine) intend(keys []ChannelKey, cleared bool) error {
 func (db *DB) dropLog(ctx context.Context, keys []ChannelKey) error {
 	keys = lo.Uniq(keys)
 	dropping := set.New(keys...)
-	snapshot, err := db.engine.state.Snapshot()
-	if err != nil {
-		return err
-	}
 	var dropped, clocks []ChannelKey
 	for _, k := range keys {
 		ch, live := db.mu.channels[k]
 		if !live {
 			ch, live = db.mu.hiddenChannels[k]
 		}
-		stored := db.engine.state.Channel(k)
-		if !live && stored == nil {
+		if !live && db.engine.state.Channel(k) == nil {
 			continue
 		}
-		if !ch.IsIndex && !timesItself(stored, k) {
+		timed, err := db.engine.state.Timed(k)
+		if err != nil {
+			return err
+		}
+		if !ch.IsIndex && !timed.Contains(k) {
 			dropped = append(dropped, k)
 			continue
 		}
-		if !db.indexUsedOutside(k, dropping) &&
-			!clockStoredOutside(snapshot, k, dropping) {
+		timed.Remove(k)
+		if !db.indexUsedOutside(k, dropping) && timed.IsSubsetOf(dropping) {
 			clocks = append(clocks, k)
 		}
 	}
@@ -128,37 +127,6 @@ func (db *DB) removeLogDir(key ChannelKey) error {
 		return err
 	}
 	return db.fs.SyncDir("")
-}
-
-// timesItself reports whether a stored segment of ch, the stored channel of key, has
-// key as its clock.
-func timesItself(ch *state.Channel, key ChannelKey) bool {
-	if ch == nil {
-		return false
-	}
-	return slices.ContainsFunc(ch.Segments, func(seg state.Segment) bool {
-		return seg.Clock == key
-	})
-}
-
-// clockStoredOutside reports whether a stored segment of a key outside dropping has
-// clock as its clock.
-func clockStoredOutside(
-	s *state.Snapshot,
-	clock ChannelKey,
-	dropping set.Set[ChannelKey],
-) bool {
-	for _, ch := range s.Channels {
-		if ch.Key == clock || dropping.Contains(ch.Key) {
-			continue
-		}
-		for _, seg := range ch.Segments {
-			if seg.Clock == clock {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 // indexUsedOutside reports whether a channel outside dropping, open or kept, uses
