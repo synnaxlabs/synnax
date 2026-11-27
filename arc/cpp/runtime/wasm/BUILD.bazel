@@ -38,6 +38,7 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         ":wasm",
+        "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/testutil:compile",
         "//arc/cpp/stl",
         "//arc/cpp/stl/strings",

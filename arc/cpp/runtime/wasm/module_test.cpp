@@ -27,6 +27,7 @@
 #include "x/cpp/telem/telem.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/testutil/compile.h"
 #include "arc/cpp/runtime/wasm/module.h"
 #include "arc/cpp/stl/stl.h"
@@ -719,5 +720,148 @@ TEST(JsonToWasmTest, ConvertsBoolFalse) {
     arc::types::Type type{.kind = arc::types::Kind::Bool};
     const auto result = json_to_wasm(val, type);
     EXPECT_EQ(result.i32(), 0);
+}
+
+/// @brief a function and the module that holds it.
+struct Opened {
+    std::shared_ptr<Module> mod;
+    Module::Function func;
+};
+
+/// @brief opens the function name of func_def, which takes two i32 triggers.
+Opened open_pair(
+    const std::string &func_def,
+    const std::string &name,
+    const std::uint32_t batch_capacity = DEFAULT_BATCH_CAPACITY,
+    const std::int64_t loop_budget = DEFAULT_LOOP_BUDGET
+) {
+    const auto client = new_test_client();
+    auto mod = ASSERT_NIL_P(
+        Module::open({
+            .program = testutil::compile_text(client, func_def),
+            .loop_budget = loop_budget,
+            .batch_capacity = batch_capacity,
+        })
+    );
+    auto func = ASSERT_NIL_P(mod->func(name));
+    return {std::move(mod), std::move(func)};
+}
+
+/// @brief returns the samples of the function over a and b, one call at a time.
+std::vector<int32_t> call_each(
+    Module::Function &func,
+    const x::telem::Series &a,
+    const x::telem::Series &b,
+    const size_t count
+) {
+    std::vector<int32_t> out;
+    out.reserve(count);
+    std::vector<Module::Function::Result> results;
+    for (size_t i = 0; i < count; i++) {
+        const std::vector<x::telem::SampleValue> params{
+            a.at(static_cast<int>(i % a.size())),
+            b.at(static_cast<int>(i % b.size())),
+        };
+        EXPECT_NIL(func.call(params, results));
+        out.push_back(std::get<int32_t>(results[0].value));
+    }
+    return out;
+}
+
+/// @brief it should repeat a shorter input across the batch, as it does sample by
+/// sample.
+TEST(BatchTest, RepeatsAShorterInput) {
+    auto [mod, func] = open_pair(
+        "func diff() {a i32, b i32} i32 { return a * 10 - b }",
+        "diff"
+    );
+    const auto a = x::telem::Series(std::vector<int32_t>{1, 2, 3, 4, 5});
+    for (const auto &b: frames_of(
+             x::telem::Series(static_cast<int32_t>(7)),
+             x::telem::Series(std::vector<int32_t>{7, -3})
+         )) {
+        auto out = x::telem::Series(x::telem::INT32_T, 5);
+        out.resize(5);
+        ASSERT_TRUE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 5, out)));
+        EXPECT_EQ(out.values<int32_t>(), call_each(func, a, b, 5));
+    }
+}
+
+/// @brief it should not run a batch over a series whose bits differ from the
+/// conversion of one sample at a time.
+TEST(BatchTest, RefusesASeriesOfAnotherKind) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum"
+    );
+    const auto a = x::telem::Series(std::vector<float>{1, 2});
+    const auto b = x::telem::Series(std::vector<int32_t>{1, 2});
+    auto out = x::telem::Series(x::telem::INT32_T, 2);
+    out.resize(2);
+    EXPECT_FALSE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 2, out)));
+}
+
+/// @brief it should run a series longer than the batch capacity in slices that give
+/// the samples of one call at a time.
+TEST(BatchTest, RunsALongSeriesInSlices) {
+    auto [mod, func] = open_pair(
+        "func diff() {a i32, b i32} i32 { return a * 10 - b }",
+        "diff",
+        256
+    );
+    std::vector<int32_t> values(100);
+    for (size_t i = 0; i < values.size(); i++)
+        values[i] = static_cast<int32_t>(i) - 50;
+    const auto a = x::telem::Series(values);
+    const auto b = x::telem::Series(std::vector<int32_t>{7, -3, 11});
+    auto out = x::telem::Series(x::telem::INT32_T, 100);
+    out.resize(100);
+    ASSERT_TRUE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 100, out)));
+    EXPECT_EQ(out.values<int32_t>(), call_each(func, a, b, 100));
+}
+
+/// @brief it should not run a batch when one sample does not fit the capacity.
+TEST(BatchTest, RefusesACapacityBelowOneSample) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum",
+        16
+    );
+    const auto a = x::telem::Series(std::vector<int32_t>{1, 2});
+    const auto b = x::telem::Series(std::vector<int32_t>{3, 4});
+    auto out = x::telem::Series(x::telem::INT32_T, 2);
+    out.resize(2);
+    EXPECT_FALSE(ASSERT_NIL_P(func.batch()->call({&a, &b}, 2, out)));
+}
+
+/// @brief it should stop a batch that runs while the module is interrupted.
+TEST(BatchTest, StopsWhenInterrupted) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum"
+    );
+    const auto a = x::telem::Series(std::vector<int32_t>{1, 2, 3});
+    const auto b = x::telem::Series(std::vector<int32_t>{4, 5, 6});
+    auto out = x::telem::Series(x::telem::INT32_T, 3);
+    out.resize(3);
+    mod->interrupt();
+    ASSERT_OCCURRED_AS_P(func.batch()->call({&a, &b}, 3, out), errors::INTERRUPTED);
+}
+
+/// @brief it should stop a batch that uses the whole loop budget.
+TEST(BatchTest, StopsAtTheLoopBudget) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum",
+        DEFAULT_BATCH_CAPACITY,
+        10
+    );
+    std::vector<int32_t> values(100, 1);
+    const auto a = x::telem::Series(values);
+    const auto b = x::telem::Series(values);
+    auto out = x::telem::Series(x::telem::INT32_T, 100);
+    out.resize(100);
+    mod->reset_loop_budget();
+    ASSERT_OCCURRED_AS_P(func.batch()->call({&a, &b}, 100, out), errors::LOOP_BUDGET);
 }
 }
