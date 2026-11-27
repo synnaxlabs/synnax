@@ -131,12 +131,14 @@ var _ = Describe("Text upgrade check", func() {
 		n := testutil.NewNode(ctx)
 		storeMetrics(ctx, n)
 		// v0.62 reported this graph as a diagnostic when it compiled it.
-		storeGraph(ctx, n, ir.Functions{{
+		key := storeGraph(ctx, n, ir.Functions{{
 			Key:     "scale",
 			Inputs:  types.Params{{Name: "scale", Type: types.F64()}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
 			Body:    ir.Body{Raw: "{ return Metrics * scale }"},
 		}})
 		MustOpen(svctestutil.OpenLayer(ctx, n))
+		Expect(bodiesOf(ctx, n, key)).To(Equal([]string{"{ return Metrics * scale }"}))
+		Expect(keptStatuses(ctx, n)).To(HaveLen(1))
 	})
 })

@@ -33,12 +33,16 @@ import (
 )
 
 var _ = Describe("Rewriter check", func() {
-	// Channel 1 held "Metrics" and channel 2 held "sensor" before the upgrade.
+	// Channels 1 to 3 held "Metrics", "sensor", and "now" before the upgrade.
 	var w v1.Rewriter
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		channels := map[v1.Key]v1.TextChannel{}
-		for i, r := range [][2]string{{"Metrics", "Metrics_2"}, {"sensor", "sensor_2"}} {
+		for i, r := range [][2]string{
+			{"Metrics", "Metrics_2"},
+			{"sensor", "sensor_2"},
+			{"now", "now_2"},
+		} {
 			key := v1.Key(i + 1)
 			channels[key] = v1.TextChannel{Name: r[1], DataType: telem.Float64T}
 			Expect(resource.StageRename(
@@ -66,6 +70,7 @@ var _ = Describe("Rewriter check", func() {
 	upgraded := symtestutil.StaticResolver{
 		channel("Metrics_2", 1),
 		channel("sensor_2", 2),
+		channel("now_2", 3),
 	}
 	// errorsOf returns the error diagnostics of the live analyzer on src, a calculation
 	// or a program, with the channel names that r resolves.
@@ -174,4 +179,37 @@ var _ = Describe("Rewriter check", func() {
 			"func f() f64 {\n\treturn Metrics\n}\nMetrics_2 := 1.0",
 		), []int{2}),
 	)
+
+	It("Should report a read of a channel named like a prelude function when a later "+
+		"global holds its name", func(ctx SpecContext) {
+		// Before the global, the root binds the channel ahead of the prelude.
+		src := program("func f() f64 {\n\treturn now\n}\nnow := 1.0")
+		res := MustSucceed(w.Rewrite(ctx, src))
+		Expect(res.Text).To(Equal(src.Text))
+		Expect(keptLines(res)).To(Equal([]int{2}))
+	})
+
+	It("Should report a read in the second line of a multi-line initializer of a "+
+		"local of the old name", func(ctx SpecContext) {
+		src := calculation("Metrics := f`a\n{Metrics}`\nreturn 1.0")
+		res := MustSucceed(w.Rewrite(ctx, src))
+		Expect(res.Text).To(Equal(src.Text))
+		Expect(keptLines(res)).To(Equal([]int{2}))
+	})
+
+	It("Should keep and report a graph body whose input holds the key of a sibling "+
+		"function, as v0.62 could not bind it", func(ctx SpecContext) {
+		src := v1.Source{
+			Text:      "{ return Metrics * a }",
+			Form:      v1.FormBody,
+			Function:  "f",
+			Functions: []string{"f", "a"},
+			Inputs:    types.Params{{Name: "a", Type: types.F64()}},
+			Outputs:   types.Params{{Name: "output", Type: types.F64()}},
+		}
+		res := MustSucceed(w.Rewrite(ctx, src))
+		Expect(res.Text).To(Equal(src.Text))
+		Expect(res.Parsed).To(BeFalse())
+		Expect(keptLines(res)).To(Equal([]int{1}))
+	})
 })
