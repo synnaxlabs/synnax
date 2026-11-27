@@ -64,7 +64,7 @@ func (f *OpFS) add(kind, op string) {
 
 // Ops returns the recorded operations in order, each as its kind and its file name, as
 // in "sync a.seg". A write also holds its offset and length: "write a.seg 0 512". A
-// failed sync or write records nothing.
+// sync or write that FailSync, FailSyncDir, or FailWrite fails records nothing.
 func (f *OpFS) Ops() []string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -156,8 +156,8 @@ func (f *OpFS) SyncDir(name string) error {
 	return f.sync(name, "syncdir", err, func() error { return f.FS.SyncDir(name) })
 }
 
-// sync runs one sync of name, held and failed as set, and records it as kind when it
-// passes.
+// sync runs one sync of name, held and failed as set, and records it as kind when err
+// is nil.
 func (f *OpFS) sync(name, kind string, err error, do func() error) error {
 	f.mu.Lock()
 	release := f.release

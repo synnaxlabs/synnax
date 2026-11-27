@@ -116,7 +116,7 @@ func NewWriter(h *Handle, cfg Config) *Writer {
 // sync. p holds whole samples. Write stages at most one block and its trailer, so a
 // large write takes one write call per block. A failed write puts the writer back to
 // its last commit. A write that ends inside a variable-density sample, or that would
-// grow the stream past 4 GiB, fails and changes nothing.
+// grow the stream past 4 GiB, fails with validate.ErrValidation and changes nothing.
 func (w *Writer) Write(p []byte) error {
 	if w.at.length+int64(len(p)) > math.MaxUint32 {
 		return errors.Wrapf(
