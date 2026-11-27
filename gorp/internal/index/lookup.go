@@ -57,15 +57,15 @@ func (l *Lookup[S, K, V]) Wait(ctx context.Context) error {
 	return l.population.wait(ctx)
 }
 
-// Set maps key to value in committed state, replacing any prior value of key.
-func (l *Lookup[S, K, V]) Set(key K, value V) {
+// setCommitted maps key to value in committed state, replacing any prior value of key.
+func (l *Lookup[S, K, V]) setCommitted(key K, value V) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.put(key, value)
 }
 
-// Delete removes key from committed state.
-func (l *Lookup[S, K, V]) Delete(key K) {
+// deleteCommitted removes key from committed state.
+func (l *Lookup[S, K, V]) deleteCommitted(key K) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	l.remove(key)
@@ -75,7 +75,7 @@ func (l *Lookup[S, K, V]) Delete(key K) {
 // state when scope commits.
 func (l *Lookup[S, K, V]) Stage(scope S, key K, value V) {
 	if isNone(scope) {
-		l.Set(key, value)
+		l.setCommitted(key, value)
 		return
 	}
 	l.overlay.load(scope).set(key, []V{value})
@@ -85,7 +85,7 @@ func (l *Lookup[S, K, V]) Stage(scope S, key K, value V) {
 // state when scope commits.
 func (l *Lookup[S, K, V]) StageDelete(scope S, key K) {
 	if isNone(scope) {
-		l.Delete(key)
+		l.deleteCommitted(key)
 		return
 	}
 	l.overlay.load(scope).delete(key)
