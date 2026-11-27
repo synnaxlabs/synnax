@@ -80,6 +80,7 @@ func (s *storage) exec(ctx context.Context, req Request, seqNum int) (bool, erro
 	emit := func(fr cesium.Frame) error {
 		return signal.SendUnderContext(ctx, s.Out.Inlet(), Response{
 			Variant: ResponseVariantData,
+			// main's wire labels the data of a Prev as CommandNext too.
 			Command: CommandNext,
 			SeqNum:  seqNum,
 			Frame:   frame.NewFromStorage(fr),
