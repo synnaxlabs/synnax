@@ -15,6 +15,8 @@ export * from "@/platform/icd/EnumValues";
 export * from "@/platform/icd/fieldNames";
 export * from "@/platform/icd/Fields";
 export * from "@/platform/icd/Formats";
+export * from "@/platform/icd/FormattedField";
+export * from "@/platform/icd/Identifier";
 export * from "@/platform/icd/inferred";
 export * from "@/platform/icd/Match";
 export * from "@/platform/icd/MessageFormatField";

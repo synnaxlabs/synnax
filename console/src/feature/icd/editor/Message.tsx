@@ -15,12 +15,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type CrudeTimeSpan, deep, type payload, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import {
-  FormattedField,
-  orError,
-  parseUnsigned,
-} from "@/feature/icd/editor/FormattedField";
-import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
 
@@ -116,8 +110,8 @@ export const Message = ({ path }: MessageProps): ReactElement => {
         <>
           <Form.Section title="Frame">
             <Flex.Box x>
-              <Identifier path={binary} />
-              <FormattedField<number>
+              <ICD.Identifier path={binary} />
+              <ICD.FormattedField<number>
                 path={binary.length}
                 label="Length"
                 placeholder="Variable"
@@ -125,11 +119,14 @@ export const Message = ({ path }: MessageProps): ReactElement => {
                 optional
                 format={String}
                 parse={(text) =>
-                  orError(parseUnsigned(text), "Length must be a whole number of bytes")
+                  ICD.orError(
+                    ICD.parseUnsigned(text),
+                    "Length must be a whole number of bytes",
+                  )
                 }
               />
             </Flex.Box>
-            <IdentifierFields path={binary} />
+            <ICD.IdentifierFields path={binary} />
           </Form.Section>
           <Form.Section title="Fields">
             <ICD.Fields path={binary.fields} encoding="binary" />
