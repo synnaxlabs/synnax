@@ -15,12 +15,15 @@ cc_library(
     srcs = [
         "connection.cpp",
         "pool.cpp",
+        "server.cpp",
     ],
     hdrs = [
         "connection.h",
+        "server.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/opcua/server",
         "//driver/errors",
         "//driver/opcua/certificate",
         "//driver/opcua/errors",
@@ -45,6 +48,7 @@ cc_test(
         "keepalive_test.cpp",
         "pool_test.cpp",
         "security_test.cpp",
+        "server_test.cpp",
     ],
     deps = [
         ":connection",
