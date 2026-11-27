@@ -56,8 +56,7 @@ def from_stored(raw: Mapping[str, Any]) -> dict[str, Any]:
 
 _TLS_FLAGS_DISAGREE_MSG = (
     "insecure and the deprecated secure disagree. secure must be the inverse of "
-    "insecure, and SYNNAX_SECURE the inverse of SYNNAX_CLIENT_INSECURE. Give only "
-    "insecure."
+    "insecure. Give only insecure."
 )
 
 _SECURE_DEPRECATED_MSG = (

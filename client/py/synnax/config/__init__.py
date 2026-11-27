@@ -235,8 +235,9 @@ def _env_bool(env: Mapping[str, str], name: str) -> bool | None:
 
 def load_env_options(env: Mapping[str, str]) -> PartialOptions:
     """Loads the options in the SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
-    SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT environment variables, and in the
-    deprecated SYNNAX_SECURE. Values are stripped, and an empty value counts as unset.
+    SYNNAX_CLIENT_INSECURE, and SYNNAX_CA_CERT environment variables. The deprecated
+    SYNNAX_SECURE applies only when SYNNAX_CLIENT_INSECURE is unset. Values are
+    stripped, and an empty value counts as unset.
 
     :param env: The environment variables, such as os.environ.
     :returns: The options that the variables set.
@@ -260,7 +261,9 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
         opts["port"] = port
     if (insecure := _env_bool(env, "SYNNAX_CLIENT_INSECURE")) is not None:
         opts["insecure"] = insecure
-    if (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
+    # The Core reads SYNNAX_ variables as its own flags, so in a shared shell the old
+    # name can hold a value meant for the Core.
+    elif (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
         opts["secure"] = secure
     if ca_cert := _env(env, "SYNNAX_CA_CERT"):
         opts["ca_cert"] = os.path.expanduser(ca_cert)

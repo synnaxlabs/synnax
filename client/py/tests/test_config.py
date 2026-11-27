@@ -621,7 +621,6 @@ class TestLoadEnvOptions:
                 **ENV,
                 "SYNNAX_PORT": "9091",
                 "SYNNAX_CLIENT_INSECURE": "TRUE",
-                "SYNNAX_SECURE": "false",
                 "SYNNAX_CA_CERT": "~/ca.crt",
             }
         ) == {
@@ -629,7 +628,6 @@ class TestLoadEnvOptions:
             "api_key": "syk_env",
             "port": 9091,
             "insecure": True,
-            "secure": False,
             "ca_cert": os.path.expanduser("~/ca.crt"),
         }
 
@@ -1065,35 +1063,49 @@ class TestLoadOptions:
             )
         assert opts.insecure == insecure
 
-    @pytest.mark.parametrize(
-        ("args", "env"),
-        [
-            ({"insecure": True, "secure": True}, {}),
-            ({"insecure": False, "secure": False}, {}),
-            ({}, {"SYNNAX_CLIENT_INSECURE": "true", "SYNNAX_SECURE": "true"}),
-            ({}, {"SYNNAX_CLIENT_INSECURE": "false", "SYNNAX_SECURE": "false"}),
-        ],
-        ids=["args-true", "args-false", "env-true", "env-false"],
-    )
+    @pytest.mark.parametrize("insecure", [True, False])
     def test_disagreeing_insecure_and_secure(
-        self,
-        clusters: Clusters,
-        desktop_file: Path,
-        args: dict[str, Any],
-        env: dict[str, str],
+        self, clusters: Clusters, desktop_file: Path, insecure: bool
     ) -> None:
-        """Should reject insecure and the deprecated secure from one source when they
+        """Should reject the insecure and deprecated secure arguments when they
         disagree.
         """
         with pytest.raises(ValidationError, match="disagree"):
             load_options(
                 host="h",
                 api_key="syk_k",
-                **args,
+                insecure=insecure,
+                secure=insecure,
+                clusters=clusters,
+                desktop_file=desktop_file,
+            )
+
+    @pytest.mark.parametrize("insecure", [True, False])
+    def test_insecure_variable_wins_over_secure(
+        self, clusters: Clusters, desktop_file: Path, insecure: bool
+    ) -> None:
+        """Should take SYNNAX_CLIENT_INSECURE over a disagreeing SYNNAX_SECURE, with no
+        warning, since the old name can hold a value meant for the Core.
+        """
+        env = {
+            "SYNNAX_CLIENT_INSECURE": str(insecure),
+            "SYNNAX_SECURE": str(insecure),
+        }
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            opts, _ = load_options(
+                host="h",
+                api_key="syk_k",
                 env=env,
                 clusters=clusters,
                 desktop_file=desktop_file,
             )
+        assert opts.insecure == insecure
+
+    def test_insecure_variable_ignores_invalid_secure(self) -> None:
+        """Should not read SYNNAX_SECURE when SYNNAX_CLIENT_INSECURE is set."""
+        env = {"SYNNAX_CLIENT_INSECURE": "true", "SYNNAX_SECURE": "maybe"}
+        assert load_env_options(env) == {"insecure": True}
 
     @pytest.mark.parametrize(
         ("args", "env"),

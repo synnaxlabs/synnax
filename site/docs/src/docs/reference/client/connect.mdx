@@ -335,10 +335,11 @@ Two groups come whole from the first source that sets one of their options:
   store of the operating system, even when `SYNNAX_CA_CERT` is set.
 
 `secure` and `SYNNAX_SECURE` still work in 0.63 as the inverse of `insecure` and
-`SYNNAX_CLIENT_INSECURE`, and they stop working in 0.64. The client warns only when it
-reads the old name without the new one. To serve clients older and newer than 0.63, set
-both names with values that agree. When they disagree, the client raises
-`sy.ValidationError`.
+`SYNNAX_CLIENT_INSECURE`, and they stop working in 0.64. The client warns when it reads
+the old name without the new one. When you give both `secure` and `insecure` and they
+disagree, the client raises `sy.ValidationError`. When `SYNNAX_CLIENT_INSECURE` is set,
+the client ignores `SYNNAX_SECURE`, because the Core reads `SYNNAX_` variables as its
+own flags.
 
 To keep the API key out of your code, give the host and set only `SYNNAX_API_KEY`:
 
@@ -417,8 +418,8 @@ cannot show. If a script stops at `sy.Synnax()` over SSH, set the environment va
 
 Both clients connect with TLS by default. For how to give the Core a certificate, see
 [Set up TLS](/reference/enterprise/tls). A Core that runs with `--insecure` does not
-serve TLS. To connect to it, set `insecure` to `True` in Python or `secure` to `false` in
-TypeScript.
+serve TLS. To connect to it, set `insecure` to `True` in Python or `secure` to `false`
+in TypeScript.
 
 <Client.Tabs exclude={["console"]}>
 
