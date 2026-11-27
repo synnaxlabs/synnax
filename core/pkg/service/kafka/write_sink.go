@@ -19,10 +19,12 @@ import (
 	"time"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -49,7 +51,7 @@ type target struct {
 func newTarget(
 	wt WriteTarget,
 	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
+	channels map[channel.Key]icdv0.Channel,
 ) (*target, error) {
 	name := "target " + wt.Topic
 	docs, err := write.NewDocuments(wt.Message, ic, channels, name)
@@ -61,7 +63,7 @@ func newTarget(
 		t.key = []byte(wt.RecordKey)
 	}
 	for _, key := range docs.Channels() {
-		t.indexes = append(t.indexes, channels[key].Index())
+		t.indexes = append(t.indexes, channels[key].IndexKey)
 	}
 	return t, nil
 }
@@ -303,7 +305,7 @@ func (f *factory) configureWrite(
 			validate.ErrValidation, "targets: the task has no enabled targets",
 		)
 	}
-	targets, streamed, err := f.buildWriteTargets(ctx, enabled)
+	targets, streamed, err := f.buildWriteTargets(ctx, &cfg, enabled)
 	if err != nil {
 		return nil, false, err
 	}
@@ -322,37 +324,38 @@ func (f *factory) configureWrite(
 	return wt, cfg.AutoStart, nil
 }
 
-// buildWriteTargets builds the enabled targets, and returns them with the channels
-// that their write task streams.
+// buildWriteTargets builds the enabled targets of cfg, and returns them with the
+// channels that their write task streams.
 func (f *factory) buildWriteTargets(
 	ctx context.Context,
+	cfg *WriteConfig,
 	enabled []WriteTarget,
 ) ([]*target, channel.Keys, error) {
-	var keys channel.Keys
-	icdKeys := make([]icd.Key, 0, len(enabled))
-	for _, wt := range enabled {
-		icdKeys = append(icdKeys, wt.ICD)
-		for _, b := range write.ChannelBindings(wt.Message) {
-			keys = append(keys, b.Channel)
-		}
-	}
-	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys.Unique())
-	if err != nil {
-		return nil, nil, err
-	}
-	icds, err := retrieveICDs(ctx, f.cfg.DB, f.cfg.ICD, lo.Uniq(icdKeys))
-	if err != nil {
-		return nil, nil, err
-	}
-	targets := make([]*target, 0, len(enabled))
-	streamed := keys
-	for _, wt := range enabled {
-		built, err := newTarget(wt, icds[wt.ICD], channels)
+	var (
+		targets  = make([]*target, 0, len(enabled))
+		streamed channel.Keys
+	)
+	if err := f.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		c, err := f.writes.NewChecker(ctx, snap, writesOf(cfg), nil, nil)
 		if err != nil {
-			return nil, nil, err
+			return err
 		}
-		targets = append(targets, built)
-		streamed = append(streamed, lo.Compact(built.indexes)...)
+		for _, wt := range enabled {
+			ic, err := c.ICD(wt.ICD)
+			if err != nil {
+				return err
+			}
+			built, err := newTarget(wt, ic, c.Channels())
+			if err != nil {
+				return err
+			}
+			targets = append(targets, built)
+			streamed = append(streamed, built.docs.Channels()...)
+			streamed = append(streamed, lo.Compact(built.indexes)...)
+		}
+		return nil
+	}); err != nil {
+		return nil, nil, err
 	}
 	return targets, streamed.Unique(), nil
 }
