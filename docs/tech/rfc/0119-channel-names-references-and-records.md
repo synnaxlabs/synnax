@@ -763,10 +763,10 @@ or without the flag.
   of a channel that a device binds is refused, as on `main`. A `delete` pick on an entry
   that does not offer it fails as an invalid choice. A heal link offers `retarget`
   (default) or `keep`, a text holder `update_text` (default) or `keep`, an arriving
-  channel's list `drop` (default) or `cancel`, and the displaced channel of a rewire
-  `cancel` (default), `rename`, or `delete` (§4.13). Each entry names its record by
-  resource ID. A tombstone entry uses the dead channel's ID and carries its path. Hidden
-  entries are one count per effect.
+  channel's list that holds a past holder `cancel` (default) or `drop` (§4.12), and the
+  displaced channel of a rewire `cancel` (default), `rename`, or `delete` (§4.13). Each
+  entry names its record by resource ID. A tombstone entry uses the dead channel's ID
+  and carries its path. Hidden entries are one count per effect.
 - **Policies**: Each pair of a Gorp table and a reference with a channel link maps to
   exactly one policy: `retarget`, `keep`, or a text holder. The wiring site gives
   `channel/tree` the map and injects the two text holders, Arc and calculation. The
@@ -827,8 +827,10 @@ or without the flag.
   each folder's live members and tombstones to its parent and deletes the folder, in one
   action. A tombstone that lands on a taken path drops, and the plan lists it as
   dropped. A live member that lands on a tombstone's path heals with the defaults, as a
-  create does (§4.12). A folder delete or ungroup takes no picks: its entries offer
-  none, and the API refuses one that holds a pick or a hidden pick.
+  create does (§4.12). If its list holds a past holder, the default `cancel` fails the
+  ungroup; a move of that channel with the pick `drop` comes first. A folder delete or
+  ungroup takes no picks: its entries offer none, and the API refuses one that holds a
+  pick or a hidden pick.
 - **Routes**: `/impact/plan` and `/impact/apply` take one change union, with a record
   arm that `impact` serves and the channel tree arms that `channel/tree` serves. The
   response holds an `impact.Plan`, keyed like the change. The change union and the route
@@ -887,16 +889,15 @@ Tombstone struct {
   binds at the next compile. A graph-mode Arc that holds the dead key in a node config
   is a key holder and gets an entry. A list of gap entries only covers no time, so in
   every heal it drops with no choice. An arriving channel's list that holds a past
-  holder (`from` not 0) gets an entry: `drop` (default; that history of the path it
-  leaves goes, and the past holders keep their data) or `cancel`, so the result writes
-  one list. A heal with no picks fails on such a list, by every route: a rename or move
-  with no picks, and an ungroup, which takes no picks, as a rename onto a taken path
-  with no picks fails (§4.13). The error names the channel only to a caller who can
-  retrieve it, and else gives a hidden count (§4.11). A create holds no list, and
-  `Declare`'s suffix skips tombstone paths, so neither meets one. `uses` leaves out
-  tombstone holders, which have no resource type. A script that makes channels again on
-  each run heals every display on each run, and a remake for another purpose heals by
-  default too; only the dialog shows it.
+  holder (`from` not 0) gets an entry: `cancel` (default) or `drop` (that history of the
+  path it leaves goes, and the past holders keep their data), so the result writes one
+  list. So a heal with no picks fails on such a list, by every route (a rename or move
+  with no picks, an ungroup), as a rewire with no picks does (§4.13). The error names
+  the channel only to a caller who can retrieve it, and else gives a hidden count
+  (§4.11). A create holds no list, and `Declare`'s suffix skips tombstone paths, so
+  neither meets one. `uses` leaves out tombstone holders, which have no resource type. A
+  script that makes channels again on each run heals every display on each run, and a
+  remake for another purpose heals by default too; only the dialog shows it.
 
 ### 4.13 Rewires and measured reads
 
