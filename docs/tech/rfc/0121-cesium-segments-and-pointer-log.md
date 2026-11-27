@@ -557,10 +557,12 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    queue right after the last entries of log `g`. The state owner keeps a durable view,
    fed by acked entries in log order, apart from the visible view that `Commit`
    publishes, and it answers with the durable view, which covers exactly log `g`. In the
-   same step it marks sealed each open segment that no writer holds, so no writer takes
-   it over, and sends those segments to `L`, which logs a Seal for each in log `g + 1`.
-   It sends the durable view, as references to immutable channel states, to `C`. `L`
-   sends later batches to log `g + 1`. A crash now recovers from head `g` and both logs.
+   same step it marks sealed each open segment that no writer holds and that has reached
+   a limit of §5.1, and sends those segments to `L`, which logs a Seal for each in log
+   `g + 1`. Every other unheld open segment stays open, so a later session takes it over
+   (§5.8), and the head grows with keys and clocks, never with sessions. It sends the
+   durable view, as references to immutable channel states, to `C`. `L` sends later
+   batches to log `g + 1`. A crash now recovers from head `g` and both logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
    `<p>.part`, write its body, sync, write its header sector, sync. A part that fails a
    read during its rewrite stays as it is, with its marks in the head.
@@ -719,15 +721,15 @@ frame codec merges series whose alignments touch
 a stretch at index 0 (`client/ts/src/framer/cache/join/join.ts:128-136`). The table
 holds sizing assumptions.
 
-| Case                                              | Per day   | Result                        |
-| ------------------------------------------------- | --------- | ----------------------------- |
-| 250 clocks, 20 sessions each per day              | 5,000     | 2^31 numbers last 1,176 years |
-| 5,000 clocks, 20 sessions each per day            | 100,000   | 2^31 numbers last 58 years    |
-| A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years   |
-| Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years |
-| Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years |
-| 100 script sessions per day, 10 channels each     | 0         | Each takes over its files     |
-| A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start    |
+| Case                                              | Per day   | Result                                     |
+| ------------------------------------------------- | --------- | ------------------------------------------ |
+| 250 clocks, 20 sessions each per day              | 5,000     | 2^31 numbers last 1,176 years              |
+| 5,000 clocks, 20 sessions each per day            | 100,000   | 2^31 numbers last 58 years                 |
+| A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years                |
+| Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years              |
+| Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years              |
+| 100 script sessions per day, 10 channels each     | 0         | Each takes over its files, across switches |
+| A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start                 |
 
 A script session continues its clock (§5.8) and takes over its open segments, so one
 after a clean close starts no segment, and takes no number when it starts within the gap
