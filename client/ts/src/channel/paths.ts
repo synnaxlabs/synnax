@@ -86,9 +86,11 @@ export class Paths {
         return;
       }
       if (event.value.scope !== "channel") return;
-      if (query.isChange(event))
+      if (query.isChange(event)) {
+        const changed = new Set([event.key]);
         for (const key of this.reading.keys())
-          if (this.passes(key, new Set([event.key]))) this.reading.delete(key);
+          if (this.passes(key, changed)) this.reading.delete(key);
+      }
       const before = this.folders.get(event.key);
       const after = folderOf(event.value);
       this.folders.set(event.key, after);
