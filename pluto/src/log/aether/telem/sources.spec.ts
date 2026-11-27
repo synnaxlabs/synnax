@@ -159,6 +159,24 @@ describe("StreamMultiChannelLog", () => {
     expect(log.streamedLines).toBe(10);
   });
 
+  it("should not count history that loads after a failed first read", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    let failed = true;
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        if (failed) {
+          failed = false;
+          throw new Unreachable();
+        }
+        return core.readLatest(keys, count, tr);
+      },
+    });
+    const log = open(core, client, { channels: [a] });
+    await settle(log, HISTORY);
+    expect(log.streamedLines).toBe(0);
+  });
+
   it("should show stored samples of any age", async () => {
     const core = createCore({ now: START.add(TimeSpan.days(2)), rate: Rate.hz(0.01) });
     const [a] = core.data.map((c) => c.key);

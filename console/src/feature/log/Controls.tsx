@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/log/Controls.css";
+
 import { Badge } from "@synnaxlabs/lyra/badge";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -46,7 +48,7 @@ export const Controls = (): ReactElement => {
       >
         {hold ? <Icon.Play /> : <Icon.Pause />}
         {hold && newLines > 0 && (
-          <Badge.Badge status="success">
+          <Badge.Badge status="success" className={CSS.BE("log-controls", "new-lines")}>
             {`${newLines} new ${newLines === 1 ? "line" : "lines"}`}
           </Badge.Badge>
         )}

@@ -107,6 +107,8 @@ interface Meta {
   appended: number;
   // The appended count that streamedLines already holds the samples before.
   counted: number;
+  // Whether a snapshot without an error was read, so later samples streamed in.
+  read: boolean;
   // Whether the channel stores samples, so that older pages can read them.
   stored: boolean;
   // Samples that wait for their times, oldest first.
@@ -275,6 +277,7 @@ export class StreamMultiChannelLog
         snapshot: undefined,
         appended: 0,
         counted: 0,
+        read: false,
         pending: [],
         oldest: undefined,
         exhausted: !meta.stored,
@@ -745,7 +748,6 @@ export class StreamMultiChannelLog
       series.length < PAGE_SIZE
     )
       meta.exhausted = true;
-    const streamed = meta.snapshot != null;
     let skip = Math.max(0, series.length - appended + meta.appended);
     let position = appended - series.length + skip;
     for (const s of series.series) {
@@ -755,11 +757,12 @@ export class StreamMultiChannelLog
           value: s.asString(i, true),
           text: s.dataType.equals(DataType.STRING),
           receivedAt,
-          streamed: streamed && position >= meta.counted,
+          streamed: meta.read && position >= meta.counted,
         });
       skip = Math.max(0, skip - s.length);
     }
     [meta.snapshot, meta.appended] = [snapshot, appended];
+    if (snapshot.status.variant !== "error") meta.read = true;
   }
 
   // Turns the queued samples that have times into entries. A sample that waits past
@@ -930,6 +933,7 @@ const toMeta = (ch: channel.Channel): Meta => {
     stored,
     appended: 0,
     counted: 0,
+    read: false,
     pending: [],
     dropWarned: false,
     exhausted: !stored,
