@@ -970,14 +970,18 @@ new fields and no break):
 2. **Authority in the spool**: The forwarder spools the frame after the local authority
    filter, as RFC 0113 §3.3 does, and records with it the keys that the filter dropped.
    When the dropped set of a frame changes, the drainer closes its writer and opens one
-   on the present keys, so the Core's group check sees whole groups. The new writer
-   continues its clock only when no live writer holds it, else it leases a new clock for
-   the rest of the segment, and a change of the dropped set is rare. So each dropped key
-   pauses, the rest of its group writes, and the authority of the outage holds. Until
-   Phase 50 an index key is the time of its group: when the dropped set of a frame holds
-   one, the drainer drops every channel of that index from the frame and counts their
-   samples in its status, so it never opens a data channel without its index. From Phase
-   50 authority is per channel, and the case goes.
+   on the present keys, so the Core's group check sees whole groups. From Phase 50 the
+   new writer continues its clock only when no live writer holds it, else it leases a
+   new clock for the rest of the segment. Until then its group names its index, so it
+   writes on the index clock beside the live writer, with segments of its own, as the
+   Sparkplug history fill does (RFC 0121 §5.8). A change of the dropped set is rare. So
+   each dropped key pauses, the rest of its group writes, and the authority of the
+   outage holds. Until Phase 50 an index key is the time of its group: when the dropped
+   set of a frame holds one, the drainer drops every channel of that index from the
+   frame and counts their samples in its status, so it never opens a data channel
+   without its index. From Phase 50 authority is per channel, and the rule holds only
+   for a segment spooled with index keys, so such a segment still drains its good
+   frames.
 3. **Phases**: RFC 0113 Phase 7, which touches `driver/spool` and is not built, takes
    item 2 and #6165's index-keyed records, since item 1 needs the time groups of Phase
    30 and the group positions of Phase 31. Phase 31 here follows RFC 0113 Phase 7: it
