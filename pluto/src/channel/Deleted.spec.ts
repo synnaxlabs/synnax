@@ -40,6 +40,27 @@ const renderDeleted = async (as: Client, key: channel.Key) => {
   return renderHook(() => Channel.useDeleted(key), { wrapper });
 };
 
+const createViewer = async (readable: channel.Key): Promise<Client> =>
+  await createTestClientWithPolicy(client, {
+    name: id.create(),
+    objects: [
+      channel.resourceID(readable),
+      framer.TYPE_RESOURCE_ID,
+      user.TYPE_RESOURCE_ID,
+      access.role.TYPE_RESOURCE_ID,
+      access.policy.TYPE_RESOURCE_ID,
+    ],
+    actions: ["retrieve"],
+  });
+
+const renderAnyDeleted = async (as: Client, keys: channel.Key[]) => {
+  const wrapper = await createAsyncSynnaxWrapper({ client: as });
+  return renderHook(({ keys }) => Channel.useAnyDeleted(keys), {
+    wrapper,
+    initialProps: { keys },
+  });
+};
+
 describe("Channel.useDeleted", () => {
   it("should report a channel the Core deleted", async () => {
     const ch = await createChannel();
@@ -62,18 +83,58 @@ describe("Channel.useDeleted", () => {
 
   it("should not report a channel the user cannot read", async () => {
     const [readable, hidden] = await Promise.all([createChannel(), createChannel()]);
-    const viewer = await createTestClientWithPolicy(client, {
-      name: id.create(),
-      objects: [
-        channel.resourceID(readable.key),
-        framer.TYPE_RESOURCE_ID,
-        user.TYPE_RESOURCE_ID,
-        access.role.TYPE_RESOURCE_ID,
-        access.policy.TYPE_RESOURCE_ID,
-      ],
-      actions: ["retrieve"],
-    });
+    const viewer = await createViewer(readable.key);
     const { result } = await renderDeleted(viewer, hidden.key);
+    await sleep.sleep(TimeSpan.milliseconds(300));
+    expect(result.current).toBe(false);
+  });
+});
+
+describe("Channel.useAnyDeleted", () => {
+  it("should report a deleted channel among several", async () => {
+    const [kept, gone] = await Promise.all([createChannel(), createChannel()]);
+    await client.channels.delete(gone.key);
+    const { result } = await renderAnyDeleted(client, [kept.key, gone.key]);
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should report a channel that the Core deletes after the hook mounts", async () => {
+    const ch = await createChannel();
+    const { result } = await renderAnyDeleted(client, [ch.key]);
+    await sleep.sleep(TimeSpan.milliseconds(300));
+    expect(result.current).toBe(false);
+    await client.channels.delete(ch.key);
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it("should not report channels that exist", async () => {
+    const [a, b] = await Promise.all([createChannel(), createChannel()]);
+    const { result } = await renderAnyDeleted(client, [a.key, b.key]);
+    await sleep.sleep(TimeSpan.milliseconds(300));
+    expect(result.current).toBe(false);
+  });
+
+  it("should follow a change in the channels", async () => {
+    const [kept, gone] = await Promise.all([createChannel(), createChannel()]);
+    await client.channels.delete(gone.key);
+    const { result, rerender } = await renderAnyDeleted(client, [kept.key]);
+    await sleep.sleep(TimeSpan.milliseconds(300));
+    expect(result.current).toBe(false);
+    rerender({ keys: [kept.key, gone.key] });
+    await waitFor(() => expect(result.current).toBe(true));
+    rerender({ keys: [kept.key] });
+    await waitFor(() => expect(result.current).toBe(false));
+  });
+
+  it("should not report the zero key", async () => {
+    const { result } = await renderAnyDeleted(client, [0]);
+    expect(result.current).toBe(false);
+  });
+
+  it("should not report a channel the user cannot read", async () => {
+    const [readable, hidden] = await Promise.all([createChannel(), createChannel()]);
+    const viewer = await createViewer(readable.key);
+    const { result } = await renderAnyDeleted(viewer, [readable.key, hidden.key]);
     await sleep.sleep(TimeSpan.milliseconds(300));
     expect(result.current).toBe(false);
   });

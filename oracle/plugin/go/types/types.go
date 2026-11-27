@@ -22,6 +22,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	refdomain "github.com/synnaxlabs/oracle/domain/ref"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -667,7 +668,10 @@ func processDecl(d orderedDecl, data *templateData) (declData, error) {
 		td := processTypeDef(d.typ, data)
 		return declData{TypeDef: &td}, nil
 	case declEnum:
-		e := processEnum(d.typ)
+		e, err := processEnum(d.typ)
+		if err != nil {
+			return declData{}, err
+		}
 		return declData{Enum: &e}, nil
 	case declStruct:
 		s, err := processStruct(d.typ, data)
@@ -763,28 +767,37 @@ func orderDecls(
 	return decls
 }
 
-func processEnum(e resolution.Type) enumData {
+func processEnum(e resolution.Type) (enumData, error) {
 	name := naming.GetGoName(e)
 	form := resolution.MustForm[resolution.EnumForm](e)
+	dirs, err := refdomain.EnumDirections(e)
+	if err != nil {
+		return enumData{}, err
+	}
 	values := make([]enumValueData, 0, len(form.Values))
-	for _, v := range form.Values {
-		values = append(values, enumValueData{
+	for i, v := range form.Values {
+		value := enumValueData{
 			Name:     naming.ToPascalCase(v.Name),
 			Doc:      doc.Get(v.Domains),
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),
-		})
+		}
+		if dirs != nil {
+			value.Tag = uint8(dirs[i])
+		}
+		values = append(values, value)
 	}
 	ed := enumData{
 		Name:      name,
 		Doc:       doc.Get(e.Domains),
 		Values:    values,
 		IsIntEnum: form.IsIntEnum,
+		Tagged:    dirs != nil,
 	}
 	if form.IsIntEnum {
 		ed.Base = form.IntBase()
 	}
-	return ed
+	return ed, nil
 }
 
 func processTypeDef(td resolution.Type, data *templateData) typeDefData {
@@ -1421,6 +1434,9 @@ type enumData struct {
 	IsIntEnum bool
 	// Base is the Go underlying type of an integer enum.
 	Base string
+	// Tagged is true for an enum of reference directions, whose values get the Tag
+	// that a generated reference of each direction carries.
+	Tagged bool
 }
 
 // Receiver returns the single-letter, lowercased method receiver name for the enum type
@@ -1432,6 +1448,8 @@ type enumValueData struct {
 	Doc      string
 	Value    string
 	IntValue int64
+	// Tag is the Tag of a generated reference of the direction that the value names.
+	Tag uint8
 }
 
 type typeDefData struct {
@@ -1584,6 +1602,30 @@ func ({{$enum.Receiver}} {{$enum.Name}}) IsValid() bool {
 	default:
 		return false
 	}
+}
+{{- end}}
+{{- if $enum.Tagged}}
+
+{{formatDoc "Tag" (printf "returns the Tag of a generated reference whose holder uses its targets as %s says, or 0 when %s is not valid." $enum.Receiver $enum.Receiver)}}
+func ({{$enum.Receiver}} {{$enum.Name}}) Tag() uint8 {
+	switch {{$enum.Receiver}} {
+{{- range $enum.Values}}
+	case {{$enum.Name}}{{.Name}}:
+		return {{.Tag}}
+{{- end}}
+	}
+	return 0
+}
+
+{{formatDoc (printf "%sOfTag" $enum.Name) (printf "returns the %s whose Tag is tag, and false when no value has it." $enum.Name)}}
+func {{$enum.Name}}OfTag(tag uint8) ({{$enum.Receiver}} {{$enum.Name}}, ok bool) {
+	switch tag {
+{{- range $enum.Values}}
+	case {{.Tag}}:
+		return {{$enum.Name}}{{.Name}}, true
+{{- end}}
+	}
+	return {{$enum.Receiver}}, false
 }
 {{- end}}
 {{- end}}

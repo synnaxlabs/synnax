@@ -17,25 +17,6 @@
       "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
     },
     {
-      "module": "gorp",
-      "package": "github.com/synnaxlabs/gorp",
-      "name": "DeleteEffect",
-      "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
-    },
-    {
-      "module": "gorp",
-      "package": "github.com/synnaxlabs/gorp",
-      "name": "DeleteEffects",
-      "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
-    },
-    {
-      "module": "gorp",
-      "package": "github.com/synnaxlabs/gorp",
-      "receiver": "Table",
-      "name": "PlanDelete",
-      "caller": "sy-6522-plan-the-records-that-a-channel-delete-touches"
-    },
-    {
       "module": "cesium",
       "package": "github.com/synnaxlabs/cesium",
       "name": "Iterator",
@@ -46,6 +27,25 @@
       "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
       "name": "Writeback",
       "caller": "https://linear.app/synnax/issue/SY-6385"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "DeleteEffect",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7855"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "DeleteEffects",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7855"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "Table",
+      "name": "PlanDelete",
+      "caller": "https://github.com/synnaxlabs/synnax/pull/7855"
     }
   ]
 }

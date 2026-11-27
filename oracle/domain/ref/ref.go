@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	domainName    = "ref"
-	directionExpr = "direction"
+	domainName     = "ref"
+	directionExpr  = "direction"
+	directionsExpr = "directions"
 )
 
 // Direction is how the holder of a reference uses its targets. Generated Go writes it
@@ -83,4 +84,29 @@ func DirectionOf(f resolution.Field) (Direction, error) {
 		"@ref field %s needs direction read or write",
 		f.Name,
 	)
+}
+
+// EnumDirections returns the direction that each value of e names, in the order of its
+// values, when e has a @ref directions, and nil otherwise. It returns an error when a
+// value names no direction.
+func EnumDirections(e resolution.Type) ([]Direction, error) {
+	d, ok := e.Domains[domainName]
+	if !ok {
+		return nil, nil
+	}
+	if _, ok = d.Expressions.Find(directionsExpr); !ok {
+		return nil, nil
+	}
+	values := resolution.MustForm[resolution.EnumForm](e).Values
+	dirs := make([]Direction, len(values))
+	for i, v := range values {
+		if dirs[i], ok = directions[v.Name]; !ok {
+			return nil, errors.Newf(
+				"@ref directions enum %s: value %s names no direction",
+				e.Name,
+				v.Name,
+			)
+		}
+	}
+	return dirs, nil
 }

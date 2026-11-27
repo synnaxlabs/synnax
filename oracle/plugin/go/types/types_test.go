@@ -716,6 +716,73 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 
 			It(
+				"Should generate the reference tag of each value of a direction enum",
+				func() {
+					source := `
+					@go output "core/channel"
+
+					Direction enum {
+						read = "read"
+						write = "write"
+						@ref directions
+					}
+				`
+					table, diag := Analyze(source, "channel", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+					resp := MustSucceed(
+						goPlugin.Generate(&plugin.Request{Resolutions: table}),
+					)
+
+					content := string(resp.Files[0].Content)
+					Expect(content).To(ContainSubstring(
+						`func (d Direction) Tag() uint8 {
+	switch d {
+	case DirectionRead:
+		return 1
+	case DirectionWrite:
+		return 2
+	}
+	return 0
+}`,
+					))
+					Expect(content).To(ContainSubstring(
+						`func DirectionOfTag(tag uint8) (d Direction, ok bool) {
+	switch tag {
+	case 1:
+		return DirectionRead, true
+	case 2:
+		return DirectionWrite, true
+	}
+	return d, false
+}`,
+					))
+				},
+			)
+
+			It(
+				"Should generate no reference tags for an enum with no @ref directions",
+				func() {
+					source := `
+					@go output "core/channel"
+
+					Direction enum {
+						read = "read"
+						write = "write"
+					}
+				`
+					table, diag := Analyze(source, "channel", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+
+					resp := MustSucceed(
+						goPlugin.Generate(&plugin.Request{Resolutions: table}),
+					)
+
+					Expect(string(resp.Files[0].Content)).ToNot(ContainSubstring("Tag"))
+				},
+			)
+
+			It(
 				"Should generate an IsValid method for int enums",
 				func() {
 					source := `
