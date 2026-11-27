@@ -242,6 +242,7 @@ Server struct {
     name       string     {
         @doc value         "is a human-readable name for the server."
         @filter
+        @index sorted
         @search
         @validate required
     }

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -38,6 +39,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name          *gorp.SortedIndex[Key, Server, string]
 	rack          *gorp.KeyReference[Key, Server, rack.Key]
 	readsIndex    *gorp.KeyReference[Key, Server, channel.Key]
 	readsChannel  *gorp.KeyReference[Key, Server, channel.Key]
@@ -50,6 +52,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Server, string](
+			"name",
+			func(e *Server) string { return compare.TextKey(string(e.Name)) },
+		),
 		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Server, rack.Key]{
 			Name:     "rack",
 			Table:    "rack",
@@ -185,6 +191,7 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Server] {
 	return []gorp.Index[Key, Server]{
+		i.name,
 		i.search,
 	}
 }
@@ -205,6 +212,37 @@ func (i indexes) references() []gorp.Reference[Key, Server] {
 func MatchSearch(term string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Server] {
 		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Server]
+
+// OrderBy walks the servers in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Server] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Server] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -273,11 +311,18 @@ func MatchRacks(vals ...rack.Key) Filter {
 // servers whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, Server] {
+	return func(r Retrieve) gorp.Filter[Key, Server] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
 		want := set.New(vals...)
-		return gorp.Match(func(_ gorp.Context, e *Server) (bool, error) {
-			return want.Contains(e.Name), nil
-		})
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Server) (bool, error) {
+				return want.Contains(e.Name), nil
+			}),
+		)
 	}
 }
 

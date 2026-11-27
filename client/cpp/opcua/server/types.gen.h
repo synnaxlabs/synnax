@@ -40,6 +40,7 @@ struct Where;
 struct Cursor;
 struct Configuration;
 struct SecuredChannel;
+struct Order;
 struct RetrieveRequest;
 struct Connection;
 struct Server;
@@ -52,6 +53,8 @@ constexpr const char *SECURITY_POLICY_BASIC_256_SHA_256 = "Basic256Sha256";
 constexpr const char
     *SECURITY_POLICY_AES_128_SHA_256_RSA_OAEP = "Aes128_Sha256_RsaOaep";
 constexpr const char *SECURITY_POLICY_AES_256_SHA_256_RSA_PSS = "Aes256_Sha256_RsaPss";
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 using Key = x::uuid::UUID;
 
@@ -217,6 +220,9 @@ struct Where {
 struct Cursor {
     /// @brief key is the key of the server at the position.
     Key key;
+    /// @brief name is the name of the server at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
 
     static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -247,48 +253,18 @@ struct SecuredChannel {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief Order is a sort of servers.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
 
-/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
-struct RetrieveOptions {
-    /// @brief search_term keeps the servers that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief after starts the servers strictly past this position in their order.
-    std::optional<Cursor> after;
-    /// @brief limit is the most servers to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-};
-
-/// @brief RetrieveRequest is a request to retrieve servers.
-struct RetrieveRequest {
-    /// @brief where selects the servers to retrieve. An absent where selects all of
-    /// them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the servers that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief after starts the servers strictly past this position in their order.
-    std::optional<Cursor> after;
-    /// @brief limit is the most servers to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-
-    /// @brief returns a request for the records that where selects.
-    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
-        return {
-            .where = std::move(where),
-            .search_term = options.search_term,
-            .after = options.after,
-            .limit = options.limit,
-            .include_status = options.include_status,
-        };
-    }
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Order parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+using Status = ::synnax::status::Status<StatusDetails>;
 
 /// @brief NoneSecurity signs and encrypts no messages.
 struct NoneSecurity {
@@ -319,6 +295,52 @@ using Security = std::variant<NoneSecurity, SignSecurity, SignAndEncryptSecurity
 
 Security parse_security(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Security &value);
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the servers that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the servers. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the servers strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most servers to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve servers.
+struct RetrieveRequest {
+    /// @brief where selects the servers to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the servers that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the servers. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the servers strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most servers to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Connection holds the settings that the Driver connects to a server with.
 struct Connection {

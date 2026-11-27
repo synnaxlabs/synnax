@@ -49,6 +49,11 @@ SecurityPolicy = Literal[
     "Aes256_Sha256_RsaPss",
 ]
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
 
 
@@ -81,6 +86,18 @@ class Write(BaseModel):
 
     node: str = Field(min_length=1)
     channel: channel_.Key = Field(gt=0, le=4294967295)
+
+
+class Order(BaseModel):
+    """Is a sort of servers.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class AnonymousAuth(BaseModel):
@@ -196,9 +213,11 @@ class Cursor(BaseModel):
 
     Attributes:
         key: Is the key of the server at the position.
+        name: Is the name of the server at the position, when the order sorts by it.
     """
 
     key: Key
+    name: str | None = None
 
 
 class Configuration(BaseModel):
@@ -239,6 +258,7 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the servers to retrieve. An absent where selects all of them.
         search_term: Keeps the servers that match the term, closest match first.
+        order: Sorts the servers. An absent order sorts them by key.
         after: Starts the servers strictly past this position in their order.
         limit: Is the most servers to return.
         include_status: Includes the status of each record.
@@ -248,6 +268,7 @@ class RetrieveRequest(BaseModel):
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_status: bool = False
