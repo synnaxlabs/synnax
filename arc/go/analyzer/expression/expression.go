@@ -570,9 +570,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		return
 	}
 	primary := ctx.AST.PrimaryExpression()
-	head, tail := parser.PrimaryNameParts(primary)
-	funcName := parser.PrimaryName(primary)
-	scope, err := ctx.ResolveQualified(head, tail)
+	name := parser.PrimaryName(primary)
+	funcName := name.String()
+	scope, err := ctx.ResolveQualified(name.Head, name.Tail)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 		return
@@ -602,7 +602,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 func nonFunctionCall(
 	postfix parser.IPostfixExpressionContext,
 ) (parser.IFunctionCallSuffixContext, string) {
-	named := parser.PrimaryName(postfix.PrimaryExpression()) != ""
+	named := parser.PrimaryName(postfix.PrimaryExpression()).Head != ""
 	var callee strings.Builder
 	for i, child := range postfix.GetChildren() {
 		rule, ok := child.(antlr.ParserRuleContext)
@@ -703,34 +703,48 @@ func inDeclaredFunction(scope *symbol.Symbol) bool {
 	return ok
 }
 
+func analyzeNamedPrimary(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	n parser.Name,
+) {
+	resolved, err := ctx.ResolveName(n)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
+		resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
+		*ctx.VarReads = append(
+			*ctx.VarReads,
+			context.VarRead{Var: resolved, Site: ctx.AST},
+		)
+	}
+	if tracksChannelRead(resolved) {
+		recordChannelRead(ctx.Scope, resolved)
+	}
+}
+
+// recordChannelRead records that the function that encloses scope reads the channel
+// resolved.
+func recordChannelRead(scope, resolved *symbol.Symbol) {
+	fn, fnErr := scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
+		panic(fnErr)
+	}
+	if fn == nil {
+		return
+	}
+	// Use SourceID if available, otherwise use symbol's own ID
+	readID := uint32(resolved.ID)
+	if resolved.SourceID != nil {
+		readID = uint32(*resolved.SourceID)
+	}
+	fn.Channels.Read[readID] = resolved.Name
+}
+
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
-		resolved, err := ctx.ResolveQualified(head, tail)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return
-		}
-		if resolved.Kind == symbol.KindVariable && resolved.AST != nil &&
-			resolved.IsComputed() && inDeclaredFunction(ctx.Scope) {
-			*ctx.VarReads = append(
-				*ctx.VarReads,
-				context.VarRead{Var: resolved, Site: ctx.AST},
-			)
-		}
-		if tracksChannelRead(resolved) {
-			fn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				panic(fnErr)
-			}
-			if fn != nil {
-				// Use SourceID if available, otherwise use symbol's own ID
-				readID := uint32(resolved.ID)
-				if resolved.SourceID != nil {
-					readID = uint32(*resolved.SourceID)
-				}
-				fn.Channels.Read[readID] = resolved.Name
-			}
-		}
+	if n := parser.PrimaryName(ctx.AST); n.Head != "" {
+		analyzeNamedPrimary(ctx, n)
 		return
 	}
 	if lit := ctx.AST.Literal(); lit != nil {
@@ -844,11 +858,11 @@ func resolveChannelArg[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	head, tail := parser.ExpressionNameParts(expr)
-	if head == "" {
+	n := parser.ExpressionName(expr)
+	if n.Head == "" {
 		return 0, "", false
 	}
-	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+	sym, err := ctx.Scope.ResolveName(ctx, n)
 	if err != nil || sym.Type.Kind != basetypes.KindChan {
 		return 0, "", false
 	}
