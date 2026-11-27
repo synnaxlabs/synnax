@@ -262,6 +262,7 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 // validate, or a move breaks a rule, and an error wrapping query.ErrNotFound when no
 // group has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+	acts = normalizeNameActions(acts)
 	var (
 		top   *resource.ID
 		moved bool
@@ -310,6 +311,33 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
+}
+
+// normalizeNameActions returns acts with the name of each set of the name in NFC, so
+// the write and the broadcast both carry the stored name.
+func normalizeNameActions(acts []Action) []Action {
+	var out []Action
+	for i, a := range acts {
+		if a.Set == nil || !slices.Equal(a.Set.Path, []string{"name"}) {
+			continue
+		}
+		name, ok := a.Set.Value.(string)
+		if !ok {
+			continue
+		}
+		if nfc := validate.NormalizeName(name); nfc != name {
+			if out == nil {
+				out = slices.Clone(acts)
+			}
+			p := *a.Set
+			p.Value = nfc
+			out[i].Set = &p
+		}
+	}
+	if out == nil {
+		return acts
+	}
+	return out
 }
 
 // SetParent moves the groups with keys under parent, or to the top level when parent is
