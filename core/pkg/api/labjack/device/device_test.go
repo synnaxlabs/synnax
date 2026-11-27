@@ -377,14 +377,15 @@ var _ = Describe("Service", func() {
 		It("Should write only the configuration group", func(ctx SpecContext) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Rack)
-			Expect(update(
+			res := MustSucceed(update(
 				testutil.AuthedCtx(ctx, u),
 				configure(d.Key, device.T7Ports{}),
-			)).Error().ToNot(HaveOccurred())
+			))
 			got := retrieveDevice(ctx, d.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Identifier).To(Equal("lj"))
 			Expect(got.Serial).To(Equal(d.Serial))
+			Expect(res.Device).To(Equal(got))
 		})
 
 		It("Should write only the identity group", func(ctx SpecContext) {

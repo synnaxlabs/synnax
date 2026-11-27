@@ -285,7 +285,7 @@ type Transport struct {
 	// LABJACK DEVICE
 	LabJackDeviceCreate   freighter.UnaryServer[labjackdevice.CreateRequest, labjackdevice.CreateResponse]
 	LabJackDeviceRetrieve freighter.UnaryServer[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse]
-	LabJackDeviceUpdate   freighter.UnaryServer[labjackdevice.UpdateRequest, struct{}]
+	LabJackDeviceUpdate   freighter.UnaryServer[labjackdevice.UpdateRequest, labjackdevice.UpdateResponse]
 	LabJackDeviceDelete   freighter.UnaryServer[labjackdevice.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
