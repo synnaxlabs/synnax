@@ -1109,11 +1109,12 @@ branch against `main` and reports to the founder session.
   grows with the samples since the reset (§4.7). The 8-reader reads run on the OS file
   system at the shapes of D-481.
 - **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
-  today's index keys as clocks and no format change. Phases 24 to 54 start only when the
+  today's index keys as clocks and no format change. Phases 24 to 54 merge only when the
   one-clock reads are within 15% of `main`, the prototype is within 3% of the storage
   branch on them, and the reads with two clocks or 64 pauses are within 2 times their
-  one-clock reads. A failed gate stops the line for a new plan, with no waiver (founder
-  delegation).
+  one-clock reads. Their code may be built before the gate, as D-519 (3) has the writer
+  time groups built while index channels exist. A failed gate stops the line for a new
+  plan, with no waiver (founder delegation).
 - **The compare script**: Before the prototype is measured, the box's
   `scripts/compare_benchmarks.py` gets `layout=log` cases for `ReadDomains`,
   `ReadSamples`, and `StreamFixedSpan`, puts `ReadOneClock` and `SeekPointerLog` in its
@@ -1214,20 +1215,22 @@ splits along its touches before it opens, each part green alone.
   error when the Core runs another minor (`driver/rack/factories.cpp:64-81`), so it
   updates with the Core.
 
-Dependencies on other RFCs:
+Dependencies on other RFCs and on the read gate: the phase table names only phases of
+this RFC, so the issues of these phases take their blockers from this table too.
 
-- Phase 1 carries code moves that RFC 0119 Phases 3 and 25 and RFC 0121 Phase 5 need.
-- Phase 31 follows RFC 0113 Phase 7, which spools in the form of §4.9.
-- Phases 2 to 4 and 18 follow RFC 0121 Phase 6 (the pointer log). Phases 2 to 4 land
-  before RFC 0121 Phase 8.
-- Phase 21 follows RFC 0119 Phase 3 (the calculation record), which also stops the Core
-  from reading node bits, so Phase 24 can give clock keys their own range. Phase 44
-  follows RFC 0119 Phase 14, which builds the retargets.
-- Phases 24 to 54 follow RFC 0121 Phase 8, since a clock per group is a clock per
-  segment, and with it RFC 0121 Phase 7, D-459's read fixes (§4.13).
-- Phase 50 follows RFC 0119 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every
-  integration, and the typed MQTT and Kafka devices. Phase 54 follows RFC 0081 Phases 21
-  to 23.
+| Phase      | Waits for                                                                                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| 2 to 4, 18 | RFC 0121 Phase 6, the pointer log                                                                                                       |
+| 21         | RFC 0119 Phase 3, the calculation record, which also stops the Core from reading node bits, so Phase 24 can give clock keys their range |
+| 24 to 54   | RFC 0121 Phases 7 and 8, since a clock per group is a clock per segment and needs D-459's read fixes, and the read gate of Phase 18     |
+| 31         | RFC 0113 Phase 7, which spools in the form of §4.9                                                                                      |
+| 44         | RFC 0119 Phase 14, which builds the retargets                                                                                           |
+| 50         | RFC 0119 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every integration, and the typed MQTT and Kafka devices                          |
+| 54         | RFC 0081 Phases 21 to 23                                                                                                                |
+
+Other RFCs wait on this one: RFC 0119 Phases 3 and 25 and RFC 0121 Phase 5 on Phase 1,
+which carries code moves that they need; RFC 0121 Phase 8 on Phases 2 to 4, 8, and 14
+(RFC 0121 §12); and RFC 0113 Phases 10 and 11 on Phase 56 (§4.9).
 
 Compatibility: Phase 8 changes the wire once, with the handshake of §4.2. Phase 28 adds
 the writer fields and keeps field 9 (`auto_index`) as `arrival_timed` until Phase 50.
