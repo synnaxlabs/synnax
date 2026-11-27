@@ -25,7 +25,7 @@ func LastStored(
 	ctx context.Context,
 	frm *framer.Service,
 	index channel.Key,
-) (last telem.TimeStamp, err error) {
+) (telem.TimeStamp, error) {
 	it, err := frm.OpenIterator(ctx, framer.IteratorConfig{
 		Keys:      channel.Keys{index},
 		Bounds:    telem.TimeRangeMax,
@@ -34,6 +34,7 @@ func LastStored(
 	if err != nil {
 		return 0, err
 	}
+	var last telem.TimeStamp
 	if it.SeekLast() && it.Prev(framer.IteratorAutoSpan) {
 		for _, s := range it.Value().Get(index).Series {
 			if s.Len() > 0 {
@@ -41,5 +42,8 @@ func LastStored(
 			}
 		}
 	}
-	return last, errors.Combine(it.Error(), it.Close())
+	if err = errors.Combine(it.Error(), it.Close()); err != nil {
+		return 0, err
+	}
+	return last, nil
 }
