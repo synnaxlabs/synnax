@@ -11,8 +11,6 @@ package segment_test
 
 import (
 	"io"
-	"sync"
-	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -27,11 +25,11 @@ import (
 // countingReader counts the reads of a segment file.
 type countingReader struct {
 	io.ReaderAt
-	reads atomic.Int64
+	reads int
 }
 
 func (r *countingReader) ReadAt(p []byte, off int64) (int, error) {
-	r.reads.Add(1)
+	r.reads++
 	return r.ReaderAt.ReadAt(p, off)
 }
 
@@ -39,7 +37,6 @@ func (r *countingReader) ReadAt(p []byte, off int64) (int, error) {
 // every read when left is negative, and counts the reads that cover it.
 type flipReader struct {
 	io.ReaderAt
-	mu    sync.Mutex
 	at    int64
 	left  int
 	reads int
@@ -47,8 +44,6 @@ type flipReader struct {
 
 func (r *flipReader) ReadAt(p []byte, off int64) (int, error) {
 	n, err := r.ReaderAt.ReadAt(p, off)
-	r.mu.Lock()
-	defer r.mu.Unlock()
 	if r.at >= off && r.at < off+int64(n) {
 		r.reads++
 		if r.left != 0 {
@@ -162,17 +157,17 @@ var _ = Describe("Reader", func() {
 					Expect(rd.Read(r, com, p, off)).To(Succeed())
 					Expect(p).To(Equal(stream[off : off+8]))
 				}
-				Expect(r.reads.Load()).To(Equal(int64(1)))
+				Expect(r.reads).To(Equal(1))
 				Expect(rd.Read(r, com, p, segment.BlockSize+8)).To(Succeed())
-				Expect(r.reads.Load()).To(Equal(int64(2)))
+				Expect(r.reads).To(Equal(2))
 				rd.Reset()
 				Expect(rd.Read(r, com, p, segment.BlockSize+8)).To(Succeed())
-				Expect(r.reads.Load()).To(Equal(int64(3)), "a reset drops the block")
+				Expect(r.reads).To(Equal(3), "a reset drops the block")
 				other := com
 				other.ID++
 				Expect(rd.Read(r, other, p, segment.BlockSize+8)).
 					To(MatchError(place.ErrCorrupt), "another segment checks with its seed")
-				Expect(r.reads.Load()).To(Equal(int64(5)))
+				Expect(r.reads).To(Equal(5))
 			})
 
 			It("Should hold no block after a read that fails its check", func() {
@@ -187,7 +182,7 @@ var _ = Describe("Reader", func() {
 				r := &countingReader{ReaderAt: h}
 				Expect(rd.Read(r, com, p, 100)).To(Succeed())
 				Expect(p).To(Equal(stream[100:108]))
-				Expect(r.reads.Load()).To(Equal(int64(1)))
+				Expect(r.reads).To(Equal(1))
 			})
 
 			DescribeTable(
@@ -249,7 +244,7 @@ var _ = Describe("Reader", func() {
 				r := &countingReader{ReaderAt: h}
 				p := make([]byte, 4*segment.BlockSize+10)
 				Expect(rd.Read(r, com, p, 0)).To(Succeed())
-				Expect(r.reads.Load()).To(Equal(int64(5)))
+				Expect(r.reads).To(Equal(5))
 			})
 
 			It("Should read a whole block into the caller's bytes, and a part through "+
