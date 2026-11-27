@@ -77,8 +77,11 @@ Sender::frame(const Delivery &d, const std::span<const std::uint8_t> payload) {
     return {this->framed, x::errors::NIL};
 }
 
-std::pair<common::Warning, x::errors::Error>
-Sender::write(transport::Transport &t, const x::telem::Frame &fr) {
+std::pair<common::Warning, x::errors::Error> Sender::write(
+    const std::pair<transport::Transport *, x::errors::Error> &t,
+    const x::telem::Frame &fr
+) {
+    const auto &[transport, closed] = t;
     x::errors::Error error;
     x::errors::Error refused;
     for (auto &d: this->deliveries) {
@@ -87,9 +90,10 @@ Sender::write(transport::Transport &t, const x::telem::Frame &fr) {
             res.refused = d.writer.keep(fr);
         else
             res = d.writer.write(fr, [&](const auto payload) {
+                if (closed) return closed;
                 const auto [bytes, err] = this->frame(d, payload);
                 if (err) return err;
-                return t.write(bytes, transport::WRITE_TIMEOUT);
+                return transport->write(bytes, transport::WRITE_TIMEOUT);
             });
         if (!refused) refused = res.refused;
         if (!error) error = res.error;

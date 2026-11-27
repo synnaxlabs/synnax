@@ -141,8 +141,8 @@ cc_test(
         "//conditions:default": [],
     }),
     deps = [
-        ":serial",
         ":ports",
+        ":serial",
         ":tasks",
         "//client/cpp/channel",
         "//client/cpp/icd",
