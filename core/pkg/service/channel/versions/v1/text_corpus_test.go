@@ -32,8 +32,10 @@ type corpusCase struct {
 	Dashed bool   `json:"dashed"`
 	Form   string `json:"form"`
 	Text   string `json:"text"`
-	// Inputs are the input names of the function of a body.
-	Inputs []string `json:"inputs,omitempty"`
+	// Inputs are the input names of the function of a body, and Functions the keys of
+	// each function of its graph.
+	Inputs    []string `json:"inputs,omitempty"`
+	Functions []string `json:"functions,omitempty"`
 }
 
 // corpusResult is what the live parser and the pass make of a corpusCase.
@@ -63,9 +65,8 @@ func calc(name, text string) corpusCase {
 }
 
 // corpus holds texts that a v0.62 Core stored: dashed names, format strings, scopes,
-// and
-// the text of an export sample. Channels held "pt-01", "Metrics", and "sensor" before
-// the upgrade renamed them.
+// graph bodies, and the text of an export sample. Channels held "pt-01", "Metrics",
+// "sensor", and "time" before the upgrade renamed them.
 var corpus = []corpusCase{
 	calc("a flow node", "pt-01 -> out{}"),
 	calc("an expression", "return pt-01 * 2"),
@@ -98,6 +99,16 @@ var corpus = []corpusCase{
 	},
 	calc("a local of the old name", "Metrics f64 := 1.0\nreturn Metrics * 2"),
 	calc("a local of the new name", "Metrics_2 f64 := 2.0\nreturn Metrics * Metrics_2"),
+	calc(
+		"a read before a local of the old name",
+		"Metrics := Metrics * 2\nreturn Metrics",
+	),
+	{
+		Name:   "a function before a global of the old name",
+		Dashed: true,
+		Form:   "program",
+		Text:   "func f() f64 {\n\treturn Metrics\n}\nMetrics := 1.0",
+	},
 	calc("a qualified head", "return Metrics.x"),
 	calc("a qualified member", "return x.Metrics"),
 	calc("text that does not parse", "return Metrics *"),
@@ -114,6 +125,27 @@ var corpus = []corpusCase{
 		Form:   "body",
 		Text:   "{ return Metrics * x }",
 		Inputs: []string{"x"},
+	},
+	{
+		Name:   "a graph body that names a module",
+		Dashed: true,
+		Form:   "body",
+		Text:   "{ return time }",
+	},
+	{
+		Name:      "a graph body that calls another function of its graph",
+		Dashed:    true,
+		Form:      "body",
+		Text:      "{ return g() + Metrics }",
+		Functions: []string{"g", "f"},
+	},
+	{
+		Name:      "a graph body with an input named like an earlier function",
+		Dashed:    true,
+		Form:      "body",
+		Text:      "{ return Metrics }",
+		Inputs:    []string{"Metrics"},
+		Functions: []string{"Metrics", "f"},
 	},
 	{
 		Name:   "a function parameter of the old name",
@@ -146,6 +178,7 @@ var _ = Describe("Text corpus", func() {
 				{"pt-01", "pt_01"},
 				{"Metrics", "Metrics_2"},
 				{"sensor", "sensor_2"},
+				{"time", "time_2"},
 			} {
 				key := v1.Channel{Leaseholder: 1, LocalKey: v1.LocalKey(i + 1)}.Key()
 				channels[key] = v1.TextChannel{Name: r[1], DataType: telem.Float64T}
@@ -170,7 +203,12 @@ var _ = Describe("Text corpus", func() {
 					Config:  parser.Config{AllowDashedNames: c.Dashed},
 					Ambient: stl.NewSymbols(),
 				}
-				src := v1.Source{Text: c.Text, Form: forms[c.Form], Function: "f"}
+				src := v1.Source{
+					Text:      c.Text,
+					Form:      forms[c.Form],
+					Function:  "f",
+					Functions: c.Functions,
+				}
 				for _, in := range c.Inputs {
 					src.Inputs = append(
 						src.Inputs,

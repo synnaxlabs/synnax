@@ -30,8 +30,9 @@ type Sibling struct {
 func siblingSpace(scope resource.Type) string { return "namespace." + string(scope) }
 
 // NewMemberIndex returns the index that keeps the name of each record of the namespaced
-// scope unique among the records and the groups in its group, after NFC. sibling
-// returns the Sibling of a record.
+// scope unique among the records and the groups in its group. sibling returns the
+// Sibling of a record. Names compare as stored, so each writer of a record, a migration
+// through gorp.WrapWriter included, must store its name in NFC.
 func NewMemberIndex[K gorp.Key, E gorp.Entry[K]](
 	scope resource.Type,
 	sibling func(*E) Sibling,
@@ -39,11 +40,7 @@ func NewMemberIndex[K gorp.Key, E gorp.Entry[K]](
 	return gorp.NewUniqueIndex(
 		"sibling",
 		siblingSpace(scope),
-		func(e *E) (Sibling, bool) {
-			s := sibling(e)
-			s.Name = validate.NormalizeName(s.Name)
-			return s, true
-		},
+		func(e *E) (Sibling, bool) { return sibling(e), true },
 	)
 }
 
@@ -88,9 +85,10 @@ func newSiblingIndexes() map[resource.Type]siblingIndex {
 }
 
 // newSiblingIndex returns the index that keeps the names of the groups of the
-// namespaced scope unique among siblings, after NFC. A group of that scope sits at the
-// top or in a group, since only a pinned scope takes another parent. A group whose
-// parent is not a group has no place among siblings, so the index exempts it.
+// namespaced scope unique among siblings, compared as stored in NFC. A group of that
+// scope sits at the top or in a group, since only a pinned scope takes another parent.
+// A group whose parent is not a group has no place among siblings, so the index exempts
+// it.
 func newSiblingIndex(scope resource.Type) siblingIndex {
 	return gorp.NewUniqueIndex(
 		"sibling_"+string(scope),
@@ -99,7 +97,7 @@ func newSiblingIndex(scope resource.Type) siblingIndex {
 			if g.Scope != scope {
 				return Sibling{}, false
 			}
-			s := Sibling{Name: validate.NormalizeName(g.Name)}
+			s := Sibling{Name: g.Name}
 			if g.Parent == nil {
 				return s, true
 			}

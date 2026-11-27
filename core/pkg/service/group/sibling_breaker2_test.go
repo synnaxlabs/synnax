@@ -10,15 +10,19 @@
 package group_test
 
 import (
+	"slices"
+	"strings"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/group/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/types"
 )
 
 var _ = Describe("Sibling breaker 2", func() {
@@ -108,12 +112,19 @@ var _ = Describe("Sibling breaker 2", func() {
 	)
 
 	// openOverNFD opens a group service over a stored root channel folder whose name a
-	// v0.62 Core kept as sent, in NFD.
+	// v0.62 Core kept as sent, in NFD, so the upgrade runs over it.
 	openOverNFD := func(ctx SpecContext) (*gorp.DB, *group.Service, group.Group) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
-		first := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db}))
-		Expect(first.Close()).To(Succeed())
+		upgrade := slices.IndexFunc(versions.Migrations, func(m gorp.Migration) bool {
+			return strings.HasPrefix(m.Key(), "v63_")
+		})
+		Expect(upgrade).To(BeNumerically(">", 0))
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  types.Name[group.Group](),
+			Migrations: versions.Migrations[:upgrade],
+		})).To(Succeed())
 		stored := group.Group{
 			Key:   uuid.New(),
 			Name:  "Stand A\u030A",
@@ -127,7 +138,13 @@ var _ = Describe("Sibling breaker 2", func() {
 
 	It("Should refuse a root folder beside a stored root folder of its name in NFD",
 		func(ctx SpecContext) {
-			db, svc, _ := openOverNFD(ctx)
+			db, svc, stored := openOverNFD(ctx)
+			var upgraded group.Group
+			Expect(svc.NewRetrieve().
+				Where(group.MatchKeys(stored.Key)).
+				Entry(&upgraded).
+				Exec(ctx, db)).To(Succeed())
+			Expect(upgraded.Name).To(Equal("Stand \u00C5"))
 			again := group.Group{Name: "Stand \u00C5", Scope: resource.TypeChannel}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &again)
