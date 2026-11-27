@@ -7,25 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { assert, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { page, userEvent } from "vitest/browser";
 
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Input } from "@/input";
-import { renderThemed } from "@/styletest";
+import { renderThemed, treatment } from "@/styletest";
 
-const fontOf = (
-  name: string,
-): Pick<CSSStyleDeclaration, "fontFamily" | "textTransform"> => {
-  const { fontFamily, textTransform } = getComputedStyle(
-    page.getByRole("textbox", { name }).element(),
-  );
-  return { fontFamily, textTransform };
-};
+const box = (name: string): Element => page.getByRole("textbox", { name }).element();
+
+const caseOf = (name: string): string => getComputedStyle(box(name)).textTransform;
 
 describe("HexText", () => {
-  it("should show a name in the text font until the user types", async () => {
+  it("should capitalize a hex but not a name until the user types", async () => {
     await renderThemed(
       <>
         <Color.HexText aria-label="Fixed" text="ff0000" alpha={1} onChange={() => {}} />
@@ -36,16 +29,15 @@ describe("HexText", () => {
           alpha={1}
           onChange={() => {}}
         />
-        <Input.Text aria-label="Plain" value="" onChange={() => {}} />
       </>,
     );
-    expect(fontOf("Named")).toEqual(fontOf("Plain"));
-    expect(fontOf("Fixed")).not.toEqual(fontOf("Plain"));
+    expect(caseOf("Fixed")).toBe("uppercase");
+    expect(caseOf("Named")).toBe("none");
     await userEvent.fill(page.getByRole("textbox", { name: "Named" }), "0f0");
-    expect(fontOf("Named")).toEqual(fontOf("Fixed"));
+    expect(caseOf("Named")).toBe("uppercase");
   });
 
-  it("should draw a # start in the code font of the digits", async () => {
+  it("should draw a hex, its #, and a name in the text font", async () => {
     await renderThemed(
       <>
         <Color.HexText
@@ -55,17 +47,17 @@ describe("HexText", () => {
           alpha={1}
           onChange={() => {}}
         />
-        <Input.Text aria-label="Plain" value="" onChange={() => {}} />
+        <Color.HexText
+          aria-label="Named"
+          text="Fault"
+          named
+          alpha={1}
+          onChange={() => {}}
+        />
       </>,
     );
-    const hash = page
-      .getByRole("textbox", { name: "Fixed" })
-      .element()
-      .closest(`.${CSS.B("color-hex-text")}`)
-      ?.querySelector(`.${CSS.BE("input", "start-content")}`);
-    assert(hash != null);
-    expect(hash.textContent).toBe("#");
-    expect(getComputedStyle(hash).fontFamily).toBe(fontOf("Fixed").fontFamily);
-    expect(fontOf("Fixed").fontFamily).not.toBe(fontOf("Plain").fontFamily);
+    expect(treatment(page.getByText("#", { exact: true }).element())).toBe("prose");
+    expect(treatment(box("Fixed"))).toBe("prose");
+    expect(treatment(box("Named"))).toBe("prose");
   });
 });

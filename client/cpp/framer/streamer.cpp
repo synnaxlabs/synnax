@@ -32,15 +32,7 @@ Client::open_streamer(const StreamerConfig &config) const {
     Codec codec(this->channel_client);
     if (const auto codec_err = codec.update(config.channels))
         return {Streamer(), codec_err};
-    // The open ack is the first frame of the codec's state, and it declares the types.
-    auto [ack, res_err] = net_stream->receive();
-    if (!res_err && !ack.buffer().empty())
-        if (auto [_, decode_err] = codec.decode(
-                reinterpret_cast<const std::uint8_t *>(ack.buffer().data()),
-                ack.buffer().size()
-            );
-            decode_err)
-            return {Streamer(), decode_err};
+    auto [_, res_err] = net_stream->receive();
     auto streamer = Streamer(std::move(net_stream), config);
     streamer.codec = std::move(codec);
     return {std::move(streamer), res_err};
@@ -53,14 +45,6 @@ std::pair<x::telem::Frame, x::errors::Error> Streamer::read() {
     this->assert_open();
     auto [fr, exc] = this->stream->receive();
     if (!exc && fr.missed()) {
-        // A missed marker can be the first frame of a state, which declares its types.
-        if (!fr.buffer().empty())
-            if (auto [_, decode_err] = this->codec.decode(
-                    reinterpret_cast<const std::uint8_t *>(fr.buffer().data()),
-                    fr.buffer().size()
-                );
-                decode_err)
-                return {x::telem::Frame(), decode_err};
         if (this->cfg.on_missed) this->cfg.on_missed();
         return {x::telem::Frame(), x::errors::NIL};
     }

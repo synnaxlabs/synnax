@@ -226,7 +226,7 @@ class FrameReader {
   dataType(): DataType {
     const code = this.uint8();
     const dt = DataType.fromCode(code);
-    if (dt.equals(DataType.UNKNOWN))
+    if (dt == null)
       throw new ValidationError(
         `remote sent data type code ${code}, which this codec does not know`,
       );
@@ -280,8 +280,7 @@ export class Codec {
   }
 
   // Returns the series of src in key order, keeping the producer's order within a key.
-  // It leaves src as it is, and drops an unrequested time series under its own clock
-  // that no requested series names as its clock.
+  // It leaves src as it is.
   private entries(src: Payload, state: CodecState): Entries {
     let { keys, series } = src;
     if (!keys.every((k, i) => i === 0 || keys[i - 1] <= k)) {
@@ -290,30 +289,16 @@ export class Codec {
       series = order.map((i) => src.series[i]);
     }
     const indices = new Array<number>(keys.length);
-    let unrequested = false;
     for (let i = 0; i < keys.length; i++) {
       const index = state.index.get(keys[i]);
       if (index != null) indices[i] = index;
-      else if (isOwnClock(keys[i], series[i])) {
-        indices[i] = -1;
-        unrequested = true;
-      } else
+      else if (isOwnClock(keys[i], series[i])) indices[i] = -1;
+      else
         throw new ValidationError(
           `Channel ${keys[i]} was not provided in the list of channels when opening the writer`,
         );
     }
-    if (!unrequested) return { keys, series, indices };
-    const named = new Set<number>();
-    for (let i = 0; i < keys.length; i++)
-      if (indices[i] >= 0) named.add(series[i].clock ?? 0);
-    const kept = indices.flatMap((index, i) =>
-      index >= 0 || named.has(keys[i]) ? [i] : [],
-    );
-    return {
-      keys: kept.map((i) => keys[i]),
-      series: kept.map((i) => series[i]),
-      indices: kept.map((i) => indices[i]),
-    };
+    return { keys, series, indices };
   }
 
   // Plans the extension of the next frame of ag without changing ag.

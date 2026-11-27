@@ -9,6 +9,7 @@
 
 import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -18,7 +19,11 @@ import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { pickMessageFormat, searchMessageFormats } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  pickNewMessage,
+  searchMessageFormats,
+} from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
   awaitTare,
@@ -191,6 +196,7 @@ describe("Read", () => {
     await screen.findByText("Select an endpoint or field to configure");
     await screen.findByText("No endpoints");
     await addEndpoint();
+    expect(screen.getAllByText("New endpoint").map(treatment)).not.toContain("code");
     expect(screen.getByRole("button", { name: "GET" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "POST" })).toBeTruthy();
     expect(screen.getByPlaceholderText("/api/data")).toBeTruthy();
@@ -545,6 +551,26 @@ describe("Read", () => {
     expect(box?.width).toBeGreaterThanOrEqual(480);
     expect(getComputedStyle(name).whiteSpace).toBe("nowrap");
     expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
+  });
+
+  it("should read a new message in the ICD of the endpoint", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const { draft } = await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    await pickNewMessage("GET /data", "New JSON message");
+    await waitFor(async () => {
+      const [read] = await retrieveEndpoints(draft.key);
+      const { messages } = await client.icds.retrieve({ key: icdKey });
+      expect(messages).toHaveLength(2);
+      expect(messages[1].payload).toEqual({ format: "json", fields: [] });
+      expect(read.messages).toMatchObject([{ message: messages[1].key, bindings: [] }]);
+    });
   });
 
   it("should keep the stored channel of a pointer when the message format changes", async () => {

@@ -10,8 +10,9 @@
 import { status, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { Text } from "@synnaxlabs/lyra/text";
-import { uuid } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -89,6 +90,21 @@ describe("status toolbar", () => {
     await renderToolbar([s.key]);
     expect(await screen.findByText(s.name)).toBeTruthy();
     expect(screen.getByText("thermocouple offline")).toBeTruthy();
+  });
+
+  it("should draw the time since a status with tabular digits", async () => {
+    const s = await client.statuses.set(
+      status.create({
+        name: uniqueName("status"),
+        variant: "error",
+        message: "",
+        time: TimeStamp.now().sub(TimeSpan.days(2)),
+      }),
+    );
+    await renderToolbar([s.key]);
+    await screen.findByText(s.name);
+    expect(treatment(screen.getByText(/^2d/))).toBe("numeric");
+    expect(treatment(screen.getByText(s.name))).toBe("prose");
   });
 
   it("should drop favorites whose status no longer exists", async () => {

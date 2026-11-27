@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { DataType, Series, TimeRange, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
 import { block } from "@/framer/cache/block";
@@ -109,7 +109,7 @@ describe("Joins", () => {
   describe("landed", () => {
     it("should hold the series of waiting members until the join lands", () => {
       const { store, joins } = createJoins();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame(
           [INDEX, createIndex([1, 2, 3], 0n)],
           [DATA, createData([10, 20, 30], 0n)],
@@ -301,7 +301,10 @@ describe("Joins", () => {
       const { store, joins } = createJoined();
       const other = 3;
       const series = createData([1, 2], 0n, spanOf([1, 2]));
-      expect(joins.write(createFrame([other, series]))).toEqual(new Set());
+      expect(joins.write(createFrame([other, series]))).toEqual({
+        waiting: new Set(),
+        refused: new Map(),
+      });
       expect(store.open(other)).toBeNull();
       expect(store.findRaw(other, BLOCK)).toBeUndefined();
     });
@@ -343,7 +346,7 @@ describe("Joins", () => {
       );
     };
 
-    it("should throw on a data series whose clock is not its index", () => {
+    it("should refuse a data series whose clock is not its index", () => {
       const { store, joins } = createJoined();
       name(store);
       const other = new Series({
@@ -351,27 +354,10 @@ describe("Joins", () => {
         alignment: 2n,
         clock: INDEX + 10,
       });
-      expect(() =>
-        joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other])),
-      ).toThrow(
-        expect.objectContaining({
-          message: unpaired.message,
-          description: unpaired.description,
-        }),
+      const { refused } = joins.write(
+        createFrame([INDEX, createIndex([3], 2n)], [DATA, other]),
       );
-    });
-
-    it("should give a stray clock to the fail callback and keep its samples out", () => {
-      const { store, joins } = createJoined();
-      name(store);
-      const other = new Series({
-        data: new Float32Array([30]),
-        alignment: 2n,
-        clock: INDEX + 10,
-      });
-      const fail = vi.fn();
-      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]), fail);
-      expect(fail).toHaveBeenCalledWith(DATA, expect.objectContaining(unpaired));
+      expect(refused).toEqual(new Map([[DATA, expect.objectContaining(unpaired)]]));
       expect(streamed(store, DATA)).toEqual([10, 20]);
     });
 
@@ -382,10 +368,10 @@ describe("Joins", () => {
         alignment: 2n,
         clock: INDEX + 10,
       });
-      const fail = vi.fn();
-      joins.write(createFrame([INDEX, createIndex([3], 2n)], [DATA, other]), fail);
-      expect(fail).toHaveBeenCalledWith(
-        DATA,
+      const { refused } = joins.write(
+        createFrame([INDEX, createIndex([3], 2n)], [DATA, other]),
+      );
+      expect(refused.get(DATA)).toEqual(
         expect.objectContaining({
           name: `${DATA}`,
           description: `Channel ${DATA} has samples that do not pair with the time of its index channel.`,
@@ -405,9 +391,8 @@ describe("Joins", () => {
       const { store, joins } = createJoined();
       joins.write(createFrame([INDEX, createIndex([3, 4], 2n)]));
       joins.write(createFrame([INDEX, createIndex([5, 6], 4n)]));
-      expect(joins.write(createFrame([DATA, createData([30, 40], 2n)]))).toEqual(
-        new Set(),
-      );
+      const { waiting } = joins.write(createFrame([DATA, createData([30, 40], 2n)]));
+      expect(waiting).toEqual(new Set());
       joins.write(createFrame([DATA, createData([50, 60], 4n)]));
       expect(streamed(store, DATA)).toEqual([10, 20, 30, 40, 50, 60]);
       expect(store.raw(DATA, BLOCK).coveredEnd).toEqual(at(6).add(1));
@@ -433,7 +418,7 @@ describe("Joins", () => {
 
     it("should send the join back to wait on a gap in its index stream", () => {
       const { store, joins } = createJoined();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame([INDEX, createIndex([4, 5], 5n)], [DATA, createData([40, 50], 5n)]),
       );
       expect(waiting).toEqual(new Set([INDEX]));
@@ -444,12 +429,13 @@ describe("Joins", () => {
 
     it("should continue the index stream into a new Core domain", () => {
       const { joins } = createJoined();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame([INDEX, createIndex([3], block.alignmentOf(1, 0))]),
       );
       expect(waiting.size).toBe(0);
       expect(
-        joins.write(createFrame([INDEX, createIndex([4], block.alignmentOf(2, 5))])),
+        joins.write(createFrame([INDEX, createIndex([4], block.alignmentOf(2, 5))]))
+          .waiting,
       ).toEqual(new Set([INDEX]));
     });
 
@@ -546,7 +532,7 @@ describe("Joins", () => {
       joins.write(
         createFrame([INDEX, createIndex([1, 2], 0n)], [DATA, createData([10, 20], 0n)]),
       );
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame([INDEX, createIndex([3], 6n)], [DATA, createData([30], 6n)]),
       );
       expect(waiting.size).toBe(0);
@@ -560,7 +546,7 @@ describe("Joins", () => {
 
     it("should send back only a data member whose alignment has no index samples", () => {
       const { store, joins } = createJoined();
-      const waiting = joins.write(createFrame([DATA, createData([90], 50n)]));
+      const { waiting } = joins.write(createFrame([DATA, createData([90], 50n)]));
       expect(waiting).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([DATA]);
       expect(joins.joined(INDEX)).toBe(true);
@@ -569,7 +555,7 @@ describe("Joins", () => {
 
     it("should stream on when the stream changes a member's data type", () => {
       const { store, joins } = createJoined();
-      const waiting = joins.write(
+      const { waiting } = joins.write(
         createFrame(
           [INDEX, createIndex([3], 2n)],
           [

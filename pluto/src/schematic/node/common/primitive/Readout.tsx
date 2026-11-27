@@ -59,6 +59,7 @@ export const Readout = ({
       <Text.Text
         ref={valueRef}
         level={level}
+        variant="numeric"
         overflow="fade"
         className={CSS.BE("symbol-field", "readout-value")}
       >

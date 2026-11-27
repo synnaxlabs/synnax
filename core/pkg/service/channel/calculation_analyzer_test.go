@@ -50,6 +50,25 @@ var _ = Describe("Analyze", func() {
 		Expect(res.Unresolved).To(BeEmpty())
 	})
 
+	It("Should reject an expression that returns no value", func(ctx SpecContext) {
+		a := channel.NewCalculationAnalyzer(StaticResolver{})
+		Expect(a.Analyze(ctx, channel.Channel{Name: "calc", Expression: "1 + 1"})).
+			Error().To(MatchError(
+			ContainSubstring(`calculated channel "calc" returns no value`),
+		))
+	})
+
+	It("Should reject a derivative of an expression that returns no value", func(
+		ctx SpecContext,
+	) {
+		a := channel.NewCalculationAnalyzer(StaticResolver{})
+		Expect(a.Analyze(ctx, channel.Channel{
+			Name:       "calc",
+			Expression: "1 + 1",
+			Operations: []channel.Operation{{Type: channel.OperationTypeDerivative}},
+		})).Error().To(MatchError(ContainSubstring("returns no value")))
+	})
+
 	Describe("Type Inference", func() {
 		It(
 			"Should infer the correct type for integer literal expressions",

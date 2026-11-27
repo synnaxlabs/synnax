@@ -9,6 +9,8 @@
 
 import { color } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
+import { Theming } from "@synnaxlabs/lyra/theming";
 import { color as xcolor, id } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import type { FC, PropsWithChildren } from "react";
@@ -31,10 +33,12 @@ describe("Color.Editor", () => {
 
   const renderEditor = (key: color.Key, disabled?: boolean) =>
     render(
-      <Color.Editor itemKey={key}>
-        <Color.LightInput disabled={disabled} />
-        <Color.DarkInput disabled={disabled} />
-      </Color.Editor>,
+      <Theming.Provider theme={Theming.SYNNAX_LIGHT}>
+        <Color.Editor itemKey={key}>
+          <Color.LightInput disabled={disabled} />
+          <Color.DarkInput disabled={disabled} />
+        </Color.Editor>
+      </Theming.Provider>,
       { wrapper },
     );
 
@@ -68,6 +72,16 @@ describe("Color.Editor", () => {
     fireEvent.change(c.getByLabelText("Hex"), { target: { value: "ff0000" } });
     await expect.poll(async () => await storedHex(named.key, "dark")).toBe("#ff0000");
     expect(c.queryByText("Auto")).toBeNull();
+  });
+
+  it("should draw a hex code and Auto in the text font", async () => {
+    const named = await client.colors.create({
+      name: `editor-${id.create()}`,
+      light: "#00ff00",
+    });
+    const c = renderEditor(named.key);
+    expect(treatment(await c.findByText("Auto"))).toBe("prose");
+    expect(treatment(c.getByText("#00FF00"))).toBe("prose");
   });
 
   it("should show an edit that another client makes", async () => {

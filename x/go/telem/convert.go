@@ -254,6 +254,23 @@ func outOfRange[S NumericSample](v S, from DataType, t target) error {
 	return OutOfRangeError{Value: v, From: from, To: t.dataType}
 }
 
+// ValueAsBool returns sample i of s as a boolean, converted as Convert converts it: a
+// number is true when it is not zero. It reads with no allocation, and a negative i
+// counts from the end. It returns a ConversionError for a series that holds no numbers.
+func ValueAsBool(s Series, i int) (bool, error) {
+	if s.DataType == BooleanT {
+		return isTrue(s.ValueAt[uint8](i)), nil
+	}
+	v, err := ValueAs[float64](s, i)
+	if err != nil {
+		return false, ConversionError{From: s.DataType, To: BooleanT}
+	}
+	return isTrue(v), nil
+}
+
+// isTrue returns the boolean of the number v.
+func isTrue[S NumericSample](v S) bool { return v != 0 }
+
 func valueAs[S, T NumericSample](v S, from DataType, t target) (T, error) {
 	if !holds(t, v, from) {
 		return 0, outOfRange(v, from, t)
@@ -296,7 +313,7 @@ func convertFrom[S NumericSample](
 	case BooleanT:
 		dst := make([]byte, len(src))
 		for i, v := range src {
-			if v != 0 {
+			if isTrue(v) {
 				dst[i] = 1
 			}
 		}

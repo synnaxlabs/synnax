@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { renderThemed } from "@synnaxlabs/lyra/styletest";
+import { renderThemed, treatment } from "@synnaxlabs/lyra/styletest";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { TimeSpan } from "@synnaxlabs/x";
@@ -27,6 +27,17 @@ const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
 
 const getTooltip = (): HTMLElement | null =>
   document.querySelector<HTMLElement>(".lyra-tooltip");
+
+describe("Device location", () => {
+  it("should draw each part of the location in the text font", async () => {
+    const c = await renderThemed(
+      <Wrapper>
+        <Device.Location value="Dev1" />
+      </Wrapper>,
+    );
+    expect(treatment(c.getByText("Dev1").element())).toBe("prose");
+  });
+});
 
 describe("Device location tooltip", () => {
   it("should show the whole location when part of it is hidden", async () => {

@@ -14,7 +14,7 @@
 #include "driver/task/task.h"
 
 namespace driver::modbus {
-/// @brief implements the driver::task::Factory to configure and operate modbus tasks.
+/// @brief implements the driver::task::Factory to configure and operate Modbus tasks.
 class Factory final : public task::Factory {
     /// @brief central device manager that connects and controls access to devices.
     const std::shared_ptr<device::Manager> devices;

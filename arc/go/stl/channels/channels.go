@@ -502,20 +502,11 @@ func bindBool(
 			if !ok || series.Len() == 0 {
 				return 0
 			}
-			if series.DataType == telem.BooleanT {
-				if series.ValueAt[bool](-1) {
-					return 1
-				}
-				return 0
-			}
-			v, err := telem.ValueAs[float64](series, -1)
+			v, err := telem.ValueAsBool(series, -1)
 			if err != nil {
-				panic(ps.readError(chID, telem.ConversionError{
-					From: series.DataType,
-					To:   telem.BooleanT,
-				}))
+				panic(ps.readError(chID, err))
 			}
-			if v != 0 {
+			if v {
 				return 1
 			}
 			return 0

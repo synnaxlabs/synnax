@@ -994,6 +994,9 @@ class _EndableStream[RQ: BaseModel, RS: BaseModel]:
     def close_send(self) -> None:
         self._end.send_closed = True
 
+    def close(self) -> None:
+        pass
+
 
 class _EndableTransport:
     """A stream transport whose writer stream a spec can end."""

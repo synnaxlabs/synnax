@@ -118,7 +118,8 @@ Channel struct {
         """
     }
     data_type   telem.DataType      {
-        @doc value "is the data type of samples stored in this channel."
+        @doc value         "is the data type of samples stored in this channel."
+        @validate required
     }
     is_index    bool                {
         @doc value """

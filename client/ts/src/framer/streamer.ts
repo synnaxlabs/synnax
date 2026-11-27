@@ -165,8 +165,8 @@ export interface Streamer
   close: () => void;
   /**
    * Read the next frame of telemetry.
-   * @throws {Unreachable} if keep-alives were flowing and the stream then stays silent
-   * past the keep-alive deadline: the connection is presumed dead.
+   * @throws {Unreachable} if the stream stays silent past the keep-alive deadline: the
+   * connection is presumed dead.
    * @throws {UnexpectedError} if the Core sends an ack that answers no update.
    */
   read: () => Promise<Frame>;
@@ -211,10 +211,12 @@ export const createStreamOpener =
       keepAlive: cfg.keepAlive,
       missedRequested: onMissed != null,
     });
-    // A keep-alive can beat the open ack onto the wire, so the ack is the first
-    // non-keep-alive response.
-    let res = await stream.receive();
-    while (res.keepAlive === true) res = await stream.receive();
+    try {
+      await streamer.receiveOpenAck();
+    } catch (e) {
+      streamer.close();
+      throw errors.fromUnknown(e);
+    }
     return streamer;
   };
 
@@ -249,9 +251,6 @@ class BaseStreamer implements Streamer {
   private readonly deadline: TimeSpan;
   private readonly onMissed?: MissedHandler;
   private untimedKeys: channel.Key[];
-  // Set once the Core proves keep-alive support by sending one, so the deadline never
-  // arms against a Core that will not send them.
-  private armed = false;
   // Updates waiting on an ack, oldest first. The Core acks in request order.
   private readonly pendingAcks: PromiseWithResolvers<void>[] = [];
   private failure?: Error;
@@ -303,10 +302,7 @@ class BaseStreamer implements Streamer {
         this.pendingAcks.splice(0).forEach(({ reject }) => reject(err));
         throw err;
       }
-      if (res.keepAlive === true) {
-        if (!this.deadline.isZero) this.armed = true;
-        continue;
-      }
+      if (res.keepAlive === true) continue;
       if (res.ack === true) {
         const ack = this.pendingAcks.shift();
         if (ack == null)
@@ -323,9 +319,20 @@ class BaseStreamer implements Streamer {
     }
   }
 
+  /**
+   * Waits for the response that acks the open request.
+   * @throws {Unreachable} if the stream stays silent past the keep-alive deadline.
+   */
+  async receiveOpenAck(): Promise<void> {
+    // A keep-alive can beat the open ack onto the wire, so the ack is the first
+    // non-keep-alive response.
+    let res = await this.receiveWithDeadline();
+    while (res.keepAlive === true) res = await this.receiveWithDeadline();
+  }
+
   private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
     const received = this.stream.receive();
-    if (!this.armed) return await received;
+    if (this.deadline.isZero) return await received;
     return await sync.withTimeout(
       received,
       this.deadline,

@@ -222,4 +222,34 @@ var _ = Describe("Convert", func() {
 			Expect(err).To(Succeed())
 		})
 	})
+
+	Describe("ValueAsBool", func() {
+		It("Should return true for a number that is not zero", func() {
+			s := telem.NewSeriesV(0.0, -0.5)
+			Expect(MustSucceed(telem.ValueAsBool(s, 0))).To(BeFalse())
+			Expect(MustSucceed(telem.ValueAsBool(s, -1))).To(BeTrue())
+			Expect(MustSucceed(telem.ValueAsBool(telem.NewSeriesV[int64](7), 0))).
+				To(BeTrue())
+		})
+
+		It("Should return a boolean sample as it is", func() {
+			s := telem.NewSeriesV(true, false)
+			Expect(MustSucceed(telem.ValueAsBool(s, 0))).To(BeTrue())
+			Expect(MustSucceed(telem.ValueAsBool(s, 1))).To(BeFalse())
+		})
+
+		It("Should fail on text", func() {
+			Expect(telem.ValueAsBool(telem.NewSeriesV("a"), 0)).Error().
+				To(MatchError("cannot convert a string series to boolean"))
+		})
+
+		It("Should read a sample with no allocation", func() {
+			s := telem.NewSeriesV[int16](0, 3)
+			var err error
+			Expect(testing.AllocsPerRun(100, func() {
+				_, err = telem.ValueAsBool(s, -1)
+			})).To(BeZero())
+			Expect(err).To(Succeed())
+		})
+	})
 })

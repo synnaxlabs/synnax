@@ -30,7 +30,7 @@
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
 namespace synnax::auth {
-/// @brief auth metadata key. NOTE: This must be lowercase, GRPC will panic on
+/// @brief auth metadata key. NOTE: This must be lowercase, gRPC will panic on
 /// capitalized or uppercase keys.
 const std::string HEADER_KEY = "authorization";
 /// @brief auth token prefix that will be parsed by the cluster.

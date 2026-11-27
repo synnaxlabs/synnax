@@ -40,8 +40,9 @@ var _ = Describe("Frames over 4 GiB", func() {
 			))
 			DeferCleanup(func() { Expect(syscall.Munmap(data)).To(Succeed()) })
 			c := codec.NewStatic(channel.Keys{6}, []telem.DataType{telem.Uint8T})
-			// Each series holds 2^31 samples. Their alignments are contiguous, so the
-			// encoder merges them into one series of 2^32 samples.
+			// Each series holds 2^31 samples. Their alignments are contiguous, but one
+			// series of 2^32 samples passes the length field, so the encoder keeps them
+			// apart.
 			Expect(c.EncodeStream(ctx, io.Discard, multi(
 				keyed{6, telem.Series{DataType: telem.Uint8T, Data: data[:half]}},
 				keyed{6, telem.Series{

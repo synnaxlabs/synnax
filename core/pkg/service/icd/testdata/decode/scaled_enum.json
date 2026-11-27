@@ -63,11 +63,27 @@
     },
     {
       "document": { "temp": "HIGH", "count": 3 },
-      "error": "field temp: unknown enum label \"HIGH\": validation error"
+      "message": "reading",
+      "samples": [null, 6],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field temp: unknown enum label \"HIGH\": validation error"
+        }
+      ]
     },
     {
       "document": { "temp": 4, "count": 1.5 },
-      "error": "field count: 1.5 is not an integer: validation error"
+      "message": "reading",
+      "samples": [-8, null],
+      "failures": [
+        {
+          "binding": 1,
+          "missing": false,
+          "error": "field count: 1.5 is not an integer: validation error"
+        }
+      ]
     }
   ]
 }
