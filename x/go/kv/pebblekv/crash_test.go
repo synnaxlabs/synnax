@@ -481,7 +481,7 @@ var _ = DescribeTable("Crash harness",
 	// marker and lose the manifest, and the database does not open again.
 	Entry("Partial: R4", crash.Partial, uint64(0), crash.R4, 0,
 		"could not open manifest file"),
-	Entry("Mixed: R4", crash.Mixed, uint64(0), crash.R4, 0,
+	Entry("Mixed: R4", crash.Mixed, uint64(5), crash.R4, 0,
 		"could not open manifest file"),
 	// One bad read of the manifest or of the OPTIONS file stops the open: Pebble reads
 	// neither a second time.
@@ -495,7 +495,7 @@ var _ = DescribeTable("Crash harness",
 		crash.R4, 4, "invalid key=value syntax"),
 	Entry("Mixed, manifest: R4", crash.Mixed, uint64(3), crash.R4, 1,
 		"malformed manifest file"),
-	Entry("Mixed, OPTIONS: R4", crash.Mixed, uint64(7), crash.R4, 1,
+	Entry("Mixed, OPTIONS: R4", crash.Mixed, uint64(11), crash.R4, 1,
 		"invalid key=value syntax"),
 	// The OPTIONS file has no checksum, so a flipped byte in it stops the open with an
 	// error that is not pebble.ErrCorruption.

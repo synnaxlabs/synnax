@@ -32,6 +32,14 @@ func (f *FS) Fill(room int64) {
 	d.capacity, d.capped = d.used()+max(room, 0), true
 }
 
+// Free lifts the capacity that Fill set, so the disk of f has no limit again.
+func (f *FS) Free() {
+	d := f.d
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.capped = false
+}
+
 // Unsynced reports whether the disk of f holds a change that a crash can lose in part:
 // a block of a file written since its last Sync, or a directory entry that no SyncDir
 // made durable.
