@@ -154,4 +154,24 @@ var _ = Describe("Rewriter check", func() {
 		Entry("a function before a global of the name",
 			program("func f() f64 {\n\treturn Metrics\n}\nMetrics := 1.0")),
 	)
+
+	// The compiler resolves each name in the finished scope, so a later local or global
+	// of the new name would take the rewritten read.
+	DescribeTable("Should keep a read of the channel when a symbol of the new name "+
+		"declared after it would take the read in the compiled program",
+		func(ctx SpecContext, src v1.Source, lines []int) {
+			res := MustSucceed(w.Rewrite(ctx, src))
+			Expect(res.Text).To(Equal(src.Text))
+			Expect(keptLines(res)).To(Equal(lines))
+		},
+		Entry("a local after the read", calculation(
+			"y := Metrics * 1\nMetrics_2 := 2.0\nreturn y + Metrics_2",
+		), []int{1}),
+		Entry("a local after a block that reads", calculation(
+			"if Metrics > 0 {\n\treturn 1.0\n}\nMetrics_2 := 2.0\nreturn Metrics_2",
+		), []int{1}),
+		Entry("a global after a function that reads", program(
+			"func f() f64 {\n\treturn Metrics\n}\nMetrics_2 := 1.0",
+		), []int{2}),
+	)
 })
