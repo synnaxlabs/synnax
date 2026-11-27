@@ -74,8 +74,8 @@ export interface Params {
   reads?: (topic: string) => Reads;
   /** Names the Kafka key of a record, such as "Any key" for the empty key. */
   label: (recordKey: string) => string;
-  /** The ICDs whose messages new records can read. */
-  icds?: Pick<icd.ICD, "key" | "name" | "messages">[];
+  /** @returns the ICDs whose messages new records can read, as they are now. */
+  icds?: () => Pick<icd.ICD, "key" | "name" | "messages">[];
   /** The ICD that the most records of the task read. */
   home?: icd.Key;
 }
@@ -122,7 +122,7 @@ const NO_READS: Reads = { messages: new Map(), jsonless: new Set() };
 
 const readNothing = (): Reads => NO_READS;
 
-const NO_ICDS: NonNullable<Params["icds"]> = [];
+const noICDs: NonNullable<Params["icds"]> = () => [];
 
 const ANY_KEY: ICD.Picker.Lock = { checked: true, label: "Any key" };
 
@@ -185,12 +185,18 @@ const parse = (payload: string): unknown => {
   }
 };
 
-/** @returns the parsed JSON records of a shape's keys, newest first. */
-const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] =>
-  sample.records
+/**
+ * @returns the parsed JSON records of a shape, newest first: the records of its keys
+ * that hold its present field, if it has one.
+ */
+const newestFirst = (sample: kafka.SampledTopic, shape: json.Shape): unknown[] => {
+  const present = shape.present == null ? undefined : shape.fields[shape.present];
+  return sample.records
     .filter(({ key, format }) => format === "json" && shape.sources.includes(key))
     .sort((a, b) => Number(b.time.valueOf() - a.time.valueOf()))
-    .map(({ payload }) => parse(payload));
+    .map(({ payload }) => parse(payload))
+    .filter((doc) => present == null || valueAt(doc, present.pointer) !== undefined);
+};
 
 /** @returns the value of a field in the newest record that holds it. */
 const newestValue = (records: unknown[], pointer: string): unknown => {
@@ -212,7 +218,7 @@ const findReading = (
   sample: kafka.SampledTopic,
   reads: Reads,
   device: Device.Device,
-  icds: NonNullable<Params["icds"]>,
+  icds: ReturnType<NonNullable<Params["icds"]>>,
   home?: icd.Key,
 ): ICD.Reuse.Result => {
   const shapes = freeShapes(sample.shapes, reads);
@@ -234,23 +240,45 @@ const findReading = (
 };
 
 /**
+ * @returns the fit whose message the new records of a shape read, by the position of
+ * the shape in the free shapes of its sample.
+ */
+const reusedFit = (
+  { reading }: ICD.Reuse.Result,
+  shape: json.Shape,
+  i: number,
+): ICD.Reuse.Fit | undefined => {
+  const fit = reading?.fits[i];
+  return fit != null && isReusable(shape, fit) ? fit : undefined;
+};
+
+/** @returns the reading of found when it reuses a message for a shape of free. */
+const reusedReading = (
+  found: ICD.Reuse.Result,
+  free: json.Shape[],
+): ICD.Reuse.Reading | undefined =>
+  free.some((shape, i) => reusedFit(found, shape, i) != null)
+    ? found.reading
+    : undefined;
+
+/**
  * @returns what the new records of a shape read, by the position of the shape in the
  * free shapes of its sample.
  */
 const readingNote = (
-  { reading, candidates }: ICD.Reuse.Result,
+  found: ICD.Reuse.Result,
   shape: json.Shape,
   i: number,
 ): string | undefined => {
   if (i < 0) return undefined;
-  if (reading != null) {
-    const fit = reading.fits[i];
-    return fit != null && isReusable(shape, fit)
-      ? `Reads ${fit.message.name} of ${reading.name}`
-      : undefined;
-  }
-  const fits = candidates.reduce((n, { fits }) => n + (fits[i]?.length ?? 0), 0);
-  return fits === 0 ? undefined : `Fits ${pluralize("message", fits, true)}`;
+  const { reading, candidates } = found;
+  const fit = reusedFit(found, shape, i);
+  if (reading != null && fit != null)
+    return `Reads ${fit.message.name} of ${reading.name}`;
+  const tied = candidates
+    .filter(({ icd: k }) => reading == null || k === reading.icd)
+    .reduce((n, { fits }) => n + (fits[i]?.length ?? 0), 0);
+  return tied < 2 ? undefined : `Fits ${tied} messages`;
 };
 
 /** A partition that the browse could not measure can hide records. */
@@ -528,7 +556,7 @@ const Content = ({
   topics: held,
   reads: readsOf = readNothing,
   label,
-  icds = NO_ICDS,
+  icds = noICDs,
   home,
   close,
   kind,
@@ -791,7 +819,7 @@ const Content = ({
           warning={warning === "" ? null : warning}
           sample={data}
           reads={readsOf(topic)}
-          found={findReading(topic, data, readsOf(topic), device, icds, home)}
+          found={findReading(topic, data, readsOf(topic), device, icds(), home)}
           label={label}
           value={picks.get(topic)?.picks ?? new Map()}
           onChange={(value) =>
@@ -828,15 +856,17 @@ const Content = ({
         .map((pick): TopicPick => {
           const sample = reads.get(pick.topic);
           if (sample?.variant !== "success") return pick;
-          const r = findReading(
+          const held = readsOf(pick.topic);
+          const found = findReading(
             pick.topic,
             sample.data,
-            readsOf(pick.topic),
+            held,
             device,
-            icds,
+            icds(),
             home,
           );
-          return r.reading == null ? pick : { ...pick, reading: r.reading };
+          const reading = reusedReading(found, freeShapes(sample.data.shapes, held));
+          return reading == null ? pick : { ...pick, reading };
         })
         .sort(compare.by(({ topic }) => topic)),
       record,

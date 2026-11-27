@@ -142,6 +142,7 @@ export interface Reading {
   icd: icd.Key;
   /** The name of the ICD. */
   name: string;
+  /** Absent for a shape that no message fits, or that two messages fit equally. */
   fits: (Fit | undefined)[];
 }
 
@@ -190,8 +191,8 @@ const rank = (
 /**
  * @returns the ICD messages that source reads. A source reads one ICD: the one whose
  * messages the device stores the most channels for, then that holds the most fields of
- * the source, then home, the ICD that most sources of the task read. It picks nothing
- * when two ICDs still tie, or when two messages of the best ICD fit one shape equally.
+ * the source, then home, the ICD that most sources of the task read. It gives no
+ * reading when two ICDs still tie.
  */
 export const find = (
   source: Source,
@@ -208,11 +209,13 @@ export const find = (
   const [first, second] = ranked;
   if (first == null) return { candidates };
   const tied =
-    (second != null &&
-      compare(first.score, second.score) === 0 &&
-      isHome(first) === 0) ||
-    first.candidate.fits.some((f) => f.length > 1);
+    second != null && compare(first.score, second.score) === 0 && isHome(first) === 0;
   if (tied) return { candidates };
   const { icd: key, name, fits } = first.candidate;
-  return { reading: { icd: key, name, fits: fits.map(([f]) => f) }, candidates };
+  const reading = {
+    icd: key,
+    name,
+    fits: fits.map((f) => (f.length === 1 ? f[0] : undefined)),
+  };
+  return { reading, candidates };
 };

@@ -629,7 +629,7 @@ const Records: FC<RecordsProps> = ({
       topics: topics.map(({ name }) => name),
       reads: (name) => readsOf(topicRecords(name), messagesOf),
       label,
-      icds: [...formats].map(([key, form]) => ({ key, ...form.value() })),
+      icds: () => [...formats].map(([key, form]) => ({ key, ...form.value() })),
       home,
     });
     if (result == null) return;
