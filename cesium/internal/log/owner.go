@@ -64,17 +64,29 @@ func Prepare(fs xfs.FS, generation uint64, size int64) error {
 // Config is the configuration of a log.
 type Config struct {
 	// FS is the root of the database.
+	//
+	// [REQUIRED]
 	FS xfs.FS
 	// Executor runs each step of the log owner: one batch of entries, or a mark. It
 	// must run every function it gets.
+	//
+	// [REQUIRED]
 	Executor func(f func())
 	// DB is the identity of the database.
+	//
+	// [OPTIONAL]
 	DB uint64
 	// Generation is the generation of the log, from 1.
+	//
+	// [REQUIRED]
 	Generation uint64
 	// Sequence is the sequence of the first entry of the log, from 1.
+	//
+	// [REQUIRED]
 	Sequence uint64
 	// PrevCRC is the crc field of the last frame of the generation before, or 0.
+	//
+	// [OPTIONAL]
 	PrevCRC uint32
 }
 
