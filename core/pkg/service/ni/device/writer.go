@@ -102,8 +102,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 // caller changes one field group and keeps the other as stored. A rename or rack move
 // updates the status, or writes it as unknown when it is missing. It returns an error
 // wrapping query.ErrNotFound when no device is stored under key and a validation error
-// when the result is invalid. A transaction that commits between the read and the
-// write of this one is overwritten.
+// when the result is invalid. Gorp runs one transaction at a time, so no other write
+// lands between the read and the write.
 func (w Writer) Update(
 	ctx context.Context,
 	key Key,

@@ -174,7 +174,7 @@ var _ = Describe("Handler", func() {
 				Key:     uuid.New().String(),
 				Actions: [][]byte{[]byte("{")},
 			},
-		)).Error().To(HaveOccurred())
+		)).Error().To(MatchError(ContainSubstring(`"path":["actions","0"]`)))
 	})
 
 	It("Should delete devices by key", func(ctx SpecContext) {

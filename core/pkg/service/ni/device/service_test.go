@@ -601,6 +601,24 @@ var _ = Describe("Service", func() {
 			Expect(got.Serial).To(BeEmpty())
 			Expect(got.ResourceName).To(Equal("Mod2"))
 		})
+
+		It("Should set the chassis of an identity update, then clear it", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			c := createChassis(ctx)
+			identity := newIdentity()
+			identity.Chassis = &c
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			Expect(retrieve(ctx, d.Key).Chassis).To(Equal(&c))
+			identity.Chassis = nil
+			Expect(svc.NewWriter(tx).ApplyUpdate(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: identity},
+			})).To(Succeed())
+			Expect(retrieve(ctx, d.Key).Chassis).To(BeNil())
+		})
 	})
 
 	Describe("Channels", func() {
