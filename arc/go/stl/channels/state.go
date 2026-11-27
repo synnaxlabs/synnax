@@ -58,10 +58,7 @@ func NewProgramState(digests []Digest) *ProgramState {
 		writers:    make(map[uint32]int),
 	}
 	for _, d := range digests {
-		ps.indexes[d.Key] = d.Index
-		if d.Name != "" {
-			ps.names[d.Key] = d.Name
-		}
+		ps.indexes[d.Key], ps.names[d.Key] = d.Index, d.Name
 	}
 	return ps
 }
