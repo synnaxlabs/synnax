@@ -11,6 +11,7 @@ package log_test
 
 import (
 	"encoding/binary"
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 
 // decodeAll decodes the entry at the start of b and returns copies of its records.
 func decodeAll(b []byte) ([]any, error) {
+	GinkgoHelper()
 	var d log.Decoder
 	if _, err := d.Reset(b); err != nil {
 		return nil, err
@@ -59,6 +61,8 @@ func decodeAll(b []byte) ([]any, error) {
 			out = append(out, *v)
 		case *log.Intent:
 			out = append(out, *v)
+		default:
+			Fail(fmt.Sprintf("decoded a record of unknown type %T", v))
 		}
 	}
 }
