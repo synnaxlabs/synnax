@@ -78,7 +78,15 @@
       "document": {
         "v": "abc"
       },
-      "error": "field v: unknown enum label \"abc\": validation error"
+      "message": "reading",
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field v: unknown enum label \"abc\": validation error"
+        }
+      ]
     }
   ]
 }

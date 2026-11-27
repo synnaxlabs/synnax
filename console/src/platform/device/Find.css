@@ -19,14 +19,9 @@
         }
     }
 
-    .console-device-find__location {
-        font-family: var(--pluto-code-font-family);
-
-        &::before {
-            content: "·";
-            margin-right: 1rem;
-            font-family: var(--pluto-font-family);
-        }
+    .console-device-find__location::before {
+        content: "·";
+        margin-right: 1rem;
     }
 
     .console-device-find__configured .lyra-icon {

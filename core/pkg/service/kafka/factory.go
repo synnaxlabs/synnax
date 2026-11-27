@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
+	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -26,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -118,6 +118,7 @@ func (c FactoryConfig) Validate() error {
 type factory struct {
 	cfg      FactoryConfig
 	reads    read.Resolver
+	writes   write.Resolver
 	reporter driver.ConfigReporter
 }
 
@@ -129,9 +130,11 @@ func NewFactory(cfgs ...FactoryConfig) (driver.Factory, error) {
 	if err != nil {
 		return nil, err
 	}
+	channels := icd.ReadChannels(cfg.Channel)
 	return &factory{
-		cfg:   cfg,
-		reads: read.NewResolver(cfg.ICD, icd.ReadChannels(cfg.Channel)),
+		cfg:    cfg,
+		reads:  read.NewResolver(cfg.ICD, channels),
+		writes: write.NewResolver(cfg.ICD, channels),
 		reporter: driver.ConfigReporter{
 			DB:              cfg.DB,
 			Status:          cfg.Status,
@@ -211,56 +214,4 @@ func resolveProperties(
 		return Properties{}, errors.Wrapf(err, "retrieving device %s", key)
 	}
 	return decodeProperties(dev)
-}
-
-// retrieveChannels resolves keys to their channel records. A key with no channel is
-// absent from the result.
-func retrieveChannels(
-	ctx context.Context,
-	db *gorp.DB,
-	svc *channel.Service,
-	keys channel.Keys,
-) (map[channel.Key]channel.Channel, error) {
-	var channels []channel.Channel
-	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return svc.NewRetrieve().
-			Where(channel.MatchKeys(keys...)).
-			SkipMissingKeys().
-			Entries(&channels).
-			Exec(ctx, snap)
-	}); err != nil {
-		return nil, err
-	}
-	byKey := make(map[channel.Key]channel.Channel, len(channels))
-	for _, ch := range channels {
-		byKey[ch.Key()] = ch
-	}
-	return byKey, nil
-}
-
-// retrieveICDs resolves keys to their ICDs. It returns an error wrapping
-// validate.ErrValidation when a key does not exist.
-func retrieveICDs(
-	ctx context.Context,
-	db *gorp.DB,
-	svc *icd.Service,
-	keys []icd.Key,
-) (map[icd.Key]icd.ICD, error) {
-	var icds []icd.ICD
-	if err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return svc.NewRetrieve().
-			Where(icd.MatchKeys(keys...)).
-			Entries(&icds).
-			Exec(ctx, snap)
-	}); err != nil {
-		if errors.Is(err, query.ErrNotFound) {
-			return nil, errors.Wrap(validate.ErrValidation, err.Error())
-		}
-		return nil, err
-	}
-	byKey := make(map[icd.Key]icd.ICD, len(icds))
-	for _, ic := range icds {
-		byKey[ic.Key] = ic
-	}
-	return byKey, nil
 }

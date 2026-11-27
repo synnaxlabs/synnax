@@ -151,7 +151,7 @@ describe("task tab", () => {
     );
     // Restore rebuilds from the corpse the cache holds, which exists only once
     // the client has seen the task live. The tab reads statuses, so the corpse
-    // carries the running one the driver last reported.
+    // carries the running one the Driver last reported.
     await client.tasks.retrieve({ key: created.key, includeStatus: true });
     await client.tasks.delete(created.key);
     await waitFor(() =>

@@ -73,7 +73,7 @@ export type WorkerMessage =
 export type MainMessage =
   MainUpdateRequest | MainDeleteRequest | MainClearRequest | MainInvokeRequest;
 
-/** Send-only channel handed to individual aether components. Takes one
+/** Send-only channel handed to individual Aether components. Takes one
  * {@link WorkerMessage} at a time; the implementation decides when it reaches the wire.
  */
 export interface Sender {

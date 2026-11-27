@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package recovery provides panic-recovery boundaries for freighter request handlers.
+// Package recovery provides panic-recovery boundaries for Freighter request handlers.
 // A panic in a handler would otherwise unwind through the transport, where nothing
 // recovers it, and take down the entire process. Middleware converts such a panic into
 // a generic error returned to the caller, records the panic and stack trace
 // server-side, and keeps the node running. LogPanic and ErrPanic are exported for
-// transport-specific recovery boundaries (e.g. the gRPC interceptors in the freighter
+// transport-specific recovery boundaries (e.g. the gRPC interceptors in the Freighter
 // grpc package) so panic handling stays consistent across transports.
 package recovery
 

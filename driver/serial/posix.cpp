@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -129,6 +130,13 @@ x::errors::Error failed(const std::string &setting, const std::string &port) {
 
 void discard_output(const Handle handle) {
     ::tcflush(static_cast<int>(handle), TCOFLUSH);
+}
+
+std::pair<std::string, x::errors::Error> identity(const std::string &path) {
+    struct stat st{};
+    if (::stat(node(path).c_str(), &st) != 0)
+        return {"", translate_open(path, last_error())};
+    return {std::to_string(st.st_rdev), x::errors::NIL};
 }
 
 std::pair<std::size_t, std::error_code> queued_output(const Handle handle) {

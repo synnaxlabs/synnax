@@ -42,6 +42,7 @@
 #include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/opcua/opcua.h"
+#include "driver/serial/serial.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
@@ -89,20 +90,28 @@ struct RemoteInfo {
 /// build has. Each platform defines it in its own source.
 std::vector<std::string> platform_integrations();
 
-/// @brief returns the integrations that this build runs. A config enables all of them
-/// unless it names its own.
+/// @brief returns the integrations that this build runs.
 inline std::vector<std::string> built_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME,
-        file::INTEGRATION_NAME
+        file::INTEGRATION_NAME,
+        serial::INTEGRATION_NAME
     };
     std::ranges::copy(platform_integrations(), std::back_inserter(integrations));
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);
 #endif
+    return integrations;
+}
+
+/// @brief returns the integrations that a config runs unless it names its own: each
+/// built integration except serial, which ships dark.
+inline std::vector<std::string> default_integrations() {
+    auto integrations = built_integrations();
+    std::erase(integrations, serial::INTEGRATION_NAME);
     return integrations;
 }
 
@@ -186,7 +195,7 @@ struct Config {
                     .username = "",
                     .password = "",
                 },
-            .integrations = built_integrations(),
+            .integrations = default_integrations(),
         };
         VLOG(1) << "loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};

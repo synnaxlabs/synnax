@@ -82,7 +82,15 @@
         "count": 18446744073709551615,
         "armed": false
       },
-      "error": "field count: 18446744073709551615 is out of range for int64: validation error"
+      "message": "reading",
+      "samples": [7, 1, null, 0],
+      "failures": [
+        {
+          "binding": 2,
+          "missing": false,
+          "error": "field count: 18446744073709551615 is out of range for int64: validation error"
+        }
+      ]
     }
   ]
 }
