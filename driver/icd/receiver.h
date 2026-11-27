@@ -151,7 +151,8 @@ public:
     /// bytes, the framer drops a partial frame of a stream. A frame of no message adds
     /// nothing.
     /// @returns the error of t, after which the receiver drops the bytes in the framer.
-    /// Framing and decoding errors come back as warnings.
+    /// Line errors and overruns of t, framing errors, and decoding errors come back as
+    /// warnings.
     common::ReadResult read(transport::Transport &t, x::telem::Frame &fr);
 };
 }
