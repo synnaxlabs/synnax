@@ -111,7 +111,7 @@ export interface TokenlessParams {
 export const createTokenlessClient = ({
   host,
   port,
-  secure = false,
+  secure = true,
 }: TokenlessParams): UnaryClient => {
   const transport = new Transport({
     url: new url.URL({ host, port: Number(port) }),
@@ -307,6 +307,21 @@ export class Client {
     this.authenticating = undefined;
     this.generation += 1;
     this.observer.onUser?.(undefined);
+  }
+
+  /**
+   * Replaces every proof with the token of a session to resume, such as one another
+   * client opened, and clears auth state so the next request resumes it.
+   */
+  setToken(token: string): void {
+    this.credentials = undefined;
+    this.apiKey = undefined;
+    this.oidcCredentials = undefined;
+    this.loadAPIKey = undefined;
+    this.resumeToken = token;
+    this.authState = { authenticated: false };
+    this.authenticating = undefined;
+    this.generation += 1;
   }
 
   get authenticated(): boolean {

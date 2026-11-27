@@ -79,19 +79,20 @@ func (r *Renames) Resolve(_ context.Context, name string) (*symbol.Symbol, error
 	return r.symbol(name, b.key), nil
 }
 
-// readable reports whether Arc with cfg reads the name of each folder of the channel
-// that a v0.62 Core bound name to as one bare identifier, so a path through them reads.
-func (r *Renames) readable(name string, cfg parser.Config) bool {
+// unreadableFolder returns the first folder, from the top level down, of the channel
+// that a v0.62 Core bound name to whose name Arc with cfg cannot read as one bare
+// identifier, and false when Arc reads a path through each of them.
+func (r *Renames) unreadableFolder(name string, cfg parser.Config) (string, bool) {
 	for _, folder := range r.channels[r.bound[name].key].Folders {
 		lexer := parser.NewLexer(folder, cfg)
 		lexer.RemoveErrorListeners()
 		tokens := lexer.GetAllTokens()
 		if len(tokens) != 1 || tokens[0].GetTokenType() != parser.ArcLexerIDENTIFIER ||
 			tokens[0].GetText() != folder {
-			return false
+			return folder, true
 		}
 	}
-	return true
+	return "", false
 }
 
 // symbol returns the channel symbol of key under name.
@@ -152,7 +153,9 @@ type Reference struct {
 	Captured bool
 	// FolderUnreadable is true when the reference reads the channel, but the channel
 	// sits in a folder whose name Arc cannot read bare yet, such as one with a space.
+	// Folder is the first such folder on the path of the channel.
 	FolderUnreadable bool
+	Folder           string
 	// Kept is true when the rewrite left the reference on the old name although it may
 	// read the channel: the text does not parse or bind, a reference of it is captured,
 	// or its folder is unreadable.
@@ -227,18 +230,16 @@ func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
 		written = append(written, spans[i])
 		captured = captured || r.Captured
 	}
-	if captured {
-		for i, r := range res.References {
-			res.References[i].Kept = r.Bound && r.Binding == symbol.KindChannel
-		}
-		return res, nil
-	}
 	for i, r := range res.References {
-		if r.Bound && r.Binding == symbol.KindChannel &&
-			!w.Renames.readable(r.Name, w.Config) {
-			res.References[i].FolderUnreadable = true
-			res.References[i].Kept = true
+		if !r.Bound || r.Binding != symbol.KindChannel {
+			continue
 		}
+		folder, unreadable := w.Renames.unreadableFolder(r.Name, w.Config)
+		res.References[i].FolderUnreadable, res.References[i].Folder = unreadable, folder
+		res.References[i].Kept = captured || unreadable
+	}
+	if captured {
+		return res, nil
 	}
 	res.Text = write(src.Text, res.References, written)
 	return res, nil
@@ -679,14 +680,14 @@ func StageKept(
 			continue
 		}
 		if err := resource.StageTextSite(ctx, tx, resource.TextSite{
-			Holder:           holder,
-			Function:         function,
-			Name:             r.Name,
-			NewName:          r.NewName,
-			Line:             r.Line,
-			Column:           r.Column,
-			Captured:         r.Captured,
-			FolderUnreadable: r.FolderUnreadable,
+			Holder:   holder,
+			Function: function,
+			Name:     r.Name,
+			NewName:  r.NewName,
+			Line:     r.Line,
+			Column:   r.Column,
+			Captured: r.Captured,
+			Folder:   r.Folder,
 		}); err != nil {
 			return err
 		}

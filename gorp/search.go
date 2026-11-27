@@ -33,7 +33,7 @@ type SearchIndex[K Key, E Entry[K]] struct {
 // NewSearchIndex constructs a SearchIndex over the text that text returns for each
 // entry. The returned index is empty; register it on a Table through
 // TableConfig.Indexes to populate it from the existing table contents and keep it in
-// sync with future writes.
+// sync with future writes. text reads the stored entry and must not change it.
 func NewSearchIndex[K Key, E Entry[K]](
 	name string,
 	text func(e *E) []string,
@@ -48,20 +48,14 @@ func NewSearchIndex[K Key, E Entry[K]](
 // Name implements Index.
 func (s *SearchIndex[K, E]) Name() string { return s.name }
 
-func (s *SearchIndex[K, E]) populate() (func(E), func(error)) {
+func (s *SearchIndex[K, E]) populate() (func(*E), func(error)) {
 	insert, finish := s.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), s.text(&entry)) },
+	return func(entry *E) { insert((*entry).GorpKey(), s.text(entry)) },
 		func(err error) { finish(populateErr(s.name, err)) }
 }
 
-func (s *SearchIndex[K, E]) set(entry E) {
-	s.store.Set(entry.GorpKey(), s.text(&entry))
-}
-
-func (s *SearchIndex[K, E]) delete(key K) { s.store.Delete(key) }
-
-func (s *SearchIndex[K, E]) stageSet(tx Tx, entry E) {
-	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.text(&entry))
+func (s *SearchIndex[K, E]) stageSet(tx Tx, entry *E) {
+	s.store.Stage(tx.txIdentity(), (*entry).GorpKey(), s.text(entry))
 }
 
 func (s *SearchIndex[K, E]) stageDelete(tx Tx, key K) {

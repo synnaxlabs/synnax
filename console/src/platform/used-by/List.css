@@ -1,0 +1,70 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A list in a box with a max height scrolls below what sits above it. Its padding
+   leaves room for the focus ring of a heading at its top or bottom. The list takes
+   focus only while a retry reads again, and shows no ring for it. */
+.console-used-by__list {
+    min-height: 0;
+    overflow-y: auto;
+    padding-block: 0.5rem;
+
+    &:focus-visible {
+        outline: none;
+    }
+}
+
+.console-used-by__section + .console-used-by__section {
+    margin-top: 1rem;
+}
+
+.console-used-by__count {
+    font-variant-numeric: tabular-nums;
+}
+
+.console-used-by__resource {
+    min-width: 0;
+}
+
+/* An entry spans the scroll box, and Retry sits on its left edge, so the box would clip
+   a ring drawn outside them. */
+.console-used-by__resource,
+.console-used-by__retry {
+    --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
+}
+
+/* A use that nothing opens, or one that loads, lines up with a small button. */
+.console-used-by__row {
+    min-width: 0;
+    height: var(--pluto-height-small);
+    padding: 0 1.5rem;
+}
+
+.console-used-by__type {
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* The skeleton is one line of the inherited text tall, so it takes the small size. */
+.console-used-by__skeleton {
+    width: min(20rem, 100%);
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+}
+
+.console-used-by__unused {
+    padding: 0 1.5rem 0.5rem;
+}
+
+.console-used-by__error {
+    padding: 0 1.5rem;
+    text-align: left;
+}

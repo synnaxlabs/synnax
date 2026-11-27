@@ -216,15 +216,9 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           deployChecked.current = true;
         }
         await form.validateAsync();
-        const first = form.getStatuses().find(({ variant }) => variant === "error");
-        if (first != null) {
-          // The part of the form that shows the error takes focus. With none, the toast
-          // shows it.
-          const target = first.key
-            ?.split(".")
-            .reduce<deep.Path<unknown>>((p, k) => p[k], deep.path<unknown>());
-          if (target == null || !form.focus(target, { optional: true }))
-            throw new Error(first.message);
+        // A check adds error statuses without failing validateAsync.
+        if (form.getStatuses().some(({ variant }) => variant === "error")) {
+          PForm.focusFirstError(form);
           return;
         }
         const { config, name, rack } = form.value();

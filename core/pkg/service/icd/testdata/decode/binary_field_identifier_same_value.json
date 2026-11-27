@@ -1,0 +1,92 @@
+{
+  "description": "Two identifier fields cannot hold the same value.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "binary",
+        "identifier": {
+          "type": "field",
+          "field": "00000000-0000-4000-8000-000000000002",
+          "value": 1
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "kind",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    },
+    {
+      "name": "b",
+      "payload": {
+        "format": "binary",
+        "identifier": {
+          "type": "field",
+          "field": "00000000-0000-4000-8000-000000000004",
+          "value": 1
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "kind",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "error": "messages a and b match the same identifier value 1: validation error"
+}

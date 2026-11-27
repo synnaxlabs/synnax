@@ -36,9 +36,9 @@ const (
 	Boolean
 )
 
-// ParseType parses the config form of a Type: "number", "string", or "boolean". It
+// parseType parses the config form of a Type: "number", "string", or "boolean". It
 // returns an error wrapping validate.ErrValidation for any other text.
-func ParseType(text string) (Type, error) {
+func parseType(text string) (Type, error) {
 	switch text {
 	case "number":
 		return Number, nil
@@ -72,7 +72,7 @@ func (t Type) MarshalText() ([]byte, error) { return []byte(t.String()), nil }
 
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (t *Type) UnmarshalText(text []byte) (err error) {
-	*t, err = ParseType(string(text))
+	*t, err = parseType(string(text))
 	return err
 }
 
@@ -419,7 +419,7 @@ func (d *Decoder) enum() ([]byte, bool) {
 
 func (d *Decoder) timeStamp(raw jsontext.Value) (telem.TimeStamp, error) {
 	format := d.field.TimeFormat
-	if format == ISO8601 {
+	if format == iso8601 {
 		if raw.Kind() != '"' {
 			return 0, errors.Wrapf(
 				validate.ErrValidation,
@@ -553,6 +553,24 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 		return appendJSONNumber(dst, n)
 	}
 	panic(fmt.Sprintf("json: invalid type %d", e.field.Type))
+}
+
+// Number returns sample as a number. ok is false when sample matches an enum, whose
+// label Append writes instead. It returns an error wrapping validate.ErrValidation when
+// sample is NaN or infinite. It panics when the data type of the field does not hold
+// numbers.
+func (e *Encoder) Number(sample []byte) (n ParsedNumber, ok bool, err error) {
+	dt := e.field.DataType
+	for _, en := range e.enums {
+		if matches(dt, en.sample, sample) {
+			return ParsedNumber{}, false, nil
+		}
+	}
+	v := sampleNumber(dt, sample)
+	if err = checkFinite(v); err != nil {
+		return ParsedNumber{}, false, err
+	}
+	return ParsedNumber{n: v}, true, nil
 }
 
 // matches reports whether a and b, samples of dt, are equal. Floats are equal by value,

@@ -24,8 +24,6 @@ import (
 type engine interface {
 	Populate() (insert func(int, string), finish func(error))
 	Wait(ctx context.Context) error
-	Set(key int, value string)
-	Delete(key int)
 	Stage(s *scope, key int, value string)
 	StageDelete(s *scope, key int)
 	Get(s *scope, values ...string) ([]int, error)
@@ -54,8 +52,6 @@ func (m singleValue) Populate() (func(int, string), func(error)) {
 	insert, finish := m.Multi.Populate()
 	return func(k int, v string) { insert(k, []string{v}) }, finish
 }
-
-func (m singleValue) Set(key int, value string) { m.Multi.Set(key, []string{value}) }
 
 func (m singleValue) Stage(s *scope, key int, value string) {
 	m.Multi.Stage(s, key, []string{value})
@@ -135,21 +131,21 @@ var _ = Describe("Index", func() {
 			Describe("Committed writes", func() {
 				It("Should move a key to its new value", func() {
 					e := populated(newEngine)
-					e.Set(1, "b")
+					e.Stage(nil, 1, "b")
 					Expect(e.Get(nil, "a")).To(ConsistOf(2))
 					Expect(e.Get(nil, "b")).To(ConsistOf(1, 3))
 				})
 
 				It("Should ignore a write of the current value", func() {
 					e := populated(newEngine)
-					e.Set(1, "a")
+					e.Stage(nil, 1, "a")
 					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
 				})
 
 				It("Should remove a deleted key", func() {
 					e := populated(newEngine)
-					e.Delete(3)
-					e.Delete(99)
+					e.StageDelete(nil, 3)
+					e.StageDelete(nil, 99)
 					Expect(e.Get(nil, "b")).To(BeEmpty())
 				})
 			})
@@ -289,8 +285,8 @@ var _ = Describe("Index", func() {
 		})
 
 		It("Should order entries with equal values by key", func() {
-			s.Set(7, 30)
-			s.Set(0, 30)
+			s.Stage(nil, 7, 30)
+			s.Stage(nil, 0, 30)
 			Expect(
 				keys(s.Walk(false, nil, 0, nil)),
 			).To(Equal([]int{1, 2, 0, 3, 7, 4, 5}))
@@ -300,25 +296,25 @@ var _ = Describe("Index", func() {
 		})
 
 		It("Should resume between entries with equal values", func() {
-			s.Set(7, 30)
-			s.Set(0, 30)
+			s.Stage(nil, 7, 30)
+			s.Stage(nil, 0, 30)
 			after := entry{Key: 3, Value: 30}
 			Expect(keys(s.Walk(false, &after, 0, nil))).To(Equal([]int{7, 4, 5}))
 			Expect(keys(s.Walk(true, &after, 0, nil))).To(Equal([]int{0, 2, 1}))
 		})
 
 		It("Should keep value order through committed writes", func() {
-			s.Set(1, 35)
-			s.Set(6, 0)
-			s.Delete(4)
+			s.Stage(nil, 1, 35)
+			s.Stage(nil, 6, 0)
+			s.StageDelete(nil, 4)
 			Expect(keys(s.Walk(false, nil, 0, nil))).To(Equal([]int{6, 2, 3, 1, 5}))
 		})
 
 		It("Should remove the moved entry among equal values", func() {
-			s.Set(7, 30)
-			s.Set(0, 30)
-			s.Set(3, 45)
-			s.Delete(7)
+			s.Stage(nil, 7, 30)
+			s.Stage(nil, 0, 30)
+			s.Stage(nil, 3, 45)
+			s.StageDelete(nil, 7)
 			Expect(keys(s.Walk(false, nil, 0, nil))).To(Equal([]int{1, 2, 0, 4, 3, 5}))
 		})
 
@@ -427,13 +423,13 @@ var _ = Describe("Index", func() {
 		It("Should count the committed entries", func() {
 			txn := &scope{}
 			s.Stage(txn, 6, 60)
-			s.Delete(1)
+			s.StageDelete(nil, 1)
 			Expect(s.Len()).To(Equal(4))
 		})
 
 		Describe("Order", func() {
 			It("Should order the given keys as a walk does", func() {
-				s.Set(0, 30)
+				s.Stage(nil, 0, 30)
 				Expect(keys(s.Order([]int{5, 0, 1, 3}, false, nil))).
 					To(Equal([]int{1, 0, 3, 5}))
 				Expect(keys(s.Order([]int{5, 0, 1, 3}, true, nil))).
@@ -445,7 +441,7 @@ var _ = Describe("Index", func() {
 			})
 
 			It("Should start strictly past the cursor", func() {
-				s.Set(0, 30)
+				s.Stage(nil, 0, 30)
 				after := entry{Key: 0, Value: 30}
 				Expect(keys(s.Order([]int{5, 0, 1, 3}, false, &after))).
 					To(Equal([]int{3, 5}))

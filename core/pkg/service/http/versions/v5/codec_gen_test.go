@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
-	payload "github.com/synnaxlabs/x/payload/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -67,21 +66,6 @@ var _ = Describe("Codec", func() {
 								},
 							},
 						},
-						Fields: []v5.ReadField{
-							{
-								Key:        "test_27",
-								Name:       "test_28",
-								Disabled:   true,
-								Optional:   false,
-								FillValue:  new(any(map[string]any{"key_31": "value_31"})),
-								Channel:    channel.Key(33),
-								Pointer:    "test_33",
-								DataType:   telem.DataType("test_34"),
-								TimeFormat: new(payload.TimeFormat("iso8601")),
-								EnumValues: []payload.EnumEntry{{Label: "test_37", Value: 38.5}},
-							},
-						},
-						Index: "test_39",
 					},
 				},
 				NanFillEnabled: false,
@@ -139,21 +123,6 @@ var _ = Describe("Codec", func() {
 						},
 					},
 				},
-				Fields: []v5.ReadField{
-					{
-						Key:        "test_21",
-						Name:       "test_22",
-						Disabled:   true,
-						Optional:   false,
-						FillValue:  new(any(map[string]any{"key_25": "value_25"})),
-						Channel:    channel.Key(27),
-						Pointer:    "test_27",
-						DataType:   telem.DataType("test_28"),
-						TimeFormat: new(payload.TimeFormat("iso8601")),
-						EnumValues: []payload.EnumEntry{{Label: "test_31", Value: 32.5}},
-					},
-				},
-				Index: "test_33",
 			}),
 			Entry("zero values", v5.ReadEndpoint{
 				Key:         "",
@@ -165,8 +134,6 @@ var _ = Describe("Codec", func() {
 				Body:        "",
 				ICD:         nil,
 				Messages:    []icd.ReadMessage{},
-				Fields:      []v5.ReadField{},
-				Index:       "",
 			}),
 			Entry("empty collections", v5.ReadEndpoint{
 				Key:         "test_1",
@@ -178,8 +145,6 @@ var _ = Describe("Codec", func() {
 				Body:        "test_7",
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 				Messages:    []icd.ReadMessage{},
-				Fields:      []v5.ReadField{},
-				Index:       "test_11",
 			}),
 		)
 	})
@@ -325,21 +290,6 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 						},
 					},
 				},
-				Fields: []v5.ReadField{
-					{
-						Key:        "test_27",
-						Name:       "test_28",
-						Disabled:   true,
-						Optional:   false,
-						FillValue:  new(any(map[string]any{"key_31": "value_31"})),
-						Channel:    channel.Key(33),
-						Pointer:    "test_33",
-						DataType:   telem.DataType("test_34"),
-						TimeFormat: new(payload.TimeFormat("iso8601")),
-						EnumValues: []payload.EnumEntry{{Label: "test_37", Value: 38.5}},
-					},
-				},
-				Index: "test_39",
 			},
 		},
 		NanFillEnabled: false,
@@ -382,21 +332,6 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 				},
 			},
 		},
-		Fields: []v5.ReadField{
-			{
-				Key:        "test_21",
-				Name:       "test_22",
-				Disabled:   true,
-				Optional:   false,
-				FillValue:  new(any(map[string]any{"key_25": "value_25"})),
-				Channel:    channel.Key(27),
-				Pointer:    "test_27",
-				DataType:   telem.DataType("test_28"),
-				TimeFormat: new(payload.TimeFormat("iso8601")),
-				EnumValues: []payload.EnumEntry{{Label: "test_31", Value: 32.5}},
-			},
-		},
-		Index: "test_33",
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -525,21 +460,6 @@ func FuzzDecodeReadConfig(f *testing.F) {
 							},
 						},
 					},
-					Fields: []v5.ReadField{
-						{
-							Key:        "test_27",
-							Name:       "test_28",
-							Disabled:   true,
-							Optional:   false,
-							FillValue:  new(any(map[string]any{"key_31": "value_31"})),
-							Channel:    channel.Key(33),
-							Pointer:    "test_33",
-							DataType:   telem.DataType("test_34"),
-							TimeFormat: new(payload.TimeFormat("iso8601")),
-							EnumValues: []payload.EnumEntry{{Label: "test_37", Value: 38.5}},
-						},
-					},
-					Index: "test_39",
 				},
 			},
 			NanFillEnabled: false,
@@ -628,21 +548,6 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 					},
 				},
 			},
-			Fields: []v5.ReadField{
-				{
-					Key:        "test_21",
-					Name:       "test_22",
-					Disabled:   true,
-					Optional:   false,
-					FillValue:  new(any(map[string]any{"key_25": "value_25"})),
-					Channel:    channel.Key(27),
-					Pointer:    "test_27",
-					DataType:   telem.DataType("test_28"),
-					TimeFormat: new(payload.TimeFormat("iso8601")),
-					EnumValues: []payload.EnumEntry{{Label: "test_31", Value: 32.5}},
-				},
-			},
-			Index: "test_33",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -661,8 +566,6 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Body:        "",
 			ICD:         nil,
 			Messages:    []icd.ReadMessage{},
-			Fields:      []v5.ReadField{},
-			Index:       "",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -681,8 +584,6 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 			Body:        "test_7",
 			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			Messages:    []icd.ReadMessage{},
-			Fields:      []v5.ReadField{},
-			Index:       "test_11",
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

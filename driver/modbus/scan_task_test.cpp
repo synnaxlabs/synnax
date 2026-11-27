@@ -44,7 +44,7 @@ TEST(ScanTask, testConnection) {
         ctx,
         t,
         x::breaker::default_config(t.name),
-        cfg.rate
+        cfg
     );
 
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1664};
