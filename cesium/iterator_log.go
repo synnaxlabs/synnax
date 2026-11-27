@@ -246,10 +246,10 @@ type logCursor struct {
 	slot int
 	src  *logSource
 	// from is the registered count of the load that the ranges of a data cursor came
-	// from, which the cursor uses while held is true, until its next seek or Close.
-	// Another cursor can load the view again before then.
+	// from, once sought is true. The cursor uses that load until its next seek or
+	// Close, since another cursor can load the view again before then.
 	from   uint64
-	held   bool
+	sought bool
 	bounds telem.TimeRange
 	ranges []logRange
 	pos    int
@@ -266,12 +266,12 @@ var _ domain.Ranges = (*logCursor)(nil)
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
 	ch, from := c.view.channel(c.slot)
-	if c.slot != 0 && (!c.held || from != c.from) {
+	if c.slot != 0 && (!c.sought || from != c.from) {
 		c.view.use(from, 1)
-		if c.held {
+		if c.sought {
 			c.view.drop(c.from, 1)
 		}
-		c.from, c.held = from, true
+		c.from, c.sought = from, true
 	}
 	if ch == nil {
 		return
@@ -417,9 +417,9 @@ func (c *logCursor) Close() error {
 	if c.slot == 0 {
 		return nil
 	}
-	if c.held {
+	if c.sought {
 		c.view.drop(c.from, 1)
-		c.held = false
+		c.sought = false
 	}
 	return c.view.close()
 }
