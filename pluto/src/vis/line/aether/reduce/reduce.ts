@@ -453,10 +453,12 @@ class Pair {
   }
 }
 
-// Returns true when b continues a: the two touch in time and hold one y data type, so
-// the ops of each type reduce in that type.
+// Returns true when b continues a: the two touch in time and hold one x and one y data
+// type, so the ops of each pair of types reduce in those types.
 const continues = (a: DrawOperation, b: DrawOperation): boolean =>
-  touching(a, b) && a.y.dataType.equals(b.y.dataType);
+  touching(a, b) &&
+  a.x.dataType.equals(b.x.dataType) &&
+  a.y.dataType.equals(b.y.dataType);
 
 // Returns the op, then the ops that continue it, until they hold groupSize samples past
 // its end. The chain stops at the first op that does not continue the one before it,
