@@ -145,8 +145,11 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    keys never moves a local key past 2^20, and such a key is never given to a new
    channel after an undo or a lost metadata tail. A key with a record, a clock, and a
    key whose intent is live are accounted for. From RFC 0120 Phase 50, a clock that has
-   a record takes the open rule of principle 5 (RFC 0120 §4.10). Any other key with data
-   is kept: the Core raises a warning status whose description names the keys and their
+   a record takes the open rule of principle 5 (RFC 0120 §4.10), and the channel service
+   deletes each entry of the retired index table whose key `Keys` no longer lists, so an
+   entry ends with its clock after a delete, a `synnax purge`, or a range delete. An
+   entry holds no data, so this is no delete on absence. Any other key with data is
+   kept: the Core raises a warning status whose description names the keys and their
    bytes and says: restore the records from a backup to keep the data, or stop the Core
    and run `synnax purge <keys>` to remove it. A missing record can come from a restored
    backup or lost metadata, never only from a delete, so the Core deletes a key only
@@ -257,7 +260,7 @@ a control handoff, its region owner calls `DB.Handoff` as one event (RFC 0120 §
 | `cesium/internal/checkpoint` (NEW)        | Heads, parts, the part cache, the files of logs                                                                                                                                   | `place`, `state`, `log`, `x/go/io/fs`      | `segment`                            |
 | `cesium/internal/convert` (NEW)           | The old-layout reader and the first head and log                                                                                                                                  | `state`, `checkpoint`, `log`, `x/go/io/fs` | `segment`                            |
 | `core/pkg/distribution/framer`            | Sessions, relay, the stream stage, virtual channels, control (the controller of `cesium/internal/control`, on `channel.Key`), the delete claim, alignment numbers of virtual keys | `cesium`, channel key types                | `cesium/internal`, the service layer |
-| `core/pkg/service/channel`                | Channel records, delete order, the pending-drop notes, the clocks a delete ends, the start check of §4.1, the lookup it gives the framer                                          | `gorp`, `cesium`, the framer               | `cesium/internal`                    |
+| `core/pkg/service/channel`                | Channel records, delete order, the pending-drop notes, the clocks a delete ends, the start check of §4.1, the retired index table, the lookup it gives the framer                 | `gorp`, `cesium`, the framer               | `cesium/internal`                    |
 
 `log` decodes structure only: lengths, counts bounded by lengths, zero fields, and
 record types. `state` applies the value rules of §5.2, with the segment format versions
