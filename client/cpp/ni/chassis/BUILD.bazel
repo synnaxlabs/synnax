@@ -14,6 +14,7 @@ cc_library(
     name = "chassis",
     srcs = ["chassis.cpp"],
     hdrs = [
+        "actions.gen.h",
         "chassis.h",
         "json.gen.h",
         "proto.gen.h",
@@ -33,6 +34,7 @@ cc_library(
         "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/mem",
+        "//x/cpp/patch",
         "//x/cpp/pb",
         "//x/cpp/uuid",
     ],
