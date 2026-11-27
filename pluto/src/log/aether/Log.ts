@@ -18,6 +18,7 @@ import {
   type destructor,
   notation,
   text,
+  TimeSpan,
   TimeStamp,
   type TimeZone,
   xy,
@@ -135,7 +136,6 @@ interface InternalState {
   lineHeight: number;
   // Downward nudge aligning the selection band with glyph ink (see measureInkOffsetY).
   selectionOffsetY: number;
-  tsLen: number;
   selectionColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
   stopListeningRestore?: destructor.Destructor;
@@ -225,6 +225,15 @@ const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
     Math.min(100, Math.round(l * p.lightness)),
     Math.min(1, a * p.alpha),
   ]);
+};
+
+const SECOND_NANOS = TimeSpan.SECOND.valueOf();
+
+const lineTime = (stamp: TimeStamp, precision: number, timeZone: TimeZone): string => {
+  const nanos = ((stamp.valueOf() % SECOND_NANOS) + SECOND_NANOS) % SECOND_NANOS;
+  const time = new TimeStamp(stamp.valueOf() - nanos).toString("time", timeZone);
+  if (precision === 0) return time;
+  return `${time}.${String(nanos).padStart(9, "0").slice(0, precision)}`;
 };
 
 const dayText = ({ timestamp }: LogEntry, timeZone: TimeZone): string =>
@@ -350,8 +359,6 @@ export class Log
       this.state.font,
       i.lineHeight,
     );
-    i.tsLen =
-      this.state.timestampPrecision === 0 ? 8 : 9 + this.state.timestampPrecision;
 
     const channelEntries = this.state.channels;
     const prevEntries = this.prevState.channels;
@@ -895,11 +902,15 @@ export class Log
   } {
     const { channelNamesHidden, timestampsHidden, channelDataTypes, timeZone } =
       this.state;
-    const { tsLen, configs } = this.internal;
+    const { configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
     const ts = !timestampsHidden
-      ? new TimeStamp(entry.timestamp).toString("preciseTime", timeZone).slice(0, tsLen)
+      ? lineTime(
+          new TimeStamp(entry.timestamp),
+          this.state.timestampPrecision,
+          timeZone,
+        )
       : "";
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
