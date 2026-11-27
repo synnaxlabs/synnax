@@ -4078,4 +4078,124 @@ var _ = Describe("Scheduler", func() {
 			),
 		)
 	})
+	Describe("Scope paths", func() {
+		var reports [][][]string
+
+		// buildSeq builds main, a triggered sequence of the stages first and second.
+		// The node of each stage runs every cycle, and its truthy output leaves the
+		// stage. second leaves through an exit.
+		buildSeq := func() (*scheduler.Scheduler, *MockNode, *MockNode) {
+			GinkgoHelper()
+			mock("trigger", true)
+			first := mock("first_node")
+			second := mock("second_node")
+			for _, m := range []*MockNode{first, second} {
+				m.OnNext = func(c node.Context) { c.MarkSelfChanged() }
+			}
+			firstScope := parallelScope(
+				"first",
+				stratum(ir.Member{NodeKey: new("first_node")}),
+			)
+			secondScope := parallelScope(
+				"second",
+				stratum(ir.Member{NodeKey: new("second_node")}),
+			)
+			main := sequentialScope("main",
+				[]ir.Member{{Scope: &firstScope}, {Scope: &secondScope}},
+				ir.Transition{
+					On:     ir.Handle{Node: "first_node", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: stepKeyTarget("second"),
+				},
+				ir.Transition{
+					On:     ir.Handle{Node: "second_node", Param: "output"},
+					Kind:   ir.EdgeKindConditional,
+					Target: exitTarget(),
+				},
+			)
+			main.Activations = []ir.Activation{{
+				On:   ir.Handle{Node: "trigger", Param: "output"},
+				Kind: ir.EdgeKindConditional,
+			}}
+			s := build(programOf(
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("first_node", "output"),
+					irNode("second_node", "output"),
+				},
+				nil,
+				rootScope(ir.Member{NodeKey: new("trigger")}, ir.Member{Scope: &main}),
+			))
+			return s, first, second
+		}
+
+		record := func(_ context.Context, paths [][]string) {
+			reports = append(reports, paths)
+		}
+
+		tick := func(ctx SpecContext, s *scheduler.Scheduler) {
+			s.Next(
+				ctx,
+				node.Cycle{Elapsed: telem.Microsecond, Reason: node.ReasonTimerTick},
+			)
+		}
+
+		BeforeEach(func() { reports = nil })
+
+		It(
+			"Should report each start, stage change, and end of a sequence",
+			func(ctx SpecContext) {
+				s, first, second := buildSeq()
+				s.SetScopeHandler(record)
+				tick(ctx, s)
+				first.SetTruthy(0)
+				tick(ctx, s)
+				second.SetTruthy(0)
+				tick(ctx, s)
+				Expect(reports).To(Equal([][][]string{
+					{{"main", "first"}},
+					{{"main", "second"}},
+					nil,
+				}))
+				Expect(s.ActivePaths()).To(BeEmpty())
+			},
+		)
+
+		It("Should not report a cycle that changes no path", func(ctx SpecContext) {
+			s, _, _ := buildSeq()
+			s.SetScopeHandler(record)
+			for range 5 {
+				tick(ctx, s)
+			}
+			Expect(reports).To(HaveLen(1))
+			Expect(s.ActivePaths()).To(Equal([][]string{{"main", "first"}}))
+		})
+
+		It(
+			"Should report the paths to a handler set after cycles ran",
+			func(ctx SpecContext) {
+				s, _, _ := buildSeq()
+				tick(ctx, s)
+				tick(ctx, s)
+				s.SetScopeHandler(record)
+				tick(ctx, s)
+				Expect(reports).To(Equal([][][]string{{{"main", "first"}}}))
+			},
+		)
+
+		It(
+			"Should not report a program with no top-level scope",
+			func(ctx SpecContext) {
+				mock("a")
+				s := build(programOf(
+					[]ir.Node{irNode("a")},
+					nil,
+					rootScope(ir.Member{NodeKey: new("a")}),
+				))
+				s.SetScopeHandler(record)
+				tick(ctx, s)
+				Expect(reports).To(BeEmpty())
+			},
+		)
+	})
 })

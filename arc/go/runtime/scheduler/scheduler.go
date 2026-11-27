@@ -205,9 +205,9 @@ func (f ErrorHandlerFunc) HandleError(ctx context.Context, nodeKey string, err e
 type ScopeHandler func(ctx context.Context, paths [][]string)
 
 // SetScopeHandler configures the handler that receives the active paths at the end of
-// the first cycle, and at the end of each cycle that changes them. A cycle that changes
-// no path does not call the handler, and a program with no top-level scope never calls
-// it.
+// the first cycle after it is set, and at the end of each cycle that changes them. A
+// cycle that changes no path does not call the handler, and a program with no
+// top-level scope never calls it.
 func (s *Scheduler) SetScopeHandler(handler ScopeHandler) {
 	s.scopeHandler = handler
 }
