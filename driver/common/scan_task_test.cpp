@@ -406,9 +406,9 @@ public:
         this->signals++;
     }
 
-    size_t device_set_count() const { return this->device_sets.load(); }
+    [[nodiscard]] size_t device_set_count() const { return this->device_sets.load(); }
 
-    size_t signal_count() const { return this->signals.load(); }
+    [[nodiscard]] size_t signal_count() const { return this->signals.load(); }
 };
 
 /// @brief it should scan and create new devices in the cluster.
@@ -2702,7 +2702,8 @@ TEST(TestScanTask, RoutesLegacyAndScannerSignals) {
     );
     scan_task.start();
     x::telem::Frame frame(2);
-    frame.emplace(set_ch.key, x::telem::Series(signaled.to_json().dump()));
+    const x::json::json signaled_json = {{"key", signaled.key}};
+    frame.emplace(set_ch.key, x::telem::Series(signaled_json.dump()));
     frame.emplace(thing_set.key, x::telem::Series(std::string(R"({"key":"a"})")));
     cluster_api_ptr->signals->send(std::move(frame));
     scan_task.stop();
