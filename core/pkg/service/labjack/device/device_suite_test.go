@@ -14,10 +14,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = BeforeSuite(func() { ShouldNotLeakGoroutines() })
+var (
+	node testutil.Node
+	db   *gorp.DB
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node = testutil.NewNode(ctx)
+	db = node.DB
+})
 
 func TestDevice(t *testing.T) {
 	RegisterFailHandler(Fail)

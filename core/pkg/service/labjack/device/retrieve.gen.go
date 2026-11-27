@@ -15,6 +15,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/set"
 )
@@ -35,9 +36,11 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	serial *gorp.LookupIndex[Key, Device, uint32]
-	rack   *gorp.KeyReference[Key, Device, rack.Key]
-	search *gorp.SearchIndex[Key, Device]
+	serial          *gorp.LookupIndex[Key, Device, uint32]
+	rack            *gorp.KeyReference[Key, Device, rack.Key]
+	readIndex       *gorp.KeyReference[Key, Device, channel.Key]
+	writeStateIndex *gorp.KeyReference[Key, Device, channel.Key]
+	search          *gorp.SearchIndex[Key, Device]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -60,6 +63,44 @@ func newIndexes() indexes {
 			Retarget: func(e *Device, to map[rack.Key]rack.Key) {
 				if t, ok := to[e.Rack]; ok {
 					e.Rack = t
+				}
+			},
+		}),
+		readIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "read_index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				if e.ReadIndex == nil {
+					return nil
+				}
+				return []channel.Key{*e.ReadIndex}
+			},
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
+				if e.ReadIndex != nil {
+					if t, ok := to[*e.ReadIndex]; ok {
+						*e.ReadIndex = t
+					}
+				}
+			},
+		}),
+		writeStateIndex: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, channel.Key]{
+			Name:     "write_state_index",
+			Table:    "channel",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Use,
+			Targets: func(e *Device) []channel.Key {
+				if e.WriteStateIndex == nil {
+					return nil
+				}
+				return []channel.Key{*e.WriteStateIndex}
+			},
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
+				if e.WriteStateIndex != nil {
+					if t, ok := to[*e.WriteStateIndex]; ok {
+						*e.WriteStateIndex = t
+					}
 				}
 			},
 		}),
@@ -86,6 +127,8 @@ func (i indexes) all() []gorp.Index[Key, Device] {
 func (i indexes) references() []gorp.Reference[Key, Device] {
 	return []gorp.Reference[Key, Device]{
 		i.rack,
+		i.readIndex,
+		i.writeStateIndex,
 	}
 }
 
@@ -179,6 +222,40 @@ func MatchSerials(vals ...uint32) Filter {
 	}
 }
 
+// MatchReadIndexes returns a filter for devices
+// whose ReadIndex matches any of the provided
+// values.
+func MatchReadIndexes(vals ...channel.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.readIndex.Filter(vals...)
+	}
+}
+
+// MatchHasReadIndex returns a filter for devices whose
+// ReadIndex holds a target when has is true, and holds none when has is false.
+func MatchHasReadIndex(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.readIndex.FilterHolding(has)
+	}
+}
+
+// MatchWriteStateIndexes returns a filter for devices
+// whose WriteStateIndex matches any of the provided
+// values.
+func MatchWriteStateIndexes(vals ...channel.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.writeStateIndex.Filter(vals...)
+	}
+}
+
+// MatchHasWriteStateIndex returns a filter for devices whose
+// WriteStateIndex holds a target when has is true, and holds none when has is false.
+func MatchHasWriteStateIndex(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.writeStateIndex.FilterHolding(has)
+	}
+}
+
 // MatchModels returns a filter for
 // devices whose Model matches any of the
 // provided values.
@@ -222,6 +299,13 @@ func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); retu
 // OrderBy, since an Order carries its own cursor.
 func (r Retrieve) After(key Key) Retrieve {
 	r.gorp = r.gorp.After(key)
+	return r
+}
+
+// SkipMissingKeys makes Exec treat a key with no device as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
 	return r
 }
 

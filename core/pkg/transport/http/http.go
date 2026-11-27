@@ -33,6 +33,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
+	labjackdevice "github.com/synnaxlabs/synnax/pkg/api/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -661,6 +662,12 @@ func Bind(layer *api.Layer, router *http.Router) {
 		OPCUAServerDelete: unary[server.DeleteRequest, struct{}](
 			router,
 			"/api/v1/opcua/server/delete",
+		),
+
+		// LABJACK DEVICE
+		LabJackDeviceRetrieve: unary[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse](
+			router,
+			"/api/v1/labjack/device/retrieve",
 		),
 
 		// ACCESS

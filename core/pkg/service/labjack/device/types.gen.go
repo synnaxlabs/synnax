@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 	"regexp"
 )
@@ -107,10 +108,10 @@ type Configuration struct {
 	// unconfigured while it is empty.
 	Identifier string `json:"identifier" msgpack:"identifier"`
 	// ReadIndex is the index channel of the channels that the device reads into.
-	ReadIndex channel.Key `json:"read_index" msgpack:"read_index"`
+	ReadIndex *channel.Key `json:"read_index,omitzero" msgpack:"read_index,omitempty"`
 	// WriteStateIndex is the index channel of the state channels of the device's
 	// outputs.
-	WriteStateIndex channel.Key `json:"write_state_index" msgpack:"write_state_index"`
+	WriteStateIndex *channel.Key `json:"write_state_index,omitzero" msgpack:"write_state_index,omitempty"`
 	// Ports holds the configuration that depends on the model. Its model must be the
 	// model of the stored device.
 	Ports Ports `json:"ports" msgpack:"ports"`
@@ -269,4 +270,24 @@ func (u Update) Validate() error {
 		v.Exec(variant.Validate)
 	}
 	return v.Error()
+}
+
+// Where is a filter that selects LabJack devices.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Serial selects by serial.
+	Serial *filter.Ordered[uint32] `json:"serial,omitzero" msgpack:"serial,omitempty"`
+	// Model selects by model.
+	Model *filter.Set[Model] `json:"model,omitzero" msgpack:"model,omitempty"`
+	// Rack selects by rack.
+	Rack *filter.Set[rack.Key] `json:"rack,omitzero" msgpack:"rack,omitempty"`
 }

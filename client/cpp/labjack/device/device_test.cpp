@@ -38,7 +38,7 @@ TEST(Device, ParsesThePortsOfTheModel) {
     ASSERT_EQ(d.serial, 470010001);
     ASSERT_EQ(d.connection, CONNECTION_USB);
     ASSERT_EQ(d.identifier, "");
-    ASSERT_EQ(d.read_index, 0);
+    ASSERT_FALSE(d.read_index.has_value());
     ASSERT_FALSE(d.status.has_value());
 }
 
@@ -90,5 +90,23 @@ TEST(Update, RoundTripsConfiguration) {
     ASSERT_EQ(got.name, "T7-0001");
     ASSERT_TRUE(std::holds_alternative<T7Ports>(got.ports));
     ASSERT_TRUE(std::get<T7Ports>(got.ports).mux80_attached);
+}
+
+/// @brief it should round trip a where through JSON.
+TEST(Where, RoundTrips) {
+    const Where where = Where{.name = "T7 bench"} && !Where{.serial = 470010001};
+    x::json::Parser parser(where.to_json());
+    const auto parsed = Where::parse(parser);
+    ASSERT_NIL(parser.error());
+    ASSERT_EQ(parsed.to_json(), where.to_json());
+    ASSERT_EQ(parsed.and_.value().size(), 2);
+}
+
+/// @brief it should join two wheres with or.
+TEST(Where, JoinsWithOr) {
+    const Where where = Where{.model = MODEL_T_4} || Where{.model = MODEL_T_8};
+    ASSERT_TRUE(where.or_.has_value());
+    ASSERT_EQ(where.or_.value().size(), 2);
+    ASSERT_FALSE(where.and_.has_value());
 }
 }

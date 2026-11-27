@@ -26,7 +26,7 @@ describe("deviceZ", () => {
     const device = labjack.device.deviceZ.parse(DEVICE);
     expect(device.ports).toEqual({ model: "t7", mux80Attached: false });
     expect(device.identifier).toEqual("");
-    expect(device.readIndex).toEqual(0);
+    expect(device.readIndex).toBeUndefined();
   });
 
   const INVALID: [string, Record<string, unknown>][] = [
@@ -69,5 +69,23 @@ describe("updateZ", () => {
 
   it("should reject an unknown group", () => {
     expect(labjack.device.updateZ.safeParse({ group: "status" }).success).toBe(false);
+  });
+});
+
+describe("retrieveRequestZ", () => {
+  it("should parse a request with a where and a cursor", () => {
+    const req = labjack.device.retrieveRequestZ.parse({
+      where: { rack: { eq: 1 } },
+      after: { key: DEVICE.key },
+      limit: 10,
+    });
+    expect(req.after?.key).toEqual(DEVICE.key);
+  });
+});
+
+describe("retrieveResponseZ", () => {
+  it("should parse the devices of a response", () => {
+    const res = labjack.device.retrieveResponseZ.parse({ devices: [DEVICE] });
+    expect(res.devices).toHaveLength(1);
   });
 });
