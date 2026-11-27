@@ -564,9 +564,6 @@ func (w *logWriter) sync() error {
 		}
 	}
 	err := w.e.budget.Sync(handles)
-	if errors.Is(err, segment.ErrDirSync) {
-		w.e.fail(err)
-	}
 	if err != nil {
 		seals, takeErr := w.st.TakeBack()
 		w.entry.Reset()
@@ -579,7 +576,17 @@ func (w *logWriter) sync() error {
 			lk.dirty = false
 		}
 	}
-	err = errors.Join(err, w.flush())
+	flushErr := w.flush()
+	switch {
+	case flushErr == nil || err != nil:
+	case errors.Is(flushErr, log.ErrSyncFailed):
+		flushErr = errors.Join(flushErr, w.st.TakeBackUnknown())
+	default:
+		// The log took none of the entry, so the clock write goes back.
+		_, takeErr := w.st.TakeBack()
+		flushErr = errors.Join(flushErr, takeErr)
+	}
+	err = errors.Join(err, flushErr)
 	for _, h := range w.sealed {
 		err = errors.Join(err, h.Close())
 	}
