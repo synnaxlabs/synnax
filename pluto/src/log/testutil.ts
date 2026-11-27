@@ -37,11 +37,12 @@ const LINES = [
   { text: "two", color: "#ff0000" },
 ];
 
-/** The `Aether.use` mock's log state, its setter, and the selection spy. */
+/** The `Aether.use` mock's log state, its setter, and the method spies. */
 export interface AetherSetup {
   setState: Mock;
   state: Record<string, unknown>;
   selection: Mock;
+  seek: Mock;
 }
 
 /**
@@ -54,8 +55,9 @@ export const createAetherSetup =
     const setState = vi.fn();
     const state = { ...DEFAULT_STATE, ...overrides };
     const selection = vi.fn(async () => ({ lines: LINES, partial }));
-    use.mockReturnValue(["test-key", state, setState, { selection }]);
-    return { setState, state, selection };
+    const seek = vi.fn();
+    use.mockReturnValue(["test-key", state, setState, { selection, seek }]);
+    return { setState, state, selection, seek };
   };
 
 /** @returns the initial state of the first log that the `Aether.use` mock mounted. */

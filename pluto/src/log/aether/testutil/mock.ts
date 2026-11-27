@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import type { channel, status } from "@synnaxlabs/client";
-import { type destructor, observe, type TimeRange } from "@synnaxlabs/x";
+import {
+  type destructor,
+  observe,
+  type TimeRange,
+  type TimeStamp,
+} from "@synnaxlabs/x";
 
 import type { LogEntry, LogSource, LogSourceSpec } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
@@ -47,6 +52,13 @@ export class MockSource implements LogSource {
   timeRange: TimeRange | null = null;
 
   exhausted = false;
+
+  /** The times the log asked the source to move to. */
+  seeks: TimeStamp[] = [];
+
+  seek(time: TimeStamp): void {
+    this.seeks.push(time);
+  }
 
   /** The number of times the log asked to return to the newest samples. */
   resumeCalls = 0;
