@@ -14,6 +14,7 @@ import {
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { DataType, type payload, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -1161,6 +1162,35 @@ describe("MQTT read form", () => {
         { type: "plain", topic: "plant/kiln" },
       ]),
     );
+    const labels = await screen.findAllByText("plant/kiln");
+    expect(labels.map(treatment)).not.toContain("code");
+  });
+
+  it("should draw the topic names of the Add data tree in Inter", async () => {
+    const { dev } = await renderRead();
+    const scanner = await openScanner(client, dev.rack);
+    const dialog = await openAddData();
+    const scanned = {
+      topic: TOPIC,
+      payload: '{"temperature": 1}',
+      shapes: [
+        {
+          fields: [
+            {
+              pointer: "/temperature",
+              type: "number",
+              kind: "float",
+              sample: "1",
+              enum: [],
+            },
+          ],
+          count: 1,
+        },
+      ],
+      retained: true,
+    };
+    await scanner.answer({ data: { topics: [scanned], truncated: false } });
+    expect(treatment(await dialog.findByText("plant"))).toBe("prose");
   });
 
   it("should open one Add data dialog for a double click", async () => {
@@ -4199,7 +4229,7 @@ describe("MQTT read form", () => {
 });
 
 describe("plotChannels", () => {
-  it("should find the bound channels of enabled plain entries and enabled Sparkplug tags", () => {
+  it("should find the bound channels and fields of enabled plain entries and enabled Sparkplug tags", () => {
     const plotChannels = MQTT.Task.INTEGRATION.plotChannels?.[MQTT.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
     const plain = (disabled: boolean, ...channels: number[][]) => ({
@@ -4211,14 +4241,22 @@ describe("plotChannels", () => {
         bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
       })),
     });
+    const read = plain(false, [1, 0], [2]);
     const config = {
       entries: [
-        plain(false, [1, 0], [2]),
+        read,
         plain(true, [3]),
         { type: "sparkplug", channel: 4 },
         { type: "sparkplug", channel: 5, disabled: true },
       ],
     };
-    expect(plotChannels(config)).toEqual([1, 2, 4]);
+    const plotted = plotChannels(config);
+    expect(plotted.map(({ channel }) => channel)).toEqual([1, 0, 2, 4]);
+    expect(plotted[2].field).toEqual({
+      icd: read.icd,
+      message: read.messages[1].message,
+      key: read.messages[1].bindings[0].field,
+    });
+    expect(plotted[3].field).toBeUndefined();
   });
 });

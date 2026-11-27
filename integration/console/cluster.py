@@ -7,8 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Client for the Core badge, connect-core modal, cold connection
-takeover, and the pre-login Core selection surface."""
+"""Client for the Core badge and the cold connection takeover."""
 
 import re
 
@@ -20,14 +19,12 @@ from console.layout import LayoutClient
 class ClusterClient:
     """Client for the Console's cluster connection surfaces."""
 
-    MODAL_SELECTOR = ".console-connect-core"
     BADGE_DIALOG_SELECTOR = ".console-core-badge__dialog"
     TROUBLE_SELECTOR = ".console-connection"
 
     def __init__(self, layout: LayoutClient):
         self.page = layout.page
         self.layout = layout
-        self.ctx_menu = layout.ctx_menu
 
     # ---------------------------------------------------------------- badge
 
@@ -70,81 +67,9 @@ class ClusterClient:
         """The host:port shown in the open badge dialog."""
         return self.badge_dialog.locator(".console-core-badge__address").inner_text()
 
-    # ----------------------------------------------------- connect modal
-
-    @property
-    def modal(self) -> Locator:
-        return self.page.locator(self.MODAL_SELECTOR)
-
-    def fill_connect_modal(
-        self,
-        *,
-        name: str | None = None,
-        host: str | None = None,
-        port: int | None = None,
-    ) -> None:
-        """Fill the open connect-core modal and submit it.
-
-        The submit button reads "Save" in edit mode and "Connect" in create
-        mode; both are matched. The modal dispatches and closes even when the
-        connection check fails, so this returns once the modal is hidden.
-        """
-        self.layout.wait_for_visible(self.modal)
-        if name is not None:
-            self.modal.get_by_label("Name").fill(name)
-        if host is not None:
-            self.modal.get_by_label("Host").fill(host)
-        if port is not None:
-            self.modal.get_by_label("Port").fill(str(port))
-        self.modal.get_by_role("button", name=re.compile("^(Save|Connect)$")).click(
-            timeout=5000
-        )
-        self.layout.wait_for_hidden(self.modal)
-
     # ------------------------------------------------------ cold takeover
 
     @property
     def trouble(self) -> Locator:
         """The cold-connect trouble card that replaces the workspace."""
         return self.page.locator(self.TROUBLE_SELECTOR)
-
-    # ------------------------------------------- pre-login cluster list
-
-    @property
-    def core_list(self) -> Locator:
-        return self.page.locator(".console-core-list__items")
-
-    def core_item(self, name: str) -> Locator:
-        return (
-            self.core_list.locator(".console-core-list-item")
-            .filter(has_text=name)
-            .first
-        )
-
-    def add_core(self, *, name: str, host: str, port: int) -> None:
-        """Add a Core through the cluster list's create action."""
-        self.page.get_by_text("Add a Core").click(timeout=5000)
-        self.fill_connect_modal(name=name, host=host, port=port)
-        self.layout.wait_for_visible(self.core_item(name))
-
-    def rename_core(self, *, old_name: str, new_name: str) -> None:
-        self.ctx_menu.action(self.core_item(old_name), "Rename")
-        self.layout.select_all_and_type(new_name)
-        self.layout.press_enter()
-        self.layout.wait_for_visible(self.core_item(new_name))
-
-    def remove_core(self, name: str) -> None:
-        item = self.core_item(name)
-        self.ctx_menu.action(item, "Remove")
-        self.layout.wait_for_hidden(item)
-
-    def refresh_core(self, name: str) -> None:
-        self.ctx_menu.action(self.core_item(name), "Refresh connection")
-
-    def copy_core_link(self, name: str) -> str:
-        self.ctx_menu.action(self.core_item(name), "Copy link")
-        return str(self.page.evaluate("navigator.clipboard.readText()"))
-
-    def select_core(self, name: str) -> None:
-        """Select a Core from the list, advancing Login to credentials."""
-        self.core_item(name).click(timeout=5000)

@@ -124,7 +124,7 @@ struct Config {
     }
 
     [[nodiscard]] std::pair<Reader, x::errors::Error> create() const {
-        return Reader::create(this->reads, this->ic, this->channels);
+        return Reader::create({{.ic = this->ic, .reads = this->reads}}, this->channels);
     }
 };
 
@@ -606,6 +606,15 @@ TEST(Reader, RejectsMessageNotInICD) {
         err.data(),
         "message " + key.to_string() + " does not exist in ICD sensors"
     );
+}
+
+/// @brief it should reject two reads of one message.
+TEST(Reader, RejectsMessageReadTwice) {
+    auto e = reading();
+    e.reads.push_back(e.reads[0]);
+    const auto err = e.create().second;
+    ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
+    ASSERT_EQ(err.data(), "message reading is read twice");
 }
 
 /// @brief it should reject two messages of different formats.

@@ -25,7 +25,7 @@ import {
 import { copyName, copyPointer } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
 import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
-import { fieldsPath, type TreeField, treeFieldOf } from "@/platform/icd/read";
+import { fieldsPath } from "@/platform/icd/read";
 import { Tree as ICDTree } from "@/platform/icd/tree";
 import { FieldDetails } from "@/platform/icd/write/Details";
 import type { ChannelNaming } from "@/platform/icd/write/write";
@@ -53,6 +53,15 @@ export interface Pane {
   title: ReactNode;
   details: ReactNode;
 }
+
+/** What the tree shows of a field. Its pointer tells whether a copy can take one. */
+type TreeField = Pick<icd.JSONField, "key" | "name" | "pointer">;
+
+const treeFieldOf = ({ key, name, pointer }: icd.JSONField): TreeField => ({
+  key,
+  name,
+  pointer,
+});
 
 /** A node of the tree that is not a group. */
 type Node =

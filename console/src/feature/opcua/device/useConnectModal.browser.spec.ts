@@ -9,6 +9,7 @@
 
 import { type rack, task, TimeSpan } from "@synnaxlabs/client";
 import { CERTIFICATE, createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { binary } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -425,7 +426,7 @@ describe("OPCUA.Device.useConnectModal", () => {
 
   it("should show the thumbprint of the Driver certificate of the selected rack", async () => {
     await openWithDriverCertificate();
-    expect(screen.getByText(DRIVER_THUMBPRINT)).toBeTruthy();
+    expect(treatment(screen.getByText(DRIVER_THUMBPRINT))).toBe("prose");
     expect(screen.queryByText("2029-01-15")).toBeNull();
   });
 

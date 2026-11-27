@@ -125,7 +125,19 @@ in a color picker has no "+".
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
-- Numbers that change, or that people compare, use `font-variant-numeric: tabular-nums`.
+- DOM text is Inter, and its `Text` variant sets the treatment. Canvas text has its own
+  rules.
+
+| Variant           | Use for                                             | Examples                                                                                           |
+| ----------------- | --------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `prose` (default) | All other text, including static numbers            | Labels, names, IDs and UUIDs, URLs and topics, OPC UA node IDs, hex codes, "Tank 1", static counts |
+| `numeric`         | Numbers that change in place or line up in a column | Live values, relative times, timestamps, table value columns                                       |
+| `code`            | Code and raw machine text                           | Code editors, logs, pasted PEM or JSON, code inside a sentence                                     |
+| `keyboard`        | Key caps                                            | Shortcut hints                                                                                     |
+| `link`            | Links                                               | Docs links                                                                                         |
+
+When unsure, use `prose`.
+
 - Canvas data (axis ticks, values, tooltip and measure values) draws in Inter with
   tabular digits, through `variant: "numeric"` in `theme.fontString`.
 
@@ -440,7 +452,7 @@ bound, a log precision, or the line plot X channel.
   Custom (`Icon.Sliders`). It opens on Library while the value is linked or absent, and
   on Custom while the value is a fixed color.
 - One 1.5rem inset holds the tab boxes, the search icon, the titles, and the swatches.
-  Swatches are 21 px with 1rem gaps across and down. Eight across set the width: 38rem.
+  Swatches are 21 px with 8 px gaps across and down. Eight across set the width: 242 px.
 - Library has the select dialog's search under the tab bar's hairline, with a hairline
   under it. Each palette sits under its title, which ends with the name of the color an
   open swatch menu acts on, else the hovered color, else the focused color, else the
@@ -457,7 +469,7 @@ bound, a log precision, or the line plot X channel.
   each edge. An edit saves at once.
 - The saturation and brightness plane has the tiny radius.
 - The hex and alpha inputs pack into one control, and the alpha input keeps its opacity
-  icon. Hex codes use the code font, so every code takes the same width and fits.
+  icon. Hex codes are Inter, and the inputs fit the widest hex.
 
 ### Symbol motion
 
@@ -864,9 +876,9 @@ bound, a log precision, or the line plot X channel.
 - The Ports view keeps each title over its grid, with a thin line between sections or
   devices and 2.5 rem above and below it. Labels beside or above each bank were
   rejected.
-- An NI device's location ("Dev3") is a chip at the right end of its title line:
-  monospace, small, on gray step 3. The usage text does not repeat it. Monospace text
-  alone was rejected, because it stands out too little.
+- An NI device's location ("Dev3") is a chip at the right end of its title line: small,
+  on gray step 3. The usage text does not repeat it. Plain text alone was rejected,
+  because it stands out too little.
 - In a map, a click on a used port selects its channel. A click on a free port adds a
   channel there: the port shows a + under the pointer, and its tooltip reads "Add a
   channel on FIO3". The pointer stays an arrow. A used port keeps its tint, and its

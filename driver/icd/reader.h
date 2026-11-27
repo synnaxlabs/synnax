@@ -45,6 +45,14 @@ public:
         x::errors::Error error;
     };
 
+    /// @brief Source is the messages that a reader reads from one ICD.
+    struct Source {
+        /// @brief ic is the ICD that holds the messages of reads.
+        const synnax::icd::ICD &ic;
+        /// @brief reads holds the messages to read and the channel of each field.
+        const std::vector<synnax::icd::ReadMessage> &reads;
+    };
+
 private:
     /// @brief Index is an index channel that a message writes.
     struct Index {
@@ -94,20 +102,20 @@ public:
     Reader(const Reader &) = delete;
     Reader &operator=(const Reader &) = delete;
 
-    /// @brief creates a Reader for messages that share one source of payloads.
-    /// @param reads the messages to read and the channel of each field.
-    /// @param ic the ICD that holds the messages of reads.
-    /// @param channels the channels of the bindings of reads.
-    /// @returns CONFIGURATION_ERROR when ic has no message that a read names, two
-    /// messages have different formats, a message binds no fields, channels has no
-    /// channel that a binding names, the index field does not write to an index channel
-    /// or takes a default, another field writes to an index channel, two bindings or
-    /// two messages write to one channel (an index channel included), different
-    /// multiplexor values select two fields on one index channel, or the decoder
-    /// rejects the messages.
+    /// @brief creates a Reader for messages that share one source of payloads. Its
+    /// errors and failures name a message with its ICD when sources hold more than one
+    /// ICD.
+    /// @param sources the messages to read, by ICD.
+    /// @param channels the channels of the bindings of sources.
+    /// @returns CONFIGURATION_ERROR when an ICD has no message that a read names, two
+    /// reads name one message, two messages have different formats, a message binds no
+    /// fields, channels has no channel that a binding names, the index field does not
+    /// write to an index channel or takes a default, another field writes to an index
+    /// channel, two bindings or two messages write to one channel (an index channel
+    /// included), different multiplexor values select two fields on one index channel,
+    /// or the decoder rejects the messages.
     static std::pair<Reader, x::errors::Error> create(
-        const std::vector<synnax::icd::ReadMessage> &reads,
-        const synnax::icd::ICD &ic,
+        const std::vector<Source> &sources,
         const std::map<synnax::channel::Key, synnax::channel::Channel> &channels
     );
 
@@ -125,8 +133,8 @@ public:
     /// already holds for a channel takes the sample instead, and must have room for it.
     /// @param nan_filled true when a field on a float channel that the decoder cannot
     /// decode takes NaN, which keeps its index group.
-    /// @returns the position in reads of the message that payload matches, or nothing,
-    /// adding nothing, when payload matches no message.
+    /// @returns the position of the message that payload matches among the reads of
+    /// all sources, in order, or nothing, adding nothing, when it matches no message.
     /// @returns VALIDATION, adding nothing, when the decoder cannot decode payload. The
     /// message is there when payload matched it before the error, and absent when
     /// payload cannot match one, such as a document that is not JSON.

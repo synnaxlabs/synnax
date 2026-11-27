@@ -19,7 +19,7 @@ import type { FC, ReactElement } from "react";
 
 import { converts, unbind } from "@/platform/icd/dataType";
 import { useFormats } from "@/platform/icd/Formats";
-import { isReadable, type ReadSource, suit, type TreeField } from "@/platform/icd/read";
+import { type ReadSource, suit, type TreeField } from "@/platform/icd/read";
 import { useSuit } from "@/platform/icd/useSuit";
 import { Task } from "@/platform/task";
 
@@ -68,10 +68,9 @@ export const ReadCheckbox: FC<ReadCheckboxProps> = ({
   const bound = PForm.useFieldValue(bindings).some(
     ({ field: key }) => key === field.key,
   );
-  const readable = isReadable(field);
   let tooltip: string | undefined = bound ? "Disable" : "Enable";
   if (isPreview) tooltip = undefined;
-  else if (!readable) tooltip = UNREADABLE_TOOLTIP;
+  else if (!field.readable) tooltip = UNREADABLE_TOOLTIP;
   return (
     <Input.Checkbox
       value={bound}
@@ -79,7 +78,7 @@ export const ReadCheckbox: FC<ReadCheckboxProps> = ({
       checkedIcon={<Status.Indicator variant="success" />}
       uncheckedIcon={<Status.Indicator variant="disabled" />}
       size="small"
-      disabled={isPreview || !readable || disabled}
+      disabled={isPreview || !field.readable || disabled}
       aria-label={`Read ${field.name}`}
       tooltip={tooltip}
     />

@@ -63,7 +63,7 @@ const setRead = (
   const bindings = path.messages[read].bindings;
   const value = ctx.get(bindings).value;
   const bound = value.some(({ field: key }) => key === field.key);
-  if (bound === on || (on && !isReadable(field))) return;
+  if (bound === on || (on && !field.readable)) return;
   ctx.set(
     bindings,
     on ? [...value, bindingOf()] : value.filter(({ field: k }) => k !== field.key),
@@ -475,7 +475,7 @@ export const use = <
       field,
       fields.at(-1)?.key,
     );
-    read(sourceKey, r, field, true, field);
+    read(sourceKey, r, treeFieldOf(field), true, field);
     const parent = source.messages.length > 1 ? [messageKey(sourceKey, message)] : [];
     onExpand((prev) => unique.unique([...prev, sourceKey, ...parent]));
     onSelect([fieldKey(sourceKey, message, field.key)]);

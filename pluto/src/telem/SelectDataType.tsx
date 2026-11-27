@@ -19,7 +19,7 @@ const resolveIcon = (d: DataType) => {
   return Resolved != null ? <Resolved /> : undefined;
 };
 
-const DATA = DataType.ALL.filter((d) => d !== DataType.UNKNOWN).map((d) => ({
+const DATA = DataType.ALL.map((d) => ({
   key: d.toString(),
   name: resolveDataTypeName(d),
   icon: resolveIcon(d),
