@@ -597,4 +597,24 @@ TEST(TypesTest, NodeIdRoundTripConversion) {
         EXPECT_EQ(nodeIdStr, "NS=3;G=12345678-1234-5678-9abc-123456789abc");
     }
 }
+
+/// @brief it should write a node with no data type as an empty string and read it back.
+TEST(TypesTest, NodeWithNoDataTypeRoundTrips) {
+    const Node node(std::nullopt, "name", "NS=1;I=1", "Variable", false);
+    const auto j = node.to_json();
+    EXPECT_EQ(j["data_type"], "");
+    auto parser = x::json::Parser(j);
+    const Node parsed(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_FALSE(parsed.data_type.has_value());
+}
+
+/// @brief it should write and read back the data type of a node.
+TEST(TypesTest, NodeWithDataTypeRoundTrips) {
+    const Node node(x::telem::FLOAT32_T, "name", "NS=1;I=1", "Variable", false);
+    auto parser = x::json::Parser(node.to_json());
+    const Node parsed(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(parsed.data_type, x::telem::FLOAT32_T);
+}
 }

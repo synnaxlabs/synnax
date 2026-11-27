@@ -934,7 +934,6 @@ inline void to_proto(const SampleValue &sv, google::protobuf::Value *v) {
 }
 
 namespace details {
-const std::string UNKNOWN_T;
 const std::string FLOAT64_T = "float64";
 const std::string FLOAT32_T = "float32";
 const std::string INT8_T = "int8";
@@ -1307,8 +1306,6 @@ public:
 /// Note for future editors of these types, using `inline const` is dangerous as it
 /// causes problems with density lookups.
 
-/// @brief identifier for an unknown data type. Only Modbus and EtherCAT tests use it.
-const DataType UNKNOWN_T(details::UNKNOWN_T);
 /// @brief identifier for a fixed-size float64 data type in a Synnax cluster.
 const DataType FLOAT64_T(details::FLOAT64_T);
 /// @brief identifier for a fixed-size float32 data type in a Synnax cluster.

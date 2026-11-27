@@ -17,6 +17,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <variant>
 #include <vector>
 
@@ -635,8 +636,8 @@ public:
     /// @param size the number of samples to be used.
     /// @param dt the data type of the series.
     template<typename NumericType>
-    Series(const NumericType *d, const size_t size, const DataType &dt):
-        type(dt),
+    Series(const NumericType *d, const size_t size, DataType dt):
+        type(std::move(dt)),
         capacity(size),
         sample_count(size),
         buffer(alloc(this->size() * this->data_type().density())) {
@@ -699,8 +700,11 @@ public:
     /// @param dt the data type of the series. It's up to you to ensure that the
     /// contents of the series are compatible with the data type.
     template<typename NumericType>
-    explicit Series(NumericType v, const DataType &dt):
-        type(dt), capacity(1), sample_count(1), buffer(alloc(this->byte_size())) {
+    explicit Series(NumericType v, DataType dt):
+        type(std::move(dt)),
+        capacity(1),
+        sample_count(1),
+        buffer(alloc(this->byte_size())) {
         static_assert(
             std::is_arithmetic_v<NumericType>,
             "NumericType must be a numeric type"
