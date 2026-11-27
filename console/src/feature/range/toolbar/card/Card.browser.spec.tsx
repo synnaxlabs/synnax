@@ -9,6 +9,7 @@
 
 import type { ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { treatment } from "@synnaxlabs/lyra/styletest";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { render, screen, waitFor } from "@testing-library/react";
@@ -84,6 +85,17 @@ describe("Card", () => {
     await renderCard(rng);
     expect(await screen.findByText("5m 00s")).toBeTruthy();
     expect(screen.getByText("Completed")).toBeTruthy();
+  });
+
+  it("should draw the name in prose and the times with tabular digits", async () => {
+    const rng = await createAgo(
+      uniqueName("test_11"),
+      TimeSpan.minutes(10),
+      TimeSpan.minutes(5),
+    );
+    await renderCard(rng);
+    expect(treatment(await screen.findByText(rng.name))).toBe("prose");
+    expect(treatment(screen.getByText("5m 00s"))).toBe("numeric");
   });
 
   it("should show a running range as running to now", async () => {
