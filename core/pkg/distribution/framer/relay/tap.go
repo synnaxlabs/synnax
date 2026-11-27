@@ -210,8 +210,8 @@ func (t *tapper) withIndexes(
 ) (channel.Keys, error) {
 	out := slices.Clone(keys)
 	for _, key := range keys {
-		ch, err := t.TS.RetrieveChannel(ctx, key.StorageKey())
-		if errors.Is(err, ts.ErrChannelNotFound) {
+		ch, err := t.TS.RetrieveChannel(ctx, uint32(key))
+		if errors.Is(err, cesium.ErrChannelNotFound) {
 			continue
 		}
 		if err != nil {
