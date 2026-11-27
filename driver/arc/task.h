@@ -22,6 +22,7 @@
 #include "absl/log/log.h"
 
 #include "client/cpp/arc/arc.h"
+#include "client/cpp/errors/errors.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
@@ -269,8 +270,8 @@ class Task final : public task::Task {
         /// @brief the channels whose change or delete reloads the calculations. It
         /// only grows, so that a calculation the Core leaves out stays watched.
         std::set<::arc::types::ChannelKey> watched;
-        /// @brief true if the last reload failed, so that the next open of the
-        /// control pipeline retries it.
+        /// @brief true if the last reload failed on a transient error, so that the next
+        /// open of the control pipeline retries it.
         bool failed = false;
         bool requested = false;
         bool running = false;
@@ -306,7 +307,12 @@ class Task final : public task::Task {
                     );
                 }
                 lock.lock();
-                this->failed = static_cast<bool>(err);
+                this->failed = false;
+                if (err) {
+                    const auto kind = synnax::errors::classify(err);
+                    this->failed = kind == synnax::errors::Kind::TRANSIENT ||
+                                   kind == synnax::errors::Kind::INTERRUPTED;
+                }
             }
         }
 
@@ -349,16 +355,22 @@ class Task final : public task::Task {
             return x::errors::NIL;
         }
 
-        /// @brief takes back the calculator that reload handed over, and puts back
-        /// previous, the calculator that it replaced before the control thread took
-        /// it. If the control thread took it, the calculator that it replaced goes
-        /// back in.
+        /// @brief takes back the calculator that reload handed over, and puts back the
+        /// calculator for the channels that the control pipeline still streams:
+        /// previous, the one that reload replaced before the control thread took it,
+        /// or else the one that the control thread replaced.
         void restore(std::unique_ptr<Calculator> previous) {
+            std::unique_ptr<Calculator> dropped;
             std::lock_guard lock(this->task.reload_mu);
-            if (this->task.has_reloaded.load(std::memory_order_acquire))
+            const auto taken = !this->task.has_reloaded.load(std::memory_order_acquire);
+            if (previous != nullptr) {
+                dropped = taken ? std::move(this->task.retired)
+                                : std::move(this->task.reloaded);
                 this->task.reloaded = std::move(previous);
-            else
+            } else if (taken)
                 this->task.reloaded = std::move(this->task.retired);
+            else
+                dropped = std::move(this->task.reloaded);
             this->task.has_reloaded.store(
                 this->task.reloaded != nullptr,
                 std::memory_order_release

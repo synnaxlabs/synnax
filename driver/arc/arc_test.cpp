@@ -10,9 +10,11 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <future>
 #include <limits>
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <thread>
 #include <variant>
@@ -3956,7 +3958,7 @@ class RejectingStreamerFactory final : public pipeline::StreamerFactory {
 
         x::errors::Error
         set_channels(const std::vector<synnax::channel::Key> &channels) override {
-            if (this->rejects) return x::errors::VALIDATION;
+            if (this->rejects) return freighter::UNREACHABLE;
             this->factory.sets->push(channels);
             return x::errors::NIL;
         }
@@ -3979,6 +3981,91 @@ public:
     std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
     open_streamer(synnax::framer::StreamerConfig) override {
         return {std::make_unique<Streamer>(*this, ++this->opens == 1), x::errors::NIL};
+    }
+};
+
+/// @brief opens control streamers that read the frames that push queues, each in a new
+/// alignment domain. Once hold is called, the next channel set waits for release and
+/// returns its error.
+class HeldSetStreamerFactory final : public pipeline::StreamerFactory {
+    class Streamer final : public pipeline::Streamer {
+        HeldSetStreamerFactory &factory;
+        std::atomic<bool> closed = false;
+
+    public:
+        explicit Streamer(HeldSetStreamerFactory &factory): factory(factory) {}
+
+        std::pair<x::telem::Frame, x::errors::Error> read() override {
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            if (this->closed) return {x::telem::Frame{}, freighter::STREAM_CLOSED};
+            std::lock_guard lock(this->factory.mu);
+            if (this->factory.frames.empty())
+                return {x::telem::Frame{}, x::errors::NIL};
+            auto fr = std::move(this->factory.frames.front());
+            this->factory.frames.erase(this->factory.frames.begin());
+            return {std::move(fr), x::errors::NIL};
+        }
+
+        x::errors::Error close() override { return x::errors::NIL; }
+
+        void close_send() override { this->closed = true; }
+
+        x::errors::Error
+        set_channels(const std::vector<synnax::channel::Key> &channels) override {
+            std::unique_lock lock(this->factory.mu);
+            this->factory.sets.push_back(channels);
+            if (!this->factory.holding) return x::errors::NIL;
+            this->factory.cv.wait(lock, [this] {
+                return this->factory.released.has_value();
+            });
+            const auto err = *this->factory.released;
+            this->factory.holding = false;
+            this->factory.released.reset();
+            return err;
+        }
+    };
+
+    mutable std::mutex mu;
+    std::condition_variable cv;
+    std::vector<x::telem::Frame> frames;
+    std::vector<std::vector<synnax::channel::Key>> sets;
+    bool holding = false;
+    std::optional<x::errors::Error> released;
+    std::uint32_t domain = 0;
+
+public:
+    void push(x::telem::Frame frame) {
+        std::lock_guard lock(this->mu);
+        ++this->domain;
+        for (size_t i = 0; i < frame.size(); i++)
+            frame.series->at(i).alignment = x::telem::Alignment(this->domain, 0);
+        this->frames.push_back(std::move(frame));
+    }
+
+    /// @brief makes the next channel set wait for release.
+    void hold() {
+        std::lock_guard lock(this->mu);
+        this->holding = true;
+    }
+
+    /// @brief ends the held channel set with err.
+    void release(const x::errors::Error &err) {
+        {
+            std::lock_guard lock(this->mu);
+            this->released = err;
+        }
+        this->cv.notify_all();
+    }
+
+    /// @returns true if a channel set asked for channels.
+    [[nodiscard]] bool set_to(const std::vector<synnax::channel::Key> &channels) const {
+        std::lock_guard lock(this->mu);
+        return std::ranges::find(this->sets, channels) != this->sets.end();
+    }
+
+    std::pair<std::unique_ptr<pipeline::Streamer>, x::errors::Error>
+    open_streamer(synnax::framer::StreamerConfig) override {
+        return {std::make_unique<Streamer>(*this), x::errors::NIL};
     }
 };
 
@@ -4143,6 +4230,15 @@ protected:
             synnax::status::VARIANT_WARNING
         );
         return found == nullptr ? "" : found->message;
+    }
+
+    /// @returns the number of warnings with message that the task sent.
+    [[nodiscard]] std::size_t warnings(const std::string &message) const {
+        const auto statuses = this->ctx->snapshot();
+        return std::ranges::count_if(statuses, [&](const auto &status) {
+            return status.variant == synnax::status::VARIANT_WARNING &&
+                   status.message == message;
+        });
     }
 
     /// @brief starts task and waits until its streamer reads the bus.
@@ -4440,6 +4536,124 @@ TEST_F(OutageTest, RetriesFailedReloadWhenControlReopens) {
         std::chrono::seconds(10),
         std::chrono::milliseconds(50)
     );
+    task->stop("test_stop", true);
+}
+
+/// @brief it should not retry a reload that the Core rejected when the control streamer
+/// opens again.
+TEST_F(OutageTest, DoesNotRetryRejectedReloadWhenControlReopens) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto doubled = this->create_calculated("doubled", a.name + " * 2");
+    const auto control = std::make_shared<RejectingStreamerFactory>();
+    const auto task = this->create_task(
+        doubled.name + " -> " + out.name,
+        {a.key},
+        ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
+        nullptr,
+        control
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(control->opens.load(), 1);
+    // The expression names the input, so it no longer compiles.
+    this->dispatch(
+        a,
+        {{"type", "rename"},
+         {"rename", {{"name", make_unique_channel_name("renamed")}}}}
+    );
+    ASSERT_EVENTUALLY_EQ(this->warnings("Failed to reload calculations"), 1);
+    control->fail = true;
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            control->push(x::telem::Frame(a.key, x::telem::Series(5.0f)));
+            return this->wrote(out.key, 10.0f);
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
+    // A retry would follow the reopen after the 100 ms reload delay.
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    EXPECT_EQ(this->warnings("Failed to reload calculations"), 1);
+    task->stop("test_stop", true);
+}
+
+/// @brief it should put the old calculations back when a channel change fails after
+/// the control thread took the new ones.
+TEST_F(OutageTest, RestoresTakenReloadWhenChannelChangeFails) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto b = this->create_channel("b", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    const auto control = std::make_shared<HeldSetStreamerFactory>();
+    const auto task = this->create_task(
+        outer.name + " -> " + out.name,
+        {a.key, b.key},
+        ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
+        nullptr,
+        control
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        control->push(x::telem::Frame(a.key, x::telem::Series(1.0f)));
+        return this->wrote(out.key, 3.0f);
+    }());
+    control->hold();
+    this->set_expression(inner, b.name + " * 3");
+    ASSERT_EVENTUALLY_TRUE(control->set_to({b.key}));
+    ASSERT_EVENTUALLY_TRUE([&] {
+        control->push(x::telem::Frame(b.key, x::telem::Series(1.0f)));
+        return this->wrote(out.key, 4.0f);
+    }());
+    control->release(freighter::UNREACHABLE);
+    ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        control->push(x::telem::Frame(a.key, x::telem::Series(2.0f)));
+        return this->wrote(out.key, 5.0f);
+    }());
+    task->stop("test_stop", true);
+}
+
+/// @brief it should keep the calculations that match the streamed channels when a
+/// channel change fails after the control thread took a reload that replaced one it
+/// never took.
+TEST_F(OutageTest, RestoresUntakenReloadWhenChannelChangeFails) {
+    const auto a = this->create_channel("a", x::telem::FLOAT32_T);
+    const auto b = this->create_channel("b", x::telem::FLOAT32_T);
+    const auto c = this->create_channel("c", x::telem::FLOAT32_T);
+    const auto out = this->create_channel("out", x::telem::FLOAT32_T);
+    const auto inner = this->create_calculated("inner", a.name + " * 2");
+    const auto outer = this->create_calculated("outer", inner.name + " + 1");
+    const auto control = std::make_shared<HeldSetStreamerFactory>();
+    const auto task = this->create_task(
+        outer.name + " -> " + out.name,
+        {a.key, b.key, c.key},
+        ::arc::runtime::wasm::DEFAULT_LOOP_BUDGET,
+        nullptr,
+        control
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE([&] {
+        control->push(x::telem::Frame(a.key, x::telem::Series(1.0f)));
+        return this->wrote(out.key, 3.0f);
+    }());
+    // No frame comes after this reload, so the control thread never takes it.
+    this->set_expression(inner, b.name + " * 3");
+    ASSERT_EVENTUALLY_TRUE(control->set_to({b.key}));
+    control->hold();
+    this->set_expression(inner, c.name + " * 4");
+    ASSERT_EVENTUALLY_TRUE(control->set_to({c.key}));
+    ASSERT_EVENTUALLY_TRUE([&] {
+        control->push(x::telem::Frame(c.key, x::telem::Series(1.0f)));
+        return this->wrote(out.key, 5.0f);
+    }());
+    control->release(freighter::UNREACHABLE);
+    ASSERT_EVENTUALLY_EQ(this->warning(), "Failed to reload calculations");
+    // The streamer still has the channels of the first reload.
+    ASSERT_EVENTUALLY_TRUE([&] {
+        control->push(x::telem::Frame(b.key, x::telem::Series(1.0f)));
+        return this->wrote(out.key, 4.0f);
+    }());
     task->stop("test_stop", true);
 }
 
