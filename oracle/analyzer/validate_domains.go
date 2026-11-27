@@ -535,7 +535,7 @@ func validateFiniteRules(table *resolution.Table, diag *diagnostics.Files) {
 // pattern "<regex>", on one outside a struct field, on an lt rule in a struct with a
 // type parameter that has no default or whose field and compared field are not two
 // required numbers of one type in the same struct, and on a pattern rule outside a
-// required string or with a bad regex.
+// string or with a bad regex.
 func validateComparisonRules(table *resolution.Table, diag *diagnostics.Files) {
 	for _, t := range table.Types {
 		var problems []string
