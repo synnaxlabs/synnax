@@ -267,6 +267,7 @@ const DISCOVER_KIND: Kind<Addition> = {
   title: "Add targets",
   hint: "Select the topics to write. Each one becomes a target.",
   tagHint: "Select the tags to write. Each one becomes a target.",
+  unlistedHint: "Command topics often do not show here.",
   noun: "target",
   whole: true,
   formatPickable: true,

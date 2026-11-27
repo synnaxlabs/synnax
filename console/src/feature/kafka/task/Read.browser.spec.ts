@@ -585,6 +585,22 @@ describe("Kafka read form", () => {
       expect(listen().getAttribute("aria-disabled")).toBeNull();
     });
 
+    it("should list the type of a boolean value as boolean", async () => {
+      const { dev } = await renderRead();
+      const shape = {
+        ...OVEN_SHAPE,
+        fields: [
+          OVEN_SHAPE.fields[0],
+          createInferredField("/open", "boolean", "boolean"),
+        ],
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(shape) });
+      const box = await dialog.findByRole("checkbox", { name: "Record /open" });
+      const value = box.closest<HTMLElement>('[role="option"]');
+      if (value == null) throw new Error("expected the value /open in a list option");
+      expect(within(value).getByText("boolean")).toBeTruthy();
+    });
+
     it("should count only the topics that the cluster lists", async () => {
       const { dev } = await renderRead();
       const browse = browseOf(listTopic("plant"));
