@@ -9,7 +9,7 @@
 
 import type { status } from "@synnaxlabs/client";
 import { Modal } from "@synnaxlabs/lyra/modal";
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Device } from "@/platform/device";
@@ -23,12 +23,18 @@ interface FooterParams {
   reason?: Rack.BlockedReason;
 }
 
-const Footer: Modals.Content<FooterParams, void> = ({ variant, onBack, reason }) => (
+const Footer: Modals.Content<FooterParams, void> = ({
+  variant,
+  onBack,
+  reason,
+  close,
+}) => (
   <Modal.Frame>
     <Device.ConnectFooter
       reason={reason ?? null}
       variant={variant}
       onConnect={() => {}}
+      onCancel={() => close()}
       onBack={onBack}
     />
   </Modal.Frame>
@@ -37,10 +43,11 @@ const Footer: Modals.Content<FooterParams, void> = ({ variant, onBack, reason })
 const useOpen = Modals.create(Footer);
 
 describe("ConnectFooter", () => {
-  it("should hold the dialog and Back while it connects", async () => {
+  it("should hold the dialog, Back, and Cancel while it connects", async () => {
     const onBack = vi.fn();
     await renderModalOpener(useOpen, [{ variant: "loading", onBack }]);
     fireEvent.click(findButton("Back"));
+    fireEvent.click(findButton("Cancel"));
     await pressEscape();
     expect(onBack).not.toHaveBeenCalled();
     expect(screen.queryByText("Back")).not.toBeNull();
@@ -54,6 +61,12 @@ describe("ConnectFooter", () => {
     await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn(), reason }]);
     expect(await screen.findByText("Node 1 is not running")).toBeTruthy();
     expect(screen.getByText("Start the Driver on Node 1.")).toBeTruthy();
+  });
+
+  it("should close the dialog on Cancel", async () => {
+    await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn() }]);
+    fireEvent.click(findButton("Cancel"));
+    await waitFor(() => expect(screen.queryByText("Back")).toBeNull());
   });
 
   it("should let Escape close the dialog when idle", async () => {

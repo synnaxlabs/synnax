@@ -238,6 +238,7 @@ export const Connect = ({
         variant={variant}
         message={stat.description}
         onConnect={() => save()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -272,7 +273,7 @@ const HEADER = ["Device", "Connect", "MQTT broker"];
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "MQTT broker",
+  placeholder: "Broker name",
   "aria-label": "Name",
 } as const;
 
@@ -282,7 +283,7 @@ const HOST_INPUT_PROPS = {
 } as const;
 
 // An empty port selects the default, which the placeholder names.
-const PORT_INPUT_PROPS = { placeholder: "1883" } as const;
+const PORT_INPUT_PROPS = { placeholder: "1883", showDragHandle: false } as const;
 
 const SECURE_PORT_INPUT_PROPS = { ...PORT_INPUT_PROPS, placeholder: "8883" } as const;
 

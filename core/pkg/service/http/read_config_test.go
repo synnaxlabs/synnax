@@ -148,19 +148,24 @@ var _ = Describe("Read config", func() {
 		)))
 	})
 
-	It("Should refuse an endpoint that sets fields and reads no messages",
+	It("Should drop the fields and index of an endpoint from before ICDs",
 		func(ctx SpecContext) {
-			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"endpoints": []any{map[string]any{
 					"key":    "ep",
 					"path":   "/values",
 					"fields": []any{map[string]any{"key": "f", "pointer": "/temp"}},
+					"index":  "f",
 				}},
-			})).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError("endpoints.0.fields: an endpoint no longer reads fields. "+
-					"Set icd and messages to read the response as ICD messages"),
-			))
+			}))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
+			Expect(data["endpoints"]).To(HaveExactElements(SatisfyAll(
+				HaveKeyWithValue("key", "ep"),
+				Not(HaveKey("fields")),
+				Not(HaveKey("index")),
+				Not(HaveKey("icd")),
+				HaveKeyWithValue("messages", BeEmpty()),
+			)))
 		},
 	)
 

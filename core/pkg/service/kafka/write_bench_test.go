@@ -23,11 +23,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/http"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/set"
@@ -111,6 +114,7 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	values := make([]float64, sc.samples)
 
 	period := time.Duration(sc.channels*sc.samples) * writeBenchRecordPeriod
+	written := telem.Now()
 	profile := startBenchProfile(sc.name())
 	start := time.Now()
 	for k := range sc.frames {
@@ -135,13 +139,14 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 	records := consumeAll(ctx, topic, total)
 	elapsed := time.Since(start)
 	profile.stop()
-	checkWriteRecords(records, byName, len(data), sc.samples, sc.fields, stamp)
+	checkWriteRecords(records, byName, len(data), sc.samples, sc.fields, stamp, written)
 	GinkgoWriter.Printf("BENCH %s %d records in %s\n", sc.name(), len(records), elapsed)
 }
 
 // writeBenchConfig returns the config of a write task that sends data to topic, and the
-// position of each channel in data by name. fields adds a static and a generated field
-// to each record.
+// position of each channel in data by name. Each channel has a target that sends its
+// value, its name, and the time of the write, keyed by its name. fields adds a static
+// and a generated field to each record.
 func writeBenchConfig(
 	ctx context.Context, data []channel.Channel, topic string, fields bool,
 ) (kafka.WriteConfig, map[string]int) {
@@ -152,17 +157,19 @@ func writeBenchConfig(
 		channels[i] = kafka.WriteChannel{Key: strconv.Itoa(i), Channel: ch.Key()}
 		byName[ch.Name] = i
 	}
-	cfg := kafka.WriteConfig{
-		Device: createDevice(ctx, clusterProperties()).Key,
-		Topic:  topic,
+	in := kafka.InlineWrite{
+		Topic:     topic,
+		RecordKey: kafka.RecordKeyChannelName,
 		Record: kafka.Record{
+			ValuePointer:     "/value",
 			ChannelPointer:   new("/channel"),
 			TimestampPointer: new("/timestamp"),
+			TimeFormat:       payload.TimeFormatUnixNs,
 		},
 		Channels: channels,
 	}
 	if fields {
-		cfg.Record.Fields = []http.WriteField{
+		in.Record.Fields = []http.WriteField{
 			{Variant: http.StaticWriteField{
 				BaseWriteField: http.BaseWriteField{
 					Key: "source", Pointer: "/meta/source",
@@ -176,19 +183,46 @@ func writeBenchConfig(
 			}},
 		}
 	}
-	return cfg, byName
+	return kafka.WriteConfig{
+		Device:  createDevice(ctx, clusterProperties()).Key,
+		Targets: liftWrite(ctx, in),
+	}, byName
+}
+
+// liftWrite moves the channels of in into a new ICD with one message for each channel,
+// as a write of a config from before ICDs does, and returns the targets that send them.
+func liftWrite(ctx context.Context, in kafka.InlineWrite) []kafka.WriteTarget {
+	GinkgoHelper()
+	cfg := kafka.WriteConfig{Inline: &in}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		ic, _, err := v1.ResolveWriteConfig(
+			ctx,
+			tx,
+			icd.ReadChannels(channelSvc),
+			"Plant",
+			&cfg,
+			func(string, string) {},
+		)
+		if err != nil {
+			return err
+		}
+		return icdSvc.NewWriter(tx).Create(ctx, &ic)
+	})).To(Succeed())
+	return cfg.Targets
 }
 
 // checkWriteRecords asserts that records hold every sample of each of channels in
-// order, with its exact value and the stamp that stamp gives it. byName maps a channel
-// name to its position, and samples is the sample count of a frame. fields checks the
-// static and generated fields.
+// order, with its exact value and with the stamp that stamp gives it as the record
+// time. byName maps a channel name to its position, and samples is the sample count of
+// a frame. fields checks the static and generated fields. The time of the write in each
+// record must be no earlier than written.
 func checkWriteRecords(
 	records []*kgo.Record,
 	byName map[string]int,
 	channels, samples int,
 	fields bool,
 	stamp func(frameI, sampleI int) telem.TimeStamp,
+	written telem.TimeStamp,
 ) {
 	GinkgoHelper()
 	seen := make([]int, channels)
@@ -211,7 +245,9 @@ func checkWriteRecords(
 		seen[c]++
 		Expect(math.Float64bits(doc.Value)).
 			To(Equal(math.Float64bits(benchValue(c, i))))
-		Expect(doc.Timestamp).To(Equal(stamp(i/samples, i%samples)))
+		Expect(doc.Timestamp).To(BeNumerically(">=", written))
+		Expect(rec.Timestamp.UnixMilli()).
+			To(Equal(stamp(i/samples, i%samples).Time().UnixMilli()))
 		if fields {
 			Expect(doc.Meta.Source).To(Equal("synnax"))
 			id := MustSucceed(uuid.Parse(doc.ID))

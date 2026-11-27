@@ -88,8 +88,7 @@ const beforeSave = async ({
     timeout: TEST_CONNECTION_TIMEOUT,
     args: { connection: get(path.properties).value },
   });
-  if (state.variant === "error")
-    throw new Error([state.message, state.description].filter(Boolean).join(": "));
+  if (state.variant === "error") throw status.toError(state);
   // The scan just succeeded, so the device starts healthy. The scanner overwrites
   // this status when the cluster goes away.
   const devStatus: device.Status = status.create<typeof device.statusDetailsZ>({
@@ -113,13 +112,14 @@ const BrokersField = () => (
   >
     {({ value, onChange }) => (
       <Flex.Box y gap="small">
-        {value.map((broker, i) => (
+        {value.map((_, i) => (
           <Flex.Box x key={i} gap="small" align="center">
             <Flex.Box grow>
-              <Input.Text
-                value={broker}
-                onChange={(next) => onChange(value.map((b, j) => (j === i ? next : b)))}
-                placeholder="localhost:9092"
+              <Form.TextField
+                path={path.properties.brokers[i]}
+                showLabel={false}
+                padHelpText={false}
+                inputProps={BROKER_INPUT_PROPS}
               />
             </Flex.Box>
             {value.length > 1 && (
@@ -287,6 +287,7 @@ export const Connect = ({
         variant={variant}
         message={stat.description}
         onConnect={() => save()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </Modal.Frame>
@@ -303,10 +304,12 @@ const HEADER = ["Device", "Connect", "Kafka cluster"];
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "Kafka cluster",
+  placeholder: "Cluster name",
   "aria-label": "Name",
   autoFocus: true,
 } as const;
+
+const BROKER_INPUT_PROPS = { placeholder: "localhost:9092" } as const;
 
 const CA_INPUT_PROPS = {
   placeholder: "-----BEGIN CERTIFICATE-----",

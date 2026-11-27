@@ -16,8 +16,7 @@ from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_, device as device_, http, icd as icd_, task
-from x import payload
+from synnax import device as device_, icd as icd_, task
 
 START_OFFSET_LATEST: Literal["latest"] = "latest"
 
@@ -27,13 +26,6 @@ START_OFFSET_NONE: Literal["none"] = "none"
 
 
 StartOffset = Literal["latest", "earliest", "none"]
-
-RECORD_KEY_NONE: Literal["none"] = "none"
-
-RECORD_KEY_CHANNEL_NAME: Literal["channel_name"] = "channel_name"
-
-
-RecordKey = Literal["none", "channel_name"]
 
 
 class Credentials(BaseModel):
@@ -54,52 +46,6 @@ class ScanConfig(task.ScanConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
-
-
-class WriteChannel(BaseModel):
-    """Is a channel whose samples a write task produces as records.
-
-    Attributes:
-        key: Uniquely identifies the channel within the task.
-        disabled: Is true when the channel is excluded from the task.
-        channel: Is the Synnax channel whose samples are produced.
-        json_type: Is the JSON type the sample value is serialized as.
-        time_format: Is the output encoding when the channel holds timestamps. Required
-            for timestamp channels.
-        enum_values: Maps numeric or boolean channel values to string labels. Only valid
-            when json_type is 'string'.
-    """
-
-    key: str = Field(default_factory=lambda: str(uuid4()))
-    disabled: bool = False
-    channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    json_type: payload.JSONType = "number"
-    time_format: payload.TimeFormat | None = None
-    enum_values: list[payload.EnumEntry] = Field(default_factory=list)
-
-    @_override
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class Record(BaseModel):
-    """Is the shape of every record a write task produces.
-
-    Attributes:
-        value_pointer: Is the JSON Pointer where the sample value is placed.
-        channel_pointer: Is the JSON Pointer where the channel name is placed. Absent
-            omits the name.
-        timestamp_pointer: Is the JSON Pointer where the sample timestamp is placed.
-            Absent omits the timestamp.
-        time_format: Is the encoding of the sample timestamp.
-        fields: Contains additional static or generated record fields.
-    """
-
-    value_pointer: str = "/value"
-    channel_pointer: str | None = None
-    timestamp_pointer: str | None = None
-    time_format: payload.TimeFormat = "unix_ns"
-    fields: list[http.WriteField] = Field(default_factory=list)
 
 
 class ReadRecord(BaseModel):
@@ -202,23 +148,15 @@ class ReadTopic(BaseModel):
 
 
 class WriteConfig(task.StartConfig):
-    """Configures a Kafka write task, which produces one record per sample of each
-    channel to a topic.
+    """Configures a Kafka write task that produces the ICD message of each target to its
+    topic.
 
     Attributes:
         device: Is the key of the Kafka cluster device to produce to.
-        topic: Is the topic the task produces to.
-        record_key: Is the source of the key placed on every record.
-        record: Is the shape of every record.
-        channels: Contains the channels whose samples are produced.
         targets: Contains the topics and ICD messages to produce.
     """
 
     device: device_.Key = ""
-    topic: str = ""
-    record_key: RecordKey = "channel_name"
-    record: Record = Field(default_factory=lambda: Record())
-    channels: list[WriteChannel] = Field(default_factory=list)
     targets: list[WriteTarget] = Field(default_factory=list)
 
     @_override

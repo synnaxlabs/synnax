@@ -28,32 +28,19 @@ import (
 
 // MigrateWriteConfig lifts a v0 write config to v1. When old has channels, it moves
 // them into Inline with the topic, record key, and record of old, for
-// ResolveWriteConfig to add back as targets with an ICD. Those fields of the config
-// then take their defaults.
+// ResolveWriteConfig to add as targets with an ICD.
 func MigrateWriteConfig(ctx context.Context, old v0.WriteConfig) (WriteConfig, error) {
 	cfg, err := autoMigrateWriteConfig(ctx, old)
-	if err != nil {
+	if err != nil || len(old.Channels) == 0 {
 		return cfg, err
 	}
-	stage(&cfg)
-	return cfg, nil
-}
-
-// stage moves the channels of cfg into Inline with its topic, record key, and record,
-// and gives those fields their defaults. It does nothing when cfg has no channels.
-func stage(cfg *WriteConfig) {
-	if len(cfg.Channels) == 0 {
-		return
-	}
 	cfg.Inline = &InlineWrite{
-		Topic:     cfg.Topic,
-		RecordKey: cfg.RecordKey,
-		Record:    cfg.Record,
-		Channels:  cfg.Channels,
+		Topic:     old.Topic,
+		RecordKey: old.RecordKey,
+		Record:    old.Record,
+		Channels:  old.Channels,
 	}
-	cfg.Topic, cfg.RecordKey, cfg.Channels = "", RecordKeyChannelName, []WriteChannel{}
-	cfg.Record = Record{Fields: []http.WriteField{}}
-	cfg.Record.SetDefaults()
+	return cfg, nil
 }
 
 // ResolveWriteConfig moves the inline channels of cfg into a new ICD named name, with
