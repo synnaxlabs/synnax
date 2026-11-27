@@ -397,36 +397,36 @@ describe("log/aether/Log", () => {
     };
 
     it("should count the lines that stream in while paused", () => {
-      const { log, source } = pausedAfter(40);
-      expect(log.state.newLines).toBe(0);
+      const { leaf, source } = pausedAfter(40);
+      expect(leaf.state.newLines).toBe(0);
       source.streamedLines = 47;
       source.notify();
-      expect(log.state.newLines).toBe(7);
+      expect(leaf.state.newLines).toBe(7);
     });
 
     it("should stay at zero while live", () => {
-      const { log, source, updateState } = setup([makeEntry(0)]);
+      const { leaf, source, updateState } = setup([makeEntry(0)]);
       updateState({ scrolling: false, empty: false });
       source.streamedLines = 5;
       source.notify();
-      expect(log.state.newLines).toBe(0);
+      expect(leaf.state.newLines).toBe(0);
     });
 
     it("should clear the count on resume", () => {
-      const { log, source, updateState } = pausedAfter(0);
+      const { leaf, source, updateState } = pausedAfter(0);
       source.streamedLines = 3;
       source.notify();
       updateState({ scrolling: false, empty: false });
-      expect(log.state.newLines).toBe(0);
+      expect(leaf.state.newLines).toBe(0);
     });
 
     it("should count from a source that replaces the one it paused on", () => {
       const { h } = pausedAfter(40);
       const testId = `log-test-${++testIdCounter}`;
-      const replaced = new MockLogSource();
-      registerMockLogSource(testId, replaced);
+      const replaced = new logTest.MockSource();
+      logTest.registerMockSource(testId, replaced);
       h.setState(() =>
-        logStateZ.parse(
+        log.logStateZ.parse(
           baseInput(testId, REGION_500, { scrolling: true, empty: false }),
         ),
       );
@@ -436,14 +436,14 @@ describe("log/aether/Log", () => {
     });
 
     it("should count from the next pause after a resume", () => {
-      const { log, source, updateState } = pausedAfter(0);
+      const { leaf, source, updateState } = pausedAfter(0);
       source.streamedLines = 3;
       source.notify();
       updateState({ scrolling: false, empty: false });
       updateState({ scrolling: true, empty: false });
       source.streamedLines = 5;
       source.notify();
-      expect(log.state.newLines).toBe(2);
+      expect(leaf.state.newLines).toBe(2);
     });
   });
 

@@ -9,12 +9,12 @@
 
 import { DataType, log } from "@synnaxlabs/client";
 import { aether } from "@synnaxlabs/pluto/ether";
-import { color, id } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import { act, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { Log } from "@/feature/log/Log";
+import { Log } from "@/feature/log";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 import { Session } from "@/session";
 
@@ -24,9 +24,9 @@ const stateZ = z.looseObject({});
 const createWorker = (newLines: number): aether.ComponentRegistry => {
   class Worker extends aether.Leaf<typeof stateZ> {
     static readonly TYPE = "log";
-    schema = stateZ;
+    override schema = stateZ;
 
-    afterUpdate(): void {
+    override afterUpdate(): void {
       if (this.state.newLines === newLines) return;
       this.setState((s) => ({ ...s, empty: false, newLines }));
     }
@@ -34,16 +34,20 @@ const createWorker = (newLines: number): aether.ComponentRegistry => {
   return { [Worker.TYPE]: Worker };
 };
 
+const { Content } = Log.TABS[log.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
+
 const renderControls = async (newLines: number) => {
   const ch = await client.channels.create({
     name: id.create(),
     dataType: DataType.STRING,
     virtual: true,
   });
-  return await renderLog(Log, {
+  return await renderLog(Content, {
     additionalRegistry: createWorker(newLines),
     log: {
-      channels: [log.channelEntryZ.parse({ channel: ch.key, color: color.ZERO })],
+      channels: [log.channelEntryZ.parse({ channel: ch.key })],
     },
   });
 };
