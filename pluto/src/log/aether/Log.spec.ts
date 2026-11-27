@@ -337,6 +337,17 @@ describe("log/aether/Log", () => {
       expect(leaf.state.scrolling).toBe(false);
     });
 
+    it("should stay paused after a drag selects to the newest entry", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ scrolling: false, empty: false });
+      updateState({ scrolling: true, empty: false, wheelPos: 300 });
+      updateState({ scrolling: true, empty: false, wheelPos: 0, selecting: true });
+      expect(leaf.state.scrolling).toBe(true);
+      updateState({ scrolling: true, empty: false, wheelPos: 0 });
+      expect(leaf.state.scrolling).toBe(true);
+    });
+
     it("should resume the source when it resumes on its own", () => {
       const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
       const { source, updateState } = setup(entries);

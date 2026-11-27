@@ -443,9 +443,16 @@ export class Log
         this.setState((s) => ({ ...s, wheelPos: locked }));
       }
       // Auto-resume live mode when the viewport is back on the newest entry. A pause
-      // taken at the bottom starts there, so it takes a return or a downward scroll.
+      // taken at the bottom starts there, so it takes a return or a downward scroll. A
+      // drag selection that reaches the bottom counts as a pause taken there.
       if (scrollState.offset < this.entries.length || scrollState.tail > 0)
         scrollState.awayFromEnd = true;
+      else if (this.state.selecting)
+        Object.assign(scrollState, {
+          scrollRef: wheelPos,
+          moved: 0,
+          awayFromEnd: false,
+        });
       else if (
         i.telem.wrapped.live !== false &&
         (scrollState.awayFromEnd || dist < 0)
