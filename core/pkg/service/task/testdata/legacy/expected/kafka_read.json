@@ -18,12 +18,10 @@
               "bindings": [
                 {
                   "channel": 1048583,
-                  "data_type": "",
                   "field": "kafka_timed_time"
                 },
                 {
                   "channel": 1048584,
-                  "data_type": "",
                   "field": "kafka_timed_value"
                 }
               ],
