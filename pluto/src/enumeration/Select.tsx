@@ -14,11 +14,9 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement } from "react";
 
-import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Colors } from "@/enumeration/Colors";
 import { OptionMenu, useHasOptionMenu } from "@/enumeration/Edit";
@@ -43,24 +41,25 @@ const ListItem = ({
 };
 
 const ENTRIES_CLASS = CSS.BE("enumeration-select", "entries");
-const ENTRY: Tag.TagsProps["noun"] = { one: "entry", other: "entries" };
 
 interface EntriesProps {
   entries: enumeration.Entry[];
 }
 
-// An entry with no name has no text for a tag, so only named entries show.
-const Entries = ({ entries }: EntriesProps): ReactElement => {
-  const named = entries.filter(({ name }) => name.trim() !== "");
-  const colors = Color.useValues(named.map(({ color }) => color));
+// An entry with no name has no text, so only named entries show.
+const Entries = ({ entries }: EntriesProps): ReactElement | null => {
+  const names = entries.flatMap(({ name }) => (name.trim() === "" ? [] : [name]));
+  if (names.length === 0) return null;
   return (
-    <Tag.Tags variant="text" unstacked noun={ENTRY} className={ENTRIES_CLASS}>
-      {named.map(({ key, name }, i) => (
-        <Tag.Tag key={key} color={colors[i]} size="small">
-          {name}
-        </Tag.Tag>
-      ))}
-    </Tag.Tags>
+    <Text.Text
+      el="span"
+      level="small"
+      color={9}
+      overflow="fade"
+      className={ENTRIES_CLASS}
+    >
+      {names.join(", ")}
+    </Text.Text>
   );
 };
 
