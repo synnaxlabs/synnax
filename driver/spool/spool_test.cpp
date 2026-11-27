@@ -718,7 +718,9 @@ TEST_F(SpoolTest, LeavesNoOffsetWhenCommitRacesRemove) {
         const auto commit_err = reader->commit();
         remover.join();
         ASSERT_NIL(remove_err);
-        if (commit_err) ASSERT_MATCHES(commit_err, BASE_ERROR);
+        if (commit_err) {
+            ASSERT_MATCHES(commit_err, BASE_ERROR);
+        }
         ASSERT_FALSE(
             std::filesystem::exists(this->dir / (std::to_string(key) + ".offset"))
         );
