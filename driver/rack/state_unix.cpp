@@ -121,9 +121,9 @@ fs::path machine_dir() {
 #endif
 }
 
-std::pair<journal::OnCreate, x::errors::Error>
+std::pair<x::fs::OnCreate, x::errors::Error>
 owner_hook(const fs::path &dir, const bool root) {
-    if (!root) return {journal::no_create_hook, x::errors::NIL};
+    if (!root) return {x::fs::no_create_hook, x::errors::NIL};
     struct stat st{};
     if (stat(dir.c_str(), &st) != 0)
         return {nullptr, errno_error("failed to read the owner of " + dir.string())};
@@ -137,7 +137,7 @@ owner_hook(const fs::path &dir, const bool root) {
     };
 }
 
-std::pair<journal::OnCreate, x::errors::Error> owner_hook(const fs::path &dir) {
+std::pair<x::fs::OnCreate, x::errors::Error> owner_hook(const fs::path &dir) {
     return owner_hook(dir, geteuid() == 0);
 }
 

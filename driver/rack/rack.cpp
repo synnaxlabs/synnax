@@ -34,7 +34,7 @@ outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err) {
     )
         fix = "Its files are damaged. Move " + path +
               " aside to discard the changes it holds for the Core.";
-    else if (err.matches(journal::LOCKED))
+    else if (err.matches(x::fs::LOCKED))
         fix = "Another Driver uses it. Stop the other Driver, or give each Driver its "
               "own state directory.";
     else

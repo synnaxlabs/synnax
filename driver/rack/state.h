@@ -13,8 +13,7 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
-
-#include "driver/journal/file.h"
+#include "x/cpp/fs/file.h"
 
 namespace driver::rack::state {
 /// @brief the state directory of the computer, which the Driver service reads.
@@ -24,11 +23,11 @@ std::filesystem::path machine_dir();
 /// dir to the owner of dir, so the service user can open what a run as root creates.
 /// The hook does nothing unless root is true. Does nothing on Windows.
 /// @returns the error of reading the owner of dir.
-std::pair<journal::OnCreate, x::errors::Error>
+std::pair<x::fs::OnCreate, x::errors::Error>
 owner_hook(const std::filesystem::path &dir, bool root);
 
 /// @brief owner_hook for the current process, which gives files away only as root.
-std::pair<journal::OnCreate, x::errors::Error>
+std::pair<x::fs::OnCreate, x::errors::Error>
 owner_hook(const std::filesystem::path &dir);
 
 /// @brief the state directory of the user, or of the user that ran sudo. Empty on

@@ -111,9 +111,9 @@ TEST_F(OutboxFailureTest, Locked) {
     const auto [held, held_err] = outbox::Outbox::open({.dir = this->dir});
     ASSERT_NIL(held_err);
     const auto err = this->open_err();
-    ASSERT_OCCURRED_AS(err, journal::LOCKED);
+    ASSERT_OCCURRED_AS(err, x::fs::LOCKED);
     const auto failure = outbox_failure(this->dir, err);
-    ASSERT_OCCURRED_AS(failure, journal::LOCKED);
+    ASSERT_OCCURRED_AS(failure, x::fs::LOCKED);
     ASSERT_EQ(
         failure.data,
         "The Driver cannot open its outbox in " + this->dir.string() + ": " + err.data +
