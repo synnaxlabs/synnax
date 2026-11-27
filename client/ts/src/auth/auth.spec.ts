@@ -215,6 +215,7 @@ describe("auth", () => {
           auth.createTokenlessClient({
             host: testClientParams().host,
             port: Number(testClientParams().port),
+            secure: false,
           }),
           {
             token: "syi_token",
