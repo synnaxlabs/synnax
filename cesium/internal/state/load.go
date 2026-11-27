@@ -37,12 +37,14 @@ func (c *core) load(s *Snapshot) error {
 			if err := c.checkSegment(ch.Key, seg); err != nil {
 				return err
 			}
-			st := &segEntry{key: ch.Key, vis: seg, dur: durable{
+			sp := spanOf(seg.Pointers)
+			st := &segEntry{key: ch.Key, vis: seg, visSpan: sp, dur: durable{
 				created:  true,
 				sealed:   seg.Sealed,
 				length:   seg.Length,
 				tailCRC:  seg.TailCRC,
 				pointers: slices.Clone(seg.Pointers),
+				span:     sp,
 			}}
 			c.segments[seg.ID] = st
 			cs.segs = append(cs.segs, st)
@@ -122,7 +124,7 @@ func (c *core) endReplay() {
 	for _, s := range c.segments {
 		s.vis.Sealed, s.vis.Length, s.vis.TailCRC = s.dur.sealed, s.dur.length,
 			s.dur.tailCRC
-		s.vis.Pointers = slices.Clone(s.dur.pointers)
+		s.vis.Pointers, s.visSpan = slices.Clone(s.dur.pointers), s.dur.span
 		if s.dur.sealed {
 			s.dur.pointers = s.vis.Pointers
 		}

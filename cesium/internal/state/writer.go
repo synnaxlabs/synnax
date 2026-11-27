@@ -309,7 +309,7 @@ func (s *State) newSegment(r *segmentRequest) {
 		Clock:    r.w.cfg.Clock,
 		Version:  s.cfg.Version,
 		DataType: r.dataType,
-	}}
+	}, visSpan: noSpan(), dur: durable{span: noSpan()}}
 	s.core.segments[id] = seg
 	ch := s.core.channel(r.key)
 	ch.insert(seg)
@@ -502,6 +502,7 @@ func (s *State) commitVisible(w *Writer, c *log.Commit) error {
 		p, extended := grow(seg.vis.Pointers, telem.Alignment(c.Alignment), first, last,
 			seg.vis.Length, slot.Length, c.Samples)
 		seg.vis.Pointers = extend(seg.vis.Pointers, p, extended, false)
+		seg.visSpan = seg.visSpan.cover(p)
 		seg.vis.Length, seg.vis.TailCRC = slot.Length, slot.TailCRC
 		s.core.channels[seg.key].checkViews()
 		s.core.channels[seg.key].publish()
@@ -587,7 +588,7 @@ func (s *State) takeBack(w *Writer) []log.Seal {
 			s.discard(seg)
 			continue
 		}
-		seg.vis.Pointers = slices.Clone(seg.dur.pointers)
+		seg.vis.Pointers, seg.visSpan = slices.Clone(seg.dur.pointers), seg.dur.span
 		seg.vis.Length, seg.vis.TailCRC = seg.dur.length, seg.dur.tailCRC
 		s.core.channels[seg.key].checkViews()
 		seals = append(seals, s.sealVisible(w, seg))

@@ -143,7 +143,7 @@ func (c *core) create(r *log.Create) error {
 		Clock:    r.Clock,
 		Version:  r.Version,
 		DataType: r.DataType,
-	}, dur: durable{created: true}}
+	}, visSpan: noSpan(), dur: durable{created: true, span: noSpan()}}
 	c.segments[r.Segment] = s
 	c.channel(r.Key).insert(s)
 	return nil
@@ -217,6 +217,7 @@ func (c *core) commit(r *log.Commit) error {
 		p, extended := grow(s.dur.pointers, telem.Alignment(r.Alignment), first, last,
 			s.dur.length, slot.Length, r.Samples)
 		s.dur.pointers = extend(s.dur.pointers, p, extended, true)
+		s.dur.span = s.dur.span.cover(p)
 		s.dur.length, s.dur.tailCRC = slot.Length, slot.TailCRC
 	}
 	return nil
@@ -242,7 +243,7 @@ func (c *core) seal(r *log.Seal) error {
 	}
 	s.dur.sealed = true
 	if s.vis.Sealed && s.vis.Length == s.dur.length {
-		s.dur.pointers = s.vis.Pointers
+		s.dur.pointers, s.dur.span = s.vis.Pointers, s.visSpan
 	}
 	return nil
 }
