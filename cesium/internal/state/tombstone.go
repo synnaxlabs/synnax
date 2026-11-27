@@ -176,6 +176,7 @@ func (c *core) tombstone(t *log.Tombstone) error {
 		return err
 	}
 	ch := c.channels[t.Key]
+	ch.cuts++
 	for _, s := range slices.Clone(ch.segs) {
 		s.vis.Pointers = cut(s.vis.ID, s.vis.Pointers, t)
 		s.dur.pointers = cut(s.vis.ID, s.dur.pointers, t)

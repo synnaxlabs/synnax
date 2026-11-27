@@ -662,6 +662,7 @@ func (w *Writer) TakeBackUnknown() error {
 func (s *State) takeBack(w *Writer, unknown bool) []log.Seal {
 	seals := make([]log.Seal, 0, len(w.held))
 	for _, seg := range w.held {
+		ch := s.core.channels[seg.key]
 		if !seg.dur.created && unknown {
 			seg.vis = Segment{
 				ID:       seg.vis.ID,
@@ -672,7 +673,8 @@ func (s *State) takeBack(w *Writer, unknown bool) []log.Seal {
 			}
 			seg.holder = nil
 			delete(w.held, seg.key)
-			s.core.channels[seg.key].publish()
+			ch.cuts++
+			ch.publish()
 			continue
 		}
 		if !seg.dur.created {
@@ -682,9 +684,10 @@ func (s *State) takeBack(w *Writer, unknown bool) []log.Seal {
 		}
 		seg.vis.Pointers = slices.Clone(seg.dur.pointers)
 		seg.vis.Length, seg.vis.TailCRC = seg.dur.length, seg.dur.tailCRC
-		s.core.channels[seg.key].checkViews()
+		ch.checkViews()
 		seals = append(seals, s.sealVisible(w, seg))
-		s.core.channels[seg.key].publish()
+		ch.cuts++
+		ch.publish()
 	}
 	sortSeals(seals)
 	return seals
@@ -743,6 +746,7 @@ func (s *State) drop(seg *segState) {
 	ch.remove(seg.vis.ID)
 	delete(s.core.segments, seg.vis.ID)
 	s.core.addDead(Dead{Segment: seg.vis.ID, Key: seg.key})
+	ch.cuts++
 	ch.publish()
 }
 

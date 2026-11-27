@@ -49,6 +49,8 @@ type chanState struct {
 	claims []*claim
 	pub    atomic.Pointer[Channel]
 	count  *pubCount
+	// cuts is the Cuts of the next Channel that the owner publishes.
+	cuts uint64
 }
 
 // pubCount counts the publishes of the owner, for a reader that loads more than one
@@ -130,7 +132,7 @@ func (c *chanState) checkViews() {
 
 // publish stores a new visible Channel of c for readers.
 func (c *chanState) publish() {
-	ch := &Channel{Key: c.key, Segments: make([]Segment, 0, len(c.segs))}
+	ch := &Channel{Key: c.key, Cuts: c.cuts, Segments: make([]Segment, 0, len(c.segs))}
 	for _, s := range c.segs {
 		ch.Segments = append(ch.Segments, s.vis)
 	}
