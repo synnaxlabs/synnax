@@ -85,13 +85,13 @@ func (r *resolver) Resolve(ctx context.Context, name string) (*symbol.Symbol, er
 		// A name that several stored channels hold stays ambiguous when the create
 		// names one of them.
 		_, err := r.SymbolResolver.Resolve(ctx, name)
-		if _, ambiguous := errors.AsType[AmbiguousNameError](err); !ambiguous {
+		if _, ambiguous := errors.AsType[ambiguousNameError](err); !ambiguous {
 			return s, nil
 		}
 	}
 	sym, resolveErr := r.SymbolResolver.Resolve(ctx, name)
 	// The analysis reports an ambiguous name as a diagnostic, like an unknown one.
-	amb, ambiguous := errors.AsType[AmbiguousNameError](resolveErr)
+	amb, ambiguous := errors.AsType[ambiguousNameError](resolveErr)
 	switch {
 	case errors.Is(resolveErr, query.ErrNotFound):
 		if s, ok := r.temp.unstored[name]; ok {

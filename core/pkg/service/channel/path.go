@@ -185,18 +185,18 @@ func Paths(
 	return paths, nil
 }
 
-// AmbiguousNameError is the error of a name that several channels hold. The Service
+// ambiguousNameError is the error of a name that several channels hold. The Service
 // returns it inside a query.MultipleResults error. It names the holders by key and no
 // path, since a path can name a folder that the reader cannot retrieve.
 // Service.DescribeAmbiguity writes the paths that a subject can see.
-type AmbiguousNameError struct {
+type ambiguousNameError struct {
 	// Name is the name, and Holders are the keys of the channels that hold it.
 	Name    string
 	Holders Keys
 }
 
 // Error implements error.
-func (e AmbiguousNameError) Error() string {
+func (e ambiguousNameError) Error() string {
 	keys := make([]string, len(e.Holders))
 	for i, k := range e.Holders {
 		keys[i] = k.String()
@@ -213,15 +213,15 @@ func (e AmbiguousNameError) Error() string {
 func quotePath(path string) string { return "'" + path + "'" }
 
 // ambiguousName returns the query.MultipleResults error that holds the
-// AmbiguousNameError of name and holders.
+// ambiguousNameError of name and holders.
 func ambiguousName(name string, holders Keys) error {
-	err := AmbiguousNameError{Name: name, Holders: holders}
+	err := ambiguousNameError{Name: name, Holders: holders}
 	return query.MultipleResults(err, "%s", err.Error())
 }
 
 // KeysByNames returns the key of the channel that holds each of names, compared in NFC,
 // as snap holds them. A name that no channel holds adds no key. A name that several
-// channels hold returns an AmbiguousNameError.
+// channels hold returns a query.MultipleResults error.
 func (s *Service) KeysByNames(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -247,13 +247,13 @@ func (s *Service) KeysByNames(
 	return KeysFromChannels(holders), nil
 }
 
-// DescribeAmbiguity returns err as a subject sees it when err is an AmbiguousNameError,
-// or *diagnostics.Diagnostics that holds some, and returns err unchanged otherwise.
-// access returns whether the subject can retrieve a record. An ambiguity becomes a
-// query.MultipleResults error that quotes the path of each holder that the subject can
-// retrieve along with every folder on its path, then counts the other holders, also the
-// ones that snap no longer holds. errors.As still finds the AmbiguousNameError in it.
-// Each other diagnostic stays as it is.
+// DescribeAmbiguity returns err as a subject sees it when err is the error of a name
+// that several channels hold, or *diagnostics.Diagnostics that holds some, and returns
+// err unchanged otherwise. access returns whether the subject can retrieve a record. An
+// ambiguity becomes a query.MultipleResults error that quotes the path of each holder
+// that the subject can retrieve along with every folder on its path, then counts the
+// other holders, also the ones that snap no longer holds. It wraps err. Each other
+// diagnostic stays as it is.
 func (s *Service) DescribeAmbiguity(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -263,7 +263,7 @@ func (s *Service) DescribeAmbiguity(
 	if diags, ok := errors.AsType[*diagnostics.Diagnostics](err); ok {
 		return s.describeDiagnostics(ctx, snap, diags, access)
 	}
-	ambiguous, ok := errors.AsType[AmbiguousNameError](err)
+	ambiguous, ok := errors.AsType[ambiguousNameError](err)
 	if !ok {
 		return err
 	}
@@ -275,7 +275,7 @@ func (s *Service) DescribeAmbiguity(
 }
 
 // describeDiagnostics returns diags with the message of each diagnostic of an
-// AmbiguousNameError described for the subject (DescribeAmbiguity).
+// ambiguousNameError described for the subject (DescribeAmbiguity).
 func (s *Service) describeDiagnostics(
 	ctx context.Context,
 	snap gorp.Snapshot,
@@ -285,7 +285,7 @@ func (s *Service) describeDiagnostics(
 	var allowed func(resource.ID) bool
 	out := slices.Clone(*diags)
 	for i, d := range out {
-		ambiguous, ok := errors.AsType[AmbiguousNameError](d.Unwrap())
+		ambiguous, ok := errors.AsType[ambiguousNameError](d.Unwrap())
 		if !ok {
 			continue
 		}
@@ -310,7 +310,7 @@ func (s *Service) describe(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	err error,
-	ambiguous AmbiguousNameError,
+	ambiguous ambiguousNameError,
 	allowed func(resource.ID) bool,
 ) error {
 	var holders []Channel

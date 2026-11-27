@@ -68,8 +68,8 @@ type CreateOption func(*createOptions)
 
 // RetrieveIfNameExists returns a CreateOption that populates a channel from the stored
 // channel of its name, compared in NFC, instead of creating it. A channel with a group
-// takes only the stored channel in that group. A name that several stored channels
-// hold returns an AmbiguousNameError.
+// takes only the stored channel in that group. A name that several stored channels hold
+// returns a query.MultipleResults error.
 func RetrieveIfNameExists() CreateOption {
 	return func(o *createOptions) { o.retrieveIfNameExists = true }
 }
@@ -647,7 +647,7 @@ func (w Writer) reportTaken(
 
 // resetStoredNames resets each channel at a position not in reset to the stored channel
 // of its name: in its group when it has a group, else in any group. A name that several
-// channels hold returns an AmbiguousNameError.
+// channels hold returns a query.MultipleResults error.
 func (w Writer) resetStoredNames(
 	ctx context.Context,
 	channels []Channel,

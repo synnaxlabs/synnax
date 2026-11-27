@@ -72,9 +72,9 @@ func (r *symbolResolver) retrieve(ctx context.Context) (Retrieve, error) {
 
 // Resolve resolves a single cluster channel by numeric key, by path when name holds
 // validate.PathSeparator, or else by name in NFC. A resolved path is the name of its
-// symbol. A name that several channels hold returns an AmbiguousNameError, described
-// for the subject of r. Every holder of a bare name counts, and the one holder binds
-// only when the subject can retrieve it.
+// symbol. A name that several channels hold returns a query.MultipleResults error,
+// described for the subject of r. Every holder of a bare name counts, and the one
+// holder binds only when the subject can retrieve it.
 func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
@@ -201,8 +201,8 @@ type resolution struct {
 func (res resolution) same(sym *symbol.Symbol, err error) (bool, error) {
 	// A name that several channels hold is an answer, the same only for the same
 	// holders.
-	ambiguous, isAmbiguous := errors.AsType[AmbiguousNameError](err)
-	first, wasAmbiguous := errors.AsType[AmbiguousNameError](res.err)
+	ambiguous, isAmbiguous := errors.AsType[ambiguousNameError](err)
+	first, wasAmbiguous := errors.AsType[ambiguousNameError](res.err)
 	if isAmbiguous || wasAmbiguous {
 		return isAmbiguous && wasAmbiguous &&
 			set.New(ambiguous.Holders...).Equal(set.New(first.Holders...)), nil
