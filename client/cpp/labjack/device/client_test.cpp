@@ -102,6 +102,55 @@ TEST(Client, Deletes) {
     );
 }
 
+/// @brief it should set the key of each device that a list create stores, in order.
+TEST(Client, CreatesListInOrder) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "labjack_device_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    std::vector<Device> devices{
+        {.rack = r.key,
+         .name = "First",
+         .serial = new_serial(),
+         .connection = CONNECTION_USB,
+         .model = MODEL_T_4,
+         .ports = T4Ports{}},
+        {.rack = r.key,
+         .name = "Second",
+         .serial = new_serial(),
+         .connection = CONNECTION_USB,
+         .model = MODEL_T_8,
+         .ports = T8Ports{}},
+    };
+    ASSERT_NIL(client.labjack.devices.create(devices));
+    for (const auto &dev: devices) {
+        const auto got = ASSERT_NIL_P(client.labjack.devices.retrieve(dev.key));
+        ASSERT_EQ(got.name, dev.name);
+    }
+}
+
+/// @brief it should return NOT_FOUND for a dispatch to a missing device.
+TEST(Client, DispatchToMissingDevice) {
+    const auto client = new_test_client();
+    ASSERT_OCCURRED_AS(
+        client.labjack.devices.dispatch(x::uuid::create(), {set_at({"name"}, "R")}),
+        x::errors::NOT_FOUND
+    );
+}
+
+/// @brief it should return MULTIPLE_RESULTS when more than one device matches.
+TEST(Client, RetrieveOneOfMany) {
+    const auto client = new_test_client();
+    const auto [first, r] = create_device(client);
+    auto second = first;
+    second.key = x::uuid::UUID{};
+    second.serial = new_serial();
+    ASSERT_NIL(client.labjack.devices.create(second));
+    ASSERT_OCCURRED_AS_P(
+        client.labjack.devices.retrieve(Where{.rack = r.key}, x::filter::one),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
 /// @brief it should reject a retrieve of one device with a limit.
 TEST(Client, RejectsLimitOnRetrieveOne) {
     const auto client = new_test_client();

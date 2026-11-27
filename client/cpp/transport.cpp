@@ -316,6 +316,10 @@ void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
     device_retrieve->use(mw);
     device_delete->use(mw);
     device_dispatch->use(mw);
+    labjack_device_create->use(mw);
+    labjack_device_retrieve->use(mw);
+    labjack_device_dispatch->use(mw);
+    labjack_device_delete->use(mw);
     ni_device_create->use(mw);
     ni_device_retrieve->use(mw);
     ni_device_update->use(mw);
