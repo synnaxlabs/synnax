@@ -340,10 +340,21 @@ func fieldIndexes(fields []field) map[icd.FieldKey]int {
 	return at
 }
 
-// fieldsOf returns the fields of p, a binary or text payload, in order. A text field
-// encodes a float.
+// fieldsOf returns the fields of p in order. A text field encodes a float.
 func fieldsOf(p icd.Payload) []field {
 	switch v := p.Variant.(type) {
+	case icd.JSONPayload:
+		return lo.Map(v.Fields, func(f icd.JSONField, _ int) field {
+			b := f.Base()
+			return field{
+				key:       b.Key,
+				name:      b.Name,
+				kind:      f.Type(),
+				scale:     b.Scale,
+				scaled:    b.Scale != 1 || b.Offset != 0,
+				defaulted: defaulted(f),
+			}
+		})
 	case icd.BinaryPayload:
 		var id *icd.FieldIdentifier
 		if v.Identifier != nil {
@@ -393,13 +404,38 @@ func fieldsOf(p icd.Payload) []field {
 			}
 		})
 	default:
-		panic(errors.Newf("write: payload variant %T is not binary or text", v))
+		panic(errors.Newf("write: unknown payload variant %T", v))
 	}
 }
 
-// withFieldValue returns p, a binary or text payload, with v as the default of field i.
-// It returns a validation error when v is not of the kind of the field, or when the
-// field cannot hold v.
+// defaulted reports whether f has a default.
+func defaulted(f icd.JSONField) bool {
+	switch v := f.Variant.(type) {
+	case icd.FloatJSONField:
+		return v.Default != nil
+	case icd.IntegerJSONField:
+		return v.Default != nil
+	case icd.UnsignedJSONField:
+		return v.Default != nil
+	case icd.StringJSONField:
+		return v.Default != nil
+	case icd.BooleanJSONField:
+		return v.Default != nil
+	case icd.TimestampJSONField:
+		return v.Default != nil
+	case icd.JSONJSONField:
+		return v.Default != nil
+	case icd.UuidJSONField:
+		return v.Default != nil
+	case icd.BytesJSONField:
+		return v.Default != nil
+	default:
+		panic(errors.Newf("write: unknown JSON field variant %T", v))
+	}
+}
+
+// withFieldValue returns p with v as the default of field i. It returns a validation
+// error when v is not of the kind of the field, or when the field cannot hold v.
 func withFieldValue(p icd.Payload, i int, v icd.WriteValue) (icd.Payload, error) {
 	var (
 		name, kind string
@@ -407,6 +443,14 @@ func withFieldValue(p icd.Payload, i int, v icd.WriteValue) (icd.Payload, error)
 		err        error
 	)
 	switch pv := p.Variant.(type) {
+	case icd.JSONPayload:
+		pv.Fields = slices.Clone(pv.Fields)
+		f := &pv.Fields[i]
+		name, kind = f.Base().Name, string(f.Type())
+		if *f, ok = withValue(*f, v); ok {
+			err = codec.CheckDefault(*f)
+		}
+		p.Variant = pv
 	case icd.BinaryPayload:
 		pv.Fields = slices.Clone(pv.Fields)
 		f := &pv.Fields[i]
@@ -424,7 +468,7 @@ func withFieldValue(p icd.Payload, i int, v icd.WriteValue) (icd.Payload, error)
 		}
 		p.Variant = pv
 	default:
-		panic(errors.Newf("write: payload variant %T is not binary or text", pv))
+		panic(errors.Newf("write: unknown payload variant %T", pv))
 	}
 	if !ok {
 		return p, validate.Errorf(
