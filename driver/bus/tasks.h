@@ -140,8 +140,11 @@ public:
     x::errors::Error stop() override;
 
     /// @brief sends the messages of the commands in frame for each target with no
-    /// period, and keeps them for each target with a period.
-    /// @returns the error of the transport, of an encode, or of the framing.
+    /// period, and keeps them for each target with a period, also while the transport
+    /// is closed.
+    /// @returns the error of the transport, of an encode, or of the framing. A closed
+    /// transport returns its error only when a target with no period has a message to
+    /// send.
     x::errors::Error write(x::telem::Frame &frame) override;
 
     /// @brief returns the warning of the last failed send of the targets with a period,
