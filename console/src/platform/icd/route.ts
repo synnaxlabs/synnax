@@ -11,20 +11,26 @@ import type { icd } from "@synnaxlabs/client";
 
 /** The message that the Core gives the documents of a shape. */
 export interface Route<M> {
-  /** Absent when no message gets the documents, or when split is set. */
+  /** Absent when no message gets the documents, or when split or matches is set. */
   message?: M;
   /**
    * The pointer of the value that tells the documents apart, when the fields of the
    * shape do not tell which message gets them.
    */
   split?: string;
+  /**
+   * The messages whose present rules the documents meet, when more than one does. The
+   * Core refuses those documents.
+   */
+  matches?: M[];
 }
 
 /**
- * @returns the message of messages that the Core gives a document with fields. When a
- * field is at the pointer of a value rule, the value picks, and a shape holds none: the
- * message that reads the most of the fields wins, and a tie is a split. Else the
- * message whose present rule is at or above a field wins, then the one with no rule.
+ * @returns the message of messages that the Core gives a document with fields. A
+ * document that meets more than one present rule gets none. When a field is at the
+ * pointer of a value rule, the value picks, and a shape holds none: the message that
+ * reads the most of the fields wins, and a tie is a split. Else the message whose
+ * present rule is at or above a field wins, then the one with no rule.
  * @param pointersOf - The pointers of the fields that a message reads.
  */
 export const route = <M extends { match?: icd.JSONMatch }>(
@@ -34,9 +40,11 @@ export const route = <M extends { match?: icd.JSONMatch }>(
 ): Route<M> => {
   const holds = (at: string): boolean =>
     fields.some(({ pointer }) => pointer === at || pointer.startsWith(`${at}/`));
-  const other =
-    messages.find(({ match }) => match?.type === "present" && holds(match.pointer)) ??
-    messages.find(({ match }) => match == null);
+  const met = messages.filter(
+    ({ match }) => match?.type === "present" && holds(match.pointer),
+  );
+  if (met.length > 1) return { matches: met };
+  const other = met.at(0) ?? messages.find(({ match }) => match == null);
   const valued = messages.filter(
     ({ match }) => match != null && match.type !== "present",
   );

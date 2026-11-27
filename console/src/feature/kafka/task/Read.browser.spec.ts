@@ -1819,6 +1819,30 @@ describe("Kafka read form", () => {
       expect(dialog.getAllByText("No JSON message")).toHaveLength(3);
     });
 
+    it("should lock a shape that meets the present rules of two messages of its key", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+        match: { type: "present", pointer: "/temperature" },
+      });
+      await addMessage(rec, "pressure", [createField("pressure", "float")], {
+        type: "present",
+        pointer: "/pressure",
+      });
+      const { dev } = await renderRead({ records: [rec] });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const dialog = await openAddData(dev, {
+        data: sampleOf({ ...PRESSURE_SHAPE, sources: ["oven-1"] }),
+      });
+      await dialog.findByText(
+        "Matches messages oven-1 and pressure. The Core refuses these documents. Change a match rule in the ICD editor.",
+      );
+      expect(dialog.getAllByText("Matches 2 messages")).toHaveLength(4);
+      const pressure = dialog.getByRole("checkbox", { name: "Record /pressure" });
+      expect(pressure).toHaveProperty("disabled", true);
+      expect(pressure).toHaveProperty("checked", false);
+    });
+
     it("should lock a shape whose fields tie two value rules of its key, and pick none of it", async () => {
       const rec = await createRecord({
         fields: [createField("temperature", "float")],

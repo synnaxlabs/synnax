@@ -32,6 +32,7 @@ export type MessagesOf = (icdKey: icd.Key) => icd.Message[];
 interface MessageRead {
   /** The position of the message in the reads of the record. */
   read: number;
+  name: string;
   match?: icd.JSONMatch;
   /** The fields that the record reads in the message, by pointer. */
   fields: Map<string, icd.JSONField>;
@@ -48,13 +49,16 @@ export interface Reads {
 /** @returns what a record reads in each of its JSON messages. */
 const messageReads = (record: ReadRecord, held: icd.Message[]): MessageRead[] =>
   record.messages.flatMap(({ message, bindings }, read): MessageRead[] => {
-    const { payload } = held.find(({ key }) => key === message) ?? {};
-    if (payload?.format !== "json") return [];
+    const found = held.find(({ key }) => key === message);
+    if (found == null) return [];
+    const { name, payload } = found;
+    if (payload.format !== "json") return [];
     const bound = new Set(bindings.map(({ field }) => field));
     const fields = payload.fields.filter(({ key }) => bound.has(key));
     return [
       {
         read,
+        name,
         match: payload.match,
         fields: new Map(fields.map((f) => [f.pointer, f])),
       },
@@ -101,18 +105,22 @@ export const carriedFields = (
 };
 
 /**
- * @returns the pointer of the value that tells the documents of a shape apart, when the
- * fields of the shape do not tell which message of a key gets them.
+ * @returns why a pick cannot take the values of a shape: the fields of the shape do not
+ * tell which message of a key gets its documents, or the documents meet the present
+ * rules of more than one message of a key.
  */
-export const splitOf = (shape: json.Shape, reads: Reads): string | undefined =>
+export const blockOf = (
+  shape: json.Shape,
+  reads: Reads,
+): ICD.Picker.Block | undefined =>
   shape.sources
-    .map((key) => routeOf(shape, messagesOfKey(reads, key)).split)
-    .find((split) => split != null);
+    .map((key) => ICD.Picker.blockOf(routeOf(shape, messagesOfKey(reads, key))))
+    .find((block) => block != null);
 
 /** @returns whether a pick of a shape can extend each record of its keys. */
 export const isExtendable = (shape: json.Shape, reads: Reads): boolean =>
   !shape.sources.some((key) => reads.jsonless.has(key)) &&
-  splitOf(shape, reads) == null;
+  blockOf(shape, reads) == null;
 
 /**
  * @returns the pointers that every key of a shape reads in the message that the Core
@@ -295,8 +303,8 @@ export const createExtensions = (
       const own = messageReads(record, held);
       if (own.length === 0)
         throw new Error(`Record ${record.key} reads no JSON message`);
-      const { message: routed, split } = routeOf(shape, own);
-      if (split != null)
+      const { message: routed, split, matches } = routeOf(shape, own);
+      if (split != null || matches != null)
         throw new Error(
           `Record ${record.key} has no one message for shape ${json.shapeKey(shape)}`,
         );

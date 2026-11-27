@@ -692,7 +692,7 @@ const Entries: FC<EntriesProps> = ({
           const message = ICD.messageOf(messages, e, r);
           const match =
             message?.payload.format === "json" ? message.payload.match : undefined;
-          return { match, fields: ICD.jsonFields(message) };
+          return { name: message?.name ?? "", match, fields: ICD.jsonFields(message) };
         }),
       };
     });
