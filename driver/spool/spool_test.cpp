@@ -921,6 +921,19 @@ TEST_F(SpoolTest, SetsAsideSegmentWithInvalidName) {
     this->expect_set_aside("abc.seg", CORRUPT);
 }
 
+/// @brief it should report at most the capacity of the disk as free.
+TEST_F(SpoolTest, ReportsFreeSpaceWithinDiskCapacity) {
+    std::filesystem::create_directories(this->dir);
+    const auto available = ASSERT_NIL_P(disk_available(this->dir));
+    EXPECT_GT(available, 0);
+    EXPECT_LE(available, std::filesystem::space(this->dir).capacity);
+}
+
+/// @brief it should fail to get the free space of a directory that does not exist.
+TEST_F(SpoolTest, FailsFreeSpaceOfMissingDirectory) {
+    ASSERT_OCCURRED_AS_P(disk_available(this->dir / "missing"), BASE_ERROR);
+}
+
 /// @brief it should skip the AppleDouble files that macOS writes on FAT volumes.
 TEST_F(SpoolTest, SkipsAppleDoubleFiles) {
     std::filesystem::create_directories(this->dir);

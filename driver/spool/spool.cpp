@@ -19,6 +19,12 @@
 #include <unordered_map>
 #include <vector>
 
+#ifndef _WIN32
+#include <cerrno>
+
+#include <sys/statvfs.h>
+#endif
+
 #include "x/cpp/telem/series.h"
 
 #include "driver/spool/spool.h"
@@ -311,10 +317,24 @@ bool is_bad(const x::errors::Error &err) {
 
 std::pair<std::uint64_t, x::errors::Error>
 disk_available(const std::filesystem::path &dir) {
+#ifdef _WIN32
     std::error_code ec;
     const auto info = std::filesystem::space(dir, ec);
     if (ec) return {0, fs_error("failed to get free disk space", ec)};
     return {info.available, x::errors::NIL};
+#else
+    // libc++ space() reports a full HFS+ volume as UINTMAX_MAX bytes free.
+    struct statvfs info{};
+    if (statvfs(dir.c_str(), &info) != 0)
+        return {
+            0,
+            fs_error(
+                "failed to get free disk space",
+                std::error_code(errno, std::generic_category())
+            )
+        };
+    return {static_cast<std::uint64_t>(info.f_bavail) * info.f_frsize, x::errors::NIL};
+#endif
 }
 
 Writer::Writer(Spool &spool, Header header, const std::uint64_t key):
