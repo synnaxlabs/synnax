@@ -11,39 +11,57 @@ import { render } from "@testing-library/react";
 import type { ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { CSS } from "@/css";
 import { Icon } from "@/icon";
+import { Theming } from "@/theming";
 
-const renderSVG = (el: ReactElement): SVGSVGElement => {
-  const svg = render(el).container.querySelector("svg");
+const renderSVG = (el: ReactElement, dark = false): SVGSVGElement => {
+  const svg = render(
+    <Theming.Provider theme={{ key: dark ? "synnaxDark" : "synnaxLight" }}>
+      {el}
+    </Theming.Provider>,
+  ).container.querySelector("svg");
   if (svg == null) throw new Error("expected the icon to render an svg");
   return svg;
 };
 
 const partColors = (svg: SVGSVGElement): string[] =>
-  Array.from(svg.querySelectorAll("g")).map((g) =>
-    g.style.getPropertyValue("--pluto-symbol-color"),
-  );
+  Array.from(svg.querySelectorAll("g")).map((g) => g.style.color);
 
 describe("Colored", () => {
   describe("brand logos", () => {
     it("should take the text color outside a colored region", () => {
       const svg = renderSVG(<Icon.Logo.LabJack />);
-      expect(svg.getAttribute("class")).not.toContain(CSS.symbolColored);
       expect(svg.style.color).toEqual("");
     });
 
-    it("should take the brand color inside a colored region", () => {
+    it("should take the brand's light color in the light theme", () => {
       const svg = renderSVG(
         <Icon.Colored>
           <Icon.Logo.LabJack className="custom" />
         </Icon.Colored>,
       );
-      expect(svg.getAttribute("class")).toContain(CSS.symbolColored);
       expect(svg.getAttribute("class")).toContain("custom");
-      expect(svg.getAttribute("class")).toContain(CSS.BM("icon", "logo-labjack"));
-      expect(svg.style.getPropertyValue("--pluto-symbol-color")).toEqual("141, 2, 0");
-      expect(svg.style.color).toEqual("var(--pluto-symbol-display)");
+      expect(svg.style.color).toEqual("rgb(141, 2, 0)");
+    });
+
+    it("should take the brand's dark color in the dark theme", () => {
+      const svg = renderSVG(
+        <Icon.Colored>
+          <Icon.Logo.LabJack />
+        </Icon.Colored>,
+        true,
+      );
+      expect(svg.style.color).toEqual("rgb(226, 96, 80)");
+    });
+
+    it("should keep the text color in a theme the brand draws it white", () => {
+      const logo = (
+        <Icon.Colored>
+          <Icon.Logo.Keycloak />
+        </Icon.Colored>
+      );
+      expect(renderSVG(logo).style.color).toEqual("rgb(0, 184, 227)");
+      expect(renderSVG(logo, true).style.color).toEqual("");
     });
 
     it("should keep the text color for a brand with no color", () => {
@@ -52,35 +70,36 @@ describe("Colored", () => {
           <Icon.Logo.Apple />
         </Icon.Colored>,
       );
-      expect(svg.getAttribute("class")).not.toContain(CSS.symbolColored);
       expect(svg.style.color).toEqual("");
     });
   });
 
   describe("multicolor logos", () => {
+    const microsoft = [
+      "rgb(242, 80, 34)",
+      "rgb(127, 186, 0)",
+      "rgb(0, 164, 239)",
+      "rgb(255, 185, 0)",
+    ];
+
     it("should draw one color outside a colored region", () => {
       const svg = renderSVG(<Icon.Logo.Microsoft />);
       expect(svg.getAttribute("fill")).toEqual("currentColor");
       expect(partColors(svg)).toEqual(["", "", "", ""]);
-      expect(svg.querySelector(`.${CSS.symbolColored}`)).toBeNull();
     });
 
-    it("should draw each part in its brand color inside a colored region", () => {
-      const svg = renderSVG(
-        <Icon.Colored>
-          <Icon.Logo.Microsoft />
-        </Icon.Colored>,
-      );
-      expect(partColors(svg)).toEqual([
-        "243, 83, 37",
-        "129, 188, 6",
-        "5, 166, 240",
-        "255, 186, 8",
-      ]);
-      expect(svg.getAttribute("stroke-width")).toEqual("0");
-      for (const g of svg.querySelectorAll("g")) {
-        expect(g.classList).toContain(CSS.symbolColored);
-        expect(g.getAttribute("fill")).toEqual("currentColor");
+    it("should draw each part in its official color in both themes", () => {
+      for (const dark of [false, true]) {
+        const svg = renderSVG(
+          <Icon.Colored>
+            <Icon.Logo.Microsoft />
+          </Icon.Colored>,
+          dark,
+        );
+        expect(partColors(svg)).toEqual(microsoft);
+        expect(svg.getAttribute("stroke-width")).toEqual("0");
+        for (const g of svg.querySelectorAll("g"))
+          expect(g.getAttribute("fill")).toEqual("currentColor");
       }
     });
 
@@ -90,7 +109,7 @@ describe("Colored", () => {
           <Icon.Logo.EtherCAT />
         </Icon.Colored>,
       );
-      expect(partColors(svg)).toEqual(["237, 28, 36"]);
+      expect(partColors(svg)).toEqual(["rgb(237, 28, 36)"]);
       expect(svg.querySelectorAll(":scope > path")).toHaveLength(3);
     });
   });

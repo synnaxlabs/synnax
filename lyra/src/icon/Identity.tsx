@@ -94,10 +94,10 @@ export const Google = wrapMulticolor(
 export const Microsoft = wrapMulticolor(
   "0 0 23 23",
   [
-    ["#F35325", "M1 1h10v10H1z"],
-    ["#81BC06", "M12 1h10v10H12z"],
-    ["#05A6F0", "M1 12h10v10H1z"],
-    ["#FFBA08", "M12 12h10v10H12z"],
+    ["#F25022", "M1 1h10v10H1z"],
+    ["#7FBA00", "M12 1h10v10H12z"],
+    ["#00A4EF", "M1 12h10v10H1z"],
+    ["#FFB900", "M12 12h10v10H12z"],
   ],
   "logo-microsoft",
 );

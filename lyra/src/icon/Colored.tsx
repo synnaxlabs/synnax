@@ -16,7 +16,8 @@ import {
 } from "react";
 
 import { CSS } from "@/css";
-import { type FC, tint, wrapSVGIcon } from "@/icon/Icon";
+import { type FC, wrapSVGIcon } from "@/icon/Icon";
+import { Theming } from "@/theming";
 
 const Context = createContext(false);
 Context.displayName = "Icon.Colored";
@@ -29,26 +30,35 @@ export const Colored = ({ children }: PropsWithChildren): ReactElement => (
   <Context value>{children}</Context>
 );
 
+/**
+ * The color a brand draws its logo in on each theme's background. A string is the
+ * color on both. A theme with no color keeps the text color, for brands that draw
+ * their logo white on dark or black on light.
+ */
+export type BrandColor = string | { light?: string; dark?: string };
+
+const useBrandColor = (c: BrandColor): string | undefined => {
+  const colored = use(Context);
+  const { dark } = Theming.use();
+  if (!colored) return undefined;
+  if (typeof c === "string") return c;
+  return dark ? c.dark : c.light;
+};
+
 /** Returns the logo drawn in its brand color inside {@link Colored}. */
 /* #__NO_SIDE_EFFECTS__ */
-export const withBrandColor = (Logo: FC, brandColor: string): FC => {
-  const O: FC = ({ className, style, ...rest }) => {
-    const brand = use(Context) ? tint(brandColor) : {};
-    return (
-      <Logo
-        {...rest}
-        className={CSS.cls(className, brand.className)}
-        style={{ ...style, ...brand.style }}
-      />
-    );
+export const withBrandColor = (Logo: FC, brandColor: BrandColor): FC => {
+  const O: FC = ({ style, ...rest }) => {
+    const c = useBrandColor(brandColor);
+    return <Logo {...rest} style={c == null ? style : { ...style, color: c }} />;
   };
   O.displayName = Logo.displayName;
   return O;
 };
 
 export interface BrandPartProps extends PropsWithChildren {
-  /** The official color of this part of the mark. */
-  color: string;
+  /** The brand color of this part of the mark. */
+  color: BrandColor;
 }
 
 /**
@@ -57,11 +67,11 @@ export interface BrandPartProps extends PropsWithChildren {
  * color.
  */
 export const BrandPart = ({ color, children }: BrandPartProps): ReactElement => {
-  if (!use(Context)) return <g>{children}</g>;
-  const { className, style } = tint(color);
+  const c = useBrandColor(color);
+  if (c == null) return <g>{children}</g>;
   // Icon paths take their fill from their parent, so the group holds the color.
   return (
-    <g className={className} style={style} fill="currentColor">
+    <g style={{ color: c }} fill="currentColor">
       {children}
     </g>
   );
@@ -70,7 +80,7 @@ export const BrandPart = ({ color, children }: BrandPartProps): ReactElement => 
 /* #__NO_SIDE_EFFECTS__ */
 export const wrapMulticolor = (
   viewBox: string,
-  paths: [color: string, d: string][],
+  paths: [color: BrandColor, d: string][],
   name: string,
 ): FC => {
   const Multicolor = ({

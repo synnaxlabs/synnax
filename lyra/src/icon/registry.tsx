@@ -444,11 +444,18 @@ export const QuestionMark = wrapSVGIcon(MdQuestionMark, "question-mark");
 export const Code = wrapSVGIcon(MdCode, "code");
 export const Menu = wrapSVGIcon(GiHamburgerMenu, "menu");
 export const Sidebar = wrapSVGIcon(TbLayoutSidebar, "sidebar");
+// Each color is the one the brand draws its logo in on that theme's background. Where a
+// brand gives no dark color, the dark one is its light color lifted to 4:1 contrast.
 export const Logo = {
   Apple: wrapSVGIcon(FaApple, "logo-apple"),
   Auth0: wrapSVGIcon(SiAuth0, "logo-auth0"),
-  Authelia: withBrandColor(wrapSVGIcon(SiAuthelia, "logo-authelia"), "#3F51B4"),
-  Authentik: withBrandColor(wrapSVGIcon(SiAuthentik, "logo-authentik"), "#FD4B2D"),
+  Authelia: withBrandColor(wrapSVGIcon(SiAuthelia, "logo-authelia"), {
+    light: "#3F51B4",
+    dark: "#6D86EE",
+  }),
+  Authentik: withBrandColor(wrapSVGIcon(SiAuthentik, "logo-authentik"), {
+    light: "#FD4B2D",
+  }),
   AWS: withBrandColor(wrapSVGIcon(FaAws, "logo-aws"), "#FF9900"),
   Cloudflare: withBrandColor(wrapSVGIcon(SiCloudflare, "logo-cloudflare"), "#F38020"),
   Docker: wrapSVGIcon(FaDocker, "logo-docker"),
@@ -458,25 +465,32 @@ export const Logo = {
   Github: wrapSVGIcon(AiFillGithub, "logo-github"),
   GitLab: withBrandColor(wrapSVGIcon(SiGitlab, "logo-gitlab"), "#E24329"),
   Google,
-  JumpCloud: withBrandColor(JumpCloud, "#002B49"),
-  Keycloak: withBrandColor(wrapSVGIcon(SiKeycloak, "logo-keycloak"), "#00B8E3"),
-  LabJack: withBrandColor(LabJack, "#8D0200"),
-  LinkedIn: withBrandColor(wrapSVGIcon(AiFillLinkedin, "logo-linkedin"), "#2867B2"),
+  JumpCloud: withBrandColor(JumpCloud, { light: "#002B49" }),
+  Keycloak: withBrandColor(wrapSVGIcon(SiKeycloak, "logo-keycloak"), {
+    light: "#00B8E3",
+  }),
+  LabJack: withBrandColor(LabJack, { light: "#8D0200", dark: "#E26050" }),
+  LinkedIn: withBrandColor(wrapSVGIcon(AiFillLinkedin, "logo-linkedin"), {
+    light: "#0A66C2",
+  }),
   Linux: wrapSVGIcon(FaLinux, "logo-linux"),
   Microsoft,
   Modbus,
-  MQTT: withBrandColor(wrapSVGIcon(SiMqtt, "logo-mqtt"), "#660066"),
+  MQTT: withBrandColor(wrapSVGIcon(SiMqtt, "logo-mqtt"), { light: "#660066" }),
   NI: withBrandColor(NI, "#03B585"),
   Okta: wrapSVGIcon(SiOkta, "logo-okta"),
   OneLogin,
-  OpenID: withBrandColor(wrapSVGIcon(SiOpenid, "logo-openid"), "#F7931E"),
-  Ory: withBrandColor(wrapSVGIcon(SiOry, "logo-ory"), "#4F46E5"),
+  OpenID: withBrandColor(wrapSVGIcon(SiOpenid, "logo-openid"), { light: "#F7931E" }),
+  Ory: wrapSVGIcon(SiOry, "logo-ory"),
   OPCUA,
-  PagerDuty: withBrandColor(wrapSVGIcon(SiPagerduty, "logo-pagerduty"), "#048A24"),
-  PingIdentity: withBrandColor(PingIdentity, "#D20E0F"),
+  PagerDuty: wrapSVGIcon(SiPagerduty, "logo-pagerduty"),
+  PingIdentity: withBrandColor(PingIdentity, { light: "#D20E0F", dark: "#F84337" }),
   Salesforce: withBrandColor(wrapSVGIcon(FaSalesforce, "logo-salesforce"), "#00B3FF"),
   Sift,
-  Windows: withBrandColor(wrapSVGIcon(FaWindows, "logo-windows"), "#0078D4"),
+  Windows: withBrandColor(wrapSVGIcon(FaWindows, "logo-windows"), {
+    light: "#0078D4",
+    dark: "#2F92F0",
+  }),
   EtherCAT,
   Zitadel: withBrandColor(Zitadel, "#FF8F00"),
   // Crops the view box to the mark, which fills only a thin strip of the original.
