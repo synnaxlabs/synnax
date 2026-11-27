@@ -43,13 +43,6 @@
       "caller": "https://github.com/synnaxlabs/synnax/pull/8019"
     },
     {
-      "module": "gorp",
-      "package": "github.com/synnaxlabs/gorp",
-      "receiver": "UniqueIndex",
-      "name": "Filter",
-      "caller": "https://linear.app/synnax/issue/SY-6524"
-    },
-    {
       "module": "core",
       "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
       "name": "TextMessage",
