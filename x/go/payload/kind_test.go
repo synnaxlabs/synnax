@@ -48,7 +48,7 @@ var _ = Describe("KindOf", func() {
 			Expect(ok).To(BeFalse())
 			Expect(k).To(BeZero())
 		},
-		Entry("empty", telem.UnknownT),
+		Entry("unknown", telem.DataType("custom")),
 		Entry("unlisted", telem.DataType("complex128")),
 	)
 })

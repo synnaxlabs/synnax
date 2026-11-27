@@ -805,7 +805,12 @@ var _ = Describe("SeriesFactory", func() {
 				"cannot cast 3 bytes to uuid.UUID",
 			),
 			Entry("nil → Int64T", nil, telem.Int64T, "cannot cast <nil> to int64"),
-			Entry("int → unsupported", 42, telem.UnknownT, "unsupported data type"),
+			Entry(
+				"int → unsupported",
+				42,
+				telem.DataType("custom"),
+				"unsupported data type",
+			),
 			Entry(
 				"chan int → BytesT",
 				make(chan int),

@@ -290,14 +290,20 @@ var _ = Describe("Field", func() {
 				},
 				`"-0x1.8"`, sample(telem.TimeStamp(-1))),
 			Entry("an integer in range into a float",
-				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, `-3`,
+				xjson.Field{DataType: telem.Float64T, Range: new(telem.Int64T)}, `-3`,
 				sample(-3.0)),
 			Entry("a whole decimal in range into a float32",
-				xjson.Field{DataType: telem.Float32T, Range: telem.Uint64T}, `7.0`,
+				xjson.Field{DataType: telem.Float32T, Range: new(telem.Uint64T)}, `7.0`,
 				sample[float32](7)),
-			Entry("true in an unsigned range",
-				xjson.Field{DataType: telem.Float64T, Range: telem.Uint64T}, `true`,
-				sample(1.0)),
+			Entry(
+				"true in an unsigned range",
+				xjson.Field{
+					DataType: telem.Float64T,
+					Range:    new(telem.Uint64T),
+				},
+				`true`,
+				sample(1.0),
+			),
 			Entry("a number in a string with whitespace and a sign",
 				xjson.Field{DataType: telem.Float64T}, `" +1.5e1\n"`, sample(15.0)),
 			Entry("a hex integer in a string past the precision of a float",
@@ -466,18 +472,18 @@ var _ = Describe("Field", func() {
 			Entry("base64 with a carriage return", xjson.Field{DataType: telem.BytesT},
 				`"YQ==\r"`, "base64 must not hold a line break"),
 			Entry("a fraction that a float rounds away from an integer range",
-				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T},
+				xjson.Field{DataType: telem.Float64T, Range: new(telem.Int64T)},
 				`9007199254740993.5`, "9007199254740993.5 is not an integer"),
 			Entry("a negative number outside an unsigned range",
-				xjson.Field{DataType: telem.Int64T, Range: telem.Uint64T}, `-1`,
+				xjson.Field{DataType: telem.Int64T, Range: new(telem.Uint64T)}, `-1`,
 				"-1 is out of range for uint64"),
 			Entry("a whole decimal past an integer range",
-				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, `1e19`,
+				xjson.Field{DataType: telem.Float64T, Range: new(telem.Int64T)}, `1e19`,
 				"10000000000000000000 is out of range for int64"),
 		)
 
 		It("Should reject a data type that no JSON value converts to", func() {
-			Expect(xjson.NewDecoder(xjson.Field{DataType: telem.UnknownT})).Error().
+			Expect(xjson.NewDecoder(xjson.Field{DataType: "custom"})).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring("cannot convert a JSON value to")),
@@ -487,7 +493,7 @@ var _ = Describe("Field", func() {
 		It("Should reject a range that is not an integer data type", func() {
 			Expect(xjson.NewDecoder(xjson.Field{
 				DataType: telem.Float64T,
-				Range:    telem.Float32T,
+				Range:    new(telem.Float32T),
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(
@@ -507,7 +513,7 @@ var _ = Describe("Field", func() {
 			Entry("a whole float into an integer", xjson.Field{DataType: telem.Int16T},
 				-3.0, sample[int16](-3)),
 			Entry("a whole float in an integer range",
-				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, 4.0,
+				xjson.Field{DataType: telem.Float64T, Range: new(telem.Int64T)}, 4.0,
 				sample(4.0)),
 			Entry("NaN into a float32", xjson.Field{DataType: telem.Float32T},
 				math.NaN(), sample(float32(math.NaN()))),
@@ -532,7 +538,7 @@ var _ = Describe("Field", func() {
 			Entry("a fraction into an integer", xjson.Field{DataType: telem.Int32T},
 				1.5, "1.5 is not an integer"),
 			Entry("a fraction outside an integer range",
-				xjson.Field{DataType: telem.Float64T, Range: telem.Int64T}, 2.5,
+				xjson.Field{DataType: telem.Float64T, Range: new(telem.Int64T)}, 2.5,
 				"2.5 is not an integer"),
 			Entry("a float into a string", xjson.Field{DataType: telem.StringT}, 1.0,
 				"cannot convert a float to string"),

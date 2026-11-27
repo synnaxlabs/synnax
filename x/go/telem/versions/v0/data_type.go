@@ -23,7 +23,7 @@ func (dt DataType) Density() Density {
 		return Bit8
 	case UUIDT:
 		return Bit128
-	case UnknownT, StringT, BytesT, JSONT:
+	case StringT, BytesT, JSONT:
 		fallthrough
 	default:
 		return UnknownDensity
@@ -36,8 +36,6 @@ func (dt DataType) IsVariable() bool {
 }
 
 const (
-	// UnknownT is an unknown data type.
-	UnknownT DataType = ""
 	// Uint8T is a data type for an 8-bit unsigned integer, i.e., a single byte.
 	Uint8T DataType = "uint8"
 	// Uint16T is a data type for a 16-bit unsigned integer.

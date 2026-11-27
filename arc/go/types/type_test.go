@@ -199,7 +199,7 @@ var _ = Describe("Types", func() {
 		)
 
 		It("Should return invalid type for unknown telem type", func() {
-			result := types.FromTelem(telem.UnknownT)
+			result := types.FromTelem("custom")
 			Expect(result.Kind).To(Equal(types.KindInvalid))
 		})
 	})

@@ -154,7 +154,6 @@ func sampleJSON(dt telem.DataType, data []byte) any {
 		return uuid.UUID(data).String()
 	case telem.BytesT:
 		return base64.StdEncoding.EncodeToString(data)
-	case telem.UnknownT:
 	}
 	Fail("unknown data type " + string(dt))
 	return nil
@@ -170,7 +169,7 @@ func expectSample(dt telem.DataType, data []byte, want json.RawMessage, i int) {
 		telem.Uint16T, telem.Uint32T, telem.Uint64T, telem.TimestampT:
 		Expect(string(actual)).To(Equal(string(want)), "binding %d", i)
 	case telem.Float64T, telem.Float32T, telem.BooleanT, telem.StringT, telem.JSONT,
-		telem.UUIDT, telem.BytesT, telem.UnknownT:
+		telem.UUIDT, telem.BytesT:
 		Expect(actual).To(MatchJSON(want), "binding %d", i)
 	}
 }

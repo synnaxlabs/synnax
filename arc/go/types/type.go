@@ -268,7 +268,7 @@ func FromTelem(t telem.DataType) Type {
 		return String()
 	case telem.TimestampT:
 		return TimeStamp()
-	case telem.UnknownT, telem.BytesT:
+	case telem.BytesT:
 	}
 	return Type{Kind: KindInvalid}
 }

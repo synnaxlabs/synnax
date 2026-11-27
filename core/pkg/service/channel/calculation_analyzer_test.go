@@ -415,7 +415,7 @@ var _ = Describe("Analyze", func() {
 			ch := channel.Channel{Name: "calc", Expression: "return nonexistent + 1"}
 			res, err := a.Analyze(ctx, ch)
 			Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
-			Expect(res.ChanDataType).To(Equal(telem.UnknownT))
+			Expect(res.ChanDataType).To(BeZero())
 			Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 		})
 	})

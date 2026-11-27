@@ -98,7 +98,7 @@ var _ = Describe("AppendSampleText", func() {
 	})
 
 	It("Should return an error for a data type with no text form", func() {
-		Expect(telem.AppendSampleText([]byte("a"), telem.UnknownT, nil)).Error().
+		Expect(telem.AppendSampleText([]byte("a"), "", nil)).Error().
 			To(MatchError(ContainSubstring("has no text form")))
 	})
 })

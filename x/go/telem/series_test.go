@@ -149,7 +149,7 @@ var _ = Describe("Series", func() {
 
 		Context("Unknown DataType", func() {
 			It("Should skip validation for unknown data types", func() {
-				s := telem.Series{DataType: telem.UnknownT, Data: []byte{1, 2, 3}}
+				s := telem.Series{DataType: "custom", Data: []byte{1, 2, 3}}
 				Expect(s.Validate()).To(Succeed())
 			})
 		})

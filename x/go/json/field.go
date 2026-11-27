@@ -144,9 +144,9 @@ type Field struct {
 	// entry that matches it, whatever the Type. Floats match by value, and a NaN entry
 	// matches any NaN.
 	Enums []Enum
-	// Range is an integer data type, or empty. When set, a Decoder rejects a JSON
-	// number that Range does not hold exactly, such as 1.5 or -1 for Uint64T.
-	Range telem.DataType
+	// Range is an optional integer data type. When set, a Decoder rejects a JSON number
+	// that Range does not hold exactly, such as 1.5 or -1 for Uint64T.
+	Range *telem.DataType
 }
 
 // variablePrefix is the size of the length prefix of a variable-density sample.
@@ -180,10 +180,14 @@ func NewDecoder(f Field) (*Decoder, error) {
 			validate.ErrValidation, "cannot convert a JSON value to %s", dt,
 		)
 	}
-	if _, _, ok := integerBounds(f.Range); f.Range != "" && !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation, "range %s is not an integer data type", f.Range,
-		)
+	if f.Range != nil {
+		if _, _, ok := integerBounds(*f.Range); !ok {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"range %s is not an integer data type",
+				*f.Range,
+			)
+		}
 	}
 	enums, err := encodeEnums(f.Enums, f.DataType)
 	if err != nil {
@@ -226,7 +230,6 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 		telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
 		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T:
 		return d.appendNumeric(dst, raw)
-	case telem.UnknownT:
 	}
 	panic(fmt.Sprintf("json: no decoder for data type %q", d.field.DataType))
 }
@@ -374,8 +377,8 @@ func (d *Decoder) AppendFloat(dst []byte, v float64) ([]byte, error) {
 }
 
 func (d *Decoder) appendNumber(dst []byte, n number) ([]byte, error) {
-	if d.field.Range != "" {
-		if err := checkFits(n, d.field.Range); err != nil {
+	if d.field.Range != nil {
+		if err := checkFits(n, *d.field.Range); err != nil {
 			return nil, err
 		}
 	}
@@ -582,7 +585,7 @@ func matches(dt telem.DataType, a, b []byte) bool {
 		return x == y || (math.IsNaN(x) && math.IsNaN(y))
 	case telem.BooleanT:
 		return (a[0] != 0) == (b[0] != 0)
-	case telem.UnknownT, telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
+	case telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T,
 		telem.Uint64T, telem.Uint32T, telem.Uint16T, telem.Uint8T, telem.TimestampT,
 		telem.UUIDT, telem.StringT, telem.BytesT, telem.JSONT:
 	}
