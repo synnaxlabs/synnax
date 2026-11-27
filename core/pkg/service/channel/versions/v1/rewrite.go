@@ -329,15 +329,15 @@ func bind(
 	if err != nil {
 		return r, err
 	}
-	all, any := isChannel(old), isChannel(old)
+	all, some := isChannel(old), isChannel(old)
 	declared := renamed != nil && !isChannel(renamed)
 	for _, rd := range reads {
 		all = all && isChannel(rd.old)
-		any = any || isChannel(rd.old)
+		some = some || isChannel(rd.old)
 		declared = declared || rd.new != nil && !isChannel(rd.new)
 	}
 	switch {
-	case !any:
+	case !some:
 		if old != nil {
 			r.Binding, r.Bound = old.Kind, true
 		}
@@ -521,35 +521,30 @@ func (w Rewriter) parse(
 	root := symbol.NewRoot(names, w.Ambient)
 	switch src.Form {
 	case FormCalculation:
-		block, diag := parser.ParseBlock("{"+raw+"}", w.Config)
-		if diag != nil {
-			return parsed{}, false, nil
+		if block, diag := parser.ParseBlock("{"+raw+"}", w.Config); diag == nil {
+			aCtx := acontext.NewRoot(ctx, block, root).WithConfig(w.Config)
+			return parsed{
+				scope:   root,
+				shift:   1,
+				analyze: func() { statement.AnalyzeFunctionBody(aCtx) },
+			}, true, nil
 		}
-		aCtx := acontext.NewRoot(ctx, block, root).WithConfig(w.Config)
-		return parsed{
-			scope:   root,
-			shift:   1,
-			analyze: func() { statement.AnalyzeFunctionBody(aCtx) },
-		}, true, nil
 	case FormBody:
-		block, diag := parser.ParseBlock(raw, w.Config)
-		if diag != nil {
-			return parsed{}, false, nil
+		if block, diag := parser.ParseBlock(raw, w.Config); diag == nil {
+			return w.parseBody(ctx, root, block, src)
 		}
-		return w.parseBody(ctx, root, block, src)
 	case FormProgram:
-		t, diag := text.Parse(text.Text{Raw: raw}, w.Config)
-		if diag != nil {
-			return parsed{}, false, nil
+		if t, diag := text.Parse(text.Text{Raw: raw}, w.Config); diag == nil {
+			aCtx := acontext.NewRoot(ctx, t.AST, root).WithConfig(w.Config)
+			return parsed{scope: root, analyze: func() {
+				analyzer.AnalyzeProgram(aCtx)
+				authority.Analyze(aCtx)
+			}}, true, nil
 		}
-		aCtx := acontext.NewRoot(ctx, t.AST, root).WithConfig(w.Config)
-		return parsed{scope: root, analyze: func() {
-			analyzer.AnalyzeProgram(aCtx)
-			authority.Analyze(aCtx)
-		}}, true, nil
 	default:
 		return parsed{}, false, errors.Newf("unknown text form %d", src.Form)
 	}
+	return parsed{}, false, nil
 }
 
 // parseBody binds the graph function of src, whose body is block, under root as a v0.62
