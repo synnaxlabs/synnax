@@ -214,6 +214,10 @@ class Spool {
     friend class Reader;
     Config cfg;
     std::unique_ptr<journal::Lock> lock;
+    /// @brief guards the read offset files, so a commit cannot write the offset of a
+    /// removed segment, and a reader never removes the temp file of a commit. Lock it
+    /// before mu.
+    std::mutex offset_mu;
     mutable std::mutex mu;
     std::uint64_t used = 0;
     /// @brief the most bytes used can grow to, from the free space at the last check.

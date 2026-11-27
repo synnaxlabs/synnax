@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iterator>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "absl/crc/crc32c.h"
@@ -623,6 +625,45 @@ TEST_F(SpoolTest, RejectsCommitAfterRemove) {
     ASSERT_NIL(spool->remove(0));
     ASSERT_MATCHES(reader->commit(), BASE_ERROR);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.offset"));
+}
+
+/// @brief it should leave no read offset when a commit races the remove of its
+/// segment.
+TEST_F(SpoolTest, LeavesNoOffsetWhenCommitRacesRemove) {
+    const auto spool = this->open_spool();
+    for (int i = 0; i < 50; i++) {
+        this->write_frames(*spool, header_of(1), 1);
+        const auto key = spool->segments()[0];
+        const auto reader = ASSERT_NIL_P(spool->open_reader(key));
+        ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+        x::errors::Error remove_err;
+        std::thread remover([&] { remove_err = spool->remove(key); });
+        const auto commit_err = reader->commit();
+        remover.join();
+        ASSERT_NIL(remove_err);
+        if (commit_err) ASSERT_MATCHES(commit_err, BASE_ERROR);
+        ASSERT_FALSE(
+            std::filesystem::exists(this->dir / (std::to_string(key) + ".offset"))
+        );
+    }
+}
+
+/// @brief it should keep every commit when readers of the same segment open at the
+/// same time.
+TEST_F(SpoolTest, KeepsCommitsWhileReadersOpen) {
+    const auto spool = this->open_spool();
+    this->write_frames(*spool, header_of(1), 1);
+    const auto reader = ASSERT_NIL_P(spool->open_reader(0));
+    ASSERT_TRUE(ASSERT_NIL_P(reader->read()).has_value());
+    std::atomic<bool> done = false;
+    std::thread opener([&] {
+        while (!done)
+            ASSERT_NIL_P(spool->open_reader(0));
+    });
+    for (int i = 0; i < 200; i++)
+        ASSERT_NIL(reader->commit());
+    done = true;
+    opener.join();
 }
 
 /// @brief it should resume a reader from the committed offset after a reopen.

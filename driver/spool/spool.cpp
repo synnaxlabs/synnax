@@ -508,6 +508,7 @@ std::pair<std::optional<x::telem::Frame>, x::errors::Error> Reader::read() {
 }
 
 x::errors::Error Reader::commit() {
+    std::lock_guard lock(this->spool.offset_mu);
     if (!this->spool.is_closed(this->key))
         return x::errors::Error(
             BASE_ERROR,
@@ -718,7 +719,9 @@ Spool::open_reader(const std::uint64_t key) {
     reader->types = types_of(*header);
     reader->header = std::move(*header);
     reader->pos = file->pos();
+    std::unique_lock offset_lock(this->offset_mu);
     auto [offset, o_err] = journal::read_offset(this->offset_path(key), OFFSET_MAGIC);
+    offset_lock.unlock();
     if (o_err) return {nullptr, o_err};
     if (offset) {
         if (offset->segment != key)
@@ -745,6 +748,7 @@ bool Spool::is_closed(const std::uint64_t key) const {
 }
 
 x::errors::Error Spool::remove(const std::uint64_t key) {
+    std::lock_guard lock(this->offset_mu);
     if (!this->is_closed(key))
         return x::errors::Error(
             BASE_ERROR,
@@ -766,6 +770,7 @@ void Spool::forget(const std::uint64_t key) {
 
 x::errors::Error
 Spool::set_aside(const std::uint64_t key, const x::errors::Error &cause) {
+    std::lock_guard lock(this->offset_mu);
     if (!this->is_closed(key))
         return x::errors::Error(
             BASE_ERROR,
