@@ -146,7 +146,7 @@ var _ = Describe("Check: a Reserve at each crash point", func() {
 					Prepare: func(next uint64) {
 						go l.Prepared(next, errors.New("no next log"))
 					},
-					Switched:   func(g uint64) { errs.add(st.Switch(g)) },
+					OnSwitched: func(g uint64) { errs.add(st.Switch(g)) },
 					DB:         7,
 					Generation: 1,
 					Sequence:   1,

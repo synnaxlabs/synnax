@@ -31,7 +31,7 @@ var _ = Describe("Log size check", func() {
 			OnDurable:  noDurable,
 			OnRefused:  func([]log.Record, error) {},
 			Prepare:    func(uint64) {},
-			Switched:   func(uint64) {},
+			OnSwitched: func(uint64) {},
 			DB:         db,
 			Generation: generation,
 			Sequence:   1,

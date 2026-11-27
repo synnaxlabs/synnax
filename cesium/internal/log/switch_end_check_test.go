@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,7 +24,7 @@ import (
 var _ = Describe("Check: switch", func() {
 	It("Should take a delete that fits in the last bytes of a log that cannot "+
 		"switch, after another entry of its batch", func() {
-		fs := newOpFS(xfs.NewMem())
+		fs := opfs.New(xfs.NewMem(), "write", "sync", "syncdir")
 		Expect(log.Prepare(fs, generation, logSize)).To(Succeed())
 		var l *log.Log
 		l = MustSucceed(log.Start(log.Config{
@@ -34,7 +35,7 @@ var _ = Describe("Check: switch", func() {
 				l.Prepared(next, errors.New("no space left on device"))
 			},
 			OnRefused:  func([]log.Record, error) {},
-			Switched:   func(uint64) {},
+			OnSwitched: func(uint64) {},
 			DB:         db,
 			Generation: generation,
 			Sequence:   5,
@@ -43,7 +44,7 @@ var _ = Describe("Check: switch", func() {
 		ctx, cancel := context.WithCancel(context.Background())
 		go func() { ran <- l.Run(ctx) }()
 		DeferCleanup(func() {
-			fs.Unhold()
+			fs.Free()
 			Expect(l.Close()).To(Succeed())
 			Eventually(ran).Should(Receive(BeNil()))
 			cancel()
@@ -55,13 +56,12 @@ var _ = Describe("Check: switch", func() {
 		// A ends past three quarters, so that X ends 1,000 bytes before the limit of
 		// an entry with no Commit.
 		a := limit - 1_000 - (32 + x) - (log.FramesStart + 32)
-		release := fs.Hold()
+		fs.Hold()
 		first := l.Append(bigEntry(a))
-		Eventually(fs.held).Should(Receive())
+		Eventually(fs.Held()).Should(Receive())
 		second := l.Append(bigEntry(x))
 		del := l.Append(of(&log.Drop{Key: 1}))
-		fs.Unhold()
-		release <- struct{}{}
+		fs.Free()
 		MustSucceed(first.Wait())
 		MustSucceed(second.Wait())
 		frames := walk(fileBytes(fs))

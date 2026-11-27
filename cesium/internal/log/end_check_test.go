@@ -54,7 +54,7 @@ var _ = Describe("Log end check", func() {
 				},
 				OnDurable:  noDurable,
 				OnRefused:  func([]log.Record, error) {},
-				Switched:   func(uint64) {},
+				OnSwitched: func(uint64) {},
 				DB:         db,
 				Generation: generation,
 				Sequence:   5,

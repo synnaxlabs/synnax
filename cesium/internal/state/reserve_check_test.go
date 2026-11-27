@@ -86,7 +86,7 @@ var _ = Describe("Check: a Reserve on a full log", func() {
 			OnRefused: func(records []log.Record, err error) {
 				errs.add(st.Refused(records, err))
 			},
-			Switched:   func(g uint64) { errs.add(st.Switch(g)) },
+			OnSwitched: func(g uint64) { errs.add(st.Switch(g)) },
 			DB:         7,
 			Generation: 1,
 			Sequence:   1,
