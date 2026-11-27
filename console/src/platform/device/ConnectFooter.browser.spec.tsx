@@ -55,11 +55,11 @@ describe("ConnectFooter", () => {
 
   it("should show what blocks Connect and what to do about it", async () => {
     const reason = {
-      message: "Node 1 is not running",
+      message: "Driver not running",
       description: "Start the Driver on Node 1.",
     };
     await renderModalOpener(useOpen, [{ variant: "success", onBack: vi.fn(), reason }]);
-    expect(await screen.findByText("Node 1 is not running")).toBeTruthy();
+    expect(await screen.findByText("Driver not running")).toBeTruthy();
     expect(screen.getByText("Start the Driver on Node 1.")).toBeTruthy();
   });
 

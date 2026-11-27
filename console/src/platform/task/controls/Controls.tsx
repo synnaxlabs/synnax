@@ -148,13 +148,7 @@ export const Controls = ({
     failure.taskStatusTime?.valueOf() === taskStatus?.time.valueOf()
   )
     shownStatus = failure.status;
-  // After a command, the task's status already holds the status of its down rack.
-  else if (
-    warning != null &&
-    !running &&
-    taskStatus?.variant !== "warning" &&
-    taskStatus?.variant !== "error"
-  )
+  else if (warning != null && !running)
     shownStatus = status.create({
       name: taskStatus?.name ?? "",
       variant: "warning",

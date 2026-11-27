@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { task } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { deep, id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -31,7 +31,6 @@ import { findIconButton, queryIconButton } from "@/testutil";
 const path = deep.path<{
   config: { dataSavingDisabled: boolean; autoStart: boolean };
 }>();
-const statusPath = deep.path<{ status: task.Status }>().status;
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -78,8 +77,11 @@ describe("Controls.Controls", () => {
     expect(play.getAttribute("aria-disabled")).toBe("true");
   });
 
-  // Renders a task on a stopped rack, while another rack can run its integration.
-  const renderOnStoppedRack = async (onDeploy = vi.fn()) => {
+  // Renders a task on the rack, while another rack can run its integration.
+  const renderOnRack = async (
+    createTaskRack: (integration: string) => Promise<rack.Rack>,
+    taskStatus: task.Status,
+  ) => {
     // A prefix of its own, so no rack of another spec can run it.
     const beta: Task.Integration = {
       ...ACME,
@@ -87,40 +89,53 @@ describe("Controls.Controls", () => {
       name: "Beta",
     };
     await createRunningRack(client, beta.prefix);
-    const stopped = await client.racks.create({
-      name: uniqueName("rack"),
-      integrations: [beta.prefix],
-    });
+    const taskRack = await createTaskRack(beta.prefix);
+    const onDeploy = vi.fn();
     const rendered = await renderInTaskFormWithClient(
       <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
       {
         client,
-        values: { key: "1", type: `${beta.prefix}_read`, rack: stopped.key },
+        values: {
+          key: "1",
+          type: `${beta.prefix}_read`,
+          rack: taskRack.key,
+          status: taskStatus,
+        },
         registry: createRegistry({ integrations: [beta] }),
       },
     );
-    await screen.findByText(`${stopped.name} is not running`);
-    return { ...rendered, stopped };
+    return { ...rendered, taskRack, onDeploy };
   };
 
   it("should warn about a stopped task rack and keep Start enabled", async () => {
-    const onDeploy = vi.fn();
-    const { container, stopped } = await renderOnStoppedRack(onDeploy);
-    expect(screen.getByText(`Start the Driver on ${stopped.name}.`)).toBeTruthy();
+    const { container, taskRack, onDeploy } = await renderOnRack(
+      async (integration) =>
+        await client.racks.create({
+          name: uniqueName("rack"),
+          integrations: [integration],
+        }),
+      createTaskStatus({ variant: "warning", message: "Driver not running" }),
+    );
+    expect(
+      await screen.findByText(`Start the Driver on ${taskRack.name}.`),
+    ).toBeTruthy();
+    expect(screen.getByText("Driver not running")).toBeTruthy();
     fireEvent.click(await findIconButton(container, "play"));
     expect(onDeploy).toHaveBeenCalledTimes(1);
   });
 
-  it("should show the task's own warning over the rack warning", async () => {
-    const { form, stopped } = await renderOnStoppedRack();
-    act(() =>
-      form.current?.set(
-        statusPath,
-        createTaskStatus({ variant: "warning", message: "Driver not running" }),
-      ),
+  it("should name a rack without the integration over the task error", async () => {
+    const { taskRack } = await renderOnRack(
+      async () => await createRunningRack(client, `other${id.create()}`),
+      createTaskStatus({
+        variant: "error",
+        message: "task type 'beta_read': task not handled by factory",
+      }),
     );
-    expect(await screen.findByText("Driver not running")).toBeTruthy();
-    expect(screen.queryByText(`${stopped.name} is not running`)).toBeNull();
+    expect(
+      await screen.findByText(`${taskRack.name} does not have Beta enabled`),
+    ).toBeTruthy();
+    expect(screen.queryByText(/not handled by factory/)).toBeNull();
   });
 
   it("should keep Stop and the status of a running task no rack can run", async () => {

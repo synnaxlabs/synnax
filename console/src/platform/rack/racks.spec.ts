@@ -86,8 +86,45 @@ describe("getBlockedReason", () => {
     it("should block when that rack is not running", () => {
       const racks = [createRack(1, ["opc"], false), createRack(2, ["opc"], true)];
       expect(Rack.getBlockedReason(racks, { ...OPC, rack: 1 })).toEqual({
-        message: "Rack 1 is not running",
+        message: "Driver not running",
         description: "Start the Driver on Rack 1.",
+      });
+    });
+
+    const createDownRack = (
+      variant: status.Variant,
+      message: string,
+      description: string,
+    ) =>
+      rack.payloadZ.parse({
+        key: 1,
+        name: "Rack 1",
+        role: uuid.create(),
+        integrations: ["opc"],
+        status: status.create<typeof rack.statusDetailsZ>({
+          variant,
+          message,
+          description,
+          details: { running: false },
+        }),
+      });
+
+    it("should say that the Driver of a rack with a warning is not running", () => {
+      const r = createDownRack("warning", "Rack status unknown", "");
+      expect(Rack.getBlockedReason([r], { ...OPC, rack: 1 })).toEqual({
+        message: "Driver not running",
+        description: "Start the Driver on Rack 1.",
+      });
+    });
+
+    it("should give the status of a rack on a Core without its Driver", () => {
+      const description =
+        "The Core runs without its embedded Driver, because it started with " +
+        "--no-driver or was built without the Driver.";
+      const r = createDownRack("disabled", "Driver disabled", description);
+      expect(Rack.getBlockedReason([r], { ...OPC, rack: 1 })).toEqual({
+        message: "Driver disabled",
+        description,
       });
     });
 

@@ -42,7 +42,7 @@ export const getDefault = (
 
 /** Status text for why no rack can run an integration. */
 export interface BlockedReason {
-  /** What blocks it, such as "Node 1 is not running". */
+  /** What blocks it, such as "Driver not running". */
   message: string;
   /** What to do now. */
   description?: string;
@@ -66,13 +66,16 @@ export const getBlockedReason = (
       message: "This Driver no longer exists",
       description: "Pick another Driver.",
     };
-  if (r.status?.variant === "error")
-    return { message: r.status.message, description: r.status.description };
-  if (!isRunning(r))
+  if (!isReady(r)) {
+    // An error of the Driver, or "Driver disabled" on a Core without its Driver, says
+    // more than that the Driver is not running.
+    if (r.status?.variant === "error" || r.status?.variant === "disabled")
+      return { message: r.status.message, description: r.status.description };
     return {
-      message: `${r.name} is not running`,
+      message: "Driver not running",
       description: `Start the Driver on ${r.name}.`,
     };
+  }
   if (!r.integrations.includes(integration))
     return {
       message: `${r.name} does not have ${name} enabled`,
