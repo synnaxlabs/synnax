@@ -441,17 +441,22 @@ var _ = Describe("Write task", func() {
 			_, configured := start(ctx, writeConfig(dev, pointTarget(
 				ctx, icd.FloatJSONField{},
 			)))
-			send(ctx, channel.Keys{x.Key(), y.Key()},
-				both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)),
-				func(g Gomega) {
-					g.Expect(payloads("plant/point")).ToNot(BeEmpty())
-				},
-			)
+			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  channel.Keys{x.Key(), y.Key()},
+				Start: telem.Now(),
+			}))
+			// The start opens the streamer, so one write is enough. A second write that
+			// is still on its way at the stop reaches the next run.
+			Expect(w.Write(both(telem.NewSeriesV(1.0), telem.NewSeriesV(2.0)))).
+				To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+			Eventually(func() []string { return payloads("plant/point") }).
+				Should(ContainElement(`{"x":1,"y":2}`))
 			Expect(configured.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
 				To(Succeed())
 			Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "again"})).
 				To(Succeed())
-			w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+			w = MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 				Keys:  channel.Keys{x.Key()},
 				Start: telem.Now(),
 			}))
@@ -676,7 +681,7 @@ var _ = Describe("Write task", func() {
 			ch := createVirtual(ctx, telem.Float64T)
 			m := jsonMessage("Command", nil, jsonField("v", "/v", icd.FloatJSONField{}))
 			ic := createICD(ctx, m)
-			t, configured := start(ctx, writeConfig(
+			t, _ := start(ctx, writeConfig(
 				dev, messageTarget("plant/edit", ic, m, channelBinding(m, 0, ch)),
 			))
 			command(ctx, ch, telem.NewSeriesV(1.5), func(g Gomega) {
@@ -693,13 +698,17 @@ var _ = Describe("Write task", func() {
 					},
 				))
 			})).To(Succeed())
-			Expect(configured.Stop(false)).To(Succeed())
-			expectRejected(
-				ctx,
-				t,
-				"target plant/edit: message Command: field unit: needs a channel or a "+
-					"default",
-			)
+			msg := "target plant/edit: message Command: field unit: needs a channel " +
+				"or a default"
+			Expect(factory.ConfigureTask(ctx, t, "configure")).Error().
+				To(MatchError(ContainSubstring(msg)))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to deploy changes"))
+			Expect(stat.Description).To(HavePrefix(
+				"The task still runs its last deployed config. " + msg,
+			))
+			Expect(stat.Details.Running).To(BeTrue())
 		})
 
 		DescribeTable(

@@ -173,8 +173,10 @@ var _ = Describe("JSONEncoder", func() {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
 					}
 					if !finite(m, c) {
-						Expect(enc.Encode(nil, samples)).Error().
-							To(MatchError(validate.ErrValidation))
+						Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("is not a JSON number")),
+						))
 						continue
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
@@ -349,6 +351,21 @@ var _ = Describe("JSONEncoder", func() {
 		))
 	})
 
+	It("Should refuse a timestamp field with an unknown time format", func() {
+		key := uuid.New()
+		Expect(codec.NewJSONEncoder(message(
+			[]icd.JSONField{{Variant: icd.TimestampJSONField{
+				Key: key, Name: "t", Scale: 1, Pointer: "/t", TimeFormat: "unix_days",
+			}}},
+			codec.Binding{Field: key, DataType: telem.TimestampT},
+		))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(`message command: field t: unknown time format "unix_days": `+
+				`expected "iso8601", "unix_sec", "unix_ms", "unix_us", or "unix_ns": `+
+				"validation error"),
+		))
+	})
+
 	It("Should fail only the encode of a nil sample for a bound NaN default", func() {
 		key := uuid.New()
 		enc := MustSucceed(codec.NewJSONEncoder(message(
@@ -421,6 +438,18 @@ var _ = Describe("JSONEncoder", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(expected),
 		))
+	})
+
+	It("Should write a token of digits past an int as a member name", func() {
+		key := uuid.New()
+		enc := MustSucceed(codec.NewJSONEncoder(message(
+			[]icd.JSONField{{Variant: icd.FloatJSONField{
+				Key: key, Name: "v", Scale: 1, Pointer: "/a/99999999999999999999",
+			}}},
+			codec.Binding{Field: key, DataType: telem.Float64T},
+		)))
+		Expect(string(MustSucceed(enc.Encode(nil, [][]byte{float64Sample(1.5)})))).
+			To(Equal(`{"a":{"99999999999999999999":1.5}}`))
 	})
 
 	Describe("Check", func() {
