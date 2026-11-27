@@ -22,6 +22,7 @@
 
 #include "driver/labjack/device/mock.h"
 #include "driver/labjack/read_task.h"
+#include "driver/labjack/testutil.h"
 
 namespace driver::labjack {
 /// @brief the error LJM returns while the device is unplugged.
@@ -510,15 +511,7 @@ x::json::json basic_read_task_config(const std::string &device) {
 TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device{
-        .key = make_unique_channel_name("labjack"),
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "labjack",
-        .model = T7,
-        .name = "my_device",
-    };
-    ASSERT_NIL(client->devices.create(dev));
+    const auto dev_key = create_task_device(*client, rack.key);
 
     // Create channels for each input type
     auto tc_ch = ASSERT_NIL_P(client->channels.create(
@@ -537,7 +530,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         true
     ));
 
-    auto j = basic_read_task_config(dev.key);
+    auto j = basic_read_task_config(dev_key);
     j["channels"][0]["channel"] = tc_ch.key;
     j["channels"][1]["channel"] = di_ch.key;
     j["channels"][2]["channel"] = ai_ch.key;
@@ -584,15 +577,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
 TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-    auto dev = synnax::device::Device{
-        .key = make_unique_channel_name("labjack"),
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "labjack",
-        .model = T7,
-        .name = "my_device",
-    };
-    ASSERT_NIL(client->devices.create(dev));
+    const auto dev_key = create_task_device(*client, rack.key);
 
     // Create a channel
     auto ch = ASSERT_NIL_P(client->channels.create(
@@ -602,7 +587,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ));
 
     // Create a config with an invalid channel type
-    auto j = basic_read_task_config(dev.key);
+    auto j = basic_read_task_config(dev_key);
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
@@ -622,22 +607,14 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
 TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
-    auto dev = synnax::device::Device{
-        .key = make_unique_channel_name("labjack"),
-        .rack = rack.key,
-        .location = "dev1",
-        .make = "labjack",
-        .model = T7,
-        .name = "test_device",
-    };
-    ASSERT_NIL(client->devices.create(dev));
+    const auto dev_key = create_task_device(*client, rack.key);
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("test_channel"),
         x::telem::FLOAT64_T,
         true
     ));
 
-    auto j = basic_read_task_config(dev.key);
+    auto j = basic_read_task_config(dev_key);
     j["data_saving_disabled"] = false;
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
@@ -670,21 +647,13 @@ protected:
     void parse_config(const bool thermocouple) {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-        auto dev = synnax::device::Device{
-            .key = make_unique_channel_name("labjack"),
-            .rack = rack.key,
-            .location = "dev1",
-            .make = "labjack",
-            .model = T7,
-            .name = "my_device",
-        };
-        ASSERT_NIL(client->devices.create(dev));
+        const auto dev_key = create_task_device(*client, rack.key);
         auto ch = ASSERT_NIL_P(client->channels.create(
             make_unique_channel_name("claim_channel"),
             x::telem::FLOAT64_T,
             true
         ));
-        auto j = basic_read_task_config(dev.key);
+        auto j = basic_read_task_config(dev_key);
         if (thermocouple)
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
@@ -1069,17 +1038,8 @@ protected:
         const int stream_rate = 5
     ) {
         const auto rack = ASSERT_NIL_P(this->client->racks.create("tc"));
-        synnax::device::Device device{
-            .key = make_unique_channel_name("labjack"),
-            .rack = rack.key,
-            .location = "dev1",
-            .make = "labjack",
-            .model = model,
-            .name = "my_device",
-        };
-        const auto create_err = this->client->devices.create(device);
-        EXPECT_NIL(create_err);
-        auto j = basic_read_task_config(device.key);
+        const auto device_key = create_task_device(*this->client, rack.key, model);
+        auto j = basic_read_task_config(device_key);
         j["channels"] = channels;
         j["sample_rate"] = sample_rate;
         j["stream_rate"] = stream_rate;

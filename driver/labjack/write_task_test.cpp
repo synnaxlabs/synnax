@@ -14,6 +14,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/labjack/device/mock.h"
+#include "driver/labjack/testutil.h"
 #include "driver/labjack/write_task.h"
 
 namespace driver::labjack {
@@ -47,22 +48,14 @@ protected:
     void parse_config() {
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
-        auto dev = synnax::device::Device{
-            .key = make_unique_channel_name("labjack"),
-            .rack = rack.key,
-            .location = "dev1",
-            .make = "labjack",
-            .model = "T7",
-            .name = "my_device",
-        };
-        ASSERT_NIL(client->devices.create(dev));
+        const auto dev_key = create_task_device(*client, rack.key);
         ASSERT_NIL(client->channels.create(state_idx_ch));
         state_ch.index = state_idx_ch.key;
         ASSERT_NIL(client->channels.create(state_ch));
         ASSERT_NIL(client->channels.create(cmd_ch));
 
         const x::json::json j{
-            {"device", dev.key},
+            {"device", dev_key},
             {"state_rate", 10},
             {"data_saving_disabled", false},
             {"channels",

@@ -10,6 +10,8 @@
 #pragma once
 
 #include <algorithm>
+#include <charconv>
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -19,6 +21,7 @@
 #include "client/cpp/labjack/device/device.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/common/sync.h"
@@ -56,6 +59,29 @@ identity_actions(const Device &stored, const Device &next) {
     if (next.connection != stored.connection) set("connection", next.connection);
     if (next.model != stored.model) set("model", next.model);
     return acts;
+}
+
+/// @brief retrieves the device that a task names by its legacy device key, which is
+/// the serial number of the device.
+/// @returns an error that matches VALIDATION when the key is not a serial number, or
+/// NOT_FOUND when no device has the serial number.
+inline std::pair<Device, x::errors::Error>
+retrieve_task_device(const synnax::Synnax &client, const std::string &key) {
+    std::uint32_t serial = 0;
+    const auto *end = key.data() + key.size();
+    if (const auto [ptr, ec] = std::from_chars(key.data(), end, serial);
+        ec != std::errc() || ptr != end)
+        return {
+            {},
+            x::errors::Error(
+                x::errors::VALIDATION,
+                "device key " + key + " is not a LabJack serial number"
+            )
+        };
+    return client.labjack.devices.retrieve(
+        synnax::labjack::device::Where{.serial = serial},
+        x::filter::one
+    );
 }
 
 /// @brief stores LabJack devices in a Core. It matches found hardware to a stored

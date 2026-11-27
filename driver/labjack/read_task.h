@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
 #include <cmath>
 #include <format>
@@ -36,6 +37,7 @@
 #include "driver/labjack/ljm/LJM_Utilities.h"
 #include "driver/labjack/ljm/LabJackM.h"
 #include "driver/labjack/ljm/LabJackMModbusMap.h"
+#include "driver/labjack/store.h"
 #include "driver/transform/transform.h"
 
 namespace driver::labjack {
@@ -222,10 +224,8 @@ struct ThermocoupleChan final : InputChan {
     ) override {
         const auto range = THERMOCOUPLE_RANGES.find(device_type);
         if (range == THERMOCOUPLE_RANGES.end()) {
-            const std::string prefix = "LJM_dt";
-            const auto name = device_type.starts_with(prefix)
-                                ? device_type.substr(prefix.size())
-                                : device_type;
+            auto name = device_type;
+            std::ranges::transform(name, name.begin(), ::toupper);
             return x::errors::Error(
                 x::errors::VALIDATION,
                 this->port + " is a thermocouple channel, but the " + name +
@@ -405,7 +405,10 @@ inline bool version_below(const double version, const double minimum) {
 
 /// @brief configuration for a LabJack read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
+    /// @brief the legacy key of the device, which is its serial number.
     const std::string device_key;
+    /// @brief the serial number that the task opens the device by.
+    std::string serial;
     /// @brief the indexes of the channels in the task.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> indexes;
@@ -432,6 +435,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         common::BaseReadTaskConfig(std::move(other)),
         device_key(other.device_key),
+        serial(std::move(other.serial)),
         indexes(std::move(other.indexes)),
         samples_per_chan(other.samples_per_chan),
         channels(std::move(other.channels)),
@@ -479,11 +483,12 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->devices.retrieve(this->device_key);
+        auto [dev, err] = retrieve_task_device(*client, this->device_key);
         if (err) {
             parser.field_err("device", "failed to retrieve device: " + err.data());
             return;
         }
+        this->serial = std::to_string(dev.serial);
         this->dev_model = dev.model;
         std::vector<synnax::channel::Key> keys;
         keys.reserve(this->channels.size());
@@ -682,7 +687,7 @@ class UnarySource final : public common::Source {
     /// @brief acquires the device and applies the channel settings. A device that lost
     /// power also lost its settings, so every connect applies them.
     x::errors::Error connect() {
-        auto [d, err] = this->devs->acquire(this->cfg.device_key);
+        auto [d, err] = this->devs->acquire(this->cfg.serial);
         if (err) return err;
         if (const auto apply_err = this->cfg.apply(d)) return apply_err;
         this->dev = std::move(d);
@@ -870,7 +875,7 @@ class StreamSource final : public common::Source {
     /// @brief claims the device and starts the stream. A device that lost power also
     /// lost its settings, so every connect applies them.
     x::errors::Error connect() {
-        auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
+        auto [d, acquire_err] = this->devs->acquire(this->cfg.serial);
         if (acquire_err) return acquire_err;
         std::vector<int> addrs(this->cfg.registers.size());
         std::vector<const char *> registers;
