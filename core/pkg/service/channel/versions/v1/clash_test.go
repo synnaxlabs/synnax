@@ -318,6 +318,7 @@ var _ = Describe("NewClashMigration", func() {
 				Line:             1,
 				Column:           7,
 				FolderUnreadable: true,
+				Folder:           "Stand A",
 			}))
 		})
 
