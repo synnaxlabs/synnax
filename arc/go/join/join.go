@@ -29,7 +29,8 @@ import (
 
 // Input configures one input of a Join.
 type Input struct {
-	// DataType is the data type of the input's samples. It must have a fixed density.
+	// DataType is the data type of the input's samples. It must have a fixed density or
+	// be variable, as for strings.
 	//
 	// [REQUIRED]
 	DataType telem.DataType
@@ -116,14 +117,18 @@ type Join struct {
 }
 
 type input struct {
-	dataType     telem.DataType
+	dataType telem.DataType
+	// density is the size of each sample, or 0 for a variable-density input.
 	density      int
 	arrivalTimed bool
 	// data, stamps, and alignments hold the added samples that Next has not passed,
-	// from first on. Only the primary keeps alignments.
+	// from first on. Only the primary keeps alignments, and only a variable-density
+	// input keeps offsets: the byte of data where each sample starts, with its length
+	// prefix.
 	data       []byte
 	stamps     []telem.TimeStamp
 	alignments []telem.Alignment
+	offsets    []int
 	first      int
 	// last is the last stamp added to the input, and added is false before the first.
 	last  telem.TimeStamp
@@ -194,7 +199,7 @@ func New(cfg Config) (*Join, error) {
 			dataType:     in.DataType,
 			density:      density,
 			arrivalTimed: in.ArrivalTimed,
-			held:         make([]byte, density),
+			held:         make([]byte, 0, density),
 		}
 	}
 	return j, nil
@@ -204,10 +209,10 @@ func New(cfg Config) (*Join, error) {
 func validateInput(cfg Config, i int) error {
 	in := cfg.Inputs[i]
 	switch {
-	case in.DataType.IsVariable() || in.DataType.Density() == 0:
+	case !in.DataType.IsVariable() && in.DataType.Density() == 0:
 		return errors.Wrapf(
 			validate.ErrValidation,
-			"input %d has data type %s, which has no fixed density",
+			"input %d has data type %q, which has no known density",
 			i,
 			in.DataType,
 		)
@@ -274,7 +279,7 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 	in := j.inputs[i]
 	if in.arrivalTimed {
 		if data.Len() > 0 {
-			copy(in.held, data.Data[len(data.Data)-in.density:])
+			in.held = append(in.held[:0], in.newest(data)...)
 			in.full = true
 			in.frames.arrive(j.now())
 		}
@@ -293,16 +298,19 @@ func (j *Join) Push(i int, data, t telem.Series) error {
 // not follow is skipped when skip is true, or refused with the input kept as it was.
 func (j *Join) add(i int, data, t telem.Series, skip bool) error {
 	in := j.inputs[i]
-	stamps, alignments := len(in.stamps), len(in.alignments)
+	stamps, alignments, offsets := len(in.stamps), len(in.alignments), len(in.offsets)
 	last, added := in.last, in.added
-	// kept is the first sample of the run that follows the last skip, whose data add
-	// appends at the next skip or at the end.
-	kept := 0
+	// pos is the byte of data where sample k starts, and kept the byte where the run
+	// that follows the last skip starts, which add appends at the next skip or at the
+	// end.
+	pos, kept := 0, 0
 	for k := range int(t.Len()) {
+		next := pos + in.size(data.Data[pos:])
 		stamp := telem.TimeStamp(telem.ByteOrder.Uint64(t.Data[k*8:]))
 		if added && stamp <= last {
 			if !skip {
 				in.stamps, in.alignments = in.stamps[:stamps], in.alignments[:alignments]
+				in.offsets = in.offsets[:offsets]
 				return errors.Wrapf(
 					validate.ErrValidation,
 					"stamp %s of input %d does not follow %s",
@@ -311,20 +319,65 @@ func (j *Join) add(i int, data, t telem.Series, skip bool) error {
 					last,
 				)
 			}
-			in.data = append(in.data, data.Data[kept*in.density:k*in.density]...)
-			kept = k + 1
+			in.data = append(in.data, data.Data[kept:pos]...)
+			pos, kept = next, next
 			continue
 		}
 		last, added = stamp, true
 		in.stamps = append(in.stamps, stamp)
+		if in.density == 0 {
+			in.offsets = append(in.offsets, len(in.data)+pos-kept)
+		}
 		if i == j.primary {
 			in.alignments = append(in.alignments, t.Alignment+telem.Alignment(k))
 		}
+		pos = next
 	}
-	in.data = append(in.data, data.Data[kept*in.density:]...)
+	in.data = append(in.data, data.Data[kept:pos]...)
 	in.last, in.added = last, added
 	return nil
 }
+
+// size returns the size of the sample at the start of b, with its length prefix for a
+// variable-density input.
+func (in *input) size(b []byte) int {
+	if in.density > 0 {
+		return in.density
+	}
+	_, n := telem.UnmarshalVariableSample(b)
+	return n
+}
+
+// newest returns the last sample of data, with its length prefix for a variable-density
+// input.
+func (in *input) newest(data telem.Series) []byte {
+	if in.density > 0 {
+		return data.Data[len(data.Data)-in.density:]
+	}
+	var sample []byte
+	for b := data.Data; ; {
+		_, n := telem.UnmarshalVariableSample(b)
+		if n == 0 {
+			return sample
+		}
+		sample, b = b[:n], b[n:]
+	}
+}
+
+// start returns the byte of in's data where its added sample k starts.
+func (in *input) start(k int) int {
+	switch {
+	case in.density > 0:
+		return k * in.density
+	case k == len(in.offsets):
+		return len(in.data)
+	}
+	return in.offsets[k]
+}
+
+// at returns the added sample k of in, with its length prefix for a variable-density
+// input.
+func (in *input) at(k int) []byte { return in.data[in.start(k):in.start(k+1)] }
 
 // validate returns why the join refuses the samples data of input i with stamps t, or
 // nil.
@@ -388,8 +441,7 @@ func (j *Join) Next(until telem.TimeStamp, out *Output) {
 	for ; p.first < len(p.stamps) && p.stamps[p.first] <= until; p.first++ {
 		stamp := p.stamps[p.first]
 		j.pass(stamp)
-		offset := p.first * p.density
-		copy(p.held, p.data[offset:offset+p.density])
+		p.held = append(p.held[:0], p.at(p.first)...)
 		if stamp < j.from || (p.loaded && stamp <= p.loadedTo) {
 			continue
 		}
@@ -435,8 +487,7 @@ func (in *input) step() {
 	if in.full {
 		in.intervals.add(between(in.heldStamp, next))
 	}
-	offset := in.first * in.density
-	copy(in.held, in.data[offset:offset+in.density])
+	in.held = append(in.held[:0], in.at(in.first)...)
 	in.heldStamp, in.full = next, true
 	in.first++
 }
@@ -565,9 +616,16 @@ func (in *input) compact() {
 	}
 	n := copy(in.stamps, in.stamps[in.first:])
 	in.stamps = in.stamps[:n]
-	in.data = in.data[:copy(in.data, in.data[in.first*in.density:])]
+	from := in.start(in.first)
+	in.data = in.data[:copy(in.data, in.data[from:])]
 	if in.alignments != nil {
 		in.alignments = in.alignments[:copy(in.alignments, in.alignments[in.first:])]
+	}
+	if in.offsets != nil {
+		in.offsets = in.offsets[:copy(in.offsets, in.offsets[in.first:])]
+		for k := range in.offsets {
+			in.offsets[k] -= from
+		}
 	}
 	in.first = 0
 }
