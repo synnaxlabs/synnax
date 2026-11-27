@@ -20,10 +20,78 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (ie InputEntry) EncodeOrc(w *orc.Writer) error {
+	w.String(ie.Name)
+	if ie.PdoName != nil {
+		w.Bool(true)
+		w.String(*ie.PdoName)
+	} else {
+		w.Bool(false)
+	}
+	w.Uint16(uint16(ie.Index))
+	w.Uint8(uint8(ie.SubIndex))
+	w.Uint8(uint8(ie.BitLength))
+	w.String(string(ie.DataType))
+	w.Uint16(uint16(ie.PdoIndex))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ie *InputEntry) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if ie.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			ie.PdoName = &hv
+		}
+	}
+	if ie.Index, err = r.Uint16(); err != nil {
+		return err
+	}
+	if ie.SubIndex, err = r.Uint8(); err != nil {
+		return err
+	}
+	if ie.BitLength, err = r.Uint8(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		ie.DataType = telem.DataType(rawV)
+	}
+	if ie.PdoIndex, err = r.Uint16(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (om OpMode) EncodeOrc(w *orc.Writer) error {
-	w.String(om.Name)
+	if om.Name != nil {
+		w.Bool(true)
+		w.String(*om.Name)
+	} else {
+		w.Bool(false)
+	}
 	w.Uint16(uint16(om.AssignActivate))
-	w.Int64(int64(om.Sync0Cycle))
+	if om.Sync0Cycle != nil {
+		w.Bool(true)
+		w.Int64(int64(*om.Sync0Cycle))
+	} else {
+		w.Bool(false)
+	}
 	w.Int16(int16(om.Sync0Factor))
 	w.Int64(int64(om.Sync0Shift))
 	w.Int16(int16(om.Sync1Factor))
@@ -34,18 +102,38 @@ func (om OpMode) EncodeOrc(w *orc.Writer) error {
 // DecodeOrc reads the value from r in the Orc binary format.
 func (om *OpMode) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if om.Name, err = r.String(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			om.Name = &hv
+		}
 	}
 	if om.AssignActivate, err = r.Uint16(); err != nil {
 		return err
 	}
 	{
-		rawV, err := r.Int64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		om.Sync0Cycle = telem.TimeSpan(rawV)
+		if present {
+			var hv telem.TimeSpan
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeSpan(rawV)
+			}
+			om.Sync0Cycle = &hv
+		}
 	}
 	if om.Sync0Factor, err = r.Int16(); err != nil {
 		return err
@@ -74,8 +162,18 @@ func (om *OpMode) DecodeOrc(r *orc.Reader) error {
 func (omc OpModeChoice) EncodeOrc(w *orc.Writer) error {
 	w.Uint16(uint16(omc.Index))
 	w.Uint16(uint16(omc.AssignActivate))
-	w.Int64(int64(omc.Sync0Cycle))
-	w.Int64(int64(omc.Sync1Cycle))
+	if omc.Sync0Cycle != nil {
+		w.Bool(true)
+		w.Int64(int64(*omc.Sync0Cycle))
+	} else {
+		w.Bool(false)
+	}
+	if omc.Sync1Cycle != nil {
+		w.Bool(true)
+		w.Int64(int64(*omc.Sync1Cycle))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -89,18 +187,96 @@ func (omc *OpModeChoice) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		rawV, err := r.Int64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		omc.Sync0Cycle = telem.TimeSpan(rawV)
+		if present {
+			var hv telem.TimeSpan
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeSpan(rawV)
+			}
+			omc.Sync0Cycle = &hv
+		}
 	}
 	{
-		rawV, err := r.Int64()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		omc.Sync1Cycle = telem.TimeSpan(rawV)
+		if present {
+			var hv telem.TimeSpan
+			{
+				rawV, err := r.Int64()
+				if err != nil {
+					return err
+				}
+				hv = telem.TimeSpan(rawV)
+			}
+			omc.Sync1Cycle = &hv
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (oe OutputEntry) EncodeOrc(w *orc.Writer) error {
+	w.String(oe.Name)
+	if oe.PdoName != nil {
+		w.Bool(true)
+		w.String(*oe.PdoName)
+	} else {
+		w.Bool(false)
+	}
+	w.Uint16(uint16(oe.Index))
+	w.Uint8(uint8(oe.SubIndex))
+	w.Uint8(uint8(oe.BitLength))
+	w.String(string(oe.DataType))
+	w.Uint16(uint16(oe.PdoIndex))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (oe *OutputEntry) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if oe.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			oe.PdoName = &hv
+		}
+	}
+	if oe.Index, err = r.Uint16(); err != nil {
+		return err
+	}
+	if oe.SubIndex, err = r.Uint8(); err != nil {
+		return err
+	}
+	if oe.BitLength, err = r.Uint8(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		oe.DataType = telem.DataType(rawV)
+	}
+	if oe.PdoIndex, err = r.Uint16(); err != nil {
+		return err
 	}
 	return nil
 }
@@ -108,8 +284,12 @@ func (omc *OpModeChoice) DecodeOrc(r *orc.Reader) error {
 // EncodeOrc writes the value to w in the Orc binary format.
 func (pdoe PDOEntry) EncodeOrc(w *orc.Writer) error {
 	w.String(pdoe.Name)
-	w.String(pdoe.PdoName)
-	w.Uint16(uint16(pdoe.PdoIndex))
+	if pdoe.PdoName != nil {
+		w.Bool(true)
+		w.String(*pdoe.PdoName)
+	} else {
+		w.Bool(false)
+	}
 	w.Uint16(uint16(pdoe.Index))
 	w.Uint8(uint8(pdoe.SubIndex))
 	w.Uint8(uint8(pdoe.BitLength))
@@ -123,11 +303,18 @@ func (pdoe *PDOEntry) DecodeOrc(r *orc.Reader) error {
 	if pdoe.Name, err = r.String(); err != nil {
 		return err
 	}
-	if pdoe.PdoName, err = r.String(); err != nil {
-		return err
-	}
-	if pdoe.PdoIndex, err = r.Uint16(); err != nil {
-		return err
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			pdoe.PdoName = &hv
+		}
 	}
 	if pdoe.Index, err = r.Uint16(); err != nil {
 		return err
@@ -183,7 +370,7 @@ func (pdo *PDOs) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			pdo.Inputs = make([]PDOEntry, n)
+			pdo.Inputs = make([]InputEntry, n)
 			for i := range pdo.Inputs {
 				if err = pdo.Inputs[i].DecodeOrc(r); err != nil {
 					return err
@@ -201,7 +388,7 @@ func (pdo *PDOs) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			pdo.Outputs = make([]PDOEntry, n)
+			pdo.Outputs = make([]OutputEntry, n)
 			for i := range pdo.Outputs {
 				if err = pdo.Outputs[i].DecodeOrc(r); err != nil {
 					return err
@@ -216,8 +403,7 @@ func (pdo *PDOs) DecodeOrc(r *orc.Reader) error {
 func (rb ReadBinding) EncodeOrc(w *orc.Writer) error {
 	w.Uint16(uint16(rb.Index))
 	w.Uint8(uint8(rb.SubIndex))
-	w.Bool(rb.Scaled)
-	w.Bool(rb.Calibrated)
+	w.String(string(rb.Samples))
 	w.Uint32(uint32(rb.Channel))
 	return nil
 }
@@ -231,11 +417,12 @@ func (rb *ReadBinding) DecodeOrc(r *orc.Reader) error {
 	if rb.SubIndex, err = r.Uint8(); err != nil {
 		return err
 	}
-	if rb.Scaled, err = r.Bool(); err != nil {
-		return err
-	}
-	if rb.Calibrated, err = r.Bool(); err != nil {
-		return err
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rb.Samples = Samples(rawV)
 	}
 	{
 		rawV, err := r.Uint32()
@@ -252,7 +439,7 @@ func (s Slave) EncodeOrc(w *orc.Writer) error {
 	w.Write(s.Key[:])
 	w.Uint32(uint32(s.Rack))
 	w.String(s.Name)
-	w.Uint64(uint64(s.Serial))
+	w.Uint32(uint32(s.Serial))
 	w.Uint32(uint32(s.VendorID))
 	w.Uint32(uint32(s.ProductCode))
 	w.Uint32(uint32(s.Revision))
@@ -294,8 +481,18 @@ func (s Slave) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Uint32(uint32(s.ReadIndex))
-	w.Uint32(uint32(s.WriteStateIndex))
+	if s.ReadIndex != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*s.ReadIndex))
+	} else {
+		w.Bool(false)
+	}
+	if s.WriteStateIndex != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*s.WriteStateIndex))
+	} else {
+		w.Bool(false)
+	}
 	w.Bool(s.ReadBindings != nil)
 	if s.ReadBindings != nil {
 		w.Uint32(uint32(len(s.ReadBindings)))
@@ -333,7 +530,7 @@ func (s *Slave) DecodeOrc(r *orc.Reader) error {
 	if s.Name, err = r.String(); err != nil {
 		return err
 	}
-	if s.Serial, err = r.Uint64(); err != nil {
+	if s.Serial, err = r.Uint32(); err != nil {
 		return err
 	}
 	if s.VendorID, err = r.Uint32(); err != nil {
@@ -424,18 +621,38 @@ func (s *Slave) DecodeOrc(r *orc.Reader) error {
 		}
 	}
 	{
-		rawV, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.ReadIndex = channel.Key(rawV)
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			s.ReadIndex = &hv
+		}
 	}
 	{
-		rawV, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		s.WriteStateIndex = channel.Key(rawV)
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			s.WriteStateIndex = &hv
+		}
 	}
 	{
 		present, err := r.Bool()
@@ -676,7 +893,12 @@ func (wb WriteBinding) EncodeOrc(w *orc.Writer) error {
 	w.Uint16(uint16(wb.Index))
 	w.Uint8(uint8(wb.SubIndex))
 	w.Uint32(uint32(wb.Command))
-	w.Uint32(uint32(wb.State))
+	if wb.State != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*wb.State))
+	} else {
+		w.Bool(false)
+	}
 	return nil
 }
 
@@ -697,11 +919,21 @@ func (wb *WriteBinding) DecodeOrc(r *orc.Reader) error {
 		wb.Command = channel.Key(rawV)
 	}
 	{
-		rawV, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		wb.State = channel.Key(rawV)
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			wb.State = &hv
+		}
 	}
 	return nil
 }

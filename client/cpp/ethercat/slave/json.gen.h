@@ -43,12 +43,9 @@ inline x::json::json StatusDetails::to_json() const {
 
 inline OpMode OpMode::parse(x::json::Parser parser) {
     return OpMode{
-        .name = parser.field<std::string>("name", ""),
+        .name = parser.field<std::optional<std::string>>("name"),
         .assign_activate = parser.field<std::uint16_t>("assign_activate", 0),
-        .sync0_cycle = parser.field<::x::telem::TimeSpan>(
-            "sync0_cycle",
-            ::x::telem::TimeSpan(0)
-        ),
+        .sync0_cycle = parser.field<std::optional<::x::telem::TimeSpan>>("sync0_cycle"),
         .sync0_factor = parser.field<std::int16_t>("sync0_factor", 0),
         .sync0_shift = parser.field<::x::telem::TimeSpan>(
             "sync0_shift",
@@ -64,9 +61,10 @@ inline OpMode OpMode::parse(x::json::Parser parser) {
 
 inline x::json::json OpMode::to_json() const {
     x::json::json j = x::json::json::object();
-    j["name"] = this->name;
+    if (this->name.has_value()) j["name"] = *this->name;
     j["assign_activate"] = this->assign_activate;
-    j["sync0_cycle"] = this->sync0_cycle.nanoseconds();
+    if (this->sync0_cycle.has_value())
+        j["sync0_cycle"] = this->sync0_cycle->nanoseconds();
     j["sync0_factor"] = this->sync0_factor;
     j["sync0_shift"] = this->sync0_shift.nanoseconds();
     j["sync1_factor"] = this->sync1_factor;
@@ -78,14 +76,8 @@ inline OpModeChoice OpModeChoice::parse(x::json::Parser parser) {
     return OpModeChoice{
         .index = parser.field<std::uint16_t>("index"),
         .assign_activate = parser.field<std::uint16_t>("assign_activate"),
-        .sync0_cycle = parser.field<::x::telem::TimeSpan>(
-            "sync0_cycle",
-            ::x::telem::TimeSpan(0)
-        ),
-        .sync1_cycle = parser.field<::x::telem::TimeSpan>(
-            "sync1_cycle",
-            ::x::telem::TimeSpan(0)
-        ),
+        .sync0_cycle = parser.field<std::optional<::x::telem::TimeSpan>>("sync0_cycle"),
+        .sync1_cycle = parser.field<std::optional<::x::telem::TimeSpan>>("sync1_cycle"),
     };
 }
 
@@ -93,16 +85,17 @@ inline x::json::json OpModeChoice::to_json() const {
     x::json::json j = x::json::json::object();
     j["index"] = this->index;
     j["assign_activate"] = this->assign_activate;
-    j["sync0_cycle"] = this->sync0_cycle.nanoseconds();
-    j["sync1_cycle"] = this->sync1_cycle.nanoseconds();
+    if (this->sync0_cycle.has_value())
+        j["sync0_cycle"] = this->sync0_cycle->nanoseconds();
+    if (this->sync1_cycle.has_value())
+        j["sync1_cycle"] = this->sync1_cycle->nanoseconds();
     return j;
 }
 
 inline PDOEntry PDOEntry::parse(x::json::Parser parser) {
     return PDOEntry{
         .name = parser.field<std::string>("name"),
-        .pdo_name = parser.field<std::string>("pdo_name", ""),
-        .pdo_index = parser.field<std::uint16_t>("pdo_index", 0),
+        .pdo_name = parser.field<std::optional<std::string>>("pdo_name"),
         .index = parser.field<std::uint16_t>("index"),
         .sub_index = parser.field<std::uint8_t>("sub_index"),
         .bit_length = parser.field<std::uint8_t>("bit_length"),
@@ -113,8 +106,7 @@ inline PDOEntry PDOEntry::parse(x::json::Parser parser) {
 inline x::json::json PDOEntry::to_json() const {
     x::json::json j = x::json::json::object();
     j["name"] = this->name;
-    j["pdo_name"] = this->pdo_name;
-    j["pdo_index"] = this->pdo_index;
+    if (this->pdo_name.has_value()) j["pdo_name"] = *this->pdo_name;
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
     j["bit_length"] = this->bit_length;
@@ -122,13 +114,43 @@ inline x::json::json PDOEntry::to_json() const {
     return j;
 }
 
+inline InputEntry InputEntry::parse(x::json::Parser parser) {
+    InputEntry result;
+    static_cast<PDOEntry &>(result) = PDOEntry::parse(parser);
+    result.pdo_index = parser.field<std::uint16_t>("pdo_index");
+    return result;
+}
+
+inline x::json::json InputEntry::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = PDOEntry::to_json(); parent.is_object()) j.update(parent);
+    j["pdo_index"] = this->pdo_index;
+    return j;
+}
+
+inline OutputEntry OutputEntry::parse(x::json::Parser parser) {
+    OutputEntry result;
+    static_cast<PDOEntry &>(result) = PDOEntry::parse(parser);
+    result.pdo_index = parser.field<std::uint16_t>("pdo_index");
+    return result;
+}
+
+inline x::json::json OutputEntry::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = PDOEntry::to_json(); parent.is_object()) j.update(parent);
+    j["pdo_index"] = this->pdo_index;
+    return j;
+}
+
 inline PDOs PDOs::parse(x::json::Parser parser) {
     return PDOs{
-        .inputs = parser
-                      .field<std::vector<PDOEntry>>("inputs", std::vector<PDOEntry>{}),
-        .outputs = parser.field<std::vector<PDOEntry>>(
+        .inputs = parser.field<std::vector<InputEntry>>(
+            "inputs",
+            std::vector<InputEntry>{}
+        ),
+        .outputs = parser.field<std::vector<OutputEntry>>(
             "outputs",
-            std::vector<PDOEntry>{}
+            std::vector<OutputEntry>{}
         ),
     };
 }
@@ -144,8 +166,7 @@ inline ReadBinding ReadBinding::parse(x::json::Parser parser) {
     return ReadBinding{
         .index = parser.field<std::uint16_t>("index"),
         .sub_index = parser.field<std::uint8_t>("sub_index"),
-        .scaled = parser.field<bool>("scaled", false),
-        .calibrated = parser.field<bool>("calibrated", false),
+        .samples = parser.field<std::string>("samples", "raw"),
         .channel = parser.required_field<::synnax::channel::Key>("channel"),
     };
 }
@@ -154,8 +175,7 @@ inline x::json::json ReadBinding::to_json() const {
     x::json::json j = x::json::json::object();
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
-    j["scaled"] = this->scaled;
-    j["calibrated"] = this->calibrated;
+    j["samples"] = this->samples;
     j["channel"] = this->channel;
     return j;
 }
@@ -181,8 +201,7 @@ inline WriteBinding WriteBinding::parse(x::json::Parser parser) {
         .index = parser.field<std::uint16_t>("index"),
         .sub_index = parser.field<std::uint8_t>("sub_index"),
         .command = parser.required_field<::synnax::channel::Key>("command"),
-        .state = parser
-                     .field<::synnax::channel::Key>("state", ::synnax::channel::Key(0)),
+        .state = parser.field<std::optional<::synnax::channel::Key>>("state"),
     };
 }
 
@@ -191,7 +210,7 @@ inline x::json::json WriteBinding::to_json() const {
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
     j["command"] = this->command;
-    j["state"] = this->state;
+    if (this->state.has_value()) j["state"] = *this->state;
     return j;
 }
 
@@ -200,7 +219,7 @@ inline Slave Slave::parse(x::json::Parser parser) {
         .key = parser.field<Key>("key", x::uuid::create()),
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .name = parser.required_field<std::string>("name"),
-        .serial = parser.field<std::uint64_t>("serial", 0),
+        .serial = parser.field<std::uint32_t>("serial", 0),
         .vendor_id = parser.field<std::uint32_t>("vendor_id"),
         .product_code = parser.field<std::uint32_t>("product_code"),
         .revision = parser.field<std::uint32_t>("revision"),
@@ -223,13 +242,9 @@ inline Slave Slave::parse(x::json::Parser parser) {
                     });
                 return result;
             }(),
-        .read_index = parser.field<::synnax::channel::Key>(
-            "read_index",
-            ::synnax::channel::Key(0)
-        ),
-        .write_state_index = parser.field<::synnax::channel::Key>(
-            "write_state_index",
-            ::synnax::channel::Key(0)
+        .read_index = parser.field<std::optional<::synnax::channel::Key>>("read_index"),
+        .write_state_index = parser.field<std::optional<::synnax::channel::Key>>(
+            "write_state_index"
         ),
         .read_bindings = parser.field<std::vector<ReadBinding>>(
             "read_bindings",
@@ -266,8 +281,9 @@ inline x::json::json Slave::to_json() const {
             arr.push_back(::synnax::ethercat::slave::to_json(item));
         j["startup_parameters"] = arr;
     }
-    j["read_index"] = this->read_index;
-    j["write_state_index"] = this->write_state_index;
+    if (this->read_index.has_value()) j["read_index"] = *this->read_index;
+    if (this->write_state_index.has_value())
+        j["write_state_index"] = *this->write_state_index;
     j["read_bindings"] = x::json::to_array(this->read_bindings);
     j["write_bindings"] = x::json::to_array(this->write_bindings);
     if (this->status.has_value()) j["status"] = this->status->to_json();
@@ -281,7 +297,7 @@ inline Where Where::parse(x::json::Parser parser) {
         .not_ = parser.field<x::mem::indirect<Where>>("not"),
         .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
         .name = parser.field<std::optional<::x::filter::String>>("name"),
-        .serial = parser.field<std::optional<::x::filter::Ordered<std::uint64_t>>>(
+        .serial = parser.field<std::optional<::x::filter::Ordered<std::uint32_t>>>(
             "serial"
         ),
         .vendor_id = parser.field<std::optional<::x::filter::Ordered<std::uint32_t>>>(
@@ -318,7 +334,7 @@ inline x::json::json Where::to_json() const {
 inline Identity Identity::parse(x::json::Parser parser) {
     return Identity{
         .rack = parser.required_field<::synnax::rack::Key>("rack"),
-        .serial = parser.field<std::uint64_t>("serial", 0),
+        .serial = parser.field<std::uint32_t>("serial", 0),
         .vendor_id = parser.field<std::uint32_t>("vendor_id"),
         .product_code = parser.field<std::uint32_t>("product_code"),
         .revision = parser.field<std::uint32_t>("revision"),
@@ -362,13 +378,9 @@ inline Configuration Configuration::parse(x::json::Parser parser) {
                     });
                 return result;
             }(),
-        .read_index = parser.field<::synnax::channel::Key>(
-            "read_index",
-            ::synnax::channel::Key(0)
-        ),
-        .write_state_index = parser.field<::synnax::channel::Key>(
-            "write_state_index",
-            ::synnax::channel::Key(0)
+        .read_index = parser.field<std::optional<::synnax::channel::Key>>("read_index"),
+        .write_state_index = parser.field<std::optional<::synnax::channel::Key>>(
+            "write_state_index"
         ),
         .read_bindings = parser.field<std::vector<ReadBinding>>(
             "read_bindings",
@@ -393,8 +405,9 @@ inline x::json::json Configuration::to_json() const {
             arr.push_back(::synnax::ethercat::slave::to_json(item));
         j["startup_parameters"] = arr;
     }
-    j["read_index"] = this->read_index;
-    j["write_state_index"] = this->write_state_index;
+    if (this->read_index.has_value()) j["read_index"] = *this->read_index;
+    if (this->write_state_index.has_value())
+        j["write_state_index"] = *this->write_state_index;
     j["read_bindings"] = x::json::to_array(this->read_bindings);
     j["write_bindings"] = x::json::to_array(this->write_bindings);
     return j;

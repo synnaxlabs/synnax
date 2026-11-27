@@ -28,11 +28,31 @@ type OpMode = v0.OpMode
 // OpModeChoice is the synchronization mode that the user chose for a slave.
 type OpModeChoice = v0.OpModeChoice
 
-// PDOEntry is a PDO entry that a scan found on a slave.
+// PDOEntry holds the fields of a PDO entry that a scan found on a slave.
 type PDOEntry = v0.PDOEntry
+
+// InputEntry is an entry that the slave sends.
+type InputEntry = v0.InputEntry
+
+// OutputEntry is an entry that the slave receives.
+type OutputEntry = v0.OutputEntry
 
 // PDOs holds the PDO entries of a slave.
 type PDOs = v0.PDOs
+
+// Samples is which samples of an input entry a channel holds.
+type Samples = v0.Samples
+
+const (
+	// SamplesRaw are the samples that the slave sends.
+	SamplesRaw Samples = v0.SamplesRaw
+	// SamplesCalibrated are the raw samples after the gain and offset of the slave.
+	SamplesCalibrated Samples = v0.SamplesCalibrated
+	// SamplesScaled are the raw samples after the scale of the task.
+	SamplesScaled Samples = v0.SamplesScaled
+	// SamplesCalibratedScaled are the calibrated samples after the scale of the task.
+	SamplesCalibratedScaled Samples = v0.SamplesCalibratedScaled
+)
 
 // ReadBinding is the channel that a slave maps for one input entry.
 type ReadBinding = v0.ReadBinding

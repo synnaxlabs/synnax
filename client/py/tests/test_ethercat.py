@@ -906,8 +906,9 @@ class TestEtherCATSlaveResource:
         slave = sy.ethercat.slave.Slave.model_validate({**self.SLAVE, "switched_at": 5})
         assert slave.switched_at == sy.TimeStamp(5)
 
-    def test_rejects_a_negative_op_mode_cycle(self) -> None:
-        """Should reject an op mode choice with a negative SYNC0 cycle."""
+    @pytest.mark.parametrize("cycle", [0, 2**32])
+    def test_rejects_an_op_mode_cycle_the_esc_cannot_hold(self, cycle: int) -> None:
+        """Should reject an op mode choice with a zero or a 33-bit SYNC0 cycle."""
         with pytest.raises(ValidationError):
             sy.ethercat.slave.Slave.model_validate(
                 {
@@ -915,7 +916,7 @@ class TestEtherCATSlaveResource:
                     "op_mode": {
                         "index": 0,
                         "assign_activate": 0x300,
-                        "sync0_cycle": -1,
+                        "sync0_cycle": cycle,
                     },
                 }
             )

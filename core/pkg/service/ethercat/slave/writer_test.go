@@ -239,8 +239,10 @@ var _ = Describe("Writer", func() {
 					Revision:    3,
 					Master:      s.Master,
 					Pdos:        pdos,
-					OpModes:     []slave.OpMode{{Name: "DC", AssignActivate: 0x300}},
-					SwitchedAt:  new(telem.TimeStamp(5)),
+					OpModes: []slave.OpMode{
+						{Name: new("DC"), AssignActivate: 0x300},
+					},
+					SwitchedAt: new(telem.TimeStamp(5)),
 				},
 			}})).To(Succeed())
 			got := retrieve(ctx, s.Key)
@@ -448,16 +450,20 @@ var _ = Describe("Writer", func() {
 			Expect(st.Name).To(Equal("Inlet"))
 		})
 
-		It("Should reject a negative SYNC0 cycle", func(ctx SpecContext) {
-			s := create(ctx)
-			Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
-				Name: "Inlet",
-				OpMode: &slave.OpModeChoice{
-					AssignActivate: 0x300,
-					Sync0Cycle:     telem.TimeSpan(-1),
-				},
-			}))).To(MatchError(validate.ErrValidation))
-		})
+		DescribeTable("Should reject an op mode cycle the ESC cannot hold",
+			func(ctx SpecContext, cycle telem.TimeSpan) {
+				s := create(ctx)
+				Expect(w.Apply(ctx, s.Key, configure(slave.Configuration{
+					Name: "Inlet",
+					OpMode: &slave.OpModeChoice{
+						AssignActivate: 0x300,
+						Sync0Cycle:     new(cycle),
+					},
+				}))).To(MatchError(validate.ErrValidation))
+			},
+			Entry("a zero cycle", telem.TimeSpan(0)),
+			Entry("a cycle over 32 bits", telem.TimeSpan(1<<32)),
+		)
 
 		It("Should reject a configuration without a name", func(ctx SpecContext) {
 			s := create(ctx)

@@ -18,16 +18,18 @@ import { rack } from "@/rack";
 import { resource } from "@/resource";
 import { status } from "@/status";
 
+export const SAMPLES = ["raw", "calibrated", "scaled", "calibrated_scaled"] as const;
+export const samplesZ = z.enum(SAMPLES);
+export type Samples = z.infer<typeof samplesZ>;
+
 /** OpMode is a synchronization mode that a slave lists in its SII. */
 export const opModeZ = z.object({
-  /**
-   * name is the name of the mode, such as DC-Synchron. Empty when the slave gives none.
-   */
-  name: z.string().default(""),
+  /** name is the name of the mode, such as DC-Synchron. */
+  name: z.string().optional(),
   /** assignActivate is the value of the DC activation registers 0x0980 and 0x0981. */
   assignActivate: zod.uint16.default(0),
-  /** sync0Cycle is the SYNC0 cycle. 0 when sync0_factor sets the cycle. */
-  sync0Cycle: telem.numericTimeSpanZ.default(0),
+  /** sync0Cycle is the SYNC0 cycle, absent when sync0_factor sets the cycle. */
+  sync0Cycle: telem.numericTimeSpanZ.optional(),
   /**
    * sync0Factor is the SYNC0 cycle as a multiple of the bus cycle when positive, or as
    * a fraction of it when negative.
@@ -54,27 +56,25 @@ export const opModeChoiceZ = z.object({
    * when the slave lists other modes.
    */
   assignActivate: zod.uint16,
-  /** sync0Cycle replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode. */
-  sync0Cycle: telem.numericTimeSpanZ.check(z.gte(0)).default(0),
-  /** sync1Cycle replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode. */
-  sync1Cycle: telem.numericTimeSpanZ.check(z.gte(0)).default(0),
+  /** sync0Cycle replaces the SYNC0 cycle of the mode when present. */
+  sync0Cycle: telem.numericTimeSpanZ.check(z.gte(1), z.lte(4294967295)).optional(),
+  /** sync1Cycle replaces the SYNC1 cycle of the mode when present. */
+  sync1Cycle: telem.numericTimeSpanZ.check(z.gte(1), z.lte(4294967295)).optional(),
 });
 export interface OpModeChoice extends z.infer<typeof opModeChoiceZ> {}
 
-/** PDOEntry is a PDO entry that a scan found on a slave. */
+/** PDOEntry holds the fields of a PDO entry that a scan found on a slave. */
 export const pdoEntryZ = z.object({
   /** name is the name of the entry, such as Input. */
   name: z.string(),
   /** pdoName is the name of the PDO that holds the entry, such as Channel 1. */
-  pdoName: z.string().default(""),
-  /** pdoIndex is the index of the PDO that holds the entry, such as 0x1A00. */
-  pdoIndex: zod.uint16.default(0),
+  pdoName: z.string().optional(),
   /** index is the CoE object dictionary index of the entry. */
   index: zod.uint16,
   /** subIndex is the CoE object dictionary sub-index of the entry. */
   subIndex: zod.uint8,
   /** bitLength is the size of the entry in bits. */
-  bitLength: zod.uint8,
+  bitLength: zod.uint8.min(1),
   /** dataType is the data type of the entry. */
   dataType: z.string(),
 });
@@ -86,10 +86,8 @@ export const readBindingZ = z.object({
   index: zod.uint16,
   /** subIndex is the CoE object dictionary sub-index of the input entry. */
   subIndex: zod.uint8,
-  /** scaled is whether the channel holds the scaled samples of the entry. */
-  scaled: z.boolean().default(false),
-  /** calibrated is whether the channel holds the calibrated samples of the entry. */
-  calibrated: z.boolean().default(false),
+  /** samples is which samples of the entry the channel holds. */
+  samples: samplesZ.default("raw"),
   /** channel is the channel that holds the samples of the entry. */
   channel: channel.keyZ.refine((v) => v !== 0, "Channel is required"),
 });
@@ -114,22 +112,23 @@ export const writeBindingZ = z.object({
   subIndex: zod.uint8,
   /** command is the channel that commands the entry. */
   command: channel.keyZ.refine((v) => v !== 0, "Command is required"),
-  /** state is the channel that holds the state of the entry. 0 is no channel. */
-  state: channel.keyZ.default(0),
+  /** state is the channel that holds the state of the entry. */
+  state: channel.keyZ.optional(),
 });
 export interface WriteBinding extends z.infer<typeof writeBindingZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** PDOs holds the PDO entries of a slave. */
-export const pdOsZ = z.object({
-  /** inputs are the entries that the slave sends. */
-  inputs: pdoEntryZ.array().default(() => []),
-  /** outputs are the entries that the slave receives. */
-  outputs: pdoEntryZ.array().default(() => []),
+export const inputEntryZ = pdoEntryZ.extend({
+  pdoIndex: zod.uint16.min(6656).max(7167),
 });
-export interface PDOs extends z.infer<typeof pdOsZ> {}
+export interface InputEntry extends z.infer<typeof inputEntryZ> {}
+
+export const outputEntryZ = pdoEntryZ.extend({
+  pdoIndex: zod.uint16.min(5632).max(6143),
+});
+export interface OutputEntry extends z.infer<typeof outputEntryZ> {}
 
 /** Int8StartupParameter writes a int8 value. */
 export const int8StartupParameterZ = startupParameterBaseZ.extend({
@@ -320,7 +319,7 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** name selects by name. */
   name: filter.stringZ.optional(),
   /** serial selects by serial. */
-  serial: filter.orderedZ(z.number()).optional(),
+  serial: filter.orderedZ(z.uint32()).optional(),
   /** vendorId selects by vendor_id. */
   vendorId: filter.orderedZ(z.uint32()).optional(),
   /** productCode selects by product_code. */
@@ -340,31 +339,14 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
-/** Identity holds the slave fields that the scanner owns. */
-export const identityZ = z.object({
-  /** rack is the key of the rack the slave is connected to. */
-  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
-  /** serial is the serial number of the slave. 0 when the slave reports none. */
-  serial: z.number().max(9007199254740991).default(0),
-  /** vendorId is the EtherCAT vendor ID of the slave. */
-  vendorId: z.uint32(),
-  /** productCode is the product code of the slave. */
-  productCode: z.uint32(),
-  /** revision is the revision number of the slave. */
-  revision: z.uint32(),
-  /** master is the master on whose bus the slave sits. */
-  master: ethercatMaster.keyZ.min(1, "Master is required"),
-  /** pdos are the PDO entries that the scan found on the slave. */
-  pdos: pdOsZ.prefault({}),
-  /** opModes are the synchronization modes that the slave lists in its SII. */
-  opModes: opModeZ.array().default(() => []),
-  /**
-   * switchedAt is when the Driver last switched the slave to Synnax only. Absent when
-   * it never has.
-   */
-  switchedAt: telem.timeStampZ.optional(),
+/** PDOs holds the PDO entries of a slave. */
+export const pdOsZ = z.object({
+  /** inputs are the entries that the slave sends. */
+  inputs: inputEntryZ.array().default(() => []),
+  /** outputs are the entries that the slave receives. */
+  outputs: outputEntryZ.array().default(() => []),
 });
-export interface Identity extends z.infer<typeof identityZ> {}
+export interface PDOs extends z.infer<typeof pdOsZ> {}
 
 /** Configuration holds the slave fields that the user owns. */
 export const configurationZ = z.object({
@@ -385,11 +367,11 @@ export const configurationZ = z.object({
   /** startupParameters are the CoE objects the Driver writes to the slave in PRE-OP. */
   startupParameters: startupParameterZ.array().default(() => []),
   /** readIndex is the index channel of the channels that the slave reads into. */
-  readIndex: channel.keyZ.default(0),
+  readIndex: channel.keyZ.optional(),
   /**
    * writeStateIndex is the index channel of the state channels of the slave's outputs.
    */
-  writeStateIndex: channel.keyZ.default(0),
+  writeStateIndex: channel.keyZ.optional(),
   /** readBindings are the channels of the input entries. */
   readBindings: readBindingZ.array().default(() => []),
   /** writeBindings are the channels of the output entries. */
@@ -414,6 +396,88 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+/** Identity holds the slave fields that the scanner owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack the slave is connected to. */
+  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
+  /** serial is the serial number of the slave. 0 when the slave reports none. */
+  serial: z.uint32().default(0),
+  /** vendorId is the EtherCAT vendor ID of the slave. */
+  vendorId: z.uint32(),
+  /** productCode is the product code of the slave. */
+  productCode: z.uint32(),
+  /** revision is the revision number of the slave. */
+  revision: z.uint32(),
+  /** master is the master on whose bus the slave sits. */
+  master: ethercatMaster.keyZ.min(1, "Master is required"),
+  /** pdos are the PDO entries that the scan found on the slave. */
+  pdos: pdOsZ.prefault({}),
+  /** opModes are the synchronization modes that the slave lists in its SII. */
+  opModes: opModeZ.array().default(() => []),
+  /**
+   * switchedAt is when the Driver last switched the slave to Synnax only. Absent when
+   * it never has.
+   */
+  switchedAt: telem.timeStampZ.optional(),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
+/** Slave is an EtherCAT slave: one module on the bus of a master. */
+export const slaveZ = z.object({
+  /** key uniquely identifies the slave. */
+  key: keyZ.default(uuid.create),
+  /** rack is the key of the rack the slave is connected to. */
+  rack: rack.keyZ,
+  /** name is a human-readable name for the slave. */
+  name: z.string().min(1, "Name is required"),
+  /** serial is the serial number of the slave. 0 when the slave reports none. */
+  serial: z.uint32().default(0),
+  /** vendorId is the EtherCAT vendor ID of the slave. */
+  vendorId: z.uint32(),
+  /** productCode is the product code of the slave. */
+  productCode: z.uint32(),
+  /** revision is the revision number of the slave. */
+  revision: z.uint32(),
+  /** master is the master on whose bus the slave sits. */
+  master: ethercatMaster.keyZ,
+  /** pdos are the PDO entries that the scan found on the slave. */
+  pdos: pdOsZ.prefault({}),
+  /** opModes are the synchronization modes that the slave lists in its SII. */
+  opModes: opModeZ.array().default(() => []),
+  /**
+   * switchedAt is when the Driver last switched the slave to Synnax only. Absent when
+   * it never has.
+   */
+  switchedAt: telem.timeStampZ.optional(),
+  /**
+   * identifier is the prefix of the slave's channel names. The slave is unconfigured
+   * while it is empty.
+   */
+  identifier: z.string().default(""),
+  /** disabled is whether the Driver leaves the slave out of the tasks it runs. */
+  disabled: z.boolean().default(false),
+  /**
+   * opMode is the synchronization mode the Driver sets up. Absent lets the Driver pick
+   * it.
+   */
+  opMode: opModeChoiceZ.optional(),
+  /** startupParameters are the CoE objects the Driver writes to the slave in PRE-OP. */
+  startupParameters: startupParameterZ.array().default(() => []),
+  /** readIndex is the index channel of the channels that the slave reads into. */
+  readIndex: channel.keyZ.optional(),
+  /**
+   * writeStateIndex is the index channel of the state channels of the slave's outputs.
+   */
+  writeStateIndex: channel.keyZ.optional(),
+  /** readBindings are the channels of the input entries. */
+  readBindings: readBindingZ.array().default(() => []),
+  /** writeBindings are the channels of the output entries. */
+  writeBindings: writeBindingZ.array().default(() => []),
+  /** status is the current operational status of the slave. */
+  status: statusZ.optional(),
+});
+export interface Slave extends z.infer<typeof slaveZ> {}
 
 /** IdentityUpdate writes the fields that the scanner owns. */
 export const identityUpdateZ = identityZ.extend({
@@ -447,62 +511,6 @@ export const UPDATE_SCHEMAS: {
   identity: identityUpdateZ,
   configuration: configurationUpdateZ,
 };
-
-/** Slave is an EtherCAT slave: one module on the bus of a master. */
-export const slaveZ = z.object({
-  /** key uniquely identifies the slave. */
-  key: keyZ.default(uuid.create),
-  /** rack is the key of the rack the slave is connected to. */
-  rack: rack.keyZ,
-  /** name is a human-readable name for the slave. */
-  name: z.string().min(1, "Name is required"),
-  /** serial is the serial number of the slave. 0 when the slave reports none. */
-  serial: z.number().max(9007199254740991).default(0),
-  /** vendorId is the EtherCAT vendor ID of the slave. */
-  vendorId: z.uint32(),
-  /** productCode is the product code of the slave. */
-  productCode: z.uint32(),
-  /** revision is the revision number of the slave. */
-  revision: z.uint32(),
-  /** master is the master on whose bus the slave sits. */
-  master: ethercatMaster.keyZ,
-  /** pdos are the PDO entries that the scan found on the slave. */
-  pdos: pdOsZ.prefault({}),
-  /** opModes are the synchronization modes that the slave lists in its SII. */
-  opModes: opModeZ.array().default(() => []),
-  /**
-   * switchedAt is when the Driver last switched the slave to Synnax only. Absent when
-   * it never has.
-   */
-  switchedAt: telem.timeStampZ.optional(),
-  /**
-   * identifier is the prefix of the slave's channel names. The slave is unconfigured
-   * while it is empty.
-   */
-  identifier: z.string().default(""),
-  /** disabled is whether the Driver leaves the slave out of the tasks it runs. */
-  disabled: z.boolean().default(false),
-  /**
-   * opMode is the synchronization mode the Driver sets up. Absent lets the Driver pick
-   * it.
-   */
-  opMode: opModeChoiceZ.optional(),
-  /** startupParameters are the CoE objects the Driver writes to the slave in PRE-OP. */
-  startupParameters: startupParameterZ.array().default(() => []),
-  /** readIndex is the index channel of the channels that the slave reads into. */
-  readIndex: channel.keyZ.default(0),
-  /**
-   * writeStateIndex is the index channel of the state channels of the slave's outputs.
-   */
-  writeStateIndex: channel.keyZ.default(0),
-  /** readBindings are the channels of the input entries. */
-  readBindings: readBindingZ.array().default(() => []),
-  /** writeBindings are the channels of the output entries. */
-  writeBindings: writeBindingZ.array().default(() => []),
-  /** status is the current operational status of the slave. */
-  status: statusZ.optional(),
-});
-export interface Slave extends z.infer<typeof slaveZ> {}
 export interface New extends z.input<typeof slaveZ> {}
 
 /** RetrieveResponse holds the slaves a RetrieveRequest selects. */

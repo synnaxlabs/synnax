@@ -100,8 +100,12 @@ describe("slaveZ", () => {
       },
     ],
     [
-      "a negative SYNC0 cycle",
-      { opMode: { index: 0, assignActivate: 0x300, sync0Cycle: -1 } },
+      "a zero SYNC0 cycle",
+      { opMode: { index: 0, assignActivate: 0x300, sync0Cycle: 0 } },
+    ],
+    [
+      "a SYNC1 cycle over 32 bits",
+      { opMode: { index: 0, assignActivate: 0x300, sync1Cycle: 2 ** 32 } },
     ],
   ];
   it.each(INVALID)("should reject %s", (_, change) => {

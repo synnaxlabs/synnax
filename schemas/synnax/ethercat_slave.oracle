@@ -39,17 +39,14 @@ Status = status.Status<StatusDetails> {
 }
 
 OpMode struct {
-    name            string = "" {
-        @doc value """
-            is the name of the mode, such as DC-Synchron. Empty when the slave gives
-            none.
-        """
+    name            string?         {
+        @doc value "is the name of the mode, such as DC-Synchron."
     }
     assign_activate uint16 = 0 {
         @doc value "is the value of the DC activation registers 0x0980 and 0x0981."
     }
-    sync0_cycle     telem.TimeSpan = 0s {
-        @doc value "is the SYNC0 cycle. 0 when sync0_factor sets the cycle."
+    sync0_cycle     telem.TimeSpan? {
+        @doc value "is the SYNC0 cycle, absent when sync0_factor sets the cycle."
         @ts type   telem.NumericTimeSpan
     }
     sync0_factor    int16 = 0 {
@@ -78,28 +75,26 @@ OpMode struct {
 }
 
 OpModeChoice struct {
-    index           uint16         {
+    index           uint16          {
         @doc value "is the index of the mode in the op_modes of the slave."
     }
-    assign_activate uint16         {
+    assign_activate uint16          {
         @doc value """
             is the AssignActivate of the mode, which shows that index is stale when the
             slave lists other modes.
         """
     }
-    sync0_cycle     telem.TimeSpan = 0s {
-        @doc value    """
-            replaces the SYNC0 cycle of the mode. 0 keeps the cycle of the mode.
-        """
+    sync0_cycle     telem.TimeSpan? {
+        @doc value    "replaces the SYNC0 cycle of the mode when present."
         @ts type      telem.NumericTimeSpan
-        @validate min 0
+        @validate max 4294967295
+        @validate min 1
     }
-    sync1_cycle     telem.TimeSpan = 0s {
-        @doc value    """
-            replaces the SYNC1 cycle of the mode. 0 keeps the cycle of the mode.
-        """
+    sync1_cycle     telem.TimeSpan? {
+        @doc value    "replaces the SYNC1 cycle of the mode when present."
         @ts type      telem.NumericTimeSpan
-        @validate min 0
+        @validate max 4294967295
+        @validate min 1
     }
 
     @doc value  "is the synchronization mode that the user chose for a slave."
