@@ -1071,6 +1071,26 @@ describe("Kafka read form", () => {
       });
     });
 
+    it("should show the format of the message of a record in the tree and its pane", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        bound: {},
+      });
+      await renderRead({
+        records: [rec],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            rec.icd,
+            icd.set({
+              path: ["messages", rec.messages[0].message, "payload"],
+              value: { format: "binary", fields: [] },
+            }),
+          ),
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /BINARY.*Any key/ }));
+      await waitFor(() => expect(screen.getAllByText("BINARY")).toHaveLength(2));
+    });
+
     it.each([
       { name: "gone", note: "Message not found", change: removeMessage },
       {
