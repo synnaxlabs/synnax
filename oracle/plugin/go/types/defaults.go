@@ -972,6 +972,8 @@ type recurseStepData struct {
 	GoName   string
 	JSONName string
 	Kind     recurseKind
+	// Key is the Go expression of the path segment for a map key, set for a map step.
+	Key string
 	// Groups marks a SetDefaults step into a type that has a `@default group`, which
 	// splits its defaults into SetUngroupedDefaults and DefaultGroups.
 	Groups bool
@@ -1161,6 +1163,36 @@ func hasSliceRecurse(steps []recurseStepData) bool {
 	return false
 }
 
+// needsStrconv reports whether any step formats a path segment with strconv: a slice
+// index or an integer map key.
+func needsStrconv(steps []recurseStepData) bool {
+	return hasSliceRecurse(steps) || lo.SomeBy(steps, func(step recurseStepData) bool {
+		return strings.HasPrefix(step.Key, strconvImportPath+".")
+	})
+}
+
+// mapKeySegment returns the Go expression that turns the map key variable into a
+// validation path segment for a key of type ref.
+func mapKeySegment(ref resolution.TypeRef, data *templateData) string {
+	if resolved, _, ok := resolution.Dealias(ref, data.table); ok {
+		if form, ok := resolved.Form.(resolution.EnumForm); ok {
+			if form.IsIntEnum {
+				return "strconv.FormatInt(int64(key), 10)"
+			}
+			return "string(key)"
+		}
+	}
+	switch base := resolution.PrimitiveBase(ref, data.table); {
+	case base == "uuid":
+		return "key.String()"
+	case base == "string" && ref.Name != "string":
+		return "string(key)"
+	case resolution.IsNumberPrimitive(base) && !strings.HasPrefix(base, "float"):
+		return "strconv.FormatInt(int64(key), 10)"
+	}
+	return "key"
+}
+
 // underlyingContainer returns the Array or Map that ref names through aliases and
 // distinct types, or ref itself when it names neither. Go ranges over a distinct slice
 // or map as it does over the container.
@@ -1226,6 +1258,7 @@ func goRecurseStep(
 	case "Map":
 		if len(ref.TypeArgs) == 2 && needs(ref.TypeArgs[1]) {
 			step.Kind = recurseMap
+			step.Key = mapKeySegment(ref.TypeArgs[0], data)
 			return step, true
 		}
 		return recurseStepData{}, false

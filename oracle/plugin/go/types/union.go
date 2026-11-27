@@ -313,7 +313,7 @@ func processVariant(
 	vd.Receiver = receiverName(vd.TypeName, hasSliceRecurse(vd.ValidateRecurse))
 	vd.NeedsValidate = len(vd.ValidateRecurse) > 0 ||
 		len(vd.EnumChecks) > 0 || len(vd.ConstraintChecks) > 0
-	if hasSliceRecurse(vd.ValidateRecurse) {
+	if needsStrconv(vd.ValidateRecurse) {
 		data.AddExternal(strconvImportPath)
 	}
 	return nil

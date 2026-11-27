@@ -998,7 +998,7 @@ func addMethodImports(sd *structData, data *templateData) {
 		len(sd.ValidateRecurse) > 0 {
 		data.AddExternal(validateImportPath)
 	}
-	if hasSliceRecurse(sd.ValidateRecurse) {
+	if needsStrconv(sd.ValidateRecurse) {
 		data.AddExternal(strconvImportPath)
 	}
 }
@@ -1737,7 +1737,7 @@ func ({{$s.Receiver}} {{$s.Name}}) Validate() error {
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$s.Receiver}}.{{.GoName}} {
-		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", {{.Key}}) })
 	}
 {{- end}}
 {{- end}}
@@ -1881,7 +1881,7 @@ func ({{$vt.Receiver}} {{$vt.TypeName}}) Validate() error {
 	}
 {{- else if eq (printf "%s" .Kind) "map"}}
 	for key, value := range {{$vt.Receiver}}.{{.GoName}} {
-		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", key) })
+		v.Exec(func() error { return validate.PathedError(value.Validate(), "{{.JSONName}}", {{.Key}}) })
 	}
 {{- end}}
 {{- end}}
