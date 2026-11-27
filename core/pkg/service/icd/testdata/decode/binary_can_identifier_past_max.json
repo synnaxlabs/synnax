@@ -1,0 +1,38 @@
+{
+  "description": "A CAN identifier must fit its format.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "binary",
+        "identifier": {
+          "type": "can",
+          "id": 2048,
+          "extended": false,
+          "fd": false
+        },
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 8,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint8"
+        }
+      ]
+    }
+  ],
+  "error": "message a: identifier: id 0x800 exceeds the maximum 0x7FF: validation error"
+}

@@ -95,6 +95,8 @@ export interface CreateSynnaxWrapperParams {
   connectionStatus?: connection.Status;
   /** Called with the root of the worker tree, to read component state in a spec. */
   onRoot?: (root: aether.Root) => void;
+  /** Prints each error that an error handler reports. Defaults to printing nothing. */
+  log?: Status.AggregatorProps["log"];
 }
 
 export const createSynnaxWrapper = ({
@@ -104,6 +106,7 @@ export const createSynnaxWrapper = ({
   telemFactories,
   connectionStatus,
   onRoot,
+  log = quiet,
 }: CreateSynnaxWrapperParams): FC<PropsWithChildren> => {
   if (client != null) disableActEnvironment();
   const AetherProvider = createAetherProvider(
@@ -139,7 +142,7 @@ export const createSynnaxWrapper = ({
     if (telemFactories != null) inner = <Telem.Provider>{inner}</Telem.Provider>;
     return (
       <AetherProvider>
-        <Status.Aggregator log={quiet}>
+        <Status.Aggregator log={log}>
           <Alamos.Provider level="warn">
             <Synnax.TestProvider client={client} status={connectionStatus}>
               <Suspense fallback={null}>

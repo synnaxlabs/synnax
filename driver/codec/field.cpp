@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -19,6 +20,7 @@
 #include "x/cpp/json/number.h"
 #include "x/cpp/json/pointer.h"
 #include "x/cpp/payload/types.gen.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/errors.h"
@@ -38,13 +40,15 @@ std::string format(const double v) {
 }
 
 /// @returns VALIDATION when decoded, the decoded value of raw, is more than slack
-/// outside the min and max of b.
+/// outside the min and max of b, or is NaN and b has a min or a max.
 x::errors::Error out_of_range(
     const icd::BaseField &b,
     const double raw,
     const double decoded,
     const double slack
 ) {
+    if (std::isnan(decoded) && (b.min.has_value() || b.max.has_value()))
+        return {x::errors::VALIDATION, "NaN is outside the limits"};
     std::string side;
     double limit = 0;
     if (b.min.has_value() && decoded < *b.min - slack) {
@@ -121,23 +125,32 @@ std::pair<Number, x::errors::Error> number_of(
                     " fields"
             ),
         };
-    if (scaled && k != payload::KIND_FLOAT)
-        return {
-            n,
-            x::errors::Error(
-                CONFIG_ERROR,
-                "a scaled field requires a float channel, not " + dt.name()
-            ),
-        };
-    return {n, x::errors::NIL};
+    return {n, check_scaled_channel(scaled, dt)};
 }
 
-x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
-    return {err, context + ": " + err.data};
+x::errors::Error write_float(const double v, const bool narrow, x::telem::Series &dst) {
+    if (!narrow) {
+        dst.write(v);
+        return x::errors::NIL;
+    }
+    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
+        return {x::errors::VALIDATION, format(v) + " overflows float32"};
+    dst.write(static_cast<float>(v));
+    return x::errors::NIL;
+}
+
+x::errors::Error check_scale(const double scale) {
+    if (scale == 0) return {CONFIG_ERROR, "scale must be non-zero"};
+    return x::errors::NIL;
+}
+
+x::errors::Error check_scaled_channel(const bool scaled, const x::telem::DataType &dt) {
+    if (!scaled || kind_of(dt) == payload::KIND_FLOAT) return x::errors::NIL;
+    return {CONFIG_ERROR, "a scaled field requires a float channel, not " + dt.name()};
 }
 
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
-    return {CONFIG_ERROR, context + ": " + err.data};
+    return {CONFIG_ERROR, err.wrap(context).data};
 }
 
 x::errors::Error check_limits(const icd::BaseField &b, const double v) {
@@ -150,12 +163,20 @@ x::errors::Error check_limits(const icd::BaseField &b, const float v) {
     return check_limits(b, static_cast<double>(v));
 }
 
-x::errors::Error check_raw_limits(const icd::BaseField &b, const double raw) {
+x::errors::Error
+check_raw_limits(const icd::BaseField &b, const double raw, const bool narrow) {
     const double scaled = raw * b.scale;
+    const double decoded = scaled + b.offset;
+    if (std::isinf(decoded)) return out_of_range(b, raw, decoded, 0);
+    if (narrow)
+        for (const auto &limit: {b.min, b.max})
+            if (limit.has_value() &&
+                static_cast<float>(*limit) == static_cast<float>(decoded))
+                return x::errors::NIL;
     return out_of_range(
         b,
         raw,
-        scaled + b.offset,
+        decoded,
         DECODE_ROUNDING * (std::abs(scaled) + std::abs(b.offset))
     );
 }

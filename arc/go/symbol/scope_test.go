@@ -838,6 +838,25 @@ var _ = Describe("Scope", func() {
 						To(MatchError(ContainSubstring("undefined symbol: x")))
 				})
 			})
+
+			Describe("ResolveName", func() {
+				It("Should resolve a bare name like Resolve", func(bCtx SpecContext) {
+					alias := buildAlias(bCtx, buildSourceModule())
+					Expect(MustSucceed(
+						alias.Parent.ResolveName(bCtx, parser.Name{Head: "m"}),
+					)).To(BeIdenticalTo(alias))
+				})
+
+				It(
+					"Should resolve a qualified name as a member",
+					func(bCtx SpecContext) {
+						alias := buildAlias(bCtx, buildSourceModule())
+						n := parser.Name{Head: "m", Tail: "f"}
+						Expect(MustSucceed(alias.Parent.ResolveName(bCtx, n)).Name).
+							To(Equal("f"))
+					},
+				)
+			})
 		})
 
 		Describe("Module aliases", func() {

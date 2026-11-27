@@ -231,13 +231,13 @@ var _ = Describe("Factory", func() {
 				Entry("at boot", driver.NoCommand),
 			)
 
-			It("Should configure and auto-start a task", func(ctx context.Context) {
+			It("Should auto-start a task at boot", func(ctx context.Context) {
 				t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
 					AutoStart:  true,
 					RoutingKey: &routingKey,
 					Alerts:     []pd.Alert{{Status: "test-status"}},
 				})
-				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+				tsk := MustSucceed(factory.ConfigureTask(ctx, t, driver.NoCommand))
 				Expect(tsk).ToNot(BeNil())
 				var stat task.Status
 				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
@@ -249,7 +249,23 @@ var _ = Describe("Factory", func() {
 				Expect(tsk.Stop(true)).To(Succeed())
 			})
 
-			It("Should answer the start command when an auto-start fails",
+			It("Should leave the start to the start command of a deploy",
+				func(ctx context.Context) {
+					t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
+						AutoStart:  true,
+						RoutingKey: &routingKey,
+						Alerts:     []pd.Alert{{Status: "test-status"}},
+					})
+					tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
+					Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+						Entry(&task.Status{}).
+						Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+					Expect(tsk.Stop(false)).To(Succeed())
+				},
+			)
+
+			It("Should report an auto-start that fails at boot",
 				func(ctx context.Context) {
 					short := createRoutingKey(ctx, "tooshort")
 					t := storeTask(ctx, "PagerDuty Test", pd.TaskConfig{
@@ -257,7 +273,7 @@ var _ = Describe("Factory", func() {
 						RoutingKey: &short,
 						Alerts:     []pd.Alert{{Status: "test-status"}},
 					})
-					Expect(factory.ConfigureTask(ctx, t, "cmd-1")).Error().
+					Expect(factory.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 						To(MatchError(ContainSubstring(
 							"routing_key: must be exactly 32 characters",
 						)))
@@ -267,7 +283,6 @@ var _ = Describe("Factory", func() {
 						Entry(&stat).Exec(ctx, db)).To(Succeed())
 					Expect(stat.Variant).To(BeEquivalentTo("error"))
 					Expect(stat.Message).To(Equal("Failed to start task"))
-					Expect(stat.Details.Cmd).To(Equal("cmd-1"))
 					Expect(stat.Details.Running).To(BeFalse())
 				},
 			)

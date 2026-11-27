@@ -19,7 +19,10 @@ export const createTestAuthClient = (
   observer?: auth.Observer,
 ): auth.Client => {
   const { host, port } = testClientParams();
-  const transport = new Transport({ url: new url.URL({ host, port: Number(port) }) });
+  const transport = new Transport({
+    url: new url.URL({ host, port: Number(port) }),
+    secure: false,
+  });
   const client = new auth.Client(transport.unary, authority, observer);
   transport.use(client.middleware());
   return client;

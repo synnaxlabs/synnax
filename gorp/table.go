@@ -149,7 +149,7 @@ func OpenTable[K Key, E Entry[K]](
 		return t, nil
 	}
 	var (
-		inserts   []func(E)
+		inserts   []func(*E)
 		finishes  []func(error)
 		locked    = make(chan struct{})
 		closing   = make(chan struct{})
@@ -191,7 +191,7 @@ func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	closing <-chan struct{},
 	ins alamos.Instrumentation,
-	inserts []func(E),
+	inserts []func(*E),
 	finishes []func(error),
 ) {
 	var scanErr error
@@ -207,14 +207,21 @@ func (t *Table[K, E]) runPopulate(
 			f(scanErr)
 		}
 	}()
-	reader := wrapReader[K, E](t.db, t.keyPrefix)
-	nexter, closer, openErr := reader.OpenNexter(ctx)
+	// The iterator decodes each entry into one buffer, so the scan allocates no copy
+	// per entry.
+	it, openErr := wrapReader[K, E](t.db, t.keyPrefix).OpenIterator(IterOptions{})
 	if openErr != nil {
 		scanErr = openErr
 		return
 	}
-	defer func() { scanErr = errors.Combine(scanErr, closer.Close()) }()
-	for e := range nexter {
+	defer func() {
+		scanErr = errors.Combine(scanErr, errors.Combine(it.err, it.Close()))
+	}()
+	for it.First(); it.Valid(); it.Next() {
+		e := it.Value()
+		if e == nil {
+			continue
+		}
 		select {
 		case <-ctx.Done():
 			scanErr = ctx.Err()

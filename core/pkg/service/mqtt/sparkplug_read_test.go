@@ -895,7 +895,7 @@ var _ = Describe("Sparkplug B read entries", func() {
 							dev,
 							tagEntry("plant", "line1", "", "time", idx),
 						),
-						"cannot take the values of a tag"
+						"entries.0.channel: channel " + idx.Name + " is an index channel"
 				},
 			),
 			Entry("a json channel as the channel of a tag",
@@ -906,8 +906,8 @@ var _ = Describe("Sparkplug B read entries", func() {
 							dev,
 							tagEntry("plant", "line1", "", "doc", ch),
 						),
-						"tag plant/line1/doc: channel " + ch.Name +
-							" cannot take the values of a tag"
+						"entries.0.channel: channel " + ch.Name +
+							" of data type json cannot take the values of a tag"
 				},
 			),
 			Entry("a channel that does not exist",
@@ -916,7 +916,8 @@ var _ = Describe("Sparkplug B read entries", func() {
 						"plant", "line1", "", "temperature", channel.Channel{},
 					)
 					entry["channel"] = 999999
-					return readConfig(ctx, dev, entry), "channel 999999 does not exist"
+					return readConfig(ctx, dev, entry),
+						"entries.0.channel: channel 999999 does not exist"
 				},
 			),
 		)

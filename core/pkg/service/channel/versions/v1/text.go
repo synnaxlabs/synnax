@@ -24,6 +24,7 @@ import (
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/set"
 )
 
 // NewCalculationTextMigration returns the migration that writes the new name of each
@@ -151,13 +152,18 @@ func TextChannels(
 
 // folderNames returns the names of the folder of key and of each folder above it, from
 // the top level down. A folder that no record holds ends the walk, as the dangling
-// reference step that runs later moves its channels to the top level.
+// reference step that runs later moves its channels to the top level. So does a folder
+// that the walk already passed, since a v0.62 Core stored a parent with no cycle check.
 func folderNames(
 	folders map[groupv1.Key]groupv1.Group,
 	key *groupv1.Key,
 ) ([]string, error) {
-	var names []string
-	for key != nil {
+	var (
+		names  []string
+		passed = make(set.Set[groupv1.Key])
+	)
+	for key != nil && !passed.Contains(*key) {
+		passed.Add(*key)
 		f, ok := folders[*key]
 		if !ok {
 			break

@@ -58,12 +58,7 @@ var _ = Describe("Confluence", func() {
 				ctx,
 				CloseOutputInletsOnExit(),
 				WithRetryOnPanic(1),
-				func(opts *Options) {
-					opts.Signal = append(
-						opts.Signal,
-						signal.WithBaseRetryInterval(time.Millisecond),
-					)
-				},
+				WithBaseRetryInterval(time.Millisecond),
 			)
 			// this panics
 			i.Inlet() <- 1

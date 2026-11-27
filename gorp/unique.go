@@ -15,8 +15,10 @@ import (
 	"slices"
 	"sync/atomic"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/index"
 	"github.com/synnaxlabs/gorp/internal/key"
+	"github.com/synnaxlabs/gorp/internal/keyset"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -67,12 +69,15 @@ type UniqueIndex[K Key, E Entry[K], V comparable] struct {
 	// then until the index leaves.
 	members *uniqueSpace[V]
 	table   string
-	joined  bool
+	// prefix is the key prefix of the entries of the table, set when the index joins.
+	prefix []byte
+	joined bool
 }
 
 // NewUniqueIndex constructs a UniqueIndex named name in the space named space. value
 // returns the value of an entry, or false to exempt the entry. Every index of a space
 // must have the same value type V, and a table can have at most one index in a space.
+// value reads the stored entry and must not change it.
 func NewUniqueIndex[K Key, E Entry[K], V comparable](
 	name string,
 	space string,
@@ -89,32 +94,22 @@ func NewUniqueIndex[K Key, E Entry[K], V comparable](
 // Name implements Index.
 func (u *UniqueIndex[K, E, V]) Name() string { return u.name }
 
-func (u *UniqueIndex[K, E, V]) populate() (func(E), func(error)) {
+func (u *UniqueIndex[K, E, V]) populate() (func(*E), func(error)) {
 	insert, finish := u.store.Populate()
-	return func(entry E) {
-			if v, ok := u.value(&entry); ok {
-				insert(entry.GorpKey(), v)
+	return func(entry *E) {
+			if v, ok := u.value(entry); ok {
+				insert((*entry).GorpKey(), v)
 			}
 		},
 		func(err error) { finish(populateErr(u.name, err)) }
 }
 
-func (u *UniqueIndex[K, E, V]) set(entry E) {
-	if v, ok := u.value(&entry); ok {
-		u.store.Set(entry.GorpKey(), v)
+func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry *E) {
+	if v, ok := u.value(entry); ok {
+		u.store.Stage(tx.txIdentity(), (*entry).GorpKey(), v)
 		return
 	}
-	u.store.Delete(entry.GorpKey())
-}
-
-func (u *UniqueIndex[K, E, V]) delete(key K) { u.store.Delete(key) }
-
-func (u *UniqueIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	if v, ok := u.value(&entry); ok {
-		u.store.Stage(tx.txIdentity(), entry.GorpKey(), v)
-		return
-	}
-	u.store.StageDelete(tx.txIdentity(), entry.GorpKey())
+	u.store.StageDelete(tx.txIdentity(), (*entry).GorpKey())
 }
 
 func (u *UniqueIndex[K, E, V]) stageDelete(tx Tx, key K) {
@@ -150,41 +145,66 @@ func (u *UniqueIndex[K, E, V]) check(ctx context.Context, tx Tx, e *E) error {
 	return nil
 }
 
-// Holder returns the entry of any table of the space of u that holds v, as seen by
-// snap, and false when none does. It waits for every index of the space to populate.
+// Holder returns the entry of any table of the space of u that holds v as storage holds
+// it in snap, and false when none does. Like FilterFunc, it sees the changes staged
+// against snap and each commit in flight, and reads each entry to check its value. It
+// waits for every index of the space to populate.
 func (u *UniqueIndex[K, E, V]) Holder(
 	ctx context.Context,
 	snap Snapshot,
 	v V,
 ) (Target, bool, error) {
-	scope := scopeOf(snap)
 	for _, m := range *u.members.members.Load() {
-		if holder, found, err := m.holder(ctx, scope, v); err != nil || found {
+		if holder, found, err := m.stored(ctx, snap, v); err != nil || found {
 			return holder, found, err
 		}
 	}
 	return Target{}, false, nil
 }
 
-// Key returns the key of the entry of the table of u that holds v, as seen by snap, and
-// false when no entry of that table does. Holder returns a holder in any table of the
-// space.
-func (u *UniqueIndex[K, E, V]) Key(
-	ctx context.Context,
-	snap Snapshot,
-	v V,
-) (K, bool, error) {
-	var none K
-	if err := u.store.Wait(ctx); err != nil {
-		return none, false, err
-	}
-	return u.store.Holder(scopeOf(snap), v, nil)
+// Filter returns a Filter that matches the entries of the table of u whose value is one
+// of values. A match is what storage holds, as with FilterFunc.
+func (u *UniqueIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
+	return indexFilter[K, E](u.store, u.holds, values)
 }
 
-// Committing returns the keys of the table of u that a transaction in its commit maps
-// to v. Holder misses them until the commit flushes. The commit can fail, so a caller
-// checks each key against storage.
-func (u *UniqueIndex[K, E, V]) Committing(v V) []K { return u.store.Committing(v) }
+// FilterFunc returns a Filter that matches the entries of the table of u whose value is
+// one of the values that f returns when the query runs. A match is what storage holds:
+// the filter probes u for the keys of the values, with the changes staged against the
+// query's snapshot and the keys of each commit in flight, and checks the value of each
+// entry that the query decodes with the value function of u. When u failed to
+// populate, the filter checks every entry.
+func (u *UniqueIndex[K, E, V]) FilterFunc(
+	f func(ctx Context) ([]V, error),
+) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			values, err := f(newContext(ctx, snap))
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			values = lo.Uniq(values)
+			in := index.AnyOf(values)
+			eval := func(_ Context, e *E, _, _ []byte) (bool, error) {
+				return u.holds(e, in), nil
+			}
+			keys, err := probe(ctx, u.store, snap, values)
+			if errors.Is(err, ErrIndexInvalid) {
+				return resolved[K, E]{eval: eval}, nil
+			}
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			return resolved[K, E]{keys: keyset.Hashed(keys), eval: eval}, nil
+		},
+	}
+}
+
+// holds reports whether e holds a value that in accepts.
+func (u *UniqueIndex[K, E, V]) holds(e *E, in func(V) bool) bool {
+	v, ok := u.value(e)
+	return ok && in(v)
+}
 
 // clash returns err, or else the UniqueError for holder and v.
 func (u *UniqueIndex[K, E, V]) clash(holder Target, v V, err error) error {
@@ -223,6 +243,24 @@ func (u *UniqueIndex[K, E, V]) holder(
 	return NewTarget(u.table, k), true, nil
 }
 
+// stored implements uniqueMember.
+func (u *UniqueIndex[K, E, V]) stored(
+	ctx context.Context,
+	snap Snapshot,
+	v V,
+) (Target, bool, error) {
+	r := NewRetrieve[K, E]()
+	r.keyPrefix = u.prefix
+	var held []E
+	if err := r.
+		Where(u.FilterFunc(func(Context) ([]V, error) { return []V{v}, nil })).
+		Entries(&held).
+		Exec(ctx, snap); err != nil || len(held) == 0 {
+		return Target{}, false, err
+	}
+	return NewTarget(u.table, held[0].GorpKey()), true, nil
+}
+
 // spaceName implements checkedIndex.
 func (u *UniqueIndex[K, E, V]) spaceName() string { return u.space }
 
@@ -241,7 +279,7 @@ func (u *UniqueIndex[K, E, V]) canJoin(r *registry) error {
 }
 
 // join implements checkedIndex.
-func (u *UniqueIndex[K, E, V]) join(r *registry, table string) {
+func (u *UniqueIndex[K, E, V]) join(r *registry, table string, prefix []byte) {
 	space, ok := r.spaces[u.space].(*uniqueSpace[V])
 	if !ok {
 		space = &uniqueSpace[V]{}
@@ -250,7 +288,7 @@ func (u *UniqueIndex[K, E, V]) join(r *registry, table string) {
 	}
 	joined := append(slices.Clone(*space.members.Load()), uniqueMember[V](u))
 	space.members.Store(&joined)
-	u.members, u.table, u.joined = space, table, true
+	u.members, u.table, u.prefix, u.joined = space, table, prefix, true
 }
 
 // leave implements checkedIndex.
@@ -285,7 +323,7 @@ type checkedIndex[K Key, E Entry[K]] interface {
 	canJoin(r *registry) error
 	// join adds the index, on the table named table, to its space in r. Call it with
 	// the lock of r held, after canJoin.
-	join(r *registry, table string)
+	join(r *registry, table string, prefix []byte)
 	// leave removes the index from its space in r, and drops the space when the index
 	// was its last member. Call it with the lock of r held.
 	leave(r *registry)
@@ -295,6 +333,9 @@ type checkedIndex[K Key, E Entry[K]] interface {
 type uniqueMember[V comparable] interface {
 	// holder returns an entry that holds v, with the changes of scope applied.
 	holder(ctx context.Context, scope *txState, v V) (Target, bool, error)
+	// stored returns the entry of the table of the index that holds v as storage holds
+	// it in snap.
+	stored(ctx context.Context, snap Snapshot, v V) (Target, bool, error)
 }
 
 // uniqueSpace is the set of UniqueIndexes of one space on a DB.
