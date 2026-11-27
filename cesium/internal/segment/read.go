@@ -79,16 +79,17 @@ func (rd *Reader) Read(r io.ReaderAt, s Committed, p []byte, off int64) error {
 		start := off - off%BlockSize
 		end := min(start+BlockSize, s.Length)
 		n := min(int(end-off), len(p))
-		if off == start && n == BlockSize && len(p) >= BlockSize+int(s.trailer()) {
+		if n == BlockSize && len(p) >= BlockSize+int(s.trailer()) {
 			// The block and its trailer land in p, and the next block overwrites the
 			// trailer.
 			b := p[:BlockSize+s.trailer()]
 			if err := rd.readChecked(r, s, start, b); err != nil {
 				return err
 			}
-		} else if err := rd.hold(r, s, start, end); err != nil {
-			return err
 		} else {
+			if err := rd.hold(r, s, start, end); err != nil {
+				return err
+			}
 			copy(p[:n], rd.block[off-start:])
 		}
 		p, off = p[n:], off+int64(n)
@@ -139,8 +140,8 @@ func (s *Committed) ReadStored(r io.ReaderAt, p []byte, off int64) error {
 	return nil
 }
 
-// corruptIfShort marks err with place.ErrCorrupt when it is the error of a file that
-// is missing or shorter than its segment.
+// corruptIfShort marks err with place.ErrCorrupt when it is the error of a file that is
+// missing or shorter than its segment.
 func corruptIfShort(err error) error {
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
 		errors.Is(err, os.ErrNotExist) {

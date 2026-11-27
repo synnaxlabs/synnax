@@ -236,9 +236,8 @@ func (c *logCursor) Close() error {
 }
 
 // logReader reads the bytes of one pointer from its segment file, through a handle that
-// no other read holds, which it holds open until Close. When data reads are checked, it
-// checks each block that it reads with a segment reader from the pool of the engine.
-// Otherwise it reads the bytes as stored.
+// no other read holds, which it holds open until Close. With read checks on, it checks
+// each block that it reads.
 type logReader struct {
 	src    *logSource
 	rd     *segment.Reader
