@@ -100,11 +100,14 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    is released when the transaction ends without a commit. The claim fails while a
    writer holds one of the keys, and it blocks writer opens on them while it is held.
    Today Cesium checks, with no hold (`cesium/delete.go:133-153`).
-2. In the Gorp transaction, the service deletes the records. Only once that delete
-   succeeds does it save a pending-drop note (NEW) with the keys whose record the
-   transaction deleted, never a requested key that had none, so a delete route cannot
-   remove a kept key. A refused delete saves no note and drops nothing, even when the
-   transaction commits other writes.
+2. In the Gorp transaction, the service deletes the records. Until RFC 0120 Phase 38 it
+   first refuses the delete of an index channel that a kept channel outside the delete
+   names as its index, with the error of today (`cesium/delete.go:144-152`), so no data
+   channel loses the clock it writes. Only once that delete succeeds does it save a
+   pending-drop note (NEW) with the keys whose record the transaction deleted, never a
+   requested key that had none, so a delete route cannot remove a kept key. A refused
+   delete saves no note and drops nothing, even when the transaction commits other
+   writes.
 3. The service commits the Gorp transaction.
 4. After the commit, a worker of the channel service calls `DB.Delete` with the keys,
    clears the note, then releases the claim. A public hook, `gorp.AfterEnd` (NEW),
@@ -141,19 +144,21 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    file and purges every later kept key unseen.
 
 `Delete` keeps one rule: stamps stay while a kept segment of another key names their key
-as its clock, and the intent of such a key stays until they go. `DeleteTimeRange`
-refuses a clock key while a live pointer of another key names it, as today
-(`cesium/delete.go:265-279`).
+as its clock, and the intent of such a key stays until they go. Meanwhile a read of a
+data key reads those stamps through its own segments. `DeleteTimeRange` refuses a clock
+key while a live pointer of another key names it, as today (`cesium/delete.go:265-279`).
 
 **The end of a clock** (RFC 0120 Phase 25): A clock that has no record ends with its
 last user. `DB.Clocks` (NEW) takes keys and returns each clock that their segments name
-and that no segment of another key names. In step 2 the channel service adds each such
-clock that has no record to the note and to the `Delete` call, so one log entry holds
-the Intents of the keys and of their clocks. Cesium logs the Drop of a clock after the
-Drops of the keys that it times. No writer can make a new user of such a clock while the
-claim is held: continuation picks only a clock that a key of the group already names. A
-`synnax purge` adds the clocks of its keys in the same way. Before RFC 0120 Phase 38 an
-index channel has a record, so its stamps stay until its own delete.
+and that no segment of another key names, where a key with a live intent counts as gone.
+So two deletes whose first Drop a reader pins still end the clock, and a spec covers
+that case. In step 2 the channel service adds each such clock that has no record to the
+note and to the `Delete` call, so one log entry holds the Intents of the keys and of
+their clocks. Cesium logs the Drop of a clock after the Drops of the keys that it times.
+No writer can make a new user of such a clock while the claim is held: continuation
+picks only a clock that a key of the group already names. A `synnax purge` adds the
+clocks of its keys in the same way. Before RFC 0120 Phase 38 an index channel has a
+record, so its stamps stay until its own delete.
 
 **The intent on the old layout** (Phase 5): The root holds one append-only file,
 `delete-intents`, which is never renamed or rewritten, since a rename is not durable
