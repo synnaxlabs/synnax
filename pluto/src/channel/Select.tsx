@@ -19,7 +19,7 @@ import type { ReactElement, ReactNode } from "react";
 import { getCachedIndex, HaulPreview } from "@/channel/HaulPreview";
 import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
-import { HAUL_TYPE } from "@/channel/types";
+import { createHaulItem, HAUL_TYPE, type HaulItem } from "@/channel/types";
 import { CSS } from "@/css";
 import type { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
@@ -68,6 +68,10 @@ const createHaulPreviewRenderer =
       />
     ) : undefined;
 
+// A dragged channel records whether a line plot can draw it.
+const createChannelHaulItem = (entry: unknown): HaulItem | undefined =>
+  isChannel(entry) ? createHaulItem(entry.key, entry) : undefined;
+
 const TRIGGER_CLASS = CSS.BE("channel", "trigger");
 
 // A caller's trigger props add to the defaults, so the trigger keeps its icon and mark.
@@ -95,6 +99,7 @@ export const SelectMultiple = ({
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       haulType={HAUL_TYPE}
+      createHaulItem={(ch) => createHaulItem(ch.key, ch)}
       onFetchMore={more}
       onSearch={search}
       status={status}
@@ -137,7 +142,10 @@ export const SelectSingle = ({
       status={status}
       haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
-      triggerProps={withDefaults(client, triggerProps)}
+      triggerProps={{
+        createHaulItem: createChannelHaulItem,
+        ...withDefaults(client, triggerProps),
+      }}
       {...rest}
       data={data}
       getItem={getItem}

@@ -9,8 +9,10 @@
 
 import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { id } from "@synnaxlabs/x";
+import type { ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
@@ -111,6 +113,48 @@ describe("Channel select", () => {
       await expect.element(text(third.name)).toBeInTheDocument();
       expect(search.element()).toBe(searchElement);
       await expect.element(search).toHaveValue(term);
+    });
+  });
+
+  describe("drag", () => {
+    const client = createTestClient();
+    const Wrapper = createSynnaxWrapper({ client });
+
+    const Dragged = (): ReactElement => (
+      <output>{JSON.stringify(Haul.useDraggingState().items)}</output>
+    );
+
+    it("should record whether a line plot can draw the dragged channel", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      const text = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.STRING,
+        index: index.key,
+      });
+      const c = await render(
+        <Haul.Provider>
+          <Channel.SelectSingle value={text.key} onChange={vi.fn()} />
+          <Dragged />
+        </Haul.Provider>,
+        { wrapper: Wrapper },
+      );
+      const trigger = c.container.querySelector(`.${TRIGGER_CLASS}`);
+      if (trigger == null) throw new Error("the trigger did not render");
+      await expect.element(page.getByText(text.name)).toBeInTheDocument();
+      trigger.dispatchEvent(
+        new DragEvent("dragstart", { bubbles: true, dataTransfer: new DataTransfer() }),
+      );
+      await expect
+        .element(page.getByRole("status"))
+        .toHaveTextContent(
+          JSON.stringify([
+            { type: Channel.HAUL_TYPE, key: text.key, data: { plottable: false } },
+          ]),
+        );
     });
   });
 });

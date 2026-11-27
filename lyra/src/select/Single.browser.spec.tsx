@@ -683,6 +683,24 @@ describe("Select.Single", () => {
       expect(layer?.textContent).toBe("Custom Second Item");
     });
 
+    it("should drag the item that its trigger builds", () => {
+      const { source, target, onMultipleChange } = renderPair({
+        triggerProps: { createHaulItem: () => ({ type: HAUL_TYPE, key: "3" }) },
+      });
+      fireEvent.dragStart(source, { dataTransfer: new DataTransfer() });
+      fireEvent.drop(target, { dataTransfer: new DataTransfer() });
+      expect(onMultipleChange).toHaveBeenCalledWith(["3"], expect.anything());
+    });
+
+    it("should not drag an entry that its trigger builds no item for", () => {
+      const { source, target, onMultipleChange } = renderPair({
+        triggerProps: { createHaulItem: () => undefined },
+      });
+      fireEvent.dragStart(source, { dataTransfer: new DataTransfer() });
+      fireEvent.drop(target, { dataTransfer: new DataTransfer() });
+      expect(onMultipleChange).not.toHaveBeenCalled();
+    });
+
     it("should not drag a selected key with no entry", () => {
       const { source, target, onMultipleChange } = renderPair({ value: "0" });
       expect(source.draggable).toBe(false);

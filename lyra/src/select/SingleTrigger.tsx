@@ -58,6 +58,11 @@ export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant">
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
+  /**
+   * Builds the haul item for the selected entry when it is dragged out. Undefined keeps
+   * the entry from dragging. Defaults to an item of `haulType` with the entry's key.
+   */
+  createHaulItem?: (entry: unknown) => Haul.Item | undefined;
   /** Renders the drag preview of the selected entry. Defaults to its icon and name. */
   renderHaulPreview?: (entry: unknown) => ReactNode;
   /**
@@ -93,6 +98,7 @@ export const SingleTrigger = <K extends record.Key>({
   hideCaret = false,
   variant: triggerVariant = "outlined",
   renderIcon,
+  createHaulItem,
   renderHaulPreview,
   renderEndContent,
   collapsible = false,
@@ -132,9 +138,12 @@ export const SingleTrigger = <K extends record.Key>({
     haulType !== "" && item != null && !fixed && disabled !== true && preview !== true;
   const handleDragStart = (event: DragEvent<HTMLElement>) => {
     if (item == null) return;
+    const hauled =
+      createHaulItem == null ? { key: item.key, type: haulType } : createHaulItem(item);
+    if (hauled == null) return;
     startDrag({
       event,
-      items: [{ key: item.key, type: haulType }],
+      items: [hauled],
       preview: renderHaulPreview?.(item) ?? (
         <Haul.Preview icon={resolvedIcon} name={name ?? item.key} />
       ),
