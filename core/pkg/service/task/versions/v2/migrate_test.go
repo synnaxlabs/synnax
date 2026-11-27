@@ -354,7 +354,10 @@ var _ = Describe("Migrations", func() {
 				Rack:   secrettestutil.CoreRack,
 			}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
-			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
+			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+				DB:     db,
+				Status: stat,
+			}))
 			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
 				DB:     db,
 				Status: stat,

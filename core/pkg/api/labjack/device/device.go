@@ -14,6 +14,7 @@ import (
 	"context"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -67,6 +68,35 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	return &Service{cfg: cfg}, nil
 }
 
+type (
+	// CreateRequest carries the devices to create or replace.
+	CreateRequest struct {
+		// Devices are the devices to store. A nil key mints a new one.
+		Devices []device.Device `json:"devices" msgpack:"devices"`
+	}
+	// CreateResponse carries the created devices with their keys.
+	CreateResponse struct {
+		// Devices are the stored devices, without their statuses.
+		Devices []device.Device `json:"devices" msgpack:"devices"`
+	}
+)
+
+// Create stores the given devices.
+func (s *Service) Create(
+	ctx context.Context,
+	tx gorp.Tx,
+	req CreateRequest,
+) (CreateResponse, error) {
+	w := s.cfg.Device.NewWriter(tx)
+	for i := range req.Devices {
+		req.Devices[i] = withoutStatus(req.Devices[i])
+		if err := w.Create(ctx, &req.Devices[i]); err != nil {
+			return CreateResponse{}, err
+		}
+	}
+	return CreateResponse(req), nil
+}
+
 var _ bind.Named = RetrieveRequest{}
 
 // Named implements bind.Named. It returns the devices that the top level of Where
@@ -106,4 +136,43 @@ func (s *Service) Retrieve(
 		res.Devices[i].Status = st
 	}
 	return res, nil
+}
+
+// withoutStatus drops a status the client sent, because the Core owns each status.
+func withoutStatus(d device.Device) device.Device {
+	d.Status = nil
+	return d
+}
+
+// UpdateRequest names a device and the one field group to write to it.
+type UpdateRequest struct {
+	// Update is the field group to write.
+	Update device.Update `json:"update" msgpack:"update"`
+	// Key selects the device to update.
+	Key device.Key `json:"key" msgpack:"key"`
+}
+
+// Update writes one field group to a device and keeps the other as stored. It returns
+// a validation error when the request carries no group or names a different model.
+func (s *Service) Update(
+	ctx context.Context,
+	tx gorp.Tx,
+	req UpdateRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Device.NewWriter(tx).Apply(ctx, req.Key, req.Update)
+}
+
+// DeleteRequest carries the keys of the devices to delete.
+type DeleteRequest struct {
+	// Keys selects the devices to delete.
+	Keys []device.Key `json:"keys" msgpack:"keys"`
+}
+
+// Delete removes the given devices with their statuses.
+func (s *Service) Delete(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DeleteRequest,
+) (struct{}, error) {
+	return struct{}{}, s.cfg.Device.NewWriter(tx).Delete(ctx, req.Keys...)
 }

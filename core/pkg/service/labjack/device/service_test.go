@@ -11,6 +11,7 @@ package device_test
 
 import (
 	"context"
+	"fmt"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,6 +27,7 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -60,7 +62,10 @@ var _ = Describe("Service", func() {
 			HostKey: node.Identity.HostKey,
 			Status:  stat,
 		}))
-		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{DB: db}))
+		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
+			DB:     db,
+			Status: stat,
+		}))
 		tx = DeferClose(db.OpenTx())
 	})
 
@@ -69,10 +74,13 @@ var _ = Describe("Service", func() {
 		serial++
 		return serial
 	}
+	edit := func(d device.Device, change func(*device.Device)) device.Device {
+		change(&d)
+		return d
+	}
 	create := func(ctx context.Context) device.Device {
 		GinkgoHelper()
 		d := device.Device{
-			Key:        uuid.New(),
 			Rack:       rackKey,
 			Name:       "T7-0001",
 			Serial:     nextSerial(),
@@ -80,9 +88,26 @@ var _ = Describe("Service", func() {
 			Model:      device.ModelT7,
 			Ports:      device.Ports{Variant: device.T7Ports{}},
 		}
-		Expect(gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)).
-			To(Succeed())
+		Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
 		return d
+	}
+	retrieve := func(ctx context.Context, key device.Key) device.Device {
+		GinkgoHelper()
+		var d device.Device
+		Expect(svc.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&d).
+			Exec(ctx, tx)).To(Succeed())
+		return d
+	}
+	retrieveStatus := func(ctx context.Context, key device.Key) device.Status {
+		GinkgoHelper()
+		var s device.Status
+		Expect(stat.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchOwners[device.StatusDetails](device.ResourceID(key))).
+			Entry(&s).
+			Exec(ctx, tx)).To(Succeed())
+		return s
 	}
 
 	Describe("Channels", func() {
@@ -121,15 +146,370 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(device.OpenService(ctx, device.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string, unset func(*device.ServiceConfig)) {
+				cfg := device.ServiceConfig{DB: db, Status: stat}
+				unset(&cfg)
+				Expect(device.OpenService(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db", func(c *device.ServiceConfig) { c.DB = nil }),
+			Entry("status", "status", func(c *device.ServiceConfig) { c.Status = nil }),
+		)
 
 		It("Should let a later config override an earlier one", func() {
-			cfg := device.ServiceConfig{}.Override(device.ServiceConfig{DB: db})
+			cfg := device.ServiceConfig{DB: db}.Override(
+				device.ServiceConfig{Status: stat},
+			)
 			Expect(cfg.DB).To(BeIdenticalTo(db))
+			Expect(cfg.Status).To(BeIdenticalTo(stat))
 			Expect(cfg.Validate()).To(Succeed())
+		})
+	})
+
+	Describe("Create", func() {
+		It("Should mint a key and store the device", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(d.Key).ToNot(Equal(uuid.Nil()))
+			Expect(retrieve(ctx, d.Key).Serial).To(Equal(d.Serial))
+		})
+
+		It("Should refuse to replace a device of another model", func(ctx SpecContext) {
+			d := create(ctx)
+			replaced := d
+			replaced.Model = device.ModelT4
+			replaced.Ports = device.Ports{Variant: device.T4Ports{}}
+			Expect(svc.NewWriter(tx).Create(ctx, &replaced)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("model: cannot change from t7 to t4")),
+			))
+			Expect(retrieve(ctx, d.Key).Model).To(Equal(device.ModelT7))
+		})
+
+		It("Should keep a key the caller sets", func(ctx SpecContext) {
+			key := uuid.New()
+			d := device.Device{
+				Key:        key,
+				Rack:       rackKey,
+				Name:       "T7-0001",
+				Serial:     470010001,
+				Connection: device.ConnectionUSB,
+				Model:      device.ModelT7,
+				Ports:      device.Ports{Variant: device.T7Ports{}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			Expect(d.Key).To(Equal(key))
+		})
+
+		DescribeTable(
+			"Should reject an invalid device",
+			func(ctx SpecContext, change func(*device.Device), message string) {
+				d := device.Device{
+					Rack:       rackKey,
+					Name:       "T7-0001",
+					Serial:     470010001,
+					Connection: device.ConnectionUSB,
+					Model:      device.ModelT7,
+					Ports:      device.Ports{Variant: device.T7Ports{}},
+				}
+				change(&d)
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).
+					To(MatchError(ContainSubstring(message)))
+			},
+			Entry(
+				"no name",
+				func(d *device.Device) { d.Name = "" },
+				"name: required",
+			),
+			Entry(
+				"no serial",
+				func(d *device.Device) { d.Serial = 0 },
+				"serial: must be non-zero",
+			),
+			Entry(
+				"no model",
+				func(d *device.Device) { d.Model = "" },
+				"model",
+			),
+			Entry(
+				"no ports",
+				func(d *device.Device) { d.Ports = device.Ports{} },
+				"ports.model: required",
+			),
+			Entry(
+				"ports for another model",
+				func(d *device.Device) { d.Ports = device.Ports{Variant: device.T4Ports{}} },
+				"ports: are for t4, not t7",
+			),
+			Entry(
+				"unknown connection",
+				func(d *device.Device) { d.Connection = "LJM_ctTCP" },
+				"invalid connection",
+			),
+		)
+
+		It("Should write an unknown status", func(ctx SpecContext) {
+			d := create(ctx)
+			s := retrieveStatus(ctx, d.Key)
+			Expect(s.Name).To(Equal(d.Name))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Status unknown"))
+			Expect(
+				s.Details,
+			).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Key}))
+		})
+
+		It(
+			"Should move an existing status to a replaced device",
+			func(ctx SpecContext) {
+				d := create(ctx)
+				s := retrieveStatus(ctx, d.Key)
+				s.Variant = status.VariantSuccess
+				Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+				other := rack.Rack{Name: "Other"}
+				Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+				d = edit(d, func(b *device.Device) {
+					b.Rack = other.Key
+					b.Name = "Replaced"
+				})
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+				got := retrieveStatus(ctx, d.Key)
+				Expect(got.Name).To(Equal("Replaced"))
+				Expect(got.Details.Rack).To(Equal(other.Key))
+				Expect(got.Variant).To(Equal(status.VariantSuccess))
+			},
+		)
+
+		It("Should move the status when it moves the device to another rack", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			s := retrieveStatus(ctx, d.Key)
+			s.Variant = status.VariantSuccess
+			s.Message = "Connected"
+			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			moved := edit(d, func(b *device.Device) { b.Rack = other.Key })
+			Expect(svc.NewWriter(tx).Create(ctx, &moved)).To(Succeed())
+			got := retrieveStatus(ctx, d.Key)
+			Expect(got.Details.Rack).To(Equal(other.Key))
+			Expect(got.Variant).To(Equal(status.VariantSuccess))
+			Expect(got.Message).To(Equal("Connected"))
+		})
+
+		It("Should keep a status that already exists", func(ctx SpecContext) {
+			d := create(ctx)
+			s := retrieveStatus(ctx, d.Key)
+			s.Variant = status.VariantSuccess
+			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			Expect(
+				retrieveStatus(ctx, d.Key).Variant,
+			).To(Equal(status.VariantSuccess))
+		})
+
+		It("Should refuse a device on a rack that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := rack.NewKey(1, 999)
+			d := device.Device{
+				Rack:       missing,
+				Name:       "T7-0001",
+				Serial:     470010001,
+				Connection: device.ConnectionUSB,
+				Model:      device.ModelT7,
+				Ports:      device.Ports{Variant: device.T7Ports{}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(MatchError(fmt.Sprintf(
+				"rack: rack %d does not exist: validation error",
+				missing,
+			)))
+		})
+	})
+
+	Describe("Apply", func() {
+		configuration := func(ports device.PortsVariant) device.Update {
+			return device.Update{Variant: device.ConfigurationUpdate{
+				Configuration: device.Configuration{
+					Name:       "Renamed",
+					Identifier: "dev1",
+					Ports:      device.Ports{Variant: ports},
+				},
+			}}
+		}
+		identity := func(d device.Device, change func(*device.Identity)) device.Update {
+			i := device.Identity{
+				Rack:       d.Rack,
+				Serial:     d.Serial,
+				Connection: d.Connection,
+				Model:      d.Model,
+			}
+			change(&i)
+			return device.Update{Variant: device.IdentityUpdate{Identity: i}}
+		}
+
+		It("Should write the configuration and keep the identity", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(
+				ctx,
+				d.Key,
+				configuration(device.T7Ports{Mux80Attached: true}),
+			)).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Identifier).To(Equal("dev1"))
+			Expect(got.Ports).To(Equal(device.Ports{
+				Variant: device.T7Ports{Mux80Attached: true},
+			}))
+			Expect(got.Rack).To(Equal(d.Rack))
+			Expect(got.Serial).To(Equal(d.Serial))
+			Expect(got.Connection).To(Equal(d.Connection))
+		})
+
+		It("Should write the identity and keep the configuration", func(
+			ctx SpecContext,
+		) {
+			d := edit(create(ctx), func(b *device.Device) { b.Identifier = "dev1" })
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, identity(
+				d,
+				func(i *device.Identity) {
+					i.Rack = other.Key
+					i.Serial = d.Serial + 1000
+					i.Connection = device.ConnectionWifi
+				},
+			))).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Rack).To(Equal(other.Key))
+			Expect(got.Serial).To(Equal(d.Serial + 1000))
+			Expect(got.Connection).To(Equal(device.ConnectionWifi))
+			Expect(got.Name).To(Equal(d.Name))
+			Expect(got.Identifier).To(Equal("dev1"))
+			Expect(retrieveStatus(ctx, d.Key).Details.Rack).To(Equal(other.Key))
+		})
+
+		It("Should refuse a move to a missing rack", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, identity(
+				d,
+				func(i *device.Identity) { i.Rack = rackKey + 1000 },
+			))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("does not exist")),
+			))
+			Expect(retrieve(ctx, d.Key).Rack).To(Equal(rackKey))
+		})
+
+		It("Should rename the status with the device", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(
+				ctx,
+				d.Key,
+				configuration(device.T7Ports{}),
+			)).To(Succeed())
+			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
+		})
+
+		It("Should write an unknown status when the status is missing", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(stat.NewWriter(tx).DeleteOwned(
+				ctx,
+				device.ResourceID(d.Key),
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(
+				ctx,
+				d.Key,
+				configuration(device.T7Ports{}),
+			)).To(Succeed())
+			s := retrieveStatus(ctx, d.Key)
+			Expect(s.Name).To(Equal("Renamed"))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Status unknown"))
+			Expect(
+				s.Details,
+			).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Key}))
+		})
+
+		It("Should reject an invalid configuration", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.ConfigurationUpdate{Configuration: device.Configuration{
+					Ports: device.Ports{Variant: device.T7Ports{}},
+				}},
+			})).To(MatchError(ContainSubstring("name: required")))
+		})
+
+		DescribeTable(
+			"Should refuse a different model",
+			func(ctx SpecContext, update func(device.Device) device.Update, message string) {
+				d := create(ctx)
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, update(d))).
+					To(SatisfyAll(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(message)),
+					))
+				Expect(retrieve(ctx, d.Key).Model).To(Equal(device.ModelT7))
+			},
+			Entry("in the ports of a configuration", func(device.Device) device.Update {
+				return configuration(device.T4Ports{})
+			}, "ports: are for t4, not t7"),
+			Entry("in an identity", func(d device.Device) device.Update {
+				return identity(
+					d,
+					func(i *device.Identity) { i.Model = device.ModelT4 },
+				)
+			}, "model: cannot change from t7 to t4"),
+		)
+
+		It("Should reject an update with no group", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{})).
+				To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should return not found for a missing device", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(
+				ctx,
+				uuid.New(),
+				configuration(device.T7Ports{}),
+			)).To(MatchError(query.ErrNotFound))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the device and its status", func(ctx SpecContext) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Delete(ctx, d.Key)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(device.MatchKeys(d.Key)).
+				Exists(ctx, tx)).To(BeFalse())
+			var s device.Status
+			Expect(stat.NewRetrieve[device.StatusDetails]().
+				Where(status.MatchOwners[device.StatusDetails](device.ResourceID(d.Key))).
+				Entry(&s).
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should keep a rack that holds a device from deletion", func(
+			ctx SpecContext,
+		) {
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			d := edit(create(ctx), func(b *device.Device) { b.Rack = other.Key })
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			Expect(rackSvc.NewWriter(tx).Delete(ctx, nil, other.Key)).
+				To(MatchError(ContainSubstring("labjack_device")))
+		})
+
+		It("Should succeed for a missing device", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Delete(ctx, uuid.New())).To(Succeed())
 		})
 	})
 

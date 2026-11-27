@@ -20,16 +20,24 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
-	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-var deviceType = resource.ID{Type: resource.TypeLabjackDevice}
+var (
+	deviceType = resource.ID{Type: resource.TypeLabjackDevice}
+	statusType = resource.ID{Type: resource.TypeStatus}
+	allWrites  = []access.Action{
+		access.ActionCreate,
+		access.ActionUpdate,
+		access.ActionDelete,
+	}
+)
 
 var _ = Describe("Service", func() {
 	var (
@@ -38,10 +46,13 @@ var _ = Describe("Service", func() {
 	)
 	BeforeEach(func(ctx SpecContext) { u = createUser(ctx) })
 
+	edit := func(d device.Device, change func(*device.Device)) device.Device {
+		change(&d)
+		return d
+	}
 	newDevice := func(overrides ...func(*device.Device)) device.Device {
 		serial++
-		d := device.Device{
-			Key:        uuid.New(),
+		b := device.Device{
 			Rack:       svc.Rack.EmbeddedKey,
 			Name:       "T7-0001",
 			Serial:     serial,
@@ -50,9 +61,15 @@ var _ = Describe("Service", func() {
 			Ports:      device.Ports{Variant: device.T7Ports{}},
 		}
 		for _, override := range overrides {
-			override(&d)
+			override(&b)
 		}
-		return d
+		return b
+	}
+	// grantWrites lets u write any LabJack device, its status, and the rack it sits on.
+	grantWrites := func(ctx SpecContext, r rack.Key) {
+		GinkgoHelper()
+		grant(ctx, u, allWrites, deviceType, statusType)
+		grant(ctx, u, []access.Action{access.ActionUpdate}, r.ResourceID())
 	}
 	grantRetrieve := func(ctx SpecContext) {
 		GinkgoHelper()
@@ -62,16 +79,29 @@ var _ = Describe("Service", func() {
 		GinkgoHelper()
 		d := newDevice(overrides...)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)
+			return svc.LabJack.Devices.NewWriter(tx).Create(ctx, &d)
 		})).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return gorp.NewDelete[device.Key, device.Device]().
-					Where(gorp.MatchKeys[device.Key, device.Device](d.Key)).
-					Exec(ctx, tx)
+				return svc.LabJack.Devices.NewWriter(tx).Delete(ctx, d.Key)
 			})).To(Succeed())
 		})
 		return d
+	}
+	retrieveDevice := func(ctx SpecContext, key device.Key) device.Device {
+		GinkgoHelper()
+		var d device.Device
+		Expect(svc.LabJack.Devices.NewRetrieve().
+			Where(device.MatchKeys(key)).
+			Entry(&d).
+			Exec(ctx, db)).To(Succeed())
+		return d
+	}
+	deleteDevice := func(ctx SpecContext, key device.Key) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.LabJack.Devices.NewWriter(tx).Delete(ctx, key)
+		})).To(Succeed())
 	}
 
 	Describe("NewService", func() {
@@ -101,6 +131,81 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Create", func() {
+		It("Should mint a key when writes are granted", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{newDevice()}},
+			))
+			Expect(res.Devices[0].Key).ToNot(Equal(uuid.Nil()))
+			deleteDevice(ctx, res.Devices[0].Key)
+		})
+
+		It("Should not echo a status the client sent", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			d := newDevice(func(b *device.Device) {
+				b.Status = &device.Status{Message: "Connected"}
+			})
+			res := MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{d}},
+			))
+			Expect(res.Devices[0].Status).To(BeNil())
+			deleteDevice(ctx, res.Devices[0].Key)
+		})
+
+		It("Should reject a device with no model", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{{}}},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject the request when create is not granted", func(
+			ctx SpecContext,
+		) {
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{newDevice()}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
+		It("Should replace an existing device", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Rack)
+			d = edit(d, func(b *device.Device) { b.Name = "Replaced" })
+			MustSucceed(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{d}},
+			))
+			Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("Replaced"))
+		})
+
+		It("Should not replace a device without update access", func(
+			ctx SpecContext,
+		) {
+			d := createDevice(ctx)
+			grant(ctx, u, []access.Action{access.ActionCreate}, deviceType, statusType)
+			grant(
+				ctx,
+				u,
+				[]access.Action{access.ActionUpdate},
+				statusType,
+				d.Rack.ResourceID(),
+			)
+			replaced := edit(d, func(b *device.Device) { b.Name = "Replaced" })
+			Expect(create(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.CreateRequest{Devices: []device.Device{replaced}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(
+				retrieveDevice(ctx, d.Key).Name,
+			).To(Equal(d.Name))
+		})
+	})
+
 	Describe("Retrieve", func() {
 		It("Should reject a named device when retrieve is not granted", func(
 			ctx SpecContext,
@@ -117,17 +222,6 @@ var _ = Describe("Service", func() {
 		It("Should filter by serial and attach the status", func(ctx SpecContext) {
 			d := createDevice(ctx)
 			createDevice(ctx)
-			st := device.Status{
-				Owner:   new(d.ResourceID()),
-				Name:    d.Name,
-				Time:    telem.Now(),
-				Variant: status.VariantSuccess,
-				Message: "Running",
-				Details: device.StatusDetails{Device: d.Key},
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Status.NewWriter(tx).Set(ctx, &st)
-			})).To(Succeed())
 			grantRetrieve(ctx)
 			serial := d.Serial
 			res := MustSucceed(retrieve(
@@ -141,7 +235,7 @@ var _ = Describe("Service", func() {
 			))
 			Expect(res.Devices).To(HaveLen(1))
 			Expect(res.Devices[0].Key).To(Equal(d.Key))
-			Expect(res.Devices[0].Status.Message).To(Equal("Running"))
+			Expect(res.Devices[0].Status.Message).To(Equal("Status unknown"))
 		})
 
 		It("Should filter by model", func(ctx SpecContext) {
@@ -263,6 +357,125 @@ var _ = Describe("Service", func() {
 				},
 			))
 			Expect(res.Devices).To(BeEmpty())
+		})
+	})
+
+	Describe("Update", func() {
+		configure := func(key device.Key, ports device.PortsVariant) apidevice.UpdateRequest {
+			return apidevice.UpdateRequest{
+				Key: key,
+				Update: device.Update{Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{
+						Name:       "Renamed",
+						Identifier: "lj",
+						Ports:      device.Ports{Variant: ports},
+					},
+				}},
+			}
+		}
+
+		It("Should write only the configuration group", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				configure(d.Key, device.T7Ports{}),
+			)).Error().ToNot(HaveOccurred())
+			got := retrieveDevice(ctx, d.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Identifier).To(Equal("lj"))
+			Expect(got.Serial).To(Equal(d.Serial))
+		})
+
+		It("Should write only the identity group", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.UpdateRequest{
+					Key: d.Key,
+					Update: device.Update{Variant: device.IdentityUpdate{
+						Identity: device.Identity{
+							Rack:       d.Rack,
+							Serial:     999,
+							Connection: device.ConnectionEthernet,
+							Model:      device.ModelT7,
+						},
+					}},
+				},
+			)).Error().ToNot(HaveOccurred())
+			got := retrieveDevice(ctx, d.Key)
+			Expect(got.Serial).To(Equal(uint32(999)))
+			Expect(got.Connection).To(Equal(device.ConnectionEthernet))
+			Expect(got.Name).To(Equal(d.Name))
+		})
+
+		It("Should refuse ports for another model", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				configure(d.Key, device.T4Ports{}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("ports: are for t4, not t7")),
+			))
+			Expect(retrieveDevice(ctx, d.Key).Model).To(Equal(device.ModelT7))
+		})
+
+		It("Should reject a request with no group", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Rack)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.UpdateRequest{Key: d.Key},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should return not found for a missing device", func(ctx SpecContext) {
+			grantWrites(ctx, svc.Rack.EmbeddedKey)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				configure(uuid.New(), device.T7Ports{}),
+			)).Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			d := createDevice(ctx)
+			Expect(update(
+				testutil.AuthedCtx(ctx, u),
+				configure(d.Key, device.T7Ports{}),
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(
+				retrieveDevice(ctx, d.Key).Name,
+			).To(Equal(d.Name))
+		})
+	})
+
+	Describe("Delete", func() {
+		It("Should remove the device when delete is granted", func(ctx SpecContext) {
+			d := createDevice(ctx)
+			grantWrites(ctx, d.Rack)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.DeleteRequest{Keys: []device.Key{d.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(svc.LabJack.Devices.NewRetrieve().
+				Where(device.MatchKeys(d.Key)).
+				Exists(ctx, db)).To(BeFalse())
+		})
+
+		It("Should reject the request when delete is not granted", func(
+			ctx SpecContext,
+		) {
+			d := createDevice(ctx)
+			Expect(del(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.DeleteRequest{Keys: []device.Key{d.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveDevice(ctx, d.Key).Key).To(Equal(d.Key))
 		})
 	})
 })
