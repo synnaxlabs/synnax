@@ -92,7 +92,10 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		ImEx:   imexSvc,
 		Configs: MustSucceed(config.NewRegistry(slices.Concat(
 			pd.Stores(),
-			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db})).Stores(),
+			MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
+				DB:     db,
+				Status: statusSvc,
+			})).Stores(),
 		)...)),
 		ImExExcluded: excluded,
 	}))
