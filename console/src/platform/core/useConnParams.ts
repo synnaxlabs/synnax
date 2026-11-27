@@ -91,7 +91,8 @@ const paramsOf = (
   }
   if (stored?.account !== accountOf(core) || stored.lastLogin !== core.lastLogin)
     return undefined;
-  return { ...params, token: stored.token, sessionPersistent: true };
+  // the dev server keeps a redeemed invite's token in the record, not the tab
+  return { ...params, token: token ?? stored.token, sessionPersistent: true };
 };
 
 /**
