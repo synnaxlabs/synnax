@@ -139,7 +139,7 @@ public:
     );
 
     /// @brief returns the failures of the last read, in binding order. Empty after a
-    /// read that returned no message or an error, and for a format other than JSON.
+    /// read that returned no message or an error.
     [[nodiscard]] const std::vector<Failure> &failures() const { return this->failed; }
 };
 }
