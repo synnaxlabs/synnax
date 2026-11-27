@@ -229,9 +229,9 @@ export class Client extends query.Retriever<
 
   /**
    * Applies the actions to the chassis in one transaction of the Core. Each action
-   * edits only its path, so concurrent edits to other fields survive. Actions hold the
-   * snake_case form that the Core stores. The cache takes the result from the Core's
-   * set signal.
+   * edits only its path of the chassis the Core holds when it applies them, so edits to
+   * other fields that commit earlier survive. Actions hold the snake_case form that the
+   * Core stores. The cache holds the result when dispatch resolves.
    * @throws {NotFoundError} if the chassis does not exist.
    * @throws {ValidationError} if the chassis cannot hold an action.
    */
@@ -242,6 +242,9 @@ export class Client extends query.Retriever<
       dispatchReqZ,
       dispatchResZ,
     );
+    // The stored chassis replaces the cached one, so a read after dispatch sees it.
+    const [stored] = await this.fetchThrough({ key });
+    this.store.set([stripStatus(stored)]);
   }
 
   /**
