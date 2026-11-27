@@ -130,9 +130,10 @@ var _ = Describe("Budget", func() {
 					hs := dirty(b, 4, "")
 					fs.FailSync("1.seg", errInjected)
 					fs.FailSync("3.seg", errInjected)
-					err := b.Sync(hs)
-					Expect(err).To(MatchError(errInjected))
-					Expect(err.Error()).To(MatchRegexp(`(?s)file 1\.seg.*file 3\.seg`))
+					Expect(b.Sync(hs)).To(SatisfyAll(
+						MatchError(errInjected),
+						MatchError(MatchRegexp(`(?s)file 1\.seg.*file 3\.seg`)),
+					))
 					Expect(fs.Ops()).To(ContainElements("sync 0.seg", "sync 2.seg"))
 					Expect(
 						hs[1].WriteAt([]byte("x"), 0),
