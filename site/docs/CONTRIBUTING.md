@@ -103,4 +103,4 @@ When referring to external products, please use proper capitalization:
 - NI-DAQmx, not DAQ Mx
 - OPC UA driver, not OPC driver
 
-Using shorthand ("DAQmx") is acceptable after the first reference.
+Always write the full name NI-DAQmx, never the shorthand "DAQmx".
