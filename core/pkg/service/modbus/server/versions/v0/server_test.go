@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ = Describe("Server", func() {
@@ -293,5 +294,162 @@ var _ = Describe("Server", func() {
 		Entry("a write with no channel", func(s *v0.Server) {
 			s.Writes = []v0.Write{{Location: writeCoil(0)}}
 		}, "writes.0.channel"),
+	)
+})
+
+var _ = Describe("Connection", func() {
+	DescribeTable("Should round trip through msgpack",
+		func(c v0.Connection) {
+			var decoded v0.Connection
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(c)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(c))
+		},
+		Entry("TCP", v0.Connection{Variant: v0.TcpConnection{
+			BytesSwapped: true,
+			Timeout:      500 * telem.Millisecond,
+			Host:         "plc",
+			Port:         502,
+			UnitID:       3,
+		}}),
+		Entry("RTU", v0.Connection{Variant: v0.RtuConnection{
+			Timeout:    telem.Second,
+			Retries:    2,
+			SerialPort: "COM3",
+			BaudRate:   9600,
+			Parity:     v0.ParityNone,
+			StopBits:   v0.StopBitsTwo,
+			UnitID:     7,
+		}}),
+		Entry("no variant", v0.Connection{}),
+	)
+
+	It("Should apply the defaults of an omitted field", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"transport":   "rtu",
+			"serial_port": "COM3",
+		}))
+		var decoded v0.Connection
+		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
+		Expect(decoded.Variant).To(Equal(v0.RtuConnection{
+			Timeout:    telem.Second,
+			Retries:    1,
+			SerialPort: "COM3",
+			BaudRate:   19200,
+			Parity:     v0.ParityEven,
+			StopBits:   v0.StopBitsOne,
+			UnitID:     1,
+		}))
+	})
+
+	It("Should reject an unknown transport", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{"transport": "udp"}))
+		var decoded v0.Connection
+		Expect(msgpack.Unmarshal(raw, &decoded)).
+			To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("Location", func() {
+	location := func(variant v0.LocationVariant) v0.Location {
+		return v0.Location{Variant: variant}
+	}
+	DescribeTable("Should round trip through msgpack",
+		func(r v0.Location) {
+			var decoded v0.Location
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(r)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(r))
+		},
+		Entry("a coil", location(v0.CoilLocation{
+			Address: 3,
+		})),
+		Entry("a discrete input", location(v0.DiscreteInputLocation{
+			Address: 4,
+		})),
+		Entry("a whole value", location(v0.HoldingRegisterLocation{
+			Address: 5,
+			Value: v0.Value{Variant: v0.WholeValue{
+				DataType:     telem.NumericDataTypeFloat32,
+				WordsSwapped: new(true),
+			}},
+		})),
+		Entry("a bit", location(v0.InputRegisterLocation{
+			Address: 6,
+			Value:   v0.Value{Variant: v0.BitValue{Bit: 7}},
+		})),
+		Entry("a string", location(v0.InputRegisterLocation{
+			Address: 7,
+			Value:   v0.Value{Variant: v0.StringValue{Length: 8}},
+		})),
+		Entry("no variant", v0.Location{}),
+	)
+
+	It("Should apply the default data type of a whole value", func() {
+		raw := MustSucceed(msgpack.Marshal(map[string]any{
+			"table":   "holding_register",
+			"address": 2,
+			"value":   map[string]any{"type": "whole"},
+		}))
+		var decoded v0.Location
+		Expect(msgpack.Unmarshal(raw, &decoded)).To(Succeed())
+		Expect(decoded.Variant).To(Equal(v0.HoldingRegisterLocation{
+			Address: 2,
+			Value: v0.Value{
+				Variant: v0.WholeValue{DataType: telem.NumericDataTypeUint16},
+			},
+		}))
+	})
+
+	DescribeTable("Should reject an unknown type",
+		func(raw map[string]any) {
+			var decoded v0.Location
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(raw)), &decoded)).
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("location", map[string]any{"table": "file_record"}),
+		Entry("value", map[string]any{
+			"table": "input_register",
+			"value": map[string]any{"type": "half"},
+		}),
+	)
+})
+
+var _ = Describe("WriteLocation", func() {
+	DescribeTable("Should round trip through msgpack",
+		func(l v0.WriteLocation) {
+			var decoded v0.WriteLocation
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(l)), &decoded)).
+				To(Succeed())
+			Expect(decoded).To(Equal(l))
+		},
+		Entry("a coil", v0.WriteLocation{Variant: v0.CoilWriteLocation{Address: 3}}),
+		Entry("a whole value", v0.WriteLocation{
+			Variant: v0.HoldingRegisterWriteLocation{
+				Address: 5,
+				Value: v0.WriteValue{Variant: v0.WholeWriteValue{
+					DataType:     telem.NumericDataTypeFloat32,
+					BytesSwapped: new(true),
+				}},
+			},
+		}),
+		Entry("a bit", v0.WriteLocation{Variant: v0.HoldingRegisterWriteLocation{
+			Address: 6,
+			Value:   v0.WriteValue{Variant: v0.BitWriteValue{Bit: 2}},
+		}}),
+		Entry("no variant", v0.WriteLocation{}),
+	)
+
+	DescribeTable("Should reject a location that write tasks cannot write",
+		func(raw map[string]any) {
+			var decoded v0.WriteLocation
+			Expect(msgpack.Unmarshal(MustSucceed(msgpack.Marshal(raw)), &decoded)).
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("a discrete input", map[string]any{"table": "discrete_input"}),
+		Entry("a string", map[string]any{
+			"table": "holding_register",
+			"value": map[string]any{"type": "string", "length": 4},
+		}),
 	)
 })

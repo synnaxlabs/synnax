@@ -36,6 +36,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	modbusserver "github.com/synnaxlabs/synnax/pkg/api/modbus/server"
 	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
@@ -662,6 +663,11 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/delete",
 		),
+		// MODBUS SERVER
+		ModbusServerRetrieve: unary[
+			modbusserver.RetrieveRequest,
+			modbusserver.RetrieveResponse,
+		](router, "/api/v1/modbus/server/retrieve"),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

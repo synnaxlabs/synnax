@@ -48,6 +48,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	modbusserver "github.com/synnaxlabs/synnax/pkg/api/modbus/server"
 	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/opcua/server"
@@ -280,6 +281,11 @@ type Transport struct {
 	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, server.UpdateResponse]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
+	// MODBUS SERVER
+	ModbusServerRetrieve freighter.UnaryServer[
+		modbusserver.RetrieveRequest,
+		modbusserver.RetrieveResponse,
+	]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -363,31 +369,32 @@ type Layer struct {
 	// Password creates, sets, renames, and lists passwords.
 	Password *password.Service
 	// OIDC links, lists, and unlinks OpenID Connect provider accounts.
-	OIDC        *oidc.Service
-	Schematic   *schematic.Service
-	Symbol      *symbol.Service
-	View        *view.Service
-	Secret      *secret.Service
-	Certificate *certificate.Service
-	Table       *table.Service
-	Panel       *panel.Service
-	Label       *label.Service
-	Color       *color.Service
-	Enumeration *enumeration.Service
-	Rack        *rack.Service
-	Task        *task.Service
-	Device      *device.Service
-	NIDevice    *nidevice.Service
-	NIChassis   *nichassis.Service
-	OPCUAServer *server.Service
-	Policy      *policy.Service
-	Role        *role.Service
-	Arc         *arc.Service
-	Status      *status.Service
-	ImEx        *imex.Service
-	Batch       *batch.Service
-	binder      *bind.Service
-	config      config.LayerConfig
+	OIDC         *oidc.Service
+	Schematic    *schematic.Service
+	Symbol       *symbol.Service
+	View         *view.Service
+	Secret       *secret.Service
+	Certificate  *certificate.Service
+	Table        *table.Service
+	Panel        *panel.Service
+	Label        *label.Service
+	Color        *color.Service
+	Enumeration  *enumeration.Service
+	Rack         *rack.Service
+	Task         *task.Service
+	Device       *device.Service
+	NIDevice     *nidevice.Service
+	NIChassis    *nichassis.Service
+	ModbusServer *modbusserver.Service
+	OPCUAServer  *server.Service
+	Policy       *policy.Service
+	Role         *role.Service
+	Arc          *arc.Service
+	Status       *status.Service
+	ImEx         *imex.Service
+	Batch        *batch.Service
+	binder       *bind.Service
+	config       config.LayerConfig
 }
 
 // Errors returns the codec that encodes the errors the API sends to clients.
@@ -615,6 +622,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerRetrieve,
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
+		// MODBUS SERVER
+		t.ModbusServerRetrieve,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -919,6 +928,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
+	// MODBUS SERVER
+	t.ModbusServerRetrieve.BindHandler(bind.Read(l.binder, l.ModbusServer.Retrieve))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
@@ -1198,6 +1209,12 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.OPCUAServer, err = server.NewService(server.ServiceConfig{
 		Server: cfg.Service.OPCUA.Servers,
+		Status: cfg.Service.Status,
+	}); err != nil {
+		return nil, err
+	}
+	if l.ModbusServer, err = modbusserver.NewService(modbusserver.ServiceConfig{
+		Server: cfg.Service.Modbus.Servers,
 		Status: cfg.Service.Status,
 	}); err != nil {
 		return nil, err

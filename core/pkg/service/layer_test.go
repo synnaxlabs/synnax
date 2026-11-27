@@ -57,6 +57,7 @@ import (
 	lineplotv0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	logv0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
+	modbusserver "github.com/synnaxlabs/synnax/pkg/service/modbus/server"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	svcnode "github.com/synnaxlabs/synnax/pkg/service/node"
@@ -1281,6 +1282,7 @@ var _ = Describe("Resource search", Ordered, func() {
 		Entry("Label", resource.TypeLabel),
 		Entry("Lineplot", resource.TypeLineplot),
 		Entry("Log", resource.TypeLog),
+		Entry("ModbusServer", resource.TypeModbusServer),
 		Entry("NiChassis", resource.TypeNiChassis),
 		Entry("NiDevice", resource.TypeNiDevice),
 		Entry("Node", resource.TypeNode),
@@ -1347,6 +1349,30 @@ var _ = Describe("Resource search", Ordered, func() {
 		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
 			Term:  "pump",
 			Types: []resource.Type{resource.TypeOpcuaServer},
+		}))
+		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
+			return r.ID
+		})).To(ConsistOf(s.ResourceID()))
+	})
+
+	It("Should find Modbus servers by name", func(ctx SpecContext) {
+		s := modbusserver.Server{
+			Key:  uuid.New(),
+			Rack: layer.Rack.EmbeddedKey,
+			Name: "Pump Gateway",
+			Connection: modbusserver.Connection{Variant: modbusserver.TcpConnection{
+				Host: "pump",
+				Port: 502,
+			}},
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[modbusserver.Key, modbusserver.Server]().
+				Entry(&s).
+				Exec(ctx, tx)
+		})).To(Succeed())
+		res := MustSucceed(layer.Resource.Search(ctx, db, resource.SearchQuery{
+			Term:  "gateway",
+			Types: []resource.Type{resource.TypeModbusServer},
 		}))
 		Expect(lo.Map(res, func(r resource.Resource, _ int) resource.ID {
 			return r.ID

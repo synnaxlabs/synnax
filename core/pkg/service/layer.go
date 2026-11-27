@@ -283,7 +283,8 @@ type Layer struct {
 	OPCUA *opcua.Service
 	// LabJack owns the stored configuration records of the LabJack task types.
 	LabJack *labjack.Service
-	// Modbus owns the stored configuration records of the Modbus task types.
+	// Modbus owns the Modbus servers and the stored configuration records of the
+	// Modbus task types.
 	Modbus *modbus.Service
 	// EtherCAT owns the stored configuration records of the EtherCAT task types.
 	EtherCAT *ethercat.Service
@@ -1001,6 +1002,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.Modbus, err = modbus.OpenService(ctx, modbus.ServiceConfig{
 		Instrumentation: cfg.Child("modbus"),
 		DB:              cfg.Distribution.DB,
+		Signals:         l.Signals,
 	}); !ok(err, l.Modbus) {
 		return nil, err
 	}
@@ -1177,6 +1179,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 			resource.TypeLabel:           l.Label.Resources(),
 			resource.TypeLineplot:        l.LinePlot.Resources(),
 			resource.TypeLog:             l.Log.Resources(),
+			resource.TypeModbusServer:    l.Modbus.Servers.Resources(),
 			resource.TypeNiChassis:       l.NI.Chassis.Resources(),
 			resource.TypeNiDevice:        l.NI.Devices.Resources(),
 			resource.TypeNode:            l.Node.Resources(),
