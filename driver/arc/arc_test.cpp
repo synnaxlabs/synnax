@@ -4024,7 +4024,13 @@ sequence main {
         {10, 60}
     );
     const auto &ctx = r.ctx;
-    ASSERT_EVENTUALLY_EQ(scope_status::last(ctx).message, "Running main › hold");
+    // The flusher sends one status per window, so a change can wait a window.
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        scope_status::last(ctx).message,
+        "Running main › hold",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(5)
+    );
     const auto status = scope_status::last(ctx);
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_TRUE(status.details.running);
@@ -4053,7 +4059,12 @@ sequence main {
             return fr.contains(r.out);
         })
     );
-    ASSERT_EVENTUALLY_EQ(scope_status::last(ctx).message, "Idle");
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        scope_status::last(ctx).message,
+        "Idle",
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(5)
+    );
     const auto status = scope_status::last(ctx);
     EXPECT_TRUE(status.details.running);
     EXPECT_TRUE(scope_status::data_of(status).scopes.empty());
