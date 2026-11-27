@@ -17,11 +17,12 @@ import { Triggers as PTriggers } from "@synnaxlabs/lyra/triggers";
 import type { ReactElement } from "react";
 
 import { Modals } from "@/platform/modals";
+import type { Rack } from "@/platform/rack";
 import { Triggers } from "@/platform/triggers";
 
 export interface ConnectFooterProps {
   /** The result of `Rack.useBlockedReason`. A reason blocks Connect. */
-  reason: string | null;
+  reason: Rack.BlockedReason | null;
   variant: status.Variant;
   message?: string;
   onConnect: () => void;
@@ -40,7 +41,7 @@ export const ConnectFooter = ({
   const busy = variant === "loading";
   Modals.useBusy(busy);
   let summary: ReactElement | null = null;
-  if (reason != null) summary = <Status.Summary variant="warning" message={reason} />;
+  if (reason != null) summary = <Status.Summary variant="warning" {...reason} />;
   else if (variant !== "success")
     summary = <Status.Summary variant={variant} message={message} />;
   return (
