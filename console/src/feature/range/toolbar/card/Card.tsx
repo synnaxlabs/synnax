@@ -118,7 +118,7 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
         </div>
       )}
       <div className={CSS.BE(B, "time")}>
-        <span>
+        <Text.Text el="span" variant="numeric">
           {at(tr.start, now, true)}
           {!openEnd && (
             <>
@@ -126,9 +126,11 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
               {live ? "Now" : at(end, now, !sameDay)}
             </>
           )}
-        </span>
+        </Text.Text>
         {!openEnd && (
-          <span className={CSS.BE(B, "total")}>{Time.formatSpan(tr.start, end)}</span>
+          <Text.Text el="span" variant="numeric" className={CSS.BE(B, "total")}>
+            {Time.formatSpan(tr.start, end)}
+          </Text.Text>
         )}
       </div>
       {children.length > 0 && (
@@ -156,7 +158,9 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
                 >
                   <span className={CSS.BE(B, "mark")} />
                   <span className={CSS.BE(B, "child-name")}>{c.name}</span>
-                  <span>{Time.formatSpan(v.start, running ? now : v.end)}</span>
+                  <Text.Text el="span" variant="numeric">
+                    {Time.formatSpan(v.start, running ? now : v.end)}
+                  </Text.Text>
                 </div>
               );
             })}
