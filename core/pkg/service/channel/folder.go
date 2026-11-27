@@ -18,8 +18,8 @@ import (
 // name, or a validation error when a path cannot hold it: it is empty, or it holds a
 // '.', an invisible character, or bytes that are not UTF-8.
 func CheckFolderName(name string) (string, error) {
-	name = validate.NormalizeName(name)
-	if validate.IsPathSegment(name) {
+	name = normalizeName(name)
+	if isPathSegment(name) {
 		return name, nil
 	}
 	return "", validate.PathedError(errors.Wrapf(
