@@ -67,8 +67,13 @@ export class Paths {
    * The Core leaves it absent when the caller cannot retrieve a folder on it.
    */
   private readonly hidden = new Map<Key, group.Key>();
-  /** The folders whose ancestors a read is fetching. */
-  private readonly reading = new Set<group.Key>();
+  /**
+   * The folders whose ancestors a read is fetching, each with the number of its read. A
+   * write to a folder on the chain of one removes it, since the read can answer old.
+   */
+  private readonly reading = new Map<group.Key, number>();
+  /** The number of the last read in {@link reading}. */
+  private lastRead = 0;
 
   constructor(cfg: PathsConfig) {
     this.cfg = cfg;
@@ -81,6 +86,9 @@ export class Paths {
         return;
       }
       if (event.value.scope !== "channel") return;
+      if (query.isChange(event))
+        for (const key of this.reading.keys())
+          if (this.passes(key, new Set([event.key]))) this.reading.delete(key);
       const before = this.folders.get(event.key);
       const after = folderOf(event.value);
       this.folders.set(event.key, after);
@@ -192,8 +200,7 @@ export class Paths {
     if (off.size === 0) return;
     const { store } = this.cfg.groups;
     const keys = [...off];
-    keys.forEach((key) => this.reading.add(key));
-    try {
+    await this.read(keys, async () => {
       await Promise.all([
         store.retrieve(keys.filter((key) => !store.has(key))),
         this.cfg.groups.retrieveAncestors(keys),
@@ -205,8 +212,18 @@ export class Paths {
         if (p.group != null && off.has(p.group) && this.build(p) !== p.path)
           old.add(p.group);
       if (old.size > 0) await store.retrieve([...old], { refresh: true });
+    });
+  }
+
+  /** Runs a read of the folders above the keys and marks the keys as read meanwhile. */
+  private async read(keys: group.Key[], run: () => Promise<unknown>): Promise<void> {
+    const id = ++this.lastRead;
+    for (const key of keys) this.reading.set(key, id);
+    try {
+      await run();
     } finally {
-      keys.forEach((key) => this.reading.delete(key));
+      for (const key of keys)
+        if (this.reading.get(key) === id) this.reading.delete(key);
     }
   }
 
@@ -244,14 +261,12 @@ export class Paths {
     }
     if (keys.size === 0) return;
     const reads = [...keys];
-    reads.forEach((key) => this.reading.add(key));
-    this.cfg.groups
-      .retrieveAncestors(reads)
-      .catch((exc: unknown) => {
+    this.read(reads, async () => await this.cfg.groups.retrieveAncestors(reads)).catch(
+      (exc: unknown) => {
         this.cfg.onError(
           new Error("failed to read the folders of channel paths", { cause: exc }),
         );
-      })
-      .finally(() => reads.forEach((key) => this.reading.delete(key)));
+      },
+    );
   }
 }
