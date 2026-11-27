@@ -73,8 +73,6 @@ To change a built-in symbol, copy it into a custom group:
 
 The copy is named after the built-in symbol with **(copy)** at the end, and opens in the
 symbol editor. It keeps the states, commands, clicks, and looks of the built-in symbol.
-Start from a built-in symbol when you want states whose values have names, such as
-**Closed** and **Open**: the editor cannot set the enumeration of a state.
 
 <Divider.Divider x />
 
@@ -106,8 +104,8 @@ value: a menu of the entries of its enumeration, or a number field.
 1. In the symbol editor, select a part, or **Whole drawing**.
 2. Click the button next to **Fill** or **Stroke**, then select a paint, such as
    **Color** or **Node color**.
-3. To give each state its own paint, click **By state** next to the field. Then set the
-   paint for each value.
+3. To give each state its own paint, click <Icon.Enumeration /> next to the field. Then
+   set the paint for each value.
 4. Use the **Preview** bar under the drawing to show each value.
 5. Click **Create** or **Save**.
 
@@ -133,8 +131,9 @@ command does nothing when you click it.
 
 ## Edit a symbol
 
-1. Right-click the symbol in the **Symbols** tab and select **Edit**. You can also
-   select a node of the symbol and click <Icon.Edit /> next to its properties tabs.
+1. Right-click the symbol in the **Symbols** tab and select **Edit**. With editing on,
+   you can also select a node of the symbol and click **Edit** next to **Change** in the
+   toolbar, or right-click the node and select **Edit symbol**.
 2. Change the settings.
 3. Click **Save**.
 
@@ -177,9 +176,13 @@ Click <Icon.Add /> next to **States** to add a state. A state that you remove ta
 looks, its commands, and their clicks with it. When the state has uses, the Console asks
 you to confirm first.
 
-A state copied from a built-in symbol has an enumeration that names its values, such as
-**Closed** and **Open**. Each node can replace the enumeration, the default, and the
-threshold of a state. See [node properties](#node-properties).
+Select a state to edit it in the inspector. An **Enumeration** names and colors its
+values, such as **Closed** and **Open**. **Default** is the value that a node shows with
+no data. **Match** sets how the state reads a value: **Exact** reads it as it is, and
+**Within** reads a value in its range as 1 and any other value as 0. A number state has
+a **Range** in place of these fields. A state copied from a built-in symbol keeps its
+enumeration. Each node can replace the enumeration, the default, and the threshold of a
+state. See [node properties](#node-properties).
 
 ### Commands
 
@@ -236,7 +239,9 @@ copied from a built-in symbol. **Visible** shows or hides the part.
 A handle is a point where connection lines attach. Drag a handle in the preview, then
 select the side of the symbol it faces: left, right, top, or bottom.
 
-### Properties
+### Size
+
+Select **Whole drawing** to show these fields in the inspector:
 
 | Field        | Description                                                                                      |
 | ------------ | ------------------------------------------------------------------------------------------------ |
@@ -245,9 +250,10 @@ select the side of the symbol it faces: left, right, top, or bottom.
 
 ### Preview
 
-Press **=** to zoom in, **-** to zoom out, and **0** to reset the zoom. You can also
-scroll to zoom, and **Shift**+drag or middle-drag to pan. Press **Ctrl+Enter**
-(**Cmd+Enter** on macOS) to save.
+A drawing with no saved zoom fits the preview when the editor opens. Press **=** to zoom
+in, **-** to zoom out, and **0** to fit the drawing. You can also scroll to zoom, and
+**Shift**+drag or middle-drag to pan. Press **Ctrl+Enter** (**Cmd+Enter** on macOS) to
+save.
 
 ### SVG files
 

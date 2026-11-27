@@ -248,7 +248,7 @@ The **Properties** tab shows different tabs for each kind of symbol.
 | Group      | Fields                                                                                                                           |
 | ---------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Label      | **Text**, **Wrap width**, **Size**, **Alignment**, **Direction**, and **Position**, the side of the symbol that the label is on. |
-| Appearance | **Stroke** and **Scale**. A value symbol also has **Fill**, **Text**, **Size**, **Units**, and **Width**.                        |
+| Appearance | **Stroke** and **Scale**. A value symbol also has **Fill**, **Text**, **Size**, and **Width**.                                   |
 
 A valve, pump, switch, light, or custom symbol has **Color**, **Scale**, **Motion**, and
 **Orientation** under **Appearance**. **Motion** turns the motion of the symbol on or
@@ -261,8 +261,10 @@ valve, add the **Normally open solenoid** symbol from the **Valves** group.
 | --------- | ---------------- | ------------------------------------------------------------------------------------- |
 | Source    | Channel          | The channel to show.                                                                  |
 | Source    | Averaging window | Shows the mean of the last N samples, from 1 to 100. The stored data does not change. |
+| Range     | Range            | On a gauge, the values at the start and the end of its bar.                           |
 | Format    | Notation         | Standard, scientific, or engineering.                                                 |
 | Format    | Precision        | The number of decimal places, from 0 to 10. Default 2.                                |
+| Format    | Units            | The text after the value, such as `psi`.                                              |
 | Staleness | Timeout          | The time with no new sample before the symbol is stale, such as `5s` or `1min 30s`.   |
 
 **Timeout** is 5 seconds by default, and 1 second at least. A number with no unit is in
