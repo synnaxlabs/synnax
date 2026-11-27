@@ -25,6 +25,7 @@ import {
 } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import type { Duplex } from "node:stream";
 
 import { binary, sleep, TimeSpan, url } from "@synnaxlabs/x";
 import {
@@ -65,14 +66,14 @@ const createCA = (dir: string, name: string): string => {
   return readFileSync(join(dir, `${name}.crt`), "utf8");
 };
 
-// Writes a test CA and a certificate for 127.0.0.1 that the CA signs.
+// Writes a test CA and a certificate for 127.0.0.1 and localhost that the CA signs.
 const createCertificates = (dir: string): void => {
   createCA(dir, "ca");
   openssl(
     dir,
     `req ${KEY_ARGS} -keyout server.key -out server.csr -subj /CN=127.0.0.1`,
   );
-  writeFileSync(join(dir, "ext.cnf"), "subjectAltName=IP:127.0.0.1\n");
+  writeFileSync(join(dir, "ext.cnf"), "subjectAltName=IP:127.0.0.1,DNS:localhost\n");
   openssl(
     dir,
     "x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial " +
@@ -406,12 +407,14 @@ describe("proxies", () => {
   let plain: HTTPServer;
   let tls: Server;
   let proxy: HTTPServer;
+  let tlsProxy: Server;
   let plainEndpoint: url.URL;
   let tlsEndpoint: url.URL;
   let tunnels: string[];
   // Servers do not close upgraded or tunneled sockets.
   const sockets: Socket[] = [];
   let proxyURL: string;
+  let tlsProxyURL: string;
   let refusal: string | null;
 
   beforeAll(async () => {
@@ -428,8 +431,7 @@ describe("proxies", () => {
       echo,
     );
     serveStreams(tls);
-    proxy = createHTTPServer((_, res) => res.writeHead(502).end());
-    proxy.on("connect", (req: IncomingMessage, socket, head) => {
+    const tunnel = (req: IncomingMessage, socket: Duplex, head: Buffer): void => {
       const target = new URL(`http://${req.url}`);
       tunnels.push(target.port);
       if (refusal != null) {
@@ -445,12 +447,24 @@ describe("proxies", () => {
       sockets.push(upstream);
       upstream.on("error", () => socket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n"));
       socket.on("error", () => upstream.destroy());
-    });
-    for (const server of [plain, tls, proxy])
+    };
+    proxy = createHTTPServer((_, res) => res.writeHead(502).end());
+    proxy.on("connect", tunnel);
+    tlsProxy = createServer(
+      {
+        key: readFileSync(join(dir, "server.key")),
+        cert: readFileSync(join(dir, "server.crt")),
+      },
+      (_, res) => res.writeHead(502).end(),
+    );
+    tlsProxy.on("connect", tunnel);
+    for (const server of [plain, tls, proxy, tlsProxy])
       server.on("connection", (socket: Socket) => sockets.push(socket));
     plainEndpoint = new url.URL({ host: "127.0.0.1", port: await listen(plain) });
     tlsEndpoint = new url.URL({ host: "127.0.0.1", port: await listen(tls) });
     proxyURL = `http://127.0.0.1:${await listen(proxy)}`;
+    // Node rejects an IP address as the TLS server name of the proxy.
+    tlsProxyURL = `https://localhost:${await listen(tlsProxy)}`;
     vi.stubEnv("HTTP_PROXY", proxyURL);
     vi.stubEnv("HTTPS_PROXY", proxyURL);
     // Undici reads the lowercase variables first.
@@ -462,7 +476,7 @@ describe("proxies", () => {
     vi.unstubAllEnvs();
     sockets.forEach((socket) => socket.destroy());
     await Promise.all(
-      [plain, tls, proxy].map(
+      [plain, tls, proxy, tlsProxy].map(
         async (server) => await new Promise((resolve) => server.close(resolve)),
       ),
     );
@@ -593,5 +607,35 @@ describe("proxies", () => {
     vi.stubEnv("NO_PROXY", "127.0.0.1");
     await sendAndStream(true, ca);
     expect(tunnels).toEqual([]);
+  });
+
+  describe("with the CA of an HTTPS proxy in the system certificate store", () => {
+    beforeAll(() => {
+      const nodeTLS = process.getBuiltinModule("node:tls");
+      const getCACertificates: typeof nodeTLS.getCACertificates = (type) =>
+        type === "system" ? [ca] : nodeTLS.getCACertificates(type);
+      const getBuiltinModule = process.getBuiltinModule.bind(process);
+      vi.spyOn(process, "getBuiltinModule").mockImplementation((id: string) =>
+        id === "node:tls" ? { ...nodeTLS, getCACertificates } : getBuiltinModule(id),
+      );
+    });
+
+    afterAll(() => {
+      vi.restoreAllMocks();
+    });
+
+    it("should send requests and streams through the proxy", async () => {
+      vi.stubEnv("HTTP_PROXY", tlsProxyURL);
+      await sendAndStream(false);
+      const port = plainEndpoint.port.toString();
+      expect(tunnels).toEqual([port, port]);
+    });
+
+    it("should trust the system store for the proxy with a caCert", async () => {
+      vi.stubEnv("HTTP_PROXY", tlsProxyURL);
+      await sendAndStream(false, createCA(dir, "other"));
+      const port = plainEndpoint.port.toString();
+      expect(tunnels).toEqual([port, port]);
+    });
   });
 });

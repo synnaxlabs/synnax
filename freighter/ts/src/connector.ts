@@ -111,10 +111,16 @@ const trustedCAs = (ca?: string): string[] | undefined => {
 
 const loadUndici = async (ca?: string) => {
   const { EnvHttpProxyAgent, fetch, WebSocket } = await import("undici");
-  const cas = trustedCAs(ca);
-  // The agent uses connect for a direct connection and requestTls through a proxy.
-  const tls = cas == null ? undefined : { ca: cas };
-  const dispatcher = new EnvHttpProxyAgent({ connect: tls, requestTls: tls });
+  const options = (cas?: string[]) => (cas == null ? undefined : { ca: cas });
+  // The agent uses connect for a direct connection, requestTls for the Core through a
+  // proxy, and proxyTls for an HTTPS proxy. The CA certificate signs the Core, not the
+  // proxy.
+  const tls = options(trustedCAs(ca));
+  const dispatcher = new EnvHttpProxyAgent({
+    connect: tls,
+    requestTls: tls,
+    proxyTls: ca == null ? tls : options(trustedCAs()),
+  });
   return { fetch, WebSocket, dispatcher };
 };
 
