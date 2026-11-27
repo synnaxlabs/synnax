@@ -2055,6 +2055,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							ctx SpecContext,
 							seek func(context.Context, *unary.Iterator) bool,
 							move func(*unary.Iterator, context.Context, telem.TimeSpan) bool,
+							span telem.TimeSpan,
 						) {
 							stamps := make([]telem.TimeStamp, 100)
 							for i := range stamps {
@@ -2066,32 +2067,95 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								telem.SecondTS,
 								telem.NewSeriesSecondsTSV(stamps...),
 							)).To(Succeed())
-							iter := MustSucceed(
-								indexDB.OpenIterator(unary.IteratorConfig{
-									Bounds: telem.TimeRangeMax,
-								}),
-							)
+							iter := MustOpen(indexDB.OpenIterator(unary.IteratorConfig{
+								Bounds: telem.TimeRangeMax,
+							}))
 							iter.SetBounds(
 								(40 * telem.SecondTS).Range(50 * telem.SecondTS),
 							)
 							Expect(seek(ctx, iter)).To(BeTrue())
-							Expect(move(iter, ctx, unary.AutoSpan)).To(BeFalse())
+							Expect(move(iter, ctx, span)).To(BeFalse())
 							Expect(iter.Error()).ToNot(HaveOccurred())
-							Expect(iter.Close()).To(Succeed())
 						},
 						Entry(
-							"SeekLE after the end, then Next",
+							"SeekLE after the end, then Next, with an auto span",
 							func(ctx context.Context, i *unary.Iterator) bool {
 								return i.SeekLE(ctx, 80*telem.SecondTS)
 							},
 							(*unary.Iterator).Next,
+							unary.AutoSpan,
 						),
 						Entry(
-							"SeekGE before the start, then Prev",
+							"SeekLE after the end, then Next, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							telem.Second,
+						),
+						Entry(
+							"SeekGE before the start, then Prev, with an auto span",
 							func(ctx context.Context, i *unary.Iterator) bool {
 								return i.SeekGE(ctx, 20*telem.SecondTS)
 							},
 							(*unary.Iterator).Prev,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekGE before the start, then Prev, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+							telem.Second,
+						),
+						Entry(
+							"SeekGE after the end, then Next, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekGE after the end, then Next, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							telem.Second,
+						),
+						Entry(
+							"SeekLE before the start, then Prev, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekLE before the start, then Prev, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+							telem.Second,
+						),
+						Entry(
+							"SeekGE at the end, then Next, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 50*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekGE at the end, then Next, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 50*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							telem.Second,
 						),
 					)
 
