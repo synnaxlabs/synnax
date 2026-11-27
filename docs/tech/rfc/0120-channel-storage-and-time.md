@@ -1036,15 +1036,20 @@ The migration changes metadata only and runs at the first start, before any writ
 - **Imports**: Imports always migrate (D-518). A line plot, log, graph node, or Sift
   list key that has no record and that `DB.Keys` marks as a clock takes its step's rule,
   so an old plot draws against time. Arc or calculation text of a `core/v0.62.0` file
-  binds a retired index after RFC 0119's import pass: a bare token that no live channel
-  holds binds the entries whose path ends in that name, as v0.62 bound a name in any
-  group, and among several the highest key, as v0.62 resolved it, with the others in the
-  import report; a path token binds the entry of that path. The text pass then rewrites
-  it to `time.of` of a data channel that `DB.Keys` gives for that key, by the rule for
-  Arc text in the holders table above, in RFC 0119 §4.5's form, so no import reads a
-  stale copy. A name that is both a live channel and a retired entry stays, and the
-  import reports it. A name whose clock has ended has no entry, and the compile error
-  names `time.of`.
+  binds each bare token once, before RFC 0119's import pass writes paths: over the union
+  of live channels and retired entries whose last path segment is that name, as v0.62
+  bound a name in any group, with v0.62's pick, the highest key. A live pick takes RFC
+  0119's path. A retired pick takes `time.of` of a data channel that `DB.Keys` gives for
+  that key, by the rule for Arc text in the holders table above, in RFC 0119 §4.5's
+  form, so no import reads a stale copy. When both kinds match, the import report names
+  both. A path token binds the channel or entry of that path. A bare token that binds
+  nothing and reads `<name>_time` for a calculation `<name>` that it binds becomes
+  `time.of(<name>)`, since v0.62 named each calculation's index so
+  (`core/pkg/service/channel/writer.go:548`). A name whose clock has ended has no entry,
+  and the compile error names `time.of`. A v0.62 name that the upgrade renamed (RFC 0119
+  §4.0) matches no last segment; the import report names its token, and so do the
+  release notes. A spec imports `ai_0 - time` where a retired `daq.time` and a live
+  `lab.time` share the name, and binds the retired one.
 - **Specs**: Each step copies the Kafka three-layer specs
   (`core/pkg/service/kafka/versions/v1/migrate_test.go`,
   `core/pkg/service/kafka/migrate_test.go`), one per holder.
