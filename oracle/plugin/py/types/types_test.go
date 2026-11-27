@@ -536,6 +536,31 @@ var _ = Describe("Python Types Plugin", func() {
 		)
 
 		It(
+			"Should refuse the nil UUID for a required UUID",
+			func() {
+				source := `
+				@py output "out"
+
+				Item struct {
+					owner uuid @validate { required }
+					parent uuid?
+				}
+			`
+				table, diag := Analyze(source, "item", loader)
+				Expect(diag.Ok()).To(BeTrue(), diag.String())
+				resp := MustSucceed(
+					typesPlugin.Generate(&plugin.Request{Resolutions: table}),
+				)
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`owner: Annotated[UUID, AfterValidator(validate.non_nil_uuid)]`,
+				))
+				Expect(content).To(ContainSubstring(`from x import validate`))
+				Expect(content).To(ContainSubstring(`parent: UUID | None`))
+			},
+		)
+
+		It(
 			"Should apply an exclusive lower bound in place of the implied one",
 			func() {
 				source := `

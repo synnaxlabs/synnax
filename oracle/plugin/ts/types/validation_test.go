@@ -456,6 +456,20 @@ var _ = Describe("Validation Rules", func() {
 		)
 	})
 
+	It("Should refuse the nil UUID for a required UUID", func() {
+		source := `
+			@ts output "out"
+
+			Item struct {
+				owner uuid @validate { required }
+			}
+		`
+		resp := MustGenerate(source, "item", loader, p)
+		ExpectContent(resp, "types.gen.ts").ToContain(
+			`owner: z.uuid().refine((v) => v !== "00000000-0000-0000-0000-000000000000", "Owner is required")`,
+		)
+	})
+
 	It("Should keep a length check chainable with a default", func() {
 		source := `
 			@ts output "out"
