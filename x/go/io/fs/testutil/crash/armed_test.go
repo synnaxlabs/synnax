@@ -87,4 +87,30 @@ var _ = Describe("Faults after the open", func() {
 		Entry("under FullDisk", crash.FullDisk),
 		Entry("under Mixed", crash.Mixed),
 	)
+
+	It("Should fail a Mixed run of an engine that goes on after a fault and syncs "+
+		"nothing", func(ctx SpecContext) {
+		Expect(violation(ctx, crash.Config{
+			Open:    openPlainLog(plainOpts{goesOn: true, writeback: true}),
+			Commits: 8,
+			Stride:  1,
+			Profile: crash.Mixed,
+		})).To(MatchError(
+			"profile 8: no sync error: crash: no fault of the profile fired",
+		))
+	})
+
+	It("Should pass a Mixed run of an engine that goes on after each fault", func(
+		ctx SpecContext,
+	) {
+		for runKey := range uint64(8) {
+			Expect(violation(ctx, crash.Config{
+				RunKey:  runKey,
+				Open:    openPlainLog(plainOpts{goesOn: true}),
+				Commits: 8,
+				Stride:  1,
+				Profile: crash.Mixed,
+			})).To(Succeed(), "run key %d", runKey)
+		}
+	})
 })
