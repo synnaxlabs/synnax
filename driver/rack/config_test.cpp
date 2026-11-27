@@ -742,6 +742,21 @@ TEST_F(RackConfigTest, RefuseOutOfRangeOutboxSettings) {
     }
 }
 
+/// @brief it should refuse a duration too large for a TimeSpan, or not a number, and
+/// keep the default.
+TEST_F(RackConfigTest, RefuseOutOfRangeOutboxDurations) {
+    for (const auto *value: {"1e12", "nan", "inf"}) {
+        x::env::set("SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT", value);
+        ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT");
+    }
+    x::env::set("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE", "nan");
+    x::defer::defer unset_env([] {
+        x::env::unset("SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE");
+    });
+    ASSERT_OCCURRED_AS_P(Config::resolve(args, brk), x::errors::VALIDATION);
+}
+
 /// @brief it should refuse an outbox setting that is not greater than 0.
 TEST_F(RackConfigTest, RefuseNonPositiveOutboxSetting) {
     x::env::set("SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL", "0");

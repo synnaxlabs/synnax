@@ -16,6 +16,7 @@
 #endif
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <iterator>
 #include <memory>
@@ -334,8 +335,13 @@ struct Config {
     template<typename Parser>
     void override_outage(Parser &p) {
         const auto span = [&p](const std::string &name, const x::telem::TimeSpan &def) {
+            // The most seconds a TimeSpan of int64 nanoseconds holds.
+            constexpr double max_s = 9.2e9;
             const auto s = p.field(name, def.seconds());
-            if (s <= 0) p.field_err(name, "must be greater than 0");
+            if (!std::isfinite(s) || s <= 0 || s > max_s) {
+                p.field_err(name, "must be greater than 0 and at most 9200000000");
+                return def;
+            }
             return x::telem::TimeSpan(static_cast<int64_t>(s * 1e9));
         };
         const auto count = [&p](const std::string &name, const std::size_t def) {
@@ -356,7 +362,7 @@ struct Config {
         );
         const auto share = p.field("outbox_compact_share", this->outbox.compact_share);
         // Double literals, so clang-tidy does not read the bounds as integer bounds.
-        if (share <= 0.0 || share >= 1.0)
+        if (!std::isfinite(share) || share <= 0.0 || share >= 1.0)
             p.field_err(
                 "outbox_compact_share",
                 "must be greater than 0 and less than 1"
