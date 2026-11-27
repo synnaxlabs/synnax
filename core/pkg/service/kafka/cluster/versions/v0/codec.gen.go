@@ -12,11 +12,11 @@
 package v0
 
 import (
-	certificate "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v1"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
+	net "github.com/synnaxlabs/x/net/versions/v0"
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
@@ -80,40 +80,6 @@ func (a *Auth) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (bv Broker) EncodeOrc(w *orc.Writer) error {
-	w.String(bv.Host)
-	if bv.Port != nil {
-		w.Bool(true)
-		w.Uint16(uint16(*bv.Port))
-	} else {
-		w.Bool(false)
-	}
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (bv *Broker) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if bv.Host, err = r.String(); err != nil {
-		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var hv uint16
-			if hv, err = r.Uint16(); err != nil {
-				return err
-			}
-			bv.Port = &hv
-		}
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (c Cluster) EncodeOrc(w *orc.Writer) error {
 	w.Write(c.Key[:])
 	w.Uint32(uint32(c.Rack))
@@ -171,7 +137,7 @@ func (c *Cluster) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			c.Brokers = make([]Broker, n)
+			c.Brokers = make([]net.Address, n)
 			for i := range c.Brokers {
 				if err = c.Brokers[i].DecodeOrc(r); err != nil {
 					return err
@@ -290,17 +256,8 @@ func (t Transport) EncodeOrc(w *orc.Writer) error {
 		w.String("plaintext")
 	case TlsTransport:
 		w.String("tls")
-		if v.CaCertificate != nil {
-			w.Bool(true)
-			w.Write((*v.CaCertificate)[:])
-		} else {
-			w.Bool(false)
-		}
-		if v.ClientCertificate != nil {
-			w.Bool(true)
-			w.Write((*v.ClientCertificate)[:])
-		} else {
-			w.Bool(false)
+		if err := v.TLS.EncodeOrc(w); err != nil {
+			return err
 		}
 	default:
 		return errors.Newf("Transport: nil or unknown variant %T", t.Variant)
@@ -320,31 +277,8 @@ func (t *Transport) DecodeOrc(r *orc.Reader) error {
 		t.Variant = v
 	case "tls":
 		var v TlsTransport
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv certificate.Key
-				if _, err := r.Read(hv[:]); err != nil {
-					return err
-				}
-				v.CaCertificate = &hv
-			}
-		}
-		{
-			present, err := r.Bool()
-			if err != nil {
-				return err
-			}
-			if present {
-				var hv certificate.Key
-				if _, err := r.Read(hv[:]); err != nil {
-					return err
-				}
-				v.ClientCertificate = &hv
-			}
+		if err := v.TLS.DecodeOrc(r); err != nil {
+			return err
 		}
 		t.Variant = v
 	default:

@@ -19,6 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/cluster/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/tls"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
@@ -31,7 +33,7 @@ var _ = Describe("Cluster", func() {
 			Key:       uuid.MustParse("22222222-2222-4222-8222-222222222222"),
 			Rack:      1,
 			Name:      "Plant Cluster",
-			Brokers:   []v0.Broker{{Host: "kafka.example.com"}},
+			Brokers:   []net.Address{{Host: "kafka.example.com"}},
 			Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 			Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 		}
@@ -77,14 +79,14 @@ var _ = Describe("Cluster", func() {
 
 	It("Should round trip a cluster through JSON", func() {
 		c := cluster()
-		c.Brokers = append(c.Brokers, v0.Broker{
+		c.Brokers = append(c.Brokers, net.Address{
 			Host: "10.0.0.2",
 			Port: new(uint16(9093)),
 		})
-		c.Transport = v0.Transport{Variant: v0.TlsTransport{
+		c.Transport = v0.Transport{Variant: v0.TlsTransport{TLS: tls.TLS{
 			CaCertificate:     new(uuid.New()),
 			ClientCertificate: new(uuid.New()),
-		}}
+		}}}
 		c.Auth = v0.Auth{Variant: v0.ScramSha512Auth{Credentials: credentials()}}
 		r := read()
 		r.RecordKey = new("pump")
@@ -109,16 +111,16 @@ var _ = Describe("Cluster", func() {
 		Entry("no name", func(c *v0.Cluster) { c.Name = "" }, "name"),
 		Entry("no brokers", func(c *v0.Cluster) { c.Brokers = nil }, "brokers"),
 		Entry("an empty broker list", func(c *v0.Cluster) {
-			c.Brokers = []v0.Broker{}
+			c.Brokers = []net.Address{}
 		}, "brokers"),
 		Entry("a broker with no host", func(c *v0.Cluster) {
-			c.Brokers = []v0.Broker{{}}
+			c.Brokers = []net.Address{{}}
 		}, "host"),
 		Entry("a broker host with a port", func(c *v0.Cluster) {
-			c.Brokers = []v0.Broker{{Host: "kafka.example.com:9092"}}
+			c.Brokers = []net.Address{{Host: "kafka.example.com:9092"}}
 		}, "host"),
 		Entry("a broker on port 0", func(c *v0.Cluster) {
-			c.Brokers = []v0.Broker{{Host: "kafka.example.com", Port: new(uint16(0))}}
+			c.Brokers = []net.Address{{Host: "kafka.example.com", Port: new(uint16(0))}}
 		}, "port"),
 		Entry(
 			"no transport",
@@ -195,18 +197,18 @@ var _ = Describe("Cluster", func() {
 			Expect(c.Validate()).To(Succeed())
 		},
 		Entry("an IPv4 broker", func(c *v0.Cluster) {
-			c.Brokers = []v0.Broker{{Host: "192.168.1.10"}}
+			c.Brokers = []net.Address{{Host: "192.168.1.10"}}
 		}),
 		Entry("an IPv6 broker", func(c *v0.Cluster) {
-			c.Brokers = []v0.Broker{{Host: "fe80::1"}}
+			c.Brokers = []net.Address{{Host: "fe80::1"}}
 		}),
 		Entry("TLS with no CA", func(c *v0.Cluster) {
 			c.Transport = v0.Transport{Variant: v0.TlsTransport{}}
 		}),
 		Entry("TLS with only a client certificate", func(c *v0.Cluster) {
-			c.Transport = v0.Transport{Variant: v0.TlsTransport{
+			c.Transport = v0.Transport{Variant: v0.TlsTransport{TLS: tls.TLS{
 				ClientCertificate: new(uuid.New()),
-			}}
+			}}}
 		}),
 		Entry("a PLAIN auth", func(c *v0.Cluster) {
 			c.Auth = v0.Auth{Variant: v0.PlainAuth{Credentials: credentials()}}
@@ -250,10 +252,10 @@ var _ = Describe("msgpack", func() {
 			Expect(decoded).To(Equal(t))
 		},
 		Entry("plaintext", v0.Transport{Variant: v0.PlaintextTransport{}}),
-		Entry("TLS", v0.Transport{Variant: v0.TlsTransport{
+		Entry("TLS", v0.Transport{Variant: v0.TlsTransport{TLS: tls.TLS{
 			CaCertificate:     new(uuid.New()),
 			ClientCertificate: new(uuid.New()),
-		}}),
+		}}}),
 		Entry("TLS with no CA", v0.Transport{Variant: v0.TlsTransport{}}),
 		Entry("no variant", v0.Transport{}),
 	)
@@ -336,7 +338,7 @@ var _ = Describe("msgpack", func() {
 			Key:  uuid.New(),
 			Rack: 1,
 			Name: "Plant Cluster",
-			Brokers: []v0.Broker{
+			Brokers: []net.Address{
 				{Host: "kafka.example.com", Port: new(uint16(9093))},
 			},
 			Transport: v0.Transport{Variant: v0.TlsTransport{}},

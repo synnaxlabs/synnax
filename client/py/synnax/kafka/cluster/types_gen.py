@@ -17,29 +17,17 @@ from uuid import UUID, uuid4
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import (
-    certificate,
     channel as channel_,
     icd,
     rack as rack_,
     secret,
     status as status_,
+    tls,
 )
 from synnax.resource import ID
-from x import filter
+from x import filter, net
 
 Key: TypeAlias = UUID
-
-
-class Broker(BaseModel):
-    """Is a bootstrap broker of a cluster.
-
-    Attributes:
-        host: Is the hostname or IP address of the broker.
-        port: Is the TCP port. Absent takes 9092.
-    """
-
-    host: str = Field(min_length=1)
-    port: int | None = Field(default=None, ge=1, le=65535)
 
 
 class Credentials(BaseModel):
@@ -81,12 +69,10 @@ class PlaintextTransport(BaseModel):
     type: Literal["plaintext"] = "plaintext"
 
 
-class TlsTransport(BaseModel):
+class TlsTransport(tls.TLS):
     """Connects over TLS."""
 
     type: Literal["tls"] = "tls"
-    ca_certificate: certificate.Key | None = None
-    client_certificate: certificate.Key | None = None
 
 
 # Is the transport that the Core connects to the brokers of a cluster over.
@@ -228,14 +214,15 @@ class Identity(BaseModel):
     Attributes:
         rack: Is the key of the rack that connects to the cluster.
         name: Is a human-readable name for the cluster.
-        brokers: Are the bootstrap brokers of the cluster. A cluster has at least one.
+        brokers: Are the bootstrap brokers of the cluster. A cluster has at least one,
+            and a broker with no port takes 9092.
         transport: Is the transport that the Core connects to the brokers over.
         auth: Is the authentication that the brokers require.
     """
 
     rack: rack_.Key = Field(gt=0, le=4294967295)
     name: str = Field(min_length=1)
-    brokers: list[Broker] = Field(min_length=1)
+    brokers: list[net.Address] = Field(min_length=1)
     transport: Transport = Field(
         default_factory=lambda: PlaintextTransport(type="plaintext")
     )
@@ -249,7 +236,8 @@ class Cluster(BaseModel):
         key: Uniquely identifies the cluster.
         rack: Is the key of the rack that connects to the cluster.
         name: Is a human-readable name for the cluster.
-        brokers: Are the bootstrap brokers of the cluster. A cluster has at least one.
+        brokers: Are the bootstrap brokers of the cluster. A cluster has at least one,
+            and a broker with no port takes 9092.
         transport: Is the transport that the Core connects to the brokers over.
         auth: Is the authentication that the brokers require.
         reads: Bind the values that read tasks consume to channels.
@@ -259,7 +247,7 @@ class Cluster(BaseModel):
     key: Key = Field(default_factory=uuid4)
     rack: rack_.Key = Field(ge=0, le=4294967295)
     name: str = Field(min_length=1)
-    brokers: list[Broker] = Field(min_length=1)
+    brokers: list[net.Address] = Field(min_length=1)
     transport: Transport = Field(
         default_factory=lambda: PlaintextTransport(type="plaintext")
     )

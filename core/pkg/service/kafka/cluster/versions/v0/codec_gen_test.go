@@ -21,7 +21,9 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster/versions/v0"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
+	tls "github.com/synnaxlabs/synnax/pkg/service/tls/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	net "github.com/synnaxlabs/x/net/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -29,6 +31,11 @@ var (
 	fullyPopulatedCredentials = v0.Credentials{
 		Username: "test_1",
 		Password: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"),
+	}
+	fullyPopulatedTLS = tls.TLS{
+		CaCertificate:                 new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
+		ClientCertificate:             new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
+		CertificateValidationDisabled: true,
 	}
 )
 
@@ -50,21 +57,6 @@ var _ = Describe("Codec", func() {
 			Entry("scram_sha_512 variant", v0.Auth{Variant: v0.ScramSha512Auth{Credentials: fullyPopulatedCredentials}}),
 		)
 	})
-	Describe("Broker", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v0.Broker) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v0.Broker
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v0.Broker{Host: "test_1", Port: new(uint16(3))}),
-			Entry("zero values", v0.Broker{Host: "", Port: nil}),
-		)
-	})
 	Describe("Cluster", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v0.Cluster) {
@@ -80,7 +72,7 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Rack:      rack.Key(3),
 				Name:      "test_3",
-				Brokers:   []v0.Broker{{Host: "test_5", Port: new(uint16(7))}},
+				Brokers:   []net.Address{{Host: "test_5", Port: new(uint16(7))}},
 				Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 				Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 				Reads: []v0.Read{
@@ -98,7 +90,7 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.Nil(),
 				Rack:      rack.Key(0),
 				Name:      "",
-				Brokers:   []v0.Broker{},
+				Brokers:   []net.Address{},
 				Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 				Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 				Reads:     []v0.Read{},
@@ -107,7 +99,7 @@ var _ = Describe("Codec", func() {
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Rack:      rack.Key(3),
 				Name:      "test_3",
-				Brokers:   []v0.Broker{},
+				Brokers:   []net.Address{},
 				Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 				Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 				Reads:     []v0.Read{},
@@ -170,10 +162,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("plaintext variant", v0.Transport{Variant: v0.PlaintextTransport{}}),
-			Entry("tls variant", v0.Transport{Variant: v0.TlsTransport{
-				CaCertificate:     new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
-				ClientCertificate: new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
-			}}),
+			Entry("tls variant", v0.Transport{Variant: v0.TlsTransport{TLS: fullyPopulatedTLS}}),
 		)
 	})
 })
@@ -195,29 +184,12 @@ func BenchmarkEncodeDecodeAuth(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeBroker(b *testing.B) {
-	seed := v0.Broker{Host: "test_1", Port: new(uint16(3))}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v0.Broker
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeCluster(b *testing.B) {
 	seed := v0.Cluster{
 		Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Rack:      rack.Key(3),
 		Name:      "test_3",
-		Brokers:   []v0.Broker{{Host: "test_5", Port: new(uint16(7))}},
+		Brokers:   []net.Address{{Host: "test_5", Port: new(uint16(7))}},
 		Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 		Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 		Reads: []v0.Read{
@@ -359,52 +331,13 @@ func FuzzDecodeAuth(f *testing.F) {
 	})
 }
 
-func FuzzDecodeBroker(f *testing.F) {
-	{
-		seed := v0.Broker{Host: "test_1", Port: new(uint16(3))}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v0.Broker{Host: "", Port: nil}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v0.Broker
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v0.Broker
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeCluster(f *testing.F) {
 	{
 		seed := v0.Cluster{
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Rack:      rack.Key(3),
 			Name:      "test_3",
-			Brokers:   []v0.Broker{{Host: "test_5", Port: new(uint16(7))}},
+			Brokers:   []net.Address{{Host: "test_5", Port: new(uint16(7))}},
 			Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 			Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 			Reads: []v0.Read{
@@ -429,7 +362,7 @@ func FuzzDecodeCluster(f *testing.F) {
 			Key:       uuid.Nil(),
 			Rack:      rack.Key(0),
 			Name:      "",
-			Brokers:   []v0.Broker{},
+			Brokers:   []net.Address{},
 			Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 			Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 			Reads:     []v0.Read{},
@@ -445,7 +378,7 @@ func FuzzDecodeCluster(f *testing.F) {
 			Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Rack:      rack.Key(3),
 			Name:      "test_3",
-			Brokers:   []v0.Broker{},
+			Brokers:   []net.Address{},
 			Transport: v0.Transport{Variant: v0.PlaintextTransport{}},
 			Auth:      v0.Auth{Variant: v0.NoneAuth{}},
 			Reads:     []v0.Read{},
@@ -580,10 +513,7 @@ func FuzzDecodeTransport(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Transport{Variant: v0.TlsTransport{
-			CaCertificate:     new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"))),
-			ClientCertificate: new(certificate.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802"))),
-		}}
+		seed := v0.Transport{Variant: v0.TlsTransport{TLS: fullyPopulatedTLS}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

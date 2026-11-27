@@ -7,47 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/versions/certificate/v1"
 import "schemas/synnax/versions/channel/v1"
 import "schemas/synnax/versions/icd/v1"
 import "schemas/synnax/versions/rack/v3"
 import "schemas/synnax/versions/secret/v1"
 import "schemas/synnax/versions/status/v2"
+import "schemas/synnax/versions/tls/v0"
+import "schemas/x/versions/net/v0"
 
 Key = uuid {
     @doc value "uniquely identifies a Kafka cluster."
-}
-
-Broker struct {
-    host string  {
-        @doc value "is the hostname or IP address of the broker."
-    }
-    port uint16? {
-        @doc value "is the TCP port. Absent takes 9092."
-    }
-
-    @doc value  "is a bootstrap broker of a cluster."
-    @go marshal
 }
 
 Transport union on type {
     plaintext {
         @doc value "connects over plain TCP."
     }
-    tls {
-        ca_certificate     certificate.Key? {
-            @doc value """
-                is the certificate authority that signs the certificates of the brokers.
-                Absent trusts the system roots.
-            """
-        }
-        client_certificate certificate.Key? {
-            @doc value """
-                is the certificate and private key that the Core presents to the
-                brokers. Absent presents no certificate.
-            """
-        }
-
+    tls extends tls.TLS {
         @doc value "connects over TLS."
     }
 
@@ -137,15 +113,16 @@ Cluster struct {
         @doc value "uniquely identifies the cluster."
         @key
     }
-    rack      rack.Key  {
+    rack      rack.Key      {
         @doc value "is the key of the rack that connects to the cluster."
     }
-    name      string    {
+    name      string        {
         @doc value "is a human-readable name for the cluster."
     }
-    brokers   Broker[]  {
+    brokers   net.Address[] {
         @doc value """
-            are the bootstrap brokers of the cluster. A cluster has at least one.
+            are the bootstrap brokers of the cluster. A cluster has at least one, and a
+            broker with no port takes 9092.
         """
     }
     transport Transport = plaintext {
@@ -157,7 +134,7 @@ Cluster struct {
     reads     Read[] = [] {
         @doc value "bind the values that read tasks consume to channels."
     }
-    status    Status?   {
+    status    Status?       {
         @doc value  "is the current connection status of the cluster."
         @go marshal omit
     }

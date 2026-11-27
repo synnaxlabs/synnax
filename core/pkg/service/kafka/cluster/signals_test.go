@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/net"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -142,7 +143,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Rack:      rackSvc.EmbeddedKey,
 			Name:      "Boiler Cluster",
 			Transport: cluster.Transport{Variant: cluster.PlaintextTransport{}},
-			Brokers:   []cluster.Broker{{Host: "boiler.example.com"}},
+			Brokers:   []net.Address{{Host: "boiler.example.com"}},
 			Auth:      cluster.Auth{Variant: cluster.NoneAuth{}},
 		}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {

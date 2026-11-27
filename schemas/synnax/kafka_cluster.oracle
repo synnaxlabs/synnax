@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "schemas/synnax/certificate"
 import "schemas/synnax/channel"
 import "schemas/synnax/icd"
 import "schemas/synnax/rack"
 import "schemas/synnax/secret"
 import "schemas/synnax/status"
+import "schemas/synnax/tls"
 import "schemas/x/filter"
+import "schemas/x/net"
 
 @go output "core/pkg/service/kafka/cluster"
 @py output "client/py/synnax/kafka/cluster"
@@ -23,39 +24,11 @@ Key = uuid {
     @doc value "uniquely identifies a Kafka cluster."
 }
 
-Broker struct {
-    host string  {
-        @doc value         "is the hostname or IP address of the broker."
-        @go validate       pattern "^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$" "Host must be a hostname or an IP address, with no scheme, port, or path"
-        @validate required
-    }
-    port uint16? {
-        @doc value    "is the TCP port. Absent takes 9092."
-        @validate min 1
-    }
-
-    @doc value  "is a bootstrap broker of a cluster."
-    @go marshal
-}
-
 Transport union on type {
     plaintext {
         @doc value "connects over plain TCP."
     }
-    tls {
-        ca_certificate     certificate.Key? {
-            @doc value """
-                is the certificate authority that signs the certificates of the brokers.
-                Absent trusts the system roots.
-            """
-        }
-        client_certificate certificate.Key? {
-            @doc value """
-                is the certificate and private key that the Core presents to the
-                brokers. Absent presents no certificate.
-            """
-        }
-
+    tls extends tls.TLS {
         @doc value "connects over TLS."
     }
 
@@ -158,20 +131,21 @@ Cluster struct {
         @doc value "uniquely identifies the cluster."
         @key
     }
-    rack      rack.Key  {
+    rack      rack.Key      {
         @doc value     "is the key of the rack that connects to the cluster."
         @ref kind      place
         @ref on_delete restrict
     }
-    name      string    {
+    name      string        {
         @doc value         "is a human-readable name for the cluster."
         @filter
         @search
         @validate required
     }
-    brokers   Broker[]  {
+    brokers   net.Address[] {
         @doc value         """
-            are the bootstrap brokers of the cluster. A cluster has at least one.
+            are the bootstrap brokers of the cluster. A cluster has at least one, and a
+            broker with no port takes 9092.
         """
         @validate required
     }
@@ -184,7 +158,7 @@ Cluster struct {
     reads     Read[] = [] {
         @doc value "bind the values that read tasks consume to channels."
     }
-    status    Status?   {
+    status    Status?       {
         @doc value  "is the current connection status of the cluster."
         @go marshal omit
         @include
@@ -208,17 +182,18 @@ Where filter Cluster {
 }
 
 Identity struct {
-    rack      rack.Key  {
+    rack      rack.Key      {
         @doc value         "is the key of the rack that connects to the cluster."
         @validate required
     }
-    name      string    {
+    name      string        {
         @doc value         "is a human-readable name for the cluster."
         @validate required
     }
-    brokers   Broker[]  {
+    brokers   net.Address[] {
         @doc value         """
-            are the bootstrap brokers of the cluster. A cluster has at least one.
+            are the bootstrap brokers of the cluster. A cluster has at least one, and a
+            broker with no port takes 9092.
         """
         @validate required
     }

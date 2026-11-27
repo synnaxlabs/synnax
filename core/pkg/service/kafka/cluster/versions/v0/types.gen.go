@@ -19,45 +19,24 @@ import (
 	"strconv"
 	"uuid"
 
-	certificate "github.com/synnaxlabs/synnax/pkg/service/certificate/versions/v1"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	secret "github.com/synnaxlabs/synnax/pkg/service/secret/versions/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v2"
+	tls "github.com/synnaxlabs/synnax/pkg/service/tls/versions/v0"
 	"github.com/synnaxlabs/x/errors"
+	net "github.com/synnaxlabs/x/net/versions/v0"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
-var validatePattern0 = regexp.MustCompile("^$|^([A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?([.][A-Za-z0-9_]([A-Za-z0-9_-]*[A-Za-z0-9_])?)*|[0-9A-Fa-f:.]*::[0-9A-Fa-f:.]*|([0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}|([0-9A-Fa-f]{1,4}:){6}[0-9.]+)$")
+var validatePattern0 = regexp.MustCompile("^([a-zA-Z0-9_-][a-zA-Z0-9._-]{0,248}|[.][a-zA-Z0-9_-][a-zA-Z0-9._-]{0,247}|[.][.][a-zA-Z0-9._-]{1,247})$")
 
-var validatePattern1 = regexp.MustCompile("^([a-zA-Z0-9_-][a-zA-Z0-9._-]{0,248}|[.][a-zA-Z0-9_-][a-zA-Z0-9._-]{0,247}|[.][.][a-zA-Z0-9._-]{1,247})$")
-
-var validatePattern2 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
+var validatePattern1 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
 
 // Key uniquely identifies a Kafka cluster.
 type Key = uuid.UUID
-
-// Broker is a bootstrap broker of a cluster.
-type Broker struct {
-	// Host is the hostname or IP address of the broker.
-	Host string `json:"host" msgpack:"host"`
-	// Port is the TCP port. Absent takes 9092.
-	Port *uint16 `json:"port,omitzero" msgpack:"port,omitempty"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (b Broker) Validate() error {
-	v := validate.New("Broker")
-	v.NotEmptyString("host", b.Host)
-	v.Ternary("host", !validatePattern0.MatchString(string(b.Host)), "Host must be a hostname or an IP address, with no scheme, port, or path")
-	if b.Port != nil {
-		v.GreaterThanEq("port", *b.Port, 1)
-	}
-	return v.Error()
-}
 
 // TransportType is the "type" value that selects a variant of Transport.
 type TransportType string
@@ -82,12 +61,7 @@ func (PlaintextTransport) isTransportVariant() {}
 
 // TlsTransport connects over TLS.
 type TlsTransport struct {
-	// CaCertificate is the certificate authority that signs the certificates of the
-	// brokers. Absent trusts the system roots.
-	CaCertificate *certificate.Key `json:"ca_certificate,omitzero" msgpack:"ca_certificate,omitempty"`
-	// ClientCertificate is the certificate and private key that the Core presents to
-	// the brokers. Absent presents no certificate.
-	ClientCertificate *certificate.Key `json:"client_certificate,omitzero" msgpack:"client_certificate,omitempty"`
+	tls.TLS
 }
 
 func (TlsTransport) isTransportVariant() {}
@@ -426,12 +400,12 @@ type Read struct {
 func (r Read) Validate() error {
 	v := validate.New("Read")
 	v.NotEmptyString("topic", r.Topic)
-	v.Ternary("topic", !validatePattern1.MatchString(string(r.Topic)), "Topic must be 1 to 249 letters, digits, '.', '_', or '-', and not '.' or '..'")
+	v.Ternary("topic", !validatePattern0.MatchString(string(r.Topic)), "Topic must be 1 to 249 letters, digits, '.', '_', or '-', and not '.' or '..'")
 	if r.RecordKey != nil {
 		v.NotEmptyString("record_key", *r.RecordKey)
 	}
 	v.NonZero("message", r.Message)
-	v.Ternary("pointer", !validatePattern2.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	v.Ternary("pointer", !validatePattern1.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	v.NonZero("index", r.Index)
 	v.NonZero("channel", r.Channel)
 	return v.Error()
@@ -458,8 +432,9 @@ type Cluster struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the cluster.
 	Name string `json:"name" msgpack:"name"`
-	// Brokers are the bootstrap brokers of the cluster. A cluster has at least one.
-	Brokers []Broker `json:"brokers" msgpack:"brokers"`
+	// Brokers are the bootstrap brokers of the cluster. A cluster has at least one, and
+	// a broker with no port takes 9092.
+	Brokers []net.Address `json:"brokers" msgpack:"brokers"`
 	// Transport is the transport that the Core connects to the brokers over.
 	Transport Transport `json:"transport" msgpack:"transport"`
 	// Auth is the authentication that the brokers require.

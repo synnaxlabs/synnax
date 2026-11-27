@@ -16,6 +16,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
+	"github.com/synnaxlabs/synnax/pkg/service/tls"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
@@ -26,14 +28,14 @@ var _ = Describe("Update", func() {
 		Identity: cluster.Identity{
 			Rack: 1,
 			Name: "Plant Cluster",
-			Brokers: []cluster.Broker{
+			Brokers: []net.Address{
 				{Host: "kafka.example.com", Port: new(uint16(9093))},
 			},
-			Transport: cluster.Transport{Variant: cluster.TlsTransport{
+			Transport: cluster.Transport{Variant: cluster.TlsTransport{TLS: tls.TLS{
 				CaCertificate: new(
 					uuid.MustParse("44444444-4444-4444-8444-444444444444"),
 				),
-			}},
+			}}},
 			Auth: cluster.Auth{Variant: cluster.ScramSha256Auth{
 				Credentials: cluster.Credentials{
 					Username: "admin",
@@ -134,7 +136,7 @@ var _ = Describe("Update", func() {
 		expected.SetDefaults()
 		expected.Rack = 1
 		expected.Name = "Plant Cluster"
-		expected.Brokers = []cluster.Broker{{Host: "kafka.example.com"}}
+		expected.Brokers = []net.Address{{Host: "kafka.example.com"}}
 		Expect(got.Variant).To(Equal(cluster.IdentityUpdate{Identity: expected}))
 		Expect(expected.Validate()).To(Succeed())
 	})

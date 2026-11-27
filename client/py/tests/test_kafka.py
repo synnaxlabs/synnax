@@ -285,6 +285,7 @@ class TestKafkaClusterResource:
         assert isinstance(cluster.transport, sy.kafka.cluster.TlsTransport)
         assert cluster.transport.ca_certificate is None
         assert cluster.transport.client_certificate is None
+        assert cluster.transport.certificate_validation_disabled is False
         assert isinstance(cluster.auth, sy.kafka.cluster.ScramSha512Auth)
         assert cluster.auth.password == password
         assert cluster.reads[0].record_key is None

@@ -18,15 +18,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/net"
 	"github.com/synnaxlabs/x/validate"
 	"strconv"
 )
 
 // Key uniquely identifies a Kafka cluster.
 type Key = versions.Key
-
-// Broker is a bootstrap broker of a cluster.
-type Broker = versions.Broker
 
 // Transport is the transport that the Core connects to the brokers of a cluster over.
 type Transport = versions.Transport
@@ -119,8 +117,9 @@ type Identity struct {
 	Rack rack.Key `json:"rack" msgpack:"rack"`
 	// Name is a human-readable name for the cluster.
 	Name string `json:"name" msgpack:"name"`
-	// Brokers are the bootstrap brokers of the cluster. A cluster has at least one.
-	Brokers []Broker `json:"brokers" msgpack:"brokers"`
+	// Brokers are the bootstrap brokers of the cluster. A cluster has at least one, and
+	// a broker with no port takes 9092.
+	Brokers []net.Address `json:"brokers" msgpack:"brokers"`
 	// Transport is the transport that the Core connects to the brokers over.
 	Transport Transport `json:"transport" msgpack:"transport"`
 	// Auth is the authentication that the brokers require.
