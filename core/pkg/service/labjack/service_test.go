@@ -152,29 +152,39 @@ var _ = Describe("Service", func() {
 			Entry("negative", -1.0),
 		)
 
+		readChannel := func(typ, port string, neg int) msgpack.EncodedJSON {
+			return msgpack.EncodedJSON{
+				"stream_rate": 10,
+				"channels": []any{map[string]any{
+					"type": typ, "port": port, "neg_chan": neg,
+				}},
+			}
+		}
+
 		DescribeTable(
-			"Should validate the differential pair of a negative channel",
-			func(ctx SpecContext, typ, port string, neg int, valid bool) {
-				_, err := svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
-					"stream_rate": 10,
-					"channels": []any{map[string]any{
-						"type": typ, "port": port, "neg_chan": neg,
-					}},
-				})
-				if valid {
-					Expect(err).ToNot(HaveOccurred())
-					return
-				}
-				Expect(err).To(MatchError(ContainSubstring("neg_chan")))
+			"Should accept the differential pair of a negative channel",
+			func(ctx SpecContext, typ, port string, neg int) {
+				MustSucceed(svc.Read.Prepare(
+					ctx, db, uuid.New(), "", readChannel(typ, port, neg),
+				))
 			},
-			Entry("base pair", "analog", "AIN2", 3, true),
-			Entry("Mux80 pair", "analog", "AIN64", 72, true),
-			Entry("thermocouple pair", "thermocouple", "AIN0", 1, true),
-			Entry("wrong base pair", "analog", "AIN2", 5, false),
-			Entry("odd base positive", "analog", "AIN3", 4, false),
-			Entry("Mux80 negative half", "analog", "AIN56", 64, false),
-			Entry("past AIN12", "analog", "AIN13", 14, false),
-			Entry("thermocouple wrong pair", "thermocouple", "AIN0", 2, false),
+			Entry("base pair", "analog", "AIN2", 3),
+			Entry("Mux80 pair", "analog", "AIN64", 72),
+			Entry("thermocouple pair", "thermocouple", "AIN0", 1),
+		)
+
+		DescribeTable(
+			"Should reject a negative channel that is not the differential pair",
+			func(ctx SpecContext, typ, port string, neg int) {
+				Expect(svc.Read.Prepare(
+					ctx, db, uuid.New(), "", readChannel(typ, port, neg),
+				)).Error().To(MatchError(ContainSubstring("neg_chan")))
+			},
+			Entry("wrong base pair", "analog", "AIN2", 5),
+			Entry("odd base positive", "analog", "AIN3", 4),
+			Entry("Mux80 negative half", "analog", "AIN56", 64),
+			Entry("past AIN12", "analog", "AIN13", 14),
+			Entry("thermocouple wrong pair", "thermocouple", "AIN0", 2),
 		)
 
 		DescribeTable(
@@ -219,8 +229,8 @@ var _ = Describe("Service", func() {
 				Not(HaveKey("neg_chan")),
 			),
 			Entry(
-				"a zero range",
-				map[string]any{"range": 0},
+				"a negative range",
+				map[string]any{"range": -1},
 				HaveKeyWithValue("range", BeNumerically("==", 10)),
 			),
 		)

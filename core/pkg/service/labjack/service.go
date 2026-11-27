@@ -11,9 +11,7 @@ package labjack
 
 import (
 	"context"
-	"math"
 	"strconv"
-	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -84,12 +82,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.ReadConfigLadder,
 			Legacy:          &legacy.Read,
-			Migrations:      []gorp.Migration{v3.ReadMigration},
-			SetEntryKey:     (*ReadConfig).SetKey,
-			PatchEntry:      (*ReadConfig).Patch,
-			HashEntry:       (*ReadConfig).HashContent,
+			Migrations: []gorp.Migration{
+				v3.ReadMigration,
+				v3.ReadReconcileMigration,
+			},
+			SetEntryKey: (*ReadConfig).SetKey,
+			PatchEntry:  (*ReadConfig).Patch,
+			HashEntry:   (*ReadConfig).HashContent,
 			ReconcileEntry: func(_ context.Context, _ gorp.Tx, c *ReadConfig) error {
-				reconcileReadChannels(c)
+				v3.ReconcileReadChannels(c.Channels)
 				return nil
 			},
 			ValidateEntry: func(c *ReadConfig) error {
@@ -99,7 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				for i, ch := range c.Channels {
 					v.Exec(func() error {
 						return validate.PathedError(
-							validateNegChan(negChanOf(ch)),
+							validateNegChan(ch),
 							"channels", strconv.Itoa(i), "neg_chan",
 						)
 					})
@@ -156,32 +157,23 @@ func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
 }
 
-// pairOf returns the negative channel that pairs with port for a differential reading.
-// A T7 pairs an even AIN0 to AIN12 with the next channel, and a Mux80 positive in
-// AIN48-55, 64-71, 80-87, 96-103, or 112-119 with the channel 8 above it.
-func pairOf(port string) (uint16, bool) {
-	digits, ok := strings.CutPrefix(port, "AIN")
-	if !ok {
-		return 0, false
+// validateNegChan rejects a negative channel that is not the pair of its channel's
+// port.
+func validateNegChan(ch ReadChannel) error {
+	var (
+		port string
+		neg  *uint16
+	)
+	switch c := ch.Variant.(type) {
+	case AnalogReadChannel:
+		port, neg = c.Port, c.NegChan
+	case ThermocoupleReadChannel:
+		port, neg = c.Port, c.NegChan
 	}
-	pos, err := strconv.Atoi(digits)
-	switch {
-	case err != nil:
-		return 0, false
-	case pos >= 0 && pos <= 12 && pos%2 == 0:
-		return uint16(pos + 1), true
-	case pos >= 48 && pos < 128 && (pos-48)%16 < 8:
-		return uint16(pos + 8), true
-	}
-	return 0, false
-}
-
-// validateNegChan rejects a negative channel that is not the pair of port.
-func validateNegChan(port string, neg *uint16) error {
 	if neg == nil {
 		return nil
 	}
-	pair, ok := pairOf(port)
+	pair, ok := v3.PairOf(port)
 	if !ok {
 		return validate.Errorf("%s has no differential pair", port)
 	}
@@ -189,48 +181,4 @@ func validateNegChan(port string, neg *uint16) error {
 		return validate.Errorf("%s pairs only with AIN%d", port, pair)
 	}
 	return nil
-}
-
-// negChanOf returns the port and negative channel of a channel that has them.
-func negChanOf(ch ReadChannel) (string, *uint16) {
-	switch c := ch.Variant.(type) {
-	case AnalogReadChannel:
-		return c.Port, c.NegChan
-	case ThermocoupleReadChannel:
-		return c.Port, c.NegChan
-	}
-	return "", nil
-}
-
-// reconcileNegChan returns neg when it is absent or the pair of port. Otherwise it
-// returns the pair, or ground when port has no pair.
-func reconcileNegChan(port string, neg *uint16) *uint16 {
-	if neg == nil || validateNegChan(port, neg) == nil {
-		return neg
-	}
-	if pair, ok := pairOf(port); ok {
-		return &pair
-	}
-	return nil
-}
-
-// reconcileReadChannels moves the negative channels of c to the pairs of their ports,
-// and gives the default range to an analog channel whose range is not positive and
-// finite, so that a config stored before these rules passes validation.
-func reconcileReadChannels(c *ReadConfig) {
-	var defaults AnalogReadChannel
-	defaults.SetDefaults()
-	for i := range c.Channels {
-		switch ch := c.Channels[i].Variant.(type) {
-		case AnalogReadChannel:
-			ch.NegChan = reconcileNegChan(ch.Port, ch.NegChan)
-			if !(ch.Range > 0) || math.IsInf(ch.Range, 1) {
-				ch.Range = defaults.Range
-			}
-			c.Channels[i].Variant = ch
-		case ThermocoupleReadChannel:
-			ch.NegChan = reconcileNegChan(ch.Port, ch.NegChan)
-			c.Channels[i].Variant = ch
-		}
-	}
 }
