@@ -79,8 +79,8 @@ func (f fullDiskFile) Sync() error {
 }
 
 var _ = Describe("Deletes on a full disk", func() {
-	It("Should log a Tombstone and free its segment after every writer's step 4 Seals "+
-		"are refused", func(ctx SpecContext) {
+	It("Should log a Tombstone, and free its segment once a later frame covers it, "+
+		"after every writer's step 4 Seals are refused", func(ctx SpecContext) {
 		var segmentsFull atomic.Bool
 		mem := xfs.NewMem()
 		db := mustOpenDBOnFS(
@@ -148,6 +148,9 @@ var _ = Describe("Deletes on a full disk", func() {
 		Expect(db.DeleteTimeRange(ctx, keys[1:2], telem.TimeRangeMax)).To(Succeed())
 		Expect(MustSucceed(db.Read(ctx, telem.TimeRangeMax, keys[1])).Len()).
 			To(BeZero())
+		// No mark goes past the commit limit, so the file goes once a later frame
+		// covers the delete's Seal: here the frame of the next delete.
+		Expect(db.DeleteTimeRange(ctx, keys[2:3], telem.TimeRangeMax)).To(Succeed())
 		Eventually(func() []string {
 			var names []string
 			for _, info := range MustSucceed(mem.List(fmt.Sprint(keys[1]))) {
