@@ -9,13 +9,7 @@
 
 import "@/platform/credential/apikey/useCreateModal.css";
 
-import {
-  type auth,
-  type resource,
-  status,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/client";
+import { type auth, type resource, status, TimeStamp } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { useNow } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -30,8 +24,10 @@ import { type ReactElement, useState } from "react";
 
 import { Code } from "@/platform/code";
 import {
-  DEFAULT_EXPIRY,
+  choices,
   type Expiry,
+  preselect,
+  preselectCustom,
   resolve,
 } from "@/platform/credential/apikey/expiry";
 import { CSS } from "@/platform/css";
@@ -53,12 +49,24 @@ interface NameProps extends CloseProps {
   onCreated: (created: Credential.APIKey.CreateResult) => void;
 }
 
+const LABELS: Record<Expiry, string> = {
+  "30d": "30 days",
+  "90d": "90 days",
+  "1y": "1 year",
+  custom: "Custom",
+  never: "No expiry",
+};
+
 const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   const [name, setName] = useState("");
-  const [expiry, setExpiry] = useState<Expiry>(DEFAULT_EXPIRY);
-  const [custom, setCustom] = useState(() =>
-    Number(TimeStamp.now().add(TimeSpan.days(90)).valueOf()),
-  );
+  const [opened] = useState(() => TimeStamp.now());
+  const { data: maxLifetime = null } = Credential.APIKey.useMaxLifetime({});
+  const allowed = choices(maxLifetime);
+  const [picked, setExpiry] = useState<Expiry | null>(null);
+  const expiry =
+    picked != null && allowed.includes(picked) ? picked : preselect(maxLifetime);
+  const [pickedCustom, setCustom] = useState<number | null>(null);
+  const custom = pickedCustom ?? Number(preselectCustom(opened, maxLifetime).valueOf());
   const query = { subject };
   const refreshKeys = Credential.APIKey.useRefresh();
   const { update, variant } = Credential.APIKey.useCreate({
@@ -71,12 +79,21 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
   Modals.useBusy(busy);
   const empty = name.trim() === "";
   const customAt = new TimeStamp(custom);
-  const now = useNow((now) =>
-    expiry === "custom" && customAt.after(now) ? customAt : null,
-  );
+  const now = useNow((now) => {
+    if (expiry !== "custom" || !customAt.after(now)) return null;
+    const fitsAt = maxLifetime == null ? null : customAt.sub(maxLifetime);
+    return fitsAt?.after(now) === true ? fitsAt : customAt;
+  });
   const past = expiry === "custom" && !customAt.after(now);
+  const tooLate =
+    expiry === "custom" && maxLifetime != null && customAt.after(now.add(maxLifetime));
+  const customError = past
+    ? "Expiry must be in the future"
+    : tooLate
+      ? `Expiry must be at most ${maxLifetime.toString()} from now`
+      : undefined;
   const handleCreate = (): void => {
-    if (empty || past) return;
+    if (empty || customError != null) return;
     const expires = resolve(expiry, customAt, TimeStamp.now());
     update({ subject, name: name.trim(), expires });
   };
@@ -105,18 +122,18 @@ const Name = ({ subject, close, onCreated }: NameProps): ReactElement => {
           }
         >
           <Select.Buttons<Expiry> value={expiry} onChange={setExpiry}>
-            <Select.Item<Expiry> itemKey="30d">30 days</Select.Item>
-            <Select.Item<Expiry> itemKey="90d">90 days</Select.Item>
-            <Select.Item<Expiry> itemKey="1y">1 year</Select.Item>
-            <Select.Item<Expiry> itemKey="custom">Custom</Select.Item>
-            <Select.Item<Expiry> itemKey="never">No expiry</Select.Item>
+            {allowed.map((e) => (
+              <Select.Item<Expiry> key={e} itemKey={e}>
+                {LABELS[e]}
+              </Select.Item>
+            ))}
           </Select.Buttons>
         </Input.Item>
         {expiry === "custom" && (
           <Input.Item
             label="Expiry date"
-            status={past ? "error" : undefined}
-            helpText={past ? "Expiry must be in the future" : undefined}
+            status={customError != null ? "error" : undefined}
+            helpText={customError}
           >
             <Input.DateTime
               value={custom}

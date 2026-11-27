@@ -93,7 +93,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
-		Auth: authSvc,
-		OIDC: oidcSvc,
+		Auth:   authSvc,
+		OIDC:   oidcSvc,
+		APIKey: apiKeySvc,
 	}))
 })

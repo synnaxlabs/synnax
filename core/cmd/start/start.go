@@ -75,6 +75,7 @@ type CoreConfig struct {
 	taskOpTimeout        time.Duration
 	slowConsumerTimeout  time.Duration
 	sessionIdleTimeout   time.Duration
+	apiKeyMaxLifetime    time.Duration
 	taskWorkerCount      uint8
 	secretsKey           secret.EncryptionKey
 }
@@ -124,6 +125,7 @@ func (c CoreConfig) Validate() error {
 	v.NotEmptyString("data_path", c.dataPath)
 	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
 	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
+	v.GreaterThanEq("api_key_max_lifetime", c.apiKeyMaxLifetime, 0)
 	v.NotNil("no_driver", c.noDriver)
 	v.NotNil("update_backup_disabled", c.updateBackupDisabled)
 	v.NotEmptySlice("auth_methods", c.authMethods)
@@ -176,6 +178,10 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 		sessionIdleTimeout: override.Numeric(
 			c.sessionIdleTimeout,
 			other.sessionIdleTimeout,
+		),
+		apiKeyMaxLifetime: override.Numeric(
+			c.apiKeyMaxLifetime,
+			other.apiKeyMaxLifetime,
 		),
 		noDriver: override.Nil(c.noDriver, other.noDriver),
 		updateBackupDisabled: override.Nil(
@@ -412,6 +418,7 @@ func BootupCore(
 		RootCredentials:    cfg.rootCredentials,
 		FIPS:               cfg.fips,
 		SessionIdleTimeout: cfg.sessionIdleTimeout,
+		APIKeyMaxLifetime:  cfg.apiKeyMaxLifetime,
 		AuthMethods:        cfg.authMethods,
 		OIDCProviders:      cfg.oidcProviders,
 		License: license.ServiceConfig{

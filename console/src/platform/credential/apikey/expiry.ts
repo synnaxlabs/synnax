@@ -18,8 +18,45 @@ const LIFETIMES = {
 /** When a new API key expires, as the user picks it. */
 export type Expiry = keyof typeof LIFETIMES | "custom" | "never";
 
+const DEFAULT_LIFETIME: keyof typeof LIFETIMES = "90d";
+
 /** The expiry a new API key gets unless the user picks another. */
-export const DEFAULT_EXPIRY: Expiry = "90d";
+export const DEFAULT_EXPIRY: Expiry = DEFAULT_LIFETIME;
+
+const fits = (expiry: Expiry, maxLifetime: TimeSpan | null): boolean => {
+  if (maxLifetime == null || expiry === "custom") return true;
+  if (expiry === "never") return false;
+  return LIFETIMES[expiry].lessThanOrEqual(maxLifetime);
+};
+
+const ORDER: Expiry[] = ["30d", "90d", "1y", "custom", "never"];
+
+/**
+ * @returns the expiries a user may pick when no key may live longer than maxLifetime,
+ * which is null when there is no limit.
+ */
+export const choices = (maxLifetime: TimeSpan | null): Expiry[] =>
+  ORDER.filter((e) => fits(e, maxLifetime));
+
+/**
+ * @returns the expiry to preselect: {@link DEFAULT_EXPIRY} when it fits within
+ * maxLifetime, else the longest preset that fits, else "custom".
+ */
+export const preselect = (maxLifetime: TimeSpan | null): Expiry => {
+  if (fits(DEFAULT_EXPIRY, maxLifetime)) return DEFAULT_EXPIRY;
+  return choices(maxLifetime).findLast((e) => e !== "custom") ?? "custom";
+};
+
+/** @returns the custom expiry to preselect for a key created at now. */
+export const preselectCustom = (
+  now: TimeStamp,
+  maxLifetime: TimeSpan | null,
+): TimeStamp => {
+  const lifetime = LIFETIMES[DEFAULT_LIFETIME];
+  return now.add(
+    maxLifetime == null || lifetime.lessThan(maxLifetime) ? lifetime : maxLifetime,
+  );
+};
 
 /**
  * @returns when a key created at now expires: the custom time for "custom", and

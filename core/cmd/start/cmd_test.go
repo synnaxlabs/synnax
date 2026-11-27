@@ -136,6 +136,23 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		})
 	})
 
+	Describe("API key maximum lifetime", func() {
+		It("Should accept no limit when the flag is unset", func() {
+			viper.Set(start.FlagInsecure, true)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).
+				ToNot(MatchError(ContainSubstring("api_key_max_lifetime")))
+		})
+
+		It("Should reject a negative lifetime", func() {
+			viper.Set(start.FlagInsecure, true)
+			viper.Set(start.FlagAPIKeyMaxLifetime, -time.Hour)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			Expect(cfg.Validate()).
+				To(MatchError(ContainSubstring("api_key_max_lifetime")))
+		})
+	})
+
 	DescribeTable("Should reject a task worker count that does not fit a byte",
 		func(count int) {
 			viper.Set(start.FlagInsecure, true)

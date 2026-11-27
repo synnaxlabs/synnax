@@ -59,6 +59,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	OIDC *oidc.Service
+	// APIKey reports the maximum lifetime of an API key.
+	//
+	// [REQUIRED]
+	APIKey *apikey.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -67,6 +71,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Auth = override.Nil(c.Auth, other.Auth)
 	c.OIDC = override.Nil(c.OIDC, other.OIDC)
+	c.APIKey = override.Nil(c.APIKey, other.APIKey)
 	return c
 }
 
@@ -75,13 +80,15 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.auth")
 	v.NotNil("auth", c.Auth)
 	v.NotNil("oidc", c.OIDC)
+	v.NotNil("api_key", c.APIKey)
 	return v.Error()
 }
 
 // Service lists the login methods the Core accepts.
 type Service struct {
-	auth *auth.Service
-	oidc *oidc.Service
+	auth   *auth.Service
+	oidc   *oidc.Service
+	apiKey *apikey.Service
 }
 
 // NewService opens a new auth API service.
@@ -90,7 +97,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{auth: cfg.Auth, oidc: cfg.OIDC}, nil
+	return &Service{auth: cfg.Auth, oidc: cfg.OIDC, apiKey: cfg.APIKey}, nil
 }
 
 // OIDCLogin is where a client sends a person to log in through a provider.
@@ -112,11 +119,17 @@ type MethodsResponse struct {
 	// Providers are where to log in through each OpenID Connect provider that the Core
 	// has reached. It is empty when the Core does not accept the oidc method.
 	Providers []OIDCLogin `json:"providers" msgpack:"providers"`
+	// APIKeyMaxLifetime is the longest lifetime of a new API key. Zero means no limit.
+	APIKeyMaxLifetime telem.TimeSpan `json:"api_key_max_lifetime" msgpack:"api_key_max_lifetime"`
 }
 
 // Methods returns the login methods the Core accepts. It needs no session.
 func (s *Service) Methods(context.Context, struct{}) (MethodsResponse, error) {
-	res := MethodsResponse{Methods: s.auth.Methods(), Providers: []OIDCLogin{}}
+	res := MethodsResponse{
+		Methods:           s.auth.Methods(),
+		Providers:         []OIDCLogin{},
+		APIKeyMaxLifetime: s.apiKey.MaxLifetime(),
+	}
 	if !slices.Contains(res.Methods, auth.MethodOIDC) {
 		return res, nil
 	}

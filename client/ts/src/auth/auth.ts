@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Context, Middleware, Next, UnaryClient } from "@synnaxlabs/freighter";
-import { errors, url } from "@synnaxlabs/x";
+import { errors, TimeSpan, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { apiKey } from "@/auth/apikey";
@@ -95,6 +95,7 @@ const methodsResZ = z.object({
       }),
     ),
   providers: oidcLoginZ.array().default([]),
+  apiKeyMaxLifetime: TimeSpan.z.optional(),
 });
 
 /** The address of a Core, for a request that needs no session. */
@@ -311,6 +312,18 @@ export class Client {
 
   get authenticated(): boolean {
     return this.authState.authenticated;
+  }
+
+  /**
+   * Retrieves the longest lifetime of a new API key, or null when the Core sets no
+   * limit.
+   * @throws {Unreachable} if the Core cannot be reached.
+   */
+  async retrieveAPIKeyMaxLifetime(): Promise<TimeSpan | null> {
+    const { apiKeyMaxLifetime } = await sendMethods(this.client);
+    return apiKeyMaxLifetime == null || apiKeyMaxLifetime.isZero
+      ? null
+      : apiKeyMaxLifetime;
   }
 
   /** Whether the next login can load an API key, so a failed login may work later. */

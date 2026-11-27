@@ -237,6 +237,30 @@ var _ = Describe("Service", func() {
 			MustSucceed(svc.Authenticate(ctx, proof(never)))
 		})
 	})
+	Describe("ValidateLifetime", func() {
+		It("Should accept any expiry when there is no maximum lifetime", func() {
+			Expect(svc.MaxLifetime()).To(Equal(telem.TimeSpan(0)))
+			Expect(svc.ValidateLifetime(0)).To(Succeed())
+			Expect(svc.ValidateLifetime(telem.TimeStampMax)).To(Succeed())
+		})
+		It("Should accept an expiry at most the maximum lifetime away", func(
+			ctx SpecContext,
+		) {
+			capped := MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+				DB:          db,
+				Clock:       clock,
+				MaxLifetime: telem.Day,
+			}))
+			Expect(capped.MaxLifetime()).To(Equal(telem.Day))
+			limit := telem.NewTimeStamp(clock.Now()).Add(telem.Day)
+			Expect(capped.ValidateLifetime(limit)).To(Succeed())
+			for _, expires := range []telem.TimeStamp{0, limit + 1, telem.TimeStampMax} {
+				Expect(capped.ValidateLifetime(expires)).To(MatchError(
+					ContainSubstring("expires: must be at most"),
+				))
+			}
+		})
+	})
 	Describe("Subject", func() {
 		It("Should delete every key of a subject when the subject is deleted", func(
 			ctx SpecContext,

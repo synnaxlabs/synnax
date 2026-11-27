@@ -21,6 +21,7 @@ from synnax.config import Cluster, Clusters
 from synnax.exceptions import AuthError, ConfigurationError
 from synnax.options import Options
 from x.exceptions import Error
+from x.telem import TimeStamp
 
 
 def _prompt_client_options(prompt: Prompt) -> Options:
@@ -48,14 +49,19 @@ def _prompt_client_options(prompt: Prompt) -> Options:
 def _save_api_key(
     client: Synnax, *, opts: Options, clusters: Clusters, prompt: Prompt
 ) -> None:
-    """Creates an API key for the logged-in user and saves it with opts in place of
-    the username and password. Deletes the key when it is not saved, and, once the new
-    one is saved, deletes the key it replaces when the same account on the same Core
-    owns it. Warns when that last deletion fails, because the login has succeeded.
+    """Creates an API key for the logged-in user, as long-lived as the Core allows,
+    and saves it with opts in place of the username and password. Deletes the key
+    when it is not saved, and, once the new one is saved, deletes the key it replaces
+    when the same account on the same Core owns it. Warns when that last deletion
+    fails, because the login has succeeded.
     """
     previous = clusters.get()
+    max_lifetime = client.auth.retrieve_api_key_max_lifetime()
     token, key = client.auth.api_keys.create(
-        name=f"Python CLI on {socket.gethostname()}"
+        name=f"Python CLI on {socket.gethostname()}",
+        expires=TimeStamp.MAX
+        if max_lifetime is None
+        else TimeStamp.now() + max_lifetime,
     )
     try:
         clusters.set(

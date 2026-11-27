@@ -92,6 +92,7 @@ import (
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -135,6 +136,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 7 days.
 	SessionIdleTimeout time.Duration
+	// APIKeyMaxLifetime is the longest lifetime of an API key that a client creates.
+	//
+	// [OPTIONAL] - Defaults to zero, which means no limit.
+	APIKeyMaxLifetime time.Duration
 	// AuthMethods are the login methods the Core accepts.
 	//
 	// [OPTIONAL] - Defaults to every method.
@@ -191,6 +196,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		c.SessionIdleTimeout,
 		other.SessionIdleTimeout,
 	)
+	c.APIKeyMaxLifetime = override.Numeric(c.APIKeyMaxLifetime, other.APIKeyMaxLifetime)
 	c.AuthMethods = override.Slice(c.AuthMethods, other.AuthMethods)
 	c.OIDCProviders = override.Slice(c.OIDCProviders, other.OIDCProviders)
 	c.License = c.License.Override(other.License)
@@ -708,6 +714,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{
 		Instrumentation: cfg.Child("apikey"),
 		DB:              cfg.Distribution.DB,
+		MaxLifetime:     telem.TimeSpan(cfg.APIKeyMaxLifetime),
 	}); !ok(err, l.APIKey) {
 		return nil, err
 	}

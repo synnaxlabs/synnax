@@ -22,9 +22,11 @@ import (
 	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -113,8 +115,9 @@ var _ = Describe("Disabled methods", func() {
 			Authenticators: authenticators,
 		}))
 		return MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
-			Auth: svc,
-			OIDC: oidcSvc,
+			Auth:   svc,
+			OIDC:   oidcSvc,
+			APIKey: apiKeySvc,
 		}))
 	}
 	It("Should leave a disabled method out of the list", func(ctx SpecContext) {
@@ -124,6 +127,25 @@ var _ = Describe("Disabled methods", func() {
 	It("Should list no providers while oidc is off", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodOIDC).Methods(ctx, struct{}{})).
 			To(HaveField("Providers", BeEmpty()))
+	})
+	It("Should report no maximum API key lifetime by default", func(ctx SpecContext) {
+		Expect(apiSvc.Methods(ctx, struct{}{})).
+			To(HaveField("APIKeyMaxLifetime", telem.TimeSpan(0)))
+	})
+	It("Should report the maximum API key lifetime", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		capped := MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{
+			DB:          db,
+			MaxLifetime: telem.Day * 30,
+		}))
+		svc := MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
+			Auth:   authSvc,
+			OIDC:   oidcSvc,
+			APIKey: capped,
+		}))
+		Expect(svc.Methods(ctx, struct{}{})).
+			To(HaveField("APIKeyMaxLifetime", telem.Day*30))
 	})
 })
 

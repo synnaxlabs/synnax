@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { auth, InvalidTokenError, type Synnax } from "@synnaxlabs/client";
+import { auth, InvalidTokenError, type Synnax, TimeStamp } from "@synnaxlabs/client";
 import { errors } from "@synnaxlabs/x";
 
 import {
@@ -29,11 +29,13 @@ const recordKey = (token: string): auth.apiKey.Key | null => {
   }
 };
 
+// A saved key that has expired is as good as unknown.
 const known = async (client: Synnax, token: string): Promise<boolean> => {
   const key = recordKey(token);
   if (key == null) return false;
   const keys = await client.auth.apiKeys.retrieve();
-  return keys.some((k) => k.key === key);
+  const now = TimeStamp.now();
+  return keys.some((k) => k.key === key && k.expires.after(now));
 };
 
 /**
@@ -56,7 +58,11 @@ const create = async (
   client: Synnax,
   replaces: string | null,
 ): Promise<string | null> => {
-  const { token, key } = await client.auth.apiKeys.create({ name: NAME });
+  const maxLifetime = await client.auth.retrieveAPIKeyMaxLifetime();
+  const { token, key } = await client.auth.apiKeys.create({
+    name: NAME,
+    expires: maxLifetime == null ? TimeStamp.MAX : TimeStamp.now().add(maxLifetime),
+  });
   let saved: boolean;
   try {
     saved = await saveAPIKey(token, replaces);
@@ -71,8 +77,9 @@ const create = async (
 
 /**
  * Makes sure that the saved API key belongs to the caller and that the saved address is
- * that of the running Core. Creates and saves a new key when the saved one is missing
- * or the Core does not know it.
+ * that of the running Core. Creates and saves a new key when the saved one is missing,
+ * has expired, or the Core does not know it. A new key lives as long as the Core
+ * allows.
  * @returns The saved API key.
  */
 export const ensure = async (client: Synnax): Promise<string> => {

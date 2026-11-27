@@ -42,6 +42,10 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to the system clock.
 	Clock xtime.Clock
+	// MaxLifetime is the longest lifetime of a key that a client creates.
+	//
+	// [OPTIONAL] - Defaults to zero, which means no limit.
+	MaxLifetime telem.TimeSpan
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -55,6 +59,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Clock = override.Nil(c.Clock, other.Clock)
+	c.MaxLifetime = override.Numeric(c.MaxLifetime, other.MaxLifetime)
 	return c
 }
 
@@ -108,6 +113,27 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 }
 
 func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.Now()) }
+
+// MaxLifetime returns the longest lifetime of a key that a client creates, or zero when
+// there is no limit.
+func (s *Service) MaxLifetime() telem.TimeSpan { return s.cfg.MaxLifetime }
+
+// ValidateLifetime returns a validation error when there is a maximum lifetime and
+// expires is zero or later than now plus that lifetime.
+func (s *Service) ValidateLifetime(expires telem.TimeStamp) error {
+	maxLifetime := s.cfg.MaxLifetime
+	if maxLifetime == 0 {
+		return nil
+	}
+	v := validate.New("api_key")
+	v.Ternaryf(
+		"expires",
+		expires == 0 || expires > s.now().Add(maxLifetime),
+		"must be at most %s from now",
+		maxLifetime,
+	)
+	return v.Error()
+}
 
 func (s *Service) expired(k APIKey) bool {
 	return s.now() >= k.Expires

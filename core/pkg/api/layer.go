@@ -1002,8 +1002,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
-		Auth: cfg.Service.Auth,
-		OIDC: cfg.Service.OIDC,
+		Auth:   cfg.Service.Auth,
+		OIDC:   cfg.Service.OIDC,
+		APIKey: cfg.Service.APIKey,
 	}); err != nil {
 		return nil, err
 	}

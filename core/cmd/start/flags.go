@@ -29,6 +29,7 @@ const (
 	FlagNoDriver            = "no-driver"
 	FlagSlowConsumerTimeout = "slow-consumer-timeout"
 	FlagSessionIdleTimeout  = "session-idle-timeout"
+	FlagAPIKeyMaxLifetime   = "api-key-max-lifetime"
 	FlagAuthMethods         = "auth-methods"
 	// FlagOIDCProviders is read from the config file only. It holds a list of
 	// providers, each with a name, issuer, client-id, optional client-secret, and
@@ -100,6 +101,11 @@ func AddFlags(cmd *cobra.Command) {
 		FlagSessionIdleTimeout,
 		auth.DefaultIdleTimeout,
 		"End a session after this long without a request from its client",
+	)
+	cmd.Flags().Duration(
+		FlagAPIKeyMaxLifetime,
+		0,
+		"Longest lifetime of a new API key. Zero means no limit",
 	)
 	cmd.Flags().StringSlice(
 		FlagAuthMethods,

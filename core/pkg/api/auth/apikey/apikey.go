@@ -101,13 +101,17 @@ type CreateResponse struct {
 
 // Create creates an API key for the caller, or for another user or rack. It returns a
 // validation error when the API key method is off, the subject is not a user or rack
-// that exists, or the expiry is not in the future.
+// that exists, the expiry is not in the future, or the expiry is past the maximum key
+// lifetime.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
 	if err := s.auth.Accepts(auth.MethodAPIKey); err != nil {
+		return CreateResponse{}, err
+	}
+	if err := s.apiKey.ValidateLifetime(req.Expires); err != nil {
 		return CreateResponse{}, err
 	}
 	subject := lo.Ternary(req.Subject.IsZero(), apiauth.GetSubject(ctx), req.Subject)
