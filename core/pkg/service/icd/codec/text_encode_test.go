@@ -11,6 +11,8 @@ package codec_test
 
 import (
 	"math"
+	"math/rand/v2"
+	"strconv"
 	"testing"
 	"uuid"
 
@@ -61,6 +63,33 @@ var _ = Describe("TextEncoder", func() {
 				"message cmd: field a: no value and no default: validation error",
 			),
 		))
+	})
+
+	It("Should write the shorter of fixed and exponent notation for any value", func() {
+		enc := MustSucceed(
+			codec.NewTextEncoder(textMessage("cmd", "", delimited("a", 0))),
+		)
+		r := rand.New(rand.NewPCG(1, 2))
+		for range 20000 {
+			// A value of 1 to 17 digits from 1e-12 to 1e28 lands near the edge between
+			// the two notations more often than random bits do.
+			v := math.Float64frombits(r.Uint64())
+			if r.IntN(2) == 0 {
+				v = (r.Float64() - 0.5) * math.Pow10(r.IntN(40)-12)
+				v = MustSucceed(strconv.ParseFloat(
+					strconv.FormatFloat(v, 'g', r.IntN(17)+1, 64), 64,
+				))
+			}
+			if math.IsNaN(v) || math.IsInf(v, 0) {
+				continue
+			}
+			want := strconv.FormatFloat(v, 'f', -1, 64)
+			if exp := strconv.FormatFloat(v, 'e', -1, 64); len(exp) < len(want) {
+				want = exp
+			}
+			line := MustSucceed(enc.Encode(nil, [][]byte{telem.NewSeriesV(v).Data}))
+			Expect(string(line)).To(Equal(want))
+		}
 	})
 
 	It("Should accept a field at the last position", func() {
