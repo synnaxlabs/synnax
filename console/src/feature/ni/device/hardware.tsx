@@ -11,7 +11,12 @@ import { ni } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { suggestIdentifiers } from "@/feature/ni/device/identifier";
-import { use, useChangeIdentifier, useSave } from "@/feature/ni/device/queries";
+import {
+  use,
+  useChangeIdentifier,
+  useRetrieveMultiple,
+  useSave,
+} from "@/feature/ni/device/queries";
 import { INTEGRATION_KEY, MAKE, ZERO_PROPERTIES } from "@/feature/ni/device/types";
 import { SCAN_TYPE } from "@/feature/ni/task/types";
 import { Device } from "@/platform/device";
@@ -63,8 +68,26 @@ export const HARDWARE: Device.Hardware = {
   ],
 };
 
-/** The hardware integration whose configure form writes the typed NI device table. */
+const ALL = {};
+
+const useTypedFound = (): Device.Found[] | undefined =>
+  useRetrieveMultiple(ALL).data?.map((d) => ({
+    key: d.key,
+    name: d.name,
+    model: d.model,
+    rack: d.rack,
+    // A typed device holds no DAQmx alias.
+    location: "",
+    configured: d.identifier !== "",
+    connected: d.status?.variant === "success",
+    status: d.status,
+  }));
+
+const ListFound = ({ children }: Device.ListFoundProps) => children(useTypedFound());
+
+/** The hardware integration that lists and configures typed NI devices. */
 export const TYPED_HARDWARE: Device.Hardware = {
   ...HARDWARE,
   Configure: Device.createConfigure({ icon: ICON, adapter: TYPED_ADAPTER }),
+  ListFound,
 };

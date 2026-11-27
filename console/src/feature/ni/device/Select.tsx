@@ -24,10 +24,6 @@ const CONFIGURE_HARDWARE = FLAGS.typedNIDevices ? TYPED_HARDWARE : HARDWARE;
 export const Select = (props: SelectProps) => {
   const configure = Device.useConfigureModal();
   const find = Device.useFindModal();
-  // The generic find view returns generic keys, which the typed source cannot read.
-  const connect = FLAGS.typedNIDevices
-    ? undefined
-    : { title: HARDWARE.title, open: () => find({ hardware: HARDWARE }) };
   return (
     <Device.Select
       {...props}
@@ -39,7 +35,10 @@ export const Select = (props: SelectProps) => {
       make={MAKE}
       icon={HARDWARE.icon}
       locationFormat={HARDWARE.location}
-      connect={connect}
+      connect={{
+        title: HARDWARE.title,
+        open: () => find({ hardware: CONFIGURE_HARDWARE }),
+      }}
     />
   );
 };

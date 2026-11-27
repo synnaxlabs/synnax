@@ -13,7 +13,10 @@ import { Access } from "@synnaxlabs/pluto";
 
 import { useConnectModal } from "@/feature/device/Connect";
 import { HARDWARE } from "@/feature/device/integrations";
+import { NI } from "@/feature/ni";
+import { FLAGS } from "@/flags";
 import { Command } from "@/platform/command";
+import { Device } from "@/platform/device";
 import { Rack } from "@/platform/rack";
 
 const useVisible = () => Access.useCreateGranted(device.TYPE_RESOURCE_ID);
@@ -34,12 +37,20 @@ const createUseConnect = (integration: string) => {
   return useConnect;
 };
 
+const useFindTypedNI = () => {
+  const find = Device.useFindModal();
+  return () => void find({ hardware: NI.Device.TYPED_HARDWARE });
+};
+
+const isTypedNI = (key: string): boolean =>
+  FLAGS.typedNIDevices && key === NI.Device.INTEGRATION_KEY;
+
 const HARDWARE_COMMANDS = HARDWARE.map(({ key, title, icon }) =>
   Command.create({
     key: `device_connect_${key}`,
     name: `Connect ${title}`,
     icon,
-    useOnSelect: createUseConnect(key),
+    useOnSelect: isTypedNI(key) ? useFindTypedNI : createUseConnect(key),
     useVisible,
   }),
 );

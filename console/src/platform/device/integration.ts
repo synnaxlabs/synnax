@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { device } from "@synnaxlabs/client";
+import type { device, rack, status } from "@synnaxlabs/client";
 import type { Icon } from "@synnaxlabs/lyra/icon";
 import type { Device } from "@synnaxlabs/pluto";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactElement } from "react";
 
 import type {
   ConfigureProps,
@@ -40,6 +40,25 @@ export interface Network extends Integration {
   Connect: ComponentType<ConnectProps>;
 }
 
+/** A device that the find view lists. */
+export interface Found {
+  key: string;
+  name: string;
+  model: string;
+  rack: rack.Key;
+  /** Where the device is in the words of the user. Empty when it has no location. */
+  location: string;
+  configured: boolean;
+  /** Whether the last scan found the device. */
+  connected: boolean;
+  status?: status.Status;
+}
+
+export interface ListFoundProps {
+  /** Renders the devices of the integration, or undefined until they load. */
+  children: (devices: Found[] | undefined) => ReactElement;
+}
+
 /** An integration whose hardware the Driver finds by scanning. */
 export interface Hardware extends Integration {
   /**
@@ -64,4 +83,9 @@ export interface Hardware extends Integration {
    * fixes the problem. It renders nothing when it does not apply.
    */
   ScanAction?: ComponentType<ScanActionProps>;
+  /**
+   * Lists the devices of the integration for the find view. Without it, the find view
+   * lists the generic devices of the make.
+   */
+  ListFound?: ComponentType<ListFoundProps>;
 }

@@ -32,7 +32,7 @@ import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
-import type { Hardware } from "@/platform/device/integration";
+import type { Found, Hardware } from "@/platform/device/integration";
 import { Modals } from "@/platform/modals";
 import { Rack } from "@/platform/rack";
 import type { Session } from "@/session";
@@ -138,11 +138,11 @@ const ScannerState = ({
   return null;
 };
 
-const byConfigured = (a: device.Device, b: device.Device): number =>
+const byConfigured = (a: Found, b: Found): number =>
   Number(a.configured) - Number(b.configured);
 
 // A slot is a bus position, so the devices list in the order of the bus.
-const bySlot = compare.by((d: device.Device) => d.location, compare.natural);
+const bySlot = compare.by((d: Found) => d.location, compare.natural);
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
   Rack.isReady(r) &&
@@ -156,13 +156,13 @@ const connectedText = (count: number, name: string): string => {
 };
 
 interface ScanResultProps {
-  devices: device.Device[];
+  devices: Found[];
   name: string;
 }
 
 /** Says how many of the devices are connected after a scan. */
 const ScanResult = ({ devices, name }: ScanResultProps): ReactElement => {
-  const count = devices.filter((d) => d.status?.details.connected === true).length;
+  const count = devices.filter((d) => d.connected).length;
   return (
     <State
       variant={count > 0 ? "success" : "warning"}
@@ -172,18 +172,17 @@ const ScanResult = ({ devices, name }: ScanResultProps): ReactElement => {
   );
 };
 
-interface DeviceItemProps extends Pick<Hardware, "formatLocation" | "modelNames"> {
-  device: device.Device;
+interface DeviceItemProps extends Pick<Hardware, "modelNames"> {
+  device: Found;
   onConfigure: (key: device.Key) => void;
 }
 
 const DeviceItem = ({
   device: d,
-  formatLocation,
   modelNames,
   onConfigure,
 }: DeviceItemProps): ReactElement => {
-  const location = formatLocation?.(d) ?? d.location;
+  const { location } = d;
   return (
     <Pane.Item>
       <Flex.Box y gap="tiny" grow>
@@ -220,14 +219,14 @@ interface RackCardProps {
   hardware: Hardware;
   rack: rack.Rack;
   scanner: task.Task | undefined;
-  devices: device.Device[];
+  devices: Found[];
   /** Whether a Scan now of this rack finished. */
   scanned: boolean;
   onConfigure: (key: device.Key) => void;
 }
 
 const RackCard = ({
-  hardware: { name, formatLocation, modelNames, ScanAction },
+  hardware: { name, modelNames, ScanAction },
   rack: r,
   scanner,
   devices,
@@ -255,7 +254,6 @@ const RackCard = ({
       <DeviceItem
         key={d.key}
         device={d}
-        formatLocation={formatLocation}
         modelNames={modelNames}
         onConfigure={onConfigure}
       />
@@ -287,11 +285,29 @@ const Checks = ({ checks, open }: ChecksProps): ReactElement => (
   </Pane.Disclosure>
 );
 
+/** Lists the generic devices of the make that filter accepts as found devices. */
+const useGeneric = (
+  { make, formatLocation }: Hardware,
+  filter: FindProps["filter"],
+): Found[] | undefined =>
+  PDevice.useResultMultiple({ where: { make: { eq: make } } })
+    .data?.filter((d) => filter?.(d) ?? true)
+    .map((d) => ({
+      key: d.key,
+      name: d.name,
+      model: d.model,
+      rack: d.rack,
+      location: formatLocation?.(d) ?? d.location,
+      configured: d.configured,
+      connected: d.status?.details.connected === true,
+      status: d.status,
+    }));
+
 export interface FindProps {
   hardware: Hardware;
   /** Lists only this rack. */
   rack?: rack.Key;
-  /** Lists only the devices it accepts. */
+  /** Lists only the generic devices it accepts. ListFound lists every device. */
   filter?: (device: device.Device) => boolean;
   /** Returns to the view that opened this one. Adds a "Back" action. */
   onBack?: () => void;
@@ -299,18 +315,19 @@ export interface FindProps {
   onConfigure: (deviceKey: device.Key) => void;
 }
 
-/**
- * Lists what each Driver with the integration found, with the state of its scanner, an
- * action to scan now, and what to check when the hardware is missing.
- */
-export const Find = ({
+interface ViewProps extends Omit<FindProps, "filter"> {
+  /** The devices of the integration, or undefined until they load. */
+  devices: Found[] | undefined;
+}
+
+const View = ({
   hardware,
   rack: rackKey,
-  filter,
+  devices,
   onBack,
   onConfigure,
-}: FindProps): ReactElement => {
-  const { key, name, title, icon, make, scanType, checks, location } = hardware;
+}: ViewProps): ReactElement => {
+  const { key, name, title, icon, scanType, checks, location } = hardware;
   const allRacks = PRack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
   const running = allRacks?.some(Rack.isReady) === true;
@@ -318,12 +335,8 @@ export const Find = ({
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
   const scanners = Task.useResultMultiple({ where: { type: { eq: scanType } } }).data;
-  const found = (
-    PDevice.useResultMultiple({ where: { make: { eq: make } } }).data ?? []
-  )
-    .filter(
-      (d) => racks?.some((r) => r.key === d.rack) === true && (filter?.(d) ?? true),
-    )
+  const found = (devices ?? [])
+    .filter((d) => racks?.some((r) => r.key === d.rack) === true)
     .toSorted(location.shape === "slot" ? bySlot : byConfigured);
   const handleError = Status.useErrorHandler();
   const [scanning, setScanning] = useState(false);
@@ -415,6 +428,20 @@ export const Find = ({
       </Modal.Footer>
     </ConnectFrame>
   );
+};
+
+const FindGeneric = ({ filter, ...rest }: FindProps): ReactElement => (
+  <View {...rest} devices={useGeneric(rest.hardware, filter)} />
+);
+
+/**
+ * Lists what each Driver with the integration found, with the state of its scanner, an
+ * action to scan now, and what to check when the hardware is missing.
+ */
+export const Find = ({ filter, ...rest }: FindProps): ReactElement => {
+  const { ListFound } = rest.hardware;
+  if (ListFound == null) return <FindGeneric {...rest} filter={filter} />;
+  return <ListFound>{(devices) => <View {...rest} devices={devices} />}</ListFound>;
 };
 
 export interface FindModalParams extends Pick<FindProps, "hardware" | "filter"> {}
