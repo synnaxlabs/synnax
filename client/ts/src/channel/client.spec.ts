@@ -8,7 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { HTTPClient, type UnaryClient, WebSocketClient } from "@synnaxlabs/freighter";
-import { binary, control, DataType, Series, TimeSpan, url } from "@synnaxlabs/x";
+import {
+  binary,
+  control,
+  DataType,
+  record,
+  Series,
+  TimeSpan,
+  url,
+} from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 import { z } from "zod";
 
@@ -122,6 +130,9 @@ const createStreamedClient = async ({
     file: new HTTPClient({ endpoint: coreURL, codec: binary.JSON_CODEC }),
     retrieveChannels: async () => [],
   });
+  const moveNothing = (): batch.Request[] => {
+    throw new Error("no spec here moves a member into a group");
+  };
   const channels = new channel.Client({
     framer: frames,
     unary,
@@ -129,6 +140,12 @@ const createStreamedClient = async ({
     statuses: new status.Client({ unary, cache }),
     cache,
     batch: batches,
+    groups: new group.Client({
+      unary,
+      cache,
+      batch: batches,
+      setGroup: record.map(group.MEMBER_RULES, () => moveNothing),
+    }),
   });
   await cache.ensureStreaming();
   // Frames apply in order, so the delete applies after the late echo.
