@@ -777,6 +777,20 @@ then of port numbers, drops the others, and writes a warning status.
    lookup and names both, so a new device named like a channel folder can break a lookup
    that worked.
 
+**Amendments to RFC 0113** (the spool is not built yet, so its first format takes them):
+
+1. **Groups in the spool**: A spool segment records, with its channels, its writer's
+   time groups and, until Phase 50, the index key of each channel. A segment that a
+   Driver spooled with index keys drains on a Core past Phase 50: the drainer groups
+   each frame by index key, writes each index series as the `"time"` of its group, and
+   opens with `time_groups`. A segment that fails at open for a reason outside RFC 0113
+   §3.3 is set aside with a status that names it, so it never blocks the spool.
+2. **Authority at the drain**: The forwarder spools each frame before the authority
+   filter, with its subject, and the Core filters at the drain. So a handoff during an
+   outage never spools a partial group.
+3. **Phases**: RFC 0113 Phase 6 builds 1 and 2. Phase 32 here drains an index-keyed
+   segment, with a spec that spools on one release and drains on the next with no loss.
+
 ### 4.10 Migration
 
 Stored data and imports always migrate, and only what `core/v0.62.0` shipped is owed.
