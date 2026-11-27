@@ -62,14 +62,14 @@ func (s *storage) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				seqNum := s.seqNum
 				s.seqNum++
 				ok, err := s.exec(ctx, req, seqNum)
-				if err := signal.SendUnderContext(ctx, s.Out.Inlet(), Response{
+				if sendErr := signal.SendUnderContext(ctx, s.Out.Inlet(), Response{
 					Variant: ResponseVariantAck,
 					Command: req.Command,
 					SeqNum:  seqNum,
 					Ack:     ok,
 					Error:   err,
-				}); err != nil {
-					return errors.Combine(s.iter.Close(), err)
+				}); sendErr != nil {
+					return errors.Combine(s.iter.Close(), sendErr)
 				}
 			}
 		}

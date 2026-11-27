@@ -27,16 +27,15 @@ const AutoSpan = unary.AutoSpan
 
 var ErrIteratorClosed = resource.NewClosedError("cesium.iterator")
 
-// IteratorConfig is the configuration for opening an iterator :). See the fields for
-// more information.
+// IteratorConfig is the configuration of an Iterator.
 type IteratorConfig struct {
-	// Channels is a list of channels to iterate over.
+	// Channels are the channels that the iterator reads.
 	Channels []channel.Key
-	// Bounds sets the time range to iterator over. The lower bound is inclusive, while
-	// the upper bound is exclusive.
+	// Bounds is the time range that the iterator reads. Its start is inclusive, and its
+	// end is exclusive.
 	Bounds telem.TimeRange
-	// AutoChunkSize sets the default chunk size to iterator over when sending a Next()
-	// or Prev() request it IteratorAutoSpan as the span. It must not be negative.
+	// AutoChunkSize is the most samples of each channel that a Next or Prev of AutoSpan
+	// reads. It must not be negative.
 	AutoChunkSize int64
 	// Reduction reduces the samples of each channel the iterator reads. A stride keeps
 	// the samples whose alignment is a multiple of its factor and never reads the rest.
@@ -271,6 +270,8 @@ func (i *Iterator) readInChunks(
 		ends = make([]telem.TimeStamp, len(i.internal))
 		last telem.TimeStamp
 		n    = max(1, i.chunkSize/int64(max(1, len(i.internal))))
+		// probed holds the indexes that the end of the chunk was found on.
+		probed = make(set.Set[channel.Key], len(i.internal))
 	)
 	for j, u := range i.internal {
 		tr := u.View().End.SpanRange(span)
@@ -285,7 +286,7 @@ func (i *Iterator) readInChunks(
 	for {
 		i.cache.Reset()
 		end := last
-		probed := make(set.Set[channel.Key], len(i.internal))
+		clear(probed)
 		for j, u := range i.internal {
 			idx := u.Channel.Index
 			if u.Channel.IsIndex {
