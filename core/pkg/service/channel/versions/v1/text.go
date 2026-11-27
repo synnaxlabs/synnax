@@ -58,7 +58,7 @@ func NewCalculationTextMigration(cfg parser.Config) gorp.Migration {
 				if err != nil {
 					return err
 				}
-				if err = StageKept(ctx, tx, c.ResourceID(), res); err != nil {
+				if err = StageKept(ctx, tx, c.ResourceID(), "", res); err != nil {
 					return err
 				}
 				if res.Text != c.Expression {

@@ -100,9 +100,10 @@ type Source struct {
 	Text string
 	Form Form
 	// Function, Inputs, and Outputs are the key and the params of the graph function of
-	// a FormBody text.
+	// a FormBody text, and Functions the keys of every function of its graph.
 	Function        string
 	Inputs, Outputs types.Params
+	Functions       []string
 }
 
 // Reference is a bare identifier in stored text that holds the old name of a renamed
@@ -153,21 +154,21 @@ type Rewriter struct {
 // marks each reference that it could not write as kept.
 func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
 	res, spans := w.find(src.Text)
-	if len(res.References) == 0 {
-		return res, nil
-	}
 	scope, shift, parsed, err := w.analyze(ctx, src)
 	if err != nil {
 		return Result{}, err
 	}
+	res.Parsed = parsed
+	if len(res.References) == 0 {
+		return res, nil
+	}
 	if !parsed {
-		res.Parsed = false
 		for i := range res.References {
 			res.References[i].Kept = true
 		}
 		return res, nil
 	}
-	if bindAll(ctx, scope, shift, res.References) {
+	if w.bindAll(ctx, scope, shift, res.References) {
 		return res, nil
 	}
 	var b strings.Builder
@@ -214,8 +215,8 @@ func (w Rewriter) find(text string) (Result, []span) {
 
 // bindAll resolves each of refs in the scopes of scope, where the columns of the first
 // line move by shift. It reports whether a reference that reads the channel is
-// captured, and marks each captured one as kept.
-func bindAll(
+// captured, and then marks each reference that reads the channel as kept.
+func (w Rewriter) bindAll(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	shift int,
@@ -228,19 +229,69 @@ func bindAll(
 			col += shift
 		}
 		at := symbol.ScopeAt(scope, r.Line, col)
-		sym, err := at.Resolve(ctx, r.Name, symbol.WithoutUsageTracking)
+		sym, err := w.resolveAt(ctx, at, r.Name, r.Line, col)
 		if err != nil {
 			continue
 		}
 		refs[i].Binding, refs[i].Bound = sym.Kind, true
-		holder, err := at.Resolve(ctx, r.NewName, symbol.WithoutUsageTracking)
+		holder, err := w.resolveAt(ctx, at, r.NewName, r.Line, col)
 		if sym.Kind == symbol.KindChannel && err == nil &&
 			holder.Kind != symbol.KindChannel {
-			refs[i].Captured, refs[i].Kept = true, true
+			refs[i].Captured = true
 			captured = true
 		}
 	}
+	if captured {
+		for i, r := range refs {
+			refs[i].Kept = r.Bound && r.Binding == symbol.KindChannel
+		}
+	}
 	return captured
+}
+
+// resolveAt resolves name in the scopes of at, as the reference at line and col reads
+// it: a variable is not visible until its declaration ends, and the name that a
+// declaration declares is the variable.
+func (w Rewriter) resolveAt(
+	ctx context.Context,
+	at *symbol.Symbol,
+	name string,
+	line, col int,
+) (*symbol.Symbol, error) {
+	moved := false
+	for {
+		sym, err := at.Resolve(ctx, name, symbol.WithoutUsageTracking)
+		// Past the scopes that declare the name, the channels of the root remain.
+		if moved && err != nil {
+			return w.Renames.Resolve(ctx, name)
+		}
+		if err != nil || !declaredLater(sym, line, col) {
+			return sym, err
+		}
+		if sym.Parent == nil || sym.Parent.Parent == nil {
+			return w.Renames.Resolve(ctx, name)
+		}
+		at, moved = sym.Parent.Parent, true
+	}
+}
+
+// declaredLater reports whether sym is a variable whose declaration does not hold the
+// reference at line and col yet.
+func declaredLater(sym *symbol.Symbol, line, col int) bool {
+	if sym.AST == nil || sym.Kind != symbol.KindVariable &&
+		sym.Kind != symbol.KindStatefulVariable && sym.Kind != symbol.KindConstant {
+		return false
+	}
+	start, stop := sym.AST.GetStart(), sym.AST.GetStop()
+	if start == nil || stop == nil ||
+		line == start.GetLine() && col == start.GetColumn() {
+		return false
+	}
+	end := stop.GetColumn() + len([]rune(stop.GetText()))
+	before := line < start.GetLine() ||
+		line == start.GetLine() && col < start.GetColumn()
+	within := line < stop.GetLine() || line == stop.GetLine() && col < end
+	return before || within
 }
 
 // identifiers calls found with the byte range and the name of each bare identifier that
@@ -338,8 +389,8 @@ func (w Rewriter) analyze(
 	case FormBody:
 		block, diag := parser.ParseBlock(src.Text, w.Config)
 		if diag == nil {
-			scope, err := w.analyzeBody(ctx, root, block, src)
-			return scope, 0, true, err
+			scope, ok := w.analyzeBody(ctx, root, block, src)
+			return scope, 0, ok, nil
 		}
 	case FormProgram:
 		t, diag := text.Parse(text.Text{Raw: src.Text}, w.Config)
@@ -355,30 +406,41 @@ func (w Rewriter) analyze(
 }
 
 // analyzeBody analyzes block, the body of the graph function of src, in a function
-// scope under root that binds the inputs and outputs of the function.
+// scope under root that binds the inputs and outputs of the function, beside each other
+// function of the graph, as v0.62 analyzed a graph. It reports false when a v0.62 Core
+// could not bind the function either, such as an input named like a function.
 func (w Rewriter) analyzeBody(
 	ctx context.Context,
 	root *symbol.Symbol,
 	block parser.IBlockContext,
 	src Source,
-) (*symbol.Symbol, error) {
+) (*symbol.Symbol, bool) {
 	aCtx := acontext.NewRoot(ctx, block, root).WithConfig(w.Config)
+	for _, key := range src.Functions {
+		if key == src.Function {
+			continue
+		}
+		if _, err := aCtx.Scope.Add(ctx, symbol.Symbol{
+			Name: key,
+			Kind: symbol.KindFunction,
+		}); err != nil {
+			return nil, false
+		}
+	}
 	fn, err := aCtx.Scope.Add(ctx, symbol.Symbol{
 		Name: src.Function,
 		Kind: symbol.KindFunction,
 		AST:  block,
 	})
 	if err != nil {
-		return nil, err
+		return nil, false
 	}
-	if err = bind(ctx, fn, src.Inputs, symbol.KindInput); err != nil {
-		return nil, err
-	}
-	if err = bind(ctx, fn, src.Outputs, symbol.KindOutput); err != nil {
-		return nil, err
+	if bind(ctx, fn, src.Inputs, symbol.KindInput) != nil ||
+		bind(ctx, fn, src.Outputs, symbol.KindOutput) != nil {
+		return nil, false
 	}
 	analyzer.AnalyzeBlock(aCtx.WithScope(fn))
-	return aCtx.Scope, nil
+	return aCtx.Scope, true
 }
 
 // bind adds each of params to scope as a symbol of kind, as the graph analyzer does.
@@ -413,12 +475,14 @@ func position(text string, offset int) (int, int) {
 	return line, utf8.RuneCountInString(text[lineStart:offset])
 }
 
-// StageKept stages each kept reference of res as a text site of holder
-// (resource.StageTextSite), so the report of the upgrade names it.
+// StageKept stages each kept reference of res, in the graph function named function or
+// in no function when it is empty, as a text site of holder (resource.StageTextSite),
+// so the report of the upgrade names it.
 func StageKept(
 	ctx context.Context,
 	tx kv.ReadWriter,
 	holder resource.ID,
+	function string,
 	res Result,
 ) error {
 	for _, r := range res.References {
@@ -427,6 +491,7 @@ func StageKept(
 		}
 		if err := resource.StageTextSite(ctx, tx, resource.TextSite{
 			Holder:   holder,
+			Function: function,
 			Name:     r.Name,
 			NewName:  r.NewName,
 			Line:     r.Line,
