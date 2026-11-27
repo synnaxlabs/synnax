@@ -1827,7 +1827,7 @@ func prependToMapLoop(backward, check string) string {
 // stringEnumMembers returns the values of the members of the string enum that ref
 // resolves to. ok is false when ref is not a string enum.
 func stringEnumMembers(ref resolution.TypeRef, data *templateData) ([]string, bool) {
-	resolved, ok := ref.Resolve(data.table)
+	resolved, _, ok := resolution.Dealias(ref, data.table)
 	if !ok {
 		return nil, false
 	}

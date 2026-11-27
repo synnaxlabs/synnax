@@ -959,7 +959,7 @@ func (p *Plugin) mapKeyToProto(
 	keyRef resolution.TypeRef,
 	data *templateData,
 ) (string, error) {
-	if resolved, ok := keyRef.Resolve(data.table); ok {
+	if resolved, _, ok := resolution.Dealias(keyRef, data.table); ok {
 		if form, isEnum := resolved.Form.(resolution.EnumForm); isEnum &&
 			!form.IsIntEnum {
 			return "string", nil

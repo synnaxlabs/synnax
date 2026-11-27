@@ -2277,6 +2277,8 @@ var _ = Describe("Go PB Plugin", func() {
 						dio1 = "DIO1"
 					}
 
+					Alias = Port
+
 					Pair struct {
 						value uint32
 					}
@@ -2294,6 +2296,10 @@ var _ = Describe("Go PB Plugin", func() {
 				"r.Items = make(map[test.Port]uint32",
 				"key, err := xpb.Enum[test.Port](k)",
 				"r.Items[key] = v",
+			),
+			Entry("a key through an alias", "items map<Alias, uint32>",
+				"pb.Items = make(map[string]uint32",
+				"key, err := xpb.Enum[test.Alias](k)",
 			),
 			Entry("a struct value", "items map<Port, Pair>",
 				"pb.Items = make(map[string]*Pair",
