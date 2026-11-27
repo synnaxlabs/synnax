@@ -128,6 +128,13 @@ const Properties = () => (
   </>
 );
 
+/**
+ * @returns the name of a new message that the records of topic with recordKey read: the
+ * topic, then the key when there is one, such as `plant.sensors pump-1`.
+ */
+const topicMessageName = (topic: string, recordKey: string): string =>
+  recordKey === "" ? topic : `${topic} ${recordKey}`;
+
 /** @returns the record key, or a stand-in for a record that reads any key. */
 const recordLabel = ({ recordKey }: Pick<ReadRecord, "recordKey">): string =>
   recordKey === "" ? ANY_KEY : recordKey;
@@ -452,8 +459,13 @@ const Records: FC<RecordsProps> = ({
       )[0];
     },
     messageName: (key, held) => {
+      const all = ctx.get(root.config.topics).value;
+      const topic = ctx.get(topicPath(topicOf(all, key))).value.name;
       const rec = ctx.get(pathOf(key)).value;
-      return uniqueName(`${recordLabel(rec)} ${rec.messages.length + 1}`, held);
+      return uniqueName(
+        `${topicMessageName(topic, rec.recordKey)} ${rec.messages.length + 1}`,
+        held,
+      );
     },
     made,
     selected,
@@ -587,23 +599,24 @@ const Records: FC<RecordsProps> = ({
     for (const { topic, shapes, picks } of result.topics) {
       const records = topicRecords(topic);
       const reads = readsOf(records, messagesOf);
+      const nameOf = (recordKey: string) => topicMessageName(topic, recordKey);
       const { extensions, kinds } = createExtensions(
         shapes,
         picks,
         records,
         messagesOf,
-        label,
+        nameOf,
       );
       extend(extensions, kinds);
       held = [...held, ...kinds.map(({ message }) => message)];
-      const added = createAdditions(shapes, picks, reads, held, label);
+      const added = createAdditions(shapes, picks, reads, held, nameOf);
       if (added.length === 0) continue;
       additions.set(topic, added);
       held = [...held, ...added.map(({ message }) => message)];
     }
     if (result.record != null) {
       const empty = {
-        message: createMessage(uniqueName(ANY_KEY, held)),
+        message: createMessage(uniqueName(topicMessageName(result.record, ""), held)),
         recordKeys: [""],
       };
       additions.set(result.record, [...(additions.get(result.record) ?? []), empty]);
