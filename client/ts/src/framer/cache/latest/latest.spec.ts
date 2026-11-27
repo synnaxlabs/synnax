@@ -42,6 +42,7 @@ const createLatest = (
   onRead: (key: channel.Key) => void | Promise<void> = () => {},
   readOf: (key: channel.Key, read: MultiSeries) => MultiSeries = (_, read) => read,
   onRetrieve: () => void | Promise<void> = () => {},
+  maxRetries = Infinity,
 ) => {
   const store = new cacheStore.Store({ now: core.now });
   const streamer = new cacheStreamer.Multiplexed({
@@ -60,7 +61,7 @@ const createLatest = (
       return await core.retrieveChannels(keys);
     },
     now: core.now,
-    breaker: { baseInterval: TimeSpan.milliseconds(10) },
+    breaker: { baseInterval: TimeSpan.milliseconds(10), maxRetries },
     readLatest: async (keys, count, tr) => {
       const frame = new framer.Frame();
       for (const key of keys) {
@@ -356,6 +357,27 @@ describe("Latest", () => {
     const { open, close } = createLatest(core, () => {
       throw new AccessDeniedError("no access");
     });
+    const latest = open(1000, undefined, core.index.key);
+    try {
+      await expect.poll(() => latest.value().reading, POLL).toBe(false);
+      expect(latest.value().status.variant).toBe("error");
+    } finally {
+      latest.close();
+      await close();
+    }
+  });
+
+  it("should end the read once it runs out of retries", async () => {
+    const core = createCore();
+    const { open, close } = createLatest(
+      core,
+      () => {
+        throw new Error("stream closed unexpectedly");
+      },
+      undefined,
+      undefined,
+      2,
+    );
     const latest = open(1000, undefined, core.index.key);
     try {
       await expect.poll(() => latest.value().reading, POLL).toBe(false);

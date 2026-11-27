@@ -545,7 +545,10 @@ export class Latest {
         this.failure = status.fromException(e, READ_FAILED);
         this.notify();
         if (isDefinitive(e)) return this.land([]);
-        if (!(await brk.wait())) return;
+        if (!(await brk.wait())) {
+          if (this.running === run) this.land([]);
+          return this.notify();
+        }
       }
   }
 
