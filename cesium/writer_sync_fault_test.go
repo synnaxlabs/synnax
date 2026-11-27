@@ -74,7 +74,7 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 		}
 		mem = xfs.NewMem()
 		open(ctx)
-		DeferCleanup(func() { _ = shut() })
+		DeferCleanup(func() { Expect(shut()).To(Succeed()) })
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		keys = []cesium.ChannelKey{idx, data}
 		Expect(db.CreateChannel(
@@ -90,7 +90,7 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 	// write opens a writer at the first of seconds, writes a sample of each key at each
 	// of them, commits, and returns the first error of its write, commit, and Sync. It
 	// closes the writer.
-	write := func(ctx context.Context, seconds ...telem.TimeStamp) error {
+	write := func(ctx context.Context, seconds ...telem.TimeStamp) (err error) {
 		GinkgoHelper()
 		stamps := make([]telem.TimeStamp, len(seconds))
 		values := make([]int64, len(seconds))
@@ -101,7 +101,7 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 			Channels: keys,
 			Start:    stamps[0],
 		}))
-		defer func() { _ = w.Close() }()
+		defer func() { err = xerrors.Join(err, w.Close()) }()
 		if _, _, err := w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeries(stamps),
 			telem.NewSeries(values),
@@ -116,7 +116,7 @@ var _ = Describe("Writer storage faults on the pointer log", func() {
 	stored := func(ctx context.Context) []int64 {
 		GinkgoHelper()
 		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
-		var values []int64
+		values := make([]int64, 0, fr.Get(data).Len())
 		for _, s := range fr.Get(data).Series {
 			values = append(values, s.Unmarshal[int64]()...)
 		}
