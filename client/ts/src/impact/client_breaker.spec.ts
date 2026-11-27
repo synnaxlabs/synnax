@@ -61,7 +61,8 @@ const change: impact.Change = impact.deleteChannels([1048577]);
 // The plan that the apply route returns with no token, picks, or hidden pick, encoded
 // by the Core's JSON codec: a plan of the delete with no entries.
 const EMPTY_APPLIED_PLAN =
-  '{"entries":[],"kept":0,"hidden":{"restrict":0,"cascade":0,"detach":0},' +
+  '{"entries":[],"kept":0,"hidden":{"restrict":0,"cascade":0,"detach":0,' +
+  '"rename":0,"delete":0,"drop":0,"retarget":0,"keep":0,"update_text":0},' +
   '"token":"","records":[{"type":"channel","key":"1048577"}]}';
 
 const CHANGED_PLAN = JSON.stringify({
@@ -74,7 +75,17 @@ const CHANGED_PLAN = JSON.stringify({
     },
   ],
   kept: 0,
-  hidden: { restrict: 0, cascade: 0, detach: 0 },
+  hidden: {
+    restrict: 0,
+    cascade: 0,
+    detach: 0,
+    rename: 0,
+    delete: 0,
+    drop: 0,
+    retarget: 0,
+    keep: 0,
+    update_text: 0,
+  },
   token: "0123456789abcdef",
   records: [{ type: "channel", key: "1048577" }],
 });

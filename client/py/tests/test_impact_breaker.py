@@ -26,7 +26,8 @@ from x.codec import JSONCodec
 # Core's JSON codec: a plan of the delete with no entries.
 EMPTY_APPLIED_PLAN = (
     '{"type":"delete","plan":{"entries":[],"kept":0,'
-    '"hidden":{"restrict":0,"cascade":0,"detach":0},"token":"",'
+    '"hidden":{"restrict":0,"cascade":0,"detach":0,"rename":0,"delete":0,"drop":0,'
+    '"retarget":0,"keep":0,"update_text":0},"token":"",'
     '"records":[{"type":"channel","key":"1048577"}]}}'
 )
 

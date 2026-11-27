@@ -20,6 +20,19 @@ import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
+// NO_HIDDEN is the hidden count of a plan whose every record the caller can see.
+const NO_HIDDEN: impact.Hidden = {
+  restrict: 0,
+  cascade: 0,
+  detach: 0,
+  rename: 0,
+  delete: 0,
+  drop: 0,
+  retarget: 0,
+  keep: 0,
+  updateText: 0,
+};
+
 const createChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
     name: id.create(),
@@ -78,7 +91,7 @@ describe("impact", () => {
     expect(plan.entries).toEqual([
       { record: lineplot.resourceID(plot.key), effect: "detach", choices: [] },
     ]);
-    expect(plan.hidden).toEqual({ restrict: 0, cascade: 0, detach: 0 });
+    expect(plan.hidden).toEqual(NO_HIDDEN);
     const { plan: applied } = await client.impact.apply(deleteOf(ch.key), {
       token: plan.token,
     });
@@ -153,6 +166,6 @@ describe("impact", () => {
     });
     const { plan } = await userClient.impact.plan(deleteOf(ch.key));
     expect(plan.entries).toEqual([]);
-    expect(plan.hidden).toEqual({ restrict: 1, cascade: 0, detach: 0 });
+    expect(plan.hidden).toEqual({ ...NO_HIDDEN, restrict: 1 });
   });
 });

@@ -28,7 +28,17 @@ describe("planOf", () => {
         },
       ],
       kept: 0,
-      hidden: { restrict: 0, cascade: 0, detach: 1 },
+      hidden: {
+        restrict: 0,
+        cascade: 0,
+        detach: 1,
+        rename: 0,
+        delete: 0,
+        drop: 0,
+        retarget: 0,
+        keep: 0,
+        updateText: 0,
+      },
       token: "0123456789abcdef",
       records: keys.map((key) => channel.resourceID(key)),
     };
