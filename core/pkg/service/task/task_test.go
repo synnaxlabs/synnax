@@ -170,7 +170,10 @@ func openWatched(
 				return err
 			}
 			if st.Message == brokenMessage {
-				return errors.Wrap(validate.ErrValidation, "status is broken")
+				return validate.PathedError(
+					validate.Errorf("status is broken"),
+					"device",
+				)
 			}
 			return nil
 		},
@@ -1287,7 +1290,7 @@ var _ = Describe("Task", Ordered, func() {
 				ctx SpecContext,
 			) {
 				frames := collect()
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				err := db.WithTx(ctx, func(tx gorp.Tx) error {
 					return stat.NewWriter(tx).Set(ctx, &status.Status[any]{
 						Key:     "st-watch",
 						Name:    "st-watch",
@@ -1295,12 +1298,13 @@ var _ = Describe("Task", Ordered, func() {
 						Variant: status.VariantInfo,
 						Time:    telem.Now(),
 					})
-				})).To(SatisfyAll(
+				})
+				Expect(err).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(
-						ContainSubstring("breaks task Watched: status is broken"),
-					),
+					MatchError("breaks task Watched: device: status is broken"),
 				))
+				_, pathed := errors.AsType[validate.PathError](err)
+				Expect(pathed).To(BeFalse())
 				Expect(stored(ctx)).To(Equal(watched.ConfigHash))
 				Expect(*frames).To(BeEmpty())
 			})

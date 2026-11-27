@@ -301,7 +301,16 @@ func (w Writer) targetSet(ctx context.Context, key Key) error {
 		return err
 	}
 	if err = store.Check(ctx, w.tx, key); err != nil {
-		return errors.Wrapf(err, "breaks task %s", t.Name)
+		if !errors.Is(err, validate.ErrValidation) {
+			return err
+		}
+		// The path of the problem is in the task config, not in the record being
+		// written, so it travels as text rather than as a path error.
+		return validate.Errorf(
+			"breaks task %s: %s",
+			t.Name,
+			errors.MessageWithout(err, validate.ErrValidation),
+		)
 	}
 	return w.attachHash(ctx, store, &t)
 }
