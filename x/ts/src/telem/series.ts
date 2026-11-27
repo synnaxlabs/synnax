@@ -1642,7 +1642,10 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     return new Size(this.series.reduce((a, b) => a + b.byteLength.valueOf(), 0));
   }
 
-  /** @returns A typed array containing all data from all series. */
+  /**
+   * @returns A typed array containing all data from all series.
+   * @throws {Error} if the multi-series is empty.
+   */
   get data(): TypedArray {
     const dataType = this.dataType;
     if (dataType == null) throw new Error("an empty multi-series has no data");
