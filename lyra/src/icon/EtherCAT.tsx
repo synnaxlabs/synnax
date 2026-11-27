@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { CSS } from "@/css";
+import { BrandPart } from "@/icon/Colored";
 import { wrapSVGIcon } from "@/icon/Icon";
 
 export const EtherCAT = wrapSVGIcon(
@@ -21,7 +22,9 @@ export const EtherCAT = wrapSVGIcon(
       xmlns="http://www.w3.org/2000/svg"
     >
       <path d="M123.272 50.6L176.172 92.7V72.8H242.272V50.6H123.272Z" fill="white" />
-      <path d="M242.272 42.1L189.372 0V19.9H30.872V42.1H242.272Z" fill="white" />
+      <BrandPart color="#ED1C24">
+        <path d="M242.272 42.1L189.372 0V19.9H30.872V42.1H242.272Z" />
+      </BrandPart>
       <path
         d="M0 50.32H51.408V64.468H15.768V81.532H50.112V95.572H15.768V112.852H52.272V127H0V50.32Z"
         fill="white"

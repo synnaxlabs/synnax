@@ -7,15 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Core } from "@/platform/core";
-import { renderCoreUI } from "@/platform/core/testutil";
+import { fillConnectForm, renderCoreUI } from "@/platform/core/testutil";
+import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
-import { dragOnto, getBySelector, HaulProvider } from "@/testutil";
+import {
+  CaptureStatuses,
+  disableActEnvironment,
+  dragOnto,
+  getBySelector,
+  HaulProvider,
+} from "@/testutil";
 
 const ALPHA = createCore("Alpha", { clusterKey: "cluster-alpha" });
 const BRAVO = createCore("Bravo", { port: 9099, clusterKey: undefined });
@@ -25,6 +33,20 @@ const names = (container: HTMLElement): string[] =>
     container.querySelectorAll<HTMLElement>(".console-core-list-item__name"),
     (el) => el.textContent,
   );
+
+const renderWithStatuses = async (
+  ...args: Parameters<typeof renderCoreUI>
+): Promise<() => Status.NotificationSpec[]> => {
+  let statuses: Status.NotificationSpec[] = [];
+  await renderCoreUI(
+    <>
+      {args[0]}
+      <CaptureStatuses onStatuses={(next) => (statuses = next)} />
+    </>,
+    args[1],
+  );
+  return () => statuses;
+};
 
 describe("Core List", () => {
   it("should call onChange with the clicked Core's key", async () => {
@@ -87,15 +109,23 @@ describe("Core List", () => {
     expect(writeText.mock.calls[0][0]).toBe("synnax://cluster/cluster-alpha");
   });
 
-  it("should copy no link for a Core that has never connected", async () => {
+  it("should copy no link and report it for a Core that has never connected", async () => {
     const writeText = stubClipboardWriteText();
-    await renderCoreUI(
+    const statuses = await renderWithStatuses(
       <Core.List value={BRAVO.key} onChange={vi.fn()} />,
       createCoreState([BRAVO], BRAVO.key),
     );
     fireEvent.contextMenu(await screen.findByText("Bravo"));
     fireEvent.click(await screen.findByText("Copy link"));
-    await waitFor(() => expect(screen.queryByText("Copy link")).toBeNull());
+    await waitFor(() =>
+      expect(statuses()).toContainEqual(
+        expect.objectContaining({
+          variant: "error",
+          name: "Bravo",
+          message: "Failed to copy link",
+        }),
+      ),
+    );
     expect(writeText).not.toHaveBeenCalled();
   });
 
@@ -121,6 +151,21 @@ describe("Core List", () => {
     expect(onChange).toHaveBeenCalledWith(BRAVO.key);
     expect(Session.Core.selectState(store.getState(), ALPHA.key)).toBeUndefined();
     expect(Session.Core.selectState(store.getState(), BRAVO.key)).toBeDefined();
+  });
+
+  it("should list a Core added through the connect modal", async () => {
+    await renderCoreUI(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
+    );
+    fireEvent.click(await screen.findByText("Add a Core"));
+    await screen.findByPlaceholderText("Synnax Core");
+    fillConnectForm("Charlie", "localhost", "9097");
+    fireEvent.click(findButton("Connect"));
+    expect(await screen.findByText("Charlie")).toBeTruthy();
+    await waitFor(() =>
+      expect(screen.queryByPlaceholderText("Synnax Core")).toBeNull(),
+    );
   });
 
   it("should leave the Core's key alone when refreshing the connection", async () => {
@@ -271,5 +316,27 @@ describe("Core List", () => {
     expect(
       within(tooltip).getByText(`Cannot reach Core at ${BRAVO.host}:${BRAVO.port}`),
     ).toBeTruthy();
+  });
+});
+
+describe("Core List against a live Core", () => {
+  disableActEnvironment();
+
+  it("should report a refreshed connection to a reachable Core", async () => {
+    const statuses = await renderWithStatuses(
+      <Core.List value={ALPHA.key} onChange={vi.fn()} />,
+      createCoreState([ALPHA], ALPHA.key),
+    );
+    fireEvent.contextMenu(await screen.findByText("Alpha"));
+    fireEvent.click(await screen.findByText("Refresh connection"));
+    await waitFor(() =>
+      expect(statuses()).toContainEqual(
+        expect.objectContaining({
+          variant: "success",
+          name: "Alpha",
+          message: "Connected to Core",
+        }),
+      ),
+    );
   });
 });

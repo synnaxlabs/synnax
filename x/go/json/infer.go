@@ -62,7 +62,8 @@ type InferredField struct {
 	// TimeFormat is the format of the values of a timestamp field. Nil for any other
 	// field.
 	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
-	// Enum holds the distinct values, sorted, of a string field that repeats a few.
+	// Enum holds the distinct values, sorted, of a field of only strings that repeats
+	// a few.
 	Enum []string `json:"enum" msgpack:"enum"`
 }
 
@@ -107,7 +108,8 @@ type SampledShape struct {
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Number kinds widen across documents: integer, then unsigned, then float. The JSON
 //     type of most values wins.
-//   - A string field that repeats a few values of at most 64 bytes gives an enum.
+//   - A field of only strings that repeats 2 to 16 values of at most 64 bytes gives an
+//     enum.
 //   - A field whose name suggests a time and whose values all fit one format near the
 //     document time gives a timestamp. Unix units come from the magnitude.
 //   - The index is the timestamp nearest the document time that rises in each source.
@@ -882,8 +884,8 @@ func (s *fieldStats) field() InferredField {
 		f.TimeFormat = new(s.time.format)
 		return f
 	}
-	if f.Type == String && !s.longLabel && len(s.labels) <= maxEnumLabels &&
-		len(s.labels) < s.strings {
+	if s.numbers == 0 && s.booleans == 0 && !s.longLabel && len(s.labels) >= 2 &&
+		len(s.labels) <= maxEnumLabels && len(s.labels) < s.strings {
 		f.Enum = make([]string, 0, len(s.labels))
 		for label := range s.labels {
 			f.Enum = append(f.Enum, label)

@@ -108,10 +108,10 @@ void check_case(
     const auto err = enc.encode(samples, payload);
     if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-        ASSERT_EQ(err.data, error_data(expected));
+        ASSERT_EQ(err.data(), error_data(expected));
         ASSERT_EQ(rejected.size(), 1);
         ASSERT_OCCURRED_AS(rejected[0], x::errors::VALIDATION);
-        ASSERT_EQ(rejected[0].data, err.data);
+        ASSERT_EQ(rejected[0].data(), err.data());
         return;
     }
     ASSERT_NIL(err);
@@ -141,7 +141,7 @@ void check_codec(const std::string &doc) {
     auto [enc, err] = Encoder::create(message);
     if (const auto expected = string_at(doc, "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, CONFIG_ERROR);
-        ASSERT_EQ(err.data, error_data(expected));
+        ASSERT_EQ(err.data(), error_data(expected));
         return;
     }
     ASSERT_NIL(err);

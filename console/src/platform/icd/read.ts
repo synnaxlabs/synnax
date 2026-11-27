@@ -40,6 +40,9 @@ export const mostRead = (sources: Pick<ReadSource, "icd">[]): icd.Key | undefine
 /** The messages of each ICD, by ICD key. */
 export type Messages = Map<icd.Key, icd.Message[]>;
 
+/** A field of a message of any format. */
+export type Field = icd.JSONField | icd.TextField | icd.BinaryField;
+
 /** @returns the path of the fields of a JSON message in the form of its ICD. */
 export const fieldsPath = (key: icd.MessageKey) =>
   deep.variant(PICD.formPath.messages[key].payload, "format", "json").fields;
@@ -56,10 +59,10 @@ export const retrieveMessages = async (
 };
 
 /** @returns the fields that a read gives channels: the bound ones and the index. */
-export const readFields = (
-  fields: icd.JSONField[],
+export const readFields = <F extends Field>(
+  fields: F[],
   { index, bindings }: Pick<icd.ReadMessage, "index" | "bindings">,
-): icd.JSONField[] =>
+): F[] =>
   fields.filter(
     ({ key }) => key === index || bindings.some(({ field }) => field === key),
   );
@@ -68,29 +71,29 @@ export const readFields = (
  * What a read tree shows of a field. It holds only JSON values, so a tree can compare
  * its structure as a string, and an edit to the rest of the field keeps the structure.
  */
-export type TreeField = Pick<icd.JSONField, "key" | "name" | "type" | "pointer">;
+export interface TreeField extends Pick<icd.BaseField, "key" | "name"> {
+  readable: boolean;
+}
 
-export const treeFieldOf = ({
-  key,
-  name,
-  type,
-  pointer,
-}: icd.JSONField): TreeField => ({
-  key,
-  name,
-  type,
-  pointer,
+/** @returns whether the Core can read the field: a JSON bytes field needs a pointer. */
+export const isReadable = (field: Field): boolean =>
+  !("type" in field) || field.type !== "bytes" || field.pointer !== "";
+
+export const treeFieldOf = (field: Field): TreeField => ({
+  key: field.key,
+  name: field.name,
+  readable: isReadable(field),
 });
 
-/** @returns whether the Core can read the field: a bytes field needs a pointer. */
-export const isReadable = ({ type, pointer }: TreeField): boolean =>
-  type !== "bytes" || pointer !== "";
-
-export const isIndexable = (field?: icd.JSONField): boolean =>
-  field?.type === "timestamp" && field.default == null;
+/** @returns whether a read can index on the field: a JSON timestamp with no default. */
+export const isIndexable = (field?: Field): boolean =>
+  field != null &&
+  "type" in field &&
+  field.type === "timestamp" &&
+  field.default == null;
 
 /** @returns the data types that a channel of field cannot take. */
-export const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
+export const hiddenDataTypes = (field: Field): DataType[] =>
   DataType.ALL.filter((dt) => !converts(field, dt.toString()));
 
 /**
@@ -99,13 +102,13 @@ export const hiddenDataTypes = (field: icd.JSONField): DataType[] =>
  * and no index that is not a timestamp field. An index field with a default stays, for
  * its error to show.
  */
-export const suit = (
-  read: icd.ReadMessage,
-  fields: icd.JSONField[],
-): icd.ReadMessage => {
+export const suit = (read: icd.ReadMessage, fields: Field[]): icd.ReadMessage => {
   const byKey = new Map(fields.map((f) => [f.key, f]));
   const indexField = read.index == null ? undefined : byKey.get(read.index);
-  const index = indexField?.type === "timestamp" ? read.index : undefined;
+  const index =
+    indexField != null && "type" in indexField && indexField.type === "timestamp"
+      ? read.index
+      : undefined;
   const bindings = read.bindings.flatMap((b) => {
     const field = byKey.get(b.field);
     // The binding of a former index field writes to an index channel.

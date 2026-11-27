@@ -522,7 +522,7 @@ TEST_F(SchedulerTest, ReportedErrorCarriesItsNode) {
     ASSERT_EQ(h.errors.size(), 1);
     EXPECT_EQ(h.node_keys[0], "B");
     EXPECT_TRUE(h.errors[0].matches(errors::WARNING));
-    EXPECT_EQ(h.errors[0].data, "The period is zero.");
+    EXPECT_EQ(h.errors[0].data(), "The period is zero.");
 }
 
 TEST_F(SchedulerTest, AccumulatesMultipleErrors) {

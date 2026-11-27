@@ -1014,6 +1014,10 @@ func processField(
 	// The Core mints a key, so a client sends its zero value on create. An optional
 	// field is never required.
 	_, isKey := field.Domains["key"]
+	if validation.FieldRules(field, table).Required && !isKey && !field.Optional &&
+		resolution.PrimitiveBase(field.Type, table) == "uuid" {
+		fd.PyType = refuseNilUUID(fd.PyType, data)
+	}
 	fieldConstraints := collectValidation(
 		validation.FieldRules(field, table),
 		field.Default,
@@ -1067,6 +1071,15 @@ func processField(
 	fd.Default = buildDefault(fieldConstraints, fd.Alias, data, optional)
 
 	return fd
+}
+
+// refuseNilUUID wraps the UUID type pyType in Annotated with a check that refuses the
+// nil UUID, which pydantic's Field constraints cannot state.
+func refuseNilUUID(pyType string, data *templateData) string {
+	data.imports.addTyping("Annotated")
+	data.imports.addPydantic("AfterValidator")
+	module := data.imports.addModuleImport("x", "validate")
+	return fmt.Sprintf("Annotated[%s, AfterValidator(%s.non_nil_uuid)]", pyType, module)
 }
 
 // requiredInPython reports whether a Python model must be given field: it is not

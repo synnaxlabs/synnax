@@ -103,7 +103,7 @@ describe("ICD commands", () => {
       variant: "error",
       message: "Failed to import ICD",
       description:
-        'data: row 1: unknown column "Name": expected message, id, extended, ' +
+        'row 1: unknown column "Name": expected message, id, extended, ' +
         "length, field, start_bit, bit_length, byte_order, kind, scale, offset, " +
         "units, min, or max",
     });
