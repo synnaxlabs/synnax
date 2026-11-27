@@ -332,10 +332,14 @@ var _ = Describe("Reader", func() {
 					To(SatisfyAll(MatchError(fault), Not(MatchError(place.ErrCorrupt))))
 			})
 
-			It("Should refuse a read past the committed length", func() {
+			It("Should refuse a read past the committed length as corrupt", func() {
 				com := write(cfg, pattern(100))
-				Expect(rd.Read(h, com, make([]byte, 10), 95)).
-					To(MatchError(ContainSubstring("past the committed length 100")))
+				past := SatisfyAll(
+					MatchError(place.ErrCorrupt),
+					MatchError(ContainSubstring("past the committed length 100")),
+				)
+				Expect(rd.Read(h, com, make([]byte, 10), 95)).To(past)
+				Expect(com.ReadStored(h, make([]byte, 10), 95)).To(past)
 			})
 
 			It("Should read with no allocation", func() {
