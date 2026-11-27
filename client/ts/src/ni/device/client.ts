@@ -242,9 +242,8 @@ export class Client extends query.Retriever<
       dispatchReqZ,
       dispatchResZ,
     );
-    // The stored device replaces the cached one, so a read after dispatch sees it.
-    const [stored] = await this.fetchThrough({ key });
-    this.store.set([stripStatus(stored)]);
+    // The fetch ingests the stored record unless a newer stream set arrived.
+    await this.fetchThrough({ key });
   }
 
   /** Deletes the devices with their statuses. */
