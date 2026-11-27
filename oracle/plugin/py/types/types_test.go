@@ -465,7 +465,7 @@ var _ = Describe("Python Types Plugin", func() {
 					`key: int = Field(ge=0, le=4294967295)`,
 					`name: str = Field(min_length=1)`,
 					`make: Make = Field(min_length=1)`,
-					"owner: UUID\n",
+					"owner: Annotated[UUID, AfterValidator(validate.non_nil_uuid)]\n",
 					`serial: Serial = Field(gt=0, le=4294967295)`,
 					`count: int = Field(gt=0, le=65535)`,
 					"alias: Name | None = None\n",

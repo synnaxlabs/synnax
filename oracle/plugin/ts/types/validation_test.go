@@ -466,7 +466,7 @@ var _ = Describe("Validation Rules", func() {
 		`
 		resp := MustGenerate(source, "item", loader, p)
 		ExpectContent(resp, "types.gen.ts").ToContain(
-			`owner: z.uuid().refine((v) => v !== "00000000-0000-0000-0000-000000000000", "Owner is required")`,
+			`owner: z.uuid().min(1, "Owner is required").refine((v) => v !== "00000000-0000-0000-0000-000000000000", "Owner is required")`,
 		)
 	})
 

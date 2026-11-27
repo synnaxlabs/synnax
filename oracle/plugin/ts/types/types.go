@@ -2808,10 +2808,11 @@ func (p *Plugin) applyValidation(
 		resolution.IsStringPrimitive(effectiveType)
 	isNumber := resolution.IsPrimitive(effectiveType) &&
 		resolution.IsNumberPrimitive(effectiveType)
-	if isString && effectiveType == "uuid" {
-		zodType = applyUUIDRules(zodType, rules, fieldName)
-	} else if isString {
+	if isString {
 		zodType = applyStringRules(zodType, rules, fieldName, data)
+	}
+	if effectiveType == "uuid" {
+		zodType = refuseNilUUID(zodType, rules, fieldName)
 	}
 	if effectiveType == "bytes" {
 		zodType = applyBytesRules(zodType, rules, data)
@@ -2900,10 +2901,9 @@ func applyBytesRules(
 // nilUUID is the UUID with every bit zero, which a required UUID refuses.
 const nilUUID = "00000000-0000-0000-0000-000000000000"
 
-// applyUUIDRules refuses the nil UUID for a required UUID. A UUID is never empty, so
-// the
-// string rules do not apply.
-func applyUUIDRules(zodType string, rules *validation.Rules, fieldName string) string {
+// refuseNilUUID refuses the nil UUID for a required UUID. The string rules refuse an
+// empty one first, so a form that starts the field at "" reports it as required.
+func refuseNilUUID(zodType string, rules *validation.Rules, fieldName string) string {
 	if !rules.Required {
 		return zodType
 	}
