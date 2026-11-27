@@ -25,17 +25,17 @@ Chassis struct {
     }
     rack          rack.Key {
         @doc value     "is the key of the rack the chassis is connected to."
+        @patch
         @ref kind      place
         @ref on_delete restrict
-        @patch
     }
     name          string   {
         @doc value         "is a human-readable name for the chassis."
         @filter
         @index sorted
+        @patch
         @search
         @validate required
-        @patch
     }
     serial        string = "" {
         @doc value    """
@@ -51,14 +51,14 @@ Chassis struct {
         """
         @filter
         @index lookup
-        @validate required
         @patch
+        @validate required
     }
     model         string   {
         @doc value         "is the product name of the chassis."
         @filter
-        @validate required
         @patch
+        @validate required
     }
     status        Status?  {
         @doc value  "is the current operational status of the chassis."
