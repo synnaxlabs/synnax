@@ -921,7 +921,6 @@ describe("Streamer", () => {
         { channels: ch.key, keepAlive: KEEP_ALIVE },
         { breaker: FAST_RETRY, onReopen, onDrop, onRetry },
       );
-      await sleep.sleep(ARMED);
       const unstall = proxy.stallNewConnections();
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const pending = hardened.read();

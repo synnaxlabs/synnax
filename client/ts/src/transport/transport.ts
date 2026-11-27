@@ -33,7 +33,10 @@ export interface TransportConfig {
    * HTTP_PROXY or HTTPS_PROXY is set, defaults to a connector that uses that proxy.
    */
   connector?: Connector;
-  /** The longest a stream waits to open. Defaults to 10 seconds. */
+  /**
+   * The longest a stream waits to open. Defaults to 10 seconds. Zero or infinity sets
+   * no limit.
+   */
   streamOpenTimeout?: CrudeTimeSpan;
 }
 

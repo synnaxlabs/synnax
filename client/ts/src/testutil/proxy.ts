@@ -44,9 +44,10 @@ export interface SeverableProxy {
    */
   blackholeStreams: () => number;
   /**
-   * Holds every new connection open without forwarding it, as if the link stalled.
-   * Live connections still forward. Returns a function that forwards new connections
-   * again.
+   * Holds every new WebSocket upgrade open without forwarding it, as if the link
+   * stalled, including an upgrade on a pooled HTTP connection. Open streams and HTTP
+   * requests still forward, so a stream that reopens reaches its dial without waiting
+   * on a request. Returns a function that forwards new upgrades again.
    */
   stallNewConnections: () => () => void;
   /** Accepts connections again on the same port. */
@@ -79,6 +80,27 @@ export const createSeverableProxy = async (
   const zombies = new Set<Socket>();
   let severed = false;
   let stalled = false;
+  const isUpgrade = (chunk: Buffer): boolean =>
+    /upgrade:\s*websocket/i.test(chunk.toString("latin1"));
+  // Cuts the pair off from the cluster and holds the client side open and silent.
+  const blackhole = (pair: ProxiedPair): void => {
+    const { downstream, upstream } = pair;
+    downstream.unpipe(upstream);
+    upstream.unpipe(downstream);
+    for (const socket of [downstream, upstream]) {
+      socket.removeAllListeners("close");
+      socket.removeAllListeners("error");
+      socket.on("error", () => {});
+    }
+    // Discard anything the client still writes so backpressure cannot close the
+    // socket on the proxy's behalf.
+    downstream.on("data", () => {});
+    // A pipe that already took the current chunk can pause the socket after this.
+    queueMicrotask(() => downstream.resume());
+    upstream.destroy();
+    pairs.delete(pair);
+    zombies.add(downstream);
+  };
   const server = createServer((downstream) => {
     // A connection the kernel accepted before the sever is still delivered after it,
     // and forwarding it would let a request through a severed link.
@@ -86,20 +108,16 @@ export const createSeverableProxy = async (
       downstream.destroy();
       return;
     }
-    if (stalled) {
-      downstream.on("error", () => {});
-      downstream.on("data", () => {});
-      zombies.add(downstream);
-      return;
-    }
     const upstream = connect(port, host);
     const pair: ProxiedPair = { downstream, upstream, ws: false };
     pairs.add(pair);
     // The upgrade can arrive on any request of a pooled keep-alive connection, not just
-    // the first, so every chunk is sniffed until one is seen.
+    // the first, so every chunk is sniffed until one is seen. Registered before the
+    // pipe, so a stalled upgrade never reaches the cluster.
     downstream.on("data", (chunk: Buffer) => {
-      if (!pair.ws && /upgrade:\s*websocket/i.test(chunk.toString("latin1")))
-        pair.ws = true;
+      if (pair.ws || !isUpgrade(chunk)) return;
+      if (stalled) return blackhole(pair);
+      pair.ws = true;
     });
     const destroy = (): void => {
       pairs.delete(pair);
@@ -143,21 +161,7 @@ export const createSeverableProxy = async (
     for (const pair of [...pairs]) {
       if (!pair.ws) continue;
       count += 1;
-      const { downstream, upstream } = pair;
-      downstream.unpipe(upstream);
-      upstream.unpipe(downstream);
-      for (const socket of [downstream, upstream]) {
-        socket.removeAllListeners("close");
-        socket.removeAllListeners("error");
-        socket.on("error", () => {});
-      }
-      // Discard anything the client still writes so backpressure cannot close the
-      // socket on the proxy's behalf.
-      downstream.on("data", () => {});
-      downstream.resume();
-      upstream.destroy();
-      pairs.delete(pair);
-      zombies.add(downstream);
+      blackhole(pair);
     }
     return count;
   };

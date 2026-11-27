@@ -103,7 +103,8 @@ export const synnaxParamsZ = z.object({
   retry: breaker.configZ.optional(),
   /**
    * The longest a stream waits to open, from the dial to the Core's open ack. A
-   * hardened streamer retries an open that times out. Defaults to 10 seconds.
+   * hardened streamer retries an open that times out. Defaults to 10 seconds. Zero
+   * sets no limit.
    */
   streamOpenTimeout: TimeSpan.z.optional(),
   cache: z.boolean().default(true),

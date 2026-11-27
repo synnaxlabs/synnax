@@ -24,9 +24,10 @@ import {
   EOF,
   ReceiveOverflow,
   StreamClosed,
+  Timeout,
   Unreachable,
 } from "@/errors";
-import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX } from "@/http";
+import { CONTENT_TYPE_HEADER_KEY, FREIGHTER_METADATA_PREFIX, limitOf } from "@/http";
 import { type Context, MiddlewareCollector } from "@/middleware";
 import type { Stream, StreamClient } from "@/stream";
 
@@ -309,7 +310,8 @@ export interface WebSocketClientConfig {
   connector?: Connector;
   /**
    * The longest a stream waits to open, from the dial to the server's open ack.
-   * Defaults to 10 seconds.
+   * Defaults to 10 seconds. A timeout of zero, infinity, or more than 2^31 - 1
+   * milliseconds (about 24.8 days) sets no limit.
    */
   openTimeout?: CrudeTimeSpan;
 }
@@ -323,7 +325,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   secure: boolean;
   flowControl: FlowControl;
   private readonly connector: Connector;
-  private readonly openTimeout: TimeSpan;
+  private readonly openTimeout: TimeSpan | null;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
@@ -341,7 +343,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     this.baseUrl = endpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = codec;
     this.connector = connector;
-    this.openTimeout = new TimeSpan(openTimeout);
+    this.openTimeout = limitOf(openTimeout);
   }
 
   withCodec(codec: binary.Codec): WebSocketClient {
@@ -351,7 +353,7 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       secure: this.secure,
       flowControl: this.flowControl,
       connector: this.connector,
-      openTimeout: this.openTimeout,
+      openTimeout: this.openTimeout ?? TimeSpan.ZERO,
     });
     c.use(...this.middleware);
     return c;
@@ -431,16 +433,13 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
           .catch((err: unknown) => reject(errors.fromUnknown(err)));
       };
     });
+    const timeout = this.openTimeout;
     try {
-      return await sync.withTimeout(
-        opened,
-        this.openTimeout,
-        () =>
-          new Unreachable({
-            url: endpoint,
-            message: `stream did not open within ${this.openTimeout.toString()}`,
-          }),
-      );
+      if (timeout == null) return await opened;
+      return await sync.withTimeout(opened, timeout, () => {
+        const message = `stream did not open within ${timeout.toString()}`;
+        return new Unreachable({ url: endpoint, message, cause: new Timeout(message) });
+      });
     } catch (e) {
       ws.close();
       throw errors.fromUnknown(e);

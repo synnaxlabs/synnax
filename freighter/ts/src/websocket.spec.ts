@@ -23,6 +23,7 @@ import {
   ReceiveOverflow,
   type Socket,
   subprotocols,
+  Timeout,
   Unreachable,
   UntrustedCertificate,
   WebSocketClient,
@@ -263,6 +264,7 @@ describe("unreachable server", () => {
     );
     expect(Unreachable.matches(err)).toBe(true);
     expect(err).toHaveProperty("message", "stream did not open within 100ms");
+    expect(err).toHaveProperty("cause", expect.any(Timeout));
     sockets.forEach((socket) => socket.destroy());
     await new Promise((resolve) => server.close(resolve));
   });
@@ -396,6 +398,19 @@ describe("local server", () => {
     ws.close();
     await closed;
     await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+  });
+
+  test("should open a stream with no open timeout", async () => {
+    const { port } = server.address() as AddressInfo;
+    const c = new WebSocketClient({
+      endpoint: new url.URL({ host: "127.0.0.1", port }),
+      codec: new binary.JSONCodec(),
+      openTimeout: TimeSpan.ZERO,
+    });
+    const stream = await c.stream("stream", messageSchema, messageSchema);
+    const { ws } = await connected;
+    sendData(ws, { id: 1 });
+    expect((await stream.receive()).id).toEqual(1);
   });
 
   test("should wait to send while the socket buffer is full", async () => {
