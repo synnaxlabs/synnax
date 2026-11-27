@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { view } from "@synnaxlabs/client";
+import { UnexpectedError, type view } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type Flux, View as PView } from "@synnaxlabs/pluto";
@@ -24,24 +24,38 @@ import { FormContext, useContext, useSearchContext } from "@/platform/view/conte
 
 const path = PView.formPath;
 
-export interface FormProps<K extends record.Key, E extends record.Keyed<K>, W>
+/** The filter of the views of resource type T. */
+type WhereOf<T extends view.Type> = Extract<view.View, { type: T }>["where"];
+
+export interface FormProps<
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  T extends view.Type,
+>
   extends
     PropsWithChildren,
     Pick<
       Flux.UseListReturn<K, E>,
       "data" | "getItem" | "subscribe" | "answered" | "more" | "search"
     > {
-  /**
-   * Called with the filter of the view each time the selected view changes it. W is the
-   * filter of the frame's resource type.
-   */
-  onWhereChange: (where: W | undefined) => void;
+  /** The resource type of the enclosing frame. */
+  type: T;
+  /** Called with the filter of the view each time the selected view changes it. */
+  onWhereChange: (where: WhereOf<T> | undefined) => void;
   /** The height of each item in pixels. The list renders only the items in view. */
   itemHeight: number;
 }
 
-export const Form = <K extends record.Key, E extends record.Keyed<K>, W>({
+/**
+ * @throws {UnexpectedError} if type is not the resource type of the enclosing frame.
+ */
+export const Form = <
+  K extends record.Key,
+  E extends record.Keyed<K>,
+  T extends view.Type,
+>({
   children,
+  type,
   data,
   getItem,
   subscribe,
@@ -50,11 +64,15 @@ export const Form = <K extends record.Key, E extends record.Keyed<K>, W>({
   search,
   onWhereChange,
   itemHeight,
-}: FormProps<K, E, W>): ReactElement | null => {
-  const { staticViews, getInitialView } = useContext("View.Form");
-  // A frame shows the views of one resource type, so each filter is a W.
+}: FormProps<K, E, T>): ReactElement | null => {
+  const { staticViews, getInitialView, resourceType } = useContext("View.Form");
+  if (resourceType !== type)
+    throw new UnexpectedError(
+      `A ${type} form cannot show the views of a ${resourceType} frame`,
+    );
+  // A frame shows only the views of its resource type, which is type.
   const changeWhere = (where: view.View["where"]) =>
-    onWhereChange(where as W | undefined);
+    onWhereChange(where);
   const { term } = useSearchContext("View.Form");
   // The list of a new view starts with no term.
   const searchedRef = useRef("");

@@ -45,7 +45,7 @@ const Internal = () => {
   const handleCreate = () => openCreate();
   const hasCreatePermission = Access.useCreateGranted(status.TYPE_RESOURCE_ID);
   return (
-    <View.Form {...listProps} onWhereChange={setWhere} itemHeight={40}>
+    <View.Form type="status" {...listProps} onWhereChange={setWhere} itemHeight={40}>
       <View.Toolbar properties={PROPERTIES}>
         {hasCreatePermission && (
           <Button.Button

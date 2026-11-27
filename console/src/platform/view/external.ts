@@ -40,6 +40,7 @@ export const useInitialView = <T extends view.Type>(type: T): Of<T> => {
  * @returns a field of the open view, which must be of the given type, and its setter. A
  * stored view reads the field from the Core and saves a change to it. A static view
  * holds the field while the frame shows.
+ * @throws {UnexpectedError} if the view is not of the given type.
  */
 export const useField = <T extends view.Type, F extends keyof Of<T> & string>(
   type: T,

@@ -212,6 +212,7 @@ const Internal = (): ReactElement => {
   );
   return (
     <View.Form
+      type="range"
       data={tree.nodes.map((n) => n.key)}
       getItem={root.getItem}
       subscribe={root.subscribe}
