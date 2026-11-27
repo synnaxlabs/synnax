@@ -158,12 +158,12 @@ public:
     /// the segment, and readers can read it.
     x::errors::Error write(const x::telem::Frame &frame);
 
-    /// @brief syncs the segment when a sync is due. Call it when no frames come, so
-    /// the last frames reach the disk in one second.
+    /// @brief syncs the segment when a sync is due. Call it when no frames come, so the
+    /// last frames reach the disk in one second.
     x::errors::Error sync_if_due();
 
-    /// @brief syncs and closes the segment, so readers can open it. Later writes
-    /// return an error, and later calls to close do nothing.
+    /// @brief syncs and closes the segment, so readers can open it. Later writes return
+    /// an error, and later calls to close do nothing.
     /// @returns the error of the last sync. Then the frames since the sync before it
     /// can be lost.
     x::errors::Error close();
@@ -201,8 +201,8 @@ public:
     x::errors::Error commit();
 };
 
-/// @brief stores frames that a Driver cannot deliver to the Core in segments on
-/// disk, and keeps them across restarts. Safe for concurrent use.
+/// @brief stores frames that a Driver cannot deliver to the Core in segments on disk,
+/// and keeps them across restarts. Safe for concurrent use.
 class Spool {
     friend class Writer;
     friend class Reader;
@@ -241,16 +241,16 @@ class Spool {
     [[nodiscard]] x::errors::Error remove_orphan_offsets() const;
 
 public:
-    /// @brief opens the spool in the directory of the config, and creates the
-    /// directory when it does not exist. Removes segments that a crash left without a
-    /// header, read offsets without a segment, and temp files. Sets aside each segment
-    /// that fails its checks, as set_aside does.
-    /// @returns x::fs::LOCKED when another process has the spool open. An error
-    /// when the spool cannot read or change its directory.
+    /// @brief opens the spool in the directory of the config, and creates the directory
+    /// when it does not exist. Removes segments that a crash left without a header,
+    /// read offsets without a segment, and temp files. Sets aside each segment that
+    /// fails its checks, as set_aside does.
+    /// @returns x::fs::LOCKED when another process has the spool open. An error when
+    /// the spool cannot read or change its directory.
     static std::pair<std::unique_ptr<Spool>, x::errors::Error> open(Config cfg);
 
-    /// @brief starts a new segment for the header. The writer creates the file at
-    /// its first frame.
+    /// @brief starts a new segment for the header. The writer creates the file at its
+    /// first frame.
     std::unique_ptr<Writer> open_writer(Header header);
 
     /// @returns the keys of the closed segments, oldest first.
@@ -270,10 +270,9 @@ public:
 
     /// @brief renames a closed segment to `<key>.seg.bad` and its read offset to
     /// `<key>.offset.bad`, or to `.bad.<n>` when that name is taken, so the spool no
-    /// longer lists it, and adds it to
-    /// bad_segments(). The spool never deletes these files. Call it when open_reader
-    /// or a reader of the segment returns an error that is_bad accepts. On Windows,
-    /// the readers of the segment must first be destroyed.
+    /// longer lists it, and adds it to bad_segments(). The spool never deletes these
+    /// files. Call it when open_reader or a reader of the segment returns an error that
+    /// is_bad accepts. On Windows, the readers of the segment must first be destroyed.
     /// @param key a key from segments().
     /// @param cause why the segment fails its checks.
     x::errors::Error set_aside(std::uint64_t key, const x::errors::Error &cause);

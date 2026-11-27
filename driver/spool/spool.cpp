@@ -402,8 +402,8 @@ x::errors::Error Writer::sync_if_due() {
 x::errors::Error
 Writer::fail(const x::errors::Error &err, const std::uint64_t reserved) {
     this->failed = err;
-    // The journal appends a record before it syncs, so after a failed sync the frame
-    // is in the segment.
+    // The journal appends a record before it syncs, so after a failed sync the frame is
+    // in the segment.
     const auto end = this->size + reserved;
     if (this->file != nullptr && this->file->pos() == end) {
         this->size = end;

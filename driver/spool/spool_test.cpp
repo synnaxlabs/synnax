@@ -199,8 +199,8 @@ protected:
             ASSERT_NIL(writer->write(frame_of(static_cast<float>(i))));
     }
 
-    /// @brief opens a spool, and expects it to set aside the segment file name with
-    /// an error that matches cause.
+    /// @brief opens a spool, and expects it to set aside the segment file name with an
+    /// error that matches cause.
     void
     expect_set_aside(const std::string &name, const x::errors::Error &cause) const {
         const auto spool = this->open_spool();
@@ -692,8 +692,7 @@ TEST_F(SpoolTest, EndsAtCutOffRecord) {
     ASSERT_EQ(spool->cut(), 3);
 }
 
-/// @brief it should end the segment at a zero-filled tail that a power loss can
-/// leave.
+/// @brief it should end the segment at a zero-filled tail that a power loss can leave.
 TEST_F(SpoolTest, EndsAtZeroFilledTail) {
     const auto path = this->write_segment();
     append_file(path, std::string(16, '\0'));
@@ -714,8 +713,8 @@ TEST_F(SpoolTest, FailsOnUndecodableFrame) {
     ASSERT_OCCURRED_AS_P(reader->read(), CORRUPT);
 }
 
-/// @brief it should return a read error again on every later read, and not skip to
-/// the frames after the bad record.
+/// @brief it should return a read error again on every later read, and not skip to the
+/// frames after the bad record.
 TEST_F(SpoolTest, RepeatsReadError) {
     const auto path = this->write_segment();
     append_record(path, {.type = 2, .payload = "\xff\xff"});
@@ -733,8 +732,8 @@ TEST_F(SpoolTest, RepeatsReadError) {
     ASSERT_OCCURRED_AS_P(again->read(), CORRUPT);
 }
 
-/// @brief it should rename a segment and its read offset when a drainer sets it
-/// aside, stop listing it, and keep its key taken after a reopen.
+/// @brief it should rename a segment and its read offset when a drainer sets it aside,
+/// stop listing it, and keep its key taken after a reopen.
 TEST_F(SpoolTest, SetsAsideSegment) {
     const auto path = this->write_segment();
     append_record(path, {.type = 2, .payload = "\xff\xff"});
@@ -1063,8 +1062,8 @@ TEST_F(SpoolTest, RemovesTempFiles) {
     ASSERT_EQ(spool->segments(), std::vector<std::uint64_t>{0});
 }
 
-/// @brief it should set aside a segment and its read offset to the next free names
-/// when a crash left files at their set-aside names, and keep those files.
+/// @brief it should set aside a segment and its read offset to the next free names when
+/// a crash left files at their set-aside names, and keep those files.
 TEST_F(SpoolTest, SetsAsideToNextFreeName) {
     std::filesystem::create_directories(this->dir);
     append_record(this->dir / "0.seg", {.type = 2, .payload = ""});
