@@ -148,8 +148,8 @@ func Open(configs ...Config) (*Relay, error) {
 	return r, nil
 }
 
-// Run moves frames to streamers until ctx ends. It then stops the taps into storage
-// and free writes, drops every streamer, and returns. A streamer that runs after Run
+// Run moves frames to streamers until ctx ends. It then stops the tap of writes, drops
+// every streamer, and returns. A streamer that runs after Run
 // returns fails. A second Run, or a Run after Close, returns an error.
 func (r *Relay) Run(ctx context.Context) error {
 	if err := r.guard.Begin(); err != nil {
@@ -177,11 +177,11 @@ func (r *Relay) Run(ctx context.Context) error {
 	return errors.Skip(sCtx.Wait(), context.Canceled)
 }
 
-// Close fails streamers that wait for a Run that has not started, and makes a later
-// Run fail. Close while Run runs returns an error. Close after Run returns does
 // Stopped returns a channel that closes when Run returns, or at a Close with no Run.
 func (r *Relay) Stopped() <-chan struct{} { return r.stopped }
 
+// Close fails streamers that wait for a Run that has not started, and makes a later
+// Run fail. Close while Run runs returns an error. Close after Run returns does
 // nothing.
 func (r *Relay) Close() error {
 	if _, err := r.guard.Close(); err != nil {

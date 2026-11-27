@@ -59,7 +59,7 @@ type indexStamper struct {
 // stampGroup is a written index and the written data channels it indexes.
 type stampGroup struct {
 	index cesium.ChannelKey
-	// clock is the last stamp of the index.
+	// clock is the last auto stamp of the index.
 	clock telem.TimeStamp
 	// indexPresent and dataLen hold the scan of the current frame: whether the frame
 	// holds the index, and the length of its first data series that is not empty.
