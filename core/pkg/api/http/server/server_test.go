@@ -88,7 +88,9 @@ var _ = Describe("Service", func() {
 				Virtual:  true,
 			}
 		}
-		Expect(svc.Channel.NewWriter(nil).CreateMany(ctx, &chs)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Channel.NewWriter(tx).CreateMany(ctx, &chs)
+		})).To(Succeed())
 		return channel.KeysFromChannels(chs)
 	}
 	createServer := func(ctx SpecContext, overrides ...func(*server.Server)) server.Server {
