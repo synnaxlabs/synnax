@@ -238,7 +238,7 @@ var _ = Describe("Read", func() {
 			))
 		})
 
-		It("Should refuse two reads that write one index channel", func(
+		It("Should reject two reads that write one index channel", func(
 			ctx SpecContext,
 		) {
 			Expect(resolver.Check(ctx, db, []read.Read{

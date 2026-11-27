@@ -227,10 +227,14 @@ var _ = Describe("Read config", func() {
 			f.ic,
 			readMessage(f.m, binding(f.m, 1, f.value)),
 			readMessage(f.m, binding(f.m, 1, level)),
-		))).Error().To(MatchError(fmt.Sprintf(
-			"endpoints.1.messages.0: channel %d is also written by endpoints.0.messages.0",
-			f.idx.Key(),
-		)))
+		))).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(fmt.Sprintf(
+				"endpoints.1.messages.0: channel %d is also written by "+
+					"endpoints.0.messages.0",
+				f.idx.Key(),
+			)),
+		))
 	})
 
 	DescribeTable(
