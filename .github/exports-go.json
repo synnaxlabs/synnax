@@ -78,6 +78,19 @@
       "receiver": "Join",
       "name": "Next",
       "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "name": "Input",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/join",
+      "receiver": "Join",
+      "name": "Load",
+      "caller": "sy-6882-pair-live-calculation-inputs-through-the-join"
     }
   ]
 }
