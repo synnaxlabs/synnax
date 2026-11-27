@@ -17,6 +17,7 @@
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/serial/errors.h"
+#include "driver/serial/native.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
@@ -149,5 +150,14 @@ TEST(Translate, MapsWin32ErrorsFromTheSystemCategory) {
         ),
         transport::UNREACHABLE_ERROR
     );
+}
+
+/// @brief it should give each spelling of a COM port one identity, and another COM port
+/// another.
+TEST(Identity, IgnoresCaseAndDevicePrefixOfCOMPort) {
+    const auto com3 = ASSERT_NIL_P(native::identity("COM3"));
+    EXPECT_EQ(ASSERT_NIL_P(native::identity(R"(\\.\COM3)")), com3);
+    EXPECT_EQ(ASSERT_NIL_P(native::identity(R"(\\.\com3)")), com3);
+    EXPECT_NE(ASSERT_NIL_P(native::identity("COM30")), com3);
 }
 }
