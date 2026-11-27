@@ -2516,4 +2516,79 @@ TEST(TestScanTask, RunningStatusFollowsAnAnswerOfTheScanner) {
     EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[2].message, "Scan task running");
 }
+
+/// @brief a scanner that keeps its own resources and records the signals it gets.
+class SignalRecordingScanner final : public Scanner {
+public:
+    std::mutex mu;
+    std::vector<std::pair<std::string, std::vector<std::string>>> received;
+
+    [[nodiscard]] ScannerConfig config() const override {
+        return ScannerConfig{.log_prefix = "[test] ", .signals = {"sy_thing_set"}};
+    }
+
+    std::pair<std::vector<synnax::device::Device>, x::errors::Error>
+    scan(const ScannerContext &) override {
+        return {{}, x::errors::NIL};
+    }
+
+    void on_signal(
+        const synnax::channel::Channel &ch,
+        const x::telem::Series &series
+    ) override {
+        std::lock_guard lock(this->mu);
+        this->received.emplace_back(ch.name, series.strings());
+    }
+};
+
+/// @brief it should pass the frames of a channel that the scanner names to on_signal,
+/// and keep no devices for a scanner without a make.
+TEST(TestScanTask, PassesScannerSignalsToScanner) {
+    synnax::channel::Channel thing_set;
+    thing_set.key = 100;
+    thing_set.name = "sy_thing_set";
+    synnax::device::Device stored;
+    stored.key = "device1";
+    stored.rack = 1;
+    const auto remote = std::make_shared<std::vector<synnax::device::Device>>(
+        std::vector{stored}
+    );
+    auto cluster_api = std::make_unique<MockClusterAPI>(
+        remote,
+        std::make_shared<std::vector<synnax::device::Device>>()
+    );
+    auto *cluster_api_ptr = cluster_api.get();
+    cluster_api->signal_channels = {thing_set};
+    cluster_api->signals = std::make_shared<SignalQueue>();
+    auto scanner = std::make_unique<SignalRecordingScanner>();
+    auto *scanner_ptr = scanner.get();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    task.rack = 1;
+    task.name = "Test Scan Task";
+    ScanTask scan_task(
+        std::move(scanner),
+        ctx,
+        task,
+        x::breaker::Config{},
+        scan_config(x::telem::HERTZ * 50),
+        std::move(cluster_api)
+    );
+    scan_task.start();
+    x::telem::Frame frame(1);
+    frame.emplace(thing_set.key, x::telem::Series(std::string(R"({"key":"a"})")));
+    cluster_api_ptr->signals->send(std::move(frame));
+    ASSERT_EVENTUALLY_GE(cluster_api_ptr->scans.load(), 2);
+    scan_task.stop();
+    std::lock_guard lock(scanner_ptr->mu);
+    ASSERT_EQ(scanner_ptr->received.size(), 1);
+    EXPECT_EQ(scanner_ptr->received[0].first, "sy_thing_set");
+    EXPECT_EQ(
+        scanner_ptr->received[0].second,
+        std::vector<std::string>{R"({"key":"a"})"}
+    );
+    for (const auto &statuses: cluster_api_ptr->propagated_statuses)
+        EXPECT_TRUE(statuses.empty());
+}
 }
