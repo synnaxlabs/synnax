@@ -110,13 +110,3 @@ func newSiblingIndex(scope resource.Type) siblingIndex {
 		},
 	)
 }
-
-// isNamespaced reports whether the names in the groups of scope are unique.
-func isNamespaced(scope resource.Type) bool {
-	for _, r := range memberRules {
-		if r.scope == scope {
-			return r.namespaced
-		}
-	}
-	return false
-}

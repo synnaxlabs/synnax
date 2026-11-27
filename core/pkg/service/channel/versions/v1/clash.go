@@ -32,11 +32,11 @@ const MetricsFolder = "Metrics"
 // NewClashMigration returns the migration that renames one side of each channel and
 // channel folder that hold one name in NFC in one folder, and stages each rename
 // (resource.StageRename). The folder yields, unless a name pass renamed the channel and
-// not the folder, or the channel is top-level and holds MetricsFolder. Of
-// several top-level metrics folders, the one that holds the metrics index channel of
-// host keeps the name, or else the first by key. A folder takes the first suffix (_2,
-// _3) that no sibling holds, and a channel the first that also no other channel holds.
-// It runs after the name passes.
+// not the folder, or the channel is top-level and holds MetricsFolder. Of several
+// top-level metrics folders, the one that holds the metrics index channel of host keeps
+// the name, or else the first by key. A folder takes the first suffix (_2, _3) that no
+// sibling holds, and a channel the first that also no other channel holds. It runs
+// after the name passes.
 func NewClashMigration(host node.Key) gorp.Migration {
 	// The metrics index channel that a v0.62 Core made in its metrics folder.
 	index := fmt.Sprintf("sy_node_%s_metrics_time", host)
