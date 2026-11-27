@@ -18,39 +18,12 @@
 #include "client/cpp/http/types.gen.h"
 #include "client/cpp/icd/json.gen.h"
 #include "client/cpp/task/json.gen.h"
+#include "x/cpp/http/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::http {
-
-inline Header Header::parse(x::json::Parser parser) {
-    return Header{
-        .name = parser.field<std::string>("name", ""),
-        .value = parser.field<std::string>("value", ""),
-    };
-}
-
-inline x::json::json Header::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["name"] = this->name;
-    j["value"] = this->value;
-    return j;
-}
-
-inline QueryParam QueryParam::parse(x::json::Parser parser) {
-    return QueryParam{
-        .parameter = parser.field<std::string>("parameter", ""),
-        .value = parser.field<std::string>("value", ""),
-    };
-}
-
-inline x::json::json QueryParam::to_json() const {
-    x::json::json j = x::json::json::object();
-    j["parameter"] = this->parameter;
-    j["value"] = this->value;
-    return j;
-}
 
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
@@ -58,10 +31,13 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "GET"),
         .path = parser.field<std::string>("path", ""),
-        .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
-        .query_params = parser.field<std::vector<QueryParam>>(
+        .headers = parser.field<std::vector<::x::http::Header>>(
+            "headers",
+            std::vector<::x::http::Header>{}
+        ),
+        .query_params = parser.field<std::vector<::x::http::QueryParam>>(
             "query_params",
-            std::vector<QueryParam>{}
+            std::vector<::x::http::QueryParam>{}
         ),
         .body = parser.field<std::string>("body", ""),
         .icd = parser.field<std::optional<::synnax::icd::Key>>("icd"),
@@ -119,10 +95,13 @@ inline WriteEndpoint WriteEndpoint::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "POST"),
         .path = parser.field<std::string>("path", ""),
-        .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
-        .query_params = parser.field<std::vector<QueryParam>>(
+        .headers = parser.field<std::vector<::x::http::Header>>(
+            "headers",
+            std::vector<::x::http::Header>{}
+        ),
+        .query_params = parser.field<std::vector<::x::http::QueryParam>>(
             "query_params",
-            std::vector<QueryParam>{}
+            std::vector<::x::http::QueryParam>{}
         ),
         .icd = parser.field<std::optional<::synnax::icd::Key>>("icd"),
         .message = parser.field<std::optional<::synnax::icd::WriteMessage>>("message"),

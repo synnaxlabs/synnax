@@ -16,6 +16,7 @@ import (
 
 	"github.com/samber/lo"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 )
 
 func autoMigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, error) {
@@ -48,24 +49,62 @@ func autoMigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfi
 	}, nil
 }
 
-func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+func autoMigrateV4HeaderToHttpHeader(_ context.Context, old v4.Header) (http.Header, error) {
+	return http.Header{
+		Name:  old.Name,
+		Value: old.Value,
+	}, nil
+}
+
+func autoMigrateV4QueryParamToHttpQueryParam(_ context.Context, old v4.QueryParam) (http.QueryParam, error) {
+	return http.QueryParam{
+		Parameter: old.Parameter,
+		Value:     old.Value,
+	}, nil
+}
+
+func autoMigrateReadEndpoint(ctx context.Context, old v4.ReadEndpoint) (ReadEndpoint, error) {
+	headers, err := lo.MapErr(old.Headers, func(v v4.Header, _ int) (http.Header, error) {
+		return autoMigrateV4HeaderToHttpHeader(ctx, v)
+	})
+	if err != nil {
+		return ReadEndpoint{}, err
+	}
+	queryParams, err := lo.MapErr(old.QueryParams, func(v v4.QueryParam, _ int) (http.QueryParam, error) {
+		return autoMigrateV4QueryParamToHttpQueryParam(ctx, v)
+	})
+	if err != nil {
+		return ReadEndpoint{}, err
+	}
 	return ReadEndpoint{
 		Key:         old.Key,
-		Method:      old.Method,
+		Method:      http.Method(old.Method),
 		Path:        old.Path,
-		Headers:     old.Headers,
-		QueryParams: old.QueryParams,
+		Headers:     headers,
+		QueryParams: queryParams,
 		Body:        old.Body,
 	}, nil
 }
 
-func autoMigrateWriteEndpoint(_ context.Context, old v4.WriteEndpoint) (WriteEndpoint, error) {
+func autoMigrateWriteEndpoint(ctx context.Context, old v4.WriteEndpoint) (WriteEndpoint, error) {
+	headers, err := lo.MapErr(old.Headers, func(v v4.Header, _ int) (http.Header, error) {
+		return autoMigrateV4HeaderToHttpHeader(ctx, v)
+	})
+	if err != nil {
+		return WriteEndpoint{}, err
+	}
+	queryParams, err := lo.MapErr(old.QueryParams, func(v v4.QueryParam, _ int) (http.QueryParam, error) {
+		return autoMigrateV4QueryParamToHttpQueryParam(ctx, v)
+	})
+	if err != nil {
+		return WriteEndpoint{}, err
+	}
 	return WriteEndpoint{
 		Key:         old.Key,
 		Disabled:    old.Disabled,
-		Method:      old.Method,
+		Method:      http.Method(old.Method),
 		Path:        old.Path,
-		Headers:     old.Headers,
-		QueryParams: old.QueryParams,
+		Headers:     headers,
+		QueryParams: queryParams,
 	}, nil
 }

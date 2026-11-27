@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/http/versions/v5"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	http "github.com/synnaxlabs/x/http/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -47,10 +48,10 @@ var _ = Describe("Codec", func() {
 					{
 						Key:         "test_7",
 						Disabled:    false,
-						Method:      v5.Method("GET"),
+						Method:      http.Method("GET"),
 						Path:        "test_10",
-						Headers:     []v5.Header{{Name: "test_12", Value: "test_13"}},
-						QueryParams: []v5.QueryParam{{Parameter: "test_15", Value: "test_16"}},
+						Headers:     []http.Header{{Name: "test_12", Value: "test_13"}},
+						QueryParams: []http.QueryParam{{Parameter: "test_15", Value: "test_16"}},
 						Body:        "test_17",
 						ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
 						Messages: []icd.ReadMessage{
@@ -104,10 +105,10 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v5.ReadEndpoint{
 				Key:         "test_1",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      http.Method("GET"),
 				Path:        "test_4",
-				Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
-				QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+				Headers:     []http.Header{{Name: "test_6", Value: "test_7"}},
+				QueryParams: []http.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 				Body:        "test_11",
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 				Messages: []icd.ReadMessage{
@@ -127,10 +128,10 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v5.ReadEndpoint{
 				Key:         "",
 				Disabled:    false,
-				Method:      v5.Method(""),
+				Method:      http.Method(""),
 				Path:        "",
-				Headers:     []v5.Header{},
-				QueryParams: []v5.QueryParam{},
+				Headers:     []http.Header{},
+				QueryParams: []http.QueryParam{},
 				Body:        "",
 				ICD:         nil,
 				Messages:    []icd.ReadMessage{},
@@ -138,10 +139,10 @@ var _ = Describe("Codec", func() {
 			Entry("empty collections", v5.ReadEndpoint{
 				Key:         "test_1",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      http.Method("GET"),
 				Path:        "test_4",
-				Headers:     []v5.Header{},
-				QueryParams: []v5.QueryParam{},
+				Headers:     []http.Header{},
+				QueryParams: []http.QueryParam{},
 				Body:        "test_7",
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 				Messages:    []icd.ReadMessage{},
@@ -167,10 +168,10 @@ var _ = Describe("Codec", func() {
 					{
 						Key:         "test_5",
 						Disabled:    false,
-						Method:      v5.Method("GET"),
+						Method:      http.Method("GET"),
 						Path:        "test_8",
-						Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
-						QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
+						Headers:     []http.Header{{Name: "test_10", Value: "test_11"}},
+						QueryParams: []http.QueryParam{{Parameter: "test_13", Value: "test_14"}},
 						ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 						Message: new(icd.WriteMessage{
 							Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
@@ -215,10 +216,10 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v5.WriteEndpoint{
 				Key:         "test_1",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      http.Method("GET"),
 				Path:        "test_4",
-				Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
-				QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+				Headers:     []http.Header{{Name: "test_6", Value: "test_7"}},
+				QueryParams: []http.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 				Message: new(icd.WriteMessage{
 					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
@@ -236,20 +237,20 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v5.WriteEndpoint{
 				Key:         "",
 				Disabled:    false,
-				Method:      v5.Method(""),
+				Method:      http.Method(""),
 				Path:        "",
-				Headers:     []v5.Header{},
-				QueryParams: []v5.QueryParam{},
+				Headers:     []http.Header{},
+				QueryParams: []http.QueryParam{},
 				ICD:         nil,
 				Message:     nil,
 			}),
 			Entry("empty collections", v5.WriteEndpoint{
 				Key:         "test_1",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      http.Method("GET"),
 				Path:        "test_4",
-				Headers:     []v5.Header{},
-				QueryParams: []v5.QueryParam{},
+				Headers:     []http.Header{},
+				QueryParams: []http.QueryParam{},
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
 				Message: new(icd.WriteMessage{
 					Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
@@ -271,10 +272,10 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			{
 				Key:         "test_7",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      http.Method("GET"),
 				Path:        "test_10",
-				Headers:     []v5.Header{{Name: "test_12", Value: "test_13"}},
-				QueryParams: []v5.QueryParam{{Parameter: "test_15", Value: "test_16"}},
+				Headers:     []http.Header{{Name: "test_12", Value: "test_13"}},
+				QueryParams: []http.QueryParam{{Parameter: "test_15", Value: "test_16"}},
 				Body:        "test_17",
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
 				Messages: []icd.ReadMessage{
@@ -313,10 +314,10 @@ func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 	seed := v5.ReadEndpoint{
 		Key:         "test_1",
 		Disabled:    false,
-		Method:      v5.Method("GET"),
+		Method:      http.Method("GET"),
 		Path:        "test_4",
-		Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
-		QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+		Headers:     []http.Header{{Name: "test_6", Value: "test_7"}},
+		QueryParams: []http.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 		Body:        "test_11",
 		ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 		Messages: []icd.ReadMessage{
@@ -357,10 +358,10 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 			{
 				Key:         "test_5",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      http.Method("GET"),
 				Path:        "test_8",
-				Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
-				QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
+				Headers:     []http.Header{{Name: "test_10", Value: "test_11"}},
+				QueryParams: []http.QueryParam{{Parameter: "test_13", Value: "test_14"}},
 				ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 				Message: new(icd.WriteMessage{
 					Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
@@ -396,10 +397,10 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 	seed := v5.WriteEndpoint{
 		Key:         "test_1",
 		Disabled:    false,
-		Method:      v5.Method("GET"),
+		Method:      http.Method("GET"),
 		Path:        "test_4",
-		Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
-		QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+		Headers:     []http.Header{{Name: "test_6", Value: "test_7"}},
+		QueryParams: []http.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 		ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 		Message: new(icd.WriteMessage{
 			Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
@@ -441,10 +442,10 @@ func FuzzDecodeReadConfig(f *testing.F) {
 				{
 					Key:         "test_7",
 					Disabled:    false,
-					Method:      v5.Method("GET"),
+					Method:      http.Method("GET"),
 					Path:        "test_10",
-					Headers:     []v5.Header{{Name: "test_12", Value: "test_13"}},
-					QueryParams: []v5.QueryParam{{Parameter: "test_15", Value: "test_16"}},
+					Headers:     []http.Header{{Name: "test_12", Value: "test_13"}},
+					QueryParams: []http.QueryParam{{Parameter: "test_15", Value: "test_16"}},
 					Body:        "test_17",
 					ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567812"))),
 					Messages: []icd.ReadMessage{
@@ -529,10 +530,10 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 		seed := v5.ReadEndpoint{
 			Key:         "test_1",
 			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      http.Method("GET"),
 			Path:        "test_4",
-			Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
-			QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+			Headers:     []http.Header{{Name: "test_6", Value: "test_7"}},
+			QueryParams: []http.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 			Body:        "test_11",
 			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780c"))),
 			Messages: []icd.ReadMessage{
@@ -559,10 +560,10 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 		seed := v5.ReadEndpoint{
 			Key:         "",
 			Disabled:    false,
-			Method:      v5.Method(""),
+			Method:      http.Method(""),
 			Path:        "",
-			Headers:     []v5.Header{},
-			QueryParams: []v5.QueryParam{},
+			Headers:     []http.Header{},
+			QueryParams: []http.QueryParam{},
 			Body:        "",
 			ICD:         nil,
 			Messages:    []icd.ReadMessage{},
@@ -577,10 +578,10 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 		seed := v5.ReadEndpoint{
 			Key:         "test_1",
 			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      http.Method("GET"),
 			Path:        "test_4",
-			Headers:     []v5.Header{},
-			QueryParams: []v5.QueryParam{},
+			Headers:     []http.Header{},
+			QueryParams: []http.QueryParam{},
 			Body:        "test_7",
 			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808"))),
 			Messages:    []icd.ReadMessage{},
@@ -623,10 +624,10 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				{
 					Key:         "test_5",
 					Disabled:    false,
-					Method:      v5.Method("GET"),
+					Method:      http.Method("GET"),
 					Path:        "test_8",
-					Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
-					QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
+					Headers:     []http.Header{{Name: "test_10", Value: "test_11"}},
+					QueryParams: []http.QueryParam{{Parameter: "test_13", Value: "test_14"}},
 					ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"))),
 					Message: new(icd.WriteMessage{
 						Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
@@ -702,10 +703,10 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 		seed := v5.WriteEndpoint{
 			Key:         "test_1",
 			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      http.Method("GET"),
 			Path:        "test_4",
-			Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
-			QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
+			Headers:     []http.Header{{Name: "test_6", Value: "test_7"}},
+			QueryParams: []http.QueryParam{{Parameter: "test_9", Value: "test_10"}},
 			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780b"))),
 			Message: new(icd.WriteMessage{
 				Message: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780d"),
@@ -730,10 +731,10 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 		seed := v5.WriteEndpoint{
 			Key:         "",
 			Disabled:    false,
-			Method:      v5.Method(""),
+			Method:      http.Method(""),
 			Path:        "",
-			Headers:     []v5.Header{},
-			QueryParams: []v5.QueryParam{},
+			Headers:     []http.Header{},
+			QueryParams: []http.QueryParam{},
 			ICD:         nil,
 			Message:     nil,
 		}
@@ -747,10 +748,10 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 		seed := v5.WriteEndpoint{
 			Key:         "test_1",
 			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      http.Method("GET"),
 			Path:        "test_4",
-			Headers:     []v5.Header{},
-			QueryParams: []v5.QueryParam{},
+			Headers:     []http.Header{},
+			QueryParams: []http.QueryParam{},
 			ICD:         new(icd.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567807"))),
 			Message: new(icd.WriteMessage{
 				Message:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
