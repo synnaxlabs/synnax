@@ -31,7 +31,11 @@ func (w Writer) checkRack(ctx context.Context, b Broker) error {
 		Entry(&r).
 		Exec(ctx, w.tx)
 	if errors.Is(err, query.ErrNotFound) {
-		return errors.Wrapf(validate.ErrValidation, "rack: rack %d does not exist", b.Rack)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"rack: rack %d does not exist",
+			b.Rack,
+		)
 	}
 	if err != nil {
 		return err
