@@ -1362,12 +1362,7 @@ Node union on variant {
 				Range struct {
 					min float64 { @go validate pattern "^a$" }
 				}
-			`, "test.Range.min has a pattern rule, but only a required string can"),
-			Entry("with a pattern on an optional string", `
-				Device struct {
-					name string? { @go validate pattern "^a$" }
-				}
-			`, "test.Device.name has a pattern rule, but only a required string can"),
+			`, "test.Range.min has a pattern rule, but only a string can"),
 			Entry("with a pattern that is not a regex", `
 				Device struct {
 					name string { @go validate pattern "^(a$" }

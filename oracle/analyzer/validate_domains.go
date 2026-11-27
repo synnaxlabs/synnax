@@ -621,8 +621,8 @@ func matchProblems(
 	m validation.Match,
 	table *resolution.Table,
 ) []string {
-	if f.Optional || resolution.PrimitiveBase(f.Type, table) != "string" {
-		return []string{name + " has a pattern rule, but only a required string can"}
+	if resolution.PrimitiveBase(f.Type, table) != "string" {
+		return []string{name + " has a pattern rule, but only a string can"}
 	}
 	expr, _ := f.Domains["go"].Expressions.Find("validate")
 	for _, v := range expr.Values[1:] {

@@ -273,9 +273,9 @@ a `max_val`. Only Go checks it, in the struct's `Validate`: clients must still r
 stored value that breaks it. The analyzer rejects it on a type, in a struct with a type
 parameter that has no default, and on fields it cannot compare.
 
-`@go validate pattern "<regex>" ["message"]` on a required string field requires it to
-match a Go regular expression. It is Go only for the same reason. The analyzer rejects
-it on other fields and on a regex Go cannot compile.
+`@go validate pattern "<regex>" ["message"]` on a string field requires it to match a
+Go regular expression, and an optional field only when present. It is Go only for the
+same reason. The analyzer rejects it on other fields and on a regex Go cannot compile.
 
 ## Contextual validation
 

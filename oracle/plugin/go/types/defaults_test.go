@@ -1140,6 +1140,25 @@ var _ = Describe("SetDefaults and Validate generation", func() {
 			)
 		})
 
+		It("Should check the pattern of an optional string only when present", func() {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Device struct {
+					identifier string? {
+						@go validate pattern "^[a-z]+$" "lowercase only"
+					}
+				}
+			`
+			resp := MustGenerate(source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"if d.Identifier != nil {",
+				"v.Ternary(\"identifier\", "+
+					"!validatePattern0.MatchString(string(*d.Identifier)), "+
+					"\"lowercase only\")",
+			)
+		})
+
 		It("Should check a pattern in an inline variant once per regex", func() {
 			source := `
 				@go output "core/pkg/service/x"
