@@ -17,10 +17,14 @@
 #include <utility>
 
 #include "asio/error.hpp"
+#include "asio/serial_port.hpp"
+#include <fcntl.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
 #include <termios.h>
+#include <unistd.h>
 
+#include "driver/serial/device.h"
 #include "driver/serial/errors.h"
 #include "driver/serial/native.h"
 #include "driver/serial/posix.h"
@@ -30,6 +34,19 @@ namespace driver::serial {
 namespace {
 std::error_code last_error() {
     return {errno, std::generic_category()};
+}
+
+x::errors::Error lock(const int fd, const std::string &port) {
+    // flock stops programs that lock the port, and root, which TIOCEXCL lets through.
+    // TIOCEXCL stops every other open by a program without root.
+    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+        auto ec = last_error();
+        if (ec == std::errc::operation_would_block)
+            ec = std::make_error_code(std::errc::device_or_resource_busy);
+        return translate_open(port, ec);
+    }
+    if (::ioctl(fd, TIOCEXCL) != 0) return translate_open(port, last_error());
+    return x::errors::NIL;
 }
 }
 
@@ -76,23 +93,29 @@ x::errors::Error translate_open(const std::string &port, const std::error_code &
     return translate(context, ec);
 }
 
+namespace device {
+x::errors::Error open(asio::serial_port &device, const std::string &port) {
+    // The port opens the descriptor itself because Asio's open changes the line
+    // settings before the port can lock it.
+    const int fd = ::open(port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
+    if (fd < 0) return translate_open(port, last_error());
+    std::error_code ec;
+    if (device.assign(fd, ec)) {
+        ::close(fd);
+        return translate_open(port, ec);
+    }
+    if (auto err = lock(fd, port)) {
+        // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
+        device.close(ec);
+        return err;
+    }
+    return x::errors::NIL;
+}
+}
+
 namespace native {
 x::errors::Error failed(const std::string &setting, const std::string &port) {
     return translate("failed to set " + setting + " on " + port, last_error());
-}
-
-x::errors::Error lock(const Handle handle, const std::string &port) {
-    const int fd = static_cast<int>(handle);
-    // flock stops programs that lock the port, and root, which TIOCEXCL lets through.
-    // TIOCEXCL stops every other open by a program without root.
-    if (::flock(fd, LOCK_EX | LOCK_NB) != 0) {
-        auto ec = last_error();
-        if (ec == std::errc::operation_would_block)
-            ec = std::make_error_code(std::errc::device_or_resource_busy);
-        return translate_open(port, ec);
-    }
-    if (::ioctl(fd, TIOCEXCL) != 0) return translate_open(port, last_error());
-    return x::errors::NIL;
 }
 
 void unlock(const Handle handle) {

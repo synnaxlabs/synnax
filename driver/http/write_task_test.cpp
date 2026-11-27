@@ -331,15 +331,16 @@ TEST(HTTPWriteTask, POSTNumericValue) {
     EXPECT_NEAR(body["value"].get<double>(), 42.5, 0.001);
 }
 
-/// @brief it should return an error on 4xx responses.
+/// @brief it should fail on a 4xx response, quoting the start of the body on one line.
 TEST(HTTPWriteTask, Error4xxResponse) {
+    const auto body = "bad\nrequest" + std::string(MAX_BODY_EXCERPT_SIZE, 'x');
     testutil::Server server(
         testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
                 .status_code = 400,
-                .response_body = R"({"error":"bad request"})",
+                .response_body = body,
             }},
         }
     );
@@ -361,6 +362,11 @@ TEST(HTTPWriteTask, Error4xxResponse) {
 
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "POST " + server.base_url() + "/api/control returned 400: bad\\nrequest" +
+            std::string(MAX_BODY_EXCERPT_SIZE - 11, 'x') + "..."
+    );
 }
 
 /// @brief it should return a temporary error on 5xx responses.

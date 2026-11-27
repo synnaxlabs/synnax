@@ -20,15 +20,17 @@
 
 namespace driver::serial::line {
 namespace {
-/// @returns settings with every flag that apply writes set, and a speed of 9600 baud.
+/// @returns settings in which apply must change every flag that it writes, at a speed
+/// of 9600 baud.
 Settings dirty() {
     Settings s{};
-    s.c_iflag = IGNPAR | ISTRIP | IXON | IXOFF | ICRNL;
+    s.c_iflag = IGNBRK | BRKINT | IGNPAR | ISTRIP | INLCR | IGNCR | ICRNL | IXON |
+                IXOFF;
     s.c_oflag = OPOST;
     s.c_cflag = B9600 | (B9600 << IBSHIFT) | CS5 | PARENB | PARODD | CMSPAR | CSTOPB |
-                CRTSCTS | CREAD | CLOCAL;
-    s.c_lflag = ICANON;
-    s.c_cc[VMIN] = 1;
+                CRTSCTS;
+    s.c_lflag = ECHO | ECHONL | ICANON | ISIG | IEXTEN;
+    s.c_cc[VTIME] = 5;
     s.c_ispeed = 9600;
     s.c_ospeed = 9600;
     return s;
@@ -49,7 +51,8 @@ TEST(Line, AppliesSevenDataBitsOddParityTwoStopBitsAndHardwareFlowControl) {
     EXPECT_EQ(
         s.c_cflag,
         static_cast<tcflag_t>(
-            BOTHER | (BOTHER << IBSHIFT) | CS7 | PARENB | PARODD | CSTOPB | CRTSCTS
+            BOTHER | (BOTHER << IBSHIFT) | CS7 | PARENB | PARODD | CSTOPB | CRTSCTS |
+            CREAD | CLOCAL
         )
     );
     EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
@@ -66,17 +69,36 @@ TEST(Line, ClearsParityStopBitsAndFlowControlForTheDefaults) {
         s.c_cflag,
         static_cast<tcflag_t>(BOTHER | (BOTHER << IBSHIFT) | CS8 | CREAD | CLOCAL)
     );
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | ICRNL));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
     EXPECT_EQ(s.c_ospeed, 9600u);
 }
 
 /// @brief it should keep the flags that it does not write.
 TEST(Line, KeepsTheFlagsItDoesNotOwn) {
+    Settings s{};
+    s.c_iflag = IMAXBEL;
+    s.c_oflag = ONLCR;
+    s.c_cflag = HUPCL;
+    s.c_lflag = ECHOE;
+    ASSERT_NIL(apply(synnax::serial::Properties{}, s));
+    EXPECT_TRUE(s.c_iflag & IMAXBEL);
+    EXPECT_EQ(s.c_oflag, static_cast<tcflag_t>(ONLCR));
+    EXPECT_TRUE(s.c_cflag & HUPCL);
+    EXPECT_EQ(s.c_lflag, static_cast<tcflag_t>(ECHOE));
+}
+
+/// @brief it should put the line in raw mode, with no line editing, echo, signals, or
+/// output processing.
+TEST(Line, PutsTheLineInRawMode) {
     auto s = dirty();
     ASSERT_NIL(apply(synnax::serial::Properties{}, s));
-    EXPECT_EQ(s.c_oflag, static_cast<tcflag_t>(OPOST));
-    EXPECT_EQ(s.c_lflag, static_cast<tcflag_t>(ICANON));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK));
+    EXPECT_EQ(s.c_oflag, static_cast<tcflag_t>(0));
+    EXPECT_EQ(s.c_lflag, static_cast<tcflag_t>(0));
+    EXPECT_TRUE(s.c_cflag & CREAD);
+    EXPECT_TRUE(s.c_cflag & CLOCAL);
     EXPECT_EQ(s.c_cc[VMIN], static_cast<cc_t>(1));
+    EXPECT_EQ(s.c_cc[VTIME], static_cast<cc_t>(0));
 }
 
 /// @brief it should apply each character size from 5 to 8 data bits.
@@ -99,7 +121,7 @@ TEST(Line, AppliesSoftwareFlowControl) {
     p.flow_control = synnax::serial::FLOW_CONTROL_SOFTWARE;
     auto s = dirty();
     ASSERT_NIL(apply(p, s));
-    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | IXON | IXOFF | ICRNL));
+    EXPECT_EQ(s.c_iflag, static_cast<tcflag_t>(INPCK | PARMRK | IXON | IXOFF));
     EXPECT_FALSE(s.c_cflag & CRTSCTS);
 }
 

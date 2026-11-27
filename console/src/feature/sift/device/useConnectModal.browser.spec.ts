@@ -58,7 +58,7 @@ describe("Sift.Device.useConnectModal", () => {
 
   it("should start with an empty, focused name", async () => {
     await renderModalOpener(Sift.Device.useConnectModal, [{}], { client });
-    const name = await screen.findByPlaceholderText("Sift");
+    const name = await screen.findByPlaceholderText("Connection name");
     expect(name).toHaveProperty("value", "");
     expect(document.activeElement).toBe(name);
   });
@@ -106,7 +106,7 @@ describe("Sift.Device.useConnectModal", () => {
       client,
       analytics,
     });
-    fireEvent.change(await screen.findByPlaceholderText("Sift"), {
+    fireEvent.change(await screen.findByPlaceholderText("Connection name"), {
       target: { value: uniqueName("sift") },
     });
     fireEvent.change(screen.getByPlaceholderText("grpc-api.siftstack.com:443"), {
@@ -168,7 +168,7 @@ describe("Sift.Device.useConnectModal", () => {
 
   it("should name a new API key after the device", async () => {
     await renderModalOpener(Sift.Device.useConnectModal, [{}], { client });
-    fireEvent.change(await screen.findByPlaceholderText("Sift"), {
+    fireEvent.change(await screen.findByPlaceholderText("Connection name"), {
       target: { value: "Test stand" },
     });
     fireEvent.click(await screen.findByText("Select a secret"));

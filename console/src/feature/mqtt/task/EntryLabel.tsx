@@ -70,8 +70,7 @@ const Label = ({ type, kind, identity }: LabelProps) => {
         color={identity === "" ? 8 : 10}
         variant="code"
       >
-        {/* Isolated so the right-to-left overflow still reads left to right. */}
-        {identity === "" ? placeholder : `⁦${identity}⁩`}
+        {identity === "" ? placeholder : identity}
       </Task.Views.ItemLabel>
     </Flex.Box>
   );

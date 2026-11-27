@@ -657,6 +657,43 @@ describe("ICD editor", () => {
     );
   });
 
+  it("should show, set, and clear the min and max of a binary field", async () => {
+    const ic = await createICD([
+      createMessage([{ ...createBinaryField("Rpm", 0), min: 0, max: 100 }]),
+    ]);
+    await renderEditor(ic);
+    expect((await screen.findByLabelText<HTMLInputElement>("Max 1")).value).toBe("100");
+    await commit("Min", 1, "5");
+    await commit("Max", 1, "");
+    await waitFor(async () => {
+      const [field] = (await retrieveStoredMessage(ic.key)).payload.fields;
+      expect(field).toMatchObject({ min: 5 });
+      expect(field).not.toHaveProperty("max");
+    });
+  });
+
+  it("should set the min and max of a text field", async () => {
+    const ic = await createICD([createTextMessage()]);
+    await renderEditor(ic);
+    const [addDelimited] = await screen.findAllByRole("button", { name: "Add field" });
+    fireEvent.click(addDelimited);
+    await commit("Min", 1, "-40");
+    await commit("Max", 1, "125.5");
+    await waitFor(async () =>
+      expect((await retrieveStoredMessage(ic.key)).payload.fields).toMatchObject([
+        { min: -40, max: 125.5 },
+      ]),
+    );
+  });
+
+  it("should keep and mark a min that is not a number", async () => {
+    const ic = await createICD([createMessage([createBinaryField("Rpm", 0)])]);
+    await renderEditor(ic);
+    await commit("Min", 1, "low");
+    expect(await screen.findByText("Field 1: min is not valid")).toBeTruthy();
+    expect(cell("Min", 1).value).toBe("low");
+  });
+
   it.each([
     {
       kind: "a float",
@@ -825,6 +862,27 @@ describe("ICD editor", () => {
     );
     const options = await screen.findByRole("button", { name: "Options 1" });
     expect(await within(options).findByText("None")).toBeTruthy();
+  });
+
+  it("should show, set, and clear the min and max of a JSON field", async () => {
+    const ic = await createICD([
+      createJSONMessage([{ ...createJSONField("Temp", "/temp"), min: 0, max: 100 }]),
+    ]);
+    await renderEditor(ic);
+    expect(await screen.findByText("Min 0, Max 100")).toBeTruthy();
+    await openOptions(1);
+    const min = await screen.findByLabelText<HTMLInputElement>("Min");
+    fireEvent.change(min, { target: { value: "5" } });
+    fireEvent.blur(min);
+    const max = screen.getByLabelText<HTMLInputElement>("Max");
+    fireEvent.change(max, { target: { value: "" } });
+    fireEvent.blur(max);
+    await waitFor(async () => {
+      const field = await retrieveJSONField(ic.key);
+      expect(field.min).toBe(5);
+      expect(field).not.toHaveProperty("max");
+    });
+    expect(await screen.findByText("Min 5")).toBeTruthy();
   });
 
   it("should show, set, and clear the min and max of a JSON field", async () => {

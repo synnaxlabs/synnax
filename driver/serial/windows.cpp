@@ -16,8 +16,10 @@
 #include <utility>
 
 #include "asio/error.hpp"
+#include "asio/serial_port.hpp"
 #include <windows.h>
 
+#include "driver/serial/device.h"
 #include "driver/serial/errors.h"
 #include "driver/serial/line.h"
 #include "driver/serial/native.h"
@@ -86,6 +88,16 @@ x::errors::Error translate_open(const std::string &port, const std::error_code &
     return translate(context, ec);
 }
 
+namespace device {
+x::errors::Error open(asio::serial_port &device, const std::string &port) {
+    std::error_code ec;
+    // Asio opens the port with no sharing, so Windows refuses a port in use before
+    // the port changes any setting.
+    if (device.open(port, ec)) return translate_open(port, ec);
+    return x::errors::NIL;
+}
+}
+
 namespace line {
 x::errors::Error apply(const synnax::serial::Properties &props, Settings &settings) {
     if (auto err = check(props)) return err;
@@ -132,12 +144,6 @@ namespace {
 x::errors::Error failed(const std::string &port) {
     return translate("failed to set the line settings on " + port, last_error());
 }
-}
-
-// CreateFile opens the port with no sharing, so Windows already keeps other programs
-// out.
-x::errors::Error lock(Handle, const std::string &) {
-    return x::errors::NIL;
 }
 
 void unlock(Handle) {}

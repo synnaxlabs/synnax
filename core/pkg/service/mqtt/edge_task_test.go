@@ -13,6 +13,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"slices"
 	"time"
 	"uuid"
@@ -1040,6 +1042,20 @@ var _ = Describe("Edge task", func() {
 					return cfg, "device: DAQ is not an MQTT broker"
 				},
 			),
+			Entry("a broker whose CA file holds no PEM certificates",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					caFile := filepath.Join(GinkgoT().TempDir(), "ca.crt")
+					Expect(os.WriteFile(caFile, []byte("not a certificate"), 0o600)).
+						To(Succeed())
+					secured := createBrokerDevice(
+						ctx, rackKey, broker.port,
+						msgpack.EncodedJSON{"secure": true, "ca_file": caFile},
+					)
+					cfg := valid(ctx)
+					cfg["device"] = secured.Key
+					return cfg, "CA file " + caFile + " holds no PEM certificates"
+				},
+			),
 			Entry("no group", func(ctx context.Context) (msgpack.EncodedJSON, string) {
 				cfg := valid(ctx)
 				cfg["group"] = ""
@@ -1190,14 +1206,17 @@ var _ = Describe("Edge task", func() {
 							" of type json cannot be sent as String"
 				},
 			),
-			Entry("a command channel that cannot take the values",
+			Entry("an index channel as the command channel",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					idx, _ := createIndexed(ctx)
-					tag := edgeTag("temp", createVirtual(ctx, telem.Float64T), "double")
+					tag := edgeTag(
+						"temp",
+						createVirtual(ctx, telem.TimestampT),
+						"date_time",
+					)
 					tag["command_channel"] = idx.Key()
 					return edgeConfig(dev, tag),
-						"command channel: tag plant/line1/temp: channel " + idx.Name +
-							" cannot take the values of a tag"
+						"tag temp: command channel " + idx.Name + " is an index channel"
 				},
 			),
 		)

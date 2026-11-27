@@ -59,6 +59,12 @@ var (
 	flat = icd.JSONField{Variant: icd.FloatJSONField{JSONBaseField: icd.JSONBaseField{
 		Key: uuid.New(), Name: "flat", Pointer: "/flat",
 	}}}
+	// ticks is a scaled integer field.
+	ticks = icd.JSONField{
+		Variant: icd.IntegerJSONField{JSONBaseField: icd.JSONBaseField{
+			Key: uuid.New(), Name: "ticks", Pointer: "/ticks", Scale: 2,
+		}},
+	}
 	stamp = telem.SecondTS
 	// defaulted is a timestamp field that takes a default.
 	defaulted = jsonField("ts", "/ts", icd.TimestampJSONField{
@@ -67,7 +73,7 @@ var (
 			Variant: icd.ConstantTimestampDefault{Value: stamp},
 		},
 	})
-	status  = jsonMessage("Status", ts, temp, state, raw, flat)
+	status  = jsonMessage("Status", ts, temp, state, raw, flat, ticks)
 	stamped = jsonMessage("Stamped", defaulted)
 	frame   = icd.Message{
 		Key:  uuid.New(),
@@ -259,6 +265,13 @@ var _ = Describe("Read", func() {
 				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
 			})
 
+			It("Should accept a scaled field on a float channel", func(
+				ctx SpecContext,
+			) {
+				rm := readOf(status, bind(ticks, valueKey))
+				Expect(check(ctx, readAt(0, plant.Key, rm))).To(Succeed())
+			})
+
 			It("Should accept a framed read of binary and text messages", func(
 				ctx SpecContext,
 			) {
@@ -291,8 +304,8 @@ var _ = Describe("Read", func() {
 						Field: level.Base().Key, Channel: totalKey,
 					}),
 					"reads.0.messages.0.bindings.0.channel",
-					"field level of kind float cannot read into channel total of "+
-						"data type int64",
+					"scaled field level of kind float cannot read into channel total "+
+						"of data type int64",
 				),
 				Entry("a binary field into a data type that its kind does not suit",
 					readOf(frame, icd.ReadBinding{
@@ -397,6 +410,21 @@ var _ = Describe("Read", func() {
 					"reads.0.messages.0.bindings.0.channel",
 					"field state of kind string cannot read into channel value of "+
 						"data type float64",
+				),
+				Entry("a scaled field with an integer data type",
+					readOf(status, icd.ReadBinding{
+						Field: ticks.Base().Key, DataType: telem.Int64T,
+					}),
+					"reads.0.messages.0.bindings.0.data_type",
+					"scaled field ticks of kind integer cannot read into data type "+
+						"int64",
+				),
+				Entry(
+					"a scaled field on an integer channel",
+					readOf(status, bind(ticks, totalKey)),
+					"reads.0.messages.0.bindings.0.channel",
+					"scaled field ticks of kind integer cannot read into channel total "+
+						"of data type int64",
 				),
 				Entry("an index field that is not a timestamp",
 					indexed(temp, readOf(status, bind(temp, valueKey))),
@@ -522,21 +550,59 @@ var _ = Describe("Read", func() {
 			)
 		})
 
-		Describe("Claim", func() {
-			It("Should take a channel that nothing writes", func(ctx SpecContext) {
+		Describe("Tag", func() {
+			// takes is the check of a tag that takes floats.
+			takes := func(dt telem.DataType) bool { return dt == telem.Float64T }
+
+			It("Should take a channel that can take the values of the tag", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{valueKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
+				Expect(c.Tag(valueKey, []string{"b", "channel"}, takes)).To(MatchError(
+					"b.channel: channel 2 is also written by a.channel",
+				))
+			})
+
+			It("Should take a channel that the lookup does not find", func(
+				ctx SpecContext,
+			) {
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
-				Expect(c.Claim(valueKey, []string{"tag"})).To(Succeed())
+				Expect(c.Tag(99, []string{"a", "channel"}, takes)).To(Succeed())
+			})
+
+			It("Should reject an index channel", func(ctx SpecContext) {
+				tags := []channel.Key{timeKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				err := c.Tag(timeKey, []string{"a", "channel"}, takes)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					"a.channel: channel time is an index channel",
+				))
+			})
+
+			It("Should reject a channel that cannot take the values of the tag", func(
+				ctx SpecContext,
+			) {
+				tags := []channel.Key{totalKey}
+				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
+				err := c.Tag(totalKey, []string{"a", "channel"}, takes)
+				Expect(err).To(MatchError(validate.ErrValidation))
+				Expect(err).To(MatchError(
+					"a.channel: channel total of data type int64 cannot take the " +
+						"values of a tag",
+				))
 			})
 
 			It("Should reject a channel that another binding or tag writes", func(
 				ctx SpecContext,
 			) {
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, nil, nil))
-				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				err := c.Claim(valueKey, []string{"b", "channel"})
-				Expect(err).To(MatchError(validate.ErrValidation))
-				Expect(err).To(MatchError(
-					"b.channel: channel 2 is also written by a.channel",
+				rd := readAt(0, plant.Key, readOf(status, bind(temp, valueKey)))
+				c := MustSucceed(checker(ctx, rd))
+				Expect(c.Tag(valueKey, []string{"tag"}, takes)).To(MatchError(
+					"tag: channel 2 is also written by " +
+						"reads.0.messages.0.bindings.0.channel",
 				))
 			})
 		})
@@ -545,23 +611,15 @@ var _ = Describe("Read", func() {
 			It("Should reject a tag whose index channel another tag writes", func(
 				ctx SpecContext,
 			) {
+				takes := func(telem.DataType) bool { return true }
 				tags := []channel.Key{valueKey, levelKey}
 				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
-				Expect(c.Claim(valueKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.Claim(levelKey, []string{"b", "channel"})).To(Succeed())
+				Expect(c.Tag(valueKey, []string{"a", "channel"}, takes)).To(Succeed())
+				Expect(c.Tag(levelKey, []string{"b", "channel"}, takes)).To(Succeed())
 				Expect(c.ClaimIndex(valueKey, []string{"a", "channel"})).To(Succeed())
 				Expect(c.ClaimIndex(levelKey, []string{"b", "channel"})).To(MatchError(
 					"b.channel: channel 1 is also written by a.channel",
 				))
-			})
-
-			It("Should take nothing for a tag on an index channel", func(
-				ctx SpecContext,
-			) {
-				tags := []channel.Key{timeKey}
-				c := MustSucceed(resolver.NewChecker(ctx, db, nil, tags, nil))
-				Expect(c.Claim(timeKey, []string{"a", "channel"})).To(Succeed())
-				Expect(c.ClaimIndex(timeKey, []string{"a", "channel"})).To(Succeed())
 			})
 		})
 	})
