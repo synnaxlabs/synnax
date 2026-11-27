@@ -165,6 +165,7 @@ var _ = Describe("NewArcSymbolResolver", func() {
 			folder group.Group
 		)
 		BeforeAll(func(ctx SpecContext) {
+			ShouldNotLeakGoroutines()
 			node := testutil.NewNode(ctx)
 			db = node.DB
 			cfg, groupSvc := serviceConfig(ctx, node, node.DB)
