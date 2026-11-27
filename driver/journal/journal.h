@@ -305,7 +305,7 @@ x::errors::Error commit_offset(
     const std::filesystem::path &path,
     const Magic &magic,
     const Offset &offset,
-    const OnCreate &on_create = no_create_hook
+    const x::fs::OnCreate &on_create = x::fs::no_create_hook
 );
 
 /// @brief removes the file at path, and returns after the removal is on the disk.
@@ -315,8 +315,8 @@ x::errors::Error remove(const std::filesystem::path &path);
 /// @brief an exclusive lock on a directory, so only one Driver uses it. The lock
 /// releases when the lock is destroyed or the process exits.
 class Lock {
-    std::unique_ptr<File> file;
-    explicit Lock(std::unique_ptr<File> file);
+    std::unique_ptr<x::fs::File> file;
+    explicit Lock(std::unique_ptr<x::fs::File> file);
 
 public:
     /// @brief releases the lock.
@@ -326,7 +326,9 @@ public:
     /// lock file when it creates it.
     /// @returns LOCKED when another holder has the lock, or the error of the lock call
     /// for any other failure.
-    static std::pair<std::unique_ptr<Lock>, x::errors::Error>
-    open(const std::filesystem::path &dir, const OnCreate &on_create = no_create_hook);
+    static std::pair<std::unique_ptr<Lock>, x::errors::Error> open(
+        const std::filesystem::path &dir,
+        const x::fs::OnCreate &on_create = x::fs::no_create_hook
+    );
 };
 }

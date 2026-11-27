@@ -1014,7 +1014,7 @@ TEST_F(JournalTest, OffsetAndLockCallOnCreate) {
 /// @brief it should refuse a second lock on a directory until the first releases.
 TEST_F(JournalTest, LockIsExclusive) {
     auto lock = ASSERT_NIL_P(Lock::open(this->dir));
-    ASSERT_OCCURRED_AS_P(Lock::open(this->dir), LOCKED);
+    ASSERT_OCCURRED_AS_P(Lock::open(this->dir), x::fs::LOCKED);
     lock.reset();
     ASSERT_NIL_P(Lock::open(this->dir));
 }

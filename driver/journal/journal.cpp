@@ -468,7 +468,7 @@ std::uint64_t Reader::cut() const {
 
 std::pair<std::optional<Offset>, x::errors::Error>
 read_offset(const std::filesystem::path &path, const Magic &magic) {
-    if (auto err = remove_temps(path)) return {std::nullopt, err};
+    if (auto err = x::fs::remove_temps(path)) return {std::nullopt, err};
     std::error_code ec;
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return {std::nullopt, fs_error("failed to stat " + path.string(), ec)};
@@ -501,7 +501,7 @@ x::errors::Error commit_offset(
     const std::filesystem::path &path,
     const Magic &magic,
     const Offset &offset,
-    const OnCreate &on_create
+    const x::fs::OnCreate &on_create
 ) {
     Record record{.type = OFFSET_TYPE};
     put(record.payload, offset.segment);
@@ -514,7 +514,7 @@ x::errors::Error commit_offset(
     };
     auto buf = encode_header(magic, header);
     encode_record(buf, header.salt, record);
-    return create(path, buf, on_create);
+    return x::fs::create(path, buf, on_create);
 }
 
 x::errors::Error remove(const std::filesystem::path &path) {
@@ -522,24 +522,27 @@ x::errors::Error remove(const std::filesystem::path &path) {
     std::filesystem::remove(path, ec);
     if (ec) return fs_error("failed to remove " + path.string(), ec);
     const auto dir = path.parent_path();
-    return sync_dir(dir.empty() ? "." : dir);
+    return x::fs::sync_dir(dir.empty() ? "." : dir);
 }
 
-Lock::Lock(std::unique_ptr<File> file): file(std::move(file)) {}
+Lock::Lock(std::unique_ptr<x::fs::File> file): file(std::move(file)) {}
 
 Lock::~Lock() = default;
 
 std::pair<std::unique_ptr<Lock>, x::errors::Error>
-Lock::open(const std::filesystem::path &dir, const OnCreate &on_create) {
+Lock::open(const std::filesystem::path &dir, const x::fs::OnCreate &on_create) {
     const auto path = dir / "LOCK";
     while (true) {
         std::error_code ec;
         const auto existed = std::filesystem::exists(path, ec);
         if (ec) return {nullptr, fs_error("failed to stat " + path.string(), ec)};
-        auto [file, err] = File::open(path);
+        auto [file, err] = x::fs::File::open(path);
         if (err) return {nullptr, err};
-        if (err = file->lock(); err.matches(LOCKED))
-            return {nullptr, x::errors::Error(LOCKED, dir.string() + " is in use")};
+        if (err = file->lock(); err.matches(x::fs::LOCKED))
+            return {
+                nullptr,
+                x::errors::Error(x::fs::LOCKED, dir.string() + " is in use")
+            };
         if (err) return {nullptr, err};
         auto [removed, removed_err] = file->removed();
         if (removed_err) return {nullptr, removed_err};
