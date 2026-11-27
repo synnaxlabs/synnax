@@ -264,7 +264,7 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 				MatchError(validate.ErrValidation),
 				MatchError(c.Error),
 			))
-			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
+			Expect(lo.Flatten(samples)).ToNot(ContainElement(Not(BeEmpty())))
 			if c.Message != "" {
 				Expect(ok).To(BeTrue())
 				Expect(f.Messages[m].Name).To(Equal(c.Message))
@@ -272,7 +272,7 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 		case c.Unmatched:
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeFalse())
-			Expect(samples).To(HaveEach(HaveEach(BeEmpty())))
+			Expect(lo.Flatten(samples)).ToNot(ContainElement(Not(BeEmpty())))
 		default:
 			Expect(err).ToNot(HaveOccurred())
 			Expect(ok).To(BeTrue())
@@ -297,7 +297,7 @@ func (f decodeFixture) checkCases(decode decodeFunc) {
 			}
 			for other := range samples {
 				if other != m {
-					Expect(samples[other]).To(HaveEach(BeEmpty()))
+					Expect(samples[other]).ToNot(ContainElement(Not(BeEmpty())))
 				}
 			}
 		}
@@ -611,6 +611,24 @@ var _ = Describe("JSON", func() {
 			"message reading: field s: default: jsontext: invalid UTF-8: validation error",
 		))
 	})
+
+	It(
+		"Should reject a document that is neither JSON nor UTF-8 for a root field",
+		func() {
+			key := uuid.New()
+			dec := MustSucceed(codec.NewJSON([]codec.JSONMessage{{
+				Name: "state",
+				Payload: icd.JSONPayload{Fields: []icd.JSONField{{
+					Variant: icd.StringJSONField{Key: key, Name: "state", Scale: 1},
+				}}},
+				Bindings: []codec.Binding{{Field: key, DataType: telem.StringT}},
+			}}))
+			samples := [][][]byte{make([][]byte, 1)}
+			Expect(decodeError(dec, []byte("O\xffN"), samples)).
+				To(MatchError("jsontext: invalid UTF-8: validation error"))
+			Expect(samples[0][0]).To(BeEmpty())
+		},
+	)
 
 	DescribeTable("Should accept the present rules that Infer gives the kinds of a key",
 		func(kinds ...string) {

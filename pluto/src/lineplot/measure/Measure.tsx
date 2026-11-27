@@ -77,7 +77,7 @@ export const Measure = ({
       const moveToTwo = isOne && !hasSecondRef.current;
       const moveToOne = isTwo && !hasFirstRef.current;
       if (moveToTwo || moveToOne)
-        // Add a small delay to allow the aether state to propagate. This ensures
+        // Add a small delay to allow the Aether state to propagate. This ensures
         // that we don't accidentally clear the new point state we just set.
         setTimeout(() => onModeChange?.(moveToTwo ? "two" : "one"), 10);
     }

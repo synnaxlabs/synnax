@@ -484,8 +484,9 @@ func BenchmarkTextDecode(b *testing.B) {
 					for i := range samples[0] {
 						samples[0][i] = samples[0][i][:0]
 					}
-					if _, ok, err := dec.Decode(line, samples); err != nil || !ok {
-						b.Fatalf("decode: ok %t, err %v", ok, err)
+					if _, ok, failures := dec.Decode(line, samples); failures != nil ||
+						!ok {
+						b.Fatalf("decode: ok %t, failures %v", ok, failures)
 					}
 				}
 				decode()

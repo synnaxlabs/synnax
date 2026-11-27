@@ -38,7 +38,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the slaves that the channels name.
     Slaves slaves;
     /// @brief index channel keys for timestamp generation.
-    /// Dynamically populated by querying the core.
+    /// Dynamically populated by querying the Core.
     std::set<synnax::channel::Key> indexes;
     /// @brief configured input channels.
     std::vector<std::unique_ptr<channel::Input>> channels;

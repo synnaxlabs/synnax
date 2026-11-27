@@ -25,7 +25,7 @@ import (
 
 // Writer is used to create, update, and delete racks within a Synnax cluster.
 type Writer struct {
-	// tx is the underlying gorp transaction that rack operations will be executed
+	// tx is the underlying Gorp transaction that rack operations will be executed
 	// against.
 	tx gorp.Tx
 	// newKey returns a new key for a rack.
@@ -34,7 +34,7 @@ type Writer struct {
 	status status.Writer
 	// statuses retrieves the status that a rack holds.
 	statuses *status.Service
-	// table is the gorp table for rack entries.
+	// table is the Gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
 	// driverRole is the role each new rack receives.
 	driverRole role.Key

@@ -41,7 +41,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals is used to propagate changes to tables throughout the cluster. When nil,
-	// the service does not broadcast action sequences and gorp delete events are not
+	// the service does not broadcast action sequences and Gorp delete events are not
 	// published. Dispatch still applies actions to local state.
 	//
 	// [OPTIONAL] - Defaults to nil, which disables signal broadcasting.

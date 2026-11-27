@@ -188,7 +188,7 @@ private:
 };
 
 /// @brief a task that periodically
-/// to indicate that the driver is still alive.
+/// to indicate that the Driver is still alive.
 class Task final : public driver::task::Task {
     Source pipe;
 

@@ -79,6 +79,8 @@ interface TimestampFieldsProps {
   path: deep.Path<ReadSource>;
   /** The index of the message in the source's reads. */
   read: number;
+  /** The format of the message. Only a JSON message has timestamp fields. */
+  encoding?: payload.Format;
   /** The fields of the message format. */
   fields: icd.JSONField[];
   /** The prefix of the names of the channels that deploying creates. */
@@ -96,6 +98,7 @@ type TimingMode = "source" | "payload";
 const TimestampFields: FC<TimestampFieldsProps> = ({
   path,
   read,
+  encoding = "json",
   fields,
   prefix,
   indexChannel,
@@ -121,11 +124,13 @@ const TimestampFields: FC<TimestampFieldsProps> = ({
       <Input.Item
         label="Source"
         helpText={
-          timestamps.length === 0
-            ? "Give a field a timestamp type to read the time from the payload."
-            : indexable.length === 0
-              ? "Remove the default of a timestamp field to read the time from the payload."
-              : undefined
+          encoding !== "json"
+            ? `A ${encoding} message has no timestamp field to read the time from.`
+            : timestamps.length === 0
+              ? "Give a field a timestamp type to read the time from the payload."
+              : indexable.length === 0
+                ? "Remove the default of a timestamp field to read the time from the payload."
+                : undefined
         }
       >
         <Select.Buttons<TimingMode>
@@ -298,7 +303,7 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
 
 export interface MessageSectionsProps extends Omit<
   TimestampFieldsProps,
-  "fields" | "plan"
+  "encoding" | "fields" | "plan"
 > {
   format: FormatForm;
   /** Says why the ICD has no message for the read, and what to do now. */
@@ -429,6 +434,10 @@ export const MessageSections: FC<MessageSectionsProps> = ({
     ctx: format,
   });
   const fields = jsonFields(message);
+  const text =
+    message?.payload.format === "text" && isTaskFormat(message.payload.format)
+      ? deep.variant(PICD.formPath.messages[message.key].payload, "format", "text")
+      : undefined;
   return (
     <>
       <MessageStatus
@@ -439,8 +448,25 @@ export const MessageSections: FC<MessageSectionsProps> = ({
           several && <OpenInEditor icdKey={icdKey} message={readMessage.message} />
         }
       />
+      {text != null && (
+        <PForm.Form<typeof PICD.formSchema> {...format}>
+          <PForm.Section title="Frame">
+            <PForm.TextField path={text.prefix} label="Prefix" padHelpText={false} />
+            <PForm.TextField
+              path={text.delimiter}
+              label="Delimiter"
+              padHelpText={false}
+            />
+          </PForm.Section>
+        </PForm.Form>
+      )}
       <PForm.Section title="Timestamp">
-        <TimestampFields {...rest} fields={fields} plan={plan} />
+        <TimestampFields
+          {...rest}
+          encoding={message?.payload.format}
+          fields={fields}
+          plan={plan}
+        />
       </PForm.Section>
       <PForm.Form<typeof PICD.formSchema> {...format}>
         <FieldsStatus path={fieldsPath(readMessage.message)} />
@@ -458,7 +484,7 @@ export interface MessageDetailsProps extends MessageSectionsProps {
   addFieldDisabled?: boolean;
 }
 
-/** The name and match of a message of a source that reads several. */
+/** The name and match of a message of a source that reads several, then the rest. */
 export const MessageDetails: FC<MessageDetailsProps> = ({
   matchTitle,
   anyLabel,
@@ -476,7 +502,7 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
   return (
     <Flex.Box y grow empty className={CSS.BE("details", "form")}>
       <PForm.Sections>
-        {encoding === "json" && (
+        {encoding != null && isTaskFormat(encoding) && (
           <PForm.Form<typeof PICD.formSchema> {...format}>
             <PForm.Section
               title="Message"
@@ -493,16 +519,18 @@ export const MessageDetails: FC<MessageDetailsProps> = ({
                 padHelpText={false}
               />
             </PForm.Section>
-            <PForm.Section title={matchTitle}>
-              <Match
-                path={deep.variant(
-                  PICD.formPath.messages[key].payload,
-                  "format",
-                  "json",
-                )}
-                anyLabel={anyLabel}
-              />
-            </PForm.Section>
+            {encoding === "json" && (
+              <PForm.Section title={matchTitle}>
+                <Match
+                  path={deep.variant(
+                    PICD.formPath.messages[key].payload,
+                    "format",
+                    "json",
+                  )}
+                  anyLabel={anyLabel}
+                />
+              </PForm.Section>
+            )}
           </PForm.Form>
         )}
         <MessageSections {...rest} />

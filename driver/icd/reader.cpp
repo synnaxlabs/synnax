@@ -373,17 +373,19 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
     const std::size_t cap,
     const bool nan_filled
 ) {
+    const std::string_view text(
+        reinterpret_cast<const char *>(payload.data()),
+        payload.size()
+    );
     const auto [i, err] = std::visit(
-        [&]<typename D>(D &d) {
+        [&]<typename D>(D &d)
+            -> std::pair<std::optional<std::size_t>, x::errors::Error> {
             if constexpr (std::is_same_v<D, codec::Binary>)
                 return d.decode(payload);
+            else if constexpr (std::is_same_v<D, codec::Text>)
+                return {d.decode(text), x::errors::NIL};
             else
-                return d.decode(
-                    std::string_view(
-                        reinterpret_cast<const char *>(payload.data()),
-                        payload.size()
-                    )
-                );
+                return d.decode(text);
         },
         this->decoder
     );
@@ -397,18 +399,21 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         },
         this->decoder
     );
+    const auto &failures = std::visit(
+        [msg](const auto &d) -> const std::vector<codec::Failure> & {
+            return d.failures(msg);
+        },
+        this->decoder
+    );
     this->filled.assign(samples.size(), false);
-    if (const auto *json = std::get_if<codec::JSON>(&this->decoder); json != nullptr)
-        for (const auto &f: json->failures(msg)) {
-            this->failed.push_back(
-                {.channel = m.channels[f.binding],
-                 .missing = f.missing,
-                 .error = f.error}
-            );
-            if (const auto &dt = samples[f.binding].data_type();
-                nan_filled && (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
-                this->filled[f.binding] = true;
-        }
+    for (const auto &f: failures) {
+        this->failed.push_back(
+            {.channel = m.channels[f.binding], .missing = f.missing, .error = f.error}
+        );
+        if (const auto &dt = samples[f.binding].data_type();
+            nan_filled && (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
+            this->filled[f.binding] = true;
+    }
     this->present.assign(m.indexes.size(), true);
     for (std::size_t k = 0; k < samples.size(); k++)
         if (const auto group = m.groups[k];
