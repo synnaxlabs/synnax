@@ -21,7 +21,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, unique, uuid } from "@synnaxlabs/x";
+import { deep, payload, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -325,6 +325,8 @@ interface RecordDetailsProps {
   onAddMessage: () => void;
   /** Reads a message of an ICD instead of the one message that the record reads. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Makes the record read a new message of the format with no fields. */
+  onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
 }
 
@@ -340,6 +342,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  onFormatCreate,
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -379,6 +382,8 @@ const RecordDetails: FC<RecordDetailsProps> = ({
               icdKey={icdKey}
               message={reads[0].message}
               onChange={onFormatChange}
+              formats={payload.FORMATS}
+              onCreate={onFormatCreate}
               disabled={bindDisabled}
               preview={isPreview}
             />
@@ -438,6 +443,7 @@ const Records: FC<RecordsProps> = ({
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   } = ICD.Tree.use({
     groups: {
       path: root.config.topics,
@@ -709,6 +715,7 @@ const Records: FC<RecordsProps> = ({
           onAddField={() => addField(rec.key, 0)}
           onAddMessage={() => addMessage(rec.key)}
           onFormatChange={(icdKey, message) => setMessage(rec.key, icdKey, message)}
+          onFormatCreate={(format) => setNewMessage(rec.key, format)}
           bindDisabled={bindDisabled}
         />
       );

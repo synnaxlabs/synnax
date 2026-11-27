@@ -30,6 +30,7 @@ import {
 import {
   focusedIn,
   pickMessageFormat,
+  pickNewMessage,
   removeField,
   retype,
   searchMessageFormats,
@@ -2429,6 +2430,87 @@ describe("MQTT read form", () => {
         });
       },
     );
+
+    it("should list the messages of every format, each with its format", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const text: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("line"),
+        payload: { format: "text", delimiter: ",", prefix: "", fields: [] },
+      };
+      const binary: icd.Message = {
+        key: uuid.create(),
+        name: uniqueName("frame"),
+        payload: { format: "binary", fields: [] },
+      };
+      const shared = await client.icds.create({
+        name: uniqueName("pump"),
+        messages: [text, binary],
+      });
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      const dialog = await searchMessageFormats(TOPIC, shared.name);
+      const option = async (name: string) =>
+        (await dialog.findByRole("option", { name: new RegExp(name) })).textContent;
+      expect(await option(text.name)).toBe(`TEXT${text.name}${shared.name}`);
+      expect(await option(binary.name)).toBe(`BINARY${binary.name}${shared.name}`);
+    });
+
+    it("should read a new message in the ICD of the topic", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      const { draft } = await renderRead({ entries: [entry] });
+      await openTopic();
+      await pickNewMessage(TOPIC, "New JSON message");
+      const created = await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages).toHaveLength(2);
+        return messages[1];
+      });
+      expect(created).toMatchObject({
+        name: `${TOPIC} 2`,
+        payload: { format: "json", fields: [] },
+      });
+      await waitFor(async () =>
+        expect(plainOf((await retrieveEntries(draft.key))[0])).toMatchObject({
+          icd: entry.icd,
+          messages: [{ message: created.key, bindings: [] }],
+        }),
+      );
+    });
+
+    it.each([
+      ["New text message", { format: "text", delimiter: ",", prefix: "", fields: [] }],
+      ["New binary message", { format: "binary", fields: [] }],
+    ] as const)("should read an empty message from %s", async (item, payload) => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+      });
+      await renderRead({ entries: [entry] });
+      await openTopic();
+      // The Core reads only JSON messages over MQTT, so it would undo the read.
+      holdRequests(client, "/task/create");
+      await pickNewMessage(TOPIC, item);
+      await findDialogTriggerByText(`${TOPIC} 2`);
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages[1]).toMatchObject({ name: `${TOPIC} 2`, payload });
+      });
+    });
+
+    it("should delete a message with no fields that the task made when a new message replaces it", async () => {
+      const { draft } = await renderRead();
+      const entry = await addTopic(draft.key, TOPIC);
+      await pickNewMessage("Untitled", "New JSON message");
+      await waitFor(async () => {
+        const keys = await messageKeys(entry.icd);
+        expect(keys).toHaveLength(1);
+        expect(keys).not.toContain(entry.messages[0].message);
+      });
+    });
 
     it("should list a message that is renamed while the topic is open", async () => {
       const entry = await createEntry({
