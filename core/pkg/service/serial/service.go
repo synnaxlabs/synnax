@@ -111,6 +111,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:      (*ReadConfig).Patch,
 			HashEntry:       (*ReadConfig).HashContent,
 			HashReferences:  s.hashRead,
+			CheckReferences: s.checkRead,
 			HashedTables:    []string{"icd"},
 			ResolveEntry:    s.resolveRead,
 			ValidateEntry:   (*ReadConfig).Validate,
@@ -129,6 +130,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			PatchEntry:      (*WriteConfig).Patch,
 			HashEntry:       (*WriteConfig).HashContent,
 			HashReferences:  s.hashWrite,
+			CheckReferences: s.checkWrite,
 			HashedTables:    []string{"icd"},
 			ResolveEntry:    s.resolveWrite,
 			ValidateEntry:   (*WriteConfig).Validate,
@@ -147,7 +149,17 @@ func (s *Service) resolveRead(
 	_ string,
 	cfg *ReadConfig,
 ) (func(context.Context, gorp.Tx) error, error) {
-	return nil, s.reads.Check(ctx, snap, read.Entries(cfg.Entries), nil)
+	return nil, s.checkRead(ctx, snap, cfg)
+}
+
+// checkRead checks each entry of cfg against its ICD and its channels, read through
+// snap.
+func (s *Service) checkRead(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *ReadConfig,
+) error {
+	return s.reads.Check(ctx, snap, read.Entries(cfg.Entries), nil)
 }
 
 // hashRead writes to h the framing and the payload of each ICD message that an entry
@@ -169,7 +181,17 @@ func (s *Service) resolveWrite(
 	_ string,
 	cfg *WriteConfig,
 ) (func(context.Context, gorp.Tx) error, error) {
-	return nil, s.writes.Check(ctx, snap, write.Targets(cfg.Targets), nil)
+	return nil, s.checkWrite(ctx, snap, cfg)
+}
+
+// checkWrite checks each target of cfg against its ICD and its channels, read through
+// snap.
+func (s *Service) checkWrite(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *WriteConfig,
+) error {
+	return s.writes.Check(ctx, snap, write.Targets(cfg.Targets), nil)
 }
 
 // hashWrite writes to h the framing and the payload of the ICD message that each

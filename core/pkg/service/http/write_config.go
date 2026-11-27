@@ -52,11 +52,7 @@ func (r writeResolver) resolve(
 			return r.icds.NewWriter(tx).Create(ctx, &ic)
 		}, nil
 	}
-	writes, err := writesOf(cfg)
-	if err != nil {
-		return nil, err
-	}
-	return nil, r.writes.Check(ctx, snap, writes, nil)
+	return nil, r.checkReferences(ctx, snap, cfg)
 }
 
 // hash writes to h the payload of the ICD message that each enabled endpoint of cfg
@@ -72,6 +68,20 @@ func (r writeResolver) hash(
 		return err
 	}
 	return r.writes.Hash(ctx, snap, h, writes)
+}
+
+// checkReferences checks each enabled endpoint of cfg against its ICD and its channels,
+// read through snap, as resolve does for a config that lifts nothing.
+func (r writeResolver) checkReferences(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	cfg *WriteConfig,
+) error {
+	writes, err := writesOf(cfg)
+	if err != nil {
+		return err
+	}
+	return r.writes.Check(ctx, snap, writes, nil)
 }
 
 // detachMessages clears the message of each endpoint of cfg that names no ICD, as a

@@ -376,6 +376,59 @@ var _ = Describe("Service", func() {
 			Expect(prepare(ctx, readConfigOf(entry))).To(Succeed())
 		})
 
+		DescribeTable(
+			"Should refuse an ICD edit that breaks an entry",
+			func(ctx SpecContext, act func(f format) (icd.Action, string)) {
+				f := createFormat(ctx)
+				key := MustSucceed(tasks.Create(ctx, svc.Read, readConfigOf(icdEntry(
+					"plant/status", f.ic, readMessage(f.m, binding(f.m, 1, f.value)),
+				))))
+				before := MustSucceed(svc.Read.Hash(ctx, db, key))
+				a, msg := act(f)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Apply(ctx, f.ic.Key, a)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("breaks task mqtt_read: "+msg)),
+				))
+				Expect(svc.Read.Hash(ctx, db, key)).To(Equal(before))
+			},
+			Entry(
+				"removing the field that it binds",
+				func(f format) (icd.Action, string) {
+					k := fieldKey(f.m, 1).String()
+					return icd.NewRemoveAction(icd.RemovePayload{
+							Path: []string{
+								"messages",
+								f.m.Key.String(),
+								"payload",
+								"fields",
+							},
+							Key: k,
+						}), "entries.0.messages.0.bindings.0.field: field " + k +
+							" does not exist in message " + f.m.Name
+				},
+			),
+			Entry("switching the message that it reads to a binary format",
+				func(f format) (icd.Action, string) {
+					return icd.NewSetAction(icd.SetPayload{
+							Path:  []string{"messages", f.m.Key.String(), "payload"},
+							Value: icd.Payload{Variant: icd.BinaryPayload{}},
+						}), "entries.0.messages.0.message: message Status is not a JSON " +
+							"message"
+				},
+			),
+			Entry("removing the message that it reads",
+				func(f format) (icd.Action, string) {
+					return icd.NewRemoveAction(icd.RemovePayload{
+							Path: []string{"messages"}, Key: f.m.Key.String(),
+						}), "entries.0.messages.0.message: message " + f.m.Key.String() +
+							" does not exist in ICD " +
+							f.ic.Name
+				},
+			),
+		)
+
 		DescribeTable("Should reject an entry with the path of the problem",
 			func(
 				ctx SpecContext,
@@ -998,6 +1051,49 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			Expect(svc.Write.Hash(ctx, db, key)).ToNot(Equal(before))
 		})
+
+		DescribeTable("Should refuse an ICD edit that breaks a target",
+			func(ctx SpecContext, act func(m icd.Message) (icd.Action, string)) {
+				ic, m, target := createSetpoint(ctx)
+				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
+					"targets": []any{target},
+				}))
+				before := MustSucceed(svc.Write.Hash(ctx, db, key))
+				a, msg := act(m)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return icds.NewWriter(tx).Apply(ctx, ic.Key, a)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("breaks task mqtt_write: "+msg)),
+				))
+				Expect(svc.Write.Hash(ctx, db, key)).To(Equal(before))
+			},
+			Entry("adding a field with no default that it does not bind",
+				func(m icd.Message) (icd.Action, string) {
+					return icd.NewSetAction(icd.SetPayload{
+							Path: []string{
+								"messages",
+								m.Key.String(),
+								"payload",
+								"fields",
+							},
+							Value: append(
+								jsonFields(m),
+								jsonField("unit", "/unit", icd.StringJSONField{}),
+							),
+						}), "targets.0.message: message Setpoint: field unit: needs a channel or a " +
+							"default"
+				},
+			),
+			Entry("removing the message that it sends",
+				func(m icd.Message) (icd.Action, string) {
+					return icd.NewRemoveAction(icd.RemovePayload{
+							Path: []string{"messages"}, Key: m.Key.String(),
+						}), "targets.0.message: message " + m.Key.String() +
+							" does not exist in ICD Plant"
+				},
+			),
+		)
 	})
 
 	DescribeTable("Should reject a scan config whose rate is not positive",
