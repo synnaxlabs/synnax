@@ -122,9 +122,9 @@ class ReadTask final : public driver::task::Task {
     /// @brief the task context used to communicate state changes back to Synnax.
     /// @brief tare middleware used for taring values.
     driver::transform::Tare tare;
-    /// @brief guards state, which the command and pipeline threads both change. Never
-    /// held while the pipeline starts or stops, since either can wait for the pipeline
-    /// thread, which takes it.
+    /// @brief guards state, which the command and pipeline threads both change. The
+    /// command thread never holds it while it starts or stops the pipeline, since
+    /// either waits for the pipeline thread, which takes it.
     std::mutex state_mu;
     /// @brief handles communicating the task state back to the cluster.
     StatusHandler state;
@@ -138,6 +138,8 @@ class ReadTask final : public driver::task::Task {
         Warning logged_warning;
         /// @brief whether the writer opened since the task last started.
         bool writer_open = false;
+        /// @brief whether the status shows a warning that this source sent.
+        bool warning_shown = false;
 
     public:
         /// @brief the wrapped, hardware-specific source.
@@ -153,6 +155,7 @@ class ReadTask final : public driver::task::Task {
         void begin_run() {
             this->forget_warning();
             this->writer_open = false;
+            this->warning_shown = false;
         }
 
         void writer_opened() override { this->writer_open = true; }
@@ -160,14 +163,14 @@ class ReadTask final : public driver::task::Task {
         void interrupt() override { this->internal->interrupt(); }
 
         void stopped_with_err(const x::errors::Error &err) override {
-            {
-                std::lock_guard lock(this->p.state_mu);
-                this->p.state.error(
-                    err,
-                    this->writer_open ? "Failed to read data" : "Failed to start task"
-                );
-            }
-            this->p.stop("", true);
+            // Held through the stop, so a start never runs between the error and the
+            // stop. A stop from the pipeline thread never waits for it.
+            std::lock_guard lock(this->p.state_mu);
+            this->p.state.error(
+                err,
+                this->writer_open ? "Failed to read data" : "Failed to start task"
+            );
+            this->p.finish_stop(this->p.pipe.stop(), "", true);
         }
 
         x::errors::Error read(
@@ -194,6 +197,7 @@ class ReadTask final : public driver::task::Task {
                         << this->p.name() << ": [" << err.type << "] " << description;
                     std::lock_guard lock(this->p.state_mu);
                     this->p.state.send_warning("Failed to read data", description);
+                    this->warning_shown = true;
                 } else if (!err.matches(errors::NOMINAL_SHUTDOWN_ERROR))
                     LOG(ERROR) << this->p.name() << ": " << err.message();
                 return err;
@@ -205,10 +209,14 @@ class ReadTask final : public driver::task::Task {
                 this->logged_warning = warning;
                 std::lock_guard lock(this->p.state_mu);
                 this->p.state.send_warning(warning.message, warning.description);
+                this->warning_shown = true;
             } else {
                 this->forget_warning();
-                std::lock_guard lock(this->p.state_mu);
-                this->p.state.clear_warning();
+                if (this->warning_shown) {
+                    std::lock_guard lock(this->p.state_mu);
+                    this->p.state.clear_warning();
+                    this->warning_shown = false;
+                }
             }
             return this->p.tare.transform(fr);
         }
@@ -286,6 +294,16 @@ public:
     bool stop(const std::string &cmd_key, const bool propagate_state) {
         const auto stopped = this->pipe.stop();
         std::lock_guard lock(this->state_mu);
+        return this->finish_stop(stopped, cmd_key, propagate_state);
+    }
+
+    /// @brief stops the hardware of a pipeline that stopped, and answers cmd_key.
+    /// Requires state_mu.
+    bool finish_stop(
+        const bool stopped,
+        const std::string &cmd_key,
+        const bool propagate_state
+    ) {
         if (stopped)
             this->state.error(this->source->internal->stop(), "Failed to stop task");
         if (propagate_state) this->state.send_stop(cmd_key);

@@ -275,11 +275,14 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->send_locked();
     }
 
-    /// @brief sends the current status. Requires status_mu.
-    void send_locked() {
+    /// @brief sends the current status. A status that answers the pending command
+    /// carries its key and clears it. Requires status_mu.
+    void send_locked(const bool answers = true) {
+        const auto key = this->status.details.cmd;
+        if (!answers) this->status.details.cmd = driver::task::NO_COMMAND;
         this->status.time = x::telem::TimeStamp::now();
         this->ctx->set_status(this->status);
-        this->status.details.cmd = driver::task::NO_COMMAND;
+        this->status.details.cmd = answers ? driver::task::NO_COMMAND : key;
     }
 
     /// @brief sets the variant, text, and scanner data of the status, then sends it.
@@ -299,13 +302,14 @@ class ScanTask final : public task::Task, public pipeline::Base {
         const std::string &variant,
         const std::string &message,
         const std::string &description = "",
-        const std::optional<x::json::json::object_t> &data = std::nullopt
+        const std::optional<x::json::json::object_t> &data = std::nullopt,
+        const bool answers = true
     ) {
         this->status.variant = variant;
         this->status.message = message;
         this->status.description = description;
         this->status.details.data = data;
-        this->send_locked();
+        this->send_locked(answers);
     }
 
     void set_running(const bool running) {
@@ -329,10 +333,17 @@ class ScanTask final : public task::Task, public pipeline::Base {
                 synnax::status::VARIANT_WARNING,
                 "Failed to scan for devices",
                 err.data,
-                data
+                data,
+                false
             );
         } else if (replaced || this->status.variant != synnax::status::VARIANT_SUCCESS)
-            this->send_locked(synnax::status::VARIANT_SUCCESS, "Scan task running");
+            this->send_locked(
+                synnax::status::VARIANT_SUCCESS,
+                "Scan task running",
+                "",
+                std::nullopt,
+                false
+            );
     }
 
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {

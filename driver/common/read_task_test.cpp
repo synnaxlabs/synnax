@@ -610,7 +610,7 @@ TEST(TestCommonReadTask, testReadError) {
 
     const std::string start_cmd_key = "start_cmd";
     ASSERT_TRUE(read_task.start(start_cmd_key, cancel));
-    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     auto start_state = ctx->snapshot()[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, start_cmd_key);
@@ -807,7 +807,7 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     ReadTask
         read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
     read_task.start("start_cmd", cancel);
-    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     auto start_state = ctx->snapshot()[0];
     EXPECT_EQ(start_state.owner, synnax::task::resource_id(t.key));
     EXPECT_EQ(start_state.details.cmd, "start_cmd");
