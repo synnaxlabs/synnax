@@ -355,6 +355,12 @@ var _ = Describe("Field", func() {
 				`18446744073709551616`, "is out of range for uint64"),
 			Entry("a float past a float32", xjson.Field{DataType: telem.Float32T},
 				`1e39`, "1e39 overflows float32"),
+			Entry("a quoted decimal past the smallest exponent",
+				xjson.Field{DataType: telem.Float64T}, `"1e-1048577"`,
+				`invalid number "1e-1048577"`),
+			Entry("a quoted hex past the smallest exponent",
+				xjson.Field{DataType: telem.Float64T}, `"0x1p-1048577"`,
+				`invalid number "0x1p-1048577"`),
 			Entry("an object into a UUID", xjson.Field{DataType: telem.UUIDT}, `{}`,
 				"expected a UUID string, got an object"),
 			Entry("text that is not a UUID", xjson.Field{DataType: telem.UUIDT},
@@ -403,6 +409,15 @@ var _ = Describe("Field", func() {
 				},
 				`1e12`,
 				"1e12 is out of range for a unix_sec timestamp",
+			),
+			Entry(
+				"Unix seconds past the smallest exponent",
+				xjson.Field{
+					DataType:   telem.TimestampT,
+					TimeFormat: MustSucceed(xjson.ParseTimeFormat("unix_sec")),
+				},
+				`1e-1048577`,
+				`invalid number "1e-1048577"`,
 			),
 			Entry(
 				"infinity in Unix seconds",
