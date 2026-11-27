@@ -253,8 +253,8 @@ const reusedFit = (
 };
 
 /**
- * @returns the reading of found with a fit for only each shape of free that reuses a
- * message, or nothing when no shape that picks holds fields of reuses one.
+ * @returns the reading of found with the fits that shapes of free reuse, or nothing
+ * when no shape with picks reuses a message.
  */
 const reusedReading = (
   found: ICD.Reuse.Result,

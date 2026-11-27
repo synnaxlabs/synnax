@@ -186,7 +186,7 @@ export type Appends = Map<icd.MessageKey, icd.JSONField[]>;
 
 /**
  * @returns whether the new records of shape can read the message of fit. They cannot
- * when the message holds the timestamp of the shape in a field that is no timestamp.
+ * when the message holds the timestamp of the shape in a field of another type.
  */
 export const isReusable = (shape: json.Shape, { message }: ICD.Reuse.Fit): boolean => {
   const stamp = shape.index == null ? undefined : shape.fields[shape.index];
