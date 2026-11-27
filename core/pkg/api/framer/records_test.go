@@ -491,6 +491,31 @@ var _ = Describe("Change channels", func() {
 		Expect(res.Applied).To(Equal(1))
 	}, SpecTimeout(15*time.Second))
 
+	It("Should send the records of a channel that a key update adds", func(
+		ctx SpecContext,
+	) {
+		find(ctx, "sy_label_delete")
+		deletes := ch
+		find(ctx, "sy_label_action_set")
+		readable := newLabel()
+		createLabels(ctx, readable)
+		open(ctx, newUser(
+			ctx,
+			label.ResourceID(readable.Key),
+			svcframer.ResourceIDs(channel.Keys{deletes.Key()})[0],
+		))
+		Expect(client.Send(apiframer.StreamerRequest{
+			Keys:         channel.Keys{ch.Key(), deletes.Key()},
+			AckRequested: true,
+		})).To(Succeed())
+		Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Label.NewWriter(tx).Delete(ctx, readable.Key)
+		})).To(Succeed())
+		res := MustSucceed(client.Receive())
+		Expect(res.Frame.Get(deletes.Key()).Series).ToNot(BeEmpty())
+	}, SpecTimeout(10*time.Second))
+
 	It("Should stop sending a record once a policy no longer allows it", func(
 		ctx SpecContext,
 	) {
