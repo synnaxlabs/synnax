@@ -648,7 +648,7 @@ The steps:
 1. `Write` appends to the writer's open segment of each key and advances its running
    CRC, with no sync. The first write of a stretch takes an alignment number (§5.7). A
    write that needs a new segment takes an identity and the spare file of the segment
-   that it rolls (§5.8).
+   that it rolls, or makes a file when there is none (§5.8).
 2. `Commit` asks the state owner to check the claim (§5.8) and to publish, for each
    channel, a new immutable pointer set. A reader loads a set, takes no lock, and pins
    the segments it names. The clock and its channels become visible together. `Commit`
@@ -804,17 +804,18 @@ stretch: the frame codec merges series whose alignments touch
 a stretch at index 0 (`client/ts/src/framer/cache/join/join.ts:128-136`). The table
 holds sizing assumptions.
 
-| Case                                              | Per day   | Result                                                              |
-| ------------------------------------------------- | --------- | ------------------------------------------------------------------- |
-| 250 clocks, 20 sessions each per day              | 5,000     | 2^31 numbers last 1,176 years                                       |
-| 5,000 clocks, 20 sessions each per day            | 100,000   | 2^31 numbers last 58 years                                          |
-| A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years                                         |
-| Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years                                       |
-| Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years                                       |
-| 100 script sessions per day, 10 channels each     | 0         | Each takes over its files, across switches                          |
-| 30 command channels, 20 handoffs each per day     | 9         | Handoffs continue open segments: 2 files per channel per week       |
-| A 1 Hz burst `client.write` loop of 11 keys       | 232       | Rolls at 4,096 pointers take spares: 0.85 million files in 10 years |
-| A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start                                          |
+| Case                                              | Per day   | Result                                                                |
+| ------------------------------------------------- | --------- | --------------------------------------------------------------------- |
+| 250 clocks, 20 sessions each per day              | 5,000     | 2^31 numbers last 1,176 years                                         |
+| 5,000 clocks, 20 sessions each per day            | 100,000   | 2^31 numbers last 58 years                                            |
+| A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years                                           |
+| Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years                                         |
+| Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years                                         |
+| 100 script sessions per day, 10 channels each     | 0         | Each takes over its files, across switches                            |
+| 30 command channels, 20 handoffs each per day     | 9         | Handoffs continue open segments: 2 files per channel per week         |
+| A 1 Hz burst `client.write` loop of 11 keys       | 232       | Rolls at 4,096 pointers take spares: 0.85 million files in 10 years   |
+| A `client.write` loop at 10 Hz of 10 channels     | 0         | Its sessions stay far from a limit: no spare, no file made or removed |
+| A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start                                            |
 
 A script session continues its clock (§5.8) and takes over its open segments, so one
 after a clean close starts no segment, and takes no number when it starts within the gap
@@ -890,16 +891,19 @@ open made ready for the key (Segments, below).
   handler (§7). The key then starts a new segment. At a handoff the gainer takes the
   loser's running CRC and sample cursor from memory instead and checks nothing, so a
   handoff does no file I/O on the frame path (D-475 (2)). Two writers on one key at once
-  have two open segments. No segment file is made on the frame path. A background step
-  makes and opens one spare file for each held segment, and a roll at a §5.1 limit takes
-  it; the step then makes the next one. Only a second roll of one segment before that
-  step ends makes a file in the write. A writer makes at open the files of its new
-  clocks and of each key new to a clock. For a key that another writer holds, the open
-  takes over the key's newest open segment on the writer's clock that no writer holds,
-  with the checks of a takeover, and makes a file only when there is none. So handoffs
-  onto a clock continue one open segment per key until a §5.1 limit, and a move back to
-  the loser continues the segment that it kept. A close removes its unused spares, and
-  the orphan pass (§5.5 step 10) removes any that a crash leaves.
+  have two open segments. A background step makes and opens one spare file for each held
+  segment past three quarters of a §5.1 limit, by its pointers, its sample bytes, or the
+  span of its stamps, as a pause move makes its files at three quarters of P, and a roll
+  at that limit takes it. So a session that ends far from a limit, such as one call of a
+  `client.write` loop, makes and removes no file. A roll with no spare, such as a burst
+  that crosses the last quarter before the step runs, makes its file in the write. A
+  writer makes at open the files of its new clocks and of each key new to a clock. For a
+  key that another writer holds, the open takes over the key's newest open segment on
+  the writer's clock that no writer holds, with the checks of a takeover, and makes a
+  file only when there is none. So handoffs onto a clock continue one open segment per
+  key until a §5.1 limit, and a move back to the loser continues the segment that it
+  kept. A close removes its unused spares, and the orphan pass (§5.5 step 10) removes
+  any that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, a `Bounded` claim that starts inside another claim, and a group whose key of
   stored stamps times itself, naming that key, so no data takes a self-timed key as its
@@ -1449,13 +1453,13 @@ layout, so each piece merges alone and leaves `main` green. Every other phase is
 15. **The Core ends a clock**: Rejected: a `Delete` that ends each clock with no user on
     its own. Before RFC 0120 Phase 50 a clock can be an index channel with a record,
     which Cesium cannot see.
-16. **No segment file on the frame path**: A spare for each held segment costs one empty
-    file, an open takes over the unheld segment of a key that another writer holds, so a
-    handoff opens no file, and a pause move makes its files in a background step at
-    three quarters of P. Keys that pause together move together, and a move reuses a
-    clock that one of their segments names. Rejected: a clock per moved key, which
-    stores the stamps of 20 keys that pause together 20 times. Rejected: a file made at
-    a key's first write after a move.
+16. **No segment file on the frame path in steady state**: A spare for each held segment
+    past three quarters of a limit costs one empty file, an open takes over the unheld
+    segment of a key that another writer holds, so a handoff opens no file, and a pause
+    move makes its files in a background step at three quarters of P. Keys that pause
+    together move together, and a move reuses a clock that one of their segments names.
+    Rejected: a clock per moved key, which stores the stamps of 20 keys that pause
+    together 20 times. Rejected: a file made at a key's first write after a move.
 
 17. **The Core starts past a clock with a record and an uncommitted conversion**: By the
     delegation of D-518, each takes the most robust option, which keeps the Core
