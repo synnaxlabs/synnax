@@ -517,12 +517,17 @@ alignment and inputs of two clocks by sample time:
   stamps as `i64 ns`, on that channel's clock: a source in a flow, and an expression in
   a function body or a calculation. The migration rewrites a read of a retired index
   channel to `time.of` of its first data channel (§4.10). The text pass follows D-504 to
-  D-506. It resolves each reference from the program's parse, so a local, input,
-  parameter, stage, or module member of that name keeps its token, and only bare
-  identifiers are candidates. It leaves unchanged, and reports, a reference where the
-  new text would be captured, such as by a local named `time`, and text that does not
-  parse. A golden corpus spec in `core/pkg/service/arc/versions/v4` covers it. No
-  builtin gives a sample's stamp today (`arc/go/stl/time/time.go:34-38`).
+  D-506. Its candidates are the channel tokens of the release's grammar: bare, path, and
+  quoted. It resolves each from the program's parse, so a local, input, parameter,
+  stage, or module member of that name keeps its token, and it binds each channel token
+  by the live resolver, by key, before the retire. It rewrites only a token that binds
+  to a staged key, so a live channel never loses its reads, and it writes the new token
+  in the form of RFC 0119 §4.5 "Form". When RFC 0119's flip runs at the same start, this
+  pass runs after it. It leaves unchanged, and reports, a reference where the new text
+  would be captured, such as by a local named `time`, and text that does not parse. A
+  golden corpus spec in `core/pkg/service/arc/versions/v4` covers bare text, and the
+  step's own spec holds path and quoted text. No builtin gives a sample's stamp today
+  (`arc/go/stl/time/time.go:34-38`).
 - **Stored `<name>_time` records**: Phase 21 deletes each `<name>_time` index channel
   that a v0.62 Core stored. First it retargets every reference to the record onto the
   output's new clock, through the references of RFC 0119: the index of the stored input
