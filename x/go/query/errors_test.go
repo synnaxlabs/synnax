@@ -75,4 +75,24 @@ var _ = Describe("Errors", func() {
 		Entry("unsupported", query.ErrUnsupported),
 		Entry("query", query.ErrQuery),
 	)
+
+	It(
+		"Should keep the text of a not-found error that NotFound makes across round trips",
+		func() {
+			codec := errors.NewCodec(query.ErrorProvider())
+			err := query.NotFound(
+				"pt_01 does not exist. Did you mean %s?",
+				"stand_a.pt_01",
+			)
+			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(
+				err,
+			).To(MatchError("pt_01 does not exist. Did you mean stand_a.pt_01?"))
+			decoded := codec.Decode(
+				codec.Encode(codec.Decode(codec.Encode(err, false)), false),
+			)
+			Expect(decoded).To(MatchError(query.ErrNotFound))
+			Expect(decoded).To(MatchError(err.Error()))
+		},
+	)
 })
