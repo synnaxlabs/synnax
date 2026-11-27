@@ -17,6 +17,7 @@
 #include <memory>
 #include <mutex>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -147,8 +148,8 @@ public:
     latest_status(const synnax::task::Key &key) override {
         std::lock_guard lock(this->mu);
         const auto owner = synnax::task::resource_id(key);
-        for (auto it = this->statuses.rbegin(); it != this->statuses.rend(); ++it)
-            if (it->owner == owner) return *it;
+        for (const auto &status: std::views::reverse(this->statuses))
+            if (status.owner == owner) return status;
         return std::nullopt;
     }
 
