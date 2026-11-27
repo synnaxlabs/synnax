@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { task } from "@synnaxlabs/client";
+import { device, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -444,9 +444,9 @@ describe("CounterRead channel names", () => {
     );
     await findChannelListItem(`${dev.properties.identifier}_ctr_1`);
     const identifier = id.create();
-    await client.devices.create(
-      { ...dev, properties: { ...dev.properties, identifier } },
-      NI.Device.SCHEMAS,
+    await client.devices.dispatch(
+      dev.key,
+      device.set({ path: ["properties", "identifier"], value: identifier }),
     );
     expect(await findChannelListItem(`${identifier}_ctr_1`)).toBeTruthy();
   });
@@ -460,9 +460,9 @@ describe("CounterRead hardware", () => {
     );
     await findChannelListItem(`${dev.properties.identifier}_ctr_4`);
     expect(screen.queryByText("The device has no counter ctr4")).toBeNull();
-    await client.devices.create(
-      { ...dev, properties: { ...dev.properties, hardware: createHardware() } },
-      NI.Device.SCHEMAS,
+    await client.devices.dispatch(
+      dev.key,
+      device.set({ path: ["properties", "hardware"], value: createHardware() }),
     );
     expect(await screen.findByText("The device has no counter ctr4")).toBeTruthy();
   });

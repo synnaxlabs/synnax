@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { task } from "@synnaxlabs/client";
+import { device, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -357,9 +357,9 @@ describe("AnalogWrite channel names", () => {
     );
     await findChannelListItem(`${dev.properties.identifier}_ao_1_cmd`);
     const identifier = id.create();
-    await client.devices.create(
-      { ...dev, properties: { ...dev.properties, identifier } },
-      NI.Device.SCHEMAS,
+    await client.devices.dispatch(
+      dev.key,
+      device.set({ path: ["properties", "identifier"], value: identifier }),
     );
     expect(await findChannelListItem(`${identifier}_ao_1_cmd`)).toBeTruthy();
   });
