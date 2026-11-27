@@ -201,7 +201,7 @@ export const createStreamOpener =
       await streamer.receiveOpenAck();
     } catch (e) {
       streamer.close();
-      throw e;
+      throw errors.fromUnknown(e);
     }
     return streamer;
   };
