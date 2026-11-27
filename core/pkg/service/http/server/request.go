@@ -74,14 +74,14 @@ type requestKey struct {
 	method, path, query string
 }
 
-// prepare normalizes and validates s, and runs checkFields. It refuses a read of the
-// same request, pointer, and index as another read, and a write of the same request as
-// another write.
+// prepare validates s, then normalizes it and runs checkFields. It refuses a read of
+// the same request, pointer, and index as another read, and a write of the same request
+// as another write.
 func prepare(s *Server) error {
-	normalize(s)
 	if err := s.Validate(); err != nil {
 		return err
 	}
+	normalize(s)
 	type readKey struct {
 		request requestKey
 		pointer string

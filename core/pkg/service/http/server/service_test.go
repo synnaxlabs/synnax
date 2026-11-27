@@ -365,6 +365,17 @@ var _ = Describe("Service", func() {
 					write("/valve", key(3), http.QueryParam{Value: "1"}),
 				}
 			}, "writes.0.request.query.0.parameter"),
+			Entry("a read query parameter with no name after a named one", func(
+				s *server.Server,
+				_ secret.Key,
+			) {
+				s.Reads = []server.Read{read(
+					"/now",
+					"/t",
+					http.QueryParam{Parameter: "a", Value: "1"},
+					http.QueryParam{Value: "1"},
+				)}
+			}, "reads.0.request.query.1.parameter"),
 		)
 
 		It("Should accept an API key sent as a query parameter of any name", func(
