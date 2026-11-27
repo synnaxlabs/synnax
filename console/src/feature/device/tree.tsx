@@ -202,6 +202,7 @@ const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
 
 const TreeItem = Tree.createItem({
   linkable: true,
+  typeName: "Device",
   children,
   haulPreview,
   ContextMenu: TreeContextMenu,

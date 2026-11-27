@@ -15,11 +15,9 @@ type Address = Pick<Session.Core.Core, "host" | "port" | "secure" | "username">;
 
 type Target = Address & Pick<Session.Core.Core, "key">;
 
-/**
- * The scheme, user, and address of a Core. The scheme is part of it, so a token saved
- * for TLS never goes out in plain text.
- */
-export const addressOf = ({ host, port, secure, username }: Address): string =>
+// The scheme is part of the address, so a token saved for TLS never goes out in plain
+// text.
+const addressOf = ({ host, port, secure, username }: Address): string =>
   `${secure ? "https" : "http"}://${encodeURIComponent(username)}@${host}:${port}`;
 
 /**
@@ -55,9 +53,25 @@ export const writeToken = async (core: Target, token: string): Promise<void> => 
 /**
  * Removes the Core's session token from the keychain. A no-op on the web.
  *
+ * @param expected - Removes the token only while the keychain still holds this one, so
+ * a token another window saved since stays.
  * @throws if the keychain cannot be written.
  */
-export const deleteToken = async (core: Target): Promise<void> => {
+export const deleteToken = async (core: Target, expected?: string): Promise<void> => {
   if (Session.Runtime.ENGINE !== "tauri") return;
-  await invoke("keychain_delete", { account: accountOf(core) });
+  await invoke("keychain_delete", { account: accountOf(core), expected });
+};
+
+/**
+ * Moves the session token the keychain holds for one Core to another, such as the same
+ * Core under a new username. It writes the new entry before it deletes the old one. A
+ * no-op on the web, and when no token is stored.
+ *
+ * @throws if the keychain cannot be read or written.
+ */
+export const moveToken = async (from: Target, to: Target): Promise<void> => {
+  const token = await readToken(from);
+  if (token == null) return;
+  await writeToken(to, token);
+  await deleteToken(from, token);
 };

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { channel, Synnax } from "@synnaxlabs/client";
+import type { channel } from "@synnaxlabs/client";
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
 import { binary, errors } from "@synnaxlabs/x";
@@ -16,7 +16,9 @@ import { useState } from "react";
 import {
   type CommandChannelPlan,
   type CommandChannelSpec,
+  planChannels,
   planCommandChannels,
+  type Planner,
 } from "@/platform/task/channels";
 
 /**
@@ -26,15 +28,14 @@ import {
  * @param sources - Everything that plan reads from the form for each source, compared
  * by value. Each one must tell its source apart from the others. A change makes the
  * plan again.
- * @param plan - Plans every source, in the order of sources. It should stop between
- * sources once signal aborts, which happens when the sources change.
+ * @param plan - Plans every source, in the order of sources, as planChannels runs it.
  * @returns the plan of each source. While a new plan is in flight, a source whose input
  * is unchanged keeps its last plan, and any other has none. With no client, or after a
  * plan fails, no source has one.
  */
 export const useChannelPlans = <P>(
   sources: unknown[],
-  plan: (client: Synnax, signal: AbortSignal) => Promise<P[]>,
+  plan: (planner: Planner) => P[],
 ): (P | undefined)[] => {
   const client = PSynnax.use();
   const keys = sources.map((source) => binary.JSON_CODEC.encodeString(source));
@@ -46,7 +47,7 @@ export const useChannelPlans = <P>(
         return;
       }
       try {
-        const next = await plan(client, signal);
+        const next = await planChannels(client, plan, signal);
         if (!signal.aborted) setPlans(new Map(keys.map((key, i) => [key, next[i]])));
       } catch (e) {
         if (signal.aborted) return;
@@ -74,8 +75,8 @@ export const useCommandChannelPlans = (
   write: Record<string, channel.Key> | undefined,
   specs: CommandChannelSpec[],
 ): ReadonlyMap<string, CommandChannelPlan> => {
-  const [plans] = useChannelPlans([{ write, specs }], async (client) =>
-    write == null ? [] : [await planCommandChannels(client, write, specs)],
+  const [plans] = useChannelPlans([{ write, specs }], (planner) =>
+    write == null ? [] : [planCommandChannels(planner, write, specs)],
   );
   return plans ?? NO_PLANS;
 };

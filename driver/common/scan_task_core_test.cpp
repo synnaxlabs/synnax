@@ -137,13 +137,15 @@ TEST(TestScanTask, testWritesDeviceHierarchyOnce) {
     task.key = x::uuid::create();
     task.rack = rack.key;
     task.name = "Test Scan Task";
+    synnax::task::ScanConfig cfg;
+    cfg.rate = x::telem::HERTZ * 100;
 
     ScanTask scan_task(
         std::move(scanner),
         std::make_shared<task::MockContext>(client),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 100,
+        cfg,
         std::move(cluster_api)
     );
 
@@ -185,12 +187,14 @@ TEST(TestScanTask, testSendsTheStatusOfANewDevice) {
     task.key = x::uuid::create();
     task.rack = rack.key;
     task.name = "Test Scan Task";
+    synnax::task::ScanConfig cfg;
+    cfg.rate = x::telem::HERTZ * 100;
     ScanTask scan_task(
         std::make_unique<FixedScanner>(std::vector{dev}),
         std::make_shared<task::MockContext>(client),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 100,
+        cfg,
         std::move(cluster_api)
     );
 
@@ -210,12 +214,14 @@ std::unique_ptr<ScanTask> new_scan_task(
     task.key = x::uuid::create();
     task.rack = rack;
     task.name = "Test Scan Task";
+    synnax::task::ScanConfig cfg;
+    cfg.rate = x::telem::HERTZ * 100;
     return std::make_unique<ScanTask>(
         std::make_unique<FixedScanner>(std::move(devices)),
         std::make_shared<task::MockContext>(client),
         task,
         x::breaker::Config{},
-        x::telem::HERTZ * 100,
+        cfg,
         std::make_unique<SynnaxClusterAPI>(client)
     );
 }

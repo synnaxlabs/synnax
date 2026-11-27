@@ -132,6 +132,8 @@ var _ = Describe("Service", func() {
 		authenticators map[auth.Method]auth.Authenticator
 		pw             *password.Service
 		clock          *timetestutil.Clock
+		idleTimeout    time.Duration
+		holdCheck      time.Duration
 		alice          resource.ID
 		username       string
 	)
@@ -142,6 +144,8 @@ var _ = Describe("Service", func() {
 	BeforeEach(func(ctx SpecContext) {
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
+		idleTimeout = idle
+		holdCheck = 30 * time.Second
 		authenticators = map[auth.Method]auth.Authenticator{auth.MethodPassword: pw}
 		alice = subject()
 		username = uuid.New().String()
@@ -151,10 +155,11 @@ var _ = Describe("Service", func() {
 	})
 	JustBeforeEach(func(ctx SpecContext) {
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-			DB:             db,
-			Authenticators: authenticators,
-			IdleTimeout:    idle,
-			Clock:          clock,
+			DB:                db,
+			Authenticators:    authenticators,
+			IdleTimeout:       idleTimeout,
+			HoldCheckInterval: holdCheck,
+			Clock:             clock,
 		}))
 	})
 	Describe("OpenService", func() {
@@ -567,6 +572,50 @@ var _ = Describe("Service", func() {
 					To(MatchError(auth.ErrInvalidToken))
 			},
 		)
+	})
+	Describe("Run", func() {
+		BeforeEach(func() {
+			idleTimeout = 40 * time.Millisecond
+			holdCheck = 10 * time.Millisecond
+		})
+		It("Should sweep idle sessions until its context ends", func(ctx SpecContext) {
+			session, _ := login(ctx)
+			clock.Advance(time.Hour)
+			StartRun(svc.Run)
+			Eventually(func(g Gomega) {
+				g.Expect(svc.NewRetrieve().
+					Where(auth.MatchKeys(session.Key)).
+					Exists(ctx, db)).To(BeFalse())
+			}).Should(Succeed())
+		})
+		It("Should end a held session whose password changed", func(ctx SpecContext) {
+			session, _ := login(ctx)
+			ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+			defer release()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				changed := hash(pw, "changed")
+				return pw.NewWriter(tx).SetHash(ctx, alice, changed)
+			})).To(Succeed())
+			Consistently(ended).ShouldNot(BeClosed())
+			StartRun(svc.Run)
+			Eventually(ended).Should(BeClosed())
+		})
+		It("Should return an error when called twice", func(ctx SpecContext) {
+			StartRun(svc.Run)
+			Expect(svc.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+		})
+		It("Should not close while Run runs", func() {
+			stop := StartRun(svc.Run)
+			Expect(svc.Close()).
+				To(MatchError(ContainSubstring("close called while Run runs")))
+			stop()
+			Expect(svc.Close()).To(Succeed())
+		})
+		It("Should return an error when called after Close", func(ctx SpecContext) {
+			Expect(svc.Close()).To(Succeed())
+			Expect(svc.Run(ctx)).
+				To(MatchError(ContainSubstring("run called after close")))
+		})
 	})
 	Describe("Sweep", func() {
 		It("Should store the activity this node saw instead of ending the session",

@@ -68,7 +68,7 @@ describe("Kafka.Device.useConnectModal", () => {
 
   it("should start with an empty, focused name", async () => {
     await renderModalOpener(Kafka.Device.useConnectModal, [{}], { client });
-    const name = await screen.findByPlaceholderText("Kafka cluster");
+    const name = await screen.findByPlaceholderText("Cluster name");
     expect(name).toHaveProperty("value", "");
     expect(document.activeElement).toBe(name);
   });
@@ -104,7 +104,7 @@ describe("Kafka.Device.useConnectModal", () => {
       client,
       analytics,
     });
-    fireEvent.change(screen.getByPlaceholderText("Kafka cluster"), {
+    fireEvent.change(screen.getByPlaceholderText("Cluster name"), {
       target: { value: uniqueName("kafka_cluster") },
     });
     fireEvent.change(screen.getByPlaceholderText("localhost:9092"), {
@@ -132,7 +132,7 @@ describe("Kafka.Device.useConnectModal", () => {
       [{ rack: rack.key }],
       { client },
     );
-    fireEvent.change(screen.getByPlaceholderText("Kafka cluster"), {
+    fireEvent.change(screen.getByPlaceholderText("Cluster name"), {
       target: { value: uniqueName("kafka_cluster") },
     });
     fireEvent.change(screen.getByPlaceholderText("localhost:9092"), {
@@ -157,7 +157,7 @@ describe("Kafka.Device.useConnectModal", () => {
     await renderModalOpener(Kafka.Device.useConnectModal, [{ rack: rack.key }], {
       client,
     });
-    fireEvent.change(screen.getByPlaceholderText("Kafka cluster"), {
+    fireEvent.change(screen.getByPlaceholderText("Cluster name"), {
       target: { value: uniqueName("kafka_cluster") },
     });
     fireEvent.change(screen.getByPlaceholderText("localhost:9092"), {
@@ -172,9 +172,40 @@ describe("Kafka.Device.useConnectModal", () => {
     await answered;
     expect(
       await screen.findByText(
-        "Failed to connect: dial tcp 127.0.0.1:9092: connection refused",
+        "Failed to connect. dial tcp 127.0.0.1:9092: connection refused",
       ),
     ).toBeTruthy();
+  });
+
+  it("should show the error of an empty broker at its input", async () => {
+    const rack = await createRunningRack(client, "kafka");
+    await renderModalOpener(Kafka.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("Cluster name"), {
+      target: { value: uniqueName("kafka_cluster") },
+    });
+    pressSaveTrigger();
+    expect(await screen.findByText("Broker address is required")).toBeTruthy();
+  });
+
+  it("should mark Connect from as required only while it has no rack", async () => {
+    // Two running racks leave a new connection with no default rack.
+    await createRunningRack(client, "kafka");
+    const rack = await createRunningRack(client, "kafka");
+    const { unmount } = await renderModalOpener(Kafka.Device.useConnectModal, [{}], {
+      client,
+    });
+    expect((await screen.findByText(/^Connect from/)).textContent).toBe(
+      "Connect from *",
+    );
+    unmount();
+    await renderModalOpener(Kafka.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    expect((await screen.findByText(/^Connect from/)).textContent?.trim()).toBe(
+      "Connect from",
+    );
   });
 
   // A running rack keeps Connect enabled while none is chosen, so the save fails

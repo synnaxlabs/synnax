@@ -15,14 +15,17 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Panel } from "@synnaxlabs/pluto";
-import type { deep } from "@synnaxlabs/x";
-import type { ReactElement } from "react";
+import { deep } from "@synnaxlabs/x";
+import { type ReactElement, useEffect } from "react";
 
+import { Framing } from "@/feature/icd/editor/Framing";
 import { Message } from "@/feature/icd/editor/Message";
 import { Messages } from "@/feature/icd/editor/Messages";
 import { useImport } from "@/feature/icd/useImport";
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 import { Session } from "@/session";
@@ -43,15 +46,28 @@ const Title = ({ path }: TitleProps): ReactElement | null => {
 interface BodyProps {
   selected: string[];
   onSelect: (keys: string[]) => void;
+  /** A field of the shown message to focus. */
+  focused?: icd.FieldKey;
+  /** Called once the body tried to focus the field. */
+  onFocused: () => void;
 }
 
-const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
+const Body = ({ selected, onSelect, focused, onFocused }: BodyProps): ReactElement => {
+  const { focus } = Form.useContext();
   const { data } = Form.useFieldList(ICD.formPath.messages);
   // Selected messages can vanish when another client or an import removes them.
   const present = selected.filter((key) => data.includes(key));
   const shown = present.length > 0 ? present : data.slice(0, 1);
   const current = shown.at(0);
   const path = current == null ? null : ICD.formPath.messages[current];
+  // The fields of a message mount with it, so they take focus once it shows. Another
+  // client can remove the field first.
+  useEffect(() => {
+    if (focused == null || current == null) return;
+    const fields = deep.widen<unknown>(ICD.formPath.messages[current]).payload.fields;
+    focus(fields[focused].name, { optional: true });
+    onFocused();
+  }, [focused, current]);
   return (
     <Task.Views.Panes
       listTitle="Messages"
@@ -80,8 +96,11 @@ export const Editor = (): ReactElement => {
   const { key } = Panel.useTabResource();
   const dispatch = Session.useDispatch();
   const selected = Session.ICD.useSelectSelected(key);
+  const focused = Session.ICD.useSelectFocused(key);
+  const attached = Portal.useAttached();
   const handleSelect = (selected: icd.MessageKey[]) =>
     dispatch(Session.ICD.setSelected({ key, selected }));
+  const handleFocused = () => dispatch(Session.ICD.clearFocused({ key }));
   const canEdit = Access.useUpdateGranted(icd.resourceID(key));
   const { form } = ICD.useForm({
     query: { key },
@@ -122,8 +141,15 @@ export const Editor = (): ReactElement => {
             </Button.Button>
           )}
         </Flex.Box>
+        {FLAGS.bus && <Framing />}
         <Flex.Box x bordered grow empty className={CSS.BE("icd-editor", "body")}>
-          <Body selected={selected} onSelect={handleSelect} />
+          <Body
+            selected={selected}
+            onSelect={handleSelect}
+            // Detached content cannot take focus, so the request waits for the tab.
+            focused={attached ? focused : undefined}
+            onFocused={handleFocused}
+          />
         </Flex.Box>
       </Flex.Box>
     </Form.Form>

@@ -8,4 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/collection/Table";
-export * from "@/platform/collection/UsedBy";

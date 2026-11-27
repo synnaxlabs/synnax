@@ -123,16 +123,6 @@ func (re ReadEndpoint) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(re.Fields != nil)
-	if re.Fields != nil {
-		w.Uint32(uint32(len(re.Fields)))
-		for i := range re.Fields {
-			if err := re.Fields[i].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	}
-	w.String(re.Index)
 	return nil
 }
 
@@ -224,27 +214,6 @@ func (re *ReadEndpoint) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			re.Fields = make([]ReadField, n)
-			for i := range re.Fields {
-				if err = re.Fields[i].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	if re.Index, err = r.String(); err != nil {
-		return err
 	}
 	return nil
 }

@@ -12,8 +12,8 @@ package auth
 import (
 	"context"
 	"crypto/subtle"
-	"io"
 	"maps"
+	"runtime/pprof"
 	"slices"
 	"sync"
 	"time"
@@ -25,11 +25,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/lifetime"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	xtime "github.com/synnaxlabs/x/time"
 	"github.com/synnaxlabs/x/validate"
@@ -97,9 +97,10 @@ type Service struct {
 	cfg        ServiceConfig
 	table      *gorp.Table[SessionKey, Session]
 	indexes    indexes
-	shutdown   io.Closer
 	disconnect observe.Disconnect
-	mu         struct {
+	// guard orders Run against Close.
+	guard lifetime.Guard
+	mu    struct {
 		sync.Mutex
 		holds map[SessionKey]*hold
 		// seen leads the stored activity by up to a quarter of the idle timeout.
@@ -114,8 +115,8 @@ type hold struct {
 	over  bool
 }
 
-// OpenService opens a [Service] with the given configurations. It sweeps idle sessions
-// in the background until Close.
+// OpenService opens a [Service] with the given configurations. Idle sessions end only
+// while Run runs.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(
 		ServiceConfig{
@@ -141,43 +142,68 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	s.disconnect = s.table.Observe().OnChange(s.endDeletedHolds)
-	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	s.shutdown = signal.NewHardShutdown(sCtx, cancel)
-	signal.GoTick(
-		sCtx,
-		s.cfg.IdleTimeout/4,
-		func(ctx context.Context, _ time.Time) error {
-			// an error would stop the ticker
-			if err := s.Sweep(ctx); err != nil {
-				s.cfg.L.Error("failed to sweep idle sessions", zap.Error(err))
-			}
-			return nil
-		},
-		signal.WithRetryOnPanic(),
-		signal.WithKey("session_sweep"),
-	)
-	signal.GoTick(
-		sCtx,
-		s.cfg.HoldCheckInterval,
-		func(ctx context.Context, _ time.Time) error {
-			if err := s.CheckHolds(ctx); err != nil {
-				s.cfg.L.Error("failed to check held sessions", zap.Error(err))
-			}
-			return nil
-		},
-		signal.WithRetryOnPanic(),
-		signal.WithKey("session_hold_check"),
-	)
 	return s, nil
 }
 
 // IdleTimeout returns how long a session lives without use.
 func (s *Service) IdleTimeout() time.Duration { return s.cfg.IdleTimeout }
 
-// Close stops the sweep and releases the service's resources.
+// Run sweeps idle sessions and checks held sessions on their intervals until ctx ends,
+// then returns nil once both stop. A second Run, or a Run after Close, returns an
+// error.
+func (s *Service) Run(ctx context.Context) error {
+	if err := s.guard.Begin(); err != nil {
+		return err
+	}
+	defer s.guard.End()
+	var wg sync.WaitGroup
+	wg.Go(func() {
+		s.tick(ctx, "session_sweep", s.cfg.IdleTimeout/4, s.Sweep)
+	})
+	wg.Go(func() {
+		s.tick(ctx, "session_hold_check", s.cfg.HoldCheckInterval, s.CheckHolds)
+	})
+	wg.Wait()
+	return nil
+}
+
+// tick calls f every interval until ctx ends, and logs the errors of f under the
+// routine name.
+func (s *Service) tick(
+	ctx context.Context,
+	name string,
+	interval time.Duration,
+	f func(context.Context) error,
+) {
+	pprof.Do(ctx, pprof.Labels("routine", name), func(ctx context.Context) {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+			// An error from a stop in the middle of f is not a failure.
+			if err := f(ctx); err != nil && ctx.Err() == nil {
+				s.cfg.L.Error(
+					"session check failed",
+					zap.String("routine", name),
+					zap.Error(err),
+				)
+			}
+		}
+	})
+}
+
+// Close releases the resources of the Service. Call it after Run returns: while Run
+// runs, Close returns an error and closes nothing.
 func (s *Service) Close() error {
+	if first, err := s.guard.Close(); !first || err != nil {
+		return err
+	}
 	s.disconnect()
-	return errors.Combine(s.shutdown.Close(), s.table.Close())
+	return s.table.Close()
 }
 
 // Hold marks the session as kept open by a stream. A held session counts as active, so

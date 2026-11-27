@@ -49,18 +49,19 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// stack is a rack service and the services it depends on. Closing it closes all of
-// them.
+// stack is a running rack service and the services it depends on. Closing it stops the
+// rack service and closes all of them.
 type stack struct {
-	xio.MultiCloser
+	closer     xio.MultiCloser
+	stop       func()
 	rack       *rack.Service
 	status     *status.Service
 	group      *group.Service
 	driverRole role.Key
 }
 
-// openStack opens a rack service and its dependencies on db, as a Core start does. It
-// fills every dependency in cfg, and creates a Driver role when cfg has none.
+// openStack opens and runs a rack service and its dependencies on db, as a Core start
+// does. It fills every dependency in cfg, and creates a Driver role when cfg has none.
 func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	GinkgoHelper()
 	g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
@@ -83,12 +84,18 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}
 	svc := MustSucceed(rack.OpenService(ctx, cfg))
 	return stack{
-		MultiCloser: xio.MultiCloser{g, lbl, stat, roles, svc},
-		rack:        svc,
-		status:      stat,
-		group:       g,
-		driverRole:  cfg.DriverRole,
+		closer:     xio.MultiCloser{g, lbl, stat, roles, svc},
+		stop:       StartRun(svc.Run),
+		rack:       svc,
+		status:     stat,
+		group:      g,
+		driverRole: cfg.DriverRole,
 	}
+}
+
+func (s stack) Close() error {
+	s.stop()
+	return s.closer.Close()
 }
 
 // hasDriverRole reports whether the rack with key holds the stack's Driver role.
@@ -101,6 +108,32 @@ func hasDriverRole(ctx context.Context, s stack, key rack.Key) bool {
 		Exec(ctx, s.rack.DB)).To(Succeed())
 	return r.Role == s.driverRole
 }
+
+var _ = Describe("Run", func() {
+	var (
+		db *gorp.DB
+		s  stack
+	)
+	BeforeEach(func(ctx SpecContext) {
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		s = openStack(ctx, db, rack.ServiceConfig{})
+	})
+	It("Should return an error when called twice", func(ctx SpecContext) {
+		DeferClose(s)
+		Expect(s.rack.Run(ctx)).To(MatchError(ContainSubstring("run called twice")))
+	})
+	It("Should not close while Run runs", func() {
+		DeferClose(s)
+		Expect(s.rack.Close()).
+			To(MatchError(ContainSubstring("close called while Run runs")))
+	})
+	It("Should return an error when called after Close", func(ctx SpecContext) {
+		Expect(s.Close()).To(Succeed())
+		Expect(s.rack.Run(ctx)).
+			To(MatchError(ContainSubstring("run called after close")))
+	})
+})
 
 var _ = Describe("Driver role", func() {
 	It("Should give a new rack the Driver role", func(ctx SpecContext) {

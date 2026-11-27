@@ -226,6 +226,8 @@ interface Saved<V> {
 interface QueuedSave {
   promise: Promise<boolean>;
   signal?: AbortSignal;
+  /** Set once a caller asks for the save, so a failed validation shows its error. */
+  request: { explicit: boolean };
 }
 
 interface PersistParams<
@@ -240,10 +242,13 @@ interface PersistParams<
   setResult: Dispatch<SetStateAction<Result<undefined>>>;
   addStatus: Status.Adder;
   signal?: AbortSignal;
+  explicit: boolean;
 }
 
 /**
- * Validates and writes the form, reporting progress through `setResult`.
+ * Validates and writes the form, reporting progress through `setResult`. When
+ * `explicit` and the form is invalid, the part that shows the first error takes focus,
+ * or a toast shows the error.
  * @returns what the update wrote and read, or undefined when it wrote nothing.
  */
 const persist = async <
@@ -261,10 +266,14 @@ const persist = async <
   setResult,
   addStatus,
   signal,
+  explicit,
 }: PersistParams<Query, Schema>): Promise<Saved<z.infer<Schema>> | undefined> => {
   try {
     if (beforeValidate?.(params) === false) return undefined;
-    if (!(await params.validateAsync())) return undefined;
+    if (!(await params.validateAsync())) {
+      if (explicit) Form.focusFirstError(params);
+      return undefined;
+    }
     setResult(loadingResult(`updating ${name}`, undefined));
     if ((await beforeSave?.(params)) === false) {
       setResult(successResult(`updated ${name}`, undefined));
@@ -443,7 +452,10 @@ export const createForm = <
       form.reset(valuesRef.current);
     }, [memoQuery, form]);
 
-    const runSave = async (opts: query.FetchOptions = {}): Promise<boolean> => {
+    const runSave = async (
+      opts: query.FetchOptions,
+      explicit: boolean,
+    ): Promise<boolean> => {
       const signal = opts.signal ?? abortRef.current.signal;
       if (client == null) {
         setResult(nullClientResult<undefined>(`update ${name}`));
@@ -471,6 +483,7 @@ export const createForm = <
         setResult,
         addStatus,
         signal,
+        explicit,
       });
       const saved = persisted != null;
       // The form re-pointed at another record while this save ran.
@@ -494,27 +507,38 @@ export const createForm = <
     // queueing a duplicate. Only callers under one signal join, so an abort still
     // reaches every save it was issued for.
     const queuedSave = useRef<QueuedSave>(null);
-    const saveAsync = async (opts: query.FetchOptions = {}): Promise<boolean> => {
+    const queueSave = async (
+      opts: query.FetchOptions,
+      explicit: boolean,
+    ): Promise<boolean> => {
       const signal = opts.signal ?? abortRef.current.signal;
       const queued = queuedSave.current;
-      if (queued != null && queued.signal === signal) return await queued.promise;
+      if (queued != null && queued.signal === signal) {
+        if (explicit) queued.request.explicit = true;
+        return await queued.promise;
+      }
       const issuedFor = memoQuery;
-      const save = (pendingSave.current ?? Promise.resolve()).then(async () => {
-        if (queuedSave.current?.promise === save) queuedSave.current = null;
+      const request = { explicit };
+      const promise = (pendingSave.current ?? Promise.resolve()).then(async () => {
+        if (queuedSave.current?.promise === promise) queuedSave.current = null;
         // A queued save reads the live form, which now holds another record.
-        return readQuery.current === issuedFor ? await runSave(opts) : false;
+        return readQuery.current === issuedFor
+          ? await runSave(opts, request.explicit)
+          : false;
       });
-      queuedSave.current = { promise: save, signal };
-      pendingSave.current = save.catch(() => {});
-      return await save;
+      queuedSave.current = { promise, signal, request };
+      pendingSave.current = promise.catch(() => {});
+      return await promise;
     };
+    const saveAsync = async (opts: query.FetchOptions = {}): Promise<boolean> =>
+      await queueSave(opts, true);
     const save = (opts?: query.FetchOptions) => void saveAsync(opts);
 
-    const saveRef = useSyncedRef(save);
+    const autoSaveRef = useSyncedRef(() => void queueSave({}, false));
     // An explicit save that ran before the timer fired already sent every edit.
     const debouncedSave = useDebouncedCallback(
       () => {
-        if (unsaved.current.size > 0) saveRef.current();
+        if (unsaved.current.size > 0) autoSaveRef.current();
       },
       autoSaveDebounce,
       [],

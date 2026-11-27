@@ -584,16 +584,16 @@ describe("Input.Table", () => {
 
   const addButton = (): HTMLElement => screen.getByRole("button", { name: "Add row" });
 
-  interface StatefulProps {
+  interface StatefulProps extends Pick<Input.TableProps, "createRow"> {
     initial: Input.TableCell[][];
     children: ReactElement<Input.TableColumnProps>[];
   }
 
   // Holds the value, so adds, removes, and Esc restores render as they would in a form.
-  const Stateful = ({ initial, children }: StatefulProps): ReactElement => {
+  const Stateful = ({ initial, children, createRow }: StatefulProps): ReactElement => {
     const [value, setValue] = useState(initial);
     return (
-      <Input.Table value={value} onChange={setValue}>
+      <Input.Table value={value} onChange={setValue} createRow={createRow}>
         {children}
       </Input.Table>
     );
@@ -807,10 +807,24 @@ describe("Input.Table", () => {
       [2, 20],
     ];
 
-    it("should focus the first cell of an added row", () => {
-      render(<Stateful initial={VALUE}>{COLUMNS}</Stateful>);
+    it("should focus the first cell of an added row, with its text selected", () => {
+      render(
+        <Stateful initial={VALUE} createRow={() => [30, 300]}>
+          {COLUMNS}
+        </Stateful>,
+      );
       fireEvent.click(addButton());
-      expect(document.activeElement).toBe(cell("Raw", "3"));
+      const added = cell("Raw", "3");
+      expect(document.activeElement).toBe(added);
+      expect(added.value).toBe("30");
+      expect([added.selectionStart, added.selectionEnd]).toEqual([0, 2]);
+    });
+
+    it("should leave the text unselected in the row that takes a removed row's place", () => {
+      render(<Stateful initial={VALUE}>{COLUMNS}</Stateful>);
+      fireEvent.click(removeButton(0));
+      const next = cell("Raw", "1");
+      expect(next.selectionStart).toBe(next.selectionEnd);
     });
 
     it("should focus the row that takes a removed row's place", () => {

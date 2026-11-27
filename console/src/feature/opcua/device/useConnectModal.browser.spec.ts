@@ -372,7 +372,7 @@ describe("OPCUA.Device.useConnectModal", () => {
     await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
       client,
     });
-    await screen.findByText(`${rack.name} is not running`);
+    await screen.findByText("Driver not running");
     expect(findLastButton("Connect").getAttribute("aria-disabled")).toBe("true");
   });
 

@@ -88,10 +88,13 @@ export { ranger } from "@/ranger";
 export { resource } from "@/resource";
 export { schematic } from "@/schematic";
 export { secret } from "@/secret";
+export { serial } from "@/serial";
 export { sift } from "@/sift";
 export { status, type StatusZodObject } from "@/status";
 export { table } from "@/table";
 export { task } from "@/task";
+export { tcp } from "@/tcp";
+export { udp } from "@/udp";
 export { user } from "@/user";
 export { view } from "@/view";
 export {
