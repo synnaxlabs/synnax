@@ -272,6 +272,18 @@ func (l *Log) refuse(p pending, err error) {
 	p.done <- result{err: err}
 }
 
+// refuseFit refuses p, which did not fit, with err, or with failed when the flush of
+// the entries ahead of it failed. A refused Commit stops every later Commit until the
+// next log file.
+func (l *Log) refuseFit(p pending, err, failed error) {
+	if failed != nil {
+		l.refuse(p, failed)
+		return
+	}
+	l.commitsFull = l.commitsFull || p.commit
+	l.refuse(p, err)
+}
+
 // refusal returns the error that refuses a new entry. The caller holds l.mu.
 func (l *Log) refusal() error {
 	if l.mu.err != nil {
@@ -396,12 +408,7 @@ func (l *Log) write(queue []pending) {
 		if err := l.fits(p, start, size); err != nil {
 			// Each entry ahead of a refusal gets its answer first.
 			flush()
-			if failed != nil {
-				l.refuse(p, failed)
-				continue
-			}
-			l.commitsFull = l.commitsFull || p.commit
-			l.refuse(p, err)
+			l.refuseFit(p, err, failed)
 			continue
 		}
 		l.buf = append(l.buf, p.entry...)
