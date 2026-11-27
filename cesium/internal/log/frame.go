@@ -85,7 +85,8 @@ func DecodeHeader(b []byte, db, generation, offset uint64) (Header, error) {
 		)
 	}
 	b = b[:HeaderSize]
-	want := place.Log(db, generation, offset, headerVersion).Sum(b[:60])
+	version := binary.LittleEndian.Uint16(b[8:])
+	want := place.Log(db, generation, offset, version).Sum(b[:60])
 	if !bytes.Equal(b[:8], fileMagic) || binary.LittleEndian.Uint32(b[60:]) != want {
 		return Header{}, errors.Wrapf(
 			place.ErrCorrupt,
@@ -110,8 +111,8 @@ func DecodeHeader(b []byte, db, generation, offset uint64) (Header, error) {
 			h.Generation,
 		)
 	}
-	if v := binary.LittleEndian.Uint16(b[8:]); v != headerVersion {
-		return Header{}, errors.Wrapf(ErrUnknown, "log format version %d", v)
+	if version != headerVersion {
+		return Header{}, errors.Wrapf(ErrUnknown, "log format version %d", version)
 	}
 	if !allZero(b[10:16]) || !allZero(b[52:60]) {
 		return Header{}, errors.Wrapf(
