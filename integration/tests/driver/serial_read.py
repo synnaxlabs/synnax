@@ -65,6 +65,7 @@ class SerialRead(BusCase, ReadTaskCase[serial.ReadTask]):
                 framing=sy.icd.DelimitedFraming(),
             )
         )
+        self.track_test_icds([ic])
         return serial.ReadTask(
             name=task_name,
             device=device.key,

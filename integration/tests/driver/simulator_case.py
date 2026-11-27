@@ -136,11 +136,18 @@ class SimulatorCase(HardwareCase):
 
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""
-        device_instance = sim_cls.create_device(self.client, self.device_rack().key)
+        rack = self.device_rack().key
+        device_instance = sim_cls.create_device(self.client, rack)
         try:
             existing = self.client.devices.retrieve(name=device_instance.name)
             # A sim device only exists for its sim, so one found here is a leftover from
-            # a killed teardown; adopt it so this run's teardown reclaims it.
+            # a killed teardown; adopt it so this run's teardown reclaims it. Its rack
+            # can be the rack of a Driver that is gone.
+            if existing.rack != rack:
+                self.client.devices.dispatch(
+                    existing.key,
+                    sy.device.set_rack(sy.device.SetRackPayload(rack=rack)),
+                )
             self.track_test_devices([existing])
         except sy.NotFoundError:
             self.create_test_devices([device_instance])
