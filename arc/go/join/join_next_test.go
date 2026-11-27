@@ -68,9 +68,9 @@ func secs(s float64) telem.TimeStamp {
 	return telem.TimeStamp(s * float64(telem.Second))
 }
 
-// pace reads ts in history the way a reader paces its inputs: it pushes
-// a chunk of the input with the earliest newest stamp, then passes the earliest newest
-// stamp of the inputs that have more. It returns the first failed push, or nil.
+// pace reads ts in history the way a reader paces its inputs: it pushes a chunk of the
+// input with the earliest newest stamp, then passes the earliest newest stamp of the
+// inputs that have more. It returns the first failed push, or nil.
 func pace(
 	j *join.Join,
 	ts [][]telem.TimeStamp,
