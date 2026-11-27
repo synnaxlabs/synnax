@@ -77,9 +77,11 @@ func newIndexes() indexes {
 				}
 				return []channel.Key{*e.ReadIndex}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
-				if e.ReadIndex != nil && *e.ReadIndex == from {
-					*e.ReadIndex = to
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
+				if e.ReadIndex != nil {
+					if t, ok := to[*e.ReadIndex]; ok {
+						*e.ReadIndex = t
+					}
 				}
 			},
 		}),
@@ -94,9 +96,11 @@ func newIndexes() indexes {
 				}
 				return []channel.Key{*e.WriteStateIndex}
 			},
-			Retarget: func(e *Device, from, to channel.Key) {
-				if e.WriteStateIndex != nil && *e.WriteStateIndex == from {
-					*e.WriteStateIndex = to
+			Retarget: func(e *Device, to map[channel.Key]channel.Key) {
+				if e.WriteStateIndex != nil {
+					if t, ok := to[*e.WriteStateIndex]; ok {
+						*e.WriteStateIndex = t
+					}
 				}
 			},
 		}),
