@@ -534,10 +534,8 @@ var _ = Describe("Join", func() {
 			Expect(out.Dropped).To(Equal(1))
 		})
 
-	It("Should never reach the cap in a history read that paces as Next asks, after "+
-		"the primary ends", func() {
+	Describe("A history read whose primary ends first", func() {
 		// A 1 Hz primary to 10 s and a 1 kHz input to 100 s, read in chunks of 4,096.
-		// The read stops pushing the input once it reaches the primary's last stamp.
 		primary := make([]float64, 11)
 		for i := range primary {
 			primary[i] = float64(i)
@@ -546,9 +544,37 @@ var _ = Describe("Join", func() {
 		for i := range input {
 			input[i] = float64(i) / 1000
 		}
-		got, _ := samples(readPaced(newJoin(2, 0, 0), 4096, primary, input))
-		Expect(got).To(HaveLen(11))
-		Expect(got[10]).To(Equal(sample{10, 10, []float64{10, 10}}))
+
+		It("Should never reach the cap when the read paces as Next asks", func() {
+			got, _ := samples(readPaced(newJoin(2, 0, 0), 4096, primary, input))
+			Expect(got).To(HaveLen(11))
+			Expect(got[10]).To(Equal(sample{10, 10, []float64{10, 10}}))
+		})
+
+		It(
+			"Should refuse the input once the read pushes it past the primary's last stamp",
+			func() {
+				j := newJoin(2, 0, 0)
+				Expect(
+					j.Push(0, values(primary...), stamps(0, primary...)),
+				).To(Succeed())
+				var (
+					out join.Output
+					err error
+				)
+				for start := 0; err == nil && start < len(input); start += 4096 {
+					chunk := input[start:min(start+4096, len(input))]
+					err = j.Push(1, values(chunk...), stamps(0, chunk...))
+					newest := min(10, chunk[len(chunk)-1])
+					j.Next(telem.TimeStamp(newest*float64(telem.Second)), &out)
+				}
+				Expect(err).To(MatchError(ContainSubstring(
+					"input 1 would hold more than 65536 samples that the join has not passed",
+				)))
+				got, _ := samples(out)
+				Expect(got).To(HaveLen(11))
+			},
+		)
 	})
 
 	It("Should refuse a history push past the cap, and keep the input as it was",
