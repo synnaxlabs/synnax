@@ -76,6 +76,19 @@ func errorPath(err error) []string {
 	return pathErr.Path
 }
 
+// errorPaths returns the path of each member of a joined error.
+func errorPaths(err error) [][]string {
+	members := errors.UnwrapMulti(err)
+	if members == nil {
+		return [][]string{errorPath(err)}
+	}
+	var paths [][]string
+	for _, member := range members {
+		paths = append(paths, errorPaths(member)...)
+	}
+	return paths
+}
+
 // createRoutingKeys creates a stored secret under each key, so that an alert config
 // can name it.
 func createRoutingKeys(

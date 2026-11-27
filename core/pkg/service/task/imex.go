@@ -136,9 +136,16 @@ func (s *Service) Decode(ctx context.Context, env imex.Envelope) (imex.Write, er
 	}, nil
 }
 
-// fileError roots a path error of a task created from a file at the file, which holds
-// the fields of the config at its root. It returns any other error as it is.
+// fileError roots each path error of a task created from a file at the file, which
+// holds the fields of the config at its root. It returns any other error as it is.
 func fileError(err error) error {
+	if members := errors.UnwrapMulti(err); members != nil {
+		rooted := make([]error, len(members))
+		for i, member := range members {
+			rooted[i] = fileError(member)
+		}
+		return errors.Join(rooted...)
+	}
 	pathErr, ok := errors.AsType[validate.PathError](err)
 	if !ok || len(pathErr.Path) < 2 || pathErr.Path[0] != "config" {
 		return err

@@ -355,7 +355,7 @@ var _ = Describe("ImEx", Ordered, func() {
 		)
 
 		It(
-			"Should name a refused field by its path in the file",
+			"Should name each refused field by its path in the file",
 			func(ctx SpecContext) {
 				t := &task.Task{
 					Rack:   testRack.Key,
@@ -371,14 +371,18 @@ var _ = Describe("ImEx", Ordered, func() {
 				Expect(
 					json.Unmarshal(MustSucceed(json.Marshal(env)), &body),
 				).To(Succeed())
-				body["stream_rate"] = -5
+				body["stream_rate"] = 0
+				body["device_scan_backlog_warn_on_count"] = 0
 				Expect(
 					json.Unmarshal(MustSucceed(json.Marshal(body)), &env),
 				).To(Succeed())
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					_, err := imexSvc.Import(ctx, tx, env, imex.ImportOptions{})
 					return err
-				})).To(WithTransform(errorPath, Equal([]string{"stream_rate"})))
+				})).To(WithTransform(errorPaths, ConsistOf(
+					[]string{"stream_rate"},
+					[]string{"device_scan_backlog_warn_on_count"},
+				)))
 			},
 		)
 
