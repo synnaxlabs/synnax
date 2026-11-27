@@ -294,13 +294,13 @@ func identifierBits(id icd.FieldIdentifier, p icd.BinaryPayload) (bitRange, erro
 }
 
 // Decode finds the message that data, one payload, belongs to by its identifier fields
-// and appends one sample for each of its bindings to samples[message]. samples is as
-// in JSON.Decode. ok is false, and Decode appends nothing, when data belongs to no
+// and appends one sample for each of its bindings to samples[message]. samples is as in
+// JSON.Decode. ok is false, and Decode appends nothing, when data belongs to no
 // message. Decode returns an error wrapping validate.ErrValidation, appending nothing,
 // when data meets the identifiers of two messages, with the first of them, or when it
 // is too short for the multiplexors of its message. A short payload's error names the
-// first multiplexor that does not fit, and also the message when the decoder holds
-// more than one.
+// first multiplexor that does not fit, and also the message when the decoder holds more
+// than one.
 //
 // failures holds each selected field with no default that data is too short for, or
 // whose value does not fit its channel. A failed field appends no sample, and the other
