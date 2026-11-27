@@ -821,6 +821,50 @@ describe("Streamer", () => {
       streamer.close();
     }, 30_000);
 
+    it("should reject a read that stalls before the first keep-alive", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
+      const ch = await newVirtualChannel(client);
+      const streamer = await proxied.openStreamer({
+        channels: ch.key,
+        keepAlive: KEEP_ALIVE,
+      });
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      await expect(streamer.read()).rejects.toSatisfy(
+        (exc) =>
+          Unreachable.matches(exc) &&
+          exc.message === `streamer received no response for ${DEADLINE.toString()}`,
+      );
+      streamer.close();
+    }, 30_000);
+
+    it("should detect a stall that starts right after a reconnect", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
+      const ch = await newVirtualChannel(client);
+      const onDrop = vi.fn();
+      const onReopen = vi.fn(() => proxy.blackholeStreams());
+      await using hardened = await framer.HardenedStreamer.open(
+        async (cfg) => await proxied.openStreamer(cfg),
+        { channels: ch.key, keepAlive: KEEP_ALIVE },
+        { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
+      );
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      // The first reopen stalls at once, before its first keep-alive.
+      const pending = hardened.read();
+      pending.catch(() => {});
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
+      onReopen.mockImplementation(() => 0);
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(2);
+      expect(Unreachable.matches(onDrop.mock.calls[1][0])).toBe(true);
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(2);
+      await write(ch, [1]);
+      expect(Array.from((await pending).get(ch.key))).toEqual([1]);
+    }, 45_000);
+
     it("should reject an acked update that follows a failed read", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
         onRetry: quiet,
@@ -896,8 +940,7 @@ describe("Streamer", () => {
       });
       await sleep.sleep(TimeSpan.milliseconds(250));
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-      // Without keep-alives the deadline never arms, which is also how a client
-      // behaves against a Core that predates them: the read hangs, as before.
+      // Without keep-alives the read has no deadline, so it hangs.
       const pending = streamer.read();
       pending.catch(() => {});
       const result = await Promise.race([
