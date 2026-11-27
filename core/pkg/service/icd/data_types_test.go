@@ -56,6 +56,7 @@ func payloadOf(
 	format string,
 	c dataTypeCase,
 ) (icd.Payload, icd.FieldKey) {
+	GinkgoHelper()
 	field := maps.Clone(t.Fields[format])
 	maps.Copy(field, c.Field)
 	raw := maps.Clone(t.Payloads[format])
@@ -81,6 +82,7 @@ func checkRead(
 	format string,
 	c dataTypeCase,
 ) error {
+	GinkgoHelper()
 	p, key := payloadOf(t, format, c)
 	msg := icd.Message{Key: uuid.New(), Name: "message", Payload: p}
 	ic := icd.ICD{Key: uuid.New(), Name: "ICD", Messages: []icd.Message{msg}}
@@ -106,6 +108,7 @@ func checkRead(
 // checkWrite returns the error of an encoder of the JSON field of c from a channel of
 // its data type.
 func checkWrite(t dataTypeTable, c dataTypeCase) error {
+	GinkgoHelper()
 	p, key := payloadOf(t, "json", c)
 	jp, ok := p.Variant.(icd.JSONPayload)
 	Expect(ok).To(BeTrue())
