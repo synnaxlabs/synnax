@@ -1,0 +1,32 @@
+{
+  "description": "A default must fit the channel of its field.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "f",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "encoding": "delimited",
+            "position": 0,
+            "default": 1e300
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "float32"
+        }
+      ]
+    }
+  ],
+  "error": "message a: field f: default: 1e+300 overflows float32: validation error"
+}

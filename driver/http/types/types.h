@@ -190,13 +190,13 @@ inline void validate_pointer(
 
 /// @brief validates an endpoint's method, headers, and query parameters,
 /// accumulating errors on parser. Header and query parameter names must be
-/// non-empty and unique within the endpoint.
+/// non-empty and unique within the endpoint, and header values non-empty.
 template<typename Endpoint>
 void validate_request(const Endpoint &ep, x::json::Parser &parser) {
     if (auto [method, err] = parse_method(ep.method); err)
         parser.field_err("endpoints.method", err);
     std::set<std::string> names;
-    for (const auto &h: ep.headers)
+    for (const auto &h: ep.headers) {
         if (h.name.empty())
             parser.field_err("endpoints.headers.name", "this field is required");
         else if (!names.insert(h.name).second)
@@ -204,6 +204,9 @@ void validate_request(const Endpoint &ep, x::json::Parser &parser) {
                 "endpoints.headers.name",
                 "duplicate header '" + h.name + "'"
             );
+        if (h.value.empty())
+            parser.field_err("endpoints.headers.value", "this field is required");
+    }
     std::set<std::string> params;
     for (const auto &qp: ep.query_params)
         if (qp.parameter.empty())

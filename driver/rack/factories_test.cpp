@@ -14,6 +14,7 @@
 
 #include "gtest/gtest.h"
 
+#include "driver/http/scan_task.h"
 #include "driver/labjack/names.h"
 #include "driver/ni/names.h"
 #include "driver/rack/rack.h"
@@ -53,6 +54,44 @@ TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
         cancel.stop();
         EXPECT_TRUE(handled) << type;
         EXPECT_EQ(tsk, nullptr) << type;
+    }
+}
+
+/// @brief it should answer the boot start of a disabled scanner with only a disabled
+/// status, so the scanner never shows as starting.
+TEST(RackFactoriesTest, DisabledScannerAtBootNeverShowsAsStarting) {
+    x::breaker::Breaker cancel;
+    const std::vector<std::pair<std::string, std::string>> scanners = {
+        {http::INTEGRATION_NAME, http::SCAN_TASK_TYPE},
+        {opcua::INTEGRATION_NAME, opcua::SCAN_TASK_TYPE},
+    };
+    const Config cfg{.integrations = {http::INTEGRATION_NAME, opcua::INTEGRATION_NAME}};
+    const auto factory = cfg.new_factory(
+        nullptr,
+        std::make_shared<x::thread::rt::Manager>()
+    );
+    for (const auto &[integration, type]: scanners) {
+        const auto ctx = std::make_shared<task::MockContext>(nullptr);
+        cancel.start();
+        const auto [tsk, handled] = factory->configure_task(
+            ctx,
+            synnax::task::Task{
+                .name = type,
+                .type = type,
+                .config = {{"disabled", true}}
+            },
+            task::NO_COMMAND,
+            cancel
+        );
+        cancel.stop();
+        EXPECT_TRUE(handled) << type;
+        ASSERT_NE(tsk, nullptr) << type;
+        const auto statuses = ctx->snapshot();
+        ASSERT_EQ(statuses.size(), 1) << type;
+        EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_DISABLED) << type;
+        EXPECT_EQ(statuses[0].message, "Scanner disabled") << type;
+        EXPECT_FALSE(statuses[0].details.running) << type;
+        tsk->stop(false);
     }
 }
 

@@ -4,7 +4,7 @@
   "problems": [
     {
       "path": "messages.0.payload.fields.0.scale",
-      "message": "scale must be finite and non-zero"
+      "message": "scale must be non-zero"
     }
   ],
   "icd": {

@@ -56,8 +56,6 @@ func autoMigrateReadEndpoint(_ context.Context, old v4.ReadEndpoint) (ReadEndpoi
 		Headers:     old.Headers,
 		QueryParams: old.QueryParams,
 		Body:        old.Body,
-		Fields:      old.Fields,
-		Index:       old.Index,
 	}, nil
 }
 

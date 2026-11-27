@@ -115,6 +115,7 @@ cc_test(
         "//driver/version",
     ],
     deps = [
+        "//driver/http",
         "//driver/labjack:names",
         "//driver/ni:names",
         "//driver/rack",
@@ -176,6 +177,7 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/http",
         "//driver/rack",
         "//driver/rack/status",
         "//x/cpp/kv",

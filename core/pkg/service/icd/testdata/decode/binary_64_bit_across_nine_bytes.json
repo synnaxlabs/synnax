@@ -1,0 +1,69 @@
+{
+  "description": "A 64-bit field that starts inside a byte reads across nine bytes, and needs all of them.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "low",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 0,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "kind": "unsigned",
+            "default": 15
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "high",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 68,
+            "bit_length": 4,
+            "byte_order": "little_endian",
+            "kind": "unsigned",
+            "default": 15
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "v",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 4,
+            "bit_length": 64,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "uint64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "0f21436587a9cbedff",
+      "message": "frame",
+      "samples": [18364758544493064720]
+    },
+    {
+      "hex": "0f21436587a9cbed",
+      "message": "frame",
+      "error": "field v: the payload has 8 bytes and the field needs 9: validation error"
+    }
+  ]
+}

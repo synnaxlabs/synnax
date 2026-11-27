@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -20,14 +19,6 @@ const SENDS = {
 };
 
 describe("HTTP Task Types", () => {
-  const readField = {
-    pointer: "/value",
-    channel: 1,
-    disabled: false,
-    key: "f1",
-    dataType: DataType.FLOAT64.toString(),
-  };
-
   describe("READ_SCHEMAS", () => {
     it("should validate the type literal", () => {
       expect(HTTP.Task.READ_SCHEMAS.type.parse(HTTP.Task.READ_TYPE)).toBe(
@@ -46,7 +37,6 @@ describe("HTTP Task Types", () => {
             key: "ep1",
             method: "GET",
             path: "/api/data",
-            fields: [{ ...readField, pointer: "/temp" }],
           },
         ],
       };
@@ -65,7 +55,6 @@ describe("HTTP Task Types", () => {
             method: "POST",
             path: "/api/query",
             body: '{"query": "latest"}',
-            fields: [readField],
           },
         ],
       };
@@ -82,7 +71,6 @@ describe("HTTP Task Types", () => {
             key: "ep1",
             method: "GET",
             path: "/api/data",
-            fields: [readField],
           },
         ],
       };
@@ -101,7 +89,6 @@ describe("HTTP Task Types", () => {
             path: "/api/data",
             headers: [{ name: "Accept", value: "application/json" }],
             queryParams: [{ parameter: "limit", value: "100" }],
-            fields: [readField],
           },
         ],
       };
@@ -145,201 +132,8 @@ describe("HTTP Task Types", () => {
     });
   });
 
-  describe("read field", () => {
-    it("should validate a field with a valid JSON pointer", () => {
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [
-              {
-                pointer: "/data/temperature",
-                channel: 1,
-                disabled: false,
-                key: "f1",
-                dataType: DataType.FLOAT64.toString(),
-              },
-            ],
-          },
-        ],
-      };
-      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].pointer).toBe("/data/temperature");
-    });
-
-    it("should reject an invalid JSON pointer at deploy", () => {
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [
-              {
-                pointer: "no-leading-slash",
-                channel: 1,
-                disabled: false,
-                key: "f1",
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
-    });
-
-    it("should validate a field with optional timeFormat", () => {
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [
-              {
-                ...readField,
-                pointer: "/ts",
-                timeFormat: "iso8601",
-              },
-            ],
-          },
-        ],
-      };
-      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].timeFormat).toBe("iso8601");
-    });
-
-    it("should reject an invalid timeFormat", () => {
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [
-              {
-                pointer: "/ts",
-                channel: 1,
-                disabled: false,
-                key: "f1",
-                timeFormat: "invalid_format",
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.READ_SCHEMAS.config.validate(config)).toBe(false);
-    });
-
-    it("should validate a field with v1 enum values", () => {
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [
-              {
-                ...readField,
-                pointer: "/status",
-                enumValues: [
-                  { label: "ON", value: 1 },
-                  { label: "OFF", value: 0 },
-                ],
-              },
-            ],
-          },
-        ],
-      };
-      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].fields[0].enumValues).toEqual([
-        { label: "ON", value: 1 },
-        { label: "OFF", value: 0 },
-      ]);
-    });
-
-    it("should default a field without enum values to an empty list", () => {
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [{ ...readField, pointer: "/status" }],
-          },
-        ],
-      };
-      const result = HTTP.Task.deployReadConfigZ.parse(config);
-      expect(result.endpoints[0].fields[0].enumValues).toEqual([]);
-    });
-
-    it("should reject duplicate enum labels", () => {
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [
-              {
-                ...readField,
-                pointer: "/status",
-                enumValues: [
-                  { label: "ON", value: 1 },
-                  { label: "ON", value: 2 },
-                ],
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
-    });
-  });
-
-  describe("read enum v0 shapes", () => {
-    it("should not migrate a v0 enum record", () => {
-      // The Core migrates stored configs; the console only speaks generated shapes.
-      const config = {
-        device: "dev-001",
-        rate: 1,
-        endpoints: [
-          {
-            key: "ep1",
-            method: "GET",
-            path: "/api",
-            fields: [
-              {
-                ...readField,
-                pointer: "/status",
-                enumValues: { ON: 1, OFF: 0 },
-              },
-            ],
-          },
-        ],
-      };
-      expect(HTTP.Task.READ_SCHEMAS.config.validate(config)).toBe(false);
-    });
-  });
-
   describe("read endpoint", () => {
-    it("should leave index empty by default", () => {
+    it("should drop the fields and index of an endpoint from before ICDs", () => {
       const config = {
         device: "dev-001",
         rate: 1,
@@ -348,12 +142,14 @@ describe("HTTP Task Types", () => {
             key: "ep1",
             method: "GET",
             path: "/api",
-            fields: [],
+            index: "f1",
+            fields: [{ key: "f1", pointer: "/v", channel: 1 }],
           },
         ],
       };
-      const result = HTTP.Task.READ_SCHEMAS.config.parse(config);
-      expect(result.endpoints[0].index).toBe("");
+      const [endpoint] = HTTP.Task.READ_SCHEMAS.config.parse(config).endpoints;
+      expect(endpoint).not.toHaveProperty("fields");
+      expect(endpoint).not.toHaveProperty("index");
     });
 
     it("should reject duplicate header names on an endpoint at deploy", () => {
@@ -369,7 +165,6 @@ describe("HTTP Task Types", () => {
               { name: "X-Key", value: "a" },
               { name: "X-Key", value: "b" },
             ],
-            fields: [],
           },
         ],
       };
@@ -389,7 +184,6 @@ describe("HTTP Task Types", () => {
               { parameter: "key", value: "a" },
               { parameter: "key", value: "b" },
             ],
-            fields: [],
           },
         ],
       };
@@ -407,7 +201,6 @@ describe("HTTP Task Types", () => {
             method: "GET",
             path: "/api",
             headers: { Accept: "application/json" },
-            fields: [],
           },
         ],
       };
@@ -424,7 +217,6 @@ describe("HTTP Task Types", () => {
             method: "GET",
             path: "/api",
             queryParams: { limit: "10" },
-            fields: [],
           },
         ],
       };

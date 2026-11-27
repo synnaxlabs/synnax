@@ -10,6 +10,7 @@
 #pragma once
 
 #include <algorithm>
+#include <atomic>
 #include <cstring>
 #include <string>
 #include <thread>
@@ -118,6 +119,13 @@ public:
     }
 
     x::errors::Error start() override {
+        // Each start runs on a new thread.
+        if (!this->rt_handle) {
+            auto rt_cfg = this->config.rt();
+            x::thread::rt::apply_config(rt_cfg);
+        } else {
+            this->rt_handle->apply();
+        }
         if (this->epoll_fd != -1) return x::errors::NIL;
 
         this->epoll_fd = epoll_create1(0);
@@ -148,13 +156,6 @@ public:
                     "Failed to add eventfd to epoll: " + std::string(strerror(errno))
                 )
             );
-
-        if (!this->rt_handle) {
-            auto rt_cfg = this->config.rt();
-            x::thread::rt::apply_config(rt_cfg);
-        } else {
-            this->rt_handle->apply();
-        }
 
         const bool realtime = this->api.realtime();
         const bool busy = this->config.mode == ExecutionMode::BUSY_WAIT;
@@ -447,7 +448,8 @@ private:
     std::shared_ptr<x::thread::rt::Handle> rt_handle;
     Api api;
     int epoll_fd = -1;
-    int event_fd = -1;
+    /// @brief atomic, as wake reads it from another thread while start sets it.
+    std::atomic<int> event_fd = -1;
     int timer_fd = -1;
     /// @brief holds all cores out of deep idle states while open.
     int latency_fd = -1;

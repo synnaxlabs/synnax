@@ -1,0 +1,177 @@
+{
+  "description": "Integer and unsigned fields write each value that the width of their channel holds, in any spelling of a whole number.",
+  "messages": [
+    {
+      "name": "reading",
+      "payload": {
+        "format": "json",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "i8",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/i8",
+            "type": "integer"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000002",
+            "name": "i16",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/i16",
+            "type": "integer"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000003",
+            "name": "i32",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/i32",
+            "type": "integer"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000004",
+            "name": "i64",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/i64",
+            "type": "integer"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000005",
+            "name": "u8",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/u8",
+            "type": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000006",
+            "name": "u16",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/u16",
+            "type": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000007",
+            "name": "u32",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/u32",
+            "type": "unsigned"
+          },
+          {
+            "key": "00000000-0000-4000-8000-000000000008",
+            "name": "u64",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "pointer": "/u64",
+            "type": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "int8"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000002",
+          "data_type": "int16"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000003",
+          "data_type": "int32"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000004",
+          "data_type": "int64"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000005",
+          "data_type": "uint8"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000006",
+          "data_type": "uint16"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000007",
+          "data_type": "uint32"
+        },
+        {
+          "field": "00000000-0000-4000-8000-000000000008",
+          "data_type": "uint64"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "document": {
+        "i8": -2,
+        "i16": -300,
+        "i32": -70000,
+        "i64": -5000000000,
+        "u8": 255,
+        "u16": 65535,
+        "u32": 4294967295,
+        "u64": 18446744073709551615
+      },
+      "message": "reading",
+      "samples": [
+        -2, -300, -70000, -5000000000, 255, 65535, 4294967295, 18446744073709551615
+      ]
+    },
+    {
+      "document": {
+        "i8": -128,
+        "i16": -3.0,
+        "i32": 0,
+        "i64": 9007199254740993,
+        "u8": 0,
+        "u16": 6.5e4,
+        "u32": 0,
+        "u64": 1e19
+      },
+      "message": "reading",
+      "samples": [-128, -3, 0, 9007199254740993, 0, 65000, 0, 10000000000000000000]
+    },
+    {
+      "document": {
+        "i8": 0,
+        "i16": 0,
+        "i32": 0,
+        "i64": 0,
+        "u8": 256,
+        "u16": 0,
+        "u32": 0,
+        "u64": 0
+      },
+      "error": "field u8: 256 is out of range for uint8: validation error"
+    },
+    {
+      "document": {
+        "i8": 0,
+        "i16": 0,
+        "i32": 0,
+        "i64": 1e19,
+        "u8": 0,
+        "u16": 0,
+        "u32": 0,
+        "u64": 0
+      },
+      "error": "field i64: 10000000000000000000 is out of range for int64: validation error"
+    }
+  ]
+}
