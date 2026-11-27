@@ -70,6 +70,45 @@ describe("Writer", () => {
       await writer.commit();
     });
 
+    test("write the time of a channel that the writer opens alone", async () => {
+      const [, data] = await newIndexedPair(client);
+      const start = TimeStamp.seconds(1);
+      const stamps = [start, start.add(TimeSpan.SECOND)];
+      await using writer = await client.openWriter({ start, channels: [data.key] });
+      await writer.write({ time: stamps, [data.key]: [1.5, 2.5] });
+      await writer.commit();
+      const fr = await client.read(TimeRange.MAX, [data.key]);
+      expect(Array.from(fr.get(data.key))).toEqual([1.5, 2.5]);
+      expect(Array.from(fr.time(data.key))).toEqual(stamps.map((s) => s.valueOf()));
+    });
+
+    test("refuse time for a channel whose index already stores stamps", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const start = TimeStamp.seconds(1);
+      const indexWriter = await client.openWriter({ start, channels: [index.key] });
+      await indexWriter.write({ [index.key]: [start] });
+      await indexWriter.commit();
+      await indexWriter.close();
+      await using writer = await client.openWriter({ start, channels: [data.key] });
+      await expect(writer.write({ time: [start], [data.key]: [1.5] })).rejects.toThrow(
+        `${data.name} takes its time from the stamps that its index already stores, ` +
+          'so the write cannot hold "time" for it',
+      );
+      await writer.write({ [data.key]: [1.5] });
+      await writer.commit();
+      expect(Array.from(await client.read(TimeRange.MAX, data.key))).toEqual([1.5]);
+    });
+
+    test("refuse a write that holds time and no channels", async () => {
+      const [, data] = await newIndexedPair(client);
+      const start = TimeStamp.seconds(1);
+      await using writer = await client.openWriter({ start, channels: [data.key] });
+      await expect(writer.write({ time: [start] })).rejects.toThrow(
+        'The write holds "time" and no channels. An empty series, time or data, ' +
+          "makes nothing present",
+      );
+    });
+
     test("write without a start", async () => {
       const [index, data] = await newIndexedPair(client);
       {
