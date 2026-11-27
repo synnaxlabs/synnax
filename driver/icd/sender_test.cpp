@@ -61,6 +61,15 @@ public:
     }
 };
 
+/// @returns t as an open transport, as transport::Connection::Guard::transport returns
+/// it.
+std::pair<transport::Transport *, x::errors::Error> open(Wire &t) {
+    return {&t, x::errors::NIL};
+}
+
+/// @brief CLOSED is the error of a transport that closed.
+const x::errors::Error CLOSED(transport::UNREACHABLE_ERROR, "the port closed");
+
 /// @brief Steady is a steady clock that a spec moves by hand.
 struct Steady {
     std::chrono::steady_clock::time_point time;
@@ -172,7 +181,9 @@ TEST(Sender, SendsMessageForEachCommand) {
     auto s = ASSERT_NIL_P(setpoints().create());
     Wire t;
     ASSERT_TRUE(
-        ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(std::vector<double>{1, 2}))))
+        ASSERT_NIL_P(
+            s.write(open(t), frame(2, x::telem::Series(std::vector<double>{1, 2})))
+        )
             .empty()
     );
     ASSERT_EQ(t.writes, (Writes{"1,5\n", "2,5\n"}));
@@ -185,7 +196,7 @@ TEST(Sender, SendsOneMessageForCommandsOnSeveralChannels) {
     x::telem::Frame fr(2);
     fr.emplace(2, x::telem::Series(1.0));
     fr.emplace(3, x::telem::Series(2.0));
-    ASSERT_NIL_P(s.write(t, fr));
+    ASSERT_NIL_P(s.write(open(t), fr));
     ASSERT_EQ(t.writes, (Writes{"1,2\n"}));
 }
 
@@ -222,7 +233,9 @@ TEST(Sender, SendsLastCommandsEachPeriod) {
     Wire t;
     ASSERT_EQ(ASSERT_NIL_P(s.send(t)), 100 * x::telem::MILLISECOND);
     ASSERT_EQ(t.writes, (Writes{"0,5\n"}));
-    ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(std::vector<double>{1, 2}))));
+    ASSERT_NIL_P(
+        s.write(open(t), frame(2, x::telem::Series(std::vector<double>{1, 2})))
+    );
     ASSERT_EQ(t.writes.size(), 1U);
     clock.time += std::chrono::milliseconds(60);
     ASSERT_EQ(ASSERT_NIL_P(s.send(t)), 40 * x::telem::MILLISECOND);
@@ -255,11 +268,60 @@ TEST(Sender, WaitsForFirstCommandOfFieldWithNoDefault) {
     Wire t;
     ASSERT_NIL_P(s.send(t));
     ASSERT_TRUE(t.writes.empty());
-    ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(3.0))));
+    ASSERT_NIL_P(s.write(open(t), frame(2, x::telem::Series(3.0))));
     ASSERT_TRUE(t.writes.empty());
     clock.time += std::chrono::milliseconds(100);
     ASSERT_NIL_P(s.send(t));
     ASSERT_EQ(t.writes, (Writes{"3\n"}));
+}
+
+/// @brief it should keep the command of a target with a period while the transport is
+/// closed, and send it on the next period.
+TEST(Sender, KeepsCommandOfPeriodicTargetWhileClosed) {
+    Steady clock;
+    Config cfg;
+    cfg.bind_text(0, 2, 7);
+    cfg.target.period = 100 * x::telem::MILLISECOND;
+    auto s = ASSERT_NIL_P(cfg.create(false, clock.clock()));
+    ASSERT_TRUE(
+        ASSERT_NIL_P(s.write({nullptr, CLOSED}, frame(2, x::telem::Series(3.0))))
+            .empty()
+    );
+    Wire t;
+    ASSERT_NIL_P(s.send(t));
+    ASSERT_EQ(t.writes, (Writes{"3\n"}));
+}
+
+/// @brief it should return the error of a closed transport when a target with no period
+/// has a message to send, and keep its command.
+TEST(Sender, ReturnsClosedErrorForTargetWithNoPeriod) {
+    Config cfg;
+    cfg.bind_text(0, 2);
+    cfg.bind_text(1, 3, 0);
+    auto s = ASSERT_NIL_P(cfg.create());
+    ASSERT_OCCURRED_AS_P(
+        s.write({nullptr, CLOSED}, frame(2, x::telem::Series(1.0))),
+        transport::UNREACHABLE_ERROR
+    );
+    Wire t;
+    ASSERT_NIL_P(s.write(open(t), frame(3, x::telem::Series(2.0))));
+    ASSERT_EQ(t.writes, (Writes{"1,2\n"}));
+}
+
+/// @brief it should send the default of a field and make a target due at once after a
+/// reset.
+TEST(Sender, SendsDefaultAfterReset) {
+    Steady clock;
+    Config cfg;
+    cfg.bind_text(0, 2, 7);
+    cfg.target.period = 100 * x::telem::MILLISECOND;
+    auto s = ASSERT_NIL_P(cfg.create(false, clock.clock()));
+    Wire t;
+    ASSERT_NIL_P(s.write(open(t), frame(2, x::telem::Series(3.0))));
+    ASSERT_EQ(ASSERT_NIL_P(s.send(t)), 100 * x::telem::MILLISECOND);
+    s.reset();
+    ASSERT_EQ(ASSERT_NIL_P(s.send(t)), 100 * x::telem::MILLISECOND);
+    ASSERT_EQ(t.writes, (Writes{"3\n", "7\n"}));
 }
 
 /// @brief it should drop a command that its field refuses with a warning, and send the
@@ -275,8 +337,12 @@ TEST(Sender, KeepsLastGoodCommandWhenFieldRefuses) {
     cfg.target.period = 100 * x::telem::MILLISECOND;
     auto s = ASSERT_NIL_P(cfg.create(false, clock.clock()));
     Wire t;
-    ASSERT_TRUE(ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(4.0)))).empty());
-    const auto warning = ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(11.0))));
+    ASSERT_TRUE(
+        ASSERT_NIL_P(s.write(open(t), frame(2, x::telem::Series(4.0)))).empty()
+    );
+    const auto warning = ASSERT_NIL_P(
+        s.write(open(t), frame(2, x::telem::Series(11.0)))
+    );
     ASSERT_EQ(warning.message, "Skipped invalid command");
     ASSERT_EQ(warning.description, "message cmd: field a: 11 is above the max 10");
     ASSERT_NIL_P(s.send(t));
@@ -292,7 +358,7 @@ TEST(Sender, FramesMessage) {
     cfg.bind<synnax::icd::JSONPayload>(a, 2);
     auto s = ASSERT_NIL_P(cfg.create());
     Wire t;
-    ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(1.0))));
+    ASSERT_NIL_P(s.write(open(t), frame(2, x::telem::Series(1.0))));
     ASSERT_EQ(t.writes, (Writes{std::string("\x08{\"a\":1}") + '\0'}));
 }
 
@@ -304,7 +370,7 @@ TEST(Sender, FramesBinaryMessage) {
     cfg.bind<synnax::icd::BinaryPayload>(a, 2);
     auto s = ASSERT_NIL_P(cfg.create());
     Wire t;
-    ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(0.0))));
+    ASSERT_NIL_P(s.write(open(t), frame(2, x::telem::Series(0.0))));
     ASSERT_EQ(t.writes, (Writes{std::string("\x01\x01\x00", 3)}));
 }
 
@@ -314,7 +380,7 @@ TEST(Sender, ReturnsFramingError) {
     cfg.bind_text(0, 2);
     auto s = ASSERT_NIL_P(cfg.create());
     Wire t;
-    const auto err = s.write(t, frame(2, x::telem::Series(123.0))).second;
+    const auto err = s.write(open(t), frame(2, x::telem::Series(123.0))).second;
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data(), "the frame has 3 bytes, not the fixed length of 2");
     ASSERT_TRUE(t.writes.empty());
@@ -326,7 +392,7 @@ TEST(Sender, SendsDatagramWithNoFraming) {
     cfg.bind_text(0, 2);
     auto s = ASSERT_NIL_P(cfg.create(true));
     Wire t;
-    ASSERT_NIL_P(s.write(t, frame(2, x::telem::Series(1.0))));
+    ASSERT_NIL_P(s.write(open(t), frame(2, x::telem::Series(1.0))));
     ASSERT_EQ(t.writes, (Writes{"1"}));
 }
 
@@ -339,14 +405,14 @@ TEST(Sender, ReturnsTransportErrorOfCommand) {
         Sender::create({a.target, b.target}, {a.ic, b.ic}, a.channels, false)
     );
     Wire t;
-    t.err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed");
+    t.err = CLOSED;
     ASSERT_OCCURRED_AS_P(
-        s.write(t, frame(2, x::telem::Series(1.0))),
+        s.write(open(t), frame(2, x::telem::Series(1.0))),
         transport::UNREACHABLE_ERROR
     );
     ASSERT_EQ(t.attempts, 1U);
     t.err = x::errors::NIL;
-    ASSERT_NIL_P(s.write(t, frame(3, x::telem::Series(2.0))));
+    ASSERT_NIL_P(s.write(open(t), frame(3, x::telem::Series(2.0))));
     ASSERT_EQ(t.writes, (Writes{"1,2\n", "1,2\n"}));
 }
 
@@ -366,7 +432,7 @@ TEST(Sender, StopsSendAtTransportError) {
         )
     );
     Wire t;
-    t.err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed");
+    t.err = CLOSED;
     ASSERT_EQ(
         ASSERT_OCCURRED_AS_P(s.send(t), transport::UNREACHABLE_ERROR),
         100 * x::telem::MILLISECOND
@@ -407,7 +473,7 @@ TEST(Sender, AdvancesTargetThatFails) {
     clock.time += std::chrono::milliseconds(100);
     ASSERT_OCCURRED_AS_P(s.send(t), x::errors::VALIDATION);
     ASSERT_EQ(t.writes, (Writes{"0,5\n", "0,5\n"}));
-    t.err = x::errors::Error(transport::UNREACHABLE_ERROR, "the port closed");
+    t.err = CLOSED;
     clock.time += std::chrono::milliseconds(100);
     ASSERT_OCCURRED_AS_P(s.send(t), transport::UNREACHABLE_ERROR);
 }

@@ -22,8 +22,8 @@ namespace driver::serial {
 /// @brief INTEGRATION_NAME is the name of the serial integration.
 const std::string INTEGRATION_NAME = "serial";
 
-/// @brief Factory configures the tasks that read ICD messages from serial ports. The
-/// tasks on one device share its port.
+/// @brief Factory configures the tasks that read and send ICD messages on serial ports.
+/// The tasks on one device share its port.
 class Factory final : public task::Factory {
     std::shared_ptr<Ports> ports = std::make_shared<Ports>();
 

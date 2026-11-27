@@ -77,10 +77,17 @@ public:
     /// @brief sends on t the messages of fr for each target with no period, as
     /// Writer::write encodes them, and keeps the last good command of each field of a
     /// target with a period.
+    /// @param t the open transport, or the error that closed it, as
+    /// transport::Connection::Guard::transport returns them. A closed transport sends
+    /// nothing, and each field still keeps its last good command in fr.
     /// @returns a warning about the first command that a field refused, and the error
     /// of t, of an encode, or of the framing, after which the write sends nothing more.
-    std::pair<common::Warning, x::errors::Error>
-    write(transport::Transport &t, const x::telem::Frame &fr);
+    /// The error of a closed t returns only when a target with no period has a message
+    /// to send.
+    std::pair<common::Warning, x::errors::Error> write(
+        const std::pair<transport::Transport *, x::errors::Error> &t,
+        const x::telem::Frame &fr
+    );
 
     /// @brief sends on t the message of each target with a period that is due. A target
     /// that fails waits for its next period, as one that sends does. After an error of
@@ -90,6 +97,10 @@ public:
     /// target has a period, and the error of t, or else the first error of an encode or
     /// of the framing.
     std::pair<x::telem::TimeSpan, x::errors::Error> send(transport::Transport &t);
+
+    /// @brief drops the kept commands of each target and makes each target with a
+    /// period due at once, as a new Sender does.
+    void reset();
 
     /// @brief returns true when a target has a period.
     [[nodiscard]] bool periodic() const;

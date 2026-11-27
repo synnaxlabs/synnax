@@ -93,10 +93,12 @@ cc_library(
     srcs = [
         "factory.cpp",
         "read_task.cpp",
+        "write_task.cpp",
     ],
     hdrs = [
         "read_task.h",
         "serial.h",
+        "write_task.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -112,6 +114,7 @@ cc_library(
         "//driver/errors",
         "//driver/icd:receiver",
         "//driver/icd:retrieve",
+        "//driver/icd:sender",
         "//driver/task",
         "//driver/transport",
         "//x/cpp/breaker",
@@ -188,6 +191,38 @@ cc_test(
         "//driver/transport",
         "//x/cpp/breaker",
         "//x/cpp/errors",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "write_task_test",
+    size = "small",
+    srcs = [
+        "pty.h",
+        "write_task_test.cpp",
+    ],
+    # The tests play the device on a pseudo-terminal, which Windows lacks.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":tasks",
+        "//client/cpp/channel",
+        "//client/cpp/icd",
+        "//client/cpp/serial",
+        "//driver/common",
+        "//driver/icd:receiver",
+        "//driver/icd:sender",
+        "//driver/pipeline/testutil",
+        "//driver/task",
+        "//driver/transport",
+        "//x/cpp/breaker",
+        "//x/cpp/defer",
         "//x/cpp/telem",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
