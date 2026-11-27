@@ -864,4 +864,18 @@ TEST(BatchTest, StopsAtTheLoopBudget) {
     mod->reset_loop_budget();
     ASSERT_OCCURRED_AS_P(func.batch()->call({&a, &b}, 100, out), errors::LOOP_BUDGET);
 }
+
+/// @brief it should report an arg of the wrong kind as an error, as the checked call
+/// does.
+TEST(FunctionCallTest, ReportsAnArgOfTheWrongKind) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum"
+    );
+    std::vector<Module::Function::Result> results;
+    ASSERT_OCCURRED_AS(
+        func.call({1.5F, static_cast<int32_t>(2)}, results),
+        errors::WASM_TRAP
+    );
+}
 }
