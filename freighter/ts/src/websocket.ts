@@ -152,8 +152,8 @@ class WebSocketStream<
   }
 
   private write(req: z.input<RQ> | z.infer<RQ>): void {
-    if (this.serverClosed != null) throw new EOF();
     if (this.sendClosed) throw new StreamClosed();
+    if (this.serverClosed != null) throw new EOF();
     // The socket drops a message sent after it starts to close.
     if (this.ws.readyState !== WebSocket.OPEN) throw new EOF();
     this.ws.send(this.codec.encode({ type: "data", payload: req }));
@@ -210,17 +210,28 @@ class WebSocketStream<
     if (this.receiveQueueBytes > this.flowControl.receiveQueueLimit) this.overflow();
   }
 
+  /** Implements the Stream protocol */
+  close(): void {
+    if (this.serverClosed != null) return;
+    this.sendClosed = true;
+    this.abort(new StreamClosed());
+  }
+
   private overflow(): void {
     const limit = this.flowControl.receiveQueueLimit;
+    this.abort(
+      new ReceiveOverflow(`stream holds more than ${limit} bytes of unread messages`),
+    );
+  }
+
+  private abort(err: Error): void {
     this.ws.onmessage = null;
     this.ws.onclose = null;
     this.ws.close();
     this.receiveDataQueue.length = 0;
     this.receiveQueueBytes = 0;
-    this.serverClosed = new ReceiveOverflow(
-      `stream holds more than ${limit} bytes of unread messages`,
-    );
-    this.addMessage({ type: "close", error: errors.encode(this.serverClosed) });
+    this.serverClosed = err;
+    this.addMessage({ type: "close", error: errors.encode(err) });
   }
 
   private listenForMessages(): void {

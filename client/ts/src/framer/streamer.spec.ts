@@ -821,6 +821,24 @@ describe("Streamer", () => {
       streamer.close();
     }, 30_000);
 
+    it("should close the WebSocket when a silent read fails", async () => {
+      const { proxy, client: proxied } = await createProxiedTestClient({
+        onRetry: quiet,
+      });
+      const ch = await newVirtualChannel(client);
+      const streamer = await proxied.openStreamer({
+        channels: ch.key,
+        keepAlive: KEEP_ALIVE,
+      });
+      await sleep.sleep(ARMED);
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      expect(proxy.closedBlackholes()).toBe(0);
+      const err = await streamer.read().catch((e: unknown) => e);
+      expect(Unreachable.matches(err)).toBe(true);
+      await expect.poll(() => proxy.closedBlackholes()).toBe(1);
+      streamer.close();
+    }, 30_000);
+
     it("should reject an acked update that follows a failed read", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
         onRetry: quiet,

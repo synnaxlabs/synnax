@@ -309,14 +309,13 @@ class BaseStreamer implements Streamer {
   private async receiveWithDeadline(): Promise<z.infer<typeof resZ>> {
     const received = this.stream.receive();
     if (!this.armed) return await received;
-    return await sync.withTimeout(
-      received,
-      this.deadline,
-      () =>
-        new Unreachable({
-          message: `streamer received no response for ${this.deadline.toString()}`,
-        }),
-    );
+    return await sync.withTimeout(received, this.deadline, () => {
+      // A dead connection never carries the Core's answer to a close message.
+      this.stream.close();
+      return new Unreachable({
+        message: `streamer received no response for ${this.deadline.toString()}`,
+      });
+    });
   }
 
   async update(

@@ -43,11 +43,45 @@ export interface SeverableProxy {
    * blackholed.
    */
   blackholeStreams: () => number;
+  /**
+   * Returns how many blackholed connections the client closed, by a WebSocket close
+   * frame or by ending the TCP connection.
+   */
+  closedBlackholes: () => number;
   /** Accepts connections again on the same port. */
   restore: () => Promise<void>;
   /** Shuts the proxy down for good. */
   close: () => Promise<void>;
 }
+
+const CLOSE_OPCODE = 0x8;
+
+// Parses the client-to-server WebSocket frames of a connection, which are always
+// masked, and calls onClose at the first close frame.
+const watchForCloseFrame = (onClose: () => void): ((chunk: Buffer) => void) => {
+  let buffered = Buffer.alloc(0);
+  return (chunk) => {
+    buffered = Buffer.concat([buffered, chunk]);
+    while (buffered.length >= 2) {
+      const opcode = buffered[0] & 0x0f;
+      let length = buffered[1] & 0x7f;
+      let offset = 2;
+      if (length === 126) {
+        if (buffered.length < 4) return;
+        length = buffered.readUInt16BE(2);
+        offset = 4;
+      } else if (length === 127) {
+        if (buffered.length < 10) return;
+        length = Number(buffered.readBigUInt64BE(2));
+        offset = 10;
+      }
+      const end = offset + 4 + length;
+      if (buffered.length < end) return;
+      if (opcode === CLOSE_OPCODE) onClose();
+      buffered = buffered.subarray(end);
+    }
+  };
+};
 
 interface ProxiedPair {
   downstream: Socket;
@@ -71,6 +105,7 @@ export const createSeverableProxy = async (
   // Client-side sockets of blackholed connections: held open, silent, until the proxy
   // is severed or closed.
   const zombies = new Set<Socket>();
+  const closedZombies = new Set<Socket>();
   let severed = false;
   const server = createServer((downstream) => {
     // A connection the kernel accepted before the sever is still delivered after it,
@@ -123,6 +158,7 @@ export const createSeverableProxy = async (
     pairs.clear();
     zombies.forEach((socket) => socket.destroy());
     zombies.clear();
+    closedZombies.clear();
     await closed;
   };
   const blackholeStreams = (): number => {
@@ -140,7 +176,12 @@ export const createSeverableProxy = async (
       }
       // Discard anything the client still writes so backpressure cannot close the
       // socket on the proxy's behalf.
-      downstream.on("data", () => {});
+      downstream.removeAllListeners("data");
+      downstream.on(
+        "data",
+        watchForCloseFrame(() => closedZombies.add(downstream)),
+      );
+      downstream.on("close", () => closedZombies.add(downstream));
       downstream.resume();
       upstream.destroy();
       pairs.delete(pair);
@@ -152,6 +193,7 @@ export const createSeverableProxy = async (
     port: boundPort,
     sever,
     blackholeStreams,
+    closedBlackholes: () => closedZombies.size,
     restore: async () => {
       severed = false;
       await listen(boundPort);

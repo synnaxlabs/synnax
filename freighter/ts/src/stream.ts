@@ -37,7 +37,7 @@ export interface StreamSender<RQ extends z.ZodType> {
    * concurrently with closeSend.
    * @throws freighter.EOF: if the stream closed, by the server or by a receive
    * overflow. The caller can discover the error by calling receive().
-   * @throws freighter.StreamClosed: if the client called closeSend().
+   * @throws freighter.StreamClosed: if the client called closeSend() or close().
    * @throws Error: if the transport fails.
    */
   send: (req: z.input<RQ> | z.infer<RQ>) => Promise<void>;
@@ -56,6 +56,12 @@ export interface StreamSenderCloser<RQ extends z.ZodType> extends StreamSender<R
    * calling receive() to successfully receive the server's acknowledgment.
    */
   closeSend: () => void;
+  /**
+   * Closes the stream at once, without waiting for the server to acknowledge. Use it
+   * when the server stopped responding. Pending and later receives throw
+   * freighter.StreamClosed, and so do later sends. close is idempotent.
+   */
+  close: () => void;
 }
 
 /** Interface for a bidirectional stream between a client and a server. */

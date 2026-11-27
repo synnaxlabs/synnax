@@ -22,6 +22,7 @@ import {
   type FlowControl,
   ReceiveOverflow,
   type Socket,
+  StreamClosed,
   subprotocols,
   Unreachable,
   UntrustedCertificate,
@@ -357,6 +358,18 @@ describe("local server", () => {
     ws.close();
     await closed;
     await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
+  });
+
+  test("should close the socket without waiting for the server", async () => {
+    const stream = await dial({});
+    const { ws } = await connected;
+    const closed = new Promise((resolve) => ws.on("close", resolve));
+    const pending = stream.receive();
+    stream.close();
+    await expect(pending).rejects.toThrow(StreamClosed);
+    await expect(stream.receive()).rejects.toThrow(StreamClosed);
+    await expect(stream.send({ id: 0 })).rejects.toThrow(StreamClosed);
+    await closed;
   });
 
   test("should wait to send while the socket buffer is full", async () => {

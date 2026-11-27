@@ -50,6 +50,10 @@ export class StreamProxy<RQ extends z.ZodType, RS extends z.ZodType> {
     this.stream.closeSend();
   }
 
+  close(): void {
+    this.stream.close();
+  }
+
   async send(req: z.input<RQ>): Promise<void> {
     await this.stream.send(req);
   }
