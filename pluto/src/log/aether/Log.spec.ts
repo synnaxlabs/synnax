@@ -919,6 +919,16 @@ describe("log/aether/Log", () => {
       expect(leaf.state.jumpStatus).toBe("");
     });
 
+    it("should not jump back to a line that arrives while it reads", () => {
+      const held = lines(1_000, []);
+      const { leaf, source, updateState } = setup(held, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      source.setEntries([...held, { ...makeEntry(1_000), value: "err live" }]);
+      source.notify();
+      expect(leaf.state.jumpStatus).toBe("reading");
+    });
+
     it("should report no more matches once the stored lines run out", () => {
       const { leaf, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       source.exhausted = true;
