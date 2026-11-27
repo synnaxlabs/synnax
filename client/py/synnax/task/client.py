@@ -560,6 +560,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         arcs: UUID | list[UUID] = ...,
+        icds: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -579,6 +580,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         arcs: UUID | list[UUID] = ...,
+        icds: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -598,6 +600,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         arcs: UUID | list[UUID] = ...,
+        icds: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -620,6 +623,7 @@ class Client:
         rack: filter.SetInput[rack_.Key] = ...,
         internal: filter.BoolInput = ...,
         arcs: UUID | list[UUID] = ...,
+        icds: UUID | list[UUID] = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -664,6 +668,7 @@ class Client:
         :param internal: Keeps only internal tasks when true, or only user tasks when
             false.
         :param arcs: Keeps the tasks that run any of these Arcs.
+        :param icds: Keeps the tasks whose config uses any of these ICDs.
         :param and_: Keeps tasks that match every filter in the list.
         :param or_: Keeps tasks that match any filter in the list.
         :param not_: Keeps tasks that do not match the filter.
