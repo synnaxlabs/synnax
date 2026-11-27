@@ -226,7 +226,7 @@ class FrameReader {
   dataType(): DataType {
     const code = this.uint8();
     const dt = DataType.fromCode(code);
-    if (dt.equals(DataType.UNKNOWN))
+    if (dt == null)
       throw new ValidationError(
         `remote sent data type code ${code}, which this codec does not know`,
       );
