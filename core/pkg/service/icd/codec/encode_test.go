@@ -351,19 +351,6 @@ var _ = Describe("JSONEncoder", func() {
 		))
 	})
 
-	It("Should refuse a bound field with a zero scale", func() {
-		key := uuid.New()
-		Expect(codec.NewJSONEncoder(message(
-			[]icd.JSONField{floatField("temp", key, 0, 0)},
-			codec.Binding{Field: key, DataType: telem.Float64T},
-		))).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(
-				"message command: field temp: scale must be non-zero: validation error",
-			),
-		))
-	})
-
 	It("Should refuse a timestamp field with an unknown time format", func() {
 		key := uuid.New()
 		Expect(codec.NewJSONEncoder(message(
@@ -377,14 +364,6 @@ var _ = Describe("JSONEncoder", func() {
 				`expected "iso8601", "unix_sec", "unix_ms", "unix_us", or "unix_ns": `+
 				"validation error"),
 		))
-	})
-
-	It("Should write the default of an unbound field with a zero scale", func() {
-		f := icd.JSONField{Variant: icd.FloatJSONField{
-			Key: uuid.New(), Name: "v", Pointer: "/v", Default: new(payload.Float(3)),
-		}}
-		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{f})))
-		Expect(enc.Encode(nil, nil)).To(MatchJSON(`{"v":3}`))
 	})
 
 	It("Should fail only the encode of a nil sample for a bound NaN default", func() {

@@ -45,6 +45,18 @@ type Read struct {
 	Framed bool
 }
 
+// Entries returns the framed read of each of entries, at entries.i of a config.
+func Entries(entries []icd.ReadEntry) []Read {
+	return lo.Map(entries, func(e icd.ReadEntry, i int) Read {
+		return Read{
+			Path:     []string{"entries", strconv.Itoa(i)},
+			ICD:      e.ICD,
+			Messages: e.Messages,
+			Framed:   true,
+		}
+	})
+}
+
 // Resolver checks and hashes reads against the ICDs and the channels that they name.
 type Resolver struct {
 	icds     *icd.Service
@@ -57,7 +69,7 @@ func NewResolver(icds *icd.Service, channels icdv0.Channels) Resolver {
 	return Resolver{icds: icds, channels: channels}
 }
 
-// NewChecker returns the Checker of reads and of tags, the channels that Claim takes
+// NewChecker returns the Checker of reads and of tags, the channels that Tag takes
 // beyond the bindings of reads. It holds each ICD from icds or else retrieved through
 // snap, and the channels of the bindings and the tags. The Checker skips an ICD or a
 // channel that does not exist, which the reference check of the write reports.
@@ -141,6 +153,26 @@ func (r Resolver) Hash(
 	return nil
 }
 
+// Check checks each of reads, in order, against its ICD, from icds or else retrieved
+// through snap, and its channels. It returns the validation error of the first problem.
+func (r Resolver) Check(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	reads []Read,
+	icds map[icd.Key]icd.ICD,
+) error {
+	c, err := r.NewChecker(ctx, snap, reads, nil, icds)
+	if err != nil {
+		return err
+	}
+	for _, rd := range reads {
+		if err = c.Read(rd); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Checker checks the reads of one task config. It passes a read of an ICD or a binding
 // to a channel that it does not hold, which the reference check of the write reports.
 // It is not safe for concurrent use.
@@ -168,9 +200,9 @@ func (c Checker) Read(rd Read) error {
 	return nil
 }
 
-// Claim takes key for the binding or tag at path. It returns a validation error when
+// claim takes key for the binding or tag at path. It returns a validation error when
 // another binding or tag of the config already writes to key.
-func (c Checker) Claim(key channel.Key, path []string) error {
+func (c Checker) claim(key channel.Key, path []string) error {
 	if other, ok := c.written[key]; ok {
 		return validate.PathedError(
 			validate.Errorf("channel %d is also written by %s", key, other),
@@ -181,9 +213,35 @@ func (c Checker) Claim(key channel.Key, path []string) error {
 	return nil
 }
 
+// Tag checks key, the channel of the tag at path, and claims it. takes reports whether
+// a channel of a data type can take the values of the tag. Tag returns a validation
+// error when key is an index channel or cannot take the values of the tag, or when
+// another binding or tag already writes to key.
+func (c Checker) Tag(
+	key channel.Key,
+	path []string,
+	takes func(telem.DataType) bool,
+) error {
+	if ch, ok := c.channels[key]; ok {
+		if ch.Index {
+			return validate.PathedError(
+				validate.Errorf("channel %s is an index channel", ch.Name),
+				path...,
+			)
+		}
+		if !takes(ch.DataType) {
+			return validate.PathedError(validate.Errorf(
+				"channel %s of data type %s cannot take the values of a tag",
+				ch.Name, ch.DataType,
+			), path...)
+		}
+	}
+	return c.claim(key, path)
+}
+
 // ClaimIndexes claims, for each message of rd, each index channel of its bound channels
 // that its index field does not bind, since the task writes its timestamps. Run it
-// after Read and Claim, so that an error is at the path of the message that does not
+// after Read and Tag, so that an error is at the path of the message that does not
 // bind it.
 func (c Checker) ClaimIndexes(rd Read) error {
 	for j, rm := range rd.Messages {
@@ -207,7 +265,7 @@ func (c Checker) ClaimIndexes(rd Read) error {
 			if key == indexChannel {
 				continue
 			}
-			if err := c.Claim(key, path); err != nil {
+			if err := c.claim(key, path); err != nil {
 				return err
 			}
 		}
@@ -219,8 +277,8 @@ func (c Checker) ClaimIndexes(rd Read) error {
 // timestamps the task writes. It returns a validation error when another binding or
 // tag already writes to it.
 func (c Checker) ClaimIndex(key channel.Key, path []string) error {
-	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 && ch.IndexKey != key {
-		return c.Claim(ch.IndexKey, path)
+	if ch, ok := c.channels[key]; ok && ch.IndexKey != 0 {
+		return c.claim(ch.IndexKey, path)
 	}
 	return nil
 }
@@ -344,7 +402,7 @@ func (c Checker) checkBinding(
 			name, ch.Name, name,
 		), "channel")
 	}
-	return c.Claim(b.Channel, slices.Concat(path, []string{"channel"}))
+	return c.claim(b.Channel, slices.Concat(path, []string{"channel"}))
 }
 
 // field is the part of a message field that a read checks.
@@ -358,8 +416,8 @@ type field struct {
 	// find.
 	unplaced bool
 	scale    float64
-	// scaled is true for a binary field with a scale or an offset, which decodes only
-	// into a float channel.
+	// scaled is true for a field with a scale or an offset, which decodes only into a
+	// float channel.
 	scaled bool
 	// bitLength is the width of a binary field, and zero for other fields.
 	bitLength uint8
@@ -368,12 +426,16 @@ type field struct {
 // check returns a validation error when f cannot decode into target, a channel of data
 // type dt.
 func (f field) check(dt telem.DataType, target string) error {
-	k, _ := payload.KindOf(dt)
-	if !codec.Converts(f.kind, dt) || (f.scaled && k != payload.KindFloat) {
+	if !codec.Converts(f.kind, dt, f.scaled) {
+		noun := "field"
+		if f.scaled {
+			noun = "scaled field"
+		}
 		return validate.Errorf(
-			"field %s of kind %s cannot read into %s", f.name, f.kind, target,
+			"%s %s of kind %s cannot read into %s", noun, f.name, f.kind, target,
 		)
 	}
+	k, _ := payload.KindOf(dt)
 	if f.bitLength == 0 || (k != payload.KindInteger && k != payload.KindUnsigned) {
 		return nil
 	}
@@ -405,6 +467,7 @@ func fieldsOf(p icd.Payload) map[icd.FieldKey]field {
 				defaulted: isTimestamp && ts.Default != nil,
 				unplaced:  f.Type() == payload.KindBytes && b.Pointer == "",
 				scale:     b.Scale,
+				scaled:    b.Scale != 1 || b.Offset != 0,
 			}
 		}
 	case icd.BinaryPayload:

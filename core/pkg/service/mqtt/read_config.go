@@ -111,7 +111,7 @@ func check(
 		case SparkplugReadEntry:
 			if !entry.Disabled && entry.Channel != 0 {
 				path := []string{"entries", strconv.Itoa(i), "channel"}
-				err = c.Claim(entry.Channel, path)
+				err = c.Tag(entry.Channel, path, takesTags)
 			}
 		}
 		if err != nil {

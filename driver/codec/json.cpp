@@ -201,6 +201,7 @@ bool absent(const std::string_view raw, const x::telem::DataType &dt) {
 std::pair<JSON::Field, x::errors::Error>
 JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     auto [pointer, ptr_err] = x::json::Pointer::parse(b.pointer);
     if (ptr_err) return {Field{}, ptr_err};
     Field field;
@@ -222,15 +223,8 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
             ),
         };
     field.scaled = field.scale != 1 || field.offset != 0;
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     if (field.scaled) {
-        if (dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-            return {
-                Field{},
-                x::errors::Error(
-                    x::errors::VALIDATION,
-                    "a scaled field requires a float channel, not " + dt.name()
-                ),
-            };
         // The enums of number fail a string that is no label as an unknown label. A
         // label itself goes to sample.
         auto [number, err] = x::json::Decoder::create({
@@ -257,7 +251,7 @@ JSON::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
         err = field.decode(*v.fallback, dst);
     else
         return {std::move(field), x::errors::NIL};
-    if (err) return {Field{}, wrap(err, "default")};
+    if (err) return {Field{}, err.wrap("default")};
     field.fallback = std::move(dst);
     return {std::move(field), x::errors::NIL};
 }
@@ -345,7 +339,7 @@ JSON::decode(const std::string_view doc) {
     m.decode(this->values);
     if (this->messages.size() > 1)
         for (auto &f: m.failures)
-            f.error = wrap(f.error, "message " + m.name);
+            f.error = f.error.wrap("message " + m.name);
     return {message, x::errors::NIL};
 }
 
@@ -374,7 +368,7 @@ void JSON::Message::decode(const std::vector<std::optional<std::string_view>> &v
         this->failures.push_back({
             .binding = i,
             .missing = missing,
-            .error = wrap(err, "field " + f.name),
+            .error = err.wrap("field " + f.name),
         });
     }
 }
@@ -557,6 +551,7 @@ x::errors::Error JSONEncoder::Default::append(std::string &out) const {
 std::pair<JSONEncoder::Field, x::errors::Error>
 JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt) {
     const auto &b = icd::base(f);
+    if (auto err = check_scale(b.scale)) return {Field{}, err};
     Field field;
     field.name = b.name;
     field.scaled = b.scale != 1 || b.offset != 0;
@@ -574,11 +569,7 @@ JSONEncoder::Field::create(const icd::JSONField &f, const x::telem::DataType &dt
                 " fields"
             ),
         };
-    if (field.scaled && dt != x::telem::FLOAT32_T && dt != x::telem::FLOAT64_T)
-        return {
-            Field{},
-            invalid("a scaled field requires a float channel, not " + dt.name()),
-        };
+    if (auto err = check_scaled_channel(field.scaled, dt)) return {Field{}, err};
     field.converted = needs_conversion(
         v.kind,
         dt,
@@ -681,17 +672,8 @@ JSONEncoder::create(const JSONMessage &message) {
     std::map<icd::FieldKey, const icd::JSONField *> by_key;
     for (const auto &f: message.payload.fields)
         by_key[icd::base(f).key] = &f;
-    std::map<icd::FieldKey, std::size_t> bound;
-    for (std::size_t i = 0; i < message.bindings.size(); i++) {
-        const auto &key = message.bindings[i].field;
-        const auto found = by_key.find(key);
-        if (found == by_key.end())
-            return fail(invalid("field " + key.to_string() + " does not exist"));
-        if (!bound.try_emplace(key, i).second)
-            return fail(invalid(
-                "field " + icd::base(*found->second).name + " has more than one binding"
-            ));
-    }
+    auto [bound, bind_err] = index_bindings(message.bindings, by_key);
+    if (bind_err) return fail(bind_err);
     JSONEncoder e;
     e.name = message.name;
     e.fields.resize(message.bindings.size());
@@ -701,7 +683,7 @@ JSONEncoder::create(const JSONMessage &message) {
         present = std::get_if<icd::PresentJSONMatch>(&match.value());
         if (present == nullptr) {
             auto [f, err] = match_literal(match.value());
-            if (err) return fail(wrap(err, "match"));
+            if (err) return fail(err.wrap("match"));
             fields.push_back(std::move(f));
             e.slots.emplace_back();
         }
@@ -709,9 +691,9 @@ JSONEncoder::create(const JSONMessage &message) {
     for (const auto &f: message.payload.fields) {
         const auto &b = icd::base(f);
         auto [pointer, ptr_err] = member_pointer(b.pointer);
-        if (ptr_err) return fail(wrap(ptr_err, "field " + b.name));
+        if (ptr_err) return fail(ptr_err.wrap("field " + b.name));
         auto [fallback, def_err] = Default::create(f);
-        if (def_err) return fail(wrap(def_err, "field " + b.name + ": default"));
+        if (def_err) return fail(def_err.wrap("field " + b.name + ": default"));
         x::json::Template::Field tf{.label = "field " + b.name, .pointer = pointer};
         const auto binding = bound.find(b.key);
         if (binding == bound.end()) {
@@ -726,7 +708,7 @@ JSONEncoder::create(const JSONMessage &message) {
         }
         const auto i = binding->second;
         auto [field, err] = Field::create(f, message.bindings[i].data_type);
-        if (err) return fail(wrap(err, "field " + b.name));
+        if (err) return fail(err.wrap("field " + b.name));
         field.fallback = std::move(fallback);
         e.fields[i] = std::move(field);
         fields.push_back(std::move(tf));
@@ -734,7 +716,7 @@ JSONEncoder::create(const JSONMessage &message) {
     }
     if (present != nullptr) {
         auto [at, err] = x::json::Pointer::parse(present->pointer);
-        if (err) return fail(wrap(err, "match"));
+        if (err) return fail(err.wrap("match"));
         if (std::ranges::none_of(fields, [&at](const auto &f) {
                 return within(f.pointer, at);
             }))
@@ -762,11 +744,11 @@ x::errors::Error JSONEncoder::encode(
             const auto &sample = samples[*s.binding];
             const auto err = sample.empty() ? f.fallback.append(out)
                                             : f.append(sample, 0, out);
-            if (err) return wrap(err, "field " + f.name);
+            if (err) return err.wrap("field " + f.name);
             return x::errors::NIL;
         }
     );
-    if (err) return wrap(err, "message " + this->name);
+    if (err) return err.wrap("message " + this->name);
     payload.assign(this->text.begin(), this->text.end());
     return x::errors::NIL;
 }
@@ -779,7 +761,7 @@ x::errors::Error JSONEncoder::check(
     const auto &f = this->fields[binding];
     this->text.clear();
     if (auto err = f.append(s, i, this->text))
-        return wrap(err, "message " + this->name + ": field " + f.name);
+        return err.wrap("message " + this->name + ": field " + f.name);
     return x::errors::NIL;
 }
 }
