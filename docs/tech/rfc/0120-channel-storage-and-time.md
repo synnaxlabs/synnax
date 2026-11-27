@@ -99,8 +99,9 @@ writer opens. No channel record, task config, or client library keeps it.
   number, and a task stop still breaks the line, as it does today
   (`pluto/src/vis/line/aether/draw.ts:94-96`).
 - **Pauses**: A pause costs one pointer on the clock. In an adaptive group, a key that
-  reaches P pauses (64) in its open segment moves to a clock of its own at the next
-  commit, and moves back at the next open (§4.8).
+  reaches P pauses (64) in its open segment moves to a clock of its own at the first
+  commit after storage made its files off the frame path, and moves back at the next
+  open (§4.8). A move reuses the clock of the key's last move when no writer holds it.
 - **End of a clock**: A clock lives while a kept segment of a key names it. When a
   channel delete removes the last such key and no session holds the clock, the same log
   entry holds the clock's Intent (RFC 0121 §4.1). A range delete that leaves no live
@@ -403,9 +404,10 @@ names no clock key.
   series, such as Python `client.read(tr, "temperature")`, marks its key untimed.
 - **Sources**: A writer's relay frame holds the time series of each present group under
   the group's clock, and a copy under the clock of each channel that a pause move put on
-  a clock of its own (§4.8). The storage iterator adds, per chunk and clock, the stamps
-  of the alignment ranges of its data series, within the chunk size. A reduced read
-  reduces them as it does the data.
+  a clock of its own (§4.8). A `time_of` writer's relay frame holds the stored stamps
+  that the writer waits for (RFC 0121 §5.8). The storage iterator adds, per chunk and
+  clock, the stamps of the alignment ranges of its data series, within the chunk size. A
+  reduced read reduces them as it does the data.
 - **Storage reads**: A key's clock can change between segments, so the iterator takes
   the clock per segment. Keys whose newest segment names one clock share a view. Each
   view loads its keys and every clock that their segments name in one state step: the
@@ -537,9 +539,13 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   stamps (RFC 0121 §5.8). A write that holds `"time"` fails, and so does an open whose
   `start` is not a sample of that channel.
 - **Pause moves**: Only an adaptive group moves a channel. A channel at P pauses (64) in
-  its open segment moves to a clock of its own at the next commit, and the framer copies
-  the group's time series to that clock. It moves back only at the next open. Tasks,
-  Arc, Pluto, and the `Controller` declare their groups and never pay for it.
+  its open segment moves to a clock of its own (RFC 0121 §5.8). Cesium then stores the
+  group's stamps on that clock for each frame that holds the channel, and the framer
+  puts a copy of the time series under that clock in the relay frame. That is the one
+  place where stamps are stored twice: at most once per moved channel per frame, until
+  the channel moves back at the next open. A clock stores no stamps for a frame in which
+  no channel on it holds a sample after the authority filter. Tasks, Arc, Pluto, and the
+  `Controller` declare their groups and never pay for it.
 - **Handoff**: When control of a channel moves to another session, the old holder
   commits its samples of the channel first, and then the claim moves. The channel starts
   a new segment on the new holder's clock, in a file made at the new holder's open.
