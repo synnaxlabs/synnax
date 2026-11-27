@@ -218,6 +218,7 @@ func newBrowsedShape(s xjson.SampledShape) browsedShape {
 			Sample:     s.Samples[i],
 			Kind:       f.Kind,
 			TimeFormat: f.TimeFormat,
+			Enum:       f.Enum,
 		}
 	}
 	if s.Index >= 0 {
