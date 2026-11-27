@@ -658,6 +658,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/update",
 		),
+		OPCUAServerDispatch: unary[server.DispatchRequest, server.DispatchResponse](
+			router,
+			"/api/v1/opcua/server/dispatch",
+		),
 		OPCUAServerDelete: unary[server.DeleteRequest, struct{}](
 			router,
 			"/api/v1/opcua/server/delete",

@@ -12,9 +12,11 @@ package server
 import (
 	"context"
 	"fmt"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -28,11 +30,19 @@ import (
 // Writer creates, updates, and deletes OPC UA servers in the transaction given to
 // Service.NewWriter.
 type Writer struct {
-	tx       gorp.Tx
-	status   status.Writer
-	statuses *status.Service
-	table    *gorp.Table[Key, Server]
-	certs    *certificate.Service
+	tx         gorp.Tx
+	status     status.Writer
+	statuses   *status.Service
+	table      *gorp.Table[Key, Server]
+	certs      *certificate.Service
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // prepare validates s, normalizes the node ID of each binding, and refuses a read on
@@ -142,7 +152,8 @@ func (w Writer) setStatus(ctx context.Context, s Server) error {
 // Create stores s and writes an unknown status when it has none. An existing status
 // takes the name and rack of s. A server with a nil key gets a new one. It returns a
 // validation error when s is invalid, or when its rack, password, or certificates do
-// not exist.
+// not exist. After the transaction commits, Create broadcasts a create action that
+// carries the stored server.
 func (w Writer) Create(ctx context.Context, s *Server) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
@@ -156,7 +167,54 @@ func (w Writer) Create(ctx context.Context, s *Server) error {
 	if err := w.checkPrivateKeys(ctx, *s); err != nil {
 		return err
 	}
-	return w.setStatus(ctx, *s)
+	if err := w.setStatus(ctx, *s); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, s.Key, NewCreateAction(CreatePayload{Server: *s}))
+	return nil
+}
+
+// Apply applies the actions to the server stored under key and attaches them to the
+// transaction of w, so its commit broadcasts them with the dispatch key of w. Each
+// action edits only its path of the server that the transaction reads, so edits to
+// other paths that committed before it survive. The scanner writes only the identity
+// paths (rack, name, and connection), and the task forms write reads and writes. When
+// the Core stores a node ID in another form than an action set it, Apply adds a set of
+// the stored reads or writes after the actions and returns the sets it added. An empty
+// action list does nothing. Apply returns an error wrapping validate.ErrValidation when
+// an action is a create or the result is invalid, and an error wrapping
+// query.ErrNotFound when no server is stored under key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	if len(acts) == 0 {
+		return nil, nil
+	}
+	var reduced Server
+	stored, err := w.update(ctx, key, func(s Server) (Server, error) {
+		next, err := Reduce(s, acts...)
+		// prepare normalizes the bindings in place, so keep copies to compare.
+		reduced = next
+		reduced.Reads = slices.Clone(next.Reads)
+		reduced.Writes = slices.Clone(next.Writes)
+		return next, err
+	})
+	if err != nil {
+		return nil, err
+	}
+	var added []Action
+	set := func(path string, value any) {
+		added = append(added, NewSetAction(SetPayload{
+			Path:  []string{path},
+			Value: value,
+		}))
+	}
+	if !slices.Equal(reduced.Reads, stored.Reads) {
+		set("reads", stored.Reads)
+	}
+	if !slices.Equal(reduced.Writes, stored.Writes) {
+		set("writes", stored.Writes)
+	}
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
+	return added, nil
 }
 
 // update applies change to the server stored under key. A rename or rack move updates
@@ -165,7 +223,7 @@ func (w Writer) update(
 	ctx context.Context,
 	key Key,
 	change func(Server) (Server, error),
-) error {
+) (Server, error) {
 	var prev, next Server
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Server](key)).
@@ -183,15 +241,17 @@ func (w Writer) update(
 			return updated, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return Server{}, err
 	}
 	if err := w.checkPrivateKeys(ctx, next); err != nil {
-		return err
+		return Server{}, err
 	}
 	if next.Name != prev.Name || next.Rack != prev.Rack {
-		return w.setStatus(ctx, next)
+		if err := w.setStatus(ctx, next); err != nil {
+			return Server{}, err
+		}
 	}
-	return nil
+	return next, nil
 }
 
 // Delete removes the servers stored under keys with their statuses. Delete is

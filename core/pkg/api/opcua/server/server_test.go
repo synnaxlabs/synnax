@@ -420,6 +420,37 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Dispatch", func() {
+		rename := func(s server.Server, name string) apiserver.DispatchRequest {
+			return apiserver.DispatchRequest{
+				Key:         s.Key,
+				DispatchKey: "dk",
+				Actions: []server.Action{server.NewSetAction(server.SetPayload{
+					Path:  []string{"name"},
+					Value: name,
+				})},
+			}
+		}
+
+		It("Should rename the server and keep its connection", func(ctx SpecContext) {
+			s := createServer(ctx)
+			grantWrites(ctx, s.Rack)
+			MustSucceed(dispatch(testutil.AuthedCtx(ctx, u), rename(s, "Renamed")))
+			got := retrieveServer(ctx, s.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Connection).To(Equal(s.Connection))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx)
+			Expect(dispatch(testutil.AuthedCtx(ctx, u), rename(s, "Renamed"))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key).Name).To(Equal(s.Name))
+		})
+	})
+
 	Describe("Delete", func() {
 		It("Should remove the server when delete is granted", func(ctx SpecContext) {
 			s := createServer(ctx)

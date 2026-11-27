@@ -169,6 +169,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.OPCUAServerCreate = noop.UnaryServer[server.CreateRequest, server.CreateResponse]{}
 	t.OPCUAServerRetrieve = noop.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]{}
 	t.OPCUAServerUpdate = noop.UnaryServer[server.UpdateRequest, server.UpdateResponse]{}
+	t.OPCUAServerDispatch = noop.UnaryServer[server.DispatchRequest, server.DispatchResponse]{}
 	t.OPCUAServerDelete = noop.UnaryServer[server.DeleteRequest, struct{}]{}
 
 	// STATUS
