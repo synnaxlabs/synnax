@@ -2407,6 +2407,23 @@ describe("MQTT read form", () => {
       );
     });
 
+    it("should edit the identifier and the length of a binary message", async () => {
+      const retrievePayload = await renderPayload({ format: "binary", fields: [] });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: new RegExp(`BINARY.*${TOPIC}`) }),
+      );
+      fireEvent.click(await screen.findByRole("button", { name: /^Identifier/ }));
+      fireEvent.click(await screen.findByText("CAN"));
+      await edit(/^ID/, "0x123");
+      await edit(/^Length/, "8");
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          identifier: { type: "can", id: 0x123 },
+          length: 8,
+        }),
+      );
+    });
+
     it("should name a text message of a topic that reads several", async () => {
       const entry = await createEntry({
         fields: [createField("temperature", "float")],
