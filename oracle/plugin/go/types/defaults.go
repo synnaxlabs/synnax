@@ -835,9 +835,10 @@ func goLessThanCheck(
 	}, true
 }
 
-// goPatternCheck returns the check of the pattern rule that field sets for Go. parent
-// is the field that field restates a default of, or nil. A restated field that keeps
-// its parent's rule has no check, since the embedded parent's Validate checks it.
+// goPatternCheck returns the check of the pattern rule that field sets for Go, which an
+// optional field passes when absent. parent is the field that field restates a default
+// of, or nil. A restated field that keeps its parent's rule has no check, since the
+// embedded parent's Validate checks it.
 func goPatternCheck(
 	field resolution.Field,
 	parent *resolution.Field,
@@ -864,6 +865,9 @@ func goPatternCheck(
 		Kind:      "pattern",
 		Arg:       data.patternVar(m.Pattern),
 		Message:   strconv.Quote(message),
+		Opens:     field.Optional,
+		Closes:    field.Optional,
+		Deref:     field.Optional,
 	}, true
 }
 
