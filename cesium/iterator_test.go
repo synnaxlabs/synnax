@@ -1071,8 +1071,8 @@ var _ = Describe("Iterator Behavior", func() {
 				}
 
 				// chunks runs seek, then a Next of span, or a Prev when prev is true,
-				// and
-				// returns the samples of the data channels in each chunk of the read.
+				// and returns the samples of the data channels in each chunk of the
+				// read.
 				chunks := func(
 					pdb *cesium.DB,
 					cfg cesium.IteratorConfig,
