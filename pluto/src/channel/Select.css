@@ -25,10 +25,11 @@
     flex-shrink: 1000;
 }
 
-/* The trigger holds the folders at its trailing edge, which must shrink for the folders
-   to fade before the name. */
+/* The folders in a trigger take only the room that the name leaves, so a long folder
+   never widens the trigger. */
 .pluto-channel__trigger .lyra-select-single-trigger__end {
+    flex: 1 1 0;
     min-width: 0;
-    flex-shrink: 1000;
     overflow: hidden;
+    contain: inline-size;
 }

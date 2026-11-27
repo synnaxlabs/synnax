@@ -161,6 +161,26 @@ describe("Channel select", () => {
       expect(el?.scrollWidth).toBeLessThanOrEqual(el?.clientWidth ?? 0);
     });
 
+    it("should not widen a trigger that sizes to its content for the folders", async () => {
+      const folder = await client.groups.create({
+        name: `Instrumentation and sensors ${id.create()}`,
+        scope: "channel",
+      });
+      const ch = await createChannel(folder);
+      const c = await render(
+        <div style={{ display: "inline-flex" }}>
+          <Channel.SelectSingle value={ch.key} onChange={vi.fn()} />
+        </div>,
+        { wrapper: Wrapper },
+      );
+      const trigger = () => c.container.querySelector<HTMLElement>(`.${TRIGGER_CLASS}`);
+      await expect.poll(() => trigger()?.textContent ?? "").toContain(ch.name);
+      const end = trigger()?.querySelector<HTMLElement>(
+        ".lyra-select-single-trigger__end",
+      );
+      expect(end?.clientWidth).toEqual(0);
+    });
+
     it("should show the folders of each channel in a multiple select", async () => {
       const folder = await createFolder();
       const ch = await createChannel(folder);
