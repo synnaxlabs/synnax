@@ -186,6 +186,38 @@ describe("useCreateModal", () => {
     });
   });
 
+  describe("keys", () => {
+    const press = (target: Element, key: string): void => {
+      fireEvent.keyDown(target, { key, code: key });
+      fireEvent.keyUp(target, { key, code: key });
+    };
+
+    it("should keep the kind when the arrow keys and Enter pick an index", async () => {
+      const index = await createTestIndexChannel(client);
+      await openModal();
+      fireEvent.click(screen.getByText("Select channel"));
+      const search = await screen.findByPlaceholderText("Search channels...");
+      fireEvent.change(search, { target: { value: index.name } });
+      await screen.findByText(index.name);
+      press(search, "ArrowDown");
+      press(search, "Enter");
+      await waitFor(() => expect(screen.queryByText("Select channel")).toBeNull());
+      expect(getKind("Data").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByText(index.name)).toBeTruthy();
+    });
+
+    it("should move the kind with the arrow keys and Enter while focus is on it", async () => {
+      await openModal();
+      const data = getKind("Data");
+      data.focus();
+      press(data, "ArrowDown");
+      press(data, "Enter");
+      await waitFor(() =>
+        expect(getKind("Index").getAttribute("aria-pressed")).toBe("true"),
+      );
+    });
+  });
+
   describe("folders", () => {
     const createFolder = async (): Promise<group.Group> =>
       await client.groups.create({ name: uniqueName("folder"), scope: "channel" });
