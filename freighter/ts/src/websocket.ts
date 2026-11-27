@@ -78,6 +78,49 @@ const DEFAULT_FLOW_CONTROL: FlowControl = {
 
 const DEFAULT_OPEN_TIMEOUT = TimeSpan.seconds(10);
 
+/** Detects a stream that stalls after it opens while its socket stays open. */
+export interface KeepAlive {
+  /** How often the server sends a keep-alive message. Zero asks for none. */
+  interval: CrudeTimeSpan;
+  /**
+   * How long an open stream may receive no message before it fails with Unreachable.
+   * It applies only when the server sends keep-alives, and must be longer than the
+   * interval. A message counts only when all of it has arrived, so the timeout must
+   * also cover the largest message on the slowest link. Defaults to three intervals.
+   * A timeout of zero, infinity, or more than 2^31 - 1 milliseconds sets no limit.
+   */
+  timeout: CrudeTimeSpan;
+}
+
+interface ResolvedKeepAlive {
+  interval: TimeSpan;
+  // Null sets no limit.
+  timeout: TimeSpan | null;
+}
+
+const DEFAULT_KEEP_ALIVE_INTERVAL = TimeSpan.seconds(5);
+const DEFAULT_KEEP_ALIVE_TIMEOUT_FACTOR = 3;
+
+const resolveKeepAlive = ({
+  interval: crudeInterval = DEFAULT_KEEP_ALIVE_INTERVAL,
+  timeout,
+}: Partial<KeepAlive>): ResolvedKeepAlive => {
+  const interval = new TimeSpan(crudeInterval);
+  if (interval.lessThan(TimeSpan.ZERO))
+    throw new Error(`keep-alive interval ${interval.toString()} is negative`);
+  const limit = limitOf(timeout ?? interval.mult(DEFAULT_KEEP_ALIVE_TIMEOUT_FACTOR));
+  if (!interval.isZero && limit != null && limit.lessThanOrEqual(interval))
+    throw new Error(
+      `keep-alive timeout ${limit.toString()} must be longer than the interval ${interval.toString()}`,
+    );
+  return { interval, timeout: limit };
+};
+
+const KEEP_ALIVE_PARAM = "keep_alive";
+// The server sends a keep-alive as a text frame and every other message as a binary
+// frame, so a keep-alive needs no decoding.
+const KEEP_ALIVE_MESSAGE = '{"type":"keep_alive"}';
+
 // WebSocket has no drain event, so send polls bufferedAmount.
 const DRAIN_POLL_INTERVAL = TimeSpan.milliseconds(5);
 
@@ -107,6 +150,11 @@ class WebSocketStream<
   private receiveQueueBytes = 0;
   private readonly receiveCallbacksQueue: ReceiveCallbacksQueue = [];
   private readonly resLabel: string;
+  private readonly endpoint: url.URL;
+  private readonly keepAlive: ResolvedKeepAlive;
+  private lastMessage = performance.now();
+  private stallTimer?: ReturnType<typeof setTimeout>;
+  private keepsAlive = false;
 
   constructor(
     ws: Socket,
@@ -115,9 +163,13 @@ class WebSocketStream<
     reqSchema: RQ,
     resSchema: RS,
     flowControl: FlowControl,
+    keepAlive: ResolvedKeepAlive,
+    endpoint: url.URL,
   ) {
     this.codec = encoder;
+    this.endpoint = endpoint;
     this.flowControl = flowControl;
+    this.keepAlive = keepAlive;
     this.resLabel = `${target} response`;
     this.reqSchema = reqSchema;
     this.messageZ = messageZ(resSchema);
@@ -129,10 +181,15 @@ class WebSocketStream<
 
   async receiveOpenAck(): Promise<void> {
     const msg = await this.receiveMsg();
-    if (msg.type === "open") return;
+    if (msg.type === "open") {
+      // A server that sends keep-alives sends one before the ack.
+      const { timeout } = this.keepAlive;
+      if (this.keepsAlive && timeout != null) this.checkStall(timeout);
+      return;
+    }
     if (msg.type === "data") throw new Error("Unexpected open-ack message type: data");
     if (msg.error == null) throw new Error("Message error must be defined");
-    const err = errors.decode(msg.error);
+    const err = this.serverClosed ?? errors.decode(msg.error);
     throw err ?? new Error(`Unexpected open-ack message type: ${msg.type}`);
   }
 
@@ -177,7 +234,8 @@ class WebSocketStream<
     if (msg.type === "data") return msg.payload;
     if (msg.type === "open") throw new Error("Unexpected open message");
     if (msg.error == null) throw new Error("Message error must be defined");
-    this.serverClosed = errors.decode(msg.error);
+    // A stream that failed on its own already holds the error.
+    this.serverClosed ??= errors.decode(msg.error);
     if (this.serverClosed == null) throw new Error("Message error must be defined");
     throw this.serverClosed;
   }
@@ -223,15 +281,33 @@ class WebSocketStream<
 
   private overflow(): void {
     const limit = this.flowControl.receiveQueueLimit;
+    this.fail(
+      new ReceiveOverflow(`stream holds more than ${limit} bytes of unread messages`),
+    );
+  }
+
+  private checkStall(timeout: TimeSpan, delay: number = timeout.milliseconds): void {
+    this.stallTimer = setTimeout(() => {
+      const remaining = timeout.milliseconds - (performance.now() - this.lastMessage);
+      if (remaining > 0) return this.checkStall(timeout, remaining);
+      this.fail(
+        new Unreachable({
+          url: this.endpoint,
+          message: `stream received no message for ${timeout.toString()}`,
+        }),
+      );
+    }, delay);
+  }
+
+  private fail(err: Error): void {
+    clearTimeout(this.stallTimer);
     this.ws.onmessage = null;
     this.ws.onclose = null;
     this.ws.close();
     this.receiveDataQueue.length = 0;
     this.receiveQueueBytes = 0;
-    this.serverClosed = new ReceiveOverflow(
-      `stream holds more than ${limit} bytes of unread messages`,
-    );
-    this.addMessage({ type: "close", error: errors.encode(this.serverClosed) });
+    this.serverClosed = err;
+    this.addMessage({ type: "close", error: errors.encode(err) });
   }
 
   private listenForMessages(): void {
@@ -239,11 +315,16 @@ class WebSocketStream<
     this.ws.onclose = this.onClose.bind(this);
   }
 
-  private onMessage(ev: { data: ArrayBuffer }): void {
-    this.addMessage(ev.data);
+  private onMessage(ev: { data: ArrayBuffer | string }): void {
+    this.lastMessage = performance.now();
+    if (typeof ev.data !== "string") return this.addMessage(ev.data);
+    if (ev.data !== KEEP_ALIVE_MESSAGE)
+      return this.fail(new Error(`unexpected text message: ${ev.data}`));
+    this.keepsAlive = true;
   }
 
   private onClose(ev: { code: number }): void {
+    clearTimeout(this.stallTimer);
     this.addMessage({
       type: "close",
       error: {
@@ -314,6 +395,8 @@ export interface WebSocketClientConfig {
    * milliseconds (about 24.8 days) sets no limit.
    */
   openTimeout?: CrudeTimeSpan;
+  /** Overrides for the default keep-alive. */
+  keepAlive?: Partial<KeepAlive>;
 }
 
 /**
@@ -324,11 +407,16 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   encoder: binary.Codec;
   secure: boolean;
   flowControl: FlowControl;
+  private readonly keepAlive: ResolvedKeepAlive;
   private readonly connector: Connector;
   private readonly openTimeout: TimeSpan | null;
 
   static readonly MESSAGE_TYPE = "arraybuffer";
 
+  /**
+   * @throws {Error} if the keep-alive interval is negative, or the keep-alive timeout
+   * is not longer than a nonzero interval.
+   */
   constructor({
     endpoint,
     codec,
@@ -336,10 +424,12 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
     flowControl = {},
     connector = defaultConnector(),
     openTimeout = DEFAULT_OPEN_TIMEOUT,
+    keepAlive = {},
   }: WebSocketClientConfig) {
     super();
     this.secure = secure;
     this.flowControl = { ...DEFAULT_FLOW_CONTROL, ...flowControl };
+    this.keepAlive = resolveKeepAlive(keepAlive);
     this.baseUrl = endpoint.replace({ protocol: secure ? "wss" : "ws" });
     this.encoder = codec;
     this.connector = connector;
@@ -354,6 +444,10 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
       flowControl: this.flowControl,
       connector: this.connector,
       openTimeout: this.openTimeout ?? TimeSpan.ZERO,
+      keepAlive: {
+        interval: this.keepAlive.interval,
+        timeout: this.keepAlive.timeout ?? TimeSpan.ZERO,
+      },
     });
     c.use(...this.middleware);
     return c;
@@ -390,8 +484,14 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
   }
 
   private buildURL(target: string, params: Record<string, string>): string {
+    const { interval } = this.keepAlive;
+    const keepAlive = interval.isZero ? null : interval.nanoseconds.toString();
     const qs = url.buildQueryString(
-      { [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType, ...params },
+      {
+        [CONTENT_TYPE_HEADER_KEY]: this.encoder.contentType,
+        [KEEP_ALIVE_PARAM]: keepAlive,
+        ...params,
+      },
       FREIGHTER_METADATA_PREFIX,
     );
     return this.baseUrl.child(target).toString() + qs;
@@ -426,6 +526,8 @@ export class WebSocketClient extends MiddlewareCollector implements StreamClient
           reqSchema,
           resSchema,
           this.flowControl,
+          this.keepAlive,
+          endpoint,
         );
         oWs
           .receiveOpenAck()

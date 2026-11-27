@@ -11,6 +11,7 @@ import {
   type Connector,
   type FileTransport,
   HTTPClient,
+  type KeepAlive,
   type Middleware,
   type UnaryClient,
   unaryWithBreaker,
@@ -38,6 +39,8 @@ export interface TransportConfig {
    * no limit.
    */
   streamOpenTimeout?: CrudeTimeSpan;
+  /** How an open stream detects a stalled connection. See {@link KeepAlive}. */
+  streamKeepAlive?: Partial<KeepAlive>;
 }
 
 export class Transport {
@@ -59,6 +62,7 @@ export class Transport {
     onRetry,
     connector,
     streamOpenTimeout,
+    streamKeepAlive,
   }: TransportConfig) {
     this.secure = secure;
     this.url = url.child("/api/v1/");
@@ -77,6 +81,7 @@ export class Transport {
       secure,
       connector,
       openTimeout: streamOpenTimeout,
+      keepAlive: streamKeepAlive,
     });
   }
 

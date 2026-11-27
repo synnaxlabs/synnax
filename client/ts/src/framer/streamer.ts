@@ -86,8 +86,8 @@ const intermediateStreamerConfigZ = z.object({
    Core. Used for telemetry bypass deduplication. */
   excludeGroups: z.uint32().array().default([]),
   /** Interval at which the Core emits keep-alive responses so a silently dead
-   connection fails reads instead of hanging forever. TimeSpan.ZERO disables
-   detection. Defaults to 5 seconds. */
+   connection fails reads instead of hanging forever. TimeSpan.ZERO turns off this
+   deadline, and the client's streamKeepAlive still applies. Defaults to 5 seconds. */
   keepAlive: TimeSpan.z.default(TimeSpan.seconds(5)),
 });
 

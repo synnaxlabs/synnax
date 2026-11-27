@@ -41,7 +41,7 @@ export interface Socket {
   send: (data: Uint8Array<ArrayBuffer>) => void;
   close: () => void;
   onopen: Listener<unknown> | null;
-  onmessage: Listener<{ data: ArrayBuffer }> | null;
+  onmessage: Listener<{ data: ArrayBuffer | string }> | null;
   onclose: Listener<{ code: number }> | null;
   onerror: Listener<object> | null;
 }
