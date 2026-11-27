@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -3304,10 +3303,10 @@ var _ = Describe("Writer Behavior", func() {
 							ctx,
 							[]cesium.ChannelKey{data},
 							(0 * telem.SecondTS).Range(3*telem.SecondTS),
-						)).To(MatchError(cesium.ClaimError{
+						)).To(MatchError(error(cesium.ClaimError{
 							TimeRange: (1 * telem.SecondTS).Range(3 * telem.SecondTS),
 							Open:      true,
-						}))
+						})))
 						Expect(writePair(
 							ctx, w, idx, data, telem.NewSeriesSecondsTSV(4), 3,
 						)).To(Succeed())
@@ -3493,10 +3492,8 @@ var _ = Describe("Writer Behavior", func() {
 					return frameOf(idx, data, seconds...)
 				}
 				config := func(
-					key string,
 					channels []cesium.ChannelKey,
 					start telem.TimeStamp,
-					authority control.Authority,
 				) cesium.WriterConfig {
 					// Every key of a writer shares the clock of its first key.
 					first := MustSucceed(
@@ -3512,19 +3509,14 @@ var _ = Describe("Writer Behavior", func() {
 					GinkgoHelper()
 					return MustSucceed(db.OpenWriter(
 						ctx,
-						config("live", keys, 10*telem.SecondTS, 1),
+						config(keys, 10*telem.SecondTS),
 					))
 				}
 				backfill := func(
 					channels []cesium.ChannelKey,
 					start telem.TimeStamp,
 				) cesium.WriterConfig {
-					cfg := config(
-						"backfill",
-						channels,
-						start,
-						control.AuthorityAbsolute,
-					)
+					cfg := config(channels, start)
 					cfg.Bounded = true
 					return cfg
 				}
@@ -3609,10 +3601,8 @@ var _ = Describe("Writer Behavior", func() {
 						live2 := MustSucceed(db.OpenWriter(
 							ctx,
 							config(
-								"live",
 								[]cesium.ChannelKey{idx2, data2},
 								10*telem.SecondTS,
-								1,
 							),
 						))
 						mustWrite(ctx, live, frame(10, 11))
@@ -3634,10 +3624,10 @@ var _ = Describe("Writer Behavior", func() {
 								[]cesium.ChannelKey{idx2, data2},
 								12*telem.SecondTS,
 							),
-						)).Error().To(MatchError(cesium.ClaimError{
+						)).Error().To(MatchError(error(cesium.ClaimError{
 							TimeRange: (12 * telem.SecondTS).SpanRange(1),
 							Open:      true,
-						}))
+						})))
 						Expect(live.Close()).To(Succeed())
 						Expect(live2.Close()).To(Succeed())
 						Expect(read(ctx, data).Series).To(HaveLen(2))
@@ -3646,7 +3636,7 @@ var _ = Describe("Writer Behavior", func() {
 				)
 				openManual := func(ctx SpecContext) *cesium.Writer {
 					GinkgoHelper()
-					cfg := config("manual", keys, 10*telem.SecondTS, 1)
+					cfg := config(keys, 10*telem.SecondTS)
 					return MustSucceed(db.OpenWriter(ctx, cfg))
 				}
 				It("Should commit samples before it ends", func(ctx SpecContext) {
@@ -3673,12 +3663,7 @@ var _ = Describe("Writer Behavior", func() {
 					"Should end an index next to a persist writer on its data channel",
 					func(ctx SpecContext) {
 						live := openLive(ctx)
-						cfg := config(
-							"backfill",
-							[]cesium.ChannelKey{data},
-							1*telem.SecondTS,
-							control.AuthorityAbsolute,
-						)
+						cfg := config([]cesium.ChannelKey{data}, 1*telem.SecondTS)
 						cfg.Bounded = true
 						fill := MustSucceed(db.OpenWriter(ctx, cfg))
 						mustWrite(ctx, live, frame(10, 11))
@@ -3729,10 +3714,8 @@ var _ = Describe("Writer Behavior", func() {
 							)
 						}
 						live := MustSucceed(db.OpenWriter(ctx, config(
-							"live",
 							[]cesium.ChannelKey{idx2, text},
 							10*telem.SecondTS,
-							1,
 						)))
 						mustWrite(
 							ctx, live, textFrame([]string{"a", "bb"}, 10, 11),
@@ -3756,7 +3739,7 @@ var _ = Describe("Writer Behavior", func() {
 						mustCommit(ctx, low)
 						high := MustSucceed(db.OpenWriter(
 							ctx,
-							config("hi", keys, 10*telem.SecondTS, 2),
+							config(keys, 10*telem.SecondTS),
 						))
 						mustWrite(ctx, high, frame(12))
 						Expect(high.EndStretch(ctx)).To(Succeed())
@@ -3775,7 +3758,7 @@ var _ = Describe("Writer Behavior", func() {
 					func(
 						ctx SpecContext,
 					) {
-						cfg := config("unstored", keys, 10*telem.SecondTS, 1)
+						cfg := config(keys, 10*telem.SecondTS)
 						cfg.Unstored = true
 						w := MustSucceed(db.OpenWriter(ctx, cfg))
 						mustWrite(ctx, w, frame(10, 11))
@@ -4197,12 +4180,7 @@ var _ = Describe("Writer Behavior", func() {
 							},
 						)).To(Succeed())
 					})
-					open := func(
-						ctx SpecContext,
-						start telem.TimeStamp,
-						subject string,
-						auth control.Authority,
-					) *cesium.Writer {
+					open := func(ctx SpecContext, start telem.TimeStamp) *cesium.Writer {
 						GinkgoHelper()
 						return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 							Channels: keys,
@@ -4234,10 +4212,10 @@ var _ = Describe("Writer Behavior", func() {
 					It(
 						"Should reject a backfill behind the data of a live writer",
 						func(ctx SpecContext) {
-							live := open(ctx, 100*telem.SecondTS, "live", 100)
+							live := open(ctx, 100*telem.SecondTS)
 							mustWrite(ctx, live, frame(100, 101))
 							mustCommit(ctx, live)
-							backfill := open(ctx, 10*telem.SecondTS, "backfill", 200)
+							backfill := open(ctx, 10*telem.SecondTS)
 							Expect(
 								backfill.Write(ctx, frame(10, 11), nil),
 							).Error().
@@ -4250,7 +4228,7 @@ var _ = Describe("Writer Behavior", func() {
 						},
 					)
 					It("Should allow equal timestamps", func(ctx SpecContext) {
-						w := open(ctx, 10*telem.SecondTS, "writer", 100)
+						w := open(ctx, 10*telem.SecondTS)
 						mustWrite(ctx, w, frame(10, 10))
 						mustWrite(ctx, w, frame(10, 11))
 						mustCommit(ctx, w)
@@ -4260,7 +4238,7 @@ var _ = Describe("Writer Behavior", func() {
 					DescribeTable(
 						"Should reject a single writer whose index goes back",
 						func(ctx SpecContext, prior, rejected []telem.TimeStamp) {
-							w := open(ctx, 10*telem.SecondTS, "writer", 100)
+							w := open(ctx, 10*telem.SecondTS)
 							if len(prior) > 0 {
 								mustWrite(ctx, w, frame(prior...))
 								mustCommit(ctx, w)
@@ -4686,11 +4664,7 @@ var _ = Describe("Writer commit order", func() {
 			})
 		}
 
-		openWriter := func(
-			ctx context.Context,
-			subject string,
-			authority control.Authority,
-		) *cesium.Writer {
+		openWriter := func(ctx context.Context) *cesium.Writer {
 			GinkgoHelper()
 			return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
 				Channels: keys,
@@ -4708,7 +4682,7 @@ var _ = Describe("Writer commit order", func() {
 					count(ctx, dataKey),
 				})
 			}
-			w := openWriter(ctx, "writer", control.AuthorityAbsolute)
+			w := openWriter(ctx)
 			for i := range 3 {
 				mustWrite(ctx, w, frame(10+i))
 				mustCommit(ctx, w)
@@ -4732,12 +4706,12 @@ var _ = Describe("Writer commit order", func() {
 						count(ctx, dataKey),
 					})
 				}
-				low := openWriter(ctx, "low", 100)
+				low := openWriter(ctx)
 				mustWrite(ctx, low, frame(10))
 				mustCommit(ctx, low)
 				Expect(low.Sync()).To(Succeed())
 				// high takes over the domain that low wrote, and commits to it.
-				high := openWriter(ctx, "high", 200)
+				high := openWriter(ctx)
 				mustWrite(ctx, high, frame(11))
 				mustCommit(ctx, high)
 				Expect(high.Sync()).To(Succeed())
@@ -4771,7 +4745,7 @@ var _ = Describe("Writer commit order", func() {
 					}
 					return nil
 				}
-				w := openWriter(ctx, "writer", control.AuthorityAbsolute)
+				w := openWriter(ctx)
 				mustWrite(ctx, w, frame(10))
 				mustCommit(ctx, w)
 				Expect(w.Sync()).To(MatchError(errPersist))
