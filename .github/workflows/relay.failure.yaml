@@ -40,6 +40,14 @@ jobs:
       REPORT: ${{ inputs.report && github.event_name == 'schedule' }}
     # No retry: a dispatch that fails with a 5xx can still start a run.
     steps:
+      - name: Check out the scripts
+        if: env.REQUEUE == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
       # When each failed job only stopped at a usage limit or a rejected token, the
       # seat left the pool and Agent - Requeue runs the job again. The run then ends
       # cancelled, as GitHub emails the person who started a failed run. Steps without
@@ -49,7 +57,7 @@ jobs:
         if: ${{ !cancelled() && env.REQUEUE == 'true' }}
         run: |
           jobs="repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs?filter=latest"
-          drained=$(gh api --paginate "$jobs" --jq '.jobs[]
+          drained=$(.github/scripts/gh_api.sh --paginate "$jobs" --jq '.jobs[]
             | select(.conclusion == "failure")
             | any(.steps[]; (.name | startswith("Leave the pool until"))
               and .conclusion == "success")')
@@ -57,8 +65,9 @@ jobs:
           if [ -n "$drained" ] && ! grep -qx false <<< "$drained"; then cancel=true; fi
           echo "cancel=$cancel" >> "$GITHUB_OUTPUT"
 
+      # A failed decision leaves the run failed, and Agent - Requeue still runs it.
       - name: Start Agent - Requeue
-        if: env.REQUEUE == 'true'
+        if: ${{ !cancelled() && env.REQUEUE == 'true' }}
         env:
           CANCEL: ${{ steps.drain.outputs.cancel == 'true' }}
         run: |
