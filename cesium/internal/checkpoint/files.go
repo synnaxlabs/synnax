@@ -137,7 +137,7 @@ func again(err error, retry func() error) error {
 // prepareLog makes the file of the log of generation next in the root fs when it is
 // missing or not size bytes long, and removes a leftover head of generation next. It
 // syncs a file of size bytes that it finds, and then the root, as it does a file that
-// it makes.
+// it makes. It removes a found file whose sync fails.
 func prepareLog(fs xfs.FS, next uint64, size int64) error {
 	if err := fs.Remove(Name(next)); err != nil {
 		return err
@@ -154,7 +154,9 @@ func prepareLog(fs xfs.FS, next uint64, size int64) error {
 		return err
 	}
 	if err = errors.Join(f.Sync(), f.Close()); err != nil {
-		return err
+		// A file whose sync failed is never synced again, so the next ask makes it
+		// anew.
+		return errors.Join(err, fs.Remove(log.Name(next)))
 	}
 	return fs.SyncDir("")
 }
