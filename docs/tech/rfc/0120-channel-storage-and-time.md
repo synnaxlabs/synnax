@@ -940,6 +940,10 @@ new fields and no break):
    adds the fields of item 1 to #6165's records, fills them in the forwarder, and drains
    them and an index-keyed segment, with a spec that spools a group with no index and
    drains it, and one that spools on one release and drains on the next with no loss.
+4. **Calculations on a rack** (RFC 0113 §3.5): The Driver runs a calculation through a
+   C++ twin of the join node, with the live rules of §4.7, built at Phase 56 in
+   `arc/cpp/stl`, so a rack never pairs inputs of two clocks by position (hard rule 2).
+   RFC 0113 Phases 10 and 11, which are not built, follow Phase 56.
 
 ### 4.10 Migration
 
@@ -1136,17 +1140,17 @@ records baselines on `main`; none of it merges (D-430). The phases then follow o
 order: the shared storage fixes (Phases 2 to 4), the additive parts while index channels
 exist (Phases 5 to 17), the read prototype (Phase 18), the export (Phase 19), the join
 (Phases 20 to 23), hidden clocks (Phases 24 to 28), the producers and readers (Phases 29
-to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow, and Phase 55, the
-look back of running operations to their last reset, may land any time after Phase 21.
-Each phase is one PR of up to about 2,000 hand-written lines, specs and generated code
-not counted. Phase 8 is the exception: its codec piece is about 3,390 lines and ships
-alone (D-392). Phases 41 and 50 land as two PRs each: 41 pairs Arc reads by clock, then
-groups the outputs; 50 retires the records and registers the steps on channel v2, then
-mints v3 and drops the fields. Phases 46 to 49 remove every client use of `is_index` and
-`index`, and Phase 50 removes the fields from the generated payloads with
-`schemas/synnax/channel.oracle`, so its regeneration breaks no user outside its touches.
-A phase that grows past the limit splits along its touches before it opens, each part
-green alone.
+to 45), and the removals (Phases 46 to 50). Phases 51 to 54 follow. Phase 55, the look
+back of running operations to their last reset, may land any time after Phase 21, and
+Phase 56, the C++ join of rack calculations, any time after Phase 41. Each phase is one
+PR of up to about 2,000 hand-written lines, specs and generated code not counted. Phase
+8 is the exception: its codec piece is about 3,390 lines and ships alone (D-392). Phases
+41 and 50 land as two PRs each: 41 pairs Arc reads by clock, then groups the outputs; 50
+retires the records and registers the steps on channel v2, then mints v3 and drops the
+fields. Phases 46 to 49 remove every client use of `is_index` and `index`, and Phase 50
+removes the fields from the generated payloads with `schemas/synnax/channel.oracle`, so
+its regeneration breaks no user outside its touches. A phase that grows past the limit
+splits along its touches before it opens, each part green alone.
 
 - **Shared storage fixes**: Today on the pointer log, every writer open seals its
   segments, a `client.write` loop steps the alignment counter at each call, and a
@@ -1283,6 +1287,7 @@ index channel in `core/v0.62.0`, keeps that name in its config from Phase 42. Ke
 | 53    | Delete the old Cesium format                                 | `cesium`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | 1                                                  |
 | 54    | Create task channels in the Core at task save                | `core/pkg/service/task`, `core/pkg/service/ni`, `core/pkg/service/labjack`, `core/pkg/service/opcua`, `console/src/platform/task`                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 50                                                 |
 | 55    | Look back to the last reset in running operations            | `core/pkg/service/framer/calculation`, `core/pkg/service/framer/iterator`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | 21                                                 |
+| 56    | Pair rack calculation inputs in a C++ join node              | `arc/cpp/stl`, `driver/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 21, 41                                             |
 
 ## 6 What this RFC does not cover
 
@@ -1291,7 +1296,8 @@ index channel in `core/v0.62.0`, keeps that name in its config from Phase 42. Ke
 - The constant-step time series and frame compression (PR #6147).
 - Units, limits, the link from a channel to an enumeration, T-zero, templates, the
   maximum length of a string sample, state and command pairs, and clock correction.
-- Calculations on a rack, stored calculation outputs, and linear interpolation.
+- Stored calculation outputs and linear interpolation. Calculations on a rack are RFC
+  0113's; this RFC adds only their join (§4.9 item 4).
 
 ## 7 Resolved decisions
 
