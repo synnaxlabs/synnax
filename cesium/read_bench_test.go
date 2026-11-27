@@ -207,8 +207,8 @@ func writeBenchStamps(
 // the index.
 func BenchmarkReadSamples(b *testing.B) { readSamples(b, false) }
 
-// BenchmarkReadSamplesPointerLog is BenchmarkReadSamples on the pointer log, where each
-// read checks its blocks.
+// BenchmarkReadSamplesPointerLog is BenchmarkReadSamples on the pointer log, with read
+// checks off.
 func BenchmarkReadSamplesPointerLog(b *testing.B) { readSamples(b, true) }
 
 func readSamples(b *testing.B, pointerLog bool) {
@@ -281,7 +281,7 @@ func BenchmarkReadOneClock(b *testing.B) {
 func BenchmarkStreamFixedSpan(b *testing.B) { streamFixedSpan(b, false) }
 
 // BenchmarkStreamFixedSpanPointerLog is BenchmarkStreamFixedSpan on the pointer log,
-// where each read checks its blocks.
+// with read checks off.
 func BenchmarkStreamFixedSpanPointerLog(b *testing.B) { streamFixedSpan(b, true) }
 
 func streamFixedSpan(b *testing.B, pointerLog bool) {

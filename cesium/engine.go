@@ -54,8 +54,7 @@ type engine struct {
 	log       *log.Log
 	ckpt      *checkpoint.Checkpointer
 	budget    *segment.Budget
-	// readers pools the segment readers of checked iterators, each of which holds a
-	// block. readsChecked is true when data reads check their blocks.
+	// readers pools the checked segment readers, each of which holds a block.
 	readers      sync.Pool
 	readsChecked bool
 	// handles holds the read handles of each segment file that reads opened, by key and
@@ -120,10 +119,12 @@ func openEngine(o *options) (*engine, error) {
 		ready:    make(chan struct{}),
 		reaps:    make(chan struct{}, 1),
 		unstored: telem.NewAlignmentCounter(telem.LeadingDomain),
+		readers: sync.Pool{
+			New: func() any { return segment.NewReader(o.readsChecked) },
+		},
+		readsChecked: o.readsChecked,
 	}
 	e.pins.readers, e.pins.dead = make(map[uint64]int), make(map[uint64]ChannelKey)
-	e.readsChecked = o.readsChecked
-	e.readers.New = func() any { return segment.NewReader(o.readsChecked) }
 	e.cover.advanced = make(chan struct{})
 	e.handles.m = make(map[ChannelKey]map[uint64]*segmentHandles)
 	if snapshot == nil {
