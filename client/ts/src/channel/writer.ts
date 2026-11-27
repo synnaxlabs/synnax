@@ -11,7 +11,7 @@ import type { UnaryClient } from "@synnaxlabs/freighter";
 import type { DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type New } from "@/channel/payload";
+import type { New } from "@/channel/payload";
 import { keyZ, nameZ, type Payload, payloadZ } from "@/channel/types.gen";
 
 const createReqZ = z.object({
