@@ -19,6 +19,8 @@ import (
 	apicluster "github.com/synnaxlabs/synnax/pkg/api/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -33,6 +35,7 @@ import (
 var (
 	clusterType = resource.ID{Type: resource.TypeKafkaCluster}
 	statusType  = resource.ID{Type: resource.TypeStatus}
+	channelType = resource.ID{Type: resource.TypeChannel}
 	allWrites   = []access.Action{
 		access.ActionCreate,
 		access.ActionUpdate,
@@ -354,43 +357,64 @@ var _ = Describe("Service", func() {
 		}
 
 		It("Should write only the identity group", func(ctx SpecContext) {
+			chs := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
 			s := createCluster(ctx, func(s *cluster.Cluster) {
 				s.Reads = []cluster.Read{{
 					Topic:   "plant",
 					Message: uuid.New(),
-					Index:   1,
-					Channel: 2,
+					Index:   chs[0],
+					Channel: chs[1],
 				}}
 			})
 			grantWrites(ctx, s.Rack)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
 			MustSucceed(update(testutil.AuthedCtx(ctx, u), rename(s)))
 			got := retrieveCluster(ctx, s.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Reads).To(Equal(s.Reads))
 		})
 
-		It("Should write only the configuration group", func(ctx SpecContext) {
-			s := createCluster(ctx)
-			reads := []cluster.Read{{
+		// readsOf returns one read of the channels chs.
+		readsOf := func(chs []channel.Key) []cluster.Read {
+			return []cluster.Read{{
 				Topic:     "plant",
 				RecordKey: new("pump"),
-				Message:   uuid.New(),
-				Index:     1,
-				Channel:   2,
+				Message:   uuid.UUID{1},
+				Index:     chs[0],
+				Channel:   chs[1],
 			}}
+		}
+		// bindReads returns an update that replaces the reads of s with reads.
+		bindReads := func(s cluster.Cluster, reads []cluster.Read) apicluster.UpdateRequest {
+			return apicluster.UpdateRequest{
+				Key: s.Key,
+				Update: cluster.Update{Variant: cluster.ConfigurationUpdate{
+					Configuration: cluster.Configuration{Reads: reads},
+				}},
+			}
+		}
+
+		It("Should write only the configuration group", func(ctx SpecContext) {
+			chs := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
+			s := createCluster(ctx)
 			grantWrites(ctx, s.Rack)
-			MustSucceed(update(
-				testutil.AuthedCtx(ctx, u),
-				apicluster.UpdateRequest{
-					Key: s.Key,
-					Update: cluster.Update{Variant: cluster.ConfigurationUpdate{
-						Configuration: cluster.Configuration{Reads: reads},
-					}},
-				},
-			))
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, channelType)
+			reads := readsOf(chs)
+			MustSucceed(update(testutil.AuthedCtx(ctx, u), bindReads(s, reads)))
 			got := retrieveCluster(ctx, s.Key)
 			Expect(got.Reads).To(Equal(reads))
 			Expect(got.Name).To(Equal(s.Name))
+		})
+
+		It("Should reject a read of a channel the user cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			chs := MustSucceed(channeltestutil.CreateVirtual(ctx, db, svc.Channel, 2))
+			s := createCluster(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(update(testutil.AuthedCtx(ctx, u), bindReads(s, readsOf(chs)))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveCluster(ctx, s.Key).Reads).To(BeEmpty())
 		})
 
 		It("Should move a cluster only with update access on the new rack", func(
