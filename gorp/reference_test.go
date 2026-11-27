@@ -1617,6 +1617,37 @@ var _ = Describe("Reference", func() {
 			},
 		)
 
+		DescribeTable("Should move the holders of a unique reference in one retarget",
+			func(ctx SpecContext, moves map[string]string, owners map[string]string) {
+				for _, k := range []string{"a", "b", "c"} {
+					Expect(createDevice(ctx, refDevice{Key: k, Rack: 1})).To(Succeed())
+				}
+				Expect(statuses.NewCreate().Entries(&[]refStatus{
+					{Key: "s1", Owner: &refOwner{Table: "device", Key: "a"}},
+					{Key: "s2", Owner: &refOwner{Table: "device", Key: "b"}},
+				}).Exec(ctx, db)).To(Succeed())
+				Expect(devices.Retarget(ctx, db, moves)).To(Succeed())
+				for key, owner := range owners {
+					var s refStatus
+					Expect(statuses.NewRetrieve().
+						Where(gorp.MatchKeys[string, refStatus](key)).
+						Entry(&s).
+						Exec(ctx, db)).To(Succeed())
+					Expect(s.Owner).To(Equal(&refOwner{Table: "device", Key: owner}))
+				}
+			},
+			Entry(
+				"a swap",
+				map[string]string{"a": "b", "b": "a"},
+				map[string]string{"s1": "b", "s2": "a"},
+			),
+			Entry(
+				"a chain",
+				map[string]string{"a": "b", "b": "c"},
+				map[string]string{"s1": "b", "s2": "c"},
+			),
+		)
+
 		It("Should refuse a rewrite that breaks a unique reference", func(
 			ctx SpecContext,
 		) {

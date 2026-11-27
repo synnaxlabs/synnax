@@ -587,6 +587,15 @@ var _ = Describe("@ref", func() {
 		),
 	)
 
+	It("Should import no slices package for an array reference with no Detach", func() {
+		resp := MustGenerate(device(`
+			labels label.Key[] @ref on_delete restrict @ref kind use
+		`), "device", loader, p)
+		ExpectContent(resp, "retrieve.gen.go").
+			ToContain("gorp.RetargetEach(").
+			ToNotContain(`"slices"`)
+	})
+
 	It("Should always hold the target of a required field", func() {
 		resp := MustGenerate(device(`
 			rack rack.Key @ref on_delete cascade @ref kind use
