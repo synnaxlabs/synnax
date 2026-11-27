@@ -25,12 +25,15 @@ import (
 // ServiceConfig is the configuration for opening a Service.
 type ServiceConfig struct {
 	// DB is the database devices are stored in.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 	// Signals publishes sy_labjack_device_set and sy_labjack_device_delete.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	// Instrumentation is used for logging, tracing, and metrics.
+	//
 	// [OPTIONAL]
 	alamos.Instrumentation
 }

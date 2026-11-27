@@ -26,9 +26,11 @@ import (
 // ServiceConfig is the configuration for the LabJack device API service.
 type ServiceConfig struct {
 	// Device stores and retrieves devices.
+	//
 	// [REQUIRED]
 	Device *device.Service
 	// Status retrieves device statuses.
+	//
 	// [REQUIRED]
 	Status *status.Service
 }
