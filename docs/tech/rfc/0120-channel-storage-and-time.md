@@ -378,7 +378,11 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   flag of a stream shows a drop (`core/pkg/transport/grpc/framer/framer.proto:89`,
   `:96`), and only a drop starts a catch-up read (Phase 15). The cache trusts the Core
   it is connected to, not `leaseholder` (`cache/store/store.ts:289`). A line plot draws
-  one line through a change, a TDMS export writes one column per type, and an Arc node
+  one line through a change and through a pause: from Phase 17, Pluto joins two draw
+  operations of one key on one clock in one stretch, where today it joins only
+  operations whose time spans touch (`pluto/src/vis/line/aether/draw.ts:95-96`). So an
+  on-change channel in an adaptive group draws one line, with a spec, and a task stop
+  still breaks the line. A TDMS export writes one column per type, and an Arc node
   converts an input per series with no recompile.
 - **Pluto**: A line plot with no x channel draws y against `telem.timeOf(y)` (NEW), the
   time series of y's own series, in place of y's index channel
