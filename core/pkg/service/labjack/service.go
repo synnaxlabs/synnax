@@ -35,6 +35,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores the status of each device.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Signals publishes device changes.
