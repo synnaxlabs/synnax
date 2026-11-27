@@ -81,11 +81,6 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if err != nil {
 		return err
 	}
-	u, err := url.Parse(cfg.url)
-	if err != nil {
-		return err
-	}
-	addr := u.Host
 	held, connected, inUse := s.pool.running(args.Device)
 	if inUse && held.equal(cfg) {
 		if !connected {
@@ -102,7 +97,7 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if props.ClientID == "" {
 		cfg.clientID = deriveClientID(uuid.New().String())
 	}
-	if err = dialBroker(ctx, addr, cfg); err != nil {
+	if err = dialBroker(ctx, cfg); err != nil {
 		return err
 	}
 	if inUse && held.clientID == cfg.clientID {
@@ -122,9 +117,14 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	return nil
 }
 
-// dialBroker dials addr and, when cfg uses TLS, completes a handshake. It returns a
-// driver.Failure when the broker is not reachable.
-func dialBroker(ctx context.Context, addr string, cfg clientConfig) error {
+// dialBroker dials the broker of cfg and, when cfg uses TLS, completes a handshake. It
+// returns a driver.Failure when the broker is not reachable.
+func dialBroker(ctx context.Context, cfg clientConfig) error {
+	u, err := url.Parse(cfg.url)
+	if err != nil {
+		return err
+	}
+	addr := u.Host
 	dialCtx, cancel := context.WithTimeout(ctx, operationTimeout)
 	defer cancel()
 	conn, err := proxy.Dial(dialCtx, "tcp", addr)
@@ -156,11 +156,7 @@ func connect(
 	cfg clientConfig,
 	opts *paho.ClientOptions,
 ) (*session, func(), error) {
-	u, err := url.Parse(cfg.url)
-	if err != nil {
-		return nil, nil, err
-	}
-	if err = dialBroker(ctx, u.Host, cfg); err != nil {
+	if err := dialBroker(ctx, cfg); err != nil {
 		return nil, nil, err
 	}
 	client, disconnect, err := open(ctx, ins, paho.NewClient, opts)

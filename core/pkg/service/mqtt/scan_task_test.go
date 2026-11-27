@@ -1088,7 +1088,7 @@ var _ = Describe("Scan task", func() {
 			})
 		}
 
-		expectFailure := func(
+		expectReply := func(
 			stat task.Status,
 			message string,
 			description types.GomegaMatcher,
@@ -1104,7 +1104,7 @@ var _ = Describe("Scan task", func() {
 				broker := startBroker(0)
 				dev := createBrokerDevice(ctx, rackKey, broker.port, nil)
 				broker.stop()
-				expectFailure(
+				expectReply(
 					command(ctx, dev, cmdType, args),
 					"Failed to reach broker",
 					SatisfyAll(
@@ -1138,7 +1138,7 @@ var _ = Describe("Scan task", func() {
 			) {
 				broker := startBrokerWith(options())
 				dev := createBrokerDevice(ctx, rackKey, broker.port, properties)
-				expectFailure(
+				expectReply(
 					command(ctx, dev, "browse", msgpack.EncodedJSON{}),
 					message,
 					description,
@@ -1202,7 +1202,7 @@ var _ = Describe("Scan task", func() {
 				description types.GomegaMatcher,
 			) {
 				dev := createBrokerDevice(ctx, rackKey, 0, properties)
-				expectFailure(
+				expectReply(
 					command(ctx, dev, "browse", msgpack.EncodedJSON{}),
 					"Invalid broker settings",
 					description,
