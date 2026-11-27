@@ -260,7 +260,7 @@
   "E5005": {
     "severity": "error",
     "message": "invalid transition target",
-    "problem": "A transition has a target that the code cannot reach from there, such as `next` outside a sequence or in the last stage.",
+    "problem": "A transition has a target that the code cannot reach from there, such as `next` outside a sequence.",
     "example": "sensor > 10 => next"
   },
   "E5006": {
