@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/fs/file.h"
 
 #include "driver/journal/journal.h"
 
@@ -42,7 +43,7 @@ class Keys {
     std::filesystem::path path;
     std::string cluster;
     std::size_t max;
-    journal::OnCreate on_create;
+    x::fs::OnCreate on_create;
     /// @brief held for a whole save, so saves reach the disk in order. Taken before
     /// mu.
     std::mutex save_mu;
@@ -55,7 +56,7 @@ class Keys {
         std::filesystem::path path,
         std::string cluster,
         std::size_t max,
-        journal::OnCreate on_create
+        x::fs::OnCreate on_create
     );
     /// @brief puts name first with key, and forgets the least recently used name past
     /// max. Requires mu.
@@ -78,7 +79,7 @@ public:
         const std::filesystem::path &path,
         const std::string &cluster,
         std::size_t max = DEFAULT_MAX_KEYS,
-        journal::OnCreate on_create = journal::no_create_hook
+        x::fs::OnCreate on_create = x::fs::no_create_hook
     );
 
     /// @returns the key of name, or "" when the Core has not given name a key.

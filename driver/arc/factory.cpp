@@ -19,7 +19,7 @@ Factory::Factory(
     const std::filesystem::path &keys_path,
     const std::string &cluster,
     const std::size_t max_keys,
-    journal::OnCreate on_create
+    x::fs::OnCreate on_create
 ):
     rt_manager(std::move(rt_manager)) {
     auto [keys, err] = status::Keys::open(

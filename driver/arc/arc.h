@@ -51,7 +51,7 @@ public:
         const std::filesystem::path &keys_path,
         const std::string &cluster,
         std::size_t max_keys,
-        journal::OnCreate on_create = journal::no_create_hook
+        x::fs::OnCreate on_create = x::fs::no_create_hook
     );
 
     std::pair<std::unique_ptr<task::Task>, bool> configure_task(
