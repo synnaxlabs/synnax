@@ -26,7 +26,7 @@ from synnax.config.clusters import (
 )
 from synnax.config.file import File, read_latest
 from synnax.exceptions import ConfigurationError, ValidationError
-from synnax.options import Options, from_stored, replace_alias, without_secure
+from synnax.options import Options, from_stored, warn_deprecated, without_secure
 
 __all__ = [
     "KEYCHAIN_UNAVAILABLE_MSG",
@@ -245,52 +245,49 @@ _ENV_ALIASES = (
 )
 
 
-def _env_values(env: Mapping[str, str]) -> Mapping[str, str]:
-    values: Mapping[str, str] = {
-        name: value
-        for pair in _ENV_ALIASES
-        for name in pair
-        if (value := _env(env, name))
-    }
-    for name, alias in _ENV_ALIASES:
-        values = replace_alias(
-            values,
-            name,
-            alias,
-            deprecated_msg=(
-                f"{alias} is deprecated and stops working in Synnax 0.64. Use {name}."
-            ),
-            disagree_msg=None,
-        )
-    return values
+def _deprecated_msg(alias: str, name: str) -> str:
+    return f"{alias} is deprecated and stops working in Synnax 0.64. Use {name}."
 
 
-def load_env_options(env: Mapping[str, str]) -> PartialOptions:
-    """Loads the options in the SYNNAX_CLIENT_HOST, SYNNAX_CLIENT_PORT,
-    SYNNAX_CLIENT_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CLIENT_CA_CERT environment
-    variables. Each deprecated name (SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
-    SYNNAX_SECURE, and SYNNAX_CA_CERT) applies only when its new name is unset, with a
-    DeprecationWarning. Values are stripped, and an empty value counts as unset.
+# The shell of a Core that serves TLS can hold its SYNNAX_CA_CERT, so a client without
+# TLS ignores that name instead of failing.
+_OLD_CA_IGNORED_MSG = (
+    f"{_deprecated_msg('SYNNAX_CA_CERT', 'SYNNAX_CLIENT_CA_CERT')} The client ignored "
+    "SYNNAX_CA_CERT because it connects without TLS."
+)
 
-    :param env: The environment variables, such as os.environ.
-    :returns: The options that the variables set.
-    :raises ValidationError: If SYNNAX_CLIENT_PORT, SYNNAX_CLIENT_INSECURE, or a
-        deprecated name that applies is not valid.
+
+def _env_value(env: Mapping[str, str], name: str, alias: str) -> tuple[str, str]:
+    """Returns the variable that supplies the value, and the value: name when it is
+    set, else alias. The value is empty when neither is set.
     """
+    if value := _env(env, name):
+        return name, value
+    return alias, _env(env, alias)
+
+
+def _load_env(env: Mapping[str, str]) -> tuple[PartialOptions, str | None]:
+    """Returns the options that the variables set, except a CA certificate from
+    SYNNAX_CA_CERT, which it returns on its own.
+    """
+    values = {name: _env_value(env, name, alias) for name, alias in _ENV_ALIASES}
+    for name, (variable, value) in values.items():
+        if value and variable != name and name != "SYNNAX_CLIENT_CA_CERT":
+            warn_deprecated(_deprecated_msg(variable, name))
     opts = PartialOptions()
-    values = _env_values(env)
-    if host := values.get("SYNNAX_CLIENT_HOST"):
+    if host := values["SYNNAX_CLIENT_HOST"][1]:
         opts["host"] = host
-    if api_key := values.get("SYNNAX_CLIENT_API_KEY"):
+    if api_key := values["SYNNAX_CLIENT_API_KEY"][1]:
         opts["api_key"] = api_key
-    if raw_port := values.get("SYNNAX_CLIENT_PORT"):
+    variable, raw_port = values["SYNNAX_CLIENT_PORT"]
+    if raw_port:
         try:
             port = int(raw_port)
         except ValueError:
             port = 0
         if not 0 < port < 65536:
             raise ValidationError(
-                f"SYNNAX_CLIENT_PORT must be a port from 1 to 65535, not {raw_port!r}"
+                f"{variable} must be a port from 1 to 65535, not {raw_port!r}"
             )
         opts["port"] = port
     if (insecure := _env_bool(env, "SYNNAX_CLIENT_INSECURE")) is not None:
@@ -299,8 +296,42 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
     # name can hold a value meant for the Core.
     elif (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
         opts["secure"] = secure
-    if ca_cert := values.get("SYNNAX_CLIENT_CA_CERT"):
-        opts["ca_cert"] = os.path.expanduser(ca_cert)
+    variable, ca_cert = values["SYNNAX_CLIENT_CA_CERT"]
+    if not ca_cert:
+        return opts, None
+    if variable == "SYNNAX_CA_CERT":
+        return opts, os.path.expanduser(ca_cert)
+    opts["ca_cert"] = os.path.expanduser(ca_cert)
+    return opts, None
+
+
+def _use_old_ca(insecure: bool) -> bool:
+    """Warns that SYNNAX_CA_CERT is deprecated, and returns whether to use it."""
+    warn_deprecated(
+        _OLD_CA_IGNORED_MSG
+        if insecure
+        else _deprecated_msg("SYNNAX_CA_CERT", "SYNNAX_CLIENT_CA_CERT")
+    )
+    return not insecure
+
+
+def load_env_options(env: Mapping[str, str]) -> PartialOptions:
+    """Loads the options in the SYNNAX_CLIENT_HOST, SYNNAX_CLIENT_PORT,
+    SYNNAX_CLIENT_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CLIENT_CA_CERT environment
+    variables. Each deprecated name (SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
+    SYNNAX_SECURE, and SYNNAX_CA_CERT) applies only when its new name is unset, with a
+    DeprecationWarning. SYNNAX_CA_CERT does not apply when the variables turn TLS off.
+    Values are stripped, and an empty value counts as unset.
+
+    :param env: The environment variables, such as os.environ.
+    :returns: The options that the variables set.
+    :raises ValidationError: If a port or TLS variable that applies is not valid. The
+        message names the variable.
+    """
+    opts, old_ca = _load_env(env)
+    insecure = opts.get("insecure", not opts.get("secure", True))
+    if old_ca is not None and _use_old_ca(insecure):
+        opts["ca_cert"] = old_ca
     return opts
 
 
@@ -353,7 +384,8 @@ def load_options(
     a host, the Core that `sy login` saved, or else the Core that Synnax Desktop saved,
     comes before the default. The credentials (api_key, username, password) and the TLS
     options (insecure, ca_cert) each come whole from the first source that sets one of
-    them. When no source sets insecure, the client uses TLS.
+    them. When no source sets insecure, the client uses TLS. A client without TLS
+    ignores the deprecated SYNNAX_CA_CERT.
 
     :param secure: Deprecated: the inverse of insecure. SYNNAX_SECURE is the same.
     :param env: The environment variables, such as os.environ. Defaults to none.
@@ -387,7 +419,7 @@ def load_options(
         given["secure"] = secure
     if ca_cert:
         given["ca_cert"] = ca_cert
-    from_env = load_env_options(env or {})
+    from_env, old_ca = _load_env(env or {})
     sources: list[Mapping[str, Any]] = [given, from_env]
     if "host" not in given and "host" not in from_env:
         if clusters is None:
@@ -401,7 +433,12 @@ def load_options(
         if saved is None:
             raise ValidationError(NO_OPTIONS_MSG)
         sources.append(saved.model_dump())
-    opts = Options.model_validate({"port": DEFAULT_PORT, **_merge(sources)})
+    sources = [without_secure(s) for s in sources]
+    merged = _merge(sources)
+    if old_ca is not None and _use_old_ca(merged.get("insecure", False)):
+        sources[1] = {**sources[1], "ca_cert": old_ca}
+        merged = _merge(sources)
+    opts = Options.model_validate({"port": DEFAULT_PORT, **merged})
     if not opts.api_key and not opts.username:
         raise ValidationError(NO_CREDENTIALS_MSG)
     return opts, _saved_by_desktop(opts, desktop_file)
@@ -413,7 +450,6 @@ _GROUPS = (("api_key", "username", "password"), ("insecure", "ca_cert"))
 
 
 def _merge(sources: list[Mapping[str, Any]]) -> dict[str, Any]:
-    sources = [without_secure(s) for s in sources]
     merged: dict[str, Any] = {}
     for source in reversed(sources):
         merged.update(source)

@@ -686,6 +686,35 @@ class TestLoadEnvOptions:
         with pytest.raises(ValidationError, match=message):
             load_env_options(env)
 
+    @pytest.mark.parametrize("name", ["SYNNAX_CLIENT_PORT", "SYNNAX_PORT"])
+    def test_invalid_port_names_its_variable(self, name: str) -> None:
+        """Should name the variable that supplied the port, new or deprecated."""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            with pytest.raises(ValidationError, match=f"^{name} must be a port"):
+                load_env_options({name: "abc"})
+
+    @pytest.mark.parametrize(
+        ("tls", "expected"),
+        [
+            ({"SYNNAX_CLIENT_INSECURE": "true"}, {"insecure": True}),
+            ({"SYNNAX_SECURE": "false"}, {"secure": False}),
+        ],
+        ids=["insecure", "secure"],
+    )
+    def test_insecure_ignores_deprecated_ca_cert(
+        self, tls: dict[str, str], expected: dict[str, Any]
+    ) -> None:
+        """Should ignore SYNNAX_CA_CERT without TLS, since it can be the Core's."""
+        with pytest.warns(DeprecationWarning, match="ignored SYNNAX_CA_CERT"):
+            assert load_env_options({**tls, "SYNNAX_CA_CERT": "/ca.crt"}) == expected
+
+    def test_insecure_keeps_new_ca_cert(self) -> None:
+        """Should keep SYNNAX_CLIENT_CA_CERT without TLS."""
+        assert load_env_options(
+            {"SYNNAX_CLIENT_INSECURE": "true", "SYNNAX_CLIENT_CA_CERT": "/ca.crt"}
+        ) == {"insecure": True, "ca_cert": "/ca.crt"}
+
     @pytest.mark.parametrize(
         ("alias", "value", "expected"),
         [
@@ -1032,6 +1061,44 @@ class TestLoadOptions:
             desktop_file=desktop_file,
         )
         assert (opts.insecure, opts.ca_cert) == expected
+
+    @pytest.mark.parametrize(
+        ("args", "saved_insecure", "expected", "warning"),
+        [
+            ({"insecure": True}, False, (True, None), "ignored SYNNAX_CA_CERT"),
+            ({}, True, (True, None), "ignored SYNNAX_CA_CERT"),
+            ({}, False, (False, "/old.crt"), "SYNNAX_CA_CERT is deprecated"),
+        ],
+        ids=["insecure-arg", "insecure-saved", "tls"],
+    )
+    def test_deprecated_ca_cert_without_tls(
+        self,
+        clusters: Clusters,
+        desktop_file: Path,
+        args: dict[str, Any],
+        saved_insecure: bool,
+        expected: tuple[bool, str | None],
+        warning: str,
+    ) -> None:
+        """Should ignore SYNNAX_CA_CERT when any source turns TLS off, and use it
+        otherwise.
+        """
+        clusters.set(
+            Cluster(
+                options=SAVED.model_copy(
+                    update={"insecure": saved_insecure, "ca_cert": None}
+                )
+            )
+        )
+        with pytest.warns(DeprecationWarning, match=warning) as record:
+            opts, _ = load_options(
+                **args,
+                env={"SYNNAX_CA_CERT": "/old.crt"},
+                clusters=clusters,
+                desktop_file=desktop_file,
+            )
+        assert (opts.insecure, opts.ca_cert) == expected
+        assert len(record) == 1
 
     @pytest.mark.parametrize(
         ("args", "env", "insecure"),

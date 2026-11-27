@@ -345,8 +345,9 @@ from `SYNNAX_` variables. These old names still work in 0.63, and they stop work
 
 An old variable applies only when its new name is unset, and the client then warns. When
 both are set, the new name wins with no warning, because the old name can hold a value
-for the Core. When you give both `secure` and `insecure` and they disagree, the client
-raises `sy.ValidationError`.
+for the Core. A client without TLS ignores `SYNNAX_CA_CERT`, because it can be the
+certificate of the Core. When you give both `secure` and `insecure` and they disagree,
+the client raises `sy.ValidationError`.
 
 To keep the API key out of your code, give the host and set only
 `SYNNAX_CLIENT_API_KEY`:

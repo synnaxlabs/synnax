@@ -71,12 +71,15 @@ _LIBRARY_DIRS = tuple(
 )
 
 
-def _warn(msg: str) -> None:
+def warn_deprecated(msg: str) -> None:
+    """Warns with msg as a DeprecationWarning that names the first frame outside the
+    client.
+    """
     warnings.warn(msg, DeprecationWarning, skip_file_prefixes=_LIBRARY_DIRS)
 
 
 def _warn_secure() -> None:
-    _warn(_SECURE_DEPRECATED_MSG)
+    warn_deprecated(_SECURE_DEPRECATED_MSG)
 
 
 def replace_alias(
@@ -104,7 +107,7 @@ def replace_alias(
         return rest
     value = convert(source[alias])
     if name not in source:
-        _warn(deprecated_msg)
+        warn_deprecated(deprecated_msg)
     elif source[name] != value:
         raise ValidationError(disagree_msg)
     return {**rest, name: value}
