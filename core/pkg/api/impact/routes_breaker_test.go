@@ -10,9 +10,6 @@
 package impact_test
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"slices"
 	"strings"
 	"uuid"
 
@@ -42,25 +39,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
-
-// guessToken computes a plan token from what D-202 says it hashes: the change type,
-// the sorted records, then each entry's record and effect, in entry order.
-func guessToken(keys []channel.Key, entries []impact.Entry) string {
-	h := sha256.New()
-	h.Write([]byte(apiimpact.DeleteChangeType))
-	sorted := slices.Clone(keys)
-	slices.Sort(sorted)
-	for _, k := range slices.Compact(sorted) {
-		h.Write([]byte(channel.ResourceID(k).String()))
-	}
-	for _, e := range entries {
-		h.Write([]byte{0})
-		h.Write([]byte(e.Record.String()))
-		h.Write([]byte{0})
-		h.Write([]byte(e.Effect))
-	}
-	return hex.EncodeToString(h.Sum(nil)[:16])
-}
 
 var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 	var (
@@ -189,39 +167,26 @@ var _ = Describe("Routes breaker", Ordered, ContinueOnFailure, func() {
 		ctx SpecContext,
 	) {
 		index := createIndex(ctx)
-		hidden := createData(ctx, index)
+		first := createData(ctx, index)
 		u := createUser(ctx)
 		grant(ctx, u, retrieve, channel.ResourceID(index.Key()))
-		keys := []channel.Key{index.Key()}
-		p := MustSucceed(plan(
-			AuthedCtx(ctx, u),
-			apiimpact.PlanRequest{Change: deleteOf(keys...)},
-		))
+		planAs := func() impact.Plan {
+			GinkgoHelper()
+			return MustSucceed(plan(
+				AuthedCtx(ctx, u),
+				apiimpact.PlanRequest{Change: deleteOf(index.Key())},
+			))
+		}
+		p := planAs()
 		Expect(p.Entries).To(BeEmpty())
 		Expect(p.Hidden).To(Equal(impact.Hidden{Restrict: 1}))
-		// The subject knows the change, the empty visible list, and one hidden entry.
-		// Channel keys are a 12 bit node and a 20 bit counter, so it walks the node.
-		var confirmed []resource.ID
-		effects := []impact.Effect{
-			impact.EffectRestrict,
-			impact.EffectCascade,
-			impact.EffectDetach,
-		}
-		node := uint32(index.Key()) &^ (1<<20 - 1)
-		for local := uint32(1); local < 1<<20; local++ {
-			guess := channel.ResourceID(channel.Key(node | local))
-			for _, effect := range effects {
-				entries := []impact.Entry{{Record: guess, Effect: effect}}
-				if guessToken(keys, entries) == p.Token {
-					confirmed = append(confirmed, guess)
-				}
-			}
-		}
-		Expect(confirmed).To(
-			BeEmpty(),
-			"the token confirms hidden channel %d",
-			hidden.Key(),
-		)
+		// Another hidden holder in its place gives the same token, so no guess of which
+		// channel holds the index can be confirmed from it.
+		createData(ctx, index)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return layer.Channel.NewWriter(tx).Delete(ctx, first.Key(), false)
+		})).To(Succeed())
+		Expect(planAs()).To(Equal(p))
 	})
 
 	It(
