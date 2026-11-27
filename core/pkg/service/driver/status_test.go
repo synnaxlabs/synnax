@@ -584,6 +584,20 @@ var _ = Describe("StatusHandler", func() {
 			Expect(stat.Details.Running).To(BeTrue())
 			Expect(stat.Details.ConfigHash).To(Equal("hash-1"))
 		})
+		It("should report a task that another rack ran as not configured", func(
+			ctx SpecContext,
+		) {
+			Expect(sendFirst(ctx, handler)).To(Succeed())
+			moved := t
+			moved.Rack = t.Rack + 1
+			moved.ConfigHash = "hash-2"
+			reporter().Report(ctx, moved, "cmd-2", cfgErr)
+			stat := retrieve(ctx)
+			Expect(stat.Message).To(Equal("Failed to configure task"))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Rack).To(Equal(moved.Rack))
+			Expect(stat.Details.ConfigHash).To(Equal("hash-2"))
+		})
 		It("should report a stopped task as not configured", func(ctx SpecContext) {
 			Expect(sendFirst(ctx, handler)).To(Succeed())
 			Expect(stopSecond(ctx, handler)).To(Succeed())
