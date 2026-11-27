@@ -102,6 +102,10 @@ export class MultipleFoundError extends QueryError.sub("multiple_results") {}
 /** UnsupportedError is raised when a query targets an entity that cannot answer it. */
 export class UnsupportedError extends QueryError.sub("unsupported") {}
 
+/** UniqueViolationError is raised when a write gives a record a value that another
+ * record holds, such as a name. */
+export class UniqueViolationError extends QueryError.sub("unique_violation") {}
+
 /** RouteError is raised when a routing error occurs. */
 export class RouteError extends SynnaxError.sub("route") {
   path: string;
@@ -189,6 +193,8 @@ const decode = (payload: errors.Payload): Error | null => {
       return new MultipleFoundError(payload.data);
     if (payload.type.startsWith(UnsupportedError.TYPE))
       return new UnsupportedError(payload.data);
+    if (payload.type.startsWith(UniqueViolationError.TYPE))
+      return new UniqueViolationError(payload.data);
     return new QueryError(payload.data);
   }
 
