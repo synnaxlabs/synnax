@@ -98,6 +98,50 @@ var _ = Describe("Binary", func() {
 		))
 	})
 
+	It("Should name the message of a payload too short for its multiplexors when "+
+		"the decoder holds more than one", func() {
+		// identified returns a message named name that kind with value identifies.
+		identified := func(
+			name string,
+			value int32,
+			fields ...icd.BinaryField,
+		) codec.BinaryMessage {
+			kind := byteField("kind", 0)
+			return codec.BinaryMessage{
+				Name: name,
+				Payload: icd.BinaryPayload{
+					Identifier: &icd.Identifier{Variant: icd.FieldIdentifier{
+						Field: kind.Base().Key,
+						Value: value,
+					}},
+					Fields: append([]icd.BinaryField{kind}, fields...),
+				},
+				Bindings: []codec.Binding{
+					{Field: fields[len(fields)-1].Base().Key, DataType: telem.Uint8T},
+				},
+			}
+		}
+		mode := byteField("mode", 2)
+		selected := byteField("a", 1)
+		b := selected.Variant.(icd.UnsignedBinaryField)
+		b.Multiplexor, b.MultiplexValues = new(mode.Base().Key), []int32{1}
+		selected.Variant = b
+		dec := MustSucceed(codec.NewBinary([]codec.BinaryMessage{
+			identified("muxed", 1, mode, selected),
+			identified("plain", 2, byteField("v", 1)),
+		}))
+		samples := [][][]byte{make([][]byte, 1), make([][]byte, 1)}
+		message, ok, failures, err := dec.Decode([]byte{1, 0}, samples)
+		Expect(err).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError("message muxed: field mode: the payload has 2 bytes and the "+
+				"field needs 3: validation error"),
+		))
+		Expect(message).To(BeZero())
+		Expect(ok).To(BeTrue())
+		Expect(failures).To(BeNil())
+	})
+
 	It("Should route and decode payloads without allocating", func() {
 		kind, v := byteField("kind", 0), byteField("v", 1)
 		m := codec.BinaryMessage{
