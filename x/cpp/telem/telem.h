@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cctype>
 #include <chrono>
@@ -913,6 +914,52 @@ inline constexpr std::array<SizeUnit, 5> SIZE_UNITS{{
     {"KB", KILOBYTE},
     {"B", BYTE},
 }};
+
+/// @brief returns the length of the valid UTF-8 character at text[i], or 0 if the bytes
+/// there are not one.
+inline std::size_t utf8_char_size(const std::string &text, const std::size_t i) {
+    const auto at = [&](const std::size_t j) {
+        return j < text.size() ? static_cast<unsigned char>(text[j]) : 0;
+    };
+    const auto lead = at(i);
+    if (lead < 0x80) return 1;
+    std::size_t size = 0;
+    unsigned char lo = 0x80, hi = 0xBF;
+    if (lead >= 0xC2 && lead <= 0xDF)
+        size = 2;
+    else if (lead >= 0xE0 && lead <= 0xEF) {
+        size = 3;
+        if (lead == 0xE0) lo = 0xA0;
+        if (lead == 0xED) hi = 0x9F;
+    } else if (lead >= 0xF0 && lead <= 0xF4) {
+        size = 4;
+        if (lead == 0xF0) lo = 0x90;
+        if (lead == 0xF4) hi = 0x8F;
+    } else
+        return 0;
+    if (at(i + 1) < lo || at(i + 1) > hi) return 0;
+    for (std::size_t j = 2; j < size; ++j)
+        if ((at(i + j) & 0xC0) != 0x80) return 0;
+    return size;
+}
+
+/// @brief returns text as valid UTF-8 for an error message, with each invalid byte as
+/// '?' and anything past max_bytes cut on a character boundary and marked "...".
+inline std::string utf8_echo(const std::string &text, const std::size_t max_bytes) {
+    std::string out;
+    for (std::size_t i = 0; i < text.size();) {
+        const auto size = utf8_char_size(text, i);
+        if (out.size() + std::max<std::size_t>(size, 1) > max_bytes) return out + "...";
+        if (size == 0) {
+            out += '?';
+            ++i;
+        } else {
+            out.append(text, i, size);
+            i += size;
+        }
+    }
+    return out;
+}
 }
 
 inline double Size::kilobytes() const {
@@ -945,16 +992,8 @@ inline std::string Size::to_string() const {
 }
 
 inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
-    constexpr std::size_t max_echo = 64;
     const auto invalid = [&text](const std::string &reason) {
-        auto echo = text;
-        if (text.size() > max_echo) {
-            std::size_t cut = max_echo;
-            // Back up off UTF-8 continuation bytes so the echo stays valid UTF-8.
-            while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80)
-                --cut;
-            echo = text.substr(0, cut) + "...";
-        }
+        const auto echo = details::utf8_echo(text, 64);
         return std::pair{
             Size(),
             errors::Error(errors::VALIDATION, "invalid size '" + echo + "': " + reason)

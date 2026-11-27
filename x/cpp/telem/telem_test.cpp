@@ -1525,6 +1525,26 @@ TEST(SizeTests, testParseErrorTruncatesOnCharacterBoundary) {
     ASSERT_TRUE(err.data.contains("'" + std::string(63, 'x') + "...'"));
 }
 
+/// @brief it should replace invalid UTF-8 in a short input when it echoes it in an
+/// error.
+TEST(SizeTests, testParseErrorReplacesInvalidUTF8) {
+    for (const auto *text: {"1\xff", "\xc0\xaf", "4 \xed\xa0\x80", "1\xd0"}) {
+        SCOPED_TRACE(text);
+        json::Parser parser(json::json{{"m", std::string(text)}});
+        parser.field<Size>("m");
+        const auto err = parser.error();
+        ASSERT_TRUE(err.matches(errors::VALIDATION));
+    }
+    const auto [_, err] = Size::parse("1\xff");
+    ASSERT_TRUE(err.data.starts_with("invalid size '1?'"));
+}
+
+/// @brief it should keep valid multi-byte characters when it echoes an input.
+TEST(SizeTests, testParseErrorKeepsValidUTF8) {
+    const auto [_, err] = Size::parse("4 \xd0\x9c\xd0\x91");
+    ASSERT_TRUE(err.data.starts_with("invalid size '4 \xd0\x9c\xd0\x91'"));
+}
+
 /// @brief it should reject sizes beyond an int64.
 TEST(SizeTests, testParseOverflow) {
     ASSERT_OCCURRED_AS_P(Size::parse("9223372036854775808"), errors::VALIDATION);
