@@ -500,8 +500,8 @@ var _ = Describe("Read task", func() {
 	failFetch := func(ctx context.Context, topic string) {
 		GinkgoHelper()
 		id := topicID(ctx, producer, topic)
-		cluster.ControlKey(
-			int16(kmsg.Fetch),
+		control(
+			kmsg.Fetch,
 			func(req kmsg.Request) (kmsg.Response, error, bool) {
 				fetch, ok := req.(*kmsg.FetchRequest)
 				if !ok {
@@ -690,11 +690,11 @@ var _ = Describe("Read task", func() {
 				Device: dev.Key,
 				Topics: oneTopic(topic, single(ctx, stampedFields(index, data))),
 			})
-			cluster.Fault(kfake.Fault{
+			DeferCleanup(cluster.Fault(kfake.Fault{
 				Keys:  []kmsg.Key{kmsg.JoinGroup},
 				Group: "kafka-" + t.Key.String(),
 				Err:   kerr.GroupAuthorizationFailed,
-			})
+			}).Remove)
 			start(ctx, dt, t)
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx, t)
@@ -1143,8 +1143,8 @@ var _ = Describe("Read task", func() {
 		// of both is served. A response with no session makes the next fetch name them
 		// all.
 		id := topicID(ctx, producer, topic)
-		cluster.ControlKey(
-			int16(kmsg.Fetch),
+		control(
+			kmsg.Fetch,
 			func(req kmsg.Request) (kmsg.Response, error, bool) {
 				fetch, ok := req.(*kmsg.FetchRequest)
 				if !ok {

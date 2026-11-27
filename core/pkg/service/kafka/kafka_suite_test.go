@@ -190,7 +190,8 @@ func toJSON(v any, opts ...json.Options) msgpack.EncodedJSON {
 	return m
 }
 
-// createDevice creates a Kafka cluster device with props on the embedded rack.
+// createDevice creates a Kafka cluster device with props on the embedded rack, and
+// deletes it when the spec ends.
 func createDevice(ctx context.Context, props kafka.Properties) device.Device {
 	GinkgoHelper()
 	dev := device.Device{
@@ -206,6 +207,11 @@ func createDevice(ctx context.Context, props kafka.Properties) device.Device {
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return deviceSvc.NewWriter(tx).Create(ctx, &dev)
 	})).To(Succeed())
+	DeferCleanup(func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return deviceSvc.NewWriter(tx).Delete(ctx, dev.Key)
+		})).To(Succeed())
+	})
 	return dev
 }
 
@@ -258,15 +264,20 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	return t
 }
 
-// taskStatus retrieves the status of t.
+// taskStatus retrieves the status of t, which must exist.
 func taskStatus(ctx context.Context, t task.Task) task.Status {
 	GinkgoHelper()
+	return MustSucceed(retrieveTaskStatus(ctx, t))
+}
+
+// retrieveTaskStatus retrieves the status of t.
+func retrieveTaskStatus(ctx context.Context, t task.Task) (task.Status, error) {
 	var stat task.Status
-	Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+	err := statusSvc.NewRetrieve[task.StatusDetails]().
 		Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
 		Entry(&stat).
-		Exec(ctx, db)).To(Succeed())
-	return stat
+		Exec(ctx, db)
+	return stat, err
 }
 
 // deviceStatus retrieves the status of dev.
@@ -437,6 +448,23 @@ func topicID(ctx context.Context, cl *kgo.Client, topic string) [16]byte {
 	res := MustSucceed(req.RequestWith(ctx, cl))
 	Expect(res.Topics).To(HaveLen(1))
 	return res.Topics[0].TopicID
+}
+
+// control runs fn on requests of key to the suite cluster, as kfake.Cluster.ControlKey
+// does, until the spec ends.
+func control(key kmsg.Key, fn func(kmsg.Request) (kmsg.Response, error, bool)) {
+	var ended atomic.Bool
+	DeferCleanup(func() { ended.Store(true) })
+	cluster.ControlKey(
+		key.Int16(),
+		func(req kmsg.Request) (kmsg.Response, error, bool) {
+			if ended.Load() {
+				cluster.DropControl()
+				return nil, nil, false
+			}
+			return fn(req)
+		},
+	)
 }
 
 // cutConnections closes each connection that sends a request to broker until restore

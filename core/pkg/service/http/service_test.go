@@ -475,7 +475,7 @@ var _ = Describe("Service", func() {
 		func(ctx SpecContext, rate float64) {
 			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
-			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			})).Error().To(MatchError("rate: must be greater than 0"))
 		},
 		Entry("zero", 0.0),
 		Entry("negative", -1.0),
@@ -485,7 +485,7 @@ var _ = Describe("Service", func() {
 		func(ctx SpecContext, rate float64) {
 			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
-			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			})).Error().To(MatchError("rate: must be greater than 0"))
 		},
 		Entry("zero", 0.0),
 		Entry("negative", -1.0),

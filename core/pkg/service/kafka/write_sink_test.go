@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
@@ -159,53 +160,37 @@ var _ = Describe("Write task with targets", func() {
 			To(Equal(map[string]any{"value": 4.0}))
 	})
 
-	It("Should refuse a config from before ICDs, which has channels and no targets",
-		func(ctx SpecContext) {
+	DescribeTable("Should refuse a task with no enabled target",
+		func(ctx SpecContext, cfg func(context.Context, device.Key) any) {
 			dev := createDevice(ctx, clusterProperties())
-			t := newTask(ctx, kafka.WriteTaskType, map[string]any{
-				"device":     dev.Key,
-				"topic":      uniqueTopic(),
-				"record_key": "channel_name",
-				"channels": []any{map[string]any{
-					"key":     "c1",
-					"channel": createVirtual(ctx).Key(),
-				}},
-			})
-			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(
-					ContainSubstring("targets: the task has no enabled targets"),
-				),
+			t := newTask(ctx, kafka.WriteTaskType, cfg(ctx, dev.Key))
+			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(
+				"targets: the task has no enabled targets: validation error",
 			))
 		},
+		Entry("a config from before ICDs, which has channels and no targets",
+			func(ctx context.Context, dev device.Key) any {
+				return map[string]any{
+					"device":     dev,
+					"topic":      uniqueTopic(),
+					"record_key": "channel_name",
+					"channels": []any{map[string]any{
+						"key":     "c1",
+						"channel": createVirtual(ctx).Key(),
+					}},
+				}
+			},
+		),
+		Entry("a disabled target", func(ctx context.Context, dev device.Key) any {
+			ch := createVirtual(ctx)
+			wt := writeTarget(uniqueTopic(), ic, setpoint, command(setpoint, 0, ch))
+			wt.Disabled = true
+			return kafka.WriteConfig{Device: dev, Targets: []kafka.WriteTarget{wt}}
+		}),
+		Entry("no targets", func(_ context.Context, dev device.Key) any {
+			return kafka.WriteConfig{Device: dev, Targets: []kafka.WriteTarget{}}
+		}),
 	)
-
-	It("Should refuse a task with no enabled target", func(ctx SpecContext) {
-		ch := createVirtual(ctx)
-		dev := createDevice(ctx, clusterProperties())
-		wt := writeTarget(uniqueTopic(), ic, setpoint, command(setpoint, 0, ch))
-		wt.Disabled = true
-		t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
-			Device:  dev.Key,
-			Targets: []kafka.WriteTarget{wt},
-		})
-		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("targets: the task has no enabled targets")),
-		))
-	})
-
-	It("Should refuse a task with no targets", func(ctx SpecContext) {
-		dev := createDevice(ctx, clusterProperties())
-		t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
-			Device:  dev.Key,
-			Targets: []kafka.WriteTarget{},
-		})
-		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("targets: the task has no enabled targets")),
-		))
-	})
 
 	const nameRule = "must be 1 to 249 letters, digits, periods, underscores, or hyphens"
 
@@ -223,7 +208,7 @@ var _ = Describe("Write task with targets", func() {
 			})
 			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("targets.1.topic: "+problem)),
+				MatchError("targets.1.topic: "+problem),
 			))
 		},
 		Entry("no topic", "", "required"),

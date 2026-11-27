@@ -69,13 +69,14 @@ var _ = Describe("Discover", func() {
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		t = newTask(ctx, kafka.ScanTaskType, map[string]any{})
+		t = newTask(ctx, kafka.ScanTaskType, map[string]any{"disabled": true})
 		dt = MustSucceed(newFactory().ConfigureTask(ctx, t, driver.NoCommand))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	})
 
 	// command runs a command of typ with args, decodes the data that answers it into
-	// res, and returns the status that answers it.
+	// res, and returns the status that answers it. The scan task is not running, so it
+	// has no status until the answer.
 	command := func(ctx context.Context, typ string, args, res any) task.Status {
 		GinkgoHelper()
 		key := uuid.New().String()
@@ -84,7 +85,9 @@ var _ = Describe("Discover", func() {
 		})).To(Succeed())
 		var stat task.Status
 		Eventually(func(g Gomega) {
-			stat = taskStatus(ctx, t)
+			var err error
+			stat, err = retrieveTaskStatus(ctx, t)
+			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(stat.Details.Cmd).To(Equal(key))
 		}).WithTimeout(15 * time.Second).Should(Succeed())
 		if stat.Variant == status.VariantSuccess {
