@@ -21,6 +21,8 @@ import (
 	apiserver "github.com/synnaxlabs/synnax/pkg/api/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
@@ -38,8 +40,9 @@ var (
 	serverType = resource.ID{Type: resource.TypeOpcuaServer}
 	statusType = resource.ID{Type: resource.TypeStatus}
 	// channelType lets a user bind any channel, which a write needs to use it.
-	channelType = resource.ID{Type: resource.TypeChannel}
-	allWrites   = []access.Action{
+	channelType     = resource.ID{Type: resource.TypeChannel}
+	certificateType = resource.ID{Type: resource.TypeCertificate}
+	allWrites       = []access.Action{
 		access.ActionCreate,
 		access.ActionUpdate,
 		access.ActionDelete,
@@ -555,6 +558,73 @@ var _ = Describe("Service", func() {
 				apiserver.DeleteRequest{Keys: []server.Key{s.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 			Expect(retrieveServer(ctx, s.Key).Key).To(Equal(s.Key))
+		})
+	})
+
+	Describe("Pin", func() {
+		firstUse := func(s *server.Server) {
+			var c server.SecuredChannel
+			c.SetDefaults()
+			c.Policy = server.SecurityPolicyBasic256Sha256
+			s.Connection.Security = server.Security{
+				Variant: server.SignSecurity{SecuredChannel: c},
+			}
+		}
+		createCertificate := func(ctx SpecContext) certificate.Key {
+			GinkgoHelper()
+			certPEM, _ := certtestutil.NewPair()
+			c := certificate.Certificate{Variant: certificate.StoredCertificate{
+				Base: certificate.Base{Name: "PLC"},
+				Pem:  certPEM,
+			}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Certificate.NewWriter(tx).Set(ctx, &c, nil)
+			})).To(Succeed())
+			return c.Base().Key
+		}
+
+		request := func(s server.Server, cert certificate.Key) apiserver.PinRequest {
+			return apiserver.PinRequest{
+				Key:         s.Key,
+				Endpoint:    s.Connection.Endpoint,
+				Policy:      server.SecurityPolicyBasic256Sha256,
+				Certificate: cert,
+			}
+		}
+
+		It("Should pin the certificate", func(ctx SpecContext) {
+			s := createServer(ctx, firstUse)
+			cert := createCertificate(ctx)
+			grantWrites(ctx, s.Rack)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, certificateType)
+			MustSucceed(pin(testutil.AuthedCtx(ctx, u), request(s, cert)))
+			security := retrieveServer(ctx, s.Key).Connection.Security.Variant
+			sign, ok := security.(server.SignSecurity)
+			Expect(ok).To(BeTrue())
+			Expect(sign.ServerTrust.Variant).
+				To(Equal(server.PinnedServerTrust{Certificate: cert}))
+		})
+
+		It("Should reject the request when update is not granted", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx, firstUse)
+			cert := createCertificate(ctx)
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, certificateType)
+			Expect(pin(testutil.AuthedCtx(ctx, u), request(s, cert))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key)).To(Equal(s))
+		})
+
+		It("Should reject the request when the certificate is not retrievable", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx, firstUse)
+			cert := createCertificate(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(pin(testutil.AuthedCtx(ctx, u), request(s, cert))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key)).To(Equal(s))
 		})
 	})
 })

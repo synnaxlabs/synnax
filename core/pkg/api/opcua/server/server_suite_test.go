@@ -46,6 +46,7 @@ var (
 	create   freighter.UnaryHandler[apiserver.CreateRequest, apiserver.CreateResponse]
 	update   freighter.UnaryHandler[apiserver.UpdateRequest, apiserver.UpdateResponse]
 	del      freighter.UnaryHandler[apiserver.DeleteRequest, struct{}]
+	pin      freighter.UnaryHandler[apiserver.PinRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apiserver.RetrieveRequest,
 		apiserver.RetrieveResponse,
@@ -69,6 +70,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	create = bind.Write(binder, apiSvc.Create)
 	update = bind.Write(binder, apiSvc.Update)
 	del = bind.Write(binder, apiSvc.Delete)
+	pin = bind.Write(binder, apiSvc.Pin)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
 })
 

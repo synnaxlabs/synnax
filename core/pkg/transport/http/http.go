@@ -662,6 +662,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/delete",
 		),
+		OPCUAServerPin: unary[server.PinRequest, struct{}](
+			router,
+			"/api/v1/opcua/server/pin",
+		),
 
 		// ACCESS
 		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](

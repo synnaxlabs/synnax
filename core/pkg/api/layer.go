@@ -280,6 +280,7 @@ type Transport struct {
 	OPCUAServerRetrieve freighter.UnaryServer[server.RetrieveRequest, server.RetrieveResponse]
 	OPCUAServerUpdate   freighter.UnaryServer[server.UpdateRequest, server.UpdateResponse]
 	OPCUAServerDelete   freighter.UnaryServer[server.DeleteRequest, struct{}]
+	OPCUAServerPin      freighter.UnaryServer[server.PinRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -615,6 +616,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.OPCUAServerRetrieve,
 		t.OPCUAServerUpdate,
 		t.OPCUAServerDelete,
+		t.OPCUAServerPin,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -919,6 +921,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.OPCUAServerRetrieve.BindHandler(bind.Read(l.binder, l.OPCUAServer.Retrieve))
 	t.OPCUAServerUpdate.BindHandler(bind.Write(l.binder, l.OPCUAServer.Update))
 	t.OPCUAServerDelete.BindHandler(bind.Write(l.binder, l.OPCUAServer.Delete))
+	t.OPCUAServerPin.BindHandler(bind.Write(l.binder, l.OPCUAServer.Pin))
 
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(bind.Write(l.binder, l.Policy.Create))
