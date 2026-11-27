@@ -19,6 +19,7 @@ export interface StreamReceiver<RS extends z.ZodType> {
    * @throws freighter.EOF: if the server closed the stream nominally.
    * @throws freighter.ReceiveOverflow: if the unread responses passed the transport's
    * limit. The stream is closed.
+   * @throws freighter.StreamClosed: if the client called close().
    * @throws Error: the error the server returned when it closed the stream abnormally,
    * a transport error if the transport itself failed, or a codec error if a response
    * does not decode.
