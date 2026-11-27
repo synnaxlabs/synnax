@@ -25,9 +25,9 @@ type Writer struct {
 	tx  gorp.Tx
 }
 
-// Create links account to u and returns the link. It returns [ErrProviderLinked] when u
-// already has a link for the account's issuer, and [ErrAccountLinked] when another
-// user holds the account.
+// Create links account to u and returns the link. It returns a validation error when u
+// already has a link for the account's issuer or another user holds the account.
+// [ErrorProvider] gives each case its own wire type.
 func (w Writer) Create(
 	ctx context.Context,
 	u user.Key,
@@ -59,7 +59,7 @@ func (w Writer) Delete(ctx context.Context, keys ...LinkKey) error {
 		Exec(ctx, w.tx)
 }
 
-// refuseLinked returns ErrProviderLinked or ErrAccountLinked when account cannot link
+// refuseLinked returns errProviderLinked or errAccountLinked when account cannot link
 // to u.
 func (w Writer) refuseLinked(ctx context.Context, u user.Key, account Account) error {
 	held, err := w.svc.NewRetrieve().
@@ -70,7 +70,7 @@ func (w Writer) refuseLinked(ctx context.Context, u user.Key, account Account) e
 		return err
 	}
 	if held {
-		return ErrProviderLinked
+		return errProviderLinked
 	}
 	taken, err := w.svc.NewRetrieve().
 		Where(MatchIssuers(account.Issuer)).
@@ -80,7 +80,7 @@ func (w Writer) refuseLinked(ctx context.Context, u user.Key, account Account) e
 		return err
 	}
 	if taken {
-		return ErrAccountLinked
+		return errAccountLinked
 	}
 	return nil
 }

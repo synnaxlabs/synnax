@@ -186,14 +186,14 @@ var _ = Describe("OIDC links", func() {
 			Expect(linkOIDC(
 				authed(ctx, rootToken),
 				apioidc.LinkRequest{Credentials: grantAccount(sub)},
-			)).Error().To(MatchError(oidc.ErrAccountLinked))
+			)).Error().To(MatchError(ContainSubstring("provider account is linked to another user")))
 		})
 		It("Should refuse a second account of one provider", func(ctx SpecContext) {
 			linkAccount(ctx, bobToken, uuid.New().String())
 			Expect(linkOIDC(
 				authed(ctx, bobToken),
 				apioidc.LinkRequest{Credentials: grantAccount(uuid.New().String())},
-			)).Error().To(MatchError(oidc.ErrProviderLinked))
+			)).Error().To(MatchError(ContainSubstring("user already has an account of the provider linked")))
 		})
 	})
 

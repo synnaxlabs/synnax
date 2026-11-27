@@ -20,26 +20,20 @@ import (
 var _ = Describe("ErrorProvider", func() {
 	codec := errors.NewCodec(oidc.ErrorProvider(), validate.ErrorProvider())
 	DescribeTable(
-		"Should round trip a link error ahead of the validation provider",
-		func(err error, errType, data string) {
-			pld := codec.Encode(err, false)
-			Expect(pld).To(Equal(errors.Payload{Type: errType, Data: data}))
-			decoded := codec.Decode(pld)
-			Expect(decoded).To(MatchError(err))
-			Expect(decoded).To(MatchError(validate.ErrValidation))
+		"Should round trip a link refusal ahead of the validation provider",
+		func(pld errors.Payload) {
+			err := codec.Decode(pld)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(codec.Encode(err, false)).To(Equal(pld))
 		},
-		Entry(
-			"provider linked",
-			oidc.ErrProviderLinked,
-			"sy.validation.provider_linked",
-			"user already has an account of the provider linked",
-		),
-		Entry(
-			"account linked",
-			oidc.ErrAccountLinked,
-			"sy.validation.account_linked",
-			"provider account is linked to another user",
-		),
+		Entry("provider linked", errors.Payload{
+			Type: "sy.validation.provider_linked",
+			Data: "user already has an account of the provider linked",
+		}),
+		Entry("account linked", errors.Payload{
+			Type: "sy.validation.account_linked",
+			Data: "provider account is linked to another user",
+		}),
 	)
 	It("Should leave other errors to the next provider", func() {
 		Expect(codec.Encode(validate.ErrValidation, false).Type).

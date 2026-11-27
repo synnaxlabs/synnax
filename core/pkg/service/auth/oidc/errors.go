@@ -15,14 +15,11 @@ import (
 )
 
 var (
-	// ErrProviderLinked is returned when a user already has a link for the issuer of
-	// an account.
-	ErrProviderLinked = errors.Wrap(
+	errProviderLinked = errors.Wrap(
 		validate.ErrValidation,
 		"user already has an account of the provider linked",
 	)
-	// ErrAccountLinked is returned when a provider account is linked to another user.
-	ErrAccountLinked = errors.Wrap(
+	errAccountLinked = errors.Wrap(
 		validate.ErrValidation,
 		"provider account is linked to another user",
 	)
@@ -35,10 +32,10 @@ const (
 
 func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 	data := errors.MessageWithout(err, validate.ErrValidation)
-	if errors.CheapIs(err, ErrProviderLinked) {
+	if errors.CheapIs(err, errProviderLinked) {
 		return errors.Payload{Type: providerLinkedType, Data: data}, true
 	}
-	if errors.CheapIs(err, ErrAccountLinked) {
+	if errors.CheapIs(err, errAccountLinked) {
 		return errors.Payload{Type: accountLinkedType, Data: data}, true
 	}
 	return errors.Payload{}, false
@@ -47,15 +44,16 @@ func encode(_ *errors.Codec, err error) (errors.Payload, bool) {
 func decode(_ *errors.Codec, p errors.Payload) (error, bool) {
 	switch p.Type {
 	case providerLinkedType:
-		return ErrProviderLinked, true
+		return errProviderLinked, true
 	case accountLinkedType:
-		return ErrAccountLinked, true
+		return errAccountLinked, true
 	}
 	return nil, false
 }
 
-// ErrorProvider encodes and decodes link errors for an errors.Codec. It must come
-// before the validation provider, which would encode them as plain validation errors.
+// ErrorProvider encodes and decodes the validation errors that refuse a link, as types
+// sy.validation.provider_linked and sy.validation.account_linked. It must come before
+// the validation provider, which would encode them as plain validation errors.
 func ErrorProvider() errors.Provider {
 	return errors.Provider{Encode: encode, Decode: decode}
 }
