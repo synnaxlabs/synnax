@@ -332,7 +332,11 @@ x::errors::Error read_certificates(
         auto [login, err] = reader.read_certificate(cfg.login_certificate_item, grant);
         if (err) return err;
         auto [id, id_err] = certificate::Identity::parse(login.pem, login.private_key);
-        if (id_err) return id_err;
+        if (id_err)
+            return x::errors::Error(
+                errors::LOGIN_CERTIFICATE_INVALID,
+                "The login certificate is invalid: " + id_err.data()
+            );
         cfg.login_identity = std::move(id);
     }
     if (!cfg.uses_client_certificate()) return x::errors::NIL;

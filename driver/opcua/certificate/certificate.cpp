@@ -51,7 +51,7 @@ Identity::parse(const std::string &certificate, const std::string &private_key) 
             Identity{},
             x::errors::Error(
                 errors::CLIENT_CERTIFICATE_INVALID,
-                "The client certificate has no private key."
+                "The certificate has no private key."
             )
         };
     if (const auto match_err = cert.check_key(private_key))

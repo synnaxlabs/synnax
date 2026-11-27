@@ -69,3 +69,19 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "credentials_test",
+    srcs = ["credentials_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":connection",
+        "//client/cpp/testutil",
+        "//driver/opcua/errors",
+        "//driver/secret",
+        "//driver/secret/testutil",
+        "//x/cpp/testutil",
+        "//x/cpp/x509/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

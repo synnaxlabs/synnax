@@ -67,8 +67,8 @@ bool server_answered(const x::errors::Error &err) {
 }
 
 /// @brief reads the password and certificates of a connection that a command sends.
-/// Only a grant may give the password or the client certificate, so a command cannot
-/// send a saved credential to a server of its choice.
+/// Only a grant may give the password, the client certificate, or the login
+/// certificate, so a command cannot send a saved credential to a server of its choice.
 x::errors::Error read_sent_items(
     connection::Config &cfg,
     const secret::Reader &reader,
@@ -85,6 +85,12 @@ x::errors::Error read_sent_items(
             return x::errors::Error(
                 x::errors::VALIDATION,
                 "The command sends a connection with a client certificate, so it must "
+                "carry a grant."
+            );
+        if (!cfg.login_certificate_item.is_nil())
+            return x::errors::Error(
+                x::errors::VALIDATION,
+                "The command sends a connection with a login certificate, so it must "
                 "carry a grant."
             );
     }

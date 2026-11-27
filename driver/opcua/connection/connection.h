@@ -158,9 +158,9 @@ private:
 /// it names, when it names them. It reads no private key of the server certificate.
 /// @param grant a spent grant, as for secret::Reader::read_certificate. It applies to
 /// the client and login certificates only, since the server certificate is public.
-/// @returns errors::CLIENT_CERTIFICATE_INVALID if the client or login certificate
-/// cannot be parsed, has no private key, or its key does not match it, or the error of
-/// a read.
+/// @returns errors::CLIENT_CERTIFICATE_INVALID or errors::LOGIN_CERTIFICATE_INVALID if
+/// the client or login certificate cannot be parsed, has no private key, or its key
+/// does not match it, or the error of a read.
 [[nodiscard]] x::errors::Error read_certificates(
     Config &cfg,
     const secret::Reader &reader,
