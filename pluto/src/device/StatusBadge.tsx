@@ -20,24 +20,27 @@ export interface StatusBadgeProps {
 
 /**
  * Says whether the Driver can reach a device, in the color of its status. A tooltip
- * shows the status message and description.
+ * shows the status message and description. A device with no status, or with the
+ * disabled status that the Core gives a device no Driver has reached, shows a gray
+ * "Unknown" badge with no tooltip.
  */
 export const StatusBadge = ({
   status,
   tooltipLocation = "bottom",
 }: StatusBadgeProps): ReactElement => {
-  const variant = status?.variant ?? "disabled";
+  if (status == null || status.variant === "disabled")
+    return <Badge.Badge>Unknown</Badge.Badge>;
   return (
     <Tooltip.Dialog location={tooltipLocation}>
       <Status.Summary
-        variant={variant}
-        message={status?.message ?? "Device status unknown"}
-        description={status?.description}
+        variant={status.variant}
+        message={status.message}
+        description={status.description}
         hideIcon
         level="small"
       />
-      <Badge.Badge status={variant}>
-        {status?.details.connected === true ? "Connected" : "Disconnected"}
+      <Badge.Badge status={status.variant}>
+        {status.details.connected ? "Connected" : "Disconnected"}
       </Badge.Badge>
     </Tooltip.Dialog>
   );
