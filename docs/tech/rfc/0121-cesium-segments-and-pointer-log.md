@@ -86,6 +86,13 @@ last segment is dropped. `CreateChannel`, `RetrieveChannels`, and `RenameChannel
 (`cesium/channel.go:24`, `:40`, `:83`), and so do the calls to storage on create and
 rename (`core/pkg/distribution/channel/create.go:66`, `rename.go:27`).
 
+- **Create checks**: Phase 8 moves the checks that `CreateChannel` runs on a stored
+  channel (`cesium/internal/channel/channel.go:114-138`, `cesium/channel.go:154`,
+  `:169-185`) into the validation of the channel service, with the same messages and one
+  spec per message: a data channel names an index, an index channel is of type timestamp
+  and names no other index, and the named index exists and is an index. The existence
+  check runs under the lock of §4.1 step 2. RFC 0120 Phase 44 drops the first check, and
+  Phase 50 drops the rest.
 - **Channel lookup**: The framer reads channels from Cesium today. It gains a lookup
   that the channel service provides: for a key, the declared type (RFC 0120), the
   live-only flag, and the index key until RFC 0120 Phase 50 retires it. The framer opens
@@ -1360,16 +1367,17 @@ shows every read within 15% of `main` in time, bytes, and allocations, at 1 and 
 readers (D-459). Phase 8 builds parts, versions 0 and 2, tombstones, compaction, the
 conversion with a crash test at each of its steps, the backup change, `synnax repair`
 with its two ways on (§6.0, §9.0), the Core's repair at start, and makes the new layout
-the only one that opens. It then removes `CreateChannel`, the channel list, and the
-channel file (§4.0, §5.0). RFC 0120 Phase 24 leases clock keys, Phase 25 opens each
-writer on groups (§4.2, §5.8), Phase 26 moves often paused keys, Phase 27 ends a clock
-with its last user (§4.1), and Phase 53 deletes the old code, except the old-layout
-reader of the conversion. Phase 5 comes after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4
-and 18 come after Phase 6, Phases 2 to 4 land before Phase 8, and RFC 0120 Phases 24 to
-54 come after Phase 8. Phases 6 and 8 are the exceptions to one PR per phase: each lands
-as its reviewed pieces, one PR of about 2,000 hand-written lines each (D-392), behind
-the open option until the last piece of Phase 8 switches the layout, so each piece
-merges alone and leaves `main` green. Every other phase is one PR.
+the only one that opens. It moves the create checks into the channel service, then
+removes `CreateChannel`, the channel list, and the channel file (§4.0, §5.0). RFC 0120
+Phase 24 leases clock keys, Phase 25 opens each writer on groups (§4.2, §5.8), Phase 26
+moves often paused keys, Phase 27 ends a clock with its last user (§4.1), and Phase 53
+deletes the old code, except the old-layout reader of the conversion. Phase 5 comes
+after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 18 come after Phase 6, Phases 2 to 4
+land before Phase 8, and RFC 0120 Phases 24 to 54 come after Phase 8. Phases 5, 6, and 8
+are the exceptions to one PR per phase. Phase 5 lands as the pieces of SY-6397 (D-454).
+Phases 6 and 8 each land as their reviewed pieces, one PR of about 2,000 hand-written
+lines each (D-392), behind the open option until the last piece of Phase 8 switches the
+layout, so each piece merges alone and leaves `main` green. Every other phase is one PR.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                  | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
