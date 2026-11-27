@@ -258,7 +258,7 @@ The root holds `<g>.log` (the pointer log of generation `g`, 64 MiB), `<g>.head`
 `<p>.part` (a part, with its own identity `p`). A channel directory holds
 `<key>/<S>.seg` (segment `S`), `<key>/<N>.domain` (an old data file, used in place as a
 version 0 segment), `<key>/<S>.chk` (its check file), and `<key>/channel`. The channel
-file replaces `meta.json` on the new layout until Phase 7 removes the channel list
+file replaces `meta.json` on the new layout until Phase 8 removes the channel list
 (§4.0): an 8-byte header (the body length, then a CRC32C of the length and the body over
 a place of kind 6) and the encoded channel. It holds no clock flag (§5.8). `<g>`, `<p>`,
 and `<S>` are 16 lowercase hex digits, and `<key>` is decimal (`cesium/delete.go:66`).
@@ -379,7 +379,7 @@ each cut.
 While an undo can restore the old layout, compaction and progression encoding skip a
 version 0 file, and only a delete that leaves it with nothing live unlinks it. An undo
 restores the old layout only from an update backup taken from a Core older than the
-first release that writes segments, a version constant in the binary that the Phase 7
+first release that writes segments, a version constant in the binary that the Phase 8
 release sets (RFC 0102 §3.1 keeps the newest 3 backups). So at each start the Core lists
 its backups and passes `WithVersion0Rewritable` (NEW, false by default) to `Open` when
 none of them is that old. A backup whose name holds no version (`before-0.61.0`,
@@ -915,7 +915,7 @@ the bad one, so repair loses only the records of the bad frame.
 
 | A pointer needs  | Repair finds it in                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Key, clock, type | The Create record or the segment record of a head or part. With neither: the key from the directory name, and the one type code and clock key under which its full blocks pass, tried over every type code and over the candidate clocks: those of the key's own segments, the key of each orphan, and the clock of the first valid Commit after the damage that names the segment. For a data Commit against stored stamps, that is the clock whose pointers hold its alignment. A data segment also tries the index in its key's channel file, until Phase 7 removes that file. A 32-bit check passes a wrong guess with chance 2^-32, and because CRC32C is linear each other type code has exactly one clock key that passes every block, so the narrow list keeps such keys out, and two passing candidates place nothing |
+| Key, clock, type | The Create record or the segment record of a head or part. With neither: the key from the directory name, and the one type code and clock key under which its full blocks pass, tried over every type code and over the candidate clocks: those of the key's own segments, the key of each orphan, and the clock of the first valid Commit after the damage that names the segment. For a data Commit against stored stamps, that is the clock whose pointers hold its alignment. A data segment also tries the index in its key's channel file, until Phase 8 removes that file. A 32-bit check passes a wrong guess with chance 2^-32, and because CRC32C is linear each other type code has exactly one clock key that passes every block, so the narrow list keeps such keys out, and two passing candidates place nothing |
 | Segment, version | The file name, and the place check: a block passes only with its segment identity, offset, and format version                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | Alignment        | The Commit record. A rebuilt range that no record names takes a fresh alignment number, so it reads as its own stretch and never joins another by mistake                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | Time range       | The Commit record, or the stamps of the clock segment, read from checked blocks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -1033,10 +1033,11 @@ raises `BenchmarkCommit` (commits sync). Every read (full reads, long streamed r
 point reads, and time lookups) stays within 15% of `main`, with an aim of 10%, in time,
 bytes, and allocations per read, with read checks off, at 1 and 8 readers. A run with
 checks on is measured and reported. The block cache splits its lock, so parallel readers
-scale. A live auto-commit writer is as fast as on `main`: write-to-stream latency at
-p50, p99, and max, and throughput, at 1 kHz, on a 25 kHz card, and in a wide frame of
-many channels. The framer's stream stage over `cesium.Iterator` loses nothing against
-today's stream iterator in read time, allocations, bytes, and 8 parallel readers.
+scale (Phase 7). A live auto-commit writer is as fast as on `main`: write-to-stream
+latency at p50, p99, and max, and throughput, at 1 kHz, on a 25 kHz card, and in a wide
+frame of many channels. The framer's stream stage over `cesium.Iterator` loses nothing
+against today's stream iterator in read time, allocations, bytes, and 8 parallel
+readers.
 
 **Read checks**: Writes always store checksums. The reads that serve iterators check
 them only when the Core start flag `--check-reads` (NEW) sets the Cesium option
@@ -1047,7 +1048,7 @@ always check, so no bad block gets a new checksum. Every count that a reader tak
 disk is bounded by the bytes of its range before the reader allocates, so an unchecked
 bad count fails the read and never asks for more memory than the range holds. The flag's
 description says that without it a damaged block returns wrong data with no error.
-Writes do not change, so the flag can change at any start with no stored change. Phase 7
+Writes do not change, so the flag can change at any start with no stored change. Phase 8
 builds it with the read check.
 
 | Path                                           | Target                                                                                                                                                                                                                                                                                                                                                                                  | Napkin sketch                                                                                                                                                                                                                |
@@ -1061,7 +1062,7 @@ builds it with the read check.
 | Cold scan                                      | At least 0.5 × min(`F_read`, `F_crc`)                                                                                                                                                                                                                                                                                                                                                   | One sequential stream per segment                                                                                                                                                                                            |
 | Recovery                                       | At most 3 × bytes read / min(`F_read`, `F_crc`)                                                                                                                                                                                                                                                                                                                                         | A head of a few MB and at most 64 MiB of log. Replay keeps the last slot list of each clock, so a slot is a compare and a store                                                                                              |
 | Switch                                         | At most 3 × (bytes written and read: new parts, the head, and the heads that `Clean` reads) / min(`F_write`, `F_crc`)                                                                                                                                                                                                                                                                   | One walk over the sorted records of the parts and the state, with no map per record. About 26 MB, so about 50 ms, at 100,000 keys of 5 segments each                                                                         |
-| Conversion                                     | At most 2 × (old metadata bytes / `F_read` + (part bytes + head bytes + 2 × log size) / `F_write` + old files × `F_files(32)` / 1,000 + stamp reads × `F_page`), measured in Phase 7. Stamp reads: 2 per old index pointer, up to 27 per data piece that starts inside an index pointer, and 1 per piece that ends inside one. 10,000 channels convert in under a minute on a real disk | 40 million old pointers are 1 GB to read and 1.5 GB of parts. One sync per old file through the pool, most of them clean                                                                                                     |
+| Conversion                                     | At most 2 × (old metadata bytes / `F_read` + (part bytes + head bytes + 2 × log size) / `F_write` + old files × `F_files(32)` / 1,000 + stamp reads × `F_page`), measured in Phase 8. Stamp reads: 2 per old index pointer, up to 27 per data piece that starts inside an index pointer, and 1 per piece that ends inside one. 10,000 channels convert in under a minute on a real disk | 40 million old pointers are 1 GB to read and 1.5 GB of parts. One sync per old file through the pool, most of them clean                                                                                                     |
 | Compaction, progression encoding               | `BenchmarkCommit` p99 with a rewrite running: at most 1.2 × its value alone                                                                                                                                                                                                                                                                                                             | A background copy under a rate limit                                                                                                                                                                                         |
 
 ### 8.0 1,000 dirty files per interval
@@ -1175,7 +1176,7 @@ warns and asks before it runs; `--yes` skips the question, and with no answer or
 terminal the undo refuses. The old binary's undo cannot ask: `Open` reports that it
 converted (`DB.Identity`), and once its status service opens the Core raises a warning
 status that names the cost of an undo. The release notes say it too. An update that
-keeps the Cesium formats backs up and restores no Cesium file: from Phase 7, a restore
+keeps the Cesium formats backs up and restores no Cesium file: from Phase 8, a restore
 accepts a backup with no Cesium files and runs no `RestoreMeta` for it, and it still
 runs `RestoreMeta` for a backup from a release older than the first that writes
 segments. Its undo leaves the live state, and the start check of §4.1 handles the keys
@@ -1245,8 +1246,8 @@ opens one Cesium writer per live clock, for the session that holds the clock, ov
 session's keys on it. A handoff of the clock moves its keys to the new holder's writer
 through `DB.Handoff` (§4.2), as one event, until RFC 0120 Phase 38 gives each command
 channel a clock of its own. The old layout keeps each session's own Cesium writer and
-old Cesium's claim join until Phase 7. The framer reads the layout from one storage
-config field, which goes when Phase 7 makes the new layout the only one. The predicate
+old Cesium's claim join until Phase 8. The framer reads the layout from one storage
+config field, which goes when Phase 8 makes the new layout the only one. The predicate
 stays for data channels that the holder lacks until RFC 0120 Phase 38. One clock per
 writer and the refusal of an overlapping writer (§5.8) arrive with Phase 6, on the
 pointer log. Phase 6 builds the log, heads, `Sync` and the framer's call to it,
@@ -1254,6 +1255,10 @@ recovery, the state owner, the handle budget, version 1 segments, and replay fro
 key, behind a Cesium open option that keeps the old layout the default. RFC 0120 Phases
 2 to 4 then build takeover at open, one number per clock per session with continued
 stretches, and the commit-first handoff (§5.7, §5.8) on the pointer log. Phase 7 builds
+D-459's read fixes: with checks off, a search step reads only the 8 bytes it needs, not
+the whole block; the block cache splits its lock; and the cause of the `ReadSamples` gap
+is found and fixed. Phase 8 merges only after a box run shows every read within 15% of
+`main` in time, bytes, and allocations, at 1 and 8 readers (D-459). Phase 8 builds
 parts, versions 0 and 2, tombstones, compaction, the conversion with a crash test at
 each of its steps, the backup change, `synnax repair` with its two ways on (§6.0, §9.0),
 the Core's repair at start, and makes the new layout the only one that opens. It then
@@ -1262,8 +1267,11 @@ Phase 22 leases clock keys, Phase 23 opens each writer on groups (§4.2, §5.8),
 moves often paused keys, Phase 25 ends a clock with its last user (§4.1), and Phase 42
 deletes the old code, except the old-layout reader of the conversion. Phase 5 comes
 after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 17 come after Phase 6, Phases 2 to 4
-land before Phase 7, and RFC 0120 Phases 22 to 42 come after Phase 7. Each phase lands
-as several pieces, grouped into pull requests of about 2,000 hand-written lines.
+land before Phase 8, and RFC 0120 Phases 22 to 42 come after Phase 8. Phases 6 and 8 are
+the exceptions to one PR per phase: each lands as its reviewed pieces, one PR of about
+2,000 hand-written lines each (D-392), behind the open option until the last piece of
+Phase 8 switches the layout, so each piece merges alone and leaves `main` green. Every
+other phase is one PR.
 
 | Phase | Scope                                                      | Touches                                                                                                                                                                  | Depends on |
 | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
@@ -1273,7 +1281,8 @@ as several pieces, grouped into pull requests of about 2,000 hand-written lines.
 | 4     | Add Pebble crash tests, decoder fuzzing, and invariants    | `cesium`, `x/go/kv/pebblekv`, `x/go/io/fs/testutil/fault`                                                                                                                | 3          |
 | 5     | Move Cesium sessions to the framer and fix channel deletes | `cesium`, `cesium/internal/control`, `x/go/telem`, `core/pkg/distribution/framer`, `core/pkg/distribution/control`, `core/pkg/service/channel`, `gorp`, `core/cmd/purge` | 1          |
 | 6     | Commit Cesium writes through one pointer log               | `cesium/internal`, `cesium`, `core/pkg/distribution/framer`, `core/pkg/storage`                                                                                          | 3, 4, 5    |
-| 7     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`, `core/cmd/update`      | 6          |
+| 7     | Fix the read costs that D-459 names                        | `cesium/internal/segment`, `cesium`                                                                                                                                      | 6          |
+| 8     | Convert Cesium to its new segment format                   | `cesium/internal`, `cesium`, `core/pkg/service/channel`, `core/pkg/storage`, `core/cmd/start`, `core/cmd/repair`, `core/pkg/distribution/framer`, `core/cmd/update`      | 6, 7       |
 
 ## 13 Resolved decisions
 
@@ -1322,7 +1331,7 @@ as several pieces, grouped into pull requests of about 2,000 hand-written lines.
 12. **Cesium picks each clock at open**: Continuation (§5.8) keeps one clock for a task
     restart, a changed config, and a script loop. Rejected: a clock key that the caller
     names, which every task config must then store, and a `Line` flag in the channel
-    file, which Phase 7 removes.
+    file, which Phase 8 removes.
 13. **The old holder commits first at a handoff**: Rejected: a `Pending` that waits for
     the new clock's stamps, with `adopt` across handoffs (D-313, D-389), which parks
     samples across a move and drops them at `Close`.
