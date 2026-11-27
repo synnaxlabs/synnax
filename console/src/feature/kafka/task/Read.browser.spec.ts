@@ -1151,6 +1151,131 @@ describe("Kafka read form", () => {
       });
     });
 
+    describe("last payload", () => {
+      const TEXT: icd.Message["payload"] = {
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [],
+      };
+
+      /** @returns a sampled record of the key, at time. */
+      const sampledRecord = (
+        key: string,
+        time: number,
+        format: string,
+        value: string,
+      ) => ({
+        partition: 0,
+        offset: time,
+        key,
+        time,
+        headers: [],
+        format,
+        payload: value,
+      });
+
+      /** @returns the answer of a sample of the topic, with its overrides. */
+      const sampledOf = (topic: object) => ({
+        data: {
+          topics: [
+            {
+              topic: TOPIC,
+              records: [],
+              shapes: [],
+              error: "",
+              missing: false,
+              ...topic,
+            },
+          ],
+          truncated: false,
+        },
+      });
+
+      /**
+       * Renders a record of the key whose message has the payload, opens it, and
+       * answers the sample of its topic.
+       * @returns the sample command.
+       */
+      const openRecord = async (
+        value: icd.Message["payload"],
+        answer: Omit<CommandAnswer, "type">,
+        recordKey = "",
+      ): Promise<task.Command> => {
+        const rec = await createRecord({
+          fields: [createField("temperature", "float")],
+          bound: {},
+          recordKey,
+        });
+        const sample: { answered?: Promise<task.Command[]> } = {};
+        await renderRead({
+          records: [rec],
+          beforeRender: async (dev) => {
+            await client.icds.dispatch(
+              rec.icd,
+              icd.set({
+                path: ["messages", rec.messages[0].message, "payload"],
+                value,
+              }),
+            );
+            const scan = await createScanTask(client, dev);
+            sample.answered = (
+              await answerCommandsUntil(client, [scan], "sample", { sample: answer })
+            ).answered;
+          },
+        });
+        fireEvent.click(
+          await screen.findByRole("treeitem", {
+            name: recordKey === "" ? /Any key/ : new RegExp(recordKey),
+          }),
+        );
+        assertDefined(sample.answered, "the scan task did not listen");
+        const commands = await sample.answered;
+        return commands[commands.length - 1];
+      };
+
+      it("should show the newest record with the key of the record", async () => {
+        const records = [
+          sampledRecord("oven-2", 3, "text", "9,9"),
+          sampledRecord("oven-1", 2, "text", "3.5,4"),
+          sampledRecord("oven-1", 1, "text", "1,2"),
+        ];
+        const cmd = await openRecord(TEXT, sampledOf({ records }), "oven-1");
+        expect(cmd.args).toMatchObject({ topics: [TOPIC] });
+        expect((await screen.findByText("3.5")).nextSibling?.textContent).toBe("0");
+        expect(screen.queryByText("9")).toBeNull();
+      });
+
+      it("should show the bytes of a schema registry record", async () => {
+        const records = [sampledRecord("", 1, "schema_registry", "000000002a0b")];
+        await openRecord({ format: "binary", fields: [] }, sampledOf({ records }));
+        await screen.findByText("2A");
+        expect(screen.getByText("0B")).toBeTruthy();
+      });
+
+      it("should say that no record has the key of the record", async () => {
+        const records = [sampledRecord("oven-2", 1, "text", "1,2")];
+        await openRecord(TEXT, sampledOf({ records }), "oven-1");
+        await screen.findByText(`Read no record with key oven-1 from ${TOPIC}.`);
+      });
+
+      it.each([
+        ["does not exist", { missing: true }, `Topic ${TOPIC} does not exist.`],
+        [
+          "cannot be read",
+          { error: "Broker is not reachable" },
+          "Broker is not reachable",
+        ],
+      ])(
+        "should show why it read nothing from a topic that %s",
+        async (_, topic, description) => {
+          await openRecord(TEXT, sampledOf(topic));
+          await screen.findByText("Failed to read the last payload");
+          screen.getByText(description);
+        },
+      );
+    });
+
     it("should mark a later message that is not JSON and its record", async () => {
       hideTextMessages();
       const rec = await createRecord({ fields: [createField("temperature", "float")] });

@@ -11,6 +11,7 @@ import { kafka, status, type Synnax } from "@synnaxlabs/client";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 
 import { Device } from "@/feature/kafka/device";
+import type { ICD } from "@/platform/icd";
 
 const TIMEOUT = TimeSpan.seconds(25);
 
@@ -61,4 +62,32 @@ export const sampleTopic = async (
   const args = kafka.sampleArgsZ.parse({ device: device.key, topics: [topic] });
   const data = await execute(client, device, "sample", args);
   return kafka.sampleResultZ.parse(data).topics[0];
+};
+
+/**
+ * @returns the newest record with key that a sample of topic reads, or null when it
+ * reads none. An empty key matches every record.
+ * @throws when the topic does not exist, or when the sample could not read it.
+ */
+export const lastRecord = async (
+  client: Synnax,
+  device: Device.Device,
+  topic: string,
+  key: string,
+): Promise<ICD.Sample | null> => {
+  const { records, missing, error } = await sampleTopic(client, device, topic);
+  const last = records
+    .filter((r) => key === "" || r.key === key)
+    .reduce<kafka.SampledRecord | null>(
+      (a, b) => (a == null || b.time.after(a.time) ? b : a),
+      null,
+    );
+  if (last != null) {
+    const { time, format, payload } = last;
+    // A schema registry value comes as hex, as a binary one does.
+    return { time, format: format === "schema_registry" ? "binary" : format, payload };
+  }
+  if (missing) throw new Error(`Topic ${topic} does not exist.`);
+  if (error !== "") throw new Error(error);
+  return null;
 };
