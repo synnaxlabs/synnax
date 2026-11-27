@@ -308,6 +308,22 @@ TEST(Sender, ReturnsClosedErrorForTargetWithNoPeriod) {
     ASSERT_EQ(t.writes, (Writes{"1,2\n"}));
 }
 
+/// @brief it should send the default of a field and make a target due at once after a
+/// reset.
+TEST(Sender, SendsDefaultAfterReset) {
+    Steady clock;
+    Config cfg;
+    cfg.bind_text(0, 2, 7);
+    cfg.target.period = 100 * x::telem::MILLISECOND;
+    auto s = ASSERT_NIL_P(cfg.create(false, clock.clock()));
+    Wire t;
+    ASSERT_NIL_P(s.write(open(t), frame(2, x::telem::Series(3.0))));
+    ASSERT_EQ(ASSERT_NIL_P(s.send(t)), 100 * x::telem::MILLISECOND);
+    s.reset();
+    ASSERT_EQ(ASSERT_NIL_P(s.send(t)), 100 * x::telem::MILLISECOND);
+    ASSERT_EQ(t.writes, (Writes{"3\n", "7\n"}));
+}
+
 /// @brief it should drop a command that its field refuses with a warning, and send the
 /// last good command of the field.
 TEST(Sender, KeepsLastGoodCommandWhenFieldRefuses) {

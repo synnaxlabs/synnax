@@ -109,6 +109,10 @@ public:
     /// @returns the VALIDATION error of the first command that it dropped.
     [[nodiscard]] x::errors::Error keep(const x::telem::Frame &fr);
 
+    /// @brief drops the last good command of each field, so that each field sends its
+    /// default again.
+    void reset();
+
     /// @brief encodes one payload of the last good command of each field, and passes it
     /// to send. It sends nothing until each field that the multiplexors select has a
     /// command or a default.

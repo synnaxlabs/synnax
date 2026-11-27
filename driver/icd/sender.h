@@ -98,6 +98,10 @@ public:
     /// of the framing.
     std::pair<x::telem::TimeSpan, x::errors::Error> send(transport::Transport &t);
 
+    /// @brief drops the kept commands of each target and makes each target with a
+    /// period due at once, as a new Sender does.
+    void reset();
+
     /// @brief returns true when a target has a period.
     [[nodiscard]] bool periodic() const;
 };
