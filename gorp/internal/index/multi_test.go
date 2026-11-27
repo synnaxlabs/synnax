@@ -251,7 +251,7 @@ var _ = Describe("Multi", func() {
 	})
 
 	Describe("A key in none that a scope deletes", func() {
-		BeforeEach(func() { m.Set(7, nil) })
+		BeforeEach(func() { m.Stage(nil, 7, nil) })
 
 		It("Should hold none only outside its scope until the scope commits", func() {
 			m.StageDelete(txn, 7)
