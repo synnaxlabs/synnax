@@ -22,6 +22,8 @@
 #include <variant>
 #include <vector>
 
+#include "nlohmann/json.hpp"
+
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
@@ -318,6 +320,7 @@ JSON::create(const std::vector<JSONMessage> &messages) {
                             icd::base(*found->second).name
                     ),
                 };
+            j.bare = j.bare || field.pointer.tokens.empty();
             pointers.push_back(field.pointer);
             msg.fields.push_back(std::move(field));
             msg.samples.push_back(one_sample(b.data_type));
@@ -329,10 +332,19 @@ JSON::create(const std::vector<JSONMessage> &messages) {
     return {std::move(j), x::errors::NIL};
 }
 
+x::errors::Error JSON::extract(const std::string_view doc) {
+    auto err = this->extractor.extract(doc, this->values);
+    if (!err || !this->bare || nlohmann::json::accept(doc.begin(), doc.end()))
+        return err;
+    this->quoted.clear();
+    if (const auto quote_err = x::json::append_quoted(doc, this->quoted))
+        return quote_err;
+    return this->extractor.extract(this->quoted, this->values);
+}
+
 std::pair<std::optional<std::size_t>, x::errors::Error>
 JSON::decode(const std::string_view doc) {
-    if (const auto err = this->extractor.extract(doc, this->values))
-        return {std::nullopt, err};
+    if (const auto err = this->extract(doc)) return {std::nullopt, err};
     auto [message, err] = this->router.find(this->values);
     if (err || !message.has_value()) return {message, err};
     auto &m = this->messages[*message];

@@ -163,6 +163,14 @@ class JSON {
     /// @brief values holds the values at the pointers of the router, then the value of
     /// each field of each message, in message order.
     std::vector<std::optional<std::string_view>> values;
+    /// @brief bare is true when a field reads the root of a document.
+    bool bare = false;
+    /// @brief quoted holds the last document that is not JSON as a JSON string.
+    std::string quoted;
+
+    /// @brief extracts the value at each pointer of doc into values, reading a doc that
+    /// is not JSON as a JSON string when bare is true.
+    x::errors::Error extract(std::string_view doc);
 
 public:
     /// @brief creates a JSON decoder for messages that share one source of documents. A
@@ -178,7 +186,9 @@ public:
 
     /// @brief finds the message that doc belongs to and decodes one sample for each of
     /// its bindings into its samples. A field with no value and no default, or with a
-    /// value that does not convert, gets no sample and goes into its failures.
+    /// value that does not convert, gets no sample and goes into its failures. When a
+    /// field reads the root of a document, a doc that is not JSON reads as a JSON
+    /// string, and only a doc that is not UTF-8 returns VALIDATION for not being JSON.
     /// @returns the index of the message in create order, or nothing when doc belongs
     /// to no message or is not JSON. When doc meets two match rules, the first of their
     /// messages.

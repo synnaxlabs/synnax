@@ -612,6 +612,24 @@ var _ = Describe("JSON", func() {
 		))
 	})
 
+	It(
+		"Should reject a document that is neither JSON nor UTF-8 for a root field",
+		func() {
+			key := uuid.New()
+			dec := MustSucceed(codec.NewJSON([]codec.JSONMessage{{
+				Name: "state",
+				Payload: icd.JSONPayload{Fields: []icd.JSONField{{
+					Variant: icd.StringJSONField{Key: key, Name: "state", Scale: 1},
+				}}},
+				Bindings: []codec.Binding{{Field: key, DataType: telem.StringT}},
+			}}))
+			samples := [][][]byte{make([][]byte, 1)}
+			Expect(decodeError(dec, []byte("O\xffN"), samples)).
+				To(MatchError("jsontext: invalid UTF-8: validation error"))
+			Expect(samples[0][0]).To(BeEmpty())
+		},
+	)
+
 	DescribeTable("Should accept the present rules that Infer gives the kinds of a key",
 		func(kinds ...string) {
 			docs := make([]xjson.Document, len(kinds))

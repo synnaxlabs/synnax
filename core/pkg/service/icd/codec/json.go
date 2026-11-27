@@ -68,6 +68,10 @@ type JSON struct {
 	router     *router
 	// failures holds the failures of the last decode.
 	failures []Failure
+	// bare is true when a field reads the root of a document.
+	bare bool
+	// quoted holds the last document that is not JSON as a JSON string.
+	quoted []byte
 }
 
 type jsonMessage struct {
@@ -125,6 +129,7 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 		}
 		for _, f := range j.messages[i].fields {
 			pointers = append(pointers, f.pointer)
+			j.bare = j.bare || len(f.pointer) == 0
 		}
 	}
 	j.extractor = xjson.NewExtractor(pointers)
@@ -446,7 +451,9 @@ func (f *jsonField) appendFloat(dst []byte, v float64) ([]byte, error) {
 // bindings to samples[message]. samples holds an entry for each message in NewJSON
 // order, and each entry holds one slice for each binding, in binding order. ok is
 // false, and Decode appends nothing, when doc belongs to no message. Decode returns an
-// error, appending nothing, when doc is not JSON or meets two match rules.
+// error, appending nothing, when doc is not JSON or meets two match rules. When a field
+// reads the root of a document, a doc that is not JSON reads as a JSON string, and
+// Decode returns an error only when doc is not UTF-8.
 //
 // failures holds each field whose value does not convert, or that has no value and no
 // default. A failed field appends no sample, and the other fields still append.
@@ -455,7 +462,7 @@ func (j *JSON) Decode(
 	doc []byte,
 	samples [][][]byte,
 ) (message int, ok bool, failures []Failure, err error) {
-	if err := j.extractor.Extract(doc, j.values); err != nil {
+	if err := j.extract(doc); err != nil {
 		return 0, false, nil, errors.Wrap(validate.ErrValidation, err.Error())
 	}
 	if message, ok, err = j.router.find(j.values[:j.ruleValues]); err != nil || !ok {
@@ -471,6 +478,20 @@ func (j *JSON) Decode(
 		}
 	}
 	return message, true, j.failures, nil
+}
+
+// extract reads the value at each pointer of doc into j.values, reading a doc that is
+// not JSON as a JSON string when j.bare is true.
+func (j *JSON) extract(doc []byte) error {
+	err := j.extractor.Extract(doc, j.values)
+	if err == nil || !j.bare ||
+		jsontext.Value(doc).IsValid(jsontext.AllowDuplicateNames(true)) {
+		return err
+	}
+	if j.quoted, err = jsontext.AppendQuote(j.quoted[:0], doc); err != nil {
+		return err
+	}
+	return j.extractor.Extract(j.quoted, j.values)
 }
 
 // decode appends the sample of each field to samples, and each failed field to
