@@ -25,7 +25,7 @@ export interface Selected {
 export type RetrieveSelected = (client: Client, key: device.Key) => Promise<Selected>;
 
 /** Reads a device from the generic device table. */
-export const retrieveGeneric: RetrieveSelected = async (client, key) =>
+const retrieveGeneric: RetrieveSelected = async (client, key) =>
   await client.devices.retrieve({ key });
 
 /**

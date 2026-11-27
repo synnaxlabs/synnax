@@ -7,14 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { ni } from "@synnaxlabs/client";
+import "@/feature/ni/device/SelectTyped.css";
+
+import { ni } from "@synnaxlabs/client";
+import { Badge } from "@synnaxlabs/lyra/badge";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Device as PDevice, Flux } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { CSS } from "@/platform/css";
 import type { Device } from "@/platform/device";
 
 const ListItem = (props: List.ItemRenderProps<ni.device.Key>) => {
@@ -23,8 +29,12 @@ const ListItem = (props: List.ItemRenderProps<ni.device.Key>) => {
   if (item == null) return null;
   const { name, model, status } = item;
   return (
-    <Select.Item {...props} align="center">
-      <Flex.Box y grow>
+    <Select.Item
+      {...props}
+      className={CSS.BE("ni-device-select", "item")}
+      align="center"
+    >
+      <Flex.Box y grow className={CSS.BE("ni-device-select", "item-text")}>
         <Text.Text el="span" overflow="fade">
           {name}
         </Text.Text>
@@ -37,8 +47,34 @@ const ListItem = (props: List.ItemRenderProps<ni.device.Key>) => {
   );
 };
 
-// Matches the item height of the generic device select.
+// Matches the item height in SelectTyped.css.
 const ITEM_HEIGHT = 48;
+
+const DIALOG_PROPS = { className: CSS.BE("ni-device-select", "dialog") };
+
+// The Driver gives a typed device a success status while a scan finds it.
+const StatusBadge = ({ status }: Pick<ni.device.Device, "status">): ReactElement => {
+  const variant = status?.variant ?? "disabled";
+  return (
+    <Tooltip.Dialog location="bottom">
+      <Status.Summary
+        variant={variant}
+        message={status?.message ?? "Device status unknown"}
+        description={status?.description}
+        hideIcon
+        level="small"
+      />
+      <Badge.Badge status={variant}>
+        {variant === "success" ? "Connected" : "Disconnected"}
+      </Badge.Badge>
+    </Tooltip.Dialog>
+  );
+};
+
+const renderStatus = (entry: unknown): ReactElement | undefined => {
+  const parsed = ni.device.deviceZ.safeParse(entry);
+  return parsed.success ? <StatusBadge status={parsed.data.status} /> : undefined;
+};
 
 const BASE_QUERY = { includeStatus: true } as const;
 
@@ -70,6 +106,8 @@ const SelectList = ({
       onSearch={search}
       status={status}
       itemHeight={ITEM_HEIGHT}
+      dialogProps={DIALOG_PROPS}
+      triggerProps={{ renderEndContent: renderStatus }}
     >
       {({ key, ...p }) => <ListItem key={key} {...p} />}
     </Select.Single>
