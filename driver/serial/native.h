@@ -60,7 +60,8 @@ struct Line {
 struct Received {
     /// @brief size is the number of bytes left at the front of the read.
     std::size_t size = 0;
-    /// @brief errors is the number of bytes received with a parity or framing error.
+    /// @brief errors is the number of parity errors, framing errors, and breaks that
+    /// the read received.
     std::size_t errors = 0;
     /// @brief overruns is the number of receive overruns since the last read.
     std::size_t overruns = 0;
