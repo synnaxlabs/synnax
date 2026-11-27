@@ -93,7 +93,7 @@ class KafkaInvalidConfig(KafkaCase):
         assert_text(
             label,
             assert_create_refused(self.client, task, label),
-            "topics.0.records.0.messages.0.bindings.0.field: field "
+            "config.topics.0.records.0.messages.0.bindings.0.field: field "
             f"{missing} does not exist in message plant.sensors",
         )
 
@@ -113,5 +113,6 @@ class KafkaInvalidConfig(KafkaCase):
         assert_text(
             label,
             assert_create_refused(self.client, task, label),
-            "targets.0.message.bindings.0.channel: channel 999999999 does not exist",
+            "config.targets.0.message.bindings.0.channel: channel 999999999 does not "
+            "exist",
         )
