@@ -82,7 +82,7 @@ TEST(Template, ReturnsErrorOfSlot) {
         return errors::Error(errors::VALIDATION, "no value");
     });
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, "no value");
+    ASSERT_EQ(err.data(), "no value");
     ASSERT_EQ(out, "x");
 }
 
@@ -108,7 +108,7 @@ TEST(Template, RejectsOverlappingPointers) {
     for (const auto &[fields, message]: cases) {
         const auto err = Template::create(fields).second;
         ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-        EXPECT_EQ(err.data, message);
+        EXPECT_EQ(err.data(), message);
     }
 }
 
@@ -116,6 +116,6 @@ TEST(Template, RejectsOverlappingPointers) {
 TEST(Template, RejectsTokenThatIsNotUTF8) {
     const auto err = Template::create({field("/a\xff")}).second;
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
-    ASSERT_EQ(err.data, R"(pointer token "a\xff": invalid UTF-8)");
+    ASSERT_EQ(err.data(), R"(pointer token "a\xff": invalid UTF-8)");
 }
 }

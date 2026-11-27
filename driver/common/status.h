@@ -97,7 +97,7 @@ struct StatusHandler {
     void send_error(const x::errors::Error &err, const std::string &message) {
         if (!this->error(err, message)) return;
         this->status.details.running = false;
-        this->set_text(message, err.data);
+        this->set_text(message, err.data());
         this->maybe_set_status();
     }
 
@@ -108,7 +108,7 @@ struct StatusHandler {
             this->status.variant = synnax::status::VARIANT_WARNING;
             this->set_text(message, description);
         } else
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_text(this->accumulated_msg, this->accumulated_err.data());
         this->maybe_set_status();
     }
 
@@ -151,7 +151,7 @@ struct StatusHandler {
         } else {
             this->status.variant = synnax::status::VARIANT_ERROR;
             this->status.details.running = false;
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_text(this->accumulated_msg, this->accumulated_err.data());
         }
         this->set_status();
     }
@@ -166,7 +166,7 @@ struct StatusHandler {
         this->status.details.running = false;
         if (this->accumulated_err) {
             this->status.variant = synnax::status::VARIANT_ERROR;
-            this->set_text(this->accumulated_msg, this->accumulated_err.data);
+            this->set_text(this->accumulated_msg, this->accumulated_err.data());
         } else {
             this->status.variant = synnax::status::VARIANT_SUCCESS;
             this->set_text("Stopped task");
@@ -315,10 +315,10 @@ private:
 /// @brief returns the text of a configuration error, with each field error of a parser
 /// validation error on its own line as "path: message".
 inline std::string config_err_description(const x::errors::Error &err) {
-    const auto parsed = x::json::json::parse(err.data, nullptr, false);
+    const auto parsed = x::json::json::parse(err.data(), nullptr, false);
     if (!err.matches(x::errors::VALIDATION) || !parsed.is_object() ||
         !parsed.contains("errors") || !parsed["errors"].is_array())
-        return err.data;
+        return err.data();
     std::vector<std::string> lines;
     for (const auto &field: parsed["errors"])
         lines.push_back(field.value("path", "") + ": " + field.value("message", ""));

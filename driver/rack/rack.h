@@ -226,7 +226,7 @@ struct Config {
             err = cfg.enroll();
             if (err && cfg.rack.key != 0 &&
                 err.matches(synnax::auth::ERR_ACCESS_DENIED))
-                LOG(WARNING) << "Failed to enroll Driver. " << err.data
+                LOG(WARNING) << "Failed to enroll Driver. " << err.data()
                              << " Until then, the Driver logs in with the password.";
             else if (err)
                 return {cfg, err};

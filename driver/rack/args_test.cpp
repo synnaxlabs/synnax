@@ -71,7 +71,7 @@ TEST(ArgsTest, RejectBothIntegrationFlags) {
     load({"--enable-integrations", "http", "--disable-integrations", "ni"}, err);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_NE(
-        err.data.find("cannot be used with --disable-integrations"),
+        err.data().find("cannot be used with --disable-integrations"),
         std::string::npos
     );
 }

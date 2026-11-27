@@ -56,7 +56,7 @@ void Task::exec(synnax::task::Command &cmd, x::breaker::Breaker &) {
     auto [data, err] = this->browser.list(path);
     if (err) {
         status.message = "Failed to list files";
-        status.description = err.data;
+        status.description = err.data();
         this->ctx->set_status(status);
         return;
     }

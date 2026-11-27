@@ -116,7 +116,7 @@ TEST(TestArc, testRetrieveRejectsPage) {
               client.arcs.retrieve({.name = "arc"}, x::filter::one, options).second}) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
-                err.data,
+                err.data(),
                 "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
@@ -160,7 +160,7 @@ TEST(TestArc, testRetrieveOneWhereNotFound) {
     const auto name = random_arc_name("none_where");
     const auto [_, err] = client.arcs.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "Found no Arc where name = \"" + name + "\"");
+    ASSERT_EQ(err.data(), "Found no Arc where name = \"" + name + "\"");
 }
 
 /// @brief it should return an error when more than one Arc program matches a filter.

@@ -147,7 +147,7 @@ TEST(ReadSettings, LeavesOutASettingAtASubIndexTheCardDoesNotHave) {
         aborting_at(0x8041, 28, 0x06090011)
     );
     ASSERT_MATCHES(err, coe::SUBINDEX_MISSING);
-    EXPECT_EQ(err.data, "failed to read 0x8041:1C: Subindex does not exist");
+    EXPECT_EQ(err.data(), "failed to read 0x8041:1C: Subindex does not exist");
     ASSERT_TRUE(settings.has_value());
     const auto &channels = settings.value()["channels"];
     ASSERT_EQ(channels.size(), 6);
@@ -429,7 +429,7 @@ TEST(ReadSettings, KeepsTheOtherSettingsWhenTheCardHasNoModeObject) {
     );
     ASSERT_MATCHES(err, coe::OBJECT_MISSING);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "failed to read 0x8020:09: Object does not exist in the object dictionary"
     );
     ASSERT_TRUE(settings.has_value());
@@ -457,7 +457,7 @@ TEST(ReadSettings, StopsAtAReadThatGetsNoAnswer) {
         counted
     );
     ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
-    EXPECT_EQ(err.data, "failed to read 0x8040:01: no response");
+    EXPECT_EQ(err.data(), "failed to read 0x8040:01: no response");
     EXPECT_FALSE(settings.has_value());
     EXPECT_EQ(reads_after, 0);
 }
@@ -473,7 +473,7 @@ TEST(ReadSettings, ReturnsNoSettingsWhenTheModeReadGetsNoAnswer) {
     );
     ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
     EXPECT_FALSE(err.matches(coe::OBJECT_MISSING));
-    EXPECT_EQ(err.data, "failed to read 0x8020:09: no response");
+    EXPECT_EQ(err.data(), "failed to read 0x8020:09: no response");
     EXPECT_FALSE(settings.has_value());
 }
 
@@ -500,7 +500,7 @@ TEST(ReadSettings, RejectsAnOptionCountPastTheObject) {
                          .second;
     ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
     EXPECT_EQ(
-        err.data,
+        err.data(),
         "0x8050:03 counts 4294967295 options. The count must be from 1 to 252"
     );
 }
@@ -531,6 +531,9 @@ TEST(ReadSettings, RejectsAnOptionCountOfZero) {
     )
                          .second;
     ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
-    EXPECT_EQ(err.data, "0x8050:03 counts 0 options. The count must be from 1 to 252");
+    EXPECT_EQ(
+        err.data(),
+        "0x8050:03 counts 0 options. The count must be from 1 to 252"
+    );
 }
 }

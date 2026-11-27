@@ -481,7 +481,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         }
         auto [dev, err] = client->devices.retrieve(this->device_key);
         if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.data);
+            parser.field_err("device", "failed to retrieve device: " + err.data());
             return;
         }
         this->dev_model = dev.model;
@@ -491,7 +491,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(ch->synnax_key);
         const auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.data()
+            );
             return;
         }
         size_t i = 0;

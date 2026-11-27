@@ -496,8 +496,8 @@ TEST(testGRPC, testErrFromStatusKeepsPayloadType) {
     const auto err = priv::err_from_status(
         ::grpc::Status(::grpc::StatusCode::UNKNOWN, "sy.validation---bad key")
     );
-    ASSERT_EQ(err.type, x::errors::VALIDATION.type);
-    ASSERT_EQ(err.data, "bad key");
+    ASSERT_EQ(err.type(), x::errors::VALIDATION.type());
+    ASSERT_EQ(err.data(), "bad key");
 }
 
 /// @brief it should keep the type of a payload that comes with any status code.
@@ -505,8 +505,8 @@ TEST(testGRPC, testErrFromStatusKeepsPayloadTypeOfAnyCode) {
     const auto err = priv::err_from_status(
         ::grpc::Status(::grpc::StatusCode::INTERNAL, "sy.internal---panic")
     );
-    ASSERT_EQ(err.type, x::errors::INTERNAL.type);
-    ASSERT_EQ(err.data, "panic");
+    ASSERT_EQ(err.type(), x::errors::INTERNAL.type());
+    ASSERT_EQ(err.data(), "panic");
 }
 
 /// @brief it should map a status with no payload to the freighter error of its code.
@@ -524,8 +524,8 @@ TEST(testGRPC, testErrFromStatusMapsCodes) {
     const std::string msg = "Received RST_STREAM with error code 2";
     for (const auto &[code, expected]: cases) {
         const auto err = priv::err_from_status(::grpc::Status(code, msg));
-        ASSERT_EQ(err.type, expected.type);
-        ASSERT_EQ(err.data, msg);
+        ASSERT_EQ(err.type(), expected.type());
+        ASSERT_EQ(err.data(), msg);
     }
 }
 
