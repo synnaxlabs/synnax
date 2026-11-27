@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ValidationError } from "@/index";
-import { createTestClient } from "@/testutil";
+import { createEmptyRole, createTestClient, createTestUser } from "@/testutil";
 
 describe("invite", () => {
   it("should list no invites for a user without one", async () => {
@@ -24,9 +24,22 @@ describe("invite", () => {
     ).resolves.toBeUndefined();
   });
 
-  it("should refuse an invite while the Core accepts no provider", async () => {
-    await expect(
-      createTestClient().auth.oidc.invites.create(uuid.create()),
-    ).rejects.toThrow(ValidationError);
+  // the test Core accepts passwords, which can redeem an invite
+  it("should invite a user with no password", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const invited = await client.users.create({ name: id.create(), role });
+    const { token, invite } = await client.auth.oidc.invites.create(invited.key);
+    expect(token).toMatch(/^syi_/);
+    expect(invite.user).toEqual(invited.key);
+  });
+
+  it("should refuse an invite for a user with a password", async () => {
+    const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
+    const { user: invited } = await createTestUser(client, { role });
+    await expect(client.auth.oidc.invites.create(invited.key)).rejects.toThrow(
+      ValidationError,
+    );
   });
 });

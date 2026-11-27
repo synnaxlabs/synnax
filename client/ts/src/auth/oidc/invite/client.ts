@@ -45,8 +45,9 @@ export class Client {
 
   /**
    * Replaces the invite of a user.
-   * @throws {ValidationError} when the Core does not accept the oidc method or the user
-   * does not exist.
+   * @throws {ValidationError} when the Core accepts neither the oidc nor the password
+   * method, when it accepts only passwords and the user already has one, or when the
+   * user does not exist.
    * @throws {AccessDeniedError} when the caller may not invite another user.
    */
   async create(key: user.Key): Promise<CreateResult> {

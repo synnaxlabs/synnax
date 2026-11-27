@@ -121,6 +121,7 @@ const renderSection = (
       wrapper,
       null,
       createElement(OIDC.Section, { subject, onMessage }),
+      createElement(OIDC.Invite, { subject, onMessage }),
       onStatuses != null && createElement(CaptureStatuses, { onStatuses }),
     ),
   );

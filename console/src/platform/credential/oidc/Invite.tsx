@@ -11,7 +11,7 @@ import { type resource, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Credential } from "@synnaxlabs/pluto";
+import { Access, Credential } from "@synnaxlabs/pluto";
 import { type ReactElement, useEffect, useState } from "react";
 
 import { Code } from "@/platform/code";
@@ -20,7 +20,7 @@ import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 
 /** What the caller may do with the user's invite. */
-export interface Grants {
+interface Grants {
   /** Creating an invite for a user with none. */
   create: boolean;
   /** Replacing a live invite with a new one. */
@@ -104,16 +104,35 @@ const CopyLinks = ({ links }: { links: Core.InviteLinks }): ReactElement => (
 export interface InviteProps {
   /** The user to invite. */
   subject: resource.ID;
-  grants: Grants;
   /** Receives the result of a change, or null when a new one starts. */
   onMessage: (message: string | null) => void;
 }
 
+interface CodesProps extends InviteProps {
+  grants: Grants;
+}
+
 /**
- * Creates and revokes the one-time code that links a provider account to a user. The
- * Core replaces a user's live invite with each new one.
+ * Lets the caller create and revoke the one-time code that a person redeems to log in
+ * as the user, through a provider or a new password. The Core replaces a user's live
+ * invite with each new one. Renders nothing for a caller who may not change invites.
  */
-export const Invite = ({ subject, grants, onMessage }: InviteProps): ReactElement => {
+export const Invite = ({ subject, onMessage }: InviteProps): ReactElement | null => {
+  const grants: Grants = {
+    create: Access.useCreateGranted(subject),
+    replace: Access.useUpdateGranted(subject),
+    revoke: Access.useDeleteGranted(subject),
+  };
+  if (!grants.create && !grants.replace && !grants.revoke) return null;
+  return (
+    <Flex.Box y>
+      <Text.Text level="h5">Invite</Text.Text>
+      <Codes subject={subject} grants={grants} onMessage={onMessage} />
+    </Flex.Box>
+  );
+};
+
+const Codes = ({ subject, grants, onMessage }: CodesProps): ReactElement => {
   const query = { subject };
   const invalidate = Credential.OIDC.Invite.useInvalidate();
   const refresh = Credential.OIDC.Invite.useRefresh();

@@ -37,15 +37,36 @@ type CreateInviteResponse struct {
 	Invite invite.Invite `json:"invite" msgpack:"invite"`
 }
 
-// CreateInvite replaces the invite of the user. It returns a validation error when the
-// oidc method is off or the user does not exist.
+// CreateInvite replaces the invite of the user. It returns a validation error when no
+// login could redeem the invite: both the oidc and password methods are off, or only
+// passwords are on and the user already has one. It also returns one when the user
+// does not exist.
 func (s *Service) CreateInvite(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateInviteRequest,
 ) (CreateInviteResponse, error) {
-	if err := s.auth.Accepts(auth.MethodOIDC); err != nil {
-		return CreateInviteResponse{}, err
+	if s.auth.Accepts(auth.MethodOIDC) != nil {
+		if s.auth.Accepts(auth.MethodPassword) != nil {
+			return CreateInviteResponse{}, errors.Wrap(
+				validate.ErrValidation,
+				"an invite needs the oidc or password method",
+			)
+		}
+		subject := user.ResourceID(req.User)
+		held, err := s.password.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Exists(ctx, tx)
+		if err != nil {
+			return CreateInviteResponse{}, err
+		}
+		if held {
+			return CreateInviteResponse{}, errors.Wrapf(
+				validate.ErrValidation,
+				"%s already has a password, and the Core accepts no other login",
+				subject,
+			)
+		}
 	}
 	i, token, err := s.invite.NewWriter(tx).Create(ctx, req.User)
 	if err != nil {
