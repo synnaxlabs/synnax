@@ -157,13 +157,14 @@ func (s *Service) ApplyHandler(
 	binder *bind.Service,
 ) freighter.UnaryHandler[ApplyRequest, Response] {
 	return func(ctx context.Context, req ApplyRequest) (Response, error) {
-		var visible func(resource.ID) bool
+		var visible bind.Retrievable
 		apply := func(
 			ctx context.Context,
 			tx gorp.Tx,
+			retrievable bind.Retrievable,
 			req ApplyRequest,
-			_ struct{},
 		) (impact.Plan, error) {
+			visible = retrievable
 			records, err := deleted(req.Change)
 			if err != nil {
 				return impact.Plan{}, err
@@ -172,27 +173,21 @@ func (s *Service) ApplyHandler(
 			if err != nil {
 				return impact.Plan{}, err
 			}
-			visible, err = s.cfg.RBAC.NewEnforcer(tx).
-				Allowed(ctx, auth.GetSubject(ctx), access.ActionRetrieve)
-			if err != nil {
-				return impact.Plan{}, err
-			}
 			return s.cfg.Impact.Apply(ctx, tx, records, impact.ApplyOptions{
 				Token:   req.Token,
 				Picks:   picks,
 				Hidden:  req.Hidden,
-				Visible: visible,
+				Visible: retrievable,
 			})
 		}
-		stopping := bind.Read(binder, s.stopping)
-		prepare := func(ctx context.Context, req ApplyRequest) (struct{}, error) {
-			ids, err := stopping(ctx, req)
-			if err != nil {
-				return struct{}{}, err
-			}
-			return struct{}{}, s.cfg.Impact.Stop(ctx, ids)
+		ids, err := bind.Read(binder, s.stopping)(ctx, req)
+		if err != nil {
+			return Response{}, err
 		}
-		plan, err := bind.WritePrepared(binder, prepare, apply)(ctx, req)
+		if err = s.cfg.Impact.Stop(ctx, ids); err != nil {
+			return Response{}, err
+		}
+		plan, err := bind.WriteRetrievable(binder, apply)(ctx, req)
 		if err != nil {
 			return Response{}, redact(err, visible)
 		}
