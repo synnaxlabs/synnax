@@ -771,13 +771,18 @@ continuation. A partial group from a task fails loud, as a partial index group d
   stamp of its group's channels, in place of the last stamp of its index channel
   (`core/pkg/service/kafka/read_task.go:529-545`,
   `core/pkg/service/mqtt/read_task.go:220-252`). With whole groups the two are equal.
-- **The bypass bus**: A Driver frame on the local bus names its time by group, as its
-  writer and the group's position, never by a clock key. So it works before an open
-  returns and while the Core is down (RFC 0113). The bus filter keeps the time series of
-  each kept series' group (`driver/bypass/bypass.h:97-127` keeps keys only today), and a
-  time series takes the alignment of its group's data. The forwarder maps positions to
-  clock keys only where it writes to the Core. A local reader, such as Arc, pairs within
-  a group and never by bus alignment across groups.
+- **The bypass bus**: A Driver frame on the local bus carries the identity of its
+  writer, and each series carries the position of its group. Until Phase 50 a group
+  whose clock is an index channel names its time by that index key, as today, so the Arc
+  runtime finds it until Phase 41 moves Arc. Any other group names its time by position,
+  never by a clock key, so it works before an open returns and while the Core is down
+  (RFC 0113). The bus filter keeps the time series of each kept series' group
+  (`driver/bypass/bypass.h:97-127` keeps keys only today). One alignment counter per
+  writer and group position sets the alignment of each series of the group and of its
+  time series, in place of a counter per key that starts a new key at 0
+  (`driver/bypass/bypass.h:172-180`). The forwarder maps positions to clock keys only
+  where it writes to the Core. A local reader, such as Arc from Phase 41, pairs a series
+  with its group's time in the same frame, never by bus alignment across groups.
 - **Console forms**: From Phase 47, task forms make data channels only, with no `_time`
   channels (`console/src/feature/ni/task/AnalogRead.tsx:211-215` and its siblings).
   Until then they make index channels as today, which form whole groups (§4.8), and the
