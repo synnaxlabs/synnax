@@ -232,9 +232,8 @@ var _ = Describe("Log", func() {
 			})
 
 			DescribeTable(
-				"Should refuse a log file that is not a whole number of blocks with "+
-					"room "+
-					"for the reserve",
+				"Should refuse a log file that is not a whole number of blocks "+
+					"with room for the reserve",
 				func(size int64) {
 					Expect(log.Prepare(fs, generation, size)).To(Succeed())
 					Expect(log.Start(log.Config{

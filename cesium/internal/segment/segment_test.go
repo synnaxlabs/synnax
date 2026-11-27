@@ -266,9 +266,8 @@ var _ = Describe("Segment", func() {
 
 			Describe("Variable density", func() {
 				DescribeTable(
-					"Should give each trailer the position and offset of the first "+
-						"sample "+
-						"that starts in its block",
+					"Should give each trailer the position and offset "+
+						"of the first sample that starts in its block",
 					func(sizes []int, split bool) {
 						stream, starts := samples(sizes...)
 						w := create(varCfg)

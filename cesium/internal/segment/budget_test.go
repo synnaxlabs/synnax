@@ -166,9 +166,8 @@ var _ = Describe("Budget", func() {
 			)
 
 			It(
-				"Should run the sync before a close in the call that closes, inside "+
-					"its "+
-					"width",
+				"Should run the sync before a close in the call that closes, "+
+					"inside its width",
 				func() {
 					var execs atomic.Int64
 					b := MustSucceed(segment.NewBudget(2, 1, func(f func()) {
@@ -203,8 +202,7 @@ var _ = Describe("Budget", func() {
 
 			It(
 				"Should finish two closes in a row and the syncs that wait for them, "+
-					"when "+
-					"the executor runs one job at a time",
+					"when the executor runs one job at a time",
 				func() {
 					jobs := make(chan func(), 16)
 					go func() {
