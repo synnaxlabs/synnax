@@ -496,7 +496,9 @@ alignment and inputs of two clocks by sample time:
 - **Inputs with no clock**: A live-only input pairs by arrival with hold. Such a
   calculation has no historical values, and its live blocks are not replaced.
 - **Running operations**: One that never resets costs the whole history on every read,
-  and the live calculator starts at its open, so live differs from history for it.
+  and the live calculator starts at its open, so live differs from history for it. One
+  whose last reset is far back also reads to it, so R2 fails for it. D-063 holds this
+  until the founder rules again.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
