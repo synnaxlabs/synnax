@@ -122,9 +122,12 @@ type Log struct {
 	prevEnd  int64
 	lastEnd  int64
 	needMark bool
-	buf      []byte
-	wbuf     []byte
-	frame    Frame
+	// commitsFull is true once a Commit did not fit. The log then refuses every later
+	// Commit, so the durable Commits stay a prefix of the queue.
+	commitsFull bool
+	buf         []byte
+	wbuf        []byte
+	frame       Frame
 }
 
 // Start writes both header copies of the prepared log of cfg, syncs it, and returns the
@@ -323,13 +326,29 @@ func (l *Log) write(queue []pending) {
 		if p.commit {
 			limit = l.size - DeleteReserve
 		}
-		if size > MaxFrame || start+size > limit {
-			p.done <- result{err: errors.Wrapf(
+		after := p.commit && l.commitsFull
+		if after || size > MaxFrame || start+size > limit {
+			// Each entry ahead of a refusal gets its answer first.
+			flush()
+			if failed != nil {
+				p.done <- result{err: failed}
+				continue
+			}
+			err := errors.Wrapf(
 				errFull,
 				"an entry of %d bytes does not fit in log %d",
 				len(p.entry),
 				l.cfg.Generation,
-			)}
+			)
+			if after {
+				err = errors.Wrapf(
+					errFull,
+					"log %d refuses each Commit after one that did not fit",
+					l.cfg.Generation,
+				)
+			}
+			l.commitsFull = l.commitsFull || p.commit
+			p.done <- result{err: err}
 			continue
 		}
 		l.buf = append(l.buf, p.entry...)
