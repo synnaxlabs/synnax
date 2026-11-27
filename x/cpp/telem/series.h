@@ -1250,7 +1250,7 @@ public:
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Series &s) {
-        const auto dt = s.data_type();
+        const auto &dt = s.data_type();
         os << "Series(type: " << dt.name() << ", size: " << s.size()
            << ", cap: " << s.cap() << ", data: [";
         if (dt == STRING_T || dt == JSON_T)

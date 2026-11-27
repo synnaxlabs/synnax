@@ -384,7 +384,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
                  .missing = f.missing,
                  .error = f.error}
             );
-            if (const auto dt = samples[f.binding].data_type();
+            if (const auto &dt = samples[f.binding].data_type();
                 fill.has_value() &&
                 (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
                 this->filled[f.binding] = true;
