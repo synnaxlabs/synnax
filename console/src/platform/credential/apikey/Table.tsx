@@ -38,7 +38,7 @@ const keyName = (k: auth.apiKey.APIKey): string =>
 
 const Expires = ({ expires }: Pick<auth.apiKey.APIKey, "expires">): ReactElement => {
   const now = useNow((now) => nextChange(expires, now));
-  if (expires == null) return <Text.Text>Never</Text.Text>;
+  if (expires.equals(TimeStamp.MAX)) return <Text.Text>Never</Text.Text>;
   if (!expires.after(now)) return <Text.Text status="error">Expired</Text.Text>;
   return (
     <Text.Text color={9} overflow="fade" title={expires.toString("dateTime", "local")}>

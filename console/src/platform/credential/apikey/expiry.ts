@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan, type TimeStamp } from "@synnaxlabs/client";
+import { TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 const LIFETIMES = {
   "30d": TimeSpan.days(30),
@@ -23,14 +23,14 @@ export const DEFAULT_EXPIRY: Expiry = "90d";
 
 /**
  * @returns when a key created at now expires: the custom time for "custom", and
- * undefined for "never".
+ * TimeStamp.MAX for "never".
  */
 export const resolve = (
   expiry: Expiry,
   custom: TimeStamp,
   now: TimeStamp,
-): TimeStamp | undefined => {
-  if (expiry === "never") return undefined;
+): TimeStamp => {
+  if (expiry === "never") return TimeStamp.MAX;
   if (expiry === "custom") return custom;
   return now.add(LIFETIMES[expiry]);
 };
@@ -59,11 +59,8 @@ export const relative = (expires: TimeStamp, now: TimeStamp): string => {
  * @returns when the label of a key that expires at expires next changes, or null when
  * the key never expires or has expired.
  */
-export const nextChange = (
-  expires: TimeStamp | undefined,
-  now: TimeStamp,
-): TimeStamp | null => {
-  if (expires == null || !expires.after(now)) return null;
+export const nextChange = (expires: TimeStamp, now: TimeStamp): TimeStamp | null => {
+  if (expires.equals(TimeStamp.MAX) || !expires.after(now)) return null;
   const { unit, n } = count(now.span(expires));
   return expires.sub(unit.span.mult(n - 1));
 };

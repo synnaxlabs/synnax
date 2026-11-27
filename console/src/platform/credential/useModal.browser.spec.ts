@@ -107,8 +107,7 @@ describe("useModal", () => {
     await createKey(uniqueName("key"));
     await screen.findByText(/^syk_/);
     const [created] = await client.auth.apiKeys.retrieve([id]);
-    expect(created.expires).toBeDefined();
-    const lifetime = before.span(created.expires ?? before);
+    const lifetime = before.span(created.expires);
     expect(lifetime.days).toBeGreaterThanOrEqual(90);
     expect(lifetime.days).toBeLessThan(90 + TimeSpan.MINUTE.days);
     fireEvent.click(findButton("Done"));
@@ -128,7 +127,7 @@ describe("useModal", () => {
     fireEvent.click(findButton("Create"));
     await screen.findByText(/^syk_/);
     const [created] = await client.auth.apiKeys.retrieve([id]);
-    expect(created.expires).toBeUndefined();
+    expect(created.expires.equals(TimeStamp.MAX)).toBe(true);
     fireEvent.click(findButton("Done"));
     await screen.findByText("Never");
   });
@@ -170,7 +169,7 @@ describe("useModal", () => {
     fireEvent.click(findButton("Create"));
     await screen.findByText(/^syk_/);
     const [created] = await client.auth.apiKeys.retrieve([id]);
-    expect(created.expires?.equals(new TimeStamp(new Date(2099, 0, 1)))).toBe(true);
+    expect(created.expires.equals(new TimeStamp(new Date(2099, 0, 1)))).toBe(true);
   });
 
   it("should show the hours or minutes left on a key that expires soon", async () => {

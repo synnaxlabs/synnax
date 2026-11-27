@@ -28,7 +28,7 @@ export const { useResult, useInvalidate, useRefresh } = Flux.createRetrieve<
 export interface CreateParams {
   subject: resource.ID;
   name: string;
-  /** When the key stops logging in. Defaults to never. */
+  /** When the key stops logging in. Defaults to TimeStamp.MAX, which never expires. */
   expires?: CrudeTimeStamp;
 }
 
