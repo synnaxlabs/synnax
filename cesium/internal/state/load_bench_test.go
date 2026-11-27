@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// BenchmarkLoad loads a clock and a key that it times while one writer commits a
-// sample of both in a loop. Each case runs its loads on that many goroutines.
+// BenchmarkLoad loads a clock and a key that it times while one writer commits a sample
+// of both in a loop. Each case runs its loads on that many goroutines.
 func BenchmarkLoad(b *testing.B) {
 	for _, readers := range []int{1, 8} {
 		b.Run(fmt.Sprintf("readers=%d", readers), func(b *testing.B) {
