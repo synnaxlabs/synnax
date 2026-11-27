@@ -93,7 +93,6 @@ var _ = Describe("FieldProcessor", func() {
 				fp := &types.FieldProcessor{
 					Imports:    mgr,
 					Namespace:  "schema",
-					FilePath:   board.FilePath,
 					OutputPath: "client/ts/src/schema",
 					Request:    req,
 				}
@@ -145,7 +144,6 @@ var _ = Describe("FieldProcessor", func() {
 			fp := &types.FieldProcessor{
 				Imports:    mgr,
 				Namespace:  "schema",
-				FilePath:   board.FilePath,
 				OutputPath: "client/ts/src/schema",
 				Request:    req,
 			}

@@ -2623,6 +2623,42 @@ var _ = Describe("Python Types Plugin", func() {
 				})
 		})
 
+		Context("schemas that share an output", func() {
+			It("Should reference each type of the output with no import", func() {
+				loader.Add("schemas/synnax/thing", `
+					@py output "client/py/synnax/thing"
+
+					Kind enum {
+						solid = "solid"
+						empty = "empty"
+					}
+
+					Plan struct {
+						kind Kind
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					import "schemas/synnax/thing"
+
+					@py output "client/py/synnax/thing"
+
+					Change struct {
+						name string
+					}
+
+					Request struct {
+						change Change
+						plan   thing.Plan
+						kind   thing.Kind
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/py/synnax/thing/types_gen.py").
+					ToContain("change: Change", "plan: Plan", "kind: Kind").
+					ToNotContain("from synnax.thing import", "types_gen.")
+			})
+		})
+
 		Context("schemas with the same file name", func() {
 			It("Should import types from a schema with the same file name", func() {
 				loader.Add("schemas/x/color", `

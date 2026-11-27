@@ -2858,6 +2858,42 @@ var _ = Describe("TS Types Plugin", func() {
 			})
 		})
 
+		Context("schemas that share an output", func() {
+			It("Should reference each type of the output with no import", func() {
+				loader.Add("schemas/synnax/thing", `
+					@ts output "client/ts/src/thing"
+
+					Kind enum {
+						solid = "solid"
+						empty = "empty"
+					}
+
+					Plan struct {
+						kind Kind
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					import "schemas/synnax/thing"
+
+					@ts output "client/ts/src/thing"
+
+					Change struct {
+						name string
+					}
+
+					Request struct {
+						change Change
+						plan   thing.Plan
+						kind   thing.Kind
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/thing/types.gen.ts").
+					ToContain("change: changeZ,", "plan: planZ,", "kind: kindZ,").
+					ToNotContain(`from "@/thing"`, "thingAPI.", "thing.")
+			})
+		})
+
 		Context("schemas with the same file name", func() {
 			It("Should alias a name that two modules export", func() {
 				loader.Add("schemas/x/color", `

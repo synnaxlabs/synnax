@@ -32,7 +32,6 @@ var _ = Describe("FieldProcessor", func() {
 		item := req.Resolutions.MustGet("test.Item")
 		fp := types.NewFieldProcessor(
 			"test",
-			item.FilePath,
 			"client/py/synnax/test",
 			req.Resolutions,
 		)
