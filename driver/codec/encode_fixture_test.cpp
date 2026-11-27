@@ -83,13 +83,15 @@ x::telem::Series sample_of(const x::telem::DataType &dt, const std::string &raw)
     return {dt, std::size_t{0}};
 }
 
-/// @brief checks the encode of one case of a fixture.
+/// @brief checks the encode of one case of a fixture into payload, which holds the
+/// payload of the case before it.
 template<typename Encoder, typename Message>
 void check_case(
     Encoder &enc,
     const Message &message,
     const std::string &doc,
-    const std::string &c
+    const std::string &c,
+    std::vector<std::uint8_t> &payload
 ) {
     std::vector<x::telem::Series> samples;
     std::vector<x::errors::Error> rejected;
@@ -103,7 +105,6 @@ void check_case(
             if (auto err = enc.check(k, samples.back(), 0)) rejected.push_back(err);
     }
     ASSERT_EQ(samples.size(), message.bindings.size());
-    std::vector<std::uint8_t> payload;
     const auto err = enc.encode(samples, payload);
     if (const auto expected = string_at(doc, c + "/error"); !expected.empty()) {
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
@@ -145,9 +146,11 @@ void check_codec(const std::string &doc) {
     }
     ASSERT_NIL(err);
     ASSERT_TRUE(raw_at(doc, "/cases/0").has_value());
+    // The writer encodes each command into one buffer, so the cases share one too.
+    std::vector<std::uint8_t> payload;
     for (std::size_t i = 0; raw_at(doc, "/cases/" + std::to_string(i)); i++) {
         SCOPED_TRACE("case " + std::to_string(i));
-        check_case(enc, message, doc, "/cases/" + std::to_string(i));
+        check_case(enc, message, doc, "/cases/" + std::to_string(i), payload);
     }
 }
 
