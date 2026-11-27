@@ -374,7 +374,6 @@ func (s *State) park(r request) {
 	s.reserveAhead()
 }
 
-// unpark runs the parked requests again.
 func (s *State) unpark() {
 	parked := s.parked
 	s.parked = nil
@@ -383,7 +382,6 @@ func (s *State) unpark() {
 	}
 }
 
-// failParked fails every parked request with err.
 func (s *State) failParked(err error) {
 	for _, r := range s.parked {
 		r.fail(err)

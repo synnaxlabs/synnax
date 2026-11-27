@@ -59,7 +59,6 @@ func (c *keyEntry) insert(s *segEntry) {
 	c.segs = slices.Insert(c.segs, i, s)
 }
 
-// remove takes the segment with identity id out of c.
 func (c *keyEntry) remove(id uint64) {
 	c.segs = slices.DeleteFunc(c.segs, func(s *segEntry) bool { return s.vis.ID == id })
 }

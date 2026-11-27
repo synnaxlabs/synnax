@@ -219,7 +219,8 @@ func (s *State) Err() error {
 	return s.mu.err
 }
 
-// Close stops the owner after the queued requests, and waits for Run to return.
+// Close stops the owner after the queued requests, and waits for Run to return. Call it
+// while Run runs or after Run returns: it blocks when Run never runs.
 func (s *State) Close() error {
 	s.mu.Lock()
 	s.mu.closed = true
@@ -314,7 +315,6 @@ func (s *State) TakeDead() ([]uint64, error) {
 	return r.dead, nil
 }
 
-// checkCommits runs checkViews on each key that a Commit of records names.
 func (s *State) checkCommits(records []log.Record) {
 	for _, r := range records {
 		if c, ok := r.(*log.Commit); ok {
