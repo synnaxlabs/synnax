@@ -138,7 +138,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			HashReferences:  s.writes.hash,
 			HashedTables:    []string{"icd"},
 			ResolveEntry:    s.writes.resolve,
-			ReconcileEntry:  detachMessages,
 			ValidateEntry:   (*WriteConfig).Validate,
 			ReconcileEntry:  reconcileWrite,
 		},

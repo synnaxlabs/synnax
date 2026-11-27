@@ -21,7 +21,7 @@ func reconcileRead(_ context.Context, _ gorp.Tx, c *ReadConfig) error {
 	return nil
 }
 
-func reconcileWrite(_ context.Context, _ gorp.Tx, c *WriteConfig) error {
+func reconcileWrite(ctx context.Context, tx gorp.Tx, c *WriteConfig) error {
 	v5.RepairWriteConfig(c)
-	return nil
+	return detachMessages(ctx, tx, c)
 }
