@@ -489,10 +489,11 @@ const chainOf = (
  * first sample of a group, and average keeps the mean of x and the mean of y. A group
  * only partly inside the ops reduces the samples it holds.
  *
- * Ops that continue one another in alignment, touch in time, and hold one y data type
- * reduce as one contiguous range of alignments. The op a group starts in draws it, and
- * the first op of such a range also draws the group it starts inside. An op that draws
- * no group gives its span to the op before it, so the two ops around it still touch.
+ * Ops that continue one another in alignment, touch in time, and hold one x and one y
+ * data type reduce as one contiguous range of alignments. The op a group starts in
+ * draws it, and the first op of such a range also draws the group it starts inside. An
+ * op that draws no group gives its span to the op before it, so the two ops around it
+ * still touch.
  *
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
  * point for min_max, or groupSize otherwise. It holds the GL data type, and keeps the
