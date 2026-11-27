@@ -194,10 +194,14 @@ export class StreamMultiChannelLog
     this._channels = this.props.channels;
   }
 
-  /** @returns the entries, with the worst status of the channels. */
+  /**
+   * @returns the entries, with the worst status of the channels. A log that is not live
+   * and holds no entries is loading, since a seek dropped them.
+   */
   value(): telem.Result<LogEntry[]> {
     if (this._channels.length > 0 && !this.valid) void this.resolve();
-    const status = this.reading
+    const loading = this.reading || (!this.live && this.entries.length === 0);
+    const status = loading
       ? cstatus.worst(this.status, telem.LOADING_STATUS)!
       : this.status;
     return { data: this.entries, status };

@@ -1544,6 +1544,30 @@ describe("StreamMultiChannelLog", () => {
         expectRun(core, a, log);
       });
 
+      it("should report loading while a page read fails after a seek", async () => {
+        const core = deep();
+        const [a] = core.data.map((c) => c.key);
+        let failed = false;
+        let failures = 0;
+        const client = connect(core, {
+          readLatest: async (keys, count, tr) => {
+            if (failed && tr.end.valueOf() !== TimeStamp.MAX.valueOf()) {
+              failures++;
+              throw new Error("page unavailable");
+            }
+            return core.readLatest(keys, count, tr);
+          },
+        });
+        const log = open(core, client, { channels: [a] }, undefined, 2_000);
+        await settle(log, 1_800);
+        failed = true;
+        log.seek(new TimeStamp(timesOf(core, STORED)[1_000]));
+        log.loadOlder();
+        await expect.poll(() => failures, POLL).toBeGreaterThan(0);
+        expect(entriesOf(log)).toEqual([]);
+        expect(log.value().status.variant).toBe("loading");
+      });
+
       it("should keep the entries for a time they reach", async () => {
         const core = deep();
         const [a] = core.data.map((c) => c.key);
