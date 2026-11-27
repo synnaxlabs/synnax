@@ -22,8 +22,8 @@ import (
 )
 
 var (
-	// errFull is the error of an entry that does not fit in the log file. Only deletes,
-	// Restarts, and Seals use the last DeleteReserve bytes of the file.
+	// errFull is the error of an entry that does not fit in the log file. Only deletes
+	// and Restarts use the last DeleteReserve bytes of the file.
 	errFull = errors.New("log file is full")
 	// errClosed is the error of an entry appended after Close.
 	errClosed = errors.New("log is closed")
@@ -300,9 +300,9 @@ func (a Ack) Wait() (uint64, error) {
 }
 
 // Append queues a copy of the bytes of e and its records, and returns at once. Entries
-// reach the log in the order of their Append calls. An entry of deletes, Restarts, and
-// Seals alone may use the last DeleteReserve bytes of the file. After a failed write or
-// sync, every entry fails with that error until a restart.
+// reach the log in the order of their Append calls. An entry of deletes and Restarts
+// alone may use the last DeleteReserve bytes of the file. After a failed sync, every
+// entry fails with that error until a restart.
 func (l *Log) Append(e *Entry) Ack {
 	a := Ack{done: make(chan result, 1)}
 	l.mu.Lock()
