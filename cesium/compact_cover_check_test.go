@@ -11,6 +11,7 @@ package cesium_test
 
 import (
 	"fmt"
+	"math/rand/v2"
 	"slices"
 	"time"
 
@@ -36,6 +37,9 @@ var _ = Describe("Check: a rewrite whose Replace frame fault 5d cuts", func() {
 			"",
 			cesium.WithFS(frameHoldFS{FS: disk, h: h}),
 			cesium.WithPointerLog(),
+			// The crash images open through breakOpen, with its identity.
+			cesium.WithRandom(rand.NewPCG(1, 2)),
+			pcgIdentity(1, 2),
 			cesium.WithClock(fake),
 			cesium.WithGCConfig(cesium.GCConfig{Rate: 1 << 20}),
 		))
