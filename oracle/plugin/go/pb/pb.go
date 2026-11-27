@@ -2705,8 +2705,7 @@ type mapValueConversionData struct {
 	// when the key types match.
 	ForwardKeyExpr string // e.g., "uint32(k)"
 	// BackwardKeyExpr converts a proto key to a Go key and returns (K, error), using
-	// "k"
-	// as placeholder. Empty when the key types match.
+	// "k" as placeholder. Empty when the key types match.
 	BackwardKeyExpr string // e.g., "xpb.Narrow[uint16](k)"
 	// ForwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	ForwardValueExpr string // e.g., "uint32(v)"
