@@ -578,15 +578,27 @@ var _ = Describe("Index Persist", Ordered, func() {
 						go func() { failed <- writeSecond(ctx, 4) }()
 						Eventually(entered).Should(Receive())
 						deleted := make(chan error, 1)
+						// The start resolver is the last call into the spec before the
+						// delete takes the index lock and prepares its write. Nothing
+						// that the spec holds can stop the delete after it.
+						resolved := make(chan struct{})
+						start := func(
+							ctx context.Context,
+							domainStart, ts telem.TimeStamp,
+						) (telem.Size, telem.TimeStamp, error) {
+							close(resolved)
+							return fixedOffset(0)(ctx, domainStart, ts)
+						}
 						go func() {
 							_, err := db.Delete(
 								ctx,
 								(2 * telem.SecondTS).Range(3*telem.SecondTS),
-								fixedOffset(0),
+								start,
 								fixedOffset(0),
 							)
 							deleted <- err
 						}()
+						Eventually(resolved).Should(BeClosed())
 						// The delete waits behind the failed write until release.
 						Consistently(deleted, 200*time.Millisecond).
 							ShouldNot(Receive())

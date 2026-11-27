@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	xerrors "github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -39,9 +40,16 @@ var _ = Describe("History handlers that call the DB", func() {
 				10*telem.SecondTS,
 				telem.NewSeriesSecondsTSV(10, 11),
 			)).To(Succeed())
+			Expect(db.WriteSeries(
+				ctx,
+				k,
+				0,
+				telem.NewSeriesSecondsTSV(0, 1),
+			)).To(Succeed())
 		}
 	})
 	written := (10 * telem.SecondTS).Range(11 * telem.SecondTS)
+	earliest := telem.TimeStamp(0).Range(2 * telem.SecondTS)
 	calls := map[string]func(context.Context, cesium.HistoryChange) error{
 		"a read of the changed range": func(
 			ctx context.Context,
@@ -61,6 +69,12 @@ var _ = Describe("History handlers that call the DB", func() {
 				DataType: telem.Float32T,
 			})
 		},
+		"a delete of the changed channel's data before the change": func(
+			ctx context.Context,
+			c cesium.HistoryChange,
+		) error {
+			return db.DeleteTimeRange(ctx, []cesium.ChannelKey{c.Key}, earliest)
+		},
 		"a delete of another channel": func(
 			ctx context.Context,
 			_ cesium.HistoryChange,
@@ -76,6 +90,23 @@ var _ = Describe("History handlers that call the DB", func() {
 				2*telem.SecondTS,
 				telem.NewSeriesSecondsTSV(2, 3),
 			)
+		},
+		"a backfill commit that persists the index": func(ctx context.Context) error {
+			w, err := db.OpenWriter(ctx, cesium.WriterConfig{
+				Start:            2 * telem.SecondTS,
+				Channels:         []cesium.ChannelKey{key},
+				EnableAutoCommit: new(false),
+			})
+			if err != nil {
+				return err
+			}
+			if _, err = w.Write(telem.UnaryFrame(
+				key,
+				telem.NewSeriesSecondsTSV(2, 3),
+			)); err == nil {
+				_, _, err = w.Commit()
+			}
+			return xerrors.Join(err, w.Close())
 		},
 		"a delete": func(ctx context.Context) error {
 			return db.DeleteTimeRange(ctx, []cesium.ChannelKey{key}, written)
