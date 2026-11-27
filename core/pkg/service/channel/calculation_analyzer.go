@@ -142,12 +142,10 @@ func (a *CalculationAnalyzer) Analyze(
 	}
 	inferredDataType, ok := dataType.ToTelem()
 	if !ok {
-		returned := "no value"
-		if dataType.Kind != types.KindInvalid {
-			returned = dataType.String() + ", which has no data type"
-		}
 		aCtx.Diagnostics.Add(diagnostics.Errorf(
-			t, "the expression of calculated channel %q returns %s", ch.Name, returned,
+			t,
+			"the expression of calculated channel %q returns no typed value",
+			ch.Name,
 		))
 		return CalculationAnalysisResult{}, aCtx.Diagnostics
 	}

@@ -406,7 +406,7 @@ var _ = Describe("Analyze", func() {
 			ch := channel.Channel{Name: "calc", Expression: "x := 1.0"}
 			Expect(a.Analyze(ctx, ch)).Error().To(And(
 				BeAssignableToTypeOf(&diagnostics.Diagnostics{}),
-				MatchError(ContainSubstring(`"calc" returns no value`)),
+				MatchError(ContainSubstring(`"calc" returns no typed value`)),
 			))
 		})
 
