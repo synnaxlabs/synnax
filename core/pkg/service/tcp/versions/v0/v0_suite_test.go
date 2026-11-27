@@ -7,19 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package icd_test
+package v0_test
 
 import (
+	"testing"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/x/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
-// A stored record lives under the key prefix of its type name, so a new name hides
-// every record that a released Core stored.
-var _ = Describe("Table name", func() {
-	It("Should keep the table name of stored ICDs", func() {
-		Expect(types.Name[icd.ICD]()).To(Equal("ICD"))
-	})
-})
+func TestTCPV0(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service TCP v0 Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -66,6 +66,7 @@ from synnax import (
     serial,
     sift,
     status,
+    tcp,
 )
 from synnax.access.policy import Policy
 from synnax.access.role import Role
@@ -286,4 +287,5 @@ __all__ = [
     "sift",
     "sleep",
     "status",
+    "tcp",
 ]
