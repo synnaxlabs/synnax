@@ -84,10 +84,12 @@ export interface KeepAlive {
   interval: CrudeTimeSpan;
   /**
    * How long an open stream may receive no message before it fails with Unreachable.
-   * It applies only when the server sends keep-alives, and must be longer than the
-   * interval. A message counts only when all of it has arrived, so the timeout must
-   * also cover the largest message on the slowest link. Defaults to three intervals.
-   * A timeout of zero, infinity, or more than 2^31 - 1 milliseconds sets no limit.
+   * The stream fails up to 500 ms after the timeout, so that messages held by a frozen
+   * page can arrive first. It applies only when the server sends keep-alives, and must
+   * be longer than the interval. A message counts only when all of it has arrived, so
+   * the timeout must also cover the largest message on the slowest link. Defaults to
+   * three intervals. A timeout of zero, infinity, or more than 2^31 - 1 milliseconds
+   * sets no limit.
    */
   timeout: CrudeTimeSpan;
 }
@@ -120,6 +122,8 @@ const KEEP_ALIVE_PARAM = "keep_alive";
 // The server sends a keep-alive as a text frame and every other message as a binary
 // frame, so a keep-alive needs no decoding.
 const KEEP_ALIVE_MESSAGE = '{"type":"keep_alive"}';
+
+const STALL_GRACE = TimeSpan.milliseconds(500);
 
 // WebSocket has no drain event, so send polls bufferedAmount.
 const DRAIN_POLL_INTERVAL = TimeSpan.milliseconds(5);
@@ -286,10 +290,17 @@ class WebSocketStream<
     );
   }
 
-  private checkStall(timeout: TimeSpan, delay: number = timeout.milliseconds): void {
+  private checkStall(
+    timeout: TimeSpan,
+    delay: number = timeout.milliseconds,
+    overdue = false,
+  ): void {
     this.stallTimer = setTimeout(() => {
       const remaining = timeout.milliseconds - (performance.now() - this.lastMessage);
       if (remaining > 0) return this.checkStall(timeout, remaining);
+      // A page that resumes from a freeze can run this timer before the messages that
+      // arrived during the freeze, so they get a grace period to run first.
+      if (!overdue) return this.checkStall(timeout, STALL_GRACE.milliseconds, true);
       this.fail(
         new Unreachable({
           url: this.endpoint,
