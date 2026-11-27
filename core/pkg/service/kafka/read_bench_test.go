@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -340,35 +341,41 @@ func benchRecords(
 	sc benchScenario,
 ) []kafka.ReadRecord {
 	GinkgoHelper()
-	unixNs := payload.TimeFormatUnixNs
-	recs := make([]kafka.InlineRecord, len(groups))
+	messages := make([]icd.Message, len(groups))
+	reads := make([]icd.ReadMessage, len(groups))
 	for gi, g := range groups {
-		rec := kafka.InlineRecord{Key: fmt.Sprintf("r%d", gi), RecordKey: g.key}
+		var (
+			fields   []icd.JSONField
+			channels []channel.Channel
+		)
 		if !sc.kafkaTime {
-			rec.Index = "ts"
-			rec.Fields = append(rec.Fields, kafka.ReadField{
-				Key:        "ts",
-				Channel:    g.index.Key(),
-				Pointer:    "/ts",
-				DataType:   telem.TimestampT,
-				TimeFormat: &unixNs,
-			})
+			fields = append(fields, jsonField(
+				"ts",
+				"/ts",
+				icd.TimestampJSONField{TimeFormat: payload.TimeFormatUnixNs},
+			))
+			channels = append(channels, g.index)
 		}
 		for i, ch := range g.data {
 			ptr := "/value"
 			if sc.shape == wide {
 				ptr = "/c" + strconv.Itoa(i)
 			}
-			rec.Fields = append(rec.Fields, kafka.ReadField{
-				Key:      "f" + strconv.Itoa(i),
-				Channel:  ch.Key(),
-				Pointer:  ptr,
-				DataType: telem.Float64T,
-			})
+			fields = append(
+				fields,
+				jsonField("f"+strconv.Itoa(i), ptr, icd.FloatJSONField{}),
+			)
+			channels = append(channels, ch)
 		}
-		recs[gi] = rec
+		messages[gi] = jsonMessage(fmt.Sprintf("r%d", gi), nil, fields...)
+		reads[gi] = read(messages[gi], channels...)
 	}
-	return lift(ctx, recs...)
+	ic := createICD(ctx, messages...)
+	recs := make([]kafka.ReadRecord, len(groups))
+	for gi, g := range groups {
+		recs[gi] = record(g.key, ic, reads[gi])
+	}
+	return recs
 }
 
 // latencyLog collects end-to-end latency samples, keyed by when they were seen.

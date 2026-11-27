@@ -151,15 +151,11 @@ var _ = Describe("Factory", func() {
 		return kafka.ReadConfig{
 			AutoStart: autoStart,
 			Device:    dev,
-			Topics: oneTopic(uniqueTopic(), lift(ctx, kafka.InlineRecord{
-				Key: "r",
-				Fields: []kafka.ReadField{{
-					Key:      "v",
-					Channel:  data.Key(),
-					Pointer:  "/v",
-					DataType: telem.Float64T,
-				}},
-			})),
+			Topics: oneTopic(uniqueTopic(), single(
+				ctx,
+				jsonMessage("Reading", nil, jsonField("v", "/v", icd.FloatJSONField{})),
+				data,
+			)),
 			StartOffset: kafka.StartOffsetEarliest,
 		}
 	}
