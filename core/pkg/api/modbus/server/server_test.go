@@ -361,14 +361,15 @@ var _ = Describe("Service", func() {
 		}
 
 		It("Should write only the identity group", func(ctx SpecContext) {
+			ch := createChannels(ctx, 2)
 			s := createServer(ctx, func(s *server.Server) {
 				s.Reads = []server.Read{
 					{
 						Location: server.Location{
 							Variant: server.CoilLocation{Address: 5},
 						},
-						Index:   1,
-						Channel: 2,
+						Index:   ch[0],
+						Channel: ch[1],
 					},
 				}
 			})
@@ -380,6 +381,7 @@ var _ = Describe("Service", func() {
 		})
 
 		It("Should write only the configuration group", func(ctx SpecContext) {
+			ch := createChannels(ctx, 1)
 			s := createServer(ctx)
 			grantWrites(ctx, s.Rack)
 			MustSucceed(update(
@@ -393,7 +395,7 @@ var _ = Describe("Service", func() {
 									Location: server.WriteLocation{
 										Variant: server.CoilWriteLocation{Address: 1},
 									},
-									Channel: 2,
+									Channel: ch[0],
 								},
 							},
 						},

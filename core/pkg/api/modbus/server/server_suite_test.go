@@ -10,6 +10,7 @@
 package server_test
 
 import (
+	"context"
 	"testing"
 	"uuid"
 
@@ -24,6 +25,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
@@ -103,4 +106,21 @@ func tcp(host string) server.Connection {
 		Port:    502,
 		UnitID:  255,
 	}}
+}
+
+// createChannels creates count virtual float64 channels and returns their keys.
+func createChannels(ctx context.Context, count int) channel.Keys {
+	GinkgoHelper()
+	channels := make([]channel.Channel, count)
+	for i := range channels {
+		channels[i] = channel.Channel{
+			Name:     channeltestutil.UniqueChannelName(),
+			DataType: telem.Float64T,
+			Virtual:  true,
+		}
+	}
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Channel.NewWriter(tx).CreateMany(ctx, &channels)
+	})).To(Succeed())
+	return channel.KeysFromChannels(channels)
 }

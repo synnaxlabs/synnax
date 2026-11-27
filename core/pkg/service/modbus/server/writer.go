@@ -11,6 +11,7 @@ package server
 
 import (
 	"context"
+	"math"
 	"net"
 	"regexp"
 	"strconv"
@@ -80,8 +81,8 @@ func isHost(host string) bool {
 }
 
 // validateServer checks s against its schema. It also checks that a TCP host is a
-// hostname or an IP address, that no two reads share a location and an index, and that
-// no two writes set one address.
+// hostname or an IP address, that every value ends at or before address 65535, that no
+// two reads share a location and an index, and that no two writes set one address.
 func validateServer(s Server) error {
 	if err := s.Validate(); err != nil {
 		return err
@@ -100,9 +101,12 @@ func validateServer(s Server) error {
 	}
 	reads := set.New[readKey]()
 	for i, r := range s.Reads {
+		path := "reads." + strconv.Itoa(i)
+		start, count := span(r.Location)
+		v.Ternary(path+".location", !fits(start, count), overrunMessage)
 		k := readKey{location: keyOf(r.Location), index: r.Index}
 		v.Ternary(
-			"reads."+strconv.Itoa(i),
+			path,
 			reads.Contains(k),
 			"repeats the location and index of another read",
 		)
@@ -110,13 +114,64 @@ func validateServer(s Server) error {
 	}
 	var written writeSet
 	for i, w := range s.Writes {
+		path := "writes." + strconv.Itoa(i)
+		start, count := writeSpan(w.Location)
+		v.Ternary(path+".location", !fits(start, count), overrunMessage)
 		v.Ternary(
-			"writes."+strconv.Itoa(i),
+			path,
 			!written.add(w.Location),
 			"sets an address that another write sets",
 		)
 	}
 	return v.Error()
+}
+
+const overrunMessage = "must end at or before address 65535"
+
+// fits returns true if count addresses from start all lie at or below 65535.
+func fits(start uint16, count int) bool {
+	return int(start)+count-1 <= math.MaxUint16
+}
+
+// span returns the first address and the number of addresses that a read of l covers.
+func span(l Location) (uint16, int) {
+	switch v := l.Variant.(type) {
+	case CoilLocation:
+		return v.Address, 1
+	case DiscreteInputLocation:
+		return v.Address, 1
+	case HoldingRegisterLocation:
+		return v.Address, valueCount(v.Value)
+	case InputRegisterLocation:
+		return v.Address, valueCount(v.Value)
+	}
+	return 0, 1
+}
+
+// valueCount returns the number of registers that v fills.
+func valueCount(v Value) int {
+	switch val := v.Variant.(type) {
+	case WholeValue:
+		return registerCount(val.DataType)
+	case StringValue:
+		return (int(val.Length) + 1) / 2
+	}
+	return 1
+}
+
+// writeSpan returns the first address and the number of addresses that a write of l
+// sets.
+func writeSpan(l WriteLocation) (uint16, int) {
+	switch v := l.Variant.(type) {
+	case CoilWriteLocation:
+		return v.Address, 1
+	case HoldingRegisterWriteLocation:
+		if whole, ok := v.Value.Variant.(WholeWriteValue); ok {
+			return v.Address, registerCount(whole.DataType)
+		}
+		return v.Address, 1
+	}
+	return 0, 1
 }
 
 // address is one address in one Modbus address space.

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
@@ -33,10 +34,12 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
-		stat    *status.Service
-		rackSvc *rack.Service
-		svc     *server.Service
-		tx      gorp.Tx
+		stat       *status.Service
+		channelSvc *channel.Service
+		ch         channel.Keys
+		rackSvc    *rack.Service
+		svc        *server.Service
+		tx         gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
@@ -45,7 +48,7 @@ var _ = Describe("Service", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
-			HostKey:    1,
+			HostKey:    node.Identity.HostKey,
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
@@ -53,7 +56,15 @@ var _ = Describe("Service", func() {
 			DB:     db,
 			Status: stat,
 		}))
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			TS:      node.Storage.TS,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  stat,
+		}))
 		tx = DeferClose(db.OpenTx())
+		ch = createChannels(ctx, channelSvc, tx, 6)
 	})
 
 	newServer := func() server.Server {
@@ -136,7 +147,7 @@ var _ = Describe("Service", func() {
 
 		It("Should accept one register read into two indexes", func(ctx SpecContext) {
 			s := newServer()
-			s.Reads = []server.Read{read(5, 1, 2), read(5, 3, 4)}
+			s.Reads = []server.Read{read(5, ch[1], ch[2]), read(5, ch[3], ch[4])}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 		})
 
@@ -177,10 +188,10 @@ var _ = Describe("Service", func() {
 			}),
 			Entry("a missing rack", func(s *server.Server) { s.Rack = 999 }),
 			Entry("two reads of one register into one index", func(s *server.Server) {
-				s.Reads = []server.Read{read(5, 1, 2), read(5, 1, 3)}
+				s.Reads = []server.Read{read(5, ch[1], ch[2]), read(5, ch[1], ch[3])}
 			}),
 			Entry("two writes of one coil", func(s *server.Server) {
-				s.Writes = []server.Write{write(1, 2), write(1, 3)}
+				s.Writes = []server.Write{write(1, ch[2]), write(1, ch[3])}
 			}),
 			Entry("a host with a path", func(s *server.Server) {
 				s.Connection = tcp("plc/1")
@@ -194,8 +205,8 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext, a, b server.WriteValueVariant, offset uint16) {
 				s := newServer()
 				s.Writes = []server.Write{
-					holdingWrite(5, a, 2),
-					holdingWrite(5+offset, b, 3),
+					holdingWrite(5, a, ch[2]),
+					holdingWrite(5+offset, b, ch[3]),
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).
 					To(MatchError(ContainSubstring("another write sets")))
@@ -216,11 +227,65 @@ var _ = Describe("Service", func() {
 		It("Should accept writes of two bits of one register", func(ctx SpecContext) {
 			s := newServer()
 			s.Writes = []server.Write{
-				holdingWrite(5, bit(1), 2),
-				holdingWrite(5, bit(2), 3),
-				holdingWrite(6, whole(telem.NumericDataTypeInt16), 4),
+				holdingWrite(5, bit(1), ch[2]),
+				holdingWrite(5, bit(2), ch[3]),
+				holdingWrite(6, whole(telem.NumericDataTypeInt16), ch[4]),
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		})
+
+		holdingRead := func(address uint16, value server.ValueVariant) server.Read {
+			return server.Read{
+				Location: server.Location{Variant: server.HoldingRegisterLocation{
+					Address: address,
+					Value:   server.Value{Variant: value},
+				}},
+				Index:   ch[0],
+				Channel: ch[1],
+			}
+		}
+
+		It("Should accept a value that ends at address 65535", func(ctx SpecContext) {
+			s := newServer()
+			s.Reads = []server.Read{holdingRead(
+				65534,
+				server.WholeValue{DataType: telem.NumericDataTypeFloat32},
+			)}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+		})
+
+		DescribeTable(
+			"Should reject a value that runs past address 65535",
+			func(ctx SpecContext, value server.ValueVariant) {
+				s := newServer()
+				s.Reads = []server.Read{holdingRead(65535, value)}
+				Expect(svc.NewWriter(tx).Create(ctx, &s)).
+					To(MatchError(ContainSubstring("address 65535")))
+			},
+			Entry(
+				"a float32",
+				server.WholeValue{DataType: telem.NumericDataTypeFloat32},
+			),
+			Entry("a string", server.StringValue{Length: 3}),
+		)
+
+		It("Should reject a write that runs past address 65535", func(ctx SpecContext) {
+			s := newServer()
+			s.Writes = []server.Write{
+				holdingWrite(65533, whole(telem.NumericDataTypeFloat64), ch[1]),
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).
+				To(MatchError(ContainSubstring("address 65535")))
+		})
+
+		It("Should keep a channel that a server binds from being deleted", func(
+			ctx SpecContext,
+		) {
+			s := newServer()
+			s.Reads = []server.Read{read(5, ch[1], ch[2])}
+			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
+			Expect(channelSvc.NewWriter(tx).Delete(ctx, ch[2], false)).
+				To(MatchError(validate.ErrValidation))
 		})
 
 		DescribeTable("Should accept a host",
@@ -238,12 +303,12 @@ var _ = Describe("Service", func() {
 		It("Should accept two reads of one address as different values",
 			func(ctx SpecContext) {
 				s := newServer()
-				bit := read(5, 1, 3)
+				bit := read(5, ch[1], ch[3])
 				bit.Location = server.Location{Variant: server.HoldingRegisterLocation{
 					Address: 5,
 					Value:   server.Value{Variant: server.BitValue{Bit: 2}},
 				}}
-				s.Reads = []server.Read{read(5, 1, 2), bit}
+				s.Reads = []server.Read{read(5, ch[1], ch[2]), bit}
 				Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			},
 		)
@@ -254,7 +319,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			s := newServer()
-			s.Reads = []server.Read{read(5, 4, 5)}
+			s.Reads = []server.Read{read(5, ch[4], ch[5])}
 			Expect(svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 			update := identity(s)
 			update.Name = "Renamed"
@@ -277,16 +342,16 @@ var _ = Describe("Service", func() {
 			s := create(ctx)
 			Expect(svc.NewWriter(tx).Apply(ctx, s.Key, server.Update{
 				Variant: server.ConfigurationUpdate{Configuration: server.Configuration{
-					Reads:  []server.Read{read(1, 1, 2)},
-					Writes: []server.Write{write(2, 3)},
+					Reads:  []server.Read{read(1, ch[1], ch[2])},
+					Writes: []server.Write{write(2, ch[3])},
 				}},
 			})).To(Succeed())
 			got := retrieve(ctx, s.Key)
 			Expect(got.Name).To(Equal(s.Name))
 			Expect(got.Connection).To(Equal(s.Connection))
 			Expect(got.RequestPolicy).To(Equal(s.RequestPolicy))
-			Expect(got.Reads).To(Equal([]server.Read{read(1, 1, 2)}))
-			Expect(got.Writes).To(Equal([]server.Write{write(2, 3)}))
+			Expect(got.Reads).To(Equal([]server.Read{read(1, ch[1], ch[2])}))
+			Expect(got.Writes).To(Equal([]server.Write{write(2, ch[3])}))
 		})
 
 		It("Should move the status with the rack", func(ctx SpecContext) {

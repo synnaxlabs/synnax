@@ -10,24 +10,29 @@
 package server_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus/server"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var db *gorp.DB
+var (
+	node testutil.Node
+	db   *gorp.DB
+)
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
-	StartRun(db.Run)
+	node = testutil.NewNode(ctx)
+	db = node.DB
 })
 
 func TestServer(t *testing.T) {
@@ -120,4 +125,24 @@ func whole(dt telem.NumericDataType) server.WholeWriteValue {
 // bit returns a write of one bit of a register.
 func bit(b uint8) server.BitWriteValue {
 	return server.BitWriteValue{Bit: b}
+}
+
+// createChannels creates count virtual float64 channels in tx and returns their keys.
+func createChannels(
+	ctx context.Context,
+	svc *channel.Service,
+	tx gorp.Tx,
+	count int,
+) channel.Keys {
+	GinkgoHelper()
+	channels := make([]channel.Channel, count)
+	for i := range channels {
+		channels[i] = channel.Channel{
+			Name:     channeltestutil.UniqueChannelName(),
+			DataType: telem.Float64T,
+			Virtual:  true,
+		}
+	}
+	Expect(svc.NewWriter(tx).CreateMany(ctx, &channels)).To(Succeed())
+	return channel.KeysFromChannels(channels)
 }
