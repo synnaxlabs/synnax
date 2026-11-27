@@ -160,6 +160,8 @@ struct Config {
     synnax::Config connection;
     /// @brief the settings of the outbox. The rack sets its directory and client.
     outbox::Config outbox;
+    /// @brief the most status names whose key the Driver keeps across restarts.
+    std::size_t status_keys = arc::status::DEFAULT_MAX_KEYS;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
     /// @brief the directory that holds the persisted state file. Integrations keep
@@ -176,6 +178,9 @@ struct Config {
     x::errors::Error outbox_err;
     /// @brief the warning of a stuck outbox, which the rack status reports.
     std::shared_ptr<status::Alert> outbox_alert = std::make_shared<status::Alert>();
+    /// @brief the keys of resolved Arc status sets, or the error that kept them from
+    /// loading. Set by Rack::run, which opens them only once it holds the outbox lock.
+    std::pair<std::shared_ptr<arc::status::Keys>, x::errors::Error> status_keys_store;
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
     /// Give it the same client as the task manager. With an incompatible Core, the
@@ -396,6 +401,7 @@ struct Config {
             );
         if (this->outbox.max_payload > this->outbox.max_bytes)
             p.field_err("outbox_max_payload", "must be at most outbox_size");
+        this->status_keys = count("outbox_status_keys", this->status_keys);
     }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);

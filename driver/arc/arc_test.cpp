@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <filesystem>
 #include <future>
 #include <limits>
 #include <memory>
@@ -20,10 +21,12 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
+#include "freighter/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/thread/rt/rt.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -33,11 +36,34 @@
 #include "driver/bypass/pipeline/streamer.h"
 #include "driver/bypass/pipeline/writer.h"
 #include "driver/control/state.h"
+#include "driver/journal/journal.h"
+#include "driver/outbox/outbox.h"
 #include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 #include "driver/task/task.h"
 
 namespace driver::arc {
+/// @brief returns status keys in a new temporary file, which it removes when the keys
+/// end.
+/// @throws std::runtime_error when the keys fail to open.
+std::pair<std::shared_ptr<status::Keys>, x::errors::Error> test_keys() {
+    const auto path = std::filesystem::temp_directory_path() /
+                      ("status_keys_" + x::uuid::create().to_string());
+    auto [keys, err] = status::Keys::open(path, "cluster");
+    if (err) throw std::runtime_error(err.message());
+    return {
+        std::shared_ptr<status::Keys>(
+            keys.get(),
+            [keys, path](status::Keys *) mutable {
+                keys.reset();
+                std::error_code ec;
+                std::filesystem::remove(path, ec);
+            }
+        ),
+        x::errors::NIL
+    };
+}
+
 /// @brief creates automation in the cluster and assigns its key.
 x::errors::Error create_automation(
     const std::shared_ptr<synnax::Synnax> &client,
@@ -196,7 +222,14 @@ TEST(ArcTests, testCalcDoubling) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -262,6 +295,7 @@ TEST(ArcTests, testRTCoreHeldOnlyWhileRunning) {
                 task_meta,
                 ctx,
                 task_cfg,
+                test_keys(),
                 std::make_shared<driver::pipeline::testutil::WriterFactory>(),
                 driver::pipeline::testutil::simple_streamer_factory(
                     {idx.key, input.key},
@@ -385,7 +419,14 @@ TEST(ArcTests, testBasicSequence) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -489,7 +530,14 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
         ::driver::outbox::testutil::open(client->statuses)
     );
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -628,7 +676,14 @@ TEST(ArcTests, testOneShotTruthiness) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -828,7 +883,14 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -977,7 +1039,14 @@ TEST(ArcErrorHandling, WasmTrapSendsWarning) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -1035,6 +1104,7 @@ TEST(ArcErrorHandling, LoopBudgetStopsProgram) {
             task_meta,
             ctx,
             task_cfg,
+            test_keys(),
             std::make_shared<pipeline::testutil::WriterFactory>(),
             pipeline::testutil::simple_streamer_factory(
                 {},
@@ -1152,6 +1222,7 @@ TEST(ArcErrorHandling, LoopBudgetStatusSurvivesLaterInput) {
             task_meta,
             ctx,
             task_cfg,
+            test_keys(),
             std::make_shared<pipeline::testutil::WriterFactory>(),
             std::make_shared<TriggerStreamerFactory>(input_idx.key, input_ch.key)
         )
@@ -1245,6 +1316,7 @@ TEST(ArcErrorHandling, StopInterruptsInfiniteLoop) {
             task_meta,
             ctx,
             task_cfg,
+            test_keys(),
             std::make_shared<pipeline::testutil::WriterFactory>(),
             pipeline::testutil::simple_streamer_factory(
                 {input_idx.key, input_ch.key},
@@ -1356,6 +1428,7 @@ TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
             task_meta,
             ctx,
             task_cfg,
+            test_keys(),
             std::make_shared<pipeline::testutil::WriterFactory>(),
             pipeline::testutil::simple_streamer_factory(
                 {input_idx.key, input_ch.key},
@@ -1478,7 +1551,14 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start_1");
@@ -1604,7 +1684,14 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     for (int cycle = 0; cycle < 3; cycle++) {
@@ -1733,7 +1820,14 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     // An automatic start has no command key. A second start arrives while the first
@@ -1860,7 +1954,14 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     synnax::task::Command start_cmd{
@@ -1890,6 +1991,238 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         }
     EXPECT_TRUE(found_stop_reply)
         << "The stop status should carry the stop command's key";
+}
+
+/// @brief it should keep the stopped status when the outbox answers a set after the
+/// task stops.
+TEST(ArcStatusVerification, LateSetResultKeepsStoppedStatus) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("late_set_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "import status\n\n"
+                   "interval(period=50ms) -> status.set(\n"
+                   "    key_or_name=\"late_set_status\",\n"
+                   "    message=\"late\",\n"
+                   "    variant=\"info\"\n"
+                   ")\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_late_set_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_late_set_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    // The first send finds the Core unreachable, and every later one is rejected.
+    std::vector<x::errors::Error> errors(1000, x::errors::VALIDATION);
+    errors.front() = freighter::UNREACHABLE;
+    const auto sets = std::make_shared<freighter::testutil::UnaryClient<
+        ::grpc::status::SetByKeyOrNameRequest,
+        ::grpc::status::SetByKeyOrNameResponse>>(
+        std::vector<::grpc::status::SetByKeyOrNameResponse>(errors.size()),
+        errors
+    );
+    const auto dir = std::filesystem::temp_directory_path() /
+                     ("late_set_" + x::uuid::create().to_string());
+    x::defer::defer remove([&] { std::filesystem::remove_all(dir); });
+    outbox::Config outbox_cfg{
+        .dir = dir,
+        .statuses = synnax::status::Client(nullptr, nullptr, nullptr, sets),
+    };
+    outbox_cfg.retry.base_interval = 500 * x::telem::MILLISECOND;
+    outbox_cfg.retry.max_interval = 500 * x::telem::MILLISECOND;
+    const std::shared_ptr outbox = ASSERT_NIL_P(outbox::Outbox::open(outbox_cfg));
+    auto ctx = std::make_shared<task::MockContext>(client, outbox);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {},
+                std::make_shared<std::vector<x::telem::Frame>>()
+            )
+        )
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(outbox->size(), 1);
+    task->stop("test_stop", true);
+    const auto stopped = ctx->snapshot().size();
+    ASSERT_EVENTUALLY_GE(outbox->dropped(), 1);
+    ASSERT_EVENTUALLY_EQ(outbox->size(), 0);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), stopped);
+    EXPECT_FALSE(statuses.back().details.running);
+    EXPECT_EQ(statuses.back().details.cmd, "test_stop");
+}
+
+/// @brief returns the config of a task that runs source, compiled by the Core.
+TaskConfig set_status_task(
+    const std::shared_ptr<synnax::Synnax> &client,
+    synnax::task::Task &task_meta,
+    const std::string &source
+) {
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("no_outbox_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{.text = ::arc::text::Text{.raw = source}};
+    if (const auto err = create_automation(client, arc_prog))
+        throw std::runtime_error(err.message());
+    task_meta = synnax::task::Task{.name = "arc_no_outbox", .type = "arc_runtime"};
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto [cfg, err] = TaskConfig::parse(client, parser);
+    if (err) throw std::runtime_error(err.message());
+    return std::move(cfg);
+}
+
+const auto NO_OUTBOX = x::errors::Error(
+    outbox::CORRUPT,
+    "The Driver cannot open its outbox. Move it aside, then restart the Driver."
+);
+
+/// @brief it should fail to start a task whose flow sets a status when the outbox did
+/// not open, and give the reason the outbox did not open.
+TEST(ArcNoOutbox, FailsToStartFlowSet) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "import status\n\n"
+        "interval(period=50ms) -> status.set(\n"
+        "    key_or_name=\"no_outbox_flow\",\n"
+        "    message=\"m\",\n"
+        "    variant=\"info\"\n"
+        ")\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
+    const auto err = Task::create(task_meta, ctx, task_cfg, test_keys()).second;
+    ASSERT_OCCURRED_AS(err, outbox::CORRUPT);
+    ASSERT_EQ(err.data, NO_OUTBOX.data);
+}
+
+/// @brief it should fail to start a task whose function sets a status when the outbox
+/// did not open.
+TEST(ArcNoOutbox, FailsToStartFunctionSet) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "import status\n\n"
+        "func set_it() {\n"
+        "    k := status.set(\"no_outbox_func\", \"m\", \"info\")\n"
+        "}\n"
+        "interval(period=50ms) -> set_it()\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
+    ASSERT_OCCURRED_AS_P(
+        Task::create(task_meta, ctx, task_cfg, test_keys()),
+        outbox::CORRUPT
+    );
+}
+
+/// @brief it should start a task that sets no statuses when the outbox did not open.
+TEST(ArcNoOutbox, StartsTaskWithoutSets) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "func tick() {\n"
+        "    x := 1\n"
+        "}\n"
+        "interval(period=50ms) -> tick()\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(client, NO_OUTBOX);
+    ASSERT_NIL_P(Task::create(task_meta, ctx, task_cfg, test_keys()));
+}
+
+/// @brief it should fail to start a task that sets a status when its keys did not
+/// load.
+TEST(ArcNoOutbox, FailsToStartSetWithoutKeys) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::task::Task task_meta;
+    const auto task_cfg = set_status_task(
+        client,
+        task_meta,
+        "import status\n\n"
+        "interval(period=50ms) -> status.set(\n"
+        "    key_or_name=\"no_keys_flow\",\n"
+        "    message=\"m\",\n"
+        "    variant=\"info\"\n"
+        ")\n"
+    );
+    const auto ctx = std::make_shared<task::MockContext>(
+        client,
+        outbox::testutil::open(client->statuses)
+    );
+    const auto keys_err = x::errors::Error(journal::CORRUPT, "keys are damaged");
+    ASSERT_OCCURRED_AS_P(
+        Task::create(task_meta, ctx, task_cfg, {nullptr, keys_err}),
+        journal::CORRUPT
+    );
+}
+
+/// @brief it should fail to configure a task that sets a status when the keys file is
+/// damaged, and tell the user to move it aside.
+TEST(ArcNoOutbox, FactoryReportsDamagedKeys) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const auto keys_path = std::filesystem::temp_directory_path() /
+                           ("status_keys_" + x::uuid::create().to_string());
+    x::defer::defer remove([&] { std::filesystem::remove(keys_path); });
+    {
+        const auto keys = ASSERT_NIL_P(status::Keys::open(keys_path, "cluster"));
+        ASSERT_NIL(keys->set("a", "key_a"));
+    }
+    std::filesystem::resize_file(keys_path, std::filesystem::file_size(keys_path) - 1);
+    synnax::task::Task task_meta;
+    set_status_task(
+        client,
+        task_meta,
+        "import status\n\n"
+        "interval(period=50ms) -> status.set(\n"
+        "    key_or_name=\"damaged_keys\",\n"
+        "    message=\"m\",\n"
+        "    variant=\"info\"\n"
+        ")\n"
+    );
+    task_meta.type = TASK_TYPE;
+    const auto ctx = std::make_shared<task::MockContext>(
+        client,
+        outbox::testutil::open(client->statuses)
+    );
+    auto keys_err = status::Keys::open(keys_path, "cluster").second;
+    ASSERT_OCCURRED_AS(keys_err, journal::CORRUPT);
+    Factory factory(nullptr, {nullptr, status::keys_failure(keys_path, keys_err)});
+    x::breaker::Breaker cancel;
+    const auto [tsk, handled] = factory.configure_task(
+        ctx,
+        task_meta,
+        task::NO_COMMAND,
+        cancel
+    );
+    EXPECT_TRUE(handled);
+    EXPECT_EQ(tsk, nullptr);
+    const auto statuses = ctx->snapshot();
+    ASSERT_EQ(statuses.size(), 1);
+    EXPECT_NE(
+        statuses[0].description.find("Move " + keys_path.string() + " aside"),
+        std::string::npos
+    ) << statuses[0].description;
 }
 
 TEST(ArcEdgeCases, RapidStartStop) {
@@ -1970,7 +2303,14 @@ TEST(ArcEdgeCases, RapidStartStop) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     for (int i = 0; i < 5; i++) {
@@ -2069,7 +2409,14 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->stop("stop_without_start", true);
@@ -2207,7 +2554,14 @@ TEST(ArcTests, testChannelConfigParam) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -2367,7 +2721,14 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -2484,7 +2845,14 @@ TEST(ArcEdgeCases, DoubleStart) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("first_start");
@@ -2589,7 +2957,14 @@ TEST(ArcTests, testRestartResetsState) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start_1");
@@ -2719,7 +3094,14 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     ASSERT_TRUE(task_cfg.program.authorities.default_.has_value())
@@ -2847,7 +3229,14 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -2963,7 +3352,14 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3074,7 +3470,14 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3180,7 +3583,14 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3294,7 +3704,14 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3396,7 +3813,14 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3493,7 +3917,14 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3586,6 +4017,7 @@ TEST(ArcTests, ForwardsStampFromBeforeStart) {
             task_meta,
             ctx,
             task_cfg,
+            test_keys(),
             std::make_shared<pipeline::SynnaxWriterFactory>(client),
             mock_streamer
         )
@@ -3698,7 +4130,14 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3771,7 +4210,14 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     );
 
     auto task = ASSERT_NIL_P(
-        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            test_keys(),
+            mock_writer,
+            mock_streamer
+        )
     );
 
     task->start("test_start");
@@ -3846,6 +4292,7 @@ TEST(ArcTests, ReadsItsOwnFirstWrite) {
             task_meta,
             ctx,
             task_cfg,
+            test_keys(),
             std::make_shared<bypass::pipeline::WriterFactory>(
                 mock_writer,
                 bus,
@@ -3958,6 +4405,7 @@ TEST(ArcTests, AnswersStartWhileFailedStartExits) {
             task_meta,
             ctx,
             task_cfg,
+            test_keys(),
             std::make_shared<pipeline::testutil::WriterFactory>(),
             std::make_shared<HeldFailureFactory>(hold)
         )
@@ -3987,7 +4435,7 @@ TEST(ArcFactory, BootConfigureErrorWritesStatus) {
     );
     synnax::task::Task task{.name = "arc_missing", .type = TASK_TYPE};
     task.config = nlohmann::json{{"arc_key", x::uuid::create().to_string()}};
-    Factory factory;
+    Factory factory(nullptr, test_keys());
     x::breaker::Breaker cancel;
     auto [tsk, handled] = factory.configure_task(ctx, task, task::NO_COMMAND, cancel);
     EXPECT_TRUE(handled);

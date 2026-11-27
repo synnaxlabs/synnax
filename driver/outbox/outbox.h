@@ -98,6 +98,11 @@ struct Config {
     /// outbox uses.
     std::function<x::errors::Error(const x::errors::Error &)> on_sync =
         [](const x::errors::Error &err) { return err; };
+    /// @brief called on the send thread with the key_or_name and the key of each status
+    /// set that the Core took, also a set loaded from the disk, before the done
+    /// callback of the set.
+    std::function<void(const std::string &key_or_name, const std::string &key)>
+        on_resolved = [](const std::string &, const std::string &) {};
     /// @brief called with each file and directory that the outbox creates, before the
     /// outbox uses it, such as to set its owner.
     x::fs::OnCreate on_create = x::fs::no_create_hook;
@@ -152,8 +157,6 @@ class Outbox {
     mutable std::mutex mu;
     std::condition_variable cv;
     std::condition_variable sync_cv;
-    /// @brief notified when the sync thread opens a spare.
-    std::condition_variable spare_cv;
     bool stopped = false;
     bool sync_stopped = false;
     std::deque<Call> calls;
@@ -183,9 +186,6 @@ class Outbox {
     /// @brief the segment that takes new calls. Its writer is null after a failure.
     Segment tail;
     std::size_t tail_calls = 0;
-    /// @brief a push waited for a spare and kept the full tail, so later pushes to the
-    /// tail do not wait.
-    bool tail_overfull = false;
     /// @brief a new segment that the sync thread opened for the next tail.
     std::optional<Segment> spare;
     /// @brief the tail took the spare, so the sync thread opens a new one.
@@ -199,11 +199,6 @@ class Outbox {
     std::optional<std::uint64_t> failed_key;
     /// @brief the error of the last failed segment open, until a spare opens.
     x::errors::Error open_err;
-    /// @brief the number of segment opens that finished, so a push can wait for an open
-    /// that started after it.
-    std::uint64_t opens_done = 0;
-    /// @brief the sync thread opens a segment now.
-    bool opening = false;
     /// @brief the time the sync thread last logged a failed open. Used only by the sync
     /// thread.
     x::telem::TimeStamp open_logged;
@@ -213,6 +208,8 @@ class Outbox {
     std::optional<journal::Offset> sent;
     /// @brief the last sent call ended its segment.
     bool segment_sent = false;
+    /// @brief the functions to run on the send thread.
+    std::vector<std::function<void()>> posted;
     /// @brief the last offset on the disk. Used only by the sync thread.
     std::optional<journal::Offset> saved;
     std::atomic<std::uint64_t> dropped_count = 0;
@@ -232,15 +229,11 @@ class Outbox {
     /// @brief queues a call that is on the disk. Requires mu.
     void enqueue(Call call);
     x::errors::Error push(pb::Call request, SetStatusDone done);
-    /// @brief moves the tail to the spare, and waits up to sync_interval for the sync
-    /// thread to open one. Keeps a full tail when the wait ends with no spare. Requires
-    /// a lock on mu.
-    x::errors::Error next_tail(std::unique_lock<std::mutex> &lock);
+    /// @brief moves the tail to the spare. Keeps a full tail, and never waits, when the
+    /// sync thread has not opened a spare. Requires mu.
+    x::errors::Error next_tail();
     /// @brief records a segment that failed to open with err. Requires mu.
     void fail_open(std::uint64_t key, const x::errors::Error &err);
-    /// @brief counts a finished segment open, and wakes the pushes that wait for it.
-    /// Requires mu.
-    void finish_open();
     /// @returns whether a compaction frees enough of the files to run. Requires mu.
     [[nodiscard]] bool reclaimable() const;
     /// @returns whether the outbox holds 3/4 of max_bytes or max_calls. Requires mu.
@@ -250,7 +243,8 @@ class Outbox {
     /// @returns whether a newer set of the same status replaced call. Requires mu.
     [[nodiscard]] bool is_replaced(const Call &call) const;
     void run();
-    /// @brief waits for the retry interval after the number of failed sends.
+    /// @brief waits for the retry interval after the number of failed sends, and
+    /// runs posted functions while it waits.
     /// @returns false when the outbox stops.
     bool wait_retry(std::size_t failures);
     x::errors::Error send(const Call &call) const;
@@ -311,6 +305,10 @@ public:
     x::errors::Error
     set_status(const ::grpc::status::SetByKeyOrNameRequest &req, SetStatusDone done);
 
+    /// @brief runs fn on the send thread before its next send, during a retry wait, or
+    /// at once when the outbox holds no calls. fn must not call the outbox.
+    void post(std::function<void()> fn);
+
     /// @returns the number of calls the Core rejected, which the outbox dropped.
     [[nodiscard]] std::uint64_t dropped() const;
 
@@ -323,5 +321,11 @@ public:
 
     /// @returns the number of calls the outbox holds.
     [[nodiscard]] std::size_t size() const;
+
+    /// @returns how long a caller whose call the outbox refused waits before it tries
+    /// again, the base interval of the retry config.
+    [[nodiscard]] x::telem::TimeSpan retry_interval() const {
+        return this->cfg.retry.base_interval;
+    }
 };
 }

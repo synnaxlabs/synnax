@@ -9,30 +9,50 @@
 
 #pragma once
 
+#include <cstdint>
 #include <memory>
+#include <mutex>
+#include <set>
 #include <string>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "absl/log/log.h"
 
 #include "client/cpp/status/status.h"
-#include "client/cpp/synnax.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "arc/cpp/program/program.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
 #include "driver/arc/reporter.h"
+#include "driver/arc/status/keys.h"
+#include "driver/outbox/outbox.h"
 
 namespace driver::arc::status {
 
 // Reporter text. Keep in sync with core/pkg/service/arc/status/status.go.
 const std::string SET_FAILURE_MSG = "Failed to set status";
 const std::string MULTI_MATCH_MSG = "Found duplicate status names";
+
+/// @brief returns the description for sets the outbox refused.
+inline std::string
+refused_description(const size_t count, const x::errors::Error &err) {
+    const auto dropped = "Dropped " + std::to_string(count) +
+                         (count == 1 ? " set" : " sets");
+    if (err.matches(::driver::outbox::FULL))
+        return dropped +
+               ", because the Driver holds the most changes it can until the Core "
+               "takes them. Check the connection to the Core, or set statuses less "
+               "often.";
+    return dropped + ": " + err.data;
+}
+
 /// @brief returns the description for a set that matched more than one status.
 inline std::string multi_match_description(
     const std::string &key_or_name,
@@ -43,30 +63,106 @@ inline std::string multi_match_description(
            ". Give each status a unique name, or set it by key.";
 }
 
-/// @brief Upserts a status via the core API, stamped with the current time, and
-/// surfaces failures via report. Returns the resolved key on success, "" on failure.
-inline std::string dispatch_set(
-    const std::shared_ptr<synnax::Synnax> &client,
-    const Reporter &report,
+/// @brief the shared state of the status module. The outbox holds it only weakly, so
+/// reports stop once the module closes it. Safe for concurrent use.
+class Sets {
+    /// @brief held while a report runs, which can wait on the Core.
+    std::mutex report_mu;
+    Reporter reporter;
+    std::shared_ptr<Keys> keys;
+    std::mutex refused_mu;
+    size_t refused_sets = 0;
+    x::errors::Error refused_err;
+
+public:
+    Sets(std::shared_ptr<Keys> keys, Reporter reporter):
+        reporter(std::move(reporter)), keys(std::move(keys)) {}
+
+    /// @brief reports through the reporter until close.
+    void report(const std::string &message, const std::string &description) {
+        std::lock_guard lock(this->report_mu);
+        if (this->reporter != nullptr) this->reporter(message, description);
+    }
+
+    /// @returns the key of the last resolved set of key_or_name, also from before a
+    /// restart, or "" when no set of it has resolved.
+    std::string key(const std::string &key_or_name) {
+        return this->keys->get(key_or_name);
+    }
+
+    /// @brief counts a set the outbox refused, without waiting on the Core.
+    /// @returns true when no other refused set waits for a report.
+    bool refuse(const x::errors::Error &err) {
+        std::lock_guard lock(this->refused_mu);
+        this->refused_err = err;
+        return this->refused_sets++ == 0;
+    }
+
+    /// @brief reports the sets refused since the last call, if any. It can wait on the
+    /// Core, so only the outbox thread calls it.
+    void report_refused() {
+        size_t count = 0;
+        x::errors::Error err;
+        {
+            std::lock_guard lock(this->refused_mu);
+            count = std::exchange(this->refused_sets, 0);
+            err = this->refused_err;
+        }
+        if (count == 0) return;
+        this->report(SET_FAILURE_MSG, refused_description(count, err));
+    }
+
+    /// @brief stops reports, and waits for a report in progress, so the reporter can
+    /// end.
+    void close() {
+        std::lock_guard lock(this->report_mu);
+        this->reporter = nullptr;
+    }
+};
+
+/// @brief queues a status set stamped with the current time, and reports a failure
+/// through sets. Reports a set the outbox refuses from the send thread of the outbox.
+/// Never waits for the Core.
+/// @returns the key of the last resolved set of key_or_name, or "" when none has
+/// resolved, and whether the outbox took the set.
+inline std::pair<std::string, bool> queue_set(
+    ::driver::outbox::Outbox &outbox,
+    const std::shared_ptr<Sets> &sets,
     const std::string &key_or_name,
     const std::string &message,
     const std::string &variant
 ) {
-    auto [res, err] = client->statuses.set_by_key_or_name(
-        key_or_name,
-        message,
-        variant,
-        x::telem::TimeStamp::now()
+    ::grpc::status::SetByKeyOrNameRequest req;
+    req.set_key_or_name(key_or_name);
+    req.set_message(message);
+    req.set_variant(variant);
+    req.set_time(x::telem::TimeStamp::now().nanoseconds());
+    const auto err = outbox.set_status(
+        req,
+        [weak = std::weak_ptr(sets), key_or_name](
+            const synnax::status::SetByKeyOrNameResult &res,
+            const x::errors::Error &err
+        ) {
+            const auto sets = weak.lock();
+            if (err) {
+                LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
+                           << " error=" << err.data;
+                if (sets != nullptr) sets->report(SET_FAILURE_MSG, err.data);
+                return;
+            }
+            // The outbox saved the key before this callback.
+            if (sets != nullptr && res.multiple_matches)
+                sets->report(
+                    MULTI_MATCH_MSG,
+                    multi_match_description(key_or_name, res.key)
+                );
+        }
     );
-    if (err) {
-        LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
-                   << " error=" << err.data;
-        report(SET_FAILURE_MSG, err.data);
-        return "";
-    }
-    if (res.multiple_matches)
-        report(MULTI_MATCH_MSG, multi_match_description(key_or_name, res.key));
-    return res.key;
+    if (err && sets->refuse(err))
+        outbox.post([weak = std::weak_ptr(sets)] {
+            if (const auto sets = weak.lock(); sets != nullptr) sets->report_refused();
+        });
+    return {sets->key(key_or_name), !err};
 }
 
 /// @brief validates that the named param holds a string value.
@@ -85,51 +181,103 @@ validate_string(const ::arc::types::Params &params, const std::string &name) {
     );
 }
 
-/// @brief Flow node for `status.set`. Calls dispatch_set on every trigger and
-/// emits the resolved key on Output(0). Inputs are read at fire time so
-/// var-bound params track the referenced variable's latest value.
+/// @brief Flow node for `status.set`. Queues a set on every trigger and emits the
+/// last resolved key on Output(0). Inputs are read at fire time so
+/// var-bound params track the referenced variable's latest value. Its output is truthy
+/// once it queues a set, so a sequence step moves on before the set resolves.
 class SetStatus : public ::arc::runtime::node::Node {
     ::arc::runtime::state::Node state;
-    std::shared_ptr<synnax::Synnax> client;
-    Reporter report;
+    std::shared_ptr<::driver::outbox::Outbox> outbox;
+    std::shared_ptr<Sets> sets;
+    bool queued = false;
 
 public:
     SetStatus(
         ::arc::runtime::state::Node &&state,
-        std::shared_ptr<synnax::Synnax> client,
-        Reporter report
+        std::shared_ptr<::driver::outbox::Outbox> outbox,
+        std::shared_ptr<Sets> sets
     ):
-        state(std::move(state)), client(std::move(client)), report(std::move(report)) {}
+        state(std::move(state)), outbox(std::move(outbox)), sets(std::move(sets)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        const std::string resolved_key = dispatch_set(
-            this->client,
-            this->report,
+        const auto [resolved_key, queued] = queue_set(
+            *this->outbox,
+            this->sets,
             this->state.string_input("key_or_name"),
             this->state.string_input("message"),
             this->state.string_input("variant")
         );
         *this->state.output(0) = x::telem::Series(resolved_key);
         *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
+        this->queued = queued;
+        // A refused set tries again while the node is active, so a step that has no
+        // trigger moves on once the outbox takes it.
+        if (!queued) {
+            const auto retry = this->outbox->retry_interval();
+            ctx.mark_self_changed();
+            ctx.set_deadline(ctx.cycle.elapsed + retry, retry);
+        }
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
-    void reset(::arc::runtime::node::Context &) override { this->state.reset(); }
-
-    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
-        return this->state.is_output_truthy(output_idx);
+    void reset(::arc::runtime::node::Context &) override {
+        this->state.reset();
+        this->queued = false;
     }
+
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return this->queued; }
 };
 
+/// @brief the functions that a compiled Arc program imports, as module and name pairs.
+using Imports = std::set<std::pair<std::string, std::string>>;
+
+/// @returns the imports of the WASM module of program, or none when the module does
+/// not compile, which the runtime reports when it loads it. Compiles the module, so
+/// call it at most once per program.
+inline Imports wasm_imports(const ::arc::program::Program &program) {
+    if (program.wasm.empty()) return {};
+    wasmtime::Engine engine;
+    auto wasm = program.wasm;
+    auto mod = wasmtime::Module::compile(
+        engine,
+        wasmtime::Span<uint8_t>(wasm.data(), wasm.size())
+    );
+    if (!mod) return {};
+    Imports imports;
+    for (const auto &import: mod.ok().imports())
+        imports.emplace(import.module(), import.name());
+    return imports;
+}
+
+/// @returns whether the program sets statuses, as a node or as a function in imports.
+inline bool
+sets_statuses(const ::arc::program::Program &program, const Imports &imports) {
+    for (const auto &node: program.nodes)
+        if (node.type == "status.set" || node.type == "set") return true;
+    return imports.contains({"status", "set"});
+}
+
 class Module : public ::arc::stl::Module, public ::arc::stl::strings::StateConsumer {
-    std::shared_ptr<synnax::Synnax> client;
-    Reporter report;
+    std::shared_ptr<::driver::outbox::Outbox> outbox;
+    std::shared_ptr<Sets> sets;
     std::shared_ptr<::arc::stl::strings::State> str_state;
 
 public:
-    Module(std::shared_ptr<synnax::Synnax> client, Reporter report):
-        client(std::move(client)), report(std::move(report)) {}
+    /// @param keys the keys of resolved sets, shared by every task of the Driver.
+    /// @param report called from the outbox thread too, until the module ends.
+    Module(
+        std::shared_ptr<::driver::outbox::Outbox> outbox,
+        std::shared_ptr<Keys> keys,
+        Reporter report
+    ):
+        outbox(std::move(outbox)),
+        sets(std::make_shared<Sets>(std::move(keys), std::move(report))) {}
+
+    Module(const Module &) = delete;
+    Module &operator=(const Module &) = delete;
+
+    ~Module() override { this->sets->close(); }
 
     [[nodiscard]] std::string module_name() const override { return "status"; }
 
@@ -142,25 +290,26 @@ public:
     }
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context) override {
-        auto client = this->client;
-        auto report = this->report;
+        auto outbox = this->outbox;
+        auto sets = this->sets;
         auto str_state = this->str_state;
         linker
             .func_wrap(
                 "status",
                 "set",
-                [client, report, str_state](
+                [outbox, sets, str_state](
                     uint32_t key_or_name_h,
                     uint32_t msg_h,
                     uint32_t variant_h
                 ) -> uint32_t {
-                    return str_state->create(dispatch_set(
-                        client,
-                        report,
-                        str_state->get(key_or_name_h),
-                        str_state->get(msg_h),
-                        str_state->get(variant_h)
-                    ));
+                    return str_state->create(queue_set(
+                                                 *outbox,
+                                                 sets,
+                                                 str_state->get(key_or_name_h),
+                                                 str_state->get(msg_h),
+                                                 str_state->get(variant_h)
+                    )
+                                                 .first);
                 }
             )
             .unwrap();
@@ -173,11 +322,7 @@ public:
             if (const auto err = validate_string(cfg.node.inputs, name); err)
                 return {nullptr, err};
         return {
-            std::make_unique<SetStatus>(
-                std::move(cfg.state),
-                this->client,
-                this->report
-            ),
+            std::make_unique<SetStatus>(std::move(cfg.state), this->outbox, this->sets),
             x::errors::NIL
         };
     }

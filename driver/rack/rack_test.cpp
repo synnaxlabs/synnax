@@ -170,12 +170,15 @@ TEST(RackTest, OpensOutbox) {
 }
 
 /// @brief it should keep running without the outbox when it cannot open, report why in
-/// the rack status, and leave the outbox files in place.
+/// the rack status, and leave the outbox and status key files in place.
 TEST(RackTest, RunsWithoutOutbox) {
     const auto dir = outbox_dir();
     std::filesystem::remove_all(dir);
     std::filesystem::create_directories(dir);
     write_future_segment(dir / "0.calls");
+    // A save of another Driver that holds the outbox can leave this temp.
+    const auto keys_temp = dir.parent_path() / (arc::status::KEYS_FILE + ".tmp");
+    std::ofstream(keys_temp) << "temp of another Driver";
     x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
     const auto client = new_test_client();
     const auto rack = ASSERT_NIL_P(client.racks.create("outbox rack"));
@@ -215,5 +218,7 @@ TEST(RackTest, RunsWithoutOutbox) {
     ASSERT_FALSE(shut_down);
     ASSERT_NIL(r.stop());
     ASSERT_EQ(std::filesystem::file_size(dir / "0.calls"), journal::HEADER_SIZE);
+    ASSERT_TRUE(std::filesystem::exists(keys_temp));
+    std::filesystem::remove(keys_temp);
 }
 }
