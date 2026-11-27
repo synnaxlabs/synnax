@@ -15,6 +15,7 @@
 #include "asio/buffer.hpp"
 #include "asio/write.hpp"
 
+#include "driver/serial/device.h"
 #include "driver/serial/errors.h"
 #include "driver/serial/port.h"
 #include "driver/transport/errors.h"
@@ -57,11 +58,7 @@ Port::open(const synnax::serial::Properties &props) {
             x::errors::Error(transport::CONFIG_ERROR, "serial port path is required")
         };
     auto port = std::unique_ptr<Port>(new Port(props.port));
-    std::error_code ec;
-    if (port->device.open(props.port, ec))
-        return {nullptr, translate("failed to open serial port " + props.port, ec)};
-    if (auto err = native::lock(port->handle(), props.port)) return {nullptr, err};
-    port->locked = true;
+    if (auto err = device::open(port->device, props.port)) return {nullptr, err};
     if (auto err = native::configure(port->handle(), props)) return {nullptr, err};
     if (const auto watched = native::watch(port->handle(), port->line))
         return {
@@ -72,7 +69,7 @@ Port::open(const synnax::serial::Properties &props) {
 }
 
 void Port::close() {
-    if (this->locked) native::unlock(this->handle());
+    native::unlock(this->handle());
     std::error_code ignored;
     // NOLINTNEXTLINE(bugprone-unused-return-value): a failed close still frees it.
     this->device.close(ignored);
@@ -88,7 +85,7 @@ x::errors::Error Port::fail(const x::errors::Error &err) {
 Port::~Port() {
     if (!this->device.is_open()) return;
     // The last close of a tty waits up to 30 seconds for output that has not left.
-    if (this->locked && !drain(this->handle())) native::discard_output(this->handle());
+    if (!drain(this->handle())) native::discard_output(this->handle());
     this->close();
 }
 

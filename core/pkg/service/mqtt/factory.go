@@ -283,7 +283,7 @@ func (f *Factory) ConfigureTask(
 	}
 	// A successful configure writes no status: the start that follows it answers the
 	// command, and a "configured" status would answer it first with running false.
-	if autoStart {
+	if autoStart && cmdKey == driver.NoCommand {
 		if err = configured.Start(ctx, cmdKey); err != nil {
 			return nil, err
 		}
@@ -561,11 +561,7 @@ func (s *readSource) addEntry(
 		}
 		s.topics[topic.topic] = topic
 		for _, g := range topic.groups {
-			keys := g.Channels
-			if g.Index != 0 {
-				keys = append(channel.Keys{g.Index}, keys...)
-			}
-			w.add(keys, g.Index)
+			w.add(g.Keys(), g.Index)
 		}
 		return nil
 	case SparkplugReadEntry:
@@ -732,9 +728,6 @@ func (f *Factory) configureEdge(
 	}
 	channels, err := f.retrieveChannels(ctx, keys)
 	if err != nil {
-		return nil, cfg.AutoStart, err
-	}
-	if _, err = newClientConfig(dev); err != nil {
 		return nil, cfg.AutoStart, err
 	}
 	edge := &edgeNode{

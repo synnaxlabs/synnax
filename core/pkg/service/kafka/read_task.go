@@ -290,26 +290,18 @@ func newReadRecord(
 	}
 	rd := &readRecord{source: source}
 	for _, g := range source.Groups() {
-		i := slices.IndexFunc(ic.Messages, func(m icd.Message) bool {
-			return m.Key == rec.Messages[g.Read].Message
-		})
-		rg := &readGroup{
+		rd.groups = append(rd.groups, &readGroup{
 			Group: g,
 			name: fmt.Sprintf(
-				"message %s of key %q of topic %q",
-				ic.Messages[i].Name, rec.RecordKey, topic,
+				"message %s of key %q of topic %q", g.Message, rec.RecordKey, topic,
 			),
 			data: make([][]byte, len(g.Channels)),
 			columns: lo.Map(g.DataTypes, func(dt telem.DataType, _ int) column {
 				return newColumn(dt)
 			}),
+			keys:      g.Keys(),
 			replaying: true,
-		}
-		if g.Index != 0 {
-			rg.keys = append(rg.keys, g.Index)
-		}
-		rg.keys = append(rg.keys, g.Channels...)
-		rd.groups = append(rd.groups, rg)
+		})
 	}
 	return rd, nil
 }

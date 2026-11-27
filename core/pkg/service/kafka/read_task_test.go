@@ -437,7 +437,11 @@ var _ = Describe("Read task", func() {
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 15e9, "v": 2.0})
 			Eventually(func() string { return taskStatus(ctx, t).Description }).
 				WithTimeout(15 * time.Second).
-				Should(ContainSubstring("is not after the last written"))
+				Should(ContainSubstring(fmt.Sprintf(
+					`is not after the last written %s for message Any key of key "" `+
+						"of topic %q",
+					20*telem.SecondTS, topic,
+				)))
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 25e9, "v": 3.0})
 			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 3}))
 		},

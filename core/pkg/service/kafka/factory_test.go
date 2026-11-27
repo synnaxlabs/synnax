@@ -89,6 +89,25 @@ var _ = Describe("Factory", func() {
 			Entry("an explicit zero", 0.0),
 		)
 
+		It("Should start a scan task at boot", func(ctx SpecContext) {
+			t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": 2})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, driver.NoCommand))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
+		})
+
+		It("Should leave the start of a scan task to the start command of a deploy",
+			func(ctx SpecContext) {
+				t := newTask(ctx, kafka.ScanTaskType, map[string]any{"rate": 2})
+				dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+				DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+				Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+					Entry(&task.Status{}).
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			},
+		)
+
 		It("Should write an error status for an invalid config at boot",
 			func(ctx SpecContext) {
 				dev := createDevice(ctx, clusterProperties())
@@ -161,16 +180,30 @@ var _ = Describe("Factory", func() {
 	}
 	type buildConfig = func(ctx context.Context, dev device.Key, autoStart bool) any
 
-	DescribeTable("Should answer the command when an auto-started task fails to start",
+	DescribeTable("Should report a task that fails to auto-start at boot",
 		func(ctx SpecContext, typ string, build buildConfig) {
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
 			t := newTask(ctx, typ, build(ctx, dev.Key, true))
-			Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
+			Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
 				To(MatchError(ContainSubstring("connecting to cluster")))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeFalse())
-			Expect(stat.Details.Cmd).To(Equal("cmd-1"))
+		},
+		Entry("read", kafka.ReadTaskType, readConfig),
+		Entry("write", kafka.WriteTaskType, writeConfig),
+	)
+
+	DescribeTable("Should leave the start to the start command of a deploy",
+		func(ctx SpecContext, typ string, build buildConfig) {
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
+			t := newTask(ctx, typ, build(ctx, dev.Key, true))
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			Expect(dt.Stop(false)).To(Succeed())
+			Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchOwners[task.StatusDetails](t.ResourceID())).
+				Entry(&task.Status{}).
+				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		},
 		Entry("read", kafka.ReadTaskType, readConfig),
 		Entry("write", kafka.WriteTaskType, writeConfig),

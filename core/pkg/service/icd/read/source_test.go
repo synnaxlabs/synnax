@@ -107,21 +107,25 @@ var _ = Describe("Source", func() {
 	It("Should group fields by index channel, and each virtual field alone", func() {
 		Expect(newSource(mixedRead).Groups()).To(Equal([]read.Group{
 			{
+				Message:   "Mixed",
 				Index:     clock.Key(),
 				Stamped:   true,
 				Channels:  channel.Keys{tempCh.Key()},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
 			{
+				Message:   "Mixed",
 				Index:     tick.Key(),
 				Channels:  channel.Keys{levelCh.Key()},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
 			{
+				Message:   "Mixed",
 				Channels:  channel.Keys{flowCh.Key()},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
 			{
+				Message:   "Mixed",
 				Channels:  channel.Keys{dutyCh.Key()},
 				DataTypes: []telem.DataType{telem.Float64T},
 			},
@@ -227,11 +231,35 @@ var _ = Describe("Source", func() {
 		}))
 		Expect(src.Groups()[1]).To(Equal(read.Group{
 			Read:      1,
+			Message:   "Alarm",
 			Index:     tick.Key(),
 			Channels:  channel.Keys{levelCh.Key()},
 			DataTypes: []telem.DataType{telem.Float64T},
 		}))
 	})
+
+	It("Should name the message of the read of each group", func() {
+		Expect(lo.Map(
+			twoReads(typeMatch("alarm")).Groups(),
+			func(g read.Group, _ int) string { return g.Message },
+		)).To(Equal([]string{"Reading", "Alarm"}))
+	})
+
+	DescribeTable("Should give the keys of a group with its index channel first",
+		func(g read.Group, keys channel.Keys) { Expect(g.Keys()).To(Equal(keys)) },
+		Entry("a group on an index channel",
+			read.Group{Index: clock.Key(), Channels: channel.Keys{tempCh.Key()}},
+			channel.Keys{clock.Key(), tempCh.Key()},
+		),
+		Entry("a group that binds only the index field",
+			read.Group{Index: clock.Key(), Stamped: true},
+			channel.Keys{clock.Key()},
+		),
+		Entry("a group on a virtual channel",
+			read.Group{Channels: channel.Keys{flowCh.Key()}},
+			channel.Keys{flowCh.Key()},
+		),
+	)
 
 	DescribeTable("Should refuse reads that it cannot decode",
 		func(msg string, reads ...icd.ReadMessage) {

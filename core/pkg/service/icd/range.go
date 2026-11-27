@@ -27,6 +27,13 @@ func CheckRange(b BaseField, v float64) error {
 	return problemError(outOfRange(b, v, v, 0))
 }
 
+// CheckRawRange returns an error wrapping validate.ErrValidation when raw, a value
+// before the scale and offset of b, decodes outside the min and max of b. It allows the
+// float64 rounding of the decode, so a value that decodes to a limit passes.
+func CheckRawRange(b BaseField, raw float64) error {
+	return problemError(outOfRawRange(b, raw))
+}
+
 // outOfRawRange returns how raw, a value before the scale and offset of b, decodes
 // outside the min and max of b, and false when it does not. It allows the float64
 // rounding of the decode, so a value at a limit passes.

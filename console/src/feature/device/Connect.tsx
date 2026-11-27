@@ -16,7 +16,7 @@ import { Modal } from "@synnaxlabs/lyra/modal";
 import { Pane } from "@synnaxlabs/lyra/pane";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Rack } from "@synnaxlabs/pluto";
+import { Rack as PRack } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { ConfigureHardware } from "@/feature/device/Configure";
@@ -24,6 +24,7 @@ import { HARDWARE, type Hardware, NETWORK } from "@/feature/device/integrations"
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
+import { Rack } from "@/platform/rack";
 import type { Session } from "@/session";
 
 export interface ConnectModalParams {
@@ -106,7 +107,7 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
   const getReason = ({ key, name }: PlatformDevice.Integration): string | null =>
     racks == null
       ? null
-      : PlatformDevice.getBlockedReason(racks, {
+      : Rack.getBlockedReason(racks, {
           integration: key,
           name,
           rack: rackKey,
@@ -166,7 +167,7 @@ const Connect = ({
   rack: rackKey,
   close,
 }: Session.Modals.ContentProps<ConnectModalParams, void>): ReactElement => {
-  const { data: racks, variant } = Rack.useResultMultiple({});
+  const { data: racks, variant } = PRack.useResultMultiple({});
   const [selected, setSelected] = useState<string | null>(integration ?? null);
   const network = NETWORK.find(({ key }) => key === selected);
   // A network form reads its default rack once, so it waits while the rack list loads.
@@ -177,7 +178,7 @@ const Connect = ({
     const { Connect: NetworkConnect } = network;
     return (
       <NetworkConnect
-        rack={rackKey ?? PlatformDevice.getDefaultRack(racks ?? [], network.key)}
+        rack={rackKey ?? Rack.getDefault(racks ?? [], network.key)}
         close={() => close()}
         onBack={back}
       />
@@ -216,11 +217,11 @@ export const useEditConnectionModal = (): ((
   deviceKey: device.Key,
 ) => void) => {
   const prompt = useEditConnectionPrompt();
-  const { data: racks } = Rack.useResultMultiple({});
+  const { data: racks } = PRack.useResultMultiple({});
   return (integration, deviceKey) =>
     void prompt({
       integration,
       deviceKey,
-      rack: PlatformDevice.getDefaultRack(racks ?? [], integration),
+      rack: Rack.getDefault(racks ?? [], integration),
     });
 };

@@ -104,12 +104,6 @@ func newReadTag(
 			validate.ErrValidation, "%s: channel %d does not exist", t, entry.Channel,
 		)
 	}
-	if ch.IsIndex || !takesTags(ch.DataType) {
-		return readTag{}, errors.Wrapf(
-			validate.ErrValidation,
-			"%s: channel %s cannot take the values of a tag", t, ch.Name,
-		)
-	}
 	t.index, t.dataType = ch.Index(), ch.DataType
 	return t, nil
 }

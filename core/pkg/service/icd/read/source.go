@@ -26,6 +26,8 @@ import (
 type Group struct {
 	// Read is the position in the reads of NewSource of the read of the group.
 	Read int
+	// Message is the name of the ICD message of the read.
+	Message string
 	// Index is the index channel of the group, or zero for a virtual channel.
 	Index channel.Key
 	// Stamped is true when the index field of the read gives the timestamps of Index.
@@ -35,6 +37,16 @@ type Group struct {
 	Channels channel.Keys
 	// DataTypes holds the data type of each channel.
 	DataTypes []telem.DataType
+}
+
+// Keys returns the channels that the group writes: Index first, when it is not zero,
+// and then Channels.
+func (g Group) Keys() channel.Keys {
+	keys := make(channel.Keys, 0, len(g.Channels)+1)
+	if g.Index != 0 {
+		keys = append(keys, g.Index)
+	}
+	return append(keys, g.Channels...)
 }
 
 // Sample is the samples that one document gives a group.
@@ -112,7 +124,7 @@ func NewSource(
 				validate.ErrValidation, "message %s binds no fields", msg.Name,
 			)
 		}
-		bindings, err := s.add(r, rm, channels)
+		bindings, err := s.add(r, rm, msg.Name, channels)
 		if err != nil {
 			return nil, errors.Wrapf(err, "message %s", msg.Name)
 		}
@@ -135,10 +147,12 @@ func NewSource(
 	return s, nil
 }
 
-// add groups the bindings of rm, read r, and returns the codec binding of each.
+// add groups the bindings of rm, read r of the message named message, and returns the
+// codec binding of each.
 func (s *Source) add(
 	r int,
 	rm icd.ReadMessage,
+	message string,
 	channels map[channel.Key]channel.Channel,
 ) ([]codec.Binding, error) {
 	rd := sourceRead{groups: make([]int, len(rm.Bindings)), first: len(s.groups)}
@@ -166,7 +180,10 @@ func (s *Source) add(
 		}
 		if g < 0 {
 			g = len(s.groups)
-			s.groups = append(s.groups, group{Read: r, Index: index, stamp: -1})
+			s.groups = append(
+				s.groups,
+				group{Read: r, Message: message, Index: index, stamp: -1},
+			)
 		}
 		rd.groups[i] = g
 		grp := &s.groups[g]

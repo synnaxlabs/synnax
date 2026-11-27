@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
@@ -54,9 +53,6 @@ func MigrateReadConfig(ctx context.Context, old v0.ReadConfig) (ReadConfig, erro
 	cfg.Inline = &InlineRead{Topic: old.Topic, Records: staged}
 	return cfg, nil
 }
-
-// CreateICD creates ic through tx.
-type CreateICD func(ctx context.Context, tx gorp.Tx, ic icd.ICD) error
 
 // NoteLift returns the note for ResolveReadConfig and ResolveWriteConfig that logs each
 // change to a field of the config with key through ins.

@@ -33,6 +33,18 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
     if (auto err = check(props)) return err;
     if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
         return {transport::CONFIG_ERROR, "Linux does not support 1.5 stop bits"};
+    // The port moves raw bytes, with no line editing, echo, signals, or output
+    // processing.
+    settings.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | ICRNL);
+    settings.c_oflag &= ~OPOST;
+    settings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    settings.c_cflag |= CREAD | CLOCAL;
+    settings.c_cc[VMIN] = 1;
+    settings.c_cc[VTIME] = 0;
+    // The port marks parity, framing, and break errors in the input and removes them,
+    // so it counts errors that IGNPAR would drop without a trace.
+    settings.c_iflag &= ~IGNPAR;
+    settings.c_iflag |= INPCK | PARMRK;
     settings.c_cflag &= ~(CBAUD | (CBAUD << IBSHIFT));
     settings.c_cflag |= BOTHER | (BOTHER << IBSHIFT);
     settings.c_ispeed = props.baud_rate;
@@ -40,10 +52,6 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
     settings.c_cflag &= ~CSIZE;
     settings.c_cflag |= SIZES.at(props.data_bits - 5);
     settings.c_cflag &= ~(PARENB | PARODD | CMSPAR);
-    // The port marks parity, framing, and break errors in the input and removes them,
-    // so it counts errors that IGNPAR would drop without a trace.
-    settings.c_iflag &= ~(IGNPAR | ISTRIP);
-    settings.c_iflag |= INPCK | PARMRK;
     const auto &parity = props.parity;
     if (parity != synnax::serial::PARITY_NONE_) settings.c_cflag |= PARENB;
     if (parity == synnax::serial::PARITY_ODD_ || parity == synnax::serial::PARITY_MARK_)
