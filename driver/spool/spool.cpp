@@ -572,6 +572,27 @@ std::pair<std::unique_ptr<Spool>, x::errors::Error> Spool::open(Config cfg) {
             if (const auto rm_err = spool->remove_files(key)) return {nullptr, rm_err};
             continue;
         }
+        file.reset();
+        // Cuts a torn tail and syncs the rest, so a reader never commits past bytes
+        // that a power loss can still take.
+        auto [recovered, r_err] = journal::Writer::open({
+            .path = path,
+            .magic = SEGMENT_MAGIC,
+            .sync_interval = spool->cfg.sync_interval,
+            .sync_bytes = spool->cfg.sync_bytes,
+            .max_payload = spool->cfg.max_payload,
+            .on_create = spool->cfg.on_create,
+            .on_sync = spool->cfg.on_sync,
+        });
+        if (is_bad(r_err)) {
+            if (const auto s_err = spool->set_aside_files(path, r_err))
+                return {nullptr, s_err};
+            continue;
+        }
+        if (r_err) return {nullptr, r_err};
+        spool->cut_count += recovered->cut();
+        if (const auto c_err = recovered->close()) return {nullptr, c_err};
+        recovered.reset();
         const auto size = std::filesystem::file_size(path, ec);
         if (ec) return {nullptr, fs_error("failed to stat segment", ec)};
         spool->used += size;

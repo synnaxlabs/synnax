@@ -253,8 +253,9 @@ class Spool {
 public:
     /// @brief opens the spool in the directory of the config, and creates the directory
     /// when it does not exist. Removes segments that a crash left without a header,
-    /// read offsets without a segment, and temp files. Sets aside each segment that
-    /// fails its checks, as set_aside does.
+    /// read offsets without a segment, and temp files. Cuts the tail that a crash
+    /// damaged from each segment, counts it in cut(), and syncs the segment. Sets aside
+    /// each segment that fails its checks, as set_aside does.
     /// @returns INVALID_CONFIG when a setting is out of its range. x::fs::LOCKED when
     /// another process has the spool open. An error when the spool cannot read or
     /// change its directory.

@@ -710,6 +710,40 @@ TEST_F(SpoolTest, RejectsOffsetInHeader) {
     ASSERT_OCCURRED_AS_P(spool->open_reader(0), CORRUPT);
 }
 
+/// @brief it should sync each segment it keeps when it opens, before any reader
+/// commits past bytes that a power loss can still take.
+TEST_F(SpoolTest, SyncsSegmentsAtOpen) {
+    {
+        const auto spool = this->open_spool();
+        this->write_frames(*spool, header_of(1), 1);
+        this->write_frames(*spool, header_of(1), 1);
+    }
+    auto syncs = std::make_shared<int>(0);
+    const auto spool = ASSERT_NIL_P(
+        Spool::open(
+            Config{
+                .dir = this->dir,
+                .on_sync = [syncs](const x::errors::Error &err) {
+                    ++*syncs;
+                    return err;
+                },
+            }
+        )
+    );
+    EXPECT_EQ(*syncs, 2);
+    EXPECT_EQ(spool->segments().size(), 2);
+}
+
+/// @brief it should cut a damaged tail from a segment when it opens.
+TEST_F(SpoolTest, CutsDamagedTailAtOpen) {
+    const auto path = this->write_segment();
+    const auto size = std::filesystem::file_size(path);
+    append_file(path, std::string("\x40\x00\x00", 3));
+    const auto spool = this->open_spool();
+    EXPECT_EQ(spool->cut(), 3);
+    EXPECT_EQ(std::filesystem::file_size(path), size);
+}
+
 /// @brief it should count the cut bytes of a segment once across readers.
 TEST_F(SpoolTest, CountsCutOnce) {
     const auto path = this->write_segment();
