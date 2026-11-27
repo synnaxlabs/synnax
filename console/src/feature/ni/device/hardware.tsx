@@ -79,7 +79,7 @@ const useTypedFound = (): Device.Found[] | undefined =>
     // A typed device holds no DAQmx alias.
     location: "",
     configured: d.identifier !== "",
-    connected: d.status?.variant === "success",
+    connected: d.status?.details.connected === true,
     status: d.status,
   }));
 

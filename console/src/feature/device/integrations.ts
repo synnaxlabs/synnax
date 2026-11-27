@@ -18,6 +18,7 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { Sift } from "@/feature/sift";
+import { FLAGS } from "@/flags";
 import type { Device as PlatformDevice } from "@/platform/device";
 import type { Task } from "@/platform/task";
 
@@ -55,13 +56,17 @@ export const NETWORK: Network[] = [
   { ...Sift.Device.NETWORK, ContextMenuItems: Sift.ContextMenuItems },
 ];
 
+const withNIMenus = (hardware: PlatformDevice.Hardware): Hardware => ({
+  ...hardware,
+  ContextMenuItems: NI.ContextMenuItems,
+  RackMenuItems: NI.RackMenuItems,
+  useCreateRead: NI.Task.useCreateAnalogRead,
+});
+
+const NI_HARDWARE = withNIMenus(NI.Device.HARDWARE);
+
 export const HARDWARE: Hardware[] = [
-  {
-    ...NI.Device.HARDWARE,
-    ContextMenuItems: NI.ContextMenuItems,
-    RackMenuItems: NI.RackMenuItems,
-    useCreateRead: NI.Task.useCreateAnalogRead,
-  },
+  NI_HARDWARE,
   {
     ...LabJack.Device.HARDWARE,
     ContextMenuItems: LabJack.ContextMenuItems,
@@ -76,3 +81,11 @@ export const HARDWARE: Hardware[] = [
 ];
 
 export const INTEGRATIONS: Integration[] = [...NETWORK, ...HARDWARE];
+
+/**
+ * The hardware that the connect picker finds and configures. With `typedNIDevices` on,
+ * NI lists and configures the typed device table.
+ */
+export const FIND_HARDWARE: Hardware[] = FLAGS.typedNIDevices
+  ? HARDWARE.map((h) => (h === NI_HARDWARE ? withNIMenus(NI.Device.TYPED_HARDWARE) : h))
+  : HARDWARE;
