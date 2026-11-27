@@ -71,7 +71,7 @@ var _ = Describe("Place", func() {
 			encoded(7, 9, 65_536, 1, 4, 1, 0x00200001),
 		),
 		Entry("check file", place.Check(8, 9, 16, 0), encoded(8, 9, 16, 2, 0, 0, 0)),
-		Entry("log", place.Log(7, 3, 8_192), encoded(7, 3, 8_192, 3, 0, 1, 0)),
+		Entry("log", place.Log(7, 3, 8_192, 1), encoded(7, 3, 8_192, 3, 0, 1, 0)),
 		Entry("head", place.Head(5, 3, 0), encoded(5, 3, 0, 4, 0, 1, 0)),
 		Entry("part", place.Part(7, 12, 4_096), encoded(7, 12, 4_096, 5, 0, 1, 0)),
 	)
@@ -102,7 +102,7 @@ var _ = Describe("Place", func() {
 	})
 
 	It("Should continue a checksum over covered bytes in parts", func() {
-		p := place.Log(4, 5, 6)
+		p := place.Log(4, 5, 6, 1)
 		crc := place.Update(p.Start(), covered[:4])
 		Expect(place.Update(crc, covered[4:])).To(Equal(p.Sum(covered)))
 	})

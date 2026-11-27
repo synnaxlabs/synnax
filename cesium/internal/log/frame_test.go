@@ -27,14 +27,14 @@ const (
 // sealedFrame sets the crc field of the frame in b to the checksum of the bytes it
 // covers at offset, so a spec can change a field and keep the check.
 func sealedFrame(b []byte, offset uint64) []byte {
-	crc := place.Log(db, generation, offset).Sum(b[8:])
+	crc := place.Log(db, generation, offset, 1).Sum(b[8:])
 	binary.LittleEndian.PutUint32(b[4:], crc)
 	return b
 }
 
 // sealedHeader sets the checksum of the header copy in b at offset.
 func sealedHeader(b []byte) []byte {
-	crc := place.Log(db, generation, 0).Sum(b[:60])
+	crc := place.Log(db, generation, 0, 1).Sum(b[:60])
 	binary.LittleEndian.PutUint32(b[60:], crc)
 	return b
 }
@@ -59,7 +59,7 @@ var _ = Describe("Frame", func() {
 			le64(9),
 			le32(0xABCD, 0),
 		)))
-		Expect(f.CRC).To(Equal(place.Log(db, generation, 8_192).Sum(b[8:])))
+		Expect(f.CRC).To(Equal(place.Log(db, generation, 8_192, 1).Sum(b[8:])))
 		Expect(b[32:]).To(Equal(entries))
 	})
 
@@ -134,7 +134,7 @@ var _ = Describe("Header", func() {
 			[]byte{1, 0, 0, 0, 0, 0, 0, 0},
 			le64(db, generation, 41, log.FileSize),
 			le32(0xCAFEF00D, 0, 0),
-			le32(place.Log(db, generation, 0).Sum(b[:60])),
+			le32(place.Log(db, generation, 0, 1).Sum(b[:60])),
 		)))
 	})
 
@@ -170,7 +170,7 @@ var _ = Describe("Header", func() {
 			b := other.Encode(0)
 			binary.LittleEndian.PutUint32(
 				b[60:],
-				place.Log(db, generation, 0).Sum(b[:60]),
+				place.Log(db, generation, 0, 1).Sum(b[:60]),
 			)
 			Expect(log.DecodeHeader(b, db, generation, 0)).Error().To(SatisfyAll(
 				MatchError(place.ErrCorrupt),
