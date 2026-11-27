@@ -15,7 +15,7 @@ import { onTestFinished } from "vitest";
 
 import { Device } from "@/feature/mqtt/device";
 import { createTestDevice, startRackHeartbeat } from "@/platform/device/testutil";
-import { awaitCommand } from "@/platform/task/testutil";
+import { awaitCommand, findListButton } from "@/platform/task/testutil";
 
 export interface CreateBrokerOptions {
   configured?: boolean;
@@ -104,6 +104,6 @@ export const openScanner = async (
 
 /** Opens the Add data dialog of a task form, and returns queries scoped to it. */
 export const openAddData = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  fireEvent.click(await findListButton("Add data"));
   return within(await screen.findByRole("dialog"));
 };

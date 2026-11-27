@@ -32,7 +32,7 @@ const createWrapper = (slice: ICD.SliceState): FC<PropsWithChildren> => {
 describe("ICD selector hooks", () => {
   it("should read the selected messages of an ICD", () => {
     const wrapper = createWrapper({
-      windows: inWindow({ "icd-1": { selected: ["alarm"] } }),
+      windows: inWindow({ "icd-1": { selected: ["alarm"], created: false } }),
     });
     const { result } = renderHook(() => ICD.useSelectSelected("icd-1"), { wrapper });
     expect(result.current).toEqual(["alarm"]);
@@ -42,5 +42,19 @@ describe("ICD selector hooks", () => {
     const wrapper = createWrapper(ICD.ZERO_SLICE_STATE);
     const { result } = renderHook(() => ICD.useSelectSelected("icd-1"), { wrapper });
     expect(result.current).toEqual([]);
+  });
+
+  it("should read whether this window just created an ICD", () => {
+    const wrapper = createWrapper({
+      windows: inWindow({ "icd-1": { selected: [], created: true } }),
+    });
+    const { result } = renderHook(() => ICD.useSelectCreated("icd-1"), { wrapper });
+    expect(result.current).toBe(true);
+  });
+
+  it("should read an ICD with no state as not created", () => {
+    const wrapper = createWrapper(ICD.ZERO_SLICE_STATE);
+    const { result } = renderHook(() => ICD.useSelectCreated("icd-1"), { wrapper });
+    expect(result.current).toBe(false);
   });
 });
