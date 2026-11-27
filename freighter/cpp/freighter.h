@@ -10,11 +10,13 @@
 #pragma once
 
 #include <chrono>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <unordered_map>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/url/url.h"
@@ -50,15 +52,17 @@ enum TransportVariant { UNARY, STREAM };
 class Canceler {
     std::mutex mu;
     bool cancelled = false;
-    std::function<void()> on_cancel;
+    std::uint64_t next_hold = 0;
+    std::unordered_map<std::uint64_t, std::function<void()>> held;
 
 public:
-    /// @brief ends the request in flight, and makes every later request with this
+    /// @brief ends every request in flight, and makes every later request with this
     /// canceler fail at once with x::errors::CANCELLED.
     void cancel() {
         std::lock_guard lock(this->mu);
         this->cancelled = true;
-        if (this->on_cancel) this->on_cancel();
+        for (const auto &[_, on_cancel]: this->held)
+            on_cancel();
     }
 
     /// @brief returns true once cancel has run.
@@ -67,21 +71,22 @@ public:
         return this->cancelled;
     }
 
-    /// @brief sets the function that ends the request in flight. A transport calls it
-    /// before it sends, and calls release once the request ends.
-    /// @returns false if cancel already ran, and the transport must not send.
-    [[nodiscard]] bool hold(std::function<void()> fn) {
+    /// @brief adds fn, which ends one request in flight. A transport calls it before
+    /// it sends, and calls release with the key it returns once the request ends.
+    /// @returns no key if cancel already ran, and the transport must not send.
+    [[nodiscard]] std::optional<std::uint64_t> hold(std::function<void()> fn) {
         std::lock_guard lock(this->mu);
-        if (this->cancelled) return false;
-        this->on_cancel = std::move(fn);
-        return true;
+        if (this->cancelled) return std::nullopt;
+        const auto key = this->next_hold++;
+        this->held.emplace(key, std::move(fn));
+        return key;
     }
 
-    /// @brief clears the function that hold set. Once it returns, cancel no longer
-    /// calls it.
-    void release() {
+    /// @brief removes the function that hold added with key. Once it returns, cancel
+    /// no longer calls it.
+    void release(const std::uint64_t key) {
         std::lock_guard lock(this->mu);
-        this->on_cancel = nullptr;
+        this->held.erase(key);
     }
 };
 

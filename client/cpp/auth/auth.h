@@ -203,11 +203,15 @@ public:
 
     /// @brief opens a session with the proof provided when constructing the Synnax
     /// client.
-    x::errors::Error authenticate() {
+    /// @param canceler ends the login from another thread, which then returns
+    /// x::errors::CANCELLED. Null means the login cannot be cancelled.
+    x::errors::Error
+    authenticate(const std::shared_ptr<freighter::Canceler> &canceler = nullptr) {
         std::lock_guard lock(mu);
         grpc::auth::SessionCreateRequest req;
         *req.mutable_proof() = this->proof;
-        auto [res, err] = create_client->send("/auth/session/create", req);
+        auto [res, err] = create_client
+                              ->send_cancellable("/auth/session/create", req, canceler);
         if (err) return err;
         auto [session, session_err] = session_from_pb(res.session());
         if (session_err) return session_err;
@@ -297,8 +301,10 @@ public:
     /// Synnax Core are appropriately authenticated.
     std::pair<freighter::Context, x::errors::Error>
     operator()(freighter::Context context, freighter::Next &next) override {
+        // The login of a request that can be cancelled can be cancelled too.
         if (!this->authenticated)
-            if (const auto err = this->authenticate()) return {context, err};
+            if (const auto err = this->authenticate(context.canceler))
+                return {context, err};
         const auto sent = this->current_token();
         context.set(HEADER_KEY, HEADER_VALUE_PREFIX + sent);
         auto [res_ctx, err] = next(context);

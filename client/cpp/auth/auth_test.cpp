@@ -69,6 +69,27 @@ TEST(TestAuth, LoginHappyPath) {
     ASSERT_EQ(mw->current_session().subject.type, "user");
 }
 
+/// @brief it should cancel the login of a request whose canceler cancelled.
+TEST(TestAuth, LoginCancelledWithRequest) {
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto *create = mock_create_client.get();
+    const auto mw = middleware_with(std::move(mock_create_client));
+    auto mock_client = freighter::testutil::UnaryClient<int, int>{1, x::errors::NIL};
+    mock_client.use(mw);
+    const auto canceler = std::make_shared<freighter::Canceler>();
+    canceler->cancel();
+    auto v = 1;
+    ASSERT_OCCURRED_AS_P(
+        mock_client.send_cancellable("", v, canceler),
+        x::errors::CANCELLED
+    );
+    ASSERT_EQ(create->requests.size(), 1);
+    ASSERT_EQ(ASSERT_NIL_P(mock_client.send("", v)), 1);
+    ASSERT_EQ(create->requests.size(), 2);
+}
+
 /// @brief it should send a password proof when logging in.
 TEST(TestAuth, LoginSendsPasswordProof) {
     auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<

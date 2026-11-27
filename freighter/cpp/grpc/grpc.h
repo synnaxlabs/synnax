@@ -235,12 +235,14 @@ public:
         auto stub = RPC::NewStub(channel);
 
         const auto &canceler = req_ctx.canceler;
-        if (canceler != nullptr &&
-            !canceler->hold([&grpc_ctx] { grpc_ctx.TryCancel(); }))
-            return {res_ctx, x::errors::CANCELLED, res};
+        std::optional<std::uint64_t> held;
+        if (canceler != nullptr) {
+            held = canceler->hold([&grpc_ctx] { grpc_ctx.TryCancel(); });
+            if (!held.has_value()) return {res_ctx, x::errors::CANCELLED, res};
+        }
         const auto stat = stub->Exec(&grpc_ctx, req, &res);
         if (canceler != nullptr) {
-            canceler->release();
+            canceler->release(*held);
             if (canceler->is_cancelled()) return {res_ctx, x::errors::CANCELLED, res};
         }
         if (!stat.ok()) return {res_ctx, priv::err_from_status(stat), res};
