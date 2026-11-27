@@ -17,6 +17,20 @@ cc_library(
 )
 
 cc_library(
+    name = "store",
+    hdrs = ["store.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/ni/chassis",
+        "//client/cpp/ni/device",
+        "//driver/common",
+        "//x/cpp/errors",
+        "//x/cpp/filter",
+    ],
+)
+
+cc_library(
     name = "ni",
     srcs = [
         "alias.cpp",
@@ -112,6 +126,20 @@ cc_test(
         "@abseil-cpp//absl/log:log_entry",
         "@abseil-cpp//absl/log:log_sink",
         "@abseil-cpp//absl/log:log_sink_registry",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "store_test",
+    srcs = ["store_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":store",
+        "//client/cpp/testutil",
+        "//driver/common",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
         "@googletest//:gtest_main",
     ],
 )
