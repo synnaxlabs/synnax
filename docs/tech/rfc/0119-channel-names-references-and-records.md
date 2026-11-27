@@ -581,26 +581,28 @@ TDMS) reads measured.
 
 ### 4.7 Package boundaries
 
-| Package                                                 | Owns                                                                                                                                         | May import                                                                                                     | Must not import                                                       |
-| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `gorp`                                                  | Unique index and spaces, weak policy, dependents with their reference                                                                        | `x`                                                                                                            | Any Core package; the meaning of a tag                                |
-| `core/pkg/service/imex/session`                         | Import and export sessions: the link reads and writes of one file                                                                            | `imex`, `service/channel`                                                                                      | -                                                                     |
-| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules, the folder name check per scope that `layer.go` injects                                  | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`                                      |
-| `core/pkg/service/channel`                              | The record, the name rule of channels and channel folders, paths, the built-in set, tombstones, `rewires`, the meaning of the tag            | `service/group`, `service/status`, `distribution/channel`                                                      | `service/arc`, `service/calculation`, and `arc` outside `versions/v1` |
-| `core/pkg/service/channel/resolver` (NEW)               | Channels as Arc symbols, consistent lookups for one compile                                                                                  | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`                                  |
-| `core/pkg/service/calculation`                          | The record, analyzer, compiler, graph, status, `reads`, its text holder                                                                      | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                                                         |
-| `core/pkg/service/arc`                                  | Arc records, `reads` and `writes`, the deployed keys, its text holder, the remap of graph inputs                                             | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                                                 |
-| `arc/go`                                                | Grammar, quoted paths, the text edit helper                                                                                                  | `x`                                                                                                            | Any Core package                                                      |
-| `core/pkg/service/framer`                               | Finds a calculation by its output key; stitches measured reads; maps piece changes to holders                                                | `service/calculation`                                                                                          | Key bits                                                              |
-| `core/pkg/service/impact` (NEW)                         | The one plan format for every change, the closed effect list, record delete plans, apply, the `Deleters` map                                 | `gorp`, `service/resource`, `x`                                                                                | Any channel, group, or task package                                   |
-| `core/pkg/service/channel/tree` (NEW)                   | Channel renames and moves, channel folder renames, moves, deletes, and ungroups, tombstone entries, the policy map, rewires, the text passes | `service/channel`, `service/group`, `service/resource`, `gorp`, `impact`                                       | `service/arc`, `service/calculation`, `api`                           |
-| `core/pkg/api/channel`, `api/calculation`, `api/impact` | `path`, `uses`, and the plan and apply routes                                                                                                | Services                                                                                                       | -                                                                     |
+| Package                                                 | Owns                                                                                                                                         | May import                                                                                                     | Must not import                                                               |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `gorp`                                                  | Unique index and spaces, weak policy, dependents with their reference                                                                        | `x`                                                                                                            | Any Core package; the meaning of a tag                                        |
+| `core/pkg/service/imex/session`                         | Import and export sessions: the link reads and writes of one file                                                                            | `imex`, `service/channel`                                                                                      | -                                                                             |
+| `core/pkg/service/group`                                | Folders, the generated sibling index, naming rules, the folder name check per scope that `layer.go` injects                                  | `service/resource`, `service/actions`                                                                          | `service/channel`, `service/arc`                                              |
+| `core/pkg/service/channel`                              | The record, the name rule of channels and channel folders, paths, the built-in set, tombstones, `rewires`, the meaning of the tag            | `service/group`, `service/status`, `distribution/channel`                                                      | `service/arc`, `service/calculation`, and `arc`, except through `versions/v1` |
+| `core/pkg/service/channel/resolver` (NEW)               | Channels as Arc symbols, consistent lookups for one compile                                                                                  | `service/channel`, `arc`                                                                                       | `service/arc`, `service/calculation`                                          |
+| `core/pkg/service/calculation`                          | The record, analyzer, compiler, graph, status, `reads`, its text holder                                                                      | `service/channel`, `service/channel/resolver`, `service/group`, `service/status`, `arc`, `service/arc/runtime` | `service/arc`                                                                 |
+| `core/pkg/service/arc`                                  | Arc records, `reads` and `writes`, the deployed keys, its text holder, the remap of graph inputs                                             | `service/channel`, `service/channel/resolver`, `service/group`, `arc`                                          | `service/calculation`                                                         |
+| `arc/go`                                                | Grammar, quoted paths, the text edit helper                                                                                                  | `x`                                                                                                            | Any Core package                                                              |
+| `core/pkg/service/framer`                               | Finds a calculation by its output key; stitches measured reads; maps piece changes to holders                                                | `service/calculation`                                                                                          | Key bits                                                                      |
+| `core/pkg/service/impact` (NEW)                         | The one plan format for every change, the closed effect list, record delete plans, apply, the `Deleters` map                                 | `gorp`, `service/resource`, `x`                                                                                | Any channel, group, or task package                                           |
+| `core/pkg/service/channel/tree` (NEW)                   | Channel renames and moves, channel folder renames, moves, deletes, and ungroups, tombstone entries, the policy map, rewires, the text passes | `service/channel`, `service/group`, `service/resource`, `gorp`, `impact`                                       | `service/arc`, `service/calculation`, `api`                                   |
+| `core/pkg/api/channel`, `api/calculation`, `api/impact` | `path`, `uses`, and the plan and apply routes                                                                                                | Services                                                                                                       | -                                                                             |
 
-The table is the state after Phase 3. RFC 0120 Phase 1 moves `channel/calculation`, its
-`compiler`, and its `graph` to `core/pkg/service/calculation` as a pure move. The
-analyzer and `CalculationInputs` stay in `service/channel`, which imports `arc`, until
-Phase 3 moves them, and `resolver.go` and `lookups.go` go to `channel/resolver`. After
-that, only `channelv1.Rewriter`, the upgrade text pass of Phase 7, imports `arc`:
+The table is the state after Phase 3. A row covers its package and the packages that it
+imports. A subpackage with its own row, such as `channel/resolver`, follows that row.
+RFC 0120 Phase 1 moves `channel/calculation`, its `compiler`, and its `graph` to
+`core/pkg/service/calculation` as a pure move. The analyzer and `CalculationInputs` stay
+in `service/channel`, which imports `arc`, until Phase 3 moves them, and `resolver.go`
+and `lookups.go` go to `channel/resolver`. After that, `service/channel` reaches `arc`
+only through `channelv1.Rewriter`, the upgrade text pass of Phase 7 in `versions/v1`:
 channel's chain runs it before the calculation graph compiles, and a home in
 `service/arc` forms an import cycle.
 
@@ -825,8 +827,11 @@ or without the flag.
   each folder's live members and tombstones to its parent and deletes the folder, in one
   action. A tombstone that lands on a taken path drops, and the plan lists it as
   dropped. A live member that lands on a tombstone's path heals with the defaults, as a
-  create does (§4.12). A folder delete or ungroup takes no picks: its entries offer
-  none, and the API refuses one that holds a pick or a hidden pick.
+  create does (§4.12). If that member holds its own list, the ungroup fails and names
+  the channel, since the default would drop that list with no pick. A move of that
+  channel, which plans its picks, comes first. A folder delete or ungroup takes no
+  picks: its entries offer none, and the API refuses one that holds a pick or a hidden
+  pick.
 - **Routes**: `/impact/plan` and `/impact/apply` take one change union, with a record
   arm that `impact` serves and the channel tree arms that `channel/tree` serves. The
   response holds an `impact.Plan`, keyed like the change. The change union and the route
@@ -876,19 +881,20 @@ Tombstone struct {
   never blocks a create. A folder delete removes its tombstones first, and an ungroup
   moves them (§4.11).
 - **Heal**: A rename or move that gives a channel a tombstone's path plans a heal, and a
-  create or an ungroup heals with the defaults, with no picks. Each link that holds the
-  dead key gets `retarget` (default) or `keep`; the list moves to the new channel. The
-  tombstone then goes, whatever the picks, so a path holds at most one. A `rewires` link
-  is never a heal target. From Phase 18 every channel create heals a tombstone at its
-  path with the defaults, whatever its caller, such as a task save or `Declare`, so a
-  live channel and a tombstone never share a path. Text holders need no entry: the path
-  binds at the next compile. A graph-mode Arc that holds the dead key in a node config
-  is a key holder and gets an entry. The arriving channel's own list, if it holds one,
-  gets an entry: `drop` (default; that history of the path it leaves goes, and the past
-  holders keep their data) or `cancel`, so the result writes one list. `uses` leaves out
-  tombstone holders, which have no resource type. A script that makes channels again on
-  each run heals every display on each run, and a remake for another purpose heals by
-  default too; only the dialog shows it.
+  create or an ungroup heals with the defaults, with no picks (an ungroup refuses an
+  arriving channel that holds a list, §4.11). Each link that holds the dead key gets
+  `retarget` (default) or `keep`; the list moves to the new channel. The tombstone then
+  goes, whatever the picks, so a path holds at most one. A `rewires` link is never a
+  heal target. From Phase 18 every channel create heals a tombstone at its path with the
+  defaults, whatever its caller, such as a task save or `Declare`, so a live channel and
+  a tombstone never share a path. Text holders need no entry: the path binds at the next
+  compile. A graph-mode Arc that holds the dead key in a node config is a key holder and
+  gets an entry. The arriving channel's own list, if it holds one, gets an entry: `drop`
+  (default; that history of the path it leaves goes, and the past holders keep their
+  data) or `cancel`, so the result writes one list. `uses` leaves out tombstone holders,
+  which have no resource type. A script that makes channels again on each run heals
+  every display on each run, and a remake for another purpose heals by default too; only
+  the dialog shows it.
 
 ### 4.13 Rewires and measured reads
 
