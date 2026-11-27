@@ -41,6 +41,7 @@ var _ = Describe("Strict retrieve", func() {
 		inShown       channel.Channel
 		inHidden      channel.Channel
 		alone         channel.Channel
+		top           channel.Channel
 	)
 	stored := func(n string, key channel.LocalKey, g *group.Key) channel.Channel {
 		return channel.Channel{
@@ -71,11 +72,13 @@ var _ = Describe("Strict retrieve", func() {
 		inShown = stored(name, 1_000_301, &shown.Key)
 		inHidden = stored(name, 1_000_302, &hidden.Key)
 		alone = stored(solo, 1_000_303, &shown.Key)
+		top = stored(UniqueChannelName(), 1_000_304, nil)
 		Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).
-			Set(ctx, inShown, inHidden, alone)).To(Succeed())
+			Set(ctx, inShown, inHidden, alone, top)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(gorp.WrapWriter[channel.Key, channel.Channel](db).
-				Delete(ctx, inShown.Key(), inHidden.Key(), alone.Key())).To(Succeed())
+				Delete(ctx, inShown.Key(), inHidden.Key(), alone.Key(), top.Key())).
+				To(Succeed())
 		})
 		grantOn(
 			ctx,
@@ -99,16 +102,16 @@ var _ = Describe("Strict retrieve", func() {
 		return channel.Where{Name: &filter.String{In: names}}
 	}
 
-	It("Should refuse a name that several channels hold, naming only the paths the "+
-		"subject can see", func(ctx SpecContext) {
+	It("Should refuse a name that no channel at the top level holds, naming only the "+
+		"paths of the name that the subject can see", func(ctx SpecContext) {
 		Expect(retrieve(ctx, byName(name), true)).Error().To(SatisfyAll(
-			MatchError(query.ErrQuery),
-			MatchError(ContainSubstring(fmt.Sprintf(
-				"2 channels are named '%s': '%s.%s', and 1 more you cannot see",
+			MatchError(query.ErrNotFound),
+			MatchError(fmt.Sprintf(
+				"%s does not exist. Did you mean %s.%s?",
 				name,
 				shown.Name,
 				name,
-			))),
+			)),
 		))
 	})
 
@@ -122,9 +125,9 @@ var _ = Describe("Strict retrieve", func() {
 		))
 	})
 
-	It("Should return the one channel of a name", func(ctx SpecContext) {
-		res := MustSucceed(retrieve(ctx, byName(solo), true))
-		Expect(res.Channels).To(ConsistOf(HaveField("Key", alone.Key())))
+	It("Should return the channel of a name at the top level", func(ctx SpecContext) {
+		res := MustSucceed(retrieve(ctx, byName(top.Name), true))
+		Expect(res.Channels).To(ConsistOf(HaveField("Key", top.Key())))
 	})
 
 	It("Should take keys, names, and paths as the branches of one or", func(
@@ -133,23 +136,21 @@ var _ = Describe("Strict retrieve", func() {
 		path := shown.Name + "." + solo
 		res := MustSucceed(retrieve(ctx, channel.Where{Or: []channel.Where{
 			{Key: &filter.Set[channel.Key]{In: []channel.Key{inShown.Key()}}},
-			{Name: &filter.String{In: []string{solo}}},
+			{Name: &filter.String{In: []string{top.Name}}},
 			{Path: &filter.Set[string]{In: []string{path}}},
 		}}, true))
 		Expect(res.Channels).To(ConsistOf(
 			HaveField("Key", inShown.Key()),
+			HaveField("Key", top.Key()),
 			HaveField("Key", alone.Key()),
 		))
 	})
 
-	It("Should refuse an ambiguous name inside a branch of the or", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a name in a branch of the or that no channel at the top level "+
+		"holds", func(ctx SpecContext) {
 		Expect(retrieve(ctx, channel.Where{Or: []channel.Where{
 			{Name: &filter.String{In: []string{name}}},
-		}}, true)).Error().To(MatchError(ContainSubstring(
-			fmt.Sprintf("2 channels are named '%s'", name),
-		)))
+		}}, true)).Error().To(MatchError(query.ErrNotFound))
 	})
 
 	DescribeTable("Should refuse a strict where with any other match", func(

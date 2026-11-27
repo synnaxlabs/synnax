@@ -85,28 +85,28 @@ var _ = Describe("Delete by keys and names", func() {
 		Expect(otherHasData()).To(BeTrue())
 	})
 
-	It("Should delete nothing when no key or name gives a channel", func(
+	It("Should delete nothing when the request names no channel", func(
 		ctx SpecContext,
 	) {
 		_, otherHasData := written(ctx)
 		Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 			Bounds: telem.TimeRangeMax,
 		})).Error().ToNot(HaveOccurred())
-		Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
-			Names:  []string{UniqueChannelName()},
-			Bounds: telem.TimeRangeMax,
-		})).Error().ToNot(HaveOccurred())
 		Expect(otherHasData()).To(BeTrue())
 	})
 
-	It("Should delete the data of the keys when a name beside them holds no channel",
+	It(
+		"Should refuse the request and keep the data of its keys when a name beside them "+
+			"holds no channel",
 		func(ctx SpecContext) {
 			byKey, keyHasData := written(ctx)
+			missing := UniqueChannelName()
 			Expect(apiSvc.Delete(rootCtx(ctx), db, apiframer.DeleteRequest{
 				Keys:   channel.Keys{byKey.Key()},
-				Names:  []string{UniqueChannelName()},
+				Names:  []string{missing},
 				Bounds: telem.TimeRangeMax,
-			})).Error().ToNot(HaveOccurred())
-			Expect(keyHasData()).To(BeFalse())
-		})
+			})).Error().To(MatchError(missing + " does not exist"))
+			Expect(keyHasData()).To(BeTrue())
+		},
+	)
 })
