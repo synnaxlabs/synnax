@@ -33,15 +33,19 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	DB *gorp.DB
 	// Status stores each cluster's status.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Secret holds the password of each cluster.
+	//
 	// [REQUIRED]
 	Secret *secret.Service
 	// Certificate holds the TLS certificates of each cluster.
+	//
 	// [REQUIRED]
 	Certificate *certificate.Service
 	// Rack holds the racks that connect to clusters.
+	//
 	// [REQUIRED]
 	Rack *rack.Service
 	// Signals publishes sy_kafka_cluster_set and sy_kafka_cluster_delete.

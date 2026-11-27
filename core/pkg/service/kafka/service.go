@@ -60,15 +60,19 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	ICD *icd.Service
 	// Status stores the status of each cluster.
+	//
 	// [REQUIRED]
 	Status *status.Service
 	// Secret holds the password of each cluster.
+	//
 	// [REQUIRED]
 	Secret *secret.Service
 	// Certificate holds the TLS certificates of each cluster.
+	//
 	// [REQUIRED]
 	Certificate *certificate.Service
 	// Rack holds the racks that connect to clusters.
+	//
 	// [REQUIRED]
 	Rack *rack.Service
 	// Signals publishes cluster changes.
