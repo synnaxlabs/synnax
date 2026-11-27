@@ -50,6 +50,7 @@ class Transport:
         open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
+        keep_alive_timeout: CrudeTimeSpan = TimeSpan.SECOND * 20,
         max_retries: int = 3,
         ca_cert: str | None = None,
     ) -> None:
@@ -62,6 +63,8 @@ class Transport:
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.
         :param keep_alive: The time between keep alive pings. A bare number is seconds.
+        :param keep_alive_timeout: The time to wait for the answer to a keep alive ping
+            before the stream fails. A bare number is seconds.
         :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
             certificate.
         :raises ValueError: If ca_cert is set and secure is False.
@@ -71,6 +74,7 @@ class Transport:
         open_timeout = TimeSpan.from_seconds(open_timeout)
         read_timeout = TimeSpan.from_seconds(read_timeout)
         keep_alive = TimeSpan.from_seconds(keep_alive)
+        keep_alive_timeout = TimeSpan.from_seconds(keep_alive_timeout)
         ssl_context: ssl.SSLContext | None = None
         if ca_cert is not None:
             ssl_context = ssl.create_default_context(cafile=ca_cert)
@@ -83,7 +87,7 @@ class Transport:
             "open_timeout": open_timeout.seconds,
             "close_timeout": read_timeout.seconds,
             "ping_interval": keep_alive.seconds,
-            "ping_timeout": 180,
+            "ping_timeout": keep_alive_timeout.seconds,
         }
         self.stream = WebsocketClient(
             encoder=codec,

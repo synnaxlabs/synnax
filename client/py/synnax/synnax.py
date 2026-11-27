@@ -166,6 +166,7 @@ class Synnax(framer.Client):
         open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
         keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
+        keep_alive_timeout: CrudeTimeSpan = TimeSpan.SECOND * 20,
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
@@ -190,6 +191,8 @@ class Synnax(framer.Client):
             seconds.
         :param read_timeout: The time to wait for a response. A bare number is seconds.
         :param keep_alive: The time between keep alive pings. A bare number is seconds.
+        :param keep_alive_timeout: The time to wait for the answer to a keep alive ping
+            before the stream fails. A bare number is seconds.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
         :param api_key: API key to authenticate with, in place of a username and
@@ -218,6 +221,7 @@ class Synnax(framer.Client):
             open_timeout=open_timeout,
             read_timeout=read_timeout,
             keep_alive=keep_alive,
+            keep_alive_timeout=keep_alive_timeout,
             max_retries=max_retries,
             instrumentation=instrumentation,
             registry=registry,
@@ -433,6 +437,7 @@ def _configure_transport(
     open_timeout: CrudeTimeSpan,
     read_timeout: CrudeTimeSpan,
     keep_alive: CrudeTimeSpan,
+    keep_alive_timeout: CrudeTimeSpan,
     max_retries: int,
     registry: Registry,
     instrumentation: Instrumentation = NOOP,
@@ -446,5 +451,6 @@ def _configure_transport(
         open_timeout=open_timeout,
         read_timeout=read_timeout,
         keep_alive=keep_alive,
+        keep_alive_timeout=keep_alive_timeout,
         max_retries=max_retries,
     )

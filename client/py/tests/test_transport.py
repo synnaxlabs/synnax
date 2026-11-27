@@ -20,6 +20,7 @@ from typing import override
 import pytest
 import trustme
 from websockets.asyncio import server as async_server
+from websockets.exceptions import ConnectionClosedError
 from websockets.frames import Frame, Opcode
 from websockets.protocol import Event
 from websockets.sync.server import ServerConnection, serve
@@ -55,6 +56,34 @@ def pinged_endpoint() -> Iterator[tuple[URL, threading.Event]]:
         thread = threading.Thread(target=server.serve_forever)
         thread.start()
         yield URL(host="localhost", port=server.socket.getsockname()[1]), pinged
+        server.shutdown()
+        thread.join()
+
+
+@pytest.fixture
+def stalled_endpoint() -> Iterator[URL]:
+    """Serves a stream that acks the open, then never answers a ping, as a peer behind
+    a stalled link does."""
+    codec = JSONCodec()
+
+    class Connection(ServerConnection):
+        @override
+        def process_event(self, event: Event) -> None:
+            if isinstance(event, Frame) and event.opcode is Opcode.PING:
+                return
+            super().process_event(event)
+
+    def handler(ws: ServerConnection) -> None:
+        ws.send(codec.encode(Message[Empty](type="open", payload=Empty())))
+        try:
+            ws.recv()
+        except ConnectionClosedError:
+            pass
+
+    with serve(handler, "localhost", 0, create_connection=Connection) as server:
+        thread = threading.Thread(target=server.serve_forever)
+        thread.start()
+        yield URL(host="localhost", port=server.socket.getsockname()[1])
         server.shutdown()
         thread.join()
 
@@ -194,6 +223,35 @@ class TestKeepAlive:
         stream = await transport.stream_async.stream("/", Empty, Empty)
         assert await asyncio.to_thread(pinged.wait, 2)
         await stream.close_send()
+
+
+class TestKeepAliveTimeout:
+    def test_sync(self, stalled_endpoint: URL) -> None:
+        """Should fail a sync stream whose peer stops answering pings."""
+        transport = Transport(
+            url=stalled_endpoint,
+            instrumentation=NOOP,
+            registry=create_registry(),
+            keep_alive=TimeSpan.MILLISECOND * 50,
+            keep_alive_timeout=TimeSpan.MILLISECOND * 100,
+        )
+        stream = transport.stream.stream("/", Empty, Empty)
+        with pytest.raises(ConnectionClosedError, match="keepalive ping timeout"):
+            stream.receive(timeout=5)
+
+    @pytest.mark.asyncio
+    async def test_async(self, stalled_endpoint: URL) -> None:
+        """Should fail an async stream whose peer stops answering pings."""
+        transport = Transport(
+            url=stalled_endpoint,
+            instrumentation=NOOP,
+            registry=create_registry(),
+            keep_alive=TimeSpan.MILLISECOND * 50,
+            keep_alive_timeout=TimeSpan.MILLISECOND * 100,
+        )
+        stream = await transport.stream_async.stream("/", Empty, Empty)
+        with pytest.raises(ConnectionClosedError, match="keepalive ping timeout"):
+            await asyncio.wait_for(stream.receive(), 5)
 
 
 @pytest.mark.asyncio
