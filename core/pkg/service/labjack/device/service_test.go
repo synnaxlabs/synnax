@@ -514,9 +514,7 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, d.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Identifier).To(Equal("dev1"))
-			Expect(got.Ports).To(Equal(device.Ports{
-				Variant: device.T7Ports{Mux80Attached: true},
-			}))
+			Expect(got.Ports.Variant).To(HaveField("Mux80Attached", BeTrue()))
 			Expect(got.Rack).To(Equal(d.Rack))
 			Expect(got.Serial).To(Equal(d.Serial))
 			Expect(got.Connection).To(Equal(d.Connection))
@@ -759,21 +757,22 @@ var _ = Describe("Service", func() {
 				To(MatchError(validate.ErrValidation))
 		})
 
-		It("Should set one port of a channel map", func(ctx SpecContext) {
+		It("Should set a channel map of the ports", func(ctx SpecContext) {
 			d := create(ctx)
 			ch := createChannels(ctx, 1)
+			inputs := map[device.T7DigitalPort]channel.Key{
+				device.T7DigitalPortDio2: ch[0],
+			}
 			Expect(svc.NewWriter(tx).Apply(
 				ctx,
 				d.Key,
 				device.NewSetAction(device.SetPayload{
-					Path:  []string{"ports", "digital_input", "DIO2"},
-					Value: ch[0],
+					Path:  []string{"ports", "digital_input"},
+					Value: inputs,
 				}),
 			)).To(Succeed())
-			Expect(retrieve(ctx, d.Key).Ports.Variant).To(HaveField(
-				"DigitalInput",
-				HaveKeyWithValue(device.T7DigitalPortDio2, ch[0]),
-			))
+			Expect(retrieve(ctx, d.Key).Ports.Variant).
+				To(HaveField("DigitalInput", Equal(inputs)))
 		})
 
 		It("Should return not found for a missing device", func(ctx SpecContext) {
