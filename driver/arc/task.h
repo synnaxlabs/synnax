@@ -236,9 +236,12 @@ public:
         const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ) {
         auto [outbox, outbox_err] = ctx->outbox();
-        if (status::sets_statuses(cfg.program)) {
-            if (outbox_err) return {nullptr, outbox_err};
-            if (keys.second) return {nullptr, keys.second};
+        // Only a task without an outbox or keys compiles the module to read its
+        // imports, and it compiles it once.
+        if (outbox_err || keys.second) {
+            const auto imports = status::wasm_imports(cfg.program);
+            if (status::sets_statuses(cfg.program, imports))
+                return {nullptr, outbox_err ? outbox_err : keys.second};
         }
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 

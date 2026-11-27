@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <string>
 #include <utility>
 #include <variant>
@@ -221,22 +222,33 @@ public:
     [[nodiscard]] bool is_output_truthy(size_t) const override { return this->queued; }
 };
 
-/// @returns whether the program sets statuses, as a node or as a function.
-inline bool sets_statuses(const ::arc::program::Program &program) {
-    for (const auto &node: program.nodes)
-        if (node.type == "status.set" || node.type == "set") return true;
-    if (program.wasm.empty()) return false;
+/// @brief the functions that a compiled Arc program imports, as module and name pairs.
+using Imports = std::set<std::pair<std::string, std::string>>;
+
+/// @returns the imports of the WASM module of program, or none when the module does
+/// not compile, which the runtime reports when it loads it. Compiles the module, so
+/// call it at most once per program.
+inline Imports wasm_imports(const ::arc::program::Program &program) {
+    if (program.wasm.empty()) return {};
     wasmtime::Engine engine;
     auto wasm = program.wasm;
     auto mod = wasmtime::Module::compile(
         engine,
         wasmtime::Span<uint8_t>(wasm.data(), wasm.size())
     );
-    // A module that does not compile fails when the runtime loads it.
-    if (!mod) return false;
+    if (!mod) return {};
+    Imports imports;
     for (const auto &import: mod.ok().imports())
-        if (import.module() == "status" && import.name() == "set") return true;
-    return false;
+        imports.emplace(import.module(), import.name());
+    return imports;
+}
+
+/// @returns whether the program sets statuses, as a node or as a function in imports.
+inline bool
+sets_statuses(const ::arc::program::Program &program, const Imports &imports) {
+    for (const auto &node: program.nodes)
+        if (node.type == "status.set" || node.type == "set") return true;
+    return imports.contains({"status", "set"});
 }
 
 class Module : public ::arc::stl::Module, public ::arc::stl::strings::StateConsumer {
