@@ -50,6 +50,10 @@ public:
     /// call.
     virtual void exec(synnax::task::Command &cmd, x::breaker::Breaker &cancel) {}
 
+    /// @brief returns true if the task refuses every start. A disabled task answers a
+    /// start before exec returns, so no loading status announces its auto-start.
+    [[nodiscard]] virtual bool disabled() const { return false; }
+
     /// @brief stops the task, halting activities and freeing all resources. stop
     /// is called when the task is no longer needed, and is typically followed by a
     /// a call to the destructor.
