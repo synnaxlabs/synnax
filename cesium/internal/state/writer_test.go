@@ -392,39 +392,36 @@ var _ = Describe("Writer", func() {
 			Expect(
 				s.OpenWriter(context.Background(), clockWriter(150, true, 5)),
 			).Error().
-				To(conflict())
+				To(SatisfyAll(
+					conflict(),
+					MatchError(ContainSubstring("reaches the claim")),
+				))
 		})
 
-		It(
-			"Should open a bounded writer before every claim, and refuse its "+
-				"commit that "+
-				"reaches one",
-			func() {
-				open(clockWriter(100, false, 5))
-				b := open(clockWriter(50, true, 5))
-				id := MustSucceed(b.NewSegment(5))
-				n := MustSucceed(b.NewAlignment())
-				Expect(b.Commit(commit(2, n, 0, 60, 70, slot(id, 16)))).To(Succeed())
-				Expect(b.Commit(commit(2, n, 2, 90, 100, slot(id, 32)))).
-					To(MatchError(ContainSubstring(
-						"reaches the claim of another writer from 100",
-					)))
-			},
-		)
+		It("Should open a bounded writer before every claim, and refuse its commit "+
+			"that reaches one", func() {
+			open(clockWriter(100, false, 5))
+			b := open(clockWriter(50, true, 5))
+			id := MustSucceed(b.NewSegment(5))
+			n := MustSucceed(b.NewAlignment())
+			Expect(b.Commit(commit(2, n, 0, 60, 70, slot(id, 16)))).To(Succeed())
+			Expect(b.Commit(commit(2, n, 2, 90, 100, slot(id, 32)))).
+				To(MatchError(ContainSubstring(
+					"reaches the claim of another writer from 100",
+				)))
+		})
 
-		It(
-			"Should open a live writer over a bounded claim, and refuse the "+
-				"commit that "+
-				"reaches it",
-			func() {
-				open(clockWriter(50, true, 5))
-				w := open(clockWriter(40, false, 5))
-				id := MustSucceed(w.NewSegment(5))
-				n := MustSucceed(w.NewAlignment())
-				Expect(w.Commit(commit(2, n, 0, 45, 50, slot(id, 16)))).
-					To(conflict())
-			},
-		)
+		It("Should open a live writer over a bounded claim, and refuse the commit "+
+			"that reaches it", func() {
+			open(clockWriter(50, true, 5))
+			w := open(clockWriter(40, false, 5))
+			id := MustSucceed(w.NewSegment(5))
+			n := MustSucceed(w.NewAlignment())
+			Expect(w.Commit(commit(2, n, 0, 45, 50, slot(id, 16)))).To(SatisfyAll(
+				conflict(),
+				MatchError(ContainSubstring("reaches the claim")),
+			))
+		})
 
 		It("Should refuse a writer that starts inside stored data", func() {
 			w := open(clockWriter(100, false, 5))
@@ -452,7 +449,10 @@ var _ = Describe("Writer", func() {
 				Expect(
 					s.OpenWriter(context.Background(), clockWriter(70, true, 5)),
 				).Error().
-					To(conflict())
+					To(SatisfyAll(
+						conflict(),
+						MatchError(ContainSubstring("reaches the claim")),
+					))
 			})
 
 		It("Should let another writer claim a key after Close", func() {

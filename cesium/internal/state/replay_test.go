@@ -244,7 +244,7 @@ var _ = Describe("Replay", func() {
 		Expect(replay(commit(1, 3, 0, 32, 32, slot(4, 20)))).To(Succeed())
 		run(s)
 		snap := MustSucceed(s.Snapshot())
-		Expect(state.Open(config(&appended{}), snap)).Error().ToNot(HaveOccurred())
+		MustSucceed(state.Open(config(&appended{}), snap))
 	})
 
 	It("Should refuse an entry that does not follow the last one", func() {

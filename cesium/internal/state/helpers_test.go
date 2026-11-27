@@ -72,6 +72,7 @@ func (a *appended) switched() []*state.Snapshot {
 
 // seals returns the Seal records of the appended entries, in order.
 func (a *appended) seals() []log.Seal {
+	GinkgoHelper()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	var out []log.Seal
@@ -92,6 +93,7 @@ func (a *appended) seals() []log.Seal {
 }
 
 func (a *appended) append(e *log.Entry) {
+	GinkgoHelper()
 	defer GinkgoRecover()
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -114,6 +116,7 @@ func (a *appended) append(e *log.Entry) {
 
 // decode returns the records of the entry b.
 func decode(b []byte) []log.Record {
+	GinkgoHelper()
 	var (
 		d   log.Decoder
 		out []log.Record
@@ -130,6 +133,7 @@ func decode(b []byte) []log.Record {
 
 // reserves returns the Reserve records of the appended entries, in order.
 func (a *appended) reserves() []log.Reserve {
+	GinkgoHelper()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	var out []log.Reserve
