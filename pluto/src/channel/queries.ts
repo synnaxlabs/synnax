@@ -79,7 +79,7 @@ export const ZERO_FORM_VALUES: z.infer<
   name: "",
   index: 0,
   dataType: DataType.FLOAT32.toString(),
-  internal: false,
+  builtIn: false,
   isIndex: false,
   leaseholder: 0,
   virtual: false,
@@ -110,16 +110,16 @@ export const useResultDataType = createResultSelector(
 );
 
 /**
- * The icon of the channel, and whether it is internal or virtual. Compared by value: a
+ * The icon of the channel, and whether it is built-in or virtual. Compared by value: a
  * status heartbeat is silenced.
  */
 export const useResultKind = createResultSelector(
   (ch) => ({
     icon: resolveIcon(ch.payload),
-    internal: ch.internal,
+    builtIn: ch.builtIn,
     virtual: ch.virtual,
   }),
-  (a, b) => a.icon === b.icon && a.internal === b.internal && a.virtual === b.virtual,
+  (a, b) => a.icon === b.icon && a.builtIn === b.builtIn && a.virtual === b.virtual,
 );
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
@@ -232,10 +232,10 @@ export type ListQuery = channel.RetrieveMultipleParams;
 
 const normalizeListQuery = <Q extends ListQuery>(query: Q): Q => ({
   ...query,
-  where: { internal: { eq: false }, ...query.where },
+  where: { builtIn: { eq: false }, ...query.where },
 });
 
-/** Lists the channels that are not internal, unless the query sets `where.internal`. */
+/** Lists the channels that are not built-in, unless the query sets `where.builtIn`. */
 export const useList = ({
   query,
   ...rest

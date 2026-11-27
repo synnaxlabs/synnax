@@ -63,7 +63,7 @@ export interface UploadModalParams {
 
 // Sift stores only persisted data channels. The Core sends each index on its own.
 const CHANNEL_QUERY: Channel.ListQuery = {
-  where: { virtual: false, isIndex: { eq: false }, internal: { eq: false } },
+  where: { virtual: false, isIndex: { eq: false }, builtIn: { eq: false } },
 };
 
 // The query keeps calculated channels, which the Core does not store.

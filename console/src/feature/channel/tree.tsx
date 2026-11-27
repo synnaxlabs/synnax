@@ -36,7 +36,7 @@ import { Tree } from "@/platform/tree";
 
 const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
   const ch = client.channels.watch(Number(key)).getCached();
-  if (!query.isLive(ch) || !ch.internal) return [PChannel.createHaulItem(Number(key))];
+  if (!query.isLive(ch) || !ch.builtIn) return [PChannel.createHaulItem(Number(key))];
   return [
     PSchematic.createHaulItem({
       key: id.create(),
@@ -112,7 +112,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const firstChannel = channels.find(({ key }) => key === channelKeys[0]);
   const isCalc =
     singleResource && firstChannel != null && isCalculated(firstChannel.payload);
-  const renamable = firstChannel?.internal !== true;
+  const renamable = firstChannel?.builtIn !== true;
 
   return (
     <ContextMenu.Menu>
@@ -170,7 +170,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         overflow="fade"
         className={CSS.BE("channel-tree-item", "name")}
         grow
-        disabled={kind?.internal === true}
+        disabled={kind?.builtIn === true}
         onChange
         highlight={highlight}
       />
@@ -207,7 +207,7 @@ export const listTreeRoot = (client: Synnax): Tree.Source[] => [
   ),
   Tree.createSource(
     client.channels,
-    { where: { grouped: false, internal: { eq: false } } },
+    { where: { grouped: false, builtIn: { eq: false } } },
     toResource,
   ),
 ];

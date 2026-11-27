@@ -76,14 +76,14 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return limitSvc.NewWriter(tx).Create(ctx, &virtual)
 					})).To(Succeed())
-					internal := channel.Channel{
+					builtIn := channel.Channel{
 						Name:        UniqueChannelName(),
 						DataType:    telem.TimestampT,
 						IsIndex:     true,
 						Leaseholder: 1,
 					}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return limitSvc.NewWriter(tx).Declare(ctx, &internal)
+						return limitSvc.NewWriter(tx).Declare(ctx, &builtIn)
 					})).To(Succeed())
 				}
 			},
@@ -1331,27 +1331,27 @@ var _ = Describe("Writer", func() {
 			)
 		})
 		Context("Built-in Channels", func() {
-			var internalCh channel.Channel
+			var builtInCh channel.Channel
 			JustBeforeEach(func(ctx SpecContext) {
-				internalCh = channel.Channel{
+				builtInCh = channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.TimestampT,
 					IsIndex:     true,
 					Leaseholder: 1,
 				}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Declare(ctx, &internalCh)
+					return svc.NewWriter(tx).Declare(ctx, &builtInCh)
 				})).To(Succeed())
 			})
 			It(
 				"Should return an error when deleting a built-in channel by key",
 				func(ctx SpecContext) {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Delete(ctx, internalCh.Key(), false)
+						return svc.NewWriter(tx).Delete(ctx, builtInCh.Key(), false)
 					})).
 						To(MatchError(ContainSubstring("can't delete built-in channel")))
 					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(internalCh.Key())).
+						Where(channel.MatchKeys(builtInCh.Key())).
 						Exists(ctx, db)).To(BeTrue())
 				},
 			)
@@ -1361,13 +1361,13 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).DeleteManyByNames(
 							ctx,
-							[]string{internalCh.Name},
+							[]string{builtInCh.Name},
 							false,
 						)
 					})).
 						To(MatchError(ContainSubstring("can't delete built-in channel")))
 					Expect(svc.NewRetrieve().
-						Where(channel.MatchNames(internalCh.Name)).
+						Where(channel.MatchNames(builtInCh.Name)).
 						Exists(ctx, db)).To(BeTrue())
 				},
 			)
@@ -1383,7 +1383,7 @@ var _ = Describe("Writer", func() {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &externalCh)
 					})).To(Succeed())
-					keys := channel.Keys{externalCh.Key(), internalCh.Key()}
+					keys := channel.Keys{externalCh.Key(), builtInCh.Key()}
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).DeleteMany(ctx, keys, false)
 					})).
@@ -1397,13 +1397,13 @@ var _ = Describe("Writer", func() {
 				},
 			)
 			It(
-				"Should delete a built-in channel when allowInternal is true",
+				"Should delete a built-in channel when allowBuiltIn is true",
 				func(ctx SpecContext) {
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Delete(ctx, internalCh.Key(), true)
+						return svc.NewWriter(tx).Delete(ctx, builtInCh.Key(), true)
 					})).To(Succeed())
 					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(internalCh.Key())).
+						Where(channel.MatchKeys(builtInCh.Key())).
 						Exists(ctx, db)).To(BeFalse())
 				},
 			)

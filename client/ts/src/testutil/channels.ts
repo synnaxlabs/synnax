@@ -72,7 +72,7 @@ export const newVirtualBoolChannel = async (
 /** @returns whether a request is a client's fetch of the built-in channel keys. */
 export const isBuiltInsFetch = (target: string, req: unknown): boolean =>
   target === "/channel/retrieve" &&
-  (req as channel.RetrieveRequest).where?.internal?.eq === true;
+  (req as channel.RetrieveRequest).where?.builtIn?.eq === true;
 
 /**
  * @returns the response of each fetch of the built-in channel keys that send saw, in

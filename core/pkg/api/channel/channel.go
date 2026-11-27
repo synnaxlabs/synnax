@@ -329,7 +329,7 @@ func translateChannelsForward(
 			Index:       ch.Index(),
 			Virtual:     ch.Virtual,
 			Concurrency: ch.Concurrency,
-			Internal:    builtIn(ch.Key()),
+			BuiltIn:     builtIn(ch.Key()),
 			Expression:  ch.Expression,
 			Operations:  ch.Operations,
 			Group:       ch.Group,
@@ -378,7 +378,7 @@ func (CountLimitedRequest) Named() []resource.ID {
 }
 
 // CountLimited returns how many channels count against the license channel limit (not
-// internal, not virtual).
+// built-in, not virtual).
 func (s *Service) CountLimited(
 	context.Context,
 	bind.Snapshot,
@@ -392,8 +392,8 @@ type DeleteRequest struct {
 	Names []string     `json:"names" msgpack:"names"`
 }
 
-// Delete deletes the channels that the request names by key or by name. Deleting an
-// internal channel is a validation error.
+// Delete deletes the channels that the request names by key or by name. Deleting a
+// built-in channel is a validation error.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,

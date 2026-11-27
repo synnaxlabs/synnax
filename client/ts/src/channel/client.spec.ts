@@ -29,7 +29,7 @@ const RENAMED: channel.Payload = {
   isIndex: false,
   index: 0,
   virtual: true,
-  internal: false,
+  builtIn: false,
   expression: "",
   operations: [],
   concurrency: control.Concurrency.exclusive,

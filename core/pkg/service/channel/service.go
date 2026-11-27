@@ -63,7 +63,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	HostKey node.Key
-	// Limit enforces the cap on external (non-internal, non-virtual) channels.
+	// Limit enforces the cap on external (not built-in, not virtual) channels.
 	//
 	// [OPTIONAL] - Defaults to no cap.
 	Limit LimitChecker
@@ -124,7 +124,7 @@ type Service struct {
 	// builtIns holds the keys that Writer.Declare declared. A commit replaces the set
 	// under mu, so a read takes no lock.
 	builtIns atomic.Pointer[builtInSet]
-	// builtInFilters holds the filters of MatchInternal.
+	// builtInFilters holds the filters of MatchBuiltIn.
 	builtInFilters builtInFilters
 	mu             struct {
 		sync.RWMutex

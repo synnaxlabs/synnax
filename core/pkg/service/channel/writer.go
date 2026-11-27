@@ -251,27 +251,27 @@ func (w Writer) ChangeDataType(
 }
 
 // Delete deletes the channel with the given key, along with its storage. Unless
-// allowInternal is true, deleting an internal channel returns an error.
-func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
-	return w.DeleteMany(ctx, []Key{key}, allowInternal)
+// allowBuiltIn is true, deleting a built-in channel returns an error.
+func (w Writer) Delete(ctx context.Context, key Key, allowBuiltIn bool) error {
+	return w.DeleteMany(ctx, []Key{key}, allowBuiltIn)
 }
 
 // DeleteMany deletes the channels with the given keys, along with their storage. It
 // also deletes the index of each deleted calculated channel that no other channel uses.
-// Unless allowInternal is true, deleting any internal channel returns an error and no
+// Unless allowBuiltIn is true, deleting any built-in channel returns an error and no
 // channels are deleted.
-func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
+func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowBuiltIn bool) error {
 	keys, err := w.withCalculatedIndexes(ctx, keys)
 	if err != nil {
 		return err
 	}
-	return w.delete(ctx, keys, allowInternal)
+	return w.delete(ctx, keys, allowBuiltIn)
 }
 
-// DeleteManyByNames deletes the channels with the given names. Unless allowInternal is
-// true, deleting any internal channel returns an error and no channels are deleted.
+// DeleteManyByNames deletes the channels with the given names. Unless allowBuiltIn is
+// true, deleting any built-in channel returns an error and no channels are deleted.
 func (w Writer) DeleteManyByNames(
-	ctx context.Context, names []string, allowInternal bool,
+	ctx context.Context, names []string, allowBuiltIn bool,
 ) error {
 	var res []Channel
 	if err := w.svc.newRetrieve().
@@ -280,7 +280,7 @@ func (w Writer) DeleteManyByNames(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.DeleteMany(ctx, KeysFromChannels(res), allowInternal)
+	return w.DeleteMany(ctx, KeysFromChannels(res), allowBuiltIn)
 }
 
 // withCalculatedIndexes returns keys and the index of each calculated channel in keys
@@ -336,21 +336,21 @@ func (w Writer) usedIndexes(
 	return used, nil
 }
 
-// Rename renames the channel with the given key to newName. Unless allowInternal is
-// true, renaming an internal channel returns an error.
+// Rename renames the channel with the given key to newName. Unless allowBuiltIn is
+// true, renaming a built-in channel returns an error.
 func (w Writer) Rename(
-	ctx context.Context, key Key, newName string, allowInternal bool,
+	ctx context.Context, key Key, newName string, allowBuiltIn bool,
 ) error {
-	return w.RenameMany(ctx, []Key{key}, []string{newName}, allowInternal)
+	return w.RenameMany(ctx, []Key{key}, []string{newName}, allowBuiltIn)
 }
 
 // RenameMany renames the channels with the given keys to the corresponding entries in
 // newNames, which must be parallel to keys, and attaches a rename action for each one.
-// Unless allowInternal is true, renaming any internal channel returns an error.
+// Unless allowBuiltIn is true, renaming any built-in channel returns an error.
 func (w Writer) RenameMany(
-	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
+	ctx context.Context, keys []Key, newNames []string, allowBuiltIn bool,
 ) error {
-	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
+	if err := w.rename(ctx, keys, newNames, allowBuiltIn); err != nil {
 		return err
 	}
 	for i, k := range keys {
@@ -924,11 +924,11 @@ func nameExists(name string, i int) error {
 	)
 }
 
-func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error {
+func (w Writer) delete(ctx context.Context, keys Keys, allowBuiltIn bool) error {
 	if err := w.svc.table.NewDelete().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		Guard(func(_ gorp.Context, c Channel) error {
-			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
+			if !allowBuiltIn && w.svc.IsBuiltIn(c.Key()) {
 				return errors.Wrapf(
 					validate.ErrValidation,
 					"can't delete built-in channel %q",
@@ -956,7 +956,7 @@ func (w Writer) rename(
 	ctx context.Context,
 	keys Keys,
 	names []string,
-	allowInternal bool,
+	allowBuiltIn bool,
 ) error {
 	if len(keys) != len(names) {
 		return errors.Wrap(
@@ -982,7 +982,7 @@ func (w Writer) rename(
 	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
-			if !allowInternal && w.svc.IsBuiltIn(c.Key()) {
+			if !allowBuiltIn && w.svc.IsBuiltIn(c.Key()) {
 				return Channel{}, errors.Wrapf(
 					validate.ErrValidation,
 					"can't rename built-in channel %q",

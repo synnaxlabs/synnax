@@ -63,9 +63,9 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     ...overrides,
   });
 
-// Clients cannot create internal channels, so this reads one the Core made.
-const retrieveInternalChannel = async (): Promise<channelClient.Channel> => {
-  const [ch] = await client.channels.retrieve({ internal: true, limit: 1 });
+// Clients cannot create built-in channels, so this reads one the Core made.
+const retrieveBuiltInChannel = async (): Promise<channelClient.Channel> => {
+  const [ch] = await client.channels.retrieve({ builtIn: true, limit: 1 });
   assertDefined(ch);
   return ch;
 };
@@ -106,8 +106,8 @@ describe("channel/tree", () => {
       expect(items[0].key).toBe(ch.key);
     });
 
-    it("hauls an internal channel as a schematic value element only", async () => {
-      const ch = await retrieveInternalChannel();
+    it("hauls a built-in channel as a schematic value element only", async () => {
+      const ch = await retrieveBuiltInChannel();
       const items = Item.haulItems(
         createResource(channelClient.resourceID(ch.key), ch.name),
         client,
@@ -326,8 +326,8 @@ describe("channel/tree", () => {
       expect(await screen.findByText("Reload Console")).toBeTruthy();
     });
 
-    it("withholds rename from an internal channel", async () => {
-      const ch = await retrieveInternalChannel();
+    it("withholds rename from a built-in channel", async () => {
+      const ch = await retrieveBuiltInChannel();
       assertDefined(Item.ContextMenu);
       await renderTreeContextMenu(Item.ContextMenu, {
         client,

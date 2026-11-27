@@ -120,8 +120,8 @@ export class Channel {
   readonly index: Key;
   /** This is set to true if the channel is an index channel, and false otherwise. */
   readonly isIndex: boolean;
-  /** This is set to true if the channel is an internal channel, and false otherwise. */
-  readonly internal: boolean;
+  /** This is set to true if the channel is built-in, and false otherwise. */
+  readonly builtIn: boolean;
   /**
    * Whether the channel is virtual. Virtual channels do not store any data in the
    * database, but can still be used for streaming purposes.
@@ -144,6 +144,9 @@ export class Channel {
    */
   readonly uses?: Use[];
 
+  constructor(args: New & { frameClient?: framer.Client; uses?: Use[] });
+
+  // Only the Core sets builtIn, so New leaves it out. A payload from the Core holds it.
   constructor({
     dataType,
     name,
@@ -151,7 +154,7 @@ export class Channel {
     key = 0,
     isIndex = false,
     index = 0,
-    internal = false,
+    builtIn = false,
     virtual = false,
     frameClient,
     status: argsStatus,
@@ -160,14 +163,14 @@ export class Channel {
     concurrency = control.Concurrency.exclusive,
     group: groupKey,
     uses,
-  }: New & { frameClient?: framer.Client; uses?: Use[] }) {
+  }: New & { frameClient?: framer.Client; uses?: Use[]; builtIn?: boolean }) {
     this.key = zod.parse(keyZ, key, { label: "channel key" });
     this.name = name;
     this.dataType = new DataType(dataType);
     this.leaseholder = leaseholder;
     this.index = zod.parse(keyZ, index, { label: "channel index" });
     this.isIndex = isIndex;
-    this.internal = internal;
+    this.builtIn = builtIn;
     this.virtual = virtual;
     this.expression = expression;
     this.operations = zod.parse(operationsZ, operations, {
@@ -202,7 +205,7 @@ export class Channel {
         leaseholder: this.leaseholder,
         index: this.index,
         isIndex: this.isIndex,
-        internal: this.internal,
+        builtIn: this.builtIn,
         virtual: this.virtual,
         expression: this.expression,
         status: this.status,
@@ -427,12 +430,12 @@ export class Client extends query.Retriever<
         },
       }),
     );
-    // Each connection asks the Core for the internal channels, and the Core checks the
-    // internal line until the first answer lands. A reconnect keeps the last keys until
+    // Each connection asks the Core for the built-in channels, and the Core checks the
+    // built-in line until the first answer lands. A reconnect keeps the last keys until
     // the next answer, since a list that checks the line itself needs them.
     let builtIns: Set<Key> | null = null;
     cache.onEpoch(() => {
-      this.execRetrieve({ where: { internal: { eq: true } } })
+      this.execRetrieve({ where: { builtIn: { eq: true } } })
         .then((channels) => {
           builtIns = new Set(channels.map(({ key }) => key));
         })
@@ -443,7 +446,7 @@ export class Client extends query.Retriever<
         });
     });
     const lines = createLines(() => builtIns);
-    // A query ranks as a search only for a line that stays the Core's. The internal
+    // A query ranks as a search only for a line that stays the Core's. The built-in
     // line waits for the built-in keys instead, so its list pages by key.
     const lasting = createLines(() => new Set());
     const single = cache.queries<RetrieveSingleParams, Channel, Key, Channel>({
@@ -464,7 +467,7 @@ export class Client extends query.Retriever<
         schema: retrieveParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
         // A channel whose uses the client does not hold fetches the query again, as
-        // does one that an internal line checks before the built-in keys arrive.
+        // does one that a built-in line checks before the built-in keys arrive.
         matches: (ch, query) =>
           (query.includeUses === true && usesStore.get(ch.key) == null) ||
           serverComputed(lines, query.where)
@@ -668,7 +671,7 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Retrieves how many channels count against the license channel limit (not internal,
+   * Retrieves how many channels count against the license channel limit (not built-in,
    * not virtual).
    * @throws {AccessDeniedError} if the caller cannot retrieve every channel.
    */

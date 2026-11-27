@@ -17,8 +17,8 @@ import { vectors } from "@/testutil/vectors";
 describe("Where", () => {
   // The Core assigns channel keys and requires unique names, so the store creates the
   // channels under temporary names before the lists open and gives each its vector name
-  // with a suffix after. A client cannot create a channel leased to another node or an
-  // internal channel, and the Core leases a calculated channel to no node, so those
+  // with a suffix after. A client cannot create a channel leased to another node or a
+  // built-in channel, and the Core leases a calculated channel to no node, so those
   // vector channels have no part.
   vectors.itFiltersLive(
     vectors.read("channels", channel.payloadZ, channel.whereZ),
@@ -28,7 +28,7 @@ describe("Where", () => {
       const keys = new Map<number, number>();
       const nameOf = (name: string): string => `${name}_${run}`;
       const creatable = (ch: channel.Payload): boolean =>
-        ch.leaseholder === 1 && !ch.internal && !channel.isCalculated(ch);
+        ch.leaseholder === 1 && !ch.builtIn && !channel.isCalculated(ch);
       return {
         client,
         target: "/channel/retrieve",

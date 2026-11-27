@@ -36,7 +36,7 @@ type record struct {
 	IsIndex     bool           `json:"is_index"`
 	Index       channel.Key    `json:"index"`
 	Virtual     bool           `json:"virtual"`
-	Internal    bool           `json:"internal"`
+	BuiltIn     bool           `json:"built_in"`
 	Expression  string         `json:"expression"`
 }
 
@@ -73,9 +73,9 @@ var _ = Describe("Where", Ordered, func() {
 		createStored(ctx, cfg.DB, chs...)
 		chSvc = MustOpen(channel.OpenService(ctx, cfg))
 		chDB = cfg.DB
-		// The internal records are the built-in channels, which Declare adopts by name.
+		// The built-in records are the channels that Declare adopts by name.
 		for _, r := range v.Records {
-			if !r.Internal {
+			if !r.BuiltIn {
 				continue
 			}
 			ch := channel.Channel{
