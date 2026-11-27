@@ -2010,3 +2010,60 @@ var _ = Describe("Iterator index lookups", func() {
 		))
 	})
 })
+
+var _ = Describe("Iterator read failures", func() {
+	var (
+		db             *cesium.DB
+		idx, good, bad cesium.ChannelKey
+	)
+	BeforeEach(func(ctx SpecContext) {
+		mem := fs.NewMem()
+		db = mustOpenDBOnFS(ctx, mem)
+		idx, good, bad = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: idx, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{Key: good, Name: "good", Index: idx, DataType: telem.Int64T},
+			cesium.Channel{Key: bad, Name: "bad", Index: idx, DataType: telem.Int64T},
+		)).To(Succeed())
+		Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+			[]cesium.ChannelKey{idx, good, bad},
+			[]telem.Series{
+				telem.NewSeriesSecondsTSV(10, 11, 12),
+				telem.NewSeriesV[int64](1, 2, 3),
+				telem.NewSeriesV[int64](4, 5, 6),
+			},
+		))).To(Succeed())
+		Expect(mem.Remove(channelKeyToPath(bad) + "/1.domain")).To(Succeed())
+	})
+	DescribeTable("Should read the other channels when the read of one fails, and "+
+		"report the failure once until a seek",
+		func(span telem.TimeSpan) {
+			i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+				Channels: []cesium.ChannelKey{good, bad},
+				Bounds:   telem.TimeRangeMax,
+			}))
+			gone := "open " + channelKeyToPath(bad) + "/1.domain: file does not exist"
+			Expect(i.SeekFirst()).To(BeTrue())
+			Expect(i.Next(span)).To(BeTrue())
+			Expect(i.Value().Get(bad).Series).To(BeEmpty())
+			Expect(i.Value().Get(good).Series).To(HaveLen(1))
+			Expect(i.Value().Get(good).Series[0]).To(MatchSeriesDataV[int64](1, 2, 3))
+			failed := i.Failed()
+			Expect(failed).To(HaveLen(1))
+			Expect(failed[0].Channel).To(Equal(bad))
+			Expect(failed[0].TimeRange.Start).To(Equal(10 * telem.SecondTS))
+			Expect(failed[0].Err).To(MatchError(ContainSubstring(gone)))
+			Expect(i.Next(span)).To(BeFalse())
+			Expect(i.Failed()).To(BeEmpty())
+			Expect(i.SeekFirst()).To(BeTrue())
+			Expect(i.Next(span)).To(BeTrue())
+			Expect(i.Failed()).To(HaveLen(1))
+			Expect(i.Close()).To(MatchError(ContainSubstring(gone)))
+		},
+		Entry("of an automatic span", cesium.AutoSpan),
+		Entry("of a fixed span", 10*telem.Second),
+	)
+})
