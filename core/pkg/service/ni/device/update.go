@@ -102,12 +102,17 @@ func (u Update) actions() ([]Action, error) {
 		if err := v.Validate(); err != nil {
 			return nil, err
 		}
+		// A typed nil pointer would set the zero key, so an absent chassis sets null.
+		var chassis any
+		if v.Chassis != nil {
+			chassis = *v.Chassis
+		}
 		return []Action{
 			set("rack", v.Rack),
 			set("serial", v.Serial),
 			set("resource_name", v.ResourceName),
 			set("model", v.Model),
-			set("chassis", v.Chassis),
+			set("chassis", chassis),
 		}, nil
 	case ConfigurationUpdate:
 		if err := v.Validate(); err != nil {

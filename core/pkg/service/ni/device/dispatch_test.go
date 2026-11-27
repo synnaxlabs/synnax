@@ -30,8 +30,9 @@ import (
 
 var _ = Describe("Dispatch", func() {
 	var (
-		svc *device.Service
-		dev device.Device
+		stat *status.Service
+		svc  *device.Service
+		dev  device.Device
 	)
 	set := func(path []string, value any) device.Action {
 		return device.NewSetAction(device.SetPayload{Path: path, Value: value})
@@ -55,7 +56,7 @@ var _ = Describe("Dispatch", func() {
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
-		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
@@ -82,6 +83,20 @@ var _ = Describe("Dispatch", func() {
 				return svc.NewWriter(tx).Delete(ctx, dev.Key)
 			})).To(Succeed())
 		})
+	})
+
+	It("Should rename the status when a dispatch renames the device", func(
+		ctx SpecContext,
+	) {
+		Expect(
+			dispatch(ctx, dev.Key, set([]string{"name"}, "Thermocouples")),
+		).To(Succeed())
+		var s device.Status
+		Expect(stat.NewRetrieve[device.StatusDetails]().
+			Where(status.MatchOwners[device.StatusDetails](dev.ResourceID())).
+			Entry(&s).
+			Exec(ctx, db)).To(Succeed())
+		Expect(s.Name).To(Equal("Thermocouples"))
 	})
 
 	It("Should keep edits to different fields from separate dispatches", func(
