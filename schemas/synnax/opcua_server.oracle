@@ -266,6 +266,15 @@ Server struct {
         @include
     }
 
+    action Create {
+        server Server
+
+        @doc value """
+            replaces the server with the given created state. Emitted by the Core when a
+            server is created; clients never dispatch it.
+        """
+    }
+
     action Set = patch.Set
 
     action Remove = patch.Remove

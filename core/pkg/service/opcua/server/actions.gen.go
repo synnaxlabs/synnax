@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
+	ActionTypeCreate = "create"
 	// ActionTypeSet is the Type of an Action that carries SetPayload.
 	ActionTypeSet = "set"
 	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
@@ -26,6 +28,12 @@ const (
 	// ActionTypeMove is the Type of an Action that carries MovePayload.
 	ActionTypeMove = "move"
 )
+
+// CreatePayload replaces the server with the given created state. Emitted by the Core
+// when a server is created; clients never dispatch it.
+type CreatePayload struct {
+	Server Server `json:"server" msgpack:"server"`
+}
 
 // SetPayload replaces the value at a path. It creates the absent objects on the path,
 // and does nothing when the path goes through a missing list entry.
@@ -45,6 +53,7 @@ type MovePayload patch.Move
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type   string         `json:"type" msgpack:"type"`
+	Create *CreatePayload `json:"create,omitzero" msgpack:"create,omitempty"`
 	Set    *SetPayload    `json:"set,omitzero" msgpack:"set,omitempty"`
 	Remove *RemovePayload `json:"remove,omitzero" msgpack:"remove,omitempty"`
 	Insert *InsertPayload `json:"insert,omitzero" msgpack:"insert,omitempty"`
@@ -59,6 +68,11 @@ func Reduce(state Server, actions ...Action) (Server, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
+		case ActionTypeCreate:
+			if a.Create == nil {
+				return Server{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.Create.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
 				return Server{}, union.MissingPayload(a.Type)
@@ -87,6 +101,11 @@ func Reduce(state Server, actions ...Action) (Server, error) {
 		}
 	}
 	return state, nil
+}
+
+// NewCreateAction wraps a CreatePayload in an Action envelope.
+func NewCreateAction(p CreatePayload) Action {
+	return Action{Type: ActionTypeCreate, Create: &p}
 }
 
 // NewSetAction wraps a SetPayload in an Action envelope.

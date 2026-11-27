@@ -15,7 +15,17 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from synnax.opcua.server.types_gen import Server
 from x import patch
+
+
+class CreatePayload(BaseModel):
+    """Replaces the server with the given created state. Emitted by the Core when a
+    server is created; clients never dispatch it.
+    """
+
+    server: Server
+
 
 # Replaces the value at a path. It creates the absent objects on the path, and
 # does nothing when the path goes through a missing list entry.
@@ -32,6 +42,11 @@ InsertPayload = patch.Insert
 
 # Moves an entry in a list. It does nothing when the entry is missing.
 MovePayload = patch.Move
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
 
 
 class SetAction(BaseModel):
@@ -56,9 +71,13 @@ class MoveAction(BaseModel):
 
 # Action is a discriminated union for all Server mutations.
 Action = Annotated[
-    SetAction | RemoveAction | InsertAction | MoveAction,
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
     Field(discriminator="type"),
 ]
+
+
+def create(payload: CreatePayload) -> CreateAction:
+    return CreateAction(create=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

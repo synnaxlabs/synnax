@@ -13,7 +13,17 @@ import type { Draft } from "immer";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { keyZ, type Server } from "@/opcua/server/types.gen";
+import { keyZ, type Server, serverZ } from "@/opcua/server/types.gen";
+
+/**
+ * Create replaces the server with the given created state. Emitted by the Core when a
+ * server is created; clients never dispatch it.
+ */
+export const createPayloadZ = z.object({
+  server: serverZ,
+});
+
+export type CreatePayload = z.infer<typeof createPayloadZ>;
 
 /**
  * Set replaces the value at a path. It creates the absent objects on the path, and does
@@ -42,17 +52,26 @@ export const movePayloadZ = patch.moveZ;
 export type MovePayload = patch.Move;
 
 export type Action =
+  | { type: "create"; create: CreatePayload }
   | { type: "set"; set: SetPayload }
   | { type: "remove"; remove: RemovePayload }
   | { type: "insert"; insert: InsertPayload }
   | { type: "move"; move: MovePayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("create"), create: createPayloadZ }),
   z.object({ type: z.literal("set"), set: setPayloadZ }),
   z.object({ type: z.literal("remove"), remove: removePayloadZ }),
   z.object({ type: z.literal("insert"), insert: insertPayloadZ }),
   z.object({ type: z.literal("move"), move: movePayloadZ }),
 ]);
+
+export const create = (payload: z.input<typeof createPayloadZ>): Action => ({
+  type: "create",
+  create: zod.parse(createPayloadZ, payload, {
+    label: "server create action payload",
+  }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -87,6 +106,7 @@ export type HandlerResult = actions.HandlerResult<Action>;
 export type ReduceAllResult = actions.ReduceAllResult<Server, Action>;
 
 export interface Handlers {
+  create: (state: Draft<Server>, payload: CreatePayload) => HandlerResult;
   set: (state: Draft<Server>, payload: SetPayload) => HandlerResult;
   remove: (state: Draft<Server>, payload: RemovePayload) => HandlerResult;
   insert: (state: Draft<Server>, payload: InsertPayload) => HandlerResult;
@@ -96,6 +116,8 @@ export interface Handlers {
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Server, Action>((state, action) => {
     switch (action.type) {
+      case "create":
+        return handlers.create(state, action.create);
       case "set":
         return handlers.set(state, action.set);
       case "remove":

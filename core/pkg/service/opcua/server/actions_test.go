@@ -37,6 +37,18 @@ var _ = Describe("Actions", func() {
 		return server.NewSetAction(server.SetPayload{Path: path, Value: value})
 	}
 
+	It("Should reject a create", func() {
+		Expect(server.Reduce(
+			base,
+			server.NewCreateAction(server.CreatePayload{Server: base}),
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"only the Core dispatches an OPC UA server create",
+			)),
+		))
+	})
+
 	It("Should set the name and keep the other fields", func() {
 		res := MustSucceed(server.Reduce(base, set([]string{"name"}, "Mixer PLC")))
 		Expect(res.Name).To(Equal("Mixer PLC"))
