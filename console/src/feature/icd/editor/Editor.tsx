@@ -19,7 +19,7 @@ import { Portal } from "@synnaxlabs/lyra/portal";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Panel } from "@synnaxlabs/pluto";
 import { deep, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { Framing } from "@/feature/icd/editor/Framing";
 import { Message } from "@/feature/icd/editor/Message";
@@ -132,10 +132,14 @@ export const Editor = (): ReactElement => {
   const handleSelect = (selected: icd.MessageKey[]) =>
     dispatch(Session.ICD.setSelected({ key, selected }));
   const handleFocused = () => dispatch(Session.ICD.clearFocused({ key }));
-  // The name took focus as it mounted.
+  const nameRef = useRef<HTMLInputElement>(null);
+  // Detached content cannot take focus, so the name waits for the tab.
   useEffect(() => {
-    if (created) dispatch(Session.ICD.setCreated({ key, created: false }));
-  }, [created]);
+    if (!created || !attached) return;
+    nameRef.current?.focus();
+    nameRef.current?.select();
+    dispatch(Session.ICD.setCreated({ key, created: false }));
+  }, [created, attached]);
   const canEdit = Access.useUpdateGranted(icd.resourceID(key));
   const { form } = ICD.useForm({
     query: { key },
@@ -165,8 +169,7 @@ export const Editor = (): ReactElement => {
                 level="h3"
                 onlyChangeOnBlur
                 aria-label="Name"
-                autoFocus={created}
-                selectOnFocus={created}
+                ref={nameRef}
                 {...p}
               />
             )}

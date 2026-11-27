@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { channel, http, icd, type Synnax, type task } from "@synnaxlabs/client";
-import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+  holdRequests,
+} from "@synnaxlabs/client/testutil";
 import { treatment } from "@synnaxlabs/lyra/styletest";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
@@ -30,6 +34,7 @@ import {
   clickDeploy,
   deployAndAwaitTask,
   findDetailsButton,
+  findDetailsPane,
   findListButton,
   preloadForms,
   renderTaskFormTab,
@@ -211,6 +216,20 @@ describe("Read", () => {
     await renderWithDevice();
     fireEvent.click(await findDetailsButton("Add endpoint"));
     await screen.findByText("Request");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    const dev = await createHTTPDevice(client);
+    const draft = await createDraft(client, createReadConfig(dev.key, []));
+    // A preview never turns editable, so the spec does not wait for that.
+    await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.READ_TYPE], {
+      client,
+      as: await createTestClientWithRole(client, "Viewer"),
+      taskKey: draft.key,
+    });
+    const details = await findDetailsPane();
+    await within(details).findByText("No endpoint selected");
+    expect(within(details).queryByRole("button", { name: "Add endpoint" })).toBeNull();
   });
 
   it("should make an ICD named after the task for the message of a new endpoint", async () => {

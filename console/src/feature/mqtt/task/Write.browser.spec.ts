@@ -17,6 +17,7 @@ import {
 } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithRole,
   holdResponses,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
@@ -45,6 +46,7 @@ import {
   countFailedSaves,
   deployAndAwaitTask,
   findDetailsButton,
+  findDetailsPane,
   findListButton,
   preloadForms,
   renderTaskFormTab,
@@ -251,6 +253,13 @@ describe("MQTT Write form", () => {
     await renderWrite();
     fireEvent.click(await findDetailsButton("Add targets"));
     await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderWrite([], { as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No target selected");
+    expect(within(details).queryByRole("button", { name: "Add targets" })).toBeNull();
   });
 
   it("should show the topic settings of a plain target", async () => {

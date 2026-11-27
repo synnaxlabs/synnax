@@ -15,7 +15,10 @@ import {
   type Synnax,
   type task,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -27,6 +30,7 @@ import { pickMessageFormat } from "@/platform/icd/testutil";
 import {
   deployAndAwaitTask,
   findDetailsButton,
+  findDetailsPane,
   findListButton,
   preloadForms,
   renderTaskFormTab,
@@ -88,9 +92,11 @@ const createEndpoint = (
   },
 });
 
+// `as` is the client that renders the form, when not the one that saves the task.
 const renderWrite = async (
   endpoints: HTTP.Task.WriteEndpoint[] = [],
   dev?: device.Device,
+  as: Synnax = client,
 ) => {
   dev ??= await createHTTPDevice(client);
   const draft = await createDraft(client, {
@@ -100,6 +106,7 @@ const renderWrite = async (
   });
   const result = await renderTaskFormTab(HTTP.Task.FORMS[HTTP.Task.WRITE_TYPE], {
     client,
+    as,
     taskKey: draft.key,
   });
   return { ...result, dev, draft };
@@ -183,6 +190,13 @@ describe("Write", () => {
     await renderWrite();
     fireEvent.click(await findDetailsButton("Add endpoint"));
     await screen.findByText("Request");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderWrite([], undefined, await createTestClientWithRole(client, "Viewer"));
+    const details = await findDetailsPane();
+    await within(details).findByText("No endpoint selected");
+    expect(within(details).queryByRole("button", { name: "Add endpoint" })).toBeNull();
   });
 
   it("should rename the message of an endpoint after its new method and path", async () => {

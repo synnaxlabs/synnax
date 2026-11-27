@@ -18,6 +18,7 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
+  createTestClientWithRole,
   holdRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
@@ -61,6 +62,7 @@ import {
   type CommandAnswer,
   deployAndAwaitTask,
   findDetailsButton,
+  findDetailsPane,
   findListButton,
   preloadForms,
   renderTaskFormTab,
@@ -444,6 +446,16 @@ describe("Kafka read form", () => {
       await renderRead({ empty: true });
       fireEvent.click(await findDetailsButton("Add data"));
       await screen.findByRole("dialog");
+    });
+
+    it("should offer no add in the empty details pane of a preview", async () => {
+      await renderRead({
+        empty: true,
+        as: await createTestClientWithRole(client, "Viewer"),
+      });
+      const details = await findDetailsPane();
+      await within(details).findByText("No entry selected");
+      expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
     });
 
     it("should pick fields from two topics in one dialog", async () => {

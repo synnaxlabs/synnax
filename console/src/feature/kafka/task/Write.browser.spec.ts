@@ -15,7 +15,10 @@ import {
   type Synnax,
   task,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -42,6 +45,7 @@ import {
   countFailedSaves,
   deployAndAwaitTask,
   findDetailsButton,
+  findDetailsPane,
   findListButton,
   preloadForms,
   renderTaskFormTab,
@@ -211,6 +215,13 @@ describe("Kafka Write form", () => {
     await renderWrite();
     fireEvent.click(await findDetailsButton("Add targets"));
     await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderWrite([], { as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No target selected");
+    expect(within(details).queryByRole("button", { name: "Add targets" })).toBeNull();
   });
 
   it("should send the shape of the most records, in a message named after the topic", async () => {

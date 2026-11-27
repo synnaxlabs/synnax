@@ -10,6 +10,7 @@
 import { type device, icd, mqtt, type rack, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithRole,
   holdRequests,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
@@ -43,6 +44,7 @@ import {
   countFailedSaves,
   deployAndAwaitTask,
   findDetailsButton,
+  findDetailsPane,
   findListButton,
   preloadForms,
   renderTaskFormTab,
@@ -1231,6 +1233,23 @@ describe("MQTT read form", () => {
     await renderRead();
     fireEvent.click(await findDetailsButton("Add data"));
     await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane while it cannot bind", async () => {
+    const missing = 2 ** 31 - 1;
+    await renderRead({
+      properties: { read: { stored: { index: 0, channels: { "/x": missing } } } },
+    });
+    const details = await findDetailsPane();
+    await within(details).findByText("No entry selected");
+    expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderRead({ as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No entry selected");
+    expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
   });
 
   it("should name a new ICD after the device while the task has no name", async () => {

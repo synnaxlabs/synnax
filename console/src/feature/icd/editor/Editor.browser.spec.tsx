@@ -332,6 +332,20 @@ describe("ICD editor", () => {
     await waitFor(() => expect(createdIn(store, ic.key)).toBe(false));
   });
 
+  it("should focus the name of an ICD it just created once its hidden tab shows", async () => {
+    const ic = await createICD([]);
+    const { store, host } = await renderEditor(ic);
+    await host(false);
+    act(() => {
+      store.dispatch(Session.ICD.setCreated({ key: ic.key, created: true }));
+    });
+    await act(async () => {});
+    expect(createdIn(store, ic.key)).toBe(true);
+    await host(true);
+    await expectFocusedAndSelected(ic.name);
+    expect(createdIn(store, ic.key)).toBe(false);
+  });
+
   it("should leave the name of an existing ICD unfocused", async () => {
     const ic = await createICD([]);
     await renderEditor(ic);

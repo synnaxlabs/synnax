@@ -683,13 +683,13 @@ export const findListButton = async (name: string): Promise<HTMLElement> => {
   return await within(list).findByRole("button", { name });
 };
 
+/** Finds the details pane of a task form's panes. */
+export const findDetailsPane = async (): Promise<HTMLElement> =>
+  await waitFor(() => getBySelector<HTMLElement>(document, ".console-panes__details"));
+
 /** Finds the button with name in the details pane of a task form's panes. */
-export const findDetailsButton = async (name: string): Promise<HTMLElement> => {
-  const details = await waitFor(() =>
-    getBySelector<HTMLElement>(document, ".console-panes__details"),
-  );
-  return await within(details).findByRole("button", { name });
-};
+export const findDetailsButton = async (name: string): Promise<HTMLElement> =>
+  await within(await findDetailsPane()).findByRole("button", { name });
 
 /** Finds the note under the channel list that shows the message, and its variant. */
 export const findChannelListNote = async (
