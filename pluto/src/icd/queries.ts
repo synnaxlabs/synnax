@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
-import { deep, verbs } from "@synnaxlabs/x";
+import { deep, errors, verbs } from "@synnaxlabs/x";
 import type { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -92,6 +92,25 @@ export const { useUpdate: useImport } = Flux.createUpdate<ImportParams, icd.ICD>
   verbs: IMPORT_VERBS,
   update: async ({ client, data: { key, format, data } }) =>
     await client.icds.import(key, data, format),
+});
+
+export interface ImportNewParams extends Omit<ImportParams, "key"> {
+  name: string;
+}
+
+/** Creates an ICD named name from imported data. A failed import leaves no ICD. */
+export const { useUpdate: useImportNew } = Flux.createUpdate<ImportNewParams, icd.ICD>({
+  name: RESOURCE_NAME,
+  verbs: IMPORT_VERBS,
+  update: async ({ client, data: { name, format, data } }) => {
+    const { key } = await client.icds.create({ name, messages: [] });
+    try {
+      return await client.icds.import(key, data, format);
+    } catch (e) {
+      await client.icds.delete(key).catch(console.error);
+      throw errors.fromUnknown(e);
+    }
+  },
 });
 
 export const formSchema = icd.icdZ.pick({ name: true, messages: true, framing: true });

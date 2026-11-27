@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, ICD } from "@synnaxlabs/pluto";
 
 import { useCreate } from "@/feature/icd/useCreate";
+import { useImportNew } from "@/feature/icd/useImport";
 import { Command } from "@/platform/command";
 
 const CreateCommand = Command.create({
@@ -21,4 +23,12 @@ const CreateCommand = Command.create({
   useOnSelect: useCreate,
 });
 
-export const COMMANDS = [CreateCommand];
+const ImportCommand = Command.create({
+  key: "import_icd",
+  name: "Import ICD",
+  icon: <Icon.Import />,
+  useVisible: () => Access.useCreateGranted(icd.TYPE_RESOURCE_ID),
+  useOnSelect: useImportNew,
+});
+
+export const COMMANDS = [CreateCommand, ImportCommand];

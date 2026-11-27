@@ -133,6 +133,36 @@ describe("ICD queries", () => {
     });
   });
 
+  describe("useImportNew", () => {
+    const importNew = async (name: string, csv: string) => {
+      const { result } = renderHook(() => ICD.useImportNew(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          name,
+          format: "csv",
+          data: new TextEncoder().encode(csv),
+        });
+      });
+      return (await client.icds.retrieve({})).filter((ic) => ic.name === name);
+    };
+
+    it("should create an ICD with the given name from an import", async () => {
+      const name = `icd-${id.create()}`;
+      const created = await importNew(
+        name,
+        "message,field,start_bit,bit_length\nEngine,Rpm,0,16",
+      );
+      expect(created.map(({ messages }) => messages.map((m) => m.name))).toEqual([
+        ["Engine"],
+      ]);
+    });
+
+    it("should leave no ICD when the import fails", async () => {
+      const name = `icd-${id.create()}`;
+      expect(await importNew(name, "color\n")).toEqual([]);
+    });
+  });
+
   describe("useForm", () => {
     beforeEach(async () => await waitForStreamLive(client.connection));
 
