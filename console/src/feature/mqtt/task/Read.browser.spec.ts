@@ -2494,6 +2494,13 @@ describe("MQTT read form", () => {
               encoding: "delimited",
               position: 1,
             }),
+            // A part takes the longest tag that starts it.
+            icd.textFieldZ.parse({
+              key: uuid.create(),
+              name: "phase",
+              encoding: "tagged",
+              tag: "P",
+            }),
             icd.textFieldZ.parse({
               key: uuid.create(),
               name: "pressure",
