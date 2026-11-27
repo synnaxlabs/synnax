@@ -198,6 +198,35 @@ const Stretching = (): ReactElement => {
   );
 };
 
+/** A part of a trigger that opens the dialog against itself, as a tag does. */
+const Part = ({
+  name,
+  style,
+}: {
+  name: string;
+  style: CSSProperties;
+}): ReactElement => {
+  const { toggleAt } = Dialog.useContext();
+  return (
+    <button style={style} onClick={(e) => toggleAt(e.currentTarget)}>
+      {name}
+    </button>
+  );
+};
+
+/** A trigger with one part at the middle of the window and one at its right edge. */
+const Parts = (): ReactElement => (
+  <Dialog.Frame>
+    <div style={{ display: "flex", width: "1000px" }}>
+      <Part name="Middle" style={{ marginLeft: 500 }} />
+      <Part name="Edge" style={{ marginLeft: "auto" }} />
+    </div>
+    <Dialog.Dialog>
+      <div style={{ width: 300, height: 50 }} />
+    </Dialog.Dialog>
+  </Dialog.Frame>
+);
+
 const ITEMS = Array.from({ length: 200 }, (_, i) => `item-${i}`);
 
 const VirtualList = (): ReactElement => (
@@ -1365,6 +1394,19 @@ describe("Dialog", () => {
       await userEvent.click(button("Menu"));
       await expect.element(page.getByRole("dialog")).toBeVisible();
       await expect.poll(() => dialog().left).toBeCloseTo(trigger.left, 0);
+    });
+
+    it("should pick its side again at another part of the trigger", async () => {
+      await renderThemed(<Parts />);
+      const dialog = (): DOMRect =>
+        page.getByRole("dialog").element().getBoundingClientRect();
+      await userEvent.click(button("Edge"));
+      // Too wide to hang from the left of the edge part, so it ends at its right.
+      const edge = button("Edge").getBoundingClientRect();
+      await expect.poll(() => dialog().right).toBeCloseTo(edge.right, 0);
+      await userEvent.click(button("Middle"));
+      const middle = button("Middle").getBoundingClientRect();
+      await expect.poll(() => dialog().left).toBeCloseTo(middle.left, 0);
     });
   });
 

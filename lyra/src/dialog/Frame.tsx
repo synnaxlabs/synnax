@@ -264,6 +264,7 @@ export const Frame = ({
   // The x a dialog opened at a tag keeps, and the tag's last box for when it goes.
   const heldLeft = useRef<number | null>(null);
   const openedAtBox = useRef<box.Box>(box.ZERO);
+  const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const close = () => setVisibleRef.current(false);
   const open = () => {
     setOpenedAt(null);
@@ -276,6 +277,7 @@ export const Frame = ({
   const toggleAt = (target: HTMLElement) => {
     if (visible && openedAt === target) return close();
     heldLeft.current = null;
+    prevLocationPreference.current = undefined;
     setOpenedAt(target);
     setVisibleRef.current(true);
   };
@@ -284,7 +286,6 @@ export const Frame = ({
   const id = useId();
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
-  const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const prevWindowBox = useRef<box.Box | undefined>(undefined);
   const prevAvailableHeight = useRef<number | undefined>(undefined);
