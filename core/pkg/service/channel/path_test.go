@@ -256,7 +256,13 @@ var _ = Describe("Paths", Ordered, func() {
 			By(c.Name)
 			top, suffix := UniqueChannelName(), "_"+strconv.Itoa(i)
 			var key channel.Key
+			want := top + "." + c.Path + suffix
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				if len(c.Folders) == 0 {
+					want = c.Path + suffix
+					key = create(tx, ctx, c.Channel+suffix, nil)
+					return nil
+				}
 				parent := folder(tx, ctx, top, nil)
 				for _, name := range c.Folders {
 					parent = folder(tx, ctx, name, &parent)
@@ -270,8 +276,7 @@ var _ = Describe("Paths", Ordered, func() {
 				Entry(&ch).
 				Exec(ctx, db)).To(Succeed())
 			paths := MustSucceed(channel.Paths(ctx, db, []channel.Channel{ch}))
-			Expect(channel.PathTexts(paths)).
-				To(Equal([]string{top + "." + c.Path + suffix}))
+			Expect(channel.PathTexts(paths)).To(Equal([]string{want}))
 		}
 	})
 })

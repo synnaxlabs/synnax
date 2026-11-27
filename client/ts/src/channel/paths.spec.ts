@@ -7,43 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { readFileSync } from "node:fs";
-
 import { DataType, id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished } from "vitest";
-import { z } from "zod";
+import type { z } from "zod";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
 import type { Synnax } from "@/index";
-import {
-  createTestClient,
-  createTestClientWithPolicy,
-  requestsTo,
-  spyOnSend,
-} from "@/testutil";
+import { createTestClient, createTestClientWithPolicy, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 const remote = createTestClient();
-
-// The vectors pin the path that this client builds to the path that the Core builds.
-const VECTORS_URL = new URL(
-  "../../../../core/testdata/paths/vectors.json",
-  import.meta.url,
-);
-
-const vectorsZ = z.object({
-  cases: z
-    .object({
-      name: z.string(),
-      folders: z.string().array(),
-      channel: z.string(),
-      path: z.string(),
-    })
-    .array(),
-});
-
-const { cases } = vectorsZ.parse(JSON.parse(readFileSync(VECTORS_URL, "utf-8")));
 
 const createFolder = async (parent?: group.Group): Promise<group.Group> =>
   await remote.groups.create(
@@ -176,38 +150,15 @@ describe("channel paths", () => {
         path: withPath.path,
       });
       onTestFinished(async () => await client.channels.delete(copy.key));
-      const [request] = requestsTo(send, "/channel/create") as Array<{
-        channels: Array<Record<string, unknown>>;
-      }>;
-      expect(request.channels).toHaveLength(1);
-      expect(request.channels[0]).not.toHaveProperty("path");
+      // The request schema encodes the body, so the spec reads it as the wire does.
+      const [[, body, schema]] = send.mock.calls.filter(
+        ([target]) => target === "/channel/create",
+      );
+      const { channels } = (schema as z.ZodType<{ channels: object[] }>).parse(body);
+      expect(channels).toHaveLength(1);
+      expect(channels[0]).not.toHaveProperty("path");
       expect(withPath.payload).not.toHaveProperty("path");
     });
-  });
-
-  describe("cases shared with the Core", () => {
-    it.each(cases)(
-      "should build the path of $name as the Core builds it",
-      async ({ folders, channel: name, path }) => {
-        const top = await createFolder();
-        let parent = top;
-        for (const folder of folders)
-          parent = await remote.groups.create({
-            name: folder,
-            parent: group.resourceID(parent.key),
-          });
-        const suffix = `_${id.create()}`;
-        const ch = await remote.channels.create({
-          name: `${name}${suffix}`,
-          dataType: DataType.FLOAT32,
-          virtual: true,
-          group: parent.key,
-        });
-        const later = await connectLater();
-        const res = await later.channels.retrieve({ key: ch.key, includePath: true });
-        expect(res.path).toEqual(`${top.name}.${path}${suffix}`);
-      },
-    );
   });
 
   describe("getCached", () => {

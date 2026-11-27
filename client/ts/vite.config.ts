@@ -40,6 +40,8 @@ const NODE_SPECS = [
   "src/**/where.spec.ts",
   // Reads the orphan vectors from the file system.
   "src/schematic/orphans.spec.ts",
+  // Reads the path vectors from the file system.
+  "src/channel/paths.vectors.spec.ts",
 ];
 
 // A stale entry would let a browser run a Node spec.

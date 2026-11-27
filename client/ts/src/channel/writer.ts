@@ -14,7 +14,8 @@ import { z } from "zod";
 import { keyZ, nameZ, type New, type Payload, payloadZ } from "@/channel/types.gen";
 
 const createReqZ = z.object({
-  channels: payloadZ.array(),
+  // A path is never written: the Core computes it from the folders.
+  channels: payloadZ.omit({ path: true }).array(),
   retrieveIfNameExists: z.boolean(),
 });
 const createResZ = z.object({ channels: payloadZ.array() });
@@ -38,8 +39,7 @@ export class Writer {
     const { channels: created } = await this.client.send(
       "/channel/create",
       {
-        // A path is never written: the Core computes it from the folders.
-        channels: channels.map(({ path: _path, ...c }) => ({
+        channels: channels.map((c) => ({
           ...c,
           dataType: c.dataType as DataType,
         })),

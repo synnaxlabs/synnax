@@ -286,21 +286,31 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   /**
-   * Returns the names of the group and of each group above it, from the top, or
-   * undefined when a group on the chain is not cached or the chain comes back to a
-   * group it passed. The chain stops at a group whose parent is not a group.
+   * Returns the cached group and each cached group above it, from the group up, and
+   * whether the chain is complete: it is not when a group on it is not cached or the
+   * chain comes back to a group it passed. The chain stops at a group whose parent is
+   * not a group.
    */
-  getCachedPath(key: Key): string[] | undefined {
-    const names: string[] = [];
+  getCachedChain(key: Key): { groups: Group[]; complete: boolean } {
+    const groups: Group[] = [];
     const passed = new Set<Key>();
     for (let at: Key | undefined = key; at != null;) {
       const g: Group | undefined = this.store.get(at);
-      if (g == null || passed.has(at)) return undefined;
+      if (g == null || passed.has(at)) return { groups, complete: false };
       passed.add(at);
-      names.push(g.name);
+      groups.push(g);
       at = g.parent?.type === "group" ? g.parent.key : undefined;
     }
-    return names.reverse();
+    return { groups, complete: true };
+  }
+
+  /**
+   * Returns the names of the group and of each group above it, from the top, or
+   * undefined when its cached chain is not complete.
+   */
+  getCachedPath(key: Key): string[] | undefined {
+    const { groups, complete } = this.getCachedChain(key);
+    return complete ? groups.map(({ name }) => name).reverse() : undefined;
   }
 
   /**
