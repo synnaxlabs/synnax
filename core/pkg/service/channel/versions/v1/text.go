@@ -11,13 +11,16 @@ package v1
 
 import (
 	"context"
+	"slices"
 	"strconv"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -37,9 +40,9 @@ func NewCalculationTextMigration(cfg parser.Config) gorp.Migration {
 				Exec(ctx, tx); err != nil {
 				return err
 			}
-			byKey := make(map[Key]TextChannel, len(channels))
-			for _, c := range channels {
-				byKey[c.Key()] = TextChannel{Name: c.Name, DataType: c.DataType}
+			byKey, err := TextChannels(ctx, tx, channels)
+			if err != nil {
+				return err
 			}
 			renames, err := TextRename(tx, byKey)
 			if err != nil || renames == nil {
@@ -113,4 +116,61 @@ func TextRename(r kv.Reader, channels map[Key]TextChannel) (*Renames, error) {
 		}
 	}
 	return t, nil
+}
+
+// TextChannels returns each of channels as the text passes read it, by key, with the
+// names of its folders as tx holds them.
+func TextChannels(
+	ctx context.Context,
+	tx gorp.Tx,
+	channels []Channel,
+) (map[Key]TextChannel, error) {
+	var folders []groupv1.Group
+	if err := gorp.NewRetrieve[groupv1.Key, groupv1.Group]().
+		Where(gorp.Match(func(_ gorp.Context, g *groupv1.Group) (bool, error) {
+			return g.Scope == resource.TypeChannel, nil
+		})).
+		Entries(&folders).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	byKey := make(map[groupv1.Key]groupv1.Group, len(folders))
+	for _, f := range folders {
+		byKey[f.Key] = f
+	}
+	out := make(map[Key]TextChannel, len(channels))
+	for _, c := range channels {
+		names, err := folderNames(byKey, c.Group)
+		if err != nil {
+			return nil, err
+		}
+		out[c.Key()] = TextChannel{Name: c.Name, DataType: c.DataType, Folders: names}
+	}
+	return out, nil
+}
+
+// folderNames returns the names of the folder of key and of each folder above it, from
+// the top level down. A folder that no record holds ends the walk, as the dangling
+// reference step that runs later moves its channels to the top level.
+func folderNames(
+	folders map[groupv1.Key]groupv1.Group,
+	key *groupv1.Key,
+) ([]string, error) {
+	var names []string
+	for key != nil {
+		f, ok := folders[*key]
+		if !ok {
+			break
+		}
+		names = append(names, f.Name)
+		if key = nil; f.Parent != nil && f.Parent.Type == resource.TypeGroup {
+			parent, err := uuid.Parse(f.Parent.Key)
+			if err != nil {
+				return nil, err
+			}
+			key = &parent
+		}
+	}
+	slices.Reverse(names)
+	return names, nil
 }
