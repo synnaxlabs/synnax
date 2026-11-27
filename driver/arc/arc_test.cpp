@@ -295,6 +295,7 @@ TEST(ArcTests, testRTCoreHeldOnlyWhileRunning) {
                 task_meta,
                 ctx,
                 task_cfg,
+                test_keys(),
                 std::make_shared<driver::pipeline::testutil::WriterFactory>(),
                 driver::pipeline::testutil::simple_streamer_factory(
                     {idx.key, input.key},

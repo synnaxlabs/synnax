@@ -77,6 +77,9 @@ public:
     Sets(std::shared_ptr<Keys> keys, Reporter reporter):
         reporter(std::move(reporter)), keys(std::move(keys)) {}
 
+    /// @returns the keys of resolved sets, which outlive the sets.
+    [[nodiscard]] std::shared_ptr<Keys> resolved_keys() const { return this->keys; }
+
     /// @brief reports through the reporter until close.
     void report(const std::string &message, const std::string &description) {
         std::lock_guard lock(this->report_mu);
@@ -145,16 +148,23 @@ inline std::string queue_set(
     req.set_time(x::telem::TimeStamp::now().nanoseconds());
     const auto err = outbox.set_status(
         req,
-        [weak = std::weak_ptr(sets), key_or_name](
+        [weak = std::weak_ptr(sets), keys = sets->resolved_keys(), key_or_name](
             const synnax::status::SetByKeyOrNameResult &res,
             const x::errors::Error &err
         ) {
             const auto sets = weak.lock();
-            if (sets == nullptr) return;
             if (err) {
                 LOG(ERROR) << "status.set failed: key_or_name=" << key_or_name
                            << " error=" << err.data;
-                sets->report(SET_FAILURE_MSG, err.data);
+                if (sets != nullptr) sets->report(SET_FAILURE_MSG, err.data);
+                return;
+            }
+            // A set that resolves after its task ended still saves its key for the
+            // tasks of the Driver.
+            if (sets == nullptr) {
+                if (const auto save_err = keys->set(key_or_name, res.key))
+                    LOG(ERROR) << "failed to save the key of " << key_or_name << ": "
+                               << save_err.data;
                 return;
             }
             // The key is ready before a report, which can wait on the Core.
