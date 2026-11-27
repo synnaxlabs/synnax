@@ -48,6 +48,8 @@ export class MockSource implements LogSource {
 
   exhausted = false;
 
+  streamedLines = 0;
+
   /** The number of times the log asked to return to the newest samples. */
   resumeCalls = 0;
 

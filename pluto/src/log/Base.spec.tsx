@@ -118,6 +118,13 @@ describe("log/Base", () => {
       expect(screen.getByTestId("overlay")).toBeDefined();
     });
 
+    it("should give children the count of new lines", () => {
+      setupAether({ empty: false, newLines: 4 });
+      const Count = (): ReactElement => <span>{Log.useNewLines()} new</span>;
+      renderLog({ children: <Count /> });
+      expect(screen.getByText("4 new")).toBeDefined();
+    });
+
     it("should not render children when empty", () => {
       setupAether({ empty: true });
       renderLog({ children: <div data-testid="overlay" /> });
