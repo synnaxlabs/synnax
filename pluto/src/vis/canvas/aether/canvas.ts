@@ -21,7 +21,7 @@ export const canvasStateZ = z.object({
   bootstrap: z.boolean().default(false),
   bootstrapped: z.boolean().default(false),
   gpuMissing: z.boolean().default(false),
-  // We set all of these to ay because nodejs can't identify OffscreenCanvas
+  // We set all of these to ay because Node.js can't identify OffscreenCanvas
   // and polyfilling causes more problems than it solves
   glCanvas: z.any().optional(),
   upper2dCanvas: z.any().optional(),

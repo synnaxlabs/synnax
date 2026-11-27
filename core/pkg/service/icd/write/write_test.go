@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
@@ -107,7 +108,7 @@ func writeOf(m icd.Message, bindings ...icd.WriteBinding) icd.WriteMessage {
 }
 
 var _ = Describe("NewDocuments", func() {
-	held := map[channel.Key]channel.Channel{valueKey: {DataType: telem.Float64T}}
+	held := map[channel.Key]icdv0.Channel{valueKey: {DataType: telem.Float64T}}
 	documents := func(wm icd.WriteMessage, ic icd.ICD) (*write.Documents, error) {
 		return write.NewDocuments(wm, ic, held, "target")
 	}

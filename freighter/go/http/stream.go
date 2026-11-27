@@ -23,7 +23,7 @@ import (
 )
 
 // WSMessageType is used to differentiate between the different types of messages used
-// to implement the websocket stream transport.
+// to implement the WebSocket stream transport.
 type WSMessageType string
 
 const (
@@ -31,7 +31,7 @@ const (
 	// ServerStream implementations.
 	WSMessageTypeData WSMessageType = "data"
 	// WSMessageTypeClose is used to signal the end of the stream. We need to use this
-	// instead of the regular websocket Close message because the 'reason' can't have
+	// instead of the regular WebSocket Close message because the 'reason' can't have
 	// more than 123 bytes.
 	WSMessageTypeClose WSMessageType = "close"
 	// WSMessageTypeOpen is used to acknowledge the successful opening of the stream. We
@@ -42,7 +42,7 @@ const (
 	WSMessageTypeOpen WSMessageType = "open"
 )
 
-// WSMessage wraps a user payload with additional information needed for the websocket
+// WSMessage wraps a user payload with additional information needed for the WebSocket
 // transport to correctly implement the Stream interface. Namely, we need a custom close
 // WSMessage type to correctly encode and transfer information about a closure error
 // across the socket.
@@ -177,7 +177,7 @@ func (c *streamCore[I, O]) forcedCause() error {
 }
 
 // listenForContextCancellation is a goroutine that listens for the context to be
-// canceled and shuts down the stream forcefully if it is. We need this as the websocket
+// canceled and shuts down the stream forcefully if it is. We need this as the WebSocket
 // implementation itself doesn't support context cancellation.
 func (c *streamCore[I, O]) listenForContextCancellation() {
 	defer close(c.successfulShutdown)
