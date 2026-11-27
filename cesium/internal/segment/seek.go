@@ -43,7 +43,7 @@ func (c Config) SeekFrom(
 		return c.walk(r, buf, x, n, k, length)
 	}
 	// x is the first start of block b, so the trailer of b holds its position.
-	fp, off, err := c.trailerAt(r, buf, b, math.MaxUint32)
+	fp, off, err := c.trailerAt(r, buf, b)
 	if err != nil {
 		return 0, err
 	}
@@ -52,7 +52,7 @@ func (c Config) SeekFrom(
 			"sample at %d, not at %d", b, off, x%BlockSize)
 	}
 	pos := fp + k - n
-	bx, bp, err := c.seekBlock(r, buf, pos, full, math.MaxUint32)
+	bx, bp, err := c.seekBlock(r, buf, pos, full)
 	if err != nil {
 		return 0, err
 	}
@@ -66,14 +66,13 @@ func (c Config) seekBlock(
 	buf []byte,
 	pos uint32,
 	n int64,
-	samples uint32,
 ) (int64, uint32, error) {
 	// first returns the first full block whose first_pos passes ok, or n.
 	first := func(ok func(firstPos uint32) bool) (int64, error) {
 		lo, hi := int64(0), n
 		for lo < hi {
 			mid := lo + (hi-lo)/2
-			firstPos, _, err := c.trailerAt(r, buf, mid, samples)
+			firstPos, _, err := c.trailerAt(r, buf, mid)
 			if err != nil {
 				return 0, err
 			}
@@ -93,7 +92,7 @@ func (c Config) seekBlock(
 		return 0, 0, errors.Wrap(place.ErrCorrupt, "segment block 0 counts samples "+
 			"before it")
 	}
-	fp, off, err := c.trailerAt(r, buf, after-1, samples)
+	fp, off, err := c.trailerAt(r, buf, after-1)
 	if err != nil || off != NoStart {
 		return (after-1)*BlockSize + int64(off), fp, err
 	}
@@ -106,7 +105,7 @@ func (c Config) seekBlock(
 	if run == 0 {
 		return 0, 0, errors.Wrap(place.ErrCorrupt, "segment block 0 starts no sample")
 	}
-	fp, off, err = c.trailerAt(r, buf, run-1, samples)
+	fp, off, err = c.trailerAt(r, buf, run-1)
 	if err == nil && off == NoStart {
 		err = errors.Wrapf(place.ErrCorrupt, "segment block %d starts no sample, but "+
 			"the block after it counts more", run-1)
@@ -119,7 +118,6 @@ func (c Config) trailerAt(
 	r io.ReaderAt,
 	buf []byte,
 	b int64,
-	samples uint32,
 ) (firstPos, firstOff uint32, err error) {
 	at := c.FileOffset((b+1)*BlockSize) - VariableTrailer
 	if _, err = r.ReadAt(buf[:8], at); err != nil {
@@ -127,10 +125,9 @@ func (c Config) trailerAt(
 	}
 	firstPos = binary.LittleEndian.Uint32(buf)
 	firstOff = binary.LittleEndian.Uint32(buf[4:])
-	if firstPos > samples || (firstOff >= BlockSize && firstOff != NoStart) {
+	if firstOff >= BlockSize && firstOff != NoStart {
 		return 0, 0, errors.Wrapf(place.ErrCorrupt, "trailer of segment block %d has "+
-			"first_pos %d and first_off %d in a segment of %d samples", b, firstPos,
-			firstOff, samples)
+			"first_pos %d and first_off %d", b, firstPos, firstOff)
 	}
 	return firstPos, firstOff, nil
 }

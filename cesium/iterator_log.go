@@ -83,8 +83,7 @@ func (v *logView) load() {
 		return
 	}
 	v.next = slices.Grow(v.next[:0], len(v.keys))[:len(v.keys)]
-	count, ids, err := v.e.loadView(v.keys, v.next, nil, v.spare)
-	v.err = errors.Join(v.err, err)
+	count, ids := v.e.loadView(v.keys, v.next, v.spare)
 	if v.loaded && (gone(v.chs, v.next) || cut(v.chs[0], v.next[0])) {
 		v.err = errors.Join(v.err, v.e.unpin(ids))
 		v.spare, v.frozen = ids[:0], true
@@ -161,13 +160,12 @@ func (v *logView) close() error {
 }
 
 // logSource opens the cursors of the key at index slot of view on the pointer log
-// layout. clock is true for the source of the index, whose slot is 0. The calls of a
-// read never overlap, so the source gives the cursor and range reader that a call
-// closed to the next call.
+// layout. Slot 0 is the clock, whose source is that of the index. The calls of a read
+// never overlap, so the source gives the cursor and range reader that a call closed to
+// the next call.
 type logSource struct {
-	view  *logView
-	slot  int
-	clock bool
+	view *logView
+	slot int
 	// closed is the cursor that the last Close gave back, or nil.
 	closed *logCursor
 	// spare is the range reader that the last reader Close gave back, or nil.
@@ -178,7 +176,7 @@ var _ domain.Source = (*logSource)(nil)
 
 // OpenCursor implements domain.Source.
 func (s *logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
-	if !s.clock {
+	if s.slot != 0 {
 		s.view.readers++
 	}
 	c := s.closed
@@ -192,7 +190,6 @@ func (s *logSource) OpenCursor(cfg domain.IteratorConfig) domain.Cursor {
 		src:    s,
 		view:   s.view,
 		slot:   s.slot,
-		clock:  s.clock,
 		held:   c.held[:0],
 		spare:  c.spare[:0],
 		bounds: cfg.Bounds,
@@ -223,12 +220,11 @@ func (r logRange) timeRange() telem.TimeRange {
 // logCursor moves over the pointers of one key in time order. Each seek loads the
 // visible pointers of the key, which never change once the state publishes them.
 type logCursor struct {
-	e     *engine
-	key   ChannelKey
-	view  *logView
-	slot  int
-	clock bool
-	src   *logSource
+	e    *engine
+	key  ChannelKey
+	view *logView
+	slot int
+	src  *logSource
 	// held holds the segments of the ranges of a data cursor, which it pins until its
 	// next load or Close, since a seek of another cursor of the view can load the view
 	// again while the ranges of this one still name them. spare is the array that the
@@ -252,7 +248,7 @@ var _ domain.Ranges = (*logCursor)(nil)
 func (c *logCursor) load() {
 	c.ranges = c.ranges[:0]
 	ch := c.view.channel(c.slot)
-	if !c.clock {
+	if c.slot != 0 {
 		ids := c.spare[:0]
 		if ch != nil {
 			for _, seg := range ch.Segments {
@@ -409,7 +405,7 @@ func (c *logCursor) OpenReader(context.Context) (domain.RangeReader, error) {
 func (c *logCursor) Close() error {
 	defer func() { c.src.closed = c }()
 	c.valid = false
-	if c.clock {
+	if c.slot == 0 {
 		return nil
 	}
 	err := errors.Join(c.err, c.e.unpin(c.held))

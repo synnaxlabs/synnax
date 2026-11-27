@@ -261,7 +261,6 @@ var _ = Describe("Tombstone", func() {
 			Expect(d.Left.Segment.ID).To(Equal(uint64(3)))
 			Expect(d.Left.Pointer).To(Equal(pointer(1, 0, 10, 30, 0, 12, 3)))
 			Expect(d.Right).To(Equal(d.Left))
-			Expect(d.Reached).To(Equal([]state.Edge{*d.Left}))
 			Expect(d.Check(&log.Tombstone{
 				Key: 6, Start: 15, End: 25,
 				Left: cutOf(1, 10), Right: cutOf(2, 30),
@@ -272,8 +271,6 @@ var _ = Describe("Tombstone", func() {
 			d = MustSucceed(s.BeginDelete(6, 0, 100))
 			Expect(d.Left).To(BeNil())
 			Expect(d.Right).To(BeNil())
-			Expect(d.Reached).To(HaveLen(1))
-			Expect(d.Reached[0].Pointer).To(Equal(pointer(1, 0, 10, 30, 0, 12, 3)))
 			Expect(d.Release()).To(Succeed())
 			Expect(MustSucceed(s.BeginDelete(6, 100, 200)).Empty).To(BeTrue())
 		})

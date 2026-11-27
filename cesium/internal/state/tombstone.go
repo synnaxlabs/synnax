@@ -248,9 +248,6 @@ type Delete struct {
 	// Left and Right are the durable pointers that hold the start and the end of the
 	// range, or nil when no pointer holds that end.
 	Left, Right *Edge
-	// Reached holds each durable pointer of the key that the range reaches, so a caller
-	// can cut one by alignment.
-	Reached []Edge
 	// Empty is true when no durable pointer of the key lies in the range.
 	Empty bool
 }
@@ -285,7 +282,6 @@ func (r *beginDeleteRequest) run(s *State) {
 				continue
 			}
 			r.d.Empty = false
-			r.d.Reached = append(r.d.Reached, Edge{Segment: seg.vis, Pointer: p})
 			if p.First < r.start {
 				r.d.Left = &Edge{Segment: seg.vis, Pointer: p}
 			}

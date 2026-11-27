@@ -27,17 +27,15 @@ type pins struct {
 }
 
 // loadView sets each of chs to the visible Channel of the key of keys at its index,
-// from one step of the state, and pins each of their segments under the same lock that
-// release takes, so release never unlinks a segment that a Channel it returned still
-// names. It pins a key that keys names twice once. It unpins held, the segments of an
-// earlier load, and returns the publish count of the load, which State.Unchanged takes,
-// and the segments it pinned, in buf when it has room. buf must not share an array with
-// held.
+// from one step of the state, and pins their segments under the lock of release, so
+// release never unlinks a segment that chs names. A key named twice pins once. It
+// returns the publish count, for State.Unchanged, and the pinned segments, in buf when
+// it has room.
 func (e *engine) loadView(
 	keys []ChannelKey,
 	chs []*state.Channel,
-	held, buf []uint64,
-) (count uint64, ids []uint64, err error) {
+	buf []uint64,
+) (count uint64, ids []uint64) {
 	for {
 		count = e.state.Load(keys, chs)
 		e.pins.mu.Lock()
@@ -67,9 +65,8 @@ func (e *engine) loadView(
 		}
 	}
 	e.pins.pin(ids)
-	free := e.pins.unpin(held)
 	e.pins.mu.Unlock()
-	return count, ids, e.unlink(free)
+	return count, ids
 }
 
 // repin pins ids and unpins held under one lock, and unlinks each dead segment that no
