@@ -233,6 +233,8 @@ var legacyCollapsed = map[string]string{
 	"cjc_port":   "cjc",
 	"array_mode": "sampling",
 	"array_size": "sampling",
+	"min_val":    "range",
+	"max_val":    "range",
 }
 
 // legacyLifted maps a legacy config-level key to the list whose elements carry it in

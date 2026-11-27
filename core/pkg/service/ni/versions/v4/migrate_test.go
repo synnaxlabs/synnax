@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v4"
+	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
@@ -59,6 +60,7 @@ var _ = Describe("MigrateAnalogWriteConfig", func() {
 		}))
 		var want v4.AOVoltageChannel
 		want.Key, want.Port = "ao", 2
+		want.Range = spatial.ClosedBounds{Lower: 0, Upper: 1}
 		Expect(got.Channels[0].Variant).To(Equal(v4.AOChannelVariant(want)))
 	})
 })
@@ -483,5 +485,105 @@ var _ = Describe("Stored migrations", func() {
 			ch := got.Channels[0]
 			return storedPort{ch.Port, ch.Disabled, fields}
 		}),
+	)
+})
+
+var _ = Describe("MigrateMinMaxVal", func() {
+	DescribeTable("Should lift the minimum and maximum into a range",
+		func(ctx SpecContext, minVal, maxVal float64, want spatial.ClosedBounds) {
+			got := MustSucceed(v4.MigrateMinMaxVal(
+				ctx,
+				v3.MinMaxVal{MinVal: minVal, MaxVal: maxVal},
+			))
+			Expect(got.Range).To(Equal(want))
+		},
+		Entry("keeping a range in order", -2.0, 2.0,
+			spatial.ClosedBounds{Lower: -2, Upper: 2}),
+		Entry("swapping a reversed range", 5.0, -5.0,
+			spatial.ClosedBounds{Lower: -5, Upper: 5}),
+		Entry("leaving an equal range zero", 3.0, 3.0, spatial.ClosedBounds{}),
+	)
+})
+
+var _ = Describe("Range defaults", func() {
+	It("Should give an equal analog input range the default of its type",
+		func(ctx SpecContext) {
+			cfg := MustSucceed(v4.MigrateAnalogReadConfig(ctx, v3.AnalogReadConfig{
+				Channels: []v3.AIChannel{
+					{Variant: v3.AITempBuiltinChannel{Key: "temp"}},
+					{Variant: v3.AIVoltageChannel{
+						MinMaxVal:   v3.MinMaxVal{MinVal: 3, MaxVal: 3},
+						CustomScale: noScale,
+					}},
+				},
+			}))
+			Expect(cfg.Channels[1].Variant).To(HaveField(
+				"MinMaxVal.Range",
+				spatial.ClosedBounds{Lower: 0, Upper: 1},
+			))
+		},
+	)
+
+	It("Should give an equal counter input range the default of its type",
+		func(ctx SpecContext) {
+			cfg := MustSucceed(v4.MigrateCounterReadConfig(ctx, v3.CounterReadConfig{
+				Channels: []v3.CIChannel{{Variant: v3.CIFrequencyChannel{
+					MinMaxVal:   v3.MinMaxVal{MinVal: 50, MaxVal: 50},
+					CustomScale: noScale,
+				}}},
+			}))
+			Expect(cfg.Channels[0].Variant).To(HaveField(
+				"MinMaxVal.Range",
+				spatial.ClosedBounds{Lower: 2, Upper: 100},
+			))
+		},
+	)
+
+	It("Should keep a counter input with no variant", func(ctx SpecContext) {
+		cfg := MustSucceed(v4.MigrateCounterReadConfig(ctx, v3.CounterReadConfig{
+			Channels: []v3.CIChannel{{}},
+		}))
+		Expect(cfg.Channels[0].Variant).To(BeNil())
+	})
+
+	It("Should swap a reversed analog output range", func(ctx SpecContext) {
+		cfg := MustSucceed(v4.MigrateAnalogWriteConfig(ctx, v3.AnalogWriteConfig{
+			Channels: []v3.AOChannel{{Variant: v3.AOVoltageChannel{
+				MinMaxVal:   v3.MinMaxVal{MinVal: 10, MaxVal: -10},
+				CustomScale: noScale,
+			}}},
+		}))
+		Expect(cfg.Channels[0].Variant).To(HaveField(
+			"MinMaxVal.Range",
+			spatial.ClosedBounds{Lower: -10, Upper: 10},
+		))
+	})
+})
+
+var _ = Describe("Range logs", func() {
+	DescribeTable("Should log a stored range that the migration changes",
+		func(ctx SpecContext, minVal, maxVal float64, logged bool) {
+			_, fields := runStored[v3.AnalogWriteConfig, v4.AnalogWriteConfig](
+				ctx,
+				"ni_analog_write_config",
+				v4.AnalogWriteMigration,
+				v3.AnalogWriteConfig{
+					Key: uuid.New(),
+					Channels: []v3.AOChannel{{Variant: v3.AOVoltageChannel{
+						BaseAOChannel: v3.BaseAOChannel{Key: "ao"},
+						MinMaxVal:     v3.MinMaxVal{MinVal: minVal, MaxVal: maxVal},
+						CustomScale:   noScale,
+					}}},
+				},
+			)
+			if logged {
+				Expect(fields).To(ContainElement("Range"))
+			} else {
+				Expect(fields).ToNot(ContainElement("Range"))
+			}
+		},
+		Entry("a reversed range", 10.0, -10.0, true),
+		Entry("an equal range", 10.0, 10.0, true),
+		Entry("a range in order", -10.0, 10.0, false),
 	)
 })

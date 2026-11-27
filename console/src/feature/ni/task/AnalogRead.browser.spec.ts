@@ -532,7 +532,9 @@ describe("AnalogRead", () => {
       { deviceKeys: devices.map((d) => d.key) },
     );
     expect(
-      tsk.config.channels.map((c) => ("minVal" in c ? [c.minVal, c.maxVal] : null)),
+      tsk.config.channels.map((c) =>
+        "range" in c ? [c.range.lower, c.range.upper] : null,
+      ),
     ).toEqual([
       [-5, 5],
       [-60, 60],
@@ -615,27 +617,26 @@ describe("AnalogRead ports", () => {
   it.each<[string, Partial<NI.Task.AIChannel>, string, string]>([
     [
       "the maximum of a voltage above every range",
-      { minVal: 0, maxVal: 20 },
+      { range: { lower: 0, upper: 20 } },
       "ai_voltage",
       "Maximum value",
     ],
     [
       "the minimum of a voltage below every range",
-      { minVal: -20, maxVal: 5 },
+      { range: { lower: -20, upper: 5 } },
       "ai_voltage",
       "Minimum value",
     ],
     [
       "the maximum of a current outside every range",
-      { minVal: 0, maxVal: 0.5 },
+      { range: { lower: 0, upper: 0.5 } },
       "ai_current",
       "Maximum value",
     ],
     [
       "the maximum of a linear scale above every range",
       {
-        minVal: 0,
-        maxVal: 100,
+        range: { lower: 0, upper: 100 },
         customScale: {
           type: "linear",
           slope: 2,
@@ -650,8 +651,7 @@ describe("AnalogRead ports", () => {
     [
       "the minimum of a map scale below every range",
       {
-        minVal: -200,
-        maxVal: 10,
+        range: { lower: -200, upper: 10 },
         customScale: {
           type: "map",
           preScaledMin: 0,
@@ -668,8 +668,7 @@ describe("AnalogRead ports", () => {
     [
       "the maximum of a polynomial scale above every range",
       {
-        minVal: 0,
-        maxVal: 40,
+        range: { lower: 0, upper: 40 },
         customScale: {
           type: "polynomial",
           forwardCoeffs: [0, 2],
@@ -700,8 +699,7 @@ describe("AnalogRead ports", () => {
       createChannel("ai_voltage", 0, {
         device: dev.key,
         name: "chan_ranged",
-        minVal: 0,
-        maxVal: 5,
+        range: { lower: 0, upper: 5 },
       }),
     ]);
     // A second client reads the Core, not the cache the form writes to.
@@ -712,8 +710,8 @@ describe("AnalogRead ports", () => {
         schemas: NI.Task.ANALOG_READ_SCHEMAS,
       });
       const [c] = saved.config.channels;
-      assert("minVal" in c);
-      return [c.minVal, c.maxVal];
+      assert("range" in c);
+      return [c.range.lower, c.range.upper];
     };
     fireEvent.click(await findChannelListItem("chan_ranged"));
 
@@ -737,8 +735,7 @@ describe("AnalogRead ports", () => {
       createChannel("ai_voltage", 0, {
         device: dev.key,
         name: "chan_ranged",
-        minVal: 0,
-        maxVal: 5,
+        range: { lower: 0, upper: 5 },
       }),
     ]);
     fireEvent.click(await findChannelListItem("chan_ranged"));
@@ -773,8 +770,7 @@ describe("AnalogRead ports", () => {
       createChannel("ai_voltage", 0, {
         device: dev.key,
         name: "chan_ranged",
-        minVal: 0,
-        maxVal: 5,
+        range: { lower: 0, upper: 5 },
       }),
       createChannel("ai_voltage", 1, { device: dev.key, name: "chan_other" }),
     ]);
@@ -792,8 +788,7 @@ describe("AnalogRead ports", () => {
     const channel = createChannel("ai_voltage", 0, {
       device: dev.key,
       name: "chan_ranged",
-      minVal: 0,
-      maxVal: 5,
+      range: { lower: 0, upper: 5 },
     });
     const { draft } = await renderWith([channel]);
     fireEvent.click(await findChannelListItem("chan_ranged"));
@@ -805,7 +800,7 @@ describe("AnalogRead ports", () => {
       draft.key,
       task.set({
         path: ["config", "channels", channel.key],
-        value: { ...channel, minVal: 1, maxVal: 6 },
+        value: { ...channel, range: { lower: 1, upper: 6 } },
       }),
     );
     await waitFor(() =>
@@ -820,8 +815,7 @@ describe("AnalogRead ports", () => {
       createChannel("ai_voltage", 0, {
         device: dev.key,
         name: "chan_ranged",
-        minVal: 0,
-        maxVal: 20,
+        range: { lower: 0, upper: 20 },
       }),
     ]);
     fireEvent.click(await findChannelListItem("chan_ranged"));
@@ -839,8 +833,7 @@ describe("AnalogRead ports", () => {
       createChannel("ai_voltage", 0, {
         device: dev.key,
         name: "chan_ranged",
-        minVal: 0,
-        maxVal: 100,
+        range: { lower: 0, upper: 100 },
         customScale: {
           type: "linear",
           slope: 5,
@@ -862,18 +855,17 @@ describe("AnalogRead ports", () => {
   });
 
   it.each<[string, () => ni.Hardware, Partial<NI.Task.AIChannel>]>([
-    ["inside a wider range", createHardware, { minVal: -5, maxVal: 5 }],
+    ["inside a wider range", createHardware, { range: { lower: -5, upper: 5 } }],
     [
       "on a device that lists no ranges",
       () => ({ ...createHardware(), aiVoltageRanges: [] }),
-      { minVal: 0, maxVal: 20 },
+      { range: { lower: 0, upper: 20 } },
     ],
     [
       "with a custom scale",
       createHardware,
       {
-        minVal: 0,
-        maxVal: 100,
+        range: { lower: 0, upper: 100 },
         customScale: {
           type: "linear",
           slope: 10,
@@ -887,8 +879,7 @@ describe("AnalogRead ports", () => {
       "with a table scale",
       createHardware,
       {
-        minVal: 0,
-        maxVal: 1000,
+        range: { lower: 0, upper: 1000 },
         customScale: {
           type: "table",
           preScaledVals: [0, 1],
@@ -902,8 +893,7 @@ describe("AnalogRead ports", () => {
       "whose scale ends on the edge of a range after rounding",
       createHardware,
       {
-        minVal: -0.9,
-        maxVal: 1.1,
+        range: { lower: -0.9, upper: 1.1 },
         customScale: {
           type: "linear",
           slope: 0.1,
@@ -917,8 +907,7 @@ describe("AnalogRead ports", () => {
       "whose scale takes amps",
       createHardware,
       {
-        minVal: 0,
-        maxVal: 1000,
+        range: { lower: 0, upper: 1000 },
         customScale: {
           type: "linear",
           slope: 1,
@@ -984,8 +973,7 @@ describe("AnalogRead ports", () => {
       createChannel("ai_voltage", 0, {
         device: dev.key,
         name: "chan_ranged",
-        minVal: 0,
-        maxVal: 100,
+        range: { lower: 0, upper: 100 },
         customScale: {
           type: "linear",
           slope: 10,
@@ -1031,8 +1019,7 @@ describe("AnalogRead ports", () => {
       createChannel("ai_current", 0, {
         device: dev.key,
         name: "chan_ranged",
-        minVal: 0,
-        maxVal: 0.5,
+        range: { lower: 0, upper: 0.5 },
         shuntResistorLoc: "External",
       }),
     ]);

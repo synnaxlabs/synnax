@@ -17,6 +17,7 @@ from uuid import uuid4
 from pydantic import BaseModel, Field
 
 from synnax import channel as channel_, device as device_, task
+from synnax.ni.range import MinMaxVal
 from x import spatial, telem
 
 TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
@@ -450,18 +451,6 @@ AccelChargeSensitivityUnits = Literal[
     "PicoCoulombsPerMetersPerSecondSquared",
     "PicoCoulombsPerInchesPerSecondSquared",
 ]
-
-
-class MinMaxVal(BaseModel):
-    """Bounds the expected signal range in scaled units.
-
-    Attributes:
-        min_val: Is the minimum expected value, in scaled units.
-        max_val: Is the maximum expected value, in scaled units.
-    """
-
-    min_val: float = 0
-    max_val: float = 1
 
 
 class Terminal(BaseModel):
@@ -1307,13 +1296,14 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures signal frequency."""
 
     type: Literal["ci_frequency"] = "ci_frequency"
-    min_val: float = 2
-    max_val: float = 100
     units: CIFreqUnits = "Hz"
     edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
     meas_time: telem.TimeSpan = Field(
         default=telem.TimeSpan(6000), ge=1, le=9007199254740991
+    )
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=2, upper=100)
     )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
@@ -1333,13 +1323,14 @@ class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures signal period."""
 
     type: Literal["ci_period"] = "ci_period"
-    min_val: float = 0.000001
-    max_val: float = 0.100000
     units: CITimeUnits = "Seconds"
     starting_edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
     meas_time: telem.TimeSpan = Field(
         default=telem.TimeSpan(1000000), ge=1, le=9007199254740991
+    )
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0.000001, upper=0.100000)
     )
     divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
@@ -1349,60 +1340,65 @@ class CIPulseWidthChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures pulse width."""
 
     type: Literal["ci_pulse_width"] = "ci_pulse_width"
-    min_val: float = 0.000001
-    max_val: float = 0.100000
     units: CITimeUnits = "Seconds"
     starting_edge: CIEdge = "Rising"
     terminal: str = ""
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0.000001, upper=0.100000)
+    )
 
 
 class CISemiPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures semi-period."""
 
     type: Literal["ci_semi_period"] = "ci_semi_period"
-    min_val: float = 0.000001
-    max_val: float = 0.100000
     units: CITimeUnits = "Seconds"
     terminal: str = ""
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0.000001, upper=0.100000)
+    )
 
 
 class CITwoEdgeSepChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures the separation between two edges."""
 
     type: Literal["ci_two_edge_sep"] = "ci_two_edge_sep"
-    min_val: float = 0.000001
-    max_val: float = 1
     units: CITimeUnits = "Seconds"
     first_edge: CIEdge = "Rising"
     second_edge: CIEdge = "Falling"
     first_terminal: str = ""
     second_terminal: str = ""
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0.000001, upper=1)
+    )
 
 
 class CIVelocityLinearChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures linear velocity from an encoder."""
 
     type: Literal["ci_velocity_linear"] = "ci_velocity_linear"
-    min_val: float = 0
-    max_val: float = 1
     units: CILinearVelocityUnits = "m/s"
     decoding_type: CIDecodingType = "X4"
     dist_per_pulse: float = 0.001000
     terminal_a: str = ""
     terminal_b: str = ""
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=1)
+    )
 
 
 class CIVelocityAngularChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures angular velocity from an encoder."""
 
     type: Literal["ci_velocity_angular"] = "ci_velocity_angular"
-    min_val: float = 0
-    max_val: float = 1
     units: CIAngularVelocityUnits = "RPM"
     decoding_type: CIDecodingType = "X4"
     pulses_per_rev: int = Field(default=24, ge=1, le=4294967295)
     terminal_a: str = ""
     terminal_b: str = ""
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=0, upper=1)
+    )
 
 
 class CIPositionLinearChannel(BaseCIChannel, CustomScale, ZIndex):
@@ -1433,10 +1429,11 @@ class CIDutyCycleChannel(BaseCIChannel, CustomScale, MinMaxVal):
     """Measures the duty cycle of a signal."""
 
     type: Literal["ci_duty_cycle"] = "ci_duty_cycle"
-    min_val: float = 2
-    max_val: float = 10000
     active_edge: CIEdge = "Rising"
     terminal: str = ""
+    range: spatial.ClosedBounds = Field(
+        default_factory=lambda: spatial.ClosedBounds(lower=2, upper=10000)
+    )
 
 
 # Is a single NI counter input channel. The type field selects the measurement

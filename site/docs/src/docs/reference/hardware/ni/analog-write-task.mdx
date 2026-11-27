@@ -67,6 +67,7 @@ Python does not create channels. Create them first.
 ```python
 import synnax as sy
 from synnax import ni
+from x import spatial
 
 dev = client.devices.retrieve(key="<device key>")
 state_time = client.channels.create(
@@ -90,8 +91,7 @@ task = ni.AnalogWriteTask(
     channels=[
         ni.AOVoltageChannel(
             port=0,
-            min_val=0,
-            max_val=10,
+            range=spatial.ClosedBounds(lower=0, upper=10),
             cmd_channel=cmd.key,
             state_channel=state.key,
         )
@@ -120,8 +120,7 @@ const task = await client.tasks.create({
       {
         type: "ao_voltage",
         port: 0,
-        minVal: 0,
-        maxVal: 10,
+        range: { lower: 0, upper: 10 },
         cmdChannel: cmd.key,
         stateChannel: state.key,
       },
@@ -170,9 +169,9 @@ Console checks it against the output ranges that the device reports.
 
 Outputs a voltage.
 
-| Setting                                   | Default    | Notes     |
-| ----------------------------------------- | ---------- | --------- |
-| Range <small>`min_val`, `max_val`</small> | `0` to `1` | In volts. |
+| Setting                      | Default    | Notes     |
+| ---------------------------- | ---------- | --------- |
+| Range <small>`range`</small> | `0` to `1` | In volts. |
 
 </Channel.Type>
 
@@ -186,9 +185,9 @@ Outputs a voltage.
 
 Outputs a current.
 
-| Setting                                   | Default    | Notes    |
-| ----------------------------------------- | ---------- | -------- |
-| Range <small>`min_val`, `max_val`</small> | `0` to `1` | In amps. |
+| Setting                      | Default    | Notes    |
+| ---------------------------- | ---------- | -------- |
+| Range <small>`range`</small> | `0` to `1` | In amps. |
 
 </Channel.Type>
 

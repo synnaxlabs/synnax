@@ -843,11 +843,9 @@ func (aivc *AIVoltageChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aivc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aivc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aivc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aivc.MinMaxVal.MaxVal, c.Next(), func(def *AIVoltageChannel) {
-			aivc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aivc.MinMaxVal.Range, c.Next(), func(def *AIVoltageChannel) {
+			aivc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aivc.Terminal.TerminalConfig, c.Next(), func(def *AIVoltageChannel) {
@@ -872,8 +870,7 @@ func (aivc *AIVoltageChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aivc.BaseAIChannel.Channel))
 	h.Uint(uint64(aivc.BaseAIChannel.Port))
 	h.String(aivc.BaseAIChannel.Device)
-	h.Float(aivc.MinMaxVal.MinVal)
-	h.Float(aivc.MinMaxVal.MaxVal)
+	aivc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aivc.Terminal.TerminalConfig))
 	aivc.CustomScale.CustomScale.HashContent(h)
 }
@@ -893,11 +890,9 @@ func (aiac *AIAccelChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aiac.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aiac.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aiac.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aiac.MinMaxVal.MaxVal, c.Next(), func(def *AIAccelChannel) {
-			aiac.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aiac.MinMaxVal.Range, c.Next(), func(def *AIAccelChannel) {
+			aiac.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aiac.Terminal.TerminalConfig, c.Next(), func(def *AIAccelChannel) {
@@ -938,8 +933,7 @@ func (aiac *AIAccelChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aiac.BaseAIChannel.Channel))
 	h.Uint(uint64(aiac.BaseAIChannel.Port))
 	h.String(aiac.BaseAIChannel.Device)
-	h.Float(aiac.MinMaxVal.MinVal)
-	h.Float(aiac.MinMaxVal.MaxVal)
+	aiac.MinMaxVal.Range.HashContent(h)
 	h.String(string(aiac.Terminal.TerminalConfig))
 	h.Float(aiac.Sensitivity.Sensitivity)
 	h.String(string(aiac.CurrentExcitation.CurrentExcitSource))
@@ -964,11 +958,9 @@ func (aibc *AIBridgeChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aibc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aibc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aibc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aibc.MinMaxVal.MaxVal, c.Next(), func(def *AIBridgeChannel) {
-			aibc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aibc.MinMaxVal.Range, c.Next(), func(def *AIBridgeChannel) {
+			aibc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aibc.Bridge.BridgeConfig, c.Next(), func(def *AIBridgeChannel) {
@@ -1007,8 +999,7 @@ func (aibc *AIBridgeChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aibc.BaseAIChannel.Channel))
 	h.Uint(uint64(aibc.BaseAIChannel.Port))
 	h.String(aibc.BaseAIChannel.Device)
-	h.Float(aibc.MinMaxVal.MinVal)
-	h.Float(aibc.MinMaxVal.MaxVal)
+	aibc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aibc.Bridge.BridgeConfig))
 	h.Float(aibc.Bridge.NominalBridgeResistance)
 	h.String(string(aibc.VoltageExcitation.VoltageExcitSource))
@@ -1032,11 +1023,9 @@ func (aicc *AICurrentChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aicc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aicc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aicc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aicc.MinMaxVal.MaxVal, c.Next(), func(def *AICurrentChannel) {
-			aicc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aicc.MinMaxVal.Range, c.Next(), func(def *AICurrentChannel) {
+			aicc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aicc.Terminal.TerminalConfig, c.Next(), func(def *AICurrentChannel) {
@@ -1069,8 +1058,7 @@ func (aicc *AICurrentChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aicc.BaseAIChannel.Channel))
 	h.Uint(uint64(aicc.BaseAIChannel.Port))
 	h.String(aicc.BaseAIChannel.Device)
-	h.Float(aicc.MinMaxVal.MinVal)
-	h.Float(aicc.MinMaxVal.MaxVal)
+	aicc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aicc.Terminal.TerminalConfig))
 	aicc.CustomScale.CustomScale.HashContent(h)
 	h.String(string(aicc.ShuntResistorLoc))
@@ -1092,11 +1080,9 @@ func (aifbtc *AIForceBridgeTableChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aifbtc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aifbtc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aifbtc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aifbtc.MinMaxVal.MaxVal, c.Next(), func(def *AIForceBridgeTableChannel) {
-			aifbtc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aifbtc.MinMaxVal.Range, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aifbtc.Bridge.BridgeConfig, c.Next(), func(def *AIForceBridgeTableChannel) {
@@ -1147,8 +1133,7 @@ func (aifbtc *AIForceBridgeTableChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aifbtc.BaseAIChannel.Channel))
 	h.Uint(uint64(aifbtc.BaseAIChannel.Port))
 	h.String(aifbtc.BaseAIChannel.Device)
-	h.Float(aifbtc.MinMaxVal.MinVal)
-	h.Float(aifbtc.MinMaxVal.MaxVal)
+	aifbtc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aifbtc.Bridge.BridgeConfig))
 	h.Float(aifbtc.Bridge.NominalBridgeResistance)
 	h.String(string(aifbtc.VoltageExcitation.VoltageExcitSource))
@@ -1182,11 +1167,9 @@ func (aifbtplc *AIForceBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aifbtplc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aifbtplc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aifbtplc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aifbtplc.MinMaxVal.MaxVal, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
-			aifbtplc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aifbtplc.MinMaxVal.Range, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aifbtplc.Bridge.BridgeConfig, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
@@ -1245,8 +1228,7 @@ func (aifbtplc *AIForceBridgeTwoPointLinChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aifbtplc.BaseAIChannel.Channel))
 	h.Uint(uint64(aifbtplc.BaseAIChannel.Port))
 	h.String(aifbtplc.BaseAIChannel.Device)
-	h.Float(aifbtplc.MinMaxVal.MinVal)
-	h.Float(aifbtplc.MinMaxVal.MaxVal)
+	aifbtplc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aifbtplc.Bridge.BridgeConfig))
 	h.Float(aifbtplc.Bridge.NominalBridgeResistance)
 	h.String(string(aifbtplc.VoltageExcitation.VoltageExcitSource))
@@ -1276,11 +1258,9 @@ func (aifiepec *AIForceIEPEChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aifiepec.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aifiepec.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aifiepec.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aifiepec.MinMaxVal.MaxVal, c.Next(), func(def *AIForceIEPEChannel) {
-			aifiepec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aifiepec.MinMaxVal.Range, c.Next(), func(def *AIForceIEPEChannel) {
+			aifiepec.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aifiepec.Terminal.TerminalConfig, c.Next(), func(def *AIForceIEPEChannel) {
@@ -1321,8 +1301,7 @@ func (aifiepec *AIForceIEPEChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aifiepec.BaseAIChannel.Channel))
 	h.Uint(uint64(aifiepec.BaseAIChannel.Port))
 	h.String(aifiepec.BaseAIChannel.Device)
-	h.Float(aifiepec.MinMaxVal.MinVal)
-	h.Float(aifiepec.MinMaxVal.MaxVal)
+	aifiepec.MinMaxVal.Range.HashContent(h)
 	h.String(string(aifiepec.Terminal.TerminalConfig))
 	h.Float(aifiepec.Sensitivity.Sensitivity)
 	h.String(string(aifiepec.CurrentExcitation.CurrentExcitSource))
@@ -1403,11 +1382,9 @@ func (aipbtc *AIPressureBridgeTableChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aipbtc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aipbtc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aipbtc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aipbtc.MinMaxVal.MaxVal, c.Next(), func(def *AIPressureBridgeTableChannel) {
-			aipbtc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aipbtc.MinMaxVal.Range, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aipbtc.Bridge.BridgeConfig, c.Next(), func(def *AIPressureBridgeTableChannel) {
@@ -1458,8 +1435,7 @@ func (aipbtc *AIPressureBridgeTableChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aipbtc.BaseAIChannel.Channel))
 	h.Uint(uint64(aipbtc.BaseAIChannel.Port))
 	h.String(aipbtc.BaseAIChannel.Device)
-	h.Float(aipbtc.MinMaxVal.MinVal)
-	h.Float(aipbtc.MinMaxVal.MaxVal)
+	aipbtc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aipbtc.Bridge.BridgeConfig))
 	h.Float(aipbtc.Bridge.NominalBridgeResistance)
 	h.String(string(aipbtc.VoltageExcitation.VoltageExcitSource))
@@ -1493,11 +1469,9 @@ func (aipbtplc *AIPressureBridgeTwoPointLinChannel) Patch(c patch.Cursor) error 
 		return patch.Value(&aipbtplc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aipbtplc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aipbtplc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aipbtplc.MinMaxVal.MaxVal, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
-			aipbtplc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aipbtplc.MinMaxVal.Range, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aipbtplc.Bridge.BridgeConfig, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
@@ -1556,8 +1530,7 @@ func (aipbtplc *AIPressureBridgeTwoPointLinChannel) HashContent(h *content.Hash)
 	h.Uint(uint64(aipbtplc.BaseAIChannel.Channel))
 	h.Uint(uint64(aipbtplc.BaseAIChannel.Port))
 	h.String(aipbtplc.BaseAIChannel.Device)
-	h.Float(aipbtplc.MinMaxVal.MinVal)
-	h.Float(aipbtplc.MinMaxVal.MaxVal)
+	aipbtplc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aipbtplc.Bridge.BridgeConfig))
 	h.Float(aipbtplc.Bridge.NominalBridgeResistance)
 	h.String(string(aipbtplc.VoltageExcitation.VoltageExcitSource))
@@ -1587,11 +1560,9 @@ func (airc *AIResistanceChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&airc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&airc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&airc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&airc.MinMaxVal.MaxVal, c.Next(), func(def *AIResistanceChannel) {
-			airc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&airc.MinMaxVal.Range, c.Next(), func(def *AIResistanceChannel) {
+			airc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "resistance_config":
 		return patch.Defaulted(&airc.Resistance.ResistanceConfig, c.Next(), func(def *AIResistanceChannel) {
@@ -1622,8 +1593,7 @@ func (airc *AIResistanceChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(airc.BaseAIChannel.Channel))
 	h.Uint(uint64(airc.BaseAIChannel.Port))
 	h.String(airc.BaseAIChannel.Device)
-	h.Float(airc.MinMaxVal.MinVal)
-	h.Float(airc.MinMaxVal.MaxVal)
+	airc.MinMaxVal.Range.HashContent(h)
 	h.String(string(airc.Resistance.ResistanceConfig))
 	h.String(string(airc.CurrentExcitation.CurrentExcitSource))
 	h.Float(airc.CurrentExcitation.CurrentExcitVal)
@@ -1645,11 +1615,9 @@ func (airtdc *AIRTDChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&airtdc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&airtdc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&airtdc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&airtdc.MinMaxVal.MaxVal, c.Next(), func(def *AIRTDChannel) {
-			airtdc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&airtdc.MinMaxVal.Range, c.Next(), func(def *AIRTDChannel) {
+			airtdc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "resistance_config":
 		return patch.Defaulted(&airtdc.Resistance.ResistanceConfig, c.Next(), func(def *AIRTDChannel) {
@@ -1683,8 +1651,7 @@ func (airtdc *AIRTDChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(airtdc.BaseAIChannel.Channel))
 	h.Uint(uint64(airtdc.BaseAIChannel.Port))
 	h.String(airtdc.BaseAIChannel.Device)
-	h.Float(airtdc.MinMaxVal.MinVal)
-	h.Float(airtdc.MinMaxVal.MaxVal)
+	airtdc.MinMaxVal.Range.HashContent(h)
 	h.String(string(airtdc.Resistance.ResistanceConfig))
 	h.String(string(airtdc.CurrentExcitation.CurrentExcitSource))
 	h.Float(airtdc.CurrentExcitation.CurrentExcitVal)
@@ -1708,11 +1675,9 @@ func (aisgc *AIStrainGaugeChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aisgc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aisgc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aisgc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aisgc.MinMaxVal.MaxVal, c.Next(), func(def *AIStrainGaugeChannel) {
-			aisgc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aisgc.MinMaxVal.Range, c.Next(), func(def *AIStrainGaugeChannel) {
+			aisgc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "voltage_excit_source":
 		return patch.Defaulted(&aisgc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIStrainGaugeChannel) {
@@ -1753,8 +1718,7 @@ func (aisgc *AIStrainGaugeChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aisgc.BaseAIChannel.Channel))
 	h.Uint(uint64(aisgc.BaseAIChannel.Port))
 	h.String(aisgc.BaseAIChannel.Device)
-	h.Float(aisgc.MinMaxVal.MinVal)
-	h.Float(aisgc.MinMaxVal.MaxVal)
+	aisgc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aisgc.VoltageExcitation.VoltageExcitSource))
 	h.Float(aisgc.VoltageExcitation.VoltageExcitVal)
 	aisgc.CustomScale.CustomScale.HashContent(h)
@@ -1812,11 +1776,9 @@ func (aitc *AIThermocoupleChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aitc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aitc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aitc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aitc.MinMaxVal.MaxVal, c.Next(), func(def *AIThermocoupleChannel) {
-			aitc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aitc.MinMaxVal.Range, c.Next(), func(def *AIThermocoupleChannel) {
+			aitc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&aitc.Units, c.Next(), func(def *AIThermocoupleChannel) {
@@ -1845,8 +1807,7 @@ func (aitc *AIThermocoupleChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aitc.BaseAIChannel.Channel))
 	h.Uint(uint64(aitc.BaseAIChannel.Port))
 	h.String(aitc.BaseAIChannel.Device)
-	h.Float(aitc.MinMaxVal.MinVal)
-	h.Float(aitc.MinMaxVal.MaxVal)
+	aitc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aitc.Units))
 	h.String(string(aitc.ThermocoupleType))
 	aitc.Cjc.HashContent(h)
@@ -1867,11 +1828,9 @@ func (aitbtc *AITorqueBridgeTableChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aitbtc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aitbtc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aitbtc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aitbtc.MinMaxVal.MaxVal, c.Next(), func(def *AITorqueBridgeTableChannel) {
-			aitbtc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aitbtc.MinMaxVal.Range, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aitbtc.Bridge.BridgeConfig, c.Next(), func(def *AITorqueBridgeTableChannel) {
@@ -1922,8 +1881,7 @@ func (aitbtc *AITorqueBridgeTableChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aitbtc.BaseAIChannel.Channel))
 	h.Uint(uint64(aitbtc.BaseAIChannel.Port))
 	h.String(aitbtc.BaseAIChannel.Device)
-	h.Float(aitbtc.MinMaxVal.MinVal)
-	h.Float(aitbtc.MinMaxVal.MaxVal)
+	aitbtc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aitbtc.Bridge.BridgeConfig))
 	h.Float(aitbtc.Bridge.NominalBridgeResistance)
 	h.String(string(aitbtc.VoltageExcitation.VoltageExcitSource))
@@ -1957,11 +1915,9 @@ func (aitbtplc *AITorqueBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aitbtplc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aitbtplc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aitbtplc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aitbtplc.MinMaxVal.MaxVal, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
-			aitbtplc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aitbtplc.MinMaxVal.Range, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aitbtplc.Bridge.BridgeConfig, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
@@ -2020,8 +1976,7 @@ func (aitbtplc *AITorqueBridgeTwoPointLinChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aitbtplc.BaseAIChannel.Channel))
 	h.Uint(uint64(aitbtplc.BaseAIChannel.Port))
 	h.String(aitbtplc.BaseAIChannel.Device)
-	h.Float(aitbtplc.MinMaxVal.MinVal)
-	h.Float(aitbtplc.MinMaxVal.MaxVal)
+	aitbtplc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aitbtplc.Bridge.BridgeConfig))
 	h.Float(aitbtplc.Bridge.NominalBridgeResistance)
 	h.String(string(aitbtplc.VoltageExcitation.VoltageExcitSource))
@@ -2051,11 +2006,9 @@ func (aiviepec *AIVelocityIEPEChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aiviepec.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aiviepec.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aiviepec.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aiviepec.MinMaxVal.MaxVal, c.Next(), func(def *AIVelocityIEPEChannel) {
-			aiviepec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aiviepec.MinMaxVal.Range, c.Next(), func(def *AIVelocityIEPEChannel) {
+			aiviepec.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aiviepec.Terminal.TerminalConfig, c.Next(), func(def *AIVelocityIEPEChannel) {
@@ -2096,8 +2049,7 @@ func (aiviepec *AIVelocityIEPEChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aiviepec.BaseAIChannel.Channel))
 	h.Uint(uint64(aiviepec.BaseAIChannel.Port))
 	h.String(aiviepec.BaseAIChannel.Device)
-	h.Float(aiviepec.MinMaxVal.MinVal)
-	h.Float(aiviepec.MinMaxVal.MaxVal)
+	aiviepec.MinMaxVal.Range.HashContent(h)
 	h.String(string(aiviepec.Terminal.TerminalConfig))
 	h.Float(aiviepec.Sensitivity.Sensitivity)
 	h.String(string(aiviepec.CurrentExcitation.CurrentExcitSource))
@@ -2122,11 +2074,9 @@ func (aiawdcvc *AIAccel4WireDCVoltageChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aiawdcvc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aiawdcvc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aiawdcvc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aiawdcvc.MinMaxVal.MaxVal, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
-			aiawdcvc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aiawdcvc.MinMaxVal.Range, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
+			aiawdcvc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aiawdcvc.Terminal.TerminalConfig, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
@@ -2169,8 +2119,7 @@ func (aiawdcvc *AIAccel4WireDCVoltageChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aiawdcvc.BaseAIChannel.Channel))
 	h.Uint(uint64(aiawdcvc.BaseAIChannel.Port))
 	h.String(aiawdcvc.BaseAIChannel.Device)
-	h.Float(aiawdcvc.MinMaxVal.MinVal)
-	h.Float(aiawdcvc.MinMaxVal.MaxVal)
+	aiawdcvc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aiawdcvc.Terminal.TerminalConfig))
 	h.Float(aiawdcvc.Sensitivity.Sensitivity)
 	h.String(string(aiawdcvc.VoltageExcitation.VoltageExcitSource))
@@ -2196,11 +2145,9 @@ func (aiacc *AIAccelChargeChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aiacc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aiacc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aiacc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aiacc.MinMaxVal.MaxVal, c.Next(), func(def *AIAccelChargeChannel) {
-			aiacc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aiacc.MinMaxVal.Range, c.Next(), func(def *AIAccelChargeChannel) {
+			aiacc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aiacc.Terminal.TerminalConfig, c.Next(), func(def *AIAccelChargeChannel) {
@@ -2235,8 +2182,7 @@ func (aiacc *AIAccelChargeChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aiacc.BaseAIChannel.Channel))
 	h.Uint(uint64(aiacc.BaseAIChannel.Port))
 	h.String(aiacc.BaseAIChannel.Device)
-	h.Float(aiacc.MinMaxVal.MinVal)
-	h.Float(aiacc.MinMaxVal.MaxVal)
+	aiacc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aiacc.Terminal.TerminalConfig))
 	h.Float(aiacc.Sensitivity.Sensitivity)
 	aiacc.CustomScale.CustomScale.HashContent(h)
@@ -2259,11 +2205,9 @@ func (aicc *AIChargeChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aicc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aicc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aicc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aicc.MinMaxVal.MaxVal, c.Next(), func(def *AIChargeChannel) {
-			aicc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aicc.MinMaxVal.Range, c.Next(), func(def *AIChargeChannel) {
+			aicc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aicc.Terminal.TerminalConfig, c.Next(), func(def *AIChargeChannel) {
@@ -2292,8 +2236,7 @@ func (aicc *AIChargeChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aicc.BaseAIChannel.Channel))
 	h.Uint(uint64(aicc.BaseAIChannel.Port))
 	h.String(aicc.BaseAIChannel.Device)
-	h.Float(aicc.MinMaxVal.MinVal)
-	h.Float(aicc.MinMaxVal.MaxVal)
+	aicc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aicc.Terminal.TerminalConfig))
 	aicc.CustomScale.CustomScale.HashContent(h)
 	h.String(string(aicc.Units))
@@ -2314,11 +2257,9 @@ func (aicrmsc *AICurrentRMSChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aicrmsc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aicrmsc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aicrmsc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aicrmsc.MinMaxVal.MaxVal, c.Next(), func(def *AICurrentRMSChannel) {
-			aicrmsc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aicrmsc.MinMaxVal.Range, c.Next(), func(def *AICurrentRMSChannel) {
+			aicrmsc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aicrmsc.Terminal.TerminalConfig, c.Next(), func(def *AICurrentRMSChannel) {
@@ -2351,8 +2292,7 @@ func (aicrmsc *AICurrentRMSChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aicrmsc.BaseAIChannel.Channel))
 	h.Uint(uint64(aicrmsc.BaseAIChannel.Port))
 	h.String(aicrmsc.BaseAIChannel.Device)
-	h.Float(aicrmsc.MinMaxVal.MinVal)
-	h.Float(aicrmsc.MinMaxVal.MaxVal)
+	aicrmsc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aicrmsc.Terminal.TerminalConfig))
 	aicrmsc.CustomScale.CustomScale.HashContent(h)
 	h.String(string(aicrmsc.ShuntResistorLoc))
@@ -2374,11 +2314,9 @@ func (aifbpc *AIForceBridgePolynomialChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aifbpc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aifbpc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aifbpc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aifbpc.MinMaxVal.MaxVal, c.Next(), func(def *AIForceBridgePolynomialChannel) {
-			aifbpc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aifbpc.MinMaxVal.Range, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aifbpc.Bridge.BridgeConfig, c.Next(), func(def *AIForceBridgePolynomialChannel) {
@@ -2429,8 +2367,7 @@ func (aifbpc *AIForceBridgePolynomialChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aifbpc.BaseAIChannel.Channel))
 	h.Uint(uint64(aifbpc.BaseAIChannel.Port))
 	h.String(aifbpc.BaseAIChannel.Device)
-	h.Float(aifbpc.MinMaxVal.MinVal)
-	h.Float(aifbpc.MinMaxVal.MaxVal)
+	aifbpc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aifbpc.Bridge.BridgeConfig))
 	h.Float(aifbpc.Bridge.NominalBridgeResistance)
 	h.String(string(aifbpc.VoltageExcitation.VoltageExcitSource))
@@ -2464,11 +2401,9 @@ func (aifvc *AIFreqVoltageChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aifvc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aifvc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aifvc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aifvc.MinMaxVal.MaxVal, c.Next(), func(def *AIFreqVoltageChannel) {
-			aifvc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aifvc.MinMaxVal.Range, c.Next(), func(def *AIFreqVoltageChannel) {
+			aifvc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
@@ -2493,8 +2428,7 @@ func (aifvc *AIFreqVoltageChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aifvc.BaseAIChannel.Channel))
 	h.Uint(uint64(aifvc.BaseAIChannel.Port))
 	h.String(aifvc.BaseAIChannel.Device)
-	h.Float(aifvc.MinMaxVal.MinVal)
-	h.Float(aifvc.MinMaxVal.MaxVal)
+	aifvc.MinMaxVal.Range.HashContent(h)
 	aifvc.CustomScale.CustomScale.HashContent(h)
 	h.Float(aifvc.ThresholdLevel)
 	h.Float(aifvc.Hysteresis)
@@ -2515,11 +2449,9 @@ func (aipbpc *AIPressureBridgePolynomialChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aipbpc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aipbpc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aipbpc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aipbpc.MinMaxVal.MaxVal, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
-			aipbpc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aipbpc.MinMaxVal.Range, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aipbpc.Bridge.BridgeConfig, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
@@ -2570,8 +2502,7 @@ func (aipbpc *AIPressureBridgePolynomialChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aipbpc.BaseAIChannel.Channel))
 	h.Uint(uint64(aipbpc.BaseAIChannel.Port))
 	h.String(aipbpc.BaseAIChannel.Device)
-	h.Float(aipbpc.MinMaxVal.MinVal)
-	h.Float(aipbpc.MinMaxVal.MaxVal)
+	aipbpc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aipbpc.Bridge.BridgeConfig))
 	h.Float(aipbpc.Bridge.NominalBridgeResistance)
 	h.String(string(aipbpc.VoltageExcitation.VoltageExcitSource))
@@ -2605,11 +2536,9 @@ func (aitic *AIThermistorIexChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aitic.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aitic.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aitic.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aitic.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorIexChannel) {
-			aitic.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aitic.MinMaxVal.Range, c.Next(), func(def *AIThermistorIexChannel) {
+			aitic.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "resistance_config":
 		return patch.Defaulted(&aitic.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorIexChannel) {
@@ -2643,8 +2572,7 @@ func (aitic *AIThermistorIexChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aitic.BaseAIChannel.Channel))
 	h.Uint(uint64(aitic.BaseAIChannel.Port))
 	h.String(aitic.BaseAIChannel.Device)
-	h.Float(aitic.MinMaxVal.MinVal)
-	h.Float(aitic.MinMaxVal.MaxVal)
+	aitic.MinMaxVal.Range.HashContent(h)
 	h.String(string(aitic.Resistance.ResistanceConfig))
 	h.String(string(aitic.CurrentExcitation.CurrentExcitSource))
 	h.Float(aitic.CurrentExcitation.CurrentExcitVal)
@@ -2669,11 +2597,9 @@ func (aitvc *AIThermistorVexChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aitvc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aitvc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aitvc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aitvc.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorVexChannel) {
-			aitvc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aitvc.MinMaxVal.Range, c.Next(), func(def *AIThermistorVexChannel) {
+			aitvc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "resistance_config":
 		return patch.Defaulted(&aitvc.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorVexChannel) {
@@ -2709,8 +2635,7 @@ func (aitvc *AIThermistorVexChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aitvc.BaseAIChannel.Channel))
 	h.Uint(uint64(aitvc.BaseAIChannel.Port))
 	h.String(aitvc.BaseAIChannel.Device)
-	h.Float(aitvc.MinMaxVal.MinVal)
-	h.Float(aitvc.MinMaxVal.MaxVal)
+	aitvc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aitvc.Resistance.ResistanceConfig))
 	h.String(string(aitvc.VoltageExcitation.VoltageExcitSource))
 	h.Float(aitvc.VoltageExcitation.VoltageExcitVal)
@@ -2736,11 +2661,9 @@ func (aitbpc *AITorqueBridgePolynomialChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aitbpc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aitbpc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aitbpc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aitbpc.MinMaxVal.MaxVal, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
-			aitbpc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aitbpc.MinMaxVal.Range, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "bridge_config":
 		return patch.Defaulted(&aitbpc.Bridge.BridgeConfig, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
@@ -2791,8 +2714,7 @@ func (aitbpc *AITorqueBridgePolynomialChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aitbpc.BaseAIChannel.Channel))
 	h.Uint(uint64(aitbpc.BaseAIChannel.Port))
 	h.String(aitbpc.BaseAIChannel.Device)
-	h.Float(aitbpc.MinMaxVal.MinVal)
-	h.Float(aitbpc.MinMaxVal.MaxVal)
+	aitbpc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aitbpc.Bridge.BridgeConfig))
 	h.Float(aitbpc.Bridge.NominalBridgeResistance)
 	h.String(string(aitbpc.VoltageExcitation.VoltageExcitSource))
@@ -2826,11 +2748,9 @@ func (aivrmsc *AIVoltageRMSChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aivrmsc.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aivrmsc.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aivrmsc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aivrmsc.MinMaxVal.MaxVal, c.Next(), func(def *AIVoltageRMSChannel) {
-			aivrmsc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aivrmsc.MinMaxVal.Range, c.Next(), func(def *AIVoltageRMSChannel) {
+			aivrmsc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aivrmsc.Terminal.TerminalConfig, c.Next(), func(def *AIVoltageRMSChannel) {
@@ -2855,8 +2775,7 @@ func (aivrmsc *AIVoltageRMSChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aivrmsc.BaseAIChannel.Channel))
 	h.Uint(uint64(aivrmsc.BaseAIChannel.Port))
 	h.String(aivrmsc.BaseAIChannel.Device)
-	h.Float(aivrmsc.MinMaxVal.MinVal)
-	h.Float(aivrmsc.MinMaxVal.MaxVal)
+	aivrmsc.MinMaxVal.Range.HashContent(h)
 	h.String(string(aivrmsc.Terminal.TerminalConfig))
 	aivrmsc.CustomScale.CustomScale.HashContent(h)
 }
@@ -2876,11 +2795,9 @@ func (aivwec *AIVoltageWithExcitChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aivwec.BaseAIChannel.Port, c.Next())
 	case "device":
 		return patch.Value(&aivwec.BaseAIChannel.Device, c.Next())
-	case "min_val":
-		return patch.Value(&aivwec.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aivwec.MinMaxVal.MaxVal, c.Next(), func(def *AIVoltageWithExcitChannel) {
-			aivwec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aivwec.MinMaxVal.Range, c.Next(), func(def *AIVoltageWithExcitChannel) {
+			aivwec.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "terminal_config":
 		return patch.Defaulted(&aivwec.Terminal.TerminalConfig, c.Next(), func(def *AIVoltageWithExcitChannel) {
@@ -2917,8 +2834,7 @@ func (aivwec *AIVoltageWithExcitChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(aivwec.BaseAIChannel.Channel))
 	h.Uint(uint64(aivwec.BaseAIChannel.Port))
 	h.String(aivwec.BaseAIChannel.Device)
-	h.Float(aivwec.MinMaxVal.MinVal)
-	h.Float(aivwec.MinMaxVal.MaxVal)
+	aivwec.MinMaxVal.Range.HashContent(h)
 	h.String(string(aivwec.Terminal.TerminalConfig))
 	h.String(string(aivwec.VoltageExcitation.VoltageExcitSource))
 	h.Float(aivwec.VoltageExcitation.VoltageExcitVal)
@@ -3013,11 +2929,9 @@ func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aocc.BaseAOChannel.Disabled, c.Next())
 	case "port":
 		return patch.Value(&aocc.BaseAOChannel.Port, c.Next())
-	case "min_val":
-		return patch.Value(&aocc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aocc.MinMaxVal.MaxVal, c.Next(), func(def *AOCurrentChannel) {
-			aocc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aocc.MinMaxVal.Range, c.Next(), func(def *AOCurrentChannel) {
+			aocc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
@@ -3043,8 +2957,7 @@ func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 func (aocc *AOCurrentChannel) HashContent(h *content.Hash) {
 	h.Bool(aocc.BaseAOChannel.Disabled)
 	h.Uint(uint64(aocc.BaseAOChannel.Port))
-	h.Float(aocc.MinMaxVal.MinVal)
-	h.Float(aocc.MinMaxVal.MaxVal)
+	aocc.MinMaxVal.Range.HashContent(h)
 	aocc.CustomScale.CustomScale.HashContent(h)
 	h.Uint(uint64(aocc.CommandedAOChannel.CmdChannel))
 	h.Uint(uint64(aocc.CommandedAOChannel.StateChannel))
@@ -3095,11 +3008,9 @@ func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aovc.BaseAOChannel.Disabled, c.Next())
 	case "port":
 		return patch.Value(&aovc.BaseAOChannel.Port, c.Next())
-	case "min_val":
-		return patch.Value(&aovc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&aovc.MinMaxVal.MaxVal, c.Next(), func(def *AOVoltageChannel) {
-			aovc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&aovc.MinMaxVal.Range, c.Next(), func(def *AOVoltageChannel) {
+			aovc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
@@ -3125,8 +3036,7 @@ func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 func (aovc *AOVoltageChannel) HashContent(h *content.Hash) {
 	h.Bool(aovc.BaseAOChannel.Disabled)
 	h.Uint(uint64(aovc.BaseAOChannel.Port))
-	h.Float(aovc.MinMaxVal.MinVal)
-	h.Float(aovc.MinMaxVal.MaxVal)
+	aovc.MinMaxVal.Range.HashContent(h)
 	aovc.CustomScale.CustomScale.HashContent(h)
 	h.Uint(uint64(aovc.CommandedAOChannel.CmdChannel))
 	h.Uint(uint64(aovc.CommandedAOChannel.StateChannel))
@@ -3377,13 +3287,9 @@ func (cifc *CIFrequencyChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return cifc.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Defaulted(&cifc.MinMaxVal.MinVal, c.Next(), func(def *CIFrequencyChannel) {
-			cifc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
-		})
-	case "max_val":
-		return patch.Defaulted(&cifc.MinMaxVal.MaxVal, c.Next(), func(def *CIFrequencyChannel) {
-			cifc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&cifc.MinMaxVal.Range, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&cifc.Units, c.Next(), func(def *CIFrequencyChannel) {
@@ -3420,8 +3326,7 @@ func (cifc *CIFrequencyChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(cifc.BaseCIChannel.Port))
 	h.String(cifc.BaseCIChannel.Device)
 	cifc.CustomScale.CustomScale.HashContent(h)
-	h.Float(cifc.MinMaxVal.MinVal)
-	h.Float(cifc.MinMaxVal.MaxVal)
+	cifc.MinMaxVal.Range.HashContent(h)
 	h.String(string(cifc.Units))
 	h.String(string(cifc.Edge))
 	h.String(string(cifc.MeasMethod))
@@ -3497,13 +3402,9 @@ func (cipc *CIPeriodChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return cipc.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Defaulted(&cipc.MinMaxVal.MinVal, c.Next(), func(def *CIPeriodChannel) {
-			cipc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
-		})
-	case "max_val":
-		return patch.Defaulted(&cipc.MinMaxVal.MaxVal, c.Next(), func(def *CIPeriodChannel) {
-			cipc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&cipc.MinMaxVal.Range, c.Next(), func(def *CIPeriodChannel) {
+			cipc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&cipc.Units, c.Next(), func(def *CIPeriodChannel) {
@@ -3540,8 +3441,7 @@ func (cipc *CIPeriodChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(cipc.BaseCIChannel.Port))
 	h.String(cipc.BaseCIChannel.Device)
 	cipc.CustomScale.CustomScale.HashContent(h)
-	h.Float(cipc.MinMaxVal.MinVal)
-	h.Float(cipc.MinMaxVal.MaxVal)
+	cipc.MinMaxVal.Range.HashContent(h)
 	h.String(string(cipc.Units))
 	h.String(string(cipc.StartingEdge))
 	h.String(string(cipc.MeasMethod))
@@ -3572,13 +3472,9 @@ func (cipwc *CIPulseWidthChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return cipwc.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Defaulted(&cipwc.MinMaxVal.MinVal, c.Next(), func(def *CIPulseWidthChannel) {
-			cipwc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
-		})
-	case "max_val":
-		return patch.Defaulted(&cipwc.MinMaxVal.MaxVal, c.Next(), func(def *CIPulseWidthChannel) {
-			cipwc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&cipwc.MinMaxVal.Range, c.Next(), func(def *CIPulseWidthChannel) {
+			cipwc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&cipwc.Units, c.Next(), func(def *CIPulseWidthChannel) {
@@ -3603,8 +3499,7 @@ func (cipwc *CIPulseWidthChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(cipwc.BaseCIChannel.Port))
 	h.String(cipwc.BaseCIChannel.Device)
 	cipwc.CustomScale.CustomScale.HashContent(h)
-	h.Float(cipwc.MinMaxVal.MinVal)
-	h.Float(cipwc.MinMaxVal.MaxVal)
+	cipwc.MinMaxVal.Range.HashContent(h)
 	h.String(string(cipwc.Units))
 	h.String(string(cipwc.StartingEdge))
 	h.String(cipwc.Terminal)
@@ -3632,13 +3527,9 @@ func (cispc *CISemiPeriodChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return cispc.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Defaulted(&cispc.MinMaxVal.MinVal, c.Next(), func(def *CISemiPeriodChannel) {
-			cispc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
-		})
-	case "max_val":
-		return patch.Defaulted(&cispc.MinMaxVal.MaxVal, c.Next(), func(def *CISemiPeriodChannel) {
-			cispc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&cispc.MinMaxVal.Range, c.Next(), func(def *CISemiPeriodChannel) {
+			cispc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&cispc.Units, c.Next(), func(def *CISemiPeriodChannel) {
@@ -3659,8 +3550,7 @@ func (cispc *CISemiPeriodChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(cispc.BaseCIChannel.Port))
 	h.String(cispc.BaseCIChannel.Device)
 	cispc.CustomScale.CustomScale.HashContent(h)
-	h.Float(cispc.MinMaxVal.MinVal)
-	h.Float(cispc.MinMaxVal.MaxVal)
+	cispc.MinMaxVal.Range.HashContent(h)
 	h.String(string(cispc.Units))
 	h.String(cispc.Terminal)
 }
@@ -3687,13 +3577,9 @@ func (citesc *CITwoEdgeSepChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return citesc.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Defaulted(&citesc.MinMaxVal.MinVal, c.Next(), func(def *CITwoEdgeSepChannel) {
-			citesc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
-		})
-	case "max_val":
-		return patch.Defaulted(&citesc.MinMaxVal.MaxVal, c.Next(), func(def *CITwoEdgeSepChannel) {
-			citesc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&citesc.MinMaxVal.Range, c.Next(), func(def *CITwoEdgeSepChannel) {
+			citesc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&citesc.Units, c.Next(), func(def *CITwoEdgeSepChannel) {
@@ -3724,8 +3610,7 @@ func (citesc *CITwoEdgeSepChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(citesc.BaseCIChannel.Port))
 	h.String(citesc.BaseCIChannel.Device)
 	citesc.CustomScale.CustomScale.HashContent(h)
-	h.Float(citesc.MinMaxVal.MinVal)
-	h.Float(citesc.MinMaxVal.MaxVal)
+	citesc.MinMaxVal.Range.HashContent(h)
 	h.String(string(citesc.Units))
 	h.String(string(citesc.FirstEdge))
 	h.String(string(citesc.SecondEdge))
@@ -3755,11 +3640,9 @@ func (civlc *CIVelocityLinearChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return civlc.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Value(&civlc.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&civlc.MinMaxVal.MaxVal, c.Next(), func(def *CIVelocityLinearChannel) {
-			civlc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&civlc.MinMaxVal.Range, c.Next(), func(def *CIVelocityLinearChannel) {
+			civlc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&civlc.Units, c.Next(), func(def *CIVelocityLinearChannel) {
@@ -3790,8 +3673,7 @@ func (civlc *CIVelocityLinearChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(civlc.BaseCIChannel.Port))
 	h.String(civlc.BaseCIChannel.Device)
 	civlc.CustomScale.CustomScale.HashContent(h)
-	h.Float(civlc.MinMaxVal.MinVal)
-	h.Float(civlc.MinMaxVal.MaxVal)
+	civlc.MinMaxVal.Range.HashContent(h)
 	h.String(string(civlc.Units))
 	h.String(string(civlc.DecodingType))
 	h.Float(civlc.DistPerPulse)
@@ -3821,11 +3703,9 @@ func (civac *CIVelocityAngularChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return civac.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Value(&civac.MinMaxVal.MinVal, c.Next())
-	case "max_val":
-		return patch.Defaulted(&civac.MinMaxVal.MaxVal, c.Next(), func(def *CIVelocityAngularChannel) {
-			civac.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&civac.MinMaxVal.Range, c.Next(), func(def *CIVelocityAngularChannel) {
+			civac.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "units":
 		return patch.Defaulted(&civac.Units, c.Next(), func(def *CIVelocityAngularChannel) {
@@ -3856,8 +3736,7 @@ func (civac *CIVelocityAngularChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(civac.BaseCIChannel.Port))
 	h.String(civac.BaseCIChannel.Device)
 	civac.CustomScale.CustomScale.HashContent(h)
-	h.Float(civac.MinMaxVal.MinVal)
-	h.Float(civac.MinMaxVal.MaxVal)
+	civac.MinMaxVal.Range.HashContent(h)
 	h.String(string(civac.Units))
 	h.String(string(civac.DecodingType))
 	h.Uint(uint64(civac.PulsesPerRev))
@@ -4037,13 +3916,9 @@ func (cidcc *CIDutyCycleChannel) Patch(c patch.Cursor) error {
 			})
 		}
 		return cidcc.CustomScale.CustomScale.Patch(c)
-	case "min_val":
-		return patch.Defaulted(&cidcc.MinMaxVal.MinVal, c.Next(), func(def *CIDutyCycleChannel) {
-			cidcc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
-		})
-	case "max_val":
-		return patch.Defaulted(&cidcc.MinMaxVal.MaxVal, c.Next(), func(def *CIDutyCycleChannel) {
-			cidcc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+	case "range":
+		return patch.Defaulted(&cidcc.MinMaxVal.Range, c.Next(), func(def *CIDutyCycleChannel) {
+			cidcc.MinMaxVal.Range = def.MinMaxVal.Range
 		})
 	case "active_edge":
 		return patch.Defaulted(&cidcc.ActiveEdge, c.Next(), func(def *CIDutyCycleChannel) {
@@ -4064,8 +3939,7 @@ func (cidcc *CIDutyCycleChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(cidcc.BaseCIChannel.Port))
 	h.String(cidcc.BaseCIChannel.Device)
 	cidcc.CustomScale.CustomScale.HashContent(h)
-	h.Float(cidcc.MinMaxVal.MinVal)
-	h.Float(cidcc.MinMaxVal.MaxVal)
+	cidcc.MinMaxVal.Range.HashContent(h)
 	h.String(string(cidcc.ActiveEdge))
 	h.String(cidcc.Terminal)
 }

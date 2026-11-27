@@ -174,9 +174,8 @@ var _ = Describe("Service", func() {
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
-					"type":    "ai_voltage",
-					"min_val": -10,
-					"max_val": 0,
+					"type":  "ai_voltage",
+					"range": map[string]any{"lower": -10, "upper": 0},
 					"custom_scale": map[string]any{
 						"type":       "map",
 						"scaled_min": -5,
@@ -186,8 +185,10 @@ var _ = Describe("Service", func() {
 			}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
 			ch := channel(data)
-			Expect(ch["min_val"]).To(BeNumerically("==", -10))
-			Expect(ch["max_val"]).To(BeNumerically("==", 0))
+			Expect(ch["range"]).To(SatisfyAll(
+				HaveKeyWithValue("lower", BeNumerically("==", -10)),
+				HaveKeyWithValue("upper", BeNumerically("==", 0)),
+			))
 			scale, ok := ch["custom_scale"].(map[string]any)
 			Expect(ok).To(BeTrue())
 			Expect(scale["scaled_min"]).To(BeNumerically("==", -5))
@@ -204,8 +205,10 @@ var _ = Describe("Service", func() {
 			}))
 			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
 			ch := channel(data)
-			Expect(ch["min_val"]).To(BeNumerically("==", 0))
-			Expect(ch["max_val"]).To(BeNumerically("==", 1))
+			Expect(ch["range"]).To(SatisfyAll(
+				HaveKeyWithValue("lower", BeNumerically("==", 0)),
+				HaveKeyWithValue("upper", BeNumerically("==", 1)),
+			))
 		})
 
 		It("Should keep a deliberate zero on a counter channel range", func(
@@ -213,15 +216,16 @@ var _ = Describe("Service", func() {
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.CounterRead, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
-					"type":    "ci_velocity_linear",
-					"min_val": -10,
-					"max_val": 0,
+					"type":  "ci_velocity_linear",
+					"range": map[string]any{"lower": -10, "upper": 0},
 				}},
 			}))
 			data := MustSucceed(svc.CounterRead.Read(ctx, db, key))
 			ch := channel(data)
-			Expect(ch["min_val"]).To(BeNumerically("==", -10))
-			Expect(ch["max_val"]).To(BeNumerically("==", 0))
+			Expect(ch["range"]).To(SatisfyAll(
+				HaveKeyWithValue("lower", BeNumerically("==", -10)),
+				HaveKeyWithValue("upper", BeNumerically("==", 0)),
+			))
 		})
 
 		It("Should fill a counter channel range when both bounds are zero", func(
@@ -232,8 +236,10 @@ var _ = Describe("Service", func() {
 			}))
 			data := MustSucceed(svc.CounterRead.Read(ctx, db, key))
 			ch := channel(data)
-			Expect(ch["min_val"]).To(BeNumerically("==", 2))
-			Expect(ch["max_val"]).To(BeNumerically("==", 100))
+			Expect(ch["range"]).To(SatisfyAll(
+				HaveKeyWithValue("lower", BeNumerically("==", 2)),
+				HaveKeyWithValue("upper", BeNumerically("==", 100)),
+			))
 		})
 
 		It(
@@ -386,15 +392,24 @@ var _ = Describe("Service", func() {
 				Expect(store().Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 					"channels": []any{ch},
 				})).Error().To(MatchError(ContainSubstring(
-					"Minimum value must be less than maximum value",
+					"must be less than upper",
 				)))
 			},
 			Entry("an analog input", func() config.Store { return svc.AnalogRead },
-				map[string]any{"type": "ai_voltage", "min_val": 5, "max_val": -5}),
+				map[string]any{
+					"type":  "ai_voltage",
+					"range": map[string]any{"lower": 5, "upper": -5},
+				}),
 			Entry("an analog output", func() config.Store { return svc.AnalogWrite },
-				map[string]any{"type": "ao_voltage", "min_val": 1, "max_val": 1}),
+				map[string]any{
+					"type":  "ao_voltage",
+					"range": map[string]any{"lower": 1, "upper": 1},
+				}),
 			Entry("a counter input", func() config.Store { return svc.CounterRead },
-				map[string]any{"type": "ci_frequency", "min_val": 100, "max_val": 2}),
+				map[string]any{
+					"type":  "ci_frequency",
+					"range": map[string]any{"lower": 100, "upper": 2},
+				}),
 		)
 
 		DescribeTable("Should order the range of an older config before checking it",
@@ -411,10 +426,10 @@ var _ = Describe("Service", func() {
 					}),
 				)
 				MustSucceed(store().Prepare(ctx, db, uuid.New(), "", out))
-				Expect(channel(out)).To(SatisfyAll(
-					HaveKeyWithValue("min_val", BeNumerically("==", wantMin)),
-					HaveKeyWithValue("max_val", BeNumerically("==", wantMax)),
-				))
+				Expect(channel(out)).To(HaveKeyWithValue("range", SatisfyAll(
+					HaveKeyWithValue("lower", BeNumerically("==", wantMin)),
+					HaveKeyWithValue("upper", BeNumerically("==", wantMax)),
+				)))
 			},
 			Entry("swapping a reversed legacy analog input",
 				func() config.Store { return svc.AnalogRead }, imex.Version(0),
@@ -440,6 +455,14 @@ var _ = Describe("Service", func() {
 				func() config.Store { return svc.CounterRead }, v3.Version,
 				map[string]any{"type": "ci_frequency", "min_val": 100, "max_val": 2},
 				2.0, 100.0),
+			Entry("keeping a zero upper of a v3 analog input",
+				func() config.Store { return svc.AnalogRead }, v3.Version,
+				map[string]any{"type": "ai_voltage", "min_val": -10, "max_val": 0},
+				-10.0, 0.0),
+			Entry("keeping a zero lower of a v3 counter input",
+				func() config.Store { return svc.CounterRead }, v3.Version,
+				map[string]any{"type": "ci_frequency", "min_val": 0, "max_val": 50},
+				0.0, 50.0),
 		)
 
 		It("Should reject a digital write line above 31", func(ctx SpecContext) {
@@ -482,20 +505,19 @@ var _ = Describe("Service", func() {
 			Expect(channel(out)).To(HaveKeyWithValue("divisor", BeNumerically("==", 4)))
 		})
 
-		It("Should fill a grouped default that an edit leaves all zero", func(
+		It("Should fill the default range when an edit removes it", func(
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.AnalogRead, msgpack.EncodedJSON{
 				"channels": []any{map[string]any{
-					"type":    "ai_voltage",
-					"key":     "ai",
-					"min_val": 0,
-					"max_val": 5,
+					"type":  "ai_voltage",
+					"key":   "ai",
+					"range": map[string]any{"lower": 0, "upper": 5},
 				}},
 			}))
-			c := MustSucceed(patch.Begin(patch.Set{
-				Path:  []string{"config", "channels", "ai", "max_val"},
-				Value: 0.0,
+			c := MustSucceed(patch.Begin(patch.Remove{
+				Path: []string{"config", "channels", "ai"},
+				Key:  "range",
 			})).Next()
 			rec, changed := MustSucceed2(svc.AnalogRead.Edit(
 				ctx, db, key, "", []patch.Cursor{c},
@@ -503,9 +525,9 @@ var _ = Describe("Service", func() {
 			Expect(changed).To(BeTrue())
 			Expect(rec.Write(ctx, db)).To(Succeed())
 			data := MustSucceed(svc.AnalogRead.Read(ctx, db, key))
-			Expect(
-				channel(data),
-			).To(HaveKeyWithValue("max_val", BeNumerically("==", 1)))
+			Expect(channel(data)).To(HaveKeyWithValue("range", HaveKeyWithValue(
+				"upper", BeNumerically("==", 1),
+			)))
 		})
 	})
 

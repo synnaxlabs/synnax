@@ -8,12 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import math
+from typing import Any
 from uuid import UUID
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
+from x import spatial
 from x.strings import random_name
 
 
@@ -34,8 +36,7 @@ class TestNITask:
                     "channel": 1048582,
                     "port": 0,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "Volts",
                     "custom_scale": {"type": "none"},
                 },
@@ -47,8 +48,7 @@ class TestNITask:
                     "channel": 1048583,
                     "port": 1,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "DegC",
                     "thermocouple_type": "J",
                     "cjc": {"source": "built_in"},
@@ -61,8 +61,7 @@ class TestNITask:
                     "type": "ai_rtd",
                     "port": 2,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "DegC",
                     "rtd_type": "Pt3750",
                     "resistance_config": "2Wire",
@@ -78,8 +77,7 @@ class TestNITask:
                     "channel": 1048585,
                     "port": 3,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "units": "PoundsPerSquareInch",
                     "bridge_config": "FullBridge",
@@ -103,8 +101,7 @@ class TestNITask:
                     "port": 4,
                     "units": "g",
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "sensitivity": 0,
                     "sensitivity_units": "mVoltsPerG",
@@ -121,8 +118,7 @@ class TestNITask:
                     "channel": 1048587,
                     "port": 5,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "bridge_config": "FullBridge",
                     "voltage_excit_source": "Internal",
@@ -138,8 +134,7 @@ class TestNITask:
                     "port": 6,
                     "type": "ai_current",
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "units": "Amps",
                     "shunt_resistor_loc": "Default",
@@ -154,8 +149,7 @@ class TestNITask:
                     "channel": 1048589,
                     "port": 7,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "Newtons",
                     "bridge_config": "FullBridge",
                     "voltage_excit_source": "Internal",
@@ -175,8 +169,7 @@ class TestNITask:
                     "channel": 1048590,
                     "port": 8,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "units": "Newtons",
                     "bridge_config": "FullBridge",
@@ -199,8 +192,7 @@ class TestNITask:
                     "channel": 1048591,
                     "port": 9,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "units": "Newtons",
                     "sensitivity": 0,
@@ -233,8 +225,7 @@ class TestNITask:
                     "channel": 1048593,
                     "port": 11,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "PoundsPerSquareInch",
                     "bridge_config": "FullBridge",
                     "voltage_excit_source": "Internal",
@@ -254,8 +245,7 @@ class TestNITask:
                     "channel": 1048594,
                     "port": 12,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "units": "Ohms",
                     "resistance_config": "2Wire",
@@ -271,8 +261,7 @@ class TestNITask:
                     "channel": 1048595,
                     "port": 13,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "terminal_config": "Cfg_Default",
                     "units": "Strain",
                     "strain_config": "FullBridgeI",
@@ -303,8 +292,7 @@ class TestNITask:
                     "channel": 1048597,
                     "port": 15,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "NewtonMeters",
                     "bridge_config": "FullBridge",
                     "voltage_excit_source": "Internal",
@@ -324,8 +312,7 @@ class TestNITask:
                     "channel": 1048598,
                     "port": 16,
                     "disabled": False,
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "NewtonMeters",
                     "bridge_config": "FullBridge",
                     "voltage_excit_source": "Internal",
@@ -348,8 +335,7 @@ class TestNITask:
                     "port": 17,
                     "disabled": False,
                     "terminal_config": "Cfg_Default",
-                    "min_val": 0,
-                    "max_val": 1,
+                    "range": {"lower": 0, "upper": 1},
                     "units": "MetersPerSecond",
                     "sensitivity": 0,
                     "sensitivity_units": "MillivoltsPerMillimeterPerSecond",
@@ -374,8 +360,7 @@ class TestNITask:
                         terminal_config="Cfg_Default",
                         channel=1048582,
                         port=0,
-                        min_val=0,
-                        max_val=1,
+                        range=spatial.ClosedBounds(lower=0, upper=1),
                         custom_scale=sy.ni.NoneScale(type="none"),
                     )
                 ],
@@ -393,8 +378,7 @@ class TestNITask:
                     terminal_config="Cfg_Default",
                     channel=1048582,
                     port=0,
-                    min_val=0,
-                    max_val=1,
+                    range=spatial.ClosedBounds(lower=0, upper=1),
                     custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
@@ -408,8 +392,7 @@ class TestNITask:
             terminal_config="Cfg_Default",
             channel=1048582,
             port=0,
-            min_val=0,
-            max_val=1,
+            range=spatial.ClosedBounds(lower=0, upper=1),
             custom_scale=sy.ni.NoneScale(type="none"),
         )
         tsk = sy.ni.AnalogReadTask(sample_rate=10, stream_rate=5, channels=(ch,))
@@ -427,8 +410,7 @@ class TestNITask:
                     "cmd_channel": 1048610,
                     "state_channel": 1048611,
                     "port": 0,
-                    "min_val": -10.0,
-                    "max_val": 10.0,
+                    "range": {"lower": -10.0, "upper": 10.0},
                     "units": "Volts",
                     "custom_scale": {"type": "none"},
                 }
@@ -450,8 +432,7 @@ class TestNITask:
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048630,
                     "port": 0,
-                    "min_val": 0.0,
-                    "max_val": 1000.0,
+                    "range": {"lower": 0.0, "upper": 1000.0},
                     "units": "Hz",
                     "edge": "Rising",
                     "meas_method": "LowFreq1Ctr",
@@ -477,8 +458,7 @@ class TestNITask:
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048631,
                     "port": 0,
-                    "min_val": 0.0,
-                    "max_val": 100.0,
+                    "range": {"lower": 0.0, "upper": 100.0},
                     "units": "m/s",
                     "decoding_type": "X4",
                     "dist_per_pulse": 0.001,
@@ -504,8 +484,7 @@ class TestNITask:
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048632,
                     "port": 1,
-                    "min_val": 0.0,
-                    "max_val": 10000.0,
+                    "range": {"lower": 0.0, "upper": 10000.0},
                     "units": "RPM",
                     "decoding_type": "X4",
                     "pulses_per_rev": 1024,
@@ -591,8 +570,7 @@ class TestNITask:
                     "device": "474503CF-49FD-11EF-80E5-91C59E7C9645",
                     "channel": 1048635,
                     "port": 4,
-                    "min_val": 0.0,
-                    "max_val": 1.0,
+                    "range": {"lower": 0.0, "upper": 1.0},
                     "active_edge": "Rising",
                     "custom_scale": {"type": "none"},
                 }
@@ -653,8 +631,7 @@ class TestNITask:
                     terminal_config="Cfg_Default",
                     channel=1234,
                     port=0,
-                    min_val=0,
-                    max_val=10,
+                    range=spatial.ClosedBounds(lower=0, upper=10),
                     custom_scale=sy.ni.NoneScale(type="none"),
                 )
             ],
@@ -676,8 +653,7 @@ class TestNITask:
                     device="test-device",
                     channel=1234,
                     port=0,
-                    min_val=0,
-                    max_val=1000,
+                    range=spatial.ClosedBounds(lower=0, upper=1000),
                     units="Hz",
                     edge="Rising",
                     meas_method="LowFreq1Ctr",
@@ -721,8 +697,7 @@ class TestNITask:
                     terminal_config="Cfg_Default",
                     channel=1,
                     port=0,
-                    min_val=-10,
-                    max_val=10,
+                    range=spatial.ClosedBounds(lower=-10, upper=10),
                     custom_scale=sy.ni.NoneScale(type="none"),
                 ),
                 sy.ni.AIVoltageChannel(
@@ -732,8 +707,7 @@ class TestNITask:
                     terminal_config="Cfg_Default",
                     channel=2,
                     port=0,
-                    min_val=-10,
-                    max_val=10,
+                    range=spatial.ClosedBounds(lower=-10, upper=10),
                     custom_scale=sy.ni.NoneScale(type="none"),
                 ),
             ],
@@ -987,3 +961,40 @@ class TestNIResources:
             rack=1, name="PXIe-1071", model="1071", resource_name="Mod1"
         )
         assert chassis.serial == ""
+
+
+@pytest.mark.ni
+class TestMinMaxVal:
+    def test_lifts_min_val_and_max_val_into_range(self) -> None:
+        """Should read the min_val and max_val keywords with a deprecation warning."""
+        # The old keywords are not in the typed signature, so they go through a dict.
+        kwargs: dict[str, Any] = {
+            "port": 0,
+            "channel": 1,
+            "min_val": -10,
+            "max_val": 10,
+        }
+        with pytest.warns(DeprecationWarning, match="min_val") as record:
+            ch = sy.ni.AIVoltageChannel(**kwargs)
+        assert ch.range == spatial.ClosedBounds(lower=-10, upper=10)
+        assert record[0].filename == __file__
+
+    def test_keeps_the_default_for_a_missing_end(self) -> None:
+        """Should take the default of the channel type for an end not given."""
+        with pytest.warns(DeprecationWarning, match="min_val"):
+            ch = sy.ni.CIFrequencyChannel.model_validate(
+                {"port": 0, "channel": 1, "max_val": 500}
+            )
+        assert ch.range == spatial.ClosedBounds(lower=2, upper=500)
+
+    def test_rejects_range_with_min_val(self) -> None:
+        """Should refuse both spellings of the range at once."""
+        with pytest.raises(TypeError):
+            sy.ni.AIVoltageChannel.model_validate(
+                {
+                    "port": 0,
+                    "channel": 1,
+                    "range": {"lower": 0, "upper": 1},
+                    "min_val": -10,
+                }
+            )

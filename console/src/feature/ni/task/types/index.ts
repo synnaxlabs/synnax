@@ -368,12 +368,12 @@ const validateRanges = ({
   issues,
 }: z.core.ParsePayload<(AIChannel | AOChannel | CIChannel)[]>) =>
   channels.forEach((c, i) => {
-    if (c.disabled || !("minVal" in c) || c.minVal < c.maxVal) return;
+    if (c.disabled || !("range" in c) || c.range.lower < c.range.upper) return;
     issues.push({
       continue: true,
       code: "custom",
       message: "Minimum value must be less than maximum value",
-      path: [i, "minVal"],
+      path: [i, "range", "lower"],
       input: channels,
     });
   });

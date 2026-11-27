@@ -26,6 +26,7 @@ from tests.driver.ni_task import (
 )
 from tests.driver.task import create_channel, create_index, delete_channels
 from tests.hitl.crio_case import CRIOCase
+from x import spatial
 
 # Each level changes both outputs, and no level matches what an earlier test leaves on
 # them, so an input can only read a level after the output really changes.
@@ -64,8 +65,7 @@ class CRIOAnalogRead(CRIOCase, NIAnalogReadTaskCase):
                 ),
                 # Each output connects to one input, measured against the shared COM.
                 terminal_config="RSE",
-                min_val=-10.0,
-                max_val=10.0,
+                range=spatial.ClosedBounds(lower=-10.0, upper=10.0),
             )
             for i in range(4)
         ]
@@ -100,8 +100,7 @@ class CRIOAnalogWrite(CRIOCase, NIAnalogWriteTaskCase):
                     index=state_idx.key,
                 ),
                 port=i,
-                min_val=-10,
-                max_val=10,
+                range=spatial.ClosedBounds(lower=-10, upper=10),
             )
             for i in range(2)
         ]
@@ -201,8 +200,7 @@ class CRIOThermocoupleRead(CRIOCase, NIAnalogReadTaskCase):
                     index=idx.key,
                 ),
                 thermocouple_type="K",
-                min_val=0,
-                max_val=100,
+                range=spatial.ClosedBounds(lower=0, upper=100),
             )
         ]
 

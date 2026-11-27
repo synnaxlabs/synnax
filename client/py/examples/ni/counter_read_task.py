@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
+from x import spatial
 
 """
 This example demonstrates how to configure and start a Counter Read Task on a National
@@ -76,10 +77,8 @@ tsk = sy.ni.CounterReadTask(
             channel=ci_0_freq.key,
             # The counter port on the device (ctr0, ctr1, etc.)
             port=0,
-            # Minimum expected frequency value in Hz
-            min_val=1,
-            # Maximum expected frequency value in Hz
-            max_val=10000,
+            # Expected frequency range in Hz
+            range=spatial.ClosedBounds(lower=1, upper=10000),
             # Units of measurement (Hz, Seconds, or Ticks)
             units="Hz",
             # Edge to count on (Rising or Falling)

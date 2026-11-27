@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/spatial/v0"
 import "schemas/x/versions/telem/v0"
 
 Units = v2.Units
@@ -64,7 +65,14 @@ ChargeUnits = v2.ChargeUnits
 
 Scale = v2.Scale
 
-MinMaxVal = v2.MinMaxVal
+MinMaxVal struct {
+    range spatial.ClosedBounds = { lower = 0, upper = 1 } {
+        @doc value "is the expected signal range, in scaled units."
+    }
+
+    @doc value  "bounds the expected signal range in scaled units."
+    @go marshal
+}
 
 Terminal = v2.Terminal
 
@@ -126,17 +134,69 @@ BaseCIChannel struct extends v3.BaseCIChannel {
 
 CIChannel union on type extends v3.CIChannel {
     ci_frequency {
+        -min_val
+        -max_val
         meas_time telem.TimeSpan = 6us {
             @doc value    "is the averaging window for high-frequency measurement."
             @validate max 9007199254740991
             @validate min 1
         }
+        range     = { lower = 2, upper = 100 } {
+            @doc value "is the expected frequency range."
+        }
     }
     ci_period {
+        -min_val
+        -max_val
         meas_time telem.TimeSpan = 1ms {
             @doc value    "is the averaging window for high-frequency measurement."
             @validate max 9007199254740991
             @validate min 1
+        }
+        range     = { lower = 0.000001, upper = 0.1 } {
+            @doc value "is the expected period range, in the selected units."
+        }
+    }
+    ci_pulse_width {
+        -min_val
+        -max_val
+        range = { lower = 0.000001, upper = 0.1 } {
+            @doc value "is the expected pulse width range, in the selected units."
+        }
+    }
+    ci_semi_period {
+        -min_val
+        -max_val
+        range = { lower = 0.000001, upper = 0.1 } {
+            @doc value "is the expected semi-period range, in the selected units."
+        }
+    }
+    ci_two_edge_sep {
+        -min_val
+        -max_val
+        range = { lower = 0.000001, upper = 1 } {
+            @doc value "is the expected separation range, in the selected units."
+        }
+    }
+    ci_velocity_linear {
+        -min_val
+        -max_val
+        range {
+            @doc value "is the expected velocity range."
+        }
+    }
+    ci_velocity_angular {
+        -min_val
+        -max_val
+        range {
+            @doc value "is the expected velocity range."
+        }
+    }
+    ci_duty_cycle {
+        -min_val
+        -max_val
+        range = { lower = 2, upper = 10000 } {
+            @doc value "is the expected duty-cycle frequency range."
         }
     }
 }

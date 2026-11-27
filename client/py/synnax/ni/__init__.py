@@ -9,6 +9,7 @@
 
 from synnax.ni import chassis, device
 from synnax.ni.client import Client
+from synnax.ni.range import MinMaxVal
 from synnax.ni.types import (
     MAKE,
     AnalogReadTask,
@@ -102,7 +103,6 @@ from synnax.ni.types_gen import (
     Hardware,
     LinearScale,
     MapScale,
-    MinMaxVal,
     NoneScale,
     PolynomialScale,
     PressureUnits,

@@ -13,9 +13,11 @@
       },
       "disabled": false,
       "key": "ch-ao-voltage",
-      "max_val": 9.5,
-      "min_val": -9.5,
       "port": 0,
+      "range": {
+        "lower": -9.5,
+        "upper": 9.5
+      },
       "state_channel": 2011,
       "state_channel_name": "fixture_ao_voltage_state",
       "type": "ao_voltage"
@@ -34,9 +36,11 @@
       },
       "disabled": true,
       "key": "ch-ao-current",
-      "max_val": 0.02,
-      "min_val": 0.004,
       "port": 1,
+      "range": {
+        "lower": 0.004,
+        "upper": 0.02
+      },
       "state_channel": 2021,
       "state_channel_name": "fixture_ao_current_state",
       "type": "ao_current"

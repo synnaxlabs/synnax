@@ -2725,3 +2725,22 @@ func (dwc *DigitalWriteConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	return nil
 }
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (mmv MinMaxVal) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(mmv.Range.Lower))
+	w.Float64(float64(mmv.Range.Upper))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (mmv *MinMaxVal) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if mmv.Range.Lower, err = r.Float64(); err != nil {
+		return err
+	}
+	if mmv.Range.Upper, err = r.Float64(); err != nil {
+		return err
+	}
+	return nil
+}

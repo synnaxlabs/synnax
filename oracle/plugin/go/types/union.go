@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -405,9 +406,14 @@ func embedRecurseSteps(
 			)
 		}
 	}
+	refs := lo.Map(embeds, func(e embeddedType, _ int) resolution.TypeRef {
+		return e.ref
+	})
+	// The embedded parent already reaches a field that only restates its default.
+	defaultOnly := resolver.DefaultOnlyOverrides(refs, inlineFields, data.table)
 	for _, f := range inlineFields {
 		fd := data.forField(f)
-		if rule.skip(f, fd) {
+		if rule.skip(f, fd) || defaultOnly.Contains(f.Name) {
 			continue
 		}
 		if step, ok := goRecurseStep(f, fd, rule); ok {

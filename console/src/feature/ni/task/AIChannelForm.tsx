@@ -365,7 +365,7 @@ const rangeUnits = (channel: AIChannel): string | undefined => {
 /** The Range section, or nothing for a channel type without a range. */
 const RangeSection = ({ path }: { path: deep.Path<AIChannel> }) => {
   const channel = Form.useFieldValue(path);
-  if (!("minVal" in channel)) return null;
+  if (!("range" in channel)) return null;
   return (
     <Form.Section title="Range">
       <MinMaxValueFields

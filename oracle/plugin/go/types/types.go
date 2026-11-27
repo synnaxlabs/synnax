@@ -980,7 +980,8 @@ func addFieldMethods(
 	if chk, ok := goPatternCheck(field, parent, data); ok {
 		sd.ConstraintChecks = append(sd.ConstraintChecks, chk)
 	}
-	if step, ok := goRecurseStep(field, fd, validateRule); ok {
+	// The embedded parent already reaches a field that only restates its default.
+	if step, ok := goRecurseStep(field, fd, validateRule); ok && !defaultOnly {
 		sd.ValidateRecurse = append(sd.ValidateRecurse, step)
 	}
 }

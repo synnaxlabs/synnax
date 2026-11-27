@@ -680,6 +680,28 @@ var _ = Describe("Go Patch Plugin", func() {
 				ToNotContain("h.Bytes(cv.Key[:])", "h.String(e.Key)", "h.Int(")
 		})
 
+		It("Should hash a struct whose type parameters have defaults", func() {
+			resp := MustGenerate(`
+				@go output "core/pkg/service/cfg"
+
+				Range struct<T extends numeric = float64> {
+					lower T
+					upper T
+				}
+
+				Config struct {
+					range Range
+
+					@patch
+				}
+			`, "cfg", loader, p)
+			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
+				"cv.Range.HashContent(h)",
+				"func (r *Range) HashContent(h *content.Hash) {",
+				"h.Float(r.Lower)",
+			)
+		})
+
 		It("Should leave the hash out for a document with @patch fields", func() {
 			resp := MustGenerate(`
 				import "schemas/x/patch"

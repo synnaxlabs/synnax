@@ -443,7 +443,10 @@ describe("AnalogWrite ports", () => {
       properties: { hardware: createHardware() },
     });
     await renderAnalogWrite(
-      createConfig([createChannel(type, 0, { minVal: 0, maxVal })], dev.key),
+      createConfig(
+        [createChannel(type, 0, { range: { lower: 0, upper: maxVal } })],
+        dev.key,
+      ),
     );
     await waitFor(() =>
       expect(screen.getByLabelText("Maximum value").getAttribute("aria-invalid")).toBe(
@@ -465,7 +468,12 @@ describe("AnalogWrite ports", () => {
     };
     await renderAnalogWrite(
       createConfig(
-        [createChannel("ao_voltage", 0, { minVal: 0, maxVal: 30, customScale })],
+        [
+          createChannel("ao_voltage", 0, {
+            range: { lower: 0, upper: 30 },
+            customScale,
+          }),
+        ],
         dev.key,
       ),
     );
@@ -494,8 +502,7 @@ describe("AnalogWrite ports", () => {
     hardware.analogOutputs[0].types.push("ao_current");
     const dev = await createNIDevice(client, { properties: { hardware } });
     const scaled = createChannel("ao_voltage", 0, {
-      minVal: 0,
-      maxVal: 100,
+      range: { lower: 0, upper: 100 },
       customScale: {
         type: "linear",
         slope: 10,

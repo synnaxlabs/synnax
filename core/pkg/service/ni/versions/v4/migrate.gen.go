@@ -94,9 +94,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVoltageChannel{
 			BaseAIChannel: baseAIChannel,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Terminal:      variant.Terminal,
 			CustomScale:   variant.CustomScale,
 		}}, nil
@@ -105,9 +109,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIAccelChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Terminal:          variant.Terminal,
 			Sensitivity:       variant.Sensitivity,
 			CurrentExcitation: variant.CurrentExcitation,
@@ -120,9 +128,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIBridgeChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			CustomScale:       variant.CustomScale,
@@ -133,9 +145,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AICurrentChannel{
 			BaseAIChannel:       baseAIChannel,
-			MinMaxVal:           variant.MinMaxVal,
+			MinMaxVal:           minMaxVal,
 			Terminal:            variant.Terminal,
 			CustomScale:         variant.CustomScale,
 			ShuntResistorLoc:    variant.ShuntResistorLoc,
@@ -146,9 +162,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIForceBridgeTableChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			Table:             variant.Table,
@@ -161,9 +181,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIForceBridgeTwoPointLinChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			TwoPointLin:       variant.TwoPointLin,
@@ -176,9 +200,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIForceIEPEChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Terminal:          variant.Terminal,
 			Sensitivity:       variant.Sensitivity,
 			CurrentExcitation: variant.CurrentExcitation,
@@ -204,9 +232,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIPressureBridgeTableChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			Table:             variant.Table,
@@ -219,9 +251,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIPressureBridgeTwoPointLinChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			TwoPointLin:       variant.TwoPointLin,
@@ -234,9 +270,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIResistanceChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Resistance:        variant.Resistance,
 			CurrentExcitation: variant.CurrentExcitation,
 			CustomScale:       variant.CustomScale,
@@ -246,9 +286,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIRTDChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Resistance:        variant.Resistance,
 			CurrentExcitation: variant.CurrentExcitation,
 			Units:             variant.Units,
@@ -260,9 +304,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIStrainGaugeChannel{
 			BaseAIChannel:         baseAIChannel,
-			MinMaxVal:             variant.MinMaxVal,
+			MinMaxVal:             minMaxVal,
 			VoltageExcitation:     variant.VoltageExcitation,
 			CustomScale:           variant.CustomScale,
 			StrainConfig:          variant.StrainConfig,
@@ -286,13 +334,17 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		cjc, err := MigrateCJC(ctx, variant.Cjc)
 		if err != nil {
 			return AIChannel{}, err
 		}
 		return AIChannel{Variant: AIThermocoupleChannel{
 			BaseAIChannel:    baseAIChannel,
-			MinMaxVal:        variant.MinMaxVal,
+			MinMaxVal:        minMaxVal,
 			Units:            variant.Units,
 			ThermocoupleType: variant.ThermocoupleType,
 			Cjc:              cjc,
@@ -302,9 +354,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AITorqueBridgeTableChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			Table:             variant.Table,
@@ -317,9 +373,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AITorqueBridgeTwoPointLinChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			TwoPointLin:       variant.TwoPointLin,
@@ -332,9 +392,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVelocityIEPEChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Terminal:          variant.Terminal,
 			Sensitivity:       variant.Sensitivity,
 			CurrentExcitation: variant.CurrentExcitation,
@@ -347,9 +411,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIAccel4WireDCVoltageChannel{
 			BaseAIChannel:      baseAIChannel,
-			MinMaxVal:          variant.MinMaxVal,
+			MinMaxVal:          minMaxVal,
 			Terminal:           variant.Terminal,
 			Sensitivity:        variant.Sensitivity,
 			VoltageExcitation:  variant.VoltageExcitation,
@@ -363,9 +431,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIAccelChargeChannel{
 			BaseAIChannel:    baseAIChannel,
-			MinMaxVal:        variant.MinMaxVal,
+			MinMaxVal:        minMaxVal,
 			Terminal:         variant.Terminal,
 			Sensitivity:      variant.Sensitivity,
 			CustomScale:      variant.CustomScale,
@@ -377,9 +449,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIChargeChannel{
 			BaseAIChannel: baseAIChannel,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Terminal:      variant.Terminal,
 			CustomScale:   variant.CustomScale,
 			Units:         variant.Units,
@@ -389,9 +465,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AICurrentRMSChannel{
 			BaseAIChannel:       baseAIChannel,
-			MinMaxVal:           variant.MinMaxVal,
+			MinMaxVal:           minMaxVal,
 			Terminal:            variant.Terminal,
 			CustomScale:         variant.CustomScale,
 			ShuntResistorLoc:    variant.ShuntResistorLoc,
@@ -402,9 +482,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIForceBridgePolynomialChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			BridgePolynomial:  variant.BridgePolynomial,
@@ -417,9 +501,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIFreqVoltageChannel{
 			BaseAIChannel:  baseAIChannel,
-			MinMaxVal:      variant.MinMaxVal,
+			MinMaxVal:      minMaxVal,
 			CustomScale:    variant.CustomScale,
 			ThresholdLevel: variant.ThresholdLevel,
 			Hysteresis:     variant.Hysteresis,
@@ -429,9 +517,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIPressureBridgePolynomialChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			BridgePolynomial:  variant.BridgePolynomial,
@@ -444,9 +536,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIThermistorIexChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Resistance:        variant.Resistance,
 			CurrentExcitation: variant.CurrentExcitation,
 			Units:             variant.Units,
@@ -459,9 +555,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIThermistorVexChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Resistance:        variant.Resistance,
 			VoltageExcitation: variant.VoltageExcitation,
 			Units:             variant.Units,
@@ -475,9 +575,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AITorqueBridgePolynomialChannel{
 			BaseAIChannel:     baseAIChannel,
-			MinMaxVal:         variant.MinMaxVal,
+			MinMaxVal:         minMaxVal,
 			Bridge:            variant.Bridge,
 			VoltageExcitation: variant.VoltageExcitation,
 			BridgePolynomial:  variant.BridgePolynomial,
@@ -490,9 +594,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVoltageRMSChannel{
 			BaseAIChannel: baseAIChannel,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Terminal:      variant.Terminal,
 			CustomScale:   variant.CustomScale,
 		}}, nil
@@ -501,9 +609,13 @@ func autoMigrateAIChannel(ctx context.Context, old v3.AIChannel) (AIChannel, err
 		if err != nil {
 			return AIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AIChannel{}, err
+		}
 		return AIChannel{Variant: AIVoltageWithExcitChannel{
 			BaseAIChannel:      baseAIChannel,
-			MinMaxVal:          variant.MinMaxVal,
+			MinMaxVal:          minMaxVal,
 			Terminal:           variant.Terminal,
 			VoltageExcitation:  variant.VoltageExcitation,
 			CustomScale:        variant.CustomScale,
@@ -524,9 +636,13 @@ func autoMigrateAOChannel(ctx context.Context, old v3.AOChannel) (AOChannel, err
 		if err != nil {
 			return AOChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AOChannel{}, err
+		}
 		return AOChannel{Variant: AOCurrentChannel{
 			BaseAOChannel:      baseAOChannel,
-			MinMaxVal:          variant.MinMaxVal,
+			MinMaxVal:          minMaxVal,
 			CustomScale:        variant.CustomScale,
 			CommandedAOChannel: variant.CommandedAOChannel,
 		}}, nil
@@ -547,9 +663,13 @@ func autoMigrateAOChannel(ctx context.Context, old v3.AOChannel) (AOChannel, err
 		if err != nil {
 			return AOChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return AOChannel{}, err
+		}
 		return AOChannel{Variant: AOVoltageChannel{
 			BaseAOChannel:      baseAOChannel,
-			MinMaxVal:          variant.MinMaxVal,
+			MinMaxVal:          minMaxVal,
 			CustomScale:        variant.CustomScale,
 			CommandedAOChannel: variant.CommandedAOChannel,
 		}}, nil
@@ -567,10 +687,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CIFrequencyChannel{
 			BaseCIChannel: baseCIChannel,
 			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Units:         variant.Units,
 			Edge:          variant.Edge,
 			MeasMethod:    variant.MeasMethod,
@@ -594,10 +718,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CIPeriodChannel{
 			BaseCIChannel: baseCIChannel,
 			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Units:         variant.Units,
 			StartingEdge:  variant.StartingEdge,
 			MeasMethod:    variant.MeasMethod,
@@ -609,10 +737,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CIPulseWidthChannel{
 			BaseCIChannel: baseCIChannel,
 			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Units:         variant.Units,
 			StartingEdge:  variant.StartingEdge,
 			Terminal:      variant.Terminal,
@@ -622,10 +754,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CISemiPeriodChannel{
 			BaseCIChannel: baseCIChannel,
 			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Units:         variant.Units,
 			Terminal:      variant.Terminal,
 		}}, nil
@@ -634,10 +770,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CITwoEdgeSepChannel{
 			BaseCIChannel:  baseCIChannel,
 			CustomScale:    variant.CustomScale,
-			MinMaxVal:      variant.MinMaxVal,
+			MinMaxVal:      minMaxVal,
 			Units:          variant.Units,
 			FirstEdge:      variant.FirstEdge,
 			SecondEdge:     variant.SecondEdge,
@@ -649,10 +789,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CIVelocityLinearChannel{
 			BaseCIChannel: baseCIChannel,
 			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Units:         variant.Units,
 			DecodingType:  variant.DecodingType,
 			DistPerPulse:  variant.DistPerPulse,
@@ -664,10 +808,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CIVelocityAngularChannel{
 			BaseCIChannel: baseCIChannel,
 			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			Units:         variant.Units,
 			DecodingType:  variant.DecodingType,
 			PulsesPerRev:  variant.PulsesPerRev,
@@ -711,10 +859,14 @@ func autoMigrateCIChannel(ctx context.Context, old v3.CIChannel) (CIChannel, err
 		if err != nil {
 			return CIChannel{}, err
 		}
+		minMaxVal, err := MigrateMinMaxVal(ctx, variant.MinMaxVal)
+		if err != nil {
+			return CIChannel{}, err
+		}
 		return CIChannel{Variant: CIDutyCycleChannel{
 			BaseCIChannel: baseCIChannel,
 			CustomScale:   variant.CustomScale,
-			MinMaxVal:     variant.MinMaxVal,
+			MinMaxVal:     minMaxVal,
 			ActiveEdge:    variant.ActiveEdge,
 			Terminal:      variant.Terminal,
 		}}, nil
@@ -753,6 +905,10 @@ func autoMigrateBaseAIChannel(_ context.Context, old v3.BaseAIChannel) (BaseAICh
 		Channel:  old.Channel,
 		Device:   old.Device,
 	}, nil
+}
+
+func autoMigrateMinMaxVal(_ context.Context, old v3.MinMaxVal) (MinMaxVal, error) {
+	return MinMaxVal{}, nil
 }
 
 func autoMigrateCJC(_ context.Context, old v3.CJC) (CJC, error) {

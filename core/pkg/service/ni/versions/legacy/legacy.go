@@ -32,6 +32,7 @@ var AnalogRead = legacy.Rewrite{Post: analogRead}
 var CounterRead = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
 	pushDownDevice(config)
 	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
+		flattenRange(ch)
 		t := ch["type"]
 		if (t == "ci_frequency" || t == "ci_period") && ch["meas_method"] == "DynAvg" {
 			ch["meas_method"] = "DynamicAvg"
@@ -66,7 +67,10 @@ var linearVelocityUnits = map[string]string{
 // AnalogWrite converts the released analog write shape: channels carried units the
 // schema no longer stores.
 var AnalogWrite = legacy.Rewrite{Post: func(config msgpack.EncodedJSON) {
-	legacy.EachChild(config, "channels", deleteFixedUnits)
+	legacy.EachChild(config, "channels", func(ch msgpack.EncodedJSON) {
+		deleteFixedUnits(ch)
+		flattenRange(ch)
+	})
 }}
 
 // fixedUnitTypes are the channel types NI-DAQmx accepts one engineering unit for. The
@@ -122,6 +126,7 @@ func analogRead(config msgpack.EncodedJSON) {
 			ch["type"] = "ai_freq_voltage"
 		}
 		deleteFixedUnits(ch)
+		flattenRange(ch)
 		deleteBuiltinTempPort(ch)
 		rewriteChargeUnits(ch)
 		rewriteStrainValues(ch)
@@ -215,4 +220,15 @@ func zeroIfNil(v any) any {
 		return 0
 	}
 	return v
+}
+
+// flattenRange spells the range of an unversioned copy of a current channel as the
+// minimum and maximum that the first typed shape stores, so the ladder lifts it back.
+func flattenRange(ch msgpack.EncodedJSON) {
+	r, ok := ch["range"].(map[string]any)
+	if !ok {
+		return
+	}
+	delete(ch, "range")
+	ch["min_val"], ch["max_val"] = r["lower"], r["upper"]
 }

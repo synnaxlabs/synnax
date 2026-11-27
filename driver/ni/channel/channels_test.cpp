@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
@@ -33,8 +35,7 @@ TEST(ChannelsTest, ParseAIAccelChan) {
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"sensitivity", 0},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0},
@@ -72,8 +73,7 @@ TEST(ChannelsTest, ParseAIAccelChargeChan) {
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"sensitivity", 100},
         {"custom_scale", {{"type", "none"}}},
         {"units", "g"},
@@ -109,8 +109,7 @@ TEST(ChannelsTest, ParseAIBridgeChan) {
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
         {"custom_scale", {{"type", "none"}}},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"units", "mVoltsPerVolt"},
         {"device", "cdaq1Mod2"}
     };
@@ -139,8 +138,7 @@ TEST(ChannelsTest, ParseAICurrentChan) {
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"custom_scale", {{"type", "none"}}},
         {"shunt_resistor_loc", "Default"},
         {"ext_shunt_resistor_val", 1},
@@ -173,8 +171,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTableChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"bridge_config", "FullBridge"},
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
@@ -211,8 +208,7 @@ TEST(ChannelsTest, ParseAIForceBridgeTwoPointLinChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"bridge_config", "FullBridge"},
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
@@ -252,8 +248,7 @@ TEST(ChannelsTest, ParseAIForceIEPEChan) {
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"sensitivity", 0},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0},
@@ -321,8 +316,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTableChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"bridge_config", "FullBridge"},
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
@@ -359,8 +353,7 @@ TEST(ChannelsTest, ParseAIPressureBridgeTwoPointLinChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"bridge_config", "FullBridge"},
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
@@ -399,8 +392,7 @@ TEST(ChannelsTest, ParseAIRTDChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"resistance_config", "2Wire"},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0},
@@ -436,8 +428,7 @@ TEST(ChannelsTest, ParseAIStrainGaugeChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"voltage_excit_source", "Internal"},
         {"voltage_excit_val", 0},
         {"custom_scale", {{"type", "none"}}},
@@ -505,8 +496,7 @@ TEST(ChannelsTest, ParseAIThermoChan) {
           {"disabled", false},
           {"name", ""},
           {"channel", 0},
-          {"min_val", 0},
-          {"max_val", 1},
+          {"range", {{"lower", 0}, {"upper", 1}}},
           {"units", "DegC"},
           {"thermocouple_type", "J"},
           {"cjc", {{"source", "chan"}, {"port", 1}}},
@@ -539,8 +529,7 @@ TEST(ChannelsTest, ParseAIThermocoupleConstCJC) {
           {"disabled", false},
           {"name", ""},
           {"channel", 0},
-          {"min_val", 0},
-          {"max_val", 1},
+          {"range", {{"lower", 0}, {"upper", 1}}},
           {"units", "DegC"},
           {"thermocouple_type", "J"},
           {"cjc", {{"source", "const_val"}, {"val", 25.5}}},
@@ -571,8 +560,7 @@ TEST(ChannelsTest, ParseAIThermocoupleBuiltInCJC) {
           {"disabled", false},
           {"name", ""},
           {"channel", 0},
-          {"min_val", 0},
-          {"max_val", 1},
+          {"range", {{"lower", 0}, {"upper", 1}}},
           {"units", "DegC"},
           {"thermocouple_type", "J"},
           {"cjc", {{"source", "built_in"}}},
@@ -601,8 +589,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTableChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"bridge_config", "FullBridge"},
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
@@ -639,8 +626,7 @@ TEST(ChannelsTest, ParseAITorqueBridgeTwoPointLinChan) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"bridge_config", "FullBridge"},
         {"nominal_bridge_resistance", 0},
         {"voltage_excit_source", "Internal"},
@@ -680,8 +666,7 @@ TEST(ChannelsTest, ParseAIVelocityIEPEChan) {
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"sensitivity", 0},
         {"current_excit_source", "Internal"},
         {"current_excit_val", 0},
@@ -717,8 +702,7 @@ TEST(ChannelsTest, ParseAIVoltageChan) {
         {"name", ""},
         {"channel", 0},
         {"terminal_config", "Cfg_Default"},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cdaq1Mod2"}
     };
@@ -748,8 +732,7 @@ TEST(ChannelsTest, ParseAOVoltageChan) {
         {"channel", 0},
         {"cmd_channel", 0},
         {"state_channel", 0},
-        {"min_val", 0},
-        {"max_val", 1},
+        {"range", {{"lower", 0}, {"upper", 1}}},
         {"custom_scale", {{"type", "none"}}}
     };
     x::json::Parser p(j);
@@ -871,8 +854,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanHz) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 2},
-        {"max_val", 1000},
+        {"range", {{"lower", 2}, {"upper", 1000}}},
         {"units", "Hz"},
         {"edge", "Rising"},
         {"meas_method", "DynamicAvg"},
@@ -912,8 +894,7 @@ TEST(ChannelsTest, ParseCIFrequencyChanTicks) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 100},
-        {"max_val", 10000},
+        {"range", {{"lower", 100}, {"upper", 10000}}},
         {"units", "Ticks"},
         {"edge", "Falling"},
         {"meas_method", "LowFreq1Ctr"},
@@ -1019,8 +1000,7 @@ TEST(ChannelsTest, ParseCIPeriodChanSeconds) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 0.1},
+        {"range", {{"lower", 0.000001}, {"upper", 0.1}}},
         {"units", "Seconds"},
         {"starting_edge", "Rising"},
         {"meas_method", "DynamicAvg"},
@@ -1055,8 +1035,7 @@ TEST(ChannelsTest, ParseCIPeriodChanTicks) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 0.1},
+        {"range", {{"lower", 0.000001}, {"upper", 0.1}}},
         {"units", "Ticks"},
         {"starting_edge", "Falling"},
         {"meas_method", "LowFreq1Ctr"},
@@ -1092,8 +1071,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanSeconds) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 0.1},
+        {"range", {{"lower", 0.000001}, {"upper", 0.1}}},
         {"units", "Seconds"},
         {"starting_edge", "Rising"},
         {"terminal", ""},
@@ -1123,8 +1101,7 @@ TEST(ChannelsTest, ParseCIPulseWidthChanTicks) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 0.1},
+        {"range", {{"lower", 0.000001}, {"upper", 0.1}}},
         {"units", "Ticks"},
         {"starting_edge", "Falling"},
         {"terminal", "PFI9"},
@@ -1155,8 +1132,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanSeconds) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 0.1},
+        {"range", {{"lower", 0.000001}, {"upper", 0.1}}},
         {"units", "Seconds"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
@@ -1184,8 +1160,7 @@ TEST(ChannelsTest, ParseCISemiPeriodChanTicks) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 0.1},
+        {"range", {{"lower", 0.000001}, {"upper", 0.1}}},
         {"units", "Ticks"},
         {"custom_scale", {{"type", "none"}}},
         {"device", "cDAQ1Mod3"}
@@ -1213,8 +1188,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanSeconds) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 1},
+        {"range", {{"lower", 0.000001}, {"upper", 1}}},
         {"units", "Seconds"},
         {"first_edge", "Rising"},
         {"second_edge", "Falling"},
@@ -1246,8 +1220,7 @@ TEST(ChannelsTest, ParseCITwoEdgeSepChanTicks) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0.000001},
-        {"max_val", 1},
+        {"range", {{"lower", 0.000001}, {"upper", 1}}},
         {"units", "Ticks"},
         {"first_edge", "Falling"},
         {"second_edge", "Rising"},
@@ -1279,8 +1252,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanMetersPerSecond) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 10},
+        {"range", {{"lower", 0}, {"upper", 10}}},
         {"units", "m/s"},
         {"decoding_type", "X4"},
         {"dist_per_pulse", 0.001},
@@ -1318,8 +1290,7 @@ TEST(ChannelsTest, ParseCILinearVelocityChanInchesPerSecond) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 100},
+        {"range", {{"lower", 0}, {"upper", 100}}},
         {"units", "in/s"},
         {"decoding_type", "X2"},
         {"dist_per_pulse", 0.01},
@@ -1356,8 +1327,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRPM) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 1000},
+        {"range", {{"lower", 0}, {"upper", 1000}}},
         {"units", "RPM"},
         {"decoding_type", "X4"},
         {"pulses_per_rev", 24},
@@ -1395,8 +1365,7 @@ TEST(ChannelsTest, ParseCIAngularVelocityChanRadiansPerSecond) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 0},
-        {"max_val", 100},
+        {"range", {{"lower", 0}, {"upper", 100}}},
         {"units", "Radians/s"},
         {"decoding_type", "X1"},
         {"pulses_per_rev", 100},
@@ -1433,8 +1402,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanMeters) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", -10},
-        {"max_val", 10},
+        {"range", {{"lower", -10}, {"upper", 10}}},
         {"units", "Meters"},
         {"decoding_type", "X4"},
         {"dist_per_pulse", 0.001},
@@ -1479,8 +1447,7 @@ TEST(ChannelsTest, ParseCILinearPositionChanInches) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", -100},
-        {"max_val", 100},
+        {"range", {{"lower", -100}, {"upper", 100}}},
         {"units", "Inches"},
         {"decoding_type", "X2"},
         {"dist_per_pulse", 0.01},
@@ -1524,8 +1491,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanDegrees) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", -180},
-        {"max_val", 180},
+        {"range", {{"lower", -180}, {"upper", 180}}},
         {"units", "Degrees"},
         {"decoding_type", "X4"},
         {"pulses_per_rev", 24},
@@ -1570,8 +1536,7 @@ TEST(ChannelsTest, ParseCIAngularPositionChanRadians) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", -3.14},
-        {"max_val", 3.14},
+        {"range", {{"lower", -3.14}, {"upper", 3.14}}},
         {"units", "Radians"},
         {"decoding_type", "X1"},
         {"pulses_per_rev", 100},
@@ -1615,8 +1580,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanRising) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 2},
-        {"max_val", 10000},
+        {"range", {{"lower", 2}, {"upper", 10000}}},
         {"active_edge", "Rising"},
         {"terminal", "PFI0"},
         {"custom_scale", {{"type", "none"}}},
@@ -1647,8 +1611,7 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
         {"disabled", false},
         {"name", ""},
         {"channel", 0},
-        {"min_val", 10},
-        {"max_val", 5000},
+        {"range", {{"lower", 10}, {"upper", 5000}}},
         {"active_edge", "Falling"},
         {"terminal", ""},
         {"custom_scale", {{"type", "none"}}},
@@ -1669,4 +1632,67 @@ TEST(ChannelsTest, ParseCIDutyCycleChanFalling) {
     EXPECT_EQ(call["args"]["counter"], "cDAQ1Mod3/ctr1");
     EXPECT_EQ(call["args"]["edge"], DAQmx_Val_Falling);
 }
+
+/// @brief a channel type and the DAQmx function that creates it.
+struct RangeCase {
+    std::string type;
+    std::string fn;
+};
+
+class ChannelRangeTest : public ::testing::TestWithParam<RangeCase> {};
+
+/// @brief it should pass the ends of the channel range to DAQmx as its min and max.
+TEST_P(ChannelRangeTest, PassesRangeToDAQmx) {
+    const auto &[type, fn] = GetParam();
+    const bool output = type.starts_with("ao_");
+    x::json::json j = {
+        {"type", type},
+        {"key", "channel_a"},
+        {"port", 0},
+        {"range", {{"lower", -2}, {"upper", 3}}},
+        {"custom_scale", {{"type", "none"}}},
+        {"device", "cdaq1Mod2"}
+    };
+    x::json::Parser p(j);
+    const auto check = [&](const auto &chan) {
+        ASSERT_NIL(p.error());
+        ASSERT_NE(chan, nullptr);
+        chan->bind_remote_info(synnax::channel::Channel(), "cDAQ1Mod2");
+        std::shared_ptr<daqmx::MockAPI> mock;
+        const auto dmx = mock_dmx(mock);
+        ASSERT_NIL(chan->apply(dmx, nullptr));
+        const auto calls = mock->calls_to(fn);
+        ASSERT_EQ(calls.size(), 1);
+        EXPECT_EQ(calls[0]["args"]["minVal"], -2);
+        EXPECT_EQ(calls[0]["args"]["maxVal"], 3);
+    };
+    if (output)
+        check(parse_output(p, "ni_analog_write"));
+    else
+        check(parse_input(p, "ni_analog_read"));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Types,
+    ChannelRangeTest,
+    ::testing::Values(
+        RangeCase{"ai_accel_4_wire_dc_voltage", "CreateAIAccel4WireDCVoltageChan"},
+        RangeCase{"ai_charge", "CreateAIChargeChan"},
+        RangeCase{"ai_current_rms", "CreateAICurrentRMSChan"},
+        RangeCase{"ai_force_bridge_polynomial", "CreateAIForceBridgePolynomialChan"},
+        RangeCase{"ai_freq_voltage", "CreateAIFreqVoltageChan"},
+        RangeCase{
+            "ai_pressure_bridge_polynomial",
+            "CreateAIPressureBridgePolynomialChan"
+        },
+        RangeCase{"ai_resistance", "CreateAIResistanceChan"},
+        RangeCase{"ai_thermistor_iex", "CreateAIThrmstrChanIex"},
+        RangeCase{"ai_thermistor_vex", "CreateAIThrmstrChanVex"},
+        RangeCase{"ai_torque_bridge_polynomial", "CreateAITorqueBridgePolynomialChan"},
+        RangeCase{"ai_voltage_rms", "CreateAIVoltageRMSChan"},
+        RangeCase{"ai_voltage_with_excit", "CreateAIVoltageChanWithExcit"},
+        RangeCase{"ao_current", "CreateAOCurrentChan"}
+    ),
+    [](const ::testing::TestParamInfo<RangeCase> &info) { return info.param.type; }
+);
 }

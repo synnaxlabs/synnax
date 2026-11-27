@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
+	configlegacy "github.com/synnaxlabs/synnax/pkg/service/task/config/legacy"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -382,5 +383,24 @@ var _ = Describe("CounterRead", func() {
 				}},
 			},
 		),
+	)
+})
+
+var _ = Describe("Range", func() {
+	ranged := func() msgpack.EncodedJSON {
+		return msgpack.EncodedJSON{"channels": []any{map[string]any{
+			"range": map[string]any{"lower": float64(-2), "upper": float64(3)},
+		}}}
+	}
+	flat := msgpack.EncodedJSON{"channels": []any{map[string]any{
+		"min_val": float64(-2), "max_val": float64(3),
+	}}}
+	DescribeTable("Should spell a current range as the flat pair",
+		func(rewrite configlegacy.Rewrite) {
+			Expect(rewrite.Apply(ranged())).To(Equal(flat))
+		},
+		Entry("an analog read config", legacy.AnalogRead),
+		Entry("an analog write config", legacy.AnalogWrite),
+		Entry("a counter read config", legacy.CounterRead),
 	)
 })

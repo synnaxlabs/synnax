@@ -74,11 +74,9 @@ export const createNextAI = (
   if (device != null) next.device = device;
   const hardware = hardwareOf(devices, next.device);
   const sameDevice = source?.device === next.device;
-  if (next.type === "ai_voltage" && next.customScale.type === "none" && !sameDevice) {
-    const { lower, upper } = defaultAIVoltageRange(hardware);
-    next.minVal = lower;
-    next.maxVal = upper;
-  }
+  if (next.type === "ai_voltage" && next.customScale.type === "none" && !sameDevice)
+    next.range = defaultAIVoltageRange(hardware);
+
   if (!("port" in next)) return next;
   if (port != null) return { ...next, port };
   const own = channels.filter((c) => c.device === next.device);

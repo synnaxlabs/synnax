@@ -15,12 +15,14 @@
       "divisor": 7,
       "edge": "Falling",
       "key": "ch-ci-frequency",
-      "max_val": 1250.5,
       "meas_method": "HighFreq2Ctr",
       "meas_time": "12500000",
-      "min_val": 5.5,
       "name": "fixture_ci_frequency",
       "port": 0,
+      "range": {
+        "lower": 5.5,
+        "upper": 1250.5
+      },
       "terminal": "/Dev1/PFI0",
       "type": "ci_frequency",
       "units": "Ticks"
@@ -53,12 +55,14 @@
       "disabled": true,
       "divisor": 9,
       "key": "ch-ci-period",
-      "max_val": 0.75,
       "meas_method": "LargeRng2Ctr",
       "meas_time": "25000000",
-      "min_val": 0.0005,
       "name": "fixture_ci_period",
       "port": 2,
+      "range": {
+        "lower": 0.0005,
+        "upper": 0.75
+      },
       "starting_edge": "Falling",
       "terminal": "/Dev1/PFI2",
       "type": "ci_period",
@@ -72,10 +76,12 @@
       "device": "fixture-ni-counter-dev-2",
       "disabled": false,
       "key": "ch-ci-pulse-width",
-      "max_val": 0.55,
-      "min_val": 0.0002,
       "name": "fixture_ci_pulse_width",
       "port": 3,
+      "range": {
+        "lower": 0.0002,
+        "upper": 0.55
+      },
       "starting_edge": "Falling",
       "terminal": "/Dev1/PFI3",
       "type": "ci_pulse_width",
@@ -89,10 +95,12 @@
       "device": "fixture-ni-counter-dev-3",
       "disabled": false,
       "key": "ch-ci-semi-period",
-      "max_val": 0.65,
-      "min_val": 0.0004,
       "name": "fixture_ci_semi_period",
       "port": 4,
+      "range": {
+        "lower": 0.0004,
+        "upper": 0.65
+      },
       "terminal": "",
       "type": "ci_semi_period",
       "units": "Ticks"
@@ -111,10 +119,12 @@
       "first_edge": "Falling",
       "first_terminal": "",
       "key": "ch-ci-two-edge-sep",
-      "max_val": 0.85,
-      "min_val": 0.0003,
       "name": "fixture_ci_two_edge_sep",
       "port": 5,
+      "range": {
+        "lower": 0.0003,
+        "upper": 0.85
+      },
       "second_edge": "Rising",
       "second_terminal": "",
       "type": "ci_two_edge_sep",
@@ -130,10 +140,12 @@
       "disabled": false,
       "dist_per_pulse": 0.0125,
       "key": "ch-ci-velocity-linear",
-      "max_val": 10.5,
-      "min_val": -10.5,
       "name": "fixture_ci_velocity_linear",
       "port": 6,
+      "range": {
+        "lower": -10.5,
+        "upper": 10.5
+      },
       "terminal_a": "/Dev1/PFI4",
       "terminal_b": "/Dev1/PFI5",
       "type": "ci_velocity_linear",
@@ -148,11 +160,13 @@
       "device": "fixture-ni-counter-dev-4",
       "disabled": true,
       "key": "ch-ci-velocity-angular",
-      "max_val": 720.5,
-      "min_val": -720.5,
       "name": "fixture_ci_velocity_angular",
       "port": 7,
       "pulses_per_rev": 360,
+      "range": {
+        "lower": -720.5,
+        "upper": 720.5
+      },
       "terminal_a": "/Dev1/PFI6",
       "terminal_b": "/Dev1/PFI7",
       "type": "ci_velocity_angular",
@@ -211,10 +225,12 @@
       "device": "fixture-ni-counter-dev-6",
       "disabled": false,
       "key": "ch-ci-duty-cycle",
-      "max_val": 9999.5,
-      "min_val": 4.5,
       "name": "fixture_ci_duty_cycle",
       "port": 10,
+      "range": {
+        "lower": 4.5,
+        "upper": 9999.5
+      },
       "terminal": "/Dev1/PFI14",
       "type": "ci_duty_cycle"
     }

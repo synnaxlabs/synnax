@@ -10,15 +10,12 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import type { deep } from "@synnaxlabs/x";
+import type { closedBounds, deep } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
 import { Task } from "@/platform/task";
 
-interface Range {
-  minVal: number;
-  maxVal: number;
-}
+type Range = closedBounds.ClosedBounds;
 
 interface Held extends Range {
   /** The path of the minimum value the range was typed for. */
@@ -30,7 +27,7 @@ interface Held extends Range {
 const MESSAGE = "Minimum value must be less than maximum value";
 
 export interface MinMaxValueFieldsProps {
-  path: deep.Path<Range>;
+  path: deep.Path<{ range: Range }>;
   units?: string;
 }
 
@@ -42,48 +39,48 @@ export interface MinMaxValueFieldsProps {
  */
 export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
   const ctx = Form.useContext();
-  const minVal = Form.useFieldValue(path.minVal);
-  const maxVal = Form.useFieldValue(path.maxVal);
-  const at = String(path.minVal);
+  const lowerPath = path.range.lower;
+  const upperPath = path.range.upper;
+  const lower = Form.useFieldValue(lowerPath);
+  const upper = Form.useFieldValue(upperPath);
+  const at = String(lowerPath);
   const [held, setHeld] = useState<Held>();
   const stale =
     held != null &&
-    (held.at !== at || held.stored.minVal !== minVal || held.stored.maxVal !== maxVal);
+    (held.at !== at || held.stored.lower !== lower || held.stored.upper !== upper);
   if (stale) setHeld(undefined);
   const holding = held != null && !stale;
-  const shown: Range = holding ? held : { minVal, maxVal };
+  const shown: Range = holding ? held : { lower, upper };
 
   Task.useFlushFirst(async () => !holding);
 
   useEffect(() => {
     if (!holding) return;
-    ctx.setStatus(path.minVal, { variant: "error", message: MESSAGE });
+    ctx.setStatus(lowerPath, { variant: "error", message: MESSAGE });
     // A check can replace the hold's error once the range saves, so only the hold's
     // own error is cleared.
     return () => {
-      if (ctx.get(path.minVal, { optional: true })?.status.message === MESSAGE)
-        ctx.clearStatus(path.minVal);
+      if (ctx.get(lowerPath, { optional: true })?.status.message === MESSAGE)
+        ctx.clearStatus(lowerPath);
     };
-  }, [ctx, holding, path.minVal]);
+  }, [ctx, holding, lowerPath]);
 
   const handleChange = (key: keyof Range) => (value: number) => {
-    const next = { ...shown, [key]: value };
-    if (next.minVal >= next.maxVal) {
-      setHeld({ ...next, at, stored: { minVal, maxVal } });
+    const next: Range = { lower: shown.lower, upper: shown.upper, [key]: value };
+    if (next.lower >= next.upper) {
+      setHeld({ ...next, at, stored: { lower, upper } });
       return;
     }
     setHeld(undefined);
-    ctx.batch(() => {
-      ctx.set(path.minVal, next.minVal);
-      ctx.set(path.maxVal, next.maxVal);
-    });
+    // The Core edits a range only as a whole.
+    ctx.set(path.range, next);
   };
 
   return (
     <Input.Item label="Range">
       <Flex.Box x gap="small">
         <Form.Field<number>
-          path={path.minVal}
+          path={lowerPath}
           label="Minimum value"
           showLabel={false}
           showHelpText={false}
@@ -91,8 +88,8 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
           {(p) => (
             <Input.Numeric
               {...p}
-              value={shown.minVal}
-              onChange={handleChange("minVal")}
+              value={shown.lower}
+              onChange={handleChange("lower")}
               endContent={units}
               grow
               aria-label="Minimum value"
@@ -100,7 +97,7 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
           )}
         </Form.Field>
         <Form.Field<number>
-          path={path.maxVal}
+          path={upperPath}
           label="Maximum value"
           showLabel={false}
           showHelpText={false}
@@ -108,8 +105,8 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => {
           {(p) => (
             <Input.Numeric
               {...p}
-              value={shown.maxVal}
-              onChange={handleChange("maxVal")}
+              value={shown.upper}
+              onChange={handleChange("upper")}
               endContent={units}
               grow
               aria-label="Maximum value"

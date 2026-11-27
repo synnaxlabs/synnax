@@ -126,14 +126,19 @@ describe("Channel", () => {
     });
 
     it("should give a new voltage channel a range of ±10 V", () => {
-      expect(Channel.createNextAI([])).toMatchObject({ minVal: -10, maxVal: 10 });
+      expect(Channel.createNextAI([])).toMatchObject({
+        range: { lower: -10, upper: 10 },
+      });
     });
 
     it("should give a copy on another device that device's range", () => {
-      const source = { ...aiChannel("1", 0), device: "a", minVal: -60, maxVal: 60 };
+      const source = {
+        ...aiChannel("1", 0),
+        device: "a",
+        range: { lower: -60, upper: 60 },
+      };
       expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
-        minVal: -10,
-        maxVal: 10,
+        range: { lower: -10, upper: 10 },
       });
     });
 
@@ -148,13 +153,11 @@ describe("Channel", () => {
       const source = {
         ...aiChannel("1", 0),
         device: "a",
-        minVal: 0,
-        maxVal: 30,
+        range: { lower: 0, upper: 30 },
         customScale,
       };
       expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
-        minVal: 0,
-        maxVal: 30,
+        range: { lower: 0, upper: 30 },
       });
     });
 
@@ -162,18 +165,18 @@ describe("Channel", () => {
       const source = {
         ...aiChannel("1", 0, "ai_current"),
         device: "a",
-        minVal: -0.02,
-        maxVal: 0.02,
+        range: { lower: -0.02, upper: 0.02 },
       };
       expect(Channel.createNextAI([source], { device: "b" })).toMatchObject({
-        minVal: -0.02,
-        maxVal: 0.02,
+        range: { lower: -0.02, upper: 0.02 },
       });
     });
 
     it("should keep the range of the copied channel", () => {
-      const source = { ...aiChannel("1", 0), minVal: -1, maxVal: 1 };
-      expect(Channel.createNextAI([source])).toMatchObject({ minVal: -1, maxVal: 1 });
+      const source = { ...aiChannel("1", 0), range: { lower: -1, upper: 1 } };
+      expect(Channel.createNextAI([source])).toMatchObject({
+        range: { lower: -1, upper: 1 },
+      });
     });
 
     it("should copy the last channel when no channel to copy is given", () => {

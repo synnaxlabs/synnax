@@ -29,15 +29,16 @@ namespace synnax::ni {
 
 inline MinMaxVal MinMaxVal::parse(x::json::Parser parser) {
     return MinMaxVal{
-        .min_val = parser.field<double>("min_val", 0),
-        .max_val = parser.field<double>("max_val", 1),
+        .range = parser.field<::x::spatial::ClosedBounds>(
+            "range",
+            ::x::spatial::ClosedBounds{.lower = 0, .upper = 1}
+        ),
     };
 }
 
 inline x::json::json MinMaxVal::to_json() const {
     x::json::json j = x::json::json::object();
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
+    j["range"] = this->range.to_json();
     return j;
 }
 
@@ -1765,14 +1766,16 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 2);
-    result.max_val = parser.field<double>("max_val", 100);
     result.units = parser.field<std::string>("units", "Hz");
     result.edge = parser.field<std::string>("edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
     result.meas_time = parser.field<::x::telem::TimeSpan>(
         "meas_time",
         ::x::telem::TimeSpan(6000)
+    );
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 2, .upper = 100}
     );
     result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
@@ -1787,12 +1790,11 @@ inline x::json::json CIFrequencyChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["units"] = this->units;
     j["edge"] = this->edge;
     j["meas_method"] = this->meas_method;
     j["meas_time"] = this->meas_time.nanoseconds();
+    j["range"] = this->range.to_json();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
     j["type"] = this->type;
@@ -1827,14 +1829,16 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 0.000001);
-    result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
     result.starting_edge = parser.field<std::string>("starting_edge", "Rising");
     result.meas_method = parser.field<std::string>("meas_method", "DynamicAvg");
     result.meas_time = parser.field<::x::telem::TimeSpan>(
         "meas_time",
         ::x::telem::TimeSpan(1000000)
+    );
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 0.000001, .upper = 0.100000}
     );
     result.divisor = parser.field<std::uint32_t>("divisor", 4);
     result.terminal = parser.field<std::string>("terminal", "");
@@ -1849,12 +1853,11 @@ inline x::json::json CIPeriodChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["units"] = this->units;
     j["starting_edge"] = this->starting_edge;
     j["meas_method"] = this->meas_method;
     j["meas_time"] = this->meas_time.nanoseconds();
+    j["range"] = this->range.to_json();
     j["divisor"] = this->divisor;
     j["terminal"] = this->terminal;
     j["type"] = this->type;
@@ -1866,11 +1869,13 @@ inline CIPulseWidthChannel CIPulseWidthChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 0.000001);
-    result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
     result.starting_edge = parser.field<std::string>("starting_edge", "Rising");
     result.terminal = parser.field<std::string>("terminal", "");
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 0.000001, .upper = 0.100000}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1882,11 +1887,10 @@ inline x::json::json CIPulseWidthChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["units"] = this->units;
     j["starting_edge"] = this->starting_edge;
     j["terminal"] = this->terminal;
+    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }
@@ -1896,10 +1900,12 @@ inline CISemiPeriodChannel CISemiPeriodChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 0.000001);
-    result.max_val = parser.field<double>("max_val", 0.100000);
     result.units = parser.field<std::string>("units", "Seconds");
     result.terminal = parser.field<std::string>("terminal", "");
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 0.000001, .upper = 0.100000}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1911,10 +1917,9 @@ inline x::json::json CISemiPeriodChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["units"] = this->units;
     j["terminal"] = this->terminal;
+    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }
@@ -1924,13 +1929,15 @@ inline CITwoEdgeSepChannel CITwoEdgeSepChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 0.000001);
-    result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "Seconds");
     result.first_edge = parser.field<std::string>("first_edge", "Rising");
     result.second_edge = parser.field<std::string>("second_edge", "Falling");
     result.first_terminal = parser.field<std::string>("first_terminal", "");
     result.second_terminal = parser.field<std::string>("second_terminal", "");
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 0.000001, .upper = 1}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1942,13 +1949,12 @@ inline x::json::json CITwoEdgeSepChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["units"] = this->units;
     j["first_edge"] = this->first_edge;
     j["second_edge"] = this->second_edge;
     j["first_terminal"] = this->first_terminal;
     j["second_terminal"] = this->second_terminal;
+    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }
@@ -1958,13 +1964,15 @@ inline CIVelocityLinearChannel CIVelocityLinearChannel::parse(x::json::Parser pa
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 0);
-    result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "m/s");
     result.decoding_type = parser.field<std::string>("decoding_type", "X4");
     result.dist_per_pulse = parser.field<double>("dist_per_pulse", 0.001000);
     result.terminal_a = parser.field<std::string>("terminal_a", "");
     result.terminal_b = parser.field<std::string>("terminal_b", "");
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 0, .upper = 1}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -1976,13 +1984,12 @@ inline x::json::json CIVelocityLinearChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["units"] = this->units;
     j["decoding_type"] = this->decoding_type;
     j["dist_per_pulse"] = this->dist_per_pulse;
     j["terminal_a"] = this->terminal_a;
     j["terminal_b"] = this->terminal_b;
+    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }
@@ -1993,13 +2000,15 @@ CIVelocityAngularChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 0);
-    result.max_val = parser.field<double>("max_val", 1);
     result.units = parser.field<std::string>("units", "RPM");
     result.decoding_type = parser.field<std::string>("decoding_type", "X4");
     result.pulses_per_rev = parser.field<std::uint32_t>("pulses_per_rev", 24);
     result.terminal_a = parser.field<std::string>("terminal_a", "");
     result.terminal_b = parser.field<std::string>("terminal_b", "");
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 0, .upper = 1}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -2011,13 +2020,12 @@ inline x::json::json CIVelocityAngularChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["units"] = this->units;
     j["decoding_type"] = this->decoding_type;
     j["pulses_per_rev"] = this->pulses_per_rev;
     j["terminal_a"] = this->terminal_a;
     j["terminal_b"] = this->terminal_b;
+    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }
@@ -2092,10 +2100,12 @@ inline CIDutyCycleChannel CIDutyCycleChannel::parse(x::json::Parser parser) {
     static_cast<BaseCIChannel &>(result) = BaseCIChannel::parse(parser);
     static_cast<CustomScale &>(result) = CustomScale::parse(parser);
     static_cast<MinMaxVal &>(result) = MinMaxVal::parse(parser);
-    result.min_val = parser.field<double>("min_val", 2);
-    result.max_val = parser.field<double>("max_val", 10000);
     result.active_edge = parser.field<std::string>("active_edge", "Rising");
     result.terminal = parser.field<std::string>("terminal", "");
+    result.range = parser.field<::x::spatial::ClosedBounds>(
+        "range",
+        ::x::spatial::ClosedBounds{.lower = 2, .upper = 10000}
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -2107,10 +2117,9 @@ inline x::json::json CIDutyCycleChannel::to_json() const {
     if (const auto parent = CustomScale::to_json(); parent.is_object())
         j.update(parent);
     if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
-    j["min_val"] = this->min_val;
-    j["max_val"] = this->max_val;
     j["active_edge"] = this->active_edge;
     j["terminal"] = this->terminal;
+    j["range"] = this->range.to_json();
     j["type"] = this->type;
     return j;
 }
