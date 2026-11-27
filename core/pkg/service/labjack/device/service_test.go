@@ -334,7 +334,6 @@ var _ = Describe("Service", func() {
 				Configuration: device.Configuration{
 					Name:       "Renamed",
 					Identifier: "dev1",
-					ReadIndex:  7,
 					Ports:      device.Ports{Variant: ports},
 				},
 			}}
@@ -362,7 +361,6 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, d.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Identifier).To(Equal("dev1"))
-			Expect(got.ReadIndex).To(BeEquivalentTo(7))
 			Expect(got.Ports).To(Equal(device.Ports{
 				Variant: device.T7Ports{Mux80Attached: true},
 			}))

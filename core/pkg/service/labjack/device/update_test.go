@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -33,8 +34,8 @@ var _ = Describe("Update", func() {
 		Configuration: device.Configuration{
 			Name:            "T7",
 			Identifier:      "lj",
-			ReadIndex:       1,
-			WriteStateIndex: 2,
+			ReadIndex:       new(channel.Key(1)),
+			WriteStateIndex: new(channel.Key(2)),
 			Ports:           device.Ports{Variant: device.T7Ports{Mux80Attached: true}},
 		},
 	}}
