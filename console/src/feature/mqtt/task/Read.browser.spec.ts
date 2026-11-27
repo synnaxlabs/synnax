@@ -4199,7 +4199,7 @@ describe("MQTT read form", () => {
 });
 
 describe("plotChannels", () => {
-  it("should find the bound channels of enabled plain entries and enabled Sparkplug tags", () => {
+  it("should find the bound channels and fields of enabled plain entries and enabled Sparkplug tags", () => {
     const plotChannels = MQTT.Task.INTEGRATION.plotChannels?.[MQTT.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
     const plain = (disabled: boolean, ...channels: number[][]) => ({
@@ -4211,14 +4211,22 @@ describe("plotChannels", () => {
         bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
       })),
     });
+    const read = plain(false, [1, 0], [2]);
     const config = {
       entries: [
-        plain(false, [1, 0], [2]),
+        read,
         plain(true, [3]),
         { type: "sparkplug", channel: 4 },
         { type: "sparkplug", channel: 5, disabled: true },
       ],
     };
-    expect(plotChannels(config)).toEqual([1, 2, 4]);
+    const plotted = plotChannels(config);
+    expect(plotted.map(({ channel }) => channel)).toEqual([1, 0, 2, 4]);
+    expect(plotted[2].field).toEqual({
+      icd: read.icd,
+      message: read.messages[1].message,
+      key: read.messages[1].bindings[0].field,
+    });
+    expect(plotted[3].field).toBeUndefined();
   });
 });
