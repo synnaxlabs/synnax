@@ -81,3 +81,24 @@ describe("plottable", () => {
     },
   );
 });
+
+describe("filterPlottableHaulItems", () => {
+  const NUMERIC = { dataType: DataType.FLOAT32, virtual: false, expression: "" };
+  const TEXT = { ...NUMERIC, dataType: DataType.STRING };
+
+  it("should keep a channel its source knows to be plottable", () => {
+    const item = Channel.createHaulItem(1, NUMERIC);
+    expect(Channel.filterPlottableHaulItems([item, OTHER])).toEqual([item]);
+  });
+
+  it("should drop a channel its source knows not to be plottable", () => {
+    expect(Channel.filterPlottableHaulItems([Channel.createHaulItem(1, TEXT)])).toEqual(
+      [],
+    );
+  });
+
+  it("should keep a channel its source did not know", () => {
+    const item = Channel.createHaulItem(1);
+    expect(Channel.filterPlottableHaulItems([item])).toEqual([item]);
+  });
+});

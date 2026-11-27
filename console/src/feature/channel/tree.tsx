@@ -36,7 +36,8 @@ import { Tree } from "@/platform/tree";
 
 const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
   const ch = client.channels.watch(Number(key)).getCached();
-  if (!query.isLive(ch) || !ch.internal) return [PChannel.createHaulItem(Number(key))];
+  if (!query.isLive(ch)) return [PChannel.createHaulItem(Number(key))];
+  if (!ch.internal) return [PChannel.createHaulItem(ch.key, ch)];
   return [
     PSchematic.createHaulItem({
       key: id.create(),

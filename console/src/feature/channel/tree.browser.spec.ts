@@ -114,6 +114,23 @@ describe("channel/tree", () => {
       expect(items[0].key).toBe(ch.key);
     });
 
+    it("records whether a line plot can draw the hauled channel", async () => {
+      const text = await createChannel({
+        dataType: DataType.STRING,
+        isIndex: false,
+        index: (await createChannel()).key,
+      });
+      const numeric = await createPlottableChannel();
+      const [textItem, numericItem] = [text, numeric].flatMap((ch) =>
+        Item.haulItems(
+          createResource(channelClient.resourceID(ch.key), ch.name),
+          client,
+        ),
+      );
+      expect(textItem.data).toEqual({ plottable: false });
+      expect(numericItem.data).toEqual({ plottable: true });
+    });
+
     it("hauls an internal channel as a schematic value element only", async () => {
       const ch = await retrieveInternalChannel();
       const items = Item.haulItems(

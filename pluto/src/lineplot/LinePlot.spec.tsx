@@ -1301,7 +1301,7 @@ describe("LinePlot", () => {
           index: index.key,
         });
         const { viewport, xAxis, yAxis } = await renderPlot([
-          Channel.createHaulItem(text.key),
+          Channel.createHaulItem(text.key, text),
         ]);
         await startDrag();
         expect(droppable(viewport)).toBe(false);
@@ -1474,7 +1474,7 @@ describe("LinePlot", () => {
       it("should add a dropped channel to the first Y axis", async () => {
         const keys = channels.map(({ key }) => key);
         const { drop, getByTestId, lastDropped } = await renderPlot(
-          keys.map(Channel.createHaulItem),
+          keys.map((key) => Channel.createHaulItem(key)),
         );
         await drop();
         await waitFor(() => expect(getByTestId("y1").textContent).toBe(keys.join(",")));
