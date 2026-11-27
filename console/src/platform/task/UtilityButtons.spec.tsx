@@ -210,6 +210,28 @@ describe("UtilityButtons", () => {
       expect(axes.y4.label).toBe("K, Hz");
     });
 
+    it("should put the channels of a deleted ICD on y1", async () => {
+      const fields = await createFieldChannels(["rpm"]);
+      const other = await createFieldChannels(["degC"]);
+      await client.icds.delete(fields[0].field.icd);
+      const proj = await renderPlot([...fields, ...other], undefined, ICD_TYPE);
+      const { channels, axes } = await findPlot(proj.key);
+      expect(channels).toMatchObject({
+        y1: [fields[0].channel],
+        y2: [other[0].channel],
+      });
+      expect([axes.y1.label, axes.y2.label]).toEqual(["", "degC"]);
+    });
+
+    it("should trim units, so blank units go on y1", async () => {
+      const fields = await createFieldChannels([" ", "rpm ", "rpm"]);
+      const proj = await renderPlot(fields, undefined, ICD_TYPE);
+      const { channels, axes } = await findPlot(proj.key);
+      const [blank, padded, rpm] = fields.map(({ channel }) => channel);
+      expect(channels).toMatchObject({ y1: [blank], y2: [padded, rpm] });
+      expect(axes.y2.label).toBe("rpm");
+    });
+
     it("should report a task with no numeric channel to plot", async () => {
       const text = await createChannel("string");
       let statuses: Status.NotificationSpec[] = [];
