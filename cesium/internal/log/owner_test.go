@@ -604,10 +604,13 @@ var _ = Describe("Log", func() {
 				Entry("a Check", func(n int) *log.Entry {
 					return fill(of(&log.Check{Segment: 1}), n)
 				}),
+				Entry("a Seal", func(n int) *log.Entry {
+					return fill(of(&log.Seal{Segment: 1, Length: 8}), n)
+				}),
 			)
 
-			DescribeTable("Should take an entry of deletes, Restarts, or Seals in the "+
-				"delete reserve", func(r log.Record) {
+			DescribeTable("Should take an entry of deletes or Restarts in the delete "+
+				"reserve", func(r log.Record) {
 				open(logSize)
 				DeferCleanup(closeLog)
 				n := logSize - log.DeleteReserve - log.FramesStart - 24
@@ -617,7 +620,6 @@ var _ = Describe("Log", func() {
 				Entry("a Tombstone", &log.Tombstone{Key: 1, Start: 1, End: 2}),
 				Entry("an Intent", &log.Intent{Key: 1}),
 				Entry("a Drop", &log.Drop{Key: 1}),
-				Entry("a Seal", &log.Seal{Segment: 1, Length: 8}),
 				Entry("a Restart", &log.Restart{}),
 			)
 
