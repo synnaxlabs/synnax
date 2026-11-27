@@ -221,6 +221,24 @@ TEST(JSON, RejectsDocumentThatIsNotJSON) {
     ASSERT_FALSE(message.has_value());
 }
 
+/// @brief it should reject a document that is neither JSON nor UTF-8 for a field at the
+/// root of a document.
+TEST(JSON, RejectsBareDocumentThatIsNotUTF8) {
+    auto f = field<icd::StringJSONField>("state");
+    f.pointer = "";
+    auto dec = ASSERT_NIL_P(
+        JSON::create({{
+            .name = "state",
+            .payload = {.fields = {f}},
+            .bindings = {{.field = f.key, .data_type = x::telem::STRING_T}},
+        }})
+    );
+    const auto [message, err] = dec.decode("O\xffN");
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    ASSERT_EQ(err.data(), "invalid UTF-8");
+    ASSERT_FALSE(message.has_value());
+}
+
 /// @brief it should give a timestamp field with a now default the time of each decode.
 TEST(JSON, DecodesNowDefault) {
     auto m = reading<icd::TimestampJSONField>(x::telem::TIMESTAMP_T);

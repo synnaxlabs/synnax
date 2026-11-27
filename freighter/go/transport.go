@@ -11,7 +11,7 @@ package freighter
 
 import "github.com/synnaxlabs/alamos"
 
-// Payload represents a piece of data that can be sent over the freighter.
+// Payload represents a piece of data that can be sent over Freighter.
 type Payload = any
 
 type Transport interface {

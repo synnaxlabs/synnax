@@ -73,7 +73,7 @@ jobs:
     uses: ./.github/workflows/build.synnax.yaml
     with:
       windows: true
-      # The NI Linux RT Driver builds on the Ubuntu bots.
+      # The NI Linux Real-Time Driver builds on the Ubuntu bots.
       ubuntu: true
       driver: true
       nilinuxrt: true
@@ -176,7 +176,7 @@ jobs:
           REF_RUN_ID: ${{ github.run_id }}
         run: integration/scripts/DownloadArtifacts.ps1
 
-      - name: Download NI Linux RT Driver
+      - name: Download NI Linux Real-Time Driver
         shell: powershell
         env:
           GH_TOKEN: ${{ github.token }}

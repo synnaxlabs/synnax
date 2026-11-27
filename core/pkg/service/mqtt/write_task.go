@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/x/errors"
@@ -58,7 +59,7 @@ var _ target = (*messageTarget)(nil)
 func newMessageTarget(
 	target PlainWriteTarget,
 	ic icd.ICD,
-	channels map[channel.Key]channel.Channel,
+	channels map[channel.Key]icdv0.Channel,
 ) (*messageTarget, error) {
 	path := "target " + target.Topic
 	qos, err := qosLevel(target.Qos)

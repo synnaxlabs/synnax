@@ -18,7 +18,7 @@ downward only — a layer never imports one above it:
    across types), group, auth, access, user, ranger, hardware (task/rack/device), arc,
    workspace items (schematic, lineplot, log, table, panel, view), label, status.
 4. **`api/`** (highest) — transport-agnostic client interface: request/response types,
-   validation, freighter-compatible service definitions.
+   validation, Freighter-compatible service definitions.
 
 Supporting packages outside the stack:
 

@@ -25,7 +25,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, map, primitive } from "@synnaxlabs/x";
+import { DataType, deep, map, payload, primitive } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -467,6 +467,8 @@ interface TopicDetailsProps {
   onAddMessage: () => void;
   /** Makes a topic that reads one message read a message of any ICD. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Makes the topic read a new message of the format with no fields. */
+  onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
 }
 
@@ -481,6 +483,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  onFormatCreate,
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -499,7 +502,7 @@ const TopicDetails: FC<TopicDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && (
+                {encoding != null && ICD.isTaskFormat(encoding) && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -521,6 +524,8 @@ const TopicDetails: FC<TopicDetailsProps> = ({
               icdKey={icdKey}
               message={reads[0].message}
               onChange={onFormatChange}
+              formats={payload.FORMATS}
+              onCreate={onFormatCreate}
               disabled={bindDisabled}
               preview={isPreview}
             />
@@ -641,6 +646,7 @@ const Entries: FC<EntriesProps> = ({
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   } = ICD.Tree.use({
     sources: root.config.entries,
     sourceOf: (e) => (isPlain(e) ? e : null),
@@ -823,6 +829,7 @@ const Entries: FC<EntriesProps> = ({
           onAddField={() => addField(entry.key, 0)}
           onAddMessage={() => addMessage(entry.key)}
           onFormatChange={(icdKey, message) => setMessage(entry.key, icdKey, message)}
+          onFormatCreate={(format) => setNewMessage(entry.key, format)}
           bindDisabled={bindDisabled}
         />
       );

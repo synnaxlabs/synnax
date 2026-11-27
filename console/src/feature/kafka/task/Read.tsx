@@ -21,7 +21,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { deep, unique, uuid } from "@synnaxlabs/x";
+import { deep, payload, unique, uuid } from "@synnaxlabs/x";
 import {
   type Dispatch,
   type FC,
@@ -211,7 +211,14 @@ const RecordItem = (props: Tree.ItemRenderProps<string>) => {
   return (
     <Task.Views.TreeGroupItem
       {...props}
-      label={<RecordLabel recordKey={recordKey} emptyLabel={ANY_KEY} />}
+      label={
+        <RecordLabel
+          recordKey={recordKey}
+          emptyLabel={ANY_KEY}
+          icdKey={icdKey}
+          message={messages?.[0]?.message}
+        />
+      }
       off={disabled}
     >
       {messages != null && (
@@ -325,6 +332,8 @@ interface RecordDetailsProps {
   onAddMessage: () => void;
   /** Reads a message of an ICD instead of the one message that the record reads. */
   onFormatChange: (icdKey: icd.Key, message: icd.Message) => void;
+  /** Makes the record read a new message of the format with no fields. */
+  onFormatCreate: (format: payload.Format) => void;
   bindDisabled: boolean;
 }
 
@@ -340,6 +349,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
   onAddField,
   onAddMessage,
   onFormatChange,
+  onFormatCreate,
   bindDisabled,
 }) => {
   const isPreview = Task.useIsPreview();
@@ -357,7 +367,7 @@ const RecordDetails: FC<RecordDetailsProps> = ({
           actions={
             !isPreview && (
               <>
-                {encoding === "json" && (
+                {encoding != null && ICD.isTaskFormat(encoding) && (
                   <ICD.AddField onClick={onAddField} disabled={bindDisabled} />
                 )}
                 <Button.Button variant="text" size="small" onClick={onAddMessage}>
@@ -379,6 +389,8 @@ const RecordDetails: FC<RecordDetailsProps> = ({
               icdKey={icdKey}
               message={reads[0].message}
               onChange={onFormatChange}
+              formats={payload.FORMATS}
+              onCreate={onFormatCreate}
               disabled={bindDisabled}
               preview={isPreview}
             />
@@ -438,6 +450,7 @@ const Records: FC<RecordsProps> = ({
     addField,
     addMessage,
     setMessage,
+    setNewMessage,
   } = ICD.Tree.use({
     groups: {
       path: root.config.topics,
@@ -577,7 +590,9 @@ const Records: FC<RecordsProps> = ({
       }
       for (const { icd: icdKey, message, fields, bindings } of extensions) {
         const format = ICD.formatOf(formats, icdKey);
-        let after = ICD.fieldsOf(formats, icdKey, message).at(-1)?.key;
+        let after = ICD.jsonFields(ICD.heldMessage(formats, icdKey, message)).at(
+          -1,
+        )?.key;
         format.batch(() => {
           for (const field of fields) {
             format.insert(ICD.fieldsPath(message), field, after);
@@ -697,7 +712,14 @@ const Records: FC<RecordsProps> = ({
     );
   } else if (rec != null) {
     detailsPath = recordPath(topic, rec.key);
-    title = <RecordLabel recordKey={rec.recordKey} emptyLabel={ANY_KEY} />;
+    title = (
+      <RecordLabel
+        recordKey={rec.recordKey}
+        emptyLabel={ANY_KEY}
+        icdKey={rec.icd}
+        message={rec.messages[0]?.message}
+      />
+    );
     if (format != null)
       details = (
         <RecordDetails
@@ -709,6 +731,7 @@ const Records: FC<RecordsProps> = ({
           onAddField={() => addField(rec.key, 0)}
           onAddMessage={() => addMessage(rec.key)}
           onFormatChange={(icdKey, message) => setMessage(rec.key, icdKey, message)}
+          onFormatCreate={(format) => setNewMessage(rec.key, format)}
           bindDisabled={bindDisabled}
         />
       );

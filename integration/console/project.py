@@ -75,7 +75,7 @@ class ProjectClient(ResourceClient):
         try:
             self.layout.show_resource_toolbar("Projects")
         except PlaywrightTimeoutError:
-            # Deleting the active project drops the console to the Splash screen, and
+            # Deleting the active project drops the Console to the Splash screen, and
             # that transition can land after the check above, taking the nav with it.
             if self.on_splash():
                 return

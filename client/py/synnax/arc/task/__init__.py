@@ -8,8 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.arc.task.types import Task
-from synnax.arc.task.types_gen import Config, Performance
+from synnax.arc.task.types_gen import Config, Performance, Scope, StatusData
 
 TaskConfig = Config
 
-__all__ = ["Config", "Performance", "Task", "TaskConfig"]
+__all__ = ["Config", "Performance", "Scope", "StatusData", "Task", "TaskConfig"]

@@ -360,14 +360,18 @@ bound, a log precision, or the line plot X channel.
   channel table, and a fields table in the topic details, which showed each field twice.
 - A topic that reads several messages holds a node for each, with its fields beneath. A
   message's details hold its name and match, from the ICD, then its timestamp.
-- A topic that reads one message picks it in **Message format**, from the JSON messages
-  of every ICD, each shown with its ICD's name. A new topic's message goes into the ICD
-  that most of the task's topics read. A pick deletes the message that the topic read
-  before when it is a message the task made, has no fields, and no other topic reads it,
-  so new topics leave no empty messages behind. A message that the user made in the ICD
-  editor stays. The form knows the messages that the task made only while it stays open,
-  so after a reload or a reopened tab, an empty message stays too. Rejected: a stored
-  task-level ICD, which repeats each topic's ICD key.
+- A topic that reads one message picks it in **Message format**, from the messages of
+  every ICD, each shown with its format, as the tree shows it, then its ICD's name.
+  Under them, "New JSON message", "New text message", and "New binary message" make an
+  empty message of that format in the topic's ICD and pick it, with no modal: the item
+  names the format, and the name is the one that Add message gives. The user renames it
+  in the ICD. The create items ignore the search, which matches ICD names. A new topic's
+  message goes into the ICD that most of the task's topics read. A pick deletes the
+  message that the topic read before when it is a message the task made, has no fields,
+  and no other topic reads it, so new topics leave no empty messages behind. A message
+  that the user made in the ICD editor stays. The form knows the messages that the task
+  made only while it stays open, so after a reload or a reopened tab, an empty message
+  stays too. Rejected: a stored task-level ICD, which repeats each topic's ICD key.
 - A field's format stays short, so its channel shows with no scroll: Scale and Offset
   share a line, Units shows only for a number type, and Enum mapping is one line until
   it holds a mapping.

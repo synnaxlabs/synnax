@@ -19,7 +19,11 @@ import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { pickMessageFormat, searchMessageFormats } from "@/platform/icd/testutil";
+import {
+  pickMessageFormat,
+  pickNewMessage,
+  searchMessageFormats,
+} from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
   awaitTare,
@@ -315,6 +319,30 @@ describe("Read", () => {
     );
   });
 
+  it("should add a field to an endpoint whose message is binary", async () => {
+    const ep = await createEndpoint({ key: "ep1", path: "/data" });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    await renderWithDevice([ep]);
+    // The Core reads only JSON messages over HTTP, so it would refuse the task.
+    holdRequests(client, "/task/create");
+    await client.icds.dispatch(
+      icdKey,
+      icd.set({
+        path: ["messages", ep.messages[0].message, "payload"],
+        value: { format: "binary", fields: [] },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await screen.findByLabelText("Start bit");
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve({ key: icdKey })).messages[0].payload.fields,
+      ).toMatchObject([{ kind: "unsigned", startBit: 0, bitLength: 8 }]),
+    );
+  });
+
   it("should mark an endpoint until its message has a field", async () => {
     await renderWithDevice([await createEndpoint({ key: "ep1", path: "/data" })]);
     const item = await screen.findByRole("treeitem", { name: /\/data/ });
@@ -547,6 +575,26 @@ describe("Read", () => {
     expect(box?.width).toBeGreaterThanOrEqual(480);
     expect(getComputedStyle(name).whiteSpace).toBe("nowrap");
     expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
+  });
+
+  it("should read a new message in the ICD of the endpoint", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("temperature")],
+    });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    const { draft } = await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    await pickNewMessage("GET /data", "New JSON message");
+    await waitFor(async () => {
+      const [read] = await retrieveEndpoints(draft.key);
+      const { messages } = await client.icds.retrieve({ key: icdKey });
+      expect(messages).toHaveLength(2);
+      expect(messages[1].payload).toEqual({ format: "json", fields: [] });
+      expect(read.messages).toMatchObject([{ message: messages[1].key, bindings: [] }]);
+    });
   });
 
   it("should keep the stored channel of a pointer when the message format changes", async () => {

@@ -106,7 +106,7 @@ class Scanner final : public common::Scanner {
     std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib;
     /// @brief the NI System Configuration library, set by the first open.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
-    /// @brief loads the DAQmx library, which reads the hardware of each device.
+    /// @brief loads the NI-DAQmx library, which reads the hardware of each device.
     std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx;
     /// @brief ni system configuration session handle.
     NISysCfgSessionHandle session = nullptr;

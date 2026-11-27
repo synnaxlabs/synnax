@@ -24,8 +24,8 @@ import {
 
 import { copyName, copyPointer } from "@/platform/icd/fieldNames";
 import { createJSONField } from "@/platform/icd/Fields";
-import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
-import { fieldsPath } from "@/platform/icd/read";
+import { formatOf, heldMessage, useFormats } from "@/platform/icd/Formats";
+import { fieldsPath, jsonFields } from "@/platform/icd/read";
 import { Tree as ICDTree } from "@/platform/icd/tree";
 import { FieldDetails } from "@/platform/icd/write/Details";
 import type { ChannelNaming } from "@/platform/icd/write/write";
@@ -220,7 +220,10 @@ export const useTree = <T extends Target>({
         groups?.of(t) ?? null,
         sent == null
           ? null
-          : [sent.message, fieldsOf(formats, sent.icd, sent.message).map(treeFieldOf)],
+          : [
+              sent.message,
+              jsonFields(heldMessage(formats, sent.icd, sent.message)).map(treeFieldOf),
+            ],
       ];
     }),
   );
@@ -314,7 +317,7 @@ export const useTree = <T extends Target>({
    */
   const addField = (target: string) => {
     const sent = sending(target);
-    const fields = fieldsOf(formats, sent.icd, sent.message);
+    const fields = jsonFields(heldMessage(formats, sent.icd, sent.message));
     const field = createJSONField(fields);
     formatOf(formats, sent.icd).insert(
       fieldsPath(sent.message),
@@ -401,7 +404,7 @@ export const useTree = <T extends Target>({
     ctx.batch(() => {
       for (const { target, field } of chosen) {
         const sent = sending(target);
-        const fields = fieldsOf(formats, sent.icd, sent.message);
+        const fields = jsonFields(heldMessage(formats, sent.icd, sent.message));
         const at = `${sent.message}/${field.key}`;
         let copy = copies.get(at);
         if (copy == null) {

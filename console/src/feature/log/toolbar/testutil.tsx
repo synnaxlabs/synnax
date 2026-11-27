@@ -30,7 +30,7 @@ let projectKey: string | undefined;
 const project = async (): Promise<string> =>
   (projectKey ??= (await client.projects.create({ name: id.create() })).key);
 
-// loadLog primes key's flux cache through the production retrieve path. The single-hook
+// loadLog primes key's Flux cache through the production retrieve path. The single-hook
 // bootstrap keeps the suspending useEnsure from being followed by other hooks,
 // a shape that trips a React 19 concurrent-replay error.
 const loadLog = async (Wrapper: FC<PropsWithChildren>, key: string): Promise<void> => {
@@ -61,7 +61,7 @@ export interface RenderLogOptions {
 
 // renderLog creates a log on the server, mounts Component inside the panel and tab
 // scopes of a seeded resource tab (the way the mosaic renders a tab) with the log
-// loaded into the flux cache, and returns the render result plus the Redux store and
+// loaded into the Flux cache, and returns the render result plus the Redux store and
 // log key.
 export const renderLog = async (
   Component: ComponentType,

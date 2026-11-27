@@ -34,7 +34,7 @@ from framework import resources
 from framework.hardware_case import HardwareCase
 from framework.test_case import Config
 
-# MQTT and Kafka tasks run on the driver inside the Core, which has its own rack.
+# MQTT and Kafka tasks run on the Driver inside the Core, which has its own rack.
 CORE_RACK_NAME = os.environ.get("SYNNAX_CORE_RACK", "Node 1")
 
 

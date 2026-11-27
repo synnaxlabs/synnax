@@ -14,7 +14,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD } from "@synnaxlabs/pluto";
-import { deep, type payload } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
 
 import type { SparkplugTagID } from "@/feature/mqtt/task/types";
 import { CSS } from "@/platform/css";
@@ -47,12 +47,6 @@ const KINDS = {
   plain: { color: "var(--pluto-secondary-z)", placeholder: "New topic" },
   sparkplug: { color: "var(--pluto-primary-z)", placeholder: "New tag" },
 } as const;
-
-const FORMAT_KINDS: Record<payload.Format, string> = {
-  json: "JSON",
-  text: "TEXT",
-  binary: "BINARY",
-};
 
 interface LabelProps {
   type: keyof typeof KINDS;
@@ -92,7 +86,7 @@ const PlainLabel = ({ path }: { path: deep.Path<PlainEntry> }) => {
   return (
     <Label
       type="plain"
-      kind={FORMAT_KINDS[format ?? "json"]}
+      kind={ICD.FORMAT_KINDS[format ?? "json"]}
       identity={PForm.useFieldValue(path.topic)}
     />
   );
@@ -150,6 +144,7 @@ const PlainMark = ({ path }: { path: deep.Path<PlainEntry> }) => {
       icdKey={icdKey}
       messages={[written]}
       missingDescription={() => ICD.Write.MISSING_DESCRIPTION}
+      jsonOnly
     />
   );
 };

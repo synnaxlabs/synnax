@@ -1,7 +1,13 @@
 {
   "gated": [
-    { "module": "freighter/integration", "usage": "tests-only" },
-    { "module": "freighter/integration", "usage": "unused" }
+    {
+      "module": "freighter/integration",
+      "usage": "tests-only"
+    },
+    {
+      "module": "freighter/integration",
+      "usage": "unused"
+    }
   ],
   "pending": [
     {
@@ -147,6 +153,19 @@
       "receiver": "Binary",
       "name": "Decode",
       "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
+      "receiver": "Scheduler",
+      "name": "SetScopeHandler",
+      "caller": "sy-7012-arc-task-scope-status"
+    },
+    {
+      "module": "arc/go",
+      "package": "github.com/synnaxlabs/arc/runtime/scheduler",
+      "name": "ScopeHandler",
+      "caller": "sy-7012-arc-task-scope-status"
     }
   ]
 }

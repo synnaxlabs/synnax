@@ -787,7 +787,7 @@ var _ = Describe("Device", func() {
 			Expect(w.Create(ctx, &d1)).To(Succeed())
 			Expect(w.Create(ctx, &d2a)).To(Succeed())
 			Expect(w.Create(ctx, &d2b)).To(Succeed())
-			// Clear fields populated by Create that aren't stored in gorp.
+			// Clear fields populated by Create that aren't stored in Gorp.
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
 			// A stored device reads back with an allocated, empty Properties.

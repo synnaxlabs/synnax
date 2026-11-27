@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/Identifier.css";
+
 import type { icd } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -16,13 +18,13 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { deep, record } from "@synnaxlabs/x";
 import { type ReactElement, useId } from "react";
 
+import { CSS } from "@/platform/css";
 import {
   formatHex,
   FormattedField,
   type Parsed,
   parseUnsigned,
-} from "@/feature/icd/editor/FormattedField";
-import { CSS } from "@/platform/css";
+} from "@/platform/icd/FormattedField";
 
 type Type = icd.IdentifierType | "none";
 
@@ -121,7 +123,7 @@ const CANFields = ({ path }: CANFieldsProps): ReactElement => {
         />
       </Flex.Box>
       <Input.Item label="Frame type" padHelpText>
-        <Flex.Box x wrap align="center" className={CSS.BE("icd-editor", "flags")}>
+        <Flex.Box x wrap align="center" className={CSS.BE("icd-identifier", "flags")}>
           <Flag path={path.extended} label="Extended ID" />
           <Flag
             path={path.fd}
