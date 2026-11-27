@@ -1855,7 +1855,8 @@ TEST_F(TaskManagerTest, RunningTaskKeepsRunningWhenItsRedeployFails) {
 }
 
 /// @brief it should build a running task whose config changed before it stops the live
-/// instance, then start the new one with the command.
+/// instance, show the task running on its old config during the build, then start the
+/// new instance with the command.
 TEST_F(TaskManagerTest, StartOfAChangedTaskBuildsBeforeItStopsTheLiveInstance) {
     auto factory = std::make_unique<RunningTaskFactory>();
     auto *f = factory.get();
@@ -1869,12 +1870,24 @@ TEST_F(TaskManagerTest, StartOfAChangedTaskBuildsBeforeItStopsTheLiveInstance) {
     send_start(client, task, "start-1");
     ASSERT_EVENTUALLY_EQ(built(*f).size(), 1);
     ASSERT_EVENTUALLY_EQ(built(*f)[0]->exec_count.load(), 1);
+    const auto deployed = task.config_hash;
     edit_task(
         client,
         task,
         {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
     );
     send_start(client, task, "start-2");
+    const auto loading = WAIT_FOR_TASK_STATUS(
+        streamer,
+        task,
+        [](const synnax::task::Status &s) {
+            return s.details.cmd == "start-2" &&
+                   s.variant == synnax::status::VARIANT_LOADING;
+        }
+    );
+    EXPECT_EQ(loading.message, "Starting task");
+    EXPECT_TRUE(loading.details.running);
+    EXPECT_EQ(loading.details.config_hash, deployed);
     ASSERT_EVENTUALLY_EQ(built(*f).size(), 2);
     const auto states = built(*f);
     ASSERT_EVENTUALLY_EQ(states[1]->exec_count.load(), 1);
