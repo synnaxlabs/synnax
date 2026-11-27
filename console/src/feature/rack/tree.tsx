@@ -221,6 +221,15 @@ const TreeItem = Tree.createItem({
           ),
         ]
       : []),
+    ...(FLAGS.typedOPCUAServers
+      ? [
+          Tree.createSource(
+            client.opcua.servers,
+            { where: { rack: { eq: Number(id.key) } } },
+            Tree.toResource("opcua_server"),
+          ),
+        ]
+      : []),
   ],
   canDrop: (props) =>
     props.moved.every(({ id }) => DROPPABLE_TYPES.has(id.type)) &&

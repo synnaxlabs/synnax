@@ -16,6 +16,7 @@ import { Group } from "@/feature/group";
 import { LinePlot } from "@/feature/lineplot";
 import { Log } from "@/feature/log";
 import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
 import { Panel } from "@/feature/panel";
 import { Project } from "@/feature/project";
 import { Rack } from "@/feature/rack";
@@ -47,6 +48,7 @@ const TREE_ITEMS: Tree.Items = {
   ...(FLAGS.typedNIDevices
     ? { ...NI.Chassis.TREE_ITEMS, ...NI.Device.TREE_ITEMS }
     : {}),
+  ...(FLAGS.typedOPCUAServers ? OPCUA.Server.TREE_ITEMS : {}),
   ...Group.createTreeItems(GROUP_MEMBERS),
   ...LinePlot.TREE_ITEMS,
   ...Log.TREE_ITEMS,
