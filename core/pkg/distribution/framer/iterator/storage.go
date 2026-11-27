@@ -12,18 +12,23 @@ package iterator
 import (
 	"context"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 )
 
 // storage runs the requests of a stream on one storage iterator, in order. It answers
 // each request with an acknowledgement, after one data response for each chunk that a
-// Next or a Prev reads.
+// Next or a Prev reads. It logs the failure of the read of a channel, and the read goes
+// on for the other channels.
 type storage struct {
+	alamos.Instrumentation
 	confluence.UnarySink[Request]
 	confluence.AbstractUnarySource[Response]
 	iter *cesium.Iterator
@@ -43,7 +48,7 @@ func (s *Service) newStorage(
 	if err != nil {
 		return nil, err
 	}
-	return &storage{iter: iter}, nil
+	return &storage{Instrumentation: s.cfg.Instrumentation, iter: iter}, nil
 }
 
 // Flow implements confluence.Segment.
@@ -87,9 +92,13 @@ func (s *storage) exec(ctx context.Context, req Request, seqNum int) (bool, erro
 	}
 	switch req.Command {
 	case CommandNext:
-		return s.iter.NextChunks(ctx, req.Span, emit)
+		ok, err := s.iter.NextChunks(ctx, req.Span, emit)
+		s.logFailures()
+		return ok, err
 	case CommandPrev:
-		return s.iter.PrevChunks(ctx, req.Span, emit)
+		ok, err := s.iter.PrevChunks(ctx, req.Span, emit)
+		s.logFailures()
+		return ok, err
 	case CommandSeekFirst:
 		return s.iter.SeekFirst(), nil
 	case CommandSeekLast:
@@ -110,6 +119,18 @@ func (s *storage) exec(ctx context.Context, req Request, seqNum int) (bool, erro
 			validate.ErrValidation,
 			"invalid iterator command %d",
 			req.Command,
+		)
+	}
+}
+
+// logFailures logs each channel whose read failed in the last Next or Prev.
+func (s *storage) logFailures() {
+	for _, f := range s.iter.Failed() {
+		s.L.Error(
+			"read of a channel failed",
+			zap.Stringer("channel", channel.Key(f.Channel)),
+			zap.Stringer("time_range", f.TimeRange),
+			zap.Error(f.Err),
 		)
 	}
 }
