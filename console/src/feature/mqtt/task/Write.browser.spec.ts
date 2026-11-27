@@ -490,11 +490,15 @@ describe("MQTT Write form", () => {
           value: { format: "text", delimiter: ",", prefix: "", fields: [] },
         }),
       );
-      fireEvent.click(
-        await screen.findByRole("treeitem", { name: /TEXT.*plant\/valve\/set/ }),
-      );
+      const item = await screen.findByRole("treeitem", {
+        name: /TEXT.*plant\/valve\/set/,
+      });
+      fireEvent.click(item);
       // The message format field shows the name of the message.
       await screen.findByRole("button", { name: /Command/ });
+      // A write task takes only JSON messages, even where a read task takes text.
+      await screen.findByText("Message is not JSON");
+      within(item).getByRole("img", { name: "Message is not JSON" });
     });
 
     it("should list a tag by its edge node, with its command channel in its pane", async () => {

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	icdv0 "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/write"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/telem"
@@ -29,7 +30,7 @@ import (
 const xKey, yKey channel.Key = 10, 11
 
 var _ = Describe("Documents", func() {
-	channels := map[channel.Key]channel.Channel{
+	channels := map[channel.Key]icdv0.Channel{
 		xKey: {DataType: telem.Float64T},
 		yKey: {DataType: telem.Float64T},
 	}
@@ -121,7 +122,7 @@ var _ = Describe("Documents", func() {
 				channelOf(mode.Base().Key, modeKey, nil),
 			),
 			icd.ICD{Name: "Plant", Messages: []icd.Message{m}},
-			map[channel.Key]channel.Channel{
+			map[channel.Key]icdv0.Channel{
 				xKey:    {DataType: telem.Float64T},
 				modeKey: {DataType: telem.StringT},
 			},

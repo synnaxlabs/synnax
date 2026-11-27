@@ -12,7 +12,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import type { ICD as PICD } from "@synnaxlabs/pluto";
+import { ICD as PICD } from "@synnaxlabs/pluto";
 import {
   bounds,
   DataType,
@@ -27,11 +27,11 @@ import type { FC } from "react";
 import { CSS } from "@/platform/css";
 import { defaultDataType, encodes } from "@/platform/icd/dataType";
 import { JSONField, renamedPointer } from "@/platform/icd/Fields";
-import { fieldsOf, formatOf, useFormats } from "@/platform/icd/Formats";
+import { formatOf, heldMessage, useFormats } from "@/platform/icd/Formats";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 import { formatDefault } from "@/platform/icd/Options";
 import { rawBounds } from "@/platform/icd/range";
-import { fieldsPath } from "@/platform/icd/read";
+import { jsonFields } from "@/platform/icd/read";
 import { ValueField } from "@/platform/icd/ValueField";
 import { Task } from "@/platform/task";
 
@@ -117,7 +117,11 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
   const isPreview = Task.useIsPreview();
   const formats = useFormats();
   const format = formatOf(formats, icdKey);
-  const fieldPath = fieldsPath(message)[key];
+  const fieldPath = deep.variant(
+    PICD.formPath.messages[message].payload,
+    "format",
+    "json",
+  ).fields[key];
   const field = PForm.useFieldValue(fieldPath, { ctx: format });
   const bindings = PForm.useFieldValue(path);
   const i = bindings.findIndex((b) => b.field === key);
@@ -144,7 +148,11 @@ export const FieldDetails: FC<FieldDetailsProps> = ({
     set(path, bound ? bindings.with(i, next) : [...bindings, next]);
   };
   const handleRename = (name: string) => {
-    const pointer = renamedPointer(field, name, fieldsOf(formats, icdKey, message));
+    const pointer = renamedPointer(
+      field,
+      name,
+      jsonFields(heldMessage(formats, icdKey, message)),
+    );
     if (pointer != null) format.set(fieldPath.pointer, pointer);
   };
   const modes = (
