@@ -13,6 +13,7 @@ import (
 	"context"
 	"io"
 	"os"
+	"strconv"
 	"sync"
 	"syscall"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -205,10 +207,22 @@ func (s *streamServer[RQ, RS]) handleSocket(
 			oCtx.Params = make(freighter.Params)
 			handlerCtx = ctx.Context
 			go watchForcedEnd(ctx.Context, forced, exited)
-			// Send a confirmation message to the client that the stream is open.
-			if err := stream.send(WSMessage[RS]{Type: WSMessageTypeOpen}); err != nil {
+			interval, err := parseKeepAlive(ctx.Params)
+			if err != nil {
 				return oCtx, err
 			}
+			// A keep-alive before the open ack tells the client that this server
+			// sends them, so the client can start its deadline.
+			if interval > 0 {
+				if err = stream.sendKeepAlive(); err != nil {
+					return oCtx, err
+				}
+			}
+			// Send a confirmation message to the client that the stream is open.
+			if err = stream.send(WSMessage[RS]{Type: WSMessageTypeOpen}); err != nil {
+				return oCtx, err
+			}
+			defer stream.keepAlive(interval)()
 			return oCtx, s.handler(ctx, stream)
 		}),
 	)
@@ -242,7 +256,90 @@ func watchForcedEnd(
 	}
 }
 
-type serverStream[RQ, RS freighter.Payload] struct{ streamCore[RQ, RS] }
+// keepAliveParam is the request parameter in which a client asks for keep-alive
+// messages, as an interval in nanoseconds. Zero or no parameter asks for none.
+const keepAliveParam = "keep_alive"
+
+// minKeepAlive keeps a client from making the server send at a high rate.
+const minKeepAlive = time.Second
+
+// keepAliveMessage goes out as a text frame. Every other message is a binary frame, so
+// a client can tell a keep-alive apart without decoding it.
+var keepAliveMessage = []byte(`{"type":"keep_alive"}`)
+
+func parseKeepAlive(params freighter.Params) (time.Duration, error) {
+	raw, ok := params.Get(keepAliveParam)
+	if !ok {
+		return 0, nil
+	}
+	str, _ := raw.(string)
+	ns, err := strconv.ParseInt(str, 10, 64)
+	v := validate.New("stream")
+	if v.Ternary(keepAliveParam, err != nil, "must be an integer of nanoseconds") {
+		return 0, v.Error()
+	}
+	interval := time.Duration(ns)
+	if interval != 0 && v.GreaterThanEq(keepAliveParam, interval, minKeepAlive) {
+		return 0, v.Error()
+	}
+	return interval, nil
+}
+
+type serverStream[RQ, RS freighter.Payload] struct {
+	streamCore[RQ, RS]
+	// mu serializes writes from the handler and the keep-alive ticker.
+	mu sync.Mutex
+}
+
+func (s *serverStream[RQ, RS]) send(msg WSMessage[RS]) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.streamCore.send(msg)
+}
+
+func (s *serverStream[RQ, RS]) sendKeepAlive() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.setWriteDeadline(); err != nil {
+		return err
+	}
+	return s.conn.WriteMessage(ws.TextMessage, keepAliveMessage)
+}
+
+// keepAlive sends a keep-alive every interval until the returned function is called.
+// The returned function waits for the last send to finish.
+func (s *serverStream[RQ, RS]) keepAlive(interval time.Duration) (stop func()) {
+	if interval == 0 {
+		return func() {}
+	}
+	var (
+		done   = make(chan struct{})
+		exited = make(chan struct{})
+	)
+	go func() {
+		defer close(exited)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+				if err := s.sendKeepAlive(); err != nil {
+					// Ends a handler blocked in Receive. The connection keeps the write
+					// error for its next Send.
+					err = errors.Combine(err, s.conn.SetReadDeadline(time.Now()))
+					s.L.Debug("stopped sending keep-alives", zap.Error(err))
+					return
+				}
+			}
+		}
+	}()
+	return func() {
+		close(done)
+		<-exited
+	}
+}
 
 // Send implements the freighter.ServerStream interface.
 func (s *serverStream[RQ, RS]) Send(res RS) error {

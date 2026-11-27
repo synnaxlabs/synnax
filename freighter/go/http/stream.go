@@ -100,11 +100,16 @@ type streamCore[I, O freighter.Payload] struct {
 
 func (c *streamCore[I, O]) peerClosed() bool { return c.peerCloseErr != nil }
 
+func (c *streamCore[I, O]) setWriteDeadline() error {
+	if c.writeDeadline <= 0 {
+		return nil
+	}
+	return c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline))
+}
+
 func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
-	if c.writeDeadline > 0 {
-		if err := c.conn.SetWriteDeadline(time.Now().Add(c.writeDeadline)); err != nil {
-			return err
-		}
+	if err := c.setWriteDeadline(); err != nil {
+		return err
 	}
 	w, err := c.conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
