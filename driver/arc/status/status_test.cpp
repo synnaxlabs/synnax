@@ -509,6 +509,41 @@ TEST_F(StatusTest, OutputIsFalsyWhenRefused) {
     EXPECT_FALSE(created->is_output_truthy(0));
 }
 
+/// @brief it should run again after the retry interval while the outbox refuses its
+/// set, and stop once the outbox takes the set.
+TEST_F(StatusTest, RetriesARefusedSet) {
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(
+        std::make_shared<synnax::Synnax>(cfg),
+        1,
+        250 * x::telem::MILLISECOND
+    );
+    const auto f = set_spec().config({unique_name("set_retry_"), "msg", "info"});
+    Module module(this->outbox, this->keys, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+    bool replay = false;
+    x::telem::TimeSpan deadline;
+    auto ctx = make_context();
+    ctx.cycle.elapsed = x::telem::SECOND;
+    ctx.mark_self_changed = [&] { replay = true; };
+    ctx.set_deadline = [&](const x::telem::TimeSpan at, x::telem::TimeSpan) {
+        deadline = at;
+    };
+    ASSERT_NIL(created->next(ctx));
+    EXPECT_TRUE(replay);
+    EXPECT_EQ(deadline, x::telem::SECOND + 250 * x::telem::MILLISECOND);
+    this->outbox.reset();
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
+    Module taken(this->outbox, this->keys, noopReporter());
+    auto again = ASSERT_NIL_P(taken.create(f.make_config()));
+    replay = false;
+    ASSERT_NIL(again->next(ctx));
+    EXPECT_FALSE(replay);
+    EXPECT_TRUE(again->is_output_truthy(0));
+}
+
 /// @brief it should report a set the full outbox refuses from the outbox thread, with
 /// no later set, since the caller must never wait on the Core.
 TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {

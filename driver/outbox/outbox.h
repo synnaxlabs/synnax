@@ -321,5 +321,11 @@ public:
 
     /// @returns the number of calls the outbox holds.
     [[nodiscard]] std::size_t size() const;
+
+    /// @returns how long a caller whose call the outbox refused waits before it tries
+    /// again, the base interval of the retry config.
+    [[nodiscard]] x::telem::TimeSpan retry_interval() const {
+        return this->cfg.retry.base_interval;
+    }
 };
 }

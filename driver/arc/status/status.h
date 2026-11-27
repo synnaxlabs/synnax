@@ -210,6 +210,13 @@ public:
         *this->state.output(0) = x::telem::Series(resolved_key);
         *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
         this->queued = queued;
+        // A refused set tries again while the node is active, so a step that has no
+        // trigger moves on once the outbox takes it.
+        if (!queued) {
+            const auto retry = this->outbox->retry_interval();
+            ctx.mark_self_changed();
+            ctx.set_deadline(ctx.cycle.elapsed + retry, retry);
+        }
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
