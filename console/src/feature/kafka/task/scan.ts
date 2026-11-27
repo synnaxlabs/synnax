@@ -79,7 +79,7 @@ export const lastRecord = async (
   const last = records
     .filter((r) => key === "" || r.key === key)
     .reduce<kafka.SampledRecord | null>(
-      (a, b) => (a == null || b.time.after(a.time) ? b : a),
+      (a, b) => (a == null || !b.time.before(a.time) ? b : a),
       null,
     );
   if (last != null) {

@@ -1246,6 +1246,17 @@ describe("Kafka read form", () => {
         expect(screen.queryByText("9")).toBeNull();
       });
 
+      it("should show the later of two records with the same time", async () => {
+        // The Core sends the records of a partition in offset order.
+        const records = [
+          { ...sampledRecord("", 5, "text", "5,6"), offset: 6 },
+          { ...sampledRecord("", 5, "text", "7,8"), offset: 7 },
+        ];
+        await openRecord(TEXT, sampledOf({ records }));
+        await screen.findByText("7");
+        expect(screen.queryByText("5")).toBeNull();
+      });
+
       it("should show the bytes of a schema registry record", async () => {
         const records = [sampledRecord("", 1, "schema_registry", "000000002a0b")];
         await openRecord({ format: "binary", fields: [] }, sampledOf({ records }));
