@@ -231,8 +231,8 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
         await form.validateAsync();
         const first = form.getStatuses().find(({ variant }) => variant === "error");
         if (first != null) {
-          // The part of the form that shows the error takes focus. With none, the toast
-          // shows it.
+          // The part of the form that shows the error takes focus. With none, the
+          // footer shows it.
           const target = first.key
             ?.split(".")
             .reduce<deep.Path<unknown>>((p, k) => p[k], deep.path<unknown>());

@@ -111,6 +111,18 @@ describe("Task.createNotificationRule", () => {
       expect(await checkRepliesInPlace(tsk.key)).toBe(true);
     });
 
+    it("should show the replies of an in-place type when the check fails", async () => {
+      const tsk = await createTask(await createRack(), { type: IN_PLACE_TYPE });
+      const inPlace = await RULE.repliesInPlace?.({
+        client,
+        key: tsk.key,
+        isShown: async () => {
+          throw new Error("The Core is unreachable.");
+        },
+      });
+      expect(inPlace).toBe(true);
+    });
+
     it("should not show the replies of a task of another type in place", async () => {
       const tsk = await createTask(await createRack(), { internal: false });
       const other = await createTask(await createRack(), { internal: false });

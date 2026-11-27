@@ -57,9 +57,9 @@ export const createNotificationRule = (
     return devices.some(({ configured }) => configured);
   },
   repliesInPlace: async (args) => {
-    if (await args.isShown(task.resourceID(args.key))) return true;
     const tsk = await retrieveTask(args);
-    return tsk != null && inPlaceTypes.includes(tsk.type);
+    if (tsk != null && inPlaceTypes.includes(tsk.type)) return true;
+    return await args.isShown(task.resourceID(args.key));
   },
   warningsDelayed: true,
 });

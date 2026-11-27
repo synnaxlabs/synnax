@@ -121,6 +121,15 @@ describe("Panel.useGetIsShown", () => {
     expect(await isShown(id)).toBe(false);
   });
 
+  // Notifications.useForward restarts its forwarder when the check changes.
+  it("should return the same check on each render", async () => {
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { result, rerender } = renderHook(() => Panel.useGetIsShown(), { wrapper });
+    const first = result.current;
+    rerender();
+    expect(result.current).toBe(first);
+  });
+
   it("should reject when the Core does not have the selected panel", async () => {
     const { isShown, store } = await renderIsShown();
     show(store, { panelKey: uuid.create(), tabKey: uuid.create() });
