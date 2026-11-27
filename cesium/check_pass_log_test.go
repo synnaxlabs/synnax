@@ -487,8 +487,8 @@ var _ = Describe("Check pass on the pointer log", func() {
 			Expect(cuts).To(HaveLen(1))
 			fields := cuts[0].ContextMap()
 			Expect(fields).To(SatisfyAll(
-				HaveKeyWithValue("key", uint32(idx)),
-				HaveKeyWithValue("keys", ConsistOf(uint32(i32), uint32(str))),
+				HaveKeyWithValue("key", idx),
+				HaveKeyWithValue("keys", ConsistOf(i32, str)),
 				HaveKeyWithValue("after", old.stamps[from-1].String()),
 				HaveKeyWithValue("samples", uint32(to-from)),
 			))
