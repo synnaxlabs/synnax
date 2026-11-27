@@ -364,7 +364,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
         this->decoder
     );
     this->failed.clear();
-    if (err || !i.has_value()) return {std::nullopt, err};
+    if (err || !i.has_value()) return {i, err};
     const auto msg = *i;
     const auto &m = this->messages[msg];
     const auto &samples = std::visit(
@@ -381,7 +381,7 @@ std::pair<std::optional<std::size_t>, x::errors::Error> Reader::read(
                  .missing = f.missing,
                  .error = f.error}
             );
-            if (const auto dt = samples[f.binding].data_type();
+            if (const auto &dt = samples[f.binding].data_type();
                 nan_filled && (dt == x::telem::FLOAT32_T || dt == x::telem::FLOAT64_T))
                 this->filled[f.binding] = true;
         }

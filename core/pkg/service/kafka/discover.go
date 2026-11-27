@@ -588,7 +588,16 @@ func shapeTopic(t *sampledTopic, rs []*kgo.Record) []sampledRecord {
 		sampled[j] = rec
 		docs[j] = xjson.Document{Source: rec.Key, Data: r.Value, Time: rec.Time}
 	}
-	t.Shapes = xjson.Infer(docs)
+	var isJSON []bool
+	t.Shapes, isJSON = xjson.Infer(docs)
+	for j, r := range rs {
+		s := &sampled[j]
+		s.Format = payload.FormatJSON
+		if !isJSON[j] {
+			s.Format = formatOf(r.Value)
+		}
+		s.Payload = driver.Display(r.Value, s.Format, samplePayloadLimit)
+	}
 	return sampled
 }
 
@@ -609,8 +618,6 @@ func newSampledRecord(r *kgo.Record) sampledRecord {
 		Time:      telem.NewTimeStamp(r.Timestamp),
 		Headers:   make([]header, len(r.Headers)),
 	}
-	s.Format = formatOf(r.Value)
-	s.Payload = driver.Display(r.Value, s.Format, samplePayloadLimit)
 	for i, h := range r.Headers {
 		s.Headers[i] = header{
 			Key:   h.Key,

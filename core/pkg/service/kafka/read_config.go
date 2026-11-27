@@ -98,17 +98,6 @@ func check(
 	return c, nil
 }
 
-// claimIndexes claims in c, the Checker that check returned for cfg, each index channel
-// whose timestamps an enabled record of cfg writes.
-func claimIndexes(c read.Checker, cfg *ReadConfig) error {
-	for _, rd := range readsOf(cfg) {
-		if err := c.ClaimIndexes(rd); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // readsOf returns the read of each enabled record of cfg.
 func readsOf(cfg *ReadConfig) []read.Read {
 	var reads []read.Read
@@ -117,13 +106,17 @@ func readsOf(cfg *ReadConfig) []read.Read {
 			if rec.Disabled {
 				continue
 			}
-			path := []string{"topics", strconv.Itoa(t), "records", strconv.Itoa(i)}
-			reads = append(reads, read.Read{
-				Path:     path,
-				ICD:      rec.ICD,
-				Messages: rec.Messages,
-			})
+			reads = append(reads, readOf(t, i, rec))
 		}
 	}
 	return reads
+}
+
+// readOf returns the read of rec, record i of topic t.
+func readOf(t, i int, rec ReadRecord) read.Read {
+	return read.Read{
+		Path:     []string{"topics", strconv.Itoa(t), "records", strconv.Itoa(i)},
+		ICD:      rec.ICD,
+		Messages: rec.Messages,
+	}
 }

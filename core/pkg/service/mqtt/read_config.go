@@ -121,29 +121,6 @@ func check(
 	return c, nil
 }
 
-// claimIndexes claims in c, the Checker that check returned for cfg, each index channel
-// whose timestamps an enabled entry of cfg writes.
-func claimIndexes(c read.Checker, cfg *ReadConfig) error {
-	for i, e := range cfg.Entries {
-		var err error
-		switch entry := e.Variant.(type) {
-		case PlainReadEntry:
-			if !entry.Disabled {
-				err = c.ClaimIndexes(readOf(i, entry))
-			}
-		case SparkplugReadEntry:
-			if !entry.Disabled && entry.Channel != 0 {
-				path := []string{"entries", strconv.Itoa(i), "channel"}
-				err = c.ClaimIndex(entry.Channel, path)
-			}
-		}
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // readsOf returns the read of each enabled plain entry of cfg.
 func readsOf(cfg *ReadConfig) []read.Read {
 	var reads []read.Read

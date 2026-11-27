@@ -22,6 +22,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	xjson "github.com/synnaxlabs/x/json"
@@ -120,6 +121,27 @@ var _ = Describe("Discover", func() {
 			HaveSuffix(" Check the address and port of each broker, and that the "+
 				"network of the Core can reach them."),
 		))
+	}
+
+	// createUncertified creates a cluster device whose CA certificate is not PEM, so
+	// its settings cannot open a client.
+	createUncertified := func(ctx context.Context) device.Device {
+		GinkgoHelper()
+		return createDevice(ctx, kafka.Properties{
+			Brokers:       cluster.ListenAddrs(),
+			Secure:        true,
+			CaCertificate: "not a certificate",
+		})
+	}
+
+	// expectInvalidSettings checks that stat answers a command to a device that
+	// createUncertified created.
+	expectInvalidSettings := func(stat task.Status) {
+		GinkgoHelper()
+		Expect(stat.Variant).To(Equal(status.VariantError))
+		Expect(stat.Message).To(Equal("Invalid cluster settings"))
+		Expect(stat.Description).To(Equal("ca_certificate: must contain a " +
+			"PEM-encoded certificate. Edit the cluster settings."))
 	}
 
 	// newMuteCluster starts a cluster that takes connections but answers no metadata
@@ -379,6 +401,12 @@ var _ = Describe("Discover", func() {
 			},
 		)
 
+		It("Should report settings that cannot open a client", func(ctx SpecContext) {
+			dev := createUncertified(ctx)
+			stat := command(ctx, "browse", map[string]any{"device": dev.Key}, nil)
+			expectInvalidSettings(stat)
+		})
+
 		It("Should say that the broker did not answer", func(ctx SpecContext) {
 			dev := createDevice(
 				ctx,
@@ -481,6 +509,40 @@ var _ = Describe("Discover", func() {
 			Expect(shapes[0].Fields[shapes[0].Index].Pointer.String()).To(Equal("/ts"))
 			Expect(shapes[1].Sources).To(Equal([]string{"pump-1"}))
 		})
+
+		It("Should give the format and payload of each sampled record",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				values := [][]byte{
+					[]byte(`{"v":1}`),
+					[]byte("open"),
+					{0xff, 0x01},
+					{0, 0, 0, 0, 7, 2, 4},
+				}
+				recs := make([]*kgo.Record, len(values))
+				for i, v := range values {
+					recs[i] = &kgo.Record{Topic: topic, Value: v}
+				}
+				Expect(newKafkaClient().ProduceSync(ctx, recs...).FirstErr()).
+					To(Succeed())
+				samples, _ := sample(ctx, []string{topic}, 0)
+				Expect(samples[0].Records).To(HaveLen(len(values)))
+				formats := make([]payload.Format, len(values))
+				payloads := make([]string, len(values))
+				for i, r := range samples[0].Records {
+					formats[i], payloads[i] = r.Format, r.Payload
+				}
+				Expect(formats).To(Equal([]payload.Format{
+					payload.FormatJSON,
+					payload.FormatText,
+					payload.FormatBinary,
+					"schema_registry",
+				}))
+				Expect(payloads).
+					To(Equal([]string{`{"v":1}`, "open", "ff01", "00000000070204"}))
+			},
+		)
 
 		DescribeTable("Should read windows spread back in time",
 			func(ctx SpecContext, count int, expected []int64) {
@@ -599,6 +661,14 @@ var _ = Describe("Discover", func() {
 				expectUnreachable(stat, addr)
 			},
 		)
+
+		It("Should report settings that cannot open a client", func(ctx SpecContext) {
+			stat := command(ctx, "sample", map[string]any{
+				"device": createUncertified(ctx).Key,
+				"topics": []string{"plant"},
+			}, nil)
+			expectInvalidSettings(stat)
+		})
 
 		It("Should say that the broker did not answer", func(ctx SpecContext) {
 			dev := createDevice(

@@ -171,20 +171,41 @@ export const SideList = ({ children }: PropsWithChildren): ReactElement => (
 export interface SideActionProps extends Pick<
   Button.ButtonProps,
   "onClick" | "children"
-> {}
+> {
+  /** Shows under the button, which then leads its {@link Side}. */
+  hint?: string;
+}
 
-/** A button at the foot of a {@link Side} that adds what its list does not hold. */
-export const SideAction = ({ children, ...rest }: SideActionProps): ReactElement => (
-  <Button.Button
-    variant="text"
-    size="small"
-    className={CSS.BE("icd-picker", "side-action")}
-    {...rest}
-  >
-    <Icon.Add />
-    {children}
-  </Button.Button>
-);
+/**
+ * A button that adds what the list of a {@link Side} does not hold. It sits at the foot
+ * of the side, or with a hint at its head.
+ */
+export const SideAction = ({
+  children,
+  hint,
+  ...rest
+}: SideActionProps): ReactElement => {
+  const button = (
+    <Button.Button
+      variant="text"
+      size="small"
+      className={CSS.BE("icd-picker", "side-action")}
+      {...rest}
+    >
+      <Icon.Add />
+      {children}
+    </Button.Button>
+  );
+  if (hint == null) return button;
+  return (
+    <Flex.Box y empty className={CSS.BE("icd-picker", "side-lead")}>
+      {button}
+      <Text.Text level="small" color={9}>
+        {hint}
+      </Text.Text>
+    </Flex.Box>
+  );
+};
 
 export interface NoticeProps extends Pick<Empty.ActionProps, "message"> {}
 
