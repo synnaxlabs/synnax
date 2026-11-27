@@ -10,7 +10,7 @@
 import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError, ValidationError } from "@/index";
+import { NotFoundError } from "@/index";
 import { labjack } from "@/labjack";
 import { query } from "@/query";
 import { resource } from "@/resource";
@@ -243,7 +243,7 @@ describe("LabJack device", async () => {
     it("should set a channel map of the ports", async () => {
       const d = await create();
       const ch = await client.channels.create({
-        name: `lj_di_${uuid.create()}`,
+        name: `lj_di_${Math.random().toString(36).slice(2)}`,
         dataType: "uint8",
         virtual: true,
       });
@@ -264,14 +264,14 @@ describe("LabJack device", async () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it("should throw a ValidationError for a change of model", async () => {
+    it("should refuse a change of model", async () => {
       const d = await create();
       await expect(
         client.labjack.devices.dispatch(
           d.key,
           labjack.device.set({ path: ["model"], value: "t4" }),
         ),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toThrow("model: cannot change from t7 to t4");
     });
   });
 
