@@ -231,6 +231,24 @@ describe("auth", () => {
     });
   });
 
+  describe("redeemInviteWithPassword", () => {
+    it("should give one error for a token that redeems nothing", async () => {
+      await expect(
+        auth.redeemInviteWithPassword(
+          auth.createTokenlessClient({
+            host: testClientParams().host,
+            port: Number(testClientParams().port),
+            secure: false,
+          }),
+          {
+            token: "syi_token",
+            credentials: { username: id.create(), password: "invited" },
+          },
+        ),
+      ).rejects.toThrow(InvalidCredentialsError);
+    });
+  });
+
   describe("retrieveProviders", () => {
     it("should list no providers when the Core sets none", async () => {
       const providers = await auth.retrieveProviders(

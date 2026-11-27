@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -63,10 +64,11 @@ func linkAccount(ctx context.Context, token, sub string) oidc.Link {
 var _ = Describe("ServiceConfig", func() {
 	full := func() apioidc.ServiceConfig {
 		return apioidc.ServiceConfig{
-			Auth:    &auth.Service{},
-			OIDC:    &oidc.Service{},
-			Invite:  &invite.Service{},
-			Session: &session.Service{},
+			Auth:     &auth.Service{},
+			OIDC:     &oidc.Service{},
+			Invite:   &invite.Service{},
+			Session:  &session.Service{},
+			Password: &password.Service{},
 		}
 	}
 
@@ -102,6 +104,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apioidc.ServiceConfig) { c.Session = nil },
 				"session: must be non-nil",
 			),
+			Entry(
+				"password",
+				func(c *apioidc.ServiceConfig) { c.Password = nil },
+				"password: must be non-nil",
+			),
 		)
 	})
 
@@ -113,6 +120,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
 			Expect(merged.Invite).To(BeIdenticalTo(cfg.Invite))
 			Expect(merged.Session).To(BeIdenticalTo(cfg.Session))
+			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -122,6 +130,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
 			Expect(merged.Invite).To(BeIdenticalTo(cfg.Invite))
 			Expect(merged.Session).To(BeIdenticalTo(cfg.Session))
+			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 		})
 	})
 })

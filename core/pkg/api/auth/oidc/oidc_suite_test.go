@@ -164,9 +164,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func newService(svc *auth.Service) *apioidc.Service {
 	GinkgoHelper()
 	return MustSucceed(apioidc.NewService(apioidc.ServiceConfig{
-		Auth:   svc,
-		OIDC:   oidcSvc,
-		Invite: inviteSvc,
+		Auth:     svc,
+		OIDC:     oidcSvc,
+		Invite:   inviteSvc,
+		Password: passwordSvc,
 		Session: MustSucceed(session.NewService(session.ServiceConfig{
 			DB:       db,
 			Auth:     svc,

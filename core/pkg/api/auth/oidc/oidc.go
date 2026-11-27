@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
@@ -47,6 +48,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Session *session.Service
+	// Password stores the password that an invited user sets.
+	//
+	// [REQUIRED]
+	Password *password.Service
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -57,6 +62,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.OIDC = override.Nil(c.OIDC, other.OIDC)
 	c.Invite = override.Nil(c.Invite, other.Invite)
 	c.Session = override.Nil(c.Session, other.Session)
+	c.Password = override.Nil(c.Password, other.Password)
 	return c
 }
 
@@ -67,16 +73,18 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("oidc", c.OIDC)
 	v.NotNil("invite", c.Invite)
 	v.NotNil("session", c.Session)
+	v.NotNil("password", c.Password)
 	return v.Error()
 }
 
 // Service links, lists, and unlinks OpenID Connect provider accounts, and manages
 // invites.
 type Service struct {
-	auth    *auth.Service
-	oidc    *oidc.Service
-	invite  *invite.Service
-	session *session.Service
+	auth     *auth.Service
+	oidc     *oidc.Service
+	invite   *invite.Service
+	session  *session.Service
+	password *password.Service
 }
 
 // NewService opens a new OIDC API service.
@@ -86,10 +94,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		auth:    cfg.Auth,
-		oidc:    cfg.OIDC,
-		invite:  cfg.Invite,
-		session: cfg.Session,
+		auth:     cfg.Auth,
+		oidc:     cfg.OIDC,
+		invite:   cfg.Invite,
+		session:  cfg.Session,
+		password: cfg.Password,
 	}, nil
 }
 

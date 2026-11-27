@@ -194,6 +194,15 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Check", func() {
+		It("Should accept a live token and keep its invite", func(ctx SpecContext) {
+			u := createUser(ctx)
+			_, token := create(ctx, u)
+			Expect(svc.Check(ctx, token)).To(Succeed())
+			Expect(exists(ctx, u)).To(BeTrue())
+		})
+	})
+
 	Describe("Redeem", func() {
 		It("Should run f with the invite and delete it", func(ctx SpecContext) {
 			u := createUser(ctx)
@@ -260,7 +269,10 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should give the same error for each token it refuses",
 			func(ctx SpecContext, token func(SpecContext) string) {
-				err := svc.Redeem(ctx, token(ctx), noop)
+				refused := token(ctx)
+				Expect(svc.Check(ctx, refused)).
+					To(BeIdenticalTo(auth.ErrInvalidCredentials))
+				err := svc.Redeem(ctx, refused, noop)
 				Expect(err).To(BeIdenticalTo(auth.ErrInvalidCredentials))
 			},
 			Entry("expired", func(ctx SpecContext) string {

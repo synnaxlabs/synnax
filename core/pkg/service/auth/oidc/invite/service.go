@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package invite stores one-time tokens that let a provider account link to a user
-// without a session. A token is shown once, and only its hash is stored.
+// Package invite stores one-time tokens that let a user link a provider account or set
+// a first password without a session. A token is shown once, and only its hash is
+// stored.
 package invite
 
 import (
@@ -113,6 +114,15 @@ func (s *Service) MatchLive() Filter {
 	})
 }
 
+// Check returns [auth.ErrInvalidCredentials] when token is malformed, unknown, used,
+// or expired, and nil when Redeem would accept it now. It writes nothing.
+func (s *Service) Check(ctx context.Context, token string) error {
+	return s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		_, err := s.find(ctx, snap, token)
+		return err
+	})
+}
+
 // Redeem deletes the invite that token names and runs f with it, in one transaction
 // that commits when f returns nil. Gorp transactions run one at a time, so a token
 // works once. It returns [auth.ErrInvalidCredentials] for a malformed, unknown, used,
@@ -122,29 +132,41 @@ func (s *Service) Redeem(
 	token string,
 	f func(tx gorp.Tx, i Invite) error,
 ) error {
-	key, hash, err := auth.ParseToken(prefix, token)
-	if err != nil {
-		return auth.ErrInvalidCredentials
-	}
 	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var i Invite
-		if err := s.NewRetrieve().
-			Where(MatchKeys(key)).
-			Entry(&i).
-			Exec(ctx, tx); err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				return auth.ErrInvalidCredentials
-			}
+		i, err := s.find(ctx, tx, token)
+		if err != nil {
 			return err
 		}
-		if subtle.ConstantTimeCompare(i.Hash, hash) != 1 || i.Expiry <= s.now() {
-			return auth.ErrInvalidCredentials
-		}
-		if err := s.NewWriter(tx).Delete(ctx, key); err != nil {
+		if err := s.NewWriter(tx).Delete(ctx, i.Key); err != nil {
 			return err
 		}
 		return f(tx, i)
 	})
+}
+
+func (s *Service) find(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	token string,
+) (Invite, error) {
+	key, hash, err := auth.ParseToken(prefix, token)
+	if err != nil {
+		return Invite{}, auth.ErrInvalidCredentials
+	}
+	var i Invite
+	if err := s.NewRetrieve().
+		Where(MatchKeys(key)).
+		Entry(&i).
+		Exec(ctx, snap); err != nil {
+		if errors.Is(err, query.ErrNotFound) {
+			return Invite{}, auth.ErrInvalidCredentials
+		}
+		return Invite{}, err
+	}
+	if subtle.ConstantTimeCompare(i.Hash, hash) != 1 || i.Expiry <= s.now() {
+		return Invite{}, auth.ErrInvalidCredentials
+	}
+	return i, nil
 }
 
 func (s *Service) now() telem.TimeStamp { return telem.NewTimeStamp(s.cfg.Clock.Now()) }

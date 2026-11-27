@@ -24,6 +24,7 @@ import (
 	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/invite"
@@ -42,6 +43,20 @@ func redeem(
 	return apiSvc.RedeemInvite(
 		requestCtx(ctx),
 		apioidc.RedeemInviteRequest{Token: token, Credentials: creds},
+	)
+}
+
+func redeemWithPassword(
+	ctx context.Context,
+	token string,
+	username string,
+) (session.CreateResponse, error) {
+	return apiSvc.RedeemInviteWithPassword(
+		requestCtx(ctx),
+		apioidc.RedeemInviteWithPasswordRequest{
+			Token:       token,
+			Credentials: auth.Credentials{Username: username, Password: "invited"},
+		},
 	)
 }
 
@@ -73,6 +88,25 @@ var _ = Describe("Disabled OIDC method for invites", func() {
 			requestCtx(ctx),
 			apioidc.RedeemInviteRequest{},
 		)).Error().To(MatchError(validate.ErrValidation))
+	})
+})
+
+var _ = Describe("Disabled password method for invites", func() {
+	It("Should refuse to redeem an invite with a password", func(ctx SpecContext) {
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		disabled := newService(MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: other,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodOIDC: oidcSvc,
+			},
+		})))
+		Expect(disabled.RedeemInviteWithPassword(
+			requestCtx(ctx),
+			apioidc.RedeemInviteWithPasswordRequest{
+				Credentials: auth.Credentials{Username: "u", Password: "p"},
+			},
+		)).Error().To(MatchError(ContainSubstring("method password is not accepted")))
 	})
 })
 
@@ -328,6 +362,85 @@ var _ = Describe("OIDC invites", func() {
 			)
 			Expect(redeem(ctx, create(ctx).Token, grantAccount(uuid.New().String()))).
 				Error().To(MatchError(ContainSubstring("already has an account")))
+		})
+	})
+
+	Describe("RedeemInviteWithPassword", func() {
+		var dave user.User
+		inviteDave := func(ctx SpecContext) string {
+			GinkgoHelper()
+			return MustSucceed(createInvite(
+				authed(ctx, rootToken),
+				apioidc.CreateInviteRequest{User: dave.Key},
+			)).Token
+		}
+		BeforeEach(func(ctx SpecContext) {
+			dave = MustSucceed(rbactestutil.CreateUser(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				user.User{Name: "dave-" + uuid.New().String()},
+			))
+		})
+		It("Should set the user's password and open a session", func(ctx SpecContext) {
+			username := "dave-" + uuid.New().String()
+			res := MustSucceed(redeemWithPassword(ctx, inviteDave(ctx), username))
+			Expect(res.Session.Subject).To(Equal(dave.ResourceID()))
+			Expect(res.User.Key).To(Equal(dave.Key))
+			Expect(MustSucceed(authSvc.Authenticate(ctx, res.Token)).Subject).
+				To(Equal(dave.ResourceID()))
+			next := login(ctx, auth.Proof{Variant: auth.PasswordProof{
+				Username: username,
+				Password: "invited",
+			}})
+			Expect(MustSucceed(authSvc.Authenticate(ctx, next)).Subject).
+				To(Equal(dave.ResourceID()))
+		})
+		It("Should work once", func(ctx SpecContext) {
+			token := inviteDave(ctx)
+			MustSucceed(redeemWithPassword(ctx, token, "dave-"+uuid.New().String()))
+			Expect(redeemWithPassword(ctx, token, "dave-"+uuid.New().String())).
+				Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should give one error for wrong and expired tokens", func(ctx SpecContext) {
+			expired := inviteDave(ctx)
+			clock.Advance(24 * time.Hour)
+			Expect(redeemWithPassword(ctx, expired, "dave-"+uuid.New().String())).
+				Error().To(MatchError(auth.ErrInvalidCredentials))
+			Expect(redeemWithPassword(ctx, "syi_wrong", "dave-"+uuid.New().String())).
+				Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should refuse a taken username and keep the invite", func(ctx SpecContext) {
+			token := inviteDave(ctx)
+			Expect(redeemWithPassword(ctx, token, bob.Name)).Error().
+				To(MatchError(auth.ErrRepeatedUsername))
+			MustSucceed(redeemWithPassword(ctx, token, "dave-"+uuid.New().String()))
+		})
+		It("Should refuse a user that has a password", func(ctx SpecContext) {
+			Expect(
+				redeemWithPassword(
+					ctx,
+					create(ctx).Token,
+					"carol-"+uuid.New().String(),
+				),
+			).
+				Error().
+				To(MatchError(validate.ErrValidation))
+			Expect(retrieve(ctx)).To(HaveLen(1))
+			Expect(authSvc.Login(ctx, passwordProof(carol.Name, "p"))).Error().
+				ToNot(HaveOccurred())
+		})
+		It("Should refuse an empty password", func(
+			ctx SpecContext,
+		) {
+			Expect(apiSvc.RedeemInviteWithPassword(
+				requestCtx(ctx),
+				apioidc.RedeemInviteWithPasswordRequest{
+					Token:       inviteDave(ctx),
+					Credentials: auth.Credentials{Username: "dave"},
+				},
+			)).Error().To(MatchError(validate.ErrValidation))
 		})
 	})
 })

@@ -163,6 +163,11 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/auth/oidc/invite/redeem",
 			),
+			Entry(
+				"unary invite redeem with password",
+				http.MethodPost,
+				"/api/v1/auth/oidc/invite/redeem-password",
+			),
 			Entry("unary channel create", http.MethodPost, "/api/v1/channel/create"),
 			Entry(
 				"unary channel count limited",
@@ -373,6 +378,17 @@ var _ = Describe("HTTP", func() {
 			)
 			Expect(status).To(Equal(http.StatusBadRequest), string(body))
 			Expect(string(body)).To(ContainSubstring("method oidc is not accepted"))
+		})
+		It("Should reach the invite password route without a session", func() {
+			_, body := post(
+				"/api/v1/auth/oidc/invite/redeem-password",
+				"",
+				apioidc.RedeemInviteWithPasswordRequest{
+					Token:       "syi_wrong",
+					Credentials: auth.Credentials{Username: "u", Password: "p"},
+				},
+			)
+			Expect(string(body)).To(ContainSubstring("invalid credentials"))
 		})
 		It("Should require a session to create an invite", func() {
 			_, body := post(
