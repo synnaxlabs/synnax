@@ -164,7 +164,8 @@ TEST_F(FSTest, ReadFileEmptyPath) {
 
 /// @brief it should correctly read a file using a relative path.
 TEST_F(FSTest, ReadFileRelativePath) {
-    std::string relative_file = "test_relative.txt";
+    const std::string relative_file = "test_relative_" +
+                                      std::to_string(std::random_device()()) + ".txt";
     std::ofstream file(relative_file, std::ios::binary);
     file << "Relative path content";
     file.close();
