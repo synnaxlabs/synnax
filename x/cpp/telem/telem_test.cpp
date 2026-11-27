@@ -1355,6 +1355,20 @@ TEST(SizeTests, testUnitConversions) {
     ASSERT_DOUBLE_EQ(s.gigabytes(), 1.5);
     ASSERT_DOUBLE_EQ(s.megabytes(), 1500);
     ASSERT_DOUBLE_EQ(s.kilobytes(), 1'500'000);
+    ASSERT_DOUBLE_EQ((2500 * GIGABYTE).terabytes(), 2.5);
+}
+
+/// @brief it should have a zero size.
+TEST(SizeTests, testZero) {
+    ASSERT_EQ(Size::ZERO(), Size(0));
+}
+
+/// @brief it should scale a size by a fraction, rounding to the nearest byte.
+TEST(SizeTests, testMultiplyByDouble) {
+    ASSERT_EQ(1.9 * KILOBYTE, Size(1900));
+    ASSERT_EQ(KILOBYTE * 0.5, Size(500));
+    ASSERT_EQ(BYTE * 0.6, Size(1));
+    ASSERT_EQ(MEGABYTE * 1.5f, Size(1'500'000));
 }
 
 /// @brief it should add, subtract, scale, and divide sizes.
@@ -1445,11 +1459,41 @@ TEST(SizeTests, testParseInvalid) {
           "1MB 1GB",
           "1MB 1MB",
           "1MB,2KB",
+          "1KB1B",
           "256\xc2\xa0MB",
           "4 \xd0\x9c\xd0\x91"}) {
         SCOPED_TRACE(text);
         ASSERT_OCCURRED_AS_P(Size::parse(text), errors::VALIDATION);
     }
+}
+
+/// @brief it should accept any whitespace around and between unit groups.
+TEST(SizeTests, testParseWhitespace) {
+    ASSERT_EQ(ASSERT_NIL_P(Size::parse("\t1GB\n500MB\r\n")), GIGABYTE + 500 * MEGABYTE);
+}
+
+/// @brief it should name the problem in each parse error.
+TEST(SizeTests, testParseErrorReasons) {
+    const auto reason = [](const std::string &text) {
+        const auto [_, err] = Size::parse(text);
+        EXPECT_TRUE(err.matches(errors::VALIDATION));
+        return err.data.substr(err.data.find("': ") + 3);
+    };
+    ASSERT_EQ(reason("-5"), "sizes cannot be negative");
+    ASSERT_EQ(reason("1.5GB"), "fractional numbers are not allowed");
+    ASSERT_EQ(reason("1KB1B"), "expected a space after each unit");
+    ASSERT_EQ(reason("1MB 1GB"), "units must be in descending order");
+}
+
+/// @brief it should cut a long input to 64 characters in a parse error.
+TEST(SizeTests, testParseErrorTruncatesInput) {
+    const std::string text = std::string(100, 'x');
+    const auto [_, err] = Size::parse(text);
+    ASSERT_EQ(
+        err.data,
+        "invalid size '" + std::string(64, 'x') +
+            "...': expected a number followed by a unit (B, KB, MB, GB, TB)"
+    );
 }
 
 /// @brief it should reject sizes beyond an int64.
