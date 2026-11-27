@@ -410,12 +410,14 @@ func (l *Log) write(queue []pending) {
 			size = int64(FrameHeaderSize + len(p.entry))
 		}
 		if start+size > l.size/4*3 && size <= MaxFrame {
-			flush()
-			if failed = l.advance(); failed != nil {
+			switched, err := l.switchIfReady(flush)
+			if failed = err; failed != nil {
 				l.refuse(p, failed)
 				continue
 			}
-			start, size = l.nextStart(), int64(FrameHeaderSize+len(p.entry))
+			if switched {
+				start, size = l.nextStart(), int64(FrameHeaderSize+len(p.entry))
+			}
 		}
 		if err := l.fits(p, start, size); err != nil {
 			// Each entry ahead of a refusal gets its answer first.

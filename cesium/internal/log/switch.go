@@ -25,11 +25,10 @@ func (l *Log) Prepared(next uint64, err error) {
 	l.mu.Unlock()
 }
 
-// advance switches to the next log when its file is ready: it writes and syncs both
-// header copies of it, reports the switch, and asks for the log after it. Until the
-// file is ready, the live log goes on to its end limits; after a failed file it asks
-// for the file again. It returns the error of a failed log.
-func (l *Log) advance() error {
+// nextReady reports whether the file of the next log is ready. Until it is, the live
+// log goes on to its end limits; after a failed file it asks for the file again. It
+// returns the error of a failed log.
+func (l *Log) nextReady() (bool, error) {
 	next := l.gen + 1
 	l.mu.Lock()
 	failed, ready := l.mu.err, l.mu.prepared >= next
@@ -38,15 +37,35 @@ func (l *Log) advance() error {
 		l.mu.asked = true
 	}
 	l.mu.Unlock()
-	switch {
-	case failed != nil:
-		return failed
-	case retry:
-		l.cfg.Prepare(next)
-		return nil
-	case !ready:
-		return nil
+	if failed != nil {
+		return false, failed
 	}
+	if retry {
+		l.cfg.Prepare(next)
+	}
+	return ready, nil
+}
+
+// switchIfReady flushes the batch with flush and switches to the next log when its file
+// is ready, so a batch past three quarters goes on while it is not. It reports whether
+// it switched, and returns the error of a failed log, after a flush.
+func (l *Log) switchIfReady(flush func()) (bool, error) {
+	ready, err := l.nextReady()
+	if err == nil && !ready {
+		return false, nil
+	}
+	flush()
+	if err != nil {
+		return false, err
+	}
+	return true, l.advance()
+}
+
+// advance switches to the next log, whose file is ready: it writes and syncs both
+// header copies of it, reports the switch, and asks for the log after it. It returns
+// the error of a failed log.
+func (l *Log) advance() error {
+	next := l.gen + 1
 	old := l.file
 	if err := l.open(next); err != nil {
 		l.fail(err)
