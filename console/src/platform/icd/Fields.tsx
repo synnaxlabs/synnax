@@ -657,8 +657,8 @@ export interface JSONFieldProps {
   autoFocus?: boolean;
   /** Called with each new name, while the form still holds the old one. */
   onNameChange?: (name: string) => void;
-  /** A task writes the field, so the scale and offset convert in reverse. */
-  written?: boolean;
+  /** A command channel fills the field, so the scale and offset convert in reverse. */
+  commanded?: boolean;
 }
 
 const WRITE_CONVERSION = "The task sends (value − offset) ÷ scale.";
@@ -672,7 +672,7 @@ export const JSONField = ({
   actions,
   autoFocus = false,
   onNameChange,
-  written = false,
+  commanded = false,
 }: JSONFieldProps): ReactElement => {
   const { get, set, mode } = Form.useContext();
   const field = Form.useFieldValue(path);
@@ -717,7 +717,7 @@ export const JSONField = ({
             {(p) => (
               <>
                 <ScaleControl {...p} offset={path.offset} />
-                {written && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
+                {commanded && <Input.HelpText>{WRITE_CONVERSION}</Input.HelpText>}
               </>
             )}
           </Form.Field>

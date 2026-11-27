@@ -1069,21 +1069,30 @@ describe("MQTT Write form", () => {
       expect(screen.queryByText("Message has no fields")).toBeNull();
     });
 
-    it("should say how a number field converts the value it sends", async () => {
-      const setpoint = createField("setpoint", "float");
-      const mode = createField("mode", "string");
-      const { target } = await createFormatTarget([setpoint, mode]);
-      await renderWrite([target]);
-      await fieldGroup(setpoint.name);
-      expect(
-        await screen.findByText("The task sends (value − offset) ÷ scale."),
-      ).toBeTruthy();
-      await fieldGroup(mode.name);
-      await waitFor(() =>
-        expect(
-          screen.queryByText("The task sends (value − offset) ÷ scale."),
-        ).toBeNull(),
-      );
+    describe("the conversion of a number field", () => {
+      const CONVERSION = "The task sends (value − offset) ÷ scale.";
+
+      it("should say how a command channel's value converts", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        await fieldGroup(setpoint.name);
+        expect(await screen.findByText(CONVERSION)).toBeTruthy();
+        await fieldGroup(mode.name);
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
+
+      it("should say nothing for a fixed value, which the task sends as typed", async () => {
+        const setpoint = createField("setpoint", "float");
+        const mode = createField("mode", "string");
+        const { target } = await createFormatTarget([setpoint, mode]);
+        await renderWrite([target]);
+        const group = await fieldGroup(setpoint.name);
+        await screen.findByText(CONVERSION);
+        fireEvent.click(group.getByRole("button", { name: "Value" }));
+        await waitFor(() => expect(screen.queryByText(CONVERSION)).toBeNull());
+      });
     });
 
     it("should rename a field in its ICD from its pane", async () => {
