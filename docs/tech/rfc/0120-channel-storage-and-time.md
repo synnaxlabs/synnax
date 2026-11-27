@@ -665,14 +665,16 @@ fr.emplace(ai_0, std::move(s0));
 fr.emplace(ai_1, std::move(s1));
 ```
 
-C++ names a group by its position, through `x::telem::Frame::emplace_time` (NEW), and
-the writer maps it to the group's clock. So no clock key reaches a documented surface
-(D-141), and a Driver source builds frames before the open returns. `WriterConfig` gains
-`time_groups`, `time_of`, and `arrival_timed`, and `auto_index` goes
-(`client/cpp/framer/framer.h:351`). The C calls drop `index_channel` from both writes,
-`is_index` and `index` from create, and `out_index_keys` from key retrieves, and
-`auto_index` becomes `arrival_timed` (`client/clib/framer/framer.h:64-82`). The LabVIEW
-VIs ship with the library, and `client/lv` checks `synnax_client_version` at open.
+C++ names a group by its position, through `x::telem::Frame::emplace_time` (NEW), which
+keeps group time series in a list apart from the channel series, so a position never
+sits in a clock field. The writer maps each position to its group's clock. So no clock
+key reaches a documented surface (D-141), and a Driver source builds frames before the
+open returns. `WriterConfig` gains `time_groups`, `time_of`, and `arrival_timed`, and
+`auto_index` goes (`client/cpp/framer/framer.h:351`). The C calls drop `index_channel`
+from both writes, `is_index` and `index` from create, and `out_index_keys` from key
+retrieves, and `auto_index` becomes `arrival_timed`
+(`client/clib/framer/framer.h:64-82`). The LabVIEW VIs ship with the library, and
+`client/lv` checks `synnax_client_version` at open.
 
 **Wire:**
 
@@ -737,8 +739,13 @@ Core (§5).
   stamp of its group's channels, in place of the last stamp of its index channel
   (`core/pkg/service/kafka/read_task.go:529-545`,
   `core/pkg/service/mqtt/read_task.go:220-252`). With whole groups the two are equal.
-- **The bypass bus**: Driver frames on the local bus carry the clock of each series, so
-  a local reader pairs within a group and never by bus alignment across groups.
+- **The bypass bus**: A Driver frame on the local bus names its time by group, as its
+  writer and the group's position, never by a clock key. So it works before an open
+  returns and while the Core is down (RFC 0113). The bus filter keeps the time series of
+  each kept series' group (`driver/bypass/bypass.h:97-127` keeps keys only today), and a
+  time series takes the alignment of its group's data. The forwarder maps positions to
+  clock keys only where it writes to the Core. A local reader, such as Arc, pairs within
+  a group and never by bus alignment across groups.
 - **Console forms**: Task forms make data channels only, with no `_time` channels
   (`console/src/feature/ni/task/AnalogRead.tsx:211-215` and its siblings). OPC UA's "Use
   as index" becomes "Use as time".
