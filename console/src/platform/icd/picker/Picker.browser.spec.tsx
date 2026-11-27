@@ -10,7 +10,8 @@
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { treatment } from "@synnaxlabs/lyra/styletest";
 import { fireEvent, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { page, server } from "vitest/browser";
 
 import { ICD } from "@/platform/icd";
 import { renderWithConsole } from "@/testutil";
@@ -57,6 +58,43 @@ describe("ICD.Picker.Values", () => {
     expect(treatment(screen.getByText("plant/oven"))).toBe("prose");
     expect(treatment(screen.getByText("temperature"))).toBe("prose");
     expect(treatment(screen.getByText("21.5"))).toBe("numeric");
+  });
+
+  it("should widen the Type column to show its longest lock label in full", async () => {
+    const { width, height } = server.config.browser.viewport;
+    onTestFinished(async () => await page.viewport(width, height));
+    // The picker fills this width, which leaves room for the Type column to grow.
+    await page.viewport(720, 900);
+    const label = "Matches 2 messages";
+    await renderWithConsole(
+      <Dialog.Frame variant="modal" visible onVisibleChange={() => {}}>
+        <ICD.Picker.Root value="topics">
+          <ICD.Picker.Frame itemKey="topics" hint="Select the values to read.">
+            <ICD.Picker.Values
+              noun="Field"
+              groups={[
+                {
+                  title: "plant/oven",
+                  values: [
+                    {
+                      key: "t",
+                      name: "temperature",
+                      sample: "21.5",
+                      dataType: "float64",
+                      lock: { checked: false, label },
+                    },
+                  ],
+                },
+              ]}
+              value={[]}
+              onChange={() => {}}
+            />
+          </ICD.Picker.Frame>
+        </ICD.Picker.Root>
+      </Dialog.Frame>,
+    );
+    const cell = screen.getByText(label);
+    expect(cell.scrollWidth).toBeLessThanOrEqual(cell.clientWidth);
   });
 });
 

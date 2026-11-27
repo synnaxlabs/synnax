@@ -66,8 +66,10 @@ var _ = Describe("Routes", func() {
 			for k, c := range g.Cases {
 				By("case " + strconv.Itoa(k))
 				if len(c.Matches) > 0 {
-					_, _, _, err := dec.Decode(c.Document, newSamples(messages))
-					Expect(err).To(SatisfyAll(
+					Expect(dec.Decode(
+						c.Document,
+						newSamples(messages),
+					)).Error().To(SatisfyAll(
 						MatchError(validate.ErrValidation),
 						MatchError(ContainSubstring(
 							"document matches messages %s",
