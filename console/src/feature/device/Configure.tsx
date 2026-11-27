@@ -10,7 +10,7 @@
 import type { device } from "@synnaxlabs/client";
 import type { ComponentType, ReactElement } from "react";
 
-import { HARDWARE, type Hardware } from "@/feature/device/integrations";
+import { FIND_HARDWARE, HARDWARE, type Hardware } from "@/feature/device/integrations";
 import { Modals } from "@/platform/modals";
 import type { Session } from "@/session";
 
@@ -68,21 +68,22 @@ const createConfigure = ({
   return ConfigureHardware;
 };
 
-const CONFIGURES: Record<string, ComponentType<HardwareProps> | undefined> =
-  Object.fromEntries(HARDWARE.map((entry) => [entry.key, createConfigure(entry)]));
+const CONFIGURES = new Map<Hardware, ComponentType<HardwareProps>>(
+  [...HARDWARE, ...FIND_HARDWARE].map((entry) => [entry, createConfigure(entry)]),
+);
 
 export interface ConfigureHardwareProps extends HardwareProps {
-  /** The key of an entry in {@link HARDWARE}. */
-  integration: string;
+  /** An entry in {@link HARDWARE} or {@link FIND_HARDWARE}. */
+  hardware: Hardware;
 }
 
 /** Configures a device the Driver found, with an action to create a read task next. */
 export const ConfigureHardware = ({
-  integration,
+  hardware,
   ...rest
 }: ConfigureHardwareProps): ReactElement => {
-  const Entry = CONFIGURES[integration];
-  if (Entry == null) throw new Error(`No hardware integration named ${integration}`);
+  const Entry = CONFIGURES.get(hardware);
+  if (Entry == null) throw new Error(`No hardware integration named ${hardware.key}`);
   return <Entry {...rest} />;
 };
 
@@ -90,9 +91,11 @@ const Configure = ({
   deviceKey,
   integration,
   close,
-}: Session.Modals.ContentProps<ConfigureModalParams, void>): ReactElement => (
-  <ConfigureHardware integration={integration} deviceKey={deviceKey} close={close} />
-);
+}: Session.Modals.ContentProps<ConfigureModalParams, void>): ReactElement => {
+  const hardware = HARDWARE.find(({ key }) => key === integration);
+  if (hardware == null) throw new Error(`No hardware integration named ${integration}`);
+  return <ConfigureHardware hardware={hardware} deviceKey={deviceKey} close={close} />;
+};
 
 /** Opens {@link ConfigureHardware} in a modal. */
 export const useConfigureModal = Modals.create<ConfigureModalParams>(Configure);

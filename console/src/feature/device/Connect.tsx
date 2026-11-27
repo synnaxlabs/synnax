@@ -20,7 +20,7 @@ import { Rack as PRack } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { ConfigureHardware } from "@/feature/device/Configure";
-import { HARDWARE, type Hardware, NETWORK } from "@/feature/device/integrations";
+import { FIND_HARDWARE, type Hardware, NETWORK } from "@/feature/device/integrations";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
@@ -124,7 +124,7 @@ const Picker = ({ racks, rack: rackKey, onSelect }: PickerProps): ReactElement =
         />
         <Group
           title="Find hardware the Driver detects"
-          integrations={HARDWARE}
+          integrations={FIND_HARDWARE}
           getReason={getReason}
           onSelect={onSelect}
         />
@@ -153,7 +153,7 @@ const FindStep = ({ hardware, rack, close, onBack }: FindStepProps): ReactElemen
     );
   return (
     <ConfigureHardware
-      integration={hardware.key}
+      hardware={hardware}
       deviceKey={configuring}
       close={() => setConfiguring(null)}
       onBack={() => setConfiguring(null)}
@@ -184,7 +184,7 @@ const Connect = ({
       />
     );
   }
-  const hardware = HARDWARE.find(({ key }) => key === selected);
+  const hardware = FIND_HARDWARE.find(({ key }) => key === selected);
   if (hardware == null) throw new Error(`No integration named ${selected}`);
   return <FindStep hardware={hardware} rack={rackKey} close={close} onBack={back} />;
 };

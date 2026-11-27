@@ -49,6 +49,20 @@ export const { use, useResult: useRetrieve } = Flux.createRetrieve<
   getCached: ({ client, query }) => client.ni.devices.watch(query).getCached(),
 });
 
+/** The NI devices that the request selects, with their statuses. */
+export const { useResult: useRetrieveMultiple } = Flux.createRetrieve<
+  ni.device.RetrieveRequest,
+  ni.device.Device[]
+>({
+  name: "NI devices",
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) =>
+    (await client.ni.devices.watch(query).retrieve()).records,
+  onChange: ({ client, query }, handler) =>
+    client.ni.devices.watch(query).onChange((w) => handler(w?.records)),
+  getCached: ({ client, query }) => client.ni.devices.watch(query).getCached()?.records,
+});
+
 export interface RenameParams extends Pick<ni.device.Device, "key" | "name"> {}
 
 /**
