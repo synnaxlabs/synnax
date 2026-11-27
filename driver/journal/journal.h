@@ -23,10 +23,9 @@
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/fs/file.h"
 #include "x/cpp/telem/mono_clock.h"
 #include "x/cpp/telem/telem.h"
-
-#include "driver/journal/file.h"
 
 /// @brief an on-disk log of typed, checksummed records. A file starts with an 8-byte
 /// magic, a u16 format version, u16 flags, a random u32 salt, the u64 sync_bytes and
@@ -37,6 +36,8 @@
 namespace driver::journal {
 /// @brief identifies the kind of a file. Each kind of file has its own magic.
 using Magic = std::array<char, 8>;
+/// @brief the base of every error of the journal.
+const x::errors::Error BASE_ERROR = x::errors::Error("journal", "");
 /// @brief the format version that this Driver writes.
 constexpr std::uint16_t VERSION = 1;
 /// @brief the byte size of the file start.
@@ -124,7 +125,7 @@ struct WriterConfig {
         );
     };
     /// @brief called with each file that open creates, before open writes it.
-    OnCreate on_create = no_create_hook;
+    x::fs::OnCreate on_create = x::fs::no_create_hook;
     /// @brief gets the result of each sync of the file and returns the result the
     /// writer uses.
     std::function<x::errors::Error(const x::errors::Error &)> on_sync =
@@ -140,7 +141,7 @@ class Writer {
     /// @brief guards the state of the writer, but not a sync in progress.
     mutable std::mutex mu;
     std::mutex sync_mu;
-    std::unique_ptr<File> file;
+    std::unique_ptr<x::fs::File> file;
     std::uint64_t size = 0;
     std::uint64_t cut_bytes = 0;
     std::uint64_t unsynced = 0;
@@ -154,7 +155,7 @@ class Writer {
 
     Writer(
         WriterConfig cfg,
-        std::unique_ptr<File> file,
+        std::unique_ptr<x::fs::File> file,
         std::uint64_t size,
         std::uint32_t salt
     );
@@ -171,7 +172,7 @@ public:
     /// damaged the end of the file, the writer cuts the file at the damage, as
     /// Reader::next finds it, and appends after the records before it. cut() reports
     /// the bytes it cut.
-    /// @returns LOCKED when another writer has the file open or creates it.
+    /// @returns x::fs::LOCKED when another writer has the file open or creates it.
     /// UNKNOWN_MAGIC, UNKNOWN_VERSION, OLD_VERSION, or UNKNOWN_FLAG when the file start
     /// is not one this writer writes. CORRUPT when the file start fails its checksum.
     /// The errors of Reader::next, and then the file is unchanged. An error when
@@ -235,7 +236,7 @@ struct ReaderConfig {
 class Reader {
     friend class Writer;
     ReaderConfig cfg;
-    std::unique_ptr<File> file;
+    std::unique_ptr<x::fs::File> file;
     std::uint64_t size = 0;
     std::uint64_t cut_bytes = 0;
     std::unique_ptr<char[]> buf;

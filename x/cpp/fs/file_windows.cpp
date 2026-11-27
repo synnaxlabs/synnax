@@ -202,7 +202,7 @@ replace(const std::filesystem::path &from, const std::filesystem::path &to) {
     const auto target = std::filesystem::absolute(to, ec).wstring();
     if (ec) {
         CloseHandle(h);
-        return x::errors::Error(BASE_ERROR, "failed to resolve " + to.string());
+        return x::errors::Error(FS_ERROR, "failed to resolve " + to.string());
     }
     const auto name_size = target.size() * sizeof(wchar_t);
     std::vector<std::byte> buf(sizeof(FILE_RENAME_INFO) + name_size);

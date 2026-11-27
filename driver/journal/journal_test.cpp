@@ -501,7 +501,7 @@ TEST_F(JournalTest, ConcurrentCreateHasOneWinner) {
             if (!err)
                 winners++;
             else
-                EXPECT_TRUE(err.matches(LOCKED)) << err;
+                EXPECT_TRUE(err.matches(x::fs::LOCKED)) << err;
         EXPECT_EQ(winners, 1);
         EXPECT_EQ(std::filesystem::file_size(path), HEADER_SIZE);
     }
@@ -748,7 +748,10 @@ TEST_F(JournalTest, WriteAfterCloseIsError) {
 /// @brief it should refuse a second writer on a file until the first closes.
 TEST_F(JournalTest, SecondWriterIsLocked) {
     auto writer = ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));
-    ASSERT_OCCURRED_AS_P(Writer::open({.path = this->path, .magic = SEGMENT}), LOCKED);
+    ASSERT_OCCURRED_AS_P(
+        Writer::open({.path = this->path, .magic = SEGMENT}),
+        x::fs::LOCKED
+    );
     ASSERT_NIL(writer->close());
     writer.reset();
     ASSERT_NIL_P(Writer::open({.path = this->path, .magic = SEGMENT}));

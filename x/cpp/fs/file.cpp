@@ -84,7 +84,7 @@ x::errors::Error remove_temps(const std::filesystem::path &path) {
             temps.push_back(it->path());
     if (ec)
         return x::errors::Error(
-            BASE_ERROR,
+            FS_ERROR,
             "failed to list " + dir.string() + ": " + ec.message()
         );
     for (const auto &temp: temps)

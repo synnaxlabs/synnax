@@ -16,8 +16,8 @@
 #include "absl/crc/crc32c.h"
 
 #include "x/cpp/binary/binary.h"
+#include "x/cpp/fs/file.h"
 
-#include "driver/journal/file.h"
 #include "driver/journal/journal.h"
 
 namespace driver::journal {
@@ -92,7 +92,7 @@ x::errors::Error validate(const Magic &magic) {
 
 Writer::Writer(
     WriterConfig cfg,
-    std::unique_ptr<File> file,
+    std::unique_ptr<x::fs::File> file,
     const std::uint64_t size,
     const std::uint32_t salt
 ):
@@ -134,17 +134,17 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
                     "failed to stat " + cfg.path.string() + ": " + ec.message()
                 )
             };
-        const auto err = create_new(
+        const auto err = x::fs::create_new(
             cfg.path,
             encode_header(cfg.magic, header),
             cfg.on_create
         );
-        if (err && !err.matches(EXISTS)) return {nullptr, err};
+        if (err && !err.matches(x::fs::EXISTS)) return {nullptr, err};
         created = !err;
     }
-    std::unique_ptr<File> file;
+    std::unique_ptr<x::fs::File> file;
     while (file == nullptr) {
-        auto [f, err] = File::open(cfg.path);
+        auto [f, err] = x::fs::File::open(cfg.path);
         if (err) return {nullptr, err};
         if (err = f->lock(); err) return {nullptr, err};
         auto [removed, removed_err] = f->removed();
@@ -154,7 +154,7 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
     }
     auto err = x::errors::NIL;
     // A crash during a create can leave its temp file.
-    if (err = remove_temps(cfg.path); err) return {nullptr, err};
+    if (err = x::fs::remove_temps(cfg.path); err) return {nullptr, err};
     auto [reader, r_err] = Reader::open(
         {.path = cfg.path, .magic = cfg.magic, .flags = cfg.flags}
     );
@@ -171,7 +171,7 @@ std::pair<std::unique_ptr<Writer>, x::errors::Error> Writer::open(WriterConfig c
             return {nullptr, err};
         if (err = cfg.on_sync(file->sync()); err) return {nullptr, err};
         const auto dir = cfg.path.parent_path();
-        if (err = sync_dir(dir.empty() ? "." : dir); err) return {nullptr, err};
+        if (err = x::fs::sync_dir(dir.empty() ? "." : dir); err) return {nullptr, err};
     } else {
         header = reader->header;
         if (header.version < VERSION)
@@ -290,7 +290,7 @@ std::pair<std::unique_ptr<Reader>, x::errors::Error> Reader::open(ReaderConfig c
     if (auto err = validate(cfg.magic)) return {nullptr, err};
     const auto path = cfg.path.string();
     auto reader = std::unique_ptr<Reader>(new Reader(std::move(cfg)));
-    auto [file, err] = File::open_read(reader->cfg.path);
+    auto [file, err] = x::fs::File::open_read(reader->cfg.path);
     if (err) return {nullptr, err};
     reader->file = std::move(file);
     auto [size, size_err] = reader->file->size();
