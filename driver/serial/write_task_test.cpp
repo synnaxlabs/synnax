@@ -297,6 +297,27 @@ TEST_F(SerialWriteTask, KeepsCommandOfPeriodicTargetWhilePortIsMissing) {
     ASSERT_EQ(this->read_until("\n"), "4.5\n");
 }
 
+/// @brief it should send the default of a field after a restart, not the last command
+/// of the earlier run.
+TEST_F(SerialWriteTask, SendsDefaultAfterRestart) {
+    const Command cmd(50 * x::telem::MILLISECOND);
+    Sink sink(
+        this->ports,
+        Device{.key = "device", .name = "device", .props = this->props()},
+        ASSERT_NIL_P(icd::Sender::create({cmd.target}, {cmd.ic}, cmd.channels, false)),
+        {2}
+    );
+    ASSERT_NIL(sink.start("start", this->cancel));
+    x::telem::Frame fr(2, x::telem::Series(4.5));
+    ASSERT_NIL(sink.write(fr));
+    ASSERT_TRUE(this->read_until("4.5\n").ends_with("4.5\n"));
+    ASSERT_NIL(sink.stop());
+    (void) this->peer_read(1024);
+    ASSERT_NIL(sink.start("start", this->cancel));
+    x::defer::defer stop([&sink] { ASSERT_NIL(sink.stop()); });
+    ASSERT_EQ(this->peer_read(2), "7\n");
+}
+
 /// @brief it should warn when a send fails on the port, then reopen the port, send
 /// again, and clear the warning.
 TEST_F(SerialWriteTask, WarnsWhenPortFailsAndSendsWhenItReturns) {

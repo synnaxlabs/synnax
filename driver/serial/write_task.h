@@ -77,7 +77,8 @@ public:
     );
 
     /// @brief acquires the port of the device, as Ports::acquire does, and starts the
-    /// targets with a period.
+    /// targets with a period. Each start sends the defaults of the fields until the
+    /// first commands, as the first start does.
     x::errors::Error
     start(const std::string &cmd_key, x::breaker::Breaker &cancel) override;
 

@@ -307,6 +307,11 @@ x::errors::Error Writer::keep(const x::telem::Frame &fr) {
     return refused;
 }
 
+void Writer::reset() {
+    for (auto &l: this->last)
+        l.clear();
+}
+
 x::errors::Error Writer::encode(const Send &send) {
     if (!std::visit([this](auto &e) { return e.ready(this->last); }, this->encoder))
         return x::errors::NIL;
