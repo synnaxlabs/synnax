@@ -18,7 +18,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Group, Telem } from "@synnaxlabs/pluto";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
@@ -57,6 +57,9 @@ const Create = ({ close, group }: Modals.ContentProps<CreateParams, void>) => {
   const isIndex = Form.useFieldValue(path.isIndex, { ctx: form });
   const isVirtual = Form.useFieldValue(path.virtual, { ctx: form });
   const kind: Kind = isIndex ? "index" : isVirtual ? "virtual" : "data";
+  const kindRef = useRef<HTMLDivElement>(null);
+  // The kind answers the keys only while focus is on it, so they reach an open picker.
+  const kindFocused = () => kindRef.current?.contains(document.activeElement) === true;
   const handleKindChange = (next: Kind) => {
     form.set(path.isIndex, next === "index");
     form.set(path.virtual, next === "virtual");
@@ -83,7 +86,12 @@ const Create = ({ close, group }: Modals.ContentProps<CreateParams, void>) => {
           </Form.Field>
           <Flex.Box x gap="large">
             <Input.Item label="Kind">
-              <Select.Buttons<Kind> value={kind} onChange={handleKindChange}>
+              <Select.Buttons<Kind>
+                ref={kindRef}
+                value={kind}
+                onChange={handleKindChange}
+                enableTriggers={kindFocused}
+              >
                 <Select.Item itemKey="data">
                   <Icon.Channel />
                   Data
