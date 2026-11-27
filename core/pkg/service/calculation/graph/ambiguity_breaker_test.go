@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,7 +41,7 @@ var _ = Describe("Ambiguity breaker", func() {
 			DataType:   telem.Int64T,
 			Expression: "return " + dep + " + 1",
 		}))
-		folder := group.Key(uuid.New())
+		folder := uuid.New()
 		second := channel.Channel{
 			Name:        dep,
 			Leaseholder: node.KeyFree,

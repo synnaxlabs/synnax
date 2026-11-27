@@ -16,14 +16,16 @@ import (
 	channelv1 "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // A v0.62 Core with name validation off can hold a user channel that shares the name
 // of a channel the Core creates at each start, in another folder. D-448 keeps both
 // names, so every start after the upgrade must still open.
 var _ = Describe("Core channels at start (check)", func() {
-	DescribeTable("Should open a v0.62 store whose user channel in a folder shares the "+
-		"name of a channel the Core creates at start",
+	DescribeTable(
+		"Should open a v0.62 store whose user channel in a folder shares the name of a "+
+			"channel the Core creates at start",
 		func(ctx SpecContext, name string, dataType telem.DataType) {
 			n := testutil.NewNode(ctx)
 			rigs := folder("Rigs")
@@ -40,8 +42,7 @@ var _ = Describe("Core channels at start (check)", func() {
 				},
 				rigs,
 			)
-			l, err := svctestutil.OpenLayer(ctx, n)
-			Expect(err).ToNot(HaveOccurred())
+			l := MustSucceed(svctestutil.OpenLayer(ctx, n))
 			Expect(l.Close()).To(Succeed())
 		},
 		Entry("the task command channel", "sy_task_cmd", telem.JSONT),
