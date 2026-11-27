@@ -1496,6 +1496,16 @@ TEST(SizeTests, testParseErrorTruncatesInput) {
     );
 }
 
+/// @brief it should not cut a UTF-8 character when it shortens the input in an error.
+TEST(SizeTests, testParseErrorTruncatesOnCharacterBoundary) {
+    const auto text = std::string(63, 'x') + "\xd0\x9c" + std::string(40, 'x');
+    json::Parser parser(json::json{{"max", text}});
+    parser.field<Size>("max");
+    const auto err = parser.error();
+    ASSERT_TRUE(err.matches(errors::VALIDATION));
+    ASSERT_TRUE(err.data.contains("'" + std::string(63, 'x') + "...'"));
+}
+
 /// @brief it should reject sizes beyond an int64.
 TEST(SizeTests, testParseOverflow) {
     ASSERT_OCCURRED_AS_P(Size::parse("9223372036854775808"), errors::VALIDATION);

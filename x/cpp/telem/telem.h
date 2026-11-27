@@ -941,8 +941,14 @@ inline std::string Size::to_string() const {
 inline std::pair<Size, errors::Error> Size::parse(const std::string &text) {
     constexpr std::size_t max_echo = 64;
     const auto invalid = [&text](const std::string &reason) {
-        const auto echo = text.size() > max_echo ? text.substr(0, max_echo) + "..."
-                                                 : text;
+        auto echo = text;
+        if (text.size() > max_echo) {
+            std::size_t cut = max_echo;
+            // Back up off UTF-8 continuation bytes so the echo stays valid UTF-8.
+            while (cut > 0 && (static_cast<unsigned char>(text[cut]) & 0xC0) == 0x80)
+                --cut;
+            echo = text.substr(0, cut) + "...";
+        }
         return std::pair{
             Size(),
             errors::Error(errors::VALIDATION, "invalid size '" + echo + "': " + reason)
