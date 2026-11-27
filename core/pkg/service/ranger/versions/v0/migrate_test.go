@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -48,7 +49,8 @@ var _ = Describe("Migration", func() {
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(db.Run)
 		gSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db,
+			NameRules: grouptestutil.NameRules(),
+			DB:        db,
 		}))
 	})
 	// createLegacyGroup creates a group and the parent edge a pre-v0.54 Core wrote for

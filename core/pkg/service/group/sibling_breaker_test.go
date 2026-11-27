@@ -165,20 +165,6 @@ var _ = Describe("Sibling breaker", Ordered, ContinueOnFailure, func() {
 		}
 	})
 
-	It("Should refuse an empty or blank name in the channel scope", func(
-		ctx SpecContext,
-	) {
-		Expect(
-			createErr(ctx, "", resource.TypeChannel, nil),
-		).To(MatchError(validate.ErrValidation))
-		Expect(
-			createErr(ctx, "   ", resource.TypeChannel, nil),
-		).To(MatchError(validate.ErrValidation))
-		Expect(
-			createErr(ctx, "a\u200Bb", resource.TypeChannel, nil),
-		).To(MatchError(validate.ErrValidation))
-	})
-
 	It(
 		"Should retrieve a root folder that CreateOrRetrieve names in another normal form",
 		func(

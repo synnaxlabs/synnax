@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/platform/icd/MessageFormatField.css";
+
 import type { icd } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -23,11 +25,14 @@ import { ICD as PICD } from "@synnaxlabs/pluto";
 import type { destructor, record } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef } from "react";
 
+import { CSS } from "@/platform/css";
 import { OpenInEditor } from "@/platform/icd/OpenInEditor";
 
-/** A JSON message of an ICD, as one option of the field. */
+/** A message of an ICD, as one option of the field. */
 interface Choice extends record.KeyedNamed<string> {
   icdName: string;
+  /** Whether the field offers the message, which only a JSON message is. */
+  offered: boolean;
 }
 
 const NONE = "none";
@@ -44,13 +49,17 @@ const ChoiceItem = (props: List.ItemRenderProps<string>): ReactElement => {
   const choice = List.useItem<string, Choice>(props.itemKey);
   return (
     <Select.Item {...props}>
-      <Text.Text>{choice?.name}</Text.Text>
-      <Text.Text color={9}>{choice?.icdName}</Text.Text>
+      <Text.Text overflow="fade">{choice?.name}</Text.Text>
+      <Text.Text color={9} overflow="fade">
+        {choice?.icdName}
+      </Text.Text>
     </Select.Item>
   );
 };
 
 const choiceRenderProp = Component.renderProp(ChoiceItem);
+
+const DIALOG_PROPS = { className: CSS.BE("message-format", "dialog") };
 
 export interface MessageFormatFieldProps extends Pick<
   Input.ItemProps,
@@ -71,7 +80,7 @@ export interface MessageFormatFieldProps extends Pick<
 /**
  * Picks a message from the JSON messages of every ICD, beside a button that opens the
  * editor at it. A search matches ICD names on the Core and lists every JSON message of
- * each match.
+ * each match. The field shows a picked message of any format.
  */
 export const MessageFormatField = ({
   icdKey,
@@ -89,12 +98,11 @@ export const MessageFormatField = ({
     let choices = cache.current.get(parent);
     if (choices == null) {
       choices = new Map(
-        parent.messages
-          .filter(({ payload }) => payload.format === "json")
-          .map(({ key, name }) => {
-            const itemKey = choiceKey(parent.key, key);
-            return [itemKey, { key: itemKey, name, icdName: parent.name }];
-          }),
+        parent.messages.map(({ key, name, payload }) => {
+          const itemKey = choiceKey(parent.key, key);
+          const offered = payload.format === "json";
+          return [itemKey, { key: itemKey, name, icdName: parent.name, offered }];
+        }),
       );
       cache.current.set(parent, choices);
     }
@@ -115,7 +123,11 @@ export const MessageFormatField = ({
     getItem: icds.getItem,
   });
   const data = useMemoDeepEqual(
-    parents.flatMap((parent) => [...choicesOf(parent).keys()]),
+    parents.flatMap((parent) =>
+      [...choicesOf(parent).values()]
+        .filter(({ offered }) => offered)
+        .map(({ key }) => key),
+    ),
   );
   // A page of ICDs with no JSON message adds no row, so no scroll asks for the next.
   const rowsBeforeRead = useRef<number | null>(null);
@@ -159,6 +171,7 @@ export const MessageFormatField = ({
           allowNone={false}
           preview={preview}
           disabled={disabled}
+          dialogProps={DIALOG_PROPS}
           footer={
             onClear != null && (
               <>

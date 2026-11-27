@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
@@ -36,7 +37,12 @@ var _ = Describe("Service", func() {
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
-		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		svc = MustOpen(ni.OpenService(ctx, ni.ServiceConfig{

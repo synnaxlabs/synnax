@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <limits>
 #include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -671,5 +672,57 @@ TEST(BuildRequestTest, ContentTypeForGETIfRequestContentTypeIsSet) {
     };
     auto r = build_request(conn, req);
     EXPECT_EQ(find_header(r.headers, "Content-Type"), "Content-Type: application/xml");
+}
+
+/// @brief it should send a Content-Type header that the user sets in place of the
+/// content type of the request body.
+TEST(BuildRequestTest, UserContentTypeWinsOverRequestContentType) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
+    RequestConfig req{
+        .method = Method::POST,
+        .path = "/",
+        .headers = {{"Content-Type", "application/x-www-form-urlencoded"}},
+        .request_content_type = "text/plain",
+    };
+    auto r = build_request(conn, req);
+    EXPECT_EQ(
+        r.headers,
+        std::vector<std::string>{"Content-Type: application/x-www-form-urlencoded"}
+    );
+}
+
+/// @brief it should match a Content-Type header that the user sets in any letter case.
+TEST(BuildRequestTest, UserContentTypeMatchesInAnyCase) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
+    RequestConfig req{
+        .method = Method::POST,
+        .path = "/",
+        .headers = {{"content-TYPE", "application/x-www-form-urlencoded"}},
+        .request_content_type = "text/plain",
+    };
+    auto r = build_request(conn, req);
+    EXPECT_EQ(
+        r.headers,
+        std::vector<std::string>{"content-TYPE: application/x-www-form-urlencoded"}
+    );
+}
+
+/// @brief it should send a Content-Type header that the user sets on a request with no
+/// body.
+TEST(BuildRequestTest, UserContentTypeOnRequestWithNoBody) {
+    auto conn = ConnectionConfig(
+        x::json::Parser(json{{"base_url", "http://example.com"}})
+    );
+    RequestConfig req{
+        .method = Method::GET,
+        .path = "/",
+        .headers = {{"Content-Type", "application/json"}},
+    };
+    auto r = build_request(conn, req);
+    EXPECT_EQ(r.headers, std::vector<std::string>{"Content-Type: application/json"});
 }
 }

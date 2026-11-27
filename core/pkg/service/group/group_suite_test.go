@@ -14,10 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
+	"golang.org/x/text/unicode/norm"
 )
 
 func TestGroup(t *testing.T) {
@@ -27,7 +27,11 @@ func TestGroup(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// nameRules holds the rule of channel folder names, as the service layer gives it.
+// nameRules gives the channel scope a rule that stores each name in NFC, as the rule
+// that the service layer gives it does. The channel package specs the rest of that
+// rule.
 var nameRules = map[resource.Type]group.NameRule{
-	resource.TypeChannel: channel.CheckFolderName,
+	resource.TypeChannel: func(name string) (string, error) {
+		return norm.NFC.String(name), nil
+	},
 }

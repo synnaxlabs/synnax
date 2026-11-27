@@ -18,28 +18,22 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 )
 
 // MatchPaths returns a filter for the channels at paths. A path is the names of the
-// folders from the top, then the name of the channel, joined by '.',
-// in any normal form. A path that no channel is at, or that passes a folder that
-// Retrieve.AllowFolders refuses, matches nothing. Each segment costs one probe of the
-// names in a folder, and the filter reads no record to find the keys. It checks the
-// folder and the name of each channel it decodes, so a channel that a commit in flight
-// renames or moves shows as storage holds it. A folder that a commit in flight renames
-// shows under its old name until the commit flushes.
+// folders from the top, then the name of the channel, joined by '.', in any normal
+// form. A path that no channel is at, or that passes a folder that
+// Retrieve.AllowFolders refuses, matches nothing. Each folder and channel of a path
+// matches as storage holds it, also while a commit is in flight: each segment reads the
+// folder that holds its name, and the filter checks the folder and the name of each
+// channel that it decodes.
 func MatchPaths(paths ...string) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
-		return gorp.MatchKeysChecked[Key, Channel](func(ctx gorp.Context) (
-			[]Key,
-			func(*Channel) bool,
+		return r.indexes.sibling.FilterFunc(func(ctx gorp.Context) (
+			[]group.Sibling,
 			error,
 		) {
-			var (
-				keys   = make([]Key, 0, len(paths))
-				wanted = make(set.Set[group.Sibling], len(paths))
-			)
+			siblings := make([]group.Sibling, 0, len(paths))
 			for _, p := range paths {
 				s, found, err := r.siblingAt(
 					ctx,
@@ -47,22 +41,13 @@ func MatchPaths(paths ...string) Filter {
 					normalizeName(p),
 				)
 				if err != nil {
-					return nil, nil, err
+					return nil, err
 				}
-				if !found {
-					continue
+				if found {
+					siblings = append(siblings, s)
 				}
-				wanted.Add(s)
-				key, held, err := r.indexes.sibling.Key(ctx, ctx.Snapshot, s)
-				if err != nil {
-					return nil, nil, err
-				}
-				if held {
-					keys = append(keys, key)
-				}
-				keys = append(keys, r.indexes.sibling.Committing(s)...)
 			}
-			return keys, func(ch *Channel) bool { return wanted.Contains(siblingOf(ch)) }, nil
+			return siblings, nil
 		})
 	}
 }

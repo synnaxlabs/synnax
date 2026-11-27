@@ -70,7 +70,7 @@ var _ = Describe("Scan task", func() {
 	scan := func(ctx context.Context) (driver.Task, task.Task) {
 		GinkgoHelper()
 		t := newTask(ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50})
-		return configure(ctx, factory, t), t
+		return boot(ctx, factory, t), t
 	}
 
 	// configureRead configures a read task on dev, which opens the shared connection
@@ -116,9 +116,19 @@ var _ = Describe("Scan task", func() {
 			t := newTask(
 				ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"disabled": true},
 			)
-			configure(ctx, factory, t)
+			boot(ctx, factory, t)
 			Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
 		})
+
+		It("Should leave the start of a scan task to its start command",
+			func(ctx SpecContext) {
+				t := newTask(
+					ctx, rackKey, mqtt.ScanTaskType, msgpack.EncodedJSON{"rate": 50},
+				)
+				configure(ctx, factory, t)
+				Expect(taskStatus(ctx, t).Details.Running).To(BeFalse())
+			},
+		)
 	})
 
 	Describe("Device status", func() {
@@ -677,6 +687,7 @@ var _ = Describe("Scan task", func() {
 			Expect(a.Count).To(Equal(1))
 			Expect(a.Rate).To(BeZero())
 			Expect(a.LastSeen).ToNot(BeZero())
+			Expect(a.Format).To(Equal(payload.FormatJSON))
 			Expect(b.Count).To(BeNumerically(">", 1))
 			Expect(b.Rate).To(BeNumerically(">", 0))
 			Expect(b.Format).To(Equal(payload.FormatText))
@@ -1013,6 +1024,8 @@ var _ = Describe("Scan task", func() {
 				Expect(ok).To(BeTrue())
 				Expect(topics).To(HaveLen(2))
 				Expect(topics[0]).To(HaveKeyWithValue("payload", ""))
+				Expect(topics[0]).
+					To(HaveKeyWithValue("format", string(payload.FormatBinary)))
 				Expect(topics[1]).
 					To(HaveKeyWithValue("payload", strings.Repeat("é", 128)))
 			},
@@ -1117,6 +1130,31 @@ var _ = Describe("Scan task", func() {
 			Expect(shape.Sources).To(Equal([]string{"rig/1/temp", "rig/2/temp"}))
 			Expect(shape.Fields[shape.Index].Pointer.String()).To(Equal("/time"))
 		})
+
+		It("Should give the format and payload of each sampled message",
+			func(ctx SpecContext) {
+				broker.publish("plant/binary", "\xff\xfe", true)
+				broker.publish("plant/json", `{"v":1}`, true)
+				broker.publish("plant/text", "open", true)
+				res := sample(ctx, msgpack.EncodedJSON{
+					"topics": []string{"plant/binary", "plant/json", "plant/text"},
+					"count":  1,
+				})
+				Expect(res.Topics).To(HaveLen(3))
+				formats := make([]payload.Format, len(res.Topics))
+				payloads := make([]string, len(res.Topics))
+				for i, t := range res.Topics {
+					Expect(t.Messages).To(HaveLen(1))
+					formats[i], payloads[i] = t.Messages[0].Format, t.Messages[0].Payload
+				}
+				Expect(formats).To(Equal([]payload.Format{
+					payload.FormatBinary,
+					payload.FormatJSON,
+					payload.FormatText,
+				}))
+				Expect(payloads).To(Equal([]string{"fffe", `{"v":1}`, "open"}))
+			},
+		)
 
 		It("Should keep at most the count of each topic of a wildcard",
 			func(ctx SpecContext) {

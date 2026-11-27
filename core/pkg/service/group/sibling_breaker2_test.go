@@ -37,7 +37,12 @@ var _ = Describe("Sibling breaker 2", func() {
 		func(ctx SpecContext, parent resource.ID, parentScope string) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			svc := MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			g := group.Group{Name: "pt", Scope: resource.TypeChannel, Parent: &parent}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &g)
@@ -57,7 +62,12 @@ var _ = Describe("Sibling breaker 2", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			g := badParent()
 			var err error
 			Expect(func() {
@@ -74,13 +84,23 @@ var _ = Describe("Sibling breaker 2", func() {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
 			// The first open runs the migrations, so the reopen keeps the folder.
-			first := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			first := MustSucceed(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			Expect(first.Close()).To(Succeed())
 			g := badParent()
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return gorp.WrapWriter[group.Key, group.Group](tx).Set(ctx, g)
 			})).To(Succeed())
-			svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			svc := MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			// The create waits for the index scan of the stored folder, which exempts
 			// the folder whose parent is not a group.
 			other := group.Group{Name: "other", Scope: resource.TypeChannel}
@@ -94,7 +114,12 @@ var _ = Describe("Sibling breaker 2", func() {
 		func(ctx SpecContext) {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(db.Run)
-			svc := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+			svc := MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: db, NameRules: nameRules},
+				),
+			)
 			suffix := uuid.New().String()
 			nfd := MustSucceed(svc.CreateOrRetrieve(
 				ctx, "A\u030A "+suffix, resource.TypeProject,

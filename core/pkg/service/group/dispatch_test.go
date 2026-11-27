@@ -137,6 +137,12 @@ var _ = Describe("Dispatch", func() {
 			Expect(write(ctx, func(w group.Writer) error {
 				return w.Apply(ctx, folder.Key, set("name", "cafe\u0301"))
 			})).To(Succeed())
+			var stored group.Group
+			Expect(svc.NewRetrieve().
+				Where(group.MatchKeys(folder.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Name).To(Equal("caf\u00e9"))
 			frames := rec.Snapshot()
 			Expect(frames).To(HaveLen(1))
 			Expect(

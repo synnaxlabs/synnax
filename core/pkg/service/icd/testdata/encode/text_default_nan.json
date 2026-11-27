@@ -1,0 +1,30 @@
+{
+  "description": "A default must be finite.",
+  "message": {
+    "name": "cmd",
+    "payload": {
+      "format": "text",
+      "delimiter": ",",
+      "prefix": "",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "a",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "encoding": "delimited",
+          "position": 0,
+          "default": "NaN"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "float64"
+      }
+    ]
+  },
+  "error": "message cmd: field a: default: NaN is not finite: validation error"
+}

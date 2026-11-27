@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -81,7 +82,12 @@ type env struct {
 func openEnv(ctx SpecContext, db *gorp.DB, sigs *signals.Provider) env {
 	GinkgoHelper()
 	var e env
-	MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+	MustOpen(
+		group.OpenService(
+			ctx,
+			group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+		),
+	)
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 	e.status = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 	roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
@@ -50,7 +51,12 @@ var _ = Describe("Service", func() {
 		rackKey    rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
-		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
+		MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{DB: db, NameRules: grouptestutil.NameRules()},
+			),
+		)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
@@ -643,7 +649,12 @@ var _ = Describe("Service", func() {
 			mDB := DeferClose(gorp.Wrap(memkv.New()))
 			StartRun(mDB.Run)
 			mStat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: mDB}))
-			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: mDB}))
+			MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: mDB, NameRules: grouptestutil.NameRules()},
+				),
+			)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: mDB}))
 			mRole := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: mDB}))
 			mRack := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
@@ -697,7 +708,12 @@ var _ = Describe("Service", func() {
 			mNode := testutil.NewNode(ctx)
 			mDB := mNode.DB
 			mStat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: mDB}))
-			MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: mDB}))
+			MustOpen(
+				group.OpenService(
+					ctx,
+					group.ServiceConfig{DB: mDB, NameRules: grouptestutil.NameRules()},
+				),
+			)
 			MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: mDB}))
 			mRole := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: mDB}))
 			mRack := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{

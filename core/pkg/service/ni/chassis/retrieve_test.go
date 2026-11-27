@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -36,7 +37,15 @@ var _ = Describe("Retrieve", func() {
 	BeforeEach(func(ctx SpecContext) {
 		retrieveDB = DeferClose(gorp.Wrap(memkv.New()))
 		StartRun(retrieveDB.Run)
-		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: retrieveDB}))
+		MustOpen(
+			group.OpenService(
+				ctx,
+				group.ServiceConfig{
+					DB:        retrieveDB,
+					NameRules: grouptestutil.NameRules(),
+				},
+			),
+		)
 		MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: retrieveDB}))
 		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: retrieveDB}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: retrieveDB}))

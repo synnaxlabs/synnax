@@ -87,8 +87,8 @@ func migrateFolderNameRule(
 	return gorp.WrapWriter[groupv1.Key, groupv1.Group](tx).Set(ctx, changed...)
 }
 
-// claimFolderOrder puts names in NFC first, then each by key, so each folder claims
-// its name before the folders after it.
+// claimFolderOrder puts names in NFC first, then each by key, so each folder claims its
+// name before the folders after it.
 func claimFolderOrder(a, b groupv1.Group) int {
 	// On a tie in NFC, the name that is in NFC keeps it.
 	if aNFC, bNFC := resource.InNFC(a.Name), resource.InNFC(b.Name); aNFC != bNFC {
@@ -100,8 +100,8 @@ func claimFolderOrder(a, b groupv1.Group) int {
 	return a.Key.Compare(b.Key)
 }
 
-// markFolderMoves reports which of groups, in claim order, take a new name, and
-// returns the names that the others keep in each parent.
+// markFolderMoves reports which of groups, in claim order, take a new name, and returns
+// the names that the others keep in each parent.
 func markFolderMoves(groups []groupv1.Group) ([]bool, set.Set[folderSibling]) {
 	var (
 		claimed = make(set.Set[folderSibling], len(groups))

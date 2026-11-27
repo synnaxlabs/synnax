@@ -51,8 +51,9 @@ type ServiceConfig struct {
 	// MoveMembers runs in each write that moves groups under a new top parent. Nil
 	// means no record belongs to the top parent of its group.
 	MoveMembers MoveMembers
-	// NameRules holds the rule of the names of the groups of each scope that has one.
-	// Each create of a group of the scope runs it, and each change of one.
+	// NameRules holds the rule of the names of the groups of each scope that has one,
+	// and each namespaced scope needs one. Each create of a group of the scope runs it,
+	// and each change of its name.
 	NameRules map[resource.Type]NameRule
 }
 
@@ -71,6 +72,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("group")
 	v.NotNil("db", c.DB)
+	for _, scope := range slices.Sorted(maps.Keys(memberRules)) {
+		if memberRules[scope].namespaced {
+			v.NotNil("name_rules."+string(scope), c.NameRules[scope])
+		}
+	}
 	return v.Error()
 }
 
@@ -137,20 +143,19 @@ func (s *Service) CreateOrRetrieve(
 	name string,
 	scope resource.Type,
 ) (Group, error) {
-	if rule, ok := s.cfg.NameRules[scope]; ok {
-		var err error
-		if name, err = rule(name); err != nil {
-			return Group{}, err
-		}
-	}
 	var g Group
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		found, err := s.retrieveTop(ctx, tx, name, scope, &g)
+		w := s.NewWriter(tx)
+		named := Group{Name: name, Scope: scope}
+		if err := w.checkName(&named); err != nil {
+			return err
+		}
+		found, err := s.retrieveTop(ctx, tx, named.Name, scope, &g)
 		if err != nil || found {
 			return err
 		}
-		g = Group{Name: name, Scope: scope}
-		return s.NewWriter(tx).Create(ctx, &g)
+		g, g.Key = named, uuid.New()
+		return w.insert(ctx, &g)
 	}); err != nil {
 		return Group{}, err
 	}
@@ -258,6 +263,11 @@ func (w Writer) Create(ctx context.Context, g *Group) error {
 	if err := w.checkName(g); err != nil {
 		return err
 	}
+	return w.insert(ctx, g)
+}
+
+// insert creates g, whose name the rule of its scope has checked.
+func (w Writer) insert(ctx context.Context, g *Group) error {
 	if err := g.Validate(); err != nil {
 		return err
 	}
@@ -287,8 +297,11 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return Group{}, err
 			}
-			if err = w.checkName(&next); err != nil {
-				return Group{}, err
+			// A name that the upgrade kept stays writable while it does not change.
+			if next.Name != g.Name {
+				if err = w.checkName(&next); err != nil {
+					return Group{}, err
+				}
 			}
 			stored = next.Name
 			if err = next.Validate(); err != nil {
@@ -345,8 +358,8 @@ func withName(acts []Action, name string) []Action {
 }
 
 // checkName puts the name of g in the form that the rule of its scope stores, and
-// returns the error of the rule when g cannot hold the name. A scope with no rule
-// takes any name.
+// returns the error of the rule when g cannot hold the name. A scope with no rule takes
+// any name.
 func (w Writer) checkName(g *Group) error {
 	rule, ok := w.rules[g.Scope]
 	if !ok {

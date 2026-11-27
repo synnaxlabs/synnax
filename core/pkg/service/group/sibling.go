@@ -101,22 +101,17 @@ func newSiblingIndex(scope resource.Type) siblingIndex {
 			if g.Parent == nil {
 				return s, true
 			}
+			if g.Parent.Type != resource.TypeGroup {
+				return Sibling{}, false
+			}
 			parent, err := KeyFromResourceID(*g.Parent)
 			if err != nil {
+				// A raw write can store a malformed key. The group stays out of the
+				// index, so the Core still opens over it.
 				return Sibling{}, false
 			}
 			s.Parent = parent
 			return s, true
 		},
 	)
-}
-
-// isNamespaced reports whether the names in the groups of scope are unique.
-func isNamespaced(scope resource.Type) bool {
-	for _, r := range memberRules {
-		if r.scope == scope {
-			return r.namespaced
-		}
-	}
-	return false
 }

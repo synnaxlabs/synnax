@@ -22,6 +22,7 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/color"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
+	grouptestutil "github.com/synnaxlabs/synnax/pkg/service/group/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -442,7 +443,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 			StartRun(moveDB.Run)
 			var plots *lineplot.Service
 			groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-				DB: moveDB,
+				NameRules: grouptestutil.NameRules(),
+				DB:        moveDB,
 				MoveMembers: func(
 					ctx context.Context,
 					tx gorp.Tx,

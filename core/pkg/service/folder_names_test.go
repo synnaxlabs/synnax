@@ -38,6 +38,16 @@ var _ = Describe("Folder names", func() {
 		))
 	})
 
+	DescribeTable("Should refuse a channel folder whose name a path cannot hold",
+		func(ctx SpecContext, name string) {
+			Expect(create(ctx, resource.TypeChannel, name)).
+				To(MatchError(validate.ErrValidation))
+		},
+		Entry("an empty name", ""),
+		Entry("a blank name", "   "),
+		Entry("an invisible character", "a\u200Bb"),
+	)
+
 	It("Should accept a device folder whose name holds a '.'", func(ctx SpecContext) {
 		Expect(create(ctx, resource.TypeDevice, "Stand.A")).To(Succeed())
 	})
