@@ -83,11 +83,13 @@ func (w Writer) Create(ctx context.Context, d *Device) error {
 
 // Apply applies the actions to the device stored under key and attaches them to the
 // transaction of w, so its commit broadcasts them with the dispatch key of w. Each
-// action edits only its path, so concurrent actions on other paths survive. The
-// scanner writes only the identity paths (rack, serial, resource_name, model, and
-// chassis), and users write the rest. Apply returns an error wrapping
-// validate.ErrValidation when an action is a create or the result is invalid, and an
-// error wrapping query.ErrNotFound when no device is stored under key.
+// action edits only its path of the device that the transaction reads, so edits to
+// other paths that committed before it survive. Two transactions that overlap still
+// overwrite each other, as Update says. The scanner writes only the identity paths
+// (rack, serial, resource_name, model, and chassis), and users write the rest. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create or the
+// result is invalid, and an error wrapping query.ErrNotFound when no device is stored
+// under key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	if err := w.Update(ctx, key, func(d Device) (Device, error) {
 		return Reduce(d, acts...)
