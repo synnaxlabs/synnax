@@ -65,8 +65,8 @@ type testConnectionArgs struct {
 // first stage that fails. A broker whose tasks hold a connection with the same settings
 // reports that connection instead. A test does not connect with the client ID of a
 // connection that tasks hold, because the broker would drop that connection. It
-// returns a validation error when the properties of args are not valid, and an error
-// when a certificate file fails to load.
+// returns a validation error when the properties of args are not valid, an error when
+// a certificate file fails to load, and the error of ctx when ctx ends first.
 func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	dev := device.Device{
 		Key:        args.Device,
@@ -97,24 +97,26 @@ func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	if props.ClientID == "" {
 		cfg.clientID = deriveClientID(uuid.New().String())
 	}
-	if err = dialBroker(ctx, cfg); err != nil {
-		return err
-	}
-	if inUse && held.clientID == cfg.clientID {
-		return driver.Failure{
-			Message: "Client ID in use",
-			Description: fmt.Sprintf(
-				"A running task of this broker connects with client ID %q. The broker "+
-					"would drop that task to let the test log in with the same ID. "+
-					"Stop the tasks of this broker to test these settings.",
-				cfg.clientID,
-			),
+	if err = dialBroker(ctx, cfg); err == nil {
+		if inUse && held.clientID == cfg.clientID {
+			return driver.Failure{
+				Message: "Client ID in use",
+				Description: fmt.Sprintf(
+					"A running task of this broker connects with client ID %q. The "+
+						"broker would drop that task to let the test log in with the "+
+						"same ID. Stop the tasks of this broker to test these settings.",
+					cfg.clientID,
+				),
+			}
+		}
+		if err = probe(ctx, s.ins, cfg); err != nil {
+			err = connectFailure(err)
 		}
 	}
-	if err = probe(ctx, s.ins, cfg); err != nil {
-		return connectFailure(err)
+	if err != nil && ctx.Err() != nil {
+		return ctx.Err()
 	}
-	return nil
+	return err
 }
 
 // dialBroker dials the broker of cfg and, when cfg uses TLS, completes a handshake. It

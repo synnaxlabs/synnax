@@ -13,7 +13,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -528,6 +527,27 @@ var _ = Describe("Scan task", func() {
 				)
 			})
 		})
+
+		DescribeTable("Should report the end of the command during a stage",
+			func(ctx SpecContext, properties msgpack.EncodedJSON) {
+				properties["port"] = startSilentServer()
+				configured, t := scan(ctx)
+				limited, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+				defer cancel()
+				Expect(configured.Exec(limited, task.Command{
+					Type: "test_connection",
+					Key:  "test",
+					Args: msgpack.EncodedJSON{
+						"location": "127.0.0.1", "properties": properties,
+					},
+				})).To(Succeed())
+				stat := answered(ctx, t, "test")
+				Expect(stat.Message).To(Equal("Failed to execute command"))
+				expectError(stat, Equal(context.DeadlineExceeded.Error()))
+			},
+			Entry("the dial", msgpack.EncodedJSON{"secure": true}),
+			Entry("the probe", msgpack.EncodedJSON{}),
+		)
 
 		DescribeTable("Should reject properties that are not valid",
 			func(
@@ -1198,15 +1218,14 @@ var _ = Describe("Scan task", func() {
 
 		It("Should report the end of a browse during the dial as the end of the "+
 			"command", func(ctx SpecContext) {
-			// The kernel completes TCP connections in the backlog, so the dial
-			// succeeds and the TLS handshake waits for a reply that never comes.
-			silent := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
-			DeferCleanup(silent.Close)
-			addr, ok := silent.Addr().(*net.TCPAddr)
-			Expect(ok).To(BeTrue())
-			dev := createBrokerDevice(ctx, rackKey, addr.Port, msgpack.EncodedJSON{
-				"secure": true,
-			})
+			dev := createBrokerDevice(
+				ctx,
+				rackKey,
+				startSilentServer(),
+				msgpack.EncodedJSON{
+					"secure": true,
+				},
+			)
 			configured, t := scan(ctx)
 			limited, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
 			defer cancel()
