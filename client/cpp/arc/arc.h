@@ -51,8 +51,8 @@ struct Calculations {
     std::vector<channel::Key> channels;
     /// @brief the requested channels whose calculation the Core left out, as its
     /// expression, or one that it reads, does not compile. A channel created or renamed
-    /// to a name that such an expression uses can bring it back, and channels cannot
-    /// hold that name.
+    /// to a name that such an expression uses can bring it back. channels does not
+    /// include a name that resolves to no channel.
     std::vector<channel::Key> omitted;
 };
 
@@ -162,7 +162,8 @@ public:
     /// A channel that does not exist is left out.
     /// @param channels the keys of the channels that the program reads.
     /// @returns the calculations, and an error that matches access denied when the
-    /// subject cannot retrieve a channel in them.
+    /// subject cannot retrieve a channel in them. That includes each nested calculated
+    /// channel and the index the Core creates for it, named `<channel>_time`.
     [[nodiscard]] std::pair<Calculations, x::errors::Error>
     calculations(const std::vector<channel::Key> &channels) const;
 

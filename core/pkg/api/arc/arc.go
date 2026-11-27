@@ -496,7 +496,7 @@ func (s *Service) compile(ctx context.Context, a *Arc) error {
 		}
 	}
 	compiled, err := channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
-		return s.compileCalculations(ctx, reads)
+		return s.compileCalculations(ctx, reads, false)
 	})
 	if err != nil {
 		return err
@@ -533,8 +533,8 @@ type CalculationsResponse struct {
 	Channels channel.Keys `json:"channels" msgpack:"channels"`
 	// Omitted are the requested channels whose calculation the Core left out, as its
 	// expression, or one that it reads, does not compile. A channel created or renamed
-	// to a name that such an expression uses can bring it back, and Channels cannot
-	// hold that name.
+	// to a name that such an expression uses can bring it back. Channels does not
+	// include a name that resolves to no channel.
 	Omitted channel.Keys `json:"omitted" msgpack:"omitted"`
 }
 
@@ -552,7 +552,9 @@ func (s *Service) CheckCalculations(
 // reading req.Channels needs, as compile does for an automation. A requested channel
 // that does not exist is left out. check runs on the requested channels before the
 // compile, and on every channel in the response after it, so the subject needs
-// retrieve on each. The compile runs outside the snapshot of check.
+// retrieve on each. A denial after the compile names no channel, so that it does not
+// show a channel the request did not name. The compile runs outside the snapshot of
+// check.
 func (s *Service) Calculations(
 	check freighter.UnaryHandler[CalculationsRequest, struct{}],
 ) freighter.UnaryHandler[CalculationsRequest, CalculationsResponse] {
@@ -562,7 +564,7 @@ func (s *Service) Calculations(
 		}
 		reads := set.New(req.Channels...)
 		res, err := channel.RetryChanged(ctx, func() (CalculationsResponse, error) {
-			return s.compileCalculations(ctx, reads)
+			return s.compileCalculations(ctx, reads, true)
 		})
 		if err != nil {
 			return CalculationsResponse{}, err
@@ -570,7 +572,12 @@ func (s *Service) Calculations(
 		if _, err = check(
 			ctx,
 			CalculationsRequest{Channels: res.Channels},
-		); err != nil {
+		); errors.Is(err, access.ErrDenied) {
+			return CalculationsResponse{}, errors.Wrap(
+				access.ErrDenied,
+				"cannot retrieve a channel that the calculations read",
+			)
+		} else if err != nil {
 			return CalculationsResponse{}, err
 		}
 		return res, nil
@@ -580,21 +587,30 @@ func (s *Service) Calculations(
 // compileCalculations compiles the calculated channels in reads and the ones they read
 // in turn, dependencies first. It leaves out a channel whose expression fails analysis
 // or that reads itself through other channels, and each channel that reads it. The
-// Core cannot compute such a channel either.
+// Core cannot compute such a channel either. A key in reads with no channel returns
+// a not found error, unless skipMissing is true.
 func (s *Service) compileCalculations(
 	ctx context.Context,
 	reads set.Set[channel.Key],
+	skipMissing bool,
 ) (CalculationsResponse, error) {
+	res := CalculationsResponse{
+		Calculations: []arc.Calculation{},
+		Channels:     channel.Keys{},
+		Omitted:      channel.Keys{},
+	}
 	if len(reads) == 0 {
-		return CalculationsResponse{}, nil
+		return res, nil
 	}
 	var channels []channel.Channel
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.channel.NewRetrieve().
+		q := s.channel.NewRetrieve().
 			Entries(&channels).
-			Where(channel.MatchKeys(reads.Slice()...)).
-			SkipMissingKeys().
-			Exec(ctx, snap)
+			Where(channel.MatchKeys(reads.Slice()...))
+		if skipMissing {
+			q = q.SkipMissingKeys()
+		}
+		return q.Exec(ctx, snap)
 	}); err != nil {
 		return CalculationsResponse{}, err
 	}
@@ -606,7 +622,6 @@ func (s *Service) compileCalculations(
 	if err != nil {
 		return CalculationsResponse{}, err
 	}
-	var omitted channel.Keys
 	for _, ch := range channels {
 		if !ch.IsCalculated() {
 			continue
@@ -617,20 +632,15 @@ func (s *Service) compileCalculations(
 			return CalculationsResponse{}, err
 		}
 		if err != nil {
-			omitted = append(omitted, ch.Key())
+			res.Omitted = append(res.Omitted, ch.Key())
 		}
 	}
-	modules := g.CalculateFlat()
-	res := CalculationsResponse{
-		Calculations: make([]arc.Calculation, len(modules)),
-		Channels:     g.Examined().Slice(),
-		Omitted:      omitted,
-	}
-	for i, m := range modules {
-		res.Calculations[i] = arc.Calculation{
+	res.Channels = append(res.Channels, g.Examined().Slice()...)
+	for _, m := range g.CalculateFlat() {
+		res.Calculations = append(res.Calculations, arc.Calculation{
 			Channel: m.Channel.Key(),
 			Program: m.Program,
-		}
+		})
 	}
 	slices.Sort(res.Channels)
 	slices.Sort(res.Omitted)

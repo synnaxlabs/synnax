@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 	"uuid"
 
@@ -801,12 +802,30 @@ var _ = Describe("Service", func() {
 		It(
 			"Should deny a subject that cannot retrieve a channel that a calculation reads",
 			func(ctx SpecContext) {
-				_, _, outer := createCalculated(ctx, "calc_denied")
+				base, inner, outer := createCalculated(ctx, "calc_denied")
 				grantChannels(ctx, outer)
-				Expect(calculations(
+				_, err := calculations(
 					AuthedCtx(ctx, author),
 					apiarc.CalculationsRequest{Channels: channel.Keys{outer.Key()}},
-				)).Error().To(MatchError(access.ErrDenied))
+				)
+				Expect(err).To(MatchError(access.ErrDenied))
+				Expect(err).ToNot(MatchError(ContainSubstring(inner.Key().String())))
+				Expect(err).ToNot(MatchError(ContainSubstring(base.Key().String())))
+			},
+		)
+
+		It(
+			"Should return empty lists for channels that read no calculation",
+			func(ctx SpecContext) {
+				base, _, _ := createCalculated(ctx, "calc_none")
+				grantChannels(ctx, base)
+				res := MustSucceed(calculations(
+					AuthedCtx(ctx, author),
+					apiarc.CalculationsRequest{Channels: channel.Keys{base.Key()}},
+				))
+				Expect(string(MustSucceed(json.Marshal(res)))).To(Equal(
+					`{"calculations":[],"channels":[],"omitted":[]}`,
+				))
 			},
 		)
 	})
