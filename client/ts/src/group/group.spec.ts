@@ -25,7 +25,7 @@ const createTopLevel = async (): Promise<group.Group> =>
 const createChain = async (): Promise<group.Group[]> => {
   const root = await createTopLevel();
   const mid = await client.groups.create({
-    name: "mid",
+    name: `mid-${id.create()}`,
     parent: group.resourceID(root.key),
   });
   const leaf = await client.groups.create({
