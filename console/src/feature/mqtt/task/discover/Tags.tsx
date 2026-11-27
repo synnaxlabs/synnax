@@ -109,6 +109,7 @@ export const TagPicker = ({
       const { nodes } = await Device.browseSparkplug(client, device, ALL_NODES);
       return { key: id.create(), nodes };
     },
+    { message: "Failed to list tags", name: device.name },
     [device],
   );
   const listing = result.data;

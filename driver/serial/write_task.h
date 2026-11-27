@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
-#include "client/cpp/serial/types.gen.h"
 #include "x/cpp/breaker/breaker.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/frame.h"
@@ -29,7 +28,6 @@
 #include "driver/icd/sender.h"
 #include "driver/serial/serial.h"
 #include "driver/task/task.h"
-#include "driver/transport/connection.h"
 
 namespace driver::serial {
 /// @brief WRITE_TASK_TYPE is the type of the task that sends ICD messages on a serial
@@ -40,17 +38,15 @@ const std::string WRITE_TASK_TYPE = INTEGRATION_NAME + "_write";
 /// device, taking turns with the other tasks on the device. Targets with a period send
 /// from a thread of their own while the sink runs.
 class Sink final : public common::Sink {
-    std::shared_ptr<transport::Connections> connections;
-    /// @brief device is the key of the device.
-    std::string device;
-    synnax::serial::Properties props;
+    std::shared_ptr<Ports> ports;
+    Device device;
     /// @brief mu guards sender and running.
     std::mutex mu;
     std::condition_variable cv;
     icd::Sender sender;
     bool running = false;
-    /// @brief conn is the connection to the port while the sink runs.
-    std::shared_ptr<transport::Connection> conn;
+    /// @brief lease is the use of the port while the sink runs.
+    Ports::Lease lease;
     /// @brief sends runs the targets with a period.
     std::thread sends;
     /// @brief held_mu guards held.
@@ -67,21 +63,19 @@ class Sink final : public common::Sink {
     x::telem::TimeSpan send();
 
 public:
-    /// @param connections the connections that the tasks of the integration share.
-    /// @param device the key of the device.
-    /// @param props the properties of the port of the device.
+    /// @param ports the ports that the tasks of the integration share.
+    /// @param device the device that the task sends to.
     /// @param sender sends the messages of the targets.
     /// @param commands the command channels of the targets.
     Sink(
-        std::shared_ptr<transport::Connections> connections,
-        std::string device,
-        synnax::serial::Properties props,
+        std::shared_ptr<Ports> ports,
+        Device device,
         icd::Sender sender,
         std::vector<synnax::channel::Key> commands
     );
 
-    /// @brief acquires the port of the device, as acquire does, and starts the targets
-    /// with a period.
+    /// @brief acquires the port of the device, as Ports::acquire does, and starts the
+    /// targets with a period.
     x::errors::Error
     start(const std::string &cmd_key, x::breaker::Breaker &cancel) override;
 
@@ -100,13 +94,13 @@ public:
 };
 
 /// @brief configures a serial write task. Its sink shares the port of its device with
-/// the other tasks on the device through connections.
+/// the other tasks on the device through ports.
 /// @returns VALIDATION when the config names no device or no target, the error of the
 /// retrieve of the device, its ICDs, or their channels, and the error of
 /// icd::Sender::create.
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<transport::Connections> &connections
+    const std::shared_ptr<Ports> &ports
 );
 }

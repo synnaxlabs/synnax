@@ -33,7 +33,6 @@
 #include "driver/serial/pty.h"
 #include "driver/serial/read_task.h"
 #include "driver/task/task.h"
-#include "driver/transport/connection.h"
 
 namespace driver::serial {
 namespace {
@@ -109,14 +108,16 @@ protected:
         synnax::task::Task t;
         t.key = x::uuid::create();
         t.name = "serial read";
+        const auto ports = std::make_shared<Ports>();
+        auto claim = ASSERT_NIL_P(ports->claim_read(props.port, t));
         this->task = std::make_unique<common::ReadTask>(
             t,
             this->ctx,
             common::unlimited_retry_config(t.name),
             std::make_unique<Source>(
-                std::make_shared<transport::Connections>(),
-                "device",
-                props,
+                ports,
+                Device{.key = "device", .name = "device", .props = props},
+                std::move(claim),
                 std::move(receiver),
                 std::vector{lines.channels.at(2)},
                 true

@@ -38,7 +38,6 @@
 #include "driver/serial/serial.h"
 #include "driver/serial/write_task.h"
 #include "driver/task/task.h"
-#include "driver/transport/connection.h"
 
 namespace driver::serial {
 namespace {
@@ -86,8 +85,7 @@ protected:
     std::shared_ptr<task::MockContext> ctx = std::make_shared<task::MockContext>(
         nullptr
     );
-    std::shared_ptr<transport::Connections>
-        connections = std::make_shared<transport::Connections>();
+    std::shared_ptr<Ports> ports = std::make_shared<Ports>();
     std::unique_ptr<common::WriteTask> task;
 
     /// @brief creates the task of a target that sends Command on the port of props,
@@ -108,9 +106,8 @@ protected:
             this->ctx,
             common::unlimited_retry_config(t.name),
             std::make_unique<Sink>(
-                this->connections,
-                "device",
-                props,
+                this->ports,
+                Device{.key = "device", .name = "device", .props = props},
                 std::move(sender),
                 std::vector<synnax::channel::Key>{2}
             ),
@@ -240,9 +237,9 @@ TEST_F(SerialWriteTask, SharesPortWithReadTask) {
         this->ctx,
         common::unlimited_retry_config(t.name),
         std::make_unique<Source>(
-            this->connections,
-            "device",
-            this->props(),
+            this->ports,
+            Device{.key = "device", .name = "device", .props = this->props()},
+            ASSERT_NIL_P(this->ports->claim_read(this->props().port, t)),
             std::move(receiver),
             std::vector{ch},
             true

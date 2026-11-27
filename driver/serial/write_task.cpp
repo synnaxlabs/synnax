@@ -40,22 +40,20 @@ bool from_port(const x::errors::Error &err) {
 }
 
 Sink::Sink(
-    std::shared_ptr<transport::Connections> connections,
-    std::string device,
-    synnax::serial::Properties props,
+    std::shared_ptr<Ports> ports,
+    Device device,
     icd::Sender sender,
     std::vector<synnax::channel::Key> commands
 ):
     common::Sink(std::move(commands)),
-    connections(std::move(connections)),
+    ports(std::move(ports)),
     device(std::move(device)),
-    props(std::move(props)),
     sender(std::move(sender)) {}
 
 x::errors::Error Sink::start(const std::string &, x::breaker::Breaker &) {
-    auto [conn, err] = acquire(*this->connections, this->device, this->props);
+    auto [lease, err] = this->ports->acquire(this->device);
     if (err) return err;
-    this->conn = std::move(conn);
+    this->lease = std::move(lease);
     {
         std::lock_guard lock(this->held_mu);
         this->held = {};
@@ -73,13 +71,13 @@ x::errors::Error Sink::stop() {
     }
     this->cv.notify_all();
     if (this->sends.joinable()) this->sends.join();
-    this->conn.reset();
+    this->lease = {};
     return x::errors::NIL;
 }
 
 x::errors::Error Sink::write(x::telem::Frame &frame) {
     std::lock_guard lock(this->mu);
-    auto guard = this->conn->lock();
+    auto guard = this->lease.conn->lock();
     const auto [t, err] = guard.transport();
     if (err) return err;
     auto [warning, write_err] = this->sender.write(*t, frame);
@@ -102,13 +100,13 @@ void Sink::run() {
 }
 
 x::telem::TimeSpan Sink::send() {
-    auto guard = this->conn->lock();
+    auto guard = this->lease.conn->lock();
     auto [t, err] = guard.transport();
     x::telem::TimeSpan wait;
     if (err)
         // A closed port sends nothing until the connection may open it again.
         wait = x::telem::TimeSpan(
-            this->conn->retry_at() - std::chrono::steady_clock::now()
+            this->lease.conn->retry_at() - std::chrono::steady_clock::now()
         );
     else {
         std::tie(wait, err) = this->sender.send(*t);
@@ -128,7 +126,7 @@ x::telem::TimeSpan Sink::send() {
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<transport::Connections> &connections
+    const std::shared_ptr<Ports> &ports
 ) {
     x::json::Parser parser(task.config);
     const auto cfg = synnax::serial::WriteConfig::parse(parser);
@@ -136,8 +134,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     if (cfg.targets.empty())
         parser.field_err("targets", "at least one target is required");
     if (!parser.ok()) return {common::ConfigureResult{}, parser.error()};
-    auto [props, props_err] = retrieve_properties(ctx->client->devices, cfg.device);
-    if (props_err) return {common::ConfigureResult{}, props_err};
+    auto [dev, dev_err] = retrieve_device(ctx->client->devices, cfg.device);
+    if (dev_err) return {common::ConfigureResult{}, dev_err};
     std::set<synnax::icd::Key> icds;
     std::set<synnax::channel::Key> commands;
     for (const auto &target: cfg.targets) {
@@ -163,9 +161,8 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                 ctx,
                 common::unlimited_retry_config(task.name),
                 std::make_unique<Sink>(
-                    connections,
-                    cfg.device,
-                    std::move(props),
+                    ports,
+                    std::move(dev),
                     std::move(sender),
                     std::vector(commands.begin(), commands.end())
                 )

@@ -71,7 +71,7 @@ func checkComputedReads(ctx acontext.Context[parser.IProgramContext]) {
 		ctx.Diagnostics.Add(codes.NotConstant.Atf(
 			read.Site,
 			"cannot read '%s': its initializer is not a compile-time constant",
-			parser.PrimaryName(read.Site),
+			parser.PrimaryName(read.Site).String(),
 		))
 	}
 }
@@ -412,8 +412,9 @@ func findFuncBody(callSite antlr.ParserRuleContext) parser.IBlockContext {
 }
 
 func analyzeTopLevelAssignment(ctx acontext.Context[parser.IAssignmentContext]) {
-	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Resolve(name)
+	target := parser.AssignmentName(ctx.AST)
+	name := target.String()
+	sym, err := ctx.ResolveName(target)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return

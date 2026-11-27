@@ -50,6 +50,7 @@ cc_library(
     name = "tasks",
     srcs = [
         "factory.cpp",
+        "ports.cpp",
         "read_task.cpp",
         "write_task.cpp",
     ],
@@ -66,7 +67,9 @@ cc_library(
         "//client/cpp/framer",
         "//client/cpp/icd",
         "//client/cpp/serial",
+        "//client/cpp/task",
         "//driver/common",
+        "//driver/errors",
         "//driver/icd:receiver",
         "//driver/icd:retrieve",
         "//driver/icd:sender",
@@ -174,12 +177,31 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         ":tasks",
+        "//client/cpp/channel",
         "//client/cpp/icd",
         "//client/cpp/serial",
         "//client/cpp/testutil",
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "ports_test",
+    size = "small",
+    srcs = ["ports_test.cpp"] + select({
+        "@platforms//os:windows": ["open_windows_test.cpp"],
+        "//conditions:default": ["open_posix_test.cpp"],
+    }),
+    deps = [
+        ":tasks",
+        "//client/cpp/task",
+        "//driver/errors",
+        "//driver/transport",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",

@@ -11,49 +11,12 @@
 #include <string>
 #include <utility>
 
-#include "client/cpp/serial/json.gen.h"
-#include "x/cpp/json/json.h"
-
 #include "driver/common/status.h"
-#include "driver/serial/port.h"
 #include "driver/serial/read_task.h"
 #include "driver/serial/serial.h"
 #include "driver/serial/write_task.h"
-#include "driver/transport/errors.h"
 
 namespace driver::serial {
-std::pair<synnax::serial::Properties, x::errors::Error>
-retrieve_properties(const synnax::device::Client &devices, const std::string &key) {
-    auto [dev, err] = devices.retrieve(key);
-    if (err) return {synnax::serial::Properties{}, err};
-    x::json::Parser parser(x::json::json(dev.properties));
-    auto props = synnax::serial::Properties::parse(parser);
-    return {std::move(props), parser.error()};
-}
-
-std::pair<std::shared_ptr<transport::Connection>, x::errors::Error> acquire(
-    transport::Connections &connections,
-    const std::string &key,
-    const synnax::serial::Properties &props
-) {
-    auto [conn, err] = connections.acquire(
-        key,
-        props.to_json(),
-        {.open = [props] {
-            auto [port, open_err] = Port::open(props);
-            return std::pair<std::unique_ptr<transport::Transport>, x::errors::Error>{
-                std::move(port),
-                open_err
-            };
-        }}
-    );
-    if (err) return {nullptr, err};
-    auto guard = conn->lock();
-    if (auto open_err = guard.transport().second.skip(transport::UNREACHABLE_ERROR))
-        return {nullptr, open_err};
-    return {std::move(conn), x::errors::NIL};
-}
-
 std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
@@ -64,7 +27,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         return common::handle_config_err(
             ctx,
             task,
-            configure_read(ctx, task, this->connections),
+            configure_read(ctx, task, this->ports),
             cmd_key,
             cancel
         );
@@ -72,7 +35,7 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         return common::handle_config_err(
             ctx,
             task,
-            configure_write(ctx, task, this->connections),
+            configure_write(ctx, task, this->ports),
             cmd_key,
             cancel
         );

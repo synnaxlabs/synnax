@@ -143,8 +143,8 @@ public:
     /// @brief returns each channel that the receiver writes, index channels included.
     [[nodiscard]] std::vector<synnax::channel::Key> channels() const;
 
-    /// @brief drops the bytes of a partial frame. Call it when the transport reopens,
-    /// so that bytes from the old transport never join bytes from the new one.
+    /// @brief drops the bytes that the receiver holds, including frames that no read
+    /// has decoded yet. Call it when the transport reopens.
     void clear();
 
     /// @brief sends the poll query on t that has been due the longest when no reply to
