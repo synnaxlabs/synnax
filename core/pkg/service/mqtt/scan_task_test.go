@@ -13,6 +13,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1194,6 +1195,31 @@ var _ = Describe("Scan task", func() {
 				HaveSuffix(". Check that this port of the server uses TLS."),
 			),
 		)
+
+		It("Should report the end of a browse during the dial as the end of the "+
+			"command", func(ctx SpecContext) {
+			// The kernel completes TCP connections in the backlog, so the dial
+			// succeeds and the TLS handshake waits for a reply that never comes.
+			silent := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
+			DeferCleanup(silent.Close)
+			port := silent.Addr().(*net.TCPAddr).Port
+			dev := createBrokerDevice(ctx, rackKey, port, msgpack.EncodedJSON{
+				"secure": true,
+			})
+			configured, t := scan(ctx)
+			limited, cancel := context.WithTimeout(ctx, 300*time.Millisecond)
+			defer cancel()
+			Expect(configured.Exec(limited, task.Command{
+				Type: "browse",
+				Key:  "browse",
+				Args: msgpack.EncodedJSON{"device": dev.Key, "duration": 50},
+			})).To(Succeed())
+			expectReply(
+				answered(ctx, t, "browse"),
+				"Failed to execute command",
+				Equal(context.DeadlineExceeded.Error()),
+			)
+		})
 
 		DescribeTable("Should report broker settings that are not valid",
 			func(

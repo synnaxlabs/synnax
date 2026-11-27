@@ -149,31 +149,33 @@ func dialBroker(ctx context.Context, cfg clientConfig) error {
 
 // connect dials the broker of cfg, as a connection test does, and then opens a client
 // with opts. It returns a driver.Failure when the broker is not reachable or refuses
-// the client.
+// the client, and the error of ctx when ctx ends first.
 func connect(
 	ctx context.Context,
 	ins alamos.Instrumentation,
 	cfg clientConfig,
 	opts *paho.ClientOptions,
 ) (*session, func(), error) {
-	if err := dialBroker(ctx, cfg); err != nil {
-		return nil, nil, err
+	err := dialBroker(ctx, cfg)
+	if err == nil {
+		client, disconnect, oErr := open(ctx, ins, paho.NewClient, opts)
+		if oErr == nil {
+			return client, disconnect, nil
+		}
+		err = connectFailure(oErr)
 	}
-	client, disconnect, err := open(ctx, ins, paho.NewClient, opts)
-	if err != nil && ctx.Err() == nil {
-		err = connectFailure(err)
+	if ctx.Err() != nil {
+		return nil, nil, ctx.Err()
 	}
-	return client, disconnect, err
+	return nil, nil, err
 }
 
 // settingsFailure returns the failure of a browse whose broker settings are not valid.
 func settingsFailure(err error) error {
 	return driver.Failure{
 		Message: "Invalid broker settings",
-		Description: fmt.Sprintf(
-			"%s. Edit the broker settings.",
-			errors.MessageWithout(err, validate.ErrValidation),
-		),
+		Description: errors.MessageWithout(err, validate.ErrValidation) +
+			". Edit the broker settings.",
 	}
 }
 
