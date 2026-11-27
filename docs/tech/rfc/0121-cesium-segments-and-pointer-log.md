@@ -313,9 +313,9 @@ The unfinished last block has no trailer. Its checksum is `tail_crc`: the runnin
 the block, stored in the log with each commit. A writer continues from that value.
 
 - **Limits**: A segment seals at 2^30 sample bytes, at 7 days between its first and last
-  stamp (both config defaults), before 2^32 samples, on a change of type or clock key,
-  after an unclean stop, and after a failed sync. Files are not preallocated: the file
-  length is never data.
+  stamp, at 4,096 pointers (all config defaults), before 2^32 samples, on a change of
+  type or clock key, after an unclean stop, and after a failed sync. Files are not
+  preallocated: the file length is never data.
 - **Write**: `WriteAt` at the end, split at block ends, with the trailer of a full block
   in the same append. A failed write or a refused commit puts the length and the running
   CRC back to the last commit.
@@ -574,11 +574,13 @@ end limits, so a delete can still be logged, and `C` tries again at each later f
    fed by acked entries in log order, apart from the visible view that `Commit`
    publishes, and it answers with the durable view, which covers exactly log `g`. In the
    same step it marks sealed each open segment that no writer holds and that has reached
-   a limit of §5.1, and sends those segments to `L`, which logs a Seal for each in log
-   `g + 1`. Every other unheld open segment stays open, so a later session takes it over
-   (§5.8), and the head grows with keys and clocks, never with sessions. It sends the
-   durable view, as references to immutable channel states, to `C`. `L` sends later
-   batches to log `g + 1`. A crash now recovers from head `g` and both logs.
+   a limit of §5.1, or whose first stamp is 7 days older than the injected clock
+   (D-079), and sends those segments to `L`, which logs a Seal for each in log `g + 1`.
+   Every other unheld open segment stays open, so a later session takes it over (§5.8,
+   D-512). So the head holds open segments of at most 7 days, each with at most 4,096
+   pointers. It sends the durable view, as references to immutable channel states, to
+   `C`. `L` sends later batches to log `g + 1`. A crash now recovers from head `g` and
+   both logs.
 3. `C`, when the sealed records pass 8 MiB or a part must be written again: create
    `<p>.part`, write its body, sync, write its header sector, sync. A part that fails a
    read during its rewrite stays as it is, with its marks in the head.
@@ -675,13 +677,14 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
     In the root it keeps what the switch keeps: the live head, the older head, each log
     from the older generation on, each part that either head names, the next log, and
     every `.damaged` and `.undone` file. It cuts version 1 and version 2 segments to
-    their lengths, and no other. Then open checks every byte of the disk block that
-    holds the durable end of each segment that the last stop left open: the tail against
-    `tail_crc`, and the last full block against its trailer when the disk block starts
-    in it. A write past the durable end writes that disk block again, so a crash can
-    tear durable bytes in it. On a failure, open logs a Tombstone per pointer from the
-    first sample in the bad range, over the same stamp range for every key that the
-    clock times, then a Seal. A lost trailer leaves the earlier samples of its block
+    their lengths, and no other. Then, unless the last valid frame is a clean mark, open
+    checks every byte of the disk block that holds the durable end of each segment that
+    the last stop left open: the tail against `tail_crc`, and the last full block
+    against its trailer when the disk block starts in it. A write past the durable end
+    writes that disk block again, so a crash can tear durable bytes in it; after a clean
+    mark no write passed a durable end. On a failure, open logs a Tombstone per pointer
+    from the first sample in the bad range, over the same stamp range for every key that
+    the clock times, then a Seal. A lost trailer leaves the earlier samples of its block
     readable unchecked. The error handler (§7) gets an error that lists each cut and
     each lost trailer.
 
@@ -690,10 +693,11 @@ stay, and the next switch writes head `g + 2`. Past 16 logs: `ErrDiskFull`.
 - **Seal**: One Seal record, in the next entry of the writer. The file is not written.
 - **Delete of a time range**: One Tombstone per key. The delete is refused while the
   claim of an open writer holds part of the range (RFC 0095 §4.0). A sealed segment with
-  no live pointer is unlinked. From RFC 0120 Phase 27 the Core adds each clock of the
-  keys that has no record, and Cesium logs, in the same entry, a Tombstone of the clock
-  over each part of the range that no live pointer of another key names, judged by
-  alignment (§5.2).
+  no live pointer is unlinked. A delete that leaves an open segment that no writer holds
+  with no live pointer logs its Seal in the Tombstone's entry, so that segment unlinks
+  too. From RFC 0120 Phase 27 the Core adds each clock of the keys that has no record,
+  and Cesium logs, in the same entry, a Tombstone of the clock over each part of the
+  range that no live pointer of another key names, judged by alignment (§5.2).
 - **Compaction**: When a rewrite of a sealed segment would free more than the threshold
   of its length (today `GCConfig`, `cesium/delete.go:32`), with its padding counted, the
   compactor copies the live ranges to a new segment, syncs the file and its directory,
@@ -1360,7 +1364,8 @@ other phase is one PR.
 
 Each is a parameter with a default, checked against the measured floors: the width of
 the sync pool (32); the log file size and the switch trigger (64 MiB, three quarters);
-the handle budget of readers and background passes (1,024); the part threshold (8 MiB)
-and the part cache budget (64 MiB); the Reserve blocks (16, then 1,024); the dead share
-that starts a compaction (20%, as today); the rate limits; the pauses before a move (64)
-and the gap of a continued stretch (3 steps), both RFC 0120 §8's.
+the handle budget of readers and background passes (1,024); the pointers before an open
+segment seals (4,096); the part threshold (8 MiB) and the part cache budget (64 MiB);
+the Reserve blocks (16, then 1,024); the dead share that starts a compaction (20%, as
+today); the rate limits; the pauses before a move (64) and the gap of a continued
+stretch (3 steps), both RFC 0120 §8's.
