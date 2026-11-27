@@ -112,8 +112,7 @@ protected:
                 "device",
                 props,
                 std::move(sender),
-                std::vector<synnax::channel::Key>{2},
-                cmd.target.period.has_value()
+                std::vector<synnax::channel::Key>{2}
             ),
             std::make_shared<pipeline::testutil::WriterFactory>(),
             pipeline::testutil::simple_streamer_factory(

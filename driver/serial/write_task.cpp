@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -45,14 +44,12 @@ Sink::Sink(
     std::string device,
     synnax::serial::Properties props,
     icd::Sender sender,
-    std::vector<synnax::channel::Key> commands,
-    const bool periodic
+    std::vector<synnax::channel::Key> commands
 ):
     common::Sink(std::move(commands)),
     connections(std::move(connections)),
     device(std::move(device)),
     props(std::move(props)),
-    periodic(periodic),
     sender(std::move(sender)) {}
 
 x::errors::Error Sink::start(const std::string &, x::breaker::Breaker &) {
@@ -63,7 +60,7 @@ x::errors::Error Sink::start(const std::string &, x::breaker::Breaker &) {
         std::lock_guard lock(this->held_mu);
         this->held = {};
     }
-    if (!this->periodic) return x::errors::NIL;
+    if (!this->sender.periodic()) return x::errors::NIL;
     this->running = true;
     this->sends = std::thread(&Sink::run, this);
     return x::errors::NIL;
@@ -170,11 +167,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
                     cfg.device,
                     std::move(props),
                     std::move(sender),
-                    std::vector(commands.begin(), commands.end()),
-                    std::ranges::any_of(
-                        cfg.targets,
-                        [](const auto &target) { return target.period.has_value(); }
-                    )
+                    std::vector(commands.begin(), commands.end())
                 )
             ),
             .auto_start = cfg.auto_start,

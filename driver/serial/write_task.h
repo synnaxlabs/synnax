@@ -44,8 +44,6 @@ class Sink final : public common::Sink {
     /// @brief device is the key of the device.
     std::string device;
     synnax::serial::Properties props;
-    /// @brief periodic is true when a target has a period.
-    bool periodic;
     /// @brief mu guards sender and running.
     std::mutex mu;
     std::condition_variable cv;
@@ -74,14 +72,12 @@ public:
     /// @param props the properties of the port of the device.
     /// @param sender sends the messages of the targets.
     /// @param commands the command channels of the targets.
-    /// @param periodic true when a target has a period.
     Sink(
         std::shared_ptr<transport::Connections> connections,
         std::string device,
         synnax::serial::Properties props,
         icd::Sender sender,
-        std::vector<synnax::channel::Key> commands,
-        bool periodic
+        std::vector<synnax::channel::Key> commands
     );
 
     /// @brief acquires the port of the device, as acquire does, and starts the targets
