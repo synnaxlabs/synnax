@@ -864,4 +864,65 @@ TEST(BatchTest, StopsAtTheLoopBudget) {
     mod->reset_loop_budget();
     ASSERT_OCCURRED_AS_P(func.batch()->call({&a, &b}, 100, out), errors::LOOP_BUDGET);
 }
+
+/// @brief it should report an arg of the wrong kind as an error, as the checked call
+/// does.
+TEST(FunctionCallTest, ReportsAnArgOfTheWrongKind) {
+    auto [mod, func] = open_pair(
+        "func sum() {a i32, b i32} i32 { return a + b }",
+        "sum"
+    );
+    std::vector<Module::Function::Result> results;
+    ASSERT_OCCURRED_AS(
+        func.call({1.5F, static_cast<int32_t>(2)}, results),
+        errors::WASM_TRAP
+    );
+}
+
+/// @brief it should give every sample type the kind and bits that sample_to_wasm
+/// gives it.
+TEST(RawTest, SampleToRawMatchesSampleToWasm) {
+    const std::vector<x::telem::SampleValue> values = {
+        -2.5,
+        3.5F,
+        int64_t{-7},
+        int32_t{-5},
+        int16_t{-3},
+        int8_t{-1},
+        uint64_t{9},
+        uint32_t{200},
+        uint16_t{300},
+        uint8_t{255},
+        x::telem::TimeStamp(42),
+        std::string("a"),
+    };
+    for (const auto &value: values) {
+        const auto [raw, kind] = sample_to_raw(value);
+        const auto val = sample_to_wasm(value);
+        EXPECT_EQ(kind, val.kind());
+        EXPECT_EQ(raw_bits(raw, kind), wasm_bits(val));
+    }
+}
+
+/// @brief it should keep the bits of a guest value of every numeric kind.
+TEST(RawTest, WasmToRawKeepsTheBits) {
+    const std::vector<wasmtime::Val> values = {
+        wasmtime::Val(int32_t{-3}),
+        wasmtime::Val(int64_t{-4}),
+        wasmtime::Val(1.25F),
+        wasmtime::Val(-2.5),
+    };
+    for (const auto &val: values)
+        EXPECT_EQ(raw_bits(wasm_to_raw(val), val.kind()), wasm_bits(val));
+}
+
+/// @brief it should give the kind of each numeric guest type, and V128 for others.
+TEST(RawTest, KindOfNamesNumericTypes) {
+    EXPECT_EQ(kind_of(wasmtime::ValType::i32()), wasmtime::ValKind::I32);
+    EXPECT_EQ(kind_of(wasmtime::ValType::i64()), wasmtime::ValKind::I64);
+    EXPECT_EQ(kind_of(wasmtime::ValType::f32()), wasmtime::ValKind::F32);
+    EXPECT_EQ(kind_of(wasmtime::ValType::f64()), wasmtime::ValKind::F64);
+    EXPECT_EQ(kind_of(wasmtime::ValType::v128()), wasmtime::ValKind::V128);
+    EXPECT_EQ(raw_bits(wasmtime_val_raw_t{}, wasmtime::ValKind::V128), uint64_t{0});
+}
 }

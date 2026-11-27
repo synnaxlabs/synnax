@@ -9,7 +9,9 @@
 
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -3640,5 +3642,87 @@ TEST(BatchTest, SingleSampleFramesMixWithBatches) {
     EXPECT_EQ(run.data[0].values<int64_t>(), std::vector<int64_t>{8});
     EXPECT_EQ(run.data[1].values<int64_t>(), (std::vector<int64_t>{10, 12}));
     EXPECT_EQ(run.data[2].values<int64_t>(), std::vector<int64_t>{14});
+}
+
+/// @brief every fixed-width data type that a typed reader or writer handles.
+const std::vector<x::telem::DataType> FIXED_TYPES = {
+    x::telem::FLOAT64_T,
+    x::telem::FLOAT32_T,
+    x::telem::INT64_T,
+    x::telem::INT32_T,
+    x::telem::INT16_T,
+    x::telem::INT8_T,
+    x::telem::UINT64_T,
+    x::telem::UINT32_T,
+    x::telem::UINT16_T,
+    x::telem::UINT8_T,
+    x::telem::BOOLEAN_T,
+    x::telem::TIMESTAMP_T,
+};
+
+/// @brief one value of each sample type a guest call can return.
+const std::vector<x::telem::SampleValue> SAMPLE_VALUES = {
+    -2.5,
+    3.5F,
+    int64_t{-7},
+    int32_t{5},
+    int16_t{-3},
+    int8_t{-1},
+    uint64_t{9},
+    uint32_t{200},
+    uint16_t{300},
+    uint8_t{255},
+    x::telem::TimeStamp(42),
+};
+
+/// @brief it should read each sample of every fixed-width type as Series::at does.
+TEST(SampleReaderTest, MatchesSeriesAtForEveryType) {
+    for (const auto &data_type: FIXED_TYPES) {
+        auto series = x::telem::Series(data_type, 4);
+        series.resize(4);
+        const std::vector<double> values{-2, 0, 3, 200};
+        for (size_t i = 0; i < values.size(); i++)
+            series.set(static_cast<int>(i), x::telem::SampleValue(values[i]));
+        const auto read = wasm::reader_for(data_type);
+        ASSERT_NE(read, nullptr) << data_type.name();
+        for (size_t i = 0; i < values.size(); i++)
+            EXPECT_TRUE(read(series, i) == series.at(static_cast<int>(i)))
+                << data_type.name();
+    }
+}
+
+/// @brief it should write every sample type to every fixed-width type as Series::set
+/// does.
+TEST(SampleWriterTest, MatchesSeriesSetForEveryType) {
+    for (const auto &data_type: FIXED_TYPES) {
+        const auto write = wasm::writer_for(data_type);
+        ASSERT_NE(write, nullptr) << data_type.name();
+        for (const auto &value: SAMPLE_VALUES) {
+            auto typed = x::telem::Series(data_type, 1);
+            typed.resize(1);
+            auto generic = x::telem::Series(data_type, 1);
+            generic.resize(1);
+            write(typed, 0, value);
+            generic.set(0, value);
+            EXPECT_TRUE(typed.at(0) == generic.at(0)) << data_type.name();
+        }
+    }
+}
+
+/// @brief it should refuse a string, as Series::set does.
+TEST(SampleWriterTest, RefusesAString) {
+    auto series = x::telem::Series(x::telem::INT32_T, 1);
+    series.resize(1);
+    const auto write = wasm::writer_for(x::telem::INT32_T);
+    EXPECT_THROW(
+        write(series, 0, x::telem::SampleValue(std::string("a"))),
+        std::runtime_error
+    );
+}
+
+/// @brief it should have no typed reader or writer for a variable-width type.
+TEST(SampleReaderTest, HasNoneForAVariableType) {
+    EXPECT_EQ(wasm::reader_for(x::telem::STRING_T), nullptr);
+    EXPECT_EQ(wasm::writer_for(x::telem::STRING_T), nullptr);
 }
 }
