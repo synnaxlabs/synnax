@@ -91,6 +91,9 @@ type delta[K, V comparable] struct {
 	// so a batch of staged keys allocates a few arrays instead of slices per key.
 	arena []V
 	keys  []K
+	// peak is the most entries that one map of d held since the last reset. A cleared
+	// map keeps the room of its peak, so reset drops the maps by it.
+	peak int
 }
 
 func newDelta[K, V comparable]() *delta[K, V] {
@@ -98,6 +101,26 @@ func newDelta[K, V comparable]() *delta[K, V] {
 }
 
 func (d *delta[K, V]) isEmpty() bool { return len(d.state) == 0 }
+
+// reset empties d for the next scope and keeps its storage for reuse. It drops the
+// storage when it grew past retained, so that one large transaction does not hold it.
+func (d *delta[K, V]) reset() {
+	if max(d.peak, cap(d.arena), cap(d.keys)) > retained {
+		d.state, d.forward = make(map[K]staged[V]), nil
+		d.arena, d.keys = nil, nil
+	} else {
+		clear(d.state)
+		clear(d.forward)
+		clear(d.arena)
+		clear(d.keys)
+		d.arena, d.keys = d.arena[:0], d.keys[:0]
+	}
+	d.peak = 0
+}
+
+// retained is the most entries that the storage of staged changes keeps room for
+// between scopes.
+const retained = 1024
 
 // set stages values for key. The delta owns values from then on.
 func (d *delta[K, V]) set(key K, values []V) {
@@ -109,7 +132,11 @@ func (d *delta[K, V]) set(key K, values []V) {
 	for _, v := range values {
 		d.addHolder(v, key)
 	}
+	d.grew(max(len(d.state), len(d.forward)))
 }
+
+// grew records that a map of d holds n entries.
+func (d *delta[K, V]) grew(n int) { d.peak = max(d.peak, n) }
 
 // setOne stages value as the one value of key.
 func (d *delta[K, V]) setOne(key K, value V) {
@@ -145,6 +172,7 @@ func grow[T any](s []T) []T {
 func (d *delta[K, V]) delete(key K) {
 	d.unstage(key)
 	d.state[key] = staged[V]{deleted: true}
+	d.grew(len(d.state))
 }
 
 func (d *delta[K, V]) unstage(key K) {
@@ -199,41 +227,61 @@ func AnyOf[V comparable](values []V) func(V) bool {
 }
 
 // changes is the set of changes that one scope has staged against an index.
-type changes interface{ isEmpty() bool }
+type changes interface {
+	isEmpty() bool
+	// reset empties the changes for the next scope.
+	reset()
+}
 
-// overlay holds the changes of every scope that has staged changes against an index.
+// overlay holds the changes that the writing scope has staged against an index. The DB
+// lets one transaction write at a time, and ends it before the next writes, so one set
+// of changes serves every scope.
 type overlay[S Scope, D changes] struct {
-	// mu guards deltas.
-	mu     sync.RWMutex
-	deltas map[S]D
-	// create returns an empty set of changes.
+	// mu guards scope, and d against the reads of committing.
+	mu sync.RWMutex
+	// scope is the scope that staged d, or the zero S when no scope has staged since
+	// the last one ended.
+	scope S
+	// d is made on the first load, so an index that no scope stages to costs nothing.
+	d    D
+	made bool
+	// create returns empty changes.
 	create func() D
 	// flush applies the changes of a committed scope to committed state.
 	flush func(D)
+	// end is finish, bound once so that registering it allocates nothing.
+	end func(committed bool)
 }
 
-// load returns the changes of scope, creating them on first use. New changes register
-// a cleanup on scope that flushes them if scope committed, and then drops them.
+// load returns the changes of scope. The first load of a scope registers a cleanup on
+// scope that flushes the changes if scope committed, and then empties them. It panics
+// when another scope staged changes and has not ended.
 func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if d, ok := o.deltas[scope]; ok {
-		return d
-	}
-	if o.deltas == nil {
-		o.deltas = make(map[S]D)
-	}
-	d := o.create()
-	o.deltas[scope] = d
-	scope.OnCleanup(func(committed bool) {
-		if committed && !d.isEmpty() {
-			o.flush(d)
+	if o.scope != scope {
+		if !isNone(o.scope) {
+			panic("[index] - a scope staged changes while another was open")
 		}
-		o.mu.Lock()
-		delete(o.deltas, scope)
-		o.mu.Unlock()
-	})
-	return d
+		if !o.made {
+			o.d, o.end, o.made = o.create(), o.finish, true
+		}
+		o.scope = scope
+		scope.OnCleanup(o.end)
+	}
+	return o.d
+}
+
+// finish flushes the changes when their scope committed, and then empties them.
+func (o *overlay[S, D]) finish(committed bool) {
+	if committed && !o.d.isEmpty() {
+		o.flush(o.d)
+	}
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.d.reset()
+	var none S
+	o.scope = none
 }
 
 // get returns the changes of scope, or false when scope has staged none.
@@ -243,12 +291,23 @@ func (o *overlay[S, D]) get(scope S) (D, bool) {
 		return none, false
 	}
 	o.mu.RLock()
-	d, ok := o.deltas[scope]
+	staged := o.scope == scope && !o.d.isEmpty()
 	o.mu.RUnlock()
-	if !ok || d.isEmpty() {
+	if !staged {
 		return none, false
 	}
-	return d, true
+	return o.d, true
+}
+
+// committing returns the changes of the scope in its commit, or false when no scope is
+// in its commit. Call it with mu held for reading, and read the changes before
+// releasing it.
+func (o *overlay[S, D]) committing() (D, bool) {
+	if isNone(o.scope) || !o.scope.Committing() {
+		var none D
+		return none, false
+	}
+	return o.d, true
 }
 
 // mergeValues returns committed with the delta of scope applied for values. The result
@@ -265,21 +324,20 @@ func mergeValues[S Scope, K, V comparable](
 	return committed.Slice()
 }
 
-// committingKeys returns the keys that committing scopes map to any of values.
+// committingKeys returns the keys that the scope in its commit maps to any of values.
 func committingKeys[S Scope, K, V comparable](
 	o *overlay[S, *delta[K, V]],
 	values []V,
 ) []K {
 	o.mu.RLock()
 	defer o.mu.RUnlock()
+	d, ok := o.committing()
+	if !ok {
+		return nil
+	}
 	var keys []K
-	for scope, d := range o.deltas {
-		if !scope.Committing() {
-			continue
-		}
-		for _, v := range values {
-			keys = d.forward[v].appendTo(keys)
-		}
+	for _, v := range values {
+		keys = d.forward[v].appendTo(keys)
 	}
 	return keys
 }
