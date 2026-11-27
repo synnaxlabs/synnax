@@ -435,18 +435,22 @@ A log file is 64 MiB of zeros, written and synced before use (§5.3): `fs.FS` ha
 allocate call, and a written file gives each log sync no size change. Every entry but a
 delete (Tombstone, Intent, Drop), a Restart, and a Seal stops 1 MiB before the end, at
 the commit limit, so a delete can be logged on a full disk. The log owner takes its size
-as a `Config` field: 64 MiB in a database, and at least 4 MiB. `C` makes the file of the
-next log right after each switch, so a switch at three quarters finds it ready. A batch
-goes out as frames of at most 16 MiB, and a frame never ends past the commit limit
-unless it holds only deletes, Restarts, and Seals, and never past the end of the file. A
-frame that would cross three quarters goes to the next log once its file is ready; until
-then frames stop at those limits. The first commit entry that does not fit before them
-is refused, and so is every later commit entry in queue order, of every writer, until
-the next log is ready, so the log stays a prefix of queue order for commits; deletes,
-Restarts, and Seals still go. Each writer of a refused entry takes the failure path of
-§5.4 step 4. An entry larger than a frame is refused, so the compactor and progression
-encoding try no rewrite whose Replace would be larger than a frame. The file header is
-64 bytes at offset 0, and again at 4,096. Frames start at 8,192.
+as a `Config` field: 64 MiB in a database, and at least 8 MiB, so a 4 MiB entry fits
+before three quarters. `C` makes the file of the next log right after each switch, so a
+switch at three quarters finds it ready. A batch goes out as frames of at most 16 MiB,
+and a frame never ends past the commit limit unless it holds only deletes, Restarts, and
+Seals, and never past the end of the file. A frame that would cross three quarters goes
+to the next log once its file is ready; until then frames stop at those limits. The
+first commit entry that does not fit before them is refused, and so is every later
+commit entry in queue order, of every writer, until the next log is ready, so the log
+stays a prefix of queue order for commits; deletes, Restarts, and Seals still go. The
+log owner keeps the segments that each refused entry names and refuses each later entry
+that names one until its Seal, whatever the state of the log. On a refusal the state
+owner, which keeps each segment's holder, sends §5.4 step 4 to the holder of each named
+segment, so a segment that a handoff moved still takes the path. An entry larger than a
+frame is refused, so the compactor and progression encoding try no rewrite whose Replace
+would be larger than a frame. The file header is 64 bytes at offset 0, and again at
+4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                                                                                                                                                                                                |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -683,11 +687,20 @@ The steps:
 4. The clock write is the unit of failure. When one segment is marked failed, the writer
    sends no Commit: every segment of the clock write seals at its last durable length,
    the visible samples of all its channels leave the pointer sets, and `Sync` returns
-   the error. Each clock write of an entry that the log owner refuses (§5.2) takes the
-   same path, so no later Commit builds on it. The next write takes a new alignment
-   number, as after every put-back. A writer takes this path only for segments that it
-   holds: when a loser's sync fails on a segment that a handoff moved, the failed mark
-   stays, and the holder's next `Sync` sees it and takes the path.
+   the error. Each segment of an entry that the log owner refuses (§5.2) takes the same
+   path at its holder, which the state owner names, so no later Commit builds on it, and
+   the visible samples of each key that the sealed clock range timed leave too. The
+   Seals of this step go in an entry of their own, ahead of the writer's next entry, so
+   no refusal holds them back, and a segment whose Create was refused goes with its file
+   and is not sealed. From a refusal until the next log is ready, and while a segment
+   write fails for space, the writer stores nothing: each write streams its frame with
+   numbers from 2^31 up, as an `Unstored` write does, and takes no identity and no
+   Reserve, and the writer raises the `ErrDiskFull` status. So live data, streams, and
+   control go on (D-425 (1)), and its first write that stores again starts new segments
+   under a new number. The next write takes a new alignment number, as after every
+   put-back. A writer takes this path only for segments that it holds: when a loser's
+   sync fails on a segment that a handoff moved, the failed mark stays, and the holder's
+   next `Sync` sees it and takes the path.
 5. If not, `Sync` queues its pending list to the log owner, in list order, with the
    order of §5.2 inside each entry. An entry is queued only after the syncs of its
    segments pass (invariant 4), so no entry passes an earlier one, and the `Sync` task
@@ -763,7 +776,8 @@ The steps:
 
 ### 5.6 Seal, deletes, and compaction
 
-- **Seal**: One Seal record, in the next entry of the writer. The file is not written.
+- **Seal**: One Seal record, in the next entry of the writer, or in an entry of its own
+  on the failure path (§5.4 step 4). The file is not written.
 - **Delete of a time range**: One Tombstone per key. The delete is refused, with the
   claim error, while the claim of an open writer holds part of the range (RFC 0095
   §4.0), or while the visible view of a key holds a pointer in the range that the
@@ -1026,7 +1040,7 @@ does not panic.
 | 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                                   | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                                                                                                             |
 | 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be                               | As 5b, 5c, or 5d, by position                                                                                                                                                                                                                                           |
 | 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                                  | Segment, or the directory of a new segment: the clock write fails (§5.4), and the file is never synced or written again. Log: no ack until the next log is synced (above). Head, part, or the root in a switch: the attempt is removed, and the next switch tries again |
-| 8 Full disk                                                                                   | A write fails with no space                                                                                       | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Reads go on. The log is already written, and its last 1 MiB takes deletes                                                                                                             |
+| 8 Full disk                                                                                   | A write fails with no space                                                                                       | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Until a write stores again, each write streams its frame unstored (§5.4 step 4), so control goes on. Reads go on. The log is already written, and its last 1 MiB takes deletes        |
 
 **The metadata store**: Gorp runs on Pebble, the only channel registry, and its bounds
 are Pebble's (v2.1.7, measured on the crash harness). Lasting corruption of the last 32
