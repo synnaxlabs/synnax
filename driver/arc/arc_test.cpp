@@ -209,8 +209,8 @@ TEST(ArcTests, testCalcDoubling) {
     task->stop("test_stop", true);
 }
 
-/// @brief an Arc task takes its RT core at start and returns it at stop, so a task
-/// built beside a running one gets the core once the running one stops.
+/// @brief it should take the RT core at start and return it at stop, so a task built
+/// beside a running one gets the core once the running one stops.
 TEST(ArcTests, testRTCoreHeldOnlyWhileRunning) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto idx = synnax::channel::Channel{

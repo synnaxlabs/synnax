@@ -110,6 +110,14 @@ public:
     }
 
     x::errors::Error start() override {
+        // Each start runs on a new thread.
+        if (!this->rt_handle) {
+            auto rt_cfg = this->config.rt();
+            rt_cfg.use_mmcss = true;
+            x::thread::rt::apply_config(rt_cfg);
+        } else {
+            this->rt_handle->apply();
+        }
         if (this->wake_event != NULL) return x::errors::NIL;
 
         this->wake_event = CreateEvent(NULL, FALSE, FALSE, NULL);
@@ -125,14 +133,6 @@ public:
         if (this->config.mode != ExecutionMode::HIGH_RATE &&
             this->config.mode != ExecutionMode::BUSY_WAIT) {
             if (auto err = this->create_waitable_timer()) return this->fail_start(err);
-        }
-
-        if (!this->rt_handle) {
-            auto rt_cfg = this->config.rt();
-            rt_cfg.use_mmcss = true;
-            x::thread::rt::apply_config(rt_cfg);
-        } else {
-            this->rt_handle->apply();
         }
         return x::errors::NIL;
     }
