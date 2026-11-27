@@ -166,7 +166,7 @@ func readLine(r *bufio.Reader) ([]byte, error) {
 type forwarder struct {
 	// logger logs errors of the reader, where a Go stacktrace is useful.
 	logger *alamos.Logger
-	// driverLogger logs the lines of the driver with no Go stacktrace: on a line of a
+	// driverLogger logs the lines of the Driver with no Go stacktrace: on a line of a
 	// subprocess, it only points at the reader goroutine.
 	driverLogger *alamos.Logger
 	loggers      map[string]*alamos.Logger
@@ -240,7 +240,7 @@ func (f *forwarder) log(p ParsedLine) {
 	}
 }
 
-// named returns the driver logger for name, and caches it.
+// named returns the Driver logger for name, and caches it.
 func (f *forwarder) named(name string) *alamos.Logger {
 	if name == "" {
 		return f.driverLogger

@@ -28,7 +28,7 @@ type Factory interface {
 	// returning any other error must first write a status carrying cmdKey: that
 	// status is what answers the caller waiting on the command. Given NoCommand, the
 	// status replaces the one stored by the last run. A factory starts the task only
-	// at boot, when its config asks for that: the driver runs the start command of any
+	// at boot, when its config asks for that: the Driver runs the start command of any
 	// other deploy.
 	ConfigureTask(ctx context.Context, t task.Task, cmdKey string) (Task, error)
 	// InitialTasks returns the internal tasks this factory needs on the driver's

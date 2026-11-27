@@ -103,7 +103,7 @@ tsk = sy.ni.AnalogWriteTask(
     ],
 )
 
-# Create the task in Synnax and wait for the driver to validate that the configuration
+# Create the task in Synnax and wait for the Driver to validate that the configuration
 # is correct.
 client.tasks.configure(tsk)
 

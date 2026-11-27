@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package node defines the core execution interface for arc runtime nodes.
+// Package node defines the core execution interface for Arc runtime nodes.
 //
 // Nodes are the fundamental building blocks of arc programs. Each node represents
 // a computational unit that transforms input data into output data. Nodes are

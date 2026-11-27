@@ -133,7 +133,7 @@ class DriverNIDigitalWrite(Latency):
                     )
                     state_timestamp_loop = sy.TimeStamp.now()
 
-                    # Get the core timestamp from the last received value
+                    # Get the Core timestamp from the last received value
                     state_timestamp_core = sy.TimeStamp(int(ctrl[do_state_time.key]))
 
                     # Calculate latency
