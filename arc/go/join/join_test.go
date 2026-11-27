@@ -83,14 +83,26 @@ func samples(out join.Output) ([]sample, []int) {
 	return all, runs
 }
 
-func newJoin(inputs, primary int, from telem.TimeStamp) *join.Join {
-	dts := make([]telem.DataType, inputs)
-	for i := range dts {
-		dts[i] = telem.Float64T
+// floatInputs returns n float64 inputs.
+func floatInputs(n int) []join.Input {
+	inputs := make([]join.Input, n)
+	for i := range inputs {
+		inputs[i] = join.Input{DataType: telem.Float64T}
 	}
+	return inputs
+}
+
+func newJoin(inputs, primary int, from telem.TimeStamp) *join.Join {
 	return MustSucceed(
-		join.New(join.Config{DataTypes: dts, Primary: primary, From: from}),
+		join.New(
+			join.Config{Inputs: floatInputs(inputs), Primary: primary, From: from},
+		),
 	)
+}
+
+// at returns a clock that reads now.
+func at(now *telem.TimeStamp) func() telem.TimeStamp {
+	return func() telem.TimeStamp { return *now }
 }
 
 var _ = Describe("Join", func() {
@@ -100,47 +112,45 @@ var _ = Describe("Join", func() {
 				To(MatchError(ContainSubstring("join needs at least one input")))
 		})
 		It("Should refuse a primary that is not an input", func() {
-			Expect(join.New(join.Config{
-				DataTypes: []telem.DataType{telem.Float64T},
-				Primary:   1,
-			})).Error().To(MatchError(validate.ErrValidation))
+			Expect(join.New(join.Config{Inputs: floatInputs(1), Primary: 1})).Error().
+				To(MatchError(validate.ErrValidation))
 		})
 		It("Should refuse an input with no fixed density", func() {
-			Expect(join.New(join.Config{
-				DataTypes: []telem.DataType{telem.Float64T, telem.StringT},
-			})).Error().To(MatchError(ContainSubstring("input 1 has data type string")))
+			Expect(join.New(join.Config{Inputs: []join.Input{
+				{DataType: telem.Float64T},
+				{DataType: telem.StringT},
+			}})).Error().To(MatchError(ContainSubstring("input 1 has data type string")))
 		})
 		DescribeTable(
-			"Should refuse arrival inputs that the join cannot take",
-			func(arrival []bool, live bool, message string) {
+			"Should refuse arrival-timed inputs that the join cannot take",
+			func(arrivalTimed int, live bool, message string) {
+				inputs := floatInputs(2)
+				inputs[arrivalTimed].ArrivalTimed = true
+				var now telem.TimeStamp
 				Expect(join.New(join.Config{
-					DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-					Live:      live,
-					Arrival:   arrival,
+					Inputs: inputs,
+					Live:   live,
+					Now:    at(&now),
 				})).Error().To(SatisfyAll(
 					MatchError(validate.ErrValidation),
 					MatchError(ContainSubstring(message)),
 				))
 			},
 			Entry(
-				"a mark for each input",
-				[]bool{true},
-				true,
-				"arrival marks 1 inputs of 2",
-			),
-			Entry(
-				"an arrival primary",
-				[]bool{true, false},
+				"an arrival-timed primary",
+				0,
 				true,
 				"primary input 0 cannot pair by arrival",
 			),
-			Entry(
-				"a history join",
-				[]bool{false, true},
-				false,
-				"only a live join pairs by arrival",
-			),
+			Entry("a history join", 1, false, "only a live join pairs by arrival"),
 		)
+		It("Should refuse a live join with no clock", func() {
+			Expect(join.New(join.Config{Inputs: floatInputs(2), Live: true})).Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("a live join needs Now")),
+				))
+		})
 	})
 
 	Describe("Push", func() {
@@ -160,6 +170,27 @@ var _ = Describe("Join", func() {
 			Expect(j.Push(0, values(2), stamps(1, 2))).
 				To(MatchError(ContainSubstring("does not follow")))
 		})
+		It("Should skip live samples whose stamps do not follow the last one pushed",
+			func() {
+				var now telem.TimeStamp
+				j := MustSucceed(join.New(join.Config{
+					Inputs: floatInputs(2),
+					Live:   true,
+					Now:    at(&now),
+				}))
+				Expect(j.Push(1, values(1, 2, 3), stamps(0, 1, 2, 3))).To(Succeed())
+				Expect(j.Push(1, values(20, 30, 40), stamps(0, 2, 3, 4))).To(Succeed())
+				Expect(j.Push(0, values(7), stamps(0, 3))).To(Succeed())
+				Expect(j.Push(0, values(8, 9), stamps(0, 3, 4))).To(Succeed())
+				var out join.Output
+				j.Next(telem.TimeStamp(4*telem.Second), &out)
+				got, runs := samples(out)
+				Expect(got).To(Equal([]sample{
+					{3, 0, []float64{7, 3}},
+					{4, 1, []float64{9, 40}},
+				}))
+				Expect(runs).To(Equal([]int{0, 0}))
+			})
 	})
 
 	Describe("Next", func() {
@@ -274,8 +305,8 @@ var _ = Describe("Join", func() {
 					j.Next(telem.TimeStampMax, &out)
 					got, runs := samples(out)
 					// The interval is 1 s, so the limit is 3 s: 3 holds 3 and 5 holds 3
-					// for
-					// 2 s, 6.5 holds 3 for 3.5 s and drops, and 8 has its own sample.
+					// for 2 s, 6.5 holds 3 for 3.5 s and drops, and 8 has its own
+					// sample.
 					Expect(got).To(Equal([]sample{
 						{3, 0, []float64{1, 3}},
 						{5, 1, []float64{2, 3}},
@@ -344,9 +375,8 @@ var _ = Describe("Join", func() {
 		It(
 			"Should join live and historical reads to the same samples, past the limit too",
 			func() {
-				// other's interval is 1 s, so its limit is 3 s: 7.5 and 8 hold its
-				// sample
-				// at 4 past the limit.
+				// other's interval is 1 s, so its limit is 3 s: 7.5 and 8 lie past the
+				// limit of its sample at 4.
 				primary := stamps(
 					0,
 					0,
@@ -391,13 +421,18 @@ var _ = Describe("Join", func() {
 				var want join.Output
 				history.Next(telem.TimeStampMax, &want)
 
-				live := newJoin(2, 0, 0)
+				var now telem.TimeStamp
+				live := MustSucceed(join.New(join.Config{
+					Inputs: floatInputs(2),
+					Live:   true,
+					Now:    at(&now),
+				}))
 				var got join.Output
-				// Each input's samples arrive at their stamps, and each primary sample
-				// is
-				// joined at its arrival.
+				// Each sample arrives at its stamp, and each primary sample is joined
+				// at its arrival.
 				for k := range primary.Len() {
 					stamp := telem.TimeStamp(telem.ByteOrder.Uint64(primary.Data[k*8:]))
+					now = stamp
 					for o := range other.Len() {
 						if telem.TimeStamp(
 							telem.ByteOrder.Uint64(other.Data[o*8:]),
@@ -434,9 +469,11 @@ var _ = Describe("Join", func() {
 
 	It("Should drop a live primary stamp before the samples that the cap passed",
 		func() {
+			var now telem.TimeStamp
 			j := MustSucceed(join.New(join.Config{
-				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-				Live:      true,
+				Inputs: floatInputs(2),
+				Live:   true,
+				Now:    at(&now),
 			}))
 			n := 1<<16 + 10
 			vs, ss := make([]float64, n), make([]float64, n)
@@ -476,6 +513,17 @@ var _ = Describe("Join", func() {
 			Expect(got).To(Equal([]sample{{65.535, 0, []float64{1, 65535}}}))
 		})
 
+	It("Should hold more than 65,536 unpassed primary samples in history",
+		func() {
+			j := newJoin(2, 0, 0)
+			n := 1<<16 + 1
+			vs, ss := make([]float64, n), make([]float64, n)
+			for i := range ss {
+				vs[i], ss[i] = float64(i), float64(i)/1000
+			}
+			Expect(j.Push(0, values(vs...), stamps(0, ss...))).To(Succeed())
+		})
+
 	DescribeTable(
 		"Should count an interval at a factor of 2 of the median as near it",
 		func(intervals ...float64) {
@@ -509,10 +557,10 @@ var _ = Describe("Join", func() {
 		BeforeEach(func() { now = 0 })
 		newLive := func(from telem.TimeStamp) *join.Join {
 			return MustSucceed(join.New(join.Config{
-				DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-				From:      from,
-				Live:      true,
-				Now:       func() telem.TimeStamp { return now },
+				Inputs: floatInputs(2),
+				From:   from,
+				Live:   true,
+				Now:    at(&now),
 			}))
 		}
 		seconds := func(s float64) telem.TimeStamp {
@@ -574,15 +622,21 @@ var _ = Describe("Join", func() {
 			},
 		)
 
-		It("Should count no seed before From as a frame", func() {
-			// A seed at 1 Hz up to 16 s, then frames that arrive at 100 s and 101 s:
-			// the frame gap is 1 s, so a primary frame that arrives 9 s later drops.
-			j := newLive(seconds(100))
-			seed := make([]float64, 17)
-			for i := range seed {
-				seed[i] = float64(i)
+		// storedValues and storedStamps hold samples at 1 Hz from 0 s to 16 s, which
+		// hold for 3 s.
+		storedValues, storedStamps := func() (telem.Series, telem.Series) {
+			ss := make([]float64, 17)
+			for i := range ss {
+				ss[i] = float64(i)
 			}
-			Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+			return values(ss...), stamps(0, ss...)
+		}()
+
+		It("Should count no loaded sample as a frame", func() {
+			// Loaded samples, then frames that arrive at 100 s and 101 s: the frame gap
+			// is 1 s, so a primary frame that arrives 9 s later drops.
+			j := newLive(seconds(100))
+			Expect(j.Load(1, storedValues, storedStamps)).To(Succeed())
 			now = seconds(100)
 			Expect(j.Push(1, values(100), stamps(0, 100))).To(Succeed())
 			now = seconds(101)
@@ -595,24 +649,104 @@ var _ = Describe("Join", func() {
 		})
 
 		DescribeTable(
-			"Should hold a seed only within its hold limit of a primary frame's first "+
-				"stamp",
+			"Should hold the newest loaded sample for a primary stamp within one hold "+
+				"limit of its stamp",
 			func(from float64, dropped int) {
-				// A seed at 1 Hz up to 16 s holds for 3 s.
 				j := newLive(seconds(from))
-				seed := make([]float64, 17)
-				for i := range seed {
-					seed[i] = float64(i)
-				}
-				Expect(j.Push(1, values(seed...), stamps(0, seed...))).To(Succeed())
+				Expect(j.Load(1, storedValues, storedStamps)).To(Succeed())
 				Expect(j.Push(0, values(1), stamps(0, from))).To(Succeed())
 				var out join.Output
 				j.Next(seconds(from), &out)
 				Expect(out.Dropped).To(Equal(dropped))
 			},
-			Entry("1 s after the seed", 17.0, 0),
-			Entry("4 s after the seed", 20.0, 1),
+			Entry("1 s after the sample", 17.0, 0),
+			Entry("4 s after the sample", 20.0, 1),
 		)
+
+		It(
+			"Should join a frame across a loaded sample's limit as history does",
+			func() {
+				// The samples hold for 3 s, so a primary frame from 18 s to 20 s keeps
+				// the
+				// stamps to 19 s and drops the rest, as a history read does.
+				primary := []float64{18, 18.5, 19, 19.5, 20}
+				history := newJoin(2, 0, seconds(18))
+				Expect(history.Push(1, storedValues, storedStamps)).To(Succeed())
+				Expect(history.Push(0, values(primary...), stamps(0, primary...))).
+					To(Succeed())
+				var want join.Output
+				history.Next(telem.TimeStampMax, &want)
+				live := newLive(seconds(18))
+				Expect(live.Load(1, storedValues, storedStamps)).To(Succeed())
+				now = seconds(20)
+				Expect(
+					live.Push(0, values(primary...), stamps(0, primary...)),
+				).To(Succeed())
+				var got join.Output
+				live.Next(seconds(20), &got)
+				wantSamples, _ := samples(want)
+				gotSamples, _ := samples(got)
+				Expect(gotSamples).To(HaveLen(3))
+				Expect(gotSamples).To(Equal(wantSamples))
+				Expect(got.Dropped).To(Equal(2))
+				Expect(got.Dropped).To(Equal(want.Dropped))
+			},
+		)
+
+		Describe("Load", func() {
+			It("Should refuse a load in a history join", func() {
+				Expect(
+					newJoin(2, 0, 0).Load(1, storedValues, storedStamps),
+				).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("only a live join loads samples")),
+				))
+			})
+			It("Should refuse a load of an arrival-timed input", func() {
+				inputs := floatInputs(2)
+				inputs[1].ArrivalTimed = true
+				j := MustSucceed(join.New(join.Config{
+					Inputs: inputs,
+					Live:   true,
+					Now:    at(&now),
+				}))
+				Expect(
+					j.Load(1, storedValues, storedStamps),
+				).To(MatchError(ContainSubstring(
+					"input 1 is arrival-timed, so it loads no samples",
+				)))
+			})
+			It("Should refuse a load after the input's first live frame", func() {
+				j := newLive(0)
+				Expect(j.Push(1, values(1), stamps(0, 100))).To(Succeed())
+				Expect(
+					j.Load(1, storedValues, storedStamps),
+				).To(MatchError(ContainSubstring(
+					"input 1 loads after its first live frame",
+				)))
+			})
+			It("Should refuse a loaded stamp that does not follow the last", func() {
+				j := newLive(0)
+				Expect(j.Load(1, values(1), stamps(0, 2))).To(Succeed())
+				Expect(j.Load(1, values(2), stamps(0, 2))).
+					To(MatchError(ContainSubstring("does not follow")))
+			})
+			It("Should skip the pushed samples that the loaded ones already hold",
+				func() {
+					j := newLive(0)
+					Expect(j.Load(1, storedValues, storedStamps)).To(Succeed())
+					Expect(j.Push(1, values(150, 160, 170), stamps(0, 15, 16, 17))).
+						To(Succeed())
+					Expect(j.Push(0, values(1, 2), stamps(0, 16, 17))).To(Succeed())
+					var out join.Output
+					j.Next(seconds(17), &out)
+					got, _ := samples(out)
+					Expect(got).To(Equal([]sample{
+						{16, 0, []float64{1, 16}},
+						{17, 1, []float64{2, 170}},
+					}))
+				})
+		})
 
 		// primaryAt pushes a primary frame of one sample at stamp seconds that arrives
 		// at stamp, joins it, and returns its drops.
@@ -660,13 +794,68 @@ var _ = Describe("Join", func() {
 			Expect(out.Settled).To(BeFalse())
 		})
 
+		It("Should settle one window after the primary's first frame, not its loads",
+			func() {
+				j := newLive(seconds(100))
+				Expect(j.Load(0, storedValues, storedStamps)).To(Succeed())
+				var out join.Output
+				settled := make([]bool, 0, 4)
+				for _, stamp := range []float64{100, 101, 102, 103} {
+					primaryAt(j, stamp, &out)
+					settled = append(settled, out.Settled)
+				}
+				Expect(settled).To(Equal([]bool{false, false, false, true}))
+			})
+
+		It("Should hold a late input for its hold limit past shorter frame gaps",
+			func() {
+				// Samples at 1 Hz to 16 s, one per frame, sent 1 ms apart: the frame
+				// gaps give a window of 3 ms, so the hold limit of 3 s sets the window.
+				j := newLive(0)
+				for i := range 17 {
+					now = seconds(16 + 0.001*float64(i))
+					Expect(j.Push(1, values(float64(i)), stamps(0, float64(i)))).
+						To(Succeed())
+				}
+				var out join.Output
+				drops := make([]int, 0, 3)
+				for _, stamp := range []float64{17, 18, 20} {
+					drops = append(drops, primaryAt(j, stamp, &out))
+				}
+				Expect(drops).To(Equal([]int{0, 0, 1}))
+			})
+
+		It(
+			"Should judge an input with a sample past the stamp by stamps when live",
+			func() {
+				// The input's one frame holds samples to 16 s. Primary frames that
+				// arrive 100 s later still hold them, as the input has a sample past
+				// each stamp.
+				j := newLive(0)
+				Expect(j.Push(1, storedValues, storedStamps)).To(Succeed())
+				var out join.Output
+				for _, stamp := range []float64{1, 2, 3, 4, 5} {
+					now = seconds(100 + stamp)
+					Expect(
+						j.Push(0, values(stamp), stamps(telem.Alignment(stamp), stamp)),
+					).
+						To(Succeed())
+					j.Next(seconds(stamp), &out)
+				}
+				got, _ := samples(out)
+				Expect(got).To(HaveLen(5))
+				Expect(out.Dropped).To(BeZero())
+			},
+		)
+
 		Describe("Arrival", func() {
 			newArrival := func() *join.Join {
+				inputs := floatInputs(2)
+				inputs[1].ArrivalTimed = true
 				return MustSucceed(join.New(join.Config{
-					DataTypes: []telem.DataType{telem.Float64T, telem.Float64T},
-					Live:      true,
-					Arrival:   []bool{false, true},
-					Now:       func() telem.TimeStamp { return now },
+					Inputs: inputs,
+					Live:   true,
+					Now:    at(&now),
 				}))
 			}
 
