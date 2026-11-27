@@ -19,12 +19,47 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// note is a record that sits in a group and is not a resource.
+type note struct {
+	Key   string    `json:"key"   msgpack:"key"`
+	Group group.Key `json:"group" msgpack:"group"`
+}
+
+func (n note) GorpKey() string { return n.Key }
+
+func (n note) EncodeOrc(w *orc.Writer) error {
+	w.String(n.Key)
+	w.Write(n.Group[:])
+	return nil
+}
+
+func (n *note) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if n.Key, err = r.String(); err != nil {
+		return err
+	}
+	_, err = r.Read(n.Group[:])
+	return err
+}
+
+// noteReference places each note in its group.
+func noteReference() *gorp.KeyReference[string, note, group.Key] {
+	return gorp.NewKeyReference(gorp.KeyReferenceConfig[string, note, group.Key]{
+		Name:     "group",
+		Table:    string(resource.TypeGroup),
+		OnDelete: gorp.Cascade,
+		Kind:     gorp.Place,
+		Targets:  func(n *note) []group.Key { return []group.Key{n.Group} },
+	})
+}
 
 var _ = Describe("Group", Ordered, func() {
 	var (
@@ -277,6 +312,20 @@ var _ = Describe("Group", Ordered, func() {
 			b := create(ctx, "children-b", &parent)
 			Expect(svc.Children(ctx, db, parent.Key)).
 				To(ConsistOf(a.ResourceID(), b.ResourceID()))
+		})
+
+		It("Should leave out a record that is not a resource", func(ctx SpecContext) {
+			notes := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[string, note]{
+				DB:         db,
+				Name:       "note",
+				References: []gorp.Reference[string, note]{noteReference()},
+			}))
+			parent := create(ctx, "children-note-parent", nil)
+			child := create(ctx, "children-note-child", &parent)
+			Expect(notes.NewCreate().
+				Entry(&note{Key: "note", Group: parent.Key}).
+				Exec(ctx, db)).To(Succeed())
+			Expect(svc.Children(ctx, db, parent.Key)).To(ConsistOf(child.ResourceID()))
 		})
 	})
 
