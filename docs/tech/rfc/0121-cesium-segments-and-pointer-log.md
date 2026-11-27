@@ -1303,7 +1303,7 @@ Phase 24 leases clock keys, Phase 25 opens each writer on groups (§4.2, §5.8),
 moves often paused keys, Phase 27 ends a clock with its last user (§4.1), and Phase 53
 deletes the old code, except the old-layout reader of the conversion. Phase 5 comes
 after RFC 0120 Phase 1. RFC 0120 Phases 2 to 4 and 18 come after Phase 6, Phases 2 to 4
-land before Phase 8, and RFC 0120 Phases 24 to 53 come after Phase 8. Phases 6 and 8 are
+land before Phase 8, and RFC 0120 Phases 24 to 54 come after Phase 8. Phases 6 and 8 are
 the exceptions to one PR per phase: each lands as its reviewed pieces, one PR of about
 2,000 hand-written lines each (D-392), behind the open option until the last piece of
 Phase 8 switches the layout, so each piece merges alone and leaves `main` green. Every
