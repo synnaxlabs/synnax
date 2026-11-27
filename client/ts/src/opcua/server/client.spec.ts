@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, TimeStamp, uuid } from "@synnaxlabs/x";
+import { DataType, id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
 import { NotFoundError, ValidationError } from "@/index";
@@ -32,12 +32,12 @@ describe("OPC UA server", async () => {
     });
   const bindRead = async (s: opcua.server.Server): Promise<opcua.server.Read[]> => {
     const index = await client.channels.create({
-      name: `opcua_time_${uuid.create()}`,
+      name: `opcua_time_${id.create()}`,
       dataType: DataType.TIMESTAMP,
       isIndex: true,
     });
     const data = await client.channels.create({
-      name: `opcua_temp_${uuid.create()}`,
+      name: `opcua_temp_${id.create()}`,
       dataType: DataType.FLOAT64,
       index: index.key,
     });
@@ -80,7 +80,7 @@ describe("OPC UA server", async () => {
           name: "Bad",
           connection: { endpoint: "http://localhost:4840" },
         }),
-      ).rejects.toThrow(ValidationError);
+      ).rejects.toSatisfy(ValidationError.matches);
     });
     it("should replace a server whose key exists", async () => {
       const s = await create();
@@ -224,12 +224,12 @@ describe("OPC UA server", async () => {
     it("should write the configuration group and keep the identity", async () => {
       const s = await create();
       const index = await client.channels.create({
-        name: `opcua_time_${uuid.create()}`,
+        name: `opcua_time_${id.create()}`,
         dataType: DataType.TIMESTAMP,
         isIndex: true,
       });
       const data = await client.channels.create({
-        name: `opcua_temp_${uuid.create()}`,
+        name: `opcua_temp_${id.create()}`,
         dataType: DataType.FLOAT64,
         index: index.key,
       });
