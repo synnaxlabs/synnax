@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from typing import Literal, override as _override
 
+from pydantic import BaseModel, Field
+
 from synnax import task
 from synnax.arc import types_gen
 
@@ -45,3 +47,24 @@ class Config(task.PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Scope(BaseModel):
+    """Is a top-level sequence or stage of the program that runs.
+
+    Attributes:
+        path: Is the key of a top-level sequence or stage, then the key of each active
+            step below it, down to a step that is not a sequence.
+    """
+
+    path: list[str] = Field(default_factory=list)
+
+
+class StatusData(BaseModel):
+    """Is the status data of an Arc task.
+
+    Attributes:
+        scopes: Are the top-level scopes that run, in program order.
+    """
+
+    scopes: list[Scope] = Field(default_factory=list)

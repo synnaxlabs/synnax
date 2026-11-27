@@ -10,9 +10,10 @@
 import "schemas/synnax/arc"
 import "schemas/synnax/task"
 
-@go output "core/pkg/service/arc/task"
-@py output "client/py/synnax/arc/task"
-@ts output "client/ts/src/arc/task"
+@cpp output "client/cpp/arc/task"
+@go output  "core/pkg/service/arc/task"
+@py output  "client/py/synnax/arc/task"
+@ts output  "client/ts/src/arc/task"
 
 Performance enum {
     auto   = "auto" {
@@ -28,6 +29,7 @@ Performance enum {
         @doc value "spins the timer for the whole of each wait."
     }
 
+    @cpp omit
     @doc value """
         sets how closely the Arc runtime holds timer deadlines. A higher level is more
         precise and uses more CPU.
@@ -50,6 +52,7 @@ Config struct extends task.PersistConfig {
         @doc value "sets how closely the runtime holds timer deadlines."
     }
 
+    @cpp omit
     @doc value        "configures an Arc task, which runs a compiled Arc module."
     @go entry         "arc_config"
     @go imex          body
@@ -57,4 +60,23 @@ Config struct extends task.PersistConfig {
     @go migrate
     @patch
     @retrieve indexes
+}
+
+Scope struct {
+    path string[] {
+        @doc value """
+            is the key of a top-level sequence or stage, then the key of each active
+            step below it, down to a step that is not a sequence.
+        """
+    }
+
+    @doc value "is a top-level sequence or stage of the program that runs."
+}
+
+StatusData struct {
+    scopes Scope[] = [] {
+        @doc value "are the top-level scopes that run, in program order."
+    }
+
+    @doc value "is the status data of an Arc task."
 }
