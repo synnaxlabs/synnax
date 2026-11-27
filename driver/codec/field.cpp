@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -19,6 +20,7 @@
 #include "x/cpp/json/number.h"
 #include "x/cpp/json/pointer.h"
 #include "x/cpp/payload/types.gen.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/errors.h"
@@ -123,23 +125,32 @@ std::pair<Number, x::errors::Error> number_of(
                     " fields"
             ),
         };
-    if (scaled && k != payload::KIND_FLOAT)
-        return {
-            n,
-            x::errors::Error(
-                CONFIG_ERROR,
-                "a scaled field requires a float channel, not " + dt.name()
-            ),
-        };
-    return {n, x::errors::NIL};
+    return {n, check_scaled_channel(scaled, dt)};
 }
 
-x::errors::Error wrap(const x::errors::Error &err, const std::string &context) {
-    return {err, context + ": " + err.data};
+x::errors::Error write_float(const double v, const bool narrow, x::telem::Series &dst) {
+    if (!narrow) {
+        dst.write(v);
+        return x::errors::NIL;
+    }
+    if (std::isfinite(v) && std::abs(v) > std::numeric_limits<float>::max())
+        return {x::errors::VALIDATION, format(v) + " overflows float32"};
+    dst.write(static_cast<float>(v));
+    return x::errors::NIL;
+}
+
+x::errors::Error check_scale(const double scale) {
+    if (scale == 0) return {CONFIG_ERROR, "scale must be non-zero"};
+    return x::errors::NIL;
+}
+
+x::errors::Error check_scaled_channel(const bool scaled, const x::telem::DataType &dt) {
+    if (!scaled || kind_of(dt) == payload::KIND_FLOAT) return x::errors::NIL;
+    return {CONFIG_ERROR, "a scaled field requires a float channel, not " + dt.name()};
 }
 
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context) {
-    return {CONFIG_ERROR, context + ": " + err.data};
+    return {CONFIG_ERROR, err.wrap(context).data};
 }
 
 x::errors::Error check_limits(const icd::BaseField &b, const double v) {

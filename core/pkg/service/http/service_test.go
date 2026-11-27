@@ -55,22 +55,29 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(http.OpenService(ctx, http.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
-		})
-
-		It("Should reject a config missing the channel service", func(ctx SpecContext) {
-			Expect(http.OpenService(ctx, http.ServiceConfig{DB: db})).Error().
-				To(MatchError(ContainSubstring("channel: must be non-nil")))
-		})
-
-		It("Should reject a config missing the ICD service", func(ctx SpecContext) {
-			Expect(http.OpenService(ctx, http.ServiceConfig{
-				DB:      db,
-				Channel: channelSvc,
-			})).Error().To(MatchError(ContainSubstring("icd: must be non-nil")))
-		})
+		DescribeTable(
+			"Should reject a config with a missing service",
+			func(ctx SpecContext, unset func(*http.ServiceConfig), msg string) {
+				cfg := http.ServiceConfig{DB: db, Channel: channelSvc, ICD: icdSvc}
+				unset(&cfg)
+				Expect(http.OpenService(ctx, cfg)).Error().To(MatchError(msg))
+			},
+			Entry(
+				"db",
+				func(c *http.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
+				"channel",
+				func(c *http.ServiceConfig) { c.Channel = nil },
+				"channel: must be non-nil",
+			),
+			Entry(
+				"icd",
+				func(c *http.ServiceConfig) { c.ICD = nil },
+				"icd: must be non-nil",
+			),
+		)
 
 		It("Should stage the channel and fields of each stored v4 write config",
 			func(ctx SpecContext) {
@@ -475,7 +482,7 @@ var _ = Describe("Service", func() {
 		func(ctx SpecContext, rate float64) {
 			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
-			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			})).Error().To(MatchError("rate: must be greater than 0"))
 		},
 		Entry("zero", 0.0),
 		Entry("negative", -1.0),
@@ -485,7 +492,7 @@ var _ = Describe("Service", func() {
 		func(ctx SpecContext, rate float64) {
 			Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
 				"rate": rate,
-			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+			})).Error().To(MatchError("rate: must be greater than 0"))
 		},
 		Entry("zero", 0.0),
 		Entry("negative", -1.0),

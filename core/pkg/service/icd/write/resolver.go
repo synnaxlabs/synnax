@@ -42,6 +42,18 @@ type Write struct {
 	Framed bool
 }
 
+// Targets returns the framed write of each of targets, at targets.i of a config.
+func Targets(targets []icd.WriteTarget) []Write {
+	return lo.Map(targets, func(t icd.WriteTarget, i int) Write {
+		return Write{
+			Path:    []string{"targets", strconv.Itoa(i)},
+			ICD:     t.ICD,
+			Message: t.Message,
+			Framed:  true,
+		}
+	})
+}
+
 // Resolver checks and hashes writes against the ICDs and the channels that they name.
 type Resolver struct {
 	icds     *icd.Service

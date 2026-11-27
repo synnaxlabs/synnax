@@ -161,10 +161,11 @@ func newJSONMessage(m JSONMessage) (jsonMessage, error) {
 }
 
 // Converts reports whether a field of kind k converts to samples of dt. A number or
-// boolean also converts to a float, and an unsigned number or boolean to any integer.
-func Converts(k payload.Kind, dt telem.DataType) bool {
+// boolean also converts to a float, and an unsigned number or boolean to any integer. A
+// scaled field converts only to a float.
+func Converts(k payload.Kind, dt telem.DataType, scaled bool) bool {
 	dk, ok := payload.KindOf(dt)
-	if !ok {
+	if !ok || (scaled && dk != payload.KindFloat) {
 		return false
 	}
 	if dk == k {
@@ -376,7 +377,7 @@ func enumsOf(jf icd.JSONField) []xjson.Enum {
 // compile checks that the kind of f converts to its data type, then builds the decoders
 // of f from v and sets its fallback from the default of v.
 func (f *jsonField) compile(v jsonVariant) error {
-	if !Converts(f.kind, f.dataType) {
+	if !Converts(f.kind, f.dataType, false) {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"cannot write %s values to %s channels",
@@ -384,16 +385,16 @@ func (f *jsonField) compile(v jsonVariant) error {
 			f.dataType,
 		)
 	}
-	var err error
 	f.scaled = f.scale != 1 || f.offset != 0
+	if !Converts(f.kind, f.dataType, f.scaled) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"a scaled field requires a float channel, not %s",
+			f.dataType,
+		)
+	}
+	var err error
 	if f.scaled {
-		if f.dataType != telem.Float32T && f.dataType != telem.Float64T {
-			return errors.Wrapf(
-				validate.ErrValidation,
-				"a scaled field requires a float channel, not %s",
-				f.dataType,
-			)
-		}
 		// The enums of number fail a string that is no label as an unknown label. A
 		// label itself goes to sample.
 		numberField := xjson.Field{
