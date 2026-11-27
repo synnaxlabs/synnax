@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { lineplot, panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
+import { deep } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
-import { fireEvent, waitFor } from "@testing-library/react";
+import { act, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, type Mock } from "vitest";
 import { z } from "zod";
 
@@ -95,7 +97,7 @@ describe("UtilityButtons", () => {
       onStatuses?: (statuses: Status.NotificationSpec[]) => void,
       type: string = TYPE,
     ) => {
-      const { container, store } = await renderInTaskFormWithClient(
+      const { container, store, form, panelKey } = await renderInTaskFormWithClient(
         <>
           <Task.UtilityButtons />
           {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
@@ -116,8 +118,10 @@ describe("UtilityButtons", () => {
       const proj = await client.projects.create({ name: uniqueName("proj") });
       store.dispatch(Session.Project.select(proj.key));
       clickIcon(container, "line-plot");
-      return proj;
+      return { proj, container, form, panelKey };
     };
+
+    const path = deep.path<{ config: { channels: object[] } }>();
 
     const findPlot = async (project: string) =>
       await waitFor(async () => {
@@ -128,7 +132,7 @@ describe("UtilityButtons", () => {
 
     it("should plot the enabled channels that the form's config holds", async () => {
       const key = await createChannel("float32");
-      const proj = await renderPlot([
+      const { proj } = await renderPlot([
         { channel: key, disabled: false },
         { channel: key + 1, disabled: true },
         { channel: 0, disabled: false },
@@ -144,7 +148,7 @@ describe("UtilityButtons", () => {
         createChannel("timestamp", true),
         createChannel("string"),
       ]);
-      const proj = await renderPlot(
+      const { proj } = await renderPlot(
         [value, index, text].map((channel) => ({ channel, disabled: false })),
       );
       expect((await findPlot(proj.key)).channels.y1).toEqual([value]);
@@ -180,7 +184,7 @@ describe("UtilityButtons", () => {
 
     it("should give each unit an axis labeled with it, and channels with no units y1", async () => {
       const fields = await createFieldChannels(["rpm", "", "degC", "rpm"]);
-      const proj = await renderPlot(fields, undefined, ICD_TYPE);
+      const { proj } = await renderPlot(fields, undefined, ICD_TYPE);
       const { channels, axes } = await findPlot(proj.key);
       const [rpm, none, degC, rpm2] = fields.map(({ channel }) => channel);
       expect(channels).toMatchObject({
@@ -198,7 +202,7 @@ describe("UtilityButtons", () => {
 
     it("should put the units past the fourth axis on y4", async () => {
       const fields = await createFieldChannels(["V", "A", "Pa", "K", "Hz"]);
-      const proj = await renderPlot(fields, undefined, ICD_TYPE);
+      const { proj } = await renderPlot(fields, undefined, ICD_TYPE);
       const { channels, axes } = await findPlot(proj.key);
       const keys = fields.map(({ channel }) => channel);
       expect(channels).toMatchObject({
@@ -210,11 +214,121 @@ describe("UtilityButtons", () => {
       expect(axes.y4.label).toBe("K, Hz");
     });
 
+    it("should reopen the plot it made, with a new unit on its own axis", async () => {
+      const [rpm, degC] = await createFieldChannels(["rpm", "degC"]);
+      const { proj, container, form } = await renderPlot([rpm], undefined, ICD_TYPE);
+      const first = await findPlot(proj.key);
+      act(() => form.current?.set(path.config.channels, [rpm, degC]));
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const plots = await client.lineplots.retrieve({ projects: [proj.key] });
+        expect(plots.map(({ key }) => key)).toEqual([first.key]);
+        expect(plots[0].channels).toMatchObject({
+          y1: [rpm.channel],
+          y2: [degC.channel],
+        });
+        expect(plots[0].axes.y2.label).toBe("degC");
+      });
+    });
+
+    it("should make one plot when clicked twice before it exists", async () => {
+      const [rpm, degC] = await createFieldChannels(["rpm", "degC"]);
+      const { proj, container, form } = await renderPlot([rpm], undefined, ICD_TYPE);
+      act(() => form.current?.set(path.config.channels, [rpm, degC]));
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const plots = await client.lineplots.retrieve({ projects: [proj.key] });
+        expect(plots).toHaveLength(1);
+        expect(plots[0].channels).toMatchObject({
+          y1: [rpm.channel],
+          y2: [degC.channel],
+        });
+      });
+    });
+
+    it("should make one plot when clicked twice after a delete", async () => {
+      const key = await createChannel("float32");
+      const { proj, container } = await renderPlot([{ channel: key, disabled: false }]);
+      const first = await findPlot(proj.key);
+      await client.lineplots.delete(first.key);
+      clickIcon(container, "line-plot");
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const plots = await client.lineplots.retrieve({ projects: [proj.key] });
+        expect(plots).toHaveLength(1);
+        expect(plots[0].key).not.toBe(first.key);
+      });
+    });
+
+    it("should create a plot when its plot moved to another project", async () => {
+      const key = await createChannel("float32");
+      const { proj, container } = await renderPlot([{ channel: key, disabled: false }]);
+      const first = await findPlot(proj.key);
+      const other = await client.projects.create({ name: uniqueName("proj") });
+      await client.batch.send(client.lineplots.setProjectRequest(first.key, other.key));
+      clickIcon(container, "line-plot");
+      const second = await findPlot(proj.key);
+      expect(second.key).not.toBe(first.key);
+      expect(second.channels.y1).toEqual([key]);
+    });
+
+    it("should keep what the user changed on the plot it reopens", async () => {
+      const [rpm, degC] = await createFieldChannels(["rpm", "degC"]);
+      const extra = await createChannel("float32");
+      const { proj, container } = await renderPlot([rpm, degC], undefined, ICD_TYPE);
+      const { key } = await findPlot(proj.key);
+      await client.lineplots.dispatch(key, [
+        lineplot.removeChannel({ axisKey: "y2", channel: degC.channel }),
+        lineplot.addChannel({ axisKey: "y3", channel: extra }),
+        lineplot.setAxisLabel({ key: "y1", label: "Speed" }),
+      ]);
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const reopened = await client.lineplots.retrieve(key);
+        expect(reopened.channels).toMatchObject({
+          y1: [rpm.channel],
+          y2: [degC.channel],
+          y3: [extra],
+        });
+        expect(reopened.axes.y1.label).toBe("Speed");
+      });
+    });
+
+    it("should open the tab of the plot it reopens", async () => {
+      const key = await createChannel("float32");
+      const { proj, container, panelKey } = await renderPlot([
+        { channel: key, disabled: false },
+      ]);
+      const plot = await findPlot(proj.key);
+      await client.panels.create({ key: panelKey, name: "Panel", project: proj.key });
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const { root } = await client.panels.retrieve(panelKey);
+        expect(panel.tabs(root)).toHaveLength(1);
+        expect(
+          panel.findTabByResource(root, lineplot.resourceID(plot.key)),
+        ).toBeDefined();
+      });
+    });
+
+    it("should create a plot when the plot it made was deleted", async () => {
+      const key = await createChannel("float32");
+      const { proj, container } = await renderPlot([{ channel: key, disabled: false }]);
+      const first = await findPlot(proj.key);
+      await client.lineplots.delete(first.key);
+      clickIcon(container, "line-plot");
+      await waitFor(async () => {
+        const [second] = await client.lineplots.retrieve({ projects: [proj.key] });
+        expect(second.key).not.toBe(first.key);
+        expect(second.channels.y1).toEqual([key]);
+      });
+    });
+
     it("should put the channels of a deleted ICD on y1", async () => {
       const fields = await createFieldChannels(["rpm"]);
       const other = await createFieldChannels(["degC"]);
       await client.icds.delete(fields[0].field.icd);
-      const proj = await renderPlot([...fields, ...other], undefined, ICD_TYPE);
+      const { proj } = await renderPlot([...fields, ...other], undefined, ICD_TYPE);
       const { channels, axes } = await findPlot(proj.key);
       expect(channels).toMatchObject({
         y1: [fields[0].channel],
@@ -225,7 +339,7 @@ describe("UtilityButtons", () => {
 
     it("should trim units, so blank units go on y1", async () => {
       const fields = await createFieldChannels([" ", "rpm ", "rpm"]);
-      const proj = await renderPlot(fields, undefined, ICD_TYPE);
+      const { proj } = await renderPlot(fields, undefined, ICD_TYPE);
       const { channels, axes } = await findPlot(proj.key);
       const [blank, padded, rpm] = fields.map(({ channel }) => channel);
       expect(channels).toMatchObject({ y1: [blank], y2: [padded, rpm] });
