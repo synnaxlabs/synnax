@@ -495,11 +495,16 @@ alignment and inputs of two clocks by sample time:
   the first stamp (`arc/go/stl/math/math.go:441-447`). The calculator sets the joined
   bounds and the windows of absolute time for its nodes, through the hosts that it
   builds; Arc flows keep both as today, in the Go and C++ runtimes.
-- **Time as a value**: `time.of(channel)` (NEW, in `arc/go/stl/time`) is a source of a
-  channel's stamps as `i64 ns`, on that channel's clock, in Arc and in calculations. The
-  migration rewrites a read of an index channel to `time.of` of its first data channel
-  by key (§4.10). No builtin gives a sample's stamp today
-  (`arc/go/stl/time/time.go:34-38`).
+- **Time as a value**: `time.of(channel)` (NEW, in `arc/go/stl/time`) gives a channel's
+  stamps as `i64 ns`, on that channel's clock: a source in a flow, and an expression in
+  a function body or a calculation. The migration rewrites a read of a retired index
+  channel to `time.of` of its first data channel (§4.10). The text pass follows D-504 to
+  D-506. It resolves each reference from the program's parse, so a local, input,
+  parameter, stage, or module member of that name keeps its token, and only bare
+  identifiers are candidates. It leaves unchanged, and reports, a reference where the
+  new text would be captured, such as by a local named `time`, and text that does not
+  parse. A golden corpus spec in `core/pkg/service/arc/versions/v4` covers it. No
+  builtin gives a sample's stamp today (`arc/go/stl/time/time.go:34-38`).
 - **Stored `<name>_time` records**: Phase 21 deletes each `<name>_time` index channel
   that a v0.62 Core stored. First it retargets every reference to the record onto the
   output's new clock, through the references of RFC 0119: the index of the stored input
