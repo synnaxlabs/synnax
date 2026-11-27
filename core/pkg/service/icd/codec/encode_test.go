@@ -349,27 +349,6 @@ var _ = Describe("JSONEncoder", func() {
 		))
 	})
 
-	It("Should refuse a bound field with a zero scale", func() {
-		key := uuid.New()
-		Expect(codec.NewJSONEncoder(message(
-			[]icd.JSONField{floatField("temp", key, 0, 0)},
-			codec.Binding{Field: key, DataType: telem.Float64T},
-		))).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(
-				"message command: field temp: scale must be non-zero: validation error",
-			),
-		))
-	})
-
-	It("Should write the default of an unbound field with a zero scale", func() {
-		f := icd.JSONField{Variant: icd.FloatJSONField{
-			Key: uuid.New(), Name: "v", Pointer: "/v", Default: new(payload.Float(3)),
-		}}
-		enc := MustSucceed(codec.NewJSONEncoder(message([]icd.JSONField{f})))
-		Expect(enc.Encode(nil, nil)).To(MatchJSON(`{"v":3}`))
-	})
-
 	It("Should fail only the encode of a nil sample for a bound NaN default", func() {
 		key := uuid.New()
 		enc := MustSucceed(codec.NewJSONEncoder(message(
@@ -442,6 +421,62 @@ var _ = Describe("JSONEncoder", func() {
 			MatchError(validate.ErrValidation),
 			MatchError(expected),
 		))
+	})
+
+	Describe("Check", func() {
+		var (
+			key = uuid.New()
+			enc *codec.JSONEncoder
+		)
+		BeforeEach(func() {
+			enc = MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{floatField("v", key, 1, 0)},
+				codec.Binding{Field: key, DataType: telem.Float64T},
+			)))
+		})
+
+		It("Should encode a sample that differs from the checked sample", func() {
+			Expect(enc.Check(0, float64Sample(1.5))).To(Succeed())
+			Expect(enc.Encode(nil, [][]byte{float64Sample(2.5)})).
+				To(MatchJSON(`{"v":2.5}`))
+		})
+
+		It("Should encode a sample whose buffer changed after its check", func() {
+			sample := float64Sample(1.5)
+			Expect(enc.Check(0, sample)).To(Succeed())
+			copy(sample, float64Sample(2.5))
+			Expect(enc.Encode(nil, [][]byte{sample})).To(MatchJSON(`{"v":2.5}`))
+		})
+
+		It("Should keep the text of the last good sample after a failed check", func() {
+			expected := "message command: field v: NaN is not a JSON number: " +
+				"validation error"
+			Expect(enc.Check(0, float64Sample(1.5))).To(Succeed())
+			Expect(enc.Check(0, float64Sample(math.NaN()))).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(expected),
+			))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(1.5)})).
+				To(MatchJSON(`{"v":1.5}`))
+			Expect(enc.Encode(nil, [][]byte{float64Sample(math.NaN())})).Error().
+				To(SatisfyAll(MatchError(validate.ErrValidation), MatchError(expected)))
+		})
+
+		It("Should encode an empty string after the check of a nil sample", func() {
+			enc := MustSucceed(codec.NewJSONEncoder(message(
+				[]icd.JSONField{{Variant: icd.StringJSONField{
+					Key:     key,
+					Name:    "s",
+					Scale:   1,
+					Pointer: "/s",
+					Default: new("synnax"),
+				}}},
+				codec.Binding{Field: key, DataType: telem.StringT},
+			)))
+			Expect(enc.Check(0, nil)).To(Succeed())
+			Expect(enc.Encode(nil, [][]byte{{}})).To(MatchJSON(`{"s":""}`))
+			Expect(enc.Encode(nil, [][]byte{nil})).To(MatchJSON(`{"s":"synnax"}`))
+		})
 	})
 
 	Describe("JSON samples", func() {

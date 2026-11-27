@@ -69,13 +69,14 @@ var _ = Describe("Discover", func() {
 	)
 
 	BeforeEach(func(ctx SpecContext) {
-		t = newTask(ctx, kafka.ScanTaskType, map[string]any{})
+		t = newTask(ctx, kafka.ScanTaskType, map[string]any{"disabled": true})
 		dt = MustSucceed(newFactory().ConfigureTask(ctx, t, driver.NoCommand))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 	})
 
 	// command runs a command of typ with args, decodes the data that answers it into
-	// res, and returns the status that answers it.
+	// res, and returns the status that answers it. The scan task is not running, so it
+	// has no status until the answer.
 	command := func(ctx context.Context, typ string, args, res any) task.Status {
 		GinkgoHelper()
 		key := uuid.New().String()
@@ -84,7 +85,7 @@ var _ = Describe("Discover", func() {
 		})).To(Succeed())
 		var stat task.Status
 		Eventually(func(g Gomega) {
-			stat = taskStatus(ctx, t)
+			stat = retrieveTaskStatus(ctx, g, t)
 			g.Expect(stat.Details.Cmd).To(Equal(key))
 		}).WithTimeout(15 * time.Second).Should(Succeed())
 		if stat.Variant == status.VariantSuccess {
@@ -101,6 +102,86 @@ var _ = Describe("Discover", func() {
 		Expect(stat.Message).To(Equal("Command executed successfully"))
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
 	}
+
+	// deadSeedFirst returns the brokers of the suite cluster after a seed broker that
+	// does not answer. No network routes 192.0.2.1, a documentation address.
+	deadSeedFirst := func() []string {
+		return append([]string{"192.0.2.1:9092"}, cluster.ListenAddrs()...)
+	}
+
+	// expectUnreachable checks that stat answers a command to a cluster whose only seed
+	// broker, at addr, does not answer.
+	expectUnreachable := func(stat task.Status, addr string) {
+		GinkgoHelper()
+		Expect(stat.Variant).To(Equal(status.VariantError))
+		Expect(stat.Message).To(Equal("Failed to reach broker"))
+		Expect(stat.Description).To(And(
+			HavePrefix("Could not reach "+addr+": "),
+			HaveSuffix(" Check the address and port of each broker, and that the "+
+				"network of the Core can reach them."),
+		))
+	}
+
+	// newMuteCluster starts a cluster that takes connections but answers no metadata
+	// request, as a broker behind the wrong listener does.
+	newMuteCluster := func() *kfake.Cluster {
+		GinkgoHelper()
+		c := MustSucceed(kfake.NewCluster(kfake.NumBrokers(1)))
+		DeferCleanup(c.Close)
+		c.ControlKey(
+			int16(kmsg.Metadata),
+			func(kmsg.Request) (kmsg.Response, error, bool) {
+				c.KeepControl()
+				return nil, nil, true
+			},
+		)
+		return c
+	}
+
+	// expectMute checks that stat answers a command to a cluster that answers no
+	// metadata request.
+	expectMute := func(stat task.Status) {
+		GinkgoHelper()
+		Expect(stat.Variant).To(Equal(status.VariantError))
+		Expect(stat.Message).To(Equal("Broker did not answer"))
+		Expect(stat.Description).To(Equal("The broker did not answer within 5s. " +
+			"Check that the TLS and SASL settings match the listener of the broker."))
+	}
+
+	DescribeTable("Should say that authentication failed with a wrong password",
+		func(ctx SpecContext, typ string, variant kafka.SASLVariant) {
+			c := MustSucceed(kfake.NewCluster(
+				kfake.NumBrokers(1),
+				kfake.EnableSASL(),
+				kfake.Superuser("PLAIN", "plain-user", "plain-pass"),
+				kfake.Superuser("SCRAM-SHA-256", "scram256-user", "scram256-pass"),
+			))
+			DeferCleanup(c.Close)
+			dev := createDevice(ctx, kafka.Properties{
+				Brokers: c.ListenAddrs(),
+				Sasl:    kafka.SASL{Variant: variant},
+			})
+			stat := command(ctx, typ, map[string]any{
+				"device": dev.Key,
+				"topics": []string{"plant"},
+			}, nil)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Authentication failed"))
+			Expect(stat.Description).To(HaveSuffix(
+				". Check the username, the password, and the SASL mechanism.",
+			))
+		},
+		Entry("browse with plain", "browse",
+			kafka.PlainSASL{Username: "plain-user", Password: "wrong"},
+		),
+		// The broker closes the connection on a failed SCRAM exchange.
+		Entry("browse with SCRAM-SHA-256", "browse",
+			kafka.ScramSha256SASL{Username: "scram256-user", Password: "wrong"},
+		),
+		Entry("sample with plain", "sample",
+			kafka.PlainSASL{Username: "plain-user", Password: "wrong"},
+		),
+	)
 
 	Describe("Browse", func() {
 		// browse returns the topics of the cluster of props.
@@ -126,6 +207,18 @@ var _ = Describe("Discover", func() {
 			Fail("no topic named " + name)
 			return browsedTopic{}
 		}
+
+		It("Should browse a cluster with a seed broker that does not answer",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				produceJSON(ctx, newKafkaClient(), topic, "", map[string]int{"v": 1})
+				topics := browse(ctx, kafka.Properties{Brokers: deadSeedFirst()})
+				browsed := named(topics, topic)
+				Expect(browsed.Error).To(BeEmpty())
+				Expect(browsed.Newest).ToNot(BeZero())
+			},
+		)
 
 		It("Should describe each topic", func(ctx SpecContext) {
 			jsonTopic, srTopic, emptyTopic := uniqueTopic(), uniqueTopic(), uniqueTopic()
@@ -276,6 +369,23 @@ var _ = Describe("Discover", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Description).To(HavePrefix("retrieving device missing: "))
 		})
+
+		It("Should name the broker of a cluster that it cannot reach",
+			func(ctx SpecContext) {
+				addr := closedAddress()
+				dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
+				stat := command(ctx, "browse", map[string]any{"device": dev.Key}, nil)
+				expectUnreachable(stat, addr)
+			},
+		)
+
+		It("Should say that the broker did not answer", func(ctx SpecContext) {
+			dev := createDevice(
+				ctx,
+				kafka.Properties{Brokers: newMuteCluster().ListenAddrs()},
+			)
+			expectMute(command(ctx, "browse", map[string]any{"device": dev.Key}, nil))
+		})
 	})
 
 	Describe("Sample", func() {
@@ -299,6 +409,24 @@ var _ = Describe("Discover", func() {
 			expectAnswered(stat)
 			return res.Topics, res.Truncated
 		}
+
+		It("Should sample a cluster with a seed broker that does not answer",
+			func(ctx SpecContext) {
+				topic := uniqueTopic()
+				Expect(cluster.CreateTopic(topic, 1, nil)).To(Succeed())
+				produceJSON(ctx, newKafkaClient(), topic, "", map[string]int{"v": 1})
+				var res struct {
+					Topics []sampledTopic `json:"topics"`
+				}
+				dev := createDevice(ctx, kafka.Properties{Brokers: deadSeedFirst()})
+				expectAnswered(command(ctx, "sample", map[string]any{
+					"device": dev.Key,
+					"topics": []string{topic},
+				}, &res))
+				Expect(res.Topics[0].Error).To(BeEmpty())
+				Expect(res.Topics[0].Records).To(HaveLen(1))
+			},
+		)
 
 		It("Should infer one shape for each set of keys", func(ctx SpecContext) {
 			topic := uniqueTopic()
@@ -458,6 +586,29 @@ var _ = Describe("Discover", func() {
 			Expect(
 				stat.Description,
 			).To(Equal("topics: must be non-empty: validation error"))
+		})
+
+		It("Should name the broker of a cluster that it cannot reach",
+			func(ctx SpecContext) {
+				addr := closedAddress()
+				dev := createDevice(ctx, kafka.Properties{Brokers: []string{addr}})
+				stat := command(ctx, "sample", map[string]any{
+					"device": dev.Key,
+					"topics": []string{"plant"},
+				}, nil)
+				expectUnreachable(stat, addr)
+			},
+		)
+
+		It("Should say that the broker did not answer", func(ctx SpecContext) {
+			dev := createDevice(
+				ctx,
+				kafka.Properties{Brokers: newMuteCluster().ListenAddrs()},
+			)
+			expectMute(command(ctx, "sample", map[string]any{
+				"device": dev.Key,
+				"topics": []string{"plant"},
+			}, nil))
 		})
 
 		It("Should reject a sample that repeats a topic", func(ctx SpecContext) {

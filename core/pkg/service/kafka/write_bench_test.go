@@ -136,7 +136,7 @@ func runWriteBench(ctx SpecContext, sc writeBenchScenario) {
 		Expect(MustSucceed(w.Write(frame.NewMulti(keys, series)))).To(BeTrue())
 	}
 	total := sc.channels * sc.samples * sc.frames
-	records := consumeAll(ctx, topic, total)
+	records := consume(ctx, topic, total)
 	elapsed := time.Since(start)
 	profile.stop()
 	checkWriteRecords(records, byName, len(data), sc.samples, sc.fields, stamp, written)
@@ -255,24 +255,4 @@ func checkWriteRecords(
 			ids.Add(id)
 		}
 	}
-}
-
-// consumeAll reads exactly n records from topic.
-func consumeAll(ctx context.Context, topic string, n int) []*kgo.Record {
-	GinkgoHelper()
-	cl := newKafkaClient(
-		kgo.ConsumeTopics(topic),
-		kgo.ConsumeResetOffset(kgo.NewOffset().AtStart()),
-		kgo.FetchMaxBytes(16<<20),
-	)
-	recs := make([]*kgo.Record, 0, n)
-	Eventually(func() int {
-		pollCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-		defer cancel()
-		recs = append(recs, cl.PollFetches(pollCtx).Records()...)
-		return len(recs)
-	}).WithTimeout(2 * time.Minute).WithPolling(time.Millisecond).
-		Should(BeNumerically(">=", n))
-	Expect(recs).To(HaveLen(n))
-	return recs
 }

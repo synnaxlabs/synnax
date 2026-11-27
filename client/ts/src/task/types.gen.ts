@@ -189,6 +189,7 @@ export type Where = {
   rack?: filter.Set<typeof rack.keyZ>;
   internal?: filter.Bool;
   arcs?: string[];
+  icds?: string[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -215,6 +216,8 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   internal: filter.boolZ.optional(),
   /** arcs matches the tasks that run any of the Arcs with the given keys. */
   arcs: zod.nullToUndefined(z.uuid().array()),
+  /** icds matches the tasks that use any of the ICDs with the given keys. */
+  icds: zod.nullToUndefined(z.uuid().array()),
 });
 
 /** Command is a command to execute on a task in the Driver system. */
