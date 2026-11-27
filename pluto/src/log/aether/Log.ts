@@ -384,6 +384,9 @@ export class Log
   private cursor: LogEntry | null = null;
   // The direction of a jump that waits for reads.
   private jumping: Direction | null = null;
+  // The line a pending jump scans from, or null to scan from the edge of the entries
+  // behind the jump. Reads that evict it evict every line behind it too.
+  private origin: LogEntry | null = null;
   // The lines a jump that waits for reads found no match in. Reads can insert lines
   // anywhere, so each change walks every line but matches only the new ones.
   private unmatched = new WeakSet<LogEntry>();
@@ -578,7 +581,14 @@ export class Log
     // prevState. A live log has no jump to run or report.
     if (!this.state.scrolling || searchChanged) this.endJump("");
     if (this.state.scrolling && jumped && this.state.jump.request > 0) {
-      this.jumping = this.state.jump.direction;
+      const { direction } = this.state.jump;
+      const located = this.cursor == null ? -1 : this.locate(this.cursor);
+      const from =
+        located >= 0
+          ? located
+          : this.scrollState.offset - (direction === "next" ? 1 : 0);
+      this.jumping = direction;
+      this.origin = this.entries[from] ?? null;
       this.unmatched = new WeakSet();
       this.jump();
     }
@@ -598,9 +608,8 @@ export class Log
     const { entries } = this;
     const { formats } = this.internal;
     const { unmatched } = this;
-    const located = this.cursor == null ? -1 : this.locate(this.cursor);
-    const from =
-      located >= 0 ? located : this.scrollState.offset - (direction === "next" ? 1 : 0);
+    const located = this.origin == null ? -1 : this.locate(this.origin);
+    const from = located >= 0 ? located : direction === "next" ? -1 : entries.length;
     const matches = (entry: LogEntry): boolean => {
       if (unmatched.has(entry)) return false;
       if (find(pattern, textOf(entry.value, formats[entry.channelKey])).length > 0)

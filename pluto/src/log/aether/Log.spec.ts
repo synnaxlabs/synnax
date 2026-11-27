@@ -902,6 +902,23 @@ describe("log/aether/Log", () => {
       expect(leaf.state.jumpStatus).toBe("");
     });
 
+    it("should scan an older page whole when the read evicts the view", () => {
+      const held = lines(1_000, []);
+      const { leaf, source, updateState } = setup(held, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      expect(leaf.state.jumpStatus).toBe("reading");
+      const older = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i - 1_000),
+        value: i === 500 ? "err older" : `ok ${i}`,
+      }));
+      // The page fills the log, so the newest held lines and the view leave it.
+      source.setEntries([...older, ...held.slice(0, 50)]);
+      source.notify();
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(500);
+      expect(leaf.state.jumpStatus).toBe("");
+    });
+
     it("should report no more matches once the stored lines run out", () => {
       const { leaf, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       source.exhausted = true;
@@ -912,17 +929,14 @@ describe("log/aether/Log", () => {
     });
 
     it("should read newer lines until it finds a match", () => {
-      const { leaf, source, updateState } = setup(
-        lines(1_000, [20]),
-        REGION_500,
-        SEARCH,
-      );
+      const held = lines(1_000, [20]);
+      const { leaf, source, updateState } = setup(held, REGION_500, SEARCH);
       source.live = false;
       jumpTo(updateState, "previous", 1);
       jumpTo(updateState, "next", 2);
       expect(source.loadNewerCalls).toBeGreaterThan(0);
       expect(leaf.state.jumpStatus).toBe("reading");
-      source.setEntries([...lines(1_000, [20]), { ...makeEntry(1_000), value: "err" }]);
+      source.setEntries([...held, { ...makeEntry(1_000), value: "err" }]);
       source.notify();
       leaf.render();
       expect(leaf.state.rowEntries).toContain(1_000);
