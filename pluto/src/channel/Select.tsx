@@ -14,6 +14,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Text } from "@synnaxlabs/lyra/text";
 import type { ReactElement, ReactNode } from "react";
 
 import { getCachedIndex, HaulPreview } from "@/channel/HaulPreview";
@@ -23,6 +24,34 @@ import { HAUL_TYPE } from "@/channel/types";
 import { CSS } from "@/css";
 import type { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
+
+/**
+ * @returns the names of the folders on the channel's path, joined as the path joins
+ * them, or undefined for a channel at the top or with no path.
+ */
+const folderOf = ({ name, path }: channel.Channel): string | undefined =>
+  path == null || path === name
+    ? undefined
+    : path.slice(0, path.length - name.length - 1);
+
+const FOLDER_CLASS = CSS.BE("channel", "folder");
+
+/** Shows the folders of a channel's path, so two channels of one name differ. */
+const Folder = ({ channel: ch }: { channel: channel.Channel }): ReactElement | null => {
+  const folder = folderOf(ch);
+  if (folder == null) return null;
+  return (
+    <Text.Text
+      el="span"
+      level="small"
+      color={9}
+      overflow="fade"
+      className={FOLDER_CLASS}
+    >
+      {folder}
+    </Text.Text>
+  );
+};
 
 const ListItem = ({
   itemKey,
@@ -34,6 +63,7 @@ const ListItem = ({
     <Select.Item itemKey={itemKey} {...rest}>
       <Icon />
       {item?.name}
+      {item != null && <Folder channel={item} />}
     </Select.Item>
   );
 };
@@ -57,6 +87,13 @@ const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
   const Resolved = resolveIcon(entry.payload);
   return <Resolved />;
 };
+
+const renderTriggerFolder = (entry: unknown): ReactNode =>
+  isChannel(entry) ? <Folder channel={entry} /> : undefined;
+
+/** Lists the channels with their paths. */
+const withPaths = (query: ListQuery | null | undefined): ListQuery | null =>
+  query === null ? null : { ...query, includePath: true };
 
 const createHaulPreviewRenderer =
   (client: Client | null) =>
@@ -89,7 +126,7 @@ export const SelectMultiple = ({
 }: SelectMultipleProps): ReactElement => {
   const client = Synnax.use();
   const { data, getItem, subscribe, status, more, search } = useList({
-    query,
+    query: withPaths(query),
     filter,
   });
   return (
@@ -127,7 +164,7 @@ export const SelectSingle = ({
 }: SelectSingleProps): ReactElement => {
   const client = Synnax.use();
   const { data, getItem, subscribe, status, more, search } = useList({
-    query,
+    query: withPaths(query),
     filter,
   });
   return (
@@ -137,7 +174,10 @@ export const SelectSingle = ({
       status={status}
       haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
-      triggerProps={withDefaults(client, triggerProps)}
+      triggerProps={{
+        renderEndContent: renderTriggerFolder,
+        ...withDefaults(client, triggerProps),
+      }}
       {...rest}
       data={data}
       getItem={getItem}

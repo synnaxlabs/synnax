@@ -13,3 +13,10 @@
 .lyra-dialog__frame:has(> .lyra-dialog__trigger.pluto-channel__trigger) {
     --pluto-control-width: 64rem;
 }
+
+/* The folders sit at the trailing edge and fade first when the name runs long. */
+.pluto-channel__folder {
+    margin-left: auto;
+    min-width: 0;
+    flex-shrink: 1;
+}

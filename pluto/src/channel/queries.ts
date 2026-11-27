@@ -235,7 +235,11 @@ const normalizeListQuery = <Q extends ListQuery>(query: Q): Q => ({
   where: { internal: { eq: false }, ...query.where },
 });
 
-/** Lists the channels that are not internal, unless the query sets `where.internal`. */
+/**
+ * Lists the channels that are not internal, unless the query sets `where.internal`. A
+ * query that sets `includePath` also gives the path of each channel that the list reads
+ * by key.
+ */
 export const useList = ({
   query,
   ...rest
@@ -247,7 +251,8 @@ export const useList = ({
     ...rest,
     name: PLURAL_RESOURCE_NAME,
     query: query === null ? null : normalizeListQuery(query ?? {}),
-    itemQuery: (key) => ({ key }),
+    itemQuery: (key) =>
+      query?.includePath === true ? { key, includePath: true } : { key },
   });
 
 export const { useResult: useResultList } = Flux.createRetrieve<
