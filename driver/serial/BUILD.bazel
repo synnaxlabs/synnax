@@ -76,6 +76,10 @@ cc_test(
     name = "native_test",
     size = "small",
     srcs = select({
+        "@platforms//os:linux": [
+            "posix_linux_test.cpp",
+            "posix_test.cpp",
+        ],
         "@platforms//os:windows": ["windows_test.cpp"],
         "//conditions:default": ["posix_test.cpp"],
     }),
