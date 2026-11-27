@@ -61,31 +61,10 @@ std::pair<pb::Call, x::errors::Error> decode(const journal::Record &record) {
     return {call, x::errors::NIL};
 }
 
-/// @returns whether err has type, or a type under it. Error::matches also matches a
-/// type that only starts with the same letters.
-bool is_kind(const x::errors::Error &err, const std::string &type) {
-    return err.type == type || err.type.starts_with(type + ".");
-}
 }
 
 bool rejected(const x::errors::Error &err) {
-    // The auth middleware renews a token, and a license can come back.
-    for (const auto &type:
-         {std::string("sy.auth.invalid_token"),
-          std::string("sy.auth.expired_token"),
-          std::string("sy.auth.session_ended"),
-          synnax::errors::LICENSE_MISSING.type,
-          synnax::errors::LICENSE_EXPIRED.type})
-        if (is_kind(err, type)) return false;
-    for (const auto &type:
-         {x::errors::VALIDATION.type,
-          x::errors::QUERY.type,
-          x::errors::CONTROL.type,
-          std::string("sy.auth"),
-          synnax::errors::LICENSE.type,
-          std::string("arc")})
-        if (is_kind(err, type)) return true;
-    return false;
+    return synnax::errors::classify(err) == synnax::errors::Kind::REJECTED;
 }
 
 Outbox::Outbox(Config cfg): cfg(std::move(cfg)) {}

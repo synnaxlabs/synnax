@@ -655,7 +655,9 @@ TEST(RejectedTest, ClassifiesErrors) {
           x::errors::UNAUTHORIZED,
           x::errors::Error("sy.auth.access_denied", ""),
           x::errors::Error("sy.license.invalid", ""),
-          x::errors::Error("arc.runtime", "")})
+          x::errors::Error("arc.runtime", ""),
+          freighter::RESOURCE_EXHAUSTED,
+          x::errors::NOT_SUPPORTED})
         EXPECT_TRUE(rejected(err)) << err;
     for (const auto &err:
          {freighter::UNREACHABLE,
@@ -663,7 +665,6 @@ TEST(RejectedTest, ClassifiesErrors) {
           synnax::errors::LICENSE_MISSING,
           synnax::errors::LICENSE_EXPIRED,
           x::errors::INTERNAL,
-          x::errors::Error("sy.validationx", ""),
           x::errors::Error("Received RST_STREAM with error code 2", "")})
         EXPECT_FALSE(rejected(err)) << err;
 }

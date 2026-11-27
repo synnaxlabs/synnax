@@ -113,8 +113,9 @@ struct Config {
 using SetStatusDone = std::function<
     void(const synnax::status::SetByKeyOrNameResult &, const x::errors::Error &)>;
 
-/// @returns whether err means the Core refused a call, so a retry cannot succeed. Every
-/// other error, such as a lost connection or a timeout, needs a retry.
+/// @returns whether synnax::errors::classify sorts err as REJECTED, so a retry cannot
+/// succeed. The outbox retries every other error, also one that classify calls a bug,
+/// and warns through on_stuck when the retries last.
 [[nodiscard]] bool rejected(const x::errors::Error &err);
 
 /// @brief a queue of Core calls on disk, which one thread sends in order. The queue
