@@ -12,6 +12,7 @@ package v5
 import (
 	"context"
 	"encoding/json/v2"
+	"slices"
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
@@ -37,12 +38,15 @@ func MigrateReadConfig(ctx context.Context, old v4.ReadConfig) (ReadConfig, erro
 	return cfg, nil
 }
 
-// MigrateReadEndpoint lifts a v4 read endpoint to v5, with no ICD and no messages.
+// MigrateReadEndpoint lifts a v4 read endpoint to v5, with no ICD and no messages. It
+// drops each header with an empty value, which the Driver refuses.
 func MigrateReadEndpoint(
 	ctx context.Context,
 	old v4.ReadEndpoint,
 ) (ReadEndpoint, error) {
-	return autoMigrateReadEndpoint(ctx, old)
+	ep, err := autoMigrateReadEndpoint(ctx, old)
+	ep.Headers = valuedHeaders(ep.Headers)
+	return ep, err
 }
 
 // MigrateWriteConfig lifts a v4 write config to v5, with the key, channel, and fields
@@ -64,12 +68,22 @@ func MigrateWriteConfig(ctx context.Context, old v4.WriteConfig) (WriteConfig, e
 	return cfg, nil
 }
 
-// MigrateWriteEndpoint lifts a v4 write endpoint to v5, with no ICD and no message.
+// MigrateWriteEndpoint lifts a v4 write endpoint to v5, with no ICD and no message. It
+// drops each header with an empty value, which the Driver refuses.
 func MigrateWriteEndpoint(
 	ctx context.Context,
 	old v4.WriteEndpoint,
 ) (WriteEndpoint, error) {
-	return autoMigrateWriteEndpoint(ctx, old)
+	ep, err := autoMigrateWriteEndpoint(ctx, old)
+	ep.Headers = valuedHeaders(ep.Headers)
+	return ep, err
+}
+
+// valuedHeaders returns the headers of hs that have a value, in a new slice.
+func valuedHeaders(hs []Header) []Header {
+	return slices.DeleteFunc(slices.Clone(hs), func(h Header) bool {
+		return h.Value == ""
+	})
 }
 
 // NoteLift returns the note for ResolveReadConfig that logs each change to a field of

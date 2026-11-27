@@ -15,6 +15,21 @@ import { Task } from "@/platform/task";
 
 export const PREFIX = "http";
 
+/** Refuses a header with an empty value, which the Driver refuses. */
+const validateHeaderValues = ({ value, issues }: z.core.ParsePayload<http.Header[]>) =>
+  value.forEach(({ value: headerValue }, i) => {
+    if (headerValue !== "") return;
+    issues.push({
+      continue: true,
+      code: "custom",
+      input: value,
+      message: "Value is required",
+      path: [i, "value"],
+    });
+  });
+
+const deployHeadersZ = Device.headersZ.check(validateHeaderValues).default(() => []);
+
 export const READ_TYPE = `${PREFIX}_read`;
 
 export interface ReadEndpoint extends http.ReadEndpoint {}
@@ -25,7 +40,7 @@ const readConfigZ = http.readConfigZ;
 
 const deployReadEndpointZ = http.readEndpointZ.extend({
   method: readMethodZ,
-  headers: Device.headersZ.default(() => []),
+  headers: deployHeadersZ,
   queryParams: Device.queryParamsZ.default(() => []),
 });
 
@@ -58,7 +73,7 @@ const writeConfigZ = http.writeConfigZ;
 
 const deployWriteEndpointZ = http.writeEndpointZ.extend({
   method: writeMethodZ,
-  headers: Device.headersZ.default(() => []),
+  headers: deployHeadersZ,
   queryParams: Device.queryParamsZ.default(() => []),
 });
 

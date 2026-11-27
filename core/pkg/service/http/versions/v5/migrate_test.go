@@ -119,6 +119,16 @@ var _ = Describe("MigrateReadEndpoint", func() {
 		Expect(ep.ICD).To(BeNil())
 		Expect(ep.Messages).To(BeEmpty())
 	})
+
+	It("Should drop each header with an empty value", func(ctx SpecContext) {
+		old := storedConfig().Endpoints[0]
+		old.Headers = append(old.Headers, v4.Header{Name: "X-Key"})
+		ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
+		Expect(ep.Headers).To(Equal([]v4.Header{
+			{Name: "Accept", Value: "application/json"},
+		}))
+		Expect(old.Headers).To(HaveLen(2))
+	})
 })
 
 var _ = Describe("StagedFieldsKVKey", func() {
@@ -176,6 +186,20 @@ var _ = Describe("ReadMigration", func() {
 				{Key: "ep1", Index: "t", Fields: old.Endpoints[0].Fields},
 				{Key: "ep2", Fields: old.Endpoints[1].Fields},
 			}}))
+		},
+	)
+
+	It("Should store each endpoint without its headers that have an empty value",
+		func(ctx SpecContext) {
+			old := storedConfig()
+			old.Endpoints[0].Headers = append(
+				old.Endpoints[0].Headers,
+				v4.Header{Name: "X-Key"},
+			)
+			migrate(ctx, old)
+			Expect(read(ctx, old.Key).Endpoints[0].Headers).To(Equal([]v4.Header{
+				{Name: "Accept", Value: "application/json"},
+			}))
 		},
 	)
 
@@ -301,6 +325,16 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 		)
 		Expect(ep.Disabled).To(BeTrue())
 	})
+
+	It("Should drop each header with an empty value", func(ctx SpecContext) {
+		old := storedWriteConfig().Endpoints[0]
+		old.Headers = append(old.Headers, v4.Header{Name: "X-Key"})
+		ep := MustSucceed(v5.MigrateWriteEndpoint(ctx, old))
+		Expect(ep.Headers).To(Equal([]v4.Header{
+			{Name: "Accept", Value: "application/json"},
+		}))
+		Expect(old.Headers).To(HaveLen(2))
+	})
 })
 
 var _ = Describe("StagedWriteFieldsKVKey", func() {
@@ -353,6 +387,20 @@ var _ = Describe("WriteMigration", func() {
 		Expect(v5.WriteConfig{}.CustomTypeName()).
 			To(Equal(v4.WriteConfig{}.CustomTypeName()))
 	})
+
+	It("Should store each endpoint without its headers that have an empty value",
+		func(ctx SpecContext) {
+			old := storedWriteConfig()
+			old.Endpoints[0].Headers = append(
+				old.Endpoints[0].Headers,
+				v4.Header{Name: "X-Key"},
+			)
+			migrate(ctx, old)
+			Expect(read(ctx, old.Key).Endpoints[0].Headers).To(Equal([]v4.Header{
+				{Name: "Accept", Value: "application/json"},
+			}))
+		},
+	)
 
 	It("Should stage the channel and fields of each config under its own KV key",
 		func(ctx SpecContext) {

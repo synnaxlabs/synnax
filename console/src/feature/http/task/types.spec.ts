@@ -171,6 +171,32 @@ describe("HTTP Task Types", () => {
       expect(HTTP.Task.deployReadConfigZ.validate(config)).toBe(false);
     });
 
+    it("should reject a header with an empty value on an endpoint at deploy", () => {
+      const config = {
+        device: "dev-001",
+        rate: 1,
+        endpoints: [
+          {
+            key: "ep1",
+            method: "GET",
+            path: "/api",
+            headers: [
+              { name: "Accept", value: "application/json" },
+              { name: "X-Key", value: "" },
+            ],
+          },
+        ],
+      };
+      expect(HTTP.Task.deployReadConfigZ.safeParse(config).error?.issues).toMatchObject(
+        [
+          {
+            message: "Value is required",
+            path: ["endpoints", 0, "headers", 1, "value"],
+          },
+        ],
+      );
+    });
+
     it("should reject duplicate query parameter names on an endpoint at deploy", () => {
       const config = {
         device: "dev-001",
@@ -332,6 +358,26 @@ describe("HTTP Task Types", () => {
         ],
       };
       expect(HTTP.Task.deployWriteConfigZ.validate(config)).toBe(false);
+    });
+
+    it("should reject a header with an empty value on a write endpoint at deploy", () => {
+      const config = {
+        device: "dev-001",
+        endpoints: [
+          {
+            key: "ep1",
+            method: "POST",
+            path: "/api",
+            headers: [{ name: "X-Key", value: "" }],
+            ...SENDS,
+          },
+        ],
+      };
+      expect(
+        HTTP.Task.deployWriteConfigZ.safeParse(config).error?.issues,
+      ).toMatchObject([
+        { message: "Value is required", path: ["endpoints", 0, "headers", 0, "value"] },
+      ]);
     });
 
     it("should reject duplicate query parameters on a write endpoint at deploy", () => {
