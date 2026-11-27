@@ -25,7 +25,7 @@ RECOVERY_TIMEOUT = 60 * sy.TimeSpan.SECOND
 
 class KafkaEdgeBrokerRestart(KafkaReadTaskCase):
     """Stops and starts the broker while a read task runs. The task warns that it lost
-    the cluster, reports that it reconnected, and then reads again."""
+    the cluster, clears the warning once it reconnects, and then reads again."""
 
     task_name = "Kafka Edge Broker Restart"
 
@@ -77,9 +77,9 @@ class KafkaEdgeBrokerRestart(KafkaReadTaskCase):
                 raise AssertionError(f"Unexpected lost status: {status_text(lost)}")
             self.start_simulator()
             back = watch.wait(
-                lambda s: s.message == "Reconnected to cluster",
+                lambda s: s.message == "Started task" and s.time > lost.time,
                 timeout=RECOVERY_TIMEOUT,
-                expected="the status of a reconnected cluster",
+                expected="the running status of a reconnected cluster",
             )
             if back.variant != "success" or back.description or not is_running(back):
                 raise AssertionError(
