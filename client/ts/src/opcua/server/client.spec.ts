@@ -210,6 +210,45 @@ describe("OPC UA server", async () => {
     });
   });
 
+  describe("order", () => {
+    const createNamed = async (
+      r: number,
+      names: string[],
+    ): Promise<opcua.server.Server[]> =>
+      await client.opcua.servers.create(
+        names.map((name) => ({
+          rack: r,
+          name,
+          connection: { endpoint: ENDPOINT },
+        })),
+      );
+
+    it("should retrieve servers by name, ignoring case", async () => {
+      const r = await client.racks.create({ name: "opcua-order" });
+      await createNamed(r.key, ["beta", "Alpha", "gamma"]);
+      const servers = await client.opcua.servers.retrieve({
+        rack: r.key,
+        order: { field: "name" },
+      });
+      expect(servers.map(({ name }) => name)).toEqual(["Alpha", "beta", "gamma"]);
+    });
+
+    it("should place a created server in a watched list by name", async () => {
+      const r = await client.racks.create({ name: "opcua-order-watch" });
+      await createNamed(r.key, ["alpha", "Gamma"]);
+      const list = client.opcua.servers.watch({
+        rack: r.key,
+        order: { field: "name", descending: true },
+      });
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      await createNamed(r.key, ["Beta"]);
+      await expect
+        .poll(() => list.getCached()?.records.map(({ name }) => name))
+        .toEqual(["Gamma", "Beta", "alpha"]);
+    });
+  });
+
   describe("update", () => {
     it("should write the identity group and keep the bindings", async () => {
       const s = await create();

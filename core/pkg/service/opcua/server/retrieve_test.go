@@ -10,38 +10,57 @@
 package server_test
 
 import (
+	"strings"
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/opcua/server"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
 	var (
 		e       env
-		tx      gorp.Tx
 		breaker server.Server
+		prefix  string
 	)
 	BeforeEach(func(ctx SpecContext) {
 		e = openEnv(ctx, db, nil)
-		tx = DeferClose(db.OpenTx())
-		for _, name := range []string{"Valve", "amber", "Breaker"} {
-			s := server.Server{
-				Rack:       e.racks.EmbeddedKey,
-				Name:       name,
-				Connection: newConnection("opc.tcp://plc:4840"),
+		prefix = uuid.New().String()
+		var created []server.Key
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			for _, name := range []string{"Valve", "amber", "Breaker"} {
+				s := server.Server{
+					Rack:       e.racks.EmbeddedKey,
+					Name:       prefix + name,
+					Connection: newConnection("opc.tcp://plc:4840"),
+				}
+				if err := e.svc.NewWriter(tx).Create(ctx, &s); err != nil {
+					return err
+				}
+				created = append(created, s.Key)
+				breaker = s
 			}
-			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			breaker = s
-		}
+			return nil
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return e.svc.NewWriter(tx).Delete(ctx, created...)
+			})).To(Succeed())
+		})
 	})
+	// names returns the names of the servers this spec created, in the order q walks
+	// them, without the prefix.
 	names := func(ctx SpecContext, q server.Retrieve) []string {
 		GinkgoHelper()
 		var res []server.Server
-		Expect(q.Entries(&res).Exec(ctx, tx)).To(Succeed())
-		return lo.Map(res, func(s server.Server, _ int) string { return s.Name })
+		Expect(q.Entries(&res).Exec(ctx, db)).To(Succeed())
+		return lo.FilterMap(res, func(s server.Server, _ int) (string, bool) {
+			name, ok := strings.CutPrefix(s.Name, prefix)
+			return name, ok
+		})
 	}
 
 	DescribeTable(
