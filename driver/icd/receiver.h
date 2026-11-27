@@ -46,10 +46,10 @@ const x::telem::TimeSpan REPLY_TIMEOUT = 100 * x::telem::MILLISECOND;
 
 /// @brief Receiver reads the messages that the entries of a task receive on one
 /// transport into their channels. One decoder matches each frame against the messages
-/// of all entries, as if one entry read them all. It sends one poll query at a
-/// time, so replies on a shared bus do not collide: the next query waits until a frame
-/// of the entry that sent the last one arrives, or until REPLY_TIMEOUT passes. It is
-/// not safe for concurrent use.
+/// of all entries, as if one entry read them all. It sends one poll query at a time, so
+/// replies on a shared bus do not collide: the next query waits until a frame of the
+/// entry that sent the last one arrives, or until REPLY_TIMEOUT passes. It is not safe
+/// for concurrent use.
 class Receiver {
     /// @brief Poll sends the query of one entry at its rate.
     struct Poll {
