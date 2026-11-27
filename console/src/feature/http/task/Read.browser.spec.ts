@@ -319,6 +319,30 @@ describe("Read", () => {
     );
   });
 
+  it("should add a field to an endpoint whose message is binary", async () => {
+    const ep = await createEndpoint({ key: "ep1", path: "/data" });
+    const icdKey = ep.icd;
+    assertDefined(icdKey, "the endpoint reads no ICD");
+    await renderWithDevice([ep]);
+    // The Core reads only JSON messages over HTTP, so it would refuse the task.
+    holdRequests(client, "/task/create");
+    await client.icds.dispatch(
+      icdKey,
+      icd.set({
+        path: ["messages", ep.messages[0].message, "payload"],
+        value: { format: "binary", fields: [] },
+      }),
+    );
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await screen.findByLabelText("Start bit");
+    await waitFor(async () =>
+      expect(
+        (await client.icds.retrieve({ key: icdKey })).messages[0].payload.fields,
+      ).toMatchObject([{ kind: "unsigned", startBit: 0, bitLength: 8 }]),
+    );
+  });
+
   it("should mark an endpoint until its message has a field", async () => {
     await renderWithDevice([await createEndpoint({ key: "ep1", path: "/data" })]);
     const item = await screen.findByRole("treeitem", { name: /\/data/ });

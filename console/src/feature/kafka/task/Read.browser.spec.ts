@@ -1145,6 +1145,35 @@ describe("Kafka read form", () => {
       },
     );
 
+    it("should add a field to a record whose message is text", async () => {
+      const rec = await createRecord({
+        fields: [createField("temperature", "float")],
+        bound: {},
+      });
+      await renderRead({
+        records: [rec],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            rec.icd,
+            icd.set({
+              path: ["messages", rec.messages[0].message, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+            }),
+          ),
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /Any key/ }));
+      // The Core reads only JSON messages over Kafka, so it would undo the read.
+      holdRequests(client, "/task/create");
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByLabelText("Position");
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: rec.icd });
+        expect(messages[0].payload.fields).toMatchObject([
+          { encoding: "delimited", position: 0 },
+        ]);
+      });
+    });
+
     it("should mark a later message that is not JSON and its record", async () => {
       hideTextMessages();
       const rec = await createRecord({ fields: [createField("temperature", "float")] });
