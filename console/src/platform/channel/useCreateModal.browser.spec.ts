@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type group, NotFoundError } from "@synnaxlabs/client";
+import { DataType, group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -317,7 +317,9 @@ describe("useCreateModal", () => {
         expect(statuses).toContainEqual(
           expect.objectContaining({
             variant: "error",
-            description: expect.stringMatching(/already exists/),
+            name: taken.name,
+            message: "Failed to create channel",
+            description: `A channel named "${taken.name}" already exists in folder "${folder.name}". Pick another name.`,
           }),
         ),
       );
@@ -326,6 +328,53 @@ describe("useCreateModal", () => {
         where: { name: { eq: taken.name } },
       });
       expect(named.map(({ key }) => key)).toEqual([taken.key]);
+    });
+
+    it("should say where a channel of the taken name sits when it is at the top", async () => {
+      const folder = await createFolder();
+      const taken = await client.channels.create({
+        name: uniqueName("taken"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      await openModal({
+        params: { group: folder.key },
+        onStatuses: (next) => (statuses = next),
+      });
+      createVirtual(taken.name);
+      await clickCreate();
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to create channel",
+            description: `A channel named "${taken.name}" already exists at the top. Pick another name.`,
+          }),
+        ),
+      );
+    });
+
+    it("should name the folder that holds a folder of the taken name", async () => {
+      const folder = await createFolder();
+      const sibling = await client.groups.create({
+        name: uniqueName("sibling"),
+        parent: group.resourceID(folder.key),
+      });
+      let statuses: Status.NotificationSpec[] = [];
+      await openModal({
+        params: { group: folder.key },
+        onStatuses: (next) => (statuses = next),
+      });
+      createVirtual(sibling.name);
+      await clickCreate();
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            message: "Failed to create channel",
+            description: `A folder named "${sibling.name}" already exists in folder "${folder.name}". Pick another name.`,
+          }),
+        ),
+      );
     });
   });
 
