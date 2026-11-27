@@ -706,6 +706,93 @@ describe("log/aether/Log", () => {
       expect(leaf.state.selectionEnd).toBe(16);
     });
 
+    it("should end a selection at the top row of a scrolled view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      updateState({
+        scrolling: true,
+        empty: false,
+        wheelPos: 10 * leaf.lineHeight,
+        selectionStart: 90,
+        selectionEnd: log.selectRow(0),
+      });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(leaf.state.rowEntries[0]);
+      expect(leaf.state.rowEntries.at(-1)).toBe(89);
+    });
+
+    it("should keep a row end following the view until the drag ends", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ scrolling: true, empty: false });
+      const drag = {
+        scrolling: true,
+        empty: false,
+        selecting: true,
+        selectionStart: 90,
+        selectionEnd: log.selectRow(0),
+      };
+      updateState({ ...drag, wheelPos: 5 * leaf.lineHeight });
+      leaf.render();
+      const firstTop = leaf.state.rowEntries[0];
+      expect(leaf.state.selectionEnd).toBe(log.selectRow(0));
+      updateState({ ...drag, wheelPos: 10 * leaf.lineHeight });
+      leaf.render();
+      const top = leaf.state.rowEntries[0];
+      expect(top).toBeLessThan(firstTop);
+      expect(leaf.selection().lines).toHaveLength(90 - top + 1);
+      updateState({ ...drag, wheelPos: 10 * leaf.lineHeight, selecting: false });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(top);
+    });
+
+    it("should end a selection at the last row for a row past it", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({
+        empty: false,
+        selectionStart: 50,
+        selectionEnd: log.selectRow(1_000),
+      });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(99);
+    });
+
+    it("should end a selection at a row inside the view", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({ empty: false, selectionStart: 50, selectionEnd: log.selectRow(3) });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(leaf.state.rowEntries[3]);
+    });
+
+    it("should keep select-all open while rendering", () => {
+      const entries = Array.from({ length: 100 }, (_, i) => makeEntry(i));
+      const { leaf, updateState } = setup(entries);
+      updateState({
+        empty: false,
+        selectionStart: 0,
+        selectionEnd: log.SELECT_ALL_END,
+      });
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(log.SELECT_ALL_END);
+    });
+
+    it("should keep a selection end at a row open while entries arrive", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
+      const { leaf, source, updateState } = setup(entries);
+      updateState({
+        empty: false,
+        selectionStart: 5,
+        selectionEnd: log.selectRow(1_000),
+      });
+      source.setEntries([...entries, makeEntry(20)]);
+      source.notify();
+      leaf.render();
+      expect(leaf.state.selectionEnd).toBe(20);
+    });
+
     it("should keep select-all open while entries are evicted", () => {
       const entries = Array.from({ length: 20 }, (_, i) => makeEntry(i));
       const { leaf, source, updateState } = setup(entries);
