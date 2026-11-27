@@ -11,6 +11,7 @@ package join_test
 
 import (
 	"math"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -99,6 +100,48 @@ func newJoin(inputs, primary int, from telem.TimeStamp) *join.Join {
 			join.Config{Inputs: floatInputs(inputs), Primary: primary, From: from},
 		),
 	)
+}
+
+// readPaced reads the samples of each input in chunks of at most size, as Next's doc
+// asks, and returns the output. The samples of an input are its stamps in seconds, and
+// input 0 is the primary.
+func readPaced(j *join.Join, size int, inputs ...[]float64) join.Output {
+	GinkgoHelper()
+	var (
+		next   = make([]int, len(inputs))
+		newest = make([]float64, len(inputs))
+		out    join.Output
+	)
+	for i := range newest {
+		newest[i] = math.Inf(-1)
+	}
+	last := inputs[0][len(inputs[0])-1]
+	for {
+		pick := -1
+		for i, in := range inputs {
+			done := next[i] == len(in) || (i != 0 && next[0] == len(inputs[0]) &&
+				newest[i] >= last)
+			if !done && (pick < 0 || newest[i] < newest[pick]) {
+				pick = i
+			}
+		}
+		if pick < 0 {
+			break
+		}
+		end := min(next[pick]+size, len(inputs[pick]))
+		chunk := inputs[pick][next[pick]:end]
+		Expect(j.Push(
+			pick,
+			values(chunk...),
+			stamps(telem.Alignment(next[pick]), chunk...),
+		)).To(Succeed())
+		next[pick], newest[pick] = end, chunk[len(chunk)-1]
+		if earliest := slices.Min(newest); !math.IsInf(earliest, -1) {
+			j.Next(telem.TimeStamp(earliest*float64(telem.Second)), &out)
+		}
+	}
+	j.Next(telem.TimeStampMax, &out)
+	return out
 }
 
 // at returns a clock that reads now.
@@ -491,6 +534,23 @@ var _ = Describe("Join", func() {
 			Expect(out.Dropped).To(Equal(1))
 		})
 
+	It("Should never reach the cap in a history read that paces as Next asks, after "+
+		"the primary ends", func() {
+		// A 1 Hz primary to 10 s and a 1 kHz input to 100 s, read in chunks of 4,096.
+		// The read stops pushing the input once it reaches the primary's last stamp.
+		primary := make([]float64, 11)
+		for i := range primary {
+			primary[i] = float64(i)
+		}
+		input := make([]float64, 100_001)
+		for i := range input {
+			input[i] = float64(i) / 1000
+		}
+		got, _ := samples(readPaced(newJoin(2, 0, 0), 4096, primary, input))
+		Expect(got).To(HaveLen(11))
+		Expect(got[10]).To(Equal(sample{10, 10, []float64{10, 10}}))
+	})
+
 	It("Should refuse a history push past the cap, and keep the input as it was",
 		func() {
 			j := newJoin(2, 0, 0)
@@ -731,6 +791,19 @@ var _ = Describe("Join", func() {
 				Expect(j.Load(1, values(1), stamps(0, 2))).To(Succeed())
 				Expect(j.Load(1, values(2), stamps(0, 2))).
 					To(MatchError(ContainSubstring("does not follow")))
+			})
+			It("Should give no output for the loaded samples of the primary", func() {
+				j := newLive(0)
+				Expect(j.Load(0, storedValues, storedStamps)).To(Succeed())
+				Expect(j.Load(1, storedValues, storedStamps)).To(Succeed())
+				now = seconds(17)
+				Expect(j.Push(0, values(17), stamps(17, 17))).To(Succeed())
+				Expect(j.Push(1, values(170), stamps(0, 17))).To(Succeed())
+				var out join.Output
+				j.Next(seconds(17), &out)
+				got, _ := samples(out)
+				Expect(got).To(Equal([]sample{{17, 17, []float64{17, 170}}}))
+				Expect(out.Dropped).To(BeZero())
 			})
 			It("Should skip the pushed samples that the loaded ones already hold",
 				func() {
