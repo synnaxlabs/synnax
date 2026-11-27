@@ -116,6 +116,7 @@ type Service struct {
 	closer  io.MultiCloser
 	table   *gorp.Table[Key, Channel]
 	indexes indexes
+	names   *gorp.UniqueIndex[Key, Channel, string]
 	index   *gorp.KeyReference[Key, Channel, Key]
 	state   *actions.State[Key, Action]
 	// renames holds the renames of each transaction. The hook of the last one sends all
@@ -142,6 +143,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		cfg:     cfg,
 		db:      cfg.DB,
 		indexes: newIndexes(),
+		names:   newNameIndex(),
 		index:   indexReference(),
 		state:   actions.NewState[Key, Action](cfg.DB),
 		renames: gorp.NewAttachment[rename](),
@@ -161,7 +163,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		// The name index runs first, so a clash of two channels names the rule that
 		// holds across the Core.
 		Indexes: append(
-			[]gorp.Index[Key, Channel]{newNameIndex()},
+			[]gorp.Index[Key, Channel]{s.names},
 			s.indexes.all()...,
 		),
 		References:      append(s.indexes.references(), s.index),
