@@ -108,6 +108,8 @@ func (a *AnalogReadChannel) SetDefaults() {
 // schema constraints.
 func (a AnalogReadChannel) Validate() error {
 	v := validate.New("AnalogReadChannel")
+	v.GreaterThan("range", a.Range, 0)
+	v.Finite("range", a.Range)
 	if a.NegChan != nil {
 		v.LessThanEq("neg_chan", *a.NegChan, 127)
 	}

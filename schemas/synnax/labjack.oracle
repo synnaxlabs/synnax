@@ -91,10 +91,12 @@ ReadChannel union on type extends BaseReadChannel {
     analog {
         port     string = "AIN0"
         range    float64 = 10 {
-            @doc value """
+            @doc value       """
                 is the largest voltage magnitude the channel reads, in Volts. The
                 channel uses the smallest range of the device that covers it.
             """
+            @validate finite
+            @validate gt     0
         }
         neg_chan uint16?    {
             @doc value    """

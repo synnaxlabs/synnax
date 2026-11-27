@@ -142,6 +142,42 @@ var _ = Describe("Service", func() {
 		})
 
 		DescribeTable(
+			"Should reject an analog range that is not positive",
+			func(ctx SpecContext, rng float64) {
+				Expect(svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+					"channels": []any{map[string]any{"type": "analog", "range": rng}},
+				})).Error().To(MatchError(ContainSubstring("range")))
+			},
+			Entry("zero", 0.0),
+			Entry("negative", -1.0),
+		)
+
+		DescribeTable(
+			"Should validate the differential pair of a negative channel",
+			func(ctx SpecContext, typ, port string, neg int, valid bool) {
+				_, err := svc.Read.Prepare(ctx, db, uuid.New(), "", msgpack.EncodedJSON{
+					"stream_rate": 10,
+					"channels": []any{map[string]any{
+						"type": typ, "port": port, "neg_chan": neg,
+					}},
+				})
+				if valid {
+					Expect(err).ToNot(HaveOccurred())
+					return
+				}
+				Expect(err).To(MatchError(ContainSubstring("neg_chan")))
+			},
+			Entry("base pair", "analog", "AIN2", 3, true),
+			Entry("Mux80 pair", "analog", "AIN64", 72, true),
+			Entry("thermocouple pair", "thermocouple", "AIN0", 1, true),
+			Entry("wrong base pair", "analog", "AIN2", 5, false),
+			Entry("odd base positive", "analog", "AIN3", 4, false),
+			Entry("Mux80 negative half", "analog", "AIN56", 64, false),
+			Entry("past AIN12", "analog", "AIN13", 14, false),
+			Entry("thermocouple wrong pair", "thermocouple", "AIN0", 2, false),
+		)
+
+		DescribeTable(
 			"Should lift a v2 negative channel",
 			func(ctx SpecContext, ch map[string]any, expected types.GomegaMatcher) {
 				ch["type"], ch["key"], ch["scale"] = "analog", "ai", map[string]any{

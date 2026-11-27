@@ -11,6 +11,8 @@ package labjack
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -89,6 +91,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v := validate.New("labjack.ReadConfig")
 				v.Exec(c.Validate)
 				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				for i, ch := range c.Channels {
+					v.Exec(func() error {
+						return validate.PathedError(
+							validateNegChan(
+								ch,
+							),
+							"channels",
+							strconv.Itoa(i),
+							"neg_chan",
+						)
+					})
+				}
 				return v.Error()
 			},
 		},
@@ -139,4 +153,40 @@ func (s *Service) Close() error { return s.closer.Close() }
 // Stores returns the config stores the service owns, for registry assembly.
 func (s *Service) Stores() []config.Store {
 	return []config.Store{s.Read, s.Write, s.Scan}
+}
+
+// validateNegChan rejects a negative channel that is not the differential pair of the
+// channel's port. A T7 pairs an even AIN0 to AIN12 with the next channel, and a Mux80
+// positive in AIN48-55, 64-71, 80-87, 96-103, or 112-119 with the channel 8 above it.
+func validateNegChan(ch ReadChannel) error {
+	var (
+		port string
+		neg  *uint16
+	)
+	switch c := ch.Variant.(type) {
+	case AnalogReadChannel:
+		port, neg = c.Port, c.NegChan
+	case ThermocoupleReadChannel:
+		port, neg = c.Port, c.NegChan
+	}
+	if neg == nil {
+		return nil
+	}
+	pos, err := strconv.Atoi(strings.TrimPrefix(port, "AIN"))
+	if err != nil || !strings.HasPrefix(port, "AIN") {
+		return validate.Errorf("%s has no differential pair", port)
+	}
+	var pair int
+	switch {
+	case pos <= 12 && pos%2 == 0:
+		pair = pos + 1
+	case pos >= 48 && pos < 128 && (pos-48)%16 < 8:
+		pair = pos + 8
+	default:
+		return validate.Errorf("%s has no differential pair", port)
+	}
+	if int(*neg) != pair {
+		return validate.Errorf("%s pairs only with AIN%d", port, pair)
+	}
+	return nil
 }

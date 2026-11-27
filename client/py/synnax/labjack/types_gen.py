@@ -118,7 +118,7 @@ class AnalogReadChannel(BaseReadChannel):
 
     type: Literal["analog"] = "analog"
     port: str = "AIN0"
-    range: float = 10
+    range: float = Field(default=10, gt=0, allow_inf_nan=False)
     neg_chan: int | None = Field(default=None, ge=0, le=127)
     scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
 
