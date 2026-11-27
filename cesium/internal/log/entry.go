@@ -44,7 +44,7 @@ func (e *Entry) Bytes() []byte {
 	if len(e.b) == 0 {
 		e.b = append(e.b, 0, 0, 0, 0, 0, 0, 0, 0)
 	}
-	binary.LittleEndian.PutUint32(e.b, uint32(len(e.b)-headerSize))
+	binary.LittleEndian.PutUint32(e.b, uint32(len(e.b)-recordHeaderSize))
 	binary.LittleEndian.PutUint32(e.b[4:], e.count)
 	return e.b
 }
@@ -76,7 +76,7 @@ type Decoder struct {
 // Reset starts reading the entry at the start of b, and returns the length of the
 // entry in b.
 func (d *Decoder) Reset(b []byte) (int, error) {
-	if len(b) < headerSize {
+	if len(b) < recordHeaderSize {
 		return 0, errors.Wrapf(
 			place.ErrCorrupt,
 			"entry header needs 8 bytes, but %d remain",
@@ -85,17 +85,17 @@ func (d *Decoder) Reset(b []byte) (int, error) {
 	}
 	size := binary.LittleEndian.Uint32(b)
 	count := binary.LittleEndian.Uint32(b[4:])
-	if uint64(size) > uint64(len(b)-headerSize) {
+	if uint64(size) > uint64(len(b)-recordHeaderSize) {
 		return 0, errors.Wrapf(
 			place.ErrCorrupt,
 			"entry holds %d bytes of records, but %d remain",
 			size,
-			len(b)-headerSize,
+			len(b)-recordHeaderSize,
 		)
 	}
-	d.b = b[headerSize : headerSize+int(size)]
+	d.b = b[recordHeaderSize : recordHeaderSize+int(size)]
 	d.left = count
-	return headerSize + int(size), nil
+	return recordHeaderSize + int(size), nil
 }
 
 // Next returns the next record of the entry, or false at its end. The record stays
@@ -103,7 +103,7 @@ func (d *Decoder) Reset(b []byte) (int, error) {
 // binary may skip, and returns ErrUnknown for one that it may not.
 func (d *Decoder) Next() (Record, bool, error) {
 	for d.left > 0 {
-		if len(d.b) < headerSize {
+		if len(d.b) < recordHeaderSize {
 			return nil, false, errors.Wrapf(
 				place.ErrCorrupt,
 				"entry ends with %d records left",
@@ -120,13 +120,13 @@ func (d *Decoder) Next() (Record, bool, error) {
 				t,
 			)
 		}
-		if uint64(size) > uint64(len(d.b)-headerSize) {
+		if uint64(size) > uint64(len(d.b)-recordHeaderSize) {
 			return nil, false, errors.Wrapf(
 				place.ErrCorrupt,
 				"record of type %d holds %d bytes, but %d remain in its entry",
 				t,
 				size,
-				len(d.b)-headerSize,
+				len(d.b)-recordHeaderSize,
 			)
 		}
 		if size%8 != 0 {
@@ -137,8 +137,8 @@ func (d *Decoder) Next() (Record, bool, error) {
 				size,
 			)
 		}
-		body := d.b[headerSize : headerSize+int(size)]
-		d.b = d.b[headerSize+int(size):]
+		body := d.b[recordHeaderSize : recordHeaderSize+int(size)]
+		d.b = d.b[recordHeaderSize+int(size):]
 		d.left--
 		r := d.record(t)
 		if r == nil {

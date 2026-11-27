@@ -38,13 +38,13 @@ const (
 	// typeSkippable marks a record type that an older binary skips.
 	typeSkippable uint16 = 1 << 15
 
-	headerSize      = 8
-	commitBaseSize  = 32
-	slotSize        = 16
-	tombstoneSize   = 72
-	cutSize         = 24
-	replaceBaseSize = 32
-	pointerSize     = 40
+	recordHeaderSize = 8
+	commitBaseSize   = 32
+	slotSize         = 16
+	tombstoneSize    = 72
+	cutSize          = 24
+	replaceBaseSize  = 32
+	pointerSize      = 40
 
 	flagIntentCleared uint32 = 1
 	flagLeftCut       uint32 = 1
