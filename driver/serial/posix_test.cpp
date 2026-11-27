@@ -99,18 +99,6 @@ TEST(Strip, DropsALone0xFFWithoutWritingAheadOfTheInput) {
     EXPECT_EQ(mark, 0);
 }
 
-#ifdef __linux__
-/// @brief it should keep the stripped bytes when the overrun count fails.
-TEST(Receive, KeepsTheBytesWhenTheOverrunCountFails) {
-    Line line;
-    Bytes chunk{1, 0xFF, 0xFF, 2};
-    const auto [received, ec] = receive(-1, line, chunk);
-    EXPECT_EQ(ec, std::errc::bad_file_descriptor);
-    EXPECT_EQ(received.size, 3);
-    EXPECT_EQ(std::span(chunk).first(received.size)[1], 0xFF);
-}
-#endif
-
 /// @brief it should start from the first count that it sees.
 TEST(Overruns, StartsFromTheFirstCountItSees) {
     std::optional<std::uint32_t> last;

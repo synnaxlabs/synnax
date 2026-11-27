@@ -67,7 +67,10 @@ cc_test(
 cc_test(
     name = "native_test",
     size = "small",
-    srcs = ["posix_test.cpp"],
+    srcs = ["posix_test.cpp"] + select({
+        "@platforms//os:linux": ["posix_linux_test.cpp"],
+        "//conditions:default": [],
+    }),
     deps = [
         ":serial",
         "//driver/transport",
