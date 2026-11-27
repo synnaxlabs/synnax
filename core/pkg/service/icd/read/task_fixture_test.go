@@ -55,19 +55,24 @@ var taskFixtures = os.DirFS("../testdata/task")
 func taskFixtureEntries(kind string) []TableEntry {
 	GinkgoHelper()
 	paths := MustSucceed(fs.Glob(taskFixtures, kind+"/*.json"))
+	Expect(paths).ToNot(BeEmpty())
 	return lo.Map(paths, func(path string, _ int) TableEntry {
 		name := strings.TrimSuffix(strings.TrimPrefix(path, kind+"/"), ".json")
 		return Entry(name, path)
 	})
 }
 
-// checkTask checks the entries of the fixture at path, with its ICDs and channels.
-func checkTask(ctx context.Context, path string) (taskFixture, error) {
+func loadTask(path string) taskFixture {
 	GinkgoHelper()
 	var f taskFixture
 	Expect(json.Unmarshal(MustSucceed(fs.ReadFile(taskFixtures, path)), &f)).
 		To(Succeed())
 	Expect(f.Description).ToNot(BeEmpty())
+	return f
+}
+
+// checkTask checks the entries of f with its ICDs and channels.
+func checkTask(ctx context.Context, f taskFixture) error {
 	channels := lo.SliceToMap(
 		f.Channels,
 		func(ch taskChannel) (channel.Key, icdv0.Channel) {
@@ -89,7 +94,7 @@ func checkTask(ctx context.Context, path string) (taskFixture, error) {
 	icds := lo.SliceToMap(f.ICDs, func(ic icd.ICD) (icd.Key, icd.ICD) {
 		return ic.Key, ic
 	})
-	return f, resolver.Check(ctx, db, read.Entries(f.Entries), icds)
+	return resolver.Check(ctx, db, read.Entries(f.Entries), icds)
 }
 
 var _ = Describe("Task fixtures", func() {
@@ -97,13 +102,15 @@ var _ = Describe("Task fixtures", func() {
 		ctx SpecContext,
 		path string,
 	) {
-		Expect(MustSucceed(checkTask(ctx, path)).Error).To(BeEmpty())
+		f := loadTask(path)
+		Expect(f.Error).To(BeEmpty())
+		Expect(checkTask(ctx, f)).To(Succeed())
 	}, taskFixtureEntries("valid"))
 
 	DescribeTable("Should refuse an invalid bus read task with its error at its path",
 		func(ctx SpecContext, path string) {
-			f, err := checkTask(ctx, path)
-			Expect(err).To(SatisfyAll(
+			f := loadTask(path)
+			Expect(checkTask(ctx, f)).To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(f.Path+": "+f.Error),
 			))
