@@ -634,14 +634,17 @@ export class Log
       return;
     }
     this.cursor = entries[i];
-    const half = Math.floor(this.calcRowCapacity(lineHeight) / 2);
     this.seeking = null;
-    this.scrollState.offset = Math.min(entries.length, i + 1 + half);
+    this.scrollState.offset = i + 1;
     this.scrollState.tail = 0;
+    // Half a screen of rows below the match, as lines below it can wrap. A match on the
+    // first screen shows from the top.
+    const half = Math.floor(this.calcRowCapacity(lineHeight) / 2);
+    const onFirstScreen = i + 1 < this.calcTop(lineHeight).offset;
+    this.moveView(onFirstScreen ? 0 : -half, lineHeight);
     // Only a scroll after the jump counts toward resuming.
     this.scrollState.scrollRef = this.state.wheelPos;
     this.scrollState.moved = 0;
-    this.moveView(0, lineHeight);
     this.scrollState.awayFromEnd = this.scrollState.offset < entries.length;
     this.anchors.scroll = entries[this.scrollState.offset - 1];
     this.endJump("");

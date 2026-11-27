@@ -774,6 +774,16 @@ describe("log/aether/Log", () => {
       expect(leaf.state.jumpStatus).toBe("");
     });
 
+    it("should show a match when the lines below it wrap", () => {
+      const wrapped = lines(1_000, [150]).map((entry, i) =>
+        i > 150 ? { ...entry, value: "ok ".repeat(80) } : entry,
+      );
+      const { leaf, updateState } = setup(wrapped, REGION_500, SEARCH);
+      jumpTo(updateState, "previous", 1);
+      leaf.render();
+      expect(leaf.state.rowEntries).toContain(150);
+    });
+
     it("should move from the last match in either direction", () => {
       const { leaf, updateState } = setup(lines(1_000, [20, 150]), REGION_500, SEARCH);
       jumpTo(updateState, "previous", 1);
