@@ -11,21 +11,31 @@ package iterator_test
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"sync"
 	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/x/confluence"
 	confluencetestutil "github.com/synnaxlabs/x/confluence/testutil"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // sendFailContext cancels once for the first send that finds full true, and cancels
@@ -219,5 +229,101 @@ var _ = Describe("Storage stream", func() {
 		},
 		Entry("automatic span", iterator.AutoSpan),
 		Entry("fixed span", telem.Second),
+	)
+})
+
+var _ = Describe("Storage stream read failures", func() {
+	var (
+		dist      testutil.Node
+		logs      *observer.ObservedLogs
+		good, bad channel.Key
+	)
+	BeforeEach(func(ctx SpecContext) {
+		dir := GinkgoT().TempDir()
+		layer := MustSucceed(storage.OpenLayer(ctx, storage.LayerConfig{
+			Dirname: dir,
+			Version: "0.0.0",
+		}))
+		stop := GoRun(GinkgoT().Context(), layer.Run)
+		DeferCleanup(
+			func() { Expect(errors.Join(stop(), layer.Close())).To(Succeed()) },
+		)
+		var core zapcore.Core
+		core, logs = observer.New(zapcore.ErrorLevel)
+		logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+			ZapLogger: zap.New(core),
+		}))
+		dist = testutil.NewNode(ctx, distribution.LayerConfig{
+			Storage:         layer,
+			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+		})
+		idx := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{{
+			Name:     "time",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		}}))[0]
+		data := MustSucceed(dist.CreateChannels(ctx, []channel.Channel{
+			{Name: "good", LocalIndex: idx.LocalKey, DataType: telem.Int64T},
+			{Name: "bad", LocalIndex: idx.LocalKey, DataType: telem.Int64T},
+		}))
+		good, bad = data[0].Key(), data[1].Key()
+		keys := channel.Keys{idx.Key(), good, bad}
+		w := MustSucceed(dist.Framer.OpenWriter(ctx, writer.Config{
+			Keys:  keys,
+			Start: 10 * telem.SecondTS,
+			Sync:  new(true),
+		}))
+		Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+			telem.NewSeriesSecondsTSV(10, 11, 12),
+			telem.NewSeriesV[int64](1, 2, 3),
+			telem.NewSeriesV[int64](4, 5, 6),
+		}))).To(BeTrue())
+		MustCommit(w)
+		Expect(w.Close()).To(Succeed())
+		Expect(os.Remove(filepath.Join(dir, "cesium", bad.String(), "1.domain"))).
+			To(Succeed())
+	})
+
+	DescribeTable("Should acknowledge a read where one channel fails, send the "+
+		"other channels whole, and log the failure",
+		func(ctx SpecContext, span telem.TimeSpan) {
+			stream := MustSucceed(dist.Framer.NewStreamIterator(ctx, iterator.Config{
+				Keys:   channel.Keys{good, bad},
+				Bounds: telem.TimeRangeMax,
+			}))
+			sCtx, cancel := signal.Isolated()
+			defer cancel()
+			requests, responses := confluencetestutil.Attach(stream, 1)
+			stream.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+			requests.Inlet() <- iterator.Request{Command: iterator.CommandSeekFirst}
+			Eventually(responses.Outlet()).Should(Receive(HaveField("Ack", true)))
+			requests.Inlet() <- iterator.Request{
+				Command: iterator.CommandNext,
+				Span:    span,
+			}
+			var res iterator.Response
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			Expect(res.Variant).To(Equal(iterator.ResponseVariantData))
+			Expect(res.Frame.Get(bad).Series).To(BeEmpty())
+			Expect(res.Frame.Get(good).Series).To(HaveLen(1))
+			Expect(res.Frame.Get(good).Series[0]).To(MatchSeriesDataV[int64](1, 2, 3))
+			Eventually(responses.Outlet()).Should(Receive(&res))
+			Expect(res.Variant).To(Equal(iterator.ResponseVariantAck))
+			Expect(res.Ack).To(BeTrue())
+			Expect(res.Error).ToNot(HaveOccurred())
+			failures := logs.FilterMessage("read of a channel failed").All()
+			Expect(failures).To(HaveLen(1))
+			Expect(
+				failures[0].ContextMap(),
+			).To(HaveKeyWithValue("channel", bad.String()))
+			Expect(failures[0].ContextMap()).To(HaveKeyWithValue(
+				"error",
+				ContainSubstring("1.domain: no such file or directory"),
+			))
+			requests.Close()
+			Expect(sCtx.Wait()).To(MatchError(ContainSubstring("no such file")))
+		},
+		Entry("of an automatic span", iterator.AutoSpan),
+		Entry("of a fixed span", 10*telem.Second),
 	)
 })

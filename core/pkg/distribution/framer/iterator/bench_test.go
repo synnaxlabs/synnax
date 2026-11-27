@@ -24,9 +24,6 @@ import (
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
 
-// streamChunkSize is the chunk size of the Python client.
-const streamChunkSize = 100_000
-
 // openStreamData opens a node with an index and data float32 channels on it, writes
 // samples stamps a millisecond apart with zeros in each data channel, and returns the
 // node, the keys (the index first), and the time range written.
@@ -102,9 +99,8 @@ func readAll(
 ) int64 {
 	b.Helper()
 	iter, err := dist.Framer.OpenIterator(b.Context(), iterator.Config{
-		Keys:      keys,
-		Bounds:    tr,
-		ChunkSize: streamChunkSize,
+		Keys:   keys,
+		Bounds: tr,
 	})
 	if err != nil {
 		b.Error(err)
@@ -122,8 +118,8 @@ func readAll(
 	return n
 }
 
-// BenchmarkStream reads an index and its data channels through the framer's iterator,
-// in chunks of the Python client's chunk size, with one reader or eight at once.
+// BenchmarkStream reads an index and its data channels through the framer's iterator
+// with one Next of the whole range, with one reader or eight at once.
 func BenchmarkStream(b *testing.B) {
 	for _, samples := range []int{1_000_000, 4_000_000} {
 		for _, data := range []int{1, 8} {
