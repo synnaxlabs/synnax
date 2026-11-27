@@ -452,8 +452,11 @@ var _ = Describe("Change channels", func() {
 		find(ctx, "sy_label_action_set")
 		createLabels(ctx, readable)
 		open(ctx, newUser(ctx, label.ResourceID(readable.Key)))
-		// With no keys, no frame of ch passes until the next key update applies.
-		Expect(client.Send(apiframer.StreamerRequest{})).To(Succeed())
+		// With no keys, no frame of ch passes until the next key update applies. The
+		// ack
+		// shows that the relay applied the empty keys.
+		Expect(client.Send(apiframer.StreamerRequest{AckRequested: true})).To(Succeed())
+		Expect(MustSucceed(client.Receive()).Ack).To(BeTrue())
 		Expect(client.Send(apiframer.StreamerRequest{Keys: channel.Keys{ch.Key()}})).
 			To(Succeed())
 		responses := make(chan apiframer.StreamerResponse, 16)
@@ -469,7 +472,8 @@ var _ = Describe("Change channels", func() {
 			}
 		}()
 		// The create of a label that the subject cannot retrieve leaves a frame with no
-		// record, which Send drops. The key update applies during these creates.
+		// record, which Send drops. The first frame of ch after the key update carries
+		// its Applied, so a dropped one passes it on.
 		for range 10 {
 			createLabels(ctx, newLabel())
 		}
