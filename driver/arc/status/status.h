@@ -133,8 +133,8 @@ public:
 /// through sets. Reports a set the outbox refuses from the send thread of the outbox.
 /// Never waits for the Core.
 /// @returns the key of the last resolved set of key_or_name, or "" when none has
-/// resolved.
-inline std::string queue_set(
+/// resolved, and whether the outbox took the set.
+inline std::pair<std::string, bool> queue_set(
     ::driver::outbox::Outbox &outbox,
     const std::shared_ptr<Sets> &sets,
     const std::string &key_or_name,
@@ -180,7 +180,7 @@ inline std::string queue_set(
         outbox.post([weak = std::weak_ptr(sets)] {
             if (const auto sets = weak.lock(); sets != nullptr) sets->report_refused();
         });
-    return sets->key(key_or_name);
+    return {sets->key(key_or_name), !err};
 }
 
 /// @brief validates that the named param holds a string value.
@@ -218,7 +218,7 @@ public:
         state(std::move(state)), outbox(std::move(outbox)), sets(std::move(sets)) {}
 
     x::errors::Error next(::arc::runtime::node::Context &ctx) override {
-        const std::string resolved_key = queue_set(
+        const auto [resolved_key, queued] = queue_set(
             *this->outbox,
             this->sets,
             this->state.string_input("key_or_name"),
@@ -227,7 +227,7 @@ public:
         );
         *this->state.output(0) = x::telem::Series(resolved_key);
         *this->state.output_time(0) = x::telem::Series(ctx.cycle.now);
-        this->queued = true;
+        this->queued = queued;
         this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
@@ -303,12 +303,13 @@ public:
                     uint32_t variant_h
                 ) -> uint32_t {
                     return str_state->create(queue_set(
-                        *outbox,
-                        sets,
-                        str_state->get(key_or_name_h),
-                        str_state->get(msg_h),
-                        str_state->get(variant_h)
-                    ));
+                                                 *outbox,
+                                                 sets,
+                                                 str_state->get(key_or_name_h),
+                                                 str_state->get(msg_h),
+                                                 str_state->get(variant_h)
+                    )
+                                                 .first);
                 }
             )
             .unwrap();

@@ -459,6 +459,22 @@ TEST_F(StatusTest, OutputIsTruthyOnceQueued) {
     EXPECT_FALSE(created->is_output_truthy(0));
 }
 
+/// @brief it should keep its output falsy when the outbox refuses the set, so a
+/// sequence step does not move on.
+TEST_F(StatusTest, OutputIsFalsyWhenRefused) {
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg), 1);
+    const auto f = set_spec().config({unique_name("set_refused_"), "msg", "info"});
+    Module module(this->outbox, this->keys, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+    EXPECT_EQ(this->outbox->refused(), 1);
+    EXPECT_FALSE(created->is_output_truthy(0));
+}
+
 /// @brief it should report a set the full outbox refuses from the outbox thread, with
 /// no later set, since the caller must never wait on the Core.
 TEST_F(StatusTest, ReportsARefusedSetFromTheOutboxThread) {
