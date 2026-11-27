@@ -211,10 +211,10 @@ def _read(res: Any, job: int, deadline: float) -> Text:
     size = 0
     cut = False
     # http.client has no public socket. read1 returns what has arrived, so with the
-    # timeout of each read, a slow or stalled log still meets the deadline.
-    sock = res.fp.raw._sock
-    while True:
-        sock.settimeout(_timeout(READ_SECONDS, job, deadline))
+    # timeout of each read, a slow or stalled log still meets the deadline. The
+    # response closes its socket once it has read all of a Content-Length.
+    while not res.isclosed():
+        res.fp.raw._sock.settimeout(_timeout(READ_SECONDS, job, deadline))
         if not (chunk := res.read1(_CHUNK)):
             break
         if len(head) < HEAD_BYTES:

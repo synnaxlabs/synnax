@@ -410,6 +410,8 @@ class Server:
         """The pieces of the trickle that the host sent."""
         self.closed = threading.Event()
         """Set when the reader closes the connection during the trickle."""
+        self.sized = False
+        """Whether the host sends the Content-Length of the blob."""
         self.stalled = False
         """Whether the host stops sending after the blob until `release` is set."""
         self.release = threading.Event()
@@ -422,6 +424,8 @@ class Server:
                 server.seen.append((self.path, self.headers.get("Authorization")))
                 if self.path.startswith("/blob"):
                     self.send_response(200)
+                    if server.sized:
+                        self.send_header("Content-Length", str(len(server.blob)))
                     self.end_headers()
                     if server.resets > 0:
                         server.resets -= 1
@@ -479,6 +483,11 @@ def server() -> Iterator[Server]:
 
 class TestLog:
     """Tests reading a job log through a fake API and blob host."""
+
+    def test_should_read_a_log_with_a_content_length(self, server: Server) -> None:
+        server.sized = True
+        server.blob = b"ok  \tx/a\t1.2s\n" * 1000
+        assert server.read() == Text(text=server.blob.decode(), cut=False)
 
     def test_should_send_the_token_only_to_the_api(self, server: Server) -> None:
         assert server.read() == Text(text="log", cut=False)
