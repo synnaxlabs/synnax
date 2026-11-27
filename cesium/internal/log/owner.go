@@ -321,31 +321,12 @@ func (l *Log) write(queue []pending) {
 			flush()
 			size = int64(FrameHeaderSize + len(p.entry))
 		}
-		// An idle mark and the clean mark of Close must still fit after the frame.
-		limit := l.size - 2*BlockSize
-		if p.commit {
-			limit = l.size - DeleteReserve
-		}
-		after := p.commit && l.commitsFull
-		if after || size > MaxFrame || start+size > limit {
+		if err := l.fits(p, start, size); err != nil {
 			// Each entry ahead of a refusal gets its answer first.
 			flush()
 			if failed != nil {
 				p.done <- result{err: failed}
 				continue
-			}
-			err := errors.Wrapf(
-				errFull,
-				"an entry of %d bytes does not fit in log %d",
-				len(p.entry),
-				l.cfg.Generation,
-			)
-			if after {
-				err = errors.Wrapf(
-					errFull,
-					"log %d refuses each Commit after one that did not fit",
-					l.cfg.Generation,
-				)
 			}
 			l.commitsFull = l.commitsFull || p.commit
 			p.done <- result{err: err}
@@ -355,6 +336,32 @@ func (l *Log) write(queue []pending) {
 		batch = append(batch, p)
 	}
 	flush()
+}
+
+// fits returns an error that wraps errFull when p does not fit in a frame of size
+// bytes at start, or when p holds a Commit after one that did not fit.
+func (l *Log) fits(p pending, start, size int64) error {
+	if p.commit && l.commitsFull {
+		return errors.Wrapf(
+			errFull,
+			"log %d refuses each Commit after one that did not fit",
+			l.cfg.Generation,
+		)
+	}
+	// An idle mark and the clean mark of Close must still fit after the frame.
+	limit := l.size - 2*BlockSize
+	if p.commit {
+		limit = l.size - DeleteReserve
+	}
+	if size > MaxFrame || start+size > limit {
+		return errors.Wrapf(
+			errFull,
+			"an entry of %d bytes does not fit in log %d",
+			len(p.entry),
+			l.cfg.Generation,
+		)
+	}
+	return nil
 }
 
 // nextStart returns where the next frame with entries starts. It starts where the last
