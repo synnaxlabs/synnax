@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -254,5 +255,53 @@ var _ = Describe("ReadReconcileMigration", func() {
 			HaveKeyWithValue("config", stored.Key.String()),
 			HaveKeyWithValue("channel", "AIN2"),
 		))
+	})
+})
+
+var _ = Describe("PairOf", func() {
+	DescribeTable("Should return the differential pair of a port",
+		func(port string, pair uint16) {
+			got, ok := v3.PairOf(port)
+			Expect(ok).To(BeTrue())
+			Expect(got).To(Equal(pair))
+		},
+		Entry("an even base port", "AIN2", uint16(3)),
+		Entry("AIN12", "AIN12", uint16(13)),
+		Entry("a Mux80 positive", "AIN64", uint16(72)),
+		Entry("the last Mux80 positive", "AIN119", uint16(127)),
+	)
+
+	DescribeTable("Should report a port with no differential pair",
+		func(port string) {
+			_, ok := v3.PairOf(port)
+			Expect(ok).To(BeFalse())
+		},
+		Entry("an odd base port", "AIN3"),
+		Entry("AIN13", "AIN13"),
+		Entry("a Mux80 negative", "AIN56"),
+		Entry("a port without the AIN prefix", "DIO2"),
+		Entry("digits that do not parse", "AINx"),
+	)
+})
+
+var _ = Describe("ReconcileReadChannels", func() {
+	It("Should return the indices of the channels it changes", func() {
+		channels := []v3.ReadChannel{
+			v3Analog("AIN0", 10, new(uint16(1))),
+			v3Analog("AIN1", math.NaN(), nil),
+			v3Analog("AIN2", math.Inf(1), nil),
+			{Variant: v3.ThermocoupleReadChannel{
+				BaseReadChannel: v3.BaseReadChannel{Key: "tc", Port: "AIN4"},
+				NegChan:         new(uint16(9)),
+				Scale:           task.Scale{Variant: task.NoneScale{}},
+			}},
+			{Variant: v3.DigitalReadChannel{
+				BaseReadChannel: v3.BaseReadChannel{Key: "di", Port: "DIO0"},
+			}},
+		}
+		Expect(v3.ReconcileReadChannels(channels)).To(Equal([]int{1, 2, 3}))
+		Expect(channels[1].Variant).To(HaveField("Range", BeNumerically("==", 10)))
+		Expect(channels[2].Variant).To(HaveField("Range", BeNumerically("==", 10)))
+		Expect(negChanOf(channels[3])).To(HaveValue(BeEquivalentTo(5)))
 	})
 })
