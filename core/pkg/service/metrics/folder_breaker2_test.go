@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/metrics"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -61,6 +62,7 @@ var _ = Describe("Folder breaker 2", func() {
 			ChannelGraph: graph,
 		}))
 		cfg = metrics.ServiceConfig{
+			Status:             statuses,
 			Channel:            channels,
 			Group:              groups,
 			Framer:             framers,
@@ -117,11 +119,7 @@ var _ = Describe("Folder breaker 2", func() {
 	It("Should open a v0.62 store whose Metrics folder was renamed and a root "+
 		"channel holds the name Metrics", func(ctx SpecContext) {
 		f := folder(ctx)
-		// A v0.62 Core never wrote the folder key.
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			if err := tx.Delete(ctx, []byte("sy_metrics_folder")); err != nil {
-				return err
-			}
 			gw := groups.NewWriter(tx)
 			if err := gw.Rename(ctx, f.Key, "Host metrics"); err != nil {
 				return err
@@ -131,7 +129,18 @@ var _ = Describe("Folder breaker 2", func() {
 		Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
 	})
 
-	It("Should keep the stored folder after a user moves it under another folder",
+	topLevel := func(ctx context.Context) []group.Group {
+		GinkgoHelper()
+		var roots []group.Group
+		Expect(groups.NewRetrieve().
+			Where(group.MatchNames("Metrics")).
+			Where(group.MatchHasParent(false)).
+			Entries(&roots).
+			Exec(ctx, db)).To(Succeed())
+		return roots
+	}
+
+	It("Should make a top-level folder after a user moves the folder under another",
 		func(ctx SpecContext) {
 			f := folder(ctx)
 			parent := MustSucceed(
@@ -142,28 +151,89 @@ var _ = Describe("Folder breaker 2", func() {
 				return groups.NewWriter(tx).SetParent(ctx, &id, f.Key)
 			})).To(Succeed())
 			Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
+			// The channels stay in the folder that the user moved.
 			Expect(folder(ctx).Key).To(Equal(f.Key))
-			var roots []group.Group
-			Expect(groups.NewRetrieve().
-				Where(group.MatchNames("Metrics")).
-				Entries(&roots).
-				Exec(ctx, db)).To(Succeed())
+			roots := topLevel(ctx)
 			Expect(roots).To(HaveLen(1))
+			Expect(roots[0].Key).ToNot(Equal(f.Key))
 		},
 	)
 
-	It("Should keep the stored folder after a user renames it", func(ctx SpecContext) {
+	It("Should make a folder named Metrics after a user renames the folder", func(
+		ctx SpecContext,
+	) {
 		f := folder(ctx)
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groups.NewWriter(tx).Rename(ctx, f.Key, "Host metrics")
 		})).To(Succeed())
 		Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).To(Succeed())
-		var named []group.Group
-		Expect(groups.NewRetrieve().
-			Where(group.MatchNames("Metrics")).
-			Entries(&named).
-			Exec(ctx, db)).To(Succeed())
-		Expect(named).To(BeEmpty())
+		roots := topLevel(ctx)
+		Expect(roots).To(HaveLen(1))
+		Expect(roots[0].Key).ToNot(Equal(f.Key))
+	})
+
+	It("Should rename a top-level channel named Metrics and warn at the next start",
+		func(ctx SpecContext) {
+			f := folder(ctx)
+			var members []channel.Channel
+			Expect(channels.NewRetrieve().
+				Where(channel.MatchGroups(f.Key)).
+				Entries(&members).
+				Exec(ctx, db)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				keys := channel.KeysFromChannels(members)
+				if err := channels.NewWriter(tx).
+					SetGroup(ctx, nil, keys...); err != nil {
+					return err
+				}
+				if err := groups.NewWriter(tx).Delete(ctx, f.Key); err != nil {
+					return err
+				}
+				return rootChannel(ctx, tx, "Metrics")
+			})).To(Succeed())
+			named := func(name string) []channel.Channel {
+				GinkgoHelper()
+				var chs []channel.Channel
+				Expect(channels.NewRetrieve().
+					Where(channel.MatchPaths(name)).
+					Entries(&chs).
+					Exec(ctx, db)).To(Succeed())
+				return chs
+			}
+			for range 2 {
+				Expect(MustSucceed(metrics.OpenService(ctx, cfg)).Close()).
+					To(Succeed())
+				Expect(named("Metrics")).To(BeEmpty())
+				Expect(named("Metrics_2")).To(HaveLen(1))
+				Expect(named("Metrics_3")).To(BeEmpty())
+				Expect(topLevel(ctx)).To(HaveLen(1))
+			}
+			var warnings []status.Status[any]
+			Expect(gorp.NewRetrieve[status.Key, status.Status[any]]().
+				Where(gorp.Match(func(_ gorp.Context, s *status.Status[any]) (bool, error) {
+					return s.Name == "Metrics_2", nil
+				})).
+				Entries(&warnings).
+				Exec(ctx, db)).To(Succeed())
+			Expect(warnings).To(ConsistOf(SatisfyAll(
+				HaveField("Variant", status.VariantWarning),
+				HaveField("Message", "Renamed channel"),
+				HaveField(
+					"Description",
+					ContainSubstring(`renamed channel "Metrics" to "Metrics_2"`),
+				),
+			)))
+		},
+	)
+
+	It("Should store no key of the folder", func(ctx SpecContext) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, closer, err := tx.Get([]byte("sy_metrics_folder"))
+			if err == nil {
+				return closer.Close()
+			}
+			return err
+		})).To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should take a user's root folder named Metrics after the stored one is gone",
