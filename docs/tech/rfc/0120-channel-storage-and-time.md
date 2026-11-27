@@ -424,8 +424,10 @@ names no clock key.
   clock is not yet in the set is kept when a kept timed series of the same frame names
   it, which the filter checks after the frame's data series, so the first stamps of a
   new clock are never dropped. That check also finds a clock move and updates the set.
-  The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), the calculation
-  transform, and the iterator's calculation step take the rule.
+  The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep
+  only demanded keys today (`relay/tap.go:287`), the calculation transform, and the
+  iterator's calculation step take the rule. A spec streams only a data key and gets its
+  time after a handoff and after a pause move.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
   `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:192-194`, `:228-231`), and
   clients stop adding index keys (`client/ts/src/framer/cache/reader/reader.ts:270-276`,
