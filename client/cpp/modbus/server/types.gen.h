@@ -42,9 +42,9 @@ struct Server;
 constexpr const char *WRITE_FUNCTION_MULTIPLE = "multiple";
 constexpr const char *WRITE_FUNCTION_SINGLE = "single";
 
-constexpr const char *PARITY_NONE = "none";
-constexpr const char *PARITY_EVEN = "even";
-constexpr const char *PARITY_ODD = "odd";
+constexpr const char *PARITY_NONE_ = "none";
+constexpr const char *PARITY_EVEN_ = "even";
+constexpr const char *PARITY_ODD_ = "odd";
 
 enum class BaudRate : std::uint32_t {
     B1200 = 1200,
@@ -255,7 +255,7 @@ struct RtuConnection : public BaseConnection {
     /// @brief baud_rate is the baud rate of the line.
     BaudRate baud_rate = BaudRate::B19200;
     /// @brief parity is the parity of the line.
-    std::string parity = PARITY_EVEN;
+    std::string parity = PARITY_EVEN_;
     /// @brief stop_bits is the number of stop bits of the line. Modbus asks for two
     /// with no parity, but many devices use one, so no rule ties it to parity.
     StopBits stop_bits = StopBits::One;
