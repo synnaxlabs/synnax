@@ -1257,35 +1257,34 @@ backup never hides acked samples. The error names two ways on, each run with the
 stopped: `synnax repair --convert` after a real undo, and `synnax repair --adopt` after
 a lost or restored record. While a converting update has not committed, the Core runs
 `--convert` itself and raises a warning status, since it served nothing from the new
-layout, so `--convert` loses nothing (founder delegation); a crash between the commit
-point and the identity write is such a case. Each way on says what the other would keep
-and asks, and `--yes` skips the question. `--adopt` writes the newest head's identity to
-the metadata store. `--convert` renames every `.seg`, `.chk`, and `<key>/channel` file,
-then the root logs and parts, then the heads, to `<name>.<identity>.undone` inside its
-directory, with the identity of the undone database, so a second undo keeps the files of
-the first and a crash in the middle renames again. It syncs each directory, and the next
-start converts from the old files as they are now. A refused start of an update has
-already undone the update (RFC 0102), and neither way on is part of an update, so
-`synnax update retry` then goes on. A drop removes every file of its key's directory but
-the `.undone` files, so a channel that reuses an undone channel's key never deletes that
-telemetry. Telemetry that the new binary wrote is lost, so the new binary's
-`synnax update undo` across the conversion warns and asks before it runs; `--yes` skips
-the question, and with no answer or no terminal the undo refuses. The old binary's undo
-cannot ask: `Open` reports that it converted (`DB.Identity`), and once its status
-service opens the Core raises a warning status that names the cost of an undo. The
-release notes say it too. An update that keeps the Cesium formats backs up and restores
-no Cesium file: from Phase 8, a restore accepts a backup with no Cesium files and runs
-no `RestoreMeta` for it, and it still runs `RestoreMeta` for a backup from a release
-older than the first that writes segments. Its undo leaves the live state, and the start
-check of §4.1 handles the keys that the restored channel table does not hold. No
-background work rewrites or unlinks a version 0 file while a backup from a release older
-than the first that writes segments exists (§5.1), so an undo finds every old file that
-the user did not delete. A user delete may unlink one. The old binary then fails a read
-over that range, and the next conversion drops the samples of each pointer whose file is
-gone, with a warning that names it. An index pointer stays as a mark with no stamps, so
-the data of another key in its range is cut too, and no sample takes the stamps of a
-later pointer. Nothing removes `.undone` files: a person deletes them by hand once their
-telemetry is not needed.
+layout, so `--convert` loses nothing (D-518); a crash between the commit point and the
+identity write is such a case. Each way on says what the other would keep and asks, and
+`--yes` skips the question. `--adopt` writes the newest head's identity to the metadata
+store. `--convert` renames every `.seg`, `.chk`, and `<key>/channel` file, then the root
+logs and parts, then the heads, to `<name>.<identity>.undone` inside its directory, with
+the identity of the undone database, so a second undo keeps the files of the first and a
+crash in the middle renames again. It syncs each directory, and the next start converts
+from the old files as they are now. A refused start of an update has already undone the
+update (RFC 0102), and neither way on is part of an update, so `synnax update retry`
+then goes on. A drop removes every file of its key's directory but the `.undone` files,
+so a channel that reuses an undone channel's key never deletes that telemetry. Telemetry
+that the new binary wrote is lost, so the new binary's `synnax update undo` across the
+conversion warns and asks before it runs; `--yes` skips the question, and with no answer
+or no terminal the undo refuses. The old binary's undo cannot ask: `Open` reports that
+it converted (`DB.Identity`), and once its status service opens the Core raises a
+warning status that names the cost of an undo. The release notes say it too. An update
+that keeps the Cesium formats backs up and restores no Cesium file: from Phase 8, a
+restore accepts a backup with no Cesium files and runs no `RestoreMeta` for it, and it
+still runs `RestoreMeta` for a backup from a release older than the first that writes
+segments. Its undo leaves the live state, and the start check of §4.1 handles the keys
+that the restored channel table does not hold. No background work rewrites or unlinks a
+version 0 file while a backup from a release older than the first that writes segments
+exists (§5.1), so an undo finds every old file that the user did not delete. A user
+delete may unlink one. The old binary then fails a read over that range, and the next
+conversion drops the samples of each pointer whose file is gone, with a warning that
+names it. An index pointer stays as a mark with no stamps, so the data of another key in
+its range is cut too, and no sample takes the stamps of a later pointer. Nothing removes
+`.undone` files: a person deletes them by hand once their telemetry is not needed.
 
 ### 9.1 What is owed
 
@@ -1456,7 +1455,7 @@ layout, so each piece merges alone and leaves `main` green. Every other phase is
     a key's first write after a move.
 
 17. **The Core starts past a clock with a record and an uncommitted conversion**: By the
-    founder delegation, each takes the most robust option, which keeps the Core
+    delegation of D-518, each takes the most robust option, which keeps the Core
     operational (D-425). A clock with a record raises an error status, and no write
     reaches it (principle 5). An uncommitted conversion runs `--convert` with no step by
     hand. D-419 stays the one refusal, since its two ways on keep different data.
