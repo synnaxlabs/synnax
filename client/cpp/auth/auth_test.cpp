@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <atomic>
+#include <future>
 #include <memory>
 
 #include "gtest/gtest.h"
@@ -31,6 +33,27 @@ grpc::auth::SessionCreateResponse session_response(const std::string &token) {
     res.mutable_session()->mutable_subject()->set_key("u");
     return res;
 }
+
+/// @brief a login transport whose first login waits for release.
+class HeldCreateClient final : public SessionCreateClient {
+    std::atomic<int> logins = 0;
+
+public:
+    std::promise<void> entered;
+    std::promise<void> released;
+    std::shared_future<void> release = released.get_future().share();
+
+    void use(std::shared_ptr<freighter::Middleware>) override {}
+
+    std::pair<grpc::auth::SessionCreateResponse, x::errors::Error>
+    send(const std::string &, grpc::auth::SessionCreateRequest &) override {
+        if (this->logins++ == 0) {
+            this->entered.set_value();
+            this->release.wait();
+        }
+        return {session_response("abc"), x::errors::NIL};
+    }
+};
 
 std::shared_ptr<Middleware> middleware_with(
     std::unique_ptr<SessionCreateClient> create,
@@ -69,7 +92,7 @@ TEST(TestAuth, LoginHappyPath) {
     ASSERT_EQ(mw->current_session().subject.type, "user");
 }
 
-/// @brief it should cancel the login of a request whose canceler cancelled.
+/// @brief it should not send the login of a request whose canceler cancelled.
 TEST(TestAuth, LoginCancelledWithRequest) {
     auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
         grpc::auth::SessionCreateRequest,
@@ -85,9 +108,27 @@ TEST(TestAuth, LoginCancelledWithRequest) {
         mock_client.send_cancellable("", v, canceler),
         x::errors::CANCELLED
     );
-    ASSERT_EQ(create->requests.size(), 1);
+    ASSERT_EQ(create->requests.size(), 0);
     ASSERT_EQ(ASSERT_NIL_P(mock_client.send("", v)), 1);
-    ASSERT_EQ(create->requests.size(), 2);
+    ASSERT_EQ(create->requests.size(), 1);
+}
+
+/// @brief it should end the wait of a cancelled login on the login of another thread.
+TEST(TestAuth, LoginCancelledWhileOtherLoginRuns) {
+    auto create = std::make_unique<HeldCreateClient>();
+    auto *held = create.get();
+    auto entered = held->entered.get_future();
+    const auto mw = middleware_with(std::move(create));
+    auto first = std::async(std::launch::async, [&] { return mw->authenticate(); });
+    entered.wait();
+    const auto canceler = std::make_shared<freighter::Canceler>();
+    auto second = std::async(std::launch::async, [&] {
+        return mw->authenticate(canceler);
+    });
+    canceler->cancel();
+    ASSERT_OCCURRED_AS(second.get(), x::errors::CANCELLED);
+    held->released.set_value();
+    ASSERT_NIL(first.get());
 }
 
 /// @brief it should send a password proof when logging in.
