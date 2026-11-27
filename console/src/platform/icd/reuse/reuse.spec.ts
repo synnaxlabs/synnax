@@ -256,7 +256,6 @@ describe("Reuse", () => {
         reading: { icd: b.key, name: "ICD", fits: [{ message: both, missing: [] }] },
         candidates: [
           { icd: b.key, name: "ICD", fits: [[{ message: both, missing: [] }]] },
-          { icd: a.key, name: "ICD", fits: [[{ message: one, missing: ["/rpm"] }]] },
         ],
       });
     });
@@ -281,7 +280,8 @@ describe("Reuse", () => {
     it("should read nothing when two ICDs fit equally and neither is home", () => {
       const a = create(both);
       const b = create(message([field("/temp", "float"), field("/rpm", "float")]));
-      const { reading, candidates } = ICD.Reuse.find(source([plant]), [a, b]);
+      const c = create(one);
+      const { reading, candidates } = ICD.Reuse.find(source([plant]), [a, c, b]);
       expect(reading).toBeUndefined();
       expect(candidates.map(({ icd }) => icd)).toEqual([a.key, b.key]);
     });

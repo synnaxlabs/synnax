@@ -150,7 +150,7 @@ export interface Reading {
 export interface Result {
   /** Absent when no ICD fits, or when the best one ties. */
   reading?: Reading;
-  /** Each ICD with a message that fits a shape of the source, best first. */
+  /** The ICDs whose messages fit the source best, home first. Two or more tie. */
   candidates: Candidate[];
 }
 
@@ -205,9 +205,11 @@ export const find = (
     .map((ic) => rank(ic, source))
     .filter(({ candidate }) => candidate.fits.some((f) => f.length > 0))
     .sort((a, b) => compare(a.score, b.score) || isHome(b) - isHome(a));
-  const candidates = ranked.map(({ candidate }) => candidate);
   const [first, second] = ranked;
-  if (first == null) return { candidates };
+  if (first == null) return { candidates: [] };
+  const candidates = ranked
+    .filter(({ score }) => compare(score, first.score) === 0)
+    .map(({ candidate }) => candidate);
   const tied =
     second != null && compare(first.score, second.score) === 0 && isHome(first) === 0;
   if (tied) return { candidates };

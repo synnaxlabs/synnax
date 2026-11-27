@@ -1712,8 +1712,8 @@ describe("Kafka read form", () => {
         icd.set({ path: [...payload, "fields", field.key, "name"], value: "heat" }),
       );
       await screen.findByRole("treeitem", { name: /^heat/ });
+      await waitFor(() => expect(dialog.queryByText(/^Reads /)).toBeNull());
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
-      expect(dialog.queryByText(/^Reads /)).toBeNull();
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
       await waitFor(async () =>
         expect(await retrieveRecords(draft.key)).toHaveLength(2),
@@ -1758,6 +1758,70 @@ describe("Kafka read form", () => {
         (await client.icds.retrieve(key)).messages.map(({ name }) => name);
       expect(await names(records[0].icd)).toEqual(["oven-1", "oven oven-2"]);
       expect(await names(held.icd)).toEqual(["oven-4"]);
+    });
+
+    it("should put a new message in the home ICD when the shape that fits another ICD is not picked", async () => {
+      const held = await createRecord({
+        fields: [createField("pressure", "float")],
+        recordKey: "oven-4",
+      });
+      const { draft, dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+        records: [held],
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const shapeOf = (key: string, name: string) => ({
+        sources: [key],
+        fields: [createInferredField(`/${name}`, "float", "number")],
+        index: -1,
+        count: 1,
+        present: -1,
+      });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(shapeOf("oven-2", "pressure"), shapeOf("oven-5", "flow")),
+      });
+      await dialog.findByText(/^Reads oven-4 of format/);
+      fireEvent.click(await dialog.findByRole("checkbox", { name: "Record /flow" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(3);
+        return next;
+      });
+      const added = records.find(({ recordKey }) => recordKey === "oven-5");
+      expect(added?.icd).toBe(records[0].icd);
+      const names = async (key: string) =>
+        (await client.icds.retrieve(key)).messages.map(({ name }) => name);
+      expect(await names(records[0].icd)).toEqual(["oven-1", "oven oven-5"]);
+      expect(await names(held.icd)).toEqual(["oven-4"]);
+    });
+
+    it("should count no message that only holds some fields of a shape", async () => {
+      const heldOf = async (key: string) =>
+        await createRecord({
+          fields: [createField("pressure", "float")],
+          recordKey: key,
+        });
+      const { dev } = await renderRead({
+        fields: [createField("temperature", "float")],
+        recordKey: "oven-1",
+        records: [await heldOf("oven-4"), await heldOf("oven-6")],
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const shape = {
+        sources: ["oven-2"],
+        fields: [
+          createInferredField("/pressure", "float", "number"),
+          createInferredField("/flow", "float", "number"),
+        ],
+        index: -1,
+        count: 1,
+        present: -1,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(shape) });
+      await dialog.findByRole("checkbox", { name: "Record /flow" });
+      expect(dialog.queryByText(/^Fits /)).toBeNull();
     });
 
     it("should add a new message when a held message has no timestamp field for the index", async () => {
