@@ -235,7 +235,8 @@ def _env_bool(env: Mapping[str, str], name: str) -> bool | None:
 
 
 # Each variable the client reads, and the deprecated name it replaces. The Core reads
-# its flags from the SYNNAX_ prefix.
+# its flags from the SYNNAX_ prefix, so in a shared shell the old name can hold a value
+# meant for the Core. The new name wins with no warning.
 _ENV_ALIASES = (
     ("SYNNAX_CLIENT_HOST", "SYNNAX_HOST"),
     ("SYNNAX_CLIENT_PORT", "SYNNAX_PORT"),
@@ -244,13 +245,9 @@ _ENV_ALIASES = (
 )
 
 
-# The CA path is expanded first, so ~/ca.crt and the full path of the same file agree.
-_PATHS = ("SYNNAX_CLIENT_CA_CERT", "SYNNAX_CA_CERT")
-
-
 def _env_values(env: Mapping[str, str]) -> Mapping[str, str]:
     values: Mapping[str, str] = {
-        name: os.path.expanduser(value) if name in _PATHS else value
+        name: value
         for pair in _ENV_ALIASES
         for name in pair
         if (value := _env(env, name))
@@ -263,9 +260,7 @@ def _env_values(env: Mapping[str, str]) -> Mapping[str, str]:
             deprecated_msg=(
                 f"{alias} is deprecated and stops working in Synnax 0.64. Use {name}."
             ),
-            disagree_msg=(
-                f"{name} and the deprecated {alias} disagree. Set only {name}."
-            ),
+            disagree_msg=None,
         )
     return values
 
@@ -273,15 +268,14 @@ def _env_values(env: Mapping[str, str]) -> Mapping[str, str]:
 def load_env_options(env: Mapping[str, str]) -> PartialOptions:
     """Loads the options in the SYNNAX_CLIENT_HOST, SYNNAX_CLIENT_PORT,
     SYNNAX_CLIENT_API_KEY, SYNNAX_CLIENT_INSECURE, and SYNNAX_CLIENT_CA_CERT environment
-    variables. The deprecated SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY, and
-    SYNNAX_CA_CERT still work, with a DeprecationWarning when set without the new name.
-    The deprecated SYNNAX_SECURE applies only when SYNNAX_CLIENT_INSECURE is unset.
-    Values are stripped, and an empty value counts as unset.
+    variables. Each deprecated name (SYNNAX_HOST, SYNNAX_PORT, SYNNAX_API_KEY,
+    SYNNAX_SECURE, and SYNNAX_CA_CERT) applies only when its new name is unset, with a
+    DeprecationWarning. Values are stripped, and an empty value counts as unset.
 
     :param env: The environment variables, such as os.environ.
     :returns: The options that the variables set.
-    :raises ValidationError: If SYNNAX_CLIENT_PORT, SYNNAX_CLIENT_INSECURE, or
-        SYNNAX_SECURE is not valid, or if a deprecated name disagrees with its new name.
+    :raises ValidationError: If SYNNAX_CLIENT_PORT, SYNNAX_CLIENT_INSECURE, or a
+        deprecated name that applies is not valid.
     """
     opts = PartialOptions()
     values = _env_values(env)
@@ -306,7 +300,7 @@ def load_env_options(env: Mapping[str, str]) -> PartialOptions:
     elif (secure := _env_bool(env, "SYNNAX_SECURE")) is not None:
         opts["secure"] = secure
     if ca_cert := values.get("SYNNAX_CLIENT_CA_CERT"):
-        opts["ca_cert"] = ca_cert
+        opts["ca_cert"] = os.path.expanduser(ca_cert)
     return opts
 
 
@@ -368,9 +362,8 @@ def load_options(
         the newer desktop.json in config_dirs(local=True).
     :param run_desktop_helper: Runs the key helper of Synnax Desktop.
     :returns: The options, and whether they connect to the Core of Synnax Desktop.
-    :raises ValidationError: If the environment variables are not valid, if one source
-        gives insecure and secure that disagree, or if no source gives a host or
-        credentials.
+    :raises ValidationError: If the environment variables are not valid, if the insecure
+        and secure arguments disagree, or if no source gives a host or credentials.
     :raises ConfigurationError: If no source gives a host and the home directory is
         unknown, if no OS keychain is available to read the key of the saved login, if
         a saved file exists but cannot be read, if the key helper of Synnax Desktop

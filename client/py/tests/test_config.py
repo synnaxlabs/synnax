@@ -706,37 +706,16 @@ class TestLoadEnvOptions:
     @pytest.mark.parametrize(
         "alias", ["SYNNAX_HOST", "SYNNAX_PORT", "SYNNAX_API_KEY", "SYNNAX_CA_CERT"]
     )
-    def test_agreeing_deprecated_name(self, alias: str) -> None:
-        """Should read a deprecated name that agrees with its new name, with no
-        warning.
+    def test_new_name_wins(self, alias: str) -> None:
+        """Should take the new name over a different deprecated value, with no warning,
+        since the old name can hold a value meant for the Core.
         """
         name = alias.replace("SYNNAX_", "SYNNAX_CLIENT_")
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            assert load_env_options({name: "9091", alias: " 9091\n"}) == (
+            assert load_env_options({name: "9091", alias: "9092"}) == (
                 load_env_options({name: "9091"})
             )
-
-    @pytest.mark.parametrize(
-        "alias", ["SYNNAX_HOST", "SYNNAX_PORT", "SYNNAX_API_KEY", "SYNNAX_CA_CERT"]
-    )
-    def test_disagreeing_deprecated_name(self, alias: str) -> None:
-        """Should reject a deprecated name that disagrees with its new name."""
-        name = alias.replace("SYNNAX_", "SYNNAX_CLIENT_")
-        with pytest.raises(ValidationError, match=f"{name} and the deprecated {alias}"):
-            load_env_options({name: "9091", alias: "9092"})
-
-    def test_agreeing_deprecated_ca_cert_path(self) -> None:
-        """Should read a deprecated CA path that names the same file after expanding
-        ~, with no warning.
-        """
-        full = os.path.expanduser("~/ca.crt")
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            opts = load_env_options(
-                {"SYNNAX_CLIENT_CA_CERT": full, "SYNNAX_CA_CERT": "~/ca.crt"}
-            )
-        assert opts == {"ca_cert": full}
 
     def test_deprecated_warning_names_the_caller(self) -> None:
         """Should attribute the DeprecationWarning to the caller's line."""

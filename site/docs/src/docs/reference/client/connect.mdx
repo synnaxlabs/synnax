@@ -343,9 +343,10 @@ from `SYNNAX_` variables. These old names still work in 0.63, and they stop work
 - `secure` and `SYNNAX_SECURE`, as the inverse of `insecure` and
   `SYNNAX_CLIENT_INSECURE`.
 
-The client warns only when it reads an old name without the new one. To serve clients
-older and newer than 0.63, set both names with values that agree. When they disagree,
-the client raises `sy.ValidationError`.
+An old variable applies only when its new name is unset, and the client then warns. When
+both are set, the new name wins with no warning, because the old name can hold a value
+for the Core. When you give both `secure` and `insecure` and they disagree, the client
+raises `sy.ValidationError`.
 
 To keep the API key out of your code, give the host and set only
 `SYNNAX_CLIENT_API_KEY`:

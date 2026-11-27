@@ -85,25 +85,28 @@ def replace_alias(
     alias: str,
     *,
     deprecated_msg: str,
-    disagree_msg: str,
+    disagree_msg: str | None,
     convert: Callable[[Any], Any] = lambda v: v,
 ) -> Mapping[str, Any]:
     """Returns source with its deprecated alias key replaced by name, and the value of
     alias passed through convert. Warns with deprecated_msg as a DeprecationWarning when
-    source sets alias without name. A source may set both when they agree, with no
-    warning, so that clients older and newer than Synnax 0.63 read the same choice.
+    source sets alias without name. When source sets both, name wins with no warning if
+    disagree_msg is None. Otherwise they must agree, so that clients older and newer
+    than Synnax 0.63 read the same choice.
 
-    :raises ValidationError: With disagree_msg, if source sets both, and the converted
-        value of alias is not the value of name.
+    :raises ValidationError: With disagree_msg, if it is not None, source sets both, and
+        the converted value of alias is not the value of name.
     """
     if alias not in source:
         return source
+    rest = {k: v for k, v in source.items() if k != alias}
+    if name in rest and disagree_msg is None:
+        return rest
     value = convert(source[alias])
     if name not in source:
         _warn(deprecated_msg)
     elif source[name] != value:
         raise ValidationError(disagree_msg)
-    rest = {k: v for k, v in source.items() if k != alias}
     return {**rest, name: value}
 
 
