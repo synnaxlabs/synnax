@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	"github.com/synnaxlabs/x/errors"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,11 +26,11 @@ var errInjected = errors.New("injected")
 var _ = Describe("Handle", func() {
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs *testutil.OpFS
+			var fs *opfs.FS
 			BeforeEach(func() {
 				inner := makeFS()
 				MustSucceed(inner.Sub("12"))
-				fs = testutil.NewOpFS(inner, "open", "close", "sync", "syncdir")
+				fs = opfs.New(inner, "open", "close", "sync", "syncdir")
 			})
 
 			var b *segment.Budget
