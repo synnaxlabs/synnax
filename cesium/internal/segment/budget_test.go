@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -87,9 +87,9 @@ var _ = Describe("Budget", func() {
 
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
-			var fs *testutil.OpFS
+			var fs *opfs.FS
 			BeforeEach(func() {
-				fs = testutil.NewOpFS(makeFS(), "open", "close", "sync", "syncdir")
+				fs = opfs.New(makeFS(), "open", "close", "sync", "syncdir")
 			})
 
 			// dirty returns n handles of b with one write each since their last sync.

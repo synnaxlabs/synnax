@@ -533,12 +533,6 @@
     },
     {
       "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
-      "name": "Writeback",
-      "caller": "https://linear.app/synnax/issue/SY-6385"
-    },
-    {
-      "module": "x/go",
       "package": "github.com/synnaxlabs/x/query",
       "name": "NotFound",
       "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"

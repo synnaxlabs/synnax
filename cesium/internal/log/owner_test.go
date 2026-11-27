@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
@@ -234,7 +234,7 @@ var _ = Describe("Log", func() {
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
 			var (
-				fs    *testutil.OpFS
+				fs    *opfs.FS
 				l     *log.Log
 				ran   chan error
 				steps chan struct{}
@@ -281,7 +281,7 @@ var _ = Describe("Log", func() {
 			}
 
 			BeforeEach(func() {
-				fs = testutil.NewOpFS(makeFS(), "write", "sync", "syncdir")
+				fs = opfs.New(makeFS(), "write", "sync", "syncdir")
 				prepare = func(next uint64) { l.Prepared(next, errors.New("no space")) }
 			})
 

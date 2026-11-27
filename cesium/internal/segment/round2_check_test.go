@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/segment"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -105,7 +105,7 @@ func (f *holdFile) Close() error {
 var _ = Describe("Round 2 check", func() {
 	It("Should finish two closes in a row and the budget syncs that wait for them, "+
 		"when the executor runs one job at a time", func() {
-		fs := testutil.NewOpFS(xfs.NewMem(), "open", "close", "sync", "syncdir")
+		fs := opfs.New(xfs.NewMem(), "open", "close", "sync", "syncdir")
 		jobs := make(chan func(), 16)
 		worker := make(chan struct{})
 		go func() {
