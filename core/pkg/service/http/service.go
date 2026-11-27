@@ -115,8 +115,18 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			HashEntry:       (*ReadConfig).HashContent,
 			HashReferences:  s.resolver.hash,
 			HashedTables:    []string{"icd"},
-			ResolveEntry:    s.resolver.resolve,
-			ValidateEntry:   (*ReadConfig).Validate,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				name string,
+				c *ReadConfig,
+			) (func(context.Context, gorp.Tx) error, error) {
+				if err := checkReadMethods(ctx, snap, c); err != nil {
+					return nil, err
+				}
+				return s.resolver.resolve(ctx, snap, name, c)
+			},
+			ValidateEntry: (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
@@ -136,9 +146,19 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			HashEntry:       (*WriteConfig).HashContent,
 			HashReferences:  s.writes.hash,
 			HashedTables:    []string{"icd"},
-			ResolveEntry:    s.writes.resolve,
-			ReconcileEntry:  detachMessages,
-			ValidateEntry:   (*WriteConfig).Validate,
+			ResolveEntry: func(
+				ctx context.Context,
+				snap gorp.Snapshot,
+				name string,
+				c *WriteConfig,
+			) (func(context.Context, gorp.Tx) error, error) {
+				if err := checkWriteMethods(ctx, snap, c); err != nil {
+					return nil, err
+				}
+				return s.writes.resolve(ctx, snap, name, c)
+			},
+			ReconcileEntry: detachMessages,
+			ValidateEntry:  (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

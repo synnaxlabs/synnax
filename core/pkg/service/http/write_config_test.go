@@ -294,3 +294,68 @@ var _ = Describe("Write config", func() {
 		)
 	})
 })
+
+var _ = Describe("Removed methods", func() {
+	var svc *http.Service
+	BeforeEach(func(ctx SpecContext) {
+		svc = MustOpen(http.OpenService(ctx, http.ServiceConfig{
+			DB:      db,
+			Channel: channelSvc,
+			ICD:     icdSvc,
+		}))
+	})
+	// store writes a write config whose endpoint uses method, as a Core that shipped
+	// TRACE and CONNECT stored it, and returns its key.
+	store := func(ctx SpecContext, method http.StoredMethod) uuid.UUID {
+		GinkgoHelper()
+		cfg := http.WriteConfig{
+			Key: uuid.New(),
+			Endpoints: []http.WriteEndpoint{{
+				Key:    "valve",
+				Method: method,
+				Path:   "/valve",
+			}},
+		}
+		Expect(gorp.WrapWriter[uuid.UUID, http.WriteConfig](db).Set(ctx, cfg)).
+			To(Succeed())
+		return cfg.Key
+	}
+	endpoint := func(method string) msgpack.EncodedJSON {
+		return writeConfigOf(map[string]any{
+			"key":    "valve",
+			"method": method,
+			"path":   "/valve",
+		})
+	}
+
+	It("Should load and run a stored TRACE endpoint", func(ctx SpecContext) {
+		key := store(ctx, http.StoredMethodTrace)
+		data := MustSucceed(svc.Write.Read(ctx, db, key))
+		Expect(data["endpoints"]).To(HaveExactElements(
+			HaveKeyWithValue("method", "TRACE"),
+		))
+	})
+
+	It("Should save an edit of a stored TRACE endpoint", func(ctx SpecContext) {
+		key := store(ctx, http.StoredMethodTrace)
+		Expect(svc.Write.Prepare(ctx, db, key, "Valves", endpoint("TRACE"))).
+			Error().ToNot(HaveOccurred())
+	})
+
+	DescribeTable("Should refuse a new or changed endpoint that uses a removed method",
+		func(ctx SpecContext, stored http.StoredMethod, method string) {
+			key := uuid.New()
+			if stored != "" {
+				key = store(ctx, stored)
+			}
+			Expect(svc.Write.Prepare(ctx, db, key, "Valves", endpoint(method))).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("endpoints.0.method")),
+			))
+		},
+		Entry("a new TRACE endpoint", http.StoredMethod(""), "TRACE"),
+		Entry("a new CONNECT endpoint", http.StoredMethod(""), "CONNECT"),
+		Entry("a GET endpoint changed to TRACE", http.StoredMethodGet, "TRACE"),
+	)
+})

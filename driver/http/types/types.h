@@ -25,7 +25,18 @@
 namespace driver::http {
 /// @brief supported HTTP methods. QUERY_METHOD is QUERY, renamed because a system
 /// header defines QUERY as a macro.
-enum class Method { GET, HEAD, POST, PUT, DEL, PATCH, OPTIONS, QUERY_METHOD };
+enum class Method {
+    GET,
+    HEAD,
+    POST,
+    PUT,
+    DEL,
+    PATCH,
+    OPTIONS,
+    TRACE,
+    CONNECT,
+    QUERY_METHOD
+};
 
 /// @brief returns the HTTP method string (e.g., Method::DEL returns "DELETE").
 /// @param m the method.
@@ -46,6 +57,10 @@ constexpr const char *to_string(const Method m) {
             return "PATCH";
         case Method::OPTIONS:
             return "OPTIONS";
+        case Method::TRACE:
+            return "TRACE";
+        case Method::CONNECT:
+            return "CONNECT";
         case Method::QUERY_METHOD:
             return "QUERY";
     }
@@ -63,6 +78,8 @@ inline std::pair<Method, x::errors::Error> parse_method(const std::string &str) 
     if (str == "DELETE") return {Method::DEL, x::errors::NIL};
     if (str == "PATCH") return {Method::PATCH, x::errors::NIL};
     if (str == "OPTIONS") return {Method::OPTIONS, x::errors::NIL};
+    if (str == "TRACE") return {Method::TRACE, x::errors::NIL};
+    if (str == "CONNECT") return {Method::CONNECT, x::errors::NIL};
     if (str == "QUERY") return {Method::QUERY_METHOD, x::errors::NIL};
     return {
         Method::GET,
@@ -87,6 +104,8 @@ constexpr bool has_request_body(const Method m) {
         case Method::GET:
         case Method::HEAD:
         case Method::DEL:
+        case Method::CONNECT:
+        case Method::TRACE:
             return false;
         default:
             return true;
@@ -95,7 +114,13 @@ constexpr bool has_request_body(const Method m) {
 
 /// @brief returns true if the method produces a response body.
 constexpr bool has_response_body(const Method m) {
-    return m != Method::HEAD;
+    switch (m) {
+        case Method::HEAD:
+        case Method::CONNECT:
+            return false;
+        default:
+            return true;
+    }
 }
 
 /// @brief static request configuration, set once at task setup time.

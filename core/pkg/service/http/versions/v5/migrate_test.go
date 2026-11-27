@@ -73,7 +73,7 @@ var _ = Describe("MigrateReadConfig", func() {
 			Expect(cfg.Rate).To(Equal(old.Rate))
 			Expect(cfg.Endpoints).To(HaveLen(2))
 			ep := cfg.Endpoints[0]
-			Expect(ep.Method).To(Equal(v5.MethodPost))
+			Expect(ep.Method).To(Equal(v5.StoredMethodPost))
 			Expect(ep.Path).To(Equal("/values"))
 			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
 			Expect(ep.Body).To(Equal(`{"all":true}`))
@@ -112,7 +112,7 @@ var _ = Describe("MigrateReadEndpoint", func() {
 		old := storedConfig().Endpoints[0]
 		ep := MustSucceed(v5.MigrateReadEndpoint(ctx, old))
 		Expect(ep.Key).To(Equal("ep1"))
-		Expect(ep.Method).To(Equal(v5.MethodPost))
+		Expect(ep.Method).To(Equal(v5.StoredMethodPost))
 		Expect(ep.Path).To(Equal("/values"))
 		Expect(ep.Headers).To(Equal(old.Headers))
 		Expect(ep.Body).To(Equal(`{"all":true}`))
@@ -264,7 +264,7 @@ var _ = Describe("MigrateWriteConfig", func() {
 			Expect(cfg.Device).To(Equal(old.Device))
 			Expect(cfg.Endpoints).To(HaveLen(2))
 			ep := cfg.Endpoints[0]
-			Expect(ep.Method).To(Equal(v5.MethodPut))
+			Expect(ep.Method).To(Equal(v5.StoredMethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
 			Expect(ep.Headers).To(Equal(old.Endpoints[0].Headers))
 			Expect(ep.ICD).To(BeNil())
@@ -286,7 +286,7 @@ var _ = Describe("MigrateWriteEndpoint", func() {
 			old := storedWriteConfig().Endpoints[0]
 			ep := MustSucceed(v5.MigrateWriteEndpoint(ctx, old))
 			Expect(ep.Key).To(Equal("sp"))
-			Expect(ep.Method).To(Equal(v5.MethodPut))
+			Expect(ep.Method).To(Equal(v5.StoredMethodPut))
 			Expect(ep.Path).To(Equal("/setpoint"))
 			Expect(ep.Headers).To(Equal(old.Headers))
 			Expect(ep.Disabled).To(BeFalse())

@@ -26,33 +26,39 @@ import (
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
-// Method is the HTTP method used when requesting an endpoint.
-type Method string
+// StoredMethod is any HTTP method that a stored endpoint can hold, including the
+// methods that a new endpoint can no longer use.
+type StoredMethod string
 
 const (
-	// MethodGet reads a resource.
-	MethodGet Method = "GET"
-	// MethodHead reads the headers of a resource, with no body.
-	MethodHead Method = "HEAD"
-	// MethodPost submits data to a resource.
-	MethodPost Method = "POST"
-	// MethodPut replaces a resource.
-	MethodPut Method = "PUT"
-	// MethodDelete removes a resource.
-	MethodDelete Method = "DELETE"
-	// MethodPatch changes part of a resource.
-	MethodPatch Method = "PATCH"
-	// MethodOptions asks which communication options a resource supports.
-	MethodOptions Method = "OPTIONS"
-	// MethodQuery reads a resource with a query in the body, safely and idempotently.
-	MethodQuery Method = "QUERY"
+	// StoredMethodGet reads a resource.
+	StoredMethodGet StoredMethod = "GET"
+	// StoredMethodHead reads the headers of a resource, with no body.
+	StoredMethodHead StoredMethod = "HEAD"
+	// StoredMethodPost submits data to a resource.
+	StoredMethodPost StoredMethod = "POST"
+	// StoredMethodPut replaces a resource.
+	StoredMethodPut StoredMethod = "PUT"
+	// StoredMethodDelete removes a resource.
+	StoredMethodDelete StoredMethod = "DELETE"
+	// StoredMethodPatch changes part of a resource.
+	StoredMethodPatch StoredMethod = "PATCH"
+	// StoredMethodOptions asks which communication options a resource supports.
+	StoredMethodOptions StoredMethod = "OPTIONS"
+	// StoredMethodTrace asks the server to echo the request it receives.
+	StoredMethodTrace StoredMethod = "TRACE"
+	// StoredMethodConnect opens a tunnel to the server.
+	StoredMethodConnect StoredMethod = "CONNECT"
+	// StoredMethodQuery reads a resource with a query in the body, safely and
+	// idempotently.
+	StoredMethodQuery StoredMethod = "QUERY"
 )
 
-// IsValid reports whether m is one of the defined Method
+// IsValid reports whether s is one of the defined StoredMethod
 // values.
-func (m Method) IsValid() bool {
-	switch m {
-	case MethodGet, MethodHead, MethodPost, MethodPut, MethodDelete, MethodPatch, MethodOptions, MethodQuery:
+func (s StoredMethod) IsValid() bool {
+	switch s {
+	case StoredMethodGet, StoredMethodHead, StoredMethodPost, StoredMethodPut, StoredMethodDelete, StoredMethodPatch, StoredMethodOptions, StoredMethodTrace, StoredMethodConnect, StoredMethodQuery:
 		return true
 	default:
 		return false
@@ -72,10 +78,10 @@ type ReadField = v4.ReadField
 type ReadEndpoint struct {
 	// Key uniquely identifies the endpoint within the task.
 	Key string `json:"key" msgpack:"key"`
+	// Method is the HTTP method used to poll the endpoint.
+	Method StoredMethod `json:"method" msgpack:"method"`
 	// Disabled is true when the endpoint is excluded from the task.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
-	// Method is the HTTP method used to poll the endpoint.
-	Method Method `json:"method" msgpack:"method"`
 	// Path is the URL path appended to the device's base URL.
 	Path string `json:"path" msgpack:"path"`
 	// Headers contains additional headers merged into the request.
@@ -93,7 +99,7 @@ type ReadEndpoint struct {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (r *ReadEndpoint) SetDefaults() {
-	r.Method = MethodGet
+	r.Method = StoredMethodGet
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
@@ -253,7 +259,7 @@ type WriteEndpoint struct {
 	// Disabled is true when the endpoint is excluded from the task.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
 	// Method is the HTTP method used to send the request.
-	Method Method `json:"method" msgpack:"method"`
+	Method StoredMethod `json:"method" msgpack:"method"`
 	// Path is the URL path appended to the device's base URL.
 	Path string `json:"path" msgpack:"path"`
 	// Headers contains additional headers merged into the request.
@@ -270,7 +276,7 @@ type WriteEndpoint struct {
 
 // SetDefaults sets every field that has a schema default to that default.
 func (w *WriteEndpoint) SetDefaults() {
-	w.Method = MethodPost
+	w.Method = StoredMethodPost
 }
 
 // UnmarshalJSONFrom decodes the input over the value. A zero value first takes the

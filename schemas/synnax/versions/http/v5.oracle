@@ -12,7 +12,7 @@ import "schemas/synnax/versions/icd/v1"
 import "schemas/synnax/versions/task/v2"
 import "schemas/x/versions/telem/v0"
 
-Method enum {
+StoredMethod enum {
     get     = "GET" {
         @doc value "reads a resource."
     }
@@ -34,11 +34,20 @@ Method enum {
     options = "OPTIONS" {
         @doc value "asks which communication options a resource supports."
     }
+    trace   = "TRACE" {
+        @doc value "asks the server to echo the request it receives."
+    }
+    connect = "CONNECT" {
+        @doc value "opens a tunnel to the server."
+    }
     query   = "QUERY" {
         @doc value "reads a resource with a query in the body, safely and idempotently."
     }
 
-    @doc value "is the HTTP method used when requesting an endpoint."
+    @doc value """
+        is any HTTP method that a stored endpoint can hold, including the methods that a
+        new endpoint can no longer use.
+    """
 }
 
 Header = v2.Header
@@ -51,6 +60,9 @@ ReadEndpoint struct extends v4.ReadEndpoint {
     -fields
     -index
     key
+    method   StoredMethod = get {
+        @doc value "is the HTTP method used to poll the endpoint."
+    }
     disabled bool = false {
         @doc value "is true when the endpoint is excluded from the task."
     }
@@ -110,6 +122,9 @@ WriteField = v4.WriteField
 WriteEndpoint struct extends v4.WriteEndpoint {
     -channel
     -fields
+    method       StoredMethod = post {
+        @doc value "is the HTTP method used to send the request."
+    }
     query_params
     icd          icd.Key?          {
         @doc value """

@@ -46,8 +46,8 @@ var _ = Describe("Codec", func() {
 				Endpoints: []v5.ReadEndpoint{
 					{
 						Key:         "test_7",
-						Disabled:    false,
-						Method:      v5.Method("GET"),
+						Method:      v5.StoredMethod("GET"),
+						Disabled:    true,
 						Path:        "test_10",
 						Headers:     []v5.Header{{Name: "test_12", Value: "test_13"}},
 						QueryParams: []v5.QueryParam{{Parameter: "test_15", Value: "test_16"}},
@@ -103,8 +103,8 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", v5.ReadEndpoint{
 				Key:         "test_1",
-				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      v5.StoredMethod("GET"),
+				Disabled:    true,
 				Path:        "test_4",
 				Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 				QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
@@ -126,8 +126,8 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", v5.ReadEndpoint{
 				Key:         "",
+				Method:      v5.StoredMethod(""),
 				Disabled:    false,
-				Method:      v5.Method(""),
 				Path:        "",
 				Headers:     []v5.Header{},
 				QueryParams: []v5.QueryParam{},
@@ -137,8 +137,8 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("empty collections", v5.ReadEndpoint{
 				Key:         "test_1",
-				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      v5.StoredMethod("GET"),
+				Disabled:    true,
 				Path:        "test_4",
 				Headers:     []v5.Header{},
 				QueryParams: []v5.QueryParam{},
@@ -167,7 +167,7 @@ var _ = Describe("Codec", func() {
 					{
 						Key:         "test_5",
 						Disabled:    false,
-						Method:      v5.Method("GET"),
+						Method:      v5.StoredMethod("GET"),
 						Path:        "test_8",
 						Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
 						QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
@@ -215,7 +215,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", v5.WriteEndpoint{
 				Key:         "test_1",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      v5.StoredMethod("GET"),
 				Path:        "test_4",
 				Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 				QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
@@ -236,7 +236,7 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v5.WriteEndpoint{
 				Key:         "",
 				Disabled:    false,
-				Method:      v5.Method(""),
+				Method:      v5.StoredMethod(""),
 				Path:        "",
 				Headers:     []v5.Header{},
 				QueryParams: []v5.QueryParam{},
@@ -246,7 +246,7 @@ var _ = Describe("Codec", func() {
 			Entry("empty collections", v5.WriteEndpoint{
 				Key:         "test_1",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      v5.StoredMethod("GET"),
 				Path:        "test_4",
 				Headers:     []v5.Header{},
 				QueryParams: []v5.QueryParam{},
@@ -270,8 +270,8 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 		Endpoints: []v5.ReadEndpoint{
 			{
 				Key:         "test_7",
-				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      v5.StoredMethod("GET"),
+				Disabled:    true,
 				Path:        "test_10",
 				Headers:     []v5.Header{{Name: "test_12", Value: "test_13"}},
 				QueryParams: []v5.QueryParam{{Parameter: "test_15", Value: "test_16"}},
@@ -312,8 +312,8 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 func BenchmarkEncodeDecodeReadEndpoint(b *testing.B) {
 	seed := v5.ReadEndpoint{
 		Key:         "test_1",
-		Disabled:    false,
-		Method:      v5.Method("GET"),
+		Method:      v5.StoredMethod("GET"),
+		Disabled:    true,
 		Path:        "test_4",
 		Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 		QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
@@ -357,7 +357,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 			{
 				Key:         "test_5",
 				Disabled:    false,
-				Method:      v5.Method("GET"),
+				Method:      v5.StoredMethod("GET"),
 				Path:        "test_8",
 				Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
 				QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
@@ -396,7 +396,7 @@ func BenchmarkEncodeDecodeWriteEndpoint(b *testing.B) {
 	seed := v5.WriteEndpoint{
 		Key:         "test_1",
 		Disabled:    false,
-		Method:      v5.Method("GET"),
+		Method:      v5.StoredMethod("GET"),
 		Path:        "test_4",
 		Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 		QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
@@ -440,8 +440,8 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			Endpoints: []v5.ReadEndpoint{
 				{
 					Key:         "test_7",
-					Disabled:    false,
-					Method:      v5.Method("GET"),
+					Method:      v5.StoredMethod("GET"),
+					Disabled:    true,
 					Path:        "test_10",
 					Headers:     []v5.Header{{Name: "test_12", Value: "test_13"}},
 					QueryParams: []v5.QueryParam{{Parameter: "test_15", Value: "test_16"}},
@@ -528,8 +528,8 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 	{
 		seed := v5.ReadEndpoint{
 			Key:         "test_1",
-			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      v5.StoredMethod("GET"),
+			Disabled:    true,
 			Path:        "test_4",
 			Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 			QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
@@ -558,8 +558,8 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 	{
 		seed := v5.ReadEndpoint{
 			Key:         "",
+			Method:      v5.StoredMethod(""),
 			Disabled:    false,
-			Method:      v5.Method(""),
 			Path:        "",
 			Headers:     []v5.Header{},
 			QueryParams: []v5.QueryParam{},
@@ -576,8 +576,8 @@ func FuzzDecodeReadEndpoint(f *testing.F) {
 	{
 		seed := v5.ReadEndpoint{
 			Key:         "test_1",
-			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      v5.StoredMethod("GET"),
+			Disabled:    true,
 			Path:        "test_4",
 			Headers:     []v5.Header{},
 			QueryParams: []v5.QueryParam{},
@@ -623,7 +623,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 				{
 					Key:         "test_5",
 					Disabled:    false,
-					Method:      v5.Method("GET"),
+					Method:      v5.StoredMethod("GET"),
 					Path:        "test_8",
 					Headers:     []v5.Header{{Name: "test_10", Value: "test_11"}},
 					QueryParams: []v5.QueryParam{{Parameter: "test_13", Value: "test_14"}},
@@ -702,7 +702,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 		seed := v5.WriteEndpoint{
 			Key:         "test_1",
 			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      v5.StoredMethod("GET"),
 			Path:        "test_4",
 			Headers:     []v5.Header{{Name: "test_6", Value: "test_7"}},
 			QueryParams: []v5.QueryParam{{Parameter: "test_9", Value: "test_10"}},
@@ -730,7 +730,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 		seed := v5.WriteEndpoint{
 			Key:         "",
 			Disabled:    false,
-			Method:      v5.Method(""),
+			Method:      v5.StoredMethod(""),
 			Path:        "",
 			Headers:     []v5.Header{},
 			QueryParams: []v5.QueryParam{},
@@ -747,7 +747,7 @@ func FuzzDecodeWriteEndpoint(f *testing.F) {
 		seed := v5.WriteEndpoint{
 			Key:         "test_1",
 			Disabled:    false,
-			Method:      v5.Method("GET"),
+			Method:      v5.StoredMethod("GET"),
 			Path:        "test_4",
 			Headers:     []v5.Header{},
 			QueryParams: []v5.QueryParam{},

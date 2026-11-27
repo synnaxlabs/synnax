@@ -17,11 +17,11 @@ import { Task } from "@/platform/task";
 
 export interface EndpointLabelProps {
   /** The endpoint's form path. */
-  path: deep.Path<{ method: http.Method; path: string }>;
+  path: deep.Path<{ method: http.StoredMethod; path: string }>;
 }
 
 // The API-docs convention: each method gets its own hue.
-const METHOD_COLORS: Partial<Record<http.Method, string>> = {
+const METHOD_COLORS: Partial<Record<http.StoredMethod, string>> = {
   GET: "var(--pluto-secondary-z)",
   POST: "var(--pluto-warning-z)",
   PUT: "var(--pluto-primary-z)",
@@ -46,7 +46,7 @@ export const EndpointLabel = ({ path }: EndpointLabelProps) => {
 
 export interface EndpointItemProps extends Tree.ItemRenderProps<string> {
   /** The endpoint's form path. */
-  path: deep.Path<{ method: http.Method; path: string; disabled: boolean }>;
+  path: deep.Path<{ method: http.StoredMethod; path: string; disabled: boolean }>;
   /** Marks before the checkbox, such as a problem with the message. */
   children?: ReactNode;
 }

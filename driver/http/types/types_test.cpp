@@ -9,8 +9,6 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/testutil/testutil.h"
-
 #include "driver/http/types/types.h"
 
 using namespace driver::http;
@@ -57,6 +55,12 @@ TEST(ParseMethodTest, ParsesOPTIONS) {
     EXPECT_TRUE(p.ok());
 }
 
+TEST(ParseMethodTest, ParsesTRACE) {
+    x::json::Parser p(x::json::json{{"method", "TRACE"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::TRACE);
+    EXPECT_TRUE(p.ok());
+}
+
 /// @brief it should parse QUERY.
 TEST(ParseMethodTest, ParsesQUERY) {
     x::json::Parser p(x::json::json{{"method", "QUERY"}});
@@ -64,10 +68,10 @@ TEST(ParseMethodTest, ParsesQUERY) {
     EXPECT_TRUE(p.ok());
 }
 
-/// @brief it should refuse TRACE and CONNECT as validation errors.
-TEST(ParseMethodTest, RejectsTRACEAndCONNECT) {
-    ASSERT_OCCURRED_AS_P(parse_method("TRACE"), x::errors::VALIDATION);
-    ASSERT_OCCURRED_AS_P(parse_method("CONNECT"), x::errors::VALIDATION);
+TEST(ParseMethodTest, ParsesCONNECT) {
+    x::json::Parser p(x::json::json{{"method", "CONNECT"}});
+    EXPECT_EQ(parse_method(p, "method"), Method::CONNECT);
+    EXPECT_TRUE(p.ok());
 }
 
 TEST(ParseMethodTest, UnknownMethodErrors) {
@@ -112,9 +116,17 @@ TEST(ToStringTest, OPTIONS) {
     EXPECT_STREQ(to_string(Method::OPTIONS), "OPTIONS");
 }
 
+TEST(ToStringTest, TRACE) {
+    EXPECT_STREQ(to_string(Method::TRACE), "TRACE");
+}
+
 /// @brief it should return QUERY for QUERY_METHOD.
 TEST(ToStringTest, QUERY) {
     EXPECT_STREQ(to_string(Method::QUERY_METHOD), "QUERY");
+}
+
+TEST(ToStringTest, CONNECT) {
+    EXPECT_STREQ(to_string(Method::CONNECT), "CONNECT");
 }
 
 TEST(ToStringTest, InvalidMethodThrows) {
@@ -154,6 +166,14 @@ TEST(HasRequestBodyTest, QUERY) {
     EXPECT_TRUE(has_request_body(Method::QUERY_METHOD));
 }
 
+TEST(HasRequestBodyTest, CONNECT) {
+    EXPECT_FALSE(has_request_body(Method::CONNECT));
+}
+
+TEST(HasRequestBodyTest, TRACE) {
+    EXPECT_FALSE(has_request_body(Method::TRACE));
+}
+
 TEST(HasResponseBodyTest, GET) {
     EXPECT_TRUE(has_response_body(Method::GET));
 }
@@ -178,13 +198,21 @@ TEST(HasResponseBodyTest, OPTIONS) {
     EXPECT_TRUE(has_response_body(Method::OPTIONS));
 }
 
+TEST(HasResponseBodyTest, TRACE) {
+    EXPECT_TRUE(has_response_body(Method::TRACE));
+}
+
+TEST(HasResponseBodyTest, HEAD) {
+    EXPECT_FALSE(has_response_body(Method::HEAD));
+}
+
 /// @brief it should read a response body for QUERY.
 TEST(HasResponseBodyTest, QUERY) {
     EXPECT_TRUE(has_response_body(Method::QUERY_METHOD));
 }
 
-TEST(HasResponseBodyTest, HEAD) {
-    EXPECT_FALSE(has_response_body(Method::HEAD));
+TEST(HasResponseBodyTest, CONNECT) {
+    EXPECT_FALSE(has_response_body(Method::CONNECT));
 }
 
 /// @brief it should escape line breaks in a short body and keep the rest.

@@ -167,12 +167,12 @@ func (re *ReadEndpoint) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
 		return patch.Value(&re.Key, c.Next())
-	case "disabled":
-		return patch.Value(&re.Disabled, c.Next())
 	case "method":
 		return patch.Defaulted(&re.Method, c.Next(), func(def *ReadEndpoint) {
 			re.Method = def.Method
 		})
+	case "disabled":
+		return patch.Value(&re.Disabled, c.Next())
 	case "path":
 		return patch.Value(&re.Path, c.Next())
 	case "headers":
@@ -195,8 +195,8 @@ func (re *ReadEndpoint) PatchKey() string { return re.Key }
 
 // HashContent writes the content of the value to h, without its keys.
 func (re *ReadEndpoint) HashContent(h *content.Hash) {
-	h.Bool(re.Disabled)
 	h.String(string(re.Method))
+	h.Bool(re.Disabled)
 	h.String(re.Path)
 	h.Len(len(re.Headers))
 	for i0 := range re.Headers {

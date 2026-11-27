@@ -55,8 +55,8 @@ inline x::json::json QueryParam::to_json() const {
 inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
     return ReadEndpoint{
         .key = parser.field<std::string>("key", x::uuid::create().to_string()),
-        .disabled = parser.field<bool>("disabled", false),
         .method = parser.field<std::string>("method", "GET"),
+        .disabled = parser.field<bool>("disabled", false),
         .path = parser.field<std::string>("path", ""),
         .headers = parser.field<std::vector<Header>>("headers", std::vector<Header>{}),
         .query_params = parser.field<std::vector<QueryParam>>(
@@ -75,8 +75,8 @@ inline ReadEndpoint ReadEndpoint::parse(x::json::Parser parser) {
 inline x::json::json ReadEndpoint::to_json() const {
     x::json::json j = x::json::json::object();
     j["key"] = this->key;
-    j["disabled"] = this->disabled;
     j["method"] = this->method;
+    j["disabled"] = this->disabled;
     j["path"] = this->path;
     j["headers"] = x::json::to_array(this->headers);
     j["query_params"] = x::json::to_array(this->query_params);

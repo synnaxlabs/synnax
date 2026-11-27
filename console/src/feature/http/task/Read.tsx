@@ -75,17 +75,17 @@ const endpointPrefix = (deviceName: string, path: string): string =>
 
 const MethodSelect: FC<{ path: deep.Path<ReadEndpoint> }> = ({ path }) => {
   const { set } = PForm.useContext();
-  const handleChange = (method: http.Method) => {
+  const handleChange = (method: http.StoredMethod) => {
     set(path.method, method);
     // GET carries no request body. Clearing it here keeps a body typed under POST
     // from staying in the saved config, where it would set a content type on a
     // request that sends nothing.
     if (method !== "POST") set(path.body, "");
   };
-  const renderMethod = (p: Select.ButtonsProps<http.Method>) => (
-    <Select.Buttons<http.Method> {...p} onChange={handleChange}>
-      <Select.Item<http.Method> itemKey="GET">GET</Select.Item>
-      <Select.Item<http.Method> itemKey="POST">POST</Select.Item>
+  const renderMethod = (p: Select.ButtonsProps<http.StoredMethod>) => (
+    <Select.Buttons<http.StoredMethod> {...p} onChange={handleChange}>
+      <Select.Item<http.StoredMethod> itemKey="GET">GET</Select.Item>
+      <Select.Item<http.StoredMethod> itemKey="POST">POST</Select.Item>
     </Select.Buttons>
   );
   return (
