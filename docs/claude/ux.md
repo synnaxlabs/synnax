@@ -327,6 +327,9 @@ bound, a log precision, or the line plot X channel.
   message is "Failed to deploy changes", and the footer description starts with "The
   task still runs its last deployed config." Rejected: "Failed to start task" there,
   which reads as if the task stopped.
+- A failed deploy or a reply to a task command toasts only while no focused window shows
+  the task's tab. Where the tab shows, the footer shows the failure, and a toast would
+  cover it. When the Console cannot check, it toasts.
 - The header stays compact: the rack name hangs under the utility buttons and adds no
   height.
 - A disabled channel dims to half strength. Its enabled dot stays at full strength, as
