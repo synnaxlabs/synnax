@@ -68,13 +68,14 @@ same cycle, the first one in the code wins. See
 
 | Transition | Effect                                                                    |
 | ---------- | ------------------------------------------------------------------------- |
-| `=> next`  | Moves to the next step of the sequence.                                   |
+| `=> next`  | Moves to the next step, or completes the sequence from its last step.     |
 | `=> name`  | Moves to the named step of the same sequence, also an earlier step.       |
 | `=> other` | Stops this sequence, then starts the top-level sequence or stage `other`. |
 
 A stage of a different sequence is not a valid target: `undefined symbol: name`. A
-`=> next` in the last step fails with
-`invalid transition target: 'next' in last stage 'abort' has no next stage`.
+`=> next` in the last stage completes the sequence, in the same way as a last write,
+wait, or gate. Moving a stage to the end of its sequence changes what its `=> next`
+does.
 
 A transition to a top-level target stops the whole top-level sequence or stage that
 holds it, including all nested items. Nothing in that scope resumes. A running target
