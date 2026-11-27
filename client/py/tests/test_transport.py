@@ -31,6 +31,7 @@ from freighter.websocket import Message
 from synnax.exceptions import create_registry
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
+from tests.proxy import Proxy
 from x.codec import JSONCodec
 
 
@@ -61,31 +62,12 @@ def pinged_endpoint() -> Iterator[tuple[URL, threading.Event]]:
 
 
 @pytest.fixture
-def stalled_endpoint() -> Iterator[URL]:
-    """Serves a stream that acks the open, then never answers a ping, as a peer behind
-    a stalled link does."""
-    codec = JSONCodec()
-
-    class Connection(ServerConnection):
-        @override
-        def process_event(self, event: Event) -> None:
-            if isinstance(event, Frame) and event.opcode is Opcode.PING:
-                return
-            super().process_event(event)
-
-    def handler(ws: ServerConnection) -> None:
-        ws.send(codec.encode(Message[Empty](type="open", payload=Empty())))
-        try:
-            ws.recv()
-        except ConnectionClosedError:
-            pass
-
-    with serve(handler, "localhost", 0, create_connection=Connection) as server:
-        thread = threading.Thread(target=server.serve_forever)
-        thread.start()
-        yield URL(host="localhost", port=server.socket.getsockname()[1])
-        server.shutdown()
-        thread.join()
+def stall_proxy(pinged_endpoint: tuple[URL, threading.Event]) -> Iterator[Proxy]:
+    """Puts a proxy in front of the pinged endpoint, so a spec can stall the link."""
+    url, _ = pinged_endpoint
+    proxy = Proxy(url.host, url.port)
+    yield proxy
+    proxy.close()
 
 
 # A server on localhost listens on a port per address family, so a client can reach
@@ -225,31 +207,32 @@ class TestKeepAlive:
         await stream.close_send()
 
 
+def _stall_transport(proxy: Proxy) -> Transport:
+    return Transport(
+        url=URL(host="localhost", port=proxy.port),
+        instrumentation=NOOP,
+        registry=create_registry(),
+        # Bounds the wait for the TCP close after the client fails the connection.
+        read_timeout=TimeSpan.MILLISECOND * 200,
+        keep_alive=TimeSpan.MILLISECOND * 50,
+        keep_alive_timeout=TimeSpan.MILLISECOND * 200,
+    )
+
+
 class TestKeepAliveTimeout:
-    def test_sync(self, stalled_endpoint: URL) -> None:
-        """Should fail a sync stream whose peer stops answering pings."""
-        transport = Transport(
-            url=stalled_endpoint,
-            instrumentation=NOOP,
-            registry=create_registry(),
-            keep_alive=TimeSpan.MILLISECOND * 50,
-            keep_alive_timeout=TimeSpan.MILLISECOND * 100,
-        )
-        stream = transport.stream.stream("/", Empty, Empty)
+    def test_sync(self, stall_proxy: Proxy) -> None:
+        """Should fail a sync stream whose link stalls."""
+        stream = _stall_transport(stall_proxy).stream.stream("/", Empty, Empty)
+        assert stall_proxy.blackhole() == 1
         with pytest.raises(ConnectionClosedError, match="keepalive ping timeout"):
             stream.receive(timeout=5)
 
     @pytest.mark.asyncio
-    async def test_async(self, stalled_endpoint: URL) -> None:
-        """Should fail an async stream whose peer stops answering pings."""
-        transport = Transport(
-            url=stalled_endpoint,
-            instrumentation=NOOP,
-            registry=create_registry(),
-            keep_alive=TimeSpan.MILLISECOND * 50,
-            keep_alive_timeout=TimeSpan.MILLISECOND * 100,
-        )
+    async def test_async(self, stall_proxy: Proxy) -> None:
+        """Should fail an async stream whose link stalls."""
+        transport = _stall_transport(stall_proxy)
         stream = await transport.stream_async.stream("/", Empty, Empty)
+        assert stall_proxy.blackhole() == 1
         with pytest.raises(ConnectionClosedError, match="keepalive ping timeout"):
             await asyncio.wait_for(stream.receive(), 5)
 
