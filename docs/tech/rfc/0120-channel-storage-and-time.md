@@ -918,7 +918,9 @@ branch against `main` and reports to the founder session.
   with read checks off, at 1 and 8 readers (D-459, RFC 0121 §8). The storage branch
   misses it today on point and full reads (D-459): the 64 KiB block read per search
   step, the block cache mutex, and `ReadSamples`. Hidden clocks neither cause nor fix
-  those misses and add clock finding on top, so they wait on D-459's fixes.
+  those misses and add clock finding on top, so they wait on D-459's fixes. A timed read
+  compares with `main`'s read of the same keys and their index channels, and an untimed
+  read with `main`'s read of the keys alone.
 - **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
   today's index keys as clocks and no format change. Phases 24 to 54 start only when the
   one-clock reads are within 15% of `main`, the prototype is within 3% of the storage
@@ -928,8 +930,13 @@ branch against `main` and reports to the founder session.
   `scripts/compare_benchmarks.py` gets `layout=log` cases for `ReadDomains`,
   `ReadSamples`, and `StreamFixedSpan`, puts `ReadOneClock` and `SeekPointerLog` in its
   read group, fixes its `ts/codec` path, and reads its table against 15%, not its 5%
-  exit code. New cases: `keys=108`, `clocks=2`, `jumps=64`, `parts=true`, and
-  `channels=108`.
+  exit code. New cases: `keys=108`, `clocks=2`, `clocks=64`, `jumps=64`, `parts=true`,
+  and `channels=108`.
+- **New benchmarks**: The box adds these and runs each on `main` first for a base:
+  `RunParallel` forms of the read benchmarks at 8 readers; a point read and `SeekGE` on
+  both layouts; a relay benchmark from writer to streamer at 1 and 100 subscribers, with
+  timed and untimed keys; a calculation at a 10:1 rate ratio over 10 chunks; a running
+  `max` over 1 day of history; and bytes for the TypeScript cache and codec benchmarks.
 - **P**: `BenchmarkReadDomains` with `jumps` of 16, 32, 64, and 128 measures one key
   against the same key on a clock of its own. P is the largest count whose read costs at
   most 2 times the own clock.
