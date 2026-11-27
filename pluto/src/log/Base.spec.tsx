@@ -415,8 +415,32 @@ describe("log/Base", () => {
       );
     });
 
-    it("should stop selecting when the button comes up", async () => {
+    it("should end a drag at a move whose hit resolves after the release", async () => {
       const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 1, char: 4 });
+      let resolveMove: (point: { entry: number; char: number }) => void = () => {};
+      hit.mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveMove = resolve;
+        }),
+      );
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await act(async () => {});
+      fireEvent.mouseMove(window, { buttons: 1, clientX: 10, clientY: 90 });
+      fireEvent.mouseUp(window);
+      resolveMove({ entry: 3, char: 2 });
+      await waitFor(() =>
+        expect(applied(setState)).toMatchObject({
+          selectionEnd: 3,
+          selectionEndChar: 2,
+        }),
+      );
+    });
+
+    it("should stop selecting when the button comes up", async () => {
+      const { hit } = setupAether({ empty: false });
       const { container } = renderLog();
       const div = getLogDiv(container);
       fireEvent.mouseDown(div, { button: 0 });

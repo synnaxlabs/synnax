@@ -39,6 +39,18 @@ import { theming } from "@/theming/aether";
 import { Draw2D, type SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 
+// The state that sets the text of a line, so a change of it moves the characters of a
+// selection.
+const LINE_TEXT_KEYS = [
+  "channels",
+  "timestampPrecision",
+  "channelNamesHidden",
+  "timestampsHidden",
+  "timeZone",
+  "channelNames",
+  "channelDataTypes",
+] as const;
+
 export const logStateZ = log.logZ
   .pick({
     channels: true,
@@ -373,6 +385,9 @@ export class Log
     const { internal: i } = this;
     // Read before any setState below, which overwrites prevState.
     const wasVisible = this.prevState.visible;
+    const lineTextChanged = LINE_TEXT_KEYS.some(
+      (key) => !deep.equal(this.state[key], this.prevState[key]),
+    );
     i.render = render.Context.use(ctx);
     i.stopListeningRestore?.();
     i.stopListeningRestore = i.render.on2DRestore(() => {
@@ -512,6 +527,9 @@ export class Log
       }
     }
 
+    // A selection of characters keeps its whole lines when their text changes.
+    if (lineTextChanged && this.state.selectionStartChar >= 0)
+      this.setState((s) => ({ ...s, selectionStartChar: -1, selectionEndChar: -1 }));
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
     this.syncStatus(i.telem.value().status);
     i.stopListeningTelem?.();

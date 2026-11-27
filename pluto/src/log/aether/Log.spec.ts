@@ -2213,6 +2213,28 @@ describe("log/aether/Log", () => {
       return leaf.selection().lines.map(({ text }) => text);
     };
 
+    it("should keep the whole lines of a selection when their text changes", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 2,
+        selectionEnd: 0,
+        selectionEndChar: 4,
+      };
+      const { leaf, updateState } = setup(valued("abcdef"), NARROW, {
+        ...BARE,
+        ...selection,
+      });
+      updateState({ ...BARE, ...selection });
+      expect(leaf.state.selectionStartChar).toBe(2);
+      updateState({ ...BARE, ...selection, channelNamesHidden: false });
+      expect(leaf.state).toMatchObject({
+        selectionStart: 0,
+        selectionEnd: 0,
+        selectionStartChar: -1,
+        selectionEndChar: -1,
+      });
+    });
+
     it("should copy part of a line", () => {
       const selection = {
         selectionStart: 0,
