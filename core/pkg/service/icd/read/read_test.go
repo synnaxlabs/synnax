@@ -319,12 +319,12 @@ var _ = Describe("Read", func() {
 							icd.ReadBinding{Field: count.Base().Key, Channel: totalKey},
 							icd.ReadBinding{
 								Field:    count.Base().Key,
-								DataType: telem.Uint8T,
+								DataType: new(telem.Uint8T),
 							},
 							icd.ReadBinding{Field: level.Base().Key, Channel: valueKey},
 							icd.ReadBinding{
 								Field:    wide.Base().Key,
-								DataType: telem.Int16T,
+								DataType: new(telem.Int16T),
 							},
 						)),
 						readAt(1, plant.Key, readOf(line, icd.ReadBinding{
@@ -470,7 +470,7 @@ var _ = Describe("Read", func() {
 				),
 				Entry("a binary field into a data type that its kind does not suit",
 					readOf(frame, icd.ReadBinding{
-						Field: count.Base().Key, DataType: telem.StringT,
+						Field: count.Base().Key, DataType: new(telem.StringT),
 					}),
 					"reads.0.messages.0.bindings.0.data_type",
 					"field count of kind unsigned cannot read into data type string",
@@ -479,7 +479,7 @@ var _ = Describe("Read", func() {
 					"an unsigned binary field into a signed type with no bit for "+
 						"the sign",
 					readOf(frame, icd.ReadBinding{
-						Field: count.Base().Key, DataType: telem.Int8T,
+						Field: count.Base().Key, DataType: new(telem.Int8T),
 					}),
 					"reads.0.messages.0.bindings.0.data_type",
 					"field count of kind 8-bit unsigned cannot read into data type int8",
@@ -569,7 +569,7 @@ var _ = Describe("Read", func() {
 				),
 				Entry("a scaled field with an integer data type",
 					readOf(status, icd.ReadBinding{
-						Field: ticks.Base().Key, DataType: telem.Int64T,
+						Field: ticks.Base().Key, DataType: new(telem.Int64T),
 					}),
 					"reads.0.messages.0.bindings.0.data_type",
 					"scaled field ticks of kind integer cannot read into data type "+
