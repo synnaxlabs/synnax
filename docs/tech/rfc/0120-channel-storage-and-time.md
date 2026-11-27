@@ -537,16 +537,18 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   a new segment on the new holder's clock, in a file made at the new holder's open.
   Cesium makes a spare file on the old holder's clock off the frame path, so a move back
   opens no file on the frame path either (RFC 0121 §5.8).
-- **Control writers**: Arc tasks, the Python `Controller`, and Pluto control declare one
-  group per command channel, so each command channel has its own clock. Pluto and the
-  `Controller` stamp on arrival. Authority covers channels only, so two command channels
-  that share an index channel today stop sharing authority.
+- **Control writers**: The Python `Controller` and Pluto control declare one group per
+  command channel, and Arc does so by default, so each command channel has its own
+  clock. Pluto and the `Controller` stamp on arrival. Authority covers channels only, so
+  two command channels that share an index channel today stop sharing authority.
 - **Arc**: The compiler fills the groups of a program (`time_groups` in
-  `schemas/arc/ir.oracle`, NEW) by one rule. Sinks fed from one output port of one node
-  in one scope share a group. Writes of one function that sit outside every branch and
-  loop, one value each per call, share a group. Every other output has a group of its
-  own. A new analyzer pass records the branch and loop depth of each write; today the
-  analyzer records a body write per function, whatever the branch
+  `schemas/arc/ir.oracle`, NEW). Each output channel has a group of its own, so a cycle
+  that writes part of its outputs stays legal: an early `return`, a trap, a `=>` edge,
+  and a channel that two stages write. The cost is 8 bytes of stamps per command sample.
+  The compiler merges channels into one group only when it proves that every write site
+  of each writes all of them, one value each, with no `return`, no expression that can
+  trap, and no `=>` edge between the first write and the last. A new analyzer pass makes
+  that proof; today the analyzer records a body write per function, whatever the branch
   (`arc/go/analyzer/statement/statement.go:1113`). The runtimes group a cycle's writes
   by group, not by index (`arc/go/stl/channels/state.go:173-198`), and stop adding index
   keys to a program's writes (`core/pkg/service/arc/runtime/dependencies.go:110-112`).
@@ -802,8 +804,8 @@ The migration changes metadata only and runs at the first start, before any writ
 
 Each rule closes a way to pair data with the wrong stamps and give no error.
 
-1. **The Arc grouping rule**: The compiler groups outputs only by the rule of §4.8. No
-   runtime check stands in for it.
+1. **The Arc grouping rule**: The compiler merges outputs only by the proof of §4.8, and
+   every other output has a group of its own. No runtime check stands in for it.
 2. **The join before any clock move**: Phases 20 to 23 land before Phase 25, the first
    in which a channel can change clocks. Until the join, a calculation pairs inputs on
    two clocks by position (`arc/go/stl/wasm/node.go:316-333`).
@@ -1128,7 +1130,9 @@ config from Phase 43. Keys of `core/v0.62.0` keep their numbers.
     rewrite, which breaks stored programs.
 30. **One group per command channel, stamped on arrival**: Rejected: client stamps in
     the `Controller`, which can fall behind a Pluto stamp on the same channel and fail
-    the commit.
+    the commit. Arc merges outputs only on proof. Rejected: groups by sink port and by
+    function body, which an early `return`, a trap, or a second writer of one channel
+    breaks.
 31. **`clock` in code and on the wire, "time" for users**: Rejected: `line` in code, a
     rename of the shipped series field for no user gain. So the open response field is
     `clocks`, and the read caches are per clock.
