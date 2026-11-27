@@ -24,7 +24,7 @@ func secs(s float64) telem.TimeStamp {
 	return telem.TimeStamp(s * float64(telem.Second))
 }
 
-// pace reads ts in history the way D-378 (c) says a reader paces its inputs: it pushes
+// pace reads ts in history the way a reader paces its inputs: it pushes
 // a chunk of the input with the earliest newest stamp, then passes the earliest newest
 // stamp of the inputs that have more. It returns the first failed push, or nil.
 func pace(
@@ -81,7 +81,7 @@ func pace(
 var _ = Describe("Join break", func() {
 	DescribeTable(
 		"Should hold an input whose stamps lag the primary's while its frames arrive, "+
-			"when From is the live open (D-396 amended: a 1 s skew stays held)",
+			"when From is the live open (a 1 s skew stays held)",
 		func(lag float64) {
 			var now telem.TimeStamp
 			j := MustSucceed(join.New(join.Config{
@@ -121,8 +121,7 @@ var _ = Describe("Join break", func() {
 	)
 
 	It("Should never reach the cap in a paced history read when the primary has a "+
-		"gap beside a 1 kHz input (D-378 (c): history at the largest chunk size "+
-		"never reaches the cap)", func() {
+		"gap beside a 1 kHz input", func() {
 		var primary []telem.TimeStamp
 		for s := range 11 {
 			primary = append(primary, secs(float64(s)))
@@ -144,8 +143,7 @@ var _ = Describe("Join break", func() {
 	})
 
 	It("Should join an on-change input with no limit live as in history when its "+
-		"samples arrive in stamp order (D-384: it holds with no limit; D-378 (3): "+
-		"outputs are equal for in-order arrival)", func() {
+		"samples arrive in stamp order", func() {
 		other := []float64{0, 2, 15, 16, 40}
 		history := newJoin(2, 0, 0)
 		primary := make([]float64, 46)
@@ -184,17 +182,17 @@ var _ = Describe("Join break", func() {
 		Expect(gotSamples).To(Equal(wantSamples))
 	})
 
-	It("Should take 3 times the exact median of an even count of intervals "+
-		"(D-372: the limit is 3 times the median)", func() {
-		// Intervals of 1 ns and 2 ns: the median is 1.5 ns, so the limit is 4.5 ns,
-		// and a primary stamp 4 ns past the held sample holds.
-		j := newJoin(2, 0, 0)
-		Expect(j.Push(1, values(1, 2, 3), rawStamps(0, 0, 1, 3))).To(Succeed())
-		Expect(j.Push(0, values(9), rawStamps(0, 7))).To(Succeed())
-		var out join.Output
-		j.Next(telem.TimeStampMax, &out)
-		Expect(out.Dropped).To(BeZero())
-	})
+	It("Should take 3 times the exact median of an even count of intervals",
+		func() {
+			// Intervals of 1 ns and 2 ns: the median is 1.5 ns, so the limit is 4.5 ns,
+			// and a primary stamp 4 ns past the held sample holds.
+			j := newJoin(2, 0, 0)
+			Expect(j.Push(1, values(1, 2, 3), rawStamps(0, 0, 1, 3))).To(Succeed())
+			Expect(j.Push(0, values(9), rawStamps(0, 7))).To(Succeed())
+			var out join.Output
+			j.Next(telem.TimeStampMax, &out)
+			Expect(out.Dropped).To(BeZero())
+		})
 
 	Describe("Random live in stamp order", func() {
 		// Each run builds a primary and two steady inputs at random rates, each

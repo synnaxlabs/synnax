@@ -20,7 +20,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// at returns a timestamp series of ts, with the alignment of its first sample.
+// rawStamps returns a timestamp series of ts, with the alignment of its first sample.
 func rawStamps(alignment telem.Alignment, ts ...telem.TimeStamp) telem.Series {
 	s := telem.NewSeries(ts)
 	s.Alignment = alignment
