@@ -17,6 +17,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/rack/status/status.h"
 
 namespace driver::rack::status {
@@ -169,7 +170,8 @@ TEST(stateTests, Nominal) {
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     auto task = synnax::task::Task{
         .name = "state",
@@ -214,7 +216,8 @@ TEST(stateTests, RenamedRack) {
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     ctx->set_rack_name(rack.name);
     auto task = synnax::task::Task{
@@ -265,7 +268,8 @@ TEST(stateTests, TaskRunningTransitions) {
     );
     auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     auto task = synnax::task::Task{
         .name = "state",
@@ -320,7 +324,11 @@ TEST(stateTests, StartedBeforeConfigureReturns) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     const auto statuses = std::make_shared<driver::task::StatusCache>(client->statuses);
-    auto ctx = std::make_shared<driver::task::SynnaxContext>(client, statuses);
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        statuses,
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
+    );
     auto task = synnax::task::Task{
         .name = "state",
         .type = driver::rack::status::TASK_TYPE,
@@ -348,7 +356,8 @@ TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -378,7 +387,8 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -408,7 +418,8 @@ TEST(stateTests, ResendsTaskStatusesAfterAFailedWrite) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -439,7 +450,8 @@ TEST(stateTests, RetriesAFailedResend) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -469,7 +481,8 @@ TEST(stateTests, ReportsHealth) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,
@@ -496,6 +509,67 @@ TEST(stateTests, ReportsHealth) {
     EXPECT_TRUE(beat.details.running);
 }
 
+/// @brief it should report a raised alert over a health that is a success, and its own
+/// health again once the alert clears.
+TEST(stateTests, ReportsRaisedAlert) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    const synnax::rack::Rack rack{.key = 1, .name = "test_rack"};
+    const auto transport = std::make_shared<BeatRecorder>(
+        synnax::rack::resource_id(rack.key)
+    );
+    client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
+    );
+    const auto alert = std::make_shared<Alert>();
+    alert->raise(
+        Health{
+            .variant = synnax::status::VARIANT_WARNING,
+            .message = "Outbox stuck",
+            .description = "The Core has not taken a set.",
+        }
+    );
+    Task hb(
+        rack,
+        synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
+        ctx,
+        Health{},
+        alert
+    );
+    x::defer::defer stop([&hb]() { hb.stop(false); });
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    const auto raised = transport->last_beat();
+    EXPECT_EQ(raised.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(raised.message, "Outbox stuck");
+    EXPECT_EQ(raised.description, "The Core has not taken a set.");
+    alert->clear();
+    const auto beats = transport->beats.load();
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        transport->beats.load(),
+        beats + 2,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(transport->last_beat().message, "Driver is running");
+}
+
+/// @brief it should report a health that is not a success over a raised alert.
+TEST(stateTests, HealthOverridesAlert) {
+    const auto alert = std::make_shared<Alert>();
+    alert->raise(Health{.variant = synnax::status::VARIANT_WARNING, .message = "a"});
+    const Health error{.variant = synnax::status::VARIANT_ERROR, .message = "e"};
+    EXPECT_EQ(with_alert(error, alert).message, "e");
+    EXPECT_EQ(with_alert(Health{}, alert).message, "a");
+    EXPECT_EQ(with_alert(Health{}, nullptr).message, "Driver is running");
+}
+
 /// @brief it should warn while the clock skew to the Core exceeds the threshold, and
 /// return to its health once the skew is back under it.
 TEST(stateTests, WarnsOnClockSkew) {
@@ -517,7 +591,8 @@ TEST(stateTests, WarnsOnClockSkew) {
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
     const auto ctx = std::make_shared<driver::task::SynnaxContext>(
         client,
-        std::make_shared<driver::task::StatusCache>(client->statuses)
+        std::make_shared<driver::task::StatusCache>(client->statuses),
+        std::pair{::driver::outbox::testutil::open(client->statuses), x::errors::NIL}
     );
     Task hb(
         rack,

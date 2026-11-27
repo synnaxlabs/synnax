@@ -15,12 +15,14 @@
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/file/file.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::file {
 namespace {
 struct Fixture {
     std::shared_ptr<task::MockContext> ctx = std::make_shared<task::MockContext>(
-        nullptr
+        nullptr,
+        ::driver::outbox::testutil::open({})
     );
     synnax::task::Task task{
         .key = x::uuid::create(),
@@ -93,7 +95,10 @@ TEST(FileTask, UnknownCommand) {
 /// @brief it should configure only File Browser tasks.
 TEST(FileFactory, ConfigureTask) {
     Factory factory(Config{.roots = {"/"}});
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     x::breaker::Breaker breaker;
     auto [browser, handled] = factory.configure_task(
         ctx,

@@ -58,8 +58,8 @@ AmbientCapabilities=CAP_NET_RAW
 # Watchdog configuration
 WatchdogSec=30s
 
-# State directory
-StateDirectory=synnax synnax-driver/bin
+# State directory. The service user owns bin and data, and root keeps synnax-driver.
+StateDirectory=synnax synnax-driver/bin synnax-driver/data
 ConfigurationDirectory=synnax
 CacheDirectory=synnax
 LogsDirectory=synnax

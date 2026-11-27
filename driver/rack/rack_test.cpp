@@ -8,22 +8,40 @@
 // included in the file licenses/APL.txt.
 
 #include <atomic>
+#include <cstdint>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
+#include "absl/crc/crc32c.h"
 #include "gtest/gtest.h"
 
 #include "client/cpp/auth/auth.h"
 #include "client/cpp/testutil/pipe.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/kv/kv.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/journal/journal.h"
+#include "driver/outbox/outbox.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
 const std::string RACK_STATE_PATH = "/tmp/rack-test/state.json";
+
+/// @brief writes a segment file start at path with format version 2, which this
+/// Driver cannot read.
+void write_future_segment(const std::filesystem::path &path) {
+    std::string header(outbox::SEGMENT_MAGIC.data(), outbox::SEGMENT_MAGIC.size());
+    header += std::string("\x02\x00", 2);
+    header += std::string(journal::HEADER_SIZE - 14, '\0');
+    const auto crc = static_cast<std::uint32_t>(absl::ComputeCrc32c(header));
+    for (int i = 0; i < 4; i++)
+        header.push_back(static_cast<char>(crc >> (8 * i)));
+    std::ofstream(path, std::ios::binary) << header;
+}
 
 /// @brief returns arguments that point the rack at a fresh state file.
 x::args::Parser fresh_args(std::vector<std::string> extra) {
@@ -119,5 +137,83 @@ TEST(RackTest, WaitsForAnUnreachableCorePastTheRetryLimit) {
     ASSERT_FALSE(shut_down);
     pipe.resume();
     ASSERT_NIL(r.stop());
+}
+
+/// @brief returns arguments that log the rack in to the test Core.
+x::args::Parser core_args() {
+    const auto conn = test_client_config();
+    return fresh_args({
+        "--host",
+        conn.host,
+        "--port",
+        std::to_string(conn.port),
+        "--username",
+        conn.username,
+        "--password",
+        conn.password,
+    });
+}
+
+/// @brief returns the outbox directory of the rack under test.
+std::filesystem::path outbox_dir() {
+    return std::filesystem::path(RACK_STATE_PATH).parent_path() / DATA_DIR / OUTBOX_DIR;
+}
+
+/// @brief it should open the outbox in the data directory.
+TEST(RackTest, OpensOutbox) {
+    std::filesystem::remove_all(outbox_dir());
+    auto args = core_args();
+    Rack r;
+    r.start(args);
+    ASSERT_EVENTUALLY_TRUE(std::filesystem::exists(outbox_dir()));
+    ASSERT_NIL(r.stop());
+}
+
+/// @brief it should keep running without the outbox when it cannot open, report why in
+/// the rack status, and leave the outbox files in place.
+TEST(RackTest, RunsWithoutOutbox) {
+    const auto dir = outbox_dir();
+    std::filesystem::remove_all(dir);
+    std::filesystem::create_directories(dir);
+    write_future_segment(dir / "0.calls");
+    x::defer::defer cleanup([&] { std::filesystem::remove_all(dir); });
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("outbox rack"));
+    auto args = core_args();
+    const auto kv = ASSERT_NIL_P(
+        x::kv::JSONFile::open_file({
+            .path = RACK_STATE_PATH,
+            .dir_mode = std::filesystem::perms::owner_all,
+            .file_mode = std::filesystem::perms::owner_read |
+                         std::filesystem::perms::owner_write,
+        })
+    );
+    ASSERT_NIL(kv->set(
+        "remote_info",
+        x::json::json{
+            {"rack_key", rack.key},
+            {"cluster_key", client.connectivity->check().cluster_key}
+        }.dump()
+    ));
+    std::atomic shut_down = false;
+    Rack r;
+    r.start(args, [&] { shut_down = true; });
+    const auto reported = [&] {
+        const synnax::rack::RetrieveOptions opts{.include_status = true};
+        const auto [remote, err] = client.racks.retrieve(rack.key, opts);
+        return !err && remote.status.has_value() &&
+               remote.status->message == OUTBOX_FAILURE_MSG &&
+               remote.status->variant == synnax::status::VARIANT_ERROR &&
+               remote.status->description.contains("Update the Driver") &&
+               remote.status->details.running;
+    };
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        reported(),
+        std::chrono::seconds(30),
+        std::chrono::milliseconds(100)
+    );
+    ASSERT_FALSE(shut_down);
+    ASSERT_NIL(r.stop());
+    ASSERT_EQ(std::filesystem::file_size(dir / "0.calls"), journal::HEADER_SIZE);
 }
 }

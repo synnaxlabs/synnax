@@ -22,6 +22,7 @@
 #include "driver/common/scan_task.h"
 #include "driver/modbus/scan_task.h"
 #include "driver/modbus/testutil/slave.h"
+#include "driver/outbox/testutil/testutil.h"
 
 namespace driver::modbus {
 /// @brief it should successfully test connection to Modbus device.
@@ -30,7 +31,10 @@ TEST(ScanTask, testConnection) {
     auto slave = testutil::Slave(testutil::SlaveConfig{.port = 1664});
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
 
     synnax::task::Task t;
     t.key = x::uuid::create();
@@ -68,7 +72,10 @@ TEST(ScanTask, testConnection) {
 }
 
 TEST(ScanTask, testConfigReturnsCorrectValues) {
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     t.type = "modbus_scan";
@@ -81,7 +88,10 @@ TEST(ScanTask, testConfigReturnsCorrectValues) {
 }
 
 TEST(ScanTask, testExecReturnsFalseForUnknownCommand) {
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     t.type = "modbus_scan";
@@ -98,7 +108,10 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     t.type = "modbus_scan";
@@ -133,7 +146,10 @@ TEST(ScanTask, testScanChecksDeviceHealth) {
 }
 
 TEST(ScanTask, testScanReportsDisconnectedDevice) {
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     t.type = "modbus_scan";
@@ -210,7 +226,10 @@ TEST(ScanTask, testScanKeepsConnectionOpen) {
     testutil::Slave slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
     const auto dev = local_device("kept", 1660);
@@ -232,7 +251,10 @@ TEST(ScanTask, testScanSkipsProbeAfterTaskReply) {
     testutil::Slave slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     auto devs = std::make_shared<device::Manager>();
     Scanner scanner(ctx, t, devs);
@@ -261,7 +283,10 @@ TEST(ScanTask, testScanReportsSilentUnit) {
     testutil::Slave slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
 
@@ -280,7 +305,10 @@ TEST(ScanTask, testScanReportsRequestStats) {
     testutil::Slave slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
     const auto dev = local_device("counted", 1678);
@@ -307,7 +335,10 @@ TEST(ScanTask, testConnectionDuringSlowScan) {
     testutil::Slave live(testutil::SlaveConfig{.port = 1667});
     ASSERT_NIL(live.start());
     x::defer::defer stop_live([&live] { live.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
@@ -339,7 +370,10 @@ TEST(ScanTask, testConnectionWaitsRequestDelay) {
     testutil::Slave slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     auto devs = std::make_shared<device::Manager>();
@@ -375,7 +409,10 @@ TEST(ScanTask, testConnectionFailsForSilentUnit) {
     testutil::Slave slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
-    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());

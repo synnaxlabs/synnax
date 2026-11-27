@@ -32,6 +32,14 @@ fs::path machine_dir() {
     return "C:\\ProgramData\\synnax-driver";
 }
 
+std::pair<x::fs::OnCreate, x::errors::Error> owner_hook(const fs::path &, const bool) {
+    return {x::fs::no_create_hook, x::errors::NIL};
+}
+
+std::pair<x::fs::OnCreate, x::errors::Error> owner_hook(const fs::path &dir) {
+    return owner_hook(dir, false);
+}
+
 fs::path user_dir() {
     if (const char *appdata = std::getenv("LOCALAPPDATA"))
         return fs::path(appdata) / "synnax-driver";

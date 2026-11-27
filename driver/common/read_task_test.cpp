@@ -24,6 +24,7 @@
 
 #include "driver/common/read_task.h"
 #include "driver/common/testutil.h"
+#include "driver/outbox/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
@@ -191,7 +192,10 @@ struct ScriptedRead {
         breaker_config.base_interval = 10 * x::telem::MILLISECOND;
         this->task = std::make_unique<ReadTask>(
             synnax::task::Task{.key = x::uuid::create()},
-            std::make_shared<task::MockContext>(nullptr),
+            std::make_shared<task::MockContext>(
+                nullptr,
+                ::driver::outbox::testutil::open({})
+            ),
             breaker_config,
             std::move(scripted),
             std::make_shared<pipeline::testutil::WriterFactory>()
@@ -214,7 +218,10 @@ TEST(TestCommonReadTask, testBasicOperation) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     reads->emplace_back(0, std::move(s));
@@ -255,7 +262,10 @@ TEST(TestCommonReadTask, testExecGivesTheSourceTheStartCommand) {
     const auto *raw_source = source.get();
     ReadTask read_task(
         synnax::task::Task{.key = x::uuid::create()},
-        std::make_shared<task::MockContext>(nullptr),
+        std::make_shared<task::MockContext>(
+            nullptr,
+            ::driver::outbox::testutil::open({})
+        ),
         x::breaker::default_config("cat"),
         std::move(source),
         std::make_shared<pipeline::testutil::WriterFactory>()
@@ -273,7 +283,10 @@ TEST(TestCommonReadTask, testStopInterruptsBlockedRead) {
     x::breaker::Breaker cancel;
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto source = std::make_unique<InterruptibleSource>();
     const auto *interruptible = source.get();
     ReadTask read_task(
@@ -298,7 +311,10 @@ TEST(TestCommonReadTask, testCriticalReadErrorSkipsInterrupt) {
     x::breaker::Breaker cancel;
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto source = std::make_unique<ScriptedSource>(
         std::vector<ReadResult>{{.error = errors::CRITICAL_HARDWARE_ERROR}}
     );
@@ -323,7 +339,10 @@ TEST(TestCommonReadTask, testStartWhileRunningAcks) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     reads->emplace_back(0, std::move(s));
@@ -360,7 +379,10 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     reads->emplace_back(0, std::move(s));
@@ -411,7 +433,10 @@ std::unique_ptr<ReadTask> create_read_task(
 /// @brief it should report a failed start when the writer fails to open.
 TEST(TestCommonReadTask, testWriterOpenErrorFailsStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto read_task = create_read_task(
         ctx,
         std::make_shared<pipeline::testutil::WriterFactory>(
@@ -432,7 +457,10 @@ TEST(TestCommonReadTask, testWriterOpenErrorFailsStart) {
 /// after it opened on an earlier start.
 TEST(TestCommonReadTask, testWriterOpenErrorOnRestartFailsStart) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector{x::errors::NIL, OPEN_ERR}
@@ -453,7 +481,10 @@ TEST(TestCommonReadTask, testWriterOpenErrorOnRestartFailsStart) {
 /// opened.
 TEST(TestCommonReadTask, testWriterReopenErrorFailsRead) {
     x::breaker::Breaker cancel;
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     // The second write fails, the writer closes as unreachable, and the reopen fails.
     auto read_task = create_read_task(
         ctx,
@@ -479,7 +510,10 @@ TEST(TestCommonReadTask, testErrorOnStop) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     reads->emplace_back(0, std::move(s));
@@ -521,7 +555,10 @@ TEST(TestCommonReadTask, testMultiStartStop) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
 
     auto s = x::telem::Series(x::telem::TimeStamp::now());
@@ -588,7 +625,10 @@ TEST(TestCommonReadTask, testReadError) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     reads->emplace_back(0, s.deep_copy());
@@ -644,7 +684,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStartupNominalSecondStartup) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     reads->emplace_back(0, std::move(s));
@@ -706,7 +749,10 @@ TEST(TestCommonReadTask, testErrorOnFirstStopNominalSecondStop) {
     auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     auto s = x::telem::Series(x::telem::TimeStamp::now());
     // Give the pipeline essentially infinite reads.
@@ -788,7 +834,10 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
@@ -852,7 +901,10 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)
@@ -894,7 +946,10 @@ TEST(TestCommonReadTask, testRemovalSendsNoQueuedStatus) {
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     synnax::task::Task t;
     t.key = x::uuid::create();
-    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto ctx = std::make_shared<task::MockContext>(
+        nullptr,
+        ::driver::outbox::testutil::open({})
+    );
     auto reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(x::telem::TimeStamp::now());
     for (int i = 0; i < 30; i++)

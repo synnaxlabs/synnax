@@ -42,6 +42,7 @@
 #include "driver/file/file.h"
 #include "driver/http/http.h"
 #include "driver/opcua/opcua.h"
+#include "driver/rack/status/status.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
@@ -55,6 +56,32 @@ const x::errors::Error CORE_CHANGED = x::errors::SY.sub("driver").sub("core_chan
 /// @brief the directory in the state directory that holds OPC UA certificates. The
 /// Linux service user owns it.
 const std::string OPCUA_STATE_DIR = "opcua";
+
+/// @brief the directory in the state directory that holds the files the Driver writes
+/// as it runs. The Linux service user owns it.
+const std::string DATA_DIR = "data";
+
+/// @brief the directory in the data directory that holds the outbox.
+const std::string OUTBOX_DIR = "outbox";
+
+/// @brief the message of the rack status when the outbox cannot open.
+const std::string OUTBOX_FAILURE_MSG = "Failed to open outbox";
+
+/// @brief the message of the rack status when the outbox cannot send.
+const std::string OUTBOX_STUCK_MSG = "Outbox stuck";
+
+/// @brief returns the warning of an outbox in dir whose first call failed with err for
+/// stuck_after.
+status::Health outbox_stuck(
+    const std::filesystem::path &dir,
+    const x::telem::TimeSpan &stuck_after,
+    const x::errors::Error &err
+);
+
+/// @brief returns the error that tells the user why the outbox in dir cannot open and
+/// what to do. It matches err.
+x::errors::Error
+outbox_failure(const std::filesystem::path &dir, const x::errors::Error &err);
 
 /// @brief the flag that selects the state of the computer, which the Driver service
 /// reads, over the state of the user.
@@ -130,6 +157,8 @@ struct Config {
     task::ManagerConfig manager;
     /// @brief connection parameters to the Synnax cluster.
     synnax::Config connection;
+    /// @brief the settings of the outbox. The rack sets its directory and client.
+    outbox::Config outbox;
     /// @brief the list of integrations enabled for the driver.
     std::vector<std::string> integrations;
     /// @brief the directory that holds the persisted state file. Integrations keep
@@ -141,6 +170,11 @@ struct Config {
     /// @brief the version of the Core when it runs another minor than this Driver. The
     /// Driver then starts no tasks. Set by load_remote.
     std::optional<std::string> incompatible_core_version;
+    /// @brief the error that kept the outbox from opening, from outbox_failure. The
+    /// rack status reports it. Set by Rack::run.
+    x::errors::Error outbox_err;
+    /// @brief the warning of a stuck outbox, which the rack status reports.
+    std::shared_ptr<status::Alert> outbox_alert = std::make_shared<status::Alert>();
 
     /// @brief returns a new task factory to use for creating tasks in the task manager.
     /// Give it the same client as the task manager. With an incompatible Core, the
@@ -164,6 +198,12 @@ struct Config {
            << cfg.connection << "\n"
            << cfg.timing << "\n"
            << cfg.manager << "\n"
+           << "  " << x::log::SHALE() << "outbox size" << x::log::RESET() << ": "
+           << cfg.outbox.max_bytes << " bytes\n"
+           << "  " << x::log::SHALE() << "outbox send timeout" << x::log::RESET()
+           << ": " << cfg.outbox.send_timeout.seconds() << "s\n"
+           << "  " << x::log::SHALE() << "outbox stuck after" << x::log::RESET() << ": "
+           << cfg.outbox.stuck_after.seconds() << "s\n"
            << "  " << x::log::SHALE() << "enabled integrations" << x::log::RESET()
            << ": ";
         for (size_t i = 0; i < cfg.integrations.size(); ++i) {
@@ -288,6 +328,62 @@ struct Config {
     load_config_file(x::args::Parser &args, x::breaker::Breaker &breaker);
 
     [[nodiscard]] x::errors::Error load_env();
+
+    /// @brief reads the settings of the outage section, or of the environment, from
+    /// p.
+    template<typename Parser>
+    void override_outage(Parser &p) {
+        const auto span = [&p](const std::string &name, const x::telem::TimeSpan &def) {
+            const auto s = p.field(name, def.seconds());
+            if (s <= 0) p.field_err(name, "must be greater than 0");
+            return x::telem::TimeSpan(static_cast<int64_t>(s * 1e9));
+        };
+        const auto count = [&p](const std::string &name, const std::size_t def) {
+            const auto n = p.field(name, static_cast<int64_t>(def));
+            if (n <= 0) p.field_err(name, "must be greater than 0");
+            return static_cast<std::size_t>(n);
+        };
+        this->outbox.max_bytes = count("outbox_size", this->outbox.max_bytes);
+        this->outbox.max_calls = count("outbox_max_calls", this->outbox.max_calls);
+        const auto max_payload = count("outbox_max_payload", this->outbox.max_payload);
+        if (max_payload > journal::MAX_PAYLOAD)
+            p.field_err(
+                "outbox_max_payload",
+                "must be at most " + std::to_string(journal::MAX_PAYLOAD)
+            );
+        this->outbox.max_payload = static_cast<std::uint32_t>(
+            std::min<std::size_t>(max_payload, journal::MAX_PAYLOAD)
+        );
+        const auto share = p.field("outbox_compact_share", this->outbox.compact_share);
+        // Double literals, so clang-tidy does not read the bounds as integer bounds.
+        if (share <= 0.0 || share >= 1.0)
+            p.field_err(
+                "outbox_compact_share",
+                "must be greater than 0 and less than 1"
+            );
+        this->outbox.compact_share = share;
+        this->outbox.segment_calls = count(
+            "outbox_segment_calls",
+            this->outbox.segment_calls
+        );
+        this->outbox.send_timeout = span(
+            "outbox_send_timeout",
+            this->outbox.send_timeout
+        );
+        this->outbox.retry.base_interval = span(
+            "outbox_retry_interval",
+            this->outbox.retry.base_interval
+        );
+        this->outbox.retry.max_interval = span(
+            "outbox_max_retry_interval",
+            this->outbox.retry.max_interval
+        );
+        this->outbox.sync_interval = span(
+            "outbox_sync_interval",
+            this->outbox.sync_interval
+        );
+        this->outbox.stuck_after = span("outbox_stuck_after", this->outbox.stuck_after);
+    }
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);
 

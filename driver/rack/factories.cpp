@@ -63,10 +63,24 @@ std::string mismatch_message(const std::string &core_version) {
 }
 
 /// @brief adds the rack status, which reports an error when the Core runs another
-/// minor.
+/// minor or the outbox failed to open.
 void configure_state(const Config &config, FactoryList &factories) {
+    if (!config.incompatible_core_version && config.outbox_err) {
+        factories.push_back(
+            std::make_unique<status::Factory>(status::Health{
+                .variant = synnax::status::VARIANT_ERROR,
+                .message = OUTBOX_FAILURE_MSG,
+                .description =
+                    config.outbox_err.data +
+                    " Until then, Arc tasks that set statuses fail to start.",
+            })
+        );
+        return;
+    }
     if (!config.incompatible_core_version) {
-        factories.push_back(std::make_unique<status::Factory>());
+        factories.push_back(
+            std::make_unique<status::Factory>(status::Health{}, config.outbox_alert)
+        );
         return;
     }
     const auto message = mismatch_message(*config.incompatible_core_version);

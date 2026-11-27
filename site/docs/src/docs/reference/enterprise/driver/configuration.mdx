@@ -51,6 +51,10 @@ path of the computer, when the path of the computer holds no login yet.
 The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
 path. The service always uses the default path.
 
+The Driver keeps the Arc status sets that the Core has not received in the `data` folder
+next to the state file. For the Linux service, the `synnax` user owns that folder. A
+Driver that root runs gives each file it creates there to the owner of the folder.
+
 On Linux and macOS, the Driver creates a missing state directory with mode `0700` and a
 missing state file with mode `0600`. From Driver 0.61.5, `start` and `clear` do not
 change the mode or owner of a state directory or state file that exists. When root runs
@@ -112,6 +116,16 @@ SYNNAX_DRIVER_PORT=9090
 SYNNAX_DRIVER_API_KEY=syk_...
 SYNNAX_DRIVER_SECURE=false
 SYNNAX_DRIVER_CORRECT_SKEW=true
+SYNNAX_DRIVER_OUTBOX_SIZE=67108864
+SYNNAX_DRIVER_OUTBOX_MAX_CALLS=200000
+SYNNAX_DRIVER_OUTBOX_MAX_PAYLOAD=65536
+SYNNAX_DRIVER_OUTBOX_COMPACT_SHARE=0.25
+SYNNAX_DRIVER_OUTBOX_SEGMENT_CALLS=1000
+SYNNAX_DRIVER_OUTBOX_SEND_TIMEOUT=10
+SYNNAX_DRIVER_OUTBOX_RETRY_INTERVAL=1
+SYNNAX_DRIVER_OUTBOX_MAX_RETRY_INTERVAL=5
+SYNNAX_DRIVER_OUTBOX_SYNC_INTERVAL=1
+SYNNAX_DRIVER_OUTBOX_STUCK_AFTER=300
 SYNNAX_DRIVER_OP_TIMEOUT=60
 SYNNAX_DRIVER_POLL_INTERVAL=1
 SYNNAX_DRIVER_SHUTDOWN_TIMEOUT=30
@@ -157,6 +171,18 @@ The file cannot hold comments.
   },
   "timing": {
     "correct_skew": true
+  },
+  "outage": {
+    "outbox_size": 67108864,
+    "outbox_max_calls": 200000,
+    "outbox_max_payload": 65536,
+    "outbox_compact_share": 0.25,
+    "outbox_segment_calls": 1000,
+    "outbox_send_timeout": 10,
+    "outbox_retry_interval": 1,
+    "outbox_max_retry_interval": 5,
+    "outbox_sync_interval": 1,
+    "outbox_stuck_after": 300
   },
   "manager": {
     "op_timeout": 60,
@@ -231,6 +257,61 @@ a key is saved, the Driver ignores a username and password and logs a warning.
   nanoseconds, above which the rack status shows the warning [Clock out of sync with the
   Core](/reference/enterprise/troubleshooting#clock-out-of-sync-with-the-core). In the
   configuration file, it goes in `connection`.
+</Field.Item>
+
+<Field.Item name="outbox_size" default="67108864">
+  The number of bytes of Arc status sets that wait for the Core while it is slow or
+  unreachable. When it is full, the Driver keeps only the last set of each status, then
+  drops new sets and shows a warning. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_max_calls" default="200000">
+  The number of Arc status sets that wait for the Core at most. Each takes some memory
+  as it waits. When the Driver holds this many, it treats the outbox as full. In the
+  configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_max_payload" default="65536">
+  The number of bytes of the largest status set. The Driver drops a larger set and shows
+  a warning. Use a value up to 67108864. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_compact_share" default="0.25">
+  The share of `outbox_size` or `outbox_max_calls` that the Driver must be able to free
+  before it removes sets that later sets replace. Use a value greater than 0 and less
+  than 1. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_segment_calls" default="1000">
+  The number of status sets in one outbox file before the Driver starts the next file.
+  In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_send_timeout" default="10">
+  The number of seconds that the Driver waits for the Core to take one status set. In
+  the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_retry_interval" default="1">
+  The number of seconds that the Driver waits before it first sends an Arc status set
+  again to an unreachable Core. Each next wait is twice as long. In the configuration
+  file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_max_retry_interval" default="5">
+  The largest number of seconds that the Driver waits between two tries to send an Arc
+  status set to an unreachable Core. In the configuration file, it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_sync_interval" default="1">
+  The largest number of seconds between a status set and the time the Driver writes it
+  to the disk. A power loss can lose the sets of this time. In the configuration file,
+  it goes in `outage`.
+</Field.Item>
+
+<Field.Item name="outbox_stuck_after" default="300">
+  The number of seconds that the Core can refuse the first waiting status set before the
+  rack status shows "Outbox stuck". In the configuration file, it goes in `outage`.
 </Field.Item>
 
 <Field.Item name="op_timeout" default="60">
