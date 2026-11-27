@@ -38,14 +38,14 @@ var _ = Describe("Multi", func() {
 	})
 
 	It("Should replace all values of a key on Set", func() {
-		m.Set(1, []string{"c"})
+		m.Stage(nil, 1, []string{"c"})
 		Expect(m.Get(nil, "a")).To(BeEmpty())
 		Expect(m.Get(nil, "b")).To(ConsistOf(2))
 		Expect(m.Get(nil, "c")).To(ConsistOf(1))
 	})
 
 	It("Should ignore a write of the current values", func() {
-		m.Set(1, []string{"a", "b"})
+		m.Stage(nil, 1, []string{"a", "b"})
 		Expect(m.Get(nil, "a")).To(ConsistOf(1))
 		Expect(m.Get(nil, "b")).To(ConsistOf(1, 2))
 	})
@@ -68,11 +68,11 @@ var _ = Describe("Multi", func() {
 
 	It("Should track many holders of one value", func() {
 		for k := 10; k < 110; k++ {
-			m.Set(k, []string{"c"})
+			m.Stage(nil, k, []string{"c"})
 		}
 		Expect(m.Get(nil, "c")).To(HaveLen(100))
 		for k := 10; k < 109; k++ {
-			m.Delete(k)
+			m.StageDelete(nil, k)
 		}
 		Expect(m.Get(nil, "c")).To(ConsistOf(109))
 	})
@@ -86,7 +86,7 @@ var _ = Describe("Multi", func() {
 	})
 
 	Describe("Holding", func() {
-		BeforeEach(func() { m.Set(3, nil) })
+		BeforeEach(func() { m.Stage(nil, 3, nil) })
 
 		It("Should return the keys that hold values or none", func() {
 			Expect(m.Holding(nil, true)).To(ConsistOf(1, 2))
@@ -94,15 +94,15 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should move a key between the two sets on a committed write", func() {
-			m.Set(1, nil)
-			m.Set(3, []string{"c"})
+			m.Stage(nil, 1, nil)
+			m.Stage(nil, 3, []string{"c"})
 			Expect(m.Holding(nil, true)).To(ConsistOf(2, 3))
 			Expect(m.Holding(nil, false)).To(ConsistOf(1))
 		})
 
 		It("Should drop a deleted key from both sets", func() {
-			m.Delete(3)
-			m.Delete(2)
+			m.StageDelete(nil, 3)
+			m.StageDelete(nil, 2)
 			Expect(m.Holding(nil, true)).To(ConsistOf(1))
 			Expect(m.Holding(nil, false)).To(BeEmpty())
 		})
@@ -211,7 +211,7 @@ var _ = Describe("Multi", func() {
 		})
 
 		It("Should tell a key that holds none from a key it does not hold", func() {
-			m.Set(3, nil)
+			m.Stage(nil, 3, nil)
 			Expect(m.Current(nil, 3, nil)).To(BeTrue())
 			Expect(m.Current(nil, 9, nil)).To(BeFalse())
 		})

@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type color,
-  NotFoundError,
-  type project,
-  query,
-  schematic,
-} from "@synnaxlabs/client";
+import { NotFoundError, type project, query, schematic } from "@synnaxlabs/client";
 import { array, map, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
@@ -252,11 +246,8 @@ const inheritEdgeColor = (
     const source = nodeByKey.get(edge.source.node)?.config;
     if (source == null || !("strokeColor" in source) || source.strokeColor == null)
       return a;
-    const stroke = source.strokeColor;
-    const strokeColor: color.Ref =
-      "type" in stroke ? stroke : { type: "fixed", value: stroke };
     return schematic.addEdge({
-      edge: { ...edge, config: { ...edge.config, strokeColor } },
+      edge: { ...edge, config: { ...edge.config, strokeColor: source.strokeColor } },
     });
   });
 };

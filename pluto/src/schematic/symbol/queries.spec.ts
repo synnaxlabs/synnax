@@ -49,7 +49,6 @@ describe("Symbol queries", () => {
         drawing: { type: "svg", markup: "<svg></svg>" },
         states: [],
         handles: [],
-        variant: "static",
         scale: 1,
         strokeScaled: false,
         previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -86,7 +85,6 @@ describe("Symbol queries", () => {
           drawing: { type: "svg", markup: "<svg>test</svg>" },
           states: [],
           handles: [],
-          variant: "static",
           scale: 1,
           strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -112,7 +110,7 @@ describe("Symbol queries", () => {
     const create = async () =>
       await client.schematics.symbols.create({
         name: "resolved-test",
-        data: { drawing: { type: "svg", markup: "<svg></svg>" }, variant: "static" },
+        data: { drawing: { type: "svg", markup: "<svg></svg>" } },
       });
 
     it("should resolve a symbol that loads", async () => {
@@ -211,7 +209,6 @@ describe("Symbol queries", () => {
           drawing: { type: "svg", markup: "<svg></svg>" },
           states: [],
           handles: [],
-          variant: "sensor",
         },
       });
       const viewer = await createTestClientWithRole(client, "Viewer");
@@ -237,7 +234,6 @@ describe("Symbol queries", () => {
           drawing: { type: "svg", markup: "<svg>warm</svg>" },
           states: [],
           handles: [],
-          variant: "static",
           scale: 1,
           strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -275,7 +271,6 @@ describe("Symbol queries", () => {
           drawing: { type: "svg", markup: "<svg>original</svg>" },
           states: [],
           handles: [],
-          variant: "static",
           scale: 1,
           strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -330,7 +325,6 @@ describe("Symbol queries", () => {
           drawing: { type: "svg", markup: "<svg></svg>" },
           states: [],
           handles: [],
-          variant: "static",
           scale: 1,
           strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -358,7 +352,6 @@ describe("Symbol queries", () => {
           drawing: { type: "svg", markup: "<svg></svg>" },
           states: [],
           handles: [],
-          variant: "static",
           scale: 1,
           strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -382,7 +375,6 @@ describe("Symbol queries", () => {
           drawing: { type: "svg", markup: "<svg></svg>" },
           states: [],
           handles: [],
-          variant: "static",
           scale: 1,
           strokeScaled: false,
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -410,7 +402,6 @@ describe("Symbol queries", () => {
       drawing: { type: "svg", markup: "<svg></svg>" },
       states: [],
       handles: [],
-      variant: "static",
       scale: 1,
       strokeScaled: false,
       previewViewport: { zoom: 1, position: { x: 0, y: 0 } },

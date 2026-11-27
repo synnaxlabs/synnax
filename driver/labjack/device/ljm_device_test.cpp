@@ -53,7 +53,7 @@ TEST(LJMDeviceTest, testSecondStreamStartIsRefused) {
     const auto err = start_stream(dev);
     ASSERT_OCCURRED_AS(err, ljm::STREAM_IS_ACTIVE);
     EXPECT_THAT(
-        err.data,
+        err.data(),
         ::testing::HasSubstr("Add these channels to the running task.")
     );
     ASSERT_NIL(dev.e_stream_stop());
@@ -197,7 +197,7 @@ TEST(ParseErrorTest, testLostConnectionIsUnreachable) {
           LJME_NO_RESPONSE_BYTES_RECEIVED}) {
         const auto err = ljm::parse_error(api, code);
         ASSERT_OCCURRED_AS(err, ljm::UNREACHABLE);
-        EXPECT_EQ(err.data, ljm::UNREACHABLE_MESSAGE);
+        EXPECT_EQ(err.data(), ljm::UNREACHABLE_MESSAGE);
     }
 }
 

@@ -13,10 +13,13 @@ import type { resource } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Modal } from "@synnaxlabs/lyra/modal";
+import { Nav } from "@synnaxlabs/lyra/nav";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
+import { Core } from "@/platform/core";
 import { APIKey } from "@/platform/credential/apikey";
 import { Password } from "@/platform/credential/password";
 import { CSS } from "@/platform/css";
@@ -32,7 +35,9 @@ const Credentials = ({
   subject,
   title,
 }: Modals.ContentProps<ModalParams, void>): ReactElement => {
-  const [passwordChanged, setPasswordChanged] = useState(false);
+  const client = Synnax.use();
+  const { password } = Core.useAcceptedMethods(client?.params);
+  const [message, setMessage] = useState<string | null>(null);
   return (
     <Modal.Frame className={CSS.B("credential")}>
       <Modal.Header icon={<Icon.Lock />}>{title ?? "Sign-in"}</Modal.Header>
@@ -42,19 +47,19 @@ const Credentials = ({
             <Text.Text level="h5">API keys</Text.Text>
             <APIKey.Table subject={subject} />
           </Flex.Box>
-          {subject.type === "user" && (
+          {subject.type === "user" && password && (
             <Flex.Box y>
               <Text.Text level="h5">Password</Text.Text>
-              <Password.Form subject={subject} onChanged={setPasswordChanged} />
+              <Password.Form subject={subject} onMessage={setMessage} />
             </Flex.Box>
           )}
         </Flex.Box>
       </Modal.Body>
-      {passwordChanged && (
-        <Modal.Footer>
-          <Status.Summary variant="success" message="Successfully changed password" />
-        </Modal.Footer>
-      )}
+      <Modal.Footer>
+        <Nav.Bar.Start>
+          {message != null && <Status.Summary variant="success" message={message} />}
+        </Nav.Bar.Start>
+      </Modal.Footer>
     </Modal.Frame>
   );
 };

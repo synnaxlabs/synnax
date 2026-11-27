@@ -51,6 +51,7 @@ var _ = Describe("Service", func() {
 		statuses := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
 		channels = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel: node.Channel,
+			TS:      node.Storage.TS,
 			DB:      db,
 			HostKey: node.Identity.HostKey,
 			Status:  statuses,
@@ -193,7 +194,7 @@ var _ = Describe("Service", func() {
 				"entries": []any{nil},
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("entries.0.type: required"),
+				MatchError("config.entries.0.type: required"),
 			))
 		})
 
@@ -277,15 +278,15 @@ var _ = Describe("Service", func() {
 			return ch
 		}
 
-		// format is an ICD with a Status message of a timestamp, a float, a string, and
-		// a
-		// bytes field at the root, a Stamped message of a timestamp with a default, and
-		// channels on one index to bind them to.
+		// format is an ICD with a Status message of a timestamp, a float, a string, a
+		// bytes field at the root, and a scaled integer, a Stamped message of a
+		// timestamp with a default, and channels on one index to bind them to.
 		type format struct {
-			ic         icd.ICD
-			m, stamped icd.Message
-			idx, value channel.Channel
-			text       channel.Channel
+			ic          icd.ICD
+			m, stamped  icd.Message
+			idx, value  channel.Channel
+			text, count channel.Channel
+			doc         channel.Channel
 		}
 
 		createFormat := func(ctx context.Context) format {
@@ -297,6 +298,11 @@ var _ = Describe("Service", func() {
 				jsonField("temp", "/temp", icd.FloatJSONField{}),
 				jsonField("state", "/state", icd.StringJSONField{}),
 				jsonField("raw", "", icd.BytesJSONField{}),
+				icd.JSONField{Variant: icd.IntegerJSONField{
+					JSONBaseField: icd.JSONBaseField{
+						Key: uuid.New(), Name: "count", Pointer: "/count", Scale: 2,
+					},
+				}},
 			)
 			stamped := jsonMessage("Stamped", nil, jsonField(
 				"ts", "/ts", icd.TimestampJSONField{
@@ -318,6 +324,20 @@ var _ = Describe("Service", func() {
 				idx:     idx,
 				value:   createChannel(ctx, telem.Float64T, idx),
 				text:    createChannel(ctx, telem.StringT, idx),
+				count:   createChannel(ctx, telem.Int64T, idx),
+				doc:     createChannel(ctx, telem.JSONT, idx),
+			}
+		}
+
+		// tagOf returns a Sparkplug B entry of a tag on ch.
+		tagOf := func(ch channel.Channel) map[string]any {
+			return map[string]any{
+				"key":       "tag",
+				"type":      "sparkplug",
+				"group":     "plant",
+				"edge_node": "line1",
+				"tag":       "temp",
+				"channel":   ch.Key(),
 			}
 		}
 
@@ -406,6 +426,24 @@ var _ = Describe("Service", func() {
 				"entries.0.messages.0.bindings.0.channel",
 				"field state of kind string cannot read into channel",
 			),
+			Entry("a scaled field on an integer channel",
+				func(f format) []map[string]any {
+					read := readMessage(f.m, binding(f.m, 4, f.count))
+					return []map[string]any{icdEntry("plant/x", f.ic, read)}
+				},
+				"entries.0.messages.0.bindings.0.channel",
+				"scaled field count of kind integer cannot read into channel",
+			),
+			Entry("a tag on an index channel", func(f format) []map[string]any {
+				return []map[string]any{tagOf(f.idx)}
+			}, "entries.0.channel", "is an index channel"),
+			Entry("a tag on a channel that cannot take its values",
+				func(f format) []map[string]any {
+					return []map[string]any{tagOf(f.doc)}
+				},
+				"entries.0.channel",
+				"of data type json cannot take the values of a tag",
+			),
 			Entry("an index field that is not a timestamp",
 				func(f format) []map[string]any {
 					read := readMessage(f.m, binding(f.m, 1, f.value))
@@ -460,28 +498,14 @@ var _ = Describe("Service", func() {
 						f.ic,
 						readMessage(f.m, binding(f.m, 1, f.value)),
 					),
-					{
-						"key":       "tag",
-						"type":      "sparkplug",
-						"group":     "plant",
-						"edge_node": "line1",
-						"tag":       "temp",
-						"channel":   f.value.Key(),
-					},
+					tagOf(f.value),
 				}
 			}, "entries.1.channel", "is also written by "+
 				"entries.0.messages.0.bindings.0.channel"),
 			Entry("a channel that a later entry also writes",
 				func(f format) []map[string]any {
 					return []map[string]any{
-						{
-							"key":       "tag",
-							"type":      "sparkplug",
-							"group":     "plant",
-							"edge_node": "line1",
-							"tag":       "temp",
-							"channel":   f.value.Key(),
-						},
+						tagOf(f.value),
 						icdEntry(
 							"plant/a",
 							f.ic,
@@ -913,7 +937,7 @@ var _ = Describe("Service", func() {
 				"targets": []any{target},
 			})).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
-				MatchError("targets.0.message.bindings.1.type: required"),
+				MatchError("config.targets.0.message.bindings.1.type: required"),
 			))
 		})
 

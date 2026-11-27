@@ -24,6 +24,7 @@ Usage:
         sim_classes = [OPCUASim, ModbusSim]
 """
 
+import os
 from multiprocessing.process import BaseProcess
 
 from examples.simulators.device_sim import DeviceSim
@@ -32,6 +33,9 @@ import synnax as sy
 from framework import resources
 from framework.hardware_case import HardwareCase
 from framework.test_case import Config
+
+# MQTT and Kafka tasks run on the driver inside the Core, which has its own rack.
+CORE_RACK_NAME = os.environ.get("SYNNAX_CORE_RACK", "Node 1")
 
 
 class SimulatorCase(HardwareCase):

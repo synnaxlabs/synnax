@@ -19,7 +19,8 @@ import { type ReactElement, useId } from "react";
 import {
   formatHex,
   FormattedField,
-  parseInteger,
+  type Parsed,
+  parseUnsigned,
 } from "@/feature/icd/editor/FormattedField";
 import { CSS } from "@/platform/css";
 
@@ -43,6 +44,24 @@ const create = (
     case "field":
       return { type, field: fields[0]?.key ?? "", value: 0 };
   }
+};
+
+const MAX_ID = 0x1fffffff;
+const MAX_MASK = 0xffffffff;
+
+// The Core checks an ID against the smaller bound of a standard frame.
+const parseID = (text: string): Parsed<number> => {
+  const id = parseUnsigned(text);
+  if (id == null) return { error: "ID must be a hex number, such as 0x1F0" };
+  if (id > MAX_ID) return { error: `A CAN ID is at most ${formatHex(MAX_ID)}` };
+  return { value: id };
+};
+
+const parseMask = (text: string): Parsed<number> => {
+  const mask = parseUnsigned(text);
+  if (mask == null) return { error: "Mask must be a hex number, such as 0x7F0" };
+  if (mask > MAX_MASK) return { error: `Mask is at most ${formatHex(MAX_MASK)}` };
+  return { value: mask };
 };
 
 interface FlagProps extends Pick<Form.UseFieldOptions<boolean>, "onChange"> {
@@ -90,7 +109,7 @@ const CANFields = ({ path }: CANFieldsProps): ReactElement => {
           path={path.id}
           label="ID"
           format={formatHex}
-          parse={parseInteger}
+          parse={parseID}
         />
         <FormattedField<number>
           path={path.mask}
@@ -98,7 +117,7 @@ const CANFields = ({ path }: CANFieldsProps): ReactElement => {
           placeholder="Exact match"
           optional
           format={formatHex}
-          parse={parseInteger}
+          parse={parseMask}
         />
       </Flex.Box>
       <Input.Item label="Frame type" padHelpText>

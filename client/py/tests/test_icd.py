@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import base64
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -437,6 +438,18 @@ class TestICD:
             (("framing", *loc), msg)
         ]
 
+    @pytest.mark.parametrize("name", ["scale", "offset", "min", "max"])
+    @pytest.mark.parametrize("value", [float("inf"), float("-inf"), float("nan")])
+    def test_reject_value_not_finite(self, name: str, value: float) -> None:
+        """Should not parse a scale, offset, min, or max that is not finite."""
+        with pytest.raises(ValidationError) as exc:
+            sy.icd.FloatJSONField.model_validate(
+                {"name": "v", "pointer": "/v", name: value}
+            )
+        assert [(e["loc"], e["type"]) for e in exc.value.errors()] == [
+            ((name,), "finite_number")
+        ]
+
     def test_create_from_kwargs(self, client: sy.Synnax) -> None:
         """Should create an ICD from keyword arguments."""
         ic = client.icds.create(
@@ -503,7 +516,7 @@ class TestICD:
         problems = client.icds.check(ic)
         assert problems_of(problems) == [
             ("messages.1.name", 'duplicate message name "Mode"'),
-            ("messages.1.payload.fields.0.scale", "scale must be finite and non-zero"),
+            ("messages.1.payload.fields.0.scale", "scale must be non-zero"),
         ]
         assert all(isinstance(p.error, sy.ValidationError) for p in problems)
 
@@ -561,7 +574,7 @@ class TestICD:
     def test_import_dbc(self, client: sy.Synnax) -> None:
         """Should import the messages of a DBC file."""
         ic = client.icds.create(name="Vehicle")
-        imported = client.icds.import_file(ic.key, DBC, "dbc")
+        imported = client.icds.import_file(DBC, "dbc", key=ic.key)
         assert imported.key == ic.key
         msg = next(m for m in imported.messages if m.name == "EngineStatus")
         assert isinstance(msg.payload, sy.icd.BinaryPayload)
@@ -581,19 +594,49 @@ class TestICD:
         data = DBC + b' SG_ flags : 24|8@1+ (1,0) [0|255] "????" Vector__XXX\n'
         assert "/" in base64.b64encode(data).decode()
         ic = client.icds.create(name="Vehicle")
-        imported = client.icds.import_file(ic.key, data, "dbc")
+        imported = client.icds.import_file(data, "dbc", key=ic.key)
         msg = next(m for m in imported.messages if m.name == "EngineStatus")
         assert [f.name for f in msg.payload.fields] == ["rpm", "temp", "flags"]
 
     def test_import_keeps_keys(self, client: sy.Synnax) -> None:
         """Should keep message keys when the same file is imported again."""
         ic = client.icds.create(name="Vehicle")
-        first = client.icds.import_file(ic.key, DBC, "dbc")
-        second = client.icds.import_file(ic.key, DBC, "dbc")
+        first = client.icds.import_file(DBC, "dbc", key=ic.key)
+        second = client.icds.import_file(DBC, "dbc", key=ic.key)
         assert [m.key for m in first.messages] == [m.key for m in second.messages]
 
     def test_import_invalid(self, client: sy.Synnax) -> None:
         """Should reject a file that does not parse."""
         ic = client.icds.create(name="Broken")
         with pytest.raises(sy.ValidationError):
-            client.icds.import_file(ic.key, b"BO_ not a message", "dbc")
+            client.icds.import_file(b"BO_ not a message", "dbc", key=ic.key)
+
+    def test_import_new(self, client: sy.Synnax) -> None:
+        """Should create an ICD with the name that holds the imported messages."""
+        name = f"Imported {uuid4()}"
+        imported = client.icds.import_file(DBC, "dbc", name=name)
+        assert imported.name == name
+        assert "EngineStatus" in [m.name for m in imported.messages]
+        assert client.icds.retrieve(key=imported.key) == imported
+
+    def test_import_new_invalid(self, client: sy.Synnax) -> None:
+        """Should create no ICD when the file of a new ICD does not parse."""
+        name = f"Broken {uuid4()}"
+        with pytest.raises(sy.ValidationError):
+            client.icds.import_file(b"BO_ not a message", "dbc", name=name)
+        assert [ic for ic in client.icds.retrieve() if ic.name == name] == []
+
+    def test_import_empty_name(self, client: sy.Synnax) -> None:
+        """Should reject an empty name for a new ICD."""
+        with pytest.raises(ValueError, match="a name that is not empty"):
+            client.icds.import_file(DBC, "dbc", name="")
+
+    @pytest.mark.parametrize(
+        "target",
+        [{}, {"key": uuid4(), "name": "Both"}],
+        ids=["neither", "both"],
+    )
+    def test_import_target(self, client: sy.Synnax, target: dict[str, Any]) -> None:
+        """Should take exactly one of key and name."""
+        with pytest.raises(ValueError, match="exactly one of key and name"):
+            client.icds.import_file(DBC, "dbc", **target)

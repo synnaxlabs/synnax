@@ -118,9 +118,9 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
         ctx,
         task,
         x::breaker::default_config(task.name),
-        cfg.rate
+        cfg
     );
-    res.auto_start = !cfg.disabled;
+    res.auto_start = true;
     return {std::move(res), x::errors::NIL};
 }
 }

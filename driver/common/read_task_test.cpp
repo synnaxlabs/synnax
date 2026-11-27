@@ -989,7 +989,7 @@ TEST(TestCommonReadTask, testWarningLogsAfterTemporaryError) {
 TEST(TestCommonReadTask, testNominalShutdownLogsNoError) {
     ErrorSink sink;
     ScriptedRead({{.error = errors::NOMINAL_SHUTDOWN_ERROR}}).run(1);
-    EXPECT_EQ(sink.count(errors::NOMINAL_SHUTDOWN_ERROR.type), 0);
+    EXPECT_EQ(sink.count(errors::NOMINAL_SHUTDOWN_ERROR.type()), 0);
 }
 
 /// @brief it should log a warning once in each run.

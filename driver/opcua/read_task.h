@@ -66,7 +66,7 @@ struct InputChan {
             parser.field_err("channel", "channel must be specified");
         if (parsed.field.empty()) return;
         auto [field, err] = structure::parse(parsed.field);
-        if (err) parser.field_err("field", err.data);
+        if (err) parser.field_err("field", err.data());
         this->field = std::move(field);
     }
 
@@ -181,7 +181,10 @@ private:
             keys.push_back(ch->synnax_key);
         auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
+            parser.field_err(
+                "channels",
+                "failed to retrieve channels: " + ch_err.data()
+            );
             return;
         }
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
@@ -400,7 +403,7 @@ protected:
             if (err)
                 field.second = x::errors::Error(
                     err,
-                    "failed to read the structure types: " + err.data
+                    "failed to read the structure types: " + err.data()
                 );
             else if (!data_type.has_value())
                 field.second = x::errors::Error(
@@ -469,7 +472,7 @@ protected:
             q.add_uncertain(errors::channel_status(name, result.status));
         auto [v, err] = convert(result.value);
         if (!err) return std::move(v);
-        q.add_bad(name + ": " + err.data + ".");
+        q.add_bad(name + ": " + err.data() + ".");
         return std::nullopt;
     }
 

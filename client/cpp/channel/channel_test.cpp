@@ -227,7 +227,7 @@ TEST(TestChannel, testRetrieveManyNotFound) {
         std::vector<Key>{1, ch.key, 3}
     );
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "channels matching keys 1, 3 not found.");
+    ASSERT_EQ(err.data(), "channels matching keys 1, 3 not found.");
     ASSERT_TRUE(channels.empty());
 }
 
@@ -316,7 +316,7 @@ TEST(TestChannel, testRetrieveOneWhereNotFound) {
     const auto name = make_unique_channel_name("one_none");
     const auto [_, err] = client.channels.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "Found no channel where name = \"" + name + "\"");
+    ASSERT_EQ(err.data(), "Found no channel where name = \"" + name + "\"");
 }
 
 /// @brief it should return an error when more than one channel matches a filter.
@@ -342,7 +342,7 @@ TEST(TestChannel, testRetrieveRejectsPage) {
                   .second}) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
-                err.data,
+                err.data(),
                 "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );

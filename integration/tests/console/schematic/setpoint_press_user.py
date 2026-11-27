@@ -80,7 +80,9 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
         self.wait_for_eq("press_vlv_state", 0)
         self.wait_for_eq("vent_vlv_state", 0)
 
+        # test_flag_cmd has no value yet, so the click asks which command to send.
         start_cmd.press()
+        start_cmd.choose_command("Open")
 
         press_valve.toggle_absolute_control()
         vent_valve.toggle_absolute_control()

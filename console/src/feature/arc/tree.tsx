@@ -124,6 +124,7 @@ const haulPreview: Tree.HaulPreview = ({ resource, client, count }) => {
 const TreeItem = Tree.createItem({
   linkable: true,
   icon: ({ id }) => <TypeIcon arcKey={id.key} />,
+  typeName: "Arc",
   haulPreview,
   hasChildren: false,
   useOnSelect: Panel.useOpenResource,

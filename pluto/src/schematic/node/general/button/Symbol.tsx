@@ -49,7 +49,7 @@ export const Symbol = ({
     >
       <Control.State
         config={control}
-        channel={commandChannel}
+        channels={[commandChannel]}
         onChange={onConfigChange}
       />
       <Primitive.Button

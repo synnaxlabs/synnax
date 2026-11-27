@@ -404,14 +404,14 @@ TEST_F(BrowserTest, PermissionDenied) {
     if (!ec) GTEST_SKIP() << "cannot make a folder unreadable";
     const auto [data, err] = this->browser().list(locked.string());
     ASSERT_MATCHES(err, x::fs::PERMISSION_DENIED);
-    ASSERT_EQ(err.data, "The Driver cannot read " + locked.string() + ".");
+    ASSERT_EQ(err.data(), "The Driver cannot read " + locked.string() + ".");
 }
 
 /// @brief it should reject a relative path.
 TEST_F(BrowserTest, RelativePath) {
     const auto [data, err] = this->browser().list("certs");
     ASSERT_MATCHES(err, x::fs::INVALID_PATH);
-    ASSERT_EQ(err.data, "certs is not an absolute path.");
+    ASSERT_EQ(err.data(), "certs is not an absolute path.");
 }
 
 /// @brief it should reject a path where nothing is.
@@ -419,7 +419,7 @@ TEST_F(BrowserTest, MissingPath) {
     const auto missing = this->dir / "missing";
     const auto [data, err] = this->browser().list(missing.string());
     ASSERT_MATCHES(err, x::fs::NOT_FOUND);
-    ASSERT_EQ(err.data, missing.string() + " does not exist.");
+    ASSERT_EQ(err.data(), missing.string() + " does not exist.");
 }
 
 /// @brief it should reject the path of a file.
@@ -428,6 +428,6 @@ TEST_F(BrowserTest, FilePath) {
     const auto file = this->dir / "a.txt";
     const auto [data, err] = this->browser().list(file.string());
     ASSERT_MATCHES(err, x::fs::INVALID_PATH);
-    ASSERT_EQ(err.data, file.string() + " is not a folder.");
+    ASSERT_EQ(err.data(), file.string() + " is not a folder.");
 }
 }

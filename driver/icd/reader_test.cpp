@@ -9,7 +9,6 @@
 
 #include <cmath>
 #include <cstdint>
-#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -282,7 +281,7 @@ TEST(Reader, RejectsBinaryIndexFieldWithDefault) {
     e.reads[0].index = t.key;
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message frame: the index field t cannot take a default");
+    ASSERT_EQ(err.data(), "message frame: the index field t cannot take a default");
 }
 
 /// @brief it should reject a binary index field, since a binary field cannot write
@@ -295,7 +294,7 @@ TEST(Reader, RejectsBinaryIndexField) {
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame: field t: cannot write unsigned values to timestamp channels"
     );
 }
@@ -315,7 +314,7 @@ TEST(Reader, RejectsIndexGroupWithDifferentSelections) {
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame: fields a and b share index channel 1, but different "
         "multiplexor values select them"
     );
@@ -440,7 +439,7 @@ TEST(Reader, WritesOtherIndexGroupsWhenValueOfOneDoesNotConvert) {
     ASSERT_FALSE(r.failures()[0].missing);
     ASSERT_OCCURRED_AS(r.failures()[0].error, x::errors::VALIDATION);
     ASSERT_EQ(
-        r.failures()[0].error.data,
+        r.failures()[0].error.data(),
         "field w: expected a number or boolean, got an object"
     );
 }
@@ -455,15 +454,14 @@ TEST(Reader, DropsOnlyVirtualChannelWhoseValueDoesNotConvert) {
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
 }
 
-/// @brief it should write the fill value for a float field that does not decode, and
-/// keep its index group.
+/// @brief it should write NaN for a float field that does not decode, and keep its
+/// index group.
 TEST(Reader, FillsFloatFieldThatDoesNotDecode) {
     auto e = reading();
     e.bind(float_field("w"), channel(3, x::telem::FLOAT32_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(4);
-    const auto nan = std::numeric_limits<double>::quiet_NaN();
-    ASSERT_NIL_P(r.read(bytes(R"({"v": {}})"), RECEIVED, fr, 1, nan));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": {}})"), RECEIVED, fr, 1, true));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 4, 2, 3}));
     ASSERT_TRUE(std::isnan(fr.at<double>(2, 0)));
     ASSERT_TRUE(std::isnan(fr.at<float>(3, 0)));
@@ -471,7 +469,7 @@ TEST(Reader, FillsFloatFieldThatDoesNotDecode) {
 }
 
 /// @brief it should drop the index group of a field on a channel that is not a float
-/// when the field does not decode, even with a fill value.
+/// when the field does not decode, even with NaN fill.
 TEST(Reader, DropsGroupOfNonFloatFieldWithFill) {
     auto e = reading();
     synnax::icd::IntegerJSONField w;
@@ -481,11 +479,11 @@ TEST(Reader, DropsGroupOfNonFloatFieldWithFill) {
     e.bind(w, channel(3, x::telem::INT64_T, 4));
     auto r = ASSERT_NIL_P(e.create());
     x::telem::Frame fr(4);
-    ASSERT_NIL_P(r.read(bytes(R"({"v": 1})"), RECEIVED, fr, 1, 0.0));
+    ASSERT_NIL_P(r.read(bytes(R"({"v": 1})"), RECEIVED, fr, 1, true));
     ASSERT_EQ(*fr.channels, (std::vector<std::uint32_t>{1, 2}));
     ASSERT_EQ(r.failures()[0].channel, 3U);
     ASSERT_TRUE(r.failures()[0].missing);
-    ASSERT_EQ(r.failures()[0].error.data, "field w: no value at /w");
+    ASSERT_EQ(r.failures()[0].error.data(), "field w: no value at /w");
 }
 
 /// @brief it should read a response as the message whose match rule it meets, or else
@@ -550,7 +548,7 @@ TEST(Reader, RejectsMessageNotInICD) {
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message " + key.to_string() + " does not exist in ICD sensors"
     );
 }
@@ -561,7 +559,7 @@ TEST(Reader, RejectsMessagesOfDifferentFormats) {
     e.join(frame());
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "messages reading and frame have different formats");
+    ASSERT_EQ(err.data(), "messages reading and frame have different formats");
 }
 
 /// @brief it should reject a message that binds no fields.
@@ -570,7 +568,7 @@ TEST(Reader, RejectsMessageThatBindsNoFields) {
     e.reads[0].bindings.clear();
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading binds no fields");
+    ASSERT_EQ(err.data(), "message reading binds no fields");
 }
 
 /// @brief it should reject a binding whose channel does not exist.
@@ -579,7 +577,7 @@ TEST(Reader, RejectsChannelThatDoesNotExist) {
     e.channels.clear();
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading: channel 2 does not exist");
+    ASSERT_EQ(err.data(), "message reading: channel 2 does not exist");
 }
 
 /// @brief it should reject an index field that does not write to an index channel.
@@ -589,7 +587,7 @@ TEST(Reader, RejectsIndexFieldOnDataChannel) {
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message reading: the index field must write to an index channel"
     );
 }
@@ -602,7 +600,7 @@ TEST(Reader, RejectsDataFieldOnIndexChannel) {
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message reading: field t cannot write to index channel time, because only "
         "the index field can. Bind field t to a data channel"
     );
@@ -614,7 +612,7 @@ TEST(Reader, RejectsIndexFieldWithNoChannel) {
     e.reads[0].bindings.pop_back();
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading: the index field has no channel");
+    ASSERT_EQ(err.data(), "message reading: the index field has no channel");
 }
 
 /// @brief it should reject an index field that takes a default.
@@ -627,7 +625,7 @@ TEST(Reader, RejectsIndexFieldWithDefault) {
     };
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading: the index field t cannot take a default");
+    ASSERT_EQ(err.data(), "message reading: the index field t cannot take a default");
 }
 
 /// @brief it should reject two messages that share an index channel.
@@ -636,7 +634,7 @@ TEST(Reader, RejectsMessagesThatShareIndexChannel) {
     e.join(reading("other", channel(3, x::telem::FLOAT64_T)));
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "messages status and other write to the same channel 1");
+    ASSERT_EQ(err.data(), "messages status and other write to the same channel 1");
 }
 
 /// @brief it should reject two messages that write to the same channel.
@@ -646,7 +644,7 @@ TEST(Reader, RejectsMessagesThatShareChannel) {
     e.join(reading("other", ch));
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "messages status and other write to the same channel 2");
+    ASSERT_EQ(err.data(), "messages status and other write to the same channel 2");
 }
 
 /// @brief it should reject a message that binds two fields to one channel.
@@ -655,7 +653,7 @@ TEST(Reader, RejectsChannelBoundTwice) {
     e.bind(float_field("w"), channel(2, x::telem::FLOAT64_T));
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading writes to channel 2 twice");
+    ASSERT_EQ(err.data(), "message reading writes to channel 2 twice");
 }
 
 /// @brief it should reject a message that binds its index field twice.
@@ -664,7 +662,7 @@ TEST(Reader, RejectsIndexFieldBoundTwice) {
     e.reads[0].bindings.push_back(e.reads[0].bindings.back());
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "message reading writes to channel 1 twice");
+    ASSERT_EQ(err.data(), "message reading writes to channel 1 twice");
 }
 
 /// @brief it should reject a binding that the decoder rejects.
@@ -674,7 +672,7 @@ TEST(Reader, RejectsBindingTheDecoderRejects) {
     const auto err = e.create().second;
     ASSERT_OCCURRED_AS(err, codec::CONFIG_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message reading: field v: cannot write float values to string channels"
     );
 }

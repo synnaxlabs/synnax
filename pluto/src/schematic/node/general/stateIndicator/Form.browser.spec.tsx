@@ -45,7 +45,7 @@ describe("StateIndicator form", () => {
       entries: [],
     });
     const { findByRole, value } = renderForm(
-      <StateIndicator.spec.Form tab="options" onTabChange={vi.fn()} />,
+      <StateIndicator.spec.Form tab="telemetry" onTabChange={vi.fn()} />,
       schematic.stateIndicatorNodeConfigZ.parse({ variant: "state_indicator" }),
       schematic.stateIndicatorNodeConfigZ,
       wrapper,

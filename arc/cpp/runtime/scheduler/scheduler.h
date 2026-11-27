@@ -529,7 +529,7 @@ private:
             return now - l.at >= ERROR_LOG_INTERVAL;
         });
         const bool logged = std::ranges::any_of(node.logged, [&](const LoggedError &l) {
-            return l.error.type == e.type && l.error.data == e.data;
+            return l.error.type() == e.type() && l.error.data() == e.data();
         });
         if (logged || node.logged.size() >= MAX_LOGGED_ERRORS) {
             node.not_logged++;

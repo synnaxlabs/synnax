@@ -18,12 +18,12 @@ Then a read task can use it to turn each message into samples on channels.
 
 ## When to create an ICD
 
-| When                                                         | Do this                                                                                      |
-| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| You add data to an MQTT read task in the Console             | Nothing. The Console creates an ICD with the name of the task, and a message for each topic. |
-| You add the first record to a Kafka read task in the Console | Nothing. The Console creates an ICD with the name of the task.                               |
-| You have a DBC file, or a spreadsheet of fields              | [Import](/reference/hardware/icds/import) it into an ICD.                                    |
-| A script configures the task                                 | Create the ICD in the script, before it configures the task.                                 |
+| When                                                         | Do this                                                                                        |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| You add data to an MQTT read task in the Console             | Nothing. The Console creates an ICD with the name of the device, and a message for each topic. |
+| You add the first record to a Kafka read task in the Console | Nothing. The Console creates an ICD with the name of the device.                               |
+| You have a DBC file, or a spreadsheet of fields              | [Import](/reference/hardware/icds/import) it into an ICD.                                      |
+| A script configures the task                                 | Create the ICD in the script, before it configures the task.                                   |
 
 <Divider.Divider x />
 
@@ -34,7 +34,7 @@ Then a read task can use it to turn each message into samples on channels.
   <Fragment slot="console">
 
 1. Open the ICD:
-   - Click <Icon.Add /> in the **ICDs** toolbar.
+   - Click **Create ICD** on the **ICDs** page of the Library.
    - Run the "Create ICD" command from the
      [command palette](/reference/get-started/ui-overview#search-and-command-palette).
 

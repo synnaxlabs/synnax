@@ -9,6 +9,7 @@
 
 import type { ReactElement } from "react";
 
+import { Library } from "@/app/library";
 import { Settings } from "@/app/settings";
 import { Account } from "@/feature/account";
 import { Arc } from "@/feature/arc";
@@ -34,7 +35,6 @@ import { Task } from "@/feature/task";
 import { Theme } from "@/feature/theme";
 import { User } from "@/feature/user";
 import { Version } from "@/feature/version";
-import { FLAGS } from "@/flags";
 import type { Palette } from "@/platform/palette";
 
 const COMMANDS: Command.Command[] = [
@@ -44,7 +44,7 @@ const COMMANDS: Command.Command[] = [
   ...Device.COMMANDS,
   ...Docs.COMMANDS,
   ...Framer.COMMANDS,
-  ...(FLAGS.icds ? ICD.COMMANDS : []),
+  ...ICD.COMMANDS,
   ...Import.COMMANDS,
   ...LinePlot.COMMANDS,
   ...Log.COMMANDS,
@@ -61,6 +61,7 @@ const COMMANDS: Command.Command[] = [
   ...Status.COMMANDS,
   ...Theme.COMMANDS,
   ...Settings.COMMANDS,
+  ...Library.COMMANDS,
 ];
 
 export const List = (props: Palette.ListProps<Command.Command>): ReactElement => (
