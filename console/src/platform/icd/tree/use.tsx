@@ -19,7 +19,7 @@ import type { Dispatch, FC, ReactElement, RefObject, SetStateAction } from "reac
 import { MessageLabel, ReadCheckbox } from "@/platform/icd/Bindings";
 import { MessageMark } from "@/platform/icd/Details";
 import { copyName } from "@/platform/icd/fieldNames";
-import { createJSONField } from "@/platform/icd/Fields";
+import { createMessageField } from "@/platform/icd/Fields";
 import {
   formatOf,
   type Formats,
@@ -34,7 +34,7 @@ import {
   fieldsPath,
   isIndexable,
   isReadable,
-  jsonFields,
+  isTaskFormat,
   type ReadSource,
   reindex,
   taskFields,
@@ -487,22 +487,28 @@ export const use = <
     setMessage(sourceKey, icdKey, message);
   };
 
-  /** Whether the ICD holds the message of a read of a source, as JSON. */
-  const holdsJSON = (sourceKey: string, r: number): boolean => {
+  /** @returns the message of a read of a source, when the ICD holds it. */
+  const heldRead = (sourceKey: string, r: number): icd.Message | undefined => {
     const { icd: icdKey, messages } = ctx.get(pathOf(sourceKey)).value;
-    const message = heldMessage(formats, icdKey, messages[r].message);
-    return message?.payload.format === "json";
+    return heldMessage(formats, icdKey, messages[r].message);
+  };
+
+  /** Whether the ICD holds the message of a read of a source, in a task format. */
+  const takesFields = (sourceKey: string, r: number): boolean => {
+    const message = heldRead(sourceKey, r);
+    return message != null && isTaskFormat(message.payload.format);
   };
 
   const addField = (sourceKey: string, r: number) => {
     const source = ctx.get(pathOf(sourceKey)).value;
-    const { message } = source.messages[r];
-    const fields = jsonFields(heldMessage(formats, source.icd, message));
-    const field = createJSONField(fields);
+    const held = heldRead(sourceKey, r);
+    if (held == null) return;
+    const message = held.key;
+    const field = createMessageField(held.payload);
     formatOf(formats, source.icd).insert(
       fieldsPath(message),
       field,
-      fields.at(-1)?.key,
+      held.payload.fields.at(-1)?.key,
     );
     read(sourceKey, r, treeFieldOf(field), true, field);
     const parent = source.messages.length > 1 ? [messageKey(sourceKey, message)] : [];
@@ -687,13 +693,13 @@ export const use = <
     if (
       chosen.length === 1 &&
       only.kind === "message" &&
-      holdsJSON(only.source, only.read)
+      takesFields(only.source, only.read)
     )
       onAddField = () => addField(only.source, only.read);
     else if (
       source != null &&
       ctx.get(pathOf(source).messages).value.length === 1 &&
-      holdsJSON(source, 0)
+      takesFields(source, 0)
     )
       onAddField = () => addField(source, 0);
     const fields = chosen.filter((n): n is FieldNode => n.kind === "field");

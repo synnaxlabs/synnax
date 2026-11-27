@@ -19,6 +19,8 @@ const stateZ = z.object({
   selected: z.array(z.string()).default([]),
   /** The field that the editor focuses once it shows it. The editor then clears it. */
   focused: z.string().optional(),
+  /** This window just created the ICD. The editor focuses its name, then clears it. */
+  created: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -48,6 +50,11 @@ export interface ClearFocusedPayload extends Window.OptionalKeyParams {
   key: icd.Key;
 }
 
+export interface SetCreatedPayload extends Window.OptionalKeyParams {
+  key: icd.Key;
+  created: boolean;
+}
+
 export interface RemovePayload {
   keys: icd.Key[];
 }
@@ -67,6 +74,11 @@ export const { actions, reducer } = createSlice({
     clearFocused: withSelectedState<ClearFocusedPayload, SliceState>((state) => {
       delete state.focused;
     }),
+    setCreated: withSelectedState<SetCreatedPayload, SliceState>(
+      (state, { payload: { created } }) => {
+        state.created = created;
+      },
+    ),
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -74,10 +86,10 @@ export const { actions, reducer } = createSlice({
   extraReducers: Window.handleRemoved,
 });
 
-export const { setSelected, clearFocused, remove } = actions;
+export const { setSelected, clearFocused, setCreated, remove } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
 export const MIDDLEWARE = [
-  Window.createInjectKeyMiddleware([setSelected, clearFocused]),
+  Window.createInjectKeyMiddleware([setSelected, clearFocused, setCreated]),
 ];

@@ -26,7 +26,7 @@ import (
 const StartedMessage = "started successfully"
 
 // isCrashBanner reports whether line is the first line of a crash dump emitted by the
-// driver's crash handler (x::crash). The dump is raw text rather than glog-formatted:
+// Driver's crash handler (x::crash). The dump is raw text rather than glog-formatted:
 // a banner, an optional what() line, "stack trace:", and one line per frame.
 func isCrashBanner(line string) bool {
 	return strings.Contains(line, "*** ") &&
@@ -166,7 +166,7 @@ func readLine(r *bufio.Reader) ([]byte, error) {
 type forwarder struct {
 	// logger logs errors of the reader, where a Go stacktrace is useful.
 	logger *alamos.Logger
-	// driverLogger logs the lines of the driver with no Go stacktrace: on a line of a
+	// driverLogger logs the lines of the Driver with no Go stacktrace: on a line of a
 	// subprocess, it only points at the reader goroutine.
 	driverLogger *alamos.Logger
 	loggers      map[string]*alamos.Logger
@@ -240,7 +240,7 @@ func (f *forwarder) log(p ParsedLine) {
 	}
 }
 
-// named returns the driver logger for name, and caches it.
+// named returns the Driver logger for name, and caches it.
 func (f *forwarder) named(name string) *alamos.Logger {
 	if name == "" {
 		return f.driverLogger

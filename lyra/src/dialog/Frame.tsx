@@ -264,6 +264,7 @@ export const Frame = ({
   // The x a dialog opened at a tag keeps, and the tag's last box for when it goes.
   const heldLeft = useRef<number | null>(null);
   const openedAtBox = useRef<box.Box>(box.ZERO);
+  const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const close = () => setVisibleRef.current(false);
   const open = () => {
     setOpenedAt(null);
@@ -276,6 +277,7 @@ export const Frame = ({
   const toggleAt = (target: HTMLElement) => {
     if (visible && openedAt === target) return close();
     heldLeft.current = null;
+    prevLocationPreference.current = undefined;
     setOpenedAt(target);
     setVisibleRef.current(true);
   };
@@ -284,7 +286,6 @@ export const Frame = ({
   const id = useId();
   const visibleRef = useSyncedRef(visible);
   const targetRef = useRef<HTMLDivElement>(null);
-  const prevLocationPreference = useRef<position.Preference | undefined>(undefined);
   const prevBox = useRef<box.Box | undefined>(undefined);
   const prevWindowBox = useRef<box.Box | undefined>(undefined);
   const prevAvailableHeight = useRef<number | undefined>(undefined);
@@ -398,12 +399,14 @@ export const Frame = ({
     setState((prev) => ({ ...prev, targetCorner, dialogCorner, style }));
   };
 
-  // A closed dialog drops its placement, so it opens again hidden until it is placed.
-  // An update that changes nothing can still render the dialog, so none is queued.
+  // A closed dialog drops its placement, so it opens again hidden until it is placed,
+  // and picks its side again. An update that changes nothing can still render the
+  // dialog, so none is queued.
   const hasPlacement = Object.keys(style).length > 0;
   useEffect(() => {
     if (visible) return;
     prevBox.current = undefined;
+    prevLocationPreference.current = undefined;
     if (hasPlacement) setState((prev) => ({ ...prev, style: {} }));
   }, [visible, hasPlacement]);
 
@@ -423,8 +426,11 @@ export const Frame = ({
     return () => frame.removeEventListener(OPEN_EVENT_NAME, open);
   }, [open]);
 
+  // The kept side stops the dialog from jumping as its own size changes. A new window
+  // size can free the side it had before, so the side is picked again.
   useWindowResize(() => {
     heldLeft.current = null;
+    prevLocationPreference.current = undefined;
     calculatePosition();
   });
 

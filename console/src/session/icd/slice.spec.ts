@@ -44,7 +44,18 @@ describe("ICD slice", () => {
     store.dispatch(ICD.clearFocused({ key: KEY }));
     expect(documentIn(store.getState()[ICD.SLICE_NAME], KEY)).toEqual({
       selected: ["alarm"],
+      created: false,
     });
+  });
+
+  it("should mark an ICD created in the dispatching window until the editor clears it", () => {
+    const store = storeWith();
+    store.dispatch(ICD.setCreated({ key: KEY, created: true }));
+    const slice = store.getState()[ICD.SLICE_NAME];
+    expect(documentIn(slice, KEY)?.created).toBe(true);
+    expect(documentIn(slice, KEY, AUX_WINDOW)).toBeUndefined();
+    store.dispatch(ICD.setCreated({ key: KEY, created: false }));
+    expect(documentIn(store.getState()[ICD.SLICE_NAME], KEY)?.created).toBe(false);
   });
 
   it("should drop a field to focus when a selection names none", () => {
@@ -59,14 +70,17 @@ describe("ICD slice", () => {
   it("should remove an ICD from every window", () => {
     const store = storeWith({
       windows: {
-        ...inWindow({ [KEY]: { selected: ["alarm"] }, other: { selected: [] } }),
-        ...inWindow({ [KEY]: { selected: ["alarm"] } }, AUX_WINDOW),
+        ...inWindow({
+          [KEY]: { selected: ["alarm"], created: false },
+          other: { selected: [], created: false },
+        }),
+        ...inWindow({ [KEY]: { selected: ["alarm"], created: false } }, AUX_WINDOW),
       },
     });
     store.dispatch(ICD.remove({ keys: [KEY] }));
     const slice = store.getState()[ICD.SLICE_NAME];
     expect(documentIn(slice, KEY)).toBeUndefined();
     expect(documentIn(slice, KEY, AUX_WINDOW)).toBeUndefined();
-    expect(documentIn(slice, "other")).toEqual({ selected: [] });
+    expect(documentIn(slice, "other")).toEqual({ selected: [], created: false });
   });
 });

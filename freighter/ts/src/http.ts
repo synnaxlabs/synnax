@@ -32,7 +32,7 @@ export const CONTENT_TYPE_HEADER_KEY = "Content-Type";
 const ACCEPT_HEADER_KEY = "Accept";
 
 /**
- * The prefix freighter servers require on query-string parameters that should be
+ * The prefix Freighter servers require on query-string parameters that should be
  * exposed to handlers as request params. Unprefixed query parameters are ignored so
  * arbitrary query strings never leak into the request context.
  */
