@@ -126,6 +126,15 @@ sample_to_raw(const x::telem::SampleValue &val) {
     );
 }
 
+/// @brief returns the kind of a numeric guest type, and V128 for any other type.
+inline wasmtime::ValKind kind_of(const wasmtime::ValType &type) {
+    if (type.is_i32()) return wasmtime::ValKind::I32;
+    if (type.is_i64()) return wasmtime::ValKind::I64;
+    if (type.is_f32()) return wasmtime::ValKind::F32;
+    if (type.is_f64()) return wasmtime::ValKind::F64;
+    return wasmtime::ValKind::V128;
+}
+
 /// @brief returns the raw form of a guest value.
 inline wasmtime_val_raw_t wasm_to_raw(const wasmtime::Val &val) {
     wasmtime_val_raw_t raw{};
@@ -988,10 +997,10 @@ public:
         auto type = func_ptr->type(this->store);
         std::vector<wasmtime::ValKind> params;
         for (const auto &param: type->params())
-            params.push_back(param.kind());
+            params.push_back(kind_of(wasmtime::ValType(param)));
         std::vector<wasmtime::ValKind> results;
         for (const auto &result: type->results())
-            results.push_back(result.kind());
+            results.push_back(kind_of(wasmtime::ValType(result)));
         return {
             Function(
                 *this,
