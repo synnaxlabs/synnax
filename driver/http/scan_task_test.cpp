@@ -217,7 +217,7 @@ TEST(HTTPScanTask, HealthCheckConfigHeaderMissingNameErrors) {
     auto parser = x::json::Parser(j);
     const HealthCheckConfig hc(parser);
     EXPECT_FALSE(parser.ok());
-    EXPECT_NE(parser.error().data.find("name"), std::string::npos);
+    EXPECT_NE(parser.error().data().find("name"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigHeaderMissingValueErrors) {
@@ -229,7 +229,7 @@ TEST(HTTPScanTask, HealthCheckConfigHeaderMissingValueErrors) {
     auto parser = x::json::Parser(j);
     const HealthCheckConfig hc(parser);
     EXPECT_FALSE(parser.ok());
-    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
+    EXPECT_NE(parser.error().data().find("value"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingParameterErrors) {
@@ -241,7 +241,7 @@ TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingParameterErrors) {
     auto parser = x::json::Parser(j);
     const HealthCheckConfig hc(parser);
     EXPECT_FALSE(parser.ok());
-    EXPECT_NE(parser.error().data.find("parameter"), std::string::npos);
+    EXPECT_NE(parser.error().data().find("parameter"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigDuplicateHeaderErrors) {
@@ -257,7 +257,7 @@ TEST(HTTPScanTask, HealthCheckConfigDuplicateHeaderErrors) {
     auto parser = x::json::Parser(j);
     const HealthCheckConfig hc(parser);
     EXPECT_FALSE(parser.ok());
-    EXPECT_NE(parser.error().data.find("duplicate header"), std::string::npos);
+    EXPECT_NE(parser.error().data().find("duplicate header"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigDuplicateQueryParamErrors) {
@@ -273,7 +273,10 @@ TEST(HTTPScanTask, HealthCheckConfigDuplicateQueryParamErrors) {
     auto parser = x::json::Parser(j);
     const HealthCheckConfig hc(parser);
     EXPECT_FALSE(parser.ok());
-    EXPECT_NE(parser.error().data.find("duplicate query parameter"), std::string::npos);
+    EXPECT_NE(
+        parser.error().data().find("duplicate query parameter"),
+        std::string::npos
+    );
 }
 
 TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingValueErrors) {
@@ -285,7 +288,7 @@ TEST(HTTPScanTask, HealthCheckConfigQueryParamMissingValueErrors) {
     auto parser = x::json::Parser(j);
     const HealthCheckConfig hc(parser);
     EXPECT_FALSE(parser.ok());
-    EXPECT_NE(parser.error().data.find("value"), std::string::npos);
+    EXPECT_NE(parser.error().data().find("value"), std::string::npos);
 }
 
 TEST(HTTPScanTask, HealthCheckConfigMissingMethod) {

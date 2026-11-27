@@ -33,6 +33,7 @@ import {
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { server, userEvent } from "vitest/browser";
 
 import { Kafka } from "@/feature/kafka";
 import {
@@ -675,6 +676,36 @@ describe("Kafka read form", () => {
       dialog.getByRole("checkbox", { name: "Record /temperature" });
     });
 
+    // WebKit tabs to a button only when the user turns on full keyboard access.
+    it.runIf(server.browser === "chromium")(
+      "should read a typed topic that no topic matches from the keyboard",
+      async () => {
+        const { dev } = await renderRead({ empty: true });
+        await screen.findByText("No topics");
+        const scan = await createScanTask(client, dev);
+        const first = await answerCommandsUntil(client, [scan], "sample", {
+          browse: { data: { topics: [listTopic("alarms")], truncated: true } },
+          sample: { data: sampleOfTopic("alarms") },
+        });
+        const dialog = await clickAddData();
+        await first.answered;
+        await dialog.findByText("1 topic, list is full");
+        const second = await answerCommandsUntil(client, [scan], "sample", {
+          sample: { data: sampleOfTopic("plant", OVEN_SHAPE) },
+        });
+        const search = dialog.getByPlaceholderText("Search topics");
+        fireEvent.change(search, { target: { value: "plant" } });
+        const action = await dialog.findByRole("button", { name: "Read “plant”" });
+        search.focus();
+        // The topic tree takes focus before its empty content.
+        await userEvent.tab();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(action);
+        await userEvent.keyboard("{Enter}");
+        expect((await second.answered)[0].args.topics).toEqual(["plant"]);
+      },
+    );
+
     it("should keep the topics of the task when the browse fails", async () => {
       const { dev } = await renderRead();
       const scan = await createScanTask(client, dev);
@@ -797,8 +828,29 @@ describe("Kafka read form", () => {
         expect(dialog.queryByRole("checkbox", { name: `Pick ${TOPIC}` })).toBeNull(),
       );
       dialog.getByRole("checkbox", { name: "Pick plant" });
+      dialog.getByRole("button", { name: "Read “pla”" });
       fireEvent.change(search, { target: { value: "boiler" } });
       await dialog.findByText("No topic matches “boiler”.");
+      const empty = dialog.getByText("No topic matches “boiler”.");
+      within(empty).getByRole("button", { name: "Read “boiler”" });
+      expect(dialog.getAllByRole("button", { name: "Read “boiler”" })).toHaveLength(1);
+    });
+
+    it("should clear the pane while the search hides the active topic", async () => {
+      const { dev } = await renderRead();
+      const browse = browseOf(listTopic(TOPIC), listTopic("plant"));
+      const sample = { data: sampleOf(OVEN_SHAPE) };
+      const dialog = await openAddData(dev, sample, TOPIC, browse);
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.change(search, { target: { value: "boiler" } });
+      await dialog.findByText("Select a topic to see its records.");
+      expect(
+        dialog.queryByRole("checkbox", { name: "Record /temperature" }),
+      ).toBeNull();
+      expect(dialog.queryByText("Add an empty record")).toBeNull();
+      fireEvent.change(search, { target: { value: "" } });
+      await dialog.findByRole("checkbox", { name: "Record /temperature" });
     });
 
     it("should open Add data on the topic of the selected record", async () => {
@@ -1195,6 +1247,49 @@ describe("Kafka read form", () => {
       expect(record.messages.map(({ bindings }) => bindings.length)).toEqual([3, 2]);
     });
 
+    it("should give a field that two kinds of one held message share the labels of both", async () => {
+      const time = createTimeField();
+      const rec = await createRecord({
+        fields: [time, createField("rpm", "float")],
+        recordKey: "pump",
+        index: time.key,
+      });
+      const { draft, dev } = await renderRead({ records: [rec] });
+      const withState = (kind: ReturnType<typeof createKind>, labels: string[]) => ({
+        ...kind,
+        fields: [
+          ...kind.fields,
+          { ...createInferredField("/state", "string", "string"), enum: labels },
+        ],
+      });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(
+          withState(createKind("/rpm"), ["OFF", "ON"]),
+          withState(createKind("/fault"), ["FAULT", "OFF"]),
+        ),
+      });
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+      await waitFor(async () => {
+        const [record] = await retrieveRecords(draft.key);
+        const { messages } = await client.icds.retrieve(record.icd);
+        expect(ICD.jsonFields(messages[0])).toMatchObject([
+          { pointer: "/time" },
+          { pointer: "/rpm" },
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "FAULT", value: "0" },
+              { label: "OFF", value: "1" },
+              { label: "ON", value: "2" },
+            ],
+          },
+          { pointer: "/fault" },
+        ]);
+      });
+    });
+
     it("should offer a field of a kind that only the message of another kind reads", async () => {
       const time = createTimeField();
       const rec = await createRecord({
@@ -1304,6 +1399,44 @@ describe("Kafka read form", () => {
           { pointer: "/count", type: "integer" },
           { pointer: "/id", type: "unsigned" },
           { pointer: "/level", type: "float" },
+        ],
+      });
+    });
+
+    it("should add a string field with enum labels as an integer with a value for each label", async () => {
+      const { draft, dev } = await renderRead();
+      const pump = {
+        sources: ["pump"],
+        fields: [
+          { ...createInferredField("/state", "string", "string"), enum: ["OFF", "ON"] },
+        ],
+        index: -1,
+        count: 3,
+        present: -1,
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(pump) });
+      const state = await dialog.findByRole("checkbox", { name: "Record /state" });
+      const option = state.closest<HTMLElement>('[role="option"]');
+      assertDefined(option);
+      within(option).getByText("int64");
+      fireEvent.click(state);
+      fireEvent.click(dialog.getByRole("button", { name: "Add 1 field" }));
+      const [rec] = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(1);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(rec.icd);
+      expect(messages[0].payload).toMatchObject({
+        fields: [
+          {
+            pointer: "/state",
+            type: "integer",
+            enumValues: [
+              { label: "OFF", value: "0" },
+              { label: "ON", value: "1" },
+            ],
+          },
         ],
       });
     });

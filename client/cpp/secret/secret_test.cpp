@@ -87,7 +87,7 @@ TEST(SecretTest, Resolve) {
     const auto [denied, err] = as_other.secrets.resolve({key});
     ASSERT_OCCURRED_AS(err, auth::ERR_ACCESS_DENIED);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "no device or task on rack:" + std::to_string(other.key) + " uses secret " +
             key.to_string() + ": access denied: auth error"
     );

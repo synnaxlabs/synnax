@@ -14,16 +14,17 @@ import type { Device } from "@/feature/mqtt/device";
 /** A value that a browsed payload offers. */
 export interface Leaf extends Pick<
   json.InferredField,
-  "pointer" | "type" | "kind" | "timeFormat"
+  "pointer" | "type" | "kind" | "timeFormat" | "enum"
 > {}
 
 /** @returns one leaf for each scalar of a browsed payload. */
 export const createLeaves = (scalars: Device.BrowsedField[]): Leaf[] =>
-  scalars.map(({ pointer, type, kind, timeFormat }) => ({
+  scalars.map(({ pointer, type, kind, timeFormat, enum: labels }) => ({
     pointer,
     type,
     kind,
     timeFormat,
+    enum: labels,
   }));
 
 /** @returns the leaf of a payload that is not JSON, which reads it as one string. */
@@ -31,4 +32,5 @@ export const createRawLeaf = (): Leaf => ({
   pointer: "",
   type: "string",
   kind: "string",
+  enum: [],
 });

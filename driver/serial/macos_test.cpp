@@ -25,8 +25,8 @@ TEST_F(PtyTest, RejectsACustomBaudRateThePortCannotSet) {
     const auto [port, err] = Port::open(p);
     ASSERT_OCCURRED_AS(err, transport::CONFIG_ERROR);
     EXPECT_TRUE(
-        err.data.starts_with("failed to set baud rate 250000 on " + p.port + ": ")
-    ) << err.data;
+        err.data().starts_with("failed to set baud rate 250000 on " + p.port + ": ")
+    ) << err.data();
 }
 
 /// @brief it should apply the line settings to the terminal.

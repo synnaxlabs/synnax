@@ -9,16 +9,22 @@
 
 import type { enumeration } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
+import { id } from "@synnaxlabs/x";
+
+/** @returns the entries a new enumeration starts with: one blank entry to fill in. */
+export const createEntries = (): enumeration.Entry[] => [
+  { key: id.create(), name: "", value: 0, abnormal: false },
+];
 
 export interface CreatePromptParams {
   /** The name that the field starts with. */
   name: string;
-  /** The entries of the new enumeration. */
+  /** The entries that the new enumeration starts with. */
   entries: enumeration.Entry[];
 }
 
 /**
- * Asks the user for the name of a new enumeration, then creates it.
+ * Asks the user for the name and entries of a new enumeration, then creates it.
  *
  * @returns the key of the new enumeration, or null when the user cancels.
  */

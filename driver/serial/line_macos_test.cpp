@@ -146,7 +146,7 @@ TEST(Line, RejectsMarkAndSpaceParity) {
         p.parity = parity;
         const auto err = apply(p, s);
         ASSERT_MATCHES(err, transport::CONFIG_ERROR);
-        EXPECT_EQ(err.data, "macOS does not support mark or space parity");
+        EXPECT_EQ(err.data(), "macOS does not support mark or space parity");
     }
 }
 
@@ -157,6 +157,6 @@ TEST(Line, RejectsOneAndAHalfStopBits) {
     Settings s{};
     const auto err = apply(p, s);
     ASSERT_MATCHES(err, transport::CONFIG_ERROR);
-    EXPECT_EQ(err.data, "macOS does not support 1.5 stop bits");
+    EXPECT_EQ(err.data(), "macOS does not support 1.5 stop bits");
 }
 }

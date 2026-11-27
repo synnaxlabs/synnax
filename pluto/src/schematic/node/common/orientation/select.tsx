@@ -24,14 +24,12 @@ export interface Value {
 
 export interface SelectProps
   extends Input.Control<Value>, Omit<Flex.BoxProps, "value" | "onChange"> {
-  hideOuter?: boolean;
   showOuterCenter?: boolean;
   hideInner?: boolean;
 }
 
 export const Select = ({
   value,
-  hideOuter = false,
   showOuterCenter = false,
   hideInner,
   onChange,
@@ -39,15 +37,24 @@ export const Select = ({
   const { outer } = value;
   const handleChange = (next: Partial<Value>) => () => onChange({ ...value, ...next });
 
-  const className = CSS.B("select", "orientation");
-  if (hideOuter)
-    return <Internal className={className} value={value} onChange={onChange} />;
-
   return (
-    <Flex.Box className={className} align="center" justify="center" gap="tiny">
-      <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
+    <Flex.Box
+      className={CSS.B("select", "orientation")}
+      align="center"
+      justify="center"
+      gap="tiny"
+    >
+      <Button
+        selected={outer === "top"}
+        onClick={handleChange({ outer: "top" })}
+        tooltip="Above"
+      />
       <Flex.Box x align="center" justify="center" gap="tiny">
-        <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
+        <Button
+          selected={outer === "left"}
+          onClick={handleChange({ outer: "left" })}
+          tooltip="Left"
+        />
         <Internal
           hideInner={hideInner}
           value={value}
@@ -57,11 +64,13 @@ export const Select = ({
         <Button
           selected={outer === "right"}
           onClick={handleChange({ outer: "right" })}
+          tooltip="Right"
         />
       </Flex.Box>
       <Button
         selected={outer === "bottom"}
         onClick={handleChange({ outer: "bottom" })}
+        tooltip="Below"
       />
     </Flex.Box>
   );
@@ -82,6 +91,7 @@ const Internal = ({
     <Button
       selected={value.outer === "center"}
       onClick={handleChange({ outer: "center" })}
+      tooltip="Center"
     />
   ) : (
     <>
@@ -90,6 +100,7 @@ const Internal = ({
         className={CSS.cls(CSS.dir("y"), hiddenInnerClass)}
         selected={inner === "top"}
         onClick={handleChange({ inner: "top" })}
+        tooltip={hideInner ? undefined : "Top"}
       />
       <Flex.Box x align="center" justify="center">
         <Button
@@ -97,12 +108,14 @@ const Internal = ({
           className={CSS.cls(hiddenInnerClass)}
           selected={inner === "left"}
           onClick={handleChange({ inner: "left" })}
+          tooltip={hideInner ? undefined : "Left"}
         />
         <Button
           disabled={hideInner}
           className={CSS.cls(hiddenInnerClass)}
           selected={inner === "right"}
           onClick={handleChange({ inner: "right" })}
+          tooltip={hideInner ? undefined : "Right"}
         />
       </Flex.Box>
       <Button
@@ -110,6 +123,7 @@ const Internal = ({
         className={CSS.cls(CSS.dir("y"), hiddenInnerClass)}
         selected={inner === "bottom"}
         onClick={handleChange({ inner: "bottom" })}
+        tooltip={hideInner ? undefined : "Bottom"}
       />
     </>
   );

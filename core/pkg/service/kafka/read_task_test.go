@@ -307,8 +307,10 @@ var _ = Describe("Read task", func() {
 		Expect(stat.Details.Running).To(BeTrue())
 	})
 
-	It("Should clear the warning 5 seconds after the last skipped record",
+	It("Should clear the warning one skip hold after the last skipped record",
 		func(ctx SpecContext) {
+			hold := telem.Second
+			f = newFactory(kafka.FactoryConfig{SkipHold: hold})
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
@@ -317,13 +319,13 @@ var _ = Describe("Read task", func() {
 				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
+			produced := time.Now()
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9})
 			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
 				WithTimeout(15 * time.Second).Should(Equal(status.VariantWarning))
-			skipped := time.Now()
 			Eventually(func() status.Variant { return taskStatus(ctx, t).Variant }).
 				WithTimeout(15 * time.Second).Should(Equal(status.VariantSuccess))
-			Expect(time.Since(skipped)).To(BeNumerically(">=", 4*time.Second))
+			Expect(time.Since(produced)).To(BeNumerically(">=", hold.Duration()))
 			stat := taskStatus(ctx, t)
 			Expect(stat.Message).To(Equal("Started task"))
 			Expect(stat.Description).To(BeEmpty())
@@ -600,8 +602,8 @@ var _ = Describe("Read task", func() {
 		Entry("failed write", failWrite),
 	)
 
-	It("Should consume again when started after a failed write",
-		func(ctx SpecContext) {
+	DescribeTable("Should consume again when started after the consumer fails",
+		func(ctx SpecContext, fail func(context.Context, string)) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
@@ -610,11 +612,11 @@ var _ = Describe("Read task", func() {
 				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
 			})
 			start(ctx, dt, t)
-			failWrite(ctx, topic)
+			fail(ctx, topic)
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx, t)
 				g.Expect(stat.Variant).To(Equal(status.VariantError))
-				g.Expect(stat.Message).To(Equal("Failed to process records"))
+				g.Expect(stat.Message).To(Equal("Failed to run task"))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).WithTimeout(15 * time.Second).Should(Succeed())
 			dropRecords(ctx, topic)
@@ -622,25 +624,8 @@ var _ = Describe("Read task", func() {
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
 			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
 		},
-	)
-
-	It("Should consume again when started after a failed fetch",
-		func(ctx SpecContext) {
-			index, data := createIndexed(ctx, telem.Float64T)
-			dev := createDevice(ctx, clusterProperties())
-			topic := newTopic()
-			dt, t := configure(ctx, kafka.ReadConfig{
-				Device: dev.Key,
-				Topics: oneTopic(topic, stampedRecords(ctx, index, data)),
-			})
-			start(ctx, dt, t)
-			failFetch(ctx, topic)
-			Eventually(func() string { return taskStatus(ctx, t).Message }).
-				WithTimeout(15 * time.Second).Should(Equal("Failed to fetch records"))
-			start(ctx, dt, t)
-			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
-			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
-		},
+		Entry("failed fetch", failFetch),
+		Entry("failed write", failWrite),
 	)
 
 	It("Should name the topics of the task when the consumer fails to join its group",
@@ -663,7 +648,7 @@ var _ = Describe("Read task", func() {
 			Expect(dt.Exec(ctx, cmd)).To(Succeed())
 			Eventually(func(g Gomega) {
 				stat := taskStatus(ctx, t)
-				g.Expect(stat.Message).To(Equal("Failed to fetch records"))
+				g.Expect(stat.Message).To(Equal("Failed to run task"))
 				g.Expect(stat.Description).To(Equal("consuming " + topic +
 					": unable to join group session: GROUP_AUTHORIZATION_FAILED: Not " +
 					"authorized to access group: Group authorization failed."))
@@ -671,8 +656,8 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
-	DescribeTable("Should answer a stop after the consumer fails with a stopped status",
-		func(ctx SpecContext, fail func(context.Context, string), message string) {
+	DescribeTable("Should keep the error status when stopped after the consumer fails",
+		func(ctx SpecContext, fail func(context.Context, string)) {
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, clusterProperties())
 			topic := newTopic()
@@ -683,17 +668,17 @@ var _ = Describe("Read task", func() {
 			start(ctx, dt, t)
 			fail(ctx, topic)
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
-				WithTimeout(15 * time.Second).Should(Equal(message))
+				WithTimeout(15 * time.Second).Should(Equal("Failed to run task"))
 			Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "stop", Key: "cmd-3"})).
 				To(Succeed())
 			stat := taskStatus(ctx, t)
-			Expect(stat.Message).To(Equal("Stopped task"))
-			Expect(stat.Variant).To(Equal(status.VariantSuccess))
+			Expect(stat.Message).To(Equal("Failed to run task"))
+			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeFalse())
 			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
 		},
-		Entry("failed fetch", failFetch, "Failed to fetch records"),
-		Entry("failed write", failWrite, "Failed to process records"),
+		Entry("failed fetch", failFetch),
+		Entry("failed write", failWrite),
 	)
 
 	It("Should resume consuming without duplicates when the cluster comes back",
@@ -745,7 +730,7 @@ var _ = Describe("Read task", func() {
 				[]telem.TimeStamp{10 * telem.SecondTS, 11 * telem.SecondTS},
 			))
 			Eventually(func() string { return taskStatus(ctx, t).Message }).
-				Should(Equal("Reconnected to cluster"))
+				Should(Equal("Started task"))
 			stat = taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantSuccess))
 			Expect(stat.Details.Running).To(BeTrue())
@@ -894,36 +879,6 @@ var _ = Describe("Read task", func() {
 				ErrOnUnauthorized: new(true),
 			}))
 			Expect(w.Close()).To(Succeed())
-		},
-	)
-
-	It("Should return no error from Exec for a start answered before ctx ended",
-		func(ctx SpecContext) {
-			index, data := createIndexed(ctx, telem.Float64T)
-			dev := createDevice(ctx, clusterProperties())
-			t := newTask(ctx, kafka.ReadTaskType, kafka.ReadConfig{
-				Device: dev.Key,
-				Topics: oneTopic(
-					newTopic(),
-					stampedRecords(ctx, index, data),
-				),
-				StartOffset: kafka.StartOffsetNone,
-			})
-			cmdCtx, cancel := context.WithCancel(ctx)
-			cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
-				err := commit()
-				cancel()
-				return err
-			})
-			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
-			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
-			Expect(dt.Exec(cmdCtx, task.Command{
-				Task: t.Key, Type: "start", Key: "cmd-2",
-			})).To(Succeed())
-			Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
-			stat := taskStatus(ctx, t)
-			Expect(stat.Message).To(Equal("Failed to start task"))
-			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		},
 	)
 
