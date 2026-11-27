@@ -93,6 +93,8 @@ export interface ServeOIDCParams {
   invites?: LocalInvite[];
   /** Refuses every invite code, as for an unknown, expired, or used one. */
   inviteRefused?: boolean;
+  /** Refuses every username a password redeem chooses, as for a taken one. */
+  usernameTaken?: boolean;
   /** Refuses to renew a session until an invite opens one, as for an expired cookie. */
   cookieExpired?: boolean;
   /** Requests to answer only after their release. */
@@ -109,7 +111,7 @@ export interface OIDCServer {
   linked: unknown[];
   /** The invites the server holds. */
   invites: LocalInvite[];
-  /** Every redeem request. */
+  /** Every redeem request, through a provider or with a password. */
   redeemed: LocalRedeem[];
   /** The number of session requests, which an invite must not make. */
   sessionsCreated: number;
@@ -131,6 +133,7 @@ export const serveOIDC = async ({
   linkRefusal,
   invites = [],
   inviteRefused = false,
+  usernameTaken = false,
   cookieExpired = false,
   hold,
   userActions = [],
@@ -189,13 +192,21 @@ export const serveOIDC = async ({
       return { body: { policies: [policy] } };
     }
     if (path.endsWith("/auth/oidc/retrieve")) return { body: { links: state.links } };
-    if (path.endsWith("/auth/oidc/invite/redeem")) {
+    if (
+      path.endsWith("/auth/oidc/invite/redeem") ||
+      path.endsWith("/auth/oidc/invite/redeem-password")
+    ) {
       const redeem = JSON.parse(body) as LocalRedeem;
       state.redeemed.push(redeem);
       if (inviteRefused)
         return {
           status: 400,
           body: { type: "sy.auth.invalid-credentials", data: "invalid credentials" },
+        };
+      if (usernameTaken && path.endsWith("/redeem-password"))
+        return {
+          status: 400,
+          body: { type: "sy.auth", data: "username ada already exists" },
         };
       const token = redeem.cookie === true ? "" : "sys_invited";
       return { body: { token, session: SESSION, user: USER } };

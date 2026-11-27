@@ -211,7 +211,10 @@ const startProviderLogin = async (
  * the active Core rejects auth. Each submit is a new login, with a new client.
  */
 export const Login = (): ReactElement => {
-  const message = errorMessage(Synnax.useConnectionStatus());
+  const connectionMessage = errorMessage(Synnax.useConnectionStatus());
+  // a refused redeem never reaches the client, so the form holds its reason
+  const [redeemRefusal, setRedeemRefusal] = useState<string | null>(null);
+  const message = redeemRefusal ?? connectionMessage;
   const servingCore = Core.detectConnection();
   const cores = Session.Core.useSelectMany();
   const activeKey = Session.Core.useSelectSelectedKey();
@@ -234,8 +237,10 @@ export const Login = (): ReactElement => {
   const noLogin = !passwordAccepted && (!oidcAccepted || loadedProviders?.length === 0);
   const handleError = Status.useErrorHandler();
   const providersShown = providers.length > 0 && window.isSecureContext;
-  // a linked invite keeps its field, so the person can cancel it on any Core
-  const inviteOffered = providersShown || linked != null;
+  // An invite needs OIDC on, though a password can redeem one. A linked invite keeps
+  // its field, so the person can cancel it on any Core.
+  const inviteOffered =
+    (passwordAccepted && oidcAccepted) || providersShown || linked != null;
   const reportUnfinished = Core.useReportUnfinished();
   // A newer provider login replaces an older one, which then ends unreported. Leaving
   // the login surface ends one too, before it can save a token over an open session.
@@ -248,6 +253,7 @@ export const Login = (): ReactElement => {
   };
   const [inviteRevealed, setInviteRevealed] = useState(linked != null);
   const [inviteCode, setInviteCode] = useState(linked?.code ?? "");
+  const [redeeming, setRedeeming] = useState(false);
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
@@ -258,6 +264,7 @@ export const Login = (): ReactElement => {
   }, []);
 
   const handleProvider = (login: auth.OIDCLogin): void => {
+    setRedeemRefusal(null);
     const core = servingCore ?? selectedCore;
     if (core == null) return;
     endProviderLogin();
@@ -299,10 +306,63 @@ export const Login = (): ReactElement => {
     values: { username: selectedCore?.username ?? "", password: "" },
   });
 
+  const redeemWithPassword = (
+    core: Core.ConnectionParams,
+    invite: string,
+    credentials: z.infer<typeof credentialsZ>,
+  ): void => {
+    // a provider login still waiting would otherwise finish over this one
+    endProviderLogin();
+    const attempt = attempts.current;
+    setRedeeming(true);
+    handleError(async () => {
+      const cookie = Core.servesPage(core, window.location.origin);
+      let token: string;
+      try {
+        token = await Core.redeemInviteWithPassword(core, invite, credentials, cookie);
+      } catch (e) {
+        if (!mounted.current) return;
+        setRedeeming(false);
+        setRedeemRefusal(errors.fromUnknown(e).message);
+        return;
+      }
+      if (mounted.current) setRedeeming(false);
+      // a person who left the login surface or started another login has moved on
+      if (attempt !== attempts.current || !mounted.current) return;
+      const current = Session.Core.selectState(store.getState(), core.key);
+      // a serving Core has no record until this login makes one
+      if (servingCore == null) assertAddressKept(core, current);
+      if (Session.Runtime.ENGINE === "tauri")
+        dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
+      else {
+        dispatch(
+          Session.Core.set({
+            ...(current ?? core),
+            username: "",
+            password: "",
+            oidc: undefined,
+            token: cookie ? undefined : token,
+            lastLogin: Date.now(),
+          }),
+        );
+        dispatch(Session.Core.select(core.key));
+      }
+      dispatch(Session.Link.clearInvite());
+    }, FAILURE_MESSAGES.invite);
+  };
+
+  const trimmedInvite = inviteRevealed ? inviteCode.trim() : "";
+  const submitDisabled = redeeming || (inviteRevealed && trimmedInvite === "");
+
   const handleSubmit = (): void => {
+    setRedeemRefusal(null);
     const coreToConnect = servingCore ?? selectedCore;
     if (!methods.validate() || coreToConnect == null) return;
     const credentials = methods.value();
+    if (inviteRevealed) {
+      redeemWithPassword(coreToConnect, trimmedInvite, credentials);
+      return;
+    }
     const { key } = coreToConnect;
     dispatch(
       Session.Core.set({
@@ -319,6 +379,7 @@ export const Login = (): ReactElement => {
 
   const handleSelectedCoreChange = (key?: string) => {
     if (key == null) return;
+    setRedeemRefusal(null);
     const next = cores.find((c) => c.key === key);
     if (next == null) return;
     methods.reset({ username: next.username ?? "", password: "" });
@@ -331,6 +392,7 @@ export const Login = (): ReactElement => {
   };
 
   const handleCancelInvite = (): void => {
+    setRedeemRefusal(null);
     endProviderLogin();
     setInviteRevealed(false);
     setInviteCode("");
@@ -390,6 +452,11 @@ export const Login = (): ReactElement => {
               <Flex.Box y align="center" gap="medium" full="x">
                 {passwordAccepted ? (
                   <>
+                    {inviteRevealed && (
+                      <Text.Text level="p" color={9}>
+                        Choose a username and password
+                      </Text.Text>
+                    )}
                     <Flex.Box y full="x" empty>
                       <Form.TextField
                         path={path.username}
@@ -404,13 +471,14 @@ export const Login = (): ReactElement => {
                     </Flex.Box>
                     <Button.Button
                       onClick={handleSubmit}
+                      disabled={submitDisabled}
                       trigger={LOG_IN_TRIGGER}
                       variant="filled"
                       size="large"
                       full="x"
                       justify="center"
                     >
-                      Log in
+                      {inviteRevealed ? "Redeem invite" : "Log in"}
                       <Icon.Arrow.Right />
                     </Button.Button>
                   </>
