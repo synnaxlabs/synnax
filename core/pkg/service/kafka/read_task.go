@@ -116,13 +116,17 @@ type readTask struct {
 
 var _ driver.Task = (*readTask)(nil)
 
-func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, error) {
+// configureRead returns the read task of t, and whether the factory starts it.
+func (f *factory) configureRead(
+	ctx context.Context,
+	t task.Task,
+) (*readTask, bool, error) {
 	var cfg ReadConfig
 	if err := t.Config.Unmarshal(&cfg); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := cfg.Validate(); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if _, err := resolveProperties(
 		ctx,
@@ -130,7 +134,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		f.cfg.Device,
 		cfg.Device,
 	); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	rt := &readTask{
 		factoryCfg: f.cfg,
@@ -139,7 +143,7 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 	}
 	var err error
 	if rt.records, rt.groups, err = f.buildReadRecords(ctx, cfg); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if rt.Runner, err = driver.NewRunner(driver.RunnerConfig{
 		DB:              f.cfg.DB,
@@ -148,14 +152,14 @@ func (f *factory) configureRead(ctx context.Context, t task.Task) (*readTask, er
 		Task:            t,
 		Open:            rt.open,
 	}); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	for _, topic := range cfg.Topics {
 		if _, ok := rt.records[topic.Name]; ok {
 			rt.topics = append(rt.topics, topic.Name)
 		}
 	}
-	return rt, nil
+	return rt, cfg.AutoStart, nil
 }
 
 // buildReadRecords resolves the enabled records of cfg against their ICDs and channels.

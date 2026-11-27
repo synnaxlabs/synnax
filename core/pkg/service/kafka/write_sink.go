@@ -274,36 +274,59 @@ func notTopicRune(r rune) bool {
 	return r != '.' && r != '_' && r != '-'
 }
 
-// configureTargets returns the write task of t, which produces the records of the
-// enabled targets of cfg.
-func (f *factory) configureTargets(
+// configureWrite returns the write task of t, which produces the records of its
+// enabled targets, and whether the factory starts it.
+func (f *factory) configureWrite(
 	ctx context.Context,
 	t task.Task,
-	cfg WriteConfig,
-) (*driver.WriteTask, error) {
+) (*driver.WriteTask, bool, error) {
+	var cfg WriteConfig
+	if err := t.Config.Unmarshal(&cfg); err != nil {
+		return nil, false, err
+	}
 	if _, err := resolveProperties(
 		ctx,
 		f.cfg.DB,
 		f.cfg.Device,
 		cfg.Device,
 	); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if err := validateTopics(cfg.Targets); err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	enabled := lo.Filter(cfg.Targets, func(wt WriteTarget, _ int) bool {
 		return !wt.Disabled
 	})
 	if len(enabled) == 0 {
-		return nil, errors.Wrap(
+		return nil, false, errors.Wrap(
 			validate.ErrValidation, "targets: the task has no enabled targets",
 		)
 	}
-	var (
-		keys    channel.Keys
-		icdKeys []icd.Key
-	)
+	targets, streamed, err := f.buildWriteTargets(ctx, enabled)
+	if err != nil {
+		return nil, false, err
+	}
+	wt, err := driver.NewWriteTask(driver.WriteTaskConfig{
+		Instrumentation: f.cfg.Child(t.Key.String()),
+		Sink:            &writeSink{cfg: f.cfg, device: cfg.Device, targets: targets},
+		DB:              f.cfg.DB,
+		Status:          f.cfg.Status,
+		Framer:          f.cfg.Framer,
+		Channels:        streamed,
+		Task:            t,
+	})
+	return wt, cfg.AutoStart, err
+}
+
+// buildWriteTargets builds the enabled targets, and returns them with the channels
+// that their write task streams.
+func (f *factory) buildWriteTargets(
+	ctx context.Context,
+	enabled []WriteTarget,
+) ([]*target, channel.Keys, error) {
+	var keys channel.Keys
+	icdKeys := make([]icd.Key, 0, len(enabled))
 	for _, wt := range enabled {
 		icdKeys = append(icdKeys, wt.ICD)
 		for _, b := range write.ChannelBindings(wt.Message) {
@@ -312,29 +335,21 @@ func (f *factory) configureTargets(
 	}
 	channels, err := retrieveChannels(ctx, f.cfg.DB, f.cfg.Channel, keys.Unique())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	icds, err := retrieveICDs(ctx, f.cfg.DB, f.cfg.ICD, lo.Uniq(icdKeys))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	sink := &writeSink{cfg: f.cfg, device: cfg.Device}
+	targets := make([]*target, 0, len(enabled))
 	streamed := keys
 	for _, wt := range enabled {
 		built, err := newTarget(wt, icds[wt.ICD], channels)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		sink.targets = append(sink.targets, built)
+		targets = append(targets, built)
 		streamed = append(streamed, lo.Compact(built.indexes)...)
 	}
-	return driver.NewWriteTask(driver.WriteTaskConfig{
-		Instrumentation: f.cfg.Child(t.Key.String()),
-		Sink:            sink,
-		DB:              f.cfg.DB,
-		Status:          f.cfg.Status,
-		Framer:          f.cfg.Framer,
-		Channels:        streamed.Unique(),
-		Task:            t,
-	})
+	return targets, streamed.Unique(), nil
 }
