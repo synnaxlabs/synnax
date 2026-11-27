@@ -9,6 +9,8 @@
 
 export * from "@/feature/ni/device/hardware";
 export * from "@/feature/ni/device/identifier";
+export * from "@/feature/ni/device/link";
+export * from "@/feature/ni/device/notifications";
 export * from "@/feature/ni/device/queries";
 export * from "@/feature/ni/device/Select";
 export * from "@/feature/ni/device/tree";
