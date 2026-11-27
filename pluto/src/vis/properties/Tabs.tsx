@@ -9,7 +9,6 @@
 
 import "@/vis/properties/Tabs.css";
 
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import type { ReactElement, ReactNode } from "react";
@@ -49,14 +48,12 @@ export interface RailProps extends Pick<
 > {
   /** The rail's tabs, in order. */
   tabs: RailTab[];
-  /** Renders at the foot of the rail. */
-  actions?: ReactNode;
   /** A `Tabs.Content` per tab key. */
   children: ReactNode;
 }
 
 /** Rail lays a form's sub-tabs, each an icon and a name, beside the content. */
-export const Rail = ({ tabs, actions, children, ...rest }: RailProps): ReactElement => (
+export const Rail = ({ tabs, children, ...rest }: RailProps): ReactElement => (
   <Base.Frame {...rest} x className={CSS.B("properties-tabs")}>
     <Base.Selector y>
       {tabs.map(({ key, name, icon }) => (
@@ -65,14 +62,6 @@ export const Rail = ({ tabs, actions, children, ...rest }: RailProps): ReactElem
           {name}
         </Base.Tab>
       ))}
-      {actions != null && (
-        <>
-          <Flex.Box grow />
-          <Flex.Box x align="center" empty>
-            {actions}
-          </Flex.Box>
-        </>
-      )}
     </Base.Selector>
     {children}
   </Base.Frame>
@@ -85,8 +74,7 @@ export interface SelectionProps {
   onTabChange?: (tab: TabKey) => void;
 }
 
-export interface TabsProps
-  extends SelectionProps, Pick<RailProps, "actions" | "children"> {
+export interface TabsProps extends SelectionProps, Pick<RailProps, "children"> {
   /** The rail's tabs, in order. */
   tabs: TabKey[];
 }
