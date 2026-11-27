@@ -872,19 +872,16 @@ class TestAgreement:
         with pytest.raises(sy.ValidationError, match=f"^{re.escape(msg)}$"):
             dec.decode(bytes(corrupt(bytearray(_hex(_WORKED_EXAMPLE)))))
 
-    def test_drops_unnamed_clock(self) -> None:
-        """Should drop an unrequested time series that no requested series names."""
+    def test_declares_unnamed_clock(self) -> None:
+        """Should declare an unrequested time series that no requested series names."""
         data = sy.Series(np.array([1], np.float32))
         stamps = sy.Series(
             np.array([1], np.int64), data_type=sy.DataType.TIMESTAMP, clock=9
         )
-        with_stamps = Codec(keys=[6], data_types=[sy.DataType.FLOAT32]).encode(
+        encoded = Codec(keys=[6], data_types=[sy.DataType.FLOAT32]).encode(
             FramePayload(keys=[6, 9], series=[data, stamps])
         )
-        without = Codec(keys=[6], data_types=[sy.DataType.FLOAT32]).encode(
-            FramePayload(keys=[6], series=[data])
-        )
-        assert with_stamps == without
+        assert struct.unpack_from("<II", encoded, 7) == (1, 9)
 
     def test_rejects_oversized_series(self) -> None:
         """Should raise on a series whose size a length field cannot hold."""
@@ -912,11 +909,10 @@ class TestAgreement:
         c = Codec(keys=[6], data_types=[sy.DataType.FLOAT32])
         ts = sy.DataType.TIMESTAMP
         pld = FramePayload(
-            keys=[5, 6, 6, 7],
+            keys=[5, 6, 7],
             series=[
                 sy.Series(np.array([1], np.int64), data_type=ts, clock=5),
-                sy.Series(np.array([1], np.float32), clock=5),
-                sy.Series(np.array([2], np.float32), clock=7),
+                sy.Series(np.array([1], np.float32)),
                 sy.Series(np.array([1], np.int64), data_type=ts, clock=7),
             ],
         )
