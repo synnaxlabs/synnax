@@ -71,9 +71,11 @@ telemetry (§9.0).
    to the live write and stream path. A storage fault raises a status and never stops a
    writer, a stream, or the Core, and the Core gets past start damage by itself (§6). A
    bad data block fails its read. Cesium's one refusal to open is the identity check
-   (§9.0), whose two ways on keep different data. From RFC 0120 Phase 50 the Core also
-   refuses to start when a clock has a channel record, since a write would put stamps in
-   a user's channel (RFC 0120 §4.10).
+   (§9.0), whose two ways on keep different data. From RFC 0120 Phase 50, a clock that
+   has a channel record must never take a write, since the write would put stamps in a
+   user's channel. Whether the Core then refuses to start, or starts with an error
+   status while the framer refuses writes to that channel and continuation never picks
+   it, is open (§14): D-425 (3) keeps D-419 as the one refusal.
 
 ## 4 The seam with the Core
 
@@ -134,13 +136,13 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    release without clock keys never moves a local key past 2^20, and such a key is never
    given to a new channel after an undo or a lost metadata tail. A key with a record, a
    clock, and a key whose intent is live are accounted for. From RFC 0120 Phase 50, a
-   clock that has a record fails the start (RFC 0120 §4.10). Any other key with data is
-   kept: the Core raises a warning status whose description names the keys and their
-   bytes and says: restore the records from a backup to keep the data, or stop the Core
-   and run `synnax purge <keys>` to remove it. A missing record can come from a restored
-   backup or lost metadata, never only from a delete, so the Core deletes a key only
-   from a note, never on absence. No writer or reader reaches a kept key: the framer and
-   the API reach a key only through its record.
+   clock that has a record takes the open rule of principle 5 (RFC 0120 §4.10). Any
+   other key with data is kept: the Core raises a warning status whose description names
+   the keys and their bytes and says: restore the records from a backup to keep the
+   data, or stop the Core and run `synnax purge <keys>` to remove it. A missing record
+   can come from a restored backup or lost metadata, never only from a delete, so the
+   Core deletes a key only from a note, never on absence. No writer or reader reaches a
+   kept key: the framer and the API reach a key only through its record.
 6. The command `synnax purge` runs with the Core stopped: it takes the directory lock,
    opens storage, and lists the kept keys and their bytes. With keys, it refuses any key
    that has a record or is not kept, and any key that a kept segment of another key
@@ -1383,10 +1385,14 @@ other phase is one PR.
 
 ## 14 Open questions
 
-Each is a parameter with a default, checked against the measured floors: the width of
-the sync pool (32); the log file size and the switch trigger (64 MiB, three quarters);
-the handle budget of readers and background passes (1,024); the pointers before an open
-segment seals (4,096); the part threshold (8 MiB) and the part cache budget (64 MiB);
-the Reserve blocks (16, then 1,024); the dead share that starts a compaction (20%, as
-today); the rate limits; the pauses before a move (64, with its files made at three
-quarters) and the gap of a continued stretch (3 steps), both RFC 0120 §8's.
+One is a rule: what the Core does at start when a clock has a channel record (principle
+5). The founder rules on it against D-425 (3).
+
+Each other is a parameter with a default, checked against the measured floors: the width
+of the sync pool (32); the log file size and the switch trigger (64 MiB, three
+quarters); the handle budget of readers and background passes (1,024); the pointers
+before an open segment seals (4,096); the part threshold (8 MiB) and the part cache
+budget (64 MiB); the Reserve blocks (16, then 1,024); the dead share that starts a
+compaction (20%, as today); the rate limits; the pauses before a move (64, with its
+files made at three quarters) and the gap of a continued stretch (3 steps), both RFC
+0120 §8's.
