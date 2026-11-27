@@ -31,6 +31,7 @@ class ReadFrameAdapter:
     _names: dict[channel.Key, str]
     # _paired holds the channels whose samples pair with the time of their clock.
     _paired: set[channel.Key]
+    _records: dict[channel.Key, channel.Payload]
     _rank: dict[channel.Key | str, int]
     retriever: Retriever
     keys: list[channel.Key]
@@ -59,6 +60,7 @@ class ReadFrameAdapter:
         self._by_name = False
         self._names = {}
         self._paired = set()
+        self._records = {}
         self._rank = {}
         self.keys = []
         self.codec = Codec()
@@ -76,6 +78,7 @@ class ReadFrameAdapter:
                 keys=new_keys, data_types=[ch.data_type for ch in fetched]
             )
         self._names = {ch.key: ch.name for ch in fetched}
+        self._records = {ch.key: ch for ch in fetched}
         self._paired = {ch.key for ch in fetched if self._time_indexed(ch)}
         self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
@@ -108,15 +111,22 @@ class ReadFrameAdapter:
 
     def adapt(self, fr: Frame) -> Frame:
         """Sorts the frame's series into the order of the requested channels and
-        records the channel names in the frame, and the index of each channel: the
-        clock of its series. When the channels were requested by name, the frame is
-        keyed by name.
+        records the channel names in the frame, the index of each channel (the clock of
+        its series), and the time series of each clock that a kept series names. When
+        the channels were requested by name, the frame is keyed by name.
         """
         # The Core can send channels the client has not adapted yet, so purge them.
         items = sorted(
             ((k, s) for k, s in fr.items() if k in self._rank),
             key=lambda item: self._rank[item[0]],
         )
+        named = {s.clock for _, s in items if s.clock != 0}
+        times: dict[int, list[Series]] = {}
+        for k, s in fr.items():
+            if isinstance(k, channel.Key) and s.clock == k and k in named:
+                times.setdefault(k, []).append(s)
+        hidden = self._hidden(items)
+        items = [(k, s) for k, s in items if not (s.clock == k and k in hidden)]
         fr.channels = [
             self._names[k] if self._by_name and isinstance(k, channel.Key) else k
             for k, _ in items
@@ -134,7 +144,24 @@ class ReadFrameAdapter:
                     "samples do not pair with one index"
                 )
         fr.indexes.update(indexes)
+        fr.times = times
         return fr
+
+    def _hidden(self, items: list[tuple[channel.Key | str, Series]]) -> set[int]:
+        """Returns the requested index channels whose stamps in the frame time only a
+        calculation, as a calculation's frame holds its primary's stamps under that
+        index's key. Those stamps are time, not samples of the index channel.
+        """
+        calculated: set[int] = set()
+        recorded: set[int] = set()
+        for k, s in items:
+            record = self._records.get(k) if isinstance(k, channel.Key) else None
+            if record is None or s.clock == k:
+                continue
+            if record.expression:
+                calculated.add(s.clock)
+            recorded.add(record.index)
+        return calculated - recorded
 
 
 class WriteFrameAdapter:

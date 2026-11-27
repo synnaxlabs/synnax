@@ -83,6 +83,8 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
     """The frame client for executing read operations."""
     _cache: MultiSeries | None = PrivateAttr(None)
     """An internal cache to prevent repeated reads from the same channel."""
+    _time: MultiSeries | None = PrivateAttr(None)
+    """The cached time of the channel's samples."""
 
     # ArrayOperators clears __hash__, but writes can key data by channel payload.
     __hash__ = channel.Payload.__hash__
@@ -134,6 +136,18 @@ class _InternalScopedChannel(ArrayOperators, channel.Payload):
         if self._cache is None:
             self._cache = self._frame_client.read(self.time_range, self.key)
         return self._cache
+
+    @property
+    def time(self) -> MultiSeries:
+        """The time of the channel's samples in the range, one time series per series
+        of read().
+
+        :raises NotFoundError: If the read holds no time for the channel's samples.
+        """
+        if self._time is None:
+            frame = self._frame_client.read(self.time_range, [self.key])
+            self._cache, self._time = frame[self.key], frame.time(self.key)
+        return self._time
 
     @override
     def __str__(self) -> str:
@@ -223,6 +237,15 @@ class ScopedChannel(ArrayOperators):
     def leaseholder(self) -> node.Key:
         self._guard()
         return self._internal[0].leaseholder
+
+    @property
+    def time(self) -> MultiSeries:
+        """The time of the channel's samples in the range.
+
+        :raises NotFoundError: If the read holds no time for the channel's samples.
+        """
+        self._guard()
+        return self._internal[0].time
 
     def __iter__(self) -> Iterator[_InternalScopedChannel]:
         return iter(self._internal)
