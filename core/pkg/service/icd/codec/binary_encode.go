@@ -60,12 +60,12 @@ type binaryEncodeField struct {
 // NewBinaryEncoder returns an encoder of the payloads of m. Each binding names a field
 // that takes a sample, in sample order, and every other field takes its default. The
 // identifier field takes the identifier's value. It returns an error wrapping
-// validate.ErrValidation when m has a CAN identifier, a binding names no field, a field
-// has two bindings, a binding names the identifier field, a field's layout, default, or
-// multiplexor is invalid, a bound field has a zero scale, a field's channel does not
-// hold numbers, a scaled field's channel does not hold floats, a field that the
-// multiplexors can select has no binding and no default, or a fixed multiplexor value
-// never selects a bound field.
+// validate.ErrValidation when m has a CAN identifier or an invalid identifier, a
+// binding names no field, a field has two bindings, a binding names the identifier
+// field, a field's layout, default, or multiplexor is invalid, a bound field has a zero
+// scale, a field's channel does not hold numbers, a scaled field's channel does not
+// hold floats, a field that the multiplexors can select has no binding and no default,
+// or a fixed multiplexor value never selects a bound field.
 func NewBinaryEncoder(m BinaryMessage) (*BinaryEncoder, error) {
 	e, err := newBinaryEncoder(m)
 	if err != nil {
@@ -453,6 +453,7 @@ func (f *binaryEncodeField) floatRaw(v float64) (uint64, error) {
 func (f *binaryEncodeField) checkRaw(raw uint64, narrow bool) error {
 	v := f.encoding.value(raw)
 	decoded := v*f.base.Scale + f.base.Offset
+	// atLimit moves a value that is a limit at float32 precision onto that limit.
 	if narrow && xmath.Finite(decoded) && atLimit(f.base, true, decoded) != decoded {
 		return nil
 	}
