@@ -771,9 +771,14 @@ into that session's writer through `DB.Handoff` (§4.2), the one path that moves
   keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock (NEW).
-- **Pauses**: In an `Adaptive` writer, a key that reaches 64 pauses in its open segment
-  moves to a clock of its own at the next commit, and the writer copies the group's
-  stamps to that clock. The key moves back at the next open.
+- **Pauses**: In an `Adaptive` writer, a key that reaches 48 pauses in its open segment
+  gets a clock of its own from a background step, which leases the key and makes the two
+  files off the frame path. The clock of the key's last move is reused when no writer
+  holds it. At 64 pauses the key moves to that clock at the first commit after its files
+  exist. The writer then stores the group's stamps on that clock for each frame that
+  holds the key: the one copy of stored stamps, at most one per moved key per frame,
+  until the key moves back at the next open. A clock stores no stamps for a frame in
+  which no key on it has a sample.
 - **Segments**: An open segment belongs to one writer. At open, a later session with the
   same key, type, and clock key takes it over only after the commits of the earlier
   writer are durable. At a handoff, the gainer takes it over at once, with the loser's
@@ -1310,7 +1315,8 @@ as several pieces, grouped into pull requests of about 2,000 hand-written lines.
     its own. Before RFC 0120 Phase 38 a clock can be an index channel with a record,
     which Cesium cannot see.
 16. **No segment file on the frame path**: Spares made at open and at a handoff cost one
-    empty file each. Rejected: a file made at a key's first write after a move.
+    empty file each, and a pause move makes its files in a background step at 48 pauses.
+    Rejected: a file made at a key's first write after a move.
 
 ## 14 Open questions
 
