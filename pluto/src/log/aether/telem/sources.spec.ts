@@ -21,12 +21,12 @@ import { Rate, Series, sleep, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import {
+  format,
   type LogEntry,
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
   ZERO_FILTER,
 } from "@/log/aether";
-import { formatZ, textOf as drawnTextOf } from "@/log/aether/format";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 
@@ -586,14 +586,14 @@ describe("StreamMultiChannelLog", () => {
       const [a] = core.data.map((c) => c.key);
       const log = open(core, connect(core), { channels: [a] });
       await settle(log, HISTORY);
-      const format = formatZ.parse({ precision: 2, dataType: "float32" });
+      const drawn = format.formatZ.parse({ precision: 2, dataType: "float32" });
       log.setFilter({
         ...ZERO_FILTER,
         search: { text: "\\.91$", mode: "regex" },
-        formats: { [a]: format },
+        formats: { [a]: drawn },
       });
       const raw = textOf(core, a, HISTORY);
-      const matches = raw.filter((v) => /\.91$/.test(drawnTextOf(v, format)));
+      const matches = raw.filter((v) => /\.91$/.test(format.textOf(v, drawn)));
       expect(matches.length).toBeGreaterThan(0);
       expect(raw.some((v) => /\.91$/.test(v))).toBe(false);
       await settle(log, matches.length);
@@ -1144,7 +1144,7 @@ describe("StreamMultiChannelLog", () => {
       });
       const log = open(core, client, { channels: [a, b] });
       await settle(log, 2 * PAGE);
-      log.setFilter({ hiddenChannels: [b] });
+      log.setFilter({ ...ZERO_FILTER, hiddenChannels: [b] });
       await expect.poll(() => asked.at(-1), POLL).toEqual([a]);
     });
 

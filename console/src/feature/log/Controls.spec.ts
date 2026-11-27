@@ -7,18 +7,35 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { log } from "@synnaxlabs/client";
 import { RoleClients } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { aether } from "@synnaxlabs/pluto/ether";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
-import { Controls } from "@/feature/log/Controls";
+import { Log } from "@/feature/log";
 import { client, renderLog } from "@/feature/log/toolbar/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 
 const roles = new RoleClients(client);
+
+const stateZ = z.looseObject({});
+
+// The real worker needs a canvas. The log renders its controls without one.
+class WorkerStub extends aether.Leaf<typeof stateZ> {
+  static readonly TYPE = "log";
+  override schema = stateZ;
+}
+
+const REGISTRY = { [WorkerStub.TYPE]: WorkerStub };
+
+const { Content } = Log.TABS[log.TYPE_RESOURCE_ID.type];
+
+beforeAll(Content.preload);
 
 type Store = Awaited<ReturnType<typeof renderLog>>["store"];
 
@@ -32,7 +49,7 @@ const openSearch = async (text: string): Promise<void> => {
 
 describe("log/Controls search", () => {
   it("should store the search text, mode, and filter", async () => {
-    const { key, store } = await renderLog(Controls);
+    const { key, store } = await renderLog(Content, { additionalRegistry: REGISTRY });
     await openSearch("err");
     fireEvent.click(screen.getByRole("button", { name: "Use regex" }));
     fireEvent.click(screen.getByRole("button", { name: "Show only matching lines" }));
@@ -46,7 +63,7 @@ describe("log/Controls search", () => {
   });
 
   it("should show an error only for an invalid regex", async () => {
-    await renderLog(Controls);
+    await renderLog(Content, { additionalRegistry: REGISTRY });
     await openSearch("(");
     expect(screen.queryByText("Invalid regex")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Use regex" }));
@@ -54,7 +71,7 @@ describe("log/Controls search", () => {
   });
 
   it("should end the search when the close button is clicked", async () => {
-    const { key, store } = await renderLog(Controls);
+    const { key, store } = await renderLog(Content, { additionalRegistry: REGISTRY });
     await openSearch("err");
     fireEvent.click(screen.getByRole("button", { name: "Close search" }));
     await waitFor(() => expect(searchIn(store, key)?.text).toBe(""));
@@ -62,7 +79,7 @@ describe("log/Controls search", () => {
   });
 
   it("should end the search on Escape", async () => {
-    const { key, store } = await renderLog(Controls);
+    const { key, store } = await renderLog(Content, { additionalRegistry: REGISTRY });
     await openSearch("err");
     fireEvent.keyDown(screen.getByLabelText("Search text"), { key: "Escape" });
     await waitFor(() => expect(searchIn(store, key)?.text).toBe(""));
@@ -70,7 +87,8 @@ describe("log/Controls search", () => {
   });
 
   it("should show a stored search when the controls mount", async () => {
-    await renderLog(Controls, {
+    await renderLog(Content, {
+      additionalRegistry: REGISTRY,
       preloadedState: (key) => ({
         [Session.Log.SLICE_NAME]: {
           ...Session.Log.ZERO_SLICE_STATE,
@@ -91,15 +109,18 @@ describe("log/Controls search", () => {
   it("should keep a copy in the search box from reaching the log", async () => {
     const onCopy = vi.fn();
     const InLog = (): ReactElement =>
-      createElement("div", { onCopy }, createElement(Controls));
-    await renderLog(InLog);
+      createElement("div", { onCopy }, createElement(Content));
+    await renderLog(InLog, { additionalRegistry: REGISTRY });
     await openSearch("err");
     fireEvent.copy(screen.getByLabelText("Search text"));
     expect(onCopy).not.toHaveBeenCalled();
   });
 
   it("should let a viewer search", async () => {
-    const { key, store } = await renderLog(Controls, { as: await roles.get("Viewer") });
+    const { key, store } = await renderLog(Content, {
+      additionalRegistry: REGISTRY,
+      as: await roles.get("Viewer"),
+    });
     await openSearch("err");
     await waitFor(() => expect(searchIn(store, key)?.text).toBe("err"));
   });
