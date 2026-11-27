@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/log"
 	"github.com/synnaxlabs/cesium/internal/place"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs/testutil/crash"
@@ -30,6 +31,8 @@ var _ = DescribeTable("Crash harness, pointer log",
 				ack,
 				cesium.WithPointerLog,
 				func() cesium.Option { return cesium.WithRandom(rand.NewPCG(1, 2)) },
+				// The smallest log keeps the scan of the log at each recovery short.
+				func() cesium.Option { return cesium.WithLogFileSize(log.MinFileSize) },
 			),
 			Commits:        8,
 			Stride:         1,
