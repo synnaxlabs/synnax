@@ -82,7 +82,8 @@ TEST(TestAPIKeys, Rotate) {
     ASSERT_NIL(keyed.auth->authenticate());
     const auto session = keyed.auth->current_session();
     const auto rotated = ASSERT_NIL_P(keyed.api_keys.rotate());
-    ASSERT_NE(rotated.key.key, created.key.key);
+    ASSERT_EQ(rotated.key.key, created.key.key);
+    ASSERT_NE(rotated.token, created.token);
     ASSERT_EQ(rotated.key.name, "rotated");
     ASSERT_EQ(rotated.key.subject, created.key.subject);
     ASSERT_NIL_P(keyed.api_keys.retrieve());

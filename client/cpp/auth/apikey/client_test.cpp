@@ -24,7 +24,14 @@ Client client_with(
     std::unique_ptr<CreateClient> create,
     std::unique_ptr<RetrieveClient> retrieve = nullptr
 ) {
-    return Client(std::move(create), std::move(retrieve), nullptr, nullptr, nullptr);
+    return Client(
+        std::move(create),
+        std::move(retrieve),
+        nullptr,
+        nullptr,
+        nullptr,
+        nullptr
+    );
 }
 }
 

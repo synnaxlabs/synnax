@@ -130,14 +130,15 @@ describe("apiKey", () => {
   });
 
   describe("rotate", () => {
-    it("should replace the key and keep the session", async () => {
+    it("should give the key a new secret and keep the session", async () => {
       const owner = createTestClient().auth;
       const { token, key } = await owner.apiKeys.create({ name: "rotated" });
       const keyed = createTestAuthClient({ apiKey: token });
       await keyed.sessions.retrieve();
       const session = keyed.session?.key;
       const rotated = await keyed.apiKeys.rotate();
-      expect(rotated.key.key).not.toEqual(key.key);
+      expect(rotated.key.key).toEqual(key.key);
+      expect(rotated.token).not.toEqual(token);
       expect(rotated.key.name).toEqual("rotated");
       expect(rotated.key.subject).toEqual(key.subject);
       await keyed.sessions.retrieve();

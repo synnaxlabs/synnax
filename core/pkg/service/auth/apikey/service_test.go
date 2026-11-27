@@ -326,12 +326,14 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			return k
 		}
-		It("Should replace the key with one for the same subject and name", func(
+		It("Should give the key a new secret and keep its key, subject, and name", func(
 			ctx SpecContext,
 		) {
 			old, oldToken := create(ctx, svc, subject(), "rotated")
+			clock.Advance(time.Hour)
 			k, token := MustSucceed2(rotate(ctx, old.Key))
-			Expect(k.Key).ToNot(Equal(old.Key))
+			Expect(k.Key).To(Equal(old.Key))
+			Expect(k.Created).To(Equal(old.Created.Add(telem.Hour)))
 			Expect(k.Subject).To(Equal(old.Subject))
 			Expect(k.Name).To(Equal("rotated"))
 			Expect(k.Expires).To(Equal(telem.TimeStampMax))
@@ -378,12 +380,14 @@ var _ = Describe("Service with a maximum lifetime", func() {
 			MaxLifetime: telem.Day,
 		}))
 	})
-	It("Should give a rotated key the maximum lifetime", func(ctx SpecContext) {
-		sub := subject()
-		for _, expires := range []telem.TimeStamp{
-			telem.NewTimeStamp(clock.Now().Add(time.Hour)),
-			telem.TimeStampMax,
-		} {
+	DescribeTable(
+		"Should give a rotated key the longest expiry",
+		func(ctx SpecContext, lifetime telem.TimeSpan) {
+			expires := telem.TimeStampMax
+			if lifetime != 0 {
+				expires = telem.NewTimeStamp(clock.Now()).Add(lifetime)
+			}
+			sub := subject()
 			var k apikey.APIKey
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				w := svc.NewWriter(tx)
@@ -395,8 +399,10 @@ var _ = Describe("Service with a maximum lifetime", func() {
 				return err
 			})).To(Succeed())
 			Expect(k.Expires).To(Equal(k.Created.Add(telem.Day - telem.Hour)))
-		}
-	})
+		},
+		Entry("for a key with a shorter lifetime", telem.Hour),
+		Entry("for a key that never expires", telem.TimeSpan(0)),
+	)
 	It("Should stop the longest expiry an hour short of the maximum lifetime", func() {
 		Expect(svc.LongestExpiry()).
 			To(Equal(telem.NewTimeStamp(clock.Now()).Add(telem.Day - telem.Hour)))

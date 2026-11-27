@@ -158,8 +158,8 @@ func (s *Service) LongestExpiry() telem.TimeStamp {
 	return s.now().Add(maxLifetime - margin)
 }
 
-// renewedExpiry returns the expiry of a key that replaces k: the longest expiry when
-// there is a maximum lifetime, and otherwise as far from now as k's expiry was from its
+// renewedExpiry returns the expiry of k after a rotation: the longest expiry when there
+// is a maximum lifetime, and otherwise as far from now as k's expiry was from its
 // creation.
 func (s *Service) renewedExpiry(k APIKey) telem.TimeStamp {
 	if s.cfg.MaxLifetime != 0 || k.Expires == telem.TimeStampMax {

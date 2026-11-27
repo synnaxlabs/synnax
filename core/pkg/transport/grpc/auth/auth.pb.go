@@ -256,10 +256,11 @@ func (x *User) GetKey() string {
 }
 
 type MethodsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Methods       []string               `protobuf:"bytes,1,rep,name=methods,proto3" json:"methods,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Methods           []string               `protobuf:"bytes,1,rep,name=methods,proto3" json:"methods,omitempty"`
+	ApiKeyMaxLifetime int64                  `protobuf:"varint,2,opt,name=api_key_max_lifetime,json=apiKeyMaxLifetime,proto3" json:"api_key_max_lifetime,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *MethodsResponse) Reset() {
@@ -297,6 +298,13 @@ func (x *MethodsResponse) GetMethods() []string {
 		return x.Methods
 	}
 	return nil
+}
+
+func (x *MethodsResponse) GetApiKeyMaxLifetime() int64 {
+	if x != nil {
+		return x.ApiKeyMaxLifetime
+	}
+	return 0
 }
 
 // Proof is what a subject presents to log in. The method selects which fields apply.
@@ -1148,9 +1156,10 @@ const file_core_pkg_transport_grpc_auth_auth_proto_rawDesc = "" +
 	"\x04user\x18\x02 \x01(\v2\x0f.grpc.auth.UserR\x04user\x129\n" +
 	"\fcluster_info\x18\x03 \x01(\v2\x16.grpc.auth.ClusterInfoR\vclusterInfo\"(\n" +
 	"\x04User\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03keyJ\x04\b\x02\x10\x03R\busername\"+\n" +
+	"\x03key\x18\x01 \x01(\tR\x03keyJ\x04\b\x02\x10\x03R\busername\"\\\n" +
 	"\x0fMethodsResponse\x12\x18\n" +
-	"\amethods\x18\x01 \x03(\tR\amethods\"\xd8\x01\n" +
+	"\amethods\x18\x01 \x03(\tR\amethods\x12/\n" +
+	"\x14api_key_max_lifetime\x18\x02 \x01(\x03R\x11apiKeyMaxLifetime\"\xd8\x01\n" +
 	"\x05Proof\x12\x16\n" +
 	"\x06method\x18\x01 \x01(\tR\x06method\x12\x1a\n" +
 	"\busername\x18\x02 \x01(\tR\busername\x12\x1a\n" +

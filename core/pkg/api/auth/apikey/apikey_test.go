@@ -116,6 +116,18 @@ var _ = Describe("Disabled API key method", func() {
 			apiapikey.CreateRequest{Name: "ci"},
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
+	It("Should refuse to rotate a key", func(ctx SpecContext) {
+		other := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(other.Run)
+		disabled := newService(MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: other,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodPassword: passwordSvc,
+			},
+		})))
+		Expect(disabled.Rotate(requestCtx(ctx), nil, struct{}{})).Error().
+			To(MatchError(validate.ErrValidation))
+	})
 })
 
 var _ = Describe("Maximum lifetime", func() {
@@ -392,14 +404,14 @@ var _ = Describe("API keys", func() {
 		rotate := func(ctx context.Context, token string) (apiapikey.CreateResponse, error) {
 			return rotateKey(authed(ctx, token), struct{}{})
 		}
-		It("Should replace the key and keep the sessions of the old key", func(
+		It("Should replace the secret and keep the sessions of the key", func(
 			ctx SpecContext,
 		) {
 			old := MustSucceed(create(ctx, rootToken, rackID))
 			rackToken := login(ctx, keyProof(old.Token))
 			other := login(ctx, keyProof(old.Token))
 			res := MustSucceed(rotate(ctx, rackToken))
-			Expect(res.Key.Key).ToNot(Equal(old.Key.Key))
+			Expect(res.Key.Key).To(Equal(old.Key.Key))
 			Expect(res.Key.Subject).To(Equal(rackID))
 			Expect(res.Key.Name).To(Equal(old.Key.Name))
 			for _, token := range []string{rackToken, other} {
@@ -438,6 +450,19 @@ var _ = Describe("API keys", func() {
 			ctx SpecContext,
 		) {
 			Expect(rotate(ctx, bobToken)).Error().To(MatchError(validate.ErrValidation))
+		})
+		It("Should end a rotated key when the key is deleted", func(ctx SpecContext) {
+			old := MustSucceed(create(ctx, bobToken, resource.ID{}))
+			keyToken := login(ctx, keyProof(old.Token))
+			res := MustSucceed(rotate(ctx, keyToken))
+			MustSucceed(deleteKeys(
+				authed(ctx, bobToken),
+				apiapikey.DeleteRequest{Keys: []apikey.Key{old.Key.Key}},
+			))
+			Expect(authSvc.Authenticate(ctx, keyToken)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+			Expect(authSvc.Login(ctx, keyProof(res.Token))).Error().
+				To(MatchError(auth.ErrInvalidCredentials))
 		})
 	})
 })

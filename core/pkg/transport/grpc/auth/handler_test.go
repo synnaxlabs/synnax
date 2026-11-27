@@ -18,6 +18,7 @@ import (
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -60,6 +61,12 @@ var _ = Describe("Auth", func() {
 					svcauth.MethodPassword,
 				}},
 			)).Methods).To(Equal([]string{"api_key", "password"}))
+		})
+		It("Should translate the API key lifetime limit", func(ctx SpecContext) {
+			Expect(MustSucceed(methods.ResponseTranslator.Forward(
+				ctx,
+				auth.MethodsResponse{APIKeyMaxLifetime: telem.Day},
+			)).ApiKeyMaxLifetime).To(Equal(int64(telem.Day)))
 		})
 		It("Should translate an empty method list", func(ctx SpecContext) {
 			Expect(MustSucceed(methods.ResponseTranslator.Forward(

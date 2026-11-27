@@ -89,7 +89,7 @@ x::errors::Error log_in(const std::string &token) {
 }
 }
 
-/// @brief it should rotate the key before it expires, save the new key, and keep the
+/// @brief it should rotate the key before it expires, save the new token, and keep the
 /// client logged in with it.
 TEST(KeyRenewerTest, RotatesBeforeExpiry) {
     const auto client = rack_client(4 * x::telem::SECOND);
@@ -106,8 +106,8 @@ TEST(KeyRenewerTest, RotatesBeforeExpiry) {
     ASSERT_NIL(log_in(saved.last()));
     ASSERT_NIL(client->auth->logout());
     ASSERT_NIL(client->auth->authenticate());
-    ASSERT_NE(client->auth->current_session().credential, old);
-    ASSERT_EQ(health_message(renewer), "");
+    ASSERT_EQ(client->auth->current_session().credential, old);
+    ASSERT_EVENTUALLY_EQ(health_message(renewer), "");
 }
 
 /// @brief it should never rotate a key that never expires.
@@ -146,7 +146,7 @@ TEST(KeyRenewerTest, RetriesFailedSave) {
         std::chrono::seconds(5),
         std::chrono::milliseconds(50)
     );
-    ASSERT_EQ(health_message(renewer), "");
+    ASSERT_EVENTUALLY_EQ(health_message(renewer), "");
     ASSERT_NIL(log_in(saved.last()));
 }
 

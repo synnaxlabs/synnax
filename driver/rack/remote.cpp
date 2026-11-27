@@ -95,9 +95,12 @@ x::errors::Error Config::enroll() {
         created = true;
     }
     if (res.second) return res.second;
+    const auto [expires, expiry_err] = client.api_keys.longest_expiry();
+    if (expiry_err) return expiry_err;
     auto [key, create_err] = client.api_keys.create(
         API_KEY_NAME,
-        synnax::rack::resource_id(res.first.key)
+        synnax::rack::resource_id(res.first.key),
+        expires
     );
     if (create_err) {
         // A retry creates another rack, so remove the one no key logs in as.

@@ -78,8 +78,7 @@ class Client:
         on_rotate: Callable[[str, APIKey], None] = lambda _token, _key: None,
     ) -> None:
         """
-        :param on_rotate: receives the token and key of each key that replaces the key
-            the client logged in with.
+        :param on_rotate: receives the new token and the key after each rotation.
         """
         self._client = transport
         self._on_rotate = on_rotate
@@ -112,12 +111,12 @@ class Client:
         return res.token, res.key
 
     def rotate(self) -> tuple[str, APIKey]:
-        """Replaces the API key that the client logged in with by a new key for the
-        same subject and name. The new key lasts as long as the old key did, or an hour
-        short of the lifetime cap of the Core. The client's session stays open and
-        later logins use the new key. The old key cannot log in again.
+        """Gives the API key that the client logged in with a new secret. The key lasts
+        as long as it did before, or an hour short of the lifetime cap of the Core. The
+        client's session stays open and later logins use the new token. The old token
+        cannot log in again.
 
-        :returns: the token of the new key, the only copy of its secret, and the key.
+        :returns: the new token, the only copy of the new secret, and the key.
         :raises ValidationError: if the client did not log in with an API key.
         :raises AuthError: if the key has expired.
         """

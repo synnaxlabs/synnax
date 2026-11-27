@@ -58,6 +58,7 @@ func (methodsResponseTranslator) Forward(
 		Methods: lo.Map(r.Methods, func(m svcauth.Method, _ int) string {
 			return string(m)
 		}),
+		ApiKeyMaxLifetime: int64(r.APIKeyMaxLifetime),
 	}, nil
 }
 

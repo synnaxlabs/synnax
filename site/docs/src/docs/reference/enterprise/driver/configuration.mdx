@@ -187,13 +187,13 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 
 ### API key renewal
 
-When the key in the state file has an expiry, the Driver replaces it with a new key
-before it expires and saves the new key in the state file. Running tasks continue. The
-Driver does not renew a key from the configuration file, `SYNNAX_DRIVER_API_KEY`, or
-`--api-key`. Before such a key expires, the rack status shows the warning "API key
-expires soon". Replace the key, or run `login` so the Driver saves a key that it renews.
-If the Driver cannot renew its key, the rack status shows a warning, and the Driver
-tries again.
+When the key in the state file has an expiry, the Driver gives it a new secret before it
+expires and saves it in the state file. Running tasks continue. The Driver does not
+renew a key from the configuration file, `SYNNAX_DRIVER_API_KEY`, or `--api-key`. Before
+such a key expires, the rack status shows the warning "API key expires soon". Replace
+the key, or run `login` so the Driver saves a key that it renews. If a renewal fails,
+the rack status shows a warning and the Driver tries again. If the Driver cannot save
+the renewed key, or the key expires first, the rack status shows an error.
 
 <Divider.Divider x />
 

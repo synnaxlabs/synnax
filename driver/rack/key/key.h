@@ -50,6 +50,13 @@ struct Config {
                                    );
         if (this->renew_lead <= 0 || this->renew_lead >= 1)
             p.field_err("renew_lead", "must be between 0 and 1");
+        if (this->retry_base_interval <= x::telem::TimeSpan(0))
+            p.field_err("renew_retry_base_interval", "must be positive");
+        if (this->retry_max_interval < this->retry_base_interval)
+            p.field_err(
+                "renew_retry_max_interval",
+                "must be at least renew_retry_base_interval"
+            );
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {

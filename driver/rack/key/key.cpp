@@ -162,12 +162,13 @@ void Renewer::run() {
                 status::Health{
                     .variant = synnax::status::VARIANT_WARNING,
                     .message = "API key expires soon",
-                    .description = expiry_text(*key) +
-                                   " The Driver renews only a key that it saved "
-                                   "itself, not one from its configuration file, "
-                                   "SYNNAX_API_KEY, or --api-key. Replace the key, "
-                                   "or run synnax-driver login to give the Driver a "
-                                   "key that it renews.",
+                    .description =
+                        expiry_text(*key) +
+                        " The Driver renews only a key that it saved "
+                        "itself, not one from its configuration file, "
+                        "SYNNAX_DRIVER_API_KEY, or --api-key. Replace the key, "
+                        "or run synnax-driver login to give the Driver a "
+                        "key that it renews.",
                 }
             );
             return;

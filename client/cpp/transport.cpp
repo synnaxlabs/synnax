@@ -86,6 +86,10 @@ Transport::Transport(
         google::protobuf::Empty,
         grpc::auth::APIKeyCreateResponse,
         grpc::auth::AuthAPIKeyRotateService>>(pool, base_target);
+    this->auth_methods = std::make_unique<freighter::grpc::UnaryClient<
+        google::protobuf::Empty,
+        grpc::auth::MethodsResponse,
+        grpc::auth::AuthMethodsService>>(pool, base_target);
     this->frame_stream = std::make_unique<freighter::grpc::StreamClient<
         grpc::framer::StreamerRequest,
         grpc::framer::StreamerResponse,

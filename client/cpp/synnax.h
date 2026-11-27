@@ -249,6 +249,7 @@ public:
             std::move(this->t.auth_api_key_retrieve),
             std::move(this->t.auth_api_key_delete),
             std::move(this->t.auth_api_key_rotate),
+            std::move(this->t.auth_methods),
             [mw = this->auth](const std::string &token) {
                 mw->set_proof(auth::api_key_proof(token));
             }

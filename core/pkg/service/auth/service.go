@@ -589,22 +589,21 @@ func (w Writer) RevokeCredential(ctx context.Context, credentials ...uuid.UUID) 
 		Exec(ctx, w.tx)
 }
 
-// MoveCredential moves every session that credential from opened onto credential to at
-// version, so the sessions outlive from.
-func (w Writer) MoveCredential(
+// SetCredentialVersion keeps every session of the credential open across a change of
+// its secret to version.
+func (w Writer) SetCredentialVersion(
 	ctx context.Context,
-	from, to uuid.UUID,
+	credential uuid.UUID,
 	version telem.TimeStamp,
 ) error {
 	var sessions []Session
 	if err := w.svc.NewRetrieve().
-		Where(MatchCredentials(from)).
+		Where(MatchCredentials(credential)).
 		Entries(&sessions).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for i := range sessions {
-		sessions[i].Credential = to
 		sessions[i].CredentialVersion = version
 	}
 	return w.svc.table.NewCreate().Entries(&sessions).Exec(ctx, w.tx)

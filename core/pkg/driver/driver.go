@@ -61,9 +61,10 @@ const stateFileName = "state.json"
 
 const configFileName = "config.json"
 
-// keptStateFileName is the file in KeyDirname that holds the Driver's persisted state
-// between starts. The Driver saves each API key that it rotates there.
-const keptStateFileName = "embedded-driver-state.json"
+// keptStateDirName is the directory in KeyDirname that holds the Driver's persisted
+// state, and the files of its integrations, between starts. The Driver saves each API
+// key that it rotates in its state file there.
+const keptStateDirName = "embedded-driver"
 
 // legacyKeyFileName is the file in KeyDirname that held the API key before the Driver
 // kept it in its persisted state.
@@ -709,6 +710,9 @@ func (d *Driver) exitAction(
 // deletes the other embedded Driver keys of the rack, which no Driver logs in with
 // again.
 func (d *Driver) resolveKey(ctx context.Context) error {
+	if err := d.secureState(); err != nil {
+		return err
+	}
 	state, conn, err := d.readState()
 	if err != nil {
 		return err
@@ -780,27 +784,49 @@ func (d *Driver) replaceKey(ctx context.Context) (apikey.APIKey, string, error) 
 		}
 		return w.Delete(ctx, stale...)
 	})
-	return created, token, err
+	if err != nil {
+		return apikey.APIKey{}, "", err
+	}
+	return created, token, nil
+}
+
+// secureState makes the Driver's state readable by the Core's user alone, as the
+// Driver requires. A restored backup or a volume mount can loosen its modes.
+func (d *Driver) secureState() error {
+	path := d.statePath()
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, xfs.UserRWX); err != nil {
+		return err
+	}
+	if err := os.Chmod(dir, xfs.UserRWX); err != nil {
+		return err
+	}
+	return errors.Skip(os.Chmod(path, xfs.UserRW), fs.ErrNotExist)
 }
 
 // readState returns the Driver's persisted state and the connection parameters in it.
-// Both are empty when the state does not exist.
+// Both are empty when the state does not exist or is not valid JSON, as after a crash
+// while the Driver wrote it, since such a state holds no key.
 func (d *Driver) readState() (map[string]any, map[string]any, error) {
-	state, conn := map[string]any{}, map[string]any{}
 	b, err := os.ReadFile(d.statePath())
 	if errors.Is(err, fs.ErrNotExist) {
-		return state, conn, nil
+		return map[string]any{}, map[string]any{}, nil
 	}
 	if err != nil {
 		return nil, nil, err
 	}
-	if err = json.Unmarshal(b, &state); err != nil {
-		return nil, nil, err
+	state, conn := map[string]any{}, map[string]any{}
+	err = json.Unmarshal(b, &state)
+	if raw, ok := state[connParamsEntry].(string); ok && err == nil {
+		err = json.Unmarshal([]byte(raw), &conn)
 	}
-	if raw, ok := state[connParamsEntry].(string); ok {
-		if err = json.Unmarshal([]byte(raw), &conn); err != nil {
-			return nil, nil, err
-		}
+	if err != nil {
+		d.cfg.L.Warn(
+			"replacing the damaged state of the embedded Driver",
+			zap.String("path", d.statePath()),
+			zap.Error(err),
+		)
+		return map[string]any{}, map[string]any{}, nil
 	}
 	return state, conn, nil
 }
@@ -817,11 +843,7 @@ func (d *Driver) writeState(state, conn map[string]any) error {
 	if err != nil {
 		return err
 	}
-	path := d.statePath()
-	if err = os.MkdirAll(filepath.Dir(path), xfs.UserRWX); err != nil {
-		return err
-	}
-	return writeFileAtomic(path, b)
+	return writeFileAtomic(d.statePath(), b)
 }
 
 // writeFileAtomic replaces the file at path with data, so an interrupted write leaves
@@ -842,7 +864,7 @@ func (d *Driver) statePath() string {
 	if d.cfg.KeyDirname == "" {
 		return filepath.Join(d.workDir(), stateFileName)
 	}
-	return filepath.Join(d.cfg.KeyDirname, keptStateFileName)
+	return filepath.Join(d.cfg.KeyDirname, keptStateDirName, stateFileName)
 }
 
 // Close stops the Driver and waits for it to exit. It cancels the supervisor context,

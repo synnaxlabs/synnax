@@ -594,4 +594,34 @@ TEST(stateTests, HealthOverridesClockSkew) {
     EXPECT_EQ(health.message, error.message);
     EXPECT_EQ(health.description, error.description);
 }
+
+/// @brief it should report a key problem in place of a healthy status.
+TEST(stateTests, ProblemReplacesHealthyStatus) {
+    const Health problem{
+        .variant = synnax::status::VARIANT_WARNING,
+        .message = "API key expires soon",
+    };
+    const auto health = with_problem(Health{}, [&] { return problem; });
+    EXPECT_EQ(health.variant, problem.variant);
+    EXPECT_EQ(health.message, problem.message);
+}
+
+/// @brief it should keep a healthy status when there is no problem.
+TEST(stateTests, NoProblemKeepsHealth) {
+    EXPECT_EQ(with_problem(Health{}, nullptr).message, "Driver is running");
+    const auto health = with_problem(Health{}, [] { return std::optional<Health>(); });
+    EXPECT_EQ(health.message, "Driver is running");
+}
+
+/// @brief it should report a health that is not a success over a key problem.
+TEST(stateTests, HealthOverridesProblem) {
+    const Health error{
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Driver 0.59.3 cannot work with Core 0.60.1",
+    };
+    const auto health = with_problem(error, [] {
+        return std::optional(Health{.message = "API key expires soon"});
+    });
+    EXPECT_EQ(health.message, error.message);
+}
 }

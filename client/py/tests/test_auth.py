@@ -479,8 +479,8 @@ class TestAPIKeys:
         admin.close()
 
     def test_rotate(self, login_info: tuple[str, int, str, str]) -> None:
-        """Should replace the key, keep the session, and log in again with the new
-        key.
+        """Should give the key a new secret, keep the session, and log in again with
+        the new token.
         """
         host, port, username, password = login_info
         admin = sy.Synnax(
@@ -494,7 +494,8 @@ class TestAPIKeys:
         assert keyed.auth.session is not None
         session = keyed.auth.session.key
         new_token, new_key = keyed.auth.api_keys.rotate()
-        assert new_key.key != key.key
+        assert new_key.key == key.key
+        assert new_token != token
         assert new_key.name == "rotated"
         assert new_key.subject == key.subject
         kept = sy.TimeSpan(new_key.expires - new_key.created)

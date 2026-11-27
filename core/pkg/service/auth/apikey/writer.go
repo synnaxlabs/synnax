@@ -72,28 +72,34 @@ func (w Writer) Create(
 	return k, token, nil
 }
 
-// Rotate replaces the API key with a new key for the same subject and name, and returns
-// the new key with its token. The new key gets [Service.LongestExpiry] when the service
-// has a maximum lifetime, and otherwise as long as the old key did, so a key that never
-// expires is replaced by one that never expires. Rotate returns
+// Rotate gives the API key a new secret, creation time, and expiry, and returns the key
+// with its new token. The old token stops working, but the key keeps its key, subject,
+// and name, so a delete of the key still ends it. The key gets [Service.LongestExpiry]
+// when the service has a maximum lifetime, and otherwise lasts as long as before, so a
+// key that never expires still never expires. Rotate returns
 // [auth.ErrInvalidCredentials] when the key has expired, and an error wrapping
 // [query.ErrNotFound] when it does not exist.
 func (w Writer) Rotate(ctx context.Context, key Key) (APIKey, string, error) {
-	var old APIKey
+	var k APIKey
 	if err := w.svc.NewRetrieve().
 		Where(MatchKeys(key)).
-		Entry(&old).
+		Entry(&k).
 		Exec(ctx, w.tx); err != nil {
 		return APIKey{}, "", err
 	}
-	if w.svc.expired(old) {
+	if w.svc.expired(k) {
 		return APIKey{}, "", errors.Wrap(auth.ErrInvalidCredentials, "API key expired")
 	}
-	k, token, err := w.Create(ctx, old.Subject, old.Name, w.svc.renewedExpiry(old))
+	token, hash, err := auth.NewToken(prefix, k.Key)
 	if err != nil {
 		return APIKey{}, "", err
 	}
-	return k, token, w.Delete(ctx, old.Key)
+	k.Expires = w.svc.renewedExpiry(k)
+	k.Hash, k.Created = hash, w.svc.now()
+	if err = w.svc.table.NewCreate().Entry(&k).Exec(ctx, w.tx); err != nil {
+		return APIKey{}, "", err
+	}
+	return k, token, nil
 }
 
 // Delete removes the API keys with the given keys. Unknown keys are ignored.

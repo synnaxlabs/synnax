@@ -45,6 +45,7 @@ struct Transport {
     std::unique_ptr<auth::apikey::RetrieveClient> auth_api_key_retrieve;
     std::unique_ptr<auth::apikey::DeleteClient> auth_api_key_delete;
     std::unique_ptr<auth::apikey::RotateClient> auth_api_key_rotate;
+    std::unique_ptr<auth::apikey::MethodsClient> auth_methods;
     std::unique_ptr<framer::StreamerClient> frame_stream;
     std::unique_ptr<framer::WriterClient> frame_write;
     std::shared_ptr<channel::CreateClient> chan_create;

@@ -49,6 +49,7 @@ service AuthMethodsService {
 
 message MethodsResponse {
   repeated string methods = 1;
+  int64 api_key_max_lifetime = 2;
 }
 
 service AuthSessionCreateService {

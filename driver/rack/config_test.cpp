@@ -447,6 +447,21 @@ TEST_F(RackConfigTest, APIKeyKeepsEnrollmentAddress) {
     ASSERT_EQ(cfg.connection.api_key, "syk_saved");
 }
 
+/// @brief it should renew only a key that came from the persisted state.
+TEST_F(RackConfigTest, RenewsOnlyPersistedKey) {
+    ASSERT_NIL(Config::save_api_key(args, key_conn("syk_saved")));
+    const auto saved = ASSERT_NIL_P(Config::resolve(args, brk));
+    EXPECT_EQ(saved.connection.api_key, "syk_saved");
+    EXPECT_TRUE(saved.api_key_persisted);
+    auto flagged = x::args::Parser(
+        std::vector<
+            std::string>{"program", "--state-file", STATE_PATH, "--api-key", "syk_flag"}
+    );
+    const auto from_flag = ASSERT_NIL_P(Config::resolve(flagged, brk));
+    EXPECT_EQ(from_flag.connection.api_key, "syk_flag");
+    EXPECT_FALSE(from_flag.api_key_persisted);
+}
+
 /// @brief it should run as the rack its API key logs in as.
 TEST_F(RackConfigTest, LoadRackFromAPIKey) {
     const auto client = new_test_client();

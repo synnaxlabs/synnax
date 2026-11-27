@@ -757,37 +757,36 @@ var _ = Describe("Service", func() {
 				MustSucceed(svc.Authenticate(ctx, token))
 			})
 		})
-		Describe("MoveCredential", func() {
-			It("Should move every session of the credential", func(ctx SpecContext) {
+		Describe("SetCredentialVersion", func() {
+			It("Should keep the sessions of the credential at its new version", func(
+				ctx SpecContext,
+			) {
 				first, firstToken := login(ctx)
 				_, secondToken := login(ctx)
-				bob, bobName := subject(), uuid.New().String()
+				changed := hash(pw, "changed")
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return pw.NewWriter(tx).Set(ctx, bob, bobName, hash(pw, "secret"))
-				})).To(Succeed())
-				target, _ := MustSucceed2(svc.Login(ctx, proof(bobName, "secret")))
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).MoveCredential(
-						ctx,
-						first.Credential,
-						target.Credential,
-						target.CredentialVersion,
-					)
+					if err := pw.NewWriter(tx).
+						SetHash(ctx, alice, changed); err != nil {
+						return err
+					}
+					version, err := pw.Version(ctx, tx, first.Credential)
+					if err != nil {
+						return err
+					}
+					return svc.NewWriter(tx).
+						SetCredentialVersion(ctx, first.Credential, version)
 				})).To(Succeed())
 				for _, token := range []string{firstToken, secondToken} {
-					session := MustSucceed(svc.Authenticate(ctx, token))
-					Expect(session.Subject).To(Equal(alice))
-					Expect(session.Credential).To(Equal(target.Credential))
+					MustSucceed(svc.Authenticate(ctx, token))
 				}
 			})
-			It("Should end the moved sessions on a stale version", func(
+			It("Should end the sessions when the version is stale", func(
 				ctx SpecContext,
 			) {
 				first, token := login(ctx)
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).MoveCredential(
+					return svc.NewWriter(tx).SetCredentialVersion(
 						ctx,
-						first.Credential,
 						first.Credential,
 						first.CredentialVersion-1,
 					)

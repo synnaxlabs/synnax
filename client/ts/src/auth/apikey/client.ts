@@ -83,9 +83,9 @@ const DELETE_ENDPOINT = "/auth/api-key/delete";
 const ROTATE_ENDPOINT = "/auth/api-key/rotate";
 
 export interface Rotated {
-  /** The token to log in with. It is the only copy of the new key's secret. */
+  /** The token to log in with. It is the only copy of the key's new secret. */
   token: string;
-  /** The new key. */
+  /** The rotated key. */
   key: APIKey;
 }
 
@@ -94,8 +94,7 @@ export class Client {
   private readonly onRotate: (rotated: Rotated) => void;
 
   /**
-   * @param onRotate - receives each key that replaces the key the client logged in
-   * with.
+   * @param onRotate - receives the new token and the key after each rotation.
    */
   constructor(client: UnaryClient, onRotate: (rotated: Rotated) => void = () => {}) {
     this.client = client;
@@ -113,10 +112,10 @@ export class Client {
   }
 
   /**
-   * Replaces the API key that the client logged in with by a new key for the same
-   * subject and name. The new key lasts as long as the old key did, or an hour short
-   * of the lifetime cap of the Core. The client's session stays open and later logins
-   * use the new key. The old key cannot log in again.
+   * Gives the API key that the client logged in with a new secret. The key lasts as
+   * long as it did before, or an hour short of the lifetime cap of the Core. The
+   * client's session stays open and later logins use the new token. The old token
+   * cannot log in again.
    * @throws {ValidationError} when the client did not log in with an API key.
    * @throws {AuthError} when the key has expired.
    */
