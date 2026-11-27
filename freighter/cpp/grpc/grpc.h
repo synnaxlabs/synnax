@@ -29,7 +29,7 @@ const std::string ERROR_KEY = "error";
 const std::string ROOTS_FILE_ENV = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH";
 
 /// @brief converts a ::grpc::Status to a x::errors::Error. A type---data message from
-/// the Core keeps its type. Any other message becomes the data of the freighter error
+/// the Core keeps its type. Any other message becomes the data of the Freighter error
 /// for the status code.
 inline x::errors::Error err_from_status(const ::grpc::Status &status) {
     if (status.ok()) return x::errors::NIL;

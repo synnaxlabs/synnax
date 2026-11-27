@@ -30,11 +30,11 @@ type Config struct {
 	Factories []Factory
 	// HostKey is the key of the host node.
 	HostKey node.Key
-	// DB is the gorp database for observing task changes.
+	// DB is the Gorp database for observing task changes.
 	DB *gorp.DB
 	// Rack is the rack service for creating/managing racks.
 	Rack *rack.Service
-	// RackKey is the key of the Core's rack, which runs the tasks of the driver.
+	// RackKey is the key of the Core's rack, which runs the tasks of the Driver.
 	RackKey rack.Key
 	// Task is the task service for managing tasks.
 	Task *task.Service
@@ -44,7 +44,7 @@ type Config struct {
 	Channel *channel.Service
 	// Status is the status service for task status updates.
 	Status *status.Service
-	// HeartbeatInterval is the interval at which the driver reports its health.
+	// HeartbeatInterval is the interval at which the Driver reports its health.
 	HeartbeatInterval time.Duration
 	// TaskTimeout is the maximum duration for task operations (configure, exec).
 	TaskTimeout time.Duration

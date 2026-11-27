@@ -10,6 +10,7 @@
 import { type device, icd, mqtt, type rack, type Synnax } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithRole,
   holdRequests,
   rejectRequests,
 } from "@synnaxlabs/client/testutil";
@@ -42,6 +43,9 @@ import {
   clickFailedDeploy,
   countFailedSaves,
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
   START_FAILURE,
@@ -295,6 +299,31 @@ const selectField = async (name: string) =>
     await screen.findByRole("treeitem", { name: new RegExp(`^${name}`) }),
   );
 
+/** Renders a topic whose message, once the task exists, has the payload. */
+const renderPayload = async (value: icd.Message["payload"]) => {
+  const entry = await createEntry({
+    fields: [createField("temperature", "float")],
+    bound: {},
+  });
+  const { icd: key, message } = messageOf(entry);
+  await renderRead({
+    entries: [entry],
+    beforeRender: async () =>
+      await client.icds.dispatch(
+        key,
+        icd.set({ path: ["messages", message, "payload"], value }),
+      ),
+  });
+  return async () =>
+    (await client.icds.retrieve(key)).messages.find((m) => m.key === message)?.payload;
+};
+
+const edit = async (label: string | RegExp, value: string) => {
+  const input = await screen.findByLabelText(label);
+  fireEvent.change(input, { target: { value } });
+  fireEvent.blur(input);
+};
+
 const retrieveRead = async (key: string) =>
   (await client.devices.retrieve({ key, schemas: MQTT.Device.SCHEMAS })).properties
     .read;
@@ -503,7 +532,7 @@ describe("MQTT read form", () => {
       },
     ];
     const { dev, draft } = await renderRead();
-    await screen.findByText("Add data to read a topic or a tag");
+    await screen.findByText("No entry selected");
     const scanner = await openScanner(client, dev.rack);
     let dialog = await openAddData();
     await scanner.answer({ data: { topics: TOPICS, truncated: false } });
@@ -1218,11 +1247,34 @@ describe("MQTT read form", () => {
 
   it("should open one Add data dialog for a double click", async () => {
     await renderRead();
-    const button = await screen.findByRole("button", { name: "Add data" });
+    const button = await findListButton("Add data");
     fireEvent.click(button);
     fireEvent.click(button);
     await screen.findByRole("dialog");
     expect(screen.getAllByRole("dialog")).toHaveLength(1);
+  });
+
+  it("should open Add data from the empty details pane", async () => {
+    await renderRead();
+    fireEvent.click(await findDetailsButton("Add data"));
+    await screen.findByRole("dialog");
+  });
+
+  it("should offer no add in the empty details pane while it cannot bind", async () => {
+    const missing = 2 ** 31 - 1;
+    await renderRead({
+      properties: { read: { stored: { index: 0, channels: { "/x": missing } } } },
+    });
+    const details = await findDetailsPane();
+    await within(details).findByText("No entry selected");
+    expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
+  });
+
+  it("should offer no add in the empty details pane of a preview", async () => {
+    await renderRead({ as: await createTestClientWithRole(client, "Viewer") });
+    const details = await findDetailsPane();
+    await within(details).findByText("No entry selected");
+    expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
   });
 
   it("should name a new ICD after the device while the task has no name", async () => {
@@ -2214,32 +2266,6 @@ describe("MQTT read form", () => {
       expect(screen.getByText("Enum mapping")).toBeTruthy();
     });
 
-    /** Renders a topic whose message, once the task exists, has the payload. */
-    const renderPayload = async (value: icd.Message["payload"]) => {
-      const entry = await createEntry({
-        fields: [createField("temperature", "float")],
-        bound: {},
-      });
-      const { icd: key, message } = messageOf(entry);
-      await renderRead({
-        entries: [entry],
-        beforeRender: async () =>
-          await client.icds.dispatch(
-            key,
-            icd.set({ path: ["messages", message, "payload"], value }),
-          ),
-      });
-      return async () =>
-        (await client.icds.retrieve(key)).messages.find((m) => m.key === message)
-          ?.payload;
-    };
-
-    const edit = async (label: string, value: string) => {
-      const input = await screen.findByLabelText(label);
-      fireEvent.change(input, { target: { value } });
-      fireEvent.blur(input);
-    };
-
     it("should edit where each field of a text message sits", async () => {
       const retrievePayload = await renderPayload({
         format: "text",
@@ -2354,6 +2380,134 @@ describe("MQTT read form", () => {
           ],
         }),
       );
+    });
+  });
+
+  describe("text and binary messages", () => {
+    const openText = async () =>
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: new RegExp(`TEXT.*${TOPIC}`) }),
+      );
+
+    it("should add a field to a text message at the next free position", async () => {
+      const retrievePayload = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [
+          icd.textFieldZ.parse({
+            key: uuid.create(),
+            name: "temperature",
+            encoding: "delimited",
+            position: 1,
+          }),
+        ],
+      });
+      await openText();
+      // The Core reads only JSON messages over MQTT, so it would undo the read.
+      holdRequests(client, "/task/create");
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByLabelText("Position");
+      await waitFor(async () =>
+        expect((await retrievePayload())?.fields).toMatchObject([
+          { name: "temperature" },
+          { name: "Field 2", encoding: "delimited", position: 2 },
+        ]),
+      );
+    });
+
+    it("should add 8 unsigned bits after the last bit of a binary message", async () => {
+      const retrievePayload = await renderPayload({
+        format: "binary",
+        fields: [
+          icd.binaryFieldZ.parse({
+            key: uuid.create(),
+            name: "gear",
+            kind: "unsigned",
+            startBit: 8,
+            bitLength: 16,
+          }),
+        ],
+      });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: new RegExp(`BINARY.*${TOPIC}`) }),
+      );
+      holdRequests(client, "/task/create");
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await screen.findByLabelText("Start bit");
+      await waitFor(async () =>
+        expect((await retrievePayload())?.fields).toMatchObject([
+          { name: "gear" },
+          { name: "Field 2", kind: "unsigned", startBit: 24, bitLength: 8 },
+        ]),
+      );
+    });
+
+    it("should edit the frame of a text message, whose time is its arrival", async () => {
+      const retrievePayload = await renderPayload({
+        format: "text",
+        delimiter: ",",
+        prefix: "",
+        fields: [],
+      });
+      await openText();
+      await screen.findByText(
+        "A text message has no timestamp field to read the time from.",
+      );
+      await edit("Prefix", "$GP");
+      await edit(/^Delimiter/, ";");
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          prefix: "$GP",
+          delimiter: ";",
+        }),
+      );
+    });
+
+    it("should edit the identifier and the length of a binary message", async () => {
+      const retrievePayload = await renderPayload({ format: "binary", fields: [] });
+      fireEvent.click(
+        await screen.findByRole("treeitem", { name: new RegExp(`BINARY.*${TOPIC}`) }),
+      );
+      fireEvent.click(await screen.findByRole("button", { name: /^Identifier/ }));
+      fireEvent.click(await screen.findByText("CAN"));
+      await edit(/^ID/, "0x123");
+      await edit(/^Length/, "8");
+      await waitFor(async () =>
+        expect(await retrievePayload()).toMatchObject({
+          identifier: { type: "can", id: 0x123 },
+          length: 8,
+        }),
+      );
+    });
+
+    it("should name a text message of a topic that reads several", async () => {
+      const entry = await createEntry({
+        fields: [createField("temperature", "float")],
+        bound: {},
+      });
+      const status = await addMessage(entry, "status", [], KIND_MATCH);
+      await renderRead({
+        entries: [entry],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            entry.icd,
+            icd.set({
+              path: ["messages", status.key, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "$ST", fields: [] },
+            }),
+          ),
+      });
+      fireEvent.click(await screen.findByRole("treeitem", { name: /^status/ }));
+      const name = await screen.findByDisplayValue("status");
+      fireEvent.change(name, { target: { value: "pump status" } });
+      fireEvent.blur(name);
+      expect(screen.getByRole("button", { name: "Add field" })).toBeTruthy();
+      expect(screen.queryByText("Documents")).toBeNull();
+      await waitFor(async () => {
+        const { messages } = await client.icds.retrieve({ key: entry.icd });
+        expect(messages.find((m) => m.key === status.key)?.name).toBe("pump status");
+      });
     });
   });
 
@@ -2790,7 +2944,7 @@ describe("MQTT read form", () => {
         as: viewer,
       });
       await openTopic();
-      const add = await screen.findByRole("button", { name: "Add data" });
+      const add = await findListButton("Add data");
       const addField = await screen.findByRole("button", { name: "Add field" });
       const format = await findDialogTriggerByText(TOPIC);
       const read = await screen.findByRole<HTMLInputElement>("checkbox", {
