@@ -158,7 +158,7 @@ export const Card = ({ range }: { range: ranger.Range }): ReactElement => {
                 >
                   <span className={CSS.BE(B, "mark")} />
                   <span className={CSS.BE(B, "child-name")}>{c.name}</span>
-                  <Text.Text el="span" variant="numeric">
+                  <Text.Text el="span" variant="numeric" color={9}>
                     {Time.formatSpan(v.start, running ? now : v.end)}
                   </Text.Text>
                 </div>
