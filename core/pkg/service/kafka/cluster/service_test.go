@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
+	certtestutil "github.com/synnaxlabs/synnax/pkg/service/certificate/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -146,6 +147,20 @@ var _ = Describe("Service", func() {
 		}
 		c := certificate.Certificate{Variant: f}
 		Expect(certs.NewWriter(tx).Set(ctx, &c, nil)).To(Succeed())
+		return c.Base().Key
+	}
+	createStoredCertificate := func(ctx context.Context, privateKey bool) certificate.Key {
+		GinkgoHelper()
+		pemText, keyText := certtestutil.NewPair()
+		c := certificate.Certificate{Variant: certificate.StoredCertificate{
+			Base: certificate.Base{Name: "Cluster client"},
+			Pem:  pemText,
+		}}
+		var key []byte
+		if privateKey {
+			key = []byte(keyText)
+		}
+		Expect(certs.NewWriter(tx).Set(ctx, &c, key)).To(Succeed())
 		return c.Base().Key
 	}
 	tls := func(ca, client *certificate.Key) cluster.Transport {
@@ -416,6 +431,28 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			client := createFileCertificate(ctx, rackSvc.EmbeddedKey, false)
+			c := newCluster()
+			c.Transport = tls(nil, &client)
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("holds no private key")),
+			))
+		})
+
+		It("Should store a stored client certificate with a private key", func(
+			ctx SpecContext,
+		) {
+			client := createStoredCertificate(ctx, true)
+			c := newCluster()
+			c.Transport = tls(nil, &client)
+			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+			Expect(retrieve(ctx, c.Key).Transport).To(Equal(c.Transport))
+		})
+
+		It("Should reject a stored client certificate with no private key", func(
+			ctx SpecContext,
+		) {
+			client := createStoredCertificate(ctx, false)
 			c := newCluster()
 			c.Transport = tls(nil, &client)
 			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(SatisfyAll(
