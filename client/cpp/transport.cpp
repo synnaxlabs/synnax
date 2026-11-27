@@ -30,6 +30,8 @@
 #include "core/pkg/transport/grpc/framer/framer.pb.h"
 #include "core/pkg/transport/grpc/icd/icd.grpc.pb.h"
 #include "core/pkg/transport/grpc/icd/icd.pb.h"
+#include "core/pkg/transport/grpc/labjack/device/device.grpc.pb.h"
+#include "core/pkg/transport/grpc/labjack/device/device.pb.h"
 #include "core/pkg/transport/grpc/ni/chassis/chassis.grpc.pb.h"
 #include "core/pkg/transport/grpc/ni/chassis/chassis.pb.h"
 #include "core/pkg/transport/grpc/ni/device/device.grpc.pb.h"
@@ -170,6 +172,22 @@ Transport::Transport(
         grpc::device::DispatchRequest,
         google::protobuf::Empty,
         grpc::device::DeviceDispatchService>>(pool, base_target);
+    this->labjack_device_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::labjack_device::CreateRequest,
+        grpc::labjack_device::CreateResponse,
+        grpc::labjack_device::LabJackDeviceCreateService>>(pool, base_target);
+    this->labjack_device_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        ::api::labjack_device::pb::RetrieveRequest,
+        ::api::labjack_device::pb::RetrieveResponse,
+        grpc::labjack_device::LabJackDeviceRetrieveService>>(pool, base_target);
+    this->labjack_device_dispatch = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::labjack_device::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::labjack_device::LabJackDeviceDispatchService>>(pool, base_target);
+    this->labjack_device_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::labjack_device::DeleteRequest,
+        google::protobuf::Empty,
+        grpc::labjack_device::LabJackDeviceDeleteService>>(pool, base_target);
     this->ni_device_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ni_device::CreateRequest,
         grpc::ni_device::CreateResponse,

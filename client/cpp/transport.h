@@ -19,6 +19,7 @@
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/icd/icd.h"
+#include "client/cpp/labjack/device/device.h"
 #include "client/cpp/ni/chassis/chassis.h"
 #include "client/cpp/ni/device/device.h"
 #include "client/cpp/rack/rack.h"
@@ -66,6 +67,10 @@ struct Transport {
     std::unique_ptr<device::RetrieveClient> device_retrieve;
     std::unique_ptr<device::DeleteClient> device_delete;
     std::unique_ptr<device::DispatchClient> device_dispatch;
+    std::unique_ptr<labjack::device::CreateClient> labjack_device_create;
+    std::unique_ptr<labjack::device::RetrieveClient> labjack_device_retrieve;
+    std::unique_ptr<labjack::device::DispatchClient> labjack_device_dispatch;
+    std::unique_ptr<labjack::device::DeleteClient> labjack_device_delete;
     std::unique_ptr<ni::device::CreateClient> ni_device_create;
     std::unique_ptr<ni::device::RetrieveClient> ni_device_retrieve;
     std::unique_ptr<ni::device::UpdateClient> ni_device_update;
