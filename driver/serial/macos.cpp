@@ -10,10 +10,15 @@
 #include <algorithm>
 #include <array>
 #include <cstdint>
+#include <string>
 
+#include <IOKit/serial/ioss.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 
 #include "driver/serial/line.h"
+#include "driver/serial/native.h"
+#include "driver/serial/posix.h"
 #include "driver/transport/errors.h"
 
 namespace driver::serial {
@@ -43,6 +48,15 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
         return {transport::CONFIG_ERROR, "macOS does not support mark or space parity"};
     if (props.stop_bits == synnax::serial::STOP_BITS_ONE_AND_HALF)
         return {transport::CONFIG_ERROR, "macOS does not support 1.5 stop bits"};
+    // The port moves raw bytes, with no line editing, echo, signals, or output
+    // processing.
+    settings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
+    settings.c_iflag |= IGNPAR;
+    settings.c_oflag &= ~OPOST;
+    settings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
+    settings.c_cflag |= CREAD | CLOCAL;
+    settings.c_cc[VMIN] = 1;
+    settings.c_cc[VTIME] = 0;
     if (standard_rate(props.baud_rate))
         ::cfsetspeed(&settings, static_cast<speed_t>(props.baud_rate));
     settings.c_cflag &= ~CSIZE;
@@ -60,6 +74,30 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
         settings.c_iflag |= IXON | IXOFF;
     if (props.flow_control == synnax::serial::FLOW_CONTROL_HARDWARE)
         settings.c_cflag |= CRTSCTS;
+    return x::errors::NIL;
+}
+}
+
+namespace native {
+// The port cannot prove that TIOCEXCL is its own, and the last close clears it.
+void unlock(Handle) {}
+
+std::pair<bool, std::error_code> exclusive(int) {
+    return {false, {}};
+}
+
+x::errors::Error
+configure(const Handle handle, const synnax::serial::Properties &props) {
+    const int fd = static_cast<int>(handle);
+    line::Settings settings{};
+    if (::tcgetattr(fd, &settings) != 0) return failed("the line settings", props.port);
+    if (auto err = line::apply(props, settings)) return err;
+    if (::tcsetattr(fd, TCSANOW, &settings) != 0)
+        return failed("the line settings", props.port);
+    if (standard_rate(props.baud_rate)) return x::errors::NIL;
+    speed_t speed = props.baud_rate;
+    if (::ioctl(fd, IOSSIOSPEED, &speed) != 0)
+        return failed("baud rate " + std::to_string(props.baud_rate), props.port);
     return x::errors::NIL;
 }
 }
