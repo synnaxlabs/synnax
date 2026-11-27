@@ -73,7 +73,7 @@ TEST(RackTests, testRetrieveRackRejectsPage) {
              }) {
             ASSERT_MATCHES(err, x::errors::VALIDATION);
             ASSERT_EQ(
-                err.data,
+                err.data(),
                 "a query for one record takes no limit or cursor, since a page could "
                 "hide a second match"
             );
@@ -219,7 +219,7 @@ TEST(RackTests, testRetrieveOneWhereNotFound) {
     const auto name = "test_rack_none_" + std::to_string(gen_rand());
     const auto [_, err] = client.racks.retrieve({.name = name}, x::filter::one);
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    ASSERT_EQ(err.data, "Found no rack where name = \"" + name + "\"");
+    ASSERT_EQ(err.data(), "Found no rack where name = \"" + name + "\"");
 }
 
 /// @brief it should return an error when more than one rack matches a filter.

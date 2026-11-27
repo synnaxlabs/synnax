@@ -10,6 +10,8 @@
 import "@/platform/core/list/List.css";
 
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -17,7 +19,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Synnax } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { type DragEvent, memo, type ReactElement, useState } from "react";
 
 import { Connection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
@@ -31,9 +33,38 @@ interface ListItemProps extends List.ItemProps<string> {
   loading: boolean;
 }
 
+const HAUL_TYPE = "core";
+const canDropCore = Haul.canDropOfType(HAUL_TYPE);
+
 const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null => {
   const dispatch = Session.useDispatch();
   const { selected, onSelect } = Select.useItemState(rest.itemKey);
+  const [over, setOver] = useState(false);
+  const { startDrag, onDragEnd, onDragOver, onDrop } = Haul.useDragAndDrop({
+    type: HAUL_TYPE,
+    key: item.key,
+    canDrop: canDropCore,
+    onDragOver: () => setOver(true),
+    onDrop: ({ items }) => {
+      setOver(false);
+      const dragged = items.find(({ type }) => type === HAUL_TYPE);
+      if (dragged != null && rest.index != null)
+        dispatch(Session.Core.reorder({ key: String(dragged.key), index: rest.index }));
+      return items;
+    },
+  });
+  const handleDragStart = (event: DragEvent): void =>
+    startDrag({
+      event,
+      items: [{ type: HAUL_TYPE, key: item.key }],
+      preview: (
+        <Haul.Preview
+          icon={<Icon.Core />}
+          name={item.name}
+          facts={[`${item.host}:${item.port}`]}
+        />
+      ),
+    });
   const handleChange = (value: string): boolean => {
     dispatch(Session.Core.rename({ key: item.key, name: value }));
     return true;
@@ -57,6 +88,13 @@ const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null =>
       selected={selected}
       onSelect={onSelect}
       gap="small"
+      draggable
+      draggingOver={over}
+      onDragStart={handleDragStart}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      onDragLeave={() => setOver(false)}
+      onDrop={onDrop}
       {...rest}
     >
       <Flex.Box x justify="between" align="center" gap="small">
@@ -90,6 +128,7 @@ const Base = ({ item, loading, ...rest }: ListItemProps): ReactElement | null =>
         )}
         <Text.Text size="tiny" color={9} overflow="fade" grow>
           {item.host}:{item.port}
+          {item.user != null && ` · ${item.user}`}
         </Text.Text>
       </Flex.Box>
     </List.Item>

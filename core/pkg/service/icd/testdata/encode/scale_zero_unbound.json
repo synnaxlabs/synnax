@@ -1,0 +1,28 @@
+{
+  "description": "A field with no binding writes its default, so a zero scale does not matter.",
+  "message": {
+    "name": "command",
+    "payload": {
+      "format": "json",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "v",
+          "scale": 0,
+          "offset": 0,
+          "units": "",
+          "pointer": "/v",
+          "type": "float",
+          "default": 3
+        }
+      ]
+    },
+    "bindings": []
+  },
+  "cases": [
+    {
+      "samples": [],
+      "text": "{\"v\":3}"
+    }
+  ]
+}

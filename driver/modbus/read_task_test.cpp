@@ -297,7 +297,7 @@ TEST_F(ModbusReadTest, testNoEnabledChannels) {
     const auto task_cfg = std::make_unique<ReadTaskConfig>(client, p);
     const auto err = p.error();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    EXPECT_NE(err.data.find("at least one enabled channel"), std::string::npos);
+    EXPECT_NE(err.data().find("at least one enabled channel"), std::string::npos);
 }
 
 /// @brief it should read coil values from Modbus device.

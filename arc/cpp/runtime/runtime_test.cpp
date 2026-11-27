@@ -107,7 +107,7 @@ TEST(RuntimeTest, LoadRejectsAnActivationWithNoKind) {
     cfg.program.root.strata.push_back({ir::scope_member(std::move(stage))});
     const auto result = load(cfg);
     ASSERT_OCCURRED_AS_P(result, x::errors::VALIDATION);
-    EXPECT_EQ(result.second.data, "scope stage has an activation with no kind");
+    EXPECT_EQ(result.second.data(), "scope stage has an activation with no kind");
     EXPECT_EQ(result.first, nullptr);
 }
 
@@ -115,7 +115,7 @@ TEST(RuntimeTest, LoadRejectsAnActivationWithNoKind) {
 TEST(RuntimeTest, LoadRejectsAConfigWithoutAReporter) {
     const auto result = load(Config{.program = {}});
     ASSERT_OCCURRED_AS_P(result, x::errors::VALIDATION);
-    EXPECT_EQ(result.second.data, "The runtime needs a reporter.");
+    EXPECT_EQ(result.second.data(), "The runtime needs a reporter.");
     EXPECT_EQ(result.first, nullptr);
 }
 

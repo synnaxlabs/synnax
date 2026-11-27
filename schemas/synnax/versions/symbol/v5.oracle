@@ -16,25 +16,6 @@ import "schemas/x/versions/telem/v0"
 
 Key = v0.Key
 
-Region = v4.Region
-
-StateOverride struct {
-    key     string   {
-        @doc value "is the key of the value that the override colors."
-    }
-    name    string   {
-        @doc value "is a human-readable name for the value."
-    }
-    regions Region[] {
-        @doc value "contains the regions that the override colors."
-    }
-
-    @doc value  """
-        is a node's replacement for the region colors of one value that it draws.
-    """
-    @go marshal
-}
-
 Handle = v2.Handle
 
 Drawing union on type {
@@ -386,12 +367,6 @@ Spec struct {
     }
     interactions     Interaction[] = [] {
         @doc value "are what pointer gestures on the parts do."
-    }
-    variant          string            {
-        @doc value           """
-            is the node variant that a placement makes: 'static' or 'actuator'.
-        """
-        @validate min_length 1
     }
     scale            float64 = 1 {
         @doc value "is the symbol scale factor."

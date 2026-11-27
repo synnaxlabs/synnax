@@ -22,25 +22,6 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// StreamIterator provides a streaming interface for iterating over a DB's segments in
-// time order. StreamIterator provides the underlying functionality for Iterator, and
-// has almost exactly the same semantics. The streaming interface is exposed as a
-// confluence segment that can accept one input stream and one output stream.
-//
-// To read frames, issue an IteratorRequest to the StreamIterator's inlet. The
-// StreamIterator will respond by sending one or more IteratorResponse messages to the
-// outlet. All responses containing frame data will have a type of IteratorDataResponse
-// and will contain one or more frames. The last response for any request will have a
-// type of IteratorAckResponse and will contain the name of the command that was
-// acknowledged, an incremented sequence number, and ack boolean indicating whether the
-// command was successfully processed.
-//
-// To close the StreamIterator, simply close the inlet. The StreamIterator will ensure
-// that all in-progress requests have been served before closing the outlet. The
-// StreamIterator will return any accumulated err through the signal context provided to
-// Flow.
-type StreamIterator = confluence.Segment[IteratorRequest, IteratorResponse]
-
 // IteratorResponseVariant is the type of the response an Iterator will return.
 type IteratorResponseVariant uint8
 
@@ -77,7 +58,7 @@ const (
 	IteratorCommandSetBounds
 )
 
-// IteratorRequest is issued to an StreamIterator asking it to read data from a DB.
+// IteratorRequest asks the segment of NewStreamIterator to read data from a DB.
 //
 //go:generate go tool stringer -type=IteratorCommand
 type IteratorRequest struct {

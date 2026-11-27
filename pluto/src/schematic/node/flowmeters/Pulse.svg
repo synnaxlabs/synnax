@@ -20,5 +20,5 @@
         y="27"
         style="fill: rgb(var(--pluto-symbol-color, var(--pluto-text-color-rgb)))"
         stroke="none"
-    >F</text>
+    ><tspan class="pluto--solid">F</tspan></text>
 </svg>

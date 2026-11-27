@@ -76,6 +76,11 @@ const selectMany = (state: StoreState, keys?: string[]): Core[] =>
 export const useSelectMany = (keys?: string[]): Core[] =>
   Select.useMemo((s: StoreState) => selectMany(s, keys), [keys]);
 
+const selectOrder = (state: StoreState): string[] => selectSliceState(state).order;
+
+/** The key of every Core, in the order the user arranged them. */
+export const useSelectOrder = (): string[] => Select.useMemo(selectOrder, []);
+
 const selectIsAnySelected = (state: StoreState): boolean =>
   selectSelectedKey(state) != null;
 

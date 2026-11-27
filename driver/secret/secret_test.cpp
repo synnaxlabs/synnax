@@ -169,7 +169,7 @@ TEST_F(ReaderTest, RefusesKeyGrantDoesNotName) {
     const synnax::secret::Grant grant{.secrets = {key}, .values = {{key, "v"}}};
     const auto [values, err] = this->reader(this->rack).read({key, other}, grant);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "The grant does not name secret " + other.to_string() + ".");
+    ASSERT_EQ(err.data(), "The grant does not name secret " + other.to_string() + ".");
 }
 
 /// @brief it should spend the grant that a command carries, and return the granted
@@ -208,7 +208,7 @@ TEST_F(ReaderTest, SpendsGrantOnce) {
     const auto [spent, err] = r.spend(carrier(t, g));
     ASSERT_OCCURRED_AS(err, synnax::auth::ERR_ACCESS_DENIED);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "grant " + g.to_string() +
             " has ended or does not exist: access denied: auth error"
     );
@@ -226,7 +226,7 @@ TEST_F(ReaderTest, RefusesGrantForAnotherTask) {
     const auto [spent, err] = this->reader(this->rack).spend(carrier(other, g));
     ASSERT_OCCURRED_AS(err, synnax::auth::ERR_ACCESS_DENIED);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "grant is not for task " + other.key.to_string() + ": access denied: auth error"
     );
 }
@@ -347,7 +347,7 @@ TEST_F(ReaderTest, RefusesFileChainOfAnotherRack) {
     const auto [chain, err] = this->reader(other).read_chain(key);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "Cannot read certificate \"server\": it is a file of rack " +
             std::to_string(this->rack.key) + ", and this Driver runs rack " +
             std::to_string(other.key) + "."
@@ -377,7 +377,10 @@ TEST_F(ReaderTest, RefusesFileCertificateGrantDoesNotName) {
     const auto [c, err] = this->reader(this->rack)
                               .read_certificate(key, synnax::secret::Grant{});
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
-    ASSERT_EQ(err.data, "The grant does not name certificate " + key.to_string() + ".");
+    ASSERT_EQ(
+        err.data(),
+        "The grant does not name certificate " + key.to_string() + "."
+    );
     ASSERT_EQ(this->sha256(key), "");
 }
 
@@ -391,7 +394,7 @@ TEST_F(ReaderTest, FailsWithMissingCertificateFile) {
     const auto [c, err] = this->reader(this->rack).read_certificate(key);
     ASSERT_OCCURRED_AS(err, x::fs::NOT_FOUND);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "Failed to read certificate \"server\": failed to open " +
             (this->dir / "server.pem").string()
     );
@@ -425,7 +428,7 @@ TEST_F(ReaderTest, FailsWithNoSecretsFolder) {
     const auto [c, err] = this->reader(this->rack, false).read_certificate(key);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "Cannot read the private key of certificate \"server\": it is a file, and the "
         "Driver has no secrets folder. Set secrets_dir in the Driver's config."
     );
@@ -445,7 +448,7 @@ TEST_F(ReaderTest, RefusesFileOfAnotherRack) {
         const auto [c, err] = this->reader(other).read_certificate(key);
         ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
         ASSERT_EQ(
-            err.data,
+            err.data(),
             "Cannot read certificate \"server\": it is a file of rack " +
                 std::to_string(this->rack.key) + ", and this Driver runs rack " +
                 std::to_string(other.key) + "."

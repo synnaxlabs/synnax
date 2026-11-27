@@ -5,57 +5,46 @@
   ],
   "pending": [
     {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "receiver": "FS",
-      "name": "Arm",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "ErrChannelNotFound",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "Writer",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
+    },
+    {
+      "module": "cesium",
+      "package": "github.com/synnaxlabs/cesium",
+      "name": "Iterator",
+      "caller": "sy-6397-move-cesium-sessions-to-the-framer-and-fix-channel"
     },
     {
       "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "receiver": "FS",
-      "name": "Fill",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "receiver": "FS",
-      "name": "Unsynced",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "receiver": "FS",
-      "name": "ReadFaults",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
-    },
-    {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "receiver": "FS",
+      "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
       "name": "Writeback",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
+      "caller": "https://linear.app/synnax/issue/SY-6385"
     },
     {
       "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "name": "ID",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
+      "package": "github.com/synnaxlabs/x/query",
+      "name": "NotFound",
+      "caller": "sy-6599-name-every-path-describe-and-refuse-ambiguous-names"
     },
     {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "name": "Span",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "TextMessage",
+      "caller": "sy-6979-text-reads"
     },
     {
-      "module": "x/go",
-      "package": "github.com/synnaxlabs/x/io/fs/testutil/fault",
-      "name": "Stat",
-      "caller": "https://linear.app/synnax/issue/SY-6384"
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "Text",
+      "caller": "sy-6979-text-reads"
     },
     {
       "module": "x/go",
@@ -75,6 +64,19 @@
       "package": "github.com/synnaxlabs/x/telem",
       "name": "CodeOf",
       "caller": "https://linear.app/synnax/issue/SY-6394"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "name": "NewText",
+      "caller": "sy-6979-text-reads"
+    },
+    {
+      "module": "core",
+      "package": "github.com/synnaxlabs/synnax/pkg/service/icd/codec",
+      "receiver": "Text",
+      "name": "Decode",
+      "caller": "sy-6979-text-reads"
     }
   ]
 }

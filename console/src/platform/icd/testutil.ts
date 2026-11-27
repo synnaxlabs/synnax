@@ -31,7 +31,9 @@ export const searchMessageFormats = async (current: string, icdName: string) => 
 
 /**
  * Picks the message next of the ICD named icdName in the message format field that
- * shows current.
+ * shows current, once the search answers. Until then the list shows its first page,
+ * which unmounts a row out of view once the list measures its height, so a row found
+ * there can be gone by the click.
  */
 export const pickMessageFormat = async (
   current: string,
@@ -39,15 +41,15 @@ export const pickMessageFormat = async (
   icdName: string,
 ): Promise<void> => {
   const dialog = await searchMessageFormats(current, icdName);
-  // waitFor resolves a timer tick after its match. A render in that tick can replace
-  // the option. A click in the callback goes to the option on the page.
-  await waitFor(() => {
-    const [match] = dialog
-      .getAllByText(next)
-      .filter((n) => n.parentElement?.textContent?.includes(icdName));
+  const option = await waitFor(() => {
+    const options = within(dialog.getByRole("listbox")).queryAllByRole("option");
+    if (options.some((o) => o.textContent?.includes(icdName) !== true))
+      throw new Error(`the search for ${icdName} has not answered`);
+    const match = options.find((o) => within(o).queryByText(next) != null);
     if (match == null) throw new Error(`no ${next} of ${icdName}`);
-    fireEvent.click(match);
+    return match;
   });
+  fireEvent.click(option);
 };
 
 /** A message of an ICD. */
@@ -108,3 +110,18 @@ export const selectedIn = (
   key: icd.Key,
 ): icd.MessageKey[] | undefined =>
   documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.selected;
+
+/** @returns the field that the editor of the ICD focuses next, in the store. */
+export const focusedIn = (
+  store: { getState: () => Session.State },
+  key: icd.Key,
+): icd.FieldKey | undefined =>
+  documentIn(store.getState()[Session.ICD.SLICE_NAME], key)?.focused;
+
+/** @returns the title of the group of the field picker that note marks. */
+export const titleOf = (note: HTMLElement): string =>
+  note.parentElement?.firstChild?.textContent ?? "";
+
+/** @returns whether the field picker fades value, the name of one of its values. */
+export const isDimmed = (value: HTMLElement): boolean =>
+  value.closest(".console--dimmed") != null;

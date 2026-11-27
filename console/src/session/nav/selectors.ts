@@ -12,6 +12,7 @@ import { Drift } from "@synnaxlabs/drift";
 import {
   type BottomState,
   type LeftState,
+  type Page,
   SLICE_NAME,
   type SliceState,
   type StoreState,
@@ -47,16 +48,10 @@ const selectBottomVisible = (state: StoreState): boolean => selectBottom(state).
 export const useSelectBottomVisible = (): boolean =>
   Select.useMemo(selectBottomVisible, []);
 
-const selectSettingsSection = (state: StoreState): string | undefined =>
-  selectWindowState(state).settings.section;
+/** Returns the section that the page last showed in this window, if any. */
+export const useSelectSection = (page: Page): string | undefined =>
+  Select.useMemo((state: StoreState) => selectWindowState(state)[page].section, [page]);
 
-/** Returns the Settings section this window last showed, if any. */
-export const useSelectSettingsSection = (): string | undefined =>
-  Select.useMemo(selectSettingsSection, []);
-
-const selectSettingsItem = (state: StoreState): string | undefined =>
-  selectWindowState(state).settings.item;
-
-/** Returns the key of the item that the Settings section should select, if any. */
-export const useSelectSettingsItem = (): string | undefined =>
-  Select.useMemo(selectSettingsItem, []);
+/** Returns the key of the item that the page's section should select, if any. */
+export const useSelectItem = (page: Page): string | undefined =>
+  Select.useMemo((state: StoreState) => selectWindowState(state)[page].item, [page]);

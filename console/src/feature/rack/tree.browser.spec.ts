@@ -221,9 +221,8 @@ describe("rack tree item", () => {
     await renderMenu([r]);
     fireEvent.click(await screen.findByText("Connect device"));
     expect(await screen.findByText("Connect by address")).toBeTruthy();
-    expect(
-      (await screen.findAllByText(`${r.name} is not running`)).length,
-    ).toBeGreaterThan(0);
+    const reasons = await screen.findAllByText("Driver not running");
+    expect(reasons.length).toBeGreaterThan(0);
     expect(screen.queryByText(/^No running Driver has/)).toBeNull();
   });
 

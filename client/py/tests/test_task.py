@@ -223,6 +223,33 @@ class TestTaskClient:
         assert all(t.type == "labjack_scan" for t in res)
         assert task.key in {t.key for t in res}
 
+    def test_retrieve_by_icds(self, client: sy.Synnax, rack: sy.Rack) -> None:
+        """Should keep only the tasks whose config uses one of the given ICDs."""
+
+        def create_icd() -> sy.icd.ICD:
+            message = sy.icd.Message(name="Setpoint", payload=sy.icd.JSONPayload())
+            return client.icds.create(name=random_name(), messages=[message])
+
+        def create_using(ic: sy.icd.ICD) -> sy.Task:
+            target = {
+                "key": "plant",
+                "topic": "plant",
+                "icd": str(ic.key),
+                "message": {"message": str(ic.messages[0].key)},
+            }
+            return client.tasks.create(
+                name="Setpoints",
+                type="kafka_write",
+                rack=rack.key,
+                config={"targets": [target]},
+            )
+
+        used = create_icd()
+        first, second = create_using(used), create_using(used)
+        create_using(create_icd())
+        res = client.tasks.retrieve(icds=[used.key])
+        assert {t.key for t in res} == {first.key, second.key}
+
     def test_retrieve_without_status(self, client: sy.Synnax) -> None:
         """Should leave the status unset when it is not asked for."""
         task = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")

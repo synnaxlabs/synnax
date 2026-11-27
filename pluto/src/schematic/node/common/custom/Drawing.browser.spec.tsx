@@ -10,9 +10,9 @@
 import type { schematic } from "@synnaxlabs/client";
 import { computed, resolve } from "@synnaxlabs/lyra/styletest";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { color, type dimensions, location, type xy } from "@synnaxlabs/x";
+import { color, type dimensions, location, TimeSpan, type xy } from "@synnaxlabs/x";
 import type { FC, ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 
@@ -33,7 +33,6 @@ const createSpec = (svg: string): schematic.symbol.Spec => ({
   commands: [],
   looks: [],
   interactions: [],
-  variant: "static",
   scale: 1,
   strokeScaled: false,
   previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
@@ -293,14 +292,14 @@ const ROOT_PAINT_SPEC = createSpec(
 
 const ROOT_PAINT_SYMBOLS: [string, ReactElement][] = [
   [
-    "static symbol",
-    <Primitive.Div key="static">
+    "symbol with no click",
+    <Primitive.Div key="unclickable">
       <Custom.Drawing spec={ROOT_PAINT_SPEC} />
     </Primitive.Div>,
   ],
   [
-    "enabled actuator",
-    <Toggle.Button key="actuator" enabled>
+    "symbol with a click",
+    <Toggle.Button key="clickable">
       <Custom.Drawing spec={ROOT_PAINT_SPEC} />
     </Toggle.Button>,
   ],
@@ -428,6 +427,116 @@ const findMaskSource = (fill: Element): Element | null => {
   return doc.getElementById(href?.slice(1) ?? "");
 };
 
+describe("Custom.Drawing part clicks", () => {
+  it("should take a click on a part with no fill after its markup changes", async () => {
+    // The part has no fill, so only its click mark lets a press inside it land.
+    const markup = (x: number) =>
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+      `<rect class="main" x="${x}" width="5" height="5" /></svg>`;
+    const spec = {
+      ...createSpec(markup(0)),
+      parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+    };
+    const clicks = { main: vi.fn() };
+    const Clickable = ({ s }: { s: schematic.symbol.Spec }): ReactElement => (
+      <Wrapper>
+        <Primitive.Div>
+          <Custom.Drawing spec={s} partClicks={clicks} />
+        </Primitive.Div>
+      </Wrapper>
+    );
+    const { container, rerender } = await render(<Clickable s={spec} />);
+    await rerender(
+      <Clickable s={{ ...spec, drawing: { type: "svg", markup: markup(5) } }} />,
+    );
+    const rect = container.querySelector("rect[x='5']");
+    if (rect == null) throw new Error("new markup not mounted");
+    await userEvent.click(rect);
+    expect(clicks.main).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    [
+      "inside a closed shape",
+      '<path class="main" d="M0 0 H10 V10 Z" fill="none" />',
+      true,
+    ],
+    [
+      "no inside of an open shape",
+      '<path class="main" d="M0 0 H10 V10" fill="none" />',
+      false,
+    ],
+    [
+      "no inside of a polyline",
+      '<polyline class="main" points="0,0 10,0 10,10" fill="none" />',
+      false,
+    ],
+  ])(
+    "should tint %s of a part while the pointer is on it",
+    async (_, shape, filled) => {
+      const spec = {
+        ...createSpec(
+          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">${shape}</svg>`,
+        ),
+        parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+      };
+      const { container } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>
+          <div className={CSS.BE("symbol", "container")}>
+            <Primitive.Div>
+              <Custom.Drawing spec={spec} partClicks={{ main: vi.fn() }} />
+            </Primitive.Div>
+          </div>
+        </Theming.Provider>,
+      );
+      const rect = container.querySelector(".main");
+      if (rect == null) throw new Error("drawing not mounted");
+      const rest = computed(rect, "stroke");
+      expect(computed(rect, "fill")).toBe("none");
+      await userEvent.hover(rect);
+      await expect.poll(() => computed(rect, "stroke")).not.toBe(rest);
+      expect(computed(rect, "fill") !== "none").toBe(filled);
+    },
+  );
+
+  it("should darken an open part more when its press is delayed", async () => {
+    const spec = {
+      ...createSpec(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
+          '<polyline class="main" points="0,0 10,0 10,10" fill="none" /></svg>',
+      ),
+      parts: [{ key: "main", name: "Main", selectors: [".main"] }],
+    };
+    // Specs run with transitions off, so a held part shows the end of its hold at once.
+    const pressedStroke = async (delay?: TimeSpan): Promise<string> => {
+      const { container, unmount } = await render(
+        <Theming.Provider theme={Theming.SYNNAX_DARK}>
+          <div className={CSS.BE("symbol", "container")}>
+            <Primitive.Div>
+              <Custom.Drawing
+                spec={spec}
+                partClicks={{ main: vi.fn() }}
+                onClickDelay={delay}
+              />
+            </Primitive.Div>
+          </div>
+        </Theming.Provider>,
+      );
+      const line = container.querySelector(".main");
+      if (line == null) throw new Error("drawing not mounted");
+      line.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
+      await expect
+        .poll(() => line.classList.contains(CSS.BEM("symbol", "part", "pressed")))
+        .toBe(true);
+      const stroke = computed(line, "stroke");
+      line.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, button: 0 }));
+      await unmount();
+      return stroke;
+    };
+    expect(await pressedStroke(TimeSpan.seconds(10))).not.toBe(await pressedStroke());
+  });
+});
+
 describe("Custom.Drawing hold fill", () => {
   it("should fill the drawing while held, as a built-in symbol does", async () => {
     const builtIn = readHoldFill(await renderHeld(BUILT_IN_HOLD));
@@ -437,7 +546,7 @@ describe("Custom.Drawing hold fill", () => {
     expect(source?.querySelector("rect[stroke=red]")).not.toBeNull();
   });
 
-  it("should not draw a box over a held custom actuator", async () => {
+  it("should not draw a box over a held custom symbol", async () => {
     const builtIn = await renderHeld(BUILT_IN_HOLD);
     const custom = await renderCustomHeld();
     expect(getComputedStyle(custom, "::after").content).toBe(
@@ -454,7 +563,7 @@ const BUILT_IN_TOGGLE_SPEC = Custom.createBuiltIn({
   handles: [],
 });
 
-const JSX_TOGGLE_DRAWING = (
+const PLAIN_DRAWING = (
   <Primitive.SVG dimensions={{ width: 10, height: 10 }}>
     <rect className="shape" width="10" height="10" />
   </Primitive.SVG>
@@ -465,24 +574,19 @@ const press = async (button: Element): Promise<void> => {
   await expect.poll(() => button.classList.contains("pluto--pressed")).toBe(true);
 };
 
-const TOGGLE_STATES: [string, boolean, (button: Element) => Promise<void>][] = [
-  ["hovered", false, userEvent.hover],
-  ["hovered enabled", true, userEvent.hover],
-  ["pressed", false, press],
-  ["pressed enabled", true, press],
+const TOGGLE_STATES: [string, (button: Element) => Promise<void>][] = [
+  ["hovered", userEvent.hover],
+  ["pressed", press],
 ];
 
 const renderToggleShape = async (
   drawing: ReactElement,
-  enabled: boolean,
   interact: (button: Element) => Promise<void>,
 ): Promise<{ rest: Paint; changed: Paint }> => {
   const { container } = await render(
     <Theming.Provider theme={Theming.SYNNAX_DARK}>
       <div className={CSS.BE("symbol", "container")}>
-        <Toggle.Button enabled={enabled} onClickDelay={HOLD_DELAY}>
-          {drawing}
-        </Toggle.Button>
+        <Toggle.Button onClickDelay={HOLD_DELAY}>{drawing}</Toggle.Button>
       </div>
     </Theming.Provider>,
   );
@@ -502,16 +606,16 @@ const renderToggleShape = async (
 
 describe("Custom.Drawing built-in toggle", () => {
   it.each(TOGGLE_STATES)(
-    "should paint the shapes of a %s toggle as a JSX toggle",
-    async (_, enabled, interact) => {
-      const jsx = await renderToggleShape(JSX_TOGGLE_DRAWING, enabled, interact);
+    "should tint the shapes of a %s toggle as it tints a plain drawing",
+    async (_, interact) => {
+      const plain = await renderToggleShape(PLAIN_DRAWING, interact);
       const builtIn = await renderToggleShape(
         <Custom.Drawing spec={BUILT_IN_TOGGLE_SPEC} builtIn />,
-        enabled,
         interact,
       );
-      expect(jsx.changed.stroke).not.toBe(jsx.rest.stroke);
-      expect(builtIn).toEqual(jsx);
+      expect(plain.changed.stroke).not.toBe(plain.rest.stroke);
+      expect(builtIn.rest.fill).toBe("none");
+      expect(builtIn.changed).toEqual(plain.changed);
     },
   );
 });
@@ -550,8 +654,8 @@ interface ContainerProps {
 }
 
 const CONTAINERS: [string, FC<ContainerProps>][] = [
-  ["static", Primitive.Div],
-  ["actuator", Toggle.Button],
+  ["unclickable", Primitive.Div],
+  ["clickable", Toggle.Button],
 ];
 
 const renderMarkerCenter = async (

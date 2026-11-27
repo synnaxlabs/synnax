@@ -173,7 +173,7 @@ UA_StatusCode verify_certificate(UA_CertificateGroup *cg, const UA_ByteString *d
         std::string_view(reinterpret_cast<const char *>(data->data), data->length)
     );
     if (err) {
-        v->rejection = {errors::SERVER_CERTIFICATE_UNTRUSTED, err.data};
+        v->rejection = {errors::SERVER_CERTIFICATE_UNTRUSTED, err.data()};
         return UA_STATUSCODE_BADCERTIFICATEINVALID;
     }
     v->received = cert;

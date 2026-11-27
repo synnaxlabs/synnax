@@ -119,6 +119,7 @@ describe("Embedded connect from code dialog", () => {
     const code = (await screen.findByLabelText("TypeScript browser code")).textContent;
     expect(code).toContain(`host: "${host}"`);
     expect(code).toContain(`port: ${port}`);
+    expect(code).toContain("secure: false");
     expect(code).toContain('apiKey: "syk_');
     expect(code).not.toContain(savedKey(file));
   });

@@ -32,21 +32,6 @@ import (
 // Key is a unique identifier for a schematic symbol.
 type Key = v4.Key
 
-// Region is a visual styling area within a symbol state, targeting specific SVG
-// elements for dynamic coloring.
-type Region = v4.Region
-
-// StateOverride is a node's replacement for the region colors of one value that it
-// draws.
-type StateOverride struct {
-	// Key is the key of the value that the override colors.
-	Key string `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the value.
-	Name string `json:"name" msgpack:"name"`
-	// Regions contains the regions that the override colors.
-	Regions []Region `json:"regions" msgpack:"regions"`
-}
-
 // Handle is a connection point on a symbol for linking to other diagram elements.
 type Handle = v4.Handle
 
@@ -1426,8 +1411,6 @@ type Spec struct {
 	Looks []Look `json:"looks" msgpack:"looks"`
 	// Interactions are what pointer gestures on the parts do.
 	Interactions []Interaction `json:"interactions" msgpack:"interactions"`
-	// Variant is the node variant that a placement makes: 'static' or 'actuator'.
-	Variant string `json:"variant" msgpack:"variant"`
 	// Scale is the symbol scale factor.
 	Scale float64 `json:"scale" msgpack:"scale"`
 	// StrokeScaled is true when stroke width scales with the symbol size.
@@ -1465,7 +1448,6 @@ func (s *Spec) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (s Spec) Validate() error {
 	v := validate.New("Spec")
-	v.NotEmptyString("variant", s.Variant)
 	v.Exec(func() error { return validate.PathedError(s.Drawing.Validate(), "drawing") })
 	for i := range s.Handles {
 		v.Exec(func() error { return validate.PathedError(s.Handles[i].Validate(), "handles", strconv.Itoa(i)) })

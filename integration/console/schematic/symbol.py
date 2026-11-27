@@ -40,6 +40,15 @@ class Properties(TypedDict, total=False):
     show_control_legend: bool
 
 
+def edit_toggle(page: Page, name: str) -> Locator:
+    """Return the edit toggle of the diagram controls, labeled name. The toolbar of a
+    schematic that is not editable shows an action of the same name.
+    """
+    return page.locator(".console-controls").get_by_role(
+        "button", name=name, exact=True
+    )
+
+
 def option_text(value: float) -> str:
     """Return the text of an option value, with no digits lost and no trailing ".0"."""
     return repr(value).removesuffix(".0")
@@ -89,6 +98,8 @@ class Symbol(ABC):
     rotatable: bool
     _symbol_type: str
     _symbol_group: str | None = None
+    # The key of the form tab that holds the enumeration picker of the symbol.
+    _enumeration_tab: str = "telemetry"
 
     def __init__(self, *, label: str, symbol_type: str, rotatable: bool = False):
         """Initialize a symbol with configuration parameters.
@@ -142,7 +153,7 @@ class Symbol(ABC):
         )
         if disable_btn.count() > 0:
             click_past(disable_btn)
-            self.page.get_by_role("button", name="Enable editing", exact=True).wait_for(
+            edit_toggle(self.page, "Enable editing").wait_for(
                 state="visible", timeout=3000
             )
 
@@ -156,7 +167,7 @@ class Symbol(ABC):
                 "button", name="Disable editing", exact=True
             ).wait_for(state="visible", timeout=2000)
             return
-        enable_btn = self.page.get_by_role("button", name="Enable editing", exact=True)
+        enable_btn = edit_toggle(self.page, "Enable editing")
         if enable_btn.count() > 0:
             click_past(enable_btn)
 
@@ -179,7 +190,7 @@ class Symbol(ABC):
         style_tab = self.page.get_by_text("Style", exact=True).first
         style_tab.wait_for(state="visible", timeout=5000)
         click_past(style_tab)
-        self.layout.fill_input_field("Label", label)
+        self.layout.fill_input_field("Text", label)
         self.label = label
 
     def channel_trigger(self, section: str) -> Locator:
@@ -192,6 +203,57 @@ class Symbol(ABC):
             self.layout.select_from_dropdown(
                 channel_name, placeholder="Search", exact=True
             )
+
+    def open_form_tab(self, tab: str) -> None:
+        """Select the symbol and open a tab of its form.
+
+        :param tab: The key of the tab, such as "telemetry", "control", or "style".
+        """
+        self.click()
+        self.open_properties_tab()
+        # The toolbar has its own Control tab, which renders before the form's.
+        click_past(self.page.locator(f"[data-tab-key='{tab}']").last)
+
+    def bind_state(
+        self, *, channel: str | None = None, command: str | None = None
+    ) -> None:
+        """Bind the one state of a symbol node to a channel and a command channel.
+
+        :param channel: The name of the channel that the state reads.
+        :param command: The name of the channel that its commands write.
+        """
+        if channel is not None:
+            self.open_form_tab("telemetry")
+            self._pick_channel(self.layout.form_section("Source"), channel)
+        if command is not None:
+            self.open_form_tab("control")
+            self._pick_channel(self.layout.form_item("Command", "Channel"), command)
+
+    def state_channels(self) -> tuple[str, str]:
+        """Return the names of the channel and the command channel that the one state
+        of a symbol node is bound to."""
+        self.open_form_tab("telemetry")
+        channel = self._channel_name(self.layout.form_section("Source"))
+        self.open_form_tab("control")
+        command = self._channel_name(self.layout.form_item("Command", "Channel"))
+        return channel, command
+
+    def choose_command(self, name: str) -> None:
+        """Pick a command in the menu that a click opens while the symbol's state is
+        unknown.
+
+        :param name: The name of the command, such as "Open".
+        """
+        menu = self.page.get_by_label("Commands", exact=True)
+        click_past(menu.get_by_role("menuitem", name=name, exact=True))
+
+    def _pick_channel(self, container: Locator, name: str) -> None:
+        click_past(container.locator(".pluto-channel__trigger"))
+        self.layout.select_from_dropdown(name, placeholder="Search", exact=True)
+
+    @staticmethod
+    def _channel_name(container: Locator) -> str:
+        return container.locator(".pluto-channel__trigger").inner_text().strip()
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
@@ -252,6 +314,11 @@ class Symbol(ABC):
         return self.locator.locator(".lyra-symbol-colored").first
 
     @property
+    def stroked(self) -> Locator:
+        """The first shape of a symbol node's drawing that a paint gives a stroke."""
+        return self.locator.locator(".pluto-symbol__drawing [style*='stroke']").first
+
+    @property
     def stale_indicator(self) -> Locator:
         """The indicator the symbol shows while its data is stale."""
         return self.locator.get_by_role("img", name="Stale")
@@ -291,78 +358,74 @@ class Symbol(ABC):
         self.notifications.close_all()
         click_past(self.page.get_by_text("Properties"))
 
-    def open_options_tab(self) -> None:
-        """Open the Options tab of a symbol that draws states."""
+    def _enumeration_picker(self) -> Locator:
+        """Open the tab of the symbol's form that holds its enumeration picker, and
+        return the picker."""
         self._enable_edit_mode()
-        self.click()
-        self.open_properties_tab()
-        click_past(self.page.get_by_text("Options", exact=True))
+        self.open_form_tab(self._enumeration_tab)
+        return self.page.get_by_role("button", name=re.compile(r"^Enumeration\b"))
 
     def set_enumeration(self, name: str) -> None:
         """Make a symbol that draws states draw the entries of an enumeration.
 
         :param name: The name of the enumeration to pick.
         """
-        self.open_options_tab()
-        click_past(self.page.get_by_role("button", name="Enumeration", exact=True))
+        click_past(self._enumeration_picker())
         self.layout.select_from_dropdown(
             name, placeholder="Search enumerations", exact=True
         )
 
-    def add_entries(self, entries: list[sy.enumeration.Entry]) -> None:
-        """Add entries to the enumeration that the symbol draws.
+    def rename_entry(self, enumeration: str, *, row: int, name: str) -> None:
+        """Rename an entry of an enumeration from the Edit view of the symbol's
+        enumeration picker.
 
-        :param entries: The entries to add, in order.
-        """
-        self.open_options_tab()
-        names = self.page.get_by_label(re.compile(r"^Name \d+$"))
-        for entry in entries:
-            row = names.count() + 1
-            click_past(self.page.get_by_role("button", name="Add entry", exact=True))
-            self._commit(f"Name {row}", entry.name)
-            self._commit(f"Value {row}", option_text(entry.value))
-
-    def rename_entry(self, row: int, name: str) -> None:
-        """Rename an entry of the states that the symbol draws.
-
+        :param enumeration: The name of the enumeration.
         :param row: The row of the entry, from 1.
         :param name: The new name.
         """
-        self.open_options_tab()
+        click_past(self._enumeration_picker())
+        dialog = self.layout.dialog
+        option = dialog.get_by_role("option", name=enumeration, exact=True)
+        option.click(button="right")
+        click_past(self.page.get_by_role("menuitem", name="Edit", exact=True))
         self._commit(f"Name {row}", name)
+        self._close_dialog()
 
-    def create_enumeration(self, name: str) -> None:
-        """Create an empty enumeration from the picker, which the symbol then draws.
+    def create_enumeration(
+        self, name: str, entries: list[sy.enumeration.Entry]
+    ) -> None:
+        """Create an enumeration in the create modal that the picker opens, which the
+        symbol then draws.
 
         :param name: The name of the new enumeration.
+        :param entries: Its entries, in order. A new enumeration starts with one blank
+            entry, which takes the first.
         """
-        self.open_options_tab()
-        picker = self.page.get_by_role("button", name=re.compile(r"^Enumeration\b"))
+        picker = self._enumeration_picker()
         click_past(picker)
-        search = self.layout.dialog.get_by_placeholder("Search enumerations")
-        search.fill(name)
         click_past(
-            self.layout.dialog.get_by_role(
-                "option", name=f'Create enumeration "{name}"', exact=True
-            )
+            self.layout.dialog.get_by_role("option", name="New enumeration", exact=True)
         )
+        modal = self.page.locator(self.layout.MODAL_SELECTOR)
+        modal.wait_for(state="visible", timeout=5000)
+        modal.get_by_label("Enumeration name", exact=True).fill(name)
+        for row, entry in enumerate(entries, start=1):
+            if row > 1:
+                click_past(modal.get_by_role("button", name="Add entry", exact=True))
+            self._commit(f"Name {row}", entry.name)
+            self._commit(f"Value {row}", option_text(entry.value))
+        click_past(modal.get_by_role("button", name="Create", exact=True))
+        modal.wait_for(state="hidden", timeout=5000)
         expect(picker).to_contain_text(name, timeout=5000)
-        # A create from typed text leaves the picker open, as other selects do.
-        if search.is_visible():
-            search.press("Escape")
 
-    def used_by_offset(self) -> float:
-        """Return how far right of the enumeration picker's left edge the Used by value
-        starts. The values of the Options tab share that edge.
-        """
-        self.open_options_tab()
-        picker = self.page.get_by_role("button", name=re.compile(r"^Enumeration\b"))
-        used_by = self.page.get_by_text(re.compile(r"^\d+ schematics?$"))
-        picker_box = picker.bounding_box()
-        used_by_box = used_by.bounding_box()
-        if picker_box is None or used_by_box is None:
-            raise RuntimeError("The Options tab shows no picker or no Used by value")
-        return box_left(used_by_box) - box_left(picker_box)
+    def _close_dialog(self) -> None:
+        """Press Escape until the open dropdown closes. A view in it closes first."""
+        dialog = self.layout.dialog
+        for _ in range(3):
+            if not dialog.is_visible():
+                return
+            self.page.keyboard.press("Escape")
+        expect(dialog).to_be_hidden(timeout=5000)
 
     def _commit(self, label: str, text: str) -> None:
         """Type into a cell of the entries grid, then blur it to commit the text."""

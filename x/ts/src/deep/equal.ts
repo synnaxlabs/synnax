@@ -101,10 +101,9 @@ export const partialEqual = <T extends unknown | DeepEqualBaseRecord | primitive
   partial: Partial<T>,
 ): boolean => {
   if (typeof base !== "object" || base == null) return base === partial;
-  if (typeof partial === "object" && partial != null) {
-    const whole = compareWhole(base, partial);
-    if (whole !== undefined) return whole;
-  }
+  if (typeof partial !== "object" || partial == null) return false;
+  const whole = compareWhole(base, partial);
+  if (whole !== undefined) return whole;
   const baseKeys = Object.keys(base);
   const partialKeys = Object.keys(partial);
   if (partialKeys.length > baseKeys.length) return false;

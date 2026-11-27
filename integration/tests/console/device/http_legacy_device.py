@@ -13,6 +13,7 @@ from examples.http_sim import HTTPSim
 
 import synnax as sy
 from console.case import ConsoleCase
+from tests.driver.http_task import create_read_endpoint
 from tests.driver.simulator_case import SimulatorCase
 from tests.driver.task import create_channel, create_index, delete_channels
 
@@ -110,14 +111,15 @@ class HTTPLegacyDevice(SimulatorCase, ConsoleCase):
             device=self.legacy.key,
             rate=10,
             endpoints=[
-                sy.http.ReadEndpoint(
+                create_read_endpoint(
+                    self.client,
                     path="/api/v1/data",
-                    method="GET",
-                    fields=[
-                        sy.http.ReadField(
-                            pointer="/temperature",
-                            channel=key,
-                            data_type=sy.DataType.FLOAT64,
+                    bindings=[
+                        (
+                            sy.icd.FloatJSONField(
+                                name="temperature", pointer="/temperature"
+                            ),
+                            key,
                         )
                     ],
                 )

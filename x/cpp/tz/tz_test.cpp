@@ -128,8 +128,8 @@ TEST(DatabaseTest, RejectsANameThatIsNotAZone) {
         const auto [zone, err] = db.load(name);
         EXPECT_EQ(zone, nullptr) << name;
         EXPECT_TRUE(err.matches(x::errors::NOT_FOUND)) << name;
-        EXPECT_NE(err.data.find("\"" + std::string(name) + "\""), std::string::npos)
-            << err.data;
+        EXPECT_NE(err.data().find("\"" + std::string(name) + "\""), std::string::npos)
+            << err.data();
     }
 }
 

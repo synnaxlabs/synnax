@@ -23,6 +23,7 @@
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/thread/rt/rt.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
@@ -83,7 +84,7 @@ TEST(TaskConfigParsing, InvalidPerformance) {
     arc::TaskConfig task_cfg(parser);
     ASSERT_FALSE(parser.ok());
     EXPECT_NE(
-        parser.error().data.find(
+        parser.error().data().find(
             "invalid performance: extreme (must be auto, low, medium, or high)"
         ),
         std::string::npos
@@ -195,7 +196,7 @@ TEST(ArcTests, testCalcDoubling) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
@@ -206,6 +207,78 @@ TEST(ArcTests, testCalcDoubling) {
     EXPECT_FLOAT_EQ(output_val, 10.0f);
 
     task->stop("test_stop", true);
+}
+
+/// @brief it should take the RT core at start and return it at stop, so a task built
+/// beside a running one gets the core once the running one stops.
+TEST(ArcTests, testRTCoreHeldOnlyWhileRunning) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("rt_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+    };
+    ASSERT_NIL(client->channels.create(idx));
+    auto input = synnax::channel::Channel{
+        .name = make_unique_channel_name("rt_in"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = idx.key,
+    };
+    auto output = synnax::channel::Channel{
+        .name = make_unique_channel_name("rt_out"),
+        .data_type = x::telem::FLOAT32_T,
+        .index = idx.key,
+    };
+    ASSERT_NIL(client->channels.create(input));
+    ASSERT_NIL(client->channels.create(output));
+    synnax::arc::AutomationArc arc_prog{{.name = make_unique_channel_name("rt_test")}};
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func calc() {val f32} f32 {\n"
+                   "    return val * 2\n"
+                   "}\n" +
+                   input.name + " -> calc() -> " + output.name + "\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(client->racks.create(make_unique_channel_name("rt_rack")));
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_rt_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto rt = std::make_shared<x::thread::rt::Manager>(std::vector{0});
+    const auto build = [&] {
+        return ASSERT_NIL_P(
+            arc::Task::create(
+                task_meta,
+                ctx,
+                task_cfg,
+                std::make_shared<driver::pipeline::testutil::WriterFactory>(),
+                driver::pipeline::testutil::simple_streamer_factory(
+                    {idx.key, input.key},
+                    std::make_shared<std::vector<x::telem::Frame>>()
+                ),
+                rt
+            )
+        );
+    };
+    auto running = build();
+    EXPECT_EQ(rt->available_cores(), 1);
+    running->start("start-1");
+    ASSERT_EVENTUALLY_EQ(rt->available_cores(), 0);
+    auto built = build();
+    EXPECT_EQ(rt->available_cores(), 0);
+    running->stop("stop-1", true);
+    EXPECT_EQ(rt->available_cores(), 1);
+    built->start("start-2");
+    ASSERT_EVENTUALLY_EQ(rt->available_cores(), 0);
+    built->stop("stop-2", true);
+    EXPECT_EQ(rt->available_cores(), 1);
 }
 
 TEST(ArcTests, testBasicSequence) {
@@ -309,7 +382,7 @@ TEST(ArcTests, testBasicSequence) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     // Wait for the sequence to execute and write to valve_cmd
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
@@ -410,7 +483,7 @@ TEST(ArcTests, testComputedRangeKeyWrite) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     // The key reaches the channel only after the create node returned it, so
@@ -546,7 +619,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     // Wait for the sequence to execute and write to valve_cmd
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
@@ -743,7 +816,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     // Wait for multiple writes (at least 2: one from pressurize stage, one from idle
     // stage)
@@ -775,12 +848,14 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     task->stop("test_stop", true);
 }
 
-synnax::task::Status *find_status_by_variant(
-    std::vector<synnax::task::Status> &statuses,
+/// @brief returns a copy of the first status in statuses with variant, or null.
+std::shared_ptr<const synnax::task::Status> find_status_by_variant(
+    const std::vector<synnax::task::Status> &statuses,
     const std::string &variant
 ) {
-    for (auto &s: statuses)
-        if (s.variant == variant) return &s;
+    for (const auto &s: statuses)
+        if (s.variant == variant)
+            return std::make_shared<const synnax::task::Status>(s);
     return nullptr;
 }
 
@@ -890,11 +965,11 @@ TEST(ArcErrorHandling, WasmTrapSendsWarning) {
 
     task->start("test_start");
     ASSERT_EVENTUALLY_TRUE(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_WARNING) !=
         nullptr
     );
-    const auto *warning = find_status_by_variant(
-        ctx->statuses,
+    const auto warning = find_status_by_variant(
+        ctx->snapshot(),
         synnax::status::VARIANT_WARNING
     );
     expect_status(*warning, synnax::status::VARIANT_WARNING, true);
@@ -904,7 +979,7 @@ TEST(ArcErrorHandling, WasmTrapSendsWarning) {
         warning->description.ends_with("at sample 0/1: integer divide by zero")
     );
     EXPECT_EQ(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_ERROR),
         nullptr
     );
 
@@ -958,7 +1033,7 @@ TEST(ArcErrorHandling, LoopBudgetStopsProgram) {
         std::chrono::milliseconds(50)
     );
     auto statuses = ctx->snapshot();
-    const auto *error_status = find_status_by_variant(
+    const auto error_status = find_status_by_variant(
         statuses,
         synnax::status::VARIANT_ERROR
     );
@@ -1153,16 +1228,16 @@ TEST(ArcErrorHandling, StopInterruptsInfiniteLoop) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
     const auto stopping = std::chrono::steady_clock::now();
     task->stop("test_stop", true);
     EXPECT_LT(std::chrono::steady_clock::now() - stopping, std::chrono::seconds(1));
     EXPECT_EQ(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_ERROR),
         nullptr
     );
-    const auto stop_state = ctx->statuses.back();
+    const auto stop_state = ctx->snapshot().back();
     EXPECT_EQ(stop_state.details.cmd, "test_stop");
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(stop_state.message, "Stopped task");
@@ -1262,11 +1337,11 @@ TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
 
     task->start("test_start");
     ASSERT_EVENTUALLY_TRUE(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_WARNING) !=
         nullptr
     );
-    const auto *warning = find_status_by_variant(
-        ctx->statuses,
+    const auto warning = find_status_by_variant(
+        ctx->snapshot(),
         synnax::status::VARIANT_WARNING
     );
     expect_status(*warning, synnax::status::VARIANT_WARNING, true);
@@ -1276,7 +1351,7 @@ TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
         "The time.wait node failed: The wait duration must be positive, not 0ns."
     );
     EXPECT_EQ(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_ERROR),
         nullptr
     );
 
@@ -1376,11 +1451,11 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
 
     task->start("test_start_1");
     ASSERT_EVENTUALLY_TRUE(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_WARNING) !=
         nullptr
     );
     EXPECT_EQ(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_ERROR),
         nullptr
     );
 
@@ -1388,7 +1463,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
 
     mock_writer->writes->clear();
     mock_writer->writer_opens.store(0, std::memory_order_relaxed);
-    ctx->statuses.clear();
+    ctx->clear();
     input_frames->clear();
 
     x::telem::Frame normal_trigger(2);
@@ -1402,7 +1477,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     input_frames->push_back(std::move(normal_trigger));
 
     task->start("test_start_2");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
     bool found_output = false;
@@ -1500,7 +1575,7 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     for (int cycle = 0; cycle < 3; cycle++) {
         mock_writer->writes->clear();
         mock_writer->writer_opens.store(0, std::memory_order_relaxed);
-        ctx->statuses.clear();
+        ctx->clear();
         input_frames->clear();
 
         x::telem::Frame input_fr(2);
@@ -1514,7 +1589,7 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         input_frames->push_back(std::move(input_fr));
 
         task->start("test_start_" + std::to_string(cycle));
-        ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+        ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
         ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
         bool found_output = false;
@@ -1630,22 +1705,22 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     // A client that waits for the start status must be able to send commands at once.
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     EXPECT_EQ(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_SUCCESS),
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_SUCCESS),
         nullptr
     );
     open.set_value();
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
     for (const std::string key: {"", "verify_start"})
         EXPECT_TRUE(
             std::ranges::any_of(
-                ctx->statuses,
+                ctx->snapshot(),
                 [&](const auto &s) { return s.details.cmd == key && s.details.running; }
             )
         ) << "no running status for start "
           << key;
 
-    auto *start_status = find_status_by_variant(
-        ctx->statuses,
+    const auto start_status = find_status_by_variant(
+        ctx->snapshot(),
         synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(start_status, nullptr) << "Should have a success status after start";
@@ -1653,14 +1728,14 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
 
     task->stop("verify_stop", true);
 
-    auto *stop_status = find_status_by_variant(
-        ctx->statuses,
+    const auto stop_status = find_status_by_variant(
+        ctx->snapshot(),
         synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(stop_status, nullptr);
 
     bool found_stopped = false;
-    for (const auto &s: ctx->statuses) {
+    for (const auto &s: ctx->snapshot()) {
         if (s.variant == synnax::status::VARIANT_SUCCESS && !s.details.running) {
             found_stopped = true;
             break;
@@ -1755,7 +1830,7 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
     cancel.start();
     task->exec(start_cmd, cancel);
     cancel.stop();
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     synnax::task::Command stop_cmd{
         .task = task_meta.key,
@@ -1767,7 +1842,7 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
     cancel.stop();
 
     bool found_stop_reply = false;
-    for (const auto &s: ctx->statuses)
+    for (const auto &s: ctx->snapshot())
         if (s.details.cmd == stop_cmd.key && !s.details.running) {
             found_stop_reply = true;
             break;
@@ -1860,10 +1935,10 @@ TEST(ArcEdgeCases, RapidStartStop) {
     }
 
     task->start("final_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
-    auto *final_status = find_status_by_variant(
-        ctx->statuses,
+    const auto final_status = find_status_by_variant(
+        ctx->snapshot(),
         synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(final_status, nullptr);
@@ -1953,10 +2028,10 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     task->stop("stop_without_start", true);
 
     task->start("start_after_cold_stop");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
-    auto *status = find_status_by_variant(
-        ctx->statuses,
+    const auto status = find_status_by_variant(
+        ctx->snapshot(),
         synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(status, nullptr);
@@ -2086,7 +2161,7 @@ TEST(ArcTests, testChannelConfigParam) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
@@ -2243,7 +2318,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
@@ -2357,7 +2432,7 @@ TEST(ArcEdgeCases, DoubleStart) {
     );
 
     task->start("first_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     task->start("second_start");
 
@@ -2459,7 +2534,7 @@ TEST(ArcTests, testRestartResetsState) {
     );
 
     task->start("test_start_1");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
@@ -2472,7 +2547,7 @@ TEST(ArcTests, testRestartResetsState) {
 
     mock_writer->writes->clear();
     mock_writer->writer_opens.store(0, std::memory_order_relaxed);
-    ctx->statuses.clear();
+    ctx->clear();
 
     input_frames->clear();
     x::telem::Frame input_fr_2(2);
@@ -2486,7 +2561,7 @@ TEST(ArcTests, testRestartResetsState) {
     input_frames->push_back(std::move(input_fr_2));
 
     task->start("test_start_2");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
@@ -2824,7 +2899,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
 
@@ -2932,7 +3007,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
 
@@ -3035,7 +3110,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->authority_changes->size(), 1);
@@ -3245,12 +3320,12 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    auto *error_status = find_status_by_variant(
-        ctx->statuses,
+    const auto error_status = find_status_by_variant(
+        ctx->snapshot(),
         synnax::status::VARIANT_ERROR
     );
     EXPECT_NE(error_status, nullptr)
@@ -3435,7 +3510,7 @@ TEST(ArcTests, ForwardsStampFromBeforeStart) {
     EXPECT_FLOAT_EQ(output_fr.at<float>(output_ch.key, 0), 10.0f);
     task->stop("test_stop", true);
     EXPECT_EQ(
-        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        find_status_by_variant(ctx->snapshot(), synnax::status::VARIANT_ERROR),
         nullptr
     );
     ASSERT_NIL(streamer.close());
@@ -3538,7 +3613,7 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     EXPECT_EQ(mock_writer->writer_opens.load(std::memory_order_acquire), 0)
         << "Writer should not open when there are no write channels";
@@ -3608,7 +3683,7 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     );
 
     task->start("test_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
 
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);

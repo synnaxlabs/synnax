@@ -133,6 +133,42 @@ describe("ICD queries", () => {
     });
   });
 
+  describe("useImportNew", () => {
+    const importNew = async (name: string, csv: string) => {
+      const { result } = renderHook(() => ICD.useImportNew(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          name,
+          format: "csv",
+          data: new TextEncoder().encode(csv),
+        });
+      });
+      const named = (await client.icds.retrieve({})).filter((ic) => ic.name === name);
+      return { status: result.current.status, named };
+    };
+
+    it("should create an ICD with the given name from an import", async () => {
+      const name = `icd-${id.create()}`;
+      const { named } = await importNew(
+        name,
+        "message,field,start_bit,bit_length\nEngine,Rpm,0,16",
+      );
+      expect(named.map(({ messages }) => messages.map((m) => m.name))).toEqual([
+        ["Engine"],
+      ]);
+    });
+
+    it("should leave no ICD and show the error when the import fails", async () => {
+      const { status, named } = await importNew(`icd-${id.create()}`, "color\n");
+      expect(status.description).toEqual(
+        'row 1: unknown column "color": expected message, id, extended, length, ' +
+          "field, start_bit, bit_length, byte_order, kind, scale, offset, units, min, " +
+          "or max",
+      );
+      expect(named).toEqual([]);
+    });
+  });
+
   describe("useForm", () => {
     beforeEach(async () => await waitForStreamLive(client.connection));
 

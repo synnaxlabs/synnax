@@ -81,7 +81,7 @@ interface Live {
 
 // Returns the start of the tile of the level after the one that holds ts.
 const nextEdge = (ts: TimeStamp, level: number): bigint =>
-  grid.tileRange({ level, index: grid.index(ts, level) + 1 }).start.valueOf();
+  grid.tileRange({ level, tile: grid.tileAt(ts, level) + 1 }).start.valueOf();
 
 // slideKey returns the parts of a limit that a slide keeps. Two limits with equal keys
 // differ only in their view and bound, which move a subscription inside its tiles.
@@ -479,12 +479,12 @@ export class Points {
     const level = grid.level(home);
     if (this.dynamic && level <= cacheBlock.RAW_LEVEL)
       return TimeStamp.max(
-        grid.tileRange({ level, index: grid.index(home.start, level) }).start,
+        grid.tileRange({ level, tile: grid.tileAt(home.start, level) }).start,
         floor,
       );
     const edge = grid.tileRange({
       level: cacheBlock.RAW_LEVEL,
-      index: cacheBlock.rawIndex(committed),
+      tile: cacheBlock.rawTile(committed),
     }).start;
     return TimeStamp.max(home.start, edge, floor);
   }
@@ -519,7 +519,7 @@ export class Points {
     const first = this.raw.find((s) => {
       const { end } = grid.tileRange({
         level: cacheBlock.RAW_LEVEL,
-        index: cacheBlock.rawIndex(s.timeRange.start),
+        tile: cacheBlock.rawTile(s.timeRange.start),
       });
       return TimeStamp.min(s.timeRange.end, end).after(boundary);
     });
@@ -552,9 +552,9 @@ export class Points {
     const level = grid.level(view);
     const floor = this.streaming ? cacheBlock.RAW_LEVEL : level;
     return grid
-      .indexes(tiled, level)
-      .flatMap((index) =>
-        end == null ? [{ level, index }] : grid.cover({ level, index }, end, floor),
+      .tiles(tiled, level)
+      .flatMap((tile) =>
+        end == null ? [{ level, tile }] : grid.cover({ level, tile }, end, floor),
       )
       .filter((p) => start == null || grid.tileRange(p).end.after(start))
       .map((p) => {
@@ -612,7 +612,7 @@ export class Points {
     }
     let other: Held | undefined;
     for (const tile of tiles) {
-      if (tile.spec.level !== p.level || tile.spec.index !== p.index) continue;
+      if (tile.spec.level !== p.level || tile.spec.tile !== p.tile) continue;
       if (tile.spec.aggregation === aggregation) return tile;
       other ??= tile;
     }
@@ -725,10 +725,10 @@ export class Points {
   // stored sample when a writer's clock runs ahead of the Core's. A static window stops
   // at its end.
   private lastBlock(tr: TimeRange): number {
-    const now = cacheBlock.rawIndex(this.props.now());
+    const now = cacheBlock.rawTile(this.props.now());
     const last = Math.max(now, this.props.store.newestBlock(this.key));
     if (this.dynamic) return last;
-    return Math.min(cacheBlock.rawIndex(tr.end.sub(TimeSpan.nanoseconds(1))), last);
+    return Math.min(cacheBlock.rawTile(tr.end.sub(TimeSpan.nanoseconds(1))), last);
   }
 
   // Sets raw to the samples of the raw range, and returns the blocks of it that wait
@@ -751,28 +751,28 @@ export class Points {
     const joinFrom = this.streaming
       ? this.props.joins.catchUpFrom(this.key, now.sub(cacheReader.COMMIT_MARGIN))
       : Infinity;
-    const current = cacheBlock.rawIndex(now);
+    const current = cacheBlock.rawTile(now);
     const blocks: cacheBlock.Raw[] = [];
     // A block after the one of now only draws once it holds samples.
-    for (let i = cacheBlock.rawIndex(stored.start); i <= last; i++) {
+    for (let i = cacheBlock.rawTile(stored.start); i <= last; i++) {
       const b = i <= current ? store.raw(this.key, i) : store.findRaw(this.key, i);
       if (b != null) blocks.push(b);
     }
     const joined = this.props.joins.joined(this.key);
     const filling = new Set(
       blocks
-        .filter((b) => (b.index < joinFrom ? !b.covers(stored) : !joined))
-        .map((b) => b.index),
+        .filter((b) => (b.tile < joinFrom ? !b.covers(stored) : !joined))
+        .map((b) => b.tile),
     );
-    const unread = blocks.filter((b) => b.index < joinFrom && !b.covers(stored));
+    const unread = blocks.filter((b) => b.tile < joinFrom && !b.covers(stored));
     if (unread.length > 0)
       this.readRaw(new TimeRange(unread[0].range.start, unread.at(-1)!.range.end));
     const fresh = blocks
-      .filter((b) => !filling.has(b.index))
-      .flatMap((b) => b.seriesIn(stored, store.findRaw(index, b.index)));
+      .filter((b) => !filling.has(b.tile))
+      .flatMap((b) => b.seriesIn(stored, store.findRaw(index, b.tile)));
     const standIns = this.raw.filter(
       (s) =>
-        (filling.has(cacheBlock.rawIndex(s.timeRange.start)) ||
+        (filling.has(cacheBlock.rawTile(s.timeRange.start)) ||
           s.timeRange.start.before(kept)) &&
         !fresh.some((f) => f.timeRange.overlapsWith(s.timeRange)),
     );
@@ -796,7 +796,7 @@ export class Points {
       return { raw: [], tail: [], filling: false };
     }
     this.raw = this.raw.filter((s) => s.timeRange.overlapsWith(tr));
-    const first = cacheBlock.rawIndex(tr.start);
+    const first = cacheBlock.rawTile(tr.start);
     const filling = [...fillingBlocks].some((i) => i >= first);
     const tail =
       this.live == null
@@ -859,7 +859,7 @@ export class Points {
       // The index's blocks find where the window's end cuts the channel's samples.
       const keys = unique.unique([this.key, this.index ?? this.key]);
       for (
-        let i = cacheBlock.rawIndex(raw.start), last = this.lastBlock(raw);
+        let i = cacheBlock.rawTile(raw.start), last = this.lastBlock(raw);
         i <= last;
         i++
       )
