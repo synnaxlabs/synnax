@@ -44,6 +44,24 @@ var _ = Describe("Rewriter", func() {
 		}))
 		w = v1.Rewriter{Renames: renames, Ambient: stl.NewSymbols()}
 	})
+	// inFolders returns a rewriter with cfg over the rename of channel 1 when it sits
+	// in
+	// folders, from the top level down.
+	inFolders := func(ctx context.Context, cfg parser.Config, folders ...string) v1.Rewriter {
+		GinkgoHelper()
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		Expect(resource.StageRename(
+			ctx,
+			db,
+			resource.ID{Type: resource.TypeChannel, Key: "1"},
+			"Metrics",
+			resource.ReasonClash,
+		)).To(Succeed())
+		renames := MustSucceed(v1.TextRename(db, map[v1.Key]v1.TextChannel{
+			1: {Name: "Metrics_2", DataType: telem.Float64T, Folders: folders},
+		}))
+		return v1.Rewriter{Renames: renames, Config: cfg, Ambient: stl.NewSymbols()}
+	}
 	rewrite := func(ctx context.Context, src v1.Source) v1.Result {
 		GinkgoHelper()
 		return MustSucceed(w.Rewrite(ctx, src))
@@ -219,4 +237,39 @@ var _ = Describe("Rewriter", func() {
 		res := rewrite(ctx, calculation("return Metrics-1"))
 		Expect(res.Text).To(Equal("return Metrics-1"))
 	})
+
+	DescribeTable("Should keep and report a read of a channel in a folder that Arc "+
+		"cannot read bare yet", func(ctx SpecContext, folders ...string) {
+		text := "x := 1\nreturn Metrics * x"
+		res := MustSucceed(
+			inFolders(ctx, parser.Config{}, folders...).Rewrite(ctx, calculation(text)),
+		)
+		Expect(res.Text).To(Equal(text))
+		Expect(kept(res)).To(ConsistOf(SatisfyAll(
+			HaveField("Line", 2),
+			HaveField("Column", 7),
+			HaveField("FolderUnreadable", true),
+			HaveField("Captured", false),
+		)))
+	},
+		Entry("a space", "Stand A"),
+		Entry("a dash with dashed names off", "stand-a"),
+		Entry("a keyword", "func"),
+		Entry("a leading digit", "1st"),
+		Entry("one of several folders", "plant", "Stand A"),
+	)
+
+	DescribeTable("Should write the new name into a read of a channel in a folder "+
+		"that Arc reads bare", func(ctx SpecContext, cfg parser.Config, folders ...string) {
+		res := MustSucceed(
+			inFolders(ctx, cfg, folders...).Rewrite(ctx, calculation("return Metrics")),
+		)
+		Expect(res.Text).To(Equal("return Metrics_2"))
+		Expect(kept(res)).To(BeEmpty())
+	},
+		Entry("no folder", parser.Config{}),
+		Entry("bare folders", parser.Config{}, "plant", "stand_a"),
+		Entry("a dash with dashed names on",
+			parser.Config{AllowDashedNames: true}, "stand-a"),
+	)
 })
