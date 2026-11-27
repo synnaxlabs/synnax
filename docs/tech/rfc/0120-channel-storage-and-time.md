@@ -994,9 +994,9 @@ The migration changes metadata only and runs at the first start, before any writ
   its step's rule, so an old plot draws against time. Arc or calculation text that names
   a retired index binds the name through the retired index table, and the text pass
   rewrites it to `time.of` of a data channel that `DB.Keys` gives for that key, by the
-  rule of the Arc row, so no import reads a stale copy. A name that is both a live
-  channel and a retired entry stays, and the import reports it. A name whose clock has
-  ended has no entry, and the compile error names `time.of`.
+  rule for Arc text in the holders table above, so no import reads a stale copy. A name
+  that is both a live channel and a retired entry stays, and the import reports it. A
+  name whose clock has ended has no entry, and the compile error names `time.of`.
 - **Specs**: Each step copies the Kafka three-layer specs
   (`core/pkg/service/kafka/versions/v1/migrate_test.go`,
   `core/pkg/service/kafka/migrate_test.go`), one per holder.
