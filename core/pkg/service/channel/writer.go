@@ -886,6 +886,9 @@ func (w Writer) allocateAndWrite(
 	newIndices []int,
 	minimal []channel.Channel,
 ) error {
+	if err := w.refuseTakenNames(ctx, channels, requested, newIndices); err != nil {
+		return err
+	}
 	if err := w.checkLimit(channels, newIndices); err != nil {
 		return err
 	}
@@ -931,6 +934,46 @@ func (w Writer) allocateAndWrite(
 		w.svc.mu.Unlock()
 		return nil
 	})
+	return nil
+}
+
+// refuseTakenNames refuses a channel at newIndices in channels whose name another
+// channel holds, before any key is allocated, so that the create uses no key. It
+// returns the error that the name index returns at commit, which stays the rule for
+// every write path.
+func (w Writer) refuseTakenNames(
+	ctx context.Context,
+	channels []Channel,
+	requested []int,
+	newIndices []int,
+) error {
+	if len(newIndices) == 0 {
+		return nil
+	}
+	names := make([]string, len(newIndices))
+	for j, i := range newIndices {
+		names[j] = channels[i].Name
+	}
+	var holders []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(w.svc.names.Filter(names...)).
+		Entries(&holders).
+		Exec(ctx, w.tx); err != nil || len(holders) == 0 {
+		return err
+	}
+	taken := make(map[string]Key, len(holders))
+	for _, h := range holders {
+		taken[h.Name] = h.Key()
+	}
+	for _, i := range newIndices {
+		if k, ok := taken[channels[i].Name]; ok {
+			return nameTaken(gorp.UniqueError{
+				Space:  nameSpace,
+				Holder: gorp.NewTarget(tableName, k),
+				Value:  channels[i].Name,
+			}, Names(channels), requested)
+		}
+	}
 	return nil
 }
 

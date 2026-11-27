@@ -843,3 +843,41 @@ var _ = Describe("CollectReferenced edge cases", func() {
 		Expect(enum.CollectReferenced(types, table)).To(BeEmpty())
 	})
 })
+
+var _ = Describe("CollectOutputEnums", func() {
+	It("Should return each enum of the output from every namespace, once each", func() {
+		table := resolution.NewTable()
+		omitted := map[string]resolution.Domain{
+			"ts": {Expressions: []resolution.Expression{{Name: "omit"}}},
+		}
+		for _, e := range []resolution.Type{
+			{Name: "Shade", Namespace: "thing", QualifiedName: "thing.Shade"},
+			{Name: "Mode", Namespace: "thing_api", QualifiedName: "thing_api.Mode"},
+			{Name: "Other", Namespace: "other", QualifiedName: "other.Other"},
+			{
+				Name:          "Hidden",
+				Namespace:     "thing",
+				QualifiedName: "thing.Hidden",
+				Domains:       omitted,
+			},
+		} {
+			e.Form = resolution.EnumForm{Values: []resolution.EnumValue{{Name: "a"}}}
+			Expect(table.Add(e)).To(Succeed())
+		}
+		outputs := map[string]string{
+			"thing.Shade":    "client/ts/thing",
+			"thing_api.Mode": "client/ts/thing",
+			"other.Other":    "client/ts/other",
+			"thing.Hidden":   "client/ts/thing",
+		}
+		outputOf := func(e resolution.Type, _ *resolution.Table) string {
+			return outputs[e.QualifiedName]
+		}
+		Expect(enum.CollectOutputEnums("client/ts/thing", table, "ts", outputOf)).To(
+			ConsistOf(
+				HaveField("QualifiedName", "thing.Shade"),
+				HaveField("QualifiedName", "thing_api.Mode"),
+			),
+		)
+	})
+})
