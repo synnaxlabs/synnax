@@ -175,7 +175,7 @@ func (f *factory) ConfigureTask(
 		}
 		// A successful configure writes no status, so a start answers the command.
 		if rt.cfg.AutoStart && cmdKey == driver.NoCommand {
-			if err := errors.Combine(rt.start(ctx, cmdKey)); err != nil {
+			if err := rt.Start(ctx, cmdKey); err != nil {
 				return nil, err
 			}
 		}
