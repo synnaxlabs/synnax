@@ -655,7 +655,7 @@ TEST(Receiver, RejectsQueryThatFramingCannotHold) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "entry 0: the framing cannot hold the poll query: the frame has 3 bytes, not "
         "the fixed length of 2"
     );
@@ -677,7 +677,7 @@ TEST(Receiver, RejectsPollRateOutOfRange) {
         );
         ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
         ASSERT_EQ(
-            err.data,
+            err.data(),
             "entry 0: the poll rate must be above 0 Hz and at most 1 GHz, not " + text
         );
     }
@@ -1022,7 +1022,7 @@ TEST(Receiver, RejectsEntriesThatReadOneMessage) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry(), cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "entries 0 and 1 both read message frame of ICD device");
+    ASSERT_EQ(err.data(), "entries 0 and 1 both read message frame of ICD device");
 }
 
 /// @brief it should refuse an entry after one that reads a binary message with no
@@ -1033,7 +1033,7 @@ TEST(Receiver, RejectsEntryAfterBinaryCatchAll) {
     const auto err = refused({a.entry(), b.entry()}, {a.ic, b.ic}, b.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame of ICD device in entry 0 matches every frame, so entry 1 never "
         "gets one"
     );
@@ -1053,7 +1053,7 @@ TEST(Receiver, RejectsEntryAfterTextCatchAll) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame of ICD first in entry 0 matches every frame, so entry 1 never "
         "gets one"
     );
@@ -1073,7 +1073,7 @@ TEST(Receiver, RejectsJSONEntryAfterJSONCatchAll) {
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
     ASSERT_EQ(
-        err.data,
+        err.data(),
         "message frame of ICD first in entry 0 matches every JSON document, so entry 1 "
         "never gets one"
     );
@@ -1133,7 +1133,7 @@ TEST(Receiver, RejectsStreamICDWithoutFraming) {
     const auto cfg = pairs(std::nullopt);
     const auto err = refused({cfg.entry()}, {cfg.ic}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "ICD device has no framing to split the stream with");
+    ASSERT_EQ(err.data(), "ICD device has no framing to split the stream with");
 }
 
 /// @brief it should refuse entries whose ICDs frame the stream differently.
@@ -1147,7 +1147,7 @@ TEST(Receiver, RejectsICDsWithDifferentFramings) {
         merged(a.channels, b.channels)
     );
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "ICDs first and second frame the stream differently");
+    ASSERT_EQ(err.data(), "ICDs first and second frame the stream differently");
 }
 
 /// @brief it should refuse an entry whose ICD does not exist.
@@ -1155,7 +1155,7 @@ TEST(Receiver, RejectsMissingICD) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry()}, {}, cfg.channels);
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "entry 0: ICD " + cfg.ic.key.to_string() + " does not exist");
+    ASSERT_EQ(err.data(), "entry 0: ICD " + cfg.ic.key.to_string() + " does not exist");
 }
 
 /// @brief it should name the entry whose reader fails to create.
@@ -1163,7 +1163,7 @@ TEST(Receiver, NamesEntryWhoseReaderFails) {
     const auto cfg = pairs();
     const auto err = refused({cfg.entry()}, {cfg.ic});
     ASSERT_OCCURRED_AS(err, driver::errors::CONFIGURATION_ERROR);
-    ASSERT_EQ(err.data, "entry 0: message frame: channel 2 does not exist");
+    ASSERT_EQ(err.data(), "entry 0: message frame: channel 2 does not exist");
 }
 
 /// @brief it should read each datagram with no framing as one message, and send the

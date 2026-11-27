@@ -106,7 +106,7 @@ private:
                 nullptr,
                 x::errors::Error(
                     err,
-                    err.data + " (while creating node '" + node_key + "' of type '" +
+                    err.data() + " (while creating node '" + node_key + "' of type '" +
                         node_type + "')"
                 )
             };

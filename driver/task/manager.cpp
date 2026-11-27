@@ -734,7 +734,7 @@ void Manager::execute_op(
                         status.name = operation.task_info().first;
                         status.variant = synnax::status::VARIANT_ERROR;
                         status.message = "Failed to start task";
-                        status.description = err.data;
+                        status.description = err.data();
                         operation.answer(status);
                     }
                     this->discard(op.task_key, true);
@@ -1011,7 +1011,7 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
         if (err) {
             LOG(WARNING) << "failed to check the config hash of task " << tsk << ": "
                          << err;
-            fail(synnax::status::VARIANT_ERROR, "Failed to configure task", err.data);
+            fail(synnax::status::VARIANT_ERROR, "Failed to configure task", err.data());
             return {nullptr, true};
         }
         if (stored.rack != this->rack.key) {

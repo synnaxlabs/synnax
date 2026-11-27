@@ -25,7 +25,7 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import type { Tree } from "@synnaxlabs/lyra/tree";
 import { ICD as PICD, Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { DataType, deep, map, payload, primitive, unique } from "@synnaxlabs/x";
+import { DataType, deep, map, payload, primitive } from "@synnaxlabs/x";
 import {
   createContext,
   type Dispatch,
@@ -131,7 +131,7 @@ const createDraft = (
   index?: string,
   present?: string,
 ): Draft => {
-  const fields = ICD.createFields(leaves);
+  const fields = ICD.createReadFields(leaves);
   return {
     type: "plain",
     topic,
@@ -156,7 +156,7 @@ const draftsOf = (topic: string, pick: TopicPick): Draft[] => {
     createDraft(topic, pickedLeaves(p), p.index, p.shape.present),
   );
   for (const [read, picks] of extended) {
-    const leaves = unique.by(picks.flatMap(pickedLeaves), ({ pointer }) => pointer);
+    const leaves = ICD.mergeFields(picks.flatMap(pickedLeaves));
     const index = picks.find((p) => p.index != null)?.index;
     drafts.push({ ...createDraft(topic, leaves, index), read });
   }

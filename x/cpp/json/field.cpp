@@ -94,7 +94,7 @@ errors::Error check_enum(const Enum &e, const telem::DataType &dt) {
             "a " + telem::DataType::infer(e.value).name() +
             " value does not convert to " + dt.name()
         );
-    if (const auto err = n->check_fits(dt)) return wrap(err.data);
+    if (const auto err = n->check_fits(dt)) return wrap(err.data());
     if (const auto f = n->to_float64(); dt == telem::BOOLEAN_T && f != 0 && f != 1)
         return wrap(n->to_string() + " is not a boolean");
     return errors::NIL;
@@ -241,7 +241,7 @@ errors::Error Decoder::append_bytes(const std::string_view raw, telem::Series &d
     if (this->text.find_first_of("\r\n") != std::string::npos)
         return invalid("base64 must not hold a line break");
     auto [data, err] = base64::decode_strict(this->text);
-    if (err) return invalid(err.data);
+    if (err) return invalid(err.data());
     dst.write(data);
     return errors::NIL;
 }
@@ -358,7 +358,7 @@ std::pair<Encoder, errors::Error> Encoder::create(Field field) {
         if (const auto err = append_quoted(en.label, text))
             return {
                 Encoder(),
-                invalid("enum label " + quote(en.label) + ": " + err.data),
+                invalid("enum label " + quote(en.label) + ": " + err.data()),
             };
         e.labels.push_back({std::move(text), dt.cast(en.value)});
     }
