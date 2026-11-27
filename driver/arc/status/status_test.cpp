@@ -629,7 +629,7 @@ TEST(SetsTest, ReportsTheErrorOfAFailedWrite) {
     sets.report_refused();
     const auto calls = reports->snapshot();
     ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].description, "Dropped 1 sets: disk failed");
+    EXPECT_EQ(calls[0].description, "Dropped 1 set: disk failed");
 }
 
 }
