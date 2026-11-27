@@ -134,17 +134,17 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    is durable before `Delete` can run, and it reports whether the transaction committed.
    It is not built on `txState.OnCleanup` (`gorp/gorp.go:321`), which runs when the
    writes become visible, before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`).
-   `Delete` never refuses. It first waits until no segment of each key has a visible
-   committed length past its durable one, which the writer's background `Sync` ends by
-   an ack or by the failure path (§5.4), so no Commit of a key follows its Drop, as
-   after a cross-clock handoff. On a failing log the wait returns the log's error, and
-   the note keeps the keys for the next start. It returns once a delete intent for each
-   key is durable in Cesium's own log, and the key is then gone to new writers and
-   iterators. It removes the segments of the key when reader pins drop. A `Delete` of a
-   key that holds no data or has a live intent writes nothing. An error of `Delete`
-   raises a status, and the note keeps the keys for the next start. A removal that fails
-   after `Delete` returns goes to the injected error handler (§7): the Core raises the
-   same status, and the next open removes the files.
+   `Delete` never refuses. It first waits until no pointer of each key is visible and
+   not durable, which the writer's background `Sync` ends by an ack or by the failure
+   path (§5.4), so no Commit of a key follows its Drop, as after a cross-clock handoff.
+   On a failing log the wait returns the log's error, and the note keeps the keys for
+   the next start. It returns once a delete intent for each key is durable in Cesium's
+   own log, and the key is then gone to new writers and iterators. It removes the
+   segments of the key when reader pins drop. A `Delete` of a key that holds no data or
+   has a live intent writes nothing. An error of `Delete` raises a status, and the note
+   keeps the keys for the next start. A removal that fails after `Delete` returns goes
+   to the injected error handler (§7): the Core raises the same status, and the next
+   open removes the files.
 5. At start, before a writer opens, the Core calls `Delete` for each note and clears it.
    It then reads `DB.Keys`: each key that Cesium holds data for, with its last stamp and
    whether its intent is live, and the other keys whose kept segments name it as their
@@ -443,28 +443,22 @@ a format version it does not know.
 
 A log file is 64 MiB of zeros, written and synced before use (§5.3): `fs.FS` has no
 allocate call, and a written file gives each log sync no size change. Every entry but a
-delete (Tombstone, Intent, Drop), a Restart, and a Seal stops 1 MiB before the end, at
-the commit limit, so a delete can be logged on a full disk. The last 64 KiB of that room
-take only Restarts and the frames of the open check, so a start always has room, and no
-mark is written past the commit limit. The log owner takes its size as a `Config` field:
-64 MiB in a database, and at least 8 MiB, so a 4 MiB entry fits before three quarters.
-`C` makes the file of the next log right after each switch, so a switch at three
-quarters finds it ready. A batch goes out as frames of at most 16 MiB, and a frame never
-ends past the commit limit unless it holds only deletes, Restarts, and Seals, and never
-past the end of the file. A frame that would cross three quarters goes to the next log
-once its file is ready; until then frames stop at those limits. The first commit entry
-that does not fit before them is refused, and so is every later commit entry in queue
-order, of every writer, until the next log is ready, so the log stays a prefix of queue
-order for commits; deletes, Restarts, and Seals still go. The log owner keeps the
-segments that each refused entry names and refuses each later entry that names one until
-its Seal, whatever the state of the log. It sends a refusal only after the acks of each
-entry ahead of it, so no Seal falls below a logged Commit. A refusal sets the failed
-mark of each named segment, which moves with the segment in a handoff, so the segment's
-holder takes §5.4 step 4, and the state owner takes it for a segment that no writer
-holds. A segment whose Create the log did not take leaves the refused set with its file.
-An entry larger than a frame is refused, so the compactor and progression encoding try
-no rewrite whose Replace would be larger than a frame. The file header is 64 bytes at
-offset 0, and again at 4,096. Frames start at 8,192.
+delete (Tombstone, Intent, Drop) and a Restart stops 1 MiB before the end, at the commit
+limit, so a delete can be logged on a full disk. The last 64 KiB of that room take only
+Restarts and the frames of the open check, and no mark is written past the commit limit.
+The log owner takes its size as a `Config` field: 64 MiB in a database, and at least 8
+MiB, so a 4 MiB entry fits before three quarters. `C` makes the file of the next log
+right after each switch, so a switch at three quarters finds it ready. A batch goes out
+as frames of at most 16 MiB, and a frame never ends past the commit limit unless it
+holds only deletes and Restarts, and never past the end of the file. A frame that would
+cross three quarters goes to the next log once its file is ready; until then frames stop
+at those limits. The first commit entry that does not fit before them is refused, and
+the database enters the unstored state (§5.4) until the next log is ready, so every
+later commit entry is refused too and the log stays a prefix of queue order for commits;
+deletes and Restarts still go. The log owner sends a refusal only after the acks of each
+entry ahead of it. An entry larger than a frame is refused, so the compactor and
+progression encoding try no rewrite whose Replace would be larger than a frame. The file
+header is 64 bytes at offset 0, and again at 4,096. Frames start at 8,192.
 
 | Offset | Size | Type     | Meaning                                                                                                                                                                                                                                |
 | ------ | ---- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -700,20 +694,15 @@ The steps:
    sync of a segment returns, `Sync` checks the failed mark of that segment.
 4. The clock write is the unit of failure. When one segment is marked failed, the writer
    sends no Commit: it removes each record of the clock write's segments from its
-   pending list and current entry, every segment of the clock write seals at the end of
-   its last Commit that the log took, the visible samples of all its channels, and of
-   each key that the sealed clock range timed, leave the pointer sets, and `Sync`
-   returns the error. A segment whose Create the log did not take goes with its file and
-   is not sealed. A refused entry (§5.2) sets the failed marks that send its segments
-   here. In a refusal window the step logs no Seal: the state owner marks each such
-   segment sealed in both views at once, since it alone serves takeovers (invariant 7),
-   and the log owner writes those Seals in the first frame of the next log, as the
-   switch does with its own. A crash before then leaves the segment open at its durable
-   length, and the Restart seals it there. Outside a refusal window the step's Seals go
-   in an entry of their own, ahead of the writer's next entry. The writer then enters
-   the unstored state (below). A writer takes this path only for segments that it holds:
-   when a loser's sync fails on a segment that a handoff moved, the failed mark stays,
-   and the holder's next `Sync` sees it and takes the path.
+   pending list and current entry, the visible samples of all its channels, and of each
+   key that the clock range timed, leave the pointer sets, and `Sync` returns the error.
+   Each segment of the clock write seals at the end of its last Commit that the log
+   took, by a Seal entry of its own ahead of the writer's next entry, and keeps its
+   spare for its key's next segment; a segment whose Create the log did not take goes
+   with its file. A writer takes this path only for segments that it holds: when a
+   loser's sync fails on a segment that a handoff moved, the failed mark stays, and the
+   holder's next `Sync` sees it and takes the path. In the unstored state (below) the
+   step logs no Seal.
 5. If not, `Sync` queues its pending list to the log owner, in list order, with the
    order of §5.2 inside each entry. An entry is queued only after the syncs of its
    segments pass (invariant 4), so no entry passes an earlier one, and the `Sync` task
@@ -726,18 +715,40 @@ The steps:
    state is a prefix of entry order and holds every acked entry. Visible samples that no
    `Sync` covered are lost.
 
-**The unstored state**: A stored write that cannot store, for any cause, streams. The
-causes are a refusal window, which is a state of the database from a refusal until the
-next log is ready; a write that fails for space, with EIO, or on a read-only file
-system; a failed clock write (step 4); and a value that no durable Reserve holds while
-the log cannot take a Reserve. `Write` then returns its frame with numbers from 2^31 up,
-as an `Unstored` writer's, and the storage error, the framer relays that frame for a
-streaming session and raises a status named by the cause, and `Commit` and `Sync` return
-the error. An open in that state makes no file and starts unstored. So live data,
-streams, and control go on (D-425 (1)). When storing works again, the first write starts
-new segments only where step 4 sealed, each in the sealed segment's spare, under one new
-number. A `Bounded` writer never enters the state: its `Write`, `Commit`, and `Sync`
-return the error, so its caller keeps its copy (RFC 0113 §3.3).
+**The unstored state** (D-425 (1)): Storage is unwritable when the log cannot take a
+commit entry (a refusal window), when the log is failing (§6), when no Reserve can
+become durable at once, or when a segment file cannot be written, made, or opened, for
+space, EIO, or a read-only file system. It is a state of the database, not of one
+writer, and nothing durable happens for writes in it:
+
+- **Put back**: The state owner puts the visible view of every open segment back to its
+  durable view, so no visible sample lacks its durable record, and marks each segment
+  with bytes past its durable end as unappendable, in memory only, out of takeovers. It
+  logs no Seal and marks none in a view.
+- **Stream**: `Write` returns its frame with numbers from 2^31 up and stores nothing, as
+  an `Unstored` writer's. The framer relays that frame for a streaming session, sends no
+  error for a write or an auto commit, and keeps the session open. An explicit commit
+  gets a typed `ErrUnstored` that is not sticky, as `main` treats `ErrUnauthorized`
+  (`cesium/writer_stream.go:229-236`), which the C++, Python, and TypeScript writers and
+  the Driver pipelines take as a warning. The Core raises a status named by the cause.
+  An open takes its claims and clocks in memory, makes no file, takes no value, and
+  starts unstored; the Core takes the next lease of clock keys at half of the current
+  one, so an open never waits on the metadata store.
+- **Bounded writers**: A `Bounded` writer never streams: its `Write`, `Commit`, and
+  `Sync` return the error, so its caller keeps its copy (RFC 0113 §3.3).
+- **The end**: Each refused entry and each `Sync` that finds the state asks `C` to try
+  again, to make the next log or to write a segment, with one try in flight, on the
+  framer's auto commit cadence. When storing works, the first frame of the next log, or
+  the next entry, holds the Seals of the unappendable segments at their durable lengths;
+  a background step off the frame path makes each writer's new segments and spares and
+  reserves their values; and each writer stores again at its first write after that
+  step, under one new number. A crash in the state leaves every open segment at its
+  durable length, and the Restart seals each (§5.5 step 9).
+
+Specs: a Driver task and an Arc program run across a refusal window and keep streaming;
+a task opens in the window and stores after it; a window ends after space frees outside
+Synnax, with no delete, while the Core runs and across a restart; a task opens on a
+read-only file system and streams.
 
 ### 5.5 Recovery
 
@@ -777,9 +788,13 @@ return the error, so its caller keeps its copy (RFC 0113 §3.3).
 9. Unless the last valid frame is a clean mark, write one frame with a Restart at the
    next 4 KiB boundary and sync. When the log is past three quarters and the file of the
    next log exists at its full size, write its header first and put the Restart there;
-   when it is missing, the Restart goes in the live log. No Reserve is written at open:
-   the log reserves a block when a writer first needs a value, 16 values at first and
-   1,024 after that.
+   when it is missing, open makes it first, and when it cannot, the Restart goes in the
+   live log's room. When neither holds it, open starts in the unstored state: it seals
+   the open segments in memory only and writes nothing, and the end of the state writes
+   the Restart. When the clean mark leaves no room for a plain mark, open writes a
+   Restart in its place and checks as after an unclean stop. No Reserve is written at
+   open: the log reserves a block when a writer first needs a value, 16 values at first
+   and 1,024 after that.
 10. Open. The orphan pass runs once, on the listing taken at open. It removes every
     `.seg` and `.chk` file in that listing that the state does not name, at any
     identity, and a writer that would create a name from the listing waits for the pass.
@@ -806,17 +821,17 @@ return the error, so its caller keeps its copy (RFC 0113 §3.3).
   on the failure path (§5.4 step 4). The file is not written.
 - **Delete of a time range**: One Tombstone per key. The delete is refused, with the
   claim error, while the claim of an open writer holds part of the range (RFC 0095
-  §4.0), or while a segment in the range has a visible committed length past its durable
-  one, which also covers a Commit that extends a pointer. The state owner holds both
-  views, so it is one check in one place, and it covers each path that moves a claim
-  before a Commit is durable, such as a cross-clock handoff. A sealed segment with no
-  live pointer is unlinked. When the state owner applies a Tombstone that leaves an open
-  segment that no writer holds with no live pointer, it seals that segment in the same
-  step, the step that serves takeovers, and sends the Seal to the log owner (§5.4,
-  invariant 7). So no takeover passes the Seal, and the segment unlinks too. From RFC
-  0120 Phase 27 the Core adds each clock of the keys that has no record, and Cesium
-  logs, in the same entry, a Tombstone of the clock over each part of the range that no
-  live pointer of another key names, judged by alignment (§5.2).
+  §4.0), or while a pointer in the range is visible and not durable, which also covers a
+  Commit that extends a pointer; a pointer outside the range never blocks it. The state
+  owner holds both views, so it is one check in one place, and it covers each path that
+  moves a claim before a Commit is durable, such as a cross-clock handoff. A sealed
+  segment with no live pointer is unlinked. When the state owner applies a Tombstone
+  that leaves an open segment that no writer holds with no live pointer, it seals that
+  segment in the same step, the step that serves takeovers, and sends the Seal to the
+  log owner (§5.4, invariant 7). So no takeover passes the Seal, and the segment unlinks
+  too. From RFC 0120 Phase 27 the Core adds each clock of the keys that has no record,
+  and Cesium logs, in the same entry, a Tombstone of the clock over each part of the
+  range that no live pointer of another key names, judged by alignment (§5.2).
 - **Compaction**: When a rewrite of a sealed segment would free more than the threshold
   of its length (today `GCConfig`, `cesium/delete.go:32`), with its padding counted, the
   compactor copies the live ranges to a new segment, syncs the file and its directory,
@@ -961,36 +976,39 @@ the state owner, so it checks nothing on the frame path (D-475 (2)).
   gainer's sync of the same segment passed; and a pause move of keys with old stamps,
   then a switch before the writer's next `Sync`. A takeover appends at the committed
   length, and a takeover of a segment at a §5.1 limit seals it and starts the next
-  segment instead, in its spare when it has one (D-537). It judges the time limit as the
-  switch does, by the segment's first stamp against the injected clock, and the spare
-  step counts the span up to the writer's start. It first checks the tail through the
-  same helper as the open check (§5.5 step 10), and for a variable type rebuilds the
-  sample cursor from the file. A tail that fails its check takes the failure path of the
-  open check (§5.5 step 10, D-482): a Tombstone per pointer from the first sample in the
-  bad range, over the same stamp range on every key that the clock times, then a Seal,
-  and an error to the error handler (§7). The key then starts a new segment. At a
-  handoff the gainer takes the loser's running CRC and sample cursor from memory instead
-  and checks nothing, so a handoff does no file I/O on the frame path (D-475 (2)). Two
-  writers on one key at once have two open segments. A background step makes and opens
-  one spare file for each held segment past three quarters of a §5.1 limit, by its
-  pointers, its sample bytes, or the span of its stamps, as a pause move makes its files
-  at three quarters of P, and a roll at that limit, or a takeover at it (D-537), takes
-  it for the next segment. A spare belongs to its segment, not to a session: a close
-  keeps the spare of each segment that stays open, the next takeover inherits it, and
-  only a seal, the roll or takeover that takes it, or the orphan pass removes it, so
-  each segment makes at most one spare. A spare's handle closes with its holder's
-  `Close` and opens again at the takeover, under the handle budget. A spare takes its
-  identity when the step makes it, since a file name is its identity and no file is
-  renamed. A segment that its holder no longer writes, such as a left segment of a pause
-  move or a kept segment of a cross-clock loser, gets no spare. So a call of a
-  `client.write` loop makes and removes no file. A roll with no spare, such as a burst
-  that crosses the last quarter before the step runs, makes its file in the write. A
-  writer makes at open the files of its new clocks and of each key new to a clock. For a
-  key that another writer holds, the open takes over the key's newest open segment on
-  the writer's clock that no writer holds, with the checks of a takeover, and makes a
-  file only when there is none. So handoffs onto a clock continue one open segment per
-  key until a §5.1 limit, and a move back to the loser continues the segment that it
-  kept. The orphan pass (§5.5 step 10) removes a spare that a crash leaves.
+  segment instead, in its spare when it has one (D-537). It judges the time limit by the
+  span from the segment's first stamp to the writer's start, as the spare step does, so
+  a live session after a quiet week seals at open and a backfill session goes on; the
+  switch keeps its own test for unheld segments (D-537 (3)). A spec makes 1,000
+  `client.write` calls of old, contiguous chunks and finds one segment per key. It first
+  checks the tail through the same helper as the open check (§5.5 step 10), and for a
+  variable type rebuilds the sample cursor from the file. A tail that fails its check
+  takes the failure path of the open check (§5.5 step 10, D-482): a Tombstone per
+  pointer from the first sample in the bad range, over the same stamp range on every key
+  that the clock times, then a Seal, and an error to the error handler (§7). The key
+  then starts a new segment. At a handoff the gainer takes the loser's running CRC and
+  sample cursor from memory instead and checks nothing, so a handoff does no file I/O on
+  the frame path (D-475 (2)). Two writers on one key at once have two open segments. A
+  background step makes and opens one spare file for each held segment past three
+  quarters of a §5.1 limit, by its pointers, its sample bytes, or the span of its
+  stamps, as a pause move makes its files at three quarters of P, and a roll at that
+  limit, or a takeover at it (D-537), takes it for the next segment. A spare belongs to
+  its segment, not to a session: a close keeps the spare of each segment that stays
+  open, the next takeover inherits it, and only a seal, the roll or takeover that takes
+  it, or the orphan pass removes it, so each segment makes at most one spare. A spare's
+  handle closes with its holder's `Close` and opens again when its roll takes it, as the
+  writer's own handle, outside the budget. A spare takes its identity when the step
+  makes it, since a file name is its identity and no file is renamed. A segment that its
+  holder no longer writes, such as a left segment of a pause move or a kept segment of a
+  cross-clock loser, gets no spare. So a call of a `client.write` loop makes and removes
+  no file. A roll with no spare, such as a burst that crosses the last quarter before
+  the step runs, makes its file in the write. A writer makes at open the files of its
+  new clocks and of each key new to a clock. For a key that another writer holds, the
+  open takes over the key's newest open segment on the writer's clock that no writer
+  holds, with the checks of a takeover, and makes a file only when there is none. So
+  handoffs onto a clock continue one open segment per key until a §5.1 limit, and a move
+  back to the loser continues the segment that it kept. The orphan pass (§5.5 step 10)
+  removes a spare that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, a `Bounded` claim that starts inside another claim, and a group whose key of
   stored stamps times itself, naming that key, so no data takes a self-timed key as its
@@ -1064,19 +1082,19 @@ what repair could not save, and opens again. A repair that fails fails the start
 identity refusal (§9.0) is its own error, and the Core never repairs past it. Cesium
 does not panic.
 
-| Fault                                                                                         | What the engine sees                                                                                              | What it does                                                                                                                                                                                                                                                                                                                       |
-| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1 Crash                                                                                       | A torn or absent last frame, and segment bytes past committed lengths                                             | Cuts the tail (§5.5) and seals the open segments. Every acked entry is before the cut                                                                                                                                                                                                                                              |
-| 2 Partial survival of unsynced blocks and names                                               | Any mix past a committed length or in a file that no record names, and a torn disk block that holds a durable end | The same cut, then the check of each durable end's disk block (§5.5 step 10). A named segment and its directory entry were synced before its entry was written                                                                                                                                                                     |
-| 3 Torn write                                                                                  | A frame with a missing sector fails its `crc`. No durable byte is written twice with other bytes                  | Cuts the frame as a torn tail. Handles a head with a zero header sector by §5.5 step 2                                                                                                                                                                                                                                             |
-| 4 Lost directory entry                                                                        | A named file is never lost: `SyncDir` comes before the record. A removed file can come back                       | The orphan pass removes it. A log or part that a head names and that is missing is damage of that head, which the Core repairs at start. A missing segment fails its reads with `ErrCorrupt`                                                                                                                                       |
-| 5a One-time read fault                                                                        | The second read passes                                                                                            | No loss and no refusal                                                                                                                                                                                                                                                                                                             |
-| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head                              | Log: `Open` returns `ErrCorrupt` and drops nothing, and the Core repairs (§6.0) and opens. Newest head: opens from the head before it and replays its logs. Both heads: as a bad log                                                                                                                                               |
-| 5c Lasting corruption of a data block, a part, or a check file                                | A check that fails on two reads                                                                                   | That read returns `ErrCorrupt` with key, segment, and offset. The engine goes on, and the Core raises a status                                                                                                                                                                                                                     |
-| 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                                   | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                                                                                                                                                                        |
-| 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be                               | As 5b, 5c, or 5d, by position                                                                                                                                                                                                                                                                                                      |
-| 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                                  | Segment, or the directory of a new segment: the clock write fails (§5.4), and the file is never synced or written again. Log: no ack until the next log is synced (above). Head, part, or the root in a switch: the attempt is removed, and the next switch tries again                                                            |
-| 8 Full disk                                                                                   | A write fails with no space                                                                                       | The writer gets `ErrDiskFull`, and its length and CRC go back to the last commit. Until a write stores again, each write streams its frame unstored (§5.4, the unstored state), so control goes on. EIO and a read-only file system take the same state. Reads go on. The log is already written, and its last 1 MiB takes deletes |
+| Fault                                                                                         | What the engine sees                                                                                              | What it does                                                                                                                                                                                                                                                                                                                                                        |
+| --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Crash                                                                                       | A torn or absent last frame, and segment bytes past committed lengths                                             | Cuts the tail (§5.5) and seals the open segments. Every acked entry is before the cut                                                                                                                                                                                                                                                                               |
+| 2 Partial survival of unsynced blocks and names                                               | Any mix past a committed length or in a file that no record names, and a torn disk block that holds a durable end | The same cut, then the check of each durable end's disk block (§5.5 step 10). A named segment and its directory entry were synced before its entry was written                                                                                                                                                                                                      |
+| 3 Torn write                                                                                  | A frame with a missing sector fails its `crc`. No durable byte is written twice with other bytes                  | Cuts the frame as a torn tail. Handles a head with a zero header sector by §5.5 step 2                                                                                                                                                                                                                                                                              |
+| 4 Lost directory entry                                                                        | A named file is never lost: `SyncDir` comes before the record. A removed file can come back                       | The orphan pass removes it. A log or part that a head names and that is missing is damage of that head, which the Core repairs at start. A missing segment fails its reads with `ErrCorrupt`                                                                                                                                                                        |
+| 5a One-time read fault                                                                        | The second read passes                                                                                            | No loss and no refusal                                                                                                                                                                                                                                                                                                                                              |
+| 5b Lasting corruption before the confirmed offset of the log, or of a head                    | A bad frame with a valid frame or a linked header after it, or a bad chunk of a head                              | Log: `Open` returns `ErrCorrupt` and drops nothing, and the Core repairs (§6.0) and opens. Newest head: opens from the head before it and replays its logs. Both heads: as a bad log                                                                                                                                                                                |
+| 5c Lasting corruption of a data block, a part, or a check file                                | A check that fails on two reads                                                                                   | That read returns `ErrCorrupt` with key, segment, and offset. The engine goes on, and the Core raises a status                                                                                                                                                                                                                                                      |
+| 5d Lasting corruption of any block of the last frame, before a later frame or mark is durable | The last frame fails, and nothing valid follows                                                                   | A torn tail: cut. That frame and the frames that share its first block are lost, durable acks included. A mark closes the window one log sync after the ack                                                                                                                                                                                                         |
+| 6 Misdirected write, stale bytes                                                              | The place differs, so the check fails where the block landed and where it should be                               | As 5b, 5c, or 5d, by position                                                                                                                                                                                                                                                                                                                                       |
+| 7 Sync error                                                                                  | The bytes after the last durable length of that file are unknown                                                  | Segment, or the directory of a new segment: the clock write fails (§5.4), and the file is never synced or written again. Log: no ack until the next log is synced (above). Head, part, or the root in a switch: the attempt is removed, and the next switch tries again                                                                                             |
+| 8 Full disk                                                                                   | A write fails with no space                                                                                       | The database enters the unstored state (§5.4), and the writer's length and CRC go back to its last durable commit. Until a write stores again, each write streams its frame unstored (§5.4, the unstored state), so control goes on. EIO and a read-only file system take the same state. Reads go on. The log is already written, and its last 1 MiB takes deletes |
 
 **The metadata store**: Gorp runs on Pebble, the only channel registry, and its bounds
 are Pebble's (v2.1.7, measured on the crash harness). Lasting corruption of the last 32
