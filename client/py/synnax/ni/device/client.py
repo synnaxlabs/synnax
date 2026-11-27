@@ -84,6 +84,17 @@ class Client:
     def retrieve(
         self,
         *,
+        name: str,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        **fields: Any,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
         where: Where | None = ...,
         search_term: str = ...,
         include_status: bool = ...,
@@ -153,8 +164,8 @@ class Client:
 
     def update(self, key: Key, update: Update) -> Device:
         """Writes one field group of an NI device and keeps the other group as stored.
-        A configuration update replaces the whole group, so a field it leaves out is
-        cleared.
+        The update replaces the whole group, so a field it leaves out is cleared, such
+        as the chassis of an identity update.
 
         :param key: The key of the device.
         :param update: The identity or configuration group to write.

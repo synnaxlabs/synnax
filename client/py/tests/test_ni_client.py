@@ -66,3 +66,40 @@ class TestNIDeviceClient:
         client.ni.devices.delete(dev.key)
         with pytest.raises(sy.NotFoundError):
             client.ni.devices.retrieve(dev.key)
+
+    def test_update_identity(self, client: sy.Synnax) -> None:
+        """Should write the identity group and keep the configuration group."""
+        rack = client.racks.create(name="ni_device_rack")
+        dev = _create_device(client, rack)
+        got = client.ni.devices.update(
+            dev.key,
+            ni.device.IdentityUpdate(
+                rack=rack.key,
+                serial="01A",
+                resource_name=dev.resource_name,
+                model="9205",
+            ),
+        )
+        assert got.serial == "01A"
+        assert got.name == "NI 9205"
+
+    def test_retrieve_one_by_name(self, client: sy.Synnax) -> None:
+        """Should return one device for a plain name, and refuse two matches."""
+        rack = client.racks.create(name="ni_device_rack")
+        name = f"NI {uuid4()}"
+        devs = client.ni.devices.create(
+            [
+                ni.device.Device(
+                    rack=rack.key,
+                    name=name,
+                    resource_name=str(uuid4()),
+                    model="9205",
+                )
+                for _ in range(2)
+            ]
+        )
+        assert len(devs) == 2
+        with pytest.raises(sy.MultipleFoundError):
+            client.ni.devices.retrieve(name=name)
+        client.ni.devices.delete([devs[1].key])
+        assert client.ni.devices.retrieve(name=name).key == devs[0].key
