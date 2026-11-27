@@ -844,11 +844,12 @@ A Node.js script does not exit until you close the client.
 
 <Field.Item name="streamKeepAlive" id="typescript-stream-keep-alive" type="object">
   How each open stream, such as a streamer or a writer, detects a lost connection. The
-  Core sends a keep-alive message every `interval` (5 s, at least 1 s). A stream that
-  receives no message for `timeout` (three intervals) fails with `Unreachable` within
-  the next 500 ms. The timeout must be longer than the interval, and long enough to
-  receive the largest message, such as an iterator frame, on the slowest link. With an
-  `interval` of `TimeSpan.ZERO`, a stream waits with no limit.
+  Core sends a keep-alive message every `interval` (5 s, at least 1 s). A stream fails
+  with `Unreachable` within 500 ms after `timeout` (three intervals) passes from when
+  the Core sent its last keep-alive that arrived. The timeout must be longer than the
+  interval, and long enough to receive the largest message, such as an iterator frame,
+  on the slowest link. With an `interval` of `TimeSpan.ZERO`, a stream waits with no
+  limit.
 </Field.Item>
 
 <Field.Item name="cache" id="typescript-cache" type="boolean" default="true">

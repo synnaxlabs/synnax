@@ -133,8 +133,8 @@ export interface Streamer
   close: () => void;
   /**
    * Read the next frame of telemetry.
-   * @throws {Unreachable} if the stream receives nothing for the client's keep-alive
-   * timeout: the connection is presumed dead.
+   * @throws {Unreachable} if the stream receives no keep-alive that the Core sent
+   * within the client's keep-alive timeout, even while frames arrive.
    * @throws {UnexpectedError} if the Core sends an ack that answers no update.
    */
   read: () => Promise<Frame>;

@@ -109,10 +109,10 @@ export const synnaxParamsZ = z.object({
   streamOpenTimeout: TimeSpan.z.optional(),
   /**
    * How an open stream detects a stalled connection. The Core sends a keep-alive every
-   * interval (5 s, at least 1 s), and a stream that receives nothing for the timeout
-   * (three intervals) fails with Unreachable. The timeout must be longer than the
-   * interval and cover the largest message on the slowest link. A zero interval turns
-   * it off.
+   * interval (5 s, at least 1 s), and a stream that receives no keep-alive sent within
+   * the timeout (three intervals) fails with Unreachable. The timeout must be longer
+   * than the interval and cover the largest message on the slowest link. A zero
+   * interval turns it off.
    */
   streamKeepAlive: z
     .object({ interval: TimeSpan.z, timeout: TimeSpan.z })

@@ -83,13 +83,13 @@ export interface KeepAlive {
   /** How often the server sends a keep-alive message. Zero asks for none. */
   interval: CrudeTimeSpan;
   /**
-   * How long an open stream may receive no message before it fails with Unreachable.
-   * The stream fails up to 500 ms after the timeout, so that messages held by a frozen
-   * page can arrive first. It applies only when the server sends keep-alives, and must
-   * be longer than the interval. A message counts only when all of it has arrived, so
-   * the timeout must also cover the largest message on the slowest link. Defaults to
-   * three intervals. A timeout of zero, infinity, or more than 2^31 - 1 milliseconds
-   * sets no limit.
+   * How long after the server sent its last keep-alive an open stream fails with
+   * Unreachable. The stream fails up to 500 ms after the timeout, so that messages held
+   * by a frozen page can arrive first. It applies only when the server sends
+   * keep-alives, and must be longer than the interval. A keep-alive waits behind the
+   * messages sent before it, so the timeout must also cover the largest message on the
+   * slowest link. Data messages do not reset the deadline. Defaults to three intervals.
+   * A timeout of zero, infinity, or more than 2^31 - 1 milliseconds sets no limit.
    */
   timeout: CrudeTimeSpan;
 }
@@ -120,8 +120,11 @@ const resolveKeepAlive = ({
 
 const KEEP_ALIVE_PARAM = "keep_alive";
 // The server sends a keep-alive as a text frame and every other message as a binary
-// frame, so a keep-alive needs no decoding.
-const KEEP_ALIVE_MESSAGE = '{"type":"keep_alive"}';
+// frame. Elapsed is the nanoseconds since the stream started, on the server's clock.
+const keepAliveZ = z.object({ type: z.literal("keep_alive"), elapsed: z.number() });
+
+// The most that the server clock may run slower than the local clock, as a fraction.
+const MAX_CLOCK_DRIFT = 1e-3;
 
 const STALL_GRACE = TimeSpan.milliseconds(500);
 
@@ -156,7 +159,11 @@ class WebSocketStream<
   private readonly resLabel: string;
   private readonly endpoint: url.URL;
   private readonly keepAlive: ResolvedKeepAlive;
-  private lastMessage = performance.now();
+  // The local time at which the server sent its latest keep-alive.
+  private lastKeepAlive = performance.now();
+  private lastKeepAliveReceipt = performance.now();
+  // The smallest local receive time minus server send time over all keep-alives.
+  private clockOffset = Infinity;
   private stallTimer?: ReturnType<typeof setTimeout>;
   private keepsAlive = false;
 
@@ -296,7 +303,7 @@ class WebSocketStream<
     overdue = false,
   ): void {
     this.stallTimer = setTimeout(() => {
-      const remaining = timeout.milliseconds - (performance.now() - this.lastMessage);
+      const remaining = timeout.milliseconds - (performance.now() - this.lastKeepAlive);
       if (remaining > 0) return this.checkStall(timeout, remaining);
       // A page that resumes from a freeze can run this timer before the messages that
       // arrived during the freeze, so they get a grace period to run first.
@@ -304,7 +311,7 @@ class WebSocketStream<
       this.fail(
         new Unreachable({
           url: this.endpoint,
-          message: `stream received no message for ${timeout.toString()}`,
+          message: `stream received no keep-alive for ${timeout.toString()}`,
         }),
       );
     }, delay);
@@ -327,10 +334,24 @@ class WebSocketStream<
   }
 
   private onMessage(ev: { data: ArrayBuffer | string }): void {
-    this.lastMessage = performance.now();
     if (typeof ev.data !== "string") return this.addMessage(ev.data);
-    if (ev.data !== KEEP_ALIVE_MESSAGE)
+    const keepAlive = parseKeepAlive(ev.data);
+    if (keepAlive == null)
       return this.fail(new Error(`unexpected text message: ${ev.data}`));
+    this.onKeepAlive(TimeSpan.nanoseconds(keepAlive.elapsed));
+  }
+
+  // A page that resumes from a freeze receives the messages held during the freeze all
+  // at once, so the deadline counts from when the server sent its last keep-alive, not
+  // from when a message arrived. The smallest offset cancels clock skew. It may rise
+  // slowly, so that clock drift does not age fresh keep-alives.
+  private onKeepAlive(elapsed: TimeSpan): void {
+    const now = performance.now();
+    const drift = MAX_CLOCK_DRIFT * (now - this.lastKeepAliveReceipt);
+    this.clockOffset = Math.min(now - elapsed.milliseconds, this.clockOffset + drift);
+    this.lastKeepAliveReceipt = now;
+    const sent = elapsed.milliseconds + this.clockOffset;
+    this.lastKeepAlive = Math.max(this.lastKeepAlive, sent);
     this.keepsAlive = true;
   }
 
@@ -347,6 +368,14 @@ class WebSocketStream<
 }
 
 const CLOSE_NORMAL = 1000;
+
+const parseKeepAlive = (data: string): z.infer<typeof keepAliveZ> | null => {
+  try {
+    return keepAliveZ.parse(JSON.parse(data));
+  } catch {
+    return null;
+  }
+};
 
 // The DOM, undici, Deno, and Bun error events carry the error in different fields.
 const eventCause = (ev: object): unknown =>

@@ -319,7 +319,12 @@ describe("local server", () => {
     ws.send(Buffer.from(JSON.stringify({ type: "data", payload })));
 
   const OPEN_ACK = Buffer.from(JSON.stringify({ type: "open", payload: null }));
-  const KEEP_ALIVE_MESSAGE = '{"type":"keep_alive"}';
+  // The server clock reads the local clock plus skew. sent is the local time at which
+  // the server sends the keep-alive.
+  const sendKeepAlive = (ws: WebSocket, sent = performance.now(), skew = 0): void => {
+    const elapsed = TimeSpan.milliseconds(sent + skew).nanoseconds;
+    ws.send(JSON.stringify({ type: "keep_alive", elapsed }));
+  };
 
   beforeEach(async () => {
     server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
@@ -482,7 +487,7 @@ describe("local server", () => {
     };
 
     const sendKeepAliveFirst = (ws: WebSocket): void => {
-      ws.send(KEEP_ALIVE_MESSAGE);
+      sendKeepAlive(ws);
       ws.send(OPEN_ACK);
     };
 
@@ -499,7 +504,7 @@ describe("local server", () => {
       });
       const started = performance.now();
       await expect(stream.receive()).rejects.toThrow(
-        "stream received no message for 300ms",
+        "stream received no keep-alive for 300ms",
       );
       expect(performance.now() - started).toBeGreaterThanOrEqual(250);
     });
@@ -541,7 +546,7 @@ describe("local server", () => {
       await expect(stream.receive()).rejects.toSatisfy(
         (err) =>
           Unreachable.matches(err) &&
-          err.message === `stream received no message for ${TIMEOUT.toString()}` &&
+          err.message === `stream received no keep-alive for ${TIMEOUT.toString()}` &&
           err.url.port === (server.address() as AddressInfo).port,
       );
       const elapsed = performance.now() - started;
@@ -550,14 +555,50 @@ describe("local server", () => {
       await expect(stream.send({ id: 0 })).rejects.toThrow(EOF);
     });
 
-    test("should not fail a stream on messages queued during a freeze", async () => {
+    test("should not fail a stream on keep-alives queued during a freeze", async () => {
       sendOpenAck = sendKeepAliveFirst;
       const stream = await dial({}, undefined, keepAlive);
       const { ws } = await connected;
-      ws.send(KEEP_ALIVE_MESSAGE);
-      freeze(TIMEOUT.mult(2));
+      const frozen = TimeSpan.milliseconds(400);
+      // The keep-alives that a live server sends during the freeze.
+      const now = performance.now();
+      for (let sent = 50; sent <= frozen.milliseconds; sent += 50)
+        sendKeepAlive(ws, now + sent);
+      freeze(frozen);
       sendData(ws, { id: 1 });
       expect(await stream.receive()).toEqual({ id: 1 });
+    });
+
+    test("should fail a stream that stalls before held keep-alives arrive", async () => {
+      const timeout = TimeSpan.seconds(1);
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, { ...keepAlive, timeout });
+      const { ws } = await connected;
+      // The last keep-alives and data before the link stalls, held by the freeze.
+      sendKeepAlive(ws);
+      sendData(ws, { id: 1 });
+      freeze(timeout.mult(1.5));
+      const resumed = performance.now();
+      expect(await stream.receive()).toEqual({ id: 1 });
+      await expect(stream.receive()).rejects.toThrow(Unreachable);
+      // Held messages must not restart the deadline, so only the grace period remains.
+      expect(performance.now() - resumed).toBeLessThan(timeout.milliseconds);
+    });
+
+    test("should fail a stream that receives data but no keep-alives", async () => {
+      sendOpenAck = sendKeepAliveFirst;
+      const stream = await dial({}, undefined, keepAlive);
+      const { ws } = await connected;
+      const ticker = setInterval(() => sendData(ws, { id: 1 }), 50);
+      try {
+        await expect(
+          (async () => {
+            while (true) await stream.receive();
+          })(),
+        ).rejects.toThrow(Unreachable);
+      } finally {
+        clearInterval(ticker);
+      }
     });
 
     test("should fail a stream that stalls during a freeze", async () => {
@@ -569,18 +610,67 @@ describe("local server", () => {
       expect(performance.now() - resumed).toBeLessThan(DETECT_MARGIN.milliseconds);
     });
 
-    test("should keep a stream open while keep-alives arrive", async () => {
-      sendOpenAck = sendKeepAliveFirst;
-      const stream = await dial({}, undefined, keepAlive);
-      const { ws } = await connected;
-      const ticker = setInterval(() => ws.send(KEEP_ALIVE_MESSAGE), 50);
+    test.each([
+      ["the same as", 0],
+      ["an hour ahead of", 3_600_000],
+      ["an hour behind", -3_600_000],
+    ])(
+      "should keep a stream open while keep-alives arrive from a server clock %s the client's",
+      async (_, skew) => {
+        sendOpenAck = (ws) => {
+          sendKeepAlive(ws, performance.now(), skew);
+          ws.send(OPEN_ACK);
+        };
+        const stream = await dial({}, undefined, keepAlive);
+        const { ws } = await connected;
+        const ticker = setInterval(
+          () => sendKeepAlive(ws, performance.now(), skew),
+          50,
+        );
+        try {
+          await sleep.sleep(TIMEOUT.mult(3));
+          sendData(ws, { id: 1 });
+          expect(await stream.receive()).toEqual({ id: 1 });
+          expect(stream.received()).toBe(false);
+        } finally {
+          clearInterval(ticker);
+        }
+      },
+    );
+
+    test("should keep a long stream open on a server clock that runs slow", async () => {
+      // 500 ppm slow, within the allowed drift. Over 1000 s, the server clock falls
+      // 500 ms behind, which is more than the timeout.
+      const rate = 1 - 5e-4;
+      const step = TimeSpan.seconds(10);
+      const realNow = performance.now.bind(performance);
+      let skipped = 0;
+      // The local clock skips ahead so that a long stream takes little real time.
+      vi.spyOn(performance, "now").mockImplementation(() => realNow() + skipped);
+      const sendSlow = (ws: WebSocket): void =>
+        sendKeepAlive(ws, performance.now() * rate);
       try {
-        await sleep.sleep(TIMEOUT.mult(3));
-        sendData(ws, { id: 1 });
-        expect(await stream.receive()).toEqual({ id: 1 });
-        expect(stream.received()).toBe(false);
+        sendOpenAck = (ws) => {
+          sendSlow(ws);
+          ws.send(OPEN_ACK);
+        };
+        const stream = await dial({}, undefined, keepAlive);
+        const { ws } = await connected;
+        for (let i = 0; i < 100; i++) {
+          skipped += step.milliseconds;
+          sendSlow(ws);
+          await sleep.sleep(TimeSpan.milliseconds(5));
+        }
+        const ticker = setInterval(() => sendSlow(ws), 50);
+        try {
+          await sleep.sleep(TIMEOUT.mult(3));
+          sendData(ws, { id: 1 });
+          expect(await stream.receive()).toEqual({ id: 1 });
+        } finally {
+          clearInterval(ticker);
+        }
       } finally {
-        clearInterval(ticker);
+        vi.restoreAllMocks();
       }
     });
 
