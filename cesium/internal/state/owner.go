@@ -107,7 +107,6 @@ func Open(cfg Config, head *Snapshot) (*State, error) {
 		return nil, err
 	}
 	s.step = s.run
-	s.nextID, s.nextAlign = max(head.Limits.Segments, 1), max(head.Limits.Alignments, 1)
 	return s, nil
 }
 
@@ -126,8 +125,8 @@ func (s *State) Run(ctx context.Context) error {
 	defer close(s.exit)
 	s.core.endReplay()
 	s.storeKeys()
-	s.nextID = max(s.nextID, s.core.limits.Segments, 1)
-	s.nextAlign = max(s.nextAlign, s.core.limits.Alignments)
+	s.nextID = max(s.core.limits.Segments, 1)
+	s.nextAlign = max(s.core.limits.Alignments, 1)
 	for {
 		select {
 		case <-ctx.Done():
