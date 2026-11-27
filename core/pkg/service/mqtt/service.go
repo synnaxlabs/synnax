@@ -59,6 +59,7 @@ type ServiceConfig struct {
 	// [REQUIRED]
 	ICD *icd.Service
 	// Signals publishes broker changes.
+	//
 	// [OPTIONAL]
 	Signals *signals.Provider
 	alamos.Instrumentation
