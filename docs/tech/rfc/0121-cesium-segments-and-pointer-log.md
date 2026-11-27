@@ -870,13 +870,13 @@ that starts again at each restart (`cesium/internal/alignment/alignment.go:23`, 
 - **Continued stretches**: A session goes on with the stretch of its clock, with no new
   number, when that stretch holds the clock's newest stamp, the session before it on the
   clock wrote it and closed clean, its commits are durable, every alignment it gave is
-  committed, and the new session's first stamp is after the clock's last stored stamp by
-  at most 3 times the clock's last step (the time between its last two stamps). A reader
-  draws one line through a stretch, so the gap rule keeps a task stop out of a line, and
-  a loop at a steady rate stays in one. The state owner keeps the last number, the next
-  index, and the last two stamps of each clock in memory only, so after a restart each
-  clock takes a new number at its next session. A `client.write` loop takes a number at
-  its first two calls only.
+  committed, and the new session's first stamp is after the last stamp that the state
+  owner keeps for the clock, which the session before set, by at most 3 times the step
+  between its last two kept stamps. A reader draws one line through a stretch, so the
+  gap rule keeps a task stop out of a line, and a loop at a steady rate stays in one.
+  The state owner keeps the last number, the next index, and the last two stamps of each
+  clock in memory only, so after a restart each clock takes a new number at its next
+  session. A `client.write` loop takes a number at its first two calls only.
 - **Data follows its clock**: The channels of a clock write take the alignment of the
   clock, and data written against stored stamps takes the alignment of the stamp at its
   start. Each pointer stores the alignment of its first sample, so a live stream and
