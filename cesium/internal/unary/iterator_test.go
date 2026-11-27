@@ -10,6 +10,7 @@
 package unary_test
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"runtime"
@@ -2047,6 +2048,117 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				})
 
 				Describe("Regressions", func() {
+					DescribeTable(
+						"Should read nothing outside the bounds after a seek to a "+
+							"stamp outside them, in a domain that holds the stamp",
+						func(
+							ctx SpecContext,
+							seek func(context.Context, *unary.Iterator) bool,
+							move func(*unary.Iterator, context.Context, telem.TimeSpan) bool,
+							span telem.TimeSpan,
+						) {
+							stamps := make([]telem.TimeStamp, 100)
+							for i := range stamps {
+								stamps[i] = telem.TimeStamp(i + 1)
+							}
+							Expect(unary.Write(
+								ctx,
+								indexDB,
+								telem.SecondTS,
+								telem.NewSeriesSecondsTSV(stamps...),
+							)).To(Succeed())
+							iter := MustOpen(indexDB.OpenIterator(unary.IteratorConfig{
+								Bounds: telem.TimeRangeMax,
+							}))
+							iter.SetBounds(
+								(40 * telem.SecondTS).Range(50 * telem.SecondTS),
+							)
+							Expect(seek(ctx, iter)).To(BeTrue())
+							Expect(move(iter, ctx, span)).To(BeFalse())
+							Expect(iter.Error()).ToNot(HaveOccurred())
+						},
+						Entry(
+							"SeekLE after the end, then Next, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekLE after the end, then Next, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							telem.Second,
+						),
+						Entry(
+							"SeekGE before the start, then Prev, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekGE before the start, then Prev, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+							telem.Second,
+						),
+						Entry(
+							"SeekGE after the end, then Next, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekGE after the end, then Next, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 80*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							telem.Second,
+						),
+						Entry(
+							"SeekLE before the start, then Prev, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekLE before the start, then Prev, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekLE(ctx, 20*telem.SecondTS)
+							},
+							(*unary.Iterator).Prev,
+							telem.Second,
+						),
+						Entry(
+							"SeekGE at the end, then Next, with an auto span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 50*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							unary.AutoSpan,
+						),
+						Entry(
+							"SeekGE at the end, then Next, with a fixed span",
+							func(ctx context.Context, i *unary.Iterator) bool {
+								return i.SeekGE(ctx, 50*telem.SecondTS)
+							},
+							(*unary.Iterator).Next,
+							telem.Second,
+						),
+					)
+
 					// This spec was added due to a bug in the line plotting mechanics
 					// due to misalignment between actually-related domains. Let's say
 					// you create an index and write a domain to it
