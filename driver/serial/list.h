@@ -19,8 +19,8 @@
 namespace driver::serial {
 /// @brief Entry is a serial port of this computer.
 struct Entry {
-    /// @brief path is the path that opens the port: its /dev/serial/by-id link, or
-    /// else its /dev/tty node.
+    /// @brief path is the path that opens the port: its /dev/serial/by-id link, or else
+    /// its /dev/tty node.
     std::string path;
     /// @brief description is the name that the operating system gives the device, such
     /// as its USB product string. It is absent when the operating system gives none.
