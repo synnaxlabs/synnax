@@ -1,0 +1,77 @@
+{
+  "description": "A field is selected only when each multiplexor in its chain holds one of its values.",
+  "message": {
+    "name": "frame",
+    "payload": {
+      "format": "binary",
+      "fields": [
+        {
+          "key": "00000000-0000-4000-8000-000000000001",
+          "name": "outer",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [],
+          "start_bit": 0,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "kind": "unsigned"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000002",
+          "name": "inner",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [1],
+          "start_bit": 8,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "kind": "unsigned",
+          "multiplexor": "00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "key": "00000000-0000-4000-8000-000000000003",
+          "name": "v",
+          "scale": 1,
+          "offset": 0,
+          "units": "",
+          "multiplex_values": [2],
+          "start_bit": 16,
+          "bit_length": 8,
+          "byte_order": "little_endian",
+          "kind": "unsigned",
+          "multiplexor": "00000000-0000-4000-8000-000000000002"
+        }
+      ]
+    },
+    "bindings": [
+      {
+        "field": "00000000-0000-4000-8000-000000000001",
+        "data_type": "uint8"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000002",
+        "data_type": "uint8"
+      },
+      {
+        "field": "00000000-0000-4000-8000-000000000003",
+        "data_type": "uint8"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "samples": [1, 2, 9],
+      "hex": "010209"
+    },
+    {
+      "samples": [1, 3, 9],
+      "hex": "010300"
+    },
+    {
+      "samples": [0, 2, 9],
+      "hex": "000000"
+    }
+  ]
+}

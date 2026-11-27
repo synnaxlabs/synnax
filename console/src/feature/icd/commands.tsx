@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { icd } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, ICD } from "@synnaxlabs/pluto";
 
 import { useCreate } from "@/feature/icd/useCreate";
+import { useImportNew } from "@/feature/icd/useImport";
 import { Command } from "@/platform/command";
 
 const CreateCommand = Command.create({
@@ -21,4 +23,19 @@ const CreateCommand = Command.create({
   useOnSelect: useCreate,
 });
 
-export const COMMANDS = [CreateCommand];
+// An import into the new ICD needs the update grant too.
+const useImportVisible = (): boolean => {
+  const created = Access.useCreateGranted(icd.TYPE_RESOURCE_ID);
+  const updated = Access.useUpdateGranted(icd.TYPE_RESOURCE_ID);
+  return created && updated;
+};
+
+const ImportCommand = Command.create({
+  key: "import_icd",
+  name: "Import ICD",
+  icon: <Icon.Import />,
+  useVisible: useImportVisible,
+  useOnSelect: useImportNew,
+});
+
+export const COMMANDS = [CreateCommand, ImportCommand];

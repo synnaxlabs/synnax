@@ -1,0 +1,26 @@
+{
+  "description": "Two messages cannot have the same prefix.",
+  "messages": [
+    {
+      "name": "a",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "$GP",
+        "fields": []
+      },
+      "bindings": []
+    },
+    {
+      "name": "b",
+      "payload": {
+        "format": "text",
+        "delimiter": ",",
+        "prefix": "$GP",
+        "fields": []
+      },
+      "bindings": []
+    }
+  ],
+  "error": "messages a and b have the same prefix \"$GP\": validation error"
+}

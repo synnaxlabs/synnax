@@ -9,13 +9,18 @@
 
 #include <algorithm>
 #include <array>
+#include <cerrno>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <system_error>
+#include <utility>
 
 #include <IOKit/serial/ioss.h>
 #include <sys/ioctl.h>
 #include <termios.h>
 
+#include "driver/serial/errors.h"
 #include "driver/serial/line.h"
 #include "driver/serial/native.h"
 #include "driver/serial/posix.h"
@@ -50,13 +55,16 @@ x::errors::Error apply(const synnax::serial::Properties &props, Settings &settin
         return {transport::CONFIG_ERROR, "macOS does not support 1.5 stop bits"};
     // The port moves raw bytes, with no line editing, echo, signals, or output
     // processing.
-    settings.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL);
-    settings.c_iflag |= IGNPAR;
+    settings.c_iflag &= ~(IGNBRK | BRKINT | ISTRIP | INLCR | IGNCR | ICRNL);
     settings.c_oflag &= ~OPOST;
     settings.c_lflag &= ~(ECHO | ECHONL | ICANON | ISIG | IEXTEN);
     settings.c_cflag |= CREAD | CLOCAL;
     settings.c_cc[VMIN] = 1;
     settings.c_cc[VTIME] = 0;
+    // The port marks parity, framing, and break errors in the input and removes them,
+    // so it counts errors that IGNPAR would drop without a trace.
+    settings.c_iflag &= ~IGNPAR;
+    settings.c_iflag |= INPCK | PARMRK;
     if (standard_rate(props.baud_rate))
         ::cfsetspeed(&settings, static_cast<speed_t>(props.baud_rate));
     settings.c_cflag &= ~CSIZE;
@@ -94,11 +102,23 @@ configure(const Handle handle, const synnax::serial::Properties &props) {
     if (auto err = line::apply(props, settings)) return err;
     if (::tcsetattr(fd, TCSANOW, &settings) != 0)
         return failed("the line settings", props.port);
-    if (standard_rate(props.baud_rate)) return x::errors::NIL;
-    speed_t speed = props.baud_rate;
-    if (::ioctl(fd, IOSSIOSPEED, &speed) != 0)
-        return failed("baud rate " + std::to_string(props.baud_rate), props.port);
+    if (!standard_rate(props.baud_rate)) {
+        speed_t speed = props.baud_rate;
+        if (::ioctl(fd, IOSSIOSPEED, &speed) != 0)
+            return failed("baud rate " + std::to_string(props.baud_rate), props.port);
+    }
+    // Bytes that arrived before PARMRK carry no marks, so strip would misread them.
+    if (::tcflush(fd, TCIFLUSH) != 0)
+        return translate(
+            "failed to flush the input of " + props.port,
+            {errno, std::generic_category()}
+        );
     return x::errors::NIL;
+}
+
+// macOS has no API that reports receive overruns.
+std::pair<std::optional<std::uint32_t>, std::error_code> overrun_count(int) {
+    return {std::nullopt, {}};
 }
 }
 }

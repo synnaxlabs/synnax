@@ -48,6 +48,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 )
 
 var (
@@ -62,7 +63,13 @@ var (
 	mqttSvc    *mqtt.Service
 	// host is the key of the Core that the services run on.
 	host node.Key
+	// limited makes channelSvc refuse each external channel that it retrieves, as past
+	// the channel limit.
+	limited atomic.Bool
 )
+
+// errChannelLimit is the error of a channel that limited refuses.
+var errChannelLimit = errors.New("channel limit exceeded")
 
 func TestMQTT(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -104,6 +111,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:      db,
 		HostKey: core.Identity.HostKey,
 		Status:  statusSvc,
+		Limit: func(types.Uint20) error {
+			if limited.Load() {
+				return errChannelLimit
+			}
+			return nil
+		},
 	}))
 	channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 		DB:      db,

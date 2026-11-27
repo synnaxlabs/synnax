@@ -10,6 +10,7 @@
 package json_test
 
 import (
+	"fmt"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -95,6 +96,39 @@ var _ = Describe("ParseNumber", func() {
 		Entry("an exponent below -2^20", "1e-1048577", `invalid number "1e-1048577"`),
 		Entry("zero with an exponent past 2^20", "0e1048577",
 			`invalid number "0e1048577"`),
+	)
+})
+
+var _ = Describe("ParseFloat64", func() {
+	DescribeTable("Should parse a decimal number as the nearest float64",
+		func(text string, expected float64) {
+			v := MustSucceed(xjson.ParseFloat64([]byte(text)))
+			Expect(math.Float64bits(v)).To(Equal(math.Float64bits(expected)))
+		},
+		Entry("a decimal", "-122.41941550000", -122.4194155),
+		Entry("an exponent", "1e3", 1000.0),
+		Entry("a leading point", ".5", 0.5),
+		Entry("a plus sign", "+7", 7.0),
+		Entry("an integer past a uint64", "18446744073709551617",
+			18446744073709551616.0),
+		Entry("a number below the smallest float", "1e-400", 0.0),
+		Entry("an integer negative zero", "-0", math.Copysign(0, -1)),
+	)
+	DescribeTable("Should reject text that is not a decimal number",
+		func(text string) {
+			Expect(xjson.ParseFloat64([]byte(text))).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(fmt.Sprintf("invalid number %q: validation error", text)),
+			))
+		},
+		Entry("empty text", ""),
+		Entry("nan", "nan"),
+		Entry("inf", "inf"),
+		Entry("a hex number", "0x10"),
+		Entry("a number past a float64", "1e999"),
+		Entry("two points", "1.2.3"),
+		Entry("a leading space", " 1"),
+		Entry("an exponent below -2^20", "1e-1048577"),
 	)
 })
 

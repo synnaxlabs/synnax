@@ -117,7 +117,6 @@ var _ = Describe("Infer", func() {
 			Kind:       payload.KindTimestamp,
 			Type:       xjson.String,
 			TimeFormat: new(MustSucceed(xjson.ParseTimeFormat("iso8601"))),
-			Count:      4,
 		}))
 		state := fieldAt(shapes[0], "/state")
 		Expect(state.Kind).To(Equal(payload.KindString))
@@ -210,7 +209,7 @@ var _ = Describe("Infer", func() {
 		}))
 		Expect(shapes).To(HaveLen(1))
 		Expect(shapes[0].Count).To(Equal(4))
-		Expect(fieldAt(shapes[0], "/flow").Count).To(Equal(2))
+		Expect(shapes[0].Fields).To(HaveLen(3))
 		Expect(indexPointer(shapes[0])).To(Equal("/ts"))
 	})
 
@@ -249,7 +248,7 @@ var _ = Describe("Infer", func() {
 			}))
 			Expect(shapes).To(HaveLen(1))
 			Expect(shapes[0].Count).To(Equal(2))
-			Expect(fieldAt(shapes[0], "/pressure").Count).To(Equal(1))
+			Expect(shapes[0].Fields).To(HaveLen(1))
 		},
 	)
 
@@ -411,11 +410,10 @@ var _ = Describe("Infer", func() {
 			Pointer: xjson.Pointer{"open"},
 			Kind:    payload.KindBoolean,
 			Type:    xjson.Boolean,
-			Count:   3,
 		}))
 	})
 
-	It("Should count the values that are not of the type of most values", func() {
+	It("Should take the type of most values", func() {
 		readings := []string{"1", "2", `"N/A"`, "4"}
 		shapes, _ := xjson.Infer(documents("meter", 4, func(i int) string {
 			return fmt.Sprintf(
@@ -425,19 +423,17 @@ var _ = Describe("Infer", func() {
 		reading := fieldAt(shapes[0], "/reading")
 		Expect(reading.Kind).To(Equal(payload.KindInteger))
 		Expect(reading.Type).To(Equal(xjson.Number))
-		Expect(reading.Mismatched).To(Equal(1))
 		Expect(fieldAt(shapes[0], "/t").TimeFormat).
 			To(HaveValue(Equal(MustSucceed(xjson.ParseTimeFormat("unix_us")))))
 	})
 
-	It("Should count the numbers that do not fit a float64", func() {
+	It("Should keep the kind of a field with a number too big for a float64", func() {
 		values := []string{"1.5", "1e400", "2.5"}
 		shapes, _ := xjson.Infer(documents("meter", 3, func(i int) string {
 			return fmt.Sprintf(`{"v":%s}`, values[i])
 		}))
 		v := fieldAt(shapes[0], "/v")
 		Expect(v.Kind).To(Equal(payload.KindFloat))
-		Expect(v.Mismatched).To(Equal(1))
 	})
 
 	DescribeTable("Should widen the kind of a field across documents",
@@ -586,7 +582,6 @@ var _ = Describe("Infer", func() {
 		}))
 		time := fieldAt(shapes[0], "/time")
 		Expect(time.Kind).To(Equal(payload.KindInteger))
-		Expect(time.Mismatched).To(Equal(1))
 	})
 
 	It("Should read a Unix time in a string", func() {
@@ -648,7 +643,7 @@ var _ = Describe("Infer", func() {
 		text := MustSucceed(json.Marshal(shapes[0].Fields[0]))
 		Expect(string(text)).To(Equal(
 			`{"pointer":"/a~1b/ts","kind":"timestamp","type":"number",` +
-				`"time_format":"unix_ns","enum":[],"count":2,"mismatched":0}`,
+				`"time_format":"unix_ns","enum":[]}`,
 		))
 		var decoded xjson.InferredField
 		Expect(json.Unmarshal(text, &decoded)).To(Succeed())
@@ -664,8 +659,7 @@ var _ = Describe("Infer", func() {
 			documents("a", 1, func(int) string { return `{"v":1}` }),
 		)
 		Expect(string(MustSucceed(json.Marshal(shapes[0].Fields[0])))).To(Equal(
-			`{"pointer":"/v","kind":"integer","type":"number","enum":[],"count":1,` +
-				`"mismatched":0}`,
+			`{"pointer":"/v","kind":"integer","type":"number","enum":[]}`,
 		))
 	})
 })

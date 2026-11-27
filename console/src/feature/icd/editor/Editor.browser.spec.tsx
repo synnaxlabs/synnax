@@ -14,6 +14,7 @@ import {
   spyOnSend,
 } from "@synnaxlabs/client/testutil";
 import { Menu } from "@synnaxlabs/lyra/menu";
+import { Portal } from "@synnaxlabs/lyra/portal";
 import { Panel as PlutoPanel } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { uniqueName } from "@synnaxlabs/x/testutil";
@@ -23,6 +24,7 @@ import { userEvent } from "vitest/browser";
 
 import { ICD } from "@/feature/icd";
 import { client, createICD, ENGINE_CSV } from "@/feature/icd/testutil";
+import { focusedIn } from "@/platform/icd/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Session } from "@/session";
 import {
@@ -54,22 +56,36 @@ const renderEditor = async (
   ic: icd.ICD,
   as: Synnax = client,
   selected: icd.MessageKey[] = [],
-): Promise<void> => {
+  focused?: icd.FieldKey,
+) => {
   const { wrapper, store } = await createConsoleWrapper({ client: as });
-  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected }));
+  store.dispatch(Session.ICD.setSelected({ key: ic.key, selected, focused }));
   const { panelKey, tabKey } = await createResourceTab(client, icd.resourceID(ic.key));
   await primePanel(wrapper, panelKey);
-  await renderSuspended(
+  const ui = (
     <PlutoPanel.Scope.Provider value={panelKey}>
       <PlutoPanel.TabScope.Provider value={tabKey}>
         <Content />
       </PlutoPanel.TabScope.Provider>
-    </PlutoPanel.Scope.Provider>,
-    { wrapper },
+    </PlutoPanel.Scope.Provider>
   );
+  // A panel hosts each tab through a portal, so a hidden tab is detached.
+  const tree = (hosted: boolean) => (
+    <Portal.Context>
+      <Portal.In itemKey={tabKey}>{ui}</Portal.In>
+      {hosted && <Portal.Out itemKey={tabKey} />}
+    </Portal.Context>
+  );
+  const { unmount, rerender } = await renderSuspended(tree(true), { wrapper });
   // The editor is a preview until the grant check resolves, and only an editor shows
   // Import.
   if (as === client) await screen.findByRole("button", { name: "Import" });
+  const reopen = async () => {
+    unmount();
+    await renderSuspended(tree(true), { wrapper });
+  };
+  const host = async (hosted: boolean) => await act(async () => rerender(tree(hosted)));
+  return { store, reopen, host };
 };
 
 const cell = (column: string, row: number): HTMLInputElement =>
@@ -258,6 +274,55 @@ describe("ICD editor", () => {
     await waitFor(async () =>
       expect(await retrieveNames(ic.key)).toEqual(["Message 1", "Message 2"]),
     );
+  });
+
+  describe("at a field that a task names", () => {
+    const createReading = () => {
+      const flow = createJSONField("Flow", "/flow");
+      return {
+        flow,
+        reading: createJSONMessage([createJSONField("Temp", "/temp"), flow]),
+      };
+    };
+
+    it("should focus and select the name of the field", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { store } = await renderEditor(ic, client, [reading.key], flow.key);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      expect(cell("Name", 2).selectionStart).toBe(0);
+      expect(cell("Name", 2).selectionEnd).toBe("Flow".length);
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should focus the field once its hidden tab shows", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { store, host } = await renderEditor(ic, client, [reading.key]);
+      await host(false);
+      const selected = [reading.key];
+      act(() => {
+        store.dispatch(
+          Session.ICD.setSelected({ key: ic.key, selected, focused: flow.key }),
+        );
+      });
+      await act(async () => {});
+      expect(focusedIn(store, ic.key)).toBe(flow.key);
+      await host(true);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      expect(focusedIn(store, ic.key)).toBeUndefined();
+    });
+
+    it("should not focus the field again when the editor opens again", async () => {
+      const { flow, reading } = createReading();
+      const ic = await createICD([reading]);
+      const { reopen } = await renderEditor(ic, client, [reading.key], flow.key);
+      await waitFor(() => expect(document.activeElement).toBe(cell("Name", 2)));
+      await reopen();
+      await screen.findByLabelText("Name 2");
+      await act(async () => {});
+      expect(document.activeElement).not.toBe(cell("Name", 2));
+    });
   });
 
   it("should open at the message that the session selects", async () => {
@@ -701,6 +766,67 @@ describe("ICD editor", () => {
         { name: "Field 5", pointer: "/field_5" },
       ]),
     );
+  });
+
+  describe("adding a JSON field", () => {
+    const addField = async (ic: icd.ICD): Promise<void> => {
+      await renderEditor(ic);
+      fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields).toHaveLength(2),
+      );
+    };
+
+    const storedPointers = async (ic: icd.ICD): Promise<string[]> =>
+      (await retrieveMessage(ic.key)).payload.fields.map((f) =>
+        "pointer" in f ? f.pointer : "",
+      );
+
+    it("should select the name of the added field, so typing replaces it", async () => {
+      await addField(
+        await createICD([createJSONMessage([createJSONField("Temp", "/temp")])]),
+      );
+      const name = cell("Name", 2);
+      await waitFor(() => expect(document.activeElement).toBe(name));
+      expect(name.value).toBe("Field 2");
+      expect([name.selectionStart, name.selectionEnd]).toEqual([0, "Field 2".length]);
+    });
+
+    it("should move the pointer of the added field when it is renamed", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Name", 2, "Inlet temp");
+      await waitFor(async () =>
+        expect(await storedPointers(ic)).toEqual(["/temp", "/inlet_temp"]),
+      );
+    });
+
+    it("should keep the pointer of a field the message already had when it is renamed", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Name", 1, "Outlet");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields[0].name).toBe("Outlet"),
+      );
+      expect(await storedPointers(ic)).toEqual(["/temp", "/field_2"]);
+    });
+
+    it("should keep the pointer of the added field once the user edits it", async () => {
+      const ic = await createICD([
+        createJSONMessage([createJSONField("Temp", "/temp")]),
+      ]);
+      await addField(ic);
+      await commit("Pointer", 2, "/flow/rate");
+      await commit("Name", 2, "Flow");
+      await waitFor(async () =>
+        expect((await retrieveMessage(ic.key)).payload.fields[1].name).toBe("Flow"),
+      );
+      expect(await storedPointers(ic)).toEqual(["/temp", "/flow/rate"]);
+    });
   });
 
   it("should store the type of a binary field", async () => {

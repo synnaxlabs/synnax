@@ -40,6 +40,7 @@ describe("Transport", () => {
       throw new Error("server is not listening on a port");
     const transport = new Transport({
       url: new url.URL({ host: "127.0.0.1", port: address.port }),
+      secure: false,
       retry: { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
     });
     const err = await transport.unary

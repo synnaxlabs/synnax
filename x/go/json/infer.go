@@ -64,10 +64,6 @@ type InferredField struct {
 	TimeFormat *TimeFormat `json:"time_format,omitempty" msgpack:"time_format,omitempty"`
 	// Enum holds the distinct values, sorted, of a string field that repeats a few.
 	Enum []string `json:"enum" msgpack:"enum"`
-	// Count is the number of documents that hold a value of the field.
-	Count int `json:"count" msgpack:"count"`
-	// Mismatched is the number of values that a payload field of Kind cannot hold.
-	Mismatched int `json:"mismatched" msgpack:"mismatched"`
 }
 
 // Shape is the layout of one cluster of documents, from one or more sources.
@@ -110,7 +106,7 @@ type SampledShape struct {
 //     shape with none.
 //   - A field is a JSON pointer to a scalar. Arrays and nulls give no field.
 //   - Number kinds widen across documents: integer, then unsigned, then float. The JSON
-//     type of most values wins, and the rest are mismatched.
+//     type of most values wins.
 //   - A string field that repeats a few values of at most 64 bytes gives an enum.
 //   - A field whose name suggests a time and whose values all fit one format near the
 //     document time gives a timestamp. Unix units come from the magnitude.
@@ -718,8 +714,6 @@ type fieldStats struct {
 	pointer                    Pointer
 	count                      int
 	numbers, strings, booleans int
-	// unreadable is the number of numbers that do not fit a float64.
-	unreadable int
 	// floating is true when a number has a fraction or does not fit a 64-bit integer.
 	floating, unsigned, negative bool
 	labels                       set.Set[string]
@@ -783,15 +777,15 @@ func (s *fieldStats) add(source string, l leaf, ref telem.TimeStamp, number int)
 	switch l.kind {
 	case '0':
 		s.numbers++
-		switch n, err := parseNumber(l.raw); {
-		case err != nil:
-			s.unreadable++
-		case n.kind == floatNumber:
-			s.floating = true
-		case n.kind == uintNumber:
-			s.unsigned = true
-		case n.i < 0:
-			s.negative = true
+		if n, err := parseNumber(l.raw); err == nil {
+			switch {
+			case n.kind == floatNumber:
+				s.floating = true
+			case n.kind == uintNumber:
+				s.unsigned = true
+			case n.i < 0:
+				s.negative = true
+			}
 		}
 	case '"':
 		s.strings++
@@ -842,7 +836,6 @@ func (s *fieldStats) merge(o *fieldStats) {
 	s.numbers += o.numbers
 	s.strings += o.strings
 	s.booleans += o.booleans
-	s.unreadable += o.unreadable
 	s.floating = s.floating || o.floating
 	s.unsigned = s.unsigned || o.unsigned
 	s.negative = s.negative || o.negative
@@ -875,21 +868,18 @@ func sampleOf(raw []byte) []byte {
 func (s *fieldStats) timestamp() bool { return s.time.candidate && s.time.formatted }
 
 func (s *fieldStats) field() InferredField {
-	f := InferredField{Pointer: s.pointer, Count: s.count}
-	numeric := s.numbers + s.booleans
+	f := InferredField{Pointer: s.pointer}
 	switch {
-	case s.numbers > 0 && numeric >= s.strings:
-		f.Type, f.Mismatched = Number, s.strings+s.unreadable
-		f.Kind = s.numberKind()
+	case s.numbers > 0 && s.numbers+s.booleans >= s.strings:
+		f.Type, f.Kind = Number, s.numberKind()
 	case s.numbers == 0 && s.booleans > s.strings:
 		f.Type, f.Kind = Boolean, payload.KindBoolean
-		f.Mismatched = s.strings
 	default:
-		f.Type, f.Kind, f.Mismatched = String, payload.KindString, numeric
+		f.Type, f.Kind = String, payload.KindString
 	}
 	if s.timestamp() {
 		f.Kind = payload.KindTimestamp
-		f.TimeFormat, f.Mismatched = new(s.time.format), 0
+		f.TimeFormat = new(s.time.format)
 		return f
 	}
 	if f.Type == String && !s.longLabel && len(s.labels) <= maxEnumLabels &&

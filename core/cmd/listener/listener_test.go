@@ -308,6 +308,23 @@ var _ = Describe("Listener", func() {
 		})
 	})
 
+	Describe("AdvertiseIndex", func() {
+		It("Should return 0 when no listener advertises", func() {
+			Expect(listener.Configs{
+				{Address: "a:1"},
+				{Address: "b:2"},
+			}.AdvertiseIndex()).To(Equal(0))
+		})
+
+		It("Should return the index of the advertised listener", func() {
+			Expect(listener.Configs{
+				{Address: "a:1"},
+				{Address: "b:2"},
+				{Address: "c:3", Advertise: true},
+			}.AdvertiseIndex()).To(Equal(2))
+		})
+	})
+
 	Describe("Loopback", func() {
 		It("Should be true when every listener is loopback", func() {
 			Expect(listener.Configs{

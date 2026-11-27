@@ -231,6 +231,7 @@ struct SynnaxClusterAPI final : ClusterAPI {
 class ScanTask final : public task::Task, public pipeline::Base {
     const synnax::task::Task task;
     x::loop::Timer timer;
+    const bool is_disabled;
     std::unique_ptr<Scanner> scanner;
     std::shared_ptr<task::Context> ctx;
     synnax::task::Status status;
@@ -285,6 +286,19 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.description = description;
         this->status.details.data = data;
         this->send_status();
+    }
+
+    /// @brief answers a start or a stop that changes nothing with the disabled status,
+    /// or with the current status when the scan task is enabled.
+    void send_unchanged() {
+        if (this->is_disabled)
+            this->send_status(
+                synnax::status::VARIANT_DISABLED,
+                "Scanner disabled",
+                "Enable the scanner to scan for devices."
+            );
+        else
+            this->send_status();
     }
 
     /// @brief sends a warning when the scan error changes, and a success once scans
@@ -524,12 +538,13 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
         const x::breaker::Config &breaker_config,
-        const x::telem::Rate scan_rate,
+        const synnax::task::ScanConfig &cfg,
         std::unique_ptr<ClusterAPI> client
     ):
         Base(breaker_config, task.name),
         task(task),
-        timer(scan_rate),
+        timer(cfg.rate),
+        is_disabled(cfg.disabled),
         scanner(std::move(scanner)),
         ctx(ctx),
         client(std::move(client)),
@@ -548,14 +563,14 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task,
         const x::breaker::Config &breaker_config,
-        const x::telem::Rate scan_rate
+        const synnax::task::ScanConfig &cfg
     ):
         ScanTask(
             std::move(scanner),
             ctx,
             task,
             breaker_config,
-            scan_rate,
+            cfg,
             std::make_unique<SynnaxClusterAPI>(ctx->client)
         ) {}
 
@@ -628,13 +643,13 @@ public:
     void exec(synnax::task::Command &cmd, x::breaker::Breaker &) override {
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that
-        // changes nothing never reaches it, so the current status answers instead.
+        // changes nothing never reaches it, so exec answers it here.
         if (cmd.type == synnax::task::STOP_CMD_TYPE) {
-            if (!this->stop()) this->send_status();
+            if (!this->stop()) this->send_unchanged();
             return;
         }
         if (cmd.type == synnax::task::START_CMD_TYPE) {
-            if (!this->start()) this->send_status();
+            if (!this->start()) this->send_unchanged();
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
@@ -780,6 +795,12 @@ public:
     }
 
     std::string name() const override { return this->task.name; }
+
+    [[nodiscard]] bool disabled() const override { return this->is_disabled; }
+
+    /// @brief starts the scan loop. A disabled scan task never starts.
+    /// @returns false if the scan task is disabled or already running.
+    bool start() override { return !this->is_disabled && Base::start(); }
 
     using driver::pipeline::Base::stop;
 

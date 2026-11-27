@@ -456,3 +456,50 @@ func BenchmarkJSONEncode(b *testing.B) {
 		runEncode(b, m, samples, nil)
 	})
 }
+
+// textBenchMessage returns a message of n delimited fields bound to float64 channels,
+// and a line that holds 1234.5678 for each.
+func textBenchMessage(n uint32) (codec.TextMessage, []byte) {
+	fields := make([]icd.TextField, n)
+	items := make([]string, n)
+	for i := range n {
+		fields[i] = delimited("f"+strconv.Itoa(int(i)), i)
+		items[i] = "1234.5678"
+	}
+	return textMessage("line", "", fields...), []byte(strings.Join(items, ","))
+}
+
+func BenchmarkTextDecode(b *testing.B) {
+	b.Run("fields", func(b *testing.B) {
+		for _, n := range []uint32{1, 10, 100} {
+			b.Run(strconv.Itoa(int(n)), func(b *testing.B) {
+				m, line := textBenchMessage(n)
+				messages := []codec.TextMessage{m}
+				dec, err := codec.NewText(messages)
+				if err != nil {
+					b.Fatal(err)
+				}
+				samples := newTextSamples(messages)
+				decode := func() {
+					for i := range samples[0] {
+						samples[0][i] = samples[0][i][:0]
+					}
+					if _, ok, err := dec.Decode(line, samples); err != nil || !ok {
+						b.Fatalf("decode: ok %t, err %v", ok, err)
+					}
+				}
+				decode()
+				for i, s := range samples[0] {
+					if !bytes.Equal(s, benchFloat) {
+						b.Fatalf("decode: sample %d is %v, not %v", i, s, benchFloat)
+					}
+				}
+				b.ReportAllocs()
+				b.SetBytes(int64(len(line)))
+				for b.Loop() {
+					decode()
+				}
+			})
+		}
+	})
+}
