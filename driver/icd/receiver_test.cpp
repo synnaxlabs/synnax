@@ -491,6 +491,23 @@ TEST(Receiver, NamesEachKindOfLineError) {
     ASSERT_TRUE(r.read(t, fr).warning.empty());
 }
 
+/// @brief it should drop the frames past BATCH that no read has decoded on clear.
+TEST(Receiver, DropsUndecodedFramesOnClear) {
+    auto r = fixed();
+    Memory t;
+    std::vector<std::uint8_t> chunk;
+    for (std::size_t i = 0; i <= BATCH; i++)
+        chunk.insert(chunk.end(), {0, 1});
+    t.push(chunk);
+    x::telem::Frame first;
+    ASSERT_NIL(r.read(t, first).error);
+    r.clear();
+    t.push(std::vector<std::uint8_t>{0, 200});
+    x::telem::Frame second;
+    ASSERT_NIL(r.read(t, second).error);
+    ASSERT_EQ(second.series->at(1).values<double>(), (std::vector{200.0}));
+}
+
 /// @brief it should warn about a frame that it cannot decode, and read the frames after
 /// it.
 TEST(Receiver, WarnsAboutFrameItCannotDecode) {
