@@ -464,7 +464,7 @@ green at every step. The migration brings 0.59 data forward near the end.
   config migrations of §4.8 step 4 reading the map. _(Amended by
   [RFC 0120](0120-channel-storage-and-time.md) §4.9: a config holds the typed device
   key, ports, hardware facts, and scales, and no clock: each task writer declares its
-  time groups at open. Until RFC 0120 Phase 43 the Console still makes data channels.)_
+  time groups at open. Until RFC 0120 Phase 54 the Console still makes data channels.)_
 - **Phase 23: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
   routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
   and the Console's generic device layer.

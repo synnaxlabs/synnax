@@ -734,8 +734,8 @@ no channel name, no channel data type, no index key, and no clock key. The typed
 holds the link from a hardware address to a channel key. Each task writer derives its
 groups from its config at open and stores none, and it finds its clock again through
 continuation. A partial group from a task fails loud, as a partial index group does on
-`main`. Every Driver integration and both ICD readers change in the same release as the
-Core (§5).
+`main`. Every Driver integration and both ICD readers change in a phase of their own
+(§5), and the Driver updates with the Core.
 
 | Producer                                                   | Groups                                                                                                                                     |
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -847,8 +847,8 @@ The migration changes metadata only and runs at the first start, before any writ
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
    fails the start with an error that names it. It is the one check that Gorp and Cesium
    agree.
-4. **Holders**: Every holder of an index key migrates in its own chain, in the same
-   release:
+4. **Holders**: Every holder of an index key migrates in its own chain or composition
+   step, at its own phase or at the upgrade that retires the records:
 
 | Holder                                                                           | Rule                                                                                                                                                                                                                                                                                                                                                                                                 |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -1250,9 +1250,10 @@ config from Phase 43. Keys of `core/v0.62.0` keep their numbers.
 39. **The read prototype decides R2 before hidden clocks**: It changes no format. A
     chunk that spans a handoff or a move may cost up to 2 times (a rare-path bar under
     R2), with its own benchmark.
-40. **Holder migrations land per integration, in one release**: Rejected: one PR with
-    the channel step, over 2,000 lines. The channel step lands last, so `main` never
-    holds a dangling link.
+40. **Holder migrations land per integration, before the channel step**: Each step that
+    reads the retired table acts at the upgrade, so it merges first, and the channel
+    step lands last, so `main` never holds a dangling link. Rejected: one PR with the
+    channel step, over 2,000 lines.
 41. **A stretch continues only across a gap of at most 3 steps**: A line plot draws one
     line through a stretch. Rejected: continuation at every clean close, which draws a
     straight line across a task stop of any length, and a new number per session, which
