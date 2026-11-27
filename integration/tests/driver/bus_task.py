@@ -45,8 +45,8 @@ class BusCase(SimulatorCase):
         self._rack = self._wait_for_rack(self.driver)
         super().setup()
 
-    def rack(self) -> sy.Rack:
-        assert self._rack is not None, "setup() must run before rack()"
+    def device_rack(self) -> sy.Rack:
+        assert self._rack is not None, "setup() must run before device_rack()"
         return self._rack
 
     def _wait_for_rack(self, driver: drivers.Process) -> sy.Rack:

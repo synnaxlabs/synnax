@@ -34,26 +34,27 @@ def reading(i: int, rate: float) -> bytes:
 async def run_server(link: str, rate: float) -> None:
     """Send reading lines at rate on a pseudo-terminal, and point link at the terminal
     that a client opens. A line that the terminal has no room for is dropped."""
-    if sys.platform == "win32":
-        raise NotImplementedError("Windows has no pseudo-terminals")
-    # tty imports termios, which Windows does not have.
-    import tty
+    if sys.platform != "win32":
+        # tty imports termios, which Windows does not have.
+        import tty
 
-    master, slave = os.openpty()
-    # Holding the client end keeps the terminal up while no client has it open. Raw
-    # mode stops the echo of each line back to the master.
-    tty.setraw(slave)
-    os.set_blocking(master, False)
-    with contextlib.suppress(FileNotFoundError):
-        os.unlink(link)
-    os.symlink(os.ttyname(slave), link)
-    start = time.monotonic()
-    i = 0
-    while True:
-        with contextlib.suppress(BlockingIOError):
-            os.write(master, reading(i, rate))
-        i += 1
-        await asyncio.sleep(max(0.0, start + i / rate - time.monotonic()))
+        master, slave = os.openpty()
+        # Holding the client end keeps the terminal up while no client has it open. Raw
+        # mode stops the echo of each line back to the master.
+        tty.setraw(slave)
+        os.set_blocking(master, False)
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(link)
+        os.symlink(os.ttyname(slave), link)
+        start = time.monotonic()
+        i = 0
+        while True:
+            with contextlib.suppress(BlockingIOError):
+                os.write(master, reading(i, rate))
+            i += 1
+            await asyncio.sleep(max(0.0, start + i / rate - time.monotonic()))
+    else:
+        raise NotImplementedError("Windows has no pseudo-terminals")
 
 
 class SerialSim(DeviceSim):
