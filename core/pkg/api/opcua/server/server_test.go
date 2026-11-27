@@ -583,15 +583,21 @@ var _ = Describe("Service", func() {
 			return c.Base().Key
 		}
 
+		request := func(s server.Server, cert certificate.Key) apiserver.PinRequest {
+			return apiserver.PinRequest{
+				Key:         s.Key,
+				Endpoint:    s.Connection.Endpoint,
+				Policy:      server.SecurityPolicyBasic256Sha256,
+				Certificate: cert,
+			}
+		}
+
 		It("Should pin the certificate", func(ctx SpecContext) {
 			s := createServer(ctx, firstUse)
 			cert := createCertificate(ctx)
 			grantWrites(ctx, s.Rack)
 			grant(ctx, u, []access.Action{access.ActionRetrieve}, certificateType)
-			MustSucceed(pin(
-				testutil.AuthedCtx(ctx, u),
-				apiserver.PinRequest{Key: s.Key, Certificate: cert},
-			))
+			MustSucceed(pin(testutil.AuthedCtx(ctx, u), request(s, cert)))
 			security := retrieveServer(ctx, s.Key).Connection.Security.Variant
 			Expect(security.(server.SignSecurity).ServerTrust.Variant).
 				To(Equal(server.PinnedServerTrust{Certificate: cert}))
@@ -602,10 +608,20 @@ var _ = Describe("Service", func() {
 		) {
 			s := createServer(ctx, firstUse)
 			cert := createCertificate(ctx)
-			Expect(pin(
-				testutil.AuthedCtx(ctx, u),
-				apiserver.PinRequest{Key: s.Key, Certificate: cert},
-			)).Error().To(MatchError(access.ErrDenied))
+			grant(ctx, u, []access.Action{access.ActionRetrieve}, certificateType)
+			Expect(pin(testutil.AuthedCtx(ctx, u), request(s, cert))).
+				Error().To(MatchError(access.ErrDenied))
+			Expect(retrieveServer(ctx, s.Key)).To(Equal(s))
+		})
+
+		It("Should reject the request when the certificate is not retrievable", func(
+			ctx SpecContext,
+		) {
+			s := createServer(ctx, firstUse)
+			cert := createCertificate(ctx)
+			grantWrites(ctx, s.Rack)
+			Expect(pin(testutil.AuthedCtx(ctx, u), request(s, cert))).
+				Error().To(MatchError(access.ErrDenied))
 			Expect(retrieveServer(ctx, s.Key)).To(Equal(s))
 		})
 	})

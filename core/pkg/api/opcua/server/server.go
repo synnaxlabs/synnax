@@ -135,19 +135,26 @@ func (s *Service) Update(
 type PinRequest struct {
 	// Key selects the server.
 	Key server.Key `json:"key" msgpack:"key"`
-	// Certificate is the server certificate that the server's connection trusts from
-	// now on.
+	// Endpoint is the endpoint that the Driver connected to.
+	Endpoint string `json:"endpoint" msgpack:"endpoint"`
+	// Policy is the security policy that the Driver connected with.
+	Policy server.SecurityPolicy `json:"policy" msgpack:"policy"`
+	// Certificate is the server certificate that the server presented.
 	Certificate certificate.Key `json:"certificate" msgpack:"certificate"`
 }
 
-// Pin moves the server trust of the server stored under req.Key from the first
-// certificate to req.Certificate, as server.Writer.Pin does.
+// Pin trusts only req.Certificate on the server stored under req.Key, as
+// server.Writer.Pin does.
 func (s *Service) Pin(
 	ctx context.Context,
 	tx gorp.Tx,
 	req PinRequest,
 ) (struct{}, error) {
-	return struct{}{}, s.cfg.Server.NewWriter(tx).Pin(ctx, req.Key, req.Certificate)
+	return struct{}{}, s.cfg.Server.NewWriter(tx).Pin(ctx, req.Key, server.Pin{
+		Endpoint:    req.Endpoint,
+		Policy:      req.Policy,
+		Certificate: req.Certificate,
+	})
 }
 
 // DeleteRequest carries the keys of the servers to delete.

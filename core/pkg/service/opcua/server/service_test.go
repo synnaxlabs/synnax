@@ -421,51 +421,107 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Pin", func() {
-		It("Should pin the certificate and keep every other field", func(
-			ctx SpecContext,
-		) {
+		firstUse := server.ServerTrust{Variant: server.FirstUseServerTrust{}}
+		// createSecured creates a server whose connection has the given security.
+		createSecured := func(ctx context.Context, sec server.Security) server.Server {
+			GinkgoHelper()
 			s := newServer()
-			s.Connection.Security = signed(server.ServerTrust{
-				Variant: server.FirstUseServerTrust{},
-			})
+			s.Connection.Security = sec
 			s.Reads = []server.Read{{Node: "nsu=urn:plc;s=Temp", Index: 1, Channel: 5}}
 			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			cert := createCertificate(ctx, false)
-			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, cert)).To(Succeed())
-			want := s
-			want.Connection.Security = signed(pinned(cert))
-			Expect(retrieve(ctx, s.Key)).To(Equal(want))
-		})
+			return s
+		}
+		pinOf := func(s server.Server, cert certificate.Key) server.Pin {
+			return server.Pin{
+				Endpoint:    s.Connection.Endpoint,
+				Policy:      server.SecurityPolicyBasic256Sha256,
+				Certificate: cert,
+			}
+		}
 
-		It("Should refuse a connection that already pins a certificate", func(
+		DescribeTable("Should pin the certificate and keep every other field",
+			func(ctx SpecContext, secure func(server.ServerTrust) server.Security) {
+				s := createSecured(ctx, secure(firstUse))
+				cert := createCertificate(ctx, false)
+				Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, pinOf(s, cert))).
+					To(Succeed())
+				want := s
+				want.Connection.Security = secure(pinned(cert))
+				Expect(retrieve(ctx, s.Key)).To(Equal(want))
+			},
+			Entry("signed", signed),
+			Entry("signed and encrypted", encrypted),
+		)
+
+		It("Should succeed again for the certificate it already pins", func(
 			ctx SpecContext,
 		) {
-			s := newServer()
-			s.Connection.Security = signed(pinned(createCertificate(ctx, false)))
-			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, createCertificate(ctx, false))).
-				To(MatchError(ContainSubstring("not first use")))
-			Expect(retrieve(ctx, s.Key)).To(Equal(s))
+			s := createSecured(ctx, encrypted(firstUse))
+			cert := createCertificate(ctx, false)
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, pinOf(s, cert))).To(Succeed())
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, pinOf(s, cert))).To(Succeed())
+			Expect(retrieve(ctx, s.Key).Connection.Security).
+				To(Equal(encrypted(pinned(cert))))
 		})
+
+		DescribeTable("Should refuse a pin that does not match the stored server",
+			func(
+				ctx SpecContext,
+				trust func(certificate.Key) server.ServerTrust,
+				change func(*server.Pin),
+				msg string,
+			) {
+				s := createSecured(ctx, encrypted(trust(createCertificate(ctx, false))))
+				p := pinOf(s, createCertificate(ctx, false))
+				change(&p)
+				Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, p)).To(MatchError(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				)))
+				Expect(retrieve(ctx, s.Key)).To(Equal(s))
+			},
+			Entry("another pinned certificate", pinned, func(*server.Pin) {},
+				"pins another certificate"),
+			Entry(
+				"validation disabled",
+				func(certificate.Key) server.ServerTrust {
+					return server.ServerTrust{
+						Variant: server.ValidationDisabledServerTrust{},
+					}
+				},
+				func(*server.Pin) {},
+				"does not trust the first certificate",
+			),
+			Entry(
+				"another endpoint",
+				func(certificate.Key) server.ServerTrust { return firstUse },
+				func(p *server.Pin) { p.Endpoint = "opc.tcp://other:4840" },
+				"differs from the endpoint",
+			),
+			Entry(
+				"another policy",
+				func(certificate.Key) server.ServerTrust { return firstUse },
+				func(p *server.Pin) {
+					p.Policy = server.SecurityPolicyAes256Sha256RsaPss
+				},
+				"differs from the policy",
+			),
+		)
 
 		It("Should refuse a connection without security", func(ctx SpecContext) {
 			s := create(ctx)
-			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, createCertificate(ctx, false))).
-				To(MatchError(validate.ErrValidation))
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, pinOf(s, uuid.New()))).
+				To(MatchError(ContainSubstring("is not secured")))
 		})
 
 		It("Should refuse a certificate that does not exist", func(ctx SpecContext) {
-			s := newServer()
-			s.Connection.Security = signed(server.ServerTrust{
-				Variant: server.FirstUseServerTrust{},
-			})
-			Expect(e.svc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, uuid.New())).
-				ToNot(Succeed())
+			s := createSecured(ctx, signed(firstUse))
+			Expect(e.svc.NewWriter(tx).Pin(ctx, s.Key, pinOf(s, uuid.New()))).
+				To(MatchError(validate.ErrValidation))
 		})
 
 		It("Should return not found for a missing server", func(ctx SpecContext) {
-			Expect(e.svc.NewWriter(tx).Pin(ctx, uuid.New(), uuid.New())).
+			Expect(e.svc.NewWriter(tx).Pin(ctx, uuid.New(), server.Pin{})).
 				To(MatchError(query.ErrNotFound))
 		})
 	})

@@ -132,6 +132,16 @@ func signed(trust server.ServerTrust) server.Security {
 	return server.Security{Variant: server.SignSecurity{SecuredChannel: c}}
 }
 
+// encrypted returns a signed and encrypted connection under the Basic256Sha256 policy
+// that trusts the server as trust says.
+func encrypted(trust server.ServerTrust) server.Security {
+	var c server.SecuredChannel
+	c.SetDefaults()
+	c.Policy = server.SecurityPolicyBasic256Sha256
+	c.ServerTrust = trust
+	return server.Security{Variant: server.SignAndEncryptSecurity{SecuredChannel: c}}
+}
+
 // pinned returns the trust in the one server certificate stored under key.
 func pinned(key certificate.Key) server.ServerTrust {
 	return server.ServerTrust{Variant: server.PinnedServerTrust{Certificate: key}}
