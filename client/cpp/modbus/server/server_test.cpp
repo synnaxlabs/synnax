@@ -50,7 +50,7 @@ TEST(Server, AppliesRTUDefaults) {
     ASSERT_NIL(parser.error());
     const auto &rtu = std::get<RtuConnection>(server.connection);
     ASSERT_EQ(rtu.baud_rate, BaudRate::B19200);
-    ASSERT_EQ(rtu.parity, PARITY_EVEN);
+    ASSERT_EQ(rtu.parity, PARITY_EVEN_);
     ASSERT_EQ(rtu.stop_bits, StopBits::One);
     ASSERT_EQ(rtu.unit_id, 1);
 }
