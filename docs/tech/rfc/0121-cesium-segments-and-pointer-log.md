@@ -129,7 +129,10 @@ Cesium's lifecycle is two calls: `Delete` and `Keys`. All delete policy is the C
    is durable before `Delete` can run, and it reports whether the transaction committed.
    It is not built on `txState.OnCleanup` (`gorp/gorp.go:321`), which runs when the
    writes become visible, before the WAL sync (`x/go/kv/pebblekv/pebblekv.go:112`).
-   `Delete` never refuses. It returns once a delete intent for each key is durable in
+   `Delete` never refuses. It first waits until the visible view of each key holds no
+   pointer that the durable view lacks, which the writer's background `Sync` ends by an
+   ack or by the failure path (§5.4), so no Commit of a key follows its Drop, as after a
+   cross-clock handoff. It returns once a delete intent for each key is durable in
    Cesium's own log, and the key is then gone to new writers and iterators. It removes
    the segments of the key when reader pins drop. A `Delete` of a key that holds no data
    or has a live intent writes nothing. An error of `Delete` raises a status, and the
@@ -751,15 +754,19 @@ The steps:
 ### 5.6 Seal, deletes, and compaction
 
 - **Seal**: One Seal record, in the next entry of the writer. The file is not written.
-- **Delete of a time range**: One Tombstone per key. The delete is refused while the
-  claim of an open writer holds part of the range (RFC 0095 §4.0). A sealed segment with
-  no live pointer is unlinked. When the state owner applies a Tombstone that leaves an
-  open segment that no writer holds with no live pointer, it seals that segment in the
-  same step, the step that serves takeovers, and sends the Seal to the log owner (§5.4,
-  invariant 7). So no takeover passes the Seal, and the segment unlinks too. From RFC
-  0120 Phase 27 the Core adds each clock of the keys that has no record, and Cesium
-  logs, in the same entry, a Tombstone of the clock over each part of the range that no
-  live pointer of another key names, judged by alignment (§5.2).
+- **Delete of a time range**: One Tombstone per key. The delete is refused, with the
+  claim error, while the claim of an open writer holds part of the range (RFC 0095
+  §4.0), or while the visible view of a key holds a pointer in the range that the
+  durable view lacks. The state owner holds both views, so it is one check in one place,
+  and it covers each path that moves a claim before a Commit is durable, such as a
+  cross-clock handoff. A sealed segment with no live pointer is unlinked. When the state
+  owner applies a Tombstone that leaves an open segment that no writer holds with no
+  live pointer, it seals that segment in the same step, the step that serves takeovers,
+  and sends the Seal to the log owner (§5.4, invariant 7). So no takeover passes the
+  Seal, and the segment unlinks too. From RFC 0120 Phase 27 the Core adds each clock of
+  the keys that has no record, and Cesium logs, in the same entry, a Tombstone of the
+  clock over each part of the range that no live pointer of another key names, judged by
+  alignment (§5.2).
 - **Compaction**: When a rewrite of a sealed segment would free more than the threshold
   of its length (today `GCConfig`, `cesium/delete.go:32`), with its padding counted, the
   compactor copies the live ranges to a new segment, syncs the file and its directory,
