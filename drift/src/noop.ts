@@ -15,7 +15,7 @@ import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 /**
  * In certain environments (such as the web browser), it is not really possible to spawn
- * new windows. NoopRuntime is intended to stand in for drift in these environments.
+ * new windows. NoopRuntime is intended to stand in for Drift in these environments.
  */
 export class NoopRuntime<
   S extends StoreState,

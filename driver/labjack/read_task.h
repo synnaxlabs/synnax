@@ -407,7 +407,7 @@ inline bool version_below(const double version, const double minimum) {
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     const std::string device_key;
     /// @brief the indexes of the channels in the task.
-    /// Dynamically populated by querying the core.
+    /// Dynamically populated by querying the Core.
     std::set<synnax::channel::Key> indexes;
     /// @brief the number of samples per channel to connect on each call to read.
     const std::size_t samples_per_chan;
@@ -419,7 +419,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief the thermocouple channels, by their position in channels.
     std::vector<std::pair<size_t, const ThermocoupleChan *>> thermocouples;
     /// @brief the model of device being read from.
-    /// Dynamically populated by querying the core.
+    /// Dynamically populated by querying the Core.
     std::string dev_model;
     /// @brief a set of transforms to apply to the frame after reading. Applies
     /// scaling information to channels.

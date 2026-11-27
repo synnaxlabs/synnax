@@ -66,7 +66,7 @@ TEST(PersistConfig, testParseWithDataSavingDisabledOnly) {
 }
 
 /// @brief it should mint a record key for a config that carries none, so a config
-/// written by the driver still parses.
+/// written by the Driver still parses.
 TEST(StartConfig, testParseWithoutKey) {
     const auto json = nlohmann::json{{"auto_start", true}};
     auto parser = x::json::Parser(json);

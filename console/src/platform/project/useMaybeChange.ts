@@ -14,7 +14,7 @@ import { Session } from "@/session";
 /**
  * useMaybeChange returns a callback that switches the active project to the given
  * key when it is not already active. Panels are per-project documents fetched from
- * the core, so switching only updates the selection; the panel selector reconciles
+ * the Core, so switching only updates the selection; the panel selector reconciles
  * the window's selected panel against the new project's panels.
  */
 export const useMaybeChange = (): ((key: string) => void) => {

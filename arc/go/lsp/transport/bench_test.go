@@ -46,7 +46,7 @@ func benchChannels() []symbol.Symbol {
 	}
 }
 
-// benchHarness drives the LSP server over the freighter transport with raw JSON-RPC
+// benchHarness drives the LSP server over the Freighter transport with raw JSON-RPC
 // payloads, exactly as the TS client does. All benchmark traffic flows through the
 // full stack: mock stream -> stream adapter -> jsonrpc2 -> protocol dispatch ->
 // handler and back.

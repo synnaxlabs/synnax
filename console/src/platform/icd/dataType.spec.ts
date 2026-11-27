@@ -36,6 +36,7 @@ const tableZ = z.object({
   reads: byFormatZ(checkZ),
   writes: checkZ.array(),
   defaults: byFormatZ(defaultZ),
+  indexes: byFormatZ(z.object({ field: objectZ, accepted: z.boolean() })),
 });
 
 const table = tableZ.parse(
@@ -81,6 +82,13 @@ describe("ICD data types", () => {
       expect(ICD.bindingDataType({ dataType: "" }, fieldOf(format, field))).toBe(
         dataType,
       );
+    },
+  );
+
+  it.each(casesOf(table.indexes))(
+    "should report whether a read can index on a $format field $field",
+    ({ format, field, accepted }) => {
+      expect(ICD.isIndexable(fieldOf(format, field))).toBe(accepted);
     },
   );
 

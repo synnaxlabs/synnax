@@ -9,10 +9,10 @@
 
 // Package alamos provides a collection of tools for instrumenting distributed services.
 // These tools cover all three pillars of observability: logs, traces, and metrics. The
-// intent of alamos is not to provide implementations for these pillars, but instead
+// intent of Alamos is not to provide implementations for these pillars, but instead
 // provided an opinionated interface for integrating with existing providers.
 //
-// The core data type of alamos is the Instrumentation type, which is an aggregation of
+// The core data type of Alamos is the Instrumentation type, which is an aggregation of
 // the Logger (L), Tracer (T), and Reporter (R) services.
 //
 // The Logger (L) is an enhanced version of zap's logger that provides no-op logging
@@ -25,7 +25,7 @@
 // for recording the configuration of the application.
 package alamos
 
-// Instrumentation is the alamos core data type, and represents a collection of
+// Instrumentation is the Alamos core data type, and represents a collection of
 // instrumentation tools: a logger, a devTracer, and a reporter.
 //
 // The zero-value represents a no-op instrumentation that does no logging, tracing, or

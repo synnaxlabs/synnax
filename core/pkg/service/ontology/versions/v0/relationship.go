@@ -44,7 +44,7 @@ type Relationship struct {
 
 var _ gorp.Entry[string] = Relationship{}
 
-// relationshipKeySep separates the From, Type, and To fields of a gorp key.
+// relationshipKeySep separates the From, Type, and To fields of a Gorp key.
 const relationshipKeySep = "->"
 
 // GorpKey implements the gorp.Entry interface.
