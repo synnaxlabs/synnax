@@ -371,12 +371,13 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
   compare numbers only inside one stretch at Phase 19; and the Arc `on` nodes, Go at
   Phase 7 and C++ at Phase 9 (`arc/go/stl/channels/channels.go:273`,
   `arc/cpp/stl/channels/channels.h:129`), compare their mark only inside one stretch, by
-  the high 32 bits of the alignment, as Sift does, and take a series of another stretch
-  only when it comes after the series that set the mark in the read buffer, so neither a
-  re-pass in one cycle nor a series already taken fires again, while the entry stamp
-  still drops samples from before a stage's entry (`channels.go:196-198`). Phase 41
-  keeps that rule per clock. Each of those phases has a spec that reads across a
-  backfill with a higher number and a channel that skipped a session; the `on` node
+  the high 32 bits of the alignment, as Sift does, and mark, as a cursor, the ingest
+  number that the program state gives each series of a key, taking only a series after
+  the last one it took, so neither a re-pass in one cycle nor a series already taken
+  fires again, and inside one stretch they also keep the alignment compare, while the
+  entry stamp still drops samples from before a stage's entry (`channels.go:196-198`).
+  Phase 41 keeps that rule per clock. Each of those phases has a spec that reads across
+  a backfill with a higher number and a channel that skipped a session; the `on` node
   specs stream an `Unstored` session, then a stored one, and a refusal window, and fire
   on each later sample. RFC 0121 Phase 8 waits for all four.
 - **Reader API**: `frame.time(channel)` gives one time series per data series of the
@@ -501,23 +502,25 @@ names no clock key.
   time series only, not a series of the stored index that is the clock of the
   calculation's primary, even when the request names that index, so a streamer of
   `["time", "temperature"]` or of `temperature` alone gets no frame from a live
-  calculation on `temperature`, and a spec holds both. From Phase 44 until Phase 50,
-  when a request names the stored index that is the clock of the calculation's primary,
-  the calculation's frame drops that time series for that request, and its outputs come
-  untimed in it, as on `main`; a spec streams `["time", "temperature", "temp_f"]` beside
-  a live calculation and gets equal time and temperature lengths. Before Phase 44 a
-  calculation's clock is its `<name>_time` key, and a read or stream that names it gets
-  its series as on `main`, which a spec at Phase 21 holds: a read and a stream of
-  `["temp_f", "temp_f_time"]`, and an Arc `on temp_f`. A time series whose clock is not
-  yet in the set is kept when a kept timed series of the same frame names it, which the
-  filter checks after the frame's data series, so the first stamps of a new clock are
-  never dropped. That check also finds a clock move and updates the set. The relay
-  (`core/pkg/distribution/framer/relay/streamer.go:294`), its taps, which keep only
-  demanded keys today (`relay/tap.go:287`), the calculation transform, and the
-  iterator's calculation step take the rule. Until RFC 0121 Phase 5, the storage tap
-  also subscribes the index of each stored demanded key (`relay/tap.go:233-236` opens it
-  on `keys.Storage()`). A spec streams only a data key and gets its time after a handoff
-  and after a pause move.
+  calculation on `temperature`, and a spec holds both. From Phase 44 until Phase 50 a
+  calculation's frame keeps the primary's time series, so Arc and every reader that
+  pairs by clock find it beside the output, and a reader shows that series under the
+  index channel's key only in a frame that holds a data series whose record names that
+  index, so a calculation's frame adds no entry to `frame["time"]`. A spec streams
+  `["time", "temperature", "temp_f"]` beside a live calculation and gets equal time and
+  temperature lengths, and an Arc `on temp_f` that also reads `temperature` fires on
+  each output. Before Phase 44 a calculation's clock is its `<name>_time` key, and a
+  read or stream that names it gets its series as on `main`, which a spec at Phase 21
+  holds: a read and a stream of `["temp_f", "temp_f_time"]`, and an Arc `on temp_f`. A
+  time series whose clock is not yet in the set is kept when a kept timed series of the
+  same frame names it, which the filter checks after the frame's data series, so the
+  first stamps of a new clock are never dropped. That check also finds a clock move and
+  updates the set. The relay (`core/pkg/distribution/framer/relay/streamer.go:294`), its
+  taps, which keep only demanded keys today (`relay/tap.go:287`), the calculation
+  transform, and the iterator's calculation step take the rule. Until RFC 0121 Phase 5,
+  the storage tap also subscribes the index of each stored demanded key
+  (`relay/tap.go:233-236` opens it on `keys.Storage()`). A spec streams only a data key
+  and gets its time after a handoff and after a pause move.
 - **Requests**: A request names channel keys only. Clients stop sending
   `TimestampsIncluded` and adding index keys at Phases 46 and 49
   (`client/ts/src/framer/reader.ts:172-181`,
@@ -1033,16 +1036,18 @@ new fields and no break):
    new clock for the rest of the segment. Until then its group names its index, so it
    writes on the index clock beside the live writer, with segments of its own, as the
    Sparkplug history fill does (RFC 0121 §5.8). A change of the dropped set is rare. The
-   drainer opens with `AlwaysAutoPersist`, so each of its commits is durable, and moves
-   its read offset only after one returns, while other `PersistOnly` sessions keep the
-   auto commit interval, so a full disk never drops a spooled frame (RFC 0121 §5.4, the
-   unstored state), and a spec fills the disk during a drain. So each dropped key
-   pauses, the rest of its group writes, and the authority of the outage holds. Until
-   Phase 50 an index key is the time of its group: when the dropped set of a frame holds
-   one, the drainer drops every channel of that index from the frame and counts their
-   samples in its status, so it never opens a data channel without its index. From Phase
-   50 authority is per channel, and the rule holds only for a segment spooled with index
-   keys, so such a segment still drains its good frames.
+   drainer opens with `AlwaysAutoPersist`, which the framer serves on the pointer log as
+   a commit and then a `Sync` (RFC 0121 §4.2, Phase 6), so each of its commits returns
+   durable, and it moves its read offset only after one returns, while other
+   `PersistOnly` sessions keep the auto commit interval, so a full disk never drops a
+   spooled frame (RFC 0121 §5.4, the unstored state), and a spec fills the disk during a
+   drain. So each dropped key pauses, the rest of its group writes, and the authority of
+   the outage holds. Until Phase 50 an index key is the time of its group: when the
+   dropped set of a frame holds one, the drainer drops every channel of that index from
+   the frame and counts their samples in its status, so it never opens a data channel
+   without its index. From Phase 50 authority is per channel, and the rule holds only
+   for a segment spooled with index keys, so such a segment still drains its good
+   frames.
 3. **Phases**: RFC 0113 Phase 7, which touches `driver/spool` and is not built, takes
    item 2 and #6165's index-keyed records, since item 1 needs the time groups of Phase
    30 and the group positions of Phase 31. Phase 31 here follows RFC 0113 Phase 7: it

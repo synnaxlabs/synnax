@@ -218,10 +218,10 @@ outage and offline data is dropped with a count; phase 7 keeps it.
 Dependencies on other RFCs: the phase table names only phases of this RFC, so the issues
 of these phases take their blockers from this table too.
 
-| Phase    | Waits for                                                                    |
-| -------- | ---------------------------------------------------------------------------- |
-| 7        | Nothing, but it takes RFC 0120 §4.9 item 2, and RFC 0120 Phase 31 follows it |
-| 10 to 11 | RFC 0120 Phase 56, the C++ join of rack calculations                         |
+| Phase    | Waits for                                                                                                                                      |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| 7        | RFC 0121 Phase 6, whose framer serves `AlwaysAutoPersist` as a durable commit; it takes RFC 0120 §4.9 item 2, and RFC 0120 Phase 31 follows it |
+| 10 to 11 | RFC 0120 Phase 56, the C++ join of rack calculations                                                                                           |
 
 | Phase | Scope                                                      | Touches                                                                                                                      | Depends on |
 | ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
