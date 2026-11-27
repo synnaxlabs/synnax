@@ -579,46 +579,40 @@ alignment and inputs of two clocks by sample time:
 | History look back                             | One hold limit and at least 17 samples per input; one window for a window; to the last reset for a running operation (Phase 55); until Phase 55, to the read start, as on `main`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 - **History is the canonical value**: Live output is the value at arrival: with a wait
-  budget of 0 it differs from history only where an input was late. The TypeScript cache
-  replaces the alignment range that a historical read of a calculation output covered,
-  and keeps the live samples past it.
+  budget of 0 it differs from history only where an input was late, and for a running
+  operation until its first reset after the open. The TypeScript cache replaces the
+  alignment range that a historical read of a calculation output covered, and keeps the
+  live samples past it.
 - **Inputs with no clock**: A live-only input pairs by arrival with hold. Such a
   calculation has no historical values, and its live blocks are not replaced.
 - **Running operations** (Phase 55, D-063, D-518 (3)): A running operation is a node
   that keeps state across samples with no window: `avg`, `min`, and `max` with no
-  window, and a stateful variable of a calculation. It looks back to its last reset, or
-  to its first sample when it never resets, with no stored state, so no history value
-  depends on where a read starts. A `count` reset (`arc/go/stl/math/math.go:77`) looks
-  back to the first sample, since a node counts its join outputs, not stored samples. A
-  history read runs the look back before its start, paced as above. Live starts at its
-  open, as on `main`: it opens its streams first, and its output covers the data from
-  the open, under a status with message `Computing history` and a description that says
-  so and that a reset bounds the look back. In the background the calculator reads from
-  the last reset over stored data, past its first stream sample, until it reaches the
-  newest stored primary stamp; an input with no stream sample stops at its stored end.
-  Meanwhile it keeps the stream frames past the newest stored primary stamp in a buffer
-  under the cap of Buffers. It then runs those frames through the look back's state and
-  takes that state at the next primary frame, which clears the status. So the value
-  after the hand-over covers every sample since the reset, also those since the open,
-  and a spec holds a `max` whose peak lands during the pass and a stateful sum, each
-  equal to a history read after the hand-over.
+  window, and a stateful variable of a calculation. A history read looks back to its
+  last reset, or to its first sample when it never resets, with no stored state, so no
+  history value depends on where a read starts. A `count` reset
+  (`arc/go/stl/math/math.go:77`) looks back to the first sample, since a node counts its
+  join outputs, not stored samples. Live starts at its open, as on `main` and as D-063
+  accepted: its value covers the data from the open until the first reset after it, and
+  from that reset on it equals history. Until then the calculation's status has message
+  `Live since open` and a description that says that the live value covers the data from
+  the open and that a history read covers all of it since the last reset. So no live
+  open reads history, and only a history read pays the far look back.
 - **Kept states**: The service keeps in memory, and never stores, up to 64 states per
   calculation at the chunk ends that its passes reach, the oldest dropped first, each
   taken at a primary stamp T only once each input's newest stored stamp is at or past T,
   so a later commit at or before T is a backfill. The reset channel takes no part in
   that test, and a reset sample at or before T drops the states from T on. A history
   change of an input (`DB.OnHistoryChange`) drops only the states at or after its start,
-  and a change of the compiled module drops them all. A read, a live open, and a group
-  rebuild start from the newest kept state at or before their start. A read waits for a
-  running pass of its calculation that will reach its start, else it runs its own, and a
-  closed request's pass keeps the states it recorded. A group rebuild keeps the
-  calculator of each running operation whose module did not change, so its neighbors in
-  the group never wait on it. Every pass runs in one bounded pool under a read rate
-  limit, as the version 0 check pass does (RFC 0121 §5.1), so no live `Sync` and no
-  other read waits (R6), and the box benchmarks a common read beside one. The look back
-  is a rare-path exception to R2 (§4.13): its cost grows with the samples since the
-  reset, at about 25 ns a sample, so a year of a 25 kHz input takes about 5.5 hours of
-  one core.
+  and a change of the compiled module drops them all. A history read starts from the
+  newest kept state at or before its start. A read waits for a running pass of its
+  calculation that will reach its start, else it runs its own, and a closed request's
+  pass keeps the states it recorded. A group rebuild keeps the calculator of each
+  running operation whose module did not change, so its live value does not start again.
+  Every pass runs in one bounded pool under a read rate limit, as the version 0 check
+  pass does (RFC 0121 §5.1), so no live `Sync` and no other read waits (R6), and the box
+  benchmarks a common read beside one. The look back is a rare-path exception to R2
+  (§4.13): its cost grows with the samples since the reset, at about 25 ns a sample, so
+  a year of a 25 kHz input takes about 5.5 hours of one core.
 - **The node**: A Go package in `arc/go/stl`. The calculation service inserts it at
   compile; Arc flows keep arrival semantics. In the calculation path, gone are the sum
   of input alignments (`arc/go/stl/wasm/node.go:242-262`), the `<name>_time` index
@@ -1275,9 +1269,9 @@ splits along its touches before it opens, each part green alone.
   `client.read(tr, ["time", "temperature"])`, which fails with an error that names
   `frame.time`. No old field stays as an input, since no `core/v0.62.0` script is owed
   (D-252). The notes also say that from Phase 55 a running operation's live value covers
-  the data from its open until its look back ends, then steps to its value since the
-  last reset. Phases 36 and 37 move the repository's own integration tests and examples
-  that set the old fields.
+  the data from its open until its first reset after it, as on `main`, while a history
+  read covers all of it since the last reset. Phases 36 and 37 move the repository's own
+  integration tests and examples that set the old fields.
 - **No channel before its readers**: No stored channel and no calculation exists with no
   index channel before Phase 44, and Phase 44 follows every reader that keys on an
   index: the export (19), the cache and Pluto (17), `frame.time` (13), the client
@@ -1460,12 +1454,16 @@ settle them.
 12. **Pair by sample time, hold only, budget 0; history is canonical**: Arrival pairing
     gives different numbers live, in history, and per client. A wait budget above 0
     would make live equal history and make a fast input wait.
-13. **A running operation looks back to its last reset, with no stored state**: Numbers
-    never depend on where a read starts (D-063, Phase 55), and a far reset is a
-    rare-path exception to R2 (D-518 (3)). Rejected: a bounded look back, under which a
-    value depends on the read start, and a stored calculator state per chunk, which
-    missed inputs that commit after the primary, was not crash safe, missed input
-    changes that make no history change, and stored about 5 GB a year per calculation.
+13. **A running operation's history looks back to its last reset, with no stored state,
+    and its live value starts at its open**: History numbers never depend on where a
+    read starts (D-063, Phase 55), and a far reset is a rare-path exception to R2 (D-518
+    (3)). Live starts at its open until its next reset, as D-063 accepted. Rejected: a
+    bounded look back, under which a value depends on the read start; a stored
+    calculator state per chunk, which missed inputs that commit after the primary, was
+    not crash safe, missed input changes that make no history change, and stored about 5
+    GB a year per calculation; and a live catch-up to the reset, which needs every
+    sample streamed since the open, or a merge of two states that a stateful variable
+    cannot do, and loads the Core at each open.
 14. **Port links on the device, not in the task config**: A port keeps its channel
     across a task delete and create, at the cost of two hops from channel to task.
 15. **An exact lookup accepts device paths**: A string that matches a channel path and a
