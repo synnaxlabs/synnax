@@ -401,6 +401,19 @@ TEST_F(SpoolTest, RefusesAndCountsFramesPastCap) {
     ASSERT_EQ(spool->refused(), 2);
 }
 
+/// @brief it should refuse a frame larger than the cap as too large, not as full.
+TEST_F(SpoolTest, RefusesFrameLargerThanCap) {
+    const auto spool = this->open_spool(300);
+    const auto writer = spool->open_writer(header_of(1));
+    const x::telem::Frame large(1, x::telem::Series(std::vector<float>(100)));
+    const auto err = writer->write(large);
+    ASSERT_MATCHES(err, TOO_LARGE);
+    ASSERT_FALSE(err.matches(FULL));
+    ASSERT_MATCHES(writer->write(frame_of(1)), TOO_LARGE);
+    ASSERT_EQ(spool->refused(), 2);
+    ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));
+}
+
 /// @brief it should count the bytes of every file it writes against the cap.
 TEST_F(SpoolTest, CountsSegmentBytesExactly) {
     std::uint64_t size = 0;
@@ -517,8 +530,8 @@ TEST_F(SpoolTest, RefusesFrameLargerThanRecordLimit) {
         1,
         x::telem::Series(std::vector<float>(journal::MAX_PAYLOAD / sizeof(float) + 1))
     );
-    ASSERT_MATCHES(writer->write(large), BASE_ERROR);
-    ASSERT_MATCHES(writer->write(frame_of(1)), BASE_ERROR);
+    ASSERT_MATCHES(writer->write(large), TOO_LARGE);
+    ASSERT_MATCHES(writer->write(frame_of(1)), TOO_LARGE);
     ASSERT_EQ(spool->refused(), 2);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
 }
@@ -531,8 +544,8 @@ TEST_F(SpoolTest, RefusesFrameLargerThanMaxPayload) {
     );
     const auto writer = spool->open_writer(header_of(1));
     const x::telem::Frame large(1, x::telem::Series(std::vector<float>(256)));
-    ASSERT_MATCHES(writer->write(large), BASE_ERROR);
-    ASSERT_MATCHES(writer->write(frame_of(1)), BASE_ERROR);
+    ASSERT_MATCHES(writer->write(large), TOO_LARGE);
+    ASSERT_MATCHES(writer->write(frame_of(1)), TOO_LARGE);
     ASSERT_EQ(spool->refused(), 2);
     ASSERT_FALSE(std::filesystem::exists(this->dir / "0.seg"));
     ASSERT_NIL(spool->open_writer(header_of(1))->write(frame_of(1)));

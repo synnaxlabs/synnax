@@ -50,6 +50,9 @@ const x::errors::Error BASE_ERROR = x::errors::Error("spool", "");
 const x::errors::Error FULL = BASE_ERROR.sub("full");
 /// @brief a record passes its checksum but is not a valid header or frame.
 const x::errors::Error CORRUPT = BASE_ERROR.sub("corrupt");
+/// @brief a frame is larger than the max_payload or the cap of the spool, so the spool
+/// can never store it.
+const x::errors::Error TOO_LARGE = BASE_ERROR.sub("too_large");
 /// @brief a setting of the config is out of its range.
 const x::errors::Error INVALID_CONFIG = BASE_ERROR.sub("invalid_config");
 
@@ -152,12 +155,12 @@ public:
     /// writer refuses every later frame, so the segment has no gaps.
     /// @param frame the frame to append. Each of its channels must be in the header,
     /// with the data type of the header.
-    /// @returns FULL when the spool has no room for the frame. BASE_ERROR when the
-    /// frame does not match the header, the writer is closed, or the encoded frame is
-    /// larger than Config::max_payload. After a write fails to store a valid frame, the
-    /// writer returns the same error for every later frame. Spool::refused counts each
-    /// of these frames. When only the sync after the frame fails, the frame stays in
-    /// the segment, and readers can read it.
+    /// @returns FULL when the spool has no room for the frame now. TOO_LARGE when the
+    /// encoded frame is larger than Config::max_payload or Config::cap. BASE_ERROR
+    /// when the frame does not match the header or the writer is closed. After a write
+    /// fails to store a valid frame, the writer returns the same error for every later
+    /// frame. Spool::refused counts each of these frames. When only the sync after the
+    /// frame fails, the frame stays in the segment, and readers can read it.
     x::errors::Error write(const x::telem::Frame &frame);
 
     /// @brief syncs the segment when a sync is due. Call it when no frames come, so the

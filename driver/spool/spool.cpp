@@ -399,16 +399,21 @@ x::errors::Error Writer::write(const x::telem::Frame &frame) {
     }
     auto [payload, err] = encode_frame(frame, this->types);
     if (err) return err;
-    if (payload.size() > this->spool.cfg.max_payload) {
+    bytes += journal::RECORD_PREFIX_SIZE + payload.size();
+    std::string limit;
+    if (payload.size() > this->spool.cfg.max_payload)
+        limit = "max_payload of " + std::to_string(this->spool.cfg.max_payload);
+    else if (bytes > this->spool.cfg.cap)
+        limit = "cap of " + std::to_string(this->spool.cfg.cap);
+    if (!limit.empty()) {
         this->failed = x::errors::Error(
-            BASE_ERROR,
+            TOO_LARGE,
             "frame of " + std::to_string(payload.size()) +
-                " bytes is larger than max_payload"
+                " bytes is larger than the " + limit + " bytes"
         );
         ++this->spool.refused_count;
         return this->failed;
     }
-    bytes += journal::RECORD_PREFIX_SIZE + payload.size();
     if (const auto r_err = this->spool.reserve(bytes)) {
         if (r_err.matches(FULL))
             this->refused = true;
