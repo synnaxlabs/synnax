@@ -260,6 +260,33 @@ var _ = Describe("Service", func() {
 			})).To(Equal([]device.Key{gamma, beta, alpha}))
 		})
 
+		DescribeTable("Should reject a request",
+			func(ctx SpecContext, req apidevice.RetrieveRequest, message string) {
+				grantRetrieve(ctx)
+				Expect(retrieve(testutil.AuthedCtx(ctx, u), req)).Error().
+					To(SatisfyAll(
+						BeAssignableToTypeOf(validate.PathError{}),
+						MatchError(message),
+					))
+			},
+			Entry(
+				"that resumes an order without the order's value",
+				apidevice.RetrieveRequest{
+					Order: &apidevice.Order{Field: apidevice.OrderFieldName},
+					After: &apidevice.Cursor{Key: uuid.New()},
+				},
+				"after.name: is required to resume an order by name: validation error",
+			),
+			Entry(
+				"that sorts a search",
+				apidevice.RetrieveRequest{
+					SearchTerm: "T7",
+					Order:      &apidevice.Order{Field: apidevice.OrderFieldName},
+				},
+				"order: a search sorts by relevance: validation error",
+			),
+		)
+
 		It("Should reject a named device when retrieve is not granted", func(
 			ctx SpecContext,
 		) {
