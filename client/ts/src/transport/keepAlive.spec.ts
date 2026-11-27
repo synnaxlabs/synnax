@@ -74,10 +74,7 @@ describe("stream keep-alive", () => {
     async () => {
       const { client: proxied, stall } = await createStalledClient();
       const ch = await newVirtualChannel(client);
-      const streamer = await proxied.openStreamer({
-        channels: ch.key,
-        keepAlive: TimeSpan.ZERO,
-      });
+      const streamer = await proxied.openStreamer(ch.key);
       stall();
       await expect(streamer.read()).rejects.toSatisfy(STALLED);
       streamer.close();
@@ -101,10 +98,7 @@ describe("stream keep-alive", () => {
     async () => {
       const { client: proxied } = await createStalledClient();
       const ch = await newVirtualChannel(client);
-      const streamer = await proxied.openStreamer({
-        channels: ch.key,
-        keepAlive: TimeSpan.ZERO,
-      });
+      const streamer = await proxied.openStreamer(ch.key);
       const read = streamer.read();
       await sleep.sleep(TIMEOUT.mult(1.5));
       await using writer = await client.openWriter({

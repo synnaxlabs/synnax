@@ -848,8 +848,7 @@ A Node.js script does not exit until you close the client.
   receives no message for `timeout` (three intervals) fails with `Unreachable`. The
   timeout must be longer than the interval, and long enough to receive the largest
   message, such as an iterator frame, on the slowest link. With an `interval` of
-  `TimeSpan.ZERO`, a stream waits with no limit, except a streamer, whose own
-  [`keepAlive`](/reference/client/stream-data#typescript-keep-alive) still applies.
+  `TimeSpan.ZERO`, a stream waits with no limit.
 </Field.Item>
 
 <Field.Item name="cache" id="typescript-cache" type="boolean" default="true">

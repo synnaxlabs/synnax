@@ -760,120 +760,66 @@ describe("Streamer", () => {
     }
   }
 
-  // Pins silent-death detection on /frame/stream: the Core emits keep-alive responses
-  // on request, and the client fails a silent read with Unreachable instead of hanging
-  // forever, which the hardened streamer turns into a reconnect.
+  // Pins silent-death detection on /frame/stream: the client's keep-alive fails a
+  // silent read with Unreachable instead of hanging forever, which the hardened
+  // streamer turns into a reconnect.
   describe("keep alive", () => {
-    // The Core's minimum accepted cadence, so the specs pin the fastest detection a
-    // client can actually get.
-    const KEEP_ALIVE = TimeSpan.seconds(2);
-    // KEEP_ALIVE_DEADLINE_FACTOR x KEEP_ALIVE: how long a read may stay silent.
-    const DEADLINE = TimeSpan.seconds(6);
-    // One keep-alive interval plus slack, so a stall starts after the first keep-alive.
-    const AFTER_KEEP_ALIVE = TimeSpan.milliseconds(2500);
+    // The Core's minimum interval, so the specs pin the fastest detection a client can
+    // get.
+    const TIMEOUT = TimeSpan.seconds(3);
+    const KEEP_ALIVE = { interval: TimeSpan.seconds(1), timeout: TIMEOUT };
     // Covers a full deadline trip plus the reconnect that follows it.
-    const POLL = { timeout: DEADLINE.milliseconds * 2 };
+    const POLL = { timeout: TIMEOUT.milliseconds * 2 };
+    const createStalledClient = async () =>
+      await createProxiedTestClient({ streamKeepAlive: KEEP_ALIVE, onRetry: quiet });
 
     it("should keep keep-alives out of the frames a streamer serves", async () => {
+      const keptAlive = createTestClient({ streamKeepAlive: KEEP_ALIVE });
       const ch = await newVirtualChannel(client);
-      await using streamer = await client.openStreamer({
-        channels: ch.key,
-        keepAlive: KEEP_ALIVE,
-      });
-      // Let several keep-alives queue up so the read has to skip past them.
-      await sleep.sleep(KEEP_ALIVE.mult(2.5));
+      await using streamer = await keptAlive.openStreamer(ch.key);
+      // Let several keep-alives arrive before the frame.
+      await sleep.sleep(KEEP_ALIVE.interval.mult(2.5));
       await write(ch, [1, 2, 3]);
       const frame = await streamer.read();
       expect(Array.from(frame.get(ch.key))).toEqual([1, 2, 3]);
     });
 
     it("should reject an interval below the Core's minimum", async () => {
+      // The client's own change stream fails to open too, so it reports nothing.
+      const fast = createTestClient({
+        streamKeepAlive: { interval: TimeSpan.milliseconds(500) },
+        cache: false,
+        onInternalError: quiet,
+      });
       const ch = await newVirtualChannel(client);
-      await expect(
-        client.openStreamer({ channels: ch.key, keepAlive: TimeSpan.seconds(1) }),
-      ).rejects.toThrow("keep_alive: must be greater than or equal to 2s");
+      await expect(fast.openStreamer(ch.key)).rejects.toThrow(
+        "keep_alive: must be greater than or equal to 1s",
+      );
     });
 
-    it("should reject a silent read with Unreachable after the deadline", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient({
-        onRetry: quiet,
-      });
+    it("should reject a silent read with Unreachable after the timeout", async () => {
+      const { proxy, client: proxied } = await createStalledClient();
       const ch = await newVirtualChannel(client);
-      const streamer = await proxied.openStreamer({
-        channels: ch.key,
-        keepAlive: KEEP_ALIVE,
-      });
-      // Stalls a stream that has already received a keep-alive.
-      await sleep.sleep(AFTER_KEEP_ALIVE);
+      const streamer = await proxied.openStreamer(ch.key);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const started = performance.now();
       await expect(streamer.read()).rejects.toSatisfy(
         (exc) =>
           Unreachable.matches(exc) &&
-          exc.message === `streamer received no response for ${DEADLINE.toString()}`,
+          exc.message === `stream received no message for ${TIMEOUT.toString()}`,
       );
-      // The deadline must actually elapse: an instant rejection would mean the
-      // deadline started wrong, not that silence was detected.
+      // An instant rejection would mean the deadline armed wrong, not that silence was
+      // detected.
       expect(performance.now() - started).toBeGreaterThanOrEqual(
-        DEADLINE.milliseconds - 50,
+        TIMEOUT.milliseconds - 50,
       );
       streamer.close();
     }, 30_000);
-
-    it("should reject a read that stalls before the first keep-alive", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient({
-        onRetry: quiet,
-      });
-      const ch = await newVirtualChannel(client);
-      const streamer = await proxied.openStreamer({
-        channels: ch.key,
-        keepAlive: KEEP_ALIVE,
-      });
-      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-      await expect(streamer.read()).rejects.toSatisfy(
-        (exc) =>
-          Unreachable.matches(exc) &&
-          exc.message === `streamer received no response for ${DEADLINE.toString()}`,
-      );
-      streamer.close();
-    }, 30_000);
-
-    it("should detect a stall that starts right after a reconnect", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient({
-        onRetry: quiet,
-      });
-      const ch = await newVirtualChannel(client);
-      const onDrop = vi.fn();
-      const onReopen = vi.fn(() => proxy.blackholeStreams());
-      await using hardened = await framer.HardenedStreamer.open(
-        async (cfg) => await proxied.openStreamer(cfg),
-        { channels: ch.key, keepAlive: KEEP_ALIVE },
-        { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
-      );
-      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-      // The first reopen stalls at once, before its first keep-alive.
-      const pending = hardened.read();
-      pending.catch(() => {});
-      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
-      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
-      onReopen.mockImplementation(() => 0);
-      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(2);
-      expect(Unreachable.matches(onDrop.mock.calls[1][0])).toBe(true);
-      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(2);
-      await write(ch, [1]);
-      expect(Array.from((await pending).get(ch.key))).toEqual([1]);
-    }, 45_000);
 
     it("should reject an acked update that follows a failed read", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient({
-        onRetry: quiet,
-      });
+      const { proxy, client: proxied } = await createStalledClient();
       const ch = await newVirtualChannel(client);
-      const streamer = await proxied.openStreamer({
-        channels: [],
-        keepAlive: KEEP_ALIVE,
-      });
-      await sleep.sleep(AFTER_KEEP_ALIVE);
+      const streamer = await proxied.openStreamer({ channels: [] });
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const err = await streamer.read().catch((e: unknown) => e);
       expect(Unreachable.matches(err)).toBe(true);
@@ -882,20 +828,17 @@ describe("Streamer", () => {
     }, 30_000);
 
     it("should reconnect and resume streaming after a silent death", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient({
-        onRetry: quiet,
-      });
+      const { proxy, client: proxied } = await createStalledClient();
       const ch = await newVirtualChannel(client);
       const onDrop = vi.fn();
       const onReopen = vi.fn();
       await using hardened = await framer.HardenedStreamer.open(
         async (cfg) => await proxied.openStreamer(cfg),
-        { channels: ch.key, keepAlive: KEEP_ALIVE },
+        { channels: ch.key },
         { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
       );
       await write(ch, [1]);
       expect(Array.from((await hardened.read()).get(ch.key))).toEqual([1]);
-      await sleep.sleep(AFTER_KEEP_ALIVE);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       // The proxy still forwards new connections, so the deadline trip inside this
       // read reconnects and the read stays pending for the next frame.
@@ -911,6 +854,7 @@ describe("Streamer", () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
         onRetry: quiet,
         streamOpenTimeout: TimeSpan.milliseconds(500),
+        streamKeepAlive: KEEP_ALIVE,
       });
       const ch = await newVirtualChannel(client);
       const onDrop = vi.fn();
@@ -918,7 +862,7 @@ describe("Streamer", () => {
       const onRetry = vi.fn();
       await using hardened = await framer.HardenedStreamer.open(
         async (cfg) => await proxied.openStreamer(cfg),
-        { channels: ch.key, keepAlive: KEEP_ALIVE },
+        { channels: ch.key },
         { breaker: FAST_RETRY, onReopen, onDrop, onRetry },
       );
       const unstall = proxy.stallNewConnections();
@@ -934,16 +878,34 @@ describe("Streamer", () => {
       expect(Array.from((await pending).get(ch.key))).toEqual([1]);
     }, 30_000);
 
-    it("should reject a pending update ack when the read fails", async () => {
-      const { proxy, client: proxied } = await createProxiedTestClient({
-        onRetry: quiet,
-      });
+    it("should detect a stall that starts right after a reconnect", async () => {
+      const { proxy, client: proxied } = await createStalledClient();
       const ch = await newVirtualChannel(client);
-      const streamer = await proxied.openStreamer({
-        channels: [],
-        keepAlive: KEEP_ALIVE,
-      });
-      await sleep.sleep(AFTER_KEEP_ALIVE);
+      const onDrop = vi.fn();
+      const onReopen = vi.fn(() => proxy.blackholeStreams());
+      await using hardened = await framer.HardenedStreamer.open(
+        async (cfg) => await proxied.openStreamer(cfg),
+        { channels: ch.key },
+        { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
+      );
+      expect(proxy.blackholeStreams()).toBeGreaterThan(0);
+      // The first reopen stalls at once, before its first periodic keep-alive.
+      const pending = hardened.read();
+      pending.catch(() => {});
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(1);
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(1);
+      onReopen.mockImplementation(() => 0);
+      await expect.poll(() => onDrop.mock.calls.length, POLL).toBe(2);
+      expect(Unreachable.matches(onDrop.mock.calls[1][0])).toBe(true);
+      await expect.poll(() => onReopen.mock.calls.length, POLL).toBe(2);
+      await write(ch, [1]);
+      expect(Array.from((await pending).get(ch.key))).toEqual([1]);
+    }, 45_000);
+
+    it("should reject a pending update ack when the read fails", async () => {
+      const { proxy, client: proxied } = await createStalledClient();
+      const ch = await newVirtualChannel(client);
+      const streamer = await proxied.openStreamer({ channels: [] });
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
       const read = streamer.read().catch((e: unknown) => e);
       const update = streamer
@@ -957,17 +919,17 @@ describe("Streamer", () => {
 
     it("should leave a silent read pending when keep-alive is disabled", async () => {
       const { proxy, client: proxied } = await createProxiedTestClient({
+        streamKeepAlive: {
+          interval: TimeSpan.ZERO,
+          timeout: TimeSpan.milliseconds(100),
+        },
         onRetry: quiet,
-        streamKeepAlive: { interval: TimeSpan.ZERO },
       });
       const ch = await newVirtualChannel(client);
-      const streamer = await proxied.openStreamer({
-        channels: ch.key,
-        keepAlive: TimeSpan.ZERO,
-      });
-      await sleep.sleep(TimeSpan.milliseconds(250));
+      const streamer = await proxied.openStreamer(ch.key);
       expect(proxy.blackholeStreams()).toBeGreaterThan(0);
-      // With both keep-alives off the read has no deadline, so it hangs.
+      // Without keep-alives the read has no deadline, as against a Core that predates
+      // them, so it hangs.
       const pending = streamer.read();
       pending.catch(() => {});
       const result = await Promise.race([
@@ -1891,8 +1853,10 @@ describe("open against a server that never acks", () => {
   beforeEach(async () => {
     received = [];
     server = new WebSocketServer({ port: 0, host: "127.0.0.1" });
-    // Opens the transport, then never answers the streamer's open request.
+    // Opens the transport with keep-alives, then goes silent and never answers the
+    // streamer's open request.
     server.on("connection", (ws) => {
+      ws.send('{"type":"keep_alive"}');
       // The leading byte marks a JSON message from the Core.
       ws.send(Buffer.concat([Buffer.from([254]), Buffer.from('{"type":"open"}')]));
       ws.on("message", (data: Buffer) => received.push(data.toString()));
@@ -1905,13 +1869,14 @@ describe("open against a server that never acks", () => {
     await new Promise((resolve) => server.close(resolve));
   });
 
-  it("should reject with Unreachable and close the stream", async () => {
+  it("should reject with Unreachable", async () => {
     const { port } = server.address() as AddressInfo;
+    const timeout = TimeSpan.milliseconds(100);
     const ws = new WebSocketClient({
       endpoint: new url.URL({ host: "127.0.0.1", port }),
       codec: new binary.JSONCodec(),
+      keepAlive: { interval: TimeSpan.milliseconds(50), timeout },
     });
-    const keepAlive = TimeSpan.milliseconds(100);
     const retrieveChannels: framer.ChannelRetriever = async (params) =>
       array
         .toArray(params)
@@ -1919,15 +1884,12 @@ describe("open against a server that never acks", () => {
           channel.payloadZ.parse({ key, name: id.create(), dataType: "float32" }),
         );
     await expect(
-      framer.openStreamer(retrieveChannels, ws, { channels: [1], keepAlive }),
+      framer.openStreamer(retrieveChannels, ws, { channels: [1] }),
     ).rejects.toSatisfy(
       (exc) =>
         Unreachable.matches(exc) &&
-        exc.message ===
-          `streamer received no response for ${keepAlive.mult(3).toString()}`,
+        exc.message === `stream received no message for ${timeout.toString()}`,
     );
-    await expect
-      .poll(() => received.some((msg) => msg.includes('"type":"close"')))
-      .toBe(true);
+    expect(received.length).toBeGreaterThan(0);
   });
 });

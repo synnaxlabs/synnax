@@ -141,7 +141,9 @@ async with await client.open_async_streamer(["time", "temperature"]) as streamer
 The async streamer has no per-call timeout on `read`, and it cannot change its channels.
 Both Python streamers detect a lost connection through keep-alive messages. With the
 default `keep_alive` of 5 seconds, a read fails after 15 seconds without a message. The
-TypeScript streamer is always async.
+TypeScript streamer is always async, and detects a lost connection with the
+[`streamKeepAlive`](/reference/client/connect#typescript-stream-keep-alive) of its
+client.
 
 Other client calls, such as `client.channels.retrieve`, block until the Core answers. In
 `asyncio` code, run them in a thread so that they do not stop the event loop:
@@ -324,14 +326,6 @@ declared with `await using` closes when its block ends.
 <Field.Item name="throttleRate" id="typescript-throttle-rate" type="Rate" default="0">
   The largest number of frames each second. With 0, the Core sends each frame when it
   receives it.
-</Field.Item>
-
-<Field.Item name="keepAlive" id="typescript-keep-alive" type="TimeSpan" default="5 s">
-  How often the Core tells the streamer that the connection is alive. When three
-  intervals pass with no message, `read` throws. The value must be at least 2 s. With
-  `TimeSpan.ZERO`, the streamer has no deadline of its own, and only the
-  [`streamKeepAlive`](/reference/client/connect#typescript-stream-keep-alive) of its
-  client applies.
 </Field.Item>
 
 </Field.List>
