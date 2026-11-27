@@ -42,6 +42,35 @@ var _ = Describe("InferDataType", func() {
 	Specify("bool", DataTypeInferTest[bool](telem.BooleanT))
 })
 
+var _ = Describe("DataTypeName", func() {
+	DescribeTable("Should name each data type constant",
+		func(name telem.DataTypeName, expected telem.DataType) {
+			Expect(name.IsValid()).To(BeTrue())
+			Expect(telem.DataType(name)).To(Equal(expected))
+		},
+		Entry("float64", telem.DataTypeNameFloat64, telem.Float64T),
+		Entry("float32", telem.DataTypeNameFloat32, telem.Float32T),
+		Entry("int64", telem.DataTypeNameInt64, telem.Int64T),
+		Entry("int32", telem.DataTypeNameInt32, telem.Int32T),
+		Entry("int16", telem.DataTypeNameInt16, telem.Int16T),
+		Entry("int8", telem.DataTypeNameInt8, telem.Int8T),
+		Entry("uint64", telem.DataTypeNameUint64, telem.Uint64T),
+		Entry("uint32", telem.DataTypeNameUint32, telem.Uint32T),
+		Entry("uint16", telem.DataTypeNameUint16, telem.Uint16T),
+		Entry("uint8", telem.DataTypeNameUint8, telem.Uint8T),
+		Entry("timestamp", telem.DataTypeNameTimestamp, telem.TimestampT),
+		Entry("uuid", telem.DataTypeNameUUID, telem.UUIDT),
+		Entry("boolean", telem.DataTypeNameBoolean, telem.BooleanT),
+		Entry("string", telem.DataTypeNameString, telem.StringT),
+		Entry("json", telem.DataTypeNameJSON, telem.JSONT),
+		Entry("bytes", telem.DataTypeNameBytes, telem.BytesT),
+	)
+
+	It("Should reject the unknown data type", func() {
+		Expect(telem.DataTypeName(telem.UnknownT).IsValid()).To(BeFalse())
+	})
+})
+
 var _ = Describe("FixedWidthDataType", func() {
 	DescribeTable("Should name a fixed-density data type",
 		func(dt telem.FixedWidthDataType, expected telem.DataType) {
