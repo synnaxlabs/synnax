@@ -75,7 +75,8 @@ telemetry (§9.0).
    has a channel record must never take a write, since the write would put stamps in a
    user's channel. The Core then starts with an error status that names the channel, the
    framer refuses writes to that channel, and continuation never picks its key, since
-   the Core passes such keys to `Open` (§5.8) (founder delegation, D-425 (3)).
+   the Core names such keys to Cesium before any writer opens (§5.8) (founder
+   delegation, D-425 (3)).
 
 ## 4 The seam with the Core
 
@@ -831,18 +832,18 @@ stretch: the frame codec merges series whose alignments touch
 a stretch at index 0 (`client/ts/src/framer/cache/join/join.ts:128-136`). The table
 holds sizing assumptions.
 
-| Case                                              | Per day   | Result                                                                |
-| ------------------------------------------------- | --------- | --------------------------------------------------------------------- |
-| 250 clocks, 20 sessions each per day              | 5,000     | 2^31 numbers last 1,176 years                                         |
-| 5,000 clocks, 20 sessions each per day            | 100,000   | 2^31 numbers last 58 years                                            |
-| A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years                                           |
-| Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years                                         |
-| Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years                                         |
-| 100 script sessions per day, 10 channels each     | 0         | Each takes over its files, across switches                            |
-| 30 command channels, 20 handoffs each per day     | 9         | Handoffs continue open segments: 2 files per channel per week         |
-| A 1 Hz burst `client.write` loop of 11 keys       | 232       | Rolls at 4,096 pointers take spares: 0.85 million files in 10 years   |
-| A `client.write` loop at 10 Hz of 10 channels     | 0         | Its sessions stay far from a limit: no spare, no file made or removed |
-| A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start                                            |
+| Case                                              | Per day   | Result                                                                      |
+| ------------------------------------------------- | --------- | --------------------------------------------------------------------------- |
+| 250 clocks, 20 sessions each per day              | 5,000     | 2^31 numbers last 1,176 years                                               |
+| 5,000 clocks, 20 sessions each per day            | 100,000   | 2^31 numbers last 58 years                                                  |
+| A device that breaks 1,000 clocks once per minute | 1,440,000 | 2^31 numbers last 4.1 years                                                 |
+| Segments from the 7-day limit, 5,000 channels     | 714       | 2.6 million files in 10 years                                               |
+| Segments from one unclean stop per month          | 167       | 0.6 million files in 10 years                                               |
+| 100 script sessions per day, 10 channels each     | 0         | Each takes over its files, across switches                                  |
+| 30 command channels, 20 handoffs each per day     | 9         | Handoffs continue open segments: 2 files per channel per week               |
+| A 1 Hz burst `client.write` loop of 11 keys       | 232       | Rolls at 4,096 pointers take spares: 0.85 million files in 10 years         |
+| A `client.write` loop at 10 Hz of 10 channels     | 2         | Each segment's one spare starts its next segment at 7 days: 11 files a week |
+| A `client.write` loop at 10 Hz, 864,000 sessions  | 2         | Two numbers per Core start                                                  |
 
 A script session continues its clock (§5.8) and takes over its open segments, so one
 after a clean close starts no segment, and takes no number when it starts within the gap
@@ -873,38 +874,38 @@ open made ready for the key (Segments, below).
   stands in, so a session that takes a command channel again reuses its clock. It drops
   a candidate that is a key of the group, one that an open writer holds, one that
   another group of the same open took, one whose last stamp is not before the writer's
-  start, and one that the Core passed to `Open` as a clock with a channel record
-  (`WithRecordedClocks`, NEW, from RFC 0120 Phase 50). The group with the most keys on
-  one candidate picks first, and on a tie the earlier group of the open. Each group
-  takes the candidate that the most of its keys name, then the one with the latest last
-  stamp, then the lowest key, and else leases a new key (RFC 0120 §4.0). A key of the
-  group on another clock starts a new segment on the chosen clock. The first drop rule
-  keeps a group's stamps out of a key that times itself, such as an index channel that
-  the migration keeps as a timestamp channel, with no stored flag (RFC 0120 §4.11, hard
-  rule 4).
+  start, and one that the Core named as a clock with a channel record
+  (`DB.SetRecordedClocks`, NEW, from RFC 0120 Phase 50). The Core calls it after its
+  start check and before any writer opens, since that check reads `Keys` from the open
+  database. The group with the most keys on one candidate picks first, and on a tie the
+  earlier group of the open. Each group takes the candidate that the most of its keys
+  name, then the one with the latest last stamp, then the lowest key, and else leases a
+  new key (RFC 0120 §4.0). A key of the group on another clock starts a new segment on
+  the chosen clock. The first drop rule keeps a group's stamps out of a key that times
+  itself, such as an index channel that the migration keeps as a timestamp channel, with
+  no stored flag (RFC 0120 §4.11, hard rule 4).
 - **One writer per clock**: A clock has at most one open writer, which holds the clock's
   claim. The state owner keeps the writer of each clock and the holder of each open
   segment (NEW).
 - **Pauses**: In an `Adaptive` writer, the keys that reach three quarters of P pauses
   (48 of 64) in their open segments at one frame, with one last present frame, get one
   clock from a background step off the frame path. The step reuses a clock that a
-  segment of one of those keys names, with the drop rules of continuation: it drops a
-  key of the writer, a clock that an open writer holds, and a clock whose last stamp is
-  not before the first stamp of the frame that starts the step. It picks among the rest
-  as continuation does, and in one state owner step takes the clock's claim and takes
-  over the open segments of the keys on that clock, as at open, so no other open takes
-  the clock between three quarters of P and the move, and makes the files of the keys
-  whose segment there is sealed, missing, or of another type. If no clock is left, it
-  leases a key and makes the files. At P pauses the keys move to that clock at the first
-  commit after its files exist. Their open segments on the clock they leave stay open,
-  and the writer still holds them (§5.4, invariant 6), so the switch cannot seal them
-  ahead of their last Commits. A move back or a later open after its `Close` takes them
-  over, and a script that runs again reuses its clocks and files. The writer then stores
-  the group's stamps on that clock for each frame that holds one of its keys: the one
-  copy of stored stamps, at most one per cohort of keys that moved together per frame,
-  until the keys rejoin the group's clock at the next open. A clock stores no stamps for
-  a frame in which no key on it has a sample. A file that the step made and no move used
-  is a spare, which a close removes.
+  segment of one of those keys names, with every drop rule of continuation, where the
+  group is the writer and the writer's start is the first stamp of the frame that starts
+  the step. It picks among the rest as continuation does, and in one state owner step
+  takes the clock's claim and takes over the open segments of the keys on that clock, as
+  at open, so no other open takes the clock between three quarters of P and the move,
+  and makes the files of the keys whose segment there is sealed, missing, or of another
+  type. If no clock is left, it leases a key and makes the files. At P pauses the keys
+  move to that clock at the first commit after its files exist. Their open segments on
+  the clock they leave stay open, and the writer still holds them (§5.4, invariant 6),
+  so the switch cannot seal them ahead of their last Commits. A move back or a later
+  open after its `Close` takes them over, and a script that runs again reuses its clocks
+  and files. The writer then stores the group's stamps on that clock for each frame that
+  holds one of its keys: the one copy of stored stamps, at most one per cohort of keys
+  that moved together per frame, until the keys rejoin the group's clock at the next
+  open. A clock stores no stamps for a frame in which no key on it has a sample. A file
+  that the step made and no move used is a spare, which a close removes.
 - **Segments**: An open segment belongs to one writer, its holder (§5.4, invariant 6).
   At open, a later session with the same key, type, and clock key takes it over only
   after the commits of the earlier writer are durable. At a handoff, the gainer takes it
@@ -925,19 +926,21 @@ open made ready for the key (Segments, below).
   have two open segments. A background step makes and opens one spare file for each held
   segment past three quarters of a §5.1 limit, by its pointers, its sample bytes, or the
   span of its stamps, as a pause move makes its files at three quarters of P, and a roll
-  at that limit takes it. A spare takes its identity when the step makes it, since a
-  file name is its identity and no file is renamed. A segment that its holder no longer
-  writes, such as a left segment of a pause move or a kept segment of a cross-clock
-  loser, gets no spare. So a session that ends far from a limit, such as one call of a
-  `client.write` loop, makes and removes no file. A roll with no spare, such as a burst
+  at that limit, or a takeover at it (D-537), takes it for the next segment. A spare
+  belongs to its segment, not to a session: a close keeps the spare of each segment that
+  stays open, the next takeover inherits it, and only a seal, the roll or takeover that
+  takes it, or the orphan pass removes it, so each segment makes at most one spare. A
+  spare takes its identity when the step makes it, since a file name is its identity and
+  no file is renamed. A segment that its holder no longer writes, such as a left segment
+  of a pause move or a kept segment of a cross-clock loser, gets no spare. So a call of
+  a `client.write` loop makes and removes no file. A roll with no spare, such as a burst
   that crosses the last quarter before the step runs, makes its file in the write. A
   writer makes at open the files of its new clocks and of each key new to a clock. For a
   key that another writer holds, the open takes over the key's newest open segment on
   the writer's clock that no writer holds, with the checks of a takeover, and makes a
   file only when there is none. So handoffs onto a clock continue one open segment per
   key until a §5.1 limit, and a move back to the loser continues the segment that it
-  kept. A close removes its unused spares, and the orphan pass (§5.5 step 10) removes
-  any that a crash leaves.
+  kept. The orphan pass (§5.5 step 10) removes a spare that a crash leaves.
 - **At open**: Cesium refuses a writer whose start lies in stored data of one of its
   keys, a `Bounded` claim that starts inside another claim, and a group whose key of
   stored stamps times itself, naming that key, so no data takes a self-timed key as its
