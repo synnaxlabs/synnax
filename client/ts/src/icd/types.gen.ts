@@ -51,6 +51,18 @@ export const checksumZ = z.object({
 });
 export interface Checksum extends z.infer<typeof checksumZ> {}
 
+/** Poll is a query that a read task sends at a fixed rate. */
+export const pollZ = z.object({
+  /**
+   * query is the request that the device must receive before it answers. The task
+   * frames it with the framing of the ICD.
+   */
+  query: binary.bytesZ.check(zod.minBytes(1)),
+  /** rate is how often the task sends the query, in Hertz. */
+  rate: z.number().gt(0).default(1),
+});
+export interface Poll extends z.infer<typeof pollZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -864,6 +876,23 @@ export const BINARY_FIELD_SCHEMAS: {
   unsigned: unsignedBinaryFieldZ,
 };
 
+/** ReadEntry reads the messages of one device on a serial port or a socket. */
+export const readEntryZ = z.object({
+  /** icd is the key of the ICD that holds the messages of the entry. */
+  icd: keyZ,
+  /**
+   * messages are the messages the device sends. Each frame is read as the message whose
+   * match rule it meets.
+   */
+  messages: readMessageZ.array().default(() => []),
+  /**
+   * poll is the query that asks the device to send. Absent when the device sends on its
+   * own.
+   */
+  poll: pollZ.optional(),
+});
+export interface ReadEntry extends z.infer<typeof readEntryZ> {}
+
 /** WriteMessage sends one message of an ICD. */
 export const writeMessageZ = z.object({
   /** message is the key of the ICD message to send. */
@@ -934,6 +963,20 @@ export const PAYLOAD_SCHEMAS: {
   text: textPayloadZ,
   json: jsonPayloadZ,
 };
+
+/** WriteTarget sends one message to one device on a serial port or a socket. */
+export const writeTargetZ = z.object({
+  /** icd is the key of the ICD that holds the message. */
+  icd: keyZ,
+  /** message is the message the target sends. */
+  message: writeMessageZ,
+  /**
+   * period is how often the target sends the message, with the last command of each
+   * bound channel. Absent when the target sends one message for each command.
+   */
+  period: telem.numericTimeSpanZ.check(z.gt(0)).optional(),
+});
+export interface WriteTarget extends z.infer<typeof writeTargetZ> {}
 
 /** Message is the layout of one message a system sends or receives. */
 export const messageZ = z.object({

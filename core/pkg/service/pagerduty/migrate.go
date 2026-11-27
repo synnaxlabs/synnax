@@ -19,23 +19,16 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 )
-
-// TaskNames returns the name of each task in keys, by key. It returns an error when a
-// key names no task.
-type TaskNames func(
-	ctx context.Context,
-	tx gorp.Tx,
-	keys []uuid.UUID,
-) (map[uuid.UUID]string, error)
 
 // SecretMigration returns the migration that moves each staged plain routing key into a
 // new secret named after the task of its config, and deletes the staged key. It makes
 // no secret for a config that no longer exists. It reads task names through names, so
 // it must run after the task table migrates.
-func (s *Service) SecretMigration(names TaskNames) gorp.Migration {
+func (s *Service) SecretMigration(names config.TaskNames) gorp.Migration {
 	return migrate.New(
 		"v62_pagerduty_routing_key_secrets",
 		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {

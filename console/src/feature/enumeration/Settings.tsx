@@ -33,10 +33,11 @@ import {
 } from "react";
 
 import { useDeleteModal } from "@/feature/enumeration/Delete";
+import { Collection } from "@/platform/collection";
 import { ContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
-import { Settings as PlatformSettings } from "@/platform/settings";
+import { UsedBy } from "@/platform/used-by";
 
 /** @returns whether a stored built-in differs from its shipped name or entries. */
 const edited = (
@@ -81,7 +82,7 @@ const Item = ({
   const builtin = use(ShippedContext).get(e.key);
   const canUpdate = Access.useUpdateGranted(enumeration.resourceID(e.key));
   const { update: rename } = Enumeration.useRename();
-  const itemClass = PlatformSettings.useItemClass(e.key);
+  const itemClass = Collection.useItemClass(e.key);
   const [element, setElement] = useState<HTMLElement | null>(null);
   const handleKeyDown = (ev: KeyboardEvent<HTMLElement>): void => {
     if (ev.target !== ev.currentTarget) return;
@@ -133,10 +134,10 @@ const Item = ({
             </Text.Text>
           </List.Cell>
           <List.Cell>
-            <PlatformSettings.UsedBy
+            <UsedBy.Popover
               itemKey={e.key}
               kind="enumeration"
-              uses={e.uses}
+              uses={e.uses?.map((id) => ({ id }))}
               anchor={element}
             />
           </List.Cell>
@@ -163,7 +164,7 @@ interface CreateFormProps {
 }
 
 const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
-  const { close, creating, created } = PlatformSettings.useCreate();
+  const { close, creating, created } = Collection.useCreate();
   const { updateAsync, variant } = Enumeration.useCreate();
   const [name, setName] = useState("");
   const handleSave = (): void => {
@@ -179,9 +180,9 @@ const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
       onCreated(key);
     })();
   };
-  const onKeyDown = PlatformSettings.useCreateKeyDown(handleSave);
+  const onKeyDown = Collection.useCreateKeyDown(handleSave);
   return (
-    <PlatformSettings.CreateFrame>
+    <Collection.CreateFrame>
       <Flex.Box x align="center" gap="medium">
         <Input.Text
           value={name}
@@ -192,9 +193,9 @@ const CreateForm = ({ onCreated }: CreateFormProps): ReactElement => {
           grow
           onKeyDown={onKeyDown}
         />
-        <PlatformSettings.CreateActions onSave={handleSave} status={variant} />
+        <Collection.CreateActions onSave={handleSave} status={variant} />
       </Flex.Box>
-    </PlatformSettings.CreateFrame>
+    </Collection.CreateFrame>
   );
 };
 
@@ -232,7 +233,7 @@ const SettingsMenu = ({ keys }: Menu.ContextMenuMenuProps): ReactElement => {
       {single != null && (
         <Menu.Item
           itemKey="usedBy"
-          onClick={() => Dialog.open(PlatformSettings.usedByDialogID(single.key))}
+          onClick={() => Dialog.open(UsedBy.dialogID(single.key))}
         >
           <Icon.Link />
           Used by
@@ -308,7 +309,7 @@ export const Settings = (): ReactElement => {
   };
   return (
     <ShippedContext value={shipped}>
-      <PlatformSettings.Table<enumeration.Key, enumeration.Enumeration>
+      <Collection.Table<enumeration.Key, enumeration.Enumeration>
         list={{
           ...list,
           search: handleSearch,
@@ -336,7 +337,7 @@ export const Settings = (): ReactElement => {
             />
           );
         }}
-      </PlatformSettings.Table>
+      </Collection.Table>
     </ShippedContext>
   );
 };

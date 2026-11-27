@@ -15,7 +15,11 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type CrudeTimeSpan, deep, type payload, TimeSpan } from "@synnaxlabs/x";
 import type { ReactElement } from "react";
 
-import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
+import {
+  FormattedField,
+  orError,
+  parseUnsigned,
+} from "@/feature/icd/editor/FormattedField";
 import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
 import { CSS } from "@/platform/css";
 import { ICD } from "@/platform/icd";
@@ -120,7 +124,9 @@ export const Message = ({ path }: MessageProps): ReactElement => {
                 unit="bytes"
                 optional
                 format={String}
-                parse={parseInteger}
+                parse={(text) =>
+                  orError(parseUnsigned(text), "Length must be a whole number of bytes")
+                }
               />
             </Flex.Box>
             <IdentifierFields path={binary} />

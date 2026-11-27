@@ -174,49 +174,17 @@ const resolveLooks = (
 };
 
 // resolvePaints returns the paints of spec at ctx.value as band shows them, in the
-// order that they apply. An override replaces the looks with its regions.
+// order that they apply.
 const resolvePaints = (
   spec: schematic.symbol.Spec,
-  override: schematic.symbol.StateOverride | undefined,
   ctx: PaintContext,
   band: Band,
 ): Paint[] => {
-  // An override color draws as a `color` paint does.
-  const overridden = (field: Field, c: color.Color | undefined) =>
-    c != null && banded(field, "color", band.builtIn)
-      ? theme.legible(c, band.theme)
-      : c;
-  if (override != null)
-    return override.regions.map(({ selectors, strokeColor, fillColor }) => ({
-      selectors,
-      stroke: overridden("stroke", strokeColor),
-      fill: overridden("fill", fillColor),
-    }));
   const parts = new Map(spec.parts.map((p) => [p.key, p]));
   return resolveLooks(spec, ctx, band).map(({ part, ...rest }) => ({
     selectors: part == null ? undefined : (parts.get(part)?.selectors ?? []),
     ...rest,
   }));
-};
-
-/**
- * @returns a region for each part of spec, with the colors that its looks give it at
- * ctx.value, before the theme band.
- */
-export const resolveRegions = (
-  spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks">,
-  ctx: PaintContext,
-): schematic.symbol.Region[] => {
-  const looks = resolveLooks(spec, ctx);
-  return spec.parts.map(({ key, name, selectors }) => {
-    const region: schematic.symbol.Region = { key, name, selectors };
-    for (const look of looks) {
-      if (look.part != null && look.part !== key) continue;
-      region.strokeColor = look.stroke ?? region.strokeColor;
-      region.fillColor = look.fill ?? region.fillColor;
-    }
-    return region;
-  });
 };
 
 /** Value is a value of a symbol's state that its node draws. */
@@ -226,23 +194,11 @@ export interface Value {
   name: string;
 }
 
-const UNNAMED: Value[] = [
+/** UNNAMED_VALUES are the values of a state with no enumeration. */
+export const UNNAMED_VALUES: readonly Value[] = [
   { key: "base", value: 0, name: "Base" },
   { key: "active", value: 1, name: "Active" },
 ];
-
-/**
- * @returns the values that the node of spec draws: Base and Active for an actuator, and
- * Base for a static symbol. A value takes the key and name of its entry in entries.
- */
-export const listValues = (
-  spec: Pick<schematic.symbol.Spec, "variant">,
-  entries: enumeration.Entry[] = [],
-): Value[] =>
-  UNNAMED.slice(0, spec.variant === "actuator" ? 2 : 1).map((v) => {
-    const entry = entries.find((e) => e.value === v.value);
-    return entry == null ? v : { key: entry.key, value: v.value, name: entry.name };
-  });
 
 const enumerationKeys = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
@@ -256,7 +212,7 @@ const enumerationKeys = (
  * while the enumerations of its states load. An entry with no color draws nodeColor,
  * else the theme gray. An enumeration that fails to load gives its entries no color.
  */
-export const usePaintContext = (
+const usePaintContext = (
   spec: Pick<schematic.symbol.Spec, "states"> | undefined,
   nodeColor?: color.Crude,
 ): Omit<PaintContext, "value"> | undefined => {
@@ -304,25 +260,9 @@ export const useUnmatched = (
   });
 };
 
-/**
- * @returns a region for each part of spec, with the colors that its looks give it at
- * value, or undefined while spec or the enumerations of its states load.
- */
-export const useRegions = (
-  spec: Pick<schematic.symbol.Spec, "parts" | "states" | "looks"> | undefined,
-  value: number,
-): schematic.symbol.Region[] | undefined => {
-  const ctx = usePaintContext(spec);
-  return useMemoDeepEqual(
-    spec == null || ctx == null ? undefined : resolveRegions(spec, { ...ctx, value }),
-  );
-};
-
 const NO_PAINTS: Paint[] = [];
 
 export interface UsePaintsParams {
-  /** override replaces the looks with its regions. */
-  override?: schematic.symbol.StateOverride;
   /**
    * nodeColor is the color that `node` paint draws. An entry with no color draws it,
    * else the theme gray.
@@ -342,13 +282,13 @@ export interface UsePaintsParams {
 export const usePaints = (
   spec: schematic.symbol.Spec | undefined,
   value: StateValues,
-  { override, nodeColor, builtIn = false }: UsePaintsParams = {},
+  { nodeColor, builtIn = false }: UsePaintsParams = {},
 ): Paint[] => {
   const ctx = usePaintContext(spec, nodeColor);
   const t = Theming.use();
   return useMemoDeepEqual(
     spec == null || ctx == null
       ? NO_PAINTS
-      : resolvePaints(spec, override, { ...ctx, value }, { theme: t, builtIn }),
+      : resolvePaints(spec, { ...ctx, value }, { theme: t, builtIn }),
   );
 };

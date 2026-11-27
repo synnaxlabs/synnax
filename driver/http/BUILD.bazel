@@ -40,7 +40,6 @@ cc_library(
         "//x/cpp/loop",
         "//x/cpp/payload",
         "//x/cpp/strings",
-        "//x/cpp/uuid",
         "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
@@ -75,7 +74,6 @@ cc_test(
         "//driver/pipeline/testutil",
         "//x/cpp/breaker",
         "//x/cpp/defer",
-        "//x/cpp/payload",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
@@ -93,6 +91,7 @@ cc_test(
     tags = ["requires-core"],
     deps = [
         ":http",
+        "//client/cpp/icd",
         "//client/cpp/testutil",
         "//driver/errors",
         "//driver/http/errors",

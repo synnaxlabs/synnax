@@ -9,6 +9,8 @@
 
 """Symbol Editor modal client for creating and editing custom symbols."""
 
+import re
+
 from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 from console import color
@@ -243,12 +245,52 @@ class SymbolEditor:
         scale_input.fill(str(scale_percent))
         self.page.keyboard.press("Enter")
 
-    def set_state(self, state: str) -> None:
-        """Set the symbol state type (Static or Actuator).
+    @property
+    def _inspector(self) -> Locator:
+        return self.modal.locator(".console-schematic-inspector")
 
-        :param state: The state type - "Static" or "Actuator"
+    def _add_item(self, title: str, name: str | None = None) -> None:
+        """Click the add button of the list with the title, such as "States", and name
+        the new item when the list names its items.
         """
-        self.modal.get_by_role("button", name=state, exact=True).click()
+        header = self.modal.locator(".lyra-header").filter(has_text=title)
+        header.locator("button").first.click()
+        if name is None:
+            return
+        editable = self.modal.locator(self.layout.EDITABLE_SELECTOR)
+        editable.wait_for(state="visible", timeout=5000)
+        editable.fill(name)
+        self.page.keyboard.press("Enter")
+        self.layout.wait_for_hidden(editable)
+
+    def add_command(self, name: str, *, state: str, value: str) -> None:
+        """Add a command that sends a fixed value on a state.
+
+        :param name: Name of the command, such as "On".
+        :param state: Name of the state that the command changes, such as "Active",
+            which a new symbol has.
+        :param value: Name of the value that the command sends, such as "Active". A
+            state with no enumeration names 0 "Base" and 1 "Active".
+        """
+        self._add_item("Commands", name)
+        self.modal.get_by_role("option").filter(
+            has=self.page.get_by_text(name, exact=True)
+        ).click()
+        self._inspector.get_by_role("heading", name=name, exact=True).wait_for(
+            state="visible", timeout=5000
+        )
+        self._inspector.get_by_role("button", name=re.compile(r"^State")).click()
+        self.layout.select_from_dropdown(state, exact=True)
+        self._inspector.get_by_role("button", name=re.compile(r"^Fixed value")).click()
+        self.layout.select_from_dropdown(value, exact=True)
+
+    def add_toggle_click(self) -> None:
+        """Add a click that toggles between the first command and the other command on
+        its state. The click goes on the first free target: the whole drawing, when no
+        click holds it.
+        """
+        self._add_item("Clicks")
+        self._inspector.get_by_role("button", name="Toggle", exact=True).click()
 
     def save(self) -> None:
         """Click Save/Create button to save the symbol."""

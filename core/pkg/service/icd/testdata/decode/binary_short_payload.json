@@ -1,0 +1,38 @@
+{
+  "description": "A payload too short for a field with no default fails after it matches its message.",
+  "messages": [
+    {
+      "name": "frame",
+      "payload": {
+        "format": "binary",
+        "fields": [
+          {
+            "key": "00000000-0000-4000-8000-000000000001",
+            "name": "rpm",
+            "scale": 1,
+            "offset": 0,
+            "units": "",
+            "multiplex_values": [],
+            "start_bit": 8,
+            "bit_length": 16,
+            "byte_order": "little_endian",
+            "kind": "unsigned"
+          }
+        ]
+      },
+      "bindings": [
+        {
+          "field": "00000000-0000-4000-8000-000000000001",
+          "data_type": "uint16"
+        }
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "hex": "0102",
+      "message": "frame",
+      "error": "field rpm: the payload has 2 bytes and the field needs 3: validation error"
+    }
+  ]
+}

@@ -13,21 +13,68 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/samber/lo"
 	servicecolor "github.com/synnaxlabs/synnax/pkg/service/color/versions/v0"
-	symbolv4 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v4"
-	symbol "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 	v13 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v13"
 	xcolor "github.com/synnaxlabs/x/color/versions/v2"
+	"github.com/synnaxlabs/x/set"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 )
 
 // MigrateSchematic lifts a v13 schematic to v14, which stores each stroke, fill, text,
 // level, and axis color of an edge, shape, or readout as a color reference. Each such
 // color becomes a fixed color, and an absent color stays absent. It drops the staleness
-// color.
+// color. It turns a switch upright; see uprightSwitches.
 func MigrateSchematic(ctx context.Context, old v13.Schematic) (Schematic, error) {
-	return autoMigrateSchematic(ctx, old)
+	s, err := autoMigrateSchematic(ctx, old)
+	if err != nil {
+		return Schematic{}, err
+	}
+	uprightSwitches(&s, old)
+	return s, nil
+}
+
+// upright maps each orientation that the old switch node did not draw to the one it
+// drew.
+var upright = map[spatial.OuterLocation]spatial.OuterLocation{
+	spatial.OuterLocationRight:  spatial.OuterLocationLeft,
+	spatial.OuterLocationBottom: spatial.OuterLocationTop,
+}
+
+// uprightSwitches turns a switch that faced right to face left, and one that faced
+// bottom to face top, as the old switch node drew it. The old node turned its handles
+// with the stored orientation, so each edge end at a turned switch swaps handles 1 and
+// 2 to stay where it was drawn.
+func uprightSwitches(s *Schematic, old v13.Schematic) {
+	turned := set.Set[string]{}
+	for i, n := range old.Nodes {
+		if _, ok := n.Config.Variant.(v13.SwitchNodeConfig); !ok {
+			continue
+		}
+		cfg := as[SymbolNodeConfig](s.Nodes[i].Config.Variant)
+		o, ok := upright[cfg.Orientation]
+		if !ok {
+			continue
+		}
+		cfg.Orientation = o
+		s.Nodes[i].Config.Variant = cfg
+		turned.Add(n.Key)
+	}
+	for i := range s.Edges {
+		swapSwitchHandle(&s.Edges[i].Source, turned)
+		swapSwitchHandle(&s.Edges[i].Target, turned)
+	}
+}
+
+func swapSwitchHandle(h *Handle, turned set.Set[string]) {
+	if !turned.Contains(h.Node) {
+		return
+	}
+	switch h.Param {
+	case "1":
+		h.Param = "2"
+	case "2":
+		h.Param = "1"
+	}
 }
 
 // MigrateNode lifts a v13 node to v14.
@@ -80,17 +127,9 @@ func MigrateStalenessConfig(
 	return autoMigrateStalenessConfig(ctx, old)
 }
 
-// MigrateToggleConfig lifts a v13 toggle config to v14. See MigrateStalenessConfig.
-func MigrateToggleConfig(
-	ctx context.Context,
-	old v13.ToggleConfig,
-) (ToggleConfig, error) {
-	return autoMigrateToggleConfig(ctx, old)
-}
-
 // MigrateNodeConfig lifts a v13 node config to v14. An equipment node becomes a symbol
-// node; see SymbolNode. See MigrateSchematic for colors. A custom node keeps its state
-// overrides. The bounds of a gauge or tank become closed bounds; see closed.
+// node; see SymbolNode. See MigrateSchematic for colors. The bounds of a gauge or tank
+// become closed bounds; see closed.
 func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, error) {
 	n, ok, err := SymbolNode(old)
 	if err != nil {
@@ -110,7 +149,6 @@ func MigrateNodeConfig(ctx context.Context, old v13.NodeConfig) (NodeConfig, err
 	} else {
 		cfg.Variant = migrateReadoutColors(old.Variant, cfg.Variant)
 	}
-	cfg.Variant = migrateCustomStates(old.Variant, cfg.Variant)
 	return cfg, nil
 }
 
@@ -209,29 +247,6 @@ func migrateReadoutColors(
 		return n
 	}
 	return migrated
-}
-
-func migrateCustomStates(
-	old v13.NodeConfigVariant,
-	migrated NodeConfigVariant,
-) NodeConfigVariant {
-	switch o := old.(type) {
-	case v13.CustomActuatorNodeConfig:
-		n := as[CustomActuatorNodeConfig](migrated)
-		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
-		return n
-	case v13.CustomStaticNodeConfig:
-		n := as[CustomStaticNodeConfig](migrated)
-		n.StateOverrides = migrateStateOverrides(o.StateOverrides)
-		return n
-	}
-	return migrated
-}
-
-func migrateStateOverrides(old []symbolv4.State) []symbol.StateOverride {
-	return lo.Map(old, func(s symbolv4.State, _ int) symbol.StateOverride {
-		return symbol.StateOverride{Key: s.Key, Name: s.Name, Regions: s.Regions}
-	})
 }
 
 // as returns a migrated variant as a T. It panics when v is not a T, since a generated

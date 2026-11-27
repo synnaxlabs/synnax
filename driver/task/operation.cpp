@@ -197,7 +197,7 @@ void Operation::check(const x::telem::TimeStamp now) {
     }
 }
 
-std::vector<synnax::task::Command> Operation::close() {
+std::vector<synnax::task::Command> Operation::close(const std::string &deployed_hash) {
     std::lock_guard write_lock{this->write_mu};
     synnax::task::Status status;
     std::vector<std::string> keys;
@@ -215,7 +215,7 @@ std::vector<synnax::task::Command> Operation::close() {
         status.owner = synnax::task::resource_id(this->task);
         status.name = this->name;
         status.details.running = false;
-        status.details.config_hash = this->config_hash;
+        status.details.config_hash = deployed_hash;
         if (this->stopped) {
             this->stop_answered = true;
             status.variant = synnax::status::VARIANT_SUCCESS;

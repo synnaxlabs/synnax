@@ -23,6 +23,8 @@ export interface BarProps extends Flex.BoxProps {
   running: boolean;
   /** Shows the redeploy button when the deployed config is stale. */
   drifted?: boolean;
+  /** Names the start action "Deploy and start", for changes that a start deploys. */
+  startDeploys?: boolean;
   /** Replaces the redeploy button's tooltip, to say what is stale. */
   redeployTooltip?: ReactNode;
   /** Hides the action row entirely, for a caller that cannot command the task. */
@@ -50,6 +52,7 @@ export const Bar = ({
   status: stat,
   running,
   drifted = false,
+  startDeploys = false,
   redeployTooltip,
   hideActions = false,
   disabled = false,
@@ -90,6 +93,7 @@ export const Bar = ({
               />
               <StartStopButton
                 running={stoppable}
+                deploys={startDeploys}
                 onClick={handleStartStop}
                 disabled={disabled}
                 statusVariant={loading ? undefined : startStopVariant}

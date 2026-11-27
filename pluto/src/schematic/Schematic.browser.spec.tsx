@@ -25,9 +25,10 @@ import { createAsyncSynnaxWrapper } from "@/testutil";
 import { diagram } from "@/vis/diagram/aether";
 import { latestSample } from "@/vis/latestSample/aether";
 import { canvasTest } from "@/vis/render/testutil";
+import { setpoint } from "@/vis/setpoint/aether";
 import { stalenessTest } from "@/vis/staleness/aether/testutil";
 import { symbolNode } from "@/vis/symbolNode/aether";
-import { toggle } from "@/vis/toggle/aether";
+import { value } from "@/vis/value/aether";
 
 const client = createTestClient();
 
@@ -105,7 +106,7 @@ const renderSchematic = async (
   return { key, utils };
 };
 
-// Stand in for the worker components of a toggle tooltip.
+// Stand in for the worker components of a setpoint readback and tooltip.
 const looseZ = z.object({}).loose();
 
 class StubLatestSample extends aether.Leaf<typeof looseZ> {
@@ -114,7 +115,8 @@ class StubLatestSample extends aether.Leaf<typeof looseZ> {
 }
 
 const STALE_REGISTRY: aether.ComponentRegistry = {
-  ...stalenessTest.createRegistry(toggle.Toggle.TYPE, toggle.toggleStateZ),
+  ...setpoint.REGISTRY,
+  ...stalenessTest.createRegistry(value.Value.TYPE, value.Value.z),
   ...controlTest.createRegistry(),
   [StubLatestSample.TYPE]: StubLatestSample,
 };
@@ -215,17 +217,23 @@ describe("Schematic", () => {
   });
 
   it("should keep the tooltip over the stale badge and close it over the chip", async () => {
-    const command = await client.channels.create({
-      name: id.create(),
-      dataType: DataType.UINT8,
-      virtual: true,
-    });
+    const [command, state] = await client.channels.create(
+      [id.create(), id.create()].map((name) => ({
+        name,
+        dataType: DataType.UINT8,
+        virtual: true,
+      })),
+    );
     const { utils } = await renderSchematic(
       [
         {
           key: "v1",
           position: xy.ZERO,
-          config: { variant: "valve", commandChannel: command.key },
+          config: {
+            variant: "setpoint",
+            commandChannel: command.key,
+            stateChannel: state.key,
+          },
         },
       ],
       { editable: false, registry: STALE_REGISTRY },
@@ -259,7 +267,6 @@ describe("Schematic", () => {
               '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10">' +
               '<rect class="lamp" width="10" height="10" /></svg>',
           },
-          variant: "static",
           parts: [{ key: "lamp", name: "Lamp", selectors: [".lamp"] }],
           states: [{ type: "number", key: "level", name: "Level" }],
           commands: [

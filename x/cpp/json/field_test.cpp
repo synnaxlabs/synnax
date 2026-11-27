@@ -707,6 +707,20 @@ TEST(Decoder, RejectsStringOfTwoNumbersForNumber) {
     ASSERT_EQ(err.data, "invalid number \"1 2\"");
 }
 
+/// @brief it should reject a quoted decimal with an exponent past -2^20.
+TEST(Decoder, RejectsQuotedDecimalPastSmallestExponent) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("1e-1048577")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid number \"1e-1048577\"");
+}
+
+/// @brief it should reject a quoted hex number with an exponent past -2^20.
+TEST(Decoder, RejectsQuotedHexPastSmallestExponent) {
+    const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("0x1p-1048577")");
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid number \"0x1p-1048577\"");
+}
+
 /// @brief it should reject a hex prefix with no digits for a number.
 TEST(Decoder, RejectsHexPrefixWithNoDigitsForNumber) {
     const auto err = decode_error({.data_type = telem::FLOAT64_T}, R"("0x")");
@@ -875,6 +889,16 @@ TEST(Decoder, RejectsUnixSecondsPastTimestamp) {
     );
     ASSERT_OCCURRED_AS(err, errors::VALIDATION);
     ASSERT_EQ(err.data, "1e12 is out of range for a unix_sec timestamp");
+}
+
+/// @brief it should reject Unix seconds with an exponent past -2^20.
+TEST(Decoder, RejectsUnixSecondsPastSmallestExponent) {
+    const auto err = decode_error(
+        {.data_type = telem::TIMESTAMP_T, .time_format = TimeFormat::UnixSecond},
+        "1e-1048577"
+    );
+    ASSERT_OCCURRED_AS(err, errors::VALIDATION);
+    ASSERT_EQ(err.data, "invalid number \"1e-1048577\"");
 }
 
 /// @brief it should reject infinity in Unix seconds.

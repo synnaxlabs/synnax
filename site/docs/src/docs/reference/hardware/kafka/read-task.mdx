@@ -59,8 +59,8 @@ The task reads a field into a channel only when the record binds the field to on
    becomes the index of the message.
 4. Click <Icon.Play /> (**Start**).
 
-The first message creates an ICD named after the task. For a topic with no records yet,
-click **Add an empty record** in the dialog, then click **Add field** to set the
+The first message creates an ICD named after the device. For a topic with no records
+yet, click **Add an empty record** in the dialog, then click **Add field** to set the
 **Name**, **Pointer**, and **Type** of each field.
 
 A key with no record of its own goes to the **Any key** record of its topic. The dialog
@@ -102,39 +102,34 @@ field = icd.FloatJSONField(name="temperature", pointer="/temperature")
 oven = icd.Message(name="Oven", payload=icd.JSONPayload(fields=[field]))
 plant = client.icds.create(icd.ICD(name="Plant", messages=[oven]))
 
-task = client.tasks.create(
+task = kafka.ReadTask(
     name="Oven read",
-    type="kafka_read",
-    rack=cluster.rack,
-    config=kafka.ReadConfig(
-        device=cluster.key,
-        topics=[
-            kafka.ReadTopic(
-                name="sensor-readings",
-                records=[
-                    kafka.ReadRecord(
-                        record_key="oven",
-                        icd=plant.key,
-                        messages=[
-                            icd.ReadMessage(
-                                message=oven.key,
-                                bindings=[
-                                    icd.ReadBinding(
-                                        field=field.key, channel=temperature.key
-                                    )
-                                ],
-                            )
-                        ],
-                    )
-                ],
-            )
-        ],
-    ),
+    device=cluster.key,
+    topics=[
+        kafka.ReadTopic(
+            name="sensor-readings",
+            records=[
+                kafka.ReadRecord(
+                    record_key="oven",
+                    icd=plant.key,
+                    messages=[
+                        icd.ReadMessage(
+                            message=oven.key,
+                            bindings=[
+                                icd.ReadBinding(
+                                    field=field.key, channel=temperature.key
+                                )
+                            ],
+                        )
+                    ],
+                )
+            ],
+        )
+    ],
 )
+client.tasks.configure(task)
 task.start()
 ```
-
-Pass `rack=cluster.rack`. With no rack, Python picks the embedded rack that runs Kafka.
 
   </Fragment>
   <Fragment slot="typescript">

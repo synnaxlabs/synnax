@@ -213,21 +213,6 @@ export const getSwitchInput = (labelText: string): HTMLInputElement =>
   getBySelector<HTMLInputElement>(getInputItem(labelText), "input[type='checkbox']");
 
 /**
- * Finds the icon-only action button inside the pluto header titled title. Task form
- * headers stack multiple icon buttons with no accessible names.
- */
-export const getHeaderIconButton = (
-  title: string,
-  icon: string = "add",
-): HTMLButtonElement => {
-  const header = screen
-    .getByText(title)
-    .closest(".lyra-header, .lyra-form-section__header");
-  if (header == null) throw new Error(`no header titled ${title}`);
-  return getIconButton(header, icon);
-};
-
-/**
  * Reports whether the pluto select button showing `label` is currently selected.
  * jsdom applies no CSS, so selection must be asserted through the class flip.
  */

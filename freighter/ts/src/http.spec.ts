@@ -17,6 +17,7 @@ import { z } from "zod";
 import {
   type FetchResponse,
   HTTPClient,
+  NoTLS,
   Timeout,
   unaryWithBreaker,
   Unreachable,
@@ -101,6 +102,41 @@ describe("http", () => {
     const send = c.send("/unreachable", {}, messageZ, messageZ);
     await expect(send).rejects.toThrow(Unreachable);
     await expect(send).rejects.toThrow("Unreachable");
+  });
+
+  describe("node fetch errors", () => {
+    const failWith = (code: string): Promise<unknown> =>
+      new HTTPClient({
+        endpoint: ENDPOINT,
+        codec: new binary.JSONCodec(),
+        secure: true,
+        connector: {
+          fetch: async () => {
+            const cause = Object.assign(new Error(code), { code });
+            throw new TypeError("fetch failed", { cause });
+          },
+          dial: async () => {
+            throw new Error("unused");
+          },
+        },
+      }).send("/echo", {}, messageZ, messageZ);
+
+    test.each(["ERR_SSL_WRONG_VERSION_NUMBER", "ERR_SSL_PACKET_LENGTH_TOO_LONG"])(
+      "throws no TLS for %s",
+      async (code) => {
+        await expect(failWith(code)).rejects.toThrow(NoTLS);
+        await expect(failWith(code)).rejects.toThrow(
+          `The Core at ${ENDPOINT.host}:${ENDPOINT.port} does not use TLS`,
+        );
+      },
+    );
+
+    test.each(["ECONNREFUSED", "ECONNRESET", "ETIMEDOUT"])(
+      "throws unreachable for %s",
+      async (code) => {
+        await expect(failWith(code)).rejects.toThrow(Unreachable);
+      },
+    );
   });
 
   describe("deno fetch errors", () => {
