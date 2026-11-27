@@ -235,7 +235,6 @@ func (idx *index) insert(
 	if !appended {
 		change = historyChange{ctx: ctx, tr: p.TimeRange}
 	}
-	idx.checkApart(insertAt, insertAt)
 	change = idx.unprotectedStage(p, nil, g, change)
 	idx.totalSize.Add(int64(p.size))
 	idx.persistHead = min(idx.persistHead, insertAt)
@@ -248,21 +247,24 @@ func (idx *index) insert(
 	return write, nil
 }
 
-// checkApart panics when a pointer from i to j, or a neighbor of one, ends before it
-// starts or after the next pointer starts. It checks only in a build with the
-// invariants or race tag. The caller must hold idx.mu.
+// checkApart panics when a pointer from i to j ends before it starts, or when a pointer
+// from i to j+1 starts before the one before it ends. A splice that wrote the pointers
+// from i to j calls it. It checks only in a build with the invariants or race tag. The
+// caller must hold idx.mu.
 func (idx *index) checkApart(i, j int) {
 	if !invariants.Enabled {
 		return
 	}
 	ptrs := idx.mu.pointers
-	for k := max(i-1, 0); k <= min(j+1, len(ptrs)-1); k++ {
+	for k := i; k <= j; k++ {
 		if ptrs[k].End < ptrs[k].Start {
 			panic(
 				errors.Newf("domain pointer %d ends before it starts: %v", k, ptrs[k]),
 			)
 		}
-		if k > 0 && ptrs[k-1].End > ptrs[k].Start {
+	}
+	for k := max(i, 1); k <= min(j+1, len(ptrs)-1); k++ {
+		if ptrs[k-1].End > ptrs[k].Start {
 			panic(errors.Newf(
 				"domain pointers %d and %d are not sorted and apart: %v and %v",
 				k-1,
@@ -364,7 +366,6 @@ func (idx *index) update(
 	sizeDelta := int64(p.size) - int64(oldP.size)
 	p.id = oldP.id
 	idx.mu.pointers[updateAt] = p
-	idx.checkApart(updateAt, updateAt)
 	idx.totalSize.Add(sizeDelta)
 	var change historyChange
 	// The live stream carries commits to the last domain.
