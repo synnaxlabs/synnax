@@ -9,37 +9,27 @@
 
 import { uuid } from "@synnaxlabs/x";
 import { assertDefined } from "@synnaxlabs/x/testutil";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { HTTP } from "@/feature/http";
-import type { FLAGS } from "@/flags";
 
-vi.mock("@/flags/flags", async (importOriginal) => ({
-  ...(await importOriginal<typeof FLAGS>()),
-  icds: false,
-}));
-
-describe("plotChannels with the ICD flag off", () => {
-  it("should find the enabled fields of an endpoint that reads an ICD", () => {
+describe("plotChannels", () => {
+  it("should find the bound channels of the messages of each enabled endpoint", () => {
     const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
     assertDefined(plotChannels, "read tasks have no channels to plot");
+    const read = (...messages: number[][]) => ({
+      icd: uuid.create(),
+      messages: messages.map((channels) => ({
+        message: uuid.create(),
+        bindings: channels.map((channel) => ({ field: uuid.create(), channel })),
+      })),
+    });
     const config = {
       endpoints: [
-        {
-          icd: uuid.create(),
-          messages: [
-            {
-              message: uuid.create(),
-              bindings: [{ field: uuid.create(), channel: 1 }],
-            },
-          ],
-          fields: [
-            { channel: 2, disabled: false },
-            { channel: 3, disabled: true },
-          ],
-        },
+        { ...read([1, 0], [4]), fields: [{ channel: 2, disabled: false }] },
+        { ...read([5]), disabled: true },
       ],
     };
-    expect(plotChannels(config)).toEqual([2]);
+    expect(plotChannels(config)).toEqual([1, 4]);
   });
 });

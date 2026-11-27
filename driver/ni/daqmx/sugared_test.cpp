@@ -79,8 +79,8 @@ TEST(SugaredAPITest, testParsesPositiveStatus) {
     api->start_status = 200123;
     SugaredAPI dmx(api);
     const auto err = dmx.StartTask(nullptr);
-    EXPECT_EQ(err.type, CRITICAL_ERROR.sub("200123").type);
-    EXPECT_EQ(err.data, ERROR_MESSAGE);
+    EXPECT_EQ(err.type(), CRITICAL_ERROR.sub("200123").type());
+    EXPECT_EQ(err.data(), ERROR_MESSAGE);
 }
 
 /// @brief it should keep every digit of a negative status in the error type.
@@ -89,8 +89,8 @@ TEST(SugaredAPITest, testParsesNegativeStatus) {
     api->start_status = DAQmxErrorAttrNotSupported;
     SugaredAPI dmx(api);
     const auto err = dmx.StartTask(nullptr);
-    EXPECT_EQ(err.type, ATTRIBUTE_NOT_SUPPORTED.type);
-    EXPECT_EQ(err.data, ERROR_MESSAGE);
+    EXPECT_EQ(err.type(), ATTRIBUTE_NOT_SUPPORTED.type());
+    EXPECT_EQ(err.data(), ERROR_MESSAGE);
 }
 
 /// @brief it should ask for the size of a string first, so a long value is not cut.
@@ -131,7 +131,7 @@ TEST(SugaredAPITest, testReturnsSizeQueryError) {
         DAQmx_Dev_ProductType
     );
     EXPECT_EQ(value, "");
-    EXPECT_EQ(err.type, ATTRIBUTE_NOT_SUPPORTED.type);
+    EXPECT_EQ(err.type(), ATTRIBUTE_NOT_SUPPORTED.type());
     EXPECT_EQ(api->sizes, std::vector<uInt32>({0}));
 }
 

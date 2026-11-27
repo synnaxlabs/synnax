@@ -22,6 +22,7 @@ import (
 	runsv2 "github.com/sift-stack/sift/go/gen/sift/runs/v2"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	calctestutil "github.com/synnaxlabs/synnax/pkg/service/calculation/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/sift/fake"
@@ -233,15 +234,11 @@ var _ = Describe("Engine", func() {
 
 		It("Should reject a calculated channel", func(ctx SpecContext) {
 			data := createData(ctx, createIndex(ctx), telem.Float64T)
-			ch := channel.Channel{
+			ch := MustSucceed(creator.Create(ctx, calctestutil.Calculation{
 				Name:       "calculated_" + uuid.New().String()[:8],
 				DataType:   telem.Float64T,
-				Virtual:    true,
 				Expression: "return " + data.Name + " * 2",
-			}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &ch)
-			})).To(Succeed())
+			}))
 			Expect(ingest.New(ctx, ingest.Config{
 				DB:           db,
 				Framer:       framerSvc,

@@ -10,7 +10,6 @@
 export * from "@/platform/task/views/ChannelList";
 export * from "@/platform/task/views/ContextMenu";
 export * from "@/platform/task/views/DetailsHeader";
-export * from "@/platform/task/views/GroupTree";
 export * from "@/platform/task/views/ItemLabel";
 export * from "@/platform/task/views/List";
 export * from "@/platform/task/views/ListAndDetails";

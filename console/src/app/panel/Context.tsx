@@ -9,6 +9,7 @@
 
 import type { PropsWithChildren } from "react";
 
+import { Library } from "@/app/library";
 import { Selector } from "@/app/selector";
 import { Settings } from "@/app/settings";
 import { Arc } from "@/feature/arc";
@@ -35,6 +36,7 @@ const TABS: Panel.Tabs = {
   ...Table.TABS,
   ...Task.TABS,
   ...Settings.TABS,
+  ...Library.TABS,
   [View.TAB_TYPE]: View.createTab({
     range: Range.Explorer.TAB,
     status: Status.Explorer.TAB,

@@ -7,21 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import type { schematic } from "@synnaxlabs/client";
-
-import { Form } from "@/schematic/node/common/form";
-import { Label } from "@/schematic/node/common/label";
-import type { Spec } from "@/schematic/node/spec";
-import { TJunction } from "@/schematic/node/vessels/tJunction/Primitive";
-
-export const spec: Spec<"t_junction", schematic.TJunctionNodeConfig> = {
-  key: "t_junction",
-  name: "T junction",
-  label: "",
-  Form: Form.StyleForm,
-  Node: Label.createLabeled<schematic.TJunctionNodeConfig>(TJunction),
-  Preview: TJunction,
-  zIndex: 24,
-};
-
 export { SYMBOL } from "@/schematic/node/vessels/tJunction/Primitive";

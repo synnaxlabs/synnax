@@ -22,6 +22,7 @@ export * from "@/platform/icd/number";
 export * from "@/platform/icd/picker";
 export * from "@/platform/icd/Plans";
 export * from "@/platform/icd/read";
+export * from "@/platform/icd/route";
 export * from "@/platform/icd/stored";
 export * from "@/platform/icd/tree";
 export * from "@/platform/icd/ValueField";

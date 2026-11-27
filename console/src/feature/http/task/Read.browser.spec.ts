@@ -12,12 +12,13 @@ import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { DataType, type payload, uuid } from "@synnaxlabs/x";
 import { assertDefined, uniqueName } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
+import { page, server } from "vitest/browser";
 import type { z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
-import { pickMessageFormat } from "@/platform/icd/testutil";
+import { pickMessageFormat, searchMessageFormats } from "@/platform/icd/testutil";
 import {
   awaitEditableForm,
   awaitTare,
@@ -71,6 +72,8 @@ preloadForms(HTTP.Task.FORMS);
 
 const client = createTestClient();
 
+const NO_FIELDS = "Message has no fields";
+
 const createField = (name: string, kind: payload.Kind = "float"): icd.JSONField =>
   icd.jsonFieldZ.parse({ name, pointer: `/${name}`, type: kind });
 
@@ -109,6 +112,7 @@ const addMessage = async (
   ep: HTTP.Task.ReadEndpoint,
   name: string,
   fields: icd.JSONField[],
+  match: icd.JSONMatch = { type: "string", pointer: "/kind", value: name },
 ): Promise<icd.Message> => {
   const icdKey = ep.icd;
   assertDefined(icdKey, "the endpoint reads no ICD");
@@ -117,7 +121,7 @@ const addMessage = async (
     name,
     payload: {
       format: "json",
-      match: { type: "string", pointer: "/kind", value: name },
+      match,
       fields,
     },
   };
@@ -270,7 +274,7 @@ describe("Read", () => {
     ]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /\/a/ }));
     fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-    await screen.findByRole("treeitem", { name: "GET /a 2" });
+    await screen.findByRole("treeitem", { name: /^GET \/a 2/ });
     await waitFor(async () =>
       expect((await retrieveEndpoints(draft.key))[0].messages).toHaveLength(2),
     );
@@ -307,6 +311,32 @@ describe("Read", () => {
         2,
       ),
     );
+  });
+
+  it("should mark an endpoint until its message has a field", async () => {
+    await renderWithDevice([await createEndpoint({ key: "ep1", path: "/data" })]);
+    const item = await screen.findByRole("treeitem", { name: /\/data/ });
+    await within(item).findByRole("img", { name: NO_FIELDS });
+    fireEvent.click(item);
+    fireEvent.click(await screen.findByRole("button", { name: "Add field" }));
+    await waitFor(() =>
+      expect(within(item).queryByRole("img", { name: NO_FIELDS })).toBeNull(),
+    );
+  });
+
+  it("should mark a later message with no fields and its endpoint", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    await addMessage(ep, "status", []);
+    await renderWithDevice([ep]);
+    const message = await screen.findByRole("treeitem", { name: /^status/ });
+    await within(message).findByRole("img", { name: NO_FIELDS });
+    // The endpoint comes before the item of its first message, which shares its name.
+    const [endpoint] = screen.getAllByRole("treeitem", { name: /GET \/data/ });
+    within(endpoint).getByRole("img", { name: NO_FIELDS });
   });
 
   it("should read a message of another ICD with each of its fields", async () => {
@@ -484,6 +514,37 @@ describe("Read", () => {
         { field: temperature.key, channel: ch.key, dataType: "" },
       ]),
     );
+  });
+
+  it("should show the message formats 480px wide and cut a long name", async () => {
+    const { width, height } = server.config.browser.viewport;
+    onTestFinished(async () => await page.viewport(width, height));
+    await page.viewport(1280, 800);
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    const place = "the main feed pump on the north skid of plant 2";
+    const long = `${uniqueName("status")} of ${place}`;
+    const shared = await client.icds.create({
+      name: uniqueName("pump"),
+      messages: [
+        {
+          key: uuid.create(),
+          name: long,
+          payload: { format: "json", fields: [createField("pressure")] },
+        },
+      ],
+    });
+    await renderWithDevice([ep]);
+    fireEvent.click(await screen.findByRole("treeitem", { name: /\/data/ }));
+    const dialog = await searchMessageFormats("GET /data", shared.name);
+    const name = await dialog.findByText(long);
+    const box = screen.getAllByRole("dialog").at(-1)?.getBoundingClientRect();
+    expect(box?.width).toBeGreaterThanOrEqual(480);
+    expect(getComputedStyle(name).whiteSpace).toBe("nowrap");
+    expect(name.scrollWidth).toBeGreaterThan(name.clientWidth);
   });
 
   it("should keep the stored channel of a pointer when the message format changes", async () => {
@@ -845,7 +906,7 @@ describe("Read", () => {
     ]);
   });
 
-  it("should name and store the channels of a later message by that message", async () => {
+  it("should name the channels of a later message after the endpoint and store them by that message", async () => {
     const ep = await createEndpoint({
       key: "ep1",
       path: "/data",
@@ -857,7 +918,7 @@ describe("Read", () => {
     const created = await deploy(container, draft.key);
     const [, later] = created.config.endpoints[0].messages;
     const ch = await client.channels.retrieve(later.bindings[0].channel);
-    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_status_w`);
+    expect(ch.name).toBe(`${channel.escapeInvalidName(dev.name)}_data_w`);
     const stored = await client.devices.retrieve({
       key: dev.key,
       schemas: HTTP.Device.SCHEMAS,
@@ -865,6 +926,31 @@ describe("Read", () => {
     expect(stored.properties.read[`/data#${status.key}`].channels).toEqual({
       "/w": ch.key,
     });
+  });
+
+  it("should add the kind of a later message to a channel name that another message takes", async () => {
+    const ep = await createEndpoint({
+      key: "ep1",
+      path: "/data",
+      fields: [createField("v")],
+    });
+    await addMessage(ep, "code", [createField("code"), createField("v")], {
+      type: "present",
+      pointer: "/code",
+    });
+    const { container, draft, dev } = await renderWithDevice([ep]);
+    await screen.findAllByRole("treeitem", { name: /\/data/ });
+    const created = await deploy(container, draft.key);
+    const [first, later] = created.config.endpoints[0].messages;
+    const names = await client.channels.retrieve(
+      [...first.bindings, ...later.bindings].map(({ channel }) => channel),
+    );
+    const prefix = `${channel.escapeInvalidName(dev.name)}_data`;
+    expect(names.map(({ name }) => name)).toEqual([
+      `${prefix}_v`,
+      `${prefix}_code`,
+      `${prefix}_code_v`,
+    ]);
   });
 
   it("should deploy with the channels stored under the path and move them to the message", async () => {
@@ -1095,46 +1181,5 @@ describe("Read", () => {
     const endpoints = created.config.endpoints;
     expect(endpoints.find((e) => e.key === "ep1")?.body).toBe("");
     expect(endpoints.find((e) => e.key === "ep2")?.body).toBe('{"query": "kept"}');
-  });
-});
-
-describe("plotChannels", () => {
-  it("should find the enabled fields of every endpoint", () => {
-    const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
-    assertDefined(plotChannels, "read tasks have no channels to plot");
-    const config = {
-      endpoints: [
-        {
-          fields: [
-            { channel: 1, disabled: false },
-            { channel: 2, disabled: true },
-          ],
-        },
-        { fields: [{ channel: 3, disabled: false }] },
-      ],
-    };
-    expect(plotChannels(config)).toEqual([1, 3]);
-  });
-
-  it("should find the bound channels of each enabled endpoint that reads an ICD", () => {
-    const plotChannels = HTTP.Task.INTEGRATION.plotChannels?.[HTTP.Task.READ_TYPE];
-    assertDefined(plotChannels, "read tasks have no channels to plot");
-    const endpoint = (disabled: boolean, ...channels: number[][]) => ({
-      disabled,
-      icd: uuid.create(),
-      messages: channels.map((keys) => ({
-        message: uuid.create(),
-        bindings: keys.map((channel) => ({ field: uuid.create(), channel })),
-      })),
-    });
-    const config = {
-      endpoints: [
-        endpoint(false, [1, 0], [2]),
-        endpoint(true, [3]),
-        { disabled: true, fields: [{ channel: 4, disabled: false }] },
-        { fields: [{ channel: 5, disabled: false }] },
-      ],
-    };
-    expect(plotChannels(config)).toEqual([1, 2, 5]);
   });
 });

@@ -529,7 +529,7 @@ public:
     /// @param path The JSON path to the field.
     /// @param err The error whose data will be used.
     void field_err(const std::string &path, const errors::Error &err) const {
-        this->field_err(path, err.data);
+        this->field_err(path, err.data());
     }
 
     /// @brief binds a new error to the field at the given path.
@@ -537,7 +537,10 @@ public:
     /// @param message The error message to bind.
     void field_err(const std::string &path, const std::string &message) const {
         if (this->noop || this->errors == nullptr) return;
-        this->errors->push_back({{"path", path_prefix + path}, {"message", message}});
+        auto full_path = path_prefix + path;
+        // A child's own path is its prefix without the separator.
+        if (path.empty() && full_path.ends_with('.')) full_path.pop_back();
+        this->errors->push_back({{"path", full_path}, {"message", message}});
     }
 
     /// @returns true if the parser has accumulated no errors, false otherwise.

@@ -44,6 +44,7 @@ RecordKey enum {
 
 ScanConfig struct extends task.ScanConfig {
     @doc value  "configures a Kafka scan task."
+    @go entry   "kafka_scan_config"
     @go imex    body
     @go marshal
     @go migrate
@@ -134,6 +135,7 @@ ReadConfig struct extends task.PersistConfig {
         configures a Kafka read task, which consumes a topic and writes record fields
         into channels.
     """
+    @go entry   "kafka_read_config"
     @go imex    body
     @go marshal
     @go migrate
@@ -217,6 +219,7 @@ WriteConfig struct extends task.StartConfig {
         configures a Kafka write task, which produces one record per sample of each
         channel to a topic.
     """
+    @go entry   "kafka_write_config"
     @go imex    body
     @go marshal
     @go migrate

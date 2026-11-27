@@ -10,9 +10,9 @@
 package relay
 
 import (
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -51,10 +51,10 @@ type Response struct {
 	MissedRanges map[channel.Key]telem.TimeRange `json:"missed_ranges,omitempty" msgpack:"missed_ranges,omitempty"`
 }
 
-func reqToStorage(req Request) ts.StreamerRequest {
-	return ts.StreamerRequest{Channels: req.Keys.Storage()}
+func reqToStorage(req Request) cesium.StreamerRequest {
+	return cesium.StreamerRequest{Channels: req.Keys.Uint32()}
 }
 
-func resFromStorage(res ts.StreamerResponse) Response {
+func resFromStorage(res cesium.StreamerResponse) Response {
 	return Response{Frame: frame.NewFromStorage(res.Frame), Group: res.Group}
 }

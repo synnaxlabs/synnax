@@ -31,7 +31,6 @@ const SPEC: schematic.symbol.Spec = {
   commands: [],
   looks: [],
   interactions: [],
-  variant: "static",
   scale: 1,
   strokeScaled: false,
 };
@@ -101,8 +100,8 @@ describe("bind.target", () => {
   });
 });
 
-describe("bind.sinks", () => {
-  it("should build one number sink for each channel that a command writes", () => {
+describe("bind.commandChannels", () => {
+  it("should give each channel that a command writes, once", () => {
     const commands: schematic.symbol.Command[] = [
       {
         key: "close",
@@ -117,17 +116,27 @@ describe("bind.sinks", () => {
         value: { type: "fixed", value: 1 },
       },
       { key: "set", name: "Set", state: "level", value: { type: "ask" } },
+      { key: "vent", name: "Vent", value: { type: "fixed", value: 1 } },
     ];
     expect(
-      bind.sinks(
+      bind.commandChannels(
         { commands },
         [
           { key: "active", source: { type: "channel", key: 1, command: 2 } },
           { key: "level", source: { type: "local", value: 3 } },
         ],
-        [],
+        [{ key: "vent", channel: 5 }],
       ),
-    ).toEqual({ 2: Telem.numberSink(2) });
+    ).toEqual([2, 5]);
+  });
+});
+
+describe("bind.sinks", () => {
+  it("should build a number sink for each channel, by its key", () => {
+    expect(bind.sinks([2, 5])).toEqual({
+      2: Telem.numberSink(2),
+      5: Telem.numberSink(5),
+    });
   });
 });
 

@@ -270,16 +270,16 @@ export class Joins {
    * it.
    */
   catchUpFrom(ch: channel.Key, at: TimeStamp): number {
-    let from = cacheBlock.rawIndex(at);
+    let from = cacheBlock.rawTile(at);
     const m = this.members.get(ch);
     if (m == null) return from;
     if (m.from != null) from = Math.min(from, m.from);
     const first = m.held.find((s) => s.length > 0);
     if (first == null) return from;
     if (m === m.join.indexMember)
-      return Math.min(from, cacheBlock.rawIndex(new TimeStamp(first.data[0])));
+      return Math.min(from, cacheBlock.rawTile(new TimeStamp(first.data[0])));
     if (first.timeRange.isZero) return from;
-    return Math.min(from, cacheBlock.rawIndex(first.timeRange.start));
+    return Math.min(from, cacheBlock.rawTile(first.timeRange.start));
   }
 
   /**
@@ -526,9 +526,9 @@ export class Joins {
   private runs(index: channel.Key, s: Series): Run[] {
     const runs: Run[] = [];
     for (let lo = 0; lo < s.length;) {
-      const b = cacheBlock.rawIndex(new TimeStamp(s.data[lo]));
+      const b = cacheBlock.rawTile(new TimeStamp(s.data[lo]));
       const end = grid
-        .tileRange({ level: cacheBlock.RAW_LEVEL, index: b })
+        .tileRange({ level: cacheBlock.RAW_LEVEL, tile: b })
         .end.valueOf();
       const hi = cacheBlock.search(s, end, lo);
       const block = this.store.raw(index, b);

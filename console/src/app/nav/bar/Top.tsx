@@ -12,6 +12,7 @@ import { Nav } from "@synnaxlabs/lyra/nav";
 import { OS } from "@synnaxlabs/pluto";
 import type { ReactElement } from "react";
 
+import { Library } from "@/app/library";
 import { useBottomActions } from "@/app/nav/bar/bottom";
 import { Settings } from "@/app/settings";
 import { Toolbars } from "@/app/toolbars";
@@ -84,6 +85,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
             <Version.Badge />
             {DESKTOP && <Embedded.ConnectButton />}
             <Docs.OpenButton />
+            <Library.Button />
             <Settings.Button />
             {DESKTOP ? <Embedded.Indicator /> : <Core.Badge />}
           </>

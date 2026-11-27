@@ -81,9 +81,10 @@ describe("StringDisplay", () => {
     it("should render the style controls", () => {
       const { getAllByText, getByText } = renderForm();
       fireEvent.click(getByText("Style"));
-      expect(getAllByText("Label")).toHaveLength(2);
+      expect(getByText("Label")).toBeDefined();
+      expect(getByText("Position")).toBeDefined();
       expect(getByText("Stroke")).toBeDefined();
-      expect(getByText("Text")).toBeDefined();
+      expect(getAllByText("Text")).toHaveLength(2);
       expect(getByText("Width")).toBeDefined();
       expect(getAllByText("Size")).toHaveLength(2);
     });

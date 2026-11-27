@@ -455,8 +455,11 @@ export const Table = ({
   const restored = useRef(false);
   // Set by a block paste, which commits: Esc then puts back what the paste wrote.
   const pasted = useRef(false);
-  // The row that takes focus once an add or a remove renders, or the mount.
-  const pendingFocus = useRef<number | null>(autoFocus ? 0 : null);
+  // The row that takes focus once an add or a remove renders, or the mount. An added
+  // row's first cell holds a default, so its text is selected for typing to replace.
+  const pendingFocus = useRef<{ y: number; select: boolean } | null>(
+    autoFocus ? { y: 0, select: false } : null,
+  );
   const haulType = `${CSS.BE("input", "table-row")}-${useId()}`;
   const table = useRef<HTMLTableElement>(null);
   // The key of the row whose handle a keyboard move left.
@@ -563,19 +566,25 @@ export const Table = ({
 
   useEffect(() => {
     if (pendingFocus.current == null) return;
-    const y = Math.min(pendingFocus.current, value.length - 1);
+    const { select } = pendingFocus.current;
+    const y = Math.min(pendingFocus.current.y, value.length - 1);
     pendingFocus.current = null;
-    if (y < 0) table.current?.tFoot?.querySelector("button")?.focus();
-    else cellAt({ x: 0, y })?.focus();
+    if (y < 0) {
+      table.current?.tFoot?.querySelector("button")?.focus();
+      return;
+    }
+    const input = cellAt({ x: 0, y });
+    input?.focus();
+    if (select) input?.select();
   }, [value.length]);
 
   const handleAdd = () => {
-    pendingFocus.current = value.length;
+    pendingFocus.current = { y: value.length, select: true };
     onChange([...value, createRow?.(value) ?? emptyRow()]);
   };
 
   const handleRemove = (index: number) => {
-    pendingFocus.current = index;
+    pendingFocus.current = { y: index, select: false };
     // Marks below the row move up with their rows, unless a key holds them.
     setRejections(
       marks.flatMap((mark) => {

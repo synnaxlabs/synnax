@@ -16,9 +16,9 @@ import type { ReactElement } from "react";
 import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
+import { Indicator } from "@/schematic/node/common/indicator";
 import { Label } from "@/schematic/node/common/label";
 import { Scale as BaseScale } from "@/schematic/node/common/scale";
-import { Stale } from "@/schematic/node/common/stale";
 import { Scale } from "@/schematic/node/general/scale/Primitive";
 import type { NodeProps } from "@/schematic/node/spec";
 import { Scale as VisScale } from "@/vis/scale";
@@ -71,7 +71,7 @@ export const Symbol = ({
       onResize={handleResize}
     >
       <Label.Label config={label} onChange={onConfigChange} />
-      {stale && <Stale.Indicator />}
+      <Indicator.Slot stale={stale} />
       <div style={outer} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );

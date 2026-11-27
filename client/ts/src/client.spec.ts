@@ -256,6 +256,58 @@ describe("constructor with caCert", () => {
     ).toThrow("caCert requires secure; leave secure out or set it to true");
   });
 
+  it("should use TLS when nothing gives secure", async () => {
+    const client = new Synnax({ host: "localhost", port: 9090 });
+    expect(client.params.secure).toBe(true);
+    await client.close();
+  });
+
+  it("should not use TLS with secure false", async () => {
+    const client = new Synnax({ host: "localhost", port: 9090, secure: false });
+    expect(client.params.secure).toBe(false);
+    await client.close();
+  });
+
+  it("should name a Core that does not use TLS when secure is left out", async () => {
+    const server = createHTTPServer((_, res) => res.end());
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const address = server.address();
+    if (address == null || typeof address === "string") throw new Error("no port");
+    const { port } = address;
+    const client = new Synnax({
+      host: "127.0.0.1",
+      port,
+      ...TEST_CREDENTIALS,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    await expect(client.channels.retrieve(["ch"])).rejects.toThrow(
+      `The Core at 127.0.0.1:${port} does not use TLS. If it runs with --insecure, ` +
+        "set secure: false or SYNNAX_SECURE=false.",
+    );
+    await client.close();
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  it("should name an insecure Core when secure is left out", async () => {
+    const { host, port } = testCoreAddress();
+    const client = new Synnax({
+      host,
+      port,
+      ...TEST_CREDENTIALS,
+      retry: FAST_RETRY,
+      onRetry: () => {},
+      onInternalError: () => {},
+    });
+    await expect(client.channels.retrieve(["ch"])).rejects.toThrow(
+      `The Core at ${host}:${port} does not use TLS. If it runs with --insecure, ` +
+        "set secure: false or SYNNAX_SECURE=false.",
+    );
+    await client.close();
+  });
+
   it("should reject an OpenID Connect code given with an API key", () => {
     expect(
       () => new Synnax({ host: "localhost", port: 9090, apiKey: "syk", oidc: CODE }),
@@ -282,6 +334,7 @@ describe("constructor with caCert", () => {
     const client = new Synnax({
       host: "127.0.0.1",
       port: address.port,
+      secure: false,
       oidc: CODE,
       retry: FAST_RETRY,
       onRetry: () => {},
@@ -460,6 +513,25 @@ describe("connect", () => {
     const state = await client.connect();
     expect(state.variant).toEqual("success");
     await client.close();
+  });
+
+  it("should recover from an auth failure by resuming another client's session", async () => {
+    const other = createTestClient();
+    await other.connect();
+    const token = other.auth.token;
+    if (token == null) throw new Error("not logged in");
+    const client = createTestClient({ password: "definitely-wrong" });
+    await expect(client.connect()).rejects.toThrow(InvalidCredentialsError);
+    expect(reasonOf(client.connection.status)).toEqual("auth");
+    client.resume(token);
+    const state = await client.connect();
+    expect(state.variant).toEqual("success");
+    expect(client.auth.token).toEqual(token);
+    expect(client.auth.session?.key).toEqual(other.auth.session?.key);
+    await client.close();
+    // a resumed session stays open for the client that opened it
+    expect((await other.connect()).variant).toEqual("success");
+    await other.close();
   });
 
   it("should reject bad credentials without a change stream", async () => {

@@ -63,8 +63,11 @@ from synnax import (
     opcua,
     pagerduty,
     resource,
+    serial,
     sift,
     status,
+    tcp,
+    udp,
 )
 from synnax.access.policy import Policy
 from synnax.access.role import Role
@@ -281,7 +284,10 @@ __all__ = [
     "pagerduty",
     "poll",
     "resource",
+    "serial",
     "sift",
     "sleep",
     "status",
+    "tcp",
+    "udp",
 ]

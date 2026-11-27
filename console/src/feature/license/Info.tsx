@@ -23,8 +23,8 @@ import { Handoff } from "@/feature/license/Handoff";
 import { KeyInput } from "@/feature/license/KeyInput";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
+import { Page } from "@/platform/page";
 import { Portal } from "@/platform/portal";
-import { Settings } from "@/platform/settings";
 import { Session } from "@/session";
 
 interface Standing {
@@ -53,7 +53,7 @@ interface StatProps {
 }
 
 const Stat = ({ label, value, caption, captionStatus }: StatProps): ReactElement => {
-  const background = Settings.useCardBackground();
+  const background = Page.useCardBackground();
   return (
     <Flex.Box
       y

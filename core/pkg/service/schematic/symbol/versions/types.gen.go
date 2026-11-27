@@ -16,14 +16,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v5"
 // Key is a unique identifier for a schematic symbol.
 type Key = v5.Key
 
-// Region is a visual styling area within a symbol state, targeting specific SVG
-// elements for dynamic coloring.
-type Region = v5.Region
-
-// StateOverride is a node's replacement for the region colors of one value that it
-// draws.
-type StateOverride = v5.StateOverride
-
 // Handle is a connection point on a symbol for linking to other diagram elements.
 type Handle = v5.Handle
 

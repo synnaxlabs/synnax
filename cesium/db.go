@@ -14,7 +14,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -31,8 +30,6 @@ type (
 	Channel    = channel.Channel
 	ChannelKey = channel.Key
 	Frame      = channel.Frame
-	// AlignmentCounter hands out the leading alignment domains of new writers.
-	AlignmentCounter = alignment.Counter
 )
 
 var (
@@ -44,12 +41,6 @@ var (
 type Metrics struct {
 	// DiskSize is the total disk space used by all channel data.
 	DiskSize telem.Size
-}
-
-// NewAlignmentCounter returns an AlignmentCounter whose first domain follows the zero
-// leading alignment.
-func NewAlignmentCounter() *AlignmentCounter {
-	return alignment.NewCounter(alignment.ZeroLeading)
 }
 
 type DB struct {
@@ -64,12 +55,17 @@ type DB struct {
 	// run orders the start of Run against Close.
 	run lifetime.Guard
 	mu  struct {
-		dbs struct {
-			unary   map[ChannelKey]unary.DB
-			virtual map[ChannelKey]virtual.DB
-		}
+		dbs channelDBs
+		// indexDeletes holds a record for each DeleteTimeRange running on an index.
+		indexDeletes []*indexDelete
 		sync.RWMutex
 	}
+}
+
+// channelDBs holds the unary and virtual DB of each channel.
+type channelDBs struct {
+	unary   map[ChannelKey]unary.DB
+	virtual map[ChannelKey]virtual.DB
 }
 
 // Write writes the frame to database at the specified start time. It returns
