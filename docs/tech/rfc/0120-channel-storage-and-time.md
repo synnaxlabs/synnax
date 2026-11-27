@@ -57,7 +57,9 @@ channel.
 ## 3 Principles
 
 1. **Information is stored once**: No channel record, task config, or client holds a
-   clock key. Cesium records type and clock per segment.
+   clock key. Cesium records type and clock per segment. The one exception is the staged
+   entries of the upgrade that retires index records (§4.10), which that upgrade
+   deletes, and which no API, search, or ontology shows.
 2. **No new work per sample in the codec**: Every codec cost is per frame or per series,
    and a steady-state frame does not grow by one byte.
 3. **One side picks a default, the other reads the wire**: Two reads of a record that
@@ -451,9 +453,10 @@ names no clock key.
   `client/py/synnax/framer/adapter.py:43-69`), and Phase 50 removes `TimestampsIncluded`
   and `ReadResponse.Indexes` from the Core (`core/pkg/api/framer/framer.go:192-194`,
   `:228-231`). Until Phase 50 a read or a stream that names an index channel works.
-  After it, a list that names `"time"`, or a retired index name that the retired table
-  holds, fails with an error that names `frame.time(channel)`. Any other unknown name
-  fails as not found.
+  After it, a list that names `"time"` fails with an error that names
+  `frame.time(channel)`. A retired index name fails as any unknown name does: not found,
+  with a description that index channels are retired and that names
+  `frame.time(channel)`.
 - **Access**: A time series leaves the Core only beside data that the subject may read.
   No check runs on a hidden clock. Until Phase 50 a clock that is an index channel keeps
   `main`'s check of each index that the caller never named
@@ -861,42 +864,51 @@ The migration changes metadata only and runs at the first start, before any writ
    injected, retires an index record when `Keys` marks its key as a clock, a key that a
    kept segment of another key names, or lists no data for it. It reads `Keys` after the
    start deletes of the pending-drop notes (RFC 0121 §4.1). For each retired record it
-   writes an entry of the retired index table (NEW): the key, the name, and the key of
-   its first data channel, or 0 for none. It keeps every other index record as a
-   timestamp channel, which times itself. So this step and the start check read one
-   fact, and data of a kept key with no record also counts. It mints channel v3, which
-   drops `is_index`, `local_index`, and `concurrency`, keeps `data_type` as the declared
-   type, and stores `key` whole (RFC 0119 §4.0). The retired records go after every
-   chain, through the channel writer in a composition step, as `main` deletes retired
-   channels (`core/pkg/service/migrate.go:147-158`). So their groups, labels, and
-   policies go with them, and Cesium keeps their stamps (D-464).
+   stages an entry (NEW, in `core/pkg/service/channel/versions`) under a key prefix of
+   the chain, as RFC 0119 §4.9 stages calculations: the key and the path. The holder
+   steps read the entries in the same upgrade, and the retire deletes them. It keeps
+   every other index record as a timestamp channel, which times itself. So this step and
+   the start check read one fact, and data of a kept key with no record also counts. It
+   mints channel v3, which drops `is_index`, `local_index`, and `concurrency`, keeps
+   `data_type` as the declared type, and stores `key` whole (RFC 0119 §4.0). The retired
+   records go after the holder steps, in one transaction with the staged entries,
+   through a retire path of the channel writer (NEW): the table delete
+   (`core/pkg/service/channel/writer.go:976-988`), so their links, groups, labels, and
+   policies go as on `main`, with no pending-drop note and no storage delete
+   (`:991-998`). Unlike `main`'s delete of retired channels
+   (`core/pkg/service/migrate.go:147-158`), Cesium keeps their stamps, and each retired
+   key stays a clock that its data names until its last user ends it (RFC 0121 §4.1,
+   D-464 (4)).
 3. **Start check**: After the migrations and that delete, a clock that has a Core record
    fails the start with an error that names it. It is the one check that Gorp and Cesium
    agree.
 4. **Holders**: Every holder of an index key migrates in its own chain or composition
    step, at its own phase or at the upgrade that retires the records:
 
-| Holder                                                                           | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| NI, LabJack, and OPC UA server devices                                           | A new schema version drops the index fields (§4.9)                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| EtherCAT devices, and the `core/v0.62.0` LabJack, HTTP, Modbus, and MQTT devices | A composition step drops the index keys from untyped JSON, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1174`)                                                                                                                                                                                                                                                                                                                                       |
-| HTTP, Kafka, MQTT, and ICD messages                                              | The index field becomes the time field, and its channel binding drops                                                                                                                                                                                                                                                                                                                                                                                              |
-| OPC UA read                                                                      | A read channel with `is_index` becomes the task's time node, and its binding drops. A channel CSV import maps a line of its `index` column to the time node (`console/src/feature/opcua/task/csv/csv.ts:17`)                                                                                                                                                                                                                                                       |
-| Sift                                                                             | Phase 42 groups Sift flows by the clock of each series, where it refuses a channel with no index today (`core/pkg/service/sift/ingest/flow.go:129-130`). A composition step drops retired keys from `channels`, by the retired table, before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock. A flow for a new clock takes the name of its task, or of its first channel, and no status text shows a clock key |
-| Line plot, log                                                                   | A composition step, by the retired table, sets a line plot axis that names a retired key to x 0, which shows time (`schemas/synnax/lineplot.oracle:230`), and drops it from a log. Not `DropDangling`, which keeps a dead key that the Core issued (RFC 0119)                                                                                                                                                                                                      |
-| Arc and calculation text and graph nodes                                         | A read of a retired key becomes `time.of` of its first data channel, by the retired table, through the text pass of RFC 0119 §4.5; a graph `on` or `write` node that names one takes the same source. A retired key with no data channel stays, and the compile fails with an error that names `time.of`. The step drops `authority` entries for index channels, and a write to one fails at compile                                                               |
-| Schematic symbol, table cell                                                     | Keeps a weak link, and the Console shows a missing channel. The release notes name the loss                                                                                                                                                                                                                                                                                                                                                                        |
+| Holder                                                                           | Rule                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| NI, LabJack, and OPC UA server devices                                           | A new schema version drops the index fields (§4.9)                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| EtherCAT devices, and the `core/v0.62.0` LabJack, HTTP, Modbus, and MQTT devices | A composition step drops the index keys from untyped JSON, as `l.Kafka.ICDMigration` does (`core/pkg/service/layer.go:1174`)                                                                                                                                                                                                                                                                                                                                        |
+| HTTP, Kafka, MQTT, and ICD messages                                              | The index field becomes the time field, and its channel binding drops                                                                                                                                                                                                                                                                                                                                                                                               |
+| OPC UA read                                                                      | A read channel with `is_index` becomes the task's time node, and its binding drops. A channel CSV import maps a line of its `index` column to the time node (`console/src/feature/opcua/task/csv/csv.ts:17`)                                                                                                                                                                                                                                                        |
+| Sift                                                                             | Phase 42 groups Sift flows by the clock of each series, where it refuses a channel with no index today (`core/pkg/service/sift/ingest/flow.go:129-130`). A composition step drops retired keys from `channels`, by the staged entries, before the records go, since the list is `restrict`. A stored position keeps its key, which is now a clock. A flow for a new clock takes the name of its task, or of its first channel, and no status text shows a clock key |
+| Line plot, log                                                                   | A composition step, by the staged entries, sets a line plot axis that names a retired key to x 0, which shows time (`schemas/synnax/lineplot.oracle:230`), and drops a y line or a log channel that names one. Not `DropDangling`, which keeps a dead key that the Core issued (RFC 0119)                                                                                                                                                                           |
+| Arc and calculation text and graph nodes                                         | A read of a retired key, by the staged entries, becomes `time.of` of a data channel that it times, from `DB.Keys` (RFC 0121 §4.1): one that the same program reads, else the lowest key. A graph `on` or `write` node that names one takes the same source. A retired key that times no data channel stays, and the compile fails with an error that names `time.of`. The step drops `authority` entries for index channels, and a write to one fails at compile    |
+| Schematic symbol, table cell                                                     | Keeps a weak link, and the Console shows a missing channel. The release notes name the loss                                                                                                                                                                                                                                                                                                                                                                         |
 
-- **Order**: The channel chain writes the retired table first. The holder chains and the
-  composition steps that read it run next, and the delete of the retired records runs
-  last, so no `restrict` link blocks it. A step that reads the table runs at every start
-  and skips an entry it handled, so its phase merges before Phase 50 and acts at the
-  upgrade.
-- **Imports**: An old file goes through the same chains and steps, with the retired
-  table, so an old plot that names an index channel draws against time. A file from
-  another Core can name an index channel that this Core never retired. Then Arc or
-  calculation text that reads it fails with an error that names `time.of`, and a plot
-  axis shows a missing channel.
+- **Order**: The channel step stages the entries. The holder steps merge dark at Phases
+  42 and 43 and register at Phase 50 as composition migrations after the channel step
+  and before `SyncHashes` (`core/pkg/service/layer.go:1163-1194`), so task hashes see
+  their edits. Each runs once, as a Gorp migration does. The retire runs last, so no
+  `restrict` link blocks it. A crash before the retire leaves the entries for the next
+  start, and the steps that already ran do not run again. No writer opens during the
+  upgrade (D-460).
+- **Imports**: An import after the upgrade finds no staged entry, since no import
+  service reads channel records from a file. A line plot or log key that has no record
+  and that `DB.Keys` marks as a clock takes the step's rule, so an old plot draws
+  against time. Arc or calculation text that names a retired index meets a name that
+  does not exist, and the compile error names `time.of`. The release notes name that
+  loss.
 - **Specs**: Each step copies the Kafka three-layer specs
   (`core/pkg/service/kafka/versions/v1/migrate_test.go`,
   `core/pkg/service/kafka/migrate_test.go`), one per holder.
@@ -943,6 +955,7 @@ Each rule closes a way to pair data with the wrong stamps and give no error.
 | Port to channel link                                          | the typed device (RFC 0081)                                          | the channel key type                               | the task config                                             |
 | Device path resolver                                          | each integration, injected at the API layer                          | its device package, channel paths                  | the channel service                                         |
 | Device name uniqueness                                        | the shared unique space of RFC 0119 §4.1                             | Gorp                                               | a check across tables in a service                          |
+| Staged retired index entries (Phase 50)                       | `core/pkg/service/channel/versions`                                  | Gorp, Cesium's `Keys`                              | outlive the upgrade; show in an API or search               |
 
 Two shallow packages change. `core/pkg/storage/ts` holds only Cesium aliases
 (`core/pkg/storage/ts/ts.go:23-30`), so callers import Cesium. Only the three calls of
@@ -1289,10 +1302,11 @@ config from Phase 42. Keys of `core/v0.62.0` keep their numbers.
 39. **The read prototype decides R2 before hidden clocks**: It changes no format. A
     chunk that spans a handoff or a move may cost up to 2 times (a rare-path bar under
     R2), with its own benchmark.
-40. **Holder migrations land per integration, before the channel step**: Each step that
-    reads the retired table acts at the upgrade, so it merges first, and the channel
-    step lands last, so `main` never holds a dangling link. Rejected: one PR with the
-    channel step, over 2,000 lines.
+40. **Holder migrations land per integration, before the channel step**: Each holder
+    step merges dark and registers with the channel step at Phase 50, so `main` never
+    holds a dangling link. The entries that the steps read are staged and deleted in
+    that upgrade. Rejected: a lasting table of retired indexes, a new stored concept
+    (D-312). Rejected: one PR with the channel step, over 2,000 lines.
 41. **A stretch continues only across a gap of at most 3 steps**: A line plot draws one
     line through a stretch. Rejected: continuation at every clean close, which draws a
     straight line across a task stop of any length, and a new number per session, which
