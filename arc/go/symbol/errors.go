@@ -85,10 +85,8 @@ func keywordHint(path string) string {
 	folder, name, _ := strings.Cut(path, ".")
 	if folder == parser.LiteralAUTHORITY {
 		return fmt.Sprintf(
-			"folder %q cannot be read in Arc yet. rename the folder, or use the "+
-				"channel's own name: %s",
+			"folder %q cannot be read in Arc yet. rename the folder",
 			folder,
-			name,
 		)
 	}
 	return fmt.Sprintf(
