@@ -332,22 +332,27 @@ func (m *Multi[S, K, V]) Empty(scope S) bool {
 	default:
 		return false
 	}
-	m.mu.RLock()
-	empty := m.population.err == nil && len(m.forward) == 0
-	m.mu.RUnlock()
-	if !empty {
+	// The changes go first: a commit flushes them into committed state before it
+	// drops them, so a holder in either is seen.
+	if m.staged(scope) {
 		return false
 	}
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.population.err == nil && len(m.forward) == 0
+}
+
+// staged reports whether scope, or a scope in its commit, staged a value.
+func (m *Multi[S, K, V]) staged(scope S) bool {
 	o := &m.overlay
 	o.mu.RLock()
 	defer o.mu.RUnlock()
-	// Only the changes of scope, or of a scope in its commit, count.
 	for s, d := range o.deltas {
 		if (s == scope || s.Committing()) && len(d.forward) > 0 {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // CommittingEach returns, at each position of values, the keys that a transaction in
