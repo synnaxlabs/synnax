@@ -66,9 +66,16 @@ func Check(db, file, offset uint64, version uint16) Place {
 	return Place{db: db, file: file, offset: offset, kind: kindCheck, version: version}
 }
 
-// Log returns the place of bytes at offset in the log of generation.
-func Log(db, generation, offset uint64) Place {
-	return Place{db: db, file: generation, offset: offset, kind: kindLog, version: 1}
+// Log returns the place of bytes at offset in the log of generation, whose format is
+// version.
+func Log(db, generation, offset uint64, version uint16) Place {
+	return Place{
+		db:      db,
+		file:    generation,
+		offset:  offset,
+		kind:    kindLog,
+		version: version,
+	}
 }
 
 // Head returns the place of bytes at offset in the head of generation.

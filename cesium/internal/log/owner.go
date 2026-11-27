@@ -157,9 +157,13 @@ type Log struct {
 	prevEnd  int64
 	lastEnd  int64
 	needMark bool
-	buf      []byte
-	wbuf     []byte
-	frame    Frame
+	// commitsFull is true once a Commit did not fit in this log file. The log then
+	// refuses every later Commit until the next file, so the durable Commits stay a
+	// prefix of the queue.
+	commitsFull bool
+	buf         []byte
+	wbuf        []byte
+	frame       Frame
 }
 
 // Start writes both header copies of the prepared log of cfg, syncs it, and returns the
@@ -222,6 +226,7 @@ func (l *Log) open(generation uint64) error {
 		return errors.Join(err, file.Close())
 	}
 	l.file, l.size, l.gen = file, size, generation
+	l.commitsFull = false
 	l.prevCRC = binary.LittleEndian.Uint32(first[60:])
 	l.prevEnd, l.lastEnd = FramesStart, FramesStart
 	return nil
@@ -389,6 +394,13 @@ func (l *Log) write(queue []pending) {
 			start, size = l.nextStart(), int64(FrameHeaderSize+len(p.entry))
 		}
 		if err := l.fits(p, start, size); err != nil {
+			// Each entry ahead of a refusal gets its answer first.
+			flush()
+			if failed != nil {
+				l.refuse(p, failed)
+				continue
+			}
+			l.commitsFull = l.commitsFull || p.commit
 			l.refuse(p, err)
 			continue
 		}
@@ -402,6 +414,13 @@ func (l *Log) write(queue []pending) {
 // ends with entry p, passes its end limit. An idle mark and the clean mark of Close
 // must still fit after the frame.
 func (l *Log) fits(p pending, start, size int64) error {
+	if p.commit && l.commitsFull {
+		return errors.Wrapf(
+			errFull,
+			"log %d refuses each Commit after one that did not fit",
+			l.gen,
+		)
+	}
 	limit := l.size - 2*BlockSize
 	if p.commit {
 		limit = l.size - DeleteReserve
