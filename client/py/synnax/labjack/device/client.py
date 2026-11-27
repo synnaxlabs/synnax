@@ -102,15 +102,42 @@ class Client:
         )
 
     @overload
-    def retrieve(self, key: Key, *, include_status: bool = ...) -> Device: ...
+    def retrieve(self, key: Key, /, *, include_status: bool = ...) -> Device: ...
 
     @overload
     def retrieve(
         self,
         *,
-        name: str,
+        key: Key,
+        name: filter.StringInput = ...,
+        serial: filter.OrderedInput[int] = ...,
+        model: filter.SetInput[Model] = ...,
         rack: filter.SetInput[RackKey] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
         include_status: bool = ...,
+        one: bool = ...,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *,
+        key: filter.SetInput[Key] = ...,
+        name: str,
+        serial: filter.OrderedInput[int] = ...,
+        model: filter.SetInput[Model] = ...,
+        rack: filter.SetInput[RackKey] = ...,
+        and_: list[WhereInput] = ...,
+        or_: list[WhereInput] = ...,
+        not_: WhereInput = ...,
+        where: Where | None = ...,
+        search_term: str = ...,
+        include_status: bool = ...,
+        one: bool = ...,
     ) -> Device: ...
 
     @overload
@@ -122,6 +149,7 @@ class Client:
         serial: filter.OrderedInput[int] = ...,
         model: filter.SetInput[Model] = ...,
         rack: filter.SetInput[RackKey] = ...,
+        keys: list[Key] | None = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
@@ -137,14 +165,14 @@ class Client:
         *,
         key: list[Key] | filter.SetDict[Key] | filter.Set[Key] = ...,
         name: list[str] | filter.StringDict | filter.String = ...,
-        serial: list[int] | filter.OrderedDict[int] | filter.Ordered[int] = ...,
+        serial: filter.OrderedInput[int] = ...,
         model: filter.SetInput[Model] = ...,
         rack: filter.SetInput[RackKey] = ...,
+        keys: list[Key] | None = ...,
         and_: list[WhereInput] = ...,
         or_: list[WhereInput] = ...,
         not_: WhereInput = ...,
         where: Where | None = ...,
-        keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
         after: Cursor | None = ...,
@@ -154,8 +182,7 @@ class Client:
 
     def retrieve(
         self,
-        key: filter.SetInput[Key] | None = None,
-        *,
+        *args: filter.SetInput[Key],
         where: Where | None = None,
         keys: list[Key] | None = None,
         search_term: str = "",
@@ -168,13 +195,17 @@ class Client:
         """Retrieves devices. With no arguments, retrieves every device.
 
         Each filter field takes a value, a list of values, or an operator, and a
-        device must match every field. A plain ``key`` or ``name`` returns one device.
+        device must match every field. A plain ``key``, by position or by keyword, or a
+        plain ``name`` returns one device.
 
         :param key: Keeps devices with this key.
         :param name: Keeps devices with this name.
         :param serial: Keeps devices with this serial number.
         :param model: Keeps devices of this model.
         :param rack: Keeps devices on this rack.
+        :param and_: Keeps devices that match every filter in the list.
+        :param or_: Keeps devices that match any filter in the list.
+        :param not_: Keeps devices that do not match the filter.
         :param where: A filter tree that the devices must also match.
         :param keys: Keeps devices with one of these keys.
         :param search_term: Keeps the devices whose names match, closest match first.
@@ -186,10 +217,11 @@ class Client:
             otherwise a list of devices.
         :raises NotFoundError: If one device is wanted and none matches.
         :raises MultipleFoundError: If one device is wanted and more than one matches.
-        :raises ValidationError: If one device is wanted beside a limit or a cursor.
+        :raises ValidationError: If a filter field is None, or if one device is wanted
+            beside a limit or a cursor.
         """
-        if key is not None:
-            fields["key"] = key
+        if args:
+            (fields["key"],) = args
         single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
