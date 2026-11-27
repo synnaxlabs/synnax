@@ -14,7 +14,6 @@ package codec
 import (
 	"encoding/json/jsontext"
 	"math"
-	"strconv"
 	"uuid"
 
 	"github.com/samber/lo"
@@ -39,9 +38,6 @@ type Binding struct {
 type Failure struct {
 	// Binding is the index of the field's binding in its message.
 	Binding int
-	// Missing is true when the document has no value for the field, and the field has
-	// no default.
-	Missing bool
 	// Err names the field, and also the message when the decoder holds more than one.
 	Err error
 }
@@ -138,24 +134,36 @@ func NewJSON(messages []JSONMessage) (*JSON, error) {
 	return j, nil
 }
 
-func newJSONMessage(m JSONMessage) (jsonMessage, error) {
+// boundFields returns the field that each binding of m names, in binding order. It
+// returns an error wrapping validate.ErrValidation when a binding names no field of m.
+func (m JSONMessage) boundFields() ([]icd.JSONField, error) {
 	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
 	for _, f := range m.Payload.Fields {
 		byKey[f.Base().Key] = f
 	}
-	msg := jsonMessage{name: m.Name, fields: make([]jsonField, len(m.Bindings))}
+	fields := make([]icd.JSONField, len(m.Bindings))
 	for i, b := range m.Bindings {
 		f, ok := byKey[b.Field]
 		if !ok {
-			return jsonMessage{}, errors.Wrapf(
+			return nil, errors.Wrapf(
 				validate.ErrValidation, "field %s does not exist", b.Field,
 			)
 		}
-		field, err := newJSONField(f, b.DataType)
-		if err != nil {
+		fields[i] = f
+	}
+	return fields, nil
+}
+
+func newJSONMessage(m JSONMessage) (jsonMessage, error) {
+	fields, err := m.boundFields()
+	if err != nil {
+		return jsonMessage{}, err
+	}
+	msg := jsonMessage{name: m.Name, fields: make([]jsonField, len(fields))}
+	for i, f := range fields {
+		if msg.fields[i], err = newJSONField(f, m.Bindings[i].DataType); err != nil {
 			return jsonMessage{}, errors.Wrapf(err, "field %s", f.Base().Name)
 		}
-		msg.fields[i] = field
 	}
 	return msg, nil
 }
@@ -219,18 +227,6 @@ type jsonVariant struct {
 	floatDefault *payload.Float
 }
 
-// quotedDefault returns d as a JSON string, or nil when d is nil.
-func quotedDefault(d *string) (jsontext.Value, error) {
-	if d == nil {
-		return nil, nil
-	}
-	v, err := jsontext.AppendQuote(nil, *d)
-	if err != nil {
-		return nil, errors.Wrap(validate.ErrValidation, err.Error())
-	}
-	return v, nil
-}
-
 // readTimestampDefault sets the fallback or generator of a timestamp field from d, if
 // any.
 func (f *jsonField) readTimestampDefault(d *icd.TimestampDefault) error {
@@ -264,72 +260,41 @@ func (f *jsonField) readUUIDDefault(d *icd.UUIDDefault) error {
 	return nil
 }
 
-// readVariant sets the kind of f from the variant of jf, and the fallback or generator
-// of a timestamp or UUID field. It returns the rest of what the variant sets.
+// readVariant sets the kind of f from jf, and the fallback or generator of a timestamp
+// or UUID field. It returns the rest of what the variant sets.
 func (f *jsonField) readVariant(jf icd.JSONField) (jsonVariant, error) {
+	f.kind = jf.Type()
 	out := jsonVariant{sample: xjson.Field{DataType: f.dataType, Enums: enumsOf(jf)}}
-	switch v := jf.Variant.(type) {
-	case icd.FloatJSONField:
-		f.kind = payload.KindFloat
-		out.floatDefault = v.Default
-	case icd.IntegerJSONField:
-		f.kind, out.sample.Range = payload.KindInteger, telem.Int64T
-		if v.Default != nil {
-			out.fallback = strconv.AppendInt(nil, int64(*v.Default), 10)
-		}
-	case icd.UnsignedJSONField:
-		f.kind, out.sample.Range = payload.KindUnsigned, telem.Uint64T
-		if v.Default != nil {
-			out.fallback = strconv.AppendUint(nil, uint64(*v.Default), 10)
-		}
-	case icd.BooleanJSONField:
-		f.kind = payload.KindBoolean
-		if v.Default != nil {
-			out.fallback = strconv.AppendBool(nil, *v.Default)
-		}
-	default:
-		if err := f.readTextVariant(jf, &out); err != nil {
-			return jsonVariant{}, err
-		}
-	}
-	return out, nil
-}
-
-// readTextVariant sets the kind of f and the fields of out from the variant of jf, a
-// field whose values are not numbers or Booleans.
-func (f *jsonField) readTextVariant(jf icd.JSONField, out *jsonVariant) error {
 	var err error
 	switch v := jf.Variant.(type) {
-	case icd.StringJSONField:
-		f.kind = payload.KindString
-		out.fallback, err = quotedDefault(v.Default)
-		return err
+	case icd.FloatJSONField:
+		out.floatDefault = v.Default
+		return out, nil
+	case icd.IntegerJSONField:
+		out.sample.Range = telem.Int64T
+	case icd.UnsignedJSONField:
+		out.sample.Range = telem.Uint64T
 	case icd.TimestampJSONField:
-		f.kind = payload.KindTimestamp
 		format := string(v.TimeFormat)
 		if out.sample.TimeFormat, err = xjson.ParseTimeFormat(format); err != nil {
-			return err
+			return jsonVariant{}, err
 		}
-		return f.readTimestampDefault(v.Default)
-	case icd.JSONJSONField:
-		f.kind = payload.KindJSON
-		if v.Default == nil {
-			return nil
+		if err = f.readTimestampDefault(v.Default); err != nil {
+			return jsonVariant{}, err
 		}
-		if out.fallback, err = jsonText(*v.Default); err != nil {
-			return errors.Wrap(err, "default")
-		}
-		return nil
+		return out, nil
 	case icd.UuidJSONField:
-		f.kind = payload.KindUUID
-		return f.readUUIDDefault(v.Default)
-	case icd.BytesJSONField:
-		f.kind = payload.KindBytes
-		out.fallback, err = quotedDefault(v.Default)
-		return err
-	default:
-		return errors.Wrap(validate.ErrValidation, "type is required")
+		if err = f.readUUIDDefault(v.Default); err != nil {
+			return jsonVariant{}, err
+		}
+		return out, nil
+	case nil:
+		return jsonVariant{}, errUntyped
 	}
+	if out.fallback, err = defaultText(jf); err != nil {
+		return jsonVariant{}, errors.Wrap(err, "default")
+	}
+	return out, nil
 }
 
 var (
@@ -503,7 +468,6 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 	for i := range m.fields {
 		f := &m.fields[i]
 		var err error
-		missing := false
 		if payload.Absent(m.values[i], f.dataType) {
 			switch {
 			case f.generate != nil:
@@ -511,7 +475,6 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 			case f.fallback != nil:
 				samples[i] = append(samples[i], f.fallback...)
 			default:
-				missing = true
 				err = errors.Wrapf(
 					validate.ErrValidation, "no value at %s", f.pointer,
 				)
@@ -525,7 +488,6 @@ func (m *jsonMessage) decode(samples [][]byte, failures []Failure) []Failure {
 		if err != nil {
 			failures = append(failures, Failure{
 				Binding: i,
-				Missing: missing,
 				Err:     errors.Wrapf(err, "field %s", f.name),
 			})
 		}

@@ -191,26 +191,19 @@ func newJSONEncoder(m JSONMessage) (*JSONEncoder, error) {
 // bindingIndexes returns the index of the binding of each bound field in m. It fails
 // when a binding names a field that m does not have, or a field has two bindings.
 func bindingIndexes(m JSONMessage) (map[icd.FieldKey]int, error) {
-	byKey := make(map[icd.FieldKey]icd.JSONField, len(m.Payload.Fields))
-	for _, f := range m.Payload.Fields {
-		byKey[f.Base().Key] = f
+	fields, err := m.boundFields()
+	if err != nil {
+		return nil, err
 	}
-	bound := make(map[icd.FieldKey]int, len(m.Bindings))
-	for i, b := range m.Bindings {
-		f, ok := byKey[b.Field]
-		if !ok {
+	bound := make(map[icd.FieldKey]int, len(fields))
+	for i, f := range fields {
+		b := f.Base()
+		if _, ok := bound[b.Key]; ok {
 			return nil, errors.Wrapf(
-				validate.ErrValidation, "field %s does not exist", b.Field,
+				validate.ErrValidation, "field %s has more than one binding", b.Name,
 			)
 		}
-		if _, ok = bound[b.Field]; ok {
-			return nil, errors.Wrapf(
-				validate.ErrValidation,
-				"field %s has more than one binding",
-				f.Base().Name,
-			)
-		}
-		bound[b.Field] = i
+		bound[b.Key] = i
 	}
 	return bound, nil
 }
@@ -266,7 +259,7 @@ func memberPointer(text string) (xjson.Pointer, error) {
 	if err != nil {
 		return nil, err
 	}
-	if slices.ContainsFunc(pointer, arrayIndex) {
+	if pointer.HasArrayIndex() {
 		return nil, errors.Wrapf(
 			validate.ErrValidation,
 			"pointer %q holds an array index, which a document cannot place",
@@ -274,19 +267,6 @@ func memberPointer(text string) (xjson.Pointer, error) {
 		)
 	}
 	return pointer, nil
-}
-
-// arrayIndex reports whether token is "0" or digits that do not start with "0".
-func arrayIndex(token string) bool {
-	if token == "" || (len(token) > 1 && token[0] == '0') {
-		return false
-	}
-	for i := range len(token) {
-		if token[i] < '0' || token[i] > '9' {
-			return false
-		}
-	}
-	return true
 }
 
 // CheckWrite returns an error wrapping validate.ErrValidation when samples of dt cannot
@@ -338,7 +318,8 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 		base:   b.BaseField,
 		narrow: dt == telem.Float32T,
 	}
-	kind, sample, err := sampleField(jf, dt)
+	kind := jf.Type()
+	sample, err := sampleField(jf, dt)
 	if err != nil {
 		return encodeField{}, err
 	}
@@ -358,42 +339,19 @@ func newEncodeField(jf icd.JSONField, dt telem.DataType) (encodeField, error) {
 	return f, nil
 }
 
-// sampleField returns the kind of jf and the xjson field that writes a sample of dt as
-// a value of that kind.
-func sampleField(
-	jf icd.JSONField,
-	dt telem.DataType,
-) (payload.Kind, xjson.Field, error) {
+// sampleField returns the xjson field that writes a sample of dt as a value of jf.
+func sampleField(jf icd.JSONField, dt telem.DataType) (xjson.Field, error) {
 	f := xjson.Field{DataType: dt, Enums: enumsOf(jf), Type: xjson.Number}
+	var err error
 	switch v := jf.Variant.(type) {
-	case icd.FloatJSONField:
-		return payload.KindFloat, f, nil
-	case icd.IntegerJSONField:
-		return payload.KindInteger, f, nil
-	case icd.UnsignedJSONField:
-		return payload.KindUnsigned, f, nil
-	case icd.StringJSONField:
+	case icd.StringJSONField, icd.UuidJSONField, icd.BytesJSONField:
 		f.Type = xjson.String
-		return payload.KindString, f, nil
 	case icd.BooleanJSONField:
 		f.Type = xjson.Boolean
-		return payload.KindBoolean, f, nil
 	case icd.TimestampJSONField:
-		var err error
-		if f.TimeFormat, err = xjson.ParseTimeFormat(string(v.TimeFormat)); err != nil {
-			return "", xjson.Field{}, err
-		}
-		return payload.KindTimestamp, f, nil
-	case icd.JSONJSONField:
-		return payload.KindJSON, f, nil
-	case icd.UuidJSONField:
-		f.Type = xjson.String
-		return payload.KindUUID, f, nil
-	case icd.BytesJSONField:
-		f.Type = xjson.String
-		return payload.KindBytes, f, nil
+		f.TimeFormat, err = xjson.ParseTimeFormat(string(v.TimeFormat))
 	}
-	return "", xjson.Field{}, errors.Wrap(validate.ErrValidation, "type is required")
+	return f, err
 }
 
 // converted reports whether a field of kind k changes or checks the number that an
@@ -448,10 +406,7 @@ func matchLiteral(m icd.JSONMatch) (xjson.TemplateField, error) {
 	case icd.BooleanJSONMatch:
 		f.Literal = strconv.AppendBool(nil, v.Value)
 	default:
-		return xjson.TemplateField{}, errors.Wrap(
-			validate.ErrValidation,
-			"type is required",
-		)
+		return xjson.TemplateField{}, errUntyped
 	}
 	if err != nil {
 		return xjson.TemplateField{}, err
@@ -486,45 +441,55 @@ func defaultOf(jf icd.JSONField) (fieldDefault, error) {
 		if v.Default != nil {
 			d.literal, d.err = xjson.AppendFloat(nil, float64(*v.Default))
 		}
-	case icd.IntegerJSONField:
-		if v.Default != nil {
-			d.literal = strconv.AppendInt(nil, int64(*v.Default), 10)
-		}
-	case icd.UnsignedJSONField:
-		if v.Default != nil {
-			d.literal = strconv.AppendUint(nil, uint64(*v.Default), 10)
-		}
-	case icd.StringJSONField:
-		if v.Default != nil {
-			d.literal, err = quote(*v.Default)
-		}
-	case icd.BooleanJSONField:
-		if v.Default != nil {
-			d.literal = strconv.AppendBool(nil, *v.Default)
-		}
 	case icd.TimestampJSONField:
 		if v.Default != nil {
 			d.literal, d.generate, err = timestampDefault(v)
-		}
-	case icd.JSONJSONField:
-		if v.Default != nil {
-			d.literal = []byte(*v.Default)
 		}
 	case icd.UuidJSONField:
 		if v.Default != nil {
 			d.literal, d.generate, err = uuidDefault(*v.Default)
 		}
-	case icd.BytesJSONField:
-		if v.Default != nil {
-			d.literal, err = quote(*v.Default)
-		}
 	case nil:
 		err = errUntyped
+	default:
+		d.literal, err = defaultText(jf)
 	}
 	if err != nil {
 		return fieldDefault{}, err
 	}
 	return d, nil
+}
+
+// defaultText returns the JSON text of the default of an integer, unsigned, boolean,
+// string, JSON, or bytes field, or nil when jf has none.
+func defaultText(jf icd.JSONField) ([]byte, error) {
+	switch v := jf.Variant.(type) {
+	case icd.IntegerJSONField:
+		if v.Default != nil {
+			return strconv.AppendInt(nil, int64(*v.Default), 10), nil
+		}
+	case icd.UnsignedJSONField:
+		if v.Default != nil {
+			return strconv.AppendUint(nil, uint64(*v.Default), 10), nil
+		}
+	case icd.BooleanJSONField:
+		if v.Default != nil {
+			return strconv.AppendBool(nil, *v.Default), nil
+		}
+	case icd.StringJSONField:
+		if v.Default != nil {
+			return quote(*v.Default)
+		}
+	case icd.JSONJSONField:
+		if v.Default != nil {
+			return jsonText(*v.Default)
+		}
+	case icd.BytesJSONField:
+		if v.Default != nil {
+			return quote(*v.Default)
+		}
+	}
+	return nil, nil
 }
 
 func timestampDefault(f icd.TimestampJSONField) ([]byte, generator, error) {

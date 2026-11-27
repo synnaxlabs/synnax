@@ -407,7 +407,7 @@ var _ = Describe("JSON", func() {
 			Expect(ok).To(BeTrue())
 		}
 		Expect(decodeError(dec, []byte(`{"v": "x"}`), samples)).
-			To(MatchError(validate.ErrValidation))
+			To(MatchError(`field v: invalid number "x": validation error`))
 		Expect(telem.Series{DataType: telem.Float64T, Data: samples[0][0]}).
 			To(MatchSeriesDataV[float64](1, 2))
 	})
@@ -448,11 +448,8 @@ var _ = Describe("JSON", func() {
 				Expect(ok).To(BeTrue())
 				Expect(failures).To(HaveLen(2))
 				Expect(failures[0].Binding).To(Equal(0))
-				Expect(failures[0].Missing).To(BeFalse())
-				Expect(failures[0].Err).To(SatisfyAll(
-					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("field a: ")),
-				))
+				Expect(failures[0].Err).
+					To(MatchError(`field a: invalid number "x": validation error`))
 				Expect(failures[1].Binding).To(Equal(2))
 				Expect(samples[0][0]).To(BeEmpty())
 				Expect(series(samples[0][1])).To(MatchSeriesDataV[float64](2))
@@ -460,13 +457,12 @@ var _ = Describe("JSON", func() {
 			},
 		)
 
-		It("Should list a field with no value and no default as missing", func() {
+		It("Should list a field with no value and no default", func() {
 			dec, samples := reading(2)
 			_, _, failures, err := dec.Decode([]byte(`{"a": 1}`), samples)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(failures).To(HaveLen(1))
 			Expect(failures[0].Binding).To(Equal(1))
-			Expect(failures[0].Missing).To(BeTrue())
 			Expect(failures[0].Err).
 				To(MatchError("field b: no value at /b: validation error"))
 		})

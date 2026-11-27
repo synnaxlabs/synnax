@@ -173,8 +173,10 @@ var _ = Describe("JSONEncoder", func() {
 						samples[b] = unprefixed(binding.DataType, decoded[i][b])
 					}
 					if !finite(m, c) {
-						Expect(enc.Encode(nil, samples)).Error().
-							To(MatchError(validate.ErrValidation))
+						Expect(enc.Encode(nil, samples)).Error().To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring("is not a JSON number")),
+						))
 						continue
 					}
 					encoded := MustSucceed(enc.Encode(nil, samples))
