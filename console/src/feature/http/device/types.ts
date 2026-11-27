@@ -97,30 +97,31 @@ export const queryParamsZ = http.queryParamZ.array().check(
   ),
 );
 
-/** Refuses a header with an empty name or value, as the Driver does. */
-const validateHeaders = ({ value, issues }: z.core.ParsePayload<http.Header[]>) =>
-  value.forEach(({ name, value: headerValue }, i) => {
-    if (name === "")
-      issues.push({
+/**
+ * Adds an issue to payload at the cell of each header in headers with an empty name or
+ * value, as the Driver refuses one. path leads from the value of payload to headers.
+ */
+export const validateHeaders = (
+  payload: z.core.ParsePayload,
+  headers: http.Header[],
+  path: PropertyKey[] = [],
+) =>
+  headers.forEach(({ name, value }, i) => {
+    const required = (field: string, message: string) =>
+      payload.issues.push({
         continue: true,
         code: "custom",
-        input: value,
-        message: "Name is required",
-        path: [i, "name"],
+        input: payload.value,
+        message,
+        path: [...path, i, field],
       });
-    if (headerValue === "")
-      issues.push({
-        continue: true,
-        code: "custom",
-        input: value,
-        message: "Value is required",
-        path: [i, "value"],
-      });
+    if (name === "") required("name", "Name is required");
+    if (value === "") required("value", "Value is required");
   });
 
 const sharedHealthCheckZ = z.object({
   path: z.string(),
-  headers: headersZ.check(validateHeaders).optional(),
+  headers: headersZ.check((p) => validateHeaders(p, p.value)).optional(),
   queryParams: queryParamsZ.optional(),
 });
 
