@@ -663,15 +663,19 @@ describe("Read ports", () => {
       );
     });
 
-    it("should show a stored negative channel that is not the pair as its own option", async () => {
+    it.each([
+      ["the pair of its new port", 3, 5],
+      ["ground", undefined, undefined],
+    ])("should keep a moved channel on %s", async (_, negChan, expected) => {
       const { draft } = await renderWith(
-        [createAnalogReadChannel("AIN2", { negChan: 127 })],
+        [createAnalogReadChannel("AIN2", { negChan })],
         LabJack.Device.T7_MODEL,
       );
       fireEvent.click(await findChannelListItem("AIN2"));
-      fireEvent.click(await findDialogTriggerByText("AIN127"));
-      fireEvent.click(await screen.findByText("AIN3"));
-      await waitFor(async () => expect(await savedNegChans(draft.key)).toEqual([3]));
+      fireEvent.click(cell("AIN4", "AIN0 to AIN13"));
+      await waitFor(async () =>
+        expect(await savedNegChans(draft.key)).toEqual([expected]),
+      );
     });
 
     it.each([

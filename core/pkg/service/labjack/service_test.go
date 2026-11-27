@@ -192,8 +192,36 @@ var _ = Describe("Service", func() {
 			Entry("absent", map[string]any{}, Not(HaveKey("neg_chan"))),
 			Entry(
 				"pair",
-				map[string]any{"neg_chan": 3},
+				map[string]any{"port": "AIN2", "neg_chan": 3},
 				HaveKeyWithValue("neg_chan", BeNumerically("==", 3)),
+			),
+		)
+
+		DescribeTable(
+			"Should reconcile a stored channel that breaks the channel rules",
+			func(ctx SpecContext, ch map[string]any, expected types.GomegaMatcher) {
+				ch["type"], ch["key"], ch["scale"] = "analog", "ai", map[string]any{
+					"type": "none",
+				}
+				out := MustSucceed(svc.Read.Normalize(ctx, db, v2.Version,
+					msgpack.EncodedJSON{"channels": []any{ch}},
+				))
+				Expect(out["channels"]).To(ConsistOf(expected))
+			},
+			Entry(
+				"a negative channel that is not the pair",
+				map[string]any{"port": "AIN2", "neg_chan": 5},
+				HaveKeyWithValue("neg_chan", BeNumerically("==", 3)),
+			),
+			Entry(
+				"a negative channel on a port with no pair",
+				map[string]any{"port": "AIN3", "neg_chan": 4},
+				Not(HaveKey("neg_chan")),
+			),
+			Entry(
+				"a zero range",
+				map[string]any{"range": 0},
+				HaveKeyWithValue("range", BeNumerically("==", 10)),
 			),
 		)
 
