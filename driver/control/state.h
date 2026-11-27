@@ -61,6 +61,8 @@ class States {
     std::unordered_set<std::string> closed;
     /// @brief local writers whose Core writer is open.
     std::unordered_set<std::string> on_core;
+    /// @brief the gates whose on_connect ran since the last set.
+    std::unordered_set<std::string> signalled;
     std::uint64_t next_order = 0;
     bool connected = true;
 
@@ -196,6 +198,22 @@ class States {
                 return entry.second.subject.key == key;
             });
         });
+    }
+
+    /// @brief calls the on_connect of the earliest gate not open on the Core that has
+    /// not had it since the last set, so the writers reopen on the Core in gate order
+    /// and the Core breaks their ties as the gates do. Requires mu.
+    void connect_next_locked() {
+        const Gate *next = nullptr;
+        for (const auto &[key, g]: this->gates) {
+            if (!g.on_connect || this->on_core.contains(key) ||
+                this->signalled.contains(key))
+                continue;
+            if (next == nullptr || g.order < next->order) next = &g;
+        }
+        if (next == nullptr) return;
+        this->signalled.insert(next->subject.key);
+        next->on_connect();
     }
 
     /// @brief applies to every channel the increases of the writers open on the Core,
@@ -368,11 +386,12 @@ public:
     /// and opens the bus. A writer open on the Core takes a channel from a holder with
     /// less authority, as an increase does. A writer not yet open on the Core keeps the
     /// local rule until opened_on_core. A closed writer that the snapshot still names
-    /// keeps its channels until its transfer arrives. Calls the on_connect of each
-    /// gate. Each frame
-    /// of a hold is filtered against the new mirror and published in the order it came,
-    /// before any frame that route gets after this call. A read that began before a
-    /// later hold, stream restart, or full log is ignored, since it can miss changes.
+    /// keeps its channels until its transfer arrives. Calls the on_connect of the
+    /// earliest gate not open on the Core, and each open on the Core calls the next, so
+    /// the writers reopen in gate order. Each frame of a hold is filtered against the
+    /// new mirror and published in the order it came, before any frame that route gets
+    /// after this call. A read that began before a later hold, stream restart,
+    /// disconnect, or full log is ignored, since it can miss changes.
     /// @returns false when the read was ignored.
     bool
     set(const std::vector<x::control::State<synnax::channel::Key>> &next,
@@ -391,8 +410,8 @@ public:
             this->predict_all_opened();
             this->recompute_all();
             // Under mu, so close_gate waits for a call that reaches a closing writer.
-            for (const auto &[_, g]: this->gates)
-                if (g.on_connect) g.on_connect();
+            this->signalled.clear();
+            this->connect_next_locked();
         }
         this->end_read_locked();
         if (!current) return false;
@@ -543,6 +562,7 @@ public:
             }
             this->recompute(channel);
         }
+        if (this->connected) this->connect_next_locked();
     }
 
     /// @brief records that the Core writer of subject closed, failed, or lost its
@@ -554,12 +574,16 @@ public:
         if (it == this->gates.end()) return;
         for (const auto &[channel, _]: it->second.authorities)
             this->recompute(channel);
+        // A writer that fails to reopen must not hold back the gates after it.
+        if (this->connected && this->signalled.contains(subject.key))
+            this->connect_next_locked();
     }
 
     /// @brief opens a gate for a local writer with the authorities it opens with, one
     /// for all channels or one per channel. An empty list means absolute authority.
-    /// @param on_connect called each time set marks the Core connected, until the gate
-    /// closes. It runs under the lock of the States, so it must not call them.
+    /// @param on_connect called once after each set that marks the Core connected,
+    /// once the earlier gates opened on the Core, until the gate closes. It runs under
+    /// the lock of the States, so it must not call them.
     void open_gate(
         const x::control::Subject &subject,
         const std::vector<synnax::channel::Key> &channels,

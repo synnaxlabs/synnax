@@ -1085,4 +1085,36 @@ TEST(StatesTest, DisconnectOutdatesAnOpenRead) {
     ASSERT_TRUE(states.is_authorized(1, ARC));
     ASSERT_FALSE(states.is_authorized(1, OPERATOR));
 }
+
+/// @brief it should ask the writers to reopen on the Core in gate order, one after
+/// the open of the one before, so the Core breaks their ties as the gates do.
+TEST(StatesTest, SetConnectsGatesInGateOrder) {
+    States states;
+    std::vector<std::string> calls;
+    states.open_gate(ARC, {1}, {100}, [&calls] { calls.emplace_back("arc"); });
+    states.open_gate(OPERATOR, {1}, {100}, [&calls] {
+        calls.emplace_back("operator");
+    });
+    states.disconnect();
+    states.set({});
+    ASSERT_EQ(calls, std::vector<std::string>{"arc"});
+    states.opened_on_core(ARC);
+    ASSERT_EQ(calls, (std::vector<std::string>{"arc", "operator"}));
+    states.opened_on_core(OPERATOR);
+    ASSERT_EQ(calls.size(), 2);
+}
+
+/// @brief it should ask the next writer to reopen when the one before fails to.
+TEST(StatesTest, SetConnectsTheNextGateWhenAReopenFails) {
+    States states;
+    std::vector<std::string> calls;
+    states.open_gate(ARC, {1}, {100}, [&calls] { calls.emplace_back("arc"); });
+    states.open_gate(OPERATOR, {1}, {100}, [&calls] {
+        calls.emplace_back("operator");
+    });
+    states.disconnect();
+    states.set({});
+    states.closed_on_core(ARC);
+    ASSERT_EQ(calls, (std::vector<std::string>{"arc", "operator"}));
+}
 }
