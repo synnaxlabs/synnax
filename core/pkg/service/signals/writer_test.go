@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -121,6 +122,14 @@ var _ = Describe("Run", func() {
 	It("Should return an error when called after Close", func(ctx SpecContext) {
 		Expect(sigs.Close()).To(Succeed())
 		Expect(sigs.Run(ctx)).To(MatchError(ContainSubstring("run called after close")))
+	})
+
+	It("Should return the error of a writer that fails to open", func(ctx SpecContext) {
+		key := retrieveChannel(ctx, setName).Key()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Delete(ctx, key, true)
+		})).To(Succeed())
+		Expect(sigs.Run(ctx)).To(MatchError(query.ErrNotFound))
 	})
 
 	It("Should return nil without change channels", func(ctx SpecContext) {

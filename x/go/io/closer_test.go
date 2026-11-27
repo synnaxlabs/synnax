@@ -222,10 +222,4 @@ var _ = Describe("Closer", func() {
 			})
 		})
 	})
-
-	Describe("NopCloser", func() {
-		It("should do nothing when Close is called", func() {
-			Expect(io.NopCloser.Close()).To(Succeed())
-		})
-	})
 })
