@@ -32,7 +32,7 @@ channel.
   (`client/ts/src/framer/cache/store/store.ts:535-546`).
 - **No series names its time source**: Pluto swaps a channel for its index channel
   (`pluto/src/telem/aether/remote.ts:247-256`), and calculations pair inputs by arrival
-  (`site/docs/src/docs/reference/channels/calculated.mdx:200-205`).
+  (`site/docs/src/docs/reference/channels/calculated.mdx:207-211`).
 - **Task configs copy channel facts**: The Console creates channels and their `_time`
   indexes (`console/src/platform/task/channels.ts:31-36`).
 
@@ -141,8 +141,10 @@ data type stays the `DataType` string in memory.
 | C++        | `clock` | `std::uint32_t` | `x/cpp/telem/series.h:83-146`; every copy, move, and protobuf path carries it                                                       |
 
 The framer sets the field: the writer from the clock of each key, the iterator from the
-segment's clock. While a channel has an index channel, its clock is that index key. A
-client never sets it: a data series names no clock on the write wire (§4.8).
+segment's clock. D-141 keeps clock keys off documented surfaces only: the JSON and
+msgpack forms carry `clock`, and the Python `Series` leaves it out of its repr. While a
+channel has an index channel, its clock is that index key. A client never sets it: a
+data series names no clock on the write wire (§4.8).
 
 ### 4.2 The frame codec
 
@@ -347,13 +349,18 @@ fields carry the layout of §4.2 (`core/pkg/transport/grpc/framer/framer.proto:5
 - **Reader API**: `frame.time(channel)` gives one time series per data series of the
   channel, with the same lengths, and `frame.time(series)` the times of one series: the
   time series under `series.clock` whose alignments hold the data's. Each fails when the
-  frame holds no time for it, such as an untimed key or a `min_max` read. Time series
-  sit in a store of the frame of their own, keyed by clock, and never appear among its
-  channels, keys, or columns. `frame["time"]` fails and names `frame.time`. `to_df()`
-  has a `DatetimeIndex` named `time`: an outer join on time across clocks, with blanks,
-  as today. A range channel has `time` (Python `ScopedChannel.time`). A TypeScript cache
-  `Snapshot` has `time`, one time series per series, and its old `time`, the end of the
-  newest sample, becomes `end` (`client/ts/src/framer/subscription.ts:81`).
+  frame holds no time for it, as for an untimed key. A `min_max` read keeps real
+  samples, so it carries their stamps. Until Phase 50 a read can name an index channel
+  that is the clock of another requested key; the frame then holds that series once, as
+  the time series, and the reader also shows it under the channel. A channel that times
+  itself, such as a kept timestamp channel, comes once too, and `frame.time` of it
+  returns that series. Time series sit in a store of the frame of their own, keyed by
+  clock, and never appear among its channels, keys, or columns. `frame["time"]` fails
+  and names `frame.time`. `to_df()` has a `DatetimeIndex` named `time`: an outer join on
+  time across clocks, with blanks, as today. A range channel has `time` (Python
+  `ScopedChannel.time`). A TypeScript cache `Snapshot` has `time`, one time series per
+  series, and its old `time`, the end of the newest sample, becomes `end`
+  (`client/ts/src/framer/subscription.ts:81`).
 - **Mixed types**: Series lists and frames hold more than one type in TypeScript,
   Python, and C++. A read of one series keeps its exact type. A read of a whole channel
   as one array widens by the NumPy rule (`int64` with `float64` gives `float64`), which
@@ -390,7 +397,7 @@ names no clock key.
 - **Untimed keys**: A streamer or iterator request may list `untimed_keys`, a subset of
   its keys whose values a reader needs with no time: readouts, gauges, lights, and the
   other value displays. Staleness ages a sample from its series' time range
-  (`pluto/src/vis/staleness/aether/staleness.ts:98-99`), which every series carries, so
+  (`pluto/src/vis/staleness/aether/staleness.ts:87-91`), which every series carries, so
   they need no stamps. The Core sends a clock's time series when at least one requested
   key on that clock is not untimed, and the storage iterator reads stamps only for those
   clocks. It computes that set of clocks when the key list or a key's clock changes,
@@ -444,7 +451,9 @@ names no clock key.
   name that the retired table holds, fails with an error that names
   `frame.time(channel)`. Any other unknown name fails as not found.
 - **Access**: A time series leaves the Core only beside data that the subject may read.
-  No check runs on the clock.
+  No check runs on a hidden clock. Until Phase 50 a clock that is an index channel keeps
+  `main`'s check of each index that the caller never named
+  (`core/pkg/api/framer/framer.go:344`).
 - **Cost**: A reader that marks its keys untimed pays nothing for time. A reader that
   draws a timed key with no time pays 8 bytes of time per sample.
 - **Phases**: Phase 8 lands the codec field. Phase 12 turns the rule on, with untimed
@@ -709,7 +718,7 @@ message IteratorRequest { repeated uint32 untimed_keys = 7; }
 | Time in a writer that takes none       | The writer takes its time on arrival, so a write cannot hold "time"                                     |
 | A `time_of` start that is not a sample | temperature has no sample at the start. A writer with time_of starts at a sample of that channel        |
 | `"time"` in an open or read list       | "time" is not a channel. Writes take time under "time", and frame.time(channel) gives a channel's time  |
-| `frame.time` with no time              | The frame holds no time for temperature. The read reduced it with min_max, or read it untimed           |
+| `frame.time` with no time              | The frame holds no time for temperature. The read marked it untimed                                     |
 | A new channel named `time`             | time is a reserved name                                                                                 |
 
 ### 4.9 Tasks and devices
@@ -1220,8 +1229,11 @@ config from Phase 43. Keys of `core/v0.62.0` keep their numbers.
     holds only while every channel of a frame shares one clock, and time on each
     `Series`, which every slice and cast must carry.
 37. **One `time` column in CSV and TDMS exports**: The merge of
-    `core/pkg/transport/http/framer/csv.go:158-187` already orders rows. Rejected: a
-    column per clock, which shows storage's layout in the header.
+    `core/pkg/transport/http/framer/csv.go:158-187` already orders samples by time, and
+    `Latest` counts the newest stamps of that one column. TDMS has no blank for a type
+    other than floats, so each such channel keeps a group of its own with its stamps,
+    named by channel and type, as today. Rejected: a column per clock, which shows
+    storage's layout in the header.
 38. **The additive parts first, then the removals, each phase safe alone**: Users move
     writes, reads, and creates before the index API goes. Rejected: one break that holds
     every release while Phases 24 to 50 merge, against D-161. The client cache rewrite
