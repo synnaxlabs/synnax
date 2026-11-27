@@ -106,7 +106,7 @@ func replay(image *fault.FS, h *state.Snapshot) error {
 var _ = Describe("Check: a Reserve at each crash point", func() {
 	It("Should replay with no value above a durable Reserve limit at each crash point",
 		func() {
-			const size = 4 << 20
+			const size = 8 * log.DeleteReserve
 			for runKey := range uint64(4) {
 				disk := MustSucceed(fault.New(fault.Config{}))
 				Expect(log.Prepare(disk, 1, size)).To(Succeed())
