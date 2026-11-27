@@ -241,19 +241,6 @@ export const commandStatePairZ = z.object({
 });
 export interface CommandStatePair extends z.infer<typeof commandStatePairZ> {}
 
-/** Identity holds the device fields that the scanner owns. */
-export const identityZ = z.object({
-  /** rack is the key of the rack the device is connected to. */
-  rack: rack.keyZ.refine((v) => v !== 0, "Rack is required"),
-  /** serial is the serial number of the device. */
-  serial: z.uint32().refine((v) => v !== 0, "Serial is required"),
-  /** connection is the connection the scanner last found the device on. */
-  connection: connectionZ,
-  /** model is the model of the device. An update cannot change it. */
-  model: modelZ,
-});
-export interface Identity extends z.infer<typeof identityZ> {}
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -379,29 +366,6 @@ export const cursorZ = z.object({
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
 
-/** Configuration holds the device fields that the user owns. */
-export const configurationZ = z.object({
-  /** name is a human-readable name for the device. */
-  name: z.string().min(1, "Name is required"),
-  /**
-   * identifier is the prefix of the device's channel names. The device is unconfigured
-   * while it is empty.
-   */
-  identifier: z.string().default(""),
-  /** readIndex is the index channel of the channels that the device reads into. */
-  readIndex: channel.keyZ.optional(),
-  /**
-   * writeStateIndex is the index channel of the state channels of the device's outputs.
-   */
-  writeStateIndex: channel.keyZ.optional(),
-  /**
-   * ports holds the configuration that depends on the model. Its model must be the
-   * model of the stored device.
-   */
-  ports: portsZ,
-});
-export interface Configuration extends z.infer<typeof configurationZ> {}
-
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
@@ -419,39 +383,6 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
-
-/** IdentityUpdate writes the fields that the scanner owns. */
-export const identityUpdateZ = identityZ.extend({
-  group: z.literal("identity"),
-});
-export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
-
-/**
- * ConfigurationUpdate replaces the fields that the user owns. A client sends the whole
- * group, because a field it leaves out is cleared.
- */
-export const configurationUpdateZ = configurationZ.extend({
-  group: z.literal("configuration"),
-});
-export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
-
-export const UPDATE_TYPES = ["identity", "configuration"] as const;
-export const updateTypeZ = z.enum(UPDATE_TYPES);
-export type UpdateType = z.infer<typeof updateTypeZ>;
-
-/** Update is a write to one field group of a device. */
-export const updateZ = z.discriminatedUnion("group", [
-  identityUpdateZ,
-  configurationUpdateZ,
-]);
-export type Update = IdentityUpdate | ConfigurationUpdate;
-
-export const UPDATE_SCHEMAS: {
-  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
-} = {
-  identity: identityUpdateZ,
-  configuration: configurationUpdateZ,
-};
 
 /** Device is a LabJack T-series device. */
 export const deviceZ = z.object({

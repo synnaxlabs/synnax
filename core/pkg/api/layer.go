@@ -285,7 +285,7 @@ type Transport struct {
 	// LABJACK DEVICE
 	LabJackDeviceCreate   freighter.UnaryServer[labjackdevice.CreateRequest, labjackdevice.CreateResponse]
 	LabJackDeviceRetrieve freighter.UnaryServer[labjackdevice.RetrieveRequest, labjackdevice.RetrieveResponse]
-	LabJackDeviceUpdate   freighter.UnaryServer[labjackdevice.UpdateRequest, struct{}]
+	LabJackDeviceDispatch freighter.UnaryServer[labjackdevice.DispatchRequest, struct{}]
 	LabJackDeviceDelete   freighter.UnaryServer[labjackdevice.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
@@ -627,7 +627,7 @@ func (l *Layer) BindTo(t Transport) {
 		// LABJACK DEVICE
 		t.LabJackDeviceCreate,
 		t.LabJackDeviceRetrieve,
-		t.LabJackDeviceUpdate,
+		t.LabJackDeviceDispatch,
 		t.LabJackDeviceDelete,
 
 		// ACCESS
@@ -937,7 +937,9 @@ func (l *Layer) BindTo(t Transport) {
 	// LABJACK DEVICE
 	t.LabJackDeviceCreate.BindHandler(bind.Write(l.binder, l.LabJackDevice.Create))
 	t.LabJackDeviceRetrieve.BindHandler(bind.Read(l.binder, l.LabJackDevice.Retrieve))
-	t.LabJackDeviceUpdate.BindHandler(bind.Write(l.binder, l.LabJackDevice.Update))
+	t.LabJackDeviceDispatch.BindHandler(
+		bind.Write(l.binder, l.LabJackDevice.Dispatch),
+	)
 	t.LabJackDeviceDelete.BindHandler(bind.Write(l.binder, l.LabJackDevice.Delete))
 
 	// ACCESS

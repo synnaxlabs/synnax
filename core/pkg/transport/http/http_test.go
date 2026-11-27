@@ -225,9 +225,9 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/labjack/device/retrieve",
 			),
 			Entry(
-				"unary LabJack device update",
+				"unary LabJack device dispatch",
 				http.MethodPost,
-				"/api/v1/labjack/device/update",
+				"/api/v1/labjack/device/dispatch",
 			),
 			Entry(
 				"unary LabJack device delete",

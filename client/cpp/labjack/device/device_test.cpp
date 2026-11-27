@@ -8,9 +8,11 @@
 // included in the file licenses/APL.txt.
 
 #include <optional>
+#include <variant>
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/labjack/device/actions.gen.h"
 #include "client/cpp/labjack/device/json.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
@@ -86,22 +88,19 @@ TEST(Device, RoundTrips) {
     ASSERT_EQ(parsed.identifier, "lj");
 }
 
-/// @brief it should round trip a configuration update with a T7's ports.
-TEST(Update, RoundTripsConfiguration) {
-    ConfigurationUpdate configuration;
-    configuration.name = "T7-0001";
-    T7Ports ports;
-    ports.mux80_attached = true;
-    configuration.ports = ports;
-    const Update update = configuration;
-    x::json::Parser parser(to_json(update));
-    const auto parsed = parse_update(parser);
+/// @brief it should round trip a set action through JSON.
+TEST(Action, RoundTripsSet) {
+    const Action action = set(
+        SetPayload{
+            .path = {"ports", "mux80_attached"},
+            .value = true,
+        }
+    );
+    x::json::Parser parser(to_json(action));
+    const auto parsed = parse_action(parser);
     ASSERT_NIL(parser.error());
-    ASSERT_TRUE(std::holds_alternative<ConfigurationUpdate>(parsed));
-    const auto &got = std::get<ConfigurationUpdate>(parsed);
-    ASSERT_EQ(got.name, "T7-0001");
-    ASSERT_TRUE(std::holds_alternative<T7Ports>(got.ports));
-    ASSERT_TRUE(std::get<T7Ports>(got.ports).mux80_attached);
+    ASSERT_TRUE(std::holds_alternative<SetPayload>(parsed));
+    ASSERT_EQ(to_json(parsed), to_json(action));
 }
 
 /// @brief it should round trip a where through JSON.

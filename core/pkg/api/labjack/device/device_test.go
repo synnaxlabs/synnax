@@ -360,26 +360,28 @@ var _ = Describe("Service", func() {
 		})
 	})
 
-	Describe("Update", func() {
-		configure := func(key device.Key, ports device.PortsVariant) apidevice.UpdateRequest {
-			return apidevice.UpdateRequest{
-				Key: key,
-				Update: device.Update{Variant: device.ConfigurationUpdate{
-					Configuration: device.Configuration{
-						Name:       "Renamed",
-						Identifier: "lj",
-						Ports:      device.Ports{Variant: ports},
-					},
-				}},
-			}
+	Describe("Dispatch", func() {
+		set := func(path string, value any) device.Action {
+			return device.NewSetAction(device.SetPayload{
+				Path:  []string{path},
+				Value: value,
+			})
+		}
+		dispatch := func(
+			key device.Key,
+			acts ...device.Action,
+		) apidevice.DispatchRequest {
+			return apidevice.DispatchRequest{Key: key, Actions: acts}
 		}
 
-		It("Should write only the configuration group", func(ctx SpecContext) {
+		It("Should apply the actions and keep the other fields", func(
+			ctx SpecContext,
+		) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Rack)
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				configure(d.Key, device.T7Ports{}),
+				dispatch(d.Key, set("name", "Renamed"), set("identifier", "lj")),
 			)).Error().ToNot(HaveOccurred())
 			got := retrieveDevice(ctx, d.Key)
 			Expect(got.Name).To(Equal("Renamed"))
@@ -387,35 +389,12 @@ var _ = Describe("Service", func() {
 			Expect(got.Serial).To(Equal(d.Serial))
 		})
 
-		It("Should write only the identity group", func(ctx SpecContext) {
-			d := createDevice(ctx)
-			grantWrites(ctx, d.Rack)
-			Expect(update(
-				testutil.AuthedCtx(ctx, u),
-				apidevice.UpdateRequest{
-					Key: d.Key,
-					Update: device.Update{Variant: device.IdentityUpdate{
-						Identity: device.Identity{
-							Rack:       d.Rack,
-							Serial:     999,
-							Connection: device.ConnectionEthernet,
-							Model:      device.ModelT7,
-						},
-					}},
-				},
-			)).Error().ToNot(HaveOccurred())
-			got := retrieveDevice(ctx, d.Key)
-			Expect(got.Serial).To(Equal(uint32(999)))
-			Expect(got.Connection).To(Equal(device.ConnectionEthernet))
-			Expect(got.Name).To(Equal(d.Name))
-		})
-
 		It("Should refuse ports for another model", func(ctx SpecContext) {
 			d := createDevice(ctx)
 			grantWrites(ctx, d.Rack)
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				configure(d.Key, device.T4Ports{}),
+				dispatch(d.Key, set("ports", device.Ports{Variant: device.T4Ports{}})),
 			)).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring("ports: are for t4, not t7")),
@@ -423,20 +402,11 @@ var _ = Describe("Service", func() {
 			Expect(retrieveDevice(ctx, d.Key).Model).To(Equal(device.ModelT7))
 		})
 
-		It("Should reject a request with no group", func(ctx SpecContext) {
-			d := createDevice(ctx)
-			grantWrites(ctx, d.Rack)
-			Expect(update(
-				testutil.AuthedCtx(ctx, u),
-				apidevice.UpdateRequest{Key: d.Key},
-			)).Error().To(MatchError(validate.ErrValidation))
-		})
-
 		It("Should return not found for a missing device", func(ctx SpecContext) {
 			grantWrites(ctx, svc.Rack.EmbeddedKey)
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				configure(uuid.New(), device.T7Ports{}),
+				dispatch(uuid.New(), set("name", "Missing")),
 			)).Error().To(MatchError(query.ErrNotFound))
 		})
 
@@ -446,11 +416,9 @@ var _ = Describe("Service", func() {
 			d := createDevice(ctx)
 			Expect(update(
 				testutil.AuthedCtx(ctx, u),
-				configure(d.Key, device.T7Ports{}),
+				dispatch(d.Key, set("name", "Renamed")),
 			)).Error().To(MatchError(access.ErrDenied))
-			Expect(
-				retrieveDevice(ctx, d.Key).Name,
-			).To(Equal(d.Name))
+			Expect(retrieveDevice(ctx, d.Key).Name).To(Equal(d.Name))
 		})
 	})
 

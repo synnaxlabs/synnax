@@ -175,7 +175,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	// LABJACK DEVICE
 	t.LabJackDeviceCreate = noop.UnaryServer[apilabjackdevice.CreateRequest, apilabjackdevice.CreateResponse]{}
 	t.LabJackDeviceRetrieve = noop.UnaryServer[apilabjackdevice.RetrieveRequest, apilabjackdevice.RetrieveResponse]{}
-	t.LabJackDeviceUpdate = noop.UnaryServer[apilabjackdevice.UpdateRequest, struct{}]{}
+	t.LabJackDeviceDispatch = noop.UnaryServer[apilabjackdevice.DispatchRequest, struct{}]{}
 	t.LabJackDeviceDelete = noop.UnaryServer[apilabjackdevice.DeleteRequest, struct{}]{}
 
 	// STATUS

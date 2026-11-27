@@ -673,9 +673,9 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/labjack/device/retrieve",
 		),
-		LabJackDeviceUpdate: unary[labjackdevice.UpdateRequest, struct{}](
+		LabJackDeviceDispatch: unary[labjackdevice.DispatchRequest, struct{}](
 			router,
-			"/api/v1/labjack/device/update",
+			"/api/v1/labjack/device/dispatch",
 		),
 		LabJackDeviceDelete: unary[labjackdevice.DeleteRequest, struct{}](
 			router,
