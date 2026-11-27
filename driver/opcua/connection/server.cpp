@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <variant>
@@ -18,8 +19,13 @@ namespace driver::opcua::connection {
 namespace {
 namespace srv = ::synnax::opcua::server;
 
+/// @brief open62541 takes timeouts as 32-bit milliseconds, so a longer span takes
+/// the longest timeout it can hold.
 uint32_t to_ms(const x::telem::TimeSpan span) {
-    return static_cast<uint32_t>(span.milliseconds());
+    constexpr auto max = std::numeric_limits<uint32_t>::max();
+    const double ms = span.milliseconds();
+    if (ms >= static_cast<double>(max)) return max;
+    return static_cast<uint32_t>(ms);
 }
 
 void apply_channel(Config &cfg, const srv::SecuredChannel &channel) {

@@ -7,6 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <limits>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/errors/errors.h"
@@ -33,6 +36,16 @@ TEST(FromServer, Anonymous) {
     ASSERT_EQ(cfg.client_timeout_ms, 2000);
     ASSERT_EQ(cfg.secure_channel_lifetime_ms, 600000);
     ASSERT_EQ(cfg.session_timeout_ms, 1200000);
+}
+
+/// @brief it should hold a timeout longer than 32-bit milliseconds as the longest one.
+TEST(FromServer, LongTimeout) {
+    const srv::Connection conn{
+        .endpoint = "opc.tcp://plc:4840",
+        .session_timeout = x::telem::DAY * 100,
+    };
+    const auto cfg = ASSERT_NIL_P(from_server(conn));
+    ASSERT_EQ(cfg.session_timeout_ms, std::numeric_limits<uint32_t>::max());
 }
 
 /// @brief it should log in with the user name and the secret of the password.
