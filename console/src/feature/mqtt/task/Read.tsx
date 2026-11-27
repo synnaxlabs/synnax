@@ -227,34 +227,6 @@ const splitStored = (
       .map((entry) => ({ ...storedSource(entry), disabled: entry.disabled })),
   );
 
-/** Inserts entries into the lists of one ICD. */
-type Inserter = Pick<ICD.FormatForm, "insert">;
-
-/**
- * Appends each field whose pointer the message lacks.
- * @returns the fields it appends.
- */
-const appendFields = (
-  to: Inserter,
-  message: icd.Message,
-  fields: icd.JSONField[],
-): icd.JSONField[] => {
-  const held = ICD.jsonFields(message);
-  const pointers = new Set(held.map(({ pointer }) => pointer));
-  const added = fields.filter(({ pointer }) => !pointers.has(pointer));
-  const names = ICD.fieldNames(
-    added.map(({ pointer }) => pointer),
-    held.map(({ name }) => name),
-  );
-  const appended = added.map((field, i) => ({ ...field, name: names[i] }));
-  let after = held.at(-1)?.key;
-  for (const field of appended) {
-    to.insert(ICD.fieldsPath(message.key), field, after);
-    after = field.key;
-  }
-  return appended;
-};
-
 /** @returns a message for the fields of a draft, named after its topic and kind. */
 const createMessage = (
   { topic, fields, present }: Draft,
@@ -353,7 +325,7 @@ const addTopics = async ({
 }: AddTopicsParams): Promise<AddTopicsResult> => {
   const messages = await readMessages(client, format, entries);
   const actions = new Map<icd.Key, icd.Action[]>();
-  const inserterOf = (key: icd.Key): Inserter => {
+  const inserterOf = (key: icd.Key): ICD.Inserter => {
     if (key === format.key) return format.form;
     const pending = map.getOrInsert(actions, key, () => []);
     return {
@@ -373,7 +345,7 @@ const addTopics = async ({
           ? undefined
           : ICD.messageOf(messages, entry, read);
       if (entry != null && message != null) {
-        const appended = appendFields(inserterOf(key), message, draft.fields);
+        const appended = ICD.appendFields(inserterOf(key), message, draft.fields);
         result.held.push({
           key: entry.key,
           read,
