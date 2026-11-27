@@ -33,6 +33,9 @@ ReadField struct extends v2.ReadField {
             channel. Unset writes NaN, which needs a float channel.
         """
     }
+    pointer     {
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+    }
     time_format payload.TimeFormat? {
         @doc value """
             is the encoding of the JSON value when the target channel holds timestamps.
@@ -83,8 +86,10 @@ ReadConfig struct extends task.PersistConfig {
         @doc value "is the key of the HTTP server device to poll."
     }
     rate             telem.Rate = 1 {
-        @doc value   "is the polling rate applied to all endpoints, in Hertz."
-        @validate gt 0
+        @doc value       "is the polling rate applied to all endpoints, in Hertz."
+        @validate finite
+        @validate gt     0
+        @validate max    10000
     }
     endpoints        ReadEndpoint[] {
         @doc value "contains the endpoints to poll."
@@ -108,6 +113,9 @@ ReadConfig struct extends task.PersistConfig {
 }
 
 ChannelField struct extends v2.ChannelField {
+    pointer     {
+        @go validate pattern "^(/([^~/]|~[01])*)*$" "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1"
+    }
     json_type   payload.JSONType = number {
         @doc value "is the JSON type the channel value is serialized as."
     }
@@ -145,7 +153,11 @@ WriteField union on type extends v2.WriteField {
     }
 }
 
-WriteEndpoint struct extends v2.WriteEndpoint {}
+WriteEndpoint struct extends v2.WriteEndpoint {
+    path {
+        @go validate pattern "^[^?#[:space:]]*$" "Path must not hold a query, a fragment, or whitespace"
+    }
+}
 
 WriteConfig struct extends v2.WriteConfig {}
 

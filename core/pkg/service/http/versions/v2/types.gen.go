@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"regexp"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -25,6 +26,12 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
+
+var validatePattern0 = regexp.MustCompile("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+
+var validatePattern1 = regexp.MustCompile("^([^[:cntrl:]]|[[:blank:]])*$")
+
+var validatePattern2 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
 
 // Method is the HTTP method used when requesting an endpoint.
 type Method string
@@ -96,12 +103,30 @@ type Header struct {
 	Value string `json:"value" msgpack:"value"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (h Header) Validate() error {
+	v := validate.New("Header")
+	v.NotEmptyString("name", h.Name)
+	v.Ternary("name", !validatePattern0.MatchString(string(h.Name)), "Header name must be a token: letters, digits, and !#$%&'*+-.^_`|~")
+	v.Ternary("value", !validatePattern1.MatchString(string(h.Value)), "Header value must not hold a line break or other control character")
+	return v.Error()
+}
+
 // QueryParam is a single URL query parameter sent with a request.
 type QueryParam struct {
 	// Parameter is the parameter name, unique within a request.
 	Parameter string `json:"parameter" msgpack:"parameter"`
 	// Value is the parameter value.
 	Value string `json:"value" msgpack:"value"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (q QueryParam) Validate() error {
+	v := validate.New("QueryParam")
+	v.NotEmptyString("parameter", q.Parameter)
+	return v.Error()
 }
 
 // EnumEntry maps a string label in a JSON body to a numeric channel value for
@@ -218,6 +243,14 @@ func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadEndpoint) Validate() error {
 	v := validate.New("ReadEndpoint")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	for i := range r.Headers {
+		v.Exec(func() error { return validate.PathedError(r.Headers[i].Validate(), "headers", strconv.Itoa(i)) })
+	}
+	for i := range r.QueryParams {
+		v.Exec(func() error {
+			return validate.PathedError(r.QueryParams[i].Validate(), "query_params", strconv.Itoa(i))
+		})
+	}
 	for i := range r.Fields {
 		v.Exec(func() error { return validate.PathedError(r.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
 	}
@@ -381,6 +414,14 @@ type BaseWriteField struct {
 	Pointer string `json:"pointer" msgpack:"pointer"`
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b BaseWriteField) Validate() error {
+	v := validate.New("BaseWriteField")
+	v.Ternary("pointer", !validatePattern2.MatchString(string(b.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
+	return v.Error()
+}
+
 // WriteFieldType is the "type" value that selects a variant of WriteField.
 type WriteFieldType string
 
@@ -417,6 +458,7 @@ func (s *StaticWriteField) SetDefaults() {
 func (s StaticWriteField) Validate() error {
 	v := validate.New("StaticWriteField")
 	v.Ternaryf("json_type", !s.JSONType.IsValid(), "invalid json_type: %v", s.JSONType)
+	v.Exec(s.BaseWriteField.Validate)
 	return v.Error()
 }
 
@@ -444,6 +486,7 @@ func (g GeneratedWriteField) Validate() error {
 	if g.TimeFormat != nil {
 		v.Ternaryf("time_format", !g.TimeFormat.IsValid(), "invalid time_format: %v", *g.TimeFormat)
 	}
+	v.Exec(g.BaseWriteField.Validate)
 	return v.Error()
 }
 
@@ -623,6 +666,14 @@ func (w *WriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (w WriteEndpoint) Validate() error {
 	v := validate.New("WriteEndpoint")
 	v.Ternaryf("method", !w.Method.IsValid(), "invalid method: %v", w.Method)
+	for i := range w.Headers {
+		v.Exec(func() error { return validate.PathedError(w.Headers[i].Validate(), "headers", strconv.Itoa(i)) })
+	}
+	for i := range w.QueryParams {
+		v.Exec(func() error {
+			return validate.PathedError(w.QueryParams[i].Validate(), "query_params", strconv.Itoa(i))
+		})
+	}
 	v.Exec(func() error { return validate.PathedError(w.Channel.Validate(), "channel") })
 	for i := range w.Fields {
 		v.Exec(func() error { return validate.PathedError(w.Fields[i].Validate(), "fields", strconv.Itoa(i)) })

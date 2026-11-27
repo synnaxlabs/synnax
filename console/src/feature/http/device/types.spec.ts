@@ -17,6 +17,22 @@ describe("HTTP Device Properties", () => {
       HTTP.Device.propertiesZ.parse(HTTP.Device.ZERO_PROPERTIES);
     });
 
+    it("should drop the stored health check rows that have no name", () => {
+      const result = HTTP.Device.propertiesZ.parse({
+        ...HTTP.Device.ZERO_PROPERTIES,
+        healthCheck: {
+          ...HTTP.Device.ZERO_PROPERTIES.healthCheck,
+          headers: [
+            { name: "", value: "x" },
+            { name: "Accept", value: "json" },
+          ],
+          queryParams: [{ parameter: "", value: "1" }],
+        },
+      });
+      expect(result.healthCheck.headers).toEqual([{ name: "Accept", value: "json" }]);
+      expect(result.healthCheck.queryParams).toEqual([]);
+    });
+
     it("should validate a v1 config with none auth", () => {
       const config: HTTP.Device.Properties = {
         secure: true,
@@ -726,12 +742,9 @@ describe("HTTP Device Properties", () => {
       expect(result).toEqual([]);
     });
 
-    it("should skip duplicate check for empty name", () => {
-      const result = HTTP.Device.headersZ.safeParse([
-        { name: "", value: "a" },
-        { name: "", value: "b" },
-      ]);
-      expect(result.success).toBe(true);
+    it("should reject an empty header name", () => {
+      const result = HTTP.Device.headersZ.safeParse([{ name: "", value: "a" }]);
+      expect(result.success).toBe(false);
     });
   });
 
@@ -764,12 +777,11 @@ describe("HTTP Device Properties", () => {
       expect(result).toEqual([]);
     });
 
-    it("should skip duplicate check for empty parameter", () => {
+    it("should reject an empty parameter name", () => {
       const result = HTTP.Device.queryParamsZ.safeParse([
         { parameter: "", value: "a" },
-        { parameter: "", value: "b" },
       ]);
-      expect(result.success).toBe(true);
+      expect(result.success).toBe(false);
     });
   });
 });

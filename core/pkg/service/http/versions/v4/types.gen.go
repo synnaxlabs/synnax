@@ -15,6 +15,7 @@ import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"reflect"
+	"regexp"
 	"strconv"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
@@ -27,6 +28,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
+
+var validatePattern0 = regexp.MustCompile("^(/([^~/]|~[01])*)*$")
+
+var validatePattern1 = regexp.MustCompile("^[^?#[:space:]]*$")
 
 // Method is the HTTP method used when requesting an endpoint.
 type Method = v3.Method
@@ -116,6 +121,7 @@ func (r ReadField) Validate() error {
 	if r.TimeFormat != nil {
 		v.Ternaryf("time_format", !r.TimeFormat.IsValid(), "invalid time_format: %v", *r.TimeFormat)
 	}
+	v.Ternary("pointer", !validatePattern0.MatchString(string(r.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	return v.Error()
 }
 
@@ -169,6 +175,14 @@ func (r *ReadEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadEndpoint) Validate() error {
 	v := validate.New("ReadEndpoint")
 	v.Ternaryf("method", !r.Method.IsValid(), "invalid method: %v", r.Method)
+	for i := range r.Headers {
+		v.Exec(func() error { return validate.PathedError(r.Headers[i].Validate(), "headers", strconv.Itoa(i)) })
+	}
+	for i := range r.QueryParams {
+		v.Exec(func() error {
+			return validate.PathedError(r.QueryParams[i].Validate(), "query_params", strconv.Itoa(i))
+		})
+	}
 	for i := range r.Fields {
 		v.Exec(func() error { return validate.PathedError(r.Fields[i].Validate(), "fields", strconv.Itoa(i)) })
 	}
@@ -220,6 +234,8 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
 	v.GreaterThan("rate", r.Rate, 0)
+	v.LessThanEq("rate", r.Rate, 10000)
+	v.Finite("rate", r.Rate)
 	for i := range r.Endpoints {
 		v.Exec(func() error { return validate.PathedError(r.Endpoints[i].Validate(), "endpoints", strconv.Itoa(i)) })
 	}
@@ -281,6 +297,7 @@ func (c ChannelField) Validate() error {
 	if c.TimeFormat != nil {
 		v.Ternaryf("time_format", !c.TimeFormat.IsValid(), "invalid time_format: %v", *c.TimeFormat)
 	}
+	v.Ternary("pointer", !validatePattern0.MatchString(string(c.Pointer)), "Pointer must be empty or a JSON Pointer that starts with / and escapes ~ as ~0 and / as ~1")
 	return v.Error()
 }
 
@@ -323,6 +340,7 @@ func (s *StaticWriteField) SetDefaults() {
 func (s StaticWriteField) Validate() error {
 	v := validate.New("StaticWriteField")
 	v.Ternaryf("json_type", !s.JSONType.IsValid(), "invalid json_type: %v", s.JSONType)
+	v.Exec(s.BaseWriteField.Validate)
 	return v.Error()
 }
 
@@ -350,6 +368,7 @@ func (g GeneratedWriteField) Validate() error {
 	if g.TimeFormat != nil {
 		v.Ternaryf("time_format", !g.TimeFormat.IsValid(), "invalid time_format: %v", *g.TimeFormat)
 	}
+	v.Exec(g.BaseWriteField.Validate)
 	return v.Error()
 }
 
@@ -529,6 +548,15 @@ func (w *WriteEndpoint) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 func (w WriteEndpoint) Validate() error {
 	v := validate.New("WriteEndpoint")
 	v.Ternaryf("method", !w.Method.IsValid(), "invalid method: %v", w.Method)
+	v.Ternary("path", !validatePattern1.MatchString(string(w.Path)), "Path must not hold a query, a fragment, or whitespace")
+	for i := range w.Headers {
+		v.Exec(func() error { return validate.PathedError(w.Headers[i].Validate(), "headers", strconv.Itoa(i)) })
+	}
+	for i := range w.QueryParams {
+		v.Exec(func() error {
+			return validate.PathedError(w.QueryParams[i].Validate(), "query_params", strconv.Itoa(i))
+		})
+	}
 	v.Exec(func() error { return validate.PathedError(w.Channel.Validate(), "channel") })
 	for i := range w.Fields {
 		v.Exec(func() error { return validate.PathedError(w.Fields[i].Validate(), "fields", strconv.Itoa(i)) })

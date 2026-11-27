@@ -51,7 +51,7 @@ class Header(BaseModel):
         value: Is the header value.
     """
 
-    name: str = ""
+    name: str = Field(min_length=1, default="")
     value: str = ""
 
 
@@ -63,7 +63,7 @@ class QueryParam(BaseModel):
         value: Is the parameter value.
     """
 
-    parameter: str = ""
+    parameter: str = Field(min_length=1, default="")
     value: str = ""
 
 
@@ -150,7 +150,7 @@ class ReadConfig(task.PersistConfig):
     """
 
     device: device_.Key = ""
-    rate: telem.Rate = Field(default=telem.Rate(1), gt=0, allow_inf_nan=False)
+    rate: telem.Rate = Field(default=telem.Rate(1), gt=0, le=10000, allow_inf_nan=False)
     endpoints: list[ReadEndpoint] = Field(default_factory=list)
     nan_fill_enabled: bool = False
 
