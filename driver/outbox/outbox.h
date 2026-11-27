@@ -98,6 +98,11 @@ struct Config {
     /// outbox uses.
     std::function<x::errors::Error(const x::errors::Error &)> on_sync =
         [](const x::errors::Error &err) { return err; };
+    /// @brief called on the send thread with the key_or_name and the key of each status
+    /// set that the Core took, also a set loaded from the disk, before the done
+    /// callback of the set.
+    std::function<void(const std::string &key_or_name, const std::string &key)>
+        on_resolved = [](const std::string &, const std::string &) {};
     /// @brief called with each file and directory that the outbox creates, before the
     /// outbox uses it, such as to set its owner.
     x::fs::OnCreate on_create = x::fs::no_create_hook;

@@ -38,7 +38,6 @@ namespace driver::arc::status {
 // Reporter text. Keep in sync with core/pkg/service/arc/status/status.go.
 const std::string SET_FAILURE_MSG = "Failed to set status";
 const std::string MULTI_MATCH_MSG = "Found duplicate status names";
-const std::string KEY_FAILURE_MSG = "Failed to save status key";
 
 /// @brief returns the description for sets the outbox refused.
 inline std::string
@@ -78,9 +77,6 @@ public:
     Sets(std::shared_ptr<Keys> keys, Reporter reporter):
         reporter(std::move(reporter)), keys(std::move(keys)) {}
 
-    /// @returns the keys of resolved sets, which outlive the sets.
-    [[nodiscard]] std::shared_ptr<Keys> resolved_keys() const { return this->keys; }
-
     /// @brief reports through the reporter until close.
     void report(const std::string &message, const std::string &description) {
         std::lock_guard lock(this->report_mu);
@@ -91,13 +87,6 @@ public:
     /// restart, or "" when no set of it has resolved.
     std::string key(const std::string &key_or_name) {
         return this->keys->get(key_or_name);
-    }
-
-    /// @brief records key as the last resolved key of key_or_name, and reports a
-    /// failure to save it.
-    void resolve(const std::string &key_or_name, const std::string &key) {
-        if (const auto err = this->keys->set(key_or_name, key))
-            this->report(KEY_FAILURE_MSG, err.data);
     }
 
     /// @brief counts a set the outbox refused, without waiting on the Core.
@@ -149,7 +138,7 @@ inline std::pair<std::string, bool> queue_set(
     req.set_time(x::telem::TimeStamp::now().nanoseconds());
     const auto err = outbox.set_status(
         req,
-        [weak = std::weak_ptr(sets), keys = sets->resolved_keys(), key_or_name](
+        [weak = std::weak_ptr(sets), key_or_name](
             const synnax::status::SetByKeyOrNameResult &res,
             const x::errors::Error &err
         ) {
@@ -160,17 +149,8 @@ inline std::pair<std::string, bool> queue_set(
                 if (sets != nullptr) sets->report(SET_FAILURE_MSG, err.data);
                 return;
             }
-            // A set that resolves after its task ended still saves its key for the
-            // tasks of the Driver.
-            if (sets == nullptr) {
-                if (const auto save_err = keys->set(key_or_name, res.key))
-                    LOG(ERROR) << "failed to save the key of " << key_or_name << ": "
-                               << save_err.data;
-                return;
-            }
-            // The key is ready before a report, which can wait on the Core.
-            sets->resolve(key_or_name, res.key);
-            if (res.multiple_matches)
+            // The outbox saved the key before this callback.
+            if (sets != nullptr && res.multiple_matches)
                 sets->report(
                     MULTI_MATCH_MSG,
                     multi_match_description(key_or_name, res.key)

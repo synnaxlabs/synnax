@@ -115,6 +115,7 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
     const auto rt_manager = std::make_shared<x::thread::rt::Manager>();
     const auto client = cfg.new_client();
     const auto data = cfg.state_dir / DATA_DIR;
+    const auto keys_path = data / arc::status::KEYS_FILE;
     auto outbox_cfg = cfg.outbox;
     outbox_cfg.dir = data / OUTBOX_DIR;
     outbox_cfg.statuses = client->statuses;
@@ -146,6 +147,22 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         auto [hook, hook_err] = state::owner_hook(data);
         if (hook_err) return {nullptr, hook_err};
         outbox_cfg.on_create = std::move(hook);
+        // The keys load before the outbox opens, so a set that the outbox sends again
+        // after a restart records its key.
+        auto [keys, keys_err] = arc::status::Keys::open(
+            keys_path,
+            cfg.remote_info.cluster_key.to_string(),
+            cfg.status_keys,
+            outbox_cfg.on_create
+        );
+        cfg.status_keys_store = {keys, keys_err};
+        if (keys != nullptr)
+            outbox_cfg.on_resolved =
+                [keys](const std::string &key_or_name, const std::string &key) {
+                    if (const auto err = keys->set(key_or_name, key))
+                        LOG(ERROR) << "[rack] failed to save the key of " << key_or_name
+                                   << ": " << err.data;
+                };
         return outbox::Outbox::open(outbox_cfg);
     }();
     if (outbox_err) {
@@ -154,19 +171,13 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         // Another Driver can hold the outbox, so the keys file next to it stays as it
         // is.
         cfg.status_keys_store = {nullptr, cfg.outbox_err};
-    } else {
-        const auto path = data / arc::status::KEYS_FILE;
-        auto [keys, keys_err] = arc::status::Keys::open(
-            path,
-            cfg.remote_info.cluster_key.to_string(),
-            cfg.status_keys,
-            outbox_cfg.on_create
-        );
-        if (keys_err) {
-            keys_err = arc::status::keys_failure(path, keys_err);
-            LOG(ERROR) << "[rack] " << keys_err.data;
-        }
-        cfg.status_keys_store = {std::move(keys), keys_err};
+    } else if (auto &[keys, keys_err] = cfg.status_keys_store; keys_err) {
+        keys_err = arc::status::keys_failure(keys_path, keys_err);
+        LOG(ERROR) << "[rack] " << keys_err.data;
+    } else if (const auto err = keys->remove_temps()) {
+        keys_err = arc::status::keys_failure(keys_path, err);
+        LOG(ERROR) << "[rack] " << keys_err.data;
+        keys = nullptr;
     }
     {
         std::lock_guard lock{this->mu};

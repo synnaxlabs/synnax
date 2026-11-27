@@ -121,6 +121,8 @@ TEST_F(KeysTest, RemovesTempFileOfACrashedSave) {
         file << "partial";
     }
     const auto keys = ASSERT_NIL_P(Keys::open(this->path, "cluster"));
+    ASSERT_TRUE(std::filesystem::exists(tmp));
+    ASSERT_NIL(keys->remove_temps());
     ASSERT_FALSE(std::filesystem::exists(tmp));
     ASSERT_EQ(keys->get("a"), "key_a");
 }

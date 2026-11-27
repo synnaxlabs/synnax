@@ -74,9 +74,8 @@ class Keys {
 public:
     /// @brief loads the keys in the file at path that the Core cluster with the key
     /// cluster gave, or none when the file does not exist or another cluster gave
-    /// them, and keeps the max most recently used. Removes a temp file that a crash
-    /// during a save left. Each save calls on_create with the temp file before it
-    /// takes the place of the old file.
+    /// them, and keeps the max most recently used. Writes nothing. Each save calls
+    /// on_create with the temp file before it takes the place of the old file.
     /// @returns journal::CORRUPT when the file is not whole. UNKNOWN_MAGIC,
     /// UNKNOWN_VERSION, or UNKNOWN_TYPE when it is not a keys file this Driver
     /// reads. An error from the file.
@@ -86,6 +85,10 @@ public:
         std::size_t max = DEFAULT_MAX_KEYS,
         x::fs::OnCreate on_create = x::fs::no_create_hook
     );
+
+    /// @brief removes the temp files that a crash during a save left. Call it only
+    /// while this Driver holds the lock of the outbox, before the first save.
+    x::errors::Error remove_temps() const;
 
     /// @returns the key of name, or "" when the Core has not given name a key.
     [[nodiscard]] std::string get(const std::string &name);

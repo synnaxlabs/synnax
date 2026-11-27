@@ -508,6 +508,7 @@ x::errors::Error Outbox::send(const Call &call) const {
         x::telem::TimeStamp(set.time()),
         this->cfg.send_timeout
     );
+    if (!err) this->cfg.on_resolved(set.key_or_name(), res.key);
     if ((!err || rejected(err)) && call.set_status_done != nullptr)
         call.set_status_done(res, err);
     return err;

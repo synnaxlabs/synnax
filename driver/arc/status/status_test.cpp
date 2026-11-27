@@ -163,10 +163,10 @@ protected:
         this->client = std::make_shared<synnax::Synnax>(new_test_client());
         this->dir = std::filesystem::temp_directory_path() /
                     ("status_test_" + x::uuid::create().to_string());
-        this->outbox = this->open_outbox(this->client);
         this->keys_path = std::filesystem::temp_directory_path() /
                           ("status_keys_" + x::uuid::create().to_string());
         this->keys = ASSERT_NIL_P(Keys::open(this->keys_path, "cluster"));
+        this->outbox = this->open_outbox(this->client);
     }
 
     void TearDown() override {
@@ -187,6 +187,11 @@ protected:
         };
         cfg.retry.base_interval = retry;
         cfg.retry.max_interval = retry;
+        // The outbox records each resolved key, as the rack makes it do.
+        cfg.on_resolved =
+            [this](const std::string &key_or_name, const std::string &key) {
+                ASSERT_NIL(this->keys->set(key_or_name, key));
+            };
         return ASSERT_NIL_P(::driver::outbox::Outbox::open(cfg));
     }
 
@@ -332,6 +337,35 @@ TEST_F(StatusTest, OutputsKnownKeyAfterRestart) {
     auto ctx = make_context();
     ASSERT_NIL(created->next(ctx));
     EXPECT_EQ(std::get<std::string>((*node.output(0)).at(0)), key);
+}
+
+/// @brief it should output the key of a set that waited on the disk through a restart,
+/// once the Core takes it.
+TEST_F(StatusTest, OutputsKeyOfReplayedSet) {
+    const auto name = unique_name("set_replay_");
+    const auto f = set_spec().config({name, "the message", "info"});
+    this->outbox.reset();
+    auto cfg = test_client_config();
+    cfg.port = 1;
+    this->outbox = this->open_outbox(std::make_shared<synnax::Synnax>(cfg));
+    {
+        Module module(this->outbox, this->keys, noopReporter());
+        auto created = ASSERT_NIL_P(module.create(f.make_config()));
+        auto ctx = make_context();
+        ASSERT_NIL(created->next(ctx));
+    }
+    this->outbox.reset();
+    this->keys = ASSERT_NIL_P(Keys::open(this->keys_path, "cluster"));
+    this->outbox = this->open_outbox(this->client);
+    this->wait_sent();
+    Module module(this->outbox, this->keys, noopReporter());
+    auto created = ASSERT_NIL_P(module.create(f.make_config()));
+    const auto node = f.make_node();
+    auto ctx = make_context();
+    ASSERT_NIL(created->next(ctx));
+    const auto key = std::get<std::string>((*node.output(0)).at(0));
+    ASSERT_FALSE(key.empty());
+    EXPECT_EQ(ASSERT_NIL_P(this->client->statuses.retrieve(key)).name, name);
 }
 
 /// @brief it should stamp the status with the time the node runs.
@@ -601,24 +635,6 @@ TEST(SetsTest, ReportsRefusedSetsOnce) {
         "Core takes them. Check the connection to the Core, or set statuses less "
         "often."
     );
-}
-
-/// @brief it should report a key that it failed to save.
-TEST(SetsTest, ReportsAKeyItFailedToSave) {
-    const auto dir = std::filesystem::temp_directory_path() /
-                     ("missing_" + x::uuid::create().to_string());
-    std::filesystem::create_directories(dir);
-    const auto reports = std::make_shared<Reports>();
-    Sets sets(
-        ASSERT_NIL_P(Keys::open(dir / KEYS_FILE, "cluster")),
-        recordingReporter(reports)
-    );
-    std::filesystem::remove_all(dir);
-    sets.resolve("name", "key");
-    const auto calls = reports->snapshot();
-    ASSERT_EQ(calls.size(), 1u);
-    EXPECT_EQ(calls[0].message, KEY_FAILURE_MSG);
-    EXPECT_EQ(sets.key("name"), "key");
 }
 
 /// @brief it should give the error of a set the outbox failed to write.

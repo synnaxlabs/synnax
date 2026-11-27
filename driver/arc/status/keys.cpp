@@ -93,11 +93,6 @@ std::pair<std::shared_ptr<Keys>, x::errors::Error> Keys::open(
         new Keys(path, cluster, max, std::move(on_create))
     );
     std::error_code ec;
-    std::filesystem::remove(temp_path(path), ec);
-    if (ec)
-        return {nullptr, fs_error("failed to remove " + temp_path(path).string(), ec)};
-    // A writer creates the temp through a temp of its own.
-    if (auto err = x::fs::remove_temps(temp_path(path))) return {nullptr, err};
     if (!std::filesystem::exists(path, ec)) {
         if (ec) return {nullptr, fs_error("failed to read " + path.string(), ec)};
         return {keys, x::errors::NIL};
@@ -163,6 +158,14 @@ Keys::save(const std::vector<std::pair<std::string, std::string>> &entries) cons
     if (err = x::fs::replace(tmp, this->path); err) return err;
     const auto dir = this->path.parent_path();
     return x::fs::sync_dir(dir.empty() ? "." : dir);
+}
+
+x::errors::Error Keys::remove_temps() const {
+    std::error_code ec;
+    std::filesystem::remove(temp_path(this->path), ec);
+    if (ec) return fs_error("failed to remove " + temp_path(this->path).string(), ec);
+    // A writer creates the temp through a temp of its own.
+    return x::fs::remove_temps(temp_path(this->path));
 }
 
 std::string Keys::get(const std::string &name) {
