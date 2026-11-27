@@ -23,10 +23,15 @@ const client = createTestClient();
 
 describe("Open.use", () => {
   it("should report the line plot it created for a channel", async () => {
-    const ch = await client.channels.create({
-      name: uniqueName("ch"),
+    const index = await client.channels.create({
+      name: uniqueName("index"),
       dataType: DataType.TIMESTAMP,
       isIndex: true,
+    });
+    const ch = await client.channels.create({
+      name: uniqueName("ch"),
+      dataType: DataType.FLOAT32,
+      index: index.key,
     });
     const proj = await client.projects.create({ name: uniqueName("proj") });
     const { wrapper, store } = await createConsoleWrapper({ client });

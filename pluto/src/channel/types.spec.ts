@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type { Haul } from "@synnaxlabs/lyra/haul";
+import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/channel";
@@ -53,5 +54,51 @@ describe("channel haul utilities", () => {
     it("returns false when no item is a channel item", () => {
       expect(Channel.canDropHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
     });
+  });
+});
+
+describe("plottable", () => {
+  const STORED = { dataType: DataType.FLOAT32, virtual: false, expression: "" };
+
+  it("should plot a stored numeric channel", () => {
+    expect(Channel.plottable(STORED)).toBe(true);
+  });
+
+  it("should plot a calculated numeric channel", () => {
+    expect(
+      Channel.plottable({ ...STORED, virtual: true, expression: "return 1.0" }),
+    ).toBe(true);
+  });
+
+  it("should not plot a virtual channel without an expression", () => {
+    expect(Channel.plottable({ ...STORED, virtual: true })).toBe(false);
+  });
+
+  it.each([DataType.STRING, DataType.JSON, DataType.BYTES, DataType.TIMESTAMP])(
+    "should not plot a %s channel",
+    (dataType) => {
+      expect(Channel.plottable({ ...STORED, dataType })).toBe(false);
+    },
+  );
+});
+
+describe("filterPlottableHaulItems", () => {
+  const NUMERIC = { dataType: DataType.FLOAT32, virtual: false, expression: "" };
+  const TEXT = { ...NUMERIC, dataType: DataType.STRING };
+
+  it("should keep a channel its source knows to be plottable", () => {
+    const item = Channel.createHaulItem(1, NUMERIC);
+    expect(Channel.filterPlottableHaulItems([item, OTHER])).toEqual([item]);
+  });
+
+  it("should drop a channel its source knows not to be plottable", () => {
+    expect(Channel.filterPlottableHaulItems([Channel.createHaulItem(1, TEXT)])).toEqual(
+      [],
+    );
+  });
+
+  it("should keep a channel its source did not know", () => {
+    const item = Channel.createHaulItem(1);
+    expect(Channel.filterPlottableHaulItems([item])).toEqual([item]);
   });
 });

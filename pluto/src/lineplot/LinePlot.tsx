@@ -543,12 +543,14 @@ const YAxis = ({
   const { dispatch } = useDispatch();
   const { axis, lineKeys, channels: existing } = useYAxis({ key, axisKey });
   const edit = useEdit(key, editable);
-  const highlight = useDropHighlight(Channel.canDropHaulItem);
+  const canDrop: Haul.CanDrop = ({ items }) =>
+    Channel.filterPlottableHaulItems(items).length > 0;
+  const highlight = useDropHighlight(canDrop);
   const dropProps = Haul.useDrop({
     type: "channel_lineplot_y_axis",
-    canDrop: Channel.canDropHaulItem,
+    canDrop,
     onDrop: ({ items }) => {
-      const channels = newChannels(Channel.filterHaulItems(items), existing);
+      const channels = newChannels(Channel.filterPlottableHaulItems(items), existing);
       return edit(addChannels(axisKey, channels)) ? channels : [];
     },
   });
@@ -672,12 +674,15 @@ const usePlotDrop = (key: lineplot.Key, editable: boolean): PlotDrop => {
   const edit = useEdit(key, editable);
   const { channels: existing } = useYAxis({ key, axisKey: FIRST_Y_AXIS });
   const plotRanges = useRanges({ key });
-  const highlight = useDropHighlight(canDropChannelOrRange);
+  const canDrop: Haul.CanDrop = (state) =>
+    Channel.filterPlottableHaulItems(state.items).length > 0 ||
+    Ranger.canDropHaulItem(state);
+  const highlight = useDropHighlight(canDrop);
   const dropProps = Haul.useDrop({
     type: "lineplot_plot",
-    canDrop: canDropChannelOrRange,
+    canDrop,
     onDrop: ({ items }) => {
-      const channels = newChannels(Channel.filterHaulItems(items), existing);
+      const channels = newChannels(Channel.filterPlottableHaulItems(items), existing);
       const ranges = newRanges(Ranger.filterHaulItems(items), plotRanges);
       const actions = [...addChannels(FIRST_Y_AXIS, channels), ...addRanges(ranges)];
       return edit(actions) ? [...channels, ...ranges] : [];

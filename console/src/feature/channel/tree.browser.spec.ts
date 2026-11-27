@@ -63,6 +63,14 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
     ...overrides,
   });
 
+// Creates a numeric channel that stores samples against a new index.
+const createPlottableChannel = async () =>
+  await createChannel({
+    dataType: DataType.FLOAT32,
+    isIndex: false,
+    index: (await createChannel()).key,
+  });
+
 // Clients cannot create internal channels, so this reads one the Core made.
 const retrieveInternalChannel = async (): Promise<channelClient.Channel> => {
   const [ch] = await client.channels.retrieve({ internal: true, limit: 1 });
@@ -104,6 +112,23 @@ describe("channel/tree", () => {
       expect(items).toHaveLength(1);
       expect(items[0].type).toBe("channel");
       expect(items[0].key).toBe(ch.key);
+    });
+
+    it("records whether a line plot can draw the hauled channel", async () => {
+      const text = await createChannel({
+        dataType: DataType.STRING,
+        isIndex: false,
+        index: (await createChannel()).key,
+      });
+      const numeric = await createPlottableChannel();
+      const [textItem, numericItem] = [text, numeric].flatMap((ch) =>
+        Item.haulItems(
+          createResource(channelClient.resourceID(ch.key), ch.name),
+          client,
+        ),
+      );
+      expect(textItem.data).toEqual({ plottable: false });
+      expect(numericItem.data).toEqual({ plottable: true });
     });
 
     it("hauls an internal channel as a schematic value element only", async () => {
@@ -148,7 +173,7 @@ describe("channel/tree", () => {
 
   describe("onSelect", () => {
     it("creates a line plot for the selection when no plot is focused", async () => {
-      const ch = await createChannel();
+      const ch = await createPlottableChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
       });
@@ -165,7 +190,7 @@ describe("channel/tree", () => {
     });
 
     it("adds the selection to the focused line plot", async () => {
-      const ch = await createChannel();
+      const ch = await createPlottableChannel();
       const proj = await client.projects.create({
         name: uniqueName("proj"),
       });
