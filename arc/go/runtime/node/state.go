@@ -703,10 +703,14 @@ func isSeriesTruthy(s telem.Series) bool {
 }
 
 // slotDataType returns the data type of the series that a value slot of type t holds.
-// A channel slot holds channel keys.
+// A channel slot holds channel keys, and a series slot holds samples of its element.
+// It panics for a type that no node slot takes.
 func slotDataType(t types.Type) telem.DataType {
-	if t.Kind == types.KindChan {
+	switch {
+	case t.Kind == types.KindChan:
 		return telem.Uint32T
+	case t.Kind == types.KindSeries && t.Elem != nil:
+		return slotDataType(*t.Elem)
 	}
 	dt, ok := t.ToTelem()
 	if !ok {

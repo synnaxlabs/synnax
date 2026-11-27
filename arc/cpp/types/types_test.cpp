@@ -164,6 +164,7 @@ TEST(TypesTest, BoolTelem) {
     ASSERT_EQ(t.telem(), x::telem::BOOLEAN_T);
 }
 
+/// @brief it should return no data type for a channel type.
 TEST(TypesTest, ChanTelem) {
     arc::types::Type t;
     t.kind = arc::types::Kind::Chan;

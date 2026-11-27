@@ -380,6 +380,16 @@ var _ = Describe("ProgramState", func() {
 			Expect(fr.Get(0).Series).To(BeEmpty())
 		})
 
+		It("Should label a write after a flush with its own data type", func() {
+			writeValue(s, 3, telem.NewSeriesV[int32](1))
+			s.Flush(telem.Frame[uint32]{}, flushNow)
+			writeValue(s, 3, telem.NewSeriesV[float32](2.5))
+			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
+			Expect(fr.Get(3).Series[0]).To(
+				MatchSeries(telem.NewSeriesV[float32](2.5)),
+			)
+		})
+
 		It("Should accumulate multiple writes in same cycle", func() {
 			writeValue(s, 3, telem.NewSeriesV[int32](1))
 			writeValue(s, 3, telem.NewSeriesV[int32](2))

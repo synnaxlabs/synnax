@@ -20,9 +20,12 @@
 namespace arc::runtime::state {
 namespace {
 /// @brief returns the data type of the series that a value slot of type t holds. A
-/// channel slot holds channel keys.
+/// channel slot holds channel keys, and a series slot holds samples of its element.
+/// @throws std::runtime_error for a type that no node slot takes.
 x::telem::DataType slot_data_type(const types::Type &t) {
     if (t.kind == types::Kind::Chan) return x::telem::UINT32_T;
+    if (t.kind == types::Kind::Series && t.elem.has_value())
+        return slot_data_type(*t.elem);
     const auto data_type = t.telem();
     if (!data_type.has_value())
         throw std::runtime_error("arc: type " + t.to_string() + " has no data type");
