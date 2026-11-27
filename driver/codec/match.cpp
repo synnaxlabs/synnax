@@ -78,14 +78,7 @@ JSON::Router::create(const std::vector<JSONMessage> &messages) {
         }
         const auto &match = *m.payload.match;
         auto [pointer, err] = x::json::Pointer::parse(icd::base(match).pointer);
-        if (err)
-            return {
-                Router{},
-                x::errors::Error(
-                    CONFIG_ERROR,
-                    "message " + m.name + ": match: " + err.data
-                ),
-            };
+        if (err) return {Router{}, as_config(err, "message " + m.name + ": match")};
         if (std::holds_alternative<icd::PresentJSONMatch>(match)) {
             r.present.push_back({.pointer = std::move(pointer), .message = i});
             continue;
@@ -256,11 +249,7 @@ JSON::Router::find_value(const std::optional<std::string_view> &value) {
             (!this->integers.empty() || !this->floats.empty())
         ) {
             const auto [n, err] = x::json::Number::parse(*value);
-            if (err)
-                return {
-                    std::nullopt,
-                    x::errors::Error(err, "match: " + err.data),
-                };
+            if (err) return {std::nullopt, err.wrap("match")};
             std::optional<Integer> k;
             if (const auto i = n.to_int64(); i.has_value())
                 k = Integer{.bits = static_cast<std::uint64_t>(*i), .negative = *i < 0};

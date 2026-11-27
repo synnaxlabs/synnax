@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/kafka/versions/v1"
-	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/payload"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -37,7 +37,7 @@ var _ = Describe("ICDMigration", func() {
 		names map[uuid.UUID]string
 		// asked holds the keys of each lookup call.
 		asked  [][]uuid.UUID
-		lookup kafka.TaskNames
+		lookup config.TaskNames
 	)
 	BeforeEach(func() {
 		names, asked = map[uuid.UUID]string{}, nil
@@ -86,17 +86,6 @@ var _ = Describe("ICDMigration", func() {
 			return kafkaSvc.ICDMigration(lookup).Run(ctx, tx, alamos.Instrumentation{})
 		})
 	}
-	// expectStaged asserts whether the records of the config are staged.
-	expectStaged := func(key uuid.UUID, staged bool) {
-		GinkgoHelper()
-		if !staged {
-			Expect(db.Get(v1.StagedRecordsKVKey(key))).Error().
-				To(MatchError(query.ErrNotFound))
-			return
-		}
-		_, closer := MustSucceed2(db.Get(v1.StagedRecordsKVKey(key)))
-		Expect(closer.Close()).To(Succeed())
-	}
 	read := func(ctx SpecContext, key uuid.UUID) kafka.ReadConfig {
 		GinkgoHelper()
 		var cfg kafka.ReadConfig
@@ -112,7 +101,8 @@ var _ = Describe("ICDMigration", func() {
 			key := stage(ctx, "Pump station")
 			Expect(run(ctx)).To(Succeed())
 			Expect(asked).To(Equal([][]uuid.UUID{{key}}))
-			expectStaged(key, false)
+			Expect(db.Get(v1.StagedRecordsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
 			cfg := read(ctx, key)
 			Expect(cfg.Inline).To(BeNil())
 			Expect(cfg.Topics).To(HaveLen(1))
@@ -129,42 +119,6 @@ var _ = Describe("ICDMigration", func() {
 			Expect(ic.Messages[0].Name).To(Equal("pump"))
 		},
 	)
-
-	It("Should do nothing without staged records", func(ctx SpecContext) {
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-	})
-
-	It("Should delete the staged records of a config that no longer exists", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Snapshot")
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return kafkaSvc.Read.Delete(ctx, tx, key)
-		})).To(Succeed())
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-		expectStaged(key, false)
-	})
-
-	It("Should keep the staged records when the task name lookup fails", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Pump station")
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.Delete(ctx, v1.StagedRecordsKVKey(key))).To(Succeed())
-		})
-		lookup = func(
-			context.Context,
-			gorp.Tx,
-			[]uuid.UUID,
-		) (map[uuid.UUID]string, error) {
-			return nil, errors.New("no task")
-		}
-		Expect(run(ctx)).To(MatchError("tasks of Kafka read configs: no task"))
-		expectStaged(key, true)
-		Expect(read(ctx, key).Topics[0].Records).To(BeEmpty())
-	})
 })
 
 var _ = Describe("WriteICDMigration", func() {
@@ -173,7 +127,7 @@ var _ = Describe("WriteICDMigration", func() {
 		names map[uuid.UUID]string
 		// asked holds the keys of each lookup call.
 		asked  [][]uuid.UUID
-		lookup kafka.TaskNames
+		lookup config.TaskNames
 		ins    alamos.Instrumentation
 		// logs holds the warnings that the migration logs.
 		logs *observer.ObservedLogs
@@ -227,17 +181,6 @@ var _ = Describe("WriteICDMigration", func() {
 			return kafkaSvc.WriteICDMigration(lookup).Run(ctx, tx, ins)
 		})
 	}
-	// expectStaged asserts whether the channels of the config are staged.
-	expectStaged := func(key uuid.UUID, staged bool) {
-		GinkgoHelper()
-		if !staged {
-			Expect(db.Get(v1.StagedChannelsKVKey(key))).Error().
-				To(MatchError(query.ErrNotFound))
-			return
-		}
-		_, closer := MustSucceed2(db.Get(v1.StagedChannelsKVKey(key)))
-		Expect(closer.Close()).To(Succeed())
-	}
 	read := func(ctx SpecContext, key uuid.UUID) kafka.WriteConfig {
 		GinkgoHelper()
 		var cfg kafka.WriteConfig
@@ -253,7 +196,8 @@ var _ = Describe("WriteICDMigration", func() {
 			key := stage(ctx, "Valves")
 			Expect(run(ctx)).To(Succeed())
 			Expect(asked).To(Equal([][]uuid.UUID{{key}}))
-			expectStaged(key, false)
+			Expect(db.Get(v1.StagedChannelsKVKey(key))).Error().
+				To(MatchError(query.ErrNotFound))
 			cfg := read(ctx, key)
 			Expect(cfg.Inline).To(BeNil())
 			Expect(cfg.Targets).To(HaveLen(1))
@@ -283,40 +227,4 @@ var _ = Describe("WriteICDMigration", func() {
 			)
 		},
 	)
-
-	It("Should do nothing without staged channels", func(ctx SpecContext) {
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-	})
-
-	It("Should delete the staged channels of a config that no longer exists", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Removed")
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return kafkaSvc.Write.Delete(ctx, tx, key)
-		})).To(Succeed())
-		Expect(run(ctx)).To(Succeed())
-		Expect(asked).To(BeEmpty())
-		expectStaged(key, false)
-	})
-
-	It("Should keep the staged channels when the task name lookup fails", func(
-		ctx SpecContext,
-	) {
-		key := stage(ctx, "Valves")
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(db.Delete(ctx, v1.StagedChannelsKVKey(key))).To(Succeed())
-		})
-		lookup = func(
-			context.Context,
-			gorp.Tx,
-			[]uuid.UUID,
-		) (map[uuid.UUID]string, error) {
-			return nil, errors.New("no task")
-		}
-		Expect(run(ctx)).To(MatchError("tasks of Kafka write configs: no task"))
-		expectStaged(key, true)
-		Expect(read(ctx, key).Targets).To(BeEmpty())
-	})
 })

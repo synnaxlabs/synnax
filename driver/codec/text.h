@@ -105,8 +105,9 @@ public:
     /// the message with no prefix.
     /// @returns CONFIG_ERROR when two messages have the same prefix or no prefix, a
     /// delimiter or tag is empty, a tag contains its delimiter or starts with
-    /// whitespace, a binding names no field of its message, a default does not fit its
-    /// channel, or a field does not convert to the data type of its binding.
+    /// whitespace, a binding names no field of its message, a bound field has a zero
+    /// scale, a default does not fit its channel, or a field does not convert to the
+    /// data type of its binding.
     static std::pair<Text, x::errors::Error>
     create(const std::vector<TextMessage> &messages);
 
@@ -190,9 +191,9 @@ public:
     /// @returns CONFIG_ERROR when the delimiter is empty, a binding names no field, a
     /// field has two bindings, a tag is empty, contains the delimiter, or starts with
     /// whitespace, two fields have the same position, a position is past 65535, the
-    /// prefix fills the position of a field, a default is not finite, a field's channel
-    /// does not hold numbers, a scaled field's channel does not hold floats, or a field
-    /// has no binding and no default.
+    /// prefix fills the position of a field, a default is not finite, a bound field has
+    /// a zero scale, a field's channel does not hold numbers, a scaled field's channel
+    /// does not hold floats, or a field has no binding and no default.
     static std::pair<TextEncoder, x::errors::Error> create(const TextMessage &message);
 
     /// @brief encodes samples into payload, a line that starts with the prefix. The
