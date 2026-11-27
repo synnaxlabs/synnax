@@ -136,7 +136,7 @@ describe("channel path fetches", () => {
     expect(retrieves() - before).toEqual(0);
   });
 
-  it("should not fetch an answer that filters by path again when an empty channel folder is created", async () => {
+  it("should fetch an answer that filters by path again when a channel folder new to the client appears", async () => {
     const folder = await createFolder();
     const ch = await createChannel(folder);
     const { client, retrieves } = await connectCounting();
@@ -150,6 +150,8 @@ describe("channel path fetches", () => {
     const created = await createFolder();
     await expect.poll(() => client.groups.store.has(created.key)).toBe(true);
     await settle();
-    expect(retrieves() - before).toEqual(0);
+    // A new folder and a rename of a folder that the client never read reach the group
+    // table alike, and the rename can change what the path matches.
+    expect(retrieves() - before).toEqual(1);
   });
 });
