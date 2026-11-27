@@ -1718,6 +1718,105 @@ describe("Kafka read form", () => {
       );
     });
 
+    it("should add a field once when a new key and a held record of another topic pick it", async () => {
+      const time = createTimeField();
+      const held = await createRecord({
+        fields: [time, createField("temperature", "float")],
+        recordKey: "oven-1",
+        index: time.key,
+      });
+      const pump = kafka.readRecordZ.parse({
+        ...held,
+        key: uuid.create(),
+        recordKey: "pump-1",
+      });
+      const { draft, dev } = await renderRead({
+        records: [held],
+        topics: [kafka.readTopicZ.parse({ name: "plant", records: [pump] })],
+      });
+      await waitFor(() =>
+        expect(screen.getAllByRole("treeitem", { name: /^temperature/ })).toHaveLength(
+          2,
+        ),
+      );
+      const shapeOf = (key: string) => ({ ...PRESSURE_SHAPE, sources: [key] });
+      const scan = await createScanTask(client, dev);
+      const first = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic(TOPIC), listTopic("plant")) },
+        sample: { data: sampleOfTopic(TOPIC, shapeOf("oven-2")) },
+      });
+      const dialog = await clickAddData();
+      await first.answered;
+      await dialog.findAllByText("Adds to oven-1");
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        sample: { data: sampleOfTopic("plant", shapeOf("pump-1")) },
+      });
+      fireEvent.click(dialog.getByText("plant"));
+      await second.answered;
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 5 fields" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(3);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(held.icd);
+      const fields = ICD.jsonFields(messages[0]);
+      expect(fields.map(({ pointer }) => pointer)).toEqual([
+        "/time",
+        "/temperature",
+        "/state",
+        "/pressure",
+      ]);
+      const pressure = fields[3].key;
+      const bindsPressure = (key: string) =>
+        records
+          .find(({ recordKey }) => recordKey === key)
+          ?.messages[0].bindings.some(({ field }) => field === pressure);
+      expect(bindsPressure("oven-2")).toBe(true);
+      expect(bindsPressure("pump-1")).toBe(true);
+    });
+
+    it("should add a new message when a held record adds a field that a new key cannot read", async () => {
+      const time = createTimeField();
+      const { draft, dev } = await renderRead({
+        fields: [time, createField("temperature", "float")],
+        recordKey: "oven-1",
+        index: time.key,
+      });
+      await screen.findByRole("treeitem", { name: /^temperature/ });
+      const shapeOf = (key: string, pressure: object) => ({
+        ...OVEN_SHAPE,
+        sources: [key],
+        fields: [OVEN_SHAPE.fields[0], OVEN_SHAPE.fields[1], pressure],
+      });
+      const dialog = await openAddData(dev, {
+        data: sampleOf(
+          shapeOf("oven-1", createInferredField("/pressure", "string", "string")),
+          shapeOf("oven-2", createInferredField("/pressure", "float", "number")),
+        ),
+      });
+      await dialog.findByText("Adds to oven-1");
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 2 fields" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(2);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(records[0].icd);
+      expect(messages).toHaveLength(2);
+      expect(
+        ICD.jsonFields(messages[0]).map(({ pointer, type }) => [pointer, type]),
+      ).toEqual([
+        ["/time", "timestamp"],
+        ["/temperature", "float"],
+        ["/pressure", "string"],
+      ]);
+      expect(records[1].messages[0].message).toBe(messages[1].key);
+    });
+
     it("should put the new messages of a topic in the ICD that it reads", async () => {
       const held = await createRecord({
         fields: [createField("pressure", "float")],

@@ -136,7 +136,7 @@ const Head = ({ noun }: HeadProps) => (
 
 const Cells = ({ value: { name, sample, dataType, lock, note } }: { value: Value }) => (
   <>
-    <Flex.Box y gap="tiny">
+    <Flex.Box y gap="tiny" className={CSS.BE("icd-picker", "value-name")}>
       <Text.Text
         level="small"
         weight={500}

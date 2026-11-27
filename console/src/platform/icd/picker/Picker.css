@@ -175,7 +175,10 @@
         color: var(--pluto-primary-text);
     }
 
-    .console-icd-picker__value-list.console--dimmed .console-icd-picker__value > * {
+    .console-icd-picker__value-list.console--dimmed .console-icd-picker__value > *,
+    .console-icd-picker__value-list.console--dimmed
+        .console-icd-picker__value-name
+        > * {
         color: var(--pluto-text-disabled);
     }
 
