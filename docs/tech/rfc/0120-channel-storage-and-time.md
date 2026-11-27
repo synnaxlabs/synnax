@@ -107,9 +107,9 @@ writer opens. No channel record, task config, or client library keeps it.
   pointer on a clock in its range adds the clock's Tombstone over that range. `Keys`
   marks each clock, and the Core counts a clock as accounted for. The Core never deletes
   a key on absence (D-469).
-- **Key ranges**: A channel's local key stays below 2^20 until Phase 38
+- **Key ranges**: A channel's local key stays below 2^20 until Phase 50
   (`core/pkg/distribution/channel/counter.go:38-40`), because a v2 channel record cannot
-  hold a larger one. From Phase 22, clock keys come from their own counter below
+  hold a larger one. From Phase 24, clock keys come from their own counter below
   `0xFFF00000`. It starts above the host's lease (`0x00200000` for host key 1), or above
   the largest key below `0xFFF00000` that the table or storage holds when that is higher
   (RFC 0121 §4.1), since a Core from a cluster before 0.61 can have another host key and
@@ -117,7 +117,7 @@ writer opens. No channel record, task config, or client library keeps it.
   (NEW), so no counter write sits on the commit path, and a restart loses at most 256
   keys. The free keys of today sit at `0xFFF00000` and up, and their counter still
   serves virtual channels, such as signals and calculation outputs. The v3 record of
-  Phase 38 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
+  Phase 50 stores `key` whole and drops `leaseholder` and `local_key` (RFC 0119 §4.0);
   from then one counter serves both, above the largest key issued below `0xFFF00000`,
   and it never enters the free range. So no value is both a channel and a clock. Storage
   makes a clock only when continuation finds none, and one new clock per second lasts
@@ -429,7 +429,7 @@ names no clock key.
 - **Requests**: A request names channel keys only. `TimestampsIncluded` and
   `ReadResponse.Indexes` go (`core/pkg/api/framer/framer.go:192-194`, `:228-231`), and
   clients stop adding index keys (`client/ts/src/framer/cache/reader/reader.ts:270-276`,
-  `client/py/synnax/framer/adapter.py:68-69`). Until Phase 38 a read or a stream that
+  `client/py/synnax/framer/adapter.py:68-69`). Until Phase 50 a read or a stream that
   names an index channel works. After it, a list that names `"time"` or an old index
   name fails with an error that names `frame.time(channel)`.
 - **Access**: A time series leaves the Core only beside data that the subject may read.
@@ -437,16 +437,16 @@ names no clock key.
 - **Cost**: A reader that marks its keys untimed pays nothing for time. A reader that
   draws a timed key with no time pays 8 bytes of time per sample.
 - **Phases**: Phase 8 lands the codec field. Phase 12 turns the rule on, with untimed
-  keys in the same PR, and Phase 17 builds the storage reads.
+  keys in the same PR, and Phase 18 builds the storage reads.
 
 ### 4.6 Type and clock changes
 
-A channel's declared type can change to any type, from Phase 41. Open writers keep the
+A channel's declared type can change to any type, from Phase 52. Open writers keep the
 type they opened with. The next segment starts the new type (RFC 0121), and a read
 returns each segment in its stored type. A task save that changes an output's type
 changes the channel's declared type. A type change on an index channel fails. A clock
 move is not a channel edit: storage moves a key at continuation, at a handoff, and at a
-pause move (§4.0, §4.8), from Phase 23.
+pause move (§4.0, §4.8), from Phase 25.
 
 ### 4.7 Calculations and XY plots across clocks
 
@@ -489,7 +489,7 @@ alignment and inputs of two clocks by sample time:
   migration rewrites a read of an index channel to `time.of` of its first data channel
   by key (§4.10). No builtin gives a sample's stamp today
   (`arc/go/stl/time/time.go:34-38`).
-- **Stored `<name>_time` records**: Phase 19 deletes each `<name>_time` index channel
+- **Stored `<name>_time` records**: Phase 21 deletes each `<name>_time` index channel
   that a v0.62 Core stored. First it retargets every reference to the record onto the
   output's new clock, the primary's index, through the references of RFC 0119, and it
   lists each holder that it cannot retarget.
@@ -505,7 +505,7 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
 ```
 
 - **The key**: `"time"` is a reserved key in a write. Its value is the time of each
-  group that has a channel in the write, and it never looks up a channel. From Phase 38
+  group that has a channel in the write, and it never looks up a channel. From Phase 50
   a new channel whose path is `time` fails at create. A stored one keeps its name
   (D-448), and a write reaches it by key.
 - **Groups**: An open may name `time_groups`, a partition of its stored channels. Each
@@ -560,13 +560,13 @@ writer.write({"time": sy.TimeStamp.now(), "temperature": 20.0})
   declared in field 5 of the codec (§4.2). A data series names no clock: the Core knows
   each channel's group from the open and sets `Series.clock` on relayed series, also for
   a channel that a pause move put on its own clock. Live-only channels have no clock.
-- **Index channels** (until Phase 38): A group whose channels share an index channel
+- **Index channels** (until Phase 50): A group whose channels share an index channel
   takes that index key as its clock, and its time is the index's stamps. A group that
   mixes channels of two index channels, or of one and none, fails at open. With no
   groups, the channels of each index channel form one whole group, as on `main`. From
-  Phase 13 a client maps `"time"` to the index channel of each group, and until Phase 26
+  Phase 13 a client maps `"time"` to the index channel of each group, and until Phase 28
   a writer of channels without their index channel takes the stored kind, as today.
-  `is_index=`, `index=`, and index keys in a write work until Phase 38.
+  `is_index=`, `index=`, and index keys in a write work until Phase 50.
 - **Other producers**: The metrics service and scripts give no groups. Driver common
   code builds one time series per group, where `generate_index_data` copies one per
   index channel today (`driver/common/sample_clock.h:222-244`).
@@ -729,9 +729,9 @@ then of port numbers, drops the others, and writes a warning status.
 1. **§4.1**: No typed device stores an index key, and a channel appears once across the
    port maps of a device.
 2. **Task configs** (RFC 0081 Phase 22): A config holds the typed device key, ports,
-   hardware facts, and scales, and no clock. Until Phase 43 of this RFC the Console
+   hardware facts, and scales, and no clock. Until Phase 54 of this RFC the Console
    still makes data channels.
-3. **Provisioning** (Phase 43 of this RFC): Saving a hardware task makes the channels it
+3. **Provisioning** (Phase 54 of this RFC): Saving a hardware task makes the channels it
    lacks in the same transaction. An injected proposer per integration gives names (the
    port) and a folder (named after the device).
 4. **§4.0 and §7**: MQTT and Kafka get typed devices. The hardware address is a topic
@@ -798,16 +798,16 @@ Each rule closes a way to pair data with the wrong stamps and give no error.
 
 1. **The Arc grouping rule**: The compiler groups outputs only by the rule of §4.8. No
    runtime check stands in for it.
-2. **The join before any clock move**: Phases 18 to 21 land before Phase 23, the first
+2. **The join before any clock move**: Phases 20 to 23 land before Phase 25, the first
    in which a channel can change clocks. Until the join, a calculation pairs inputs on
    two clocks by position (`arc/go/stl/wasm/node.go:316-333`).
 3. **One alignment space per clock**: The TypeScript cache and Pluto keep one alignment
-   space per clock in each block and check the clock of each pair (Phases 14 and 16)
-   before Phase 23.
+   space per clock in each block and check the clock of each pair (Phases 14, 15,
+   and 17) before Phase 25.
 4. **A user's channel is never a group's clock**: Continuation drops a candidate that is
    a key of the group (§4.0). An index channel kept as a timestamp channel names itself
    as its clock, and no other key names it, so the rule keeps every group's stamps out
-   of it. It needs no stored flag, which has no home once RFC 0121 Phase 7 removes
+   of it. It needs no stored flag, which has no home once RFC 0121 Phase 8 removes
    Cesium's channel file.
 
 ### 4.12 Package boundaries
@@ -852,8 +852,8 @@ branch against `main` and reports to the founder session.
   misses it today on point and full reads (D-459): the 64 KiB block read per search
   step, the block cache mutex, and `ReadSamples`. Hidden clocks neither cause nor fix
   those misses and add clock finding on top, so they wait on D-459's fixes.
-- **The read prototype** (Phase 17): The storage reads of §4.5 on the pointer log, with
-  today's index keys as clocks and no format change. Phases 22 to 40 start only when the
+- **The read prototype** (Phase 18): The storage reads of §4.5 on the pointer log, with
+  today's index keys as clocks and no format change. Phases 24 to 54 start only when the
   one-clock reads are within 15% of `main`, the prototype is within 3% of the storage
   branch on them, and the reads with two clocks or 64 pauses are within 2 times their
   one-clock reads.
@@ -889,112 +889,129 @@ branch against `main` and reports to the founder session.
 
 ## 5 Implementation phases
 
-Before Phase 2, the box fixes its compare script (§4.13) and records baselines on
-`main`; none of it merges (D-430). The phases then follow one order: the shared storage
-fixes (Phases 2 to 4), the additive parts while index channels exist (Phases 5 to 16),
-the read prototype (Phase 17), the join (Phases 18 to 21), and hidden clocks with every
-removal (Phases 22 to 40). Phases 41 to 43 follow. Each phase is one PR of up to about
-2,000 hand-written lines, specs and generated code not counted.
+Before Phase 2, the box fixes its compare script, adds the benchmarks of §4.13, and
+records baselines on `main`; none of it merges (D-430). The phases then follow one
+order: the shared storage fixes (Phases 2 to 4), the additive parts while index channels
+exist (Phases 5 to 17), the read prototype (Phase 18), the export (Phase 19), the join
+(Phases 20 to 23), hidden clocks (Phases 24 to 29), the producers (Phases 30 to 45), and
+the removals (Phases 46 to 50). Phases 51 to 54 follow. Each phase is one PR of up to
+about 2,000 hand-written lines, specs and generated code not counted. Phase 8 is the
+exception: its codec piece is about 3,390 lines and ships alone (D-392).
 
 - **Shared storage fixes**: Today on the pointer log, every writer open seals its
   segments, a `client.write` loop steps the alignment counter at each call, and a
   handoff drops uncommitted samples. Phases 2 to 4 fix all three for index channels too,
-  before RFC 0121 Phase 7 makes the pointer log the only layout.
+  before RFC 0121 Phase 8 makes the pointer log the only layout.
 - **Additive parts**: From Phase 13 a script writes `"time"` and reads `frame.time`
-  while index channels exist, so users can move their code one release before the break.
-  Until Phase 23, readers may take a channel's clock from its index channel. An export
-  or the cache join that does so fails on a series whose clock differs, with an error
-  that names the channel and its index channel, and never drops it. A calculated
-  channel's series carries its primary's clock from Phase 19, which also clears the
-  index of its record when it deletes the `<name>_time` record.
-- **One break**: Phases 22 to 40 land between two releases of the Core, the Driver, and
-  the Console, and no release is cut from `main` while only part of them has merged. In
-  that window an index channel pins its group's clock (§4.8) and keeps the storage
-  branch's shared clock writer under write control, until Phase 38 removes both. Phases
-  22 to 25 change nothing that users see, and Phase 26 starts the visible break.
+  while index channels exist, and from Phase 28 it makes stored channels with no index
+  channel. So users move writes, reads, and creates before Phases 46 to 50 remove the
+  index API. Until Phase 25, readers may take a channel's clock from its index channel.
+  An export or the cache join that does so fails on a series whose clock differs, with
+  an error that names the channel and its index channel, and never drops it. A
+  calculated channel's series carries its primary's clock from Phase 21, which also
+  clears the index of its record when it deletes the `<name>_time` record.
+- **Releases**: Each phase is safe to release alone (D-161). Until Phase 50 the channels
+  of each index channel form one whole group on that index's clock (§4.8), and the
+  storage branch's shared clock writer keeps index channels under write control. So
+  tasks, Arc programs, and scripts that use index channels keep working at every phase.
+  The Driver already reports an error when the Core runs another minor
+  (`driver/rack/factories.cpp:64-81`), so it updates with the Core.
 
 Dependencies on other RFCs:
 
 - Phase 1 carries code moves that RFC 0119 Phases 3 and 25 and RFC 0121 Phase 5 need.
-- Phases 2 to 4 and 17 follow RFC 0121 Phase 6 (the pointer log). Phases 2 to 4 land
-  before RFC 0121 Phase 7.
-- Phase 19 follows RFC 0119 Phase 3 (the calculation record), which also stops the Core
-  from reading node bits, so Phase 22 can give clock keys their own range.
-- Phases 22 to 40 follow RFC 0121 Phase 7, since a clock per group is a clock per
-  segment, and D-459's fixes (§4.13).
-- Phase 38 follows RFC 0119 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every
-  integration, and the typed MQTT and Kafka devices. Phase 43 follows RFC 0081 Phases 21
+- Phases 2 to 4 and 18 follow RFC 0121 Phase 6 (the pointer log). Phases 2 to 4 land
+  before RFC 0121 Phase 8.
+- Phase 21 follows RFC 0119 Phase 3 (the calculation record), which also stops the Core
+  from reading node bits, so Phase 24 can give clock keys their own range. It also
+  follows RFC 0119 Phase 14, which builds the retargets.
+- Phases 24 to 54 follow RFC 0121 Phase 8, since a clock per group is a clock per
+  segment, and with it RFC 0121 Phase 7, D-459's read fixes (§4.13).
+- Phase 50 follows RFC 0119 Phases 1 and 31, RFC 0081 Phases 21 to 23 for every
+  integration, and the typed MQTT and Kafka devices. Phase 54 follows RFC 0081 Phases 21
   to 23.
 
-Compatibility: Phase 8 changes the wire once, with the handshake of §4.2, and Phase 26
-changes the writer messages inside the break. Phase 19 picks a primary for each
-calculation record that has none, and it deletes the stored `<name>_time` records after
-it retargets their references. Phases 30 to 36 mint one schema version each for the NI
-device (from v1), the LabJack device and the OPC UA server (each from v0), OPC UA, HTTP,
-Kafka, MQTT, and ICD (from what `core/v0.62.0` shipped), and Sift (from v0, first stable
-in `core/v0.62.0`), with migrations. Line plot v10 and log v5 take a dangling step and
-no new shape. Phase 38 mints channel v3 from v1. A Sift flow, named after an index
-channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
-`core/v0.62.0` keep their numbers.
+Compatibility: Phase 8 changes the wire once, with the handshake of §4.2. Phase 28 adds
+the writer fields and keeps field 9 (`auto_index`) as `arrival_timed` until Phase 50.
+Phase 21 picks a primary for each calculation record that has none, and it deletes the
+stored `<name>_time` records after it retargets their references. Phases 33 to 41 mint
+one schema version each for the NI device (from v1), the LabJack device and the OPC UA
+server (each from v0), OPC UA, HTTP, Kafka, MQTT, and ICD (from what `core/v0.62.0`
+shipped), and Phase 43 for Sift (from v0, first stable in `core/v0.62.0`), with
+migrations. Line plot v11 and log v6 take no new shape. Phase 50 mints channel v3 from
+v2. A Sift flow, named after an index channel in `core/v0.62.0`, keeps that name in its
+config from Phase 43. Keys of `core/v0.62.0` keep their numbers.
 
-| Pieces in flight                                              | Fate                                                                  | Phases                 |
-| ------------------------------------------------------------- | --------------------------------------------------------------------- | ---------------------- |
-| SY-6394: the type code enum, 16a to 16e                       | Stay                                                                  | 5 to 10                |
-| SY-6395: mixed types                                          | Stays                                                                 | 11                     |
-| SY-6396 (15a to 15d) and SY-6926: the join                    | Stay, as the precondition of hard rule 2                              | 18 to 20               |
-| SY-6400: each writer its own clock                            | Goes: storage picks each clock                                        | 22 to 26               |
-| SY-6401: type and clock changes                               | Changes: type changes only                                            | 41                     |
-| SY-6404: task channels in the Core and retired index channels | Changes: splits in two                                                | 38, 43                 |
-| SY-6397, 17a to 17c, 18a to 18l, SY-6763                      | Stay                                                                  | RFC 0121 Phases 5 to 7 |
-| 17d: one clock per writer, and SY-6863: shared clock writers  | Change: commit first replaces `Pending`, and groups replace one clock | 4, 23, 38              |
-| 18m: the switch, and 18n: no channel file                     | Stay, after Phases 2 to 4                                             | RFC 0121 Phase 7       |
-| SY-6402: the old format's delete                              | Stays                                                                 | 42                     |
+| Pieces in flight                                              | Fate                                                                  | Phases                  |
+| ------------------------------------------------------------- | --------------------------------------------------------------------- | ----------------------- |
+| SY-6394: the type code enum, 16a to 16e                       | Stay                                                                  | 5 to 10                 |
+| SY-6395: mixed types                                          | Stays                                                                 | 11                      |
+| SY-6396 (15a to 15d) and SY-6926: the join                    | Stay, as the precondition of hard rule 2                              | 20 to 22                |
+| SY-6400: each writer its own clock                            | Goes: storage picks each clock                                        | 24 to 28                |
+| SY-6401: type and clock changes                               | Changes: type changes only                                            | 52                      |
+| SY-6404: task channels in the Core and retired index channels | Changes: splits in two                                                | 50, 54                  |
+| SY-6397, 17a to 17c, 18a to 18l, SY-6763                      | Stay                                                                  | RFC 0121 Phases 5, 6, 8 |
+| D-459's read fixes                                            | New                                                                   | RFC 0121 Phase 7        |
+| 17d: one clock per writer, and SY-6863: shared clock writers  | Change: commit first replaces `Pending`, and groups replace one clock | 4, 25, 50               |
+| 18m: the switch, and 18n: no channel file                     | Stay, after Phases 2 to 4                                             | RFC 0121 Phase 8        |
+| SY-6402: the old format's delete                              | Stays                                                                 | 53                      |
 
-| Phase | Scope                                                      | Touches                                                                                                                                                                                                                                                                                                                | Depends on         |
-| ----- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ |
-| 1     | Move and rename code ahead of the channel work             | `core/pkg/storage/ts`, `core/pkg/distribution/channel`, `core/pkg/service/channel`, `core/pkg/service/arc`, `arc/go/analyzer`, `client/ts/src/framer/cache`, `core/pkg/service/calculation`                                                                                                                            | -                  |
-| 2     | Take over open segments at writer open                     | `cesium`, `cesium/internal/segment`, `cesium/internal/state`                                                                                                                                                                                                                                                           | -                  |
-| 3     | Number each clock once per session and continue stretches  | `cesium`, `cesium/internal/state`                                                                                                                                                                                                                                                                                      | 2                  |
-| 4     | Commit the old holder first at a control handoff           | `cesium`, `core/pkg/distribution/framer/writer`                                                                                                                                                                                                                                                                        | 2                  |
-| 5     | Add the data type code enum to the telem schema            | `schemas/x/telem.oracle`, `x/go/telem`                                                                                                                                                                                                                                                                                 | -                  |
-| 6     | Name the clock of each series in every language            | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `x/cpp/telem`                                                                                                                                                                                                                                                          | 5                  |
-| 7     | Stamp the clock of each series in the Core                 | `cesium/internal/unary`, `core/pkg/service/framer`, `core/pkg/api/framer`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`                                                                                                                                                                                     | 6                  |
-| 8     | Declare each series' type and clock in the frame codecs    | `core/pkg/distribution/framer/codec`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                                                                                           | 7                  |
-| 9     | Pair data by each series' clock in the clients             | `client/ts/src/framer/cache`, `client/py/synnax/framer`, `pluto/src/vis/line`, `arc/cpp/stl/channels`, `arc/cpp/runtime`, `driver/bypass`                                                                                                                                                                              | 8                  |
-| 10    | Swap the codec state when the relay applies new keys       | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/streamer`, `core/pkg/transport/grpc/framer`, `core/pkg/transport/http/framer`, `client/ts/src/framer/codec`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                             | 8                  |
-| 11    | Accept mixed data types in every reader                    | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `client/ts/src/framer`, `pluto/src/vis/line`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/arc`                                                                                                                                          | 1, 9               |
-| 12    | Send the time of its data with every read and stream       | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `client/ts/src/framer`, `client/py/synnax/framer`                                                                                            | 10                 |
-| 13    | Read and write time by channel in Python and TypeScript    | `client/py/synnax/framer`, `client/py/synnax/ranger`, `client/ts/src/framer`                                                                                                                                                                                                                                           | 12                 |
-| 14    | Keep one alignment space per clock in the TypeScript cache | `client/ts/src/framer/cache`                                                                                                                                                                                                                                                                                           | 12                 |
-| 15    | Bring time through the TypeScript cache to subscribers     | `client/ts/src/framer/cache`, `client/ts/src/framer`                                                                                                                                                                                                                                                                   | 14                 |
-| 16    | Draw lines against each series' own time in Pluto          | `pluto/src/telem/aether`, `pluto/src/vis/line`, `pluto/src/lineplot`                                                                                                                                                                                                                                                   | 15                 |
-| 17    | Find each segment's clock in one storage read step         | `cesium`, `cesium/internal/unary`, `cesium/internal/domain`, `core/pkg/service/framer/iterator`                                                                                                                                                                                                                        | 2, 12              |
-| 18    | Pair calculation inputs by sample time in a join node      | `arc/go/stl`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                           | 11                 |
-| 19    | Join calculations live and in history from a primary       | `core/pkg/service/calculation`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/service/channel`, `client/ts/src/framer/cache`                                                                                                                                                    | 18                 |
-| 20    | Join string inputs of calculations                         | `arc/go/stl`                                                                                                                                                                                                                                                                                                           | 19                 |
-| 21    | Pair XY plots across clocks by time                        | `pluto/src/vis/line`, `pluto/src/lineplot`                                                                                                                                                                                                                                                                             | 16, 18             |
-| 22    | Lease clock keys from a counter of their own               | `core/pkg/distribution/channel`, `cesium`, `core/pkg/storage`                                                                                                                                                                                                                                                          | 3                  |
-| 23    | Open each Cesium writer on time groups                     | `cesium`, `cesium/internal/state`, `core/pkg/distribution/framer/writer`                                                                                                                                                                                                                                               | 4, 17, 20, 21, 22  |
-| 24    | Move often paused script channels to clocks of their own   | `cesium`, `core/pkg/distribution/framer/writer`                                                                                                                                                                                                                                                                        | 23                 |
-| 25    | End each clock with its last user                          | `cesium`, `core/pkg/service/channel`                                                                                                                                                                                                                                                                                   | 23                 |
-| 26    | Take time groups at writer open in the Core API            | `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `core/pkg/transport/http/framer`, `core/pkg/service/framer/writer`, `core/pkg/distribution/framer/writer`, `core/pkg/service/channel`                                                                                                                         | 24, 25             |
-| 27    | Write time groups from Python and TypeScript               | `client/py/synnax/framer`, `client/py/synnax/control`, `client/ts/src/framer`, `pluto/src/telem/control`                                                                                                                                                                                                               | 13, 26             |
-| 28    | Write time groups from C++, C, and LabVIEW                 | `x/cpp/telem`, `client/cpp/framer`, `client/clib`, `client/lv`                                                                                                                                                                                                                                                         | 26                 |
-| 29    | Build Driver frames with one time series per group         | `driver/common`, `driver/bypass`, `driver/pipeline`                                                                                                                                                                                                                                                                    | 28                 |
-| 30    | Group hardware task channels by task                       | `driver/ni`, `driver/labjack`, `driver/modbus`, `driver/ethercat`, `schemas/synnax/ni_device.oracle`, `schemas/synnax/labjack_device.oracle`, `core/pkg/service/ni`, `core/pkg/service/labjack`, `console/src/feature/ni`, `console/src/feature/labjack`, `console/src/feature/modbus`, `console/src/feature/ethercat` | 29                 |
-| 31    | Time OPC UA reads by a task time node                      | `driver/opcua`, `schemas/synnax/opcua.oracle`, `schemas/synnax/opcua_server.oracle`, `core/pkg/service/opcua`, `console/src/feature/opcua`                                                                                                                                                                             | 29                 |
-| 32    | Time HTTP and ICD message reads by their time field        | `driver/http`, `driver/icd`, `schemas/synnax/http.oracle`, `schemas/synnax/icd.oracle`, `core/pkg/service/http`, `core/pkg/service/icd`, `console/src/platform/icd`, `console/src/feature/http`                                                                                                                        | 29                 |
-| 33    | Time Kafka and MQTT reads by message group                 | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `schemas/synnax/kafka.oracle`, `schemas/synnax/mqtt.oracle`, `console/src/feature/kafka`, `console/src/feature/mqtt`                                                                                                                                                | 32                 |
-| 34    | Group Arc outputs by the compiler rule                     | `schemas/arc/ir.oracle`, `arc/go/analyzer`, `arc/go/ir`, `arc/go/stl/channels`, `arc/cpp/runtime`, `arc/cpp/stl/channels`, `core/pkg/service/arc/runtime`, `driver/arc`                                                                                                                                                | 29                 |
-| 35    | Read a channel's time in Arc and migrate index reads       | `arc/go/stl/time`, `arc/cpp/stl/time`, `core/pkg/service/arc`, `core/pkg/service/calculation`                                                                                                                                                                                                                          | 34                 |
-| 36    | Move Sift, line plots, and logs off index channels         | `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/lineplot`, `core/pkg/service/log`                                                                                                                                                                                                             | 26                 |
-| 37    | Remove index channels from the client APIs                 | `client/py/synnax`, `client/ts/src`, `client/cpp`, `pluto/src/telem/aether`, `console/src/feature/channel`                                                                                                                                                                                                             | 27, 28, 36         |
-| 38    | Retire index channel records                               | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/distribution/channel`, `core/pkg/api/channel`, `core/pkg/api/framer`, `core/pkg/distribution/framer/writer`, `core/cmd/start`                                                                                                                   | 30, 31, 33, 35, 37 |
-| 39    | Export one time column in CSV and TDMS                     | `core/pkg/transport/http/framer`, `core/pkg/api/framer`                                                                                                                                                                                                                                                                | 26                 |
-| 40    | Document time without index channels                       | `site/docs`, `client/py/examples`, `client/ts/examples`                                                                                                                                                                                                                                                                | 38, 39             |
-| 41    | Allow data type changes                                    | `core/pkg/service/channel`, `core/pkg/service/framer`, `core/pkg/transport/http/framer`                                                                                                                                                                                                                                | 11                 |
-| 42    | Delete the old Cesium format                               | `cesium`                                                                                                                                                                                                                                                                                                               | 1                  |
-| 43    | Create task channels in the Core at task save              | `core/pkg/service/task`, `core/pkg/service/ni`, `core/pkg/service/labjack`, `core/pkg/service/opcua`, `console/src/platform/task`                                                                                                                                                                                      | 38                 |
+| Phase | Scope                                                        | Touches                                                                                                                                                                                                                                          | Depends on                             |
+| ----- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| 1     | Move and rename code ahead of the channel work               | `core/pkg/storage/ts`, `core/pkg/distribution/channel`, `core/pkg/service/channel`, `core/pkg/service/arc`, `arc/go/analyzer`, `client/ts/src/framer/cache`, `core/pkg/service/calculation`                                                      | -                                      |
+| 2     | Take over open segments at writer open                       | `cesium`, `cesium/internal/segment`, `cesium/internal/state`                                                                                                                                                                                     | -                                      |
+| 3     | Number each clock once per session and continue stretches    | `cesium`, `cesium/internal/state`                                                                                                                                                                                                                | 2                                      |
+| 4     | Commit the old holder first at a control handoff             | `cesium`, `core/pkg/distribution/framer/writer`                                                                                                                                                                                                  | 2                                      |
+| 5     | Add the data type code enum to the telem schema              | `schemas/x/telem.oracle`, `x/go/telem`                                                                                                                                                                                                           | -                                      |
+| 6     | Name the clock of each series in every language              | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `x/cpp/telem`                                                                                                                                                                                    | 5                                      |
+| 7     | Stamp the clock of each series in the Core                   | `cesium/internal/unary`, `core/pkg/service/framer`, `core/pkg/api/framer`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`                                                                                                               | 6                                      |
+| 8     | Declare each series' type and clock in the frame codecs      | `core/pkg/distribution/framer/codec`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer`                                                                                                                                     | 7                                      |
+| 9     | Pair data by each series' clock in the clients               | `client/ts/src/framer/cache`, `client/py/synnax/framer`, `pluto/src/vis/line`, `arc/cpp/stl/channels`, `arc/cpp/runtime`, `driver/bypass`                                                                                                        | 8                                      |
+| 10    | Swap the codec state when the relay applies new keys         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/streamer`, `core/pkg/transport/grpc/framer`, `core/pkg/transport/http/framer`, `client/ts/src/framer/codec`, `client/py/synnax/framer`, `client/cpp/framer`                       | 8                                      |
+| 11    | Accept mixed data types in every reader                      | `x/go/telem`, `x/ts/src/telem`, `x/py/x/telem`, `client/ts/src/framer`, `pluto/src/vis/line`, `core/pkg/transport/http/framer`, `arc/go/stl/channels`, `core/pkg/service/arc`                                                                    | 1, 9                                   |
+| 12    | Send the time of its data with every read and stream         | `core/pkg/distribution/framer/relay`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `client/ts/src/framer`, `client/py/synnax/framer`, `client/cpp/framer` | 10                                     |
+| 13    | Read and write time by channel in Python and TypeScript      | `client/py/synnax/framer`, `client/py/synnax/ranger`, `client/ts/src/framer`                                                                                                                                                                     | 12                                     |
+| 14    | Keep one alignment space and floor per clock in cache blocks | `client/ts/src/framer/cache`                                                                                                                                                                                                                     | 12                                     |
+| 15    | Tell a pause from a dropped frame in the cache join          | `client/ts/src/framer/cache`                                                                                                                                                                                                                     | 14                                     |
+| 16    | Bring time through the TypeScript cache to subscribers       | `client/ts/src/framer/cache`, `client/ts/src/framer`                                                                                                                                                                                             | 15                                     |
+| 17    | Draw lines against each series' own time in Pluto            | `pluto/src/telem/aether`, `pluto/src/vis/line`, `pluto/src/lineplot`                                                                                                                                                                             | 16                                     |
+| 18    | Find each segment's clock in one storage read step           | `cesium`, `cesium/internal/unary`, `cesium/internal/domain`, `core/pkg/service/framer/iterator`                                                                                                                                                  | 2, 12                                  |
+| 19    | Export one time column in CSV and TDMS                       | `core/pkg/transport/http/framer`, `core/pkg/api/framer`                                                                                                                                                                                          | 12                                     |
+| 20    | Pair calculation inputs by sample time in a join node        | `arc/go/stl`, `core/pkg/service/calculation`                                                                                                                                                                                                     | 11                                     |
+| 21    | Join calculations live and in history from a primary         | `core/pkg/service/calculation`, `core/pkg/service/framer/iterator`, `core/pkg/service/framer/calculation`, `core/pkg/service/channel`, `client/ts/src/framer/cache`                                                                              | 20                                     |
+| 22    | Join string inputs of calculations                           | `arc/go/stl`                                                                                                                                                                                                                                     | 21                                     |
+| 23    | Pair XY plots across clocks by time                          | `pluto/src/vis/line`, `pluto/src/lineplot`                                                                                                                                                                                                       | 17, 20                                 |
+| 24    | Lease clock keys from a counter of their own                 | `core/pkg/distribution/channel`, `cesium`, `core/pkg/storage`                                                                                                                                                                                    | 3                                      |
+| 25    | Open each Cesium writer on time groups                       | `cesium`, `cesium/internal/state`, `core/pkg/distribution/framer/writer`                                                                                                                                                                         | 4, 18, 22, 23, 24                      |
+| 26    | Move often paused script channels to clocks of their own     | `cesium`, `core/pkg/distribution/framer/writer`                                                                                                                                                                                                  | 25                                     |
+| 27    | End each clock with its last user                            | `cesium`, `core/pkg/service/channel`                                                                                                                                                                                                             | 25                                     |
+| 28    | Take time groups at writer open in the Core API              | `core/pkg/api/framer`, `core/pkg/transport/grpc/framer`, `core/pkg/transport/http/framer`, `core/pkg/service/framer/writer`, `core/pkg/distribution/framer/writer`, `core/pkg/service/channel`                                                   | 26, 27                                 |
+| 29    | Write Core metrics on arrival with no index channel          | `core/pkg/service/metrics`                                                                                                                                                                                                                       | 28                                     |
+| 30    | Write time groups from Python and TypeScript                 | `client/py/synnax/framer`, `client/py/synnax/control`, `client/py/synnax/channel`, `client/py/synnax/ranger`, `client/ts/src/framer`, `client/ts/src/channel`, `pluto/src/telem/control`                                                         | 13, 28                                 |
+| 31    | Write time groups from C++, C, and LabVIEW                   | `x/cpp/telem`, `client/cpp/framer`, `client/clib`, `client/lv`                                                                                                                                                                                   | 28                                     |
+| 32    | Build Driver frames with one time series per group           | `driver/common`, `driver/bypass`, `driver/pipeline`                                                                                                                                                                                              | 31                                     |
+| 33    | Group NI task channels by task                               | `driver/ni`, `schemas/synnax/ni_device.oracle`, `core/pkg/service/ni`, `console/src/feature/ni`                                                                                                                                                  | 32                                     |
+| 34    | Group LabJack task channels by task                          | `driver/labjack`, `schemas/synnax/labjack_device.oracle`, `core/pkg/service/labjack`, `console/src/feature/labjack`                                                                                                                              | 32                                     |
+| 35    | Group Modbus task channels by task                           | `driver/modbus`, `core/pkg/service/modbus`, `core/pkg/service/layer.go`, `console/src/feature/modbus`                                                                                                                                            | 32                                     |
+| 36    | Group EtherCAT task channels by task                         | `driver/ethercat`, `core/pkg/service/ethercat`, `core/pkg/service/layer.go`, `console/src/feature/ethercat`                                                                                                                                      | 32                                     |
+| 37    | Time OPC UA reads by a task time node                        | `driver/opcua`, `schemas/synnax/opcua.oracle`, `schemas/synnax/opcua_server.oracle`, `core/pkg/service/opcua`, `console/src/feature/opcua`                                                                                                       | 32                                     |
+| 38    | Time ICD message reads by their time field                   | `driver/icd`, `schemas/synnax/icd.oracle`, `core/pkg/service/icd`, `console/src/platform/icd`                                                                                                                                                    | 32                                     |
+| 39    | Time HTTP reads by their time field                          | `driver/http`, `schemas/synnax/http.oracle`, `core/pkg/service/http`, `console/src/feature/http`                                                                                                                                                 | 38                                     |
+| 40    | Time Kafka reads by message group                            | `core/pkg/service/kafka`, `schemas/synnax/kafka.oracle`, `console/src/feature/kafka`                                                                                                                                                             | 38                                     |
+| 41    | Time MQTT reads by message group                             | `core/pkg/service/mqtt`, `core/pkg/service/driver`, `core/pkg/service/layer.go`, `schemas/synnax/mqtt.oracle`, `console/src/feature/mqtt`                                                                                                        | 38                                     |
+| 42    | Group Arc outputs by the compiler rule                       | `schemas/arc/ir.oracle`, `arc/go/analyzer`, `arc/go/ir`, `arc/go/stl/channels`, `arc/cpp/runtime`, `arc/cpp/stl/channels`, `core/pkg/service/arc/runtime`, `core/pkg/service/arc/task`, `driver/arc`                                             | 32                                     |
+| 43    | Detach retired index keys from Sift, plots, and logs         | `core/pkg/service/channel`, `schemas/synnax/sift.oracle`, `core/pkg/service/sift`, `core/pkg/service/lineplot`, `core/pkg/service/log`                                                                                                           | 28                                     |
+| 44    | Read a channel's time in Arc and rewrite index reads         | `arc/go/stl/time`, `arc/cpp/stl/time`, `core/pkg/service/arc`, `core/pkg/service/calculation`                                                                                                                                                    | 42, 43                                 |
+| 45    | Move the examples and integration tests to time              | `client/py/examples`, `client/ts/examples`, `integration`                                                                                                                                                                                        | 30                                     |
+| 46    | Remove index channels from the Python client                 | `client/py/synnax`                                                                                                                                                                                                                               | 45                                     |
+| 47    | Remove index channels from TypeScript and Pluto              | `client/ts/src`, `pluto/src/telem/aether`, `pluto/src/log`                                                                                                                                                                                       | 45                                     |
+| 48    | Remove index channels from the C++ and C clients             | `client/cpp`, `client/clib`                                                                                                                                                                                                                      | 31, 45                                 |
+| 49    | Remove index channels from the Console                       | `console/src/feature/channel`, `console/src/platform/channel`, `console/src/platform/task`, `console/src/feature/project`, `console/src/feature/sift`                                                                                            | 33, 34, 35, 36, 37, 38, 39, 40, 41, 47 |
+| 50    | Retire index channel records                                 | `schemas/synnax/channel.oracle`, `core/pkg/service/channel`, `core/pkg/distribution/channel`, `core/pkg/api/channel`, `core/pkg/api/framer`, `core/pkg/distribution/framer/writer`, `core/pkg/service/layer.go`, `core/cmd/start`                | 19, 29, 43, 44, 46, 48, 49             |
+| 51    | Document time without index channels                         | `site/docs`                                                                                                                                                                                                                                      | 50                                     |
+| 52    | Allow data type changes                                      | `core/pkg/service/channel`, `core/pkg/service/framer`, `core/pkg/transport/http/framer`, `console/src/feature/channel`                                                                                                                           | 11                                     |
+| 53    | Delete the old Cesium format                                 | `cesium`                                                                                                                                                                                                                                         | 1                                      |
+| 54    | Create task channels in the Core at task save                | `core/pkg/service/task`, `core/pkg/service/ni`, `core/pkg/service/labjack`, `core/pkg/service/opcua`, `console/src/platform/task`                                                                                                                | 50                                     |
 
 ## 6 What this RFC does not cover
 
@@ -1061,7 +1078,7 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
     device path of two channels fails and names both. Rejected: device paths that
     resolve only in search and pickers, which never break a lookup.
 16. **`int64` and `timestamp` stay equal**: Arc writes times as either (SY-4150).
-17. **Clock keys take their own range until the v3 record**: One counter from Phase 22
+17. **Clock keys take their own range until the v3 record**: One counter from Phase 24
     was rejected: a key above 2^20 does not fit a v2 channel record.
 18. **The hold limit is computed, not stored**: 3 times the median of the last 16
     intervals, the same live and in history. Rejected: a limit picked at save, which
@@ -1089,7 +1106,7 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
     lives in memory. Rejected: a durable clean flag. 5,000 clocks and one restart per
     day use 2^31 numbers in 1,176 years.
 25. **No stored flag marks a clock**: Continuation drops a key of the group (hard rule
-    4). Rejected: a `Line` flag in Cesium's channel file, which RFC 0121 Phase 7
+    4). Rejected: a `Line` flag in Cesium's channel file, which RFC 0121 Phase 8
     removes.
 26. **A clock ends with its last user's delete**: Rejected: a kept-key warning that only
     `synnax purge` clears, and a delete on absence (D-469).
@@ -1127,9 +1144,10 @@ channel in `core/v0.62.0`, keeps that name in its config from Phase 36. Keys of
 37. **One `time` column in CSV and TDMS exports**: The merge of
     `core/pkg/transport/http/framer/csv.go:158-187` already orders rows. Rejected: a
     column per clock, which shows storage's layout in the header.
-38. **The additive parts first, the removals as one break**: Users get one release to
-    move writes and reads. The client cache rewrite and the per-segment read view are
-    charged here, since any clock move needs them.
+38. **The additive parts first, then the removals, each phase safe alone**: Users move
+    writes, reads, and creates before the index API goes. Rejected: one break that holds
+    every release while Phases 24 to 50 merge, against D-161. The client cache rewrite
+    and the per-segment read view are charged here, since any clock move needs them.
 39. **The read prototype decides R2 before hidden clocks**: It changes no format. A
     chunk that spans a handoff or a move may cost up to 2 times (a rare-path bar under
     R2), with its own benchmark.
