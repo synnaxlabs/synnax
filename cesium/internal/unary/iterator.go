@@ -208,10 +208,7 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	}
 
 	ok := i.internal.SeekLE(ctx, ts)
-	// The view goes to ts, or to the nearest edge of the seeked domain within the
-	// bounds.
-	tr := i.internal.TimeRange().BoundBy(i.bounds)
-	i.seekReset(min(max(ts, tr.Start), tr.End))
+	i.seekView(ts)
 	return ok
 }
 
@@ -222,10 +219,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	}
 
 	ok := i.internal.SeekGE(ctx, ts)
-	// The view goes to ts, or to the nearest edge of the seeked domain within the
-	// bounds.
-	tr := i.internal.TimeRange().BoundBy(i.bounds)
-	i.seekReset(min(max(ts, tr.Start), tr.End))
+	i.seekView(ts)
 	return ok
 }
 
@@ -1337,6 +1331,13 @@ func (i *Iterator) reset(nextView telem.TimeRange) {
 func (i *Iterator) seekReset(ts telem.TimeStamp) {
 	i.reset(ts.SpanRange(0))
 	i.err = nil
+}
+
+// seekView moves the view to ts, or to the nearest edge of the seeked domain within the
+// bounds.
+func (i *Iterator) seekView(ts telem.TimeStamp) {
+	tr := i.internal.TimeRange().BoundBy(i.bounds)
+	i.seekReset(min(max(ts, tr.Start), tr.End))
 }
 
 func (i *Iterator) atStart() bool { return i.view.Start == i.bounds.Start }
