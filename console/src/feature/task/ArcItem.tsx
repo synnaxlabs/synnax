@@ -9,7 +9,7 @@
 
 import "@/feature/task/ArcItem.css";
 
-import { arc, type status as xstatus, type task } from "@synnaxlabs/client";
+import { arc, type status as clientStatus, type task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -34,7 +34,7 @@ const runningStatusZ = z.object({
  * The active scopes of a running Arc, such as "main › high_vac", or "Idle" when none
  * runs. Undefined when the status shows no scopes.
  */
-const scopeText = (stat: xstatus.Status): string | undefined => {
+const scopeText = (stat: clientStatus.Status): string | undefined => {
   const parsed = runningStatusZ.safeParse(stat);
   if (!parsed.success) return undefined;
   const { scopes } = parsed.data.details.data;
