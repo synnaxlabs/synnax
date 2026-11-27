@@ -24,8 +24,8 @@ import (
 )
 
 // NewCalculationTextMigration returns the migration that writes the new name of each
-// renamed channel into the expression of each calculated channel (TextRename), lexed
-// with cfg as a v0.62 Core lexed it. It runs after the name and clash passes, and
+// renamed channel into the expression of each calculated channel (TextRename), read
+// with cfg as a v0.62 Core read it. It runs after the name and clash passes, and
 // before anything compiles a calculation.
 func NewCalculationTextMigration(cfg parser.Config) gorp.Migration {
 	return migrate.New(
@@ -96,11 +96,17 @@ func TextRename(r kv.Reader, channels map[Key]TextChannel) (*Renames, error) {
 		}
 		from[key] = rn.From
 	}
-	t := &Renames{bound: make(map[string]binding, len(channels)), channels: channels}
+	t := &Renames{
+		bound:    make(map[string]binding, len(channels)),
+		channels: channels,
+		after:    make(map[string]Key, len(from)),
+	}
 	for key, ch := range channels {
 		before, renamed := from[key]
 		if !renamed {
 			before = ch.Name
+		} else if k, ok := t.after[ch.Name]; !ok || key > k {
+			t.after[ch.Name] = key
 		}
 		if b, ok := t.bound[before]; !ok || key > b.key {
 			t.bound[before] = binding{key: key, renamed: renamed}

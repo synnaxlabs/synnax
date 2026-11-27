@@ -118,7 +118,7 @@ func newGroupRemovalReport(
 
 // newArcTextMigration returns the migration that writes the new name of each renamed
 // channel into the text of each Arc and into the function bodies of each graph
-// (channelv1.TextRename), lexed with cfg as a v0.62 Core lexed it. It runs before
+// (channelv1.TextRename), read with cfg as a v0.62 Core read it. It runs before
 // newRenameReport deletes the staged renames, and before anything compiles an Arc.
 func newArcTextMigration(cfg parser.Config) gorp.Migration {
 	return migrate.New(
@@ -329,9 +329,9 @@ func textSiteStatus(site resourcev0.TextSite, holder string) status.Status[any] 
 	if site.Function != "" {
 		noun = fmt.Sprintf("function %q of %s", site.Function, noun)
 	}
-	why := "the upgrade could not read the text as a v0.62 Core read it"
+	why := "the text does not parse, or its names do not bind"
 	if site.Captured {
-		why = fmt.Sprintf("a symbol in scope there holds the name %q", site.NewName)
+		why = "a symbol that the text declares holds one of these names there"
 	}
 	return status.Status[any]{
 		Name:    holder,

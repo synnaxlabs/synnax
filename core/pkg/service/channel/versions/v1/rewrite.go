@@ -11,11 +11,14 @@ package v1
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/authority"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/literal"
@@ -24,6 +27,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
@@ -41,6 +45,8 @@ type TextChannel struct {
 type Renames struct {
 	bound    map[string]binding
 	channels map[Key]TextChannel
+	// after holds the key of each renamed channel by its new name.
+	after map[string]Key
 }
 
 // binding is the channel that a v0.62 Core bound a name to.
@@ -68,12 +74,17 @@ func (r *Renames) Resolve(_ context.Context, name string) (*symbol.Symbol, error
 	if !ok {
 		return nil, errors.Wrapf(query.ErrNotFound, "channel %q", name)
 	}
+	return r.symbol(name, b.key), nil
+}
+
+// symbol returns the channel symbol of key under name.
+func (r *Renames) symbol(name string, key Key) *symbol.Symbol {
 	return &symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindChannel,
-		Type: types.Chan(types.FromTelem(r.channels[b.key].DataType)),
-		ID:   int(b.key),
-	}, nil
+		Type: types.Chan(types.FromTelem(r.channels[key].DataType)),
+		ID:   int(key),
+	}
 }
 
 // Search implements symbol.Resolver. It finds nothing, since no pass completes names.
@@ -106,21 +117,25 @@ type Source struct {
 	Functions       []string
 }
 
-// Reference is a bare identifier in stored text that holds the old name of a renamed
-// channel.
+// Reference is a bare identifier in stored text that the analyzer reads as the old name
+// of a renamed channel. A key, a unit, and the name of a declaration are not
+// references.
 type Reference struct {
 	// Name is the old name, and NewName the new name of the channel.
 	Name, NewName string
 	// Line counts from 1, and Column counts characters from 0.
 	Line, Column int
-	// Binding is the kind of the symbol that Name resolves to in the scope of the
-	// reference. Bound is false when it resolves to none, or the text does not parse.
+	// Binding is the kind of the symbol that Name resolves to at the reference. Bound
+	// is false when it resolves to none, or the text does not parse or bind.
 	Binding symbol.Kind
 	Bound   bool
-	// Captured is true when a symbol in scope at the reference holds the new name.
+	// Captured is true when the reference reads the channel, but a symbol that the text
+	// declares takes the old or the new name there: in the scopes that the analyzer has
+	// bound when it reads the reference, or in the finished scopes.
 	Captured bool
-	// Kept is true when the rewrite left the reference on the old name although it
-	// reads the channel: the text does not parse, or a reference of it is captured.
+	// Kept is true when the rewrite left the reference on the old name although it may
+	// read the channel: the text does not parse or bind, or a reference of it is
+	// captured.
 	Kept bool
 }
 
@@ -128,10 +143,11 @@ type Reference struct {
 type Result struct {
 	// Text is the rewritten text. It is the stored text when a reference is kept.
 	Text string
-	// Parsed is false when the text does not parse.
+	// Parsed is false when the text does not parse, or a v0.62 Core could not bind it.
 	Parsed bool
-	// References are the bare identifiers of the text that hold the old name of a
-	// renamed channel, in order.
+	// References are the references of the text, in order. When the text does not
+	// parse or bind, they are each bare identifier that holds the old name of a renamed
+	// channel.
 	References []Reference
 }
 
@@ -147,37 +163,63 @@ type Rewriter struct {
 }
 
 // Rewrite rewrites the text of src: each bare identifier that reads a renamed channel
-// in its scope becomes the new name of the channel. A local, input, stage, or module
-// member of the name takes the identifier first, as in a v0.62 Core, and the head or a
-// member of a qualified name is never a candidate. When src does not parse, or a symbol
-// in scope at a reference holds the new name, Rewrite leaves the text unchanged and
-// marks each reference that it could not write as kept.
+// becomes the new name of the channel. An identifier reads the channel when the
+// analyzer reads it as a name, and the channel takes it both in the scopes that the
+// analyzer has bound at that point and in the finished scopes that the compiler reads.
+// A key, a unit, and the head or a member of a qualified name are never references.
+// When src does not parse or bind, or a symbol that the text declares takes the old or
+// the new name at a reference, Rewrite leaves the text unchanged and marks each
+// reference that it could not write as kept.
 func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
-	res, spans := w.find(src.Text)
-	scope, shift, parsed, err := w.analyze(ctx, src)
+	candidates, spans := w.find(src.Text)
+	base, parsed, err := w.parse(ctx, src, src.Text, names{renames: w.Renames})
 	if err != nil {
 		return Result{}, err
 	}
-	res.Parsed = parsed
-	if len(res.References) == 0 {
+	res := Result{Text: src.Text, Parsed: parsed}
+	if len(candidates) == 0 {
 		return res, nil
 	}
 	if !parsed {
-		for i := range res.References {
-			res.References[i].Kept = true
+		for i := range candidates {
+			candidates[i].Kept = true
 		}
+		res.References = candidates
 		return res, nil
 	}
-	if w.bindAll(ctx, scope, shift, res.References) {
+	base.analyze()
+	var (
+		written  []span
+		captured bool
+	)
+	for i, r := range candidates {
+		reads, err := w.reads(ctx, src, spans[i], r)
+		if err != nil {
+			return Result{}, err
+		}
+		if len(reads) == 0 {
+			continue
+		}
+		if r, err = bind(ctx, base, r, reads); err != nil {
+			return Result{}, err
+		}
+		res.References = append(res.References, r)
+		written = append(written, spans[i])
+		captured = captured || r.Captured
+	}
+	if captured {
+		for i, r := range res.References {
+			res.References[i].Kept = r.Bound && r.Binding == symbol.KindChannel
+		}
 		return res, nil
 	}
 	var b strings.Builder
 	last := 0
 	for i, r := range res.References {
 		if r.Bound && r.Binding == symbol.KindChannel {
-			b.WriteString(src.Text[last:spans[i].start])
+			b.WriteString(src.Text[last:written[i].start])
 			b.WriteString(r.NewName)
-			last = spans[i].end
+			last = written[i].end
 		}
 	}
 	b.WriteString(src.Text[last:])
@@ -188,11 +230,11 @@ func (w Rewriter) Rewrite(ctx context.Context, src Source) (Result, error) {
 // span is the byte range [start, end) of a reference in a text.
 type span struct{ start, end int }
 
-// find returns the result of text before any rewrite, with each bare identifier that
-// holds the old name of a renamed channel, and the span of each.
-func (w Rewriter) find(text string) (Result, []span) {
+// find returns each bare identifier of text that holds the old name of a renamed
+// channel, and the span of each.
+func (w Rewriter) find(text string) ([]Reference, []span) {
 	var (
-		res   = Result{Text: text, Parsed: true}
+		refs  []Reference
 		spans []span
 	)
 	identity := func(i int) int { return i }
@@ -202,7 +244,7 @@ func (w Rewriter) find(text string) (Result, []span) {
 			return
 		}
 		line, column := position(text, start)
-		res.References = append(res.References, Reference{
+		refs = append(refs, Reference{
 			Name:    name,
 			NewName: to,
 			Line:    line,
@@ -210,88 +252,167 @@ func (w Rewriter) find(text string) (Result, []span) {
 		})
 		spans = append(spans, span{start: start, end: end})
 	})
-	return res, spans
+	return refs, spans
 }
 
-// bindAll resolves each of refs in the scopes of scope, where the columns of the first
-// line move by shift. It reports whether a reference that reads the channel is
-// captured, and then marks each reference that reads the channel as kept.
-func (w Rewriter) bindAll(
+// read is how the analyzer read a reference once: the symbols that the old and the new
+// name of its channel took in the scopes bound at that point, or nil for none.
+type read struct{ old, new *symbol.Symbol }
+
+// reads returns each read of r, the reference at sp in the text of src, by the
+// analyzer. It analyzes the text with a probe, a name that no symbol of the text holds,
+// in place of r, and looks up both names each time that the analyzer resolves the
+// probe. It returns no reads when the analyzer does not read r as a name, such as a key
+// or a unit, or when r is the name of a declaration.
+func (w Rewriter) reads(
 	ctx context.Context,
-	scope *symbol.Symbol,
-	shift int,
-	refs []Reference,
-) bool {
-	captured := false
-	for i, r := range refs {
-		col := r.Column
-		if r.Line == 1 {
-			col += shift
-		}
-		at := symbol.ScopeAt(scope, r.Line, col)
-		sym, err := w.resolveAt(ctx, at, r.Name, r.Line, col)
+	src Source,
+	sp span,
+	r Reference,
+) ([]read, error) {
+	var (
+		p       parsed
+		reads   []read
+		readErr error
+	)
+	pr := &probe{name: probeName(src.Text), old: r.Name}
+	pr.read = func(ctx context.Context) {
+		at := symbol.ScopeAt(p.scope, r.Line, p.column(r))
+		old, err := lookup(ctx, at, r.Name)
 		if err != nil {
-			continue
+			readErr = err
+			return
 		}
-		refs[i].Binding, refs[i].Bound = sym.Kind, true
-		holder, err := w.resolveAt(ctx, at, r.NewName, r.Line, col)
-		if sym.Kind == symbol.KindChannel && err == nil &&
-			holder.Kind != symbol.KindChannel {
-			refs[i].Captured = true
-			captured = true
+		renamed, err := lookup(ctx, at, r.NewName)
+		if err != nil {
+			readErr = err
+			return
 		}
+		reads = append(reads, read{old: old, new: renamed})
 	}
-	if captured {
-		for i, r := range refs {
-			refs[i].Kept = r.Bound && r.Binding == symbol.KindChannel
-		}
+	probed := src.Text[:sp.start] + pr.name + src.Text[sp.end:]
+	p, parsed, err := w.parse(ctx, src, probed, names{renames: w.Renames, probe: pr})
+	if err != nil || !parsed {
+		return nil, err
 	}
-	return captured
+	p.analyze()
+	if declares(p.scope, pr.name) {
+		return nil, readErr
+	}
+	return reads, readErr
 }
 
-// resolveAt resolves name in the scopes of at, as the reference at line and col reads
-// it: a variable is not visible until its declaration ends, and the name that a
-// declaration declares is the variable.
-func (w Rewriter) resolveAt(
+// declares reports whether a symbol in the scopes under scope holds name.
+func declares(scope *symbol.Symbol, name string) bool {
+	return slices.ContainsFunc(scope.Children(), func(child *symbol.Symbol) bool {
+		return child.Name == name || declares(child, name)
+	})
+}
+
+// bind returns r with how the channel reads it, given reads, each read of r by the
+// analyzer, and base, the analyzed text. r reads the channel when the channel takes the
+// old name in each read and in the finished scope at r. It is captured when either
+// takes the old name, or when a symbol that the text declares takes the new name in
+// either.
+func bind(
+	ctx context.Context,
+	base parsed,
+	r Reference,
+	reads []read,
+) (Reference, error) {
+	at := symbol.ScopeAt(base.scope, r.Line, base.column(r))
+	old, err := lookup(ctx, at, r.Name)
+	if err != nil {
+		return r, err
+	}
+	renamed, err := lookup(ctx, at, r.NewName)
+	if err != nil {
+		return r, err
+	}
+	all, any := isChannel(old), isChannel(old)
+	declared := renamed != nil && !isChannel(renamed)
+	for _, rd := range reads {
+		all = all && isChannel(rd.old)
+		any = any || isChannel(rd.old)
+		declared = declared || rd.new != nil && !isChannel(rd.new)
+	}
+	switch {
+	case !any:
+		if old != nil {
+			r.Binding, r.Bound = old.Kind, true
+		}
+	case all && !declared:
+		r.Binding, r.Bound = symbol.KindChannel, true
+	default:
+		r.Binding, r.Bound, r.Captured = symbol.KindChannel, true, true
+	}
+	return r, nil
+}
+
+func isChannel(sym *symbol.Symbol) bool {
+	return sym != nil && sym.Kind == symbol.KindChannel
+}
+
+// lookup returns the symbol that name takes in the scopes of at, or nil when none
+// holds it.
+func lookup(
 	ctx context.Context,
 	at *symbol.Symbol,
 	name string,
-	line, col int,
 ) (*symbol.Symbol, error) {
-	moved := false
-	for {
-		sym, err := at.Resolve(ctx, name, symbol.WithoutUsageTracking)
-		// Past the scopes that declare the name, the channels of the root remain.
-		if moved && err != nil {
-			return w.Renames.Resolve(ctx, name)
-		}
-		if err != nil || !declaredLater(sym, line, col) {
-			return sym, err
-		}
-		if sym.Parent == nil || sym.Parent.Parent == nil {
-			return w.Renames.Resolve(ctx, name)
-		}
-		at, moved = sym.Parent.Parent, true
+	sym, err := at.Resolve(ctx, name, symbol.WithoutUsageTracking)
+	if _, undefined := errors.AsType[*symbol.UndefinedSymbolError](err); undefined {
+		return nil, nil
 	}
+	return sym, err
 }
 
-// declaredLater reports whether sym is a variable whose declaration does not hold the
-// reference at line and col yet.
-func declaredLater(sym *symbol.Symbol, line, col int) bool {
-	if sym.AST == nil || sym.Kind != symbol.KindVariable &&
-		sym.Kind != symbol.KindStatefulVariable && sym.Kind != symbol.KindConstant {
-		return false
+// probeName returns a name that text does not hold.
+func probeName(text string) string {
+	name := "sy_probe"
+	for strings.Contains(text, name) {
+		name += "_"
 	}
-	start, stop := sym.AST.GetStart(), sym.AST.GetStop()
-	if start == nil || stop == nil ||
-		line == start.GetLine() && col == start.GetColumn() {
-		return false
+	return name
+}
+
+// names resolves the names of a text as the text passes read them: each v0.62 name to
+// the channel that a v0.62 Core bound it to, and the new name of each renamed channel
+// to that channel.
+type names struct {
+	renames *Renames
+	// probe, when not nil, stands in for one reference.
+	probe *probe
+}
+
+var _ symbol.Resolver = names{}
+
+// probe is a name that stands in for one reference of the old name of a channel, and
+// read is called each time that the analysis resolves it.
+type probe struct {
+	name, old string
+	read      func(context.Context)
+}
+
+// Resolve implements symbol.Resolver.
+func (n names) Resolve(ctx context.Context, name string) (*symbol.Symbol, error) {
+	if n.probe != nil && name == n.probe.name {
+		n.probe.read(ctx)
+		name = n.probe.old
 	}
-	end := stop.GetColumn() + len([]rune(stop.GetText()))
-	before := line < start.GetLine() ||
-		line == start.GetLine() && col < start.GetColumn()
-	within := line < stop.GetLine() || line == stop.GetLine() && col < end
-	return before || within
+	sym, err := n.renames.Resolve(ctx, name)
+	if !errors.Is(err, query.ErrNotFound) {
+		return sym, err
+	}
+	if key, ok := n.renames.after[name]; ok {
+		return n.renames.symbol(name, key), nil
+	}
+	return nil, err
+}
+
+// Search implements symbol.Resolver. It finds nothing, since no pass completes names.
+func (names) Search(context.Context, string) ([]*symbol.Symbol, error) {
+	return nil, nil
 }
 
 // identifiers calls found with the byte range and the name of each bare identifier that
@@ -371,80 +492,120 @@ func byteOffsets(s string) []int {
 	return append(offsets, len(s))
 }
 
-// analyze returns the scopes of src, how far the columns of its first line move in
-// them, and false when src does not parse.
-func (w Rewriter) analyze(
-	ctx context.Context,
-	src Source,
-) (*symbol.Symbol, int, bool, error) {
-	root := symbol.NewRoot(w.Renames, w.Ambient)
-	switch src.Form {
-	case FormCalculation:
-		block, diag := parser.ParseBlock("{"+src.Text+"}", w.Config)
-		if diag == nil {
-			aCtx := acontext.NewRoot(ctx, block, root).WithConfig(w.Config)
-			statement.AnalyzeFunctionBody(aCtx)
-			return aCtx.Scope, 1, true, nil
-		}
-	case FormBody:
-		block, diag := parser.ParseBlock(src.Text, w.Config)
-		if diag == nil {
-			scope, ok := w.analyzeBody(ctx, root, block, src)
-			return scope, 0, ok, nil
-		}
-	case FormProgram:
-		t, diag := text.Parse(text.Text{Raw: src.Text}, w.Config)
-		if diag == nil {
-			aCtx := acontext.NewRoot(ctx, t.AST, root).WithConfig(w.Config)
-			analyzer.AnalyzeProgram(aCtx)
-			return aCtx.Scope, 0, true, nil
-		}
-	default:
-		return nil, 0, false, errors.Newf("unknown text form %d", src.Form)
-	}
-	return nil, 0, false, nil
+// parsed is a text that parses, with the scope that holds it, ready to analyze.
+type parsed struct {
+	scope *symbol.Symbol
+	// shift is how far the columns of the first line move in scope.
+	shift   int
+	analyze func()
 }
 
-// analyzeBody analyzes block, the body of the graph function of src, in a function
-// scope under root that binds the inputs and outputs of the function, beside each other
-// function of the graph, as v0.62 analyzed a graph. It reports false when a v0.62 Core
-// could not bind the function either, such as an input named like a function.
-func (w Rewriter) analyzeBody(
+// column returns the column of r in the scope of p.
+func (p parsed) column(r Reference) int {
+	if r.Line == 1 {
+		return r.Column + p.shift
+	}
+	return r.Column
+}
+
+// parse parses raw, the text of src or a probe of it, as a v0.62 Core parsed src, and
+// binds the scope that holds it under a root that resolves channels with names. It
+// reports false when raw does not parse, or when a v0.62 Core could not bind the graph
+// function of src.
+func (w Rewriter) parse(
+	ctx context.Context,
+	src Source,
+	raw string,
+	names names,
+) (parsed, bool, error) {
+	root := symbol.NewRoot(names, w.Ambient)
+	switch src.Form {
+	case FormCalculation:
+		block, diag := parser.ParseBlock("{"+raw+"}", w.Config)
+		if diag != nil {
+			return parsed{}, false, nil
+		}
+		aCtx := acontext.NewRoot(ctx, block, root).WithConfig(w.Config)
+		return parsed{
+			scope:   root,
+			shift:   1,
+			analyze: func() { statement.AnalyzeFunctionBody(aCtx) },
+		}, true, nil
+	case FormBody:
+		block, diag := parser.ParseBlock(raw, w.Config)
+		if diag != nil {
+			return parsed{}, false, nil
+		}
+		return w.parseBody(ctx, root, block, src)
+	case FormProgram:
+		t, diag := text.Parse(text.Text{Raw: raw}, w.Config)
+		if diag != nil {
+			return parsed{}, false, nil
+		}
+		aCtx := acontext.NewRoot(ctx, t.AST, root).WithConfig(w.Config)
+		return parsed{scope: root, analyze: func() {
+			analyzer.AnalyzeProgram(aCtx)
+			authority.Analyze(aCtx)
+		}}, true, nil
+	default:
+		return parsed{}, false, errors.Newf("unknown text form %d", src.Form)
+	}
+}
+
+// parseBody binds the graph function of src, whose body is block, under root as a v0.62
+// Core bound a graph: with each module imported, and each function of the graph
+// declared in order with its inputs and outputs. It reports false when a v0.62 Core
+// could not bind the graph either, such as an input named like an earlier function.
+func (w Rewriter) parseBody(
 	ctx context.Context,
 	root *symbol.Symbol,
 	block parser.IBlockContext,
 	src Source,
-) (*symbol.Symbol, bool) {
-	aCtx := acontext.NewRoot(ctx, block, root).WithConfig(w.Config)
-	for _, key := range src.Functions {
-		if key == src.Function {
-			continue
+) (parsed, bool, error) {
+	symbol.AutoImportModules(root)
+	// The pass reads one body, so each other function declares an empty one.
+	other, diag := parser.ParseBlock("{}", w.Config)
+	if diag != nil {
+		return parsed{}, false, diag
+	}
+	keys := src.Functions
+	if !slices.Contains(keys, src.Function) {
+		keys = append(slices.Clone(keys), src.Function)
+	}
+	var fn *symbol.Symbol
+	for _, key := range keys {
+		decl := symbol.Symbol{Name: key, Kind: symbol.KindFunction, AST: other}
+		own := key == src.Function && fn == nil
+		if own {
+			decl.AST = block
 		}
-		if _, err := aCtx.Scope.Add(ctx, symbol.Symbol{
-			Name: key,
-			Kind: symbol.KindFunction,
-		}); err != nil {
-			return nil, false
+		added, err := root.Add(ctx, decl)
+		if err == nil && own {
+			fn = added
+			if err = bindParams(ctx, fn, src.Inputs, symbol.KindInput); err == nil {
+				err = bindParams(ctx, fn, src.Outputs, symbol.KindOutput)
+			}
+		}
+		if err != nil {
+			return parsed{}, false, unlessConflict(err, block)
 		}
 	}
-	fn, err := aCtx.Scope.Add(ctx, symbol.Symbol{
-		Name: src.Function,
-		Kind: symbol.KindFunction,
-		AST:  block,
-	})
-	if err != nil {
-		return nil, false
-	}
-	if bind(ctx, fn, src.Inputs, symbol.KindInput) != nil ||
-		bind(ctx, fn, src.Outputs, symbol.KindOutput) != nil {
-		return nil, false
-	}
-	analyzer.AnalyzeBlock(aCtx.WithScope(fn))
-	return aCtx.Scope, true
+	aCtx := acontext.NewRoot(ctx, block, root).WithConfig(w.Config).WithScope(fn)
+	return parsed{scope: fn, analyze: func() { analyzer.AnalyzeBlock(aCtx) }}, true, nil
 }
 
-// bind adds each of params to scope as a symbol of kind, as the graph analyzer does.
-func bind(
+// unlessConflict returns err, or nil when err is the error of a declaration that reuses
+// a name.
+func unlessConflict(err error, node antlr.ParserRuleContext) error {
+	if diagnostics.Error(err, node).Code == codes.SymbolRedefined.Code {
+		return nil
+	}
+	return err
+}
+
+// bindParams adds each of params to scope as a symbol of kind, as the graph analyzer
+// does.
+func bindParams(
 	ctx context.Context,
 	scope *symbol.Symbol,
 	params types.Params,
