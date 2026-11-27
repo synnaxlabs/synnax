@@ -270,6 +270,33 @@ describe("NI device", async () => {
     });
   });
 
+  describe("dispatch", () => {
+    it("should keep edits to different fields from separate dispatches", async () => {
+      const d = await create();
+      await client.ni.devices.dispatch(
+        d.key,
+        ni.device.set({ path: ["name"], value: "Renamed" }),
+      );
+      await client.ni.devices.dispatch(
+        d.key,
+        ni.device.set({ path: ["model"], value: "Rev B" }),
+      );
+      const retrieved = await client.ni.devices.retrieve({ key: d.key });
+      expect(retrieved.name).toBe("Renamed");
+      expect(retrieved.model).toBe("Rev B");
+      expect(retrieved.resourceName).toBe(d.resourceName);
+    });
+
+    it("should throw a NotFoundError for a missing device", async () => {
+      await expect(
+        client.ni.devices.dispatch(
+          uuid.create(),
+          ni.device.set({ path: ["name"], value: "Missing" }),
+        ),
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
   describe("delete", () => {
     it("should delete the device", async () => {
       const d = await create();

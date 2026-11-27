@@ -228,6 +228,33 @@ describe("NI chassis", async () => {
     });
   });
 
+  describe("dispatch", () => {
+    it("should keep edits to different fields from separate dispatches", async () => {
+      const d = await create();
+      await client.ni.chassis.dispatch(
+        d.key,
+        ni.chassis.set({ path: ["name"], value: "Renamed" }),
+      );
+      await client.ni.chassis.dispatch(
+        d.key,
+        ni.chassis.set({ path: ["model"], value: "Rev B" }),
+      );
+      const retrieved = await client.ni.chassis.retrieve({ key: d.key });
+      expect(retrieved.name).toBe("Renamed");
+      expect(retrieved.model).toBe("Rev B");
+      expect(retrieved.resourceName).toBe(d.resourceName);
+    });
+
+    it("should throw a NotFoundError for a missing chassis", async () => {
+      await expect(
+        client.ni.chassis.dispatch(
+          uuid.create(),
+          ni.chassis.set({ path: ["name"], value: "Missing" }),
+        ),
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
   describe("delete", () => {
     it("should delete the chassis and the devices it holds", async () => {
       const c = await create();
