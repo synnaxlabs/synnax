@@ -306,7 +306,7 @@ var _ = Describe("Log", func() {
 						Expect(MustSucceed(fs.Exists(logName))).To(BeFalse())
 					},
 					Entry("a write", func(err error) { fs.FailWrite(err) }),
-					Entry("the sync", func(err error) { fs.FailSync(err) }),
+					Entry("the sync", func(err error) { fs.FailSync(logName, err) }),
 				)
 			})
 
@@ -379,11 +379,11 @@ var _ = Describe("Log", func() {
 					DeferCleanup(closeLog)
 					fs.Hold()
 					first := l.Append(of(&log.Drop{Key: 1}))
-					Eventually(fs.held).Should(Receive())
+					Eventually(fs.Held()).Should(Receive())
 					second := l.Append(of(&log.Drop{Key: 2}, &log.Intent{Key: 2}))
 					third := l.Append(of(&log.Restart{}))
 					Expect(hook.get()).To(BeEmpty())
-					fs.Unhold()
+					fs.Free()
 					Expect(first.Wait()).To(Equal(uint64(5)))
 					seqs, _ := hook.get()
 					Expect(seqs).To(ContainElement(uint64(5)))
@@ -403,7 +403,7 @@ var _ = Describe("Log", func() {
 				"Should hand no record of a frame whose sync failed to its hook",
 				func() {
 					open(logSize)
-					fs.FailSync(errors.New("disk fault"))
+					fs.FailSync(logName, errors.New("disk fault"))
 					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
 						To(MatchError(ContainSubstring("disk fault")))
 					Expect(hook.get()).To(BeEmpty())
@@ -434,7 +434,7 @@ var _ = Describe("Log", func() {
 				second := l.Append(e)
 				e.Reset()
 				e.Add(&log.Drop{Key: 9})
-				fs.Unhold()
+				fs.Free()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(decodeAll(walk(fileBytes(fs))[1].Entries)).
@@ -465,7 +465,7 @@ var _ = Describe("Log", func() {
 				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(of(&log.Drop{Key: 2}))
 				third := l.Append(of(&log.Drop{Key: 3}))
-				fs.Unhold()
+				fs.Free()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -488,7 +488,7 @@ var _ = Describe("Log", func() {
 				Expect(a.Wait()).To(Equal(uint64(5)))
 				Eventually(fs.Held()).Should(Receive())
 				c := l.Append(of(&log.Drop{Key: 3}))
-				fs.Unhold()
+				fs.Free()
 				Expect(b.Wait()).To(Equal(uint64(6)))
 				Expect(c.Wait()).To(Equal(uint64(7)))
 				Expect(writes(fs.Ops())[:3]).
@@ -503,7 +503,7 @@ var _ = Describe("Log", func() {
 				Eventually(fs.Held()).Should(Receive())
 				second := l.Append(bigEntry(10 << 20))
 				third := l.Append(bigEntry(10 << 20))
-				fs.Unhold()
+				fs.Free()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(second.Wait()).To(Equal(uint64(6)))
 				Expect(third.Wait()).To(Equal(uint64(7)))
@@ -531,10 +531,10 @@ var _ = Describe("Log", func() {
 				DeferCleanup(closeLog)
 				fs.Hold()
 				first := l.Append(of(&log.Drop{Key: 1}))
-				Eventually(fs.held).Should(Receive())
+				Eventually(fs.Held()).Should(Receive())
 				half := l.Append(bigEntry(logSize / 2))
 				quarter := l.Append(bigEntry(logSize / 4))
-				fs.Unhold()
+				fs.Free()
 				Expect(first.Wait()).To(Equal(uint64(5)))
 				Expect(half.Wait()).To(Equal(uint64(6)))
 				Expect(quarter.Wait()).To(Equal(uint64(7)))

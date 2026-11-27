@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/log"
+	"github.com/synnaxlabs/cesium/internal/testutil/opfs"
 	"github.com/synnaxlabs/x/errors"
 	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -51,7 +52,7 @@ var _ = Describe("Switch", func() {
 	for fsName, makeFS := range fstestutil.FileSystems {
 		Context(fsName, func() {
 			var (
-				fs    *opFS
+				fs    *opfs.FS
 				l     *log.Log
 				ran   chan error
 				hook  *durables
@@ -61,7 +62,12 @@ var _ = Describe("Switch", func() {
 			// open starts log 3 of logSize bytes, and answers each Prepare with answer.
 			open := func(answer func(next uint64)) {
 				GinkgoHelper()
-				fs, hook, calls = newOpFS(makeFS()), &durables{}, &switches{}
+				fs, hook, calls = opfs.New(
+					makeFS(),
+					"write",
+					"sync",
+					"syncdir",
+				), &durables{}, &switches{}
 				Expect(log.Prepare(fs, generation, logSize)).To(Succeed())
 				l = MustSucceed(log.Start(log.Config{
 					FS:        fs,
