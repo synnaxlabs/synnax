@@ -654,7 +654,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/opcua/server/retrieve",
 		),
-		OPCUAServerUpdate: unary[server.UpdateRequest, struct{}](
+		OPCUAServerUpdate: unary[server.UpdateRequest, server.UpdateResponse](
 			router,
 			"/api/v1/opcua/server/update",
 		),
