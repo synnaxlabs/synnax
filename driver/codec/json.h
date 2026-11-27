@@ -240,6 +240,13 @@ class JSONEncoder {
         synnax::icd::BaseField base;
         /// @brief fallback is the default that an empty series writes.
         Default fallback;
+        /// @brief density is the size of a sample, or 0 for a variable sample.
+        std::size_t density = 0;
+        /// @brief sample holds the bytes of the last sample that check passed, and text
+        /// its JSON text, which encode writes again for an equal sample. sample is
+        /// empty until check passes one.
+        std::string sample;
+        std::string text;
 
         static std::pair<Field, x::errors::Error>
         create(const synnax::icd::JSONField &f, const x::telem::DataType &dt);
@@ -250,6 +257,9 @@ class JSONEncoder {
         /// integer. It checks the limits against the value that the integer decodes to.
         [[nodiscard]] x::errors::Error
         append_integer(const x::json::Number &n, std::string &out) const;
+        /// @brief returns the bytes of sample i of s, which has the field's data type.
+        [[nodiscard]] std::string_view
+        bytes(const x::telem::Series &s, std::size_t i) const;
     };
 
     /// @brief Slot is a value of the document that changes between encodes.
@@ -299,7 +309,8 @@ public:
     );
 
     /// @brief returns the error that encode returns when binding holds sample i of s,
-    /// or NIL when the field of binding can hold it.
+    /// or NIL when the field of binding can hold it. The next encode of an equal sample
+    /// at binding reuses the text that check wrote.
     [[nodiscard]] x::errors::Error
     check(std::size_t binding, const x::telem::Series &s, std::size_t i);
 
