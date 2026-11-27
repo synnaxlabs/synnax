@@ -76,9 +76,9 @@ func (i *Iterator) Prev(span telem.TimeSpan) bool {
 }
 
 // NextChunks reads the next span of time as Next does, and hands the data to emit in
-// chunks of at most AutoChunkSize samples summed over the channels, in time order,
-// instead of keeping it as Value. It returns whether any channel moved, and the error
-// of emit or of a read.
+// chunks, in time order, instead of keeping it as Value. WithChunkSize and
+// AutoChunkSize set the size of a chunk. It returns whether any channel moved, and the
+// error of emit or of a read.
 func (i *Iterator) NextChunks(
 	ctx context.Context,
 	span telem.TimeSpan,
