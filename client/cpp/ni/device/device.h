@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -25,6 +26,11 @@
 #include "core/pkg/transport/grpc/ni/device/device.pb.h"
 
 namespace synnax::ni::device {
+/// @brief the channel on which the Core publishes each NI device that a write sets.
+const std::string SET_CHANNEL = "sy_ni_device_set";
+/// @brief the channel on which the Core publishes the key of each deleted NI device.
+const std::string DELETE_CHANNEL = "sy_ni_device_delete";
+
 /// @brief the transport that creates NI devices.
 using CreateClient = freighter::
     UnaryClient<grpc::ni_device::CreateRequest, grpc::ni_device::CreateResponse>;

@@ -36,6 +36,7 @@ cc_library(
         "alias.cpp",
         "factory.cpp",
         "probe.cpp",
+        "resources.cpp",
         "scan_task.cpp",
     ],
     hdrs = [
@@ -43,12 +44,14 @@ cc_library(
         "ni.h",
         "probe.h",
         "read_task.h",
+        "resources.h",
         "scan_task.h",
         "write_task.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
         ":names",
+        ":store",
         "//client/cpp:synnax",
         "//client/cpp/ni",
         "//client/cpp/ni/device",
@@ -139,6 +142,20 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/common",
         "//x/cpp/filter",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "resources_test",
+    srcs = ["resources_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        ":store",
+        "//client/cpp/testutil",
+        "//driver/ni",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
