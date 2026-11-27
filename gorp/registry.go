@@ -72,14 +72,10 @@ type registeredReference interface {
 		targets []Target,
 		keys any,
 	) ([][]string, error)
-	// dependentsOf returns the text keys of the entries that hold target. When inFlight
-	// is true, they include the entries of a commit in flight, which can fail.
-	dependentsOf(
-		ctx context.Context,
-		snap Snapshot,
-		target Target,
-		inFlight bool,
-	) ([]string, error)
+	// dependentsOf returns the text keys of the entries that hold target, from the
+	// committed index and the changes of snap. A transaction holds the DB lock, so it
+	// sees no commit in flight.
+	dependentsOf(ctx context.Context, snap Snapshot, target Target) ([]string, error)
 }
 
 // detachOp removes or inlines target in the reference at index ref of an entry.
@@ -337,7 +333,7 @@ func (r *registry) targetSet(
 		if err != nil {
 			return err
 		}
-		keys, err := ref.dependentsOf(ctx, tx, target, true)
+		keys, err := ref.dependentsOf(ctx, tx, target)
 		if err != nil {
 			return err
 		}
@@ -442,8 +438,7 @@ func (r *registry) walk(ctx context.Context, snap Snapshot, w *planWalk) error {
 		target := w.queue[0]
 		w.queue = w.queue[1:]
 		for _, ref := range r.referencesTo(target.Table) {
-			// A plan reads what snap holds; a delete also counts a commit in flight.
-			deps, err := ref.dependentsOf(ctx, snap, target, w.effects == nil)
+			deps, err := ref.dependentsOf(ctx, snap, target)
 			if err != nil {
 				return err
 			}

@@ -14,9 +14,6 @@ import (
 	"context"
 	"slices"
 	"strings"
-
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // DeleteEffect is what a delete does to one entry that holds an entry it removes.
@@ -66,13 +63,15 @@ type DeleteEffects struct {
 	Weak []DeleteEffect
 }
 
-// PlanDelete returns what a delete of the entries with keys would do, as seen by snap,
-// and writes nothing. It plans the keys that exist, once each, as the delete does, and
-// follows its cascades, but it lists each Restrict holder instead of failing. Unlike
-// the delete, it leaves out the entries of a commit in flight that snap does not hold.
-// It fails as the delete does when the delete would change more than DB.MaxDeleteSize
-// entries or an index failed to populate, and with a validation error when more than
-// DB.MaxDeleteSize entries would refuse the delete.
+// PlanDelete returns what a delete of the entries with keys would do, as snap holds
+// them, and writes nothing. It plans the keys that exist, once each, as the delete
+// does, and follows its cascades, but it lists each Restrict holder instead of failing.
+// It reads the holders of each entry from the committed reference indexes and the
+// changes of snap, so through a Snapshot or the DB it can count a commit that came
+// after snap opened; through a Tx it matches the delete. It fails as the delete does
+// when the delete would change more than DB.MaxDeleteSize entries or an index failed to
+// populate, and with a validation error when more than DB.MaxDeleteSize entries would
+// refuse the delete.
 func (t *Table[K, E]) PlanDelete(
 	ctx context.Context,
 	snap Snapshot,
@@ -84,8 +83,9 @@ func (t *Table[K, E]) PlanDelete(
 	var entries []E
 	if err := t.NewRetrieve().
 		Where(MatchKeys[K, E](keys...)).
+		SkipMissingKeys().
 		Entries(&entries).
-		Exec(ctx, snap); err != nil && !errors.Is(err, query.ErrNotFound) {
+		Exec(ctx, snap); err != nil {
 		return DeleteEffects{}, err
 	}
 	if len(entries) == 0 {

@@ -126,7 +126,7 @@ func (r *registry) retarget(
 		indexOf = make(map[Target]int)
 	)
 	for _, ref := range r.referencesTo(from.Table) {
-		deps, err := ref.dependentsOf(ctx, tx, from, true)
+		deps, err := ref.dependentsOf(ctx, tx, from)
 		if err != nil {
 			return err
 		}

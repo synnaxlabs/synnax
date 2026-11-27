@@ -349,7 +349,7 @@ func PlacedIn(ctx context.Context, tx Tx, target Target) ([]Target, error) {
 		if ref.linkKind() != Place {
 			continue
 		}
-		keys, err := ref.dependentsOf(ctx, tx, target, true)
+		keys, err := ref.dependentsOf(ctx, tx, target)
 		if err != nil {
 			return nil, err
 		}
@@ -384,7 +384,7 @@ func (t *Table[K, E]) RestrictChange(
 		if ref.onDeletePolicy() != Restrict {
 			continue
 		}
-		keys, err := ref.dependentsOf(ctx, snap, target, true)
+		keys, err := ref.dependentsOf(ctx, snap, target)
 		if err != nil {
 			return err
 		}
