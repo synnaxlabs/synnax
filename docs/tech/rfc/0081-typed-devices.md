@@ -126,7 +126,8 @@ one shared behavior, and it stays in the status service (§4.2).
    code that racks and schematics also carry. A later project removes that overlap for
    all resources, not for devices alone.
 5. **One writer per field**: The scanner writes the identity group and the user writes
-   the configuration group. Neither write path touches the other group.
+   the configuration group. Neither write path touches the other group. A connected
+   resource has no scanner, so its user writes both groups.
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
    indexed field, never a key.
 7. **Delete refuses, then cascades**: A resource a task references cannot be deleted. A
@@ -271,17 +272,24 @@ slave.
 The scanner creates a resource it has not seen with both groups filled: the identity
 group from the hardware, and the configuration group with today's defaults (`name` is
 `NI <model>` or `<type>-<last4 of serial>`, `identifier` is empty). After creation the
-scanner writes only the identity group, as `patch.Set` actions on its fields. The user
-writes the configuration group through the same patch actions. Each action changes one
-field, so concurrent edits to different fields both survive. `Apply` enforces principle
-5: it refuses an action whose first path segment is outside the group of the caller. The
-Driver's role writes identity fields, and every other subject writes configuration
-fields. No dispatch writes `server_trust`; only `/opcua/server/pin` changes it (§4.5).
+scanner writes only the identity group. Both writers send patch actions, and each action
+changes one field, so concurrent edits to different fields both survive. On a discovered
+resource the route, not the credentials, picks the group: `scan` takes identity fields
+from the scanner, and `dispatch` takes configuration fields from the user. `Apply`
+refuses an action whose first path segment is outside the group of its route. Both
+routes need update access, so the split keeps each writer to its group but is no
+security boundary. A connected resource has no `scan` route: its user writes both groups
+through `dispatch`, `server_trust` included, and the Driver writes it only through
+`/opcua/server/pin`.
 
 When hardware appears on another rack, the scanner sends `patch.Set` on `rack`. `Apply`
-treats it as a move: it moves the modules of a chassis and the slaves of a master to the
-new rack, and rewrites the status. `name` stays as the user left it. The shallow merge
-in `driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
+treats it as a move: it moves the modules of a chassis to the new rack and rewrites the
+status. `name` stays as the user left it. A master matches by `interface` on its rack,
+so it never moves; the scanner creates a new master on the new rack. When a scan sets
+the `master` of a slave, `Apply` also removes the slave from the `slaves` of its old
+master. A zero-serial slave matches only within its master, so after a move the scanner
+creates it again, and its old row stays with a warning status. The shallow merge in
+`driver/common/scan_task.h:40-51` and the EtherCAT `enabled` guard are deleted.
 
 Each scan matches found hardware to stored rows by a per-resource rule:
 
@@ -318,13 +326,14 @@ encoding are deleted.
 
 Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/device/retrieve`, `/ni/device/dispatch`, `/ni/device/delete`, and the same for
-`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `dispatch` takes
-`patch.Set`, `patch.Remove`, `patch.Insert`, and `patch.Move` actions, as the other
-dispatch resources do, with the field checks of §4.3. Retrieve filters are the struct's
-`@filter` fields plus `search_term`, `include_status`, and `include_parent`. The generic
-`/device/*` routes are deleted. Two narrow writes serve OPC UA: `/opcua/server/pin` for
-the certificate pin (§4.1), and `/opcua/server/resolve`, which appends resolved `ns=`
-bindings, skips duplicates, and rewrites the parked task node IDs.
+`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. A discovered resource
+also gets `/ni/device/scan` and the like. Both take `patch.Set`, `patch.Remove`,
+`patch.Insert`, and `patch.Move` actions, as the other dispatch resources do, with the
+field checks of §4.3. Retrieve filters are the struct's `@filter` fields plus
+`search_term`, `include_status`, and `include_parent`. The generic `/device/*` routes
+are deleted. Two narrow writes serve OPC UA: `/opcua/server/pin` for the certificate pin
+(§4.1), and `/opcua/server/resolve`, which appends resolved `ns=` bindings, skips
+duplicates, and rewrites the parked task node IDs.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
@@ -348,16 +357,16 @@ in Phase 23.
 
 `ScanTask` keeps the scan loop, the signal stream, and the commands. A per-resource
 `common::Sync<D>` tracks the stored resources on the rack, matches found hardware to
-them, creates new hardware, writes identity fields as `patch.Set` actions, and marks
-missing hardware as disconnected. NI finds chassis and modules in one scan, and a module
-needs its chassis key, so NI runs `Sync<Chassis>` and then `Sync<Device>`. EtherCAT runs
-`Sync<Master>`, then `Sync<Slave>`, then writes each master's `slaves` list in bus order
-with the slave keys. `Sync<Master>` leaves `slaves` out of its actions, so `Sync<Slave>`
-matches zero-serial slaves by the stored list, and only the last step writes it. A
-single-resource integration runs one `Sync`. Read and write tasks take the generated
-struct in place of `parser.field` reads. NI looks up the DAQmx alias for physical
-channel names from `resource_name` when a task starts. LabJack opens by `serial`
-(`driver/labjack/read_task.h:535` uses the key today).
+them, creates new hardware, sends identity fields as `patch.Set` actions to the `scan`
+route, and marks missing hardware as disconnected. NI finds chassis and modules in one
+scan, and a module needs its chassis key, so NI runs `Sync<Chassis>` and then
+`Sync<Device>`. EtherCAT runs `Sync<Master>`, then `Sync<Slave>`, then writes each
+master's `slaves` list in bus order with the slave keys. `Sync<Master>` leaves `slaves`
+out of its actions, so `Sync<Slave>` matches zero-serial slaves by the stored list, and
+only the last step writes it. A single-resource integration runs one `Sync`. Read and
+write tasks take the generated struct in place of `parser.field` reads. NI looks up the
+DAQmx alias for physical channel names from `resource_name` when a task starts. LabJack
+opens by `serial` (`driver/labjack/read_task.h:535` uses the key today).
 
 ### 4.7 Console
 
@@ -421,11 +430,11 @@ policy object `{type: "device"}` into the eight typed objects and maps a per-key
 
 ### 4.10 Testing
 
-Each integration service gets specs for create, identity and configuration dispatch, an
-action refused outside the caller's group, a rack move, refused delete, and cascade. The
-migration suite seeds 0.59-shaped rows for every make, including one that quarantines.
-Driver specs build devices from generated structs. Console specs for each make's forms
-and tree items run against the typed client.
+Each integration service gets specs for create, `scan` and `dispatch`, an action refused
+outside the group of its route, a rack move, a slave that changes master, refused
+delete, and cascade. The migration suite seeds 0.59-shaped rows for every make,
+including one that quarantines. Driver specs build devices from generated structs.
+Console specs for each make's forms and tree items run against the typed client.
 
 ## 5 Prior art
 
@@ -493,7 +502,7 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
    fragile. The trade is real: one indexed lookup per found device.
 4. **One record with two field groups, not two records**: A discovered row plus a
    configuration row would reintroduce the two-table shape of task configs. The trade is
-   real: the group boundary is a convention in the write paths, not a table boundary.
+   real: the group boundary is a route check in `Apply`, not a table boundary.
 5. **`configured` is derived**: It summarized "identifier chosen" and could drift from
    it. Connected resources never had the state.
 6. **Chassis and master are resources**: A chassis has no channels and no tasks; a
@@ -515,7 +524,8 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
     hand-written writers until a project deduplicates all resources.
 13. **Patch dispatch, not a group `Update` union**: The other dispatch resources write
     through patch actions. A whole-group update loses one of two concurrent edits to
-    different fields. The trade is real: `Apply` checks the group of each action path.
+    different fields. The trade is real: discovered resources need a second route,
+    `scan`, so that `Apply` can check the group of each action path.
 
 ## 9 Open questions
 
