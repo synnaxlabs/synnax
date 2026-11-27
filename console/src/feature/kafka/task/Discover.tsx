@@ -35,7 +35,6 @@ import {
   defaultPicks,
   freeShapes,
   isExtendable,
-  isReusable,
   type Picks,
   type Reads,
   sourceKey,
@@ -239,15 +238,12 @@ const findReading = (
  */
 const readingNote = (
   { reading, candidates }: ICD.Reuse.Result,
-  shape: json.Shape,
   i: number,
 ): string | undefined => {
   if (i < 0) return undefined;
   if (reading != null) {
     const fit = reading.fits[i];
-    return fit != null && isReusable(shape, fit)
-      ? `Reads ${fit.message.name} of ${reading.name}`
-      : undefined;
+    return fit == null ? undefined : `Reads ${fit.message.name} of ${reading.name}`;
   }
   const fits = candidates.reduce((n, { fits }) => n + (fits[i]?.length ?? 0), 0);
   return fits === 0 ? undefined : `Fits ${pluralize("message", fits, true)}`;
@@ -418,11 +414,12 @@ const TopicValues = ({
     const split = splitOf(shape, reads);
     const taken = takenPointers(shape, reads);
     const carried = carriedFields(shape, reads);
+    const fit = split == null ? found.reading?.fits[free.indexOf(shape)] : undefined;
     return {
       title: titleOf(shape, label),
       note:
         split == null
-          ? readingNote(found, shape, free.indexOf(shape))
+          ? readingNote(found, free.indexOf(shape))
           : ICD.Picker.splitNote(split),
       values: shape.fields.map((f, j): ICD.Picker.Value => {
         const key = `${i}${f.pointer}`;
@@ -433,7 +430,9 @@ const TopicValues = ({
         else if (taken.has(f.pointer))
           lock = carried.has(f.pointer) ? ANY_KEY : ICD.Picker.TAKEN;
         else if (!extendable) lock = NOT_EXTENDABLE;
-        return { ...valueOf(key, f, ICD.readKind(f), newest), lock };
+        const adds = fit != null && fit.missing.includes(f.pointer);
+        const note = adds ? `Adds to ${fit.message.name}` : undefined;
+        return { ...valueOf(key, f, ICD.readKind(f), newest), lock, note };
       }),
     };
   });

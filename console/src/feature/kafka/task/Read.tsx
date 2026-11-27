@@ -36,6 +36,7 @@ import {
 import { Device } from "@/feature/kafka/device";
 import {
   type Addition,
+  type Appends,
   createAdditions,
   createExtensions,
   createRecords,
@@ -530,10 +531,13 @@ const Records: FC<RecordsProps> = ({
   const addRecords = async (additions: Map<string, TopicAdditions>) => {
     if (client == null) throw new DisconnectedError();
     const home = ICD.mostRead(records);
-    const newIn = (target?: icd.Key): icd.Message[] =>
+    const addedIn = (target?: icd.Key): Addition[] =>
       [...additions.values()]
         .filter(({ icd: k }) => (k ?? home) === target)
-        .flatMap(({ added }) => added.filter((a) => a.reused !== true))
+        .flatMap(({ added }) => added);
+    const newIn = (target?: icd.Key): icd.Message[] =>
+      addedIn(target)
+        .filter(({ reused }) => reused !== true)
         .map(({ message }) => message);
     const created =
       home == null
@@ -550,6 +554,13 @@ const Records: FC<RecordsProps> = ({
         for (const message of newIn(target)) {
           format.insert(PICD.formPath.messages, message, after);
           after = message.key;
+        }
+        for (const { message, appended } of addedIn(target)) {
+          if (appended == null || appended.length === 0) continue;
+          const held = format.value().messages.find(({ key }) => key === message.key);
+          if (held == null)
+            throw new Error(`ICD ${target} has no message ${message.key}`);
+          ICD.appendFields(format, held, appended);
         }
       });
     }
@@ -634,6 +645,7 @@ const Records: FC<RecordsProps> = ({
     });
     if (result == null) return;
     const additions = new Map<string, TopicAdditions>();
+    const appends: Appends = new Map();
     // The messages that this add puts in each ICD, by ICD key.
     const making = new Map<icd.Key | undefined, icd.Message[]>();
     const takenIn = (icdKey?: icd.Key): icd.Message[] => [
@@ -655,6 +667,8 @@ const Records: FC<RecordsProps> = ({
       );
       extend(extensions, kinds);
       for (const { icd: k, message } of kinds) make(k, [message]);
+      for (const { message, fields } of extensions)
+        appends.set(message, [...(appends.get(message) ?? []), ...fields]);
       const target = reading?.icd ?? home;
       const added = createAdditions(
         shapes,
@@ -663,6 +677,7 @@ const Records: FC<RecordsProps> = ({
         takenIn(target),
         nameOf,
         reading,
+        appends,
       );
       if (added.length === 0) continue;
       additions.set(topic, { icd: reading?.icd, added });

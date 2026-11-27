@@ -9,6 +9,7 @@
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
@@ -48,6 +49,8 @@ export interface Value {
   sample: string | null;
   dataType: string;
   lock?: Lock;
+  /** Shows under the name, such as what a pick of the value changes. */
+  note?: string;
 }
 
 export interface ValueGroup {
@@ -131,11 +134,23 @@ const Head = ({ noun }: HeadProps) => (
   </div>
 );
 
-const Cells = ({ value: { name, sample, dataType, lock } }: { value: Value }) => (
+const Cells = ({ value: { name, sample, dataType, lock, note } }: { value: Value }) => (
   <>
-    <Text.Text level="small" weight={500} color={lock != null ? 9 : 10} overflow="fade">
-      {name}
-    </Text.Text>
+    <Flex.Box y gap="tiny">
+      <Text.Text
+        level="small"
+        weight={500}
+        color={lock != null ? 9 : 10}
+        overflow="fade"
+      >
+        {name}
+      </Text.Text>
+      {note != null && (
+        <Text.Text level="small" color={8} overflow="fade">
+          {note}
+        </Text.Text>
+      )}
+    </Flex.Box>
     <Text.Text level="small" color={9} overflow="fade" variant="numeric">
       {sample ?? "–"}
     </Text.Text>
