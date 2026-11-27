@@ -11,12 +11,16 @@ package cesium_test
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xerrors "github.com/synnaxlabs/x/errors"
@@ -27,33 +31,50 @@ import (
 
 var errSyncFault = xerrors.New("sync fault")
 
-var _ = Describe("Writer sync faults on the pointer log", func() {
+var _ = Describe("Writer storage faults on the pointer log", func() {
 	var (
-		dirs, logs atomic.Bool
-		synced     atomic.Int64
-		db         *cesium.DB
-		ran        chan error
-		idx, data  cesium.ChannelKey
-		keys       []cesium.ChannelKey
+		faults    syncFaults
+		mem       xfs.FS
+		db        *cesium.DB
+		ran       chan error
+		cancel    context.CancelFunc
+		idx, data cesium.ChannelKey
+		keys      []cesium.ChannelKey
 	)
-	BeforeEach(func(ctx SpecContext) {
-		dirs.Store(false)
-		logs.Store(false)
-		fs := syncFaultFS{FS: xfs.NewMem(), dirs: &dirs, logs: &logs, synced: &synced}
+	open := func(ctx context.Context) {
+		GinkgoHelper()
 		db = MustSucceed(cesium.Open(
 			ctx,
 			"",
-			cesium.WithFS(fs),
+			cesium.WithFS(syncFaultFS{FS: mem, faults: &faults}),
 			cesium.WithPointerLog(),
 		))
-		runCtx, cancel := context.WithCancel(context.Background())
+		var runCtx context.Context
+		runCtx, cancel = context.WithCancel(context.Background())
 		ran = make(chan error, 1)
 		go func() { ran <- db.Run(runCtx) }()
-		DeferCleanup(func() {
-			cancel()
-			Eventually(ran).Should(Receive(BeNil()))
-			Expect(db.Close()).To(Succeed())
-		})
+	}
+	// shut stops Run and closes the DB, and returns the errors of both.
+	shut := func() error {
+		GinkgoHelper()
+		cancel()
+		var runErr error
+		Eventually(ran).Should(Receive(&runErr))
+		return xerrors.Join(runErr, db.Close())
+	}
+	BeforeEach(func(ctx SpecContext) {
+		for _, b := range []*atomic.Bool{
+			&faults.dirs,
+			&faults.logSyncs,
+			&faults.lose,
+			&faults.segmentsFull,
+			&faults.logFull,
+		} {
+			b.Store(false)
+		}
+		mem = xfs.NewMem()
+		open(ctx)
+		DeferCleanup(func() { _ = shut() })
 		idx, data = GenerateChannelKey(), GenerateChannelKey()
 		keys = []cesium.ChannelKey{idx, data}
 		Expect(db.CreateChannel(
@@ -66,8 +87,9 @@ var _ = Describe("Writer sync faults on the pointer log", func() {
 			},
 		)).To(Succeed())
 	})
-	// write opens a writer at the second start, writes a sample of each key at each of
-	// seconds, commits, and returns the error of its Sync after it closes.
+	// write opens a writer at the first of seconds, writes a sample of each key at each
+	// of them, commits, and returns the first error of its write, commit, and Sync. It
+	// closes the writer.
 	write := func(ctx context.Context, seconds ...telem.TimeStamp) error {
 		GinkgoHelper()
 		stamps := make([]telem.TimeStamp, len(seconds))
@@ -79,14 +101,17 @@ var _ = Describe("Writer sync faults on the pointer log", func() {
 			Channels: keys,
 			Start:    stamps[0],
 		}))
-		MustSucceed2(w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
+		defer func() { _ = w.Close() }()
+		if _, _, err := w.Write(ctx, telem.MultiFrame(keys, []telem.Series{
 			telem.NewSeries(stamps),
 			telem.NewSeries(values),
-		}), nil))
-		MustSucceed2(w.Commit(ctx, nil))
-		err := w.Sync()
-		_ = w.Close()
-		return err
+		}), nil); err != nil {
+			return err
+		}
+		if _, _, err := w.Commit(ctx, nil); err != nil {
+			return err
+		}
+		return w.Sync()
 	}
 	stored := func(ctx context.Context) []int64 {
 		GinkgoHelper()
@@ -99,41 +124,89 @@ var _ = Describe("Writer sync faults on the pointer log", func() {
 	}
 	running := func() {
 		GinkgoHelper()
-		Consistently(ran, 200*time.Millisecond).ShouldNot(Receive())
+		select {
+		case err := <-ran:
+			Fail("Run ended: " + fmt.Sprint(err))
+		case <-time.After(200 * time.Millisecond):
+		}
 	}
 
-	It("Should keep the engine running after a failed directory sync of a new "+
-		"segment, and sync once the fault clears", func(ctx SpecContext) {
-		dirs.Store(true)
+	It("Should keep running after a failed directory sync of a new segment, and sync "+
+		"the directory at the next segment", func(ctx SpecContext) {
+		faults.dirs.Store(true)
 		Expect(write(ctx, 10, 11, 12)).To(MatchError(errSyncFault))
 		running()
-		dirs.Store(false)
-		before := synced.Load()
+		faults.dirs.Store(false)
+		before := faults.synced.Load()
 		Expect(write(ctx, 20, 21)).To(Succeed())
-		Expect(synced.Load()).To(BeNumerically(">", before))
+		Expect(faults.synced.Load()).To(BeNumerically(">", before))
 		running()
-		Expect(stored(ctx)).To(ContainElements(int64(20), int64(21)))
+		Expect(stored(ctx)).To(Equal([]int64{20, 21}))
 	})
 
-	It("Should keep the engine running after a failed log sync, and sync once the "+
-		"fault clears", func(ctx SpecContext) {
+	DescribeTable("Should keep running after a failed log sync, fail every later Sync "+
+		"until a restart, and replay or drop the failed frame at the restart", func(
+		ctx SpecContext,
+		lost bool,
+		want []int64,
+	) {
 		Expect(write(ctx, 10, 11, 12)).To(Succeed())
-		logs.Store(true)
+		faults.logSyncs.Store(true)
+		faults.lose.Store(lost)
 		Expect(write(ctx, 20, 21)).To(MatchError(errSyncFault))
 		running()
-		logs.Store(false)
+		faults.logSyncs.Store(false)
+		Expect(write(ctx, 30, 31)).To(MatchError(errSyncFault))
+		running()
+		Expect(shut()).To(MatchError(errSyncFault))
+		open(ctx)
+		Expect(stored(ctx)).To(Equal(want))
+		segments := func() int {
+			infos := MustSucceed(mem.List(strconv.Itoa(int(data))))
+			return len(lo.Filter(infos, func(info xfs.FileInfo, _ int) bool {
+				return strings.HasSuffix(info.Name(), ".seg")
+			}))
+		}
+		Eventually(segments).Should(Equal(len(want) / 2))
+		Expect(write(ctx, 40, 41)).To(Succeed())
+		Expect(stored(ctx)).To(Equal(append(want, 40, 41)))
+	},
+		Entry("that the disk holds", false, []int64{10, 11, 12, 20, 21}),
+		Entry("that the disk lost", true, []int64{10, 11, 12}),
+	)
+
+	DescribeTable("Should fail only the write that a full disk refuses, and write "+
+		"again with no restart once space frees", func(
+		ctx SpecContext,
+		full *atomic.Bool,
+	) {
+		Expect(write(ctx, 10, 11, 12)).To(Succeed())
+		full.Store(true)
+		Expect(write(ctx, 20, 21)).To(MatchError(syscall.ENOSPC))
+		running()
+		full.Store(false)
 		Expect(write(ctx, 30, 31)).To(Succeed())
 		running()
-		Expect(stored(ctx)).To(ContainElements(int64(10), int64(30), int64(31)))
-	})
+		Expect(stored(ctx)).To(Equal([]int64{10, 11, 12, 30, 31}))
+	},
+		Entry("on a segment", &faults.segmentsFull),
+		Entry("on the log", &faults.logFull),
+	)
 })
 
-// syncFaultFS fails each SyncDir while dirs is set, and each Sync of a log file while
-// logs is set. It counts each SyncDir that passes in synced.
+// syncFaults are the faults that a syncFaultFS injects while each is set: a failed
+// SyncDir, a failed Sync of a log file, which also zeros the writes since the last sync
+// when lose is set, and a full disk for writes of segment files or log files. synced
+// counts each SyncDir that passes.
+type syncFaults struct {
+	dirs, logSyncs, lose  atomic.Bool
+	segmentsFull, logFull atomic.Bool
+	synced                atomic.Int64
+}
+
 type syncFaultFS struct {
 	xfs.FS
-	dirs, logs *atomic.Bool
-	synced     *atomic.Int64
+	faults *syncFaults
 }
 
 func (f syncFaultFS) Sub(name string) (xfs.FS, error) {
@@ -141,36 +214,68 @@ func (f syncFaultFS) Sub(name string) (xfs.FS, error) {
 	if err != nil {
 		return nil, err
 	}
-	return syncFaultFS{FS: sub, dirs: f.dirs, logs: f.logs, synced: f.synced}, nil
+	return syncFaultFS{FS: sub, faults: f.faults}, nil
 }
 
 func (f syncFaultFS) SyncDir(name string) error {
-	if f.dirs.Load() {
+	if f.faults.dirs.Load() {
 		return errSyncFault
 	}
 	if err := f.FS.SyncDir(name); err != nil {
 		return err
 	}
-	f.synced.Add(1)
+	f.faults.synced.Add(1)
 	return nil
 }
 
 func (f syncFaultFS) Open(name string, flag int) (xfs.File, error) {
 	file, err := f.FS.Open(name, flag)
-	if err != nil || !strings.HasSuffix(name, ".log") {
+	if err != nil {
 		return file, err
 	}
-	return syncFaultFile{File: file, fail: f.logs}, nil
+	switch {
+	case strings.HasSuffix(name, ".log"):
+		return &syncFaultFile{
+			File: file,
+			sync: &f.faults.logSyncs,
+			lose: &f.faults.lose,
+			full: &f.faults.logFull,
+		}, nil
+	case strings.HasSuffix(name, ".seg"):
+		return &syncFaultFile{File: file, full: &f.faults.segmentsFull}, nil
+	}
+	return file, nil
 }
 
+// syncFaultFile fails each Sync while sync is set, and zeros the writes since its last
+// Sync then when lose is set. It fails each WriteAt with ENOSPC while full is set.
 type syncFaultFile struct {
 	xfs.File
-	fail *atomic.Bool
+	sync, lose, full *atomic.Bool
+	// unsynced holds the offsets and lengths of the writes since the last Sync.
+	unsynced [][2]int64
 }
 
-func (f syncFaultFile) Sync() error {
-	if f.fail.Load() {
-		return errSyncFault
+func (f *syncFaultFile) Sync() error {
+	if f.sync == nil || !f.sync.Load() {
+		f.unsynced = f.unsynced[:0]
+		return f.File.Sync()
 	}
-	return f.File.Sync()
+	if f.lose.Load() {
+		for _, w := range f.unsynced {
+			if _, err := f.File.WriteAt(make([]byte, w[1]), w[0]); err != nil {
+				return err
+			}
+		}
+	}
+	f.unsynced = f.unsynced[:0]
+	return errSyncFault
+}
+
+func (f *syncFaultFile) WriteAt(p []byte, off int64) (int, error) {
+	if f.full.Load() {
+		return 0, syscall.ENOSPC
+	}
+	f.unsynced = append(f.unsynced, [2]int64{off, int64(len(p))})
+	return f.File.WriteAt(p, off)
 }

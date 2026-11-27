@@ -420,9 +420,7 @@ var _ = Describe("Log", func() {
 						To(MatchError(ContainSubstring("disk fault")))
 					Expect(hook.get()).To(BeEmpty())
 					Expect(l.Close()).To(MatchError(ContainSubstring("disk fault")))
-					Eventually(
-						ran,
-					).Should(Receive(MatchError(ContainSubstring("disk fault"))))
+					Eventually(ran).Should(Receive(BeNil()))
 				},
 			)
 
@@ -642,7 +640,8 @@ var _ = Describe("Log", func() {
 			})
 
 			DescribeTable(
-				"Should fail every entry after a failed write or sync, until a restart",
+				"Should fail every entry after a failed write or sync, until a restart, "+
+					"and keep running",
 				func(fail func(error)) {
 					open(logSize)
 					fault := errors.New("disk fault")
@@ -659,11 +658,33 @@ var _ = Describe("Log", func() {
 					fail(nil)
 					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
 						To(MatchError(fault))
+					Consistently(ran).ShouldNot(Receive())
 					Expect(l.Close()).To(MatchError(fault))
-					Eventually(ran).Should(Receive(MatchError(fault)))
+					Eventually(ran).Should(Receive(BeNil()))
 				},
 				Entry("sync", func(err error) { fs.FailSync(err) }),
-				Entry("write", func(err error) { fs.FailWrite(err) }),
+			)
+
+			It(
+				"Should refuse the frame of a failed write, and write the next frame at "+
+					"its offset",
+				func() {
+					open(logSize)
+					DeferCleanup(closeLog)
+					fault := errors.New("disk full")
+					fs.FailWrite(fault)
+					Expect(l.Append(of(&log.Drop{Key: 1})).Wait()).Error().
+						To(MatchError(fault))
+					fs.FailWrite(nil)
+					Expect(l.Append(of(&log.Drop{Key: 2})).Wait()).To(Equal(uint64(5)))
+					var entries []uint64
+					for _, f := range walk(fileBytes(fs)) {
+						if f.Count > 0 {
+							entries = append(entries, f.Sequence)
+						}
+					}
+					Expect(entries).To(Equal([]uint64{5}))
+				},
 			)
 
 			It("Should write queued entries and a clean mark at Close, then refuse "+
