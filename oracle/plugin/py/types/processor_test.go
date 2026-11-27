@@ -60,6 +60,31 @@ var _ = Describe("FieldProcessor", func() {
 		Expect(fd.Doc).To(Equal("is the path."))
 	})
 
+	It("Should name a type of another schema on its output from the types module",
+		func() {
+			loader.Add("schemas/thing", `
+				@py output "client/py/synnax/test"
+
+				Tile struct {
+					key string
+				}
+			`)
+			fp, item := processorFor(`
+				import "schemas/thing"
+
+				@py output "client/py/synnax/test"
+
+				Item struct {
+					tile thing.Tile
+				}
+			`)
+			Expect(fp.ProcessField(field(item, "tile")).PyType).To(Equal("Tile"))
+			Expect(fp.Imports()).To(
+				ContainSubstring("from synnax.test.types_gen import Tile"),
+			)
+		},
+	)
+
 	It("Should import a type of the namespace from the types module", func() {
 		fp, item := processorFor(`
 			@py output "client/py/synnax/test"

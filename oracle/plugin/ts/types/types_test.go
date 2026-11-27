@@ -2859,6 +2859,36 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("schemas that share an output", func() {
+			It("Should declare the enums of each schema that no field names", func() {
+				loader.Add("schemas/synnax/thing", `
+					Shade enum {
+						light = "light"
+					}
+
+					Plan struct {
+						key string
+
+						@ts output "client/ts/src/thing"
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					Mode enum {
+						fast = "fast"
+					}
+
+					Request struct {
+						name string
+
+						@ts output "client/ts/src/thing"
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/ts/src/thing/types.gen.ts").ToContain(
+					"export const shadeZ = z.enum(SHADES);",
+					"export const modeZ = z.enum(MODES);",
+				)
+			})
+
 			It("Should reference each type of the output with no import", func() {
 				loader.Add("schemas/synnax/thing", `
 					@ts output "client/ts/src/thing"

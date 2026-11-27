@@ -112,13 +112,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 
 	if err = c.typeDefs.ForEach(
 		func(outputPath string, typeDefs []resolution.Type) error {
-			enums := enum.CollectNamespaceEnums(
-				typeDefs[0].Namespace,
-				outputPath,
-				req.Resolutions,
-				"ts",
-				nil,
-			)
+			enums := enum.CollectOutputEnums(outputPath, req.Resolutions, "ts", nil)
 			return p.appendFile(resp, outputPath, typeDefs[0], fileTypes{
 				enums:    enums,
 				typeDefs: typeDefs,
@@ -200,13 +194,7 @@ func fileEnums(
 	result = framework.MergeTypesByName(result, take(enums, outputPath))
 	return framework.MergeTypesByName(
 		result,
-		enum.CollectNamespaceEnums(
-			types[0].Namespace,
-			outputPath,
-			req.Resolutions,
-			"ts",
-			nil,
-		),
+		enum.CollectOutputEnums(outputPath, req.Resolutions, "ts", nil),
 	)
 }
 

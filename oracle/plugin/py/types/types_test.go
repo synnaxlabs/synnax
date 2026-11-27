@@ -2624,6 +2624,36 @@ var _ = Describe("Python Types Plugin", func() {
 		})
 
 		Context("schemas that share an output", func() {
+			It("Should declare the enums of each schema that no field names", func() {
+				loader.Add("schemas/synnax/thing", `
+					Shade enum {
+						light = "light"
+					}
+
+					Plan struct {
+						key string
+
+						@py output "client/py/synnax/thing"
+					}
+				`)
+				loader.Add("schemas/synnax/thing_api", `
+					Mode enum {
+						fast = "fast"
+					}
+
+					Request struct {
+						name string
+
+						@py output "client/py/synnax/thing"
+					}
+				`)
+				resp := MustGenerateMulti(loader, typesPlugin)
+				ExpectContent(resp, "client/py/synnax/thing/types_gen.py").ToContain(
+					`Shade = Literal["light"]`,
+					`Mode = Literal["fast"]`,
+				)
+			})
+
 			It("Should reference each type of the output with no import", func() {
 				loader.Add("schemas/synnax/thing", `
 					@py output "client/py/synnax/thing"
