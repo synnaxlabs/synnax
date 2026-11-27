@@ -105,7 +105,12 @@ const SymbolSummary = ({
         <Text.Text level="small" color={9}>
           Symbol
         </Text.Text>
-        <Text.Text level="p" weight={500} color={10}>
+        <Text.Text
+          level="p"
+          weight={500}
+          color={10}
+          className={CSS.BE("schematic", "symbol-name")}
+        >
           {name}
         </Text.Text>
         <Button.Button

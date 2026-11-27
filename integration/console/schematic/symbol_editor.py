@@ -236,11 +236,11 @@ class SymbolEditor:
         :param scale_percent: Scale percentage (e.g., 100 for 100%, 150 for 150%). Valid
             range is 5 to 1001.
         """
-        properties_header = self.page.locator(".lyra-header").filter(
-            has_text="Properties"
-        )
-        properties_section = properties_header.locator("..").locator("..")
-        scale_input = properties_section.locator("input[type='text']").first
+        # The inspector shows the scale only while the whole drawing is selected.
+        self.modal.locator(".console-schematic-part-list-item").filter(
+            has_text="Whole drawing"
+        ).click()
+        scale_input = self._inspector.get_by_label("Scale", exact=True)
         scale_input.click(click_count=3)
         scale_input.fill(str(scale_percent))
         self.page.keyboard.press("Enter")
