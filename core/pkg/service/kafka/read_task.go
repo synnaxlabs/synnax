@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
-	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/read"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/control"
@@ -376,11 +375,11 @@ func (t *readTask) resetGroups(ctx context.Context) error {
 		if g.Index == 0 {
 			continue
 		}
-		var err error
-		if g.last, err = t.lastStored(ctx, g.Index); err != nil {
+		last, err := driver.LastStored(ctx, t.factoryCfg.Framer, g.Index)
+		if err != nil {
 			return err
 		}
-		g.replaying = true
+		g.last, g.replaying = last, true
 	}
 	return nil
 }
@@ -462,37 +461,6 @@ func (t *readTask) openWriter(ctx context.Context) (*framer.Writer, error) {
 		// commit before then or a crash loses samples Kafka will not replay.
 		AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 	})
-}
-
-// lastStored returns the last timestamp stored in index, or zero when it is empty.
-func (t *readTask) lastStored(
-	ctx context.Context,
-	index channel.Key,
-) (last telem.TimeStamp, err error) {
-	it, err := t.factoryCfg.Framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:   channel.Keys{index},
-		Bounds: telem.TimeRangeMax,
-	})
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if cErr := it.Close(); cErr != nil {
-			last, err = 0, errors.Join(err, cErr)
-		}
-	}()
-	if !it.SeekLast() || !it.Prev(iterator.AutoSpan) {
-		return 0, it.Error()
-	}
-	ms := it.Value().Get(index)
-	if len(ms.Series) == 0 {
-		return 0, nil
-	}
-	s := ms.Series[len(ms.Series)-1]
-	if s.Len() == 0 {
-		return 0, nil
-	}
-	return s.ValueAt[telem.TimeStamp](int(s.Len()) - 1), nil
 }
 
 // consume polls the topics until ctx ends. A connection failure sets a warning status
