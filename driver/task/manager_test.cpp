@@ -486,7 +486,7 @@ public:
         synnax::task::Status status{
             .variant = synnax::status::VARIANT_ERROR,
             .message = "Failed to configure task",
-            .details = {.cmd = cmd_key, .config_hash = task.config_hash},
+            .details = {.cmd = cmd_key},
             .owner = synnax::task::resource_id(task.key),
         };
         status.description = this->error;
@@ -2020,6 +2020,7 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
             "' tasks. Check that the Driver and the Core run the same version."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
+    EXPECT_TRUE(s.details.config_hash.empty());
 }
 
 /// @brief it should stop each running task when the manager stops.
@@ -2135,7 +2136,7 @@ public:
             .variant = synnax::status::VARIANT_ERROR,
             .message = "Failed to configure task",
             .description = "Npcap is not installed",
-            .details = {.cmd = cmd_key, .config_hash = task.config_hash},
+            .details = {.cmd = cmd_key},
             .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
@@ -2578,6 +2579,7 @@ TEST_F(TaskManagerTest, StartFailsWhenHashKeepsMovingDuringConfigure) {
         "task again."
     );
     EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(s.details.config_hash.empty());
     std::lock_guard lock(f->mu);
     ASSERT_GE(f->task_states.size(), 3);
     for (std::size_t i = 0; i < 3; i++) {

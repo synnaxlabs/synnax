@@ -724,14 +724,12 @@ void Manager::execute_op(
                         ours = entry->row.rack == this->rack.key;
                     }
                     if (ours && !err.matches(x::errors::NOT_FOUND)) {
-                        const auto [name, hash] = operation.task_info();
                         synnax::task::Status status;
                         status.owner = synnax::task::resource_id(op.task_key);
-                        status.name = name;
+                        status.name = operation.task_info().first;
                         status.variant = synnax::status::VARIANT_ERROR;
                         status.message = "Failed to start task";
                         status.description = err.data;
-                        status.details.config_hash = hash;
                         operation.answer(status);
                     }
                     this->discard(op.task_key, true);
@@ -834,7 +832,6 @@ void Manager::execute_op(
                                          "' tasks. Check that the Driver and the "
                                          "Core run the same version.";
                     status.details.running = false;
-                    status.details.config_hash = tsk.config_hash;
                     operation.answer(status);
                 }
             }
@@ -978,7 +975,6 @@ std::pair<std::unique_ptr<Task>, bool> Manager::configure(
         status.message = message;
         status.description = description;
         status.details.running = false;
-        status.details.config_hash = tsk.config_hash;
         operation.answer(status);
     };
     for (int attempt = 1;; attempt++) {
