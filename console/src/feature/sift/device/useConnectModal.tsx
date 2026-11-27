@@ -30,6 +30,7 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Rack } from "@/platform/rack";
 import { Secret } from "@/platform/secret";
 
 const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(15);
@@ -138,7 +139,7 @@ export const Connect = ({
     },
   });
   const rackKey = Form.useFieldValue(path.rack, { ctx: form });
-  const reason = PlatformDevice.useBlockedReason({
+  const reason = Rack.useBlockedReason({
     integration: INTEGRATION,
     name: "Sift",
     rack: rackKey,
@@ -173,6 +174,7 @@ export const Connect = ({
         variant={variant}
         message={stat.description}
         onConnect={() => save()}
+        onCancel={() => close()}
         onBack={onBack}
       />
     </PlatformDevice.ConnectFrame>
@@ -186,7 +188,7 @@ const HEADER = ["Device", "Connect", "Sift"];
 const NAME_INPUT_PROPS = {
   level: "h2",
   variant: "text",
-  placeholder: "Sift",
+  placeholder: "Connection name",
   "aria-label": "Name",
   autoFocus: true,
 } as const;

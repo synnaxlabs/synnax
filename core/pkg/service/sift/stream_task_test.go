@@ -915,7 +915,9 @@ var _ = Describe("Stream task", func() {
 		))
 	})
 
-	It("Should fail when the device belongs to another rack", func(ctx SpecContext) {
+	It("Should fail to auto-start when the device is on another rack", func(
+		ctx SpecContext,
+	) {
 		other := rack.Rack{Name: "other"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return rackSvc.NewWriter(tx).Create(ctx, &other)
@@ -927,12 +929,15 @@ var _ = Describe("Stream task", func() {
 		})).To(Succeed())
 		t.Config = toJSON(streamConfig())
 		msg := "device " + dev.Name + " belongs to another rack"
-		Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().To(MatchError(msg))
+		Expect(f.ConfigureTask(ctx, t, driver.NoCommand)).Error().
+			To(MatchError(msg))
 		Expect(taskStatus(ctx, t)).To(SatisfyAll(
 			HaveField("Variant", status.VariantError),
 			HaveField("Description", msg),
-			HaveField("Details.Cmd", "cmd-1"),
 		))
+		By("Leaving the start to the start command of a deploy")
+		dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+		Expect(dt.Stop(false)).To(Succeed())
 	})
 
 	DescribeTable("Should reject an invalid config",
