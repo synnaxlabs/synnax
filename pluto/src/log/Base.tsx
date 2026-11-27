@@ -18,7 +18,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { bounds, box, strings, TimeRange, type TimeStamp } from "@synnaxlabs/x";
+import { bounds, box, strings, TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -69,6 +69,12 @@ const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
 // Pixels the log scrolls per frame for each pixel a selection drag is past its edge.
 const EDGE_SCROLL_RATE = 0.2;
+
+// A planned range has no start to go to.
+const startedRanges = (items: Haul.Item[]): Ranger.HaulItem[] =>
+  Ranger.filterHaulItems(items).filter(
+    ({ data }) => !new TimeRange(data.timeRange).start.equals(TimeStamp.MAX),
+  );
 
 const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
 
@@ -162,11 +168,13 @@ export const Base = ({
     methods.seek(time.valueOf().toString());
   };
 
+  const canDrop: Haul.CanDrop = ({ items }) =>
+    onDropRange != null && startedRanges(items).length > 0;
   const dropProps = Haul.useDrop({
     type: "log",
-    canDrop: (hauled) => onDropRange != null && Ranger.canDropHaulItem(hauled),
+    canDrop,
     onDrop: ({ items }) => {
-      const [dropped] = Ranger.filterHaulItems(items);
+      const [dropped] = startedRanges(items);
       if (dropped == null || onDropRange == null) return [];
       const timeRange = new TimeRange(dropped.data.timeRange);
       seek(timeRange.start);
@@ -404,7 +412,7 @@ export const Base = ({
         tabIndex={-1}
         className={CSS.cls(
           CSS.B("log"),
-          onDropRange != null && CSS.dropRegion(Ranger.canDropHaulItem(dragging)),
+          onDropRange != null && CSS.dropRegion(canDrop(dragging)),
           className,
         )}
         {...dropProps}

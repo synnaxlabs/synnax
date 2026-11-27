@@ -367,14 +367,14 @@ describe("log/Base", () => {
 
     const DRAG_HANDLE = "drag-a-range";
 
-    // A haul source the drop specs drag RANGE out of.
-    const DragSource = (): ReactElement => {
+    // A haul source the drop specs drag a range out of.
+    const DragSource = ({ range }: { range: TimeRange }): ReactElement => {
       const { startDrag, onDragEnd } = Haul.useDrag({ type: "test-source" });
       const items = [
         {
           type: Ranger.HAUL_TYPE,
           key: "range",
-          data: { key: "range", name: "Range", timeRange: RANGE.numeric },
+          data: { key: "range", name: "Range", timeRange: range.numeric },
         },
       ];
       return (
@@ -387,10 +387,10 @@ describe("log/Base", () => {
       );
     };
 
-    const dropRange = (props: Record<string, unknown>): void => {
+    const dropRange = (props: Record<string, unknown>, range = RANGE): void => {
       const { container } = render(
         <Haul.Provider>
-          <DragSource />
+          <DragSource range={range} />
           <Log.Base {...props} />
         </Haul.Provider>,
         { wrapper: Wrapper },
@@ -407,6 +407,17 @@ describe("log/Base", () => {
       expect(onHold).toHaveBeenCalledWith(true);
       expect(seek).toHaveBeenCalledWith(RANGE.start.valueOf().toString());
       expect(onDropRange).toHaveBeenCalledWith(RANGE);
+    });
+
+    it("should refuse a planned range", () => {
+      const { seek } = setupAether({ empty: false, scrolling: false });
+      const onHold = vi.fn();
+      const onDropRange = vi.fn();
+      const planned = new TimeRange(TimeStamp.MAX, TimeStamp.MAX);
+      dropRange({ onHold, onDropRange }, planned);
+      expect(onHold).not.toHaveBeenCalled();
+      expect(seek).not.toHaveBeenCalled();
+      expect(onDropRange).not.toHaveBeenCalled();
     });
 
     it("should refuse a dropped range when no handler takes it", () => {
