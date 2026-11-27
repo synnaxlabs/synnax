@@ -107,7 +107,7 @@ func (r Retrieve) siblingAt(ctx context.Context, snap gorp.Snapshot, path string
 			if parent, err = group.KeyFromResourceID(id); err != nil {
 				return group.Sibling{}, false, err
 			}
-			if r.folderAllowed != nil && !r.folderAllowed(id) {
+			if allowed := r.folders.allowed; allowed != nil && !allowed(id) {
 				return group.Sibling{}, false, nil
 			}
 		default:

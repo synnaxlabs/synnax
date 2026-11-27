@@ -29,8 +29,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// D-214: a path shows only when the subject can retrieve every folder on it, so a
-// visible folder under a hidden one shows no path, and a visible chain shows all of it.
+// A path shows only when the subject can retrieve every folder on it, so a visible
+// folder under a hidden one shows no path, and a visible chain shows all of it.
 var _ = Describe("Path fill checks", func() {
 	It("Should check every folder on a path, not only the nearest", func(
 		ctx SpecContext,

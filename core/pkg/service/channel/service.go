@@ -193,6 +193,7 @@ func (s *Service) newRetrieve() Retrieve {
 	return Retrieve{
 		gorp:    s.table.NewRetrieve(),
 		indexes: s.indexes,
+		folders: &folderAccess{},
 	}
 }
 

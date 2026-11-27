@@ -18,15 +18,22 @@ import (
 type Retrieve struct {
 	gorp    gorp.Retrieve[Key, Channel]
 	indexes indexes
-	// folderAllowed reports whether a path can pass the folder with an ID, or is nil
-	// when a path can pass any folder.
-	folderAllowed func(resource.ID) bool
+	// folders is shared by each copy of the Retrieve, so a filter that Where added
+	// reads the folders that AllowFolders allows when the query runs.
+	folders *folderAccess
+}
+
+// folderAccess holds the folders that a path can pass.
+type folderAccess struct {
+	// allowed reports whether a path can pass the folder with an ID, or is nil when a
+	// path can pass any folder.
+	allowed func(resource.ID) bool
 }
 
 // AllowFolders makes a path that MatchPaths matches pass only folders that allowed
-// accepts. It must come before Where, since a filter reads it when Where adds it.
+// accepts, whether it comes before or after Where.
 func (r Retrieve) AllowFolders(allowed func(resource.ID) bool) Retrieve {
-	r.folderAllowed = allowed
+	r.folders.allowed = allowed
 	return r
 }
 

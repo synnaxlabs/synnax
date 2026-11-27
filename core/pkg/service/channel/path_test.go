@@ -169,6 +169,19 @@ var _ = Describe("Paths", Ordered, func() {
 		Expect(at(all, topPath)).To(ConsistOf(top))
 	})
 
+	It("Should refuse a folder that AllowFolders refuses after Where", func(
+		ctx SpecContext,
+	) {
+		hidden := func(id resource.ID) bool { return id != group.ResourceID(standKey) }
+		var chs []channel.Channel
+		Expect(svc.NewRetrieve().
+			Where(channel.MatchPaths(stand+"."+nameOf(ctx, top))).
+			AllowFolders(hidden).
+			Entries(&chs).
+			Exec(ctx, db)).To(Succeed())
+		Expect(chs).To(BeEmpty())
+	})
+
 	It("Should return the folders and the name of each channel", func(
 		ctx SpecContext,
 	) {
