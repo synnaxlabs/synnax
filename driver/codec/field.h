@@ -21,6 +21,7 @@
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/pointer.h"
+#include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
 
 #include "driver/codec/binding.h"
@@ -44,6 +45,18 @@ enum class Number : std::uint8_t { FLOAT32, FLOAT64, SIGNED, UNSIGNED };
 /// does not hold floats.
 std::pair<Number, x::errors::Error>
 number_of(const x::telem::DataType &dt, std::string_view kind, bool scaled);
+
+/// @brief writes v to dst, which holds float32 when narrow and float64 otherwise.
+/// @returns VALIDATION when narrow and v is finite but overflows float32.
+x::errors::Error write_float(double v, bool narrow, x::telem::Series &dst);
+
+/// @brief returns CONFIG_ERROR when scale is zero, which turns every value into the
+/// offset.
+x::errors::Error check_scale(double scale);
+
+/// @brief returns CONFIG_ERROR when scaled, true for a field whose scale or offset
+/// changes its value, and dt does not hold floats.
+x::errors::Error check_scaled_channel(bool scaled, const x::telem::DataType &dt);
 
 /// @brief returns the index in bindings of the binding of each bound field.
 /// @param fields maps the key of each field of the message to the field.
@@ -80,14 +93,11 @@ index_bindings(
     return {std::move(indices), x::errors::NIL};
 }
 
-/// @brief returns the error err with context before its text.
-x::errors::Error wrap(const x::errors::Error &err, const std::string &context);
-
 /// @brief returns err as a CONFIG_ERROR with context before its text.
 x::errors::Error as_config(const x::errors::Error &err, const std::string &context);
 
 /// @brief returns VALIDATION when v, a value after the scale and offset of b, is
-/// outside the min and max of b.
+/// outside the min and max of b, or is NaN and b has a min or a max.
 x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
 
 /// @brief returns VALIDATION when v, a float32 sample, is outside the min and max of b.
@@ -95,9 +105,12 @@ x::errors::Error check_limits(const synnax::icd::BaseField &b, double v);
 x::errors::Error check_limits(const synnax::icd::BaseField &b, float v);
 
 /// @brief returns VALIDATION when raw, a value before the scale and offset of b,
-/// decodes outside the min and max of b. It allows the float64 rounding of the decode,
-/// so a value that decodes to a limit passes.
-x::errors::Error check_raw_limits(const synnax::icd::BaseField &b, double raw);
+/// decodes outside the min and max of b, or decodes to NaN and b has a min or a max. It
+/// allows the float64 rounding of the decode, so a value that decodes to a limit
+/// passes. When narrow, a value that decodes to a limit at float32 precision is at that
+/// limit.
+x::errors::Error
+check_raw_limits(const synnax::icd::BaseField &b, double raw, bool narrow = false);
 
 /// @brief reports whether inner is outer or a pointer into the value at outer.
 bool within(const x::json::Pointer &inner, const x::json::Pointer &outer);

@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	kafkaversions "github.com/synnaxlabs/synnax/pkg/service/kafka/versions"
@@ -45,6 +46,7 @@ import (
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/content"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -67,6 +69,25 @@ const (
 	routingKey1 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b01"
 	routingKey2 = "6c1f4f6e-2b0a-4b8e-9d55-0e3c5f1a7b02"
 )
+
+// errorPath returns the path of err, or nil when err is not a path error.
+func errorPath(err error) []string {
+	pathErr, _ := errors.AsType[validate.PathError](err)
+	return pathErr.Path
+}
+
+// errorPaths returns the path of each member of a joined error.
+func errorPaths(err error) [][]string {
+	members := errors.UnwrapMulti(err)
+	if members == nil {
+		return [][]string{errorPath(err)}
+	}
+	var paths [][]string
+	for _, member := range members {
+		paths = append(paths, errorPaths(member)...)
+	}
+	return paths
+}
 
 // createRoutingKeys creates a stored secret under each key, so that an alert config
 // can name it.
@@ -550,6 +571,68 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Create(ctx, t)).To(MatchError(validate.ErrValidation))
 			Expect(w.Create(ctx, t)).To(MatchError(ContainSubstring("made_up")))
 		})
+		// LabJack read checks its stream rate on validation, and an alert checks its
+		// secret on write.
+		DescribeTable(
+			"Should root a refused config at the config of the task",
+			func(ctx SpecContext, taskType string, cfg msgpack.EncodedJSON, field string) {
+				Expect(w.Create(ctx, &task.Task{
+					Type:   taskType,
+					Rack:   testRack.Key,
+					Name:   "Refused Task",
+					Config: cfg,
+				})).To(WithTransform(errorPath, Equal([]string{"config", field})))
+			},
+			Entry("on validation", "labjack_read",
+				msgpack.EncodedJSON{"stream_rate": -5}, "stream_rate"),
+			Entry("on write", testType,
+				msgpack.EncodedJSON{"routing_key": uuid.New().String()}, "routing_key"),
+		)
+		DescribeTable("Should root a refused config edit at the config of the task",
+			func(
+				ctx SpecContext,
+				taskType string,
+				cfg msgpack.EncodedJSON,
+				field string,
+				value any,
+			) {
+				t := &task.Task{
+					Type:   taskType,
+					Rack:   testRack.Key,
+					Name:   "Edited Task",
+					Config: cfg,
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(w.Apply(ctx, t.Key, task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", field},
+					Value: value,
+				}))).Error().To(WithTransform(errorPath, Equal([]string{"config", field})))
+			},
+			Entry("on validation", "labjack_read",
+				msgpack.EncodedJSON{"sample_rate": 50}, "stream_rate", -5),
+			Entry("on write", testType,
+				msgpack.EncodedJSON{"routing_key": routingKey1}, "routing_key",
+				uuid.New().String()),
+		)
+		It(
+			"Should keep a config edit error that names no path as it is",
+			func(ctx SpecContext) {
+				t := &task.Task{
+					Type:   testType,
+					Rack:   testRack.Key,
+					Name:   "Edited Task",
+					Config: msgpack.EncodedJSON{"routing_key": routingKey1},
+				}
+				Expect(w.Create(ctx, t)).To(Succeed())
+				Expect(w.Apply(ctx, t.Key, task.NewSetAction(task.SetPayload{
+					Path:  []string{"config", "made_up"},
+					Value: 1,
+				}))).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("the path names no editable field")),
+					WithTransform(errorPath, BeNil()),
+				))
+			},
+		)
 		It(
 			"Should store the config as a record under the task's key",
 			func(ctx SpecContext) {
@@ -1252,6 +1335,17 @@ var _ = Describe("Task", Ordered, func() {
 					Entries(&[]task.Task{}).
 					Exec(ctx, tx)).
 					To(MatchError("this task service cannot filter tasks by Arc"))
+			},
+		)
+
+		It(
+			"Should fail to filter by ICD on a service that cannot match ICDs",
+			func(ctx SpecContext) {
+				Expect(svc.NewRetrieve().
+					Where(task.MatchICDs(uuid.New())).
+					Entries(&[]task.Task{}).
+					Exec(ctx, tx)).
+					To(MatchError("this task service cannot filter tasks by ICD"))
 			},
 		)
 
@@ -2218,6 +2312,97 @@ var _ = Describe("MatchArcs", func() {
 			Expect(asked).To(Equal([]arc.Key{arcKey}))
 		},
 	)
+})
+
+var _ = Describe("MatchICDs", func() {
+	It("Should keep the tasks and drafts whose config uses the ICDs", func(
+		ctx SpecContext,
+	) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		StartRun(db.Run)
+		stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		roles := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
+		racks := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
+			DB:         db,
+			HostKey:    1,
+			Status:     stat,
+			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roles)),
+		}))
+		icds := MustOpen(icd.OpenService(ctx, icd.ServiceConfig{
+			DB:   db,
+			ImEx: imex.NewService(),
+		}))
+		writes := MustOpen(
+			config.OpenService(ctx, config.ServiceConfig[kafka.WriteConfig]{
+				DB:          db,
+				Type:        kafka.WriteTaskType,
+				Ladder:      kafkaversions.WriteConfigLadder,
+				SetEntryKey: (*kafka.WriteConfig).SetKey,
+				PatchEntry:  (*kafka.WriteConfig).Patch,
+				HashEntry:   (*kafka.WriteConfig).HashContent,
+				References: []gorp.Reference[uuid.UUID, kafka.WriteConfig]{
+					gorp.NewKeyReference(
+						gorp.KeyReferenceConfig[uuid.UUID, kafka.WriteConfig, icd.Key]{
+							Name:     "targets.icd",
+							Table:    "icd",
+							OnDelete: gorp.Restrict,
+							Kind:     gorp.Use,
+							Targets: func(c *kafka.WriteConfig) []icd.Key {
+								return lo.Map(
+									c.Targets,
+									func(t kafka.WriteTarget, _ int) icd.Key {
+										return t.ICD
+									},
+								)
+							},
+						},
+					),
+				},
+			}),
+		)
+		svc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
+			DB:      db,
+			Rack:    racks,
+			Status:  stat,
+			ImEx:    imex.NewService(),
+			Configs: MustSucceed(config.NewRegistry(writes)),
+			ICDUses: icds.Uses,
+		}))
+		createICD := func() icd.Key {
+			GinkgoHelper()
+			ic := icd.ICD{Name: "Plant"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return icds.NewWriter(tx).Create(ctx, &ic)
+			})).To(Succeed())
+			return ic.Key
+		}
+		createUsing := func(ic icd.Key, r rack.Key) task.Key {
+			GinkgoHelper()
+			t := task.Task{
+				Type: kafka.WriteTaskType,
+				Rack: r,
+				Name: "Setpoints",
+				Config: msgpack.EncodedJSON{"targets": []any{
+					map[string]any{"key": "plant", "icd": ic.String()},
+				}},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &t)
+			})).To(Succeed())
+			return t.Key
+		}
+		used := createICD()
+		saved := createUsing(used, racks.EmbeddedKey)
+		draft := createUsing(used, 0)
+		createUsing(createICD(), racks.EmbeddedKey)
+		var res []task.Task
+		Expect(svc.NewRetrieve().
+			Where(task.MatchICDs(used)).
+			Entries(&res).
+			Exec(ctx, db)).To(Succeed())
+		Expect(lo.Map(res, func(t task.Task, _ int) task.Key { return t.Key })).
+			To(ConsistOf(saved, draft))
+	})
 })
 
 var _ = Describe("Writer in concurrent transactions", func() {

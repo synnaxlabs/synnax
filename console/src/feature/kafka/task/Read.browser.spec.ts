@@ -60,6 +60,10 @@ import { findDialogTriggerByText } from "@/testutil";
 
 const client = createTestClient();
 
+const REFUSED = "unable to dial: dial tcp 127.0.0.1:9092: connect: connection refused";
+const TLS_HINT =
+  "Check that the TLS and SASL settings match the listener of the broker.";
+
 preloadForms(Kafka.Task.FORMS);
 
 const TOPIC = "oven";
@@ -312,7 +316,7 @@ const OVEN_SHAPE = {
   sources: ["oven-1", "oven-2"],
   fields: [
     createInferredField("/time", "timestamp", "number", "unix_ms"),
-    createInferredField("/temperature", "float64", "number"),
+    createInferredField("/temperature", "float", "number"),
     createInferredField("/state", "string", "string"),
   ],
   index: 0,
@@ -323,7 +327,7 @@ const OVEN_SHAPE = {
 /** The oven shape, with a pressure. */
 const PRESSURE_SHAPE = {
   ...OVEN_SHAPE,
-  fields: [...OVEN_SHAPE.fields, createInferredField("/pressure", "float64", "number")],
+  fields: [...OVEN_SHAPE.fields, createInferredField("/pressure", "float", "number")],
 };
 
 /** @returns a sampled JSON record of the key oven-1 that holds value. */
@@ -416,7 +420,7 @@ describe("Kafka read form", () => {
       fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 1,
         present: -1,
@@ -546,6 +550,38 @@ describe("Kafka read form", () => {
       expect(dialog.queryByRole("button", { name: "Add an empty record" })).toBeNull();
     });
 
+    it("should show the reply of a cluster that the Core cannot reach", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const scan = await createScanTask(client, dev);
+      const { answered } = await answerCommandsUntil(client, [scan], "browse", {
+        browse: {
+          variant: "error",
+          message: "Failed to read cluster metadata",
+          description: `${REFUSED}. ${TLS_HINT}`,
+        },
+      });
+      const dialog = await clickAddData();
+      await answered;
+      await dialog.findByText(
+        `Failed to read cluster metadata. ${REFUSED}. ${TLS_HINT}`,
+      );
+      expect(dialog.getAllByText("Failed to list topics")).toHaveLength(2);
+    });
+
+    it("should focus the search to read a topic by name", async () => {
+      const { dev } = await renderRead({ empty: true });
+      await screen.findByText("No topics");
+      const browse = browseOf(listTopic("plant"));
+      const dialog = await openAddData(dev, { data: sampleOf() }, "plant", browse);
+      const search = dialog.getByPlaceholderText("Search topics");
+      fireEvent.click(dialog.getByRole("button", { name: "Read a topic by name" }));
+      expect(document.activeElement).toBe(search);
+      fireEvent.change(search, { target: { value: "kiln" } });
+      await dialog.findByRole("button", { name: "Read “kiln”" });
+      expect(dialog.queryByRole("button", { name: "Read a topic by name" })).toBeNull();
+    });
+
     it("should list and read the topics again on Listen again", async () => {
       const { dev } = await renderRead();
       const scan = await createScanTask(client, dev);
@@ -583,6 +619,22 @@ describe("Kafka read form", () => {
       await answerCommand(client, scan, sample, { data: sampleOf(OVEN_SHAPE) });
       await dialog.findByRole("checkbox", { name: "Record /temperature" });
       expect(listen().getAttribute("aria-disabled")).toBeNull();
+    });
+
+    it("should list the type of a boolean value as boolean", async () => {
+      const { dev } = await renderRead();
+      const shape = {
+        ...OVEN_SHAPE,
+        fields: [
+          OVEN_SHAPE.fields[0],
+          createInferredField("/open", "boolean", "boolean"),
+        ],
+      };
+      const dialog = await openAddData(dev, { data: sampleOf(shape) });
+      const box = await dialog.findByRole("checkbox", { name: "Record /open" });
+      const value = box.closest<HTMLElement>('[role="option"]');
+      if (value == null) throw new Error("expected the value /open in a list option");
+      expect(within(value).getByText("boolean")).toBeTruthy();
     });
 
     it("should count only the topics that the cluster lists", async () => {
@@ -632,7 +684,7 @@ describe("Kafka read form", () => {
       const dialog = await clickAddData();
       await first.answered;
       await dialog.findByText(/Failed to reach the cluster/);
-      dialog.getByText("Failed to list topics");
+      expect(dialog.getAllByText("Failed to list topics")).toHaveLength(2);
       const second = await answerCommandsUntil(client, [scan], "sample", {
         sample: { data: sampleOf(OVEN_SHAPE) },
       });
@@ -692,7 +744,7 @@ describe("Kafka read form", () => {
       const browse = browseOf(listTopic("plant"));
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 2,
         present: -1,
@@ -811,7 +863,7 @@ describe("Kafka read form", () => {
   });
 
   describe("records", () => {
-    it("should create an ICD named after the task for the first record", async () => {
+    it("should create an ICD named after the device for the first record", async () => {
       const { draft, dev } = await renderRead();
       await screen.findByRole("treeitem", { name: /Topic.*oven/ });
       const dialog = await openAddData(dev, { data: sampleOf() });
@@ -824,7 +876,7 @@ describe("Kafka read form", () => {
       });
       expect(rec).toMatchObject({ recordKey: "", disabled: false });
       const format = await client.icds.retrieve(rec.icd);
-      expect(format.name).toBe("Kafka read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toMatchObject([
         {
           key: rec.messages[0].message,
@@ -963,7 +1015,7 @@ describe("Kafka read form", () => {
       { name: "gone", note: "Message not found", change: removeMessage },
       {
         name: "not JSON",
-        note: "The format of this message is not JSON. Open it in the editor to change its format.",
+        note: "Message is not JSON",
         change: async ({ icd: key, messages }: Kafka.Task.ReadRecord) =>
           await client.icds.dispatch(
             key,
@@ -982,11 +1034,38 @@ describe("Kafka read form", () => {
         await renderRead({ records: [rec], beforeRender: () => change(rec) });
         await screen.findByText(note);
         expect(screen.queryByRole("button", { name: "Add field" })).toBeNull();
-        fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /Any key/ }));
+        const item = await screen.findByRole("treeitem", { name: /Any key/ });
+        within(item).getByRole("img", { name: note });
+        fireEvent.contextMenu(item);
         await screen.findByRole("menuitem", { name: "Add message" });
         expect(screen.queryByRole("menuitem", { name: "Add field" })).toBeNull();
       },
     );
+
+    it("should mark a later message that is not JSON and its record", async () => {
+      const rec = await createRecord({ fields: [createField("temperature", "float")] });
+      const status = await addMessage(
+        rec,
+        "status",
+        [createField("mode", "string")],
+        KIND_MATCH,
+      );
+      await renderRead({
+        records: [rec],
+        beforeRender: async () =>
+          await client.icds.dispatch(
+            rec.icd,
+            icd.set({
+              path: ["messages", status.key, "payload"],
+              value: { format: "text", delimiter: ",", prefix: "", fields: [] },
+            }),
+          ),
+      });
+      const message = await screen.findByRole("treeitem", { name: /^status/ });
+      await within(message).findByRole("img", { name: "Message is not JSON" });
+      const record = screen.getByRole("treeitem", { name: /JSON.*Any key/ });
+      within(record).getByRole("img", { name: "Message is not JSON" });
+    });
   });
 
   describe("adding data", () => {
@@ -1004,7 +1083,7 @@ describe("Kafka read form", () => {
       });
       expect(records.map(({ recordKey }) => recordKey)).toEqual(["oven-1", "oven-2"]);
       const format = await client.icds.retrieve(records[0].icd);
-      expect(format.name).toBe("Kafka read task");
+      expect(format.name).toBe(dev.name);
       expect(format.messages).toHaveLength(1);
       const [message] = format.messages;
       expect(message).toMatchObject({
@@ -1041,7 +1120,7 @@ describe("Kafka read form", () => {
       sources: ["pump"],
       fields: [
         createInferredField("/time", "timestamp", "number", "unix_ms"),
-        ...pointers.map((p) => createInferredField(p, "float64", "number")),
+        ...pointers.map((p) => createInferredField(p, "float", "number")),
       ],
       index: 0,
       count: 2,
@@ -1200,9 +1279,9 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [
-          createInferredField("/count", "int64", "number"),
-          createInferredField("/id", "uint64", "number"),
-          createInferredField("/level", "float64", "number"),
+          createInferredField("/count", "integer", "number"),
+          createInferredField("/id", "unsigned", "number"),
+          createInferredField("/level", "float", "number"),
         ],
         index: -1,
         count: 2,
@@ -1231,8 +1310,8 @@ describe("Kafka read form", () => {
       const pump = {
         sources: ["pump"],
         fields: [
-          createInferredField("/a/b", "float64", "number"),
-          createInferredField("/a_b", "float64", "number"),
+          createInferredField("/a/b", "float", "number"),
+          createInferredField("/a_b", "float", "number"),
         ],
         index: -1,
         count: 2,
@@ -1278,7 +1357,7 @@ describe("Kafka read form", () => {
       await screen.findByRole("treeitem", { name: /^temperature/ });
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 1,
         present: -1,
@@ -1309,7 +1388,7 @@ describe("Kafka read form", () => {
       const { dev } = await renderRead();
       const pump = {
         sources: ["pump"],
-        fields: [createInferredField("/pressure", "int64", "number")],
+        fields: [createInferredField("/pressure", "integer", "number")],
         index: -1,
         count: 2,
         present: -1,
@@ -1324,7 +1403,7 @@ describe("Kafka read form", () => {
       });
       const grown = {
         ...pump,
-        fields: [...pump.fields, createInferredField("/flow", "float64", "number")],
+        fields: [...pump.fields, createInferredField("/flow", "float", "number")],
       };
       const again = await answerCommandsUntil(client, [scan], "sample", {
         browse: { data: browseOf(listTopic(TOPIC)) },
@@ -1692,7 +1771,7 @@ describe("Kafka read form", () => {
         sources: ["oven-1"],
         fields: [
           ...OVEN_SHAPE.fields.slice(0, 2),
-          createInferredField("/pressure", "float64", "number"),
+          createInferredField("/pressure", "float", "number"),
         ],
         index: 0,
         count: 1,
@@ -1867,7 +1946,7 @@ describe("Kafka read form", () => {
       const added = await addFieldAsICDReader();
       await waitFor(() =>
         expect(added.statuses).toContainEqual(
-          expect.objectContaining({ message: "Failed to save ICD" }),
+          expect.objectContaining({ message: "Failed to save change" }),
         ),
       );
       await expectFieldUndone(added);
@@ -1908,7 +1987,7 @@ describe("Kafka read form", () => {
       await waitFor(() =>
         expect(statuses).toContainEqual(
           expect.objectContaining({
-            message: "Failed to save task",
+            message: "Failed to save change",
             description: expect.stringContaining("does not exist in message"),
           }),
         ),
@@ -2107,7 +2186,7 @@ describe("Kafka read form", () => {
         await screen.findByRole("treeitem", { name: /JSON.*Any key/ }),
       );
       fireEvent.click(await screen.findByRole("menuitem", { name: "Add message" }));
-      await screen.findByRole("treeitem", { name: "Any key 2" });
+      await screen.findByRole("treeitem", { name: /^Any key 2/ });
       await waitFor(async () =>
         expect((await retrieveRecords(draft.key))[0].messages).toHaveLength(2),
       );

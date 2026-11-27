@@ -236,9 +236,9 @@ func (c CoreConfig) resolveSecretsKey() (secret.EncryptionKey, error) {
 	return secret.LoadEncryptionKey(filepath.Join(c.dataPath, secretsKeyFileName))
 }
 
-// storageStopTimeout bounds the wait for the distribution and storage layers to stop
-// at shutdown.
-const storageStopTimeout = 20 * time.Second
+// stopTimeout bounds the whole stop of the layer lifetimes at shutdown: the wait for
+// each Run to return and for each Close.
+const stopTimeout = 20 * time.Second
 
 // BootupCore contains the most important Core startup logic. It does and should not
 // read any variables from viper, and instead should be called with  fully configured
@@ -279,9 +279,7 @@ func BootupCore(
 	DisablePermissionBits()
 
 	var (
-		closer            xio.MultiCloser
-		storageLayer      *storage.Layer
-		distributionLayer *distribution.Layer
+		closer xio.MultiCloser
 		// update is the update of the data that this start did not commit yet.
 		update    *storage.Update
 		lifetimes = lifetime.NewStack()
@@ -297,24 +295,16 @@ func BootupCore(
 	}
 	defer func() {
 		err = errors.Combine(err, closer.Close())
-		if storageLayer == nil {
-			return
-		}
-		ctx, cancel := context.WithTimeout(root, storageStopTimeout)
+		ctx, cancel := context.WithTimeout(root, stopTimeout)
 		defer cancel()
 		stopErr := lifetimes.Stop(ctx)
 		// A failed run is the cause of the errors it leads to, so it comes first.
 		err = errors.Combine(stopErr, err)
-		// The storage layer may still run, so it stays open, and the next start undoes
+		// A storage layer that did not close stays as it is, and the next start undoes
 		// the update.
-		if errors.Is(stopErr, context.DeadlineExceeded) {
-			return
-		}
-		if distributionLayer != nil {
-			err = errors.Combine(err, distributionLayer.Close())
-		}
-		err = errors.Combine(err, storageLayer.Close())
-		if update != nil && (err != nil || stop.Err() != nil) {
+		if update != nil &&
+			lifetimes.Closed("storage") &&
+			(err != nil || stop.Err() != nil) {
 			err = update.Undo(stop, errors.Combine(err, stop.Err()))
 		}
 	}()
@@ -372,26 +362,39 @@ func BootupCore(
 	cfg.L.Info("using working directory", zap.String("dir", workDir))
 
 	var storageLife context.Context
-	if storageLayer, err = storage.OpenLayer(stop, storage.LayerConfig{
+	storageLayer, err := storage.OpenLayer(stop, storage.LayerConfig{
 		Instrumentation:      cfg.Child("storage"),
 		InMemory:             cfg.memBacked,
 		Dirname:              cfg.dataPath,
 		Version:              vsn,
 		UpdateBackupDisabled: cfg.updateBackupDisabled,
-	}); err == nil {
+	})
+	if err == nil {
 		update = storageLayer.Update
-		storageLife = lifetimes.Go(root, "storage", storageLayer.Run)
+		storageLife = lifetimes.Go(
+			root,
+			"storage",
+			storageLayer.Run,
+			storageLayer.Close,
+		)
 	}
 	if !ok(err, nil) {
 		return err
 	}
 
-	if distributionLayer, err = distribution.OpenLayer(stop, distribution.LayerConfig{
+	distributionLayer, err := distribution.OpenLayer(stop, distribution.LayerConfig{
 		Instrumentation:  cfg.Child("distribution"),
 		AdvertiseAddress: cfg.listeners.AdvertiseAddress(),
 		Storage:          storageLayer,
-	}); err == nil {
-		lifetimes.Go(storageLife, "distribution", distributionLayer.Run)
+	})
+	var distributionLife context.Context
+	if err == nil {
+		distributionLife = lifetimes.Go(
+			storageLife,
+			"distribution",
+			distributionLayer.Run,
+			distributionLayer.Close,
+		)
 	}
 	if !ok(err, nil) {
 		return err
@@ -424,7 +427,10 @@ func BootupCore(
 		SecretsDir:             cfg.secretsDir,
 		EmbeddedDriverDisabled: !cfg.driverEnabled() || !driver.Bundled(),
 	})
-	if !ok(err, serviceLayer) {
+	if err == nil {
+		lifetimes.Go(distributionLife, "service", serviceLayer.Run, serviceLayer.Close)
+	}
+	if !ok(err, nil) {
 		return err
 	}
 

@@ -108,15 +108,15 @@ func (s *Sorted[S, K, V]) Wait(ctx context.Context) error {
 	return s.population.wait(ctx)
 }
 
-// Set maps key to value in committed state, replacing any prior value of key.
-func (s *Sorted[S, K, V]) Set(key K, value V) {
+// setCommitted maps key to value in committed state, replacing any prior value of key.
+func (s *Sorted[S, K, V]) setCommitted(key K, value V) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.put(key, value)
 }
 
-// Delete removes key from committed state.
-func (s *Sorted[S, K, V]) Delete(key K) {
+// deleteCommitted removes key from committed state.
+func (s *Sorted[S, K, V]) deleteCommitted(key K) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.remove(key)
@@ -126,7 +126,7 @@ func (s *Sorted[S, K, V]) Delete(key K) {
 // state when scope commits.
 func (s *Sorted[S, K, V]) Stage(scope S, key K, value V) {
 	if isNone(scope) {
-		s.Set(key, value)
+		s.setCommitted(key, value)
 		return
 	}
 	s.overlay.load(scope).setOne(key, value)
@@ -136,7 +136,7 @@ func (s *Sorted[S, K, V]) Stage(scope S, key K, value V) {
 // state when scope commits.
 func (s *Sorted[S, K, V]) StageDelete(scope S, key K) {
 	if isNone(scope) {
-		s.Delete(key)
+		s.deleteCommitted(key)
 		return
 	}
 	s.overlay.load(scope).delete(key)

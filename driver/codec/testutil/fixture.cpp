@@ -32,6 +32,7 @@
 
 #include "driver/codec/json.h"
 #include "driver/codec/testutil/fixture.h"
+#include "driver/codec/text.h"
 
 namespace driver::codec::testutil {
 namespace {
@@ -67,11 +68,12 @@ std::string error_data(const std::string &go) {
     return go.substr(0, go.size() - VALIDATION_SUFFIX.size());
 }
 
-JSONMessage parse_message(const nlohmann::json &m) {
+template<typename Message>
+Message parse_message(const nlohmann::json &m) {
     x::json::Parser parser(m["payload"]);
-    JSONMessage msg{
+    Message msg{
         .name = m["name"].get<std::string>(),
-        .payload = synnax::icd::JSONPayload::parse(parser),
+        .payload = decltype(Message::payload)::parse(parser),
     };
     EXPECT_TRUE(parser.ok()) << parser.error_json().dump();
     for (const auto &b: m["bindings"])
@@ -81,6 +83,9 @@ JSONMessage parse_message(const nlohmann::json &m) {
         });
     return msg;
 }
+
+template JSONMessage parse_message<JSONMessage>(const nlohmann::json &m);
+template TextMessage parse_message<TextMessage>(const nlohmann::json &m);
 
 std::string read_fixture(const std::filesystem::path &path) {
     std::ifstream file(path);

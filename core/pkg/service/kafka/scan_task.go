@@ -81,7 +81,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
+		props, err := s.properties(ctx, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -101,7 +101,7 @@ func (s scanner) Exec(
 		if err := unmarshalArgs(cmd, &args); err != nil {
 			return nil, err
 		}
-		props, err := resolveProperties(ctx, s.db, s.device, args.Device)
+		props, err := s.properties(ctx, args.Device)
 		if err != nil {
 			return nil, err
 		}
@@ -120,6 +120,16 @@ func unmarshalArgs(cmd task.Command, args any) error {
 		return errors.Wrapf(validate.ErrValidation, "invalid arguments: %s", err)
 	}
 	return nil
+}
+
+// properties returns the properties of the cluster device with key. It returns a
+// driver.Failure when the device holds settings that cannot open a client.
+func (s scanner) properties(ctx context.Context, key device.Key) (Properties, error) {
+	props, err := resolveProperties(ctx, s.db, s.device, key)
+	if errors.Is(err, validate.ErrValidation) {
+		return Properties{}, settingsFailure(err)
+	}
+	return props, err
 }
 
 func (s scanner) ping(ctx context.Context, props Properties) error {

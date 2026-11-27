@@ -50,6 +50,42 @@ describe("Status", () => {
     );
   });
 
+  describe("summary with a description", () => {
+    const DESCRIPTION =
+      "Line plots need a GPU to render. Run the Console on a machine with a GPU. ".repeat(
+        3,
+      );
+
+    const renderSummary = async (center?: boolean) => {
+      const { getByText } = await renderThemed(
+        <div style={{ width: "1200px", height: "400px", display: "flex" }}>
+          <Status.Summary
+            variant="error"
+            message="GPU required"
+            description={DESCRIPTION}
+            center={center}
+          />
+        </div>,
+      );
+      const description = getByText(DESCRIPTION.trim()).element();
+      const box = description.parentElement!.getBoundingClientRect();
+      return { description, box, rect: description.getBoundingClientRect() };
+    };
+
+    it("should center the description and wrap it at 80rem in a wide box", async () => {
+      const { description, box, rect } = await renderSummary();
+      expect(computed(description, "text-align")).toBe("center");
+      expect(rect.width).toBe(Number.parseFloat(resolve("80rem", "width")));
+      expect(rect.left - box.left).toBeCloseTo(box.right - rect.right, 0);
+    });
+
+    it("should start the description at the left edge when not centered", async () => {
+      const { description, box, rect } = await renderSummary(false);
+      expect(computed(description, "text-align")).toBe("start");
+      expect(rect.left).toBe(box.left);
+    });
+  });
+
   describe("notification", () => {
     it("should float on the lift shadow with a border", async () => {
       const card = await renderNotification();
