@@ -39,6 +39,7 @@ from synnax import (
     icd,
     imex as imex_,
     label,
+    labjack as labjack_,
     license as license_,
     lineplot,
     log,
@@ -376,6 +377,10 @@ class Synnax(framer.Client):
     @_Lazy
     def certificates(self) -> certificate.Client:
         return certificate.Client(client=self._transport.unary)
+
+    @_Lazy
+    def labjack(self) -> labjack_.Client:
+        return labjack_.Client(client=self._transport.unary)
 
     @_Lazy
     def icds(self) -> icd.Client:

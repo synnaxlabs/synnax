@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from synnax.labjack import device
+from synnax.labjack.client import Client
 from synnax.labjack.types import (
     MAKE,
     SUPPORTED_MODELS,
@@ -53,6 +54,7 @@ __all__ = [
     "AnalogWriteChannel",
     "BaseReadChannel",
     "BaseWriteChannel",
+    "Client",
     "Device",
     "DigitalReadChannel",
     "DigitalWriteChannel",
