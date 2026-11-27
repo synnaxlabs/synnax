@@ -964,7 +964,13 @@ describe("MQTT Write form", () => {
         expect(group.getByRole("button", { name }).getAttribute("aria-disabled")).toBe(
           "true",
         );
+      expect(
+        group.getByText("A message needs at least one field on a channel."),
+      ).toBeTruthy();
       const openGroup = await fieldGroup(open.name);
+      expect(
+        openGroup.queryByText("A message needs at least one field on a channel."),
+      ).toBeNull();
       expect(openGroup.getByText("Sends its default, False.")).toBeTruthy();
     });
 
@@ -1147,6 +1153,19 @@ describe("MQTT Write form", () => {
       return found;
     };
 
+    it("should lead the topics with adding a topic by name, since command topics often do not show", async () => {
+      const { dev } = await renderWrite();
+      const scanner = await openScanner(client, dev.rack);
+      const dialog = await openAddTargets();
+      await scanner.answer({ data: { topics: [TOPIC], truncated: false } });
+      const add = await dialog.findByRole("button", { name: "Add a topic by name" });
+      const search = dialog.getByPlaceholderText("Search topics");
+      expect(
+        add.compareDocumentPosition(search) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      expect(dialog.getByText("Command topics often do not show here.")).toBeTruthy();
+    });
+
     it("should add a whole picked topic with a format from its messages, in an ICD named after the task", async () => {
       const { dialog, draft } = await openOnPickedTopic();
       dialog.getByText("1 topic selected");
@@ -1206,7 +1225,7 @@ describe("MQTT Write form", () => {
       const dialog = await openAddTargets();
       await scanner.answer({ data: { topics: [topic], truncated: false } });
       const note = await dialog.findByText("Used for the format");
-      expect(titleOf(note)).toBe("3 messages with /rpm");
+      expect(titleOf(note)).toBe("Messages that have /rpm");
       expect(
         ["setpoint", "rpm", "mode"].map((n) => isDimmed(dialog.getByText(n))),
       ).toEqual([true, false, false]);
@@ -1252,7 +1271,7 @@ describe("MQTT Write form", () => {
       await scanner.answer({ data: { topics: [listen(1, 3)], truncated: false } });
       await waitFor(() =>
         expect(titleOf(dialog.getByText("Used for the format"))).toBe(
-          "3 messages with /rpm",
+          "Messages that have /rpm",
         ),
       );
       fireEvent.click(dialog.getByRole("button", { name: "Add 1 target" }));

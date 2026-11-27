@@ -23,6 +23,12 @@ export const DEFAULT_DATA_TYPES: Record<payload.Kind, string> = {
   bytes: DataType.BYTES.toString(),
 };
 
+/** The type that a picker lists for a value of each kind. */
+export const VALUE_TYPES: Record<payload.Kind, string> = {
+  ...DEFAULT_DATA_TYPES,
+  boolean: DataType.BOOLEAN.toString(),
+};
+
 const isScaled = ({
   scale,
   offset,
