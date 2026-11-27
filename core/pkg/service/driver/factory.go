@@ -33,7 +33,7 @@ type Factory interface {
 	ConfigureTask(ctx context.Context, t task.Task, cmdKey string) (Task, error)
 	// InitialTasks returns the internal tasks this factory needs on the Driver's
 	// rack, such as a scan task. The Driver creates each task whose type the rack
-	// does not yet hold, then configures it like any stored task. The driver sets
+	// does not yet hold, then configures it like any stored task. The Driver sets
 	// the rack and the internal flag.
 	InitialTasks() []task.Task
 	// Name returns the integration name of this factory. This is used to identify the

@@ -25,7 +25,7 @@
 namespace driver::common {
 /// @brief common read task configuration shared across hardware acquisition tasks.
 /// Wraps the schema-generated read config (auto_start, data_saving_disabled,
-/// sample_rate, stream_rate) with the driver-only timing options, so the field set
+/// sample_rate, stream_rate) with the Driver-only timing options, so the field set
 /// has a single definition in the Oracle schema.
 struct BaseReadTaskConfig : ::synnax::task::ReadConfig {
     /// @brief timing configuration options for the task.
