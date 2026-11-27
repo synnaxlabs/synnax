@@ -47,7 +47,7 @@ func jsonMap(raw string) msgpack.EncodedJSON {
 	return m
 }
 
-// seedV1 stores a v1 wire-format table in a fresh gorp DB and returns the DB.
+// seedV1 stores a v1 wire-format table in a fresh Gorp DB and returns the DB.
 func seedV1(ctx SpecContext, seed *v0.Table) *gorp.DB {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))

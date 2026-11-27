@@ -21,8 +21,8 @@ import {
 } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 
-// Every console surface resolves the subject and its policies before it renders, and
-// the flux store needs the frame stream to receive any live update at all.
+// Every Console surface resolves the subject and its policies before it renders, and
+// the Flux store needs the frame stream to receive any live update at all.
 const BASELINE = [
   user.TYPE_RESOURCE_ID,
   access.role.TYPE_RESOURCE_ID,
@@ -35,7 +35,7 @@ export type Grants = Partial<Record<access.Action, resource.ID[]>>;
 
 /**
  * Creates a client granted exactly these actions on these types, on top of the reads
- * every console surface needs to render at all. Every built-in role covers whole
+ * every Console surface needs to render at all. Every built-in role covers whole
  * action sets at once, so none of them can isolate a single gate.
  * @param params - Further parameters of the new client.
  */

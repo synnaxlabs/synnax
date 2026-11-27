@@ -361,27 +361,37 @@ const createJSON = (name: string, pointer: string): icd.JSONField => ({
   enumValues: [],
 });
 
+const createBase = (name: string) => ({
+  key: uuid.create(),
+  name,
+  scale: 1,
+  offset: 0,
+  units: "",
+});
+
+const createBinary = (name: string, startBit: number = 0): icd.BinaryField => ({
+  ...createBase(name),
+  startBit,
+  bitLength: 8,
+  byteOrder: "little_endian",
+  kind: "unsigned",
+  multiplexValues: [],
+});
+
 const createField = (
   encoding: Encoding,
   name: string = "",
   pointer: string = "",
 ): Field => {
-  if (encoding === "json") return createJSON(name, pointer);
-  const base = { key: uuid.create(), name, scale: 1, offset: 0, units: "" };
   switch (encoding) {
+    case "json":
+      return createJSON(name, pointer);
     case "binary":
-      return {
-        ...base,
-        startBit: 0,
-        bitLength: 8,
-        byteOrder: "little_endian",
-        kind: "unsigned",
-        multiplexValues: [],
-      };
+      return createBinary(name);
     case "delimited":
-      return { ...base, encoding, position: 0 };
+      return { ...createBase(name), encoding, position: 0 };
     case "tagged":
-      return { ...base, encoding, tag: "" };
+      return { ...createBase(name), encoding, tag: "" };
   }
 };
 
@@ -444,6 +454,31 @@ export const createJSONField = (fields: icd.JSONField[]): icd.JSONField => {
     fields.map((f) => f.pointer),
   );
   return createJSON(name, pointer);
+};
+
+/**
+ * @returns a field to add to a message with a free name. A text field reads the next
+ * free position. A binary field reads 8 unsigned bits after the last bit read.
+ */
+export const createMessageField = (value: icd.Message["payload"]): Field => {
+  if (value.format === "json") return createJSONField(value.fields);
+  const { name } = freeNameAndPointer(
+    value.fields.map((f) => f.name),
+    [],
+  );
+  if (value.format === "binary")
+    return createBinary(
+      name,
+      Math.max(0, ...value.fields.map((f) => f.startBit + f.bitLength)),
+    );
+  const after = value.fields.flatMap((f) =>
+    f.encoding === "delimited" ? [f.position + 1] : [],
+  );
+  return {
+    ...createBase(name),
+    encoding: "delimited",
+    position: Math.max(0, ...after),
+  };
 };
 
 /**

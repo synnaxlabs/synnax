@@ -46,9 +46,9 @@ struct Readers {
     std::vector<driver::icd::Reader> endpoints;
     /// @brief channels holds the channel of each binding, by key.
     std::map<synnax::channel::Key, synnax::channel::Channel> channels;
-    /// @brief pointers holds the JSON pointer of the field of each binding of a JSON
-    /// message, by the key of its channel.
-    std::map<synnax::channel::Key, std::string> pointers;
+    /// @brief fields holds how warnings name the field of each binding, by the key of
+    /// its channel: the JSON pointer of a JSON field, or the name of any other field.
+    std::map<synnax::channel::Key, std::string> fields;
 };
 
 /// @brief source that polls HTTP endpoints and writes extracted values to a frame.

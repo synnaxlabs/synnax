@@ -171,7 +171,7 @@ describe("AnalogRead", () => {
       ["ai_voltage_rms", "Terminal configuration"],
       ["ai_voltage_with_excit", "Use excitation for scaling"],
     ];
-    // A generated type without a case here is a type the console cannot edit.
+    // A generated type without a case here is a type the Console cannot edit.
     expect(new Set(cases.map(([type]) => type))).toEqual(
       new Set(Object.keys(NI.Task.AI_CHANNEL_TYPE_NAMES)),
     );

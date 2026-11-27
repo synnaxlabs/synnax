@@ -18,7 +18,7 @@ export interface RetrieveParams<Query extends query.Params> {
 /**
  * A domain query definition: fetch = `retrieve`, live updates = `onChange`, snapshot =
  * `getCached`, all delegating to the domain client's read surface. React-free, so one
- * definition serves both the React and aether flux bindings.
+ * definition serves both the React and Aether Flux bindings.
  */
 export interface Definition<Query extends query.Params, Data extends query.Data> {
   name: string;
@@ -52,7 +52,7 @@ export interface RetrieveArgs<Query extends query.Params, Data extends query.Dat
 }
 
 /**
- * Holds one query's answer live for an aether component: seeds synchronously from the
+ * Holds one query's answer live for an Aether component: seeds synchronously from the
  * domain cache, fetches on a miss, subscribes for changes, and pushes updates through
  * `onChange`. Call {@link update} from `afterUpdate` and {@link close} from
  * `afterDelete`. Repeated updates with an equal query and client are no-ops.

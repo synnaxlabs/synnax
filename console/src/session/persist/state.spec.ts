@@ -39,7 +39,7 @@ interface MockState {
    * windows, and a shared field beside it.
    */
   view: { label: string; windows: Record<string, { value: string }> };
-  /** Stands in for the drift bookkeeping the project partition holds. */
+  /** Stands in for the Drift bookkeeping the project partition holds. */
   windows: string[];
 }
 
@@ -473,7 +473,7 @@ describe("Persist.open", () => {
       const store = new CountingKV();
       const driver = await createDriver(store);
       await enter(driver, CTX);
-      // The window list comes from drift, not from the slice, so a window that never
+      // The window list comes from Drift, not from the slice, so a window that never
       // touched the view slice still gets a partition staged and written.
       driver.dispatch(
         { type: "window/open" },

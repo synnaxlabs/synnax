@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/serial/json.gen.h"
@@ -25,14 +27,15 @@ class RetrieveDevice : public ::testing::Test {
 protected:
     synnax::Synnax client = new_test_client();
 
-    /// @returns a device named boiler with properties that it creates.
-    [[nodiscard]] synnax::device::Device create(const x::json::json &properties) const {
+    /// @returns a device named boiler of make with properties that it creates.
+    [[nodiscard]] synnax::device::Device
+    create(const x::json::json &properties, const std::string &make = "serial") const {
         const auto rack = ASSERT_NIL_P(this->client.racks.create("serial_retrieve"));
         synnax::device::Device dev{
             .key = make_unique_channel_name("serial_device"),
             .rack = rack.key,
             .location = "port",
-            .make = "serial",
+            .make = make,
             .model = "serial",
             .name = "boiler",
         };
@@ -58,9 +61,10 @@ TEST_F(RetrieveDevice, ReturnsKeyNameAndProperties) {
     EXPECT_EQ(got.props.baud_rate, 115200);
 }
 
-/// @brief it should fail on a device whose properties are not valid properties.
+/// @brief it should fail on a device of another make whose properties are not serial
+/// properties.
 TEST_F(RetrieveDevice, FailsOnInvalidProperties) {
-    const auto dev = this->create(x::json::json{{"port", 12}});
+    const auto dev = this->create(x::json::json{{"port", 12}}, "labjack");
     ASSERT_OCCURRED_AS_P(
         retrieve_device<synnax::serial::Properties>(this->client.devices, dev.key),
         x::errors::VALIDATION

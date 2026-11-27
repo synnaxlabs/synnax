@@ -31,12 +31,26 @@
     {
       "text": "1\n",
       "message": "line",
-      "error": "field a: invalid number \"1\\n\": validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: invalid number \"1\\n\": validation error"
+        }
+      ]
     },
     {
       "text": "1\r\n",
       "message": "line",
-      "error": "field a: invalid number \"1\\r\\n\": validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: invalid number \"1\\r\\n\": validation error"
+        }
+      ]
     },
     {
       "text": "1\r",
@@ -46,7 +60,14 @@
     {
       "text": "1\n2",
       "message": "line",
-      "error": "field a: invalid number \"1\\n2\": validation error"
+      "samples": [null],
+      "failures": [
+        {
+          "binding": 0,
+          "missing": false,
+          "error": "field a: invalid number \"1\\n2\": validation error"
+        }
+      ]
     }
   ]
 }

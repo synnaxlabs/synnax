@@ -1,0 +1,108 @@
+{
+  "description": "The message that the Core gives a document, for the Core and the Console. The Console routes the fields that inference gives the document, so each case holds those pointers. A document that holds the pointer of a value rule is not here: its shape does not hold the value.",
+  "groups": [
+    {
+      "description": "Present rules and a message with no rule",
+      "messages": [
+        {
+          "name": "fault",
+          "payload": {
+            "format": "json",
+            "fields": [],
+            "match": { "type": "present", "pointer": "/fault" }
+          },
+          "bindings": []
+        },
+        {
+          "name": "rpm",
+          "payload": {
+            "format": "json",
+            "fields": [],
+            "match": { "type": "present", "pointer": "/rpm" }
+          },
+          "bindings": []
+        },
+        {
+          "name": "rest",
+          "payload": { "format": "json", "fields": [] },
+          "bindings": []
+        }
+      ],
+      "cases": [
+        {
+          "document": { "t": 1, "rpm": 3000 },
+          "fields": ["/t", "/rpm"],
+          "message": "rpm"
+        },
+        { "document": { "t": 1 }, "fields": ["/t"], "message": "rest" },
+        { "document": { "t": 1, "rpm": null }, "fields": ["/t"], "message": "rest" }
+      ]
+    },
+    {
+      "description": "A present rule above a field",
+      "messages": [
+        {
+          "name": "status",
+          "payload": {
+            "format": "json",
+            "fields": [],
+            "match": { "type": "present", "pointer": "/status" }
+          },
+          "bindings": []
+        }
+      ],
+      "cases": [
+        {
+          "document": { "status": { "code": 2 } },
+          "fields": ["/status/code"],
+          "message": "status"
+        },
+        { "document": { "statuses": 1 }, "fields": ["/statuses"], "unmatched": true }
+      ]
+    },
+    {
+      "description": "Value rules at a pointer that the document does not hold",
+      "messages": [
+        {
+          "name": "status",
+          "payload": {
+            "format": "json",
+            "fields": [],
+            "match": { "type": "string", "pointer": "/kind", "value": "status" }
+          },
+          "bindings": []
+        },
+        {
+          "name": "rest",
+          "payload": { "format": "json", "fields": [] },
+          "bindings": []
+        }
+      ],
+      "cases": [{ "document": { "temp": 1 }, "fields": ["/temp"], "message": "rest" }]
+    },
+    {
+      "description": "Rules on every message",
+      "messages": [
+        {
+          "name": "rpm",
+          "payload": {
+            "format": "json",
+            "fields": [],
+            "match": { "type": "present", "pointer": "/rpm" }
+          },
+          "bindings": []
+        },
+        {
+          "name": "status",
+          "payload": {
+            "format": "json",
+            "fields": [],
+            "match": { "type": "string", "pointer": "/kind", "value": "status" }
+          },
+          "bindings": []
+        }
+      ],
+      "cases": [{ "document": { "t": 1 }, "fields": ["/t"], "unmatched": true }]
+    }
+  ]
+}

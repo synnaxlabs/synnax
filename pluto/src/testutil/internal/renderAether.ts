@@ -97,7 +97,7 @@ afterEach(() => {
 });
 
 /**
- * Mount an aether component on the worker side, wrapped in a Synnax provider stack.
+ * Mount an Aether component on the worker side, wrapped in a Synnax provider stack.
  * Builds the chain `Root → [alamos → status → synnax → theming → series → telem →
  * render] → <component>`, including only the providers enabled in
  * {@link ProviderOptions} (all on by default except `render`). Every level runs its

@@ -17,7 +17,7 @@ import (
 )
 
 // wrapperNames decides each type's developer-wrapper name: a @go migrate entry's
-// auto-copy is same-package gorp wiring and stays unexported; every other type keeps
+// auto-copy is same-package Gorp wiring and stays unexported; every other type keeps
 // the exported name so a generated wrapper is never an unused unexported function.
 // counterpart maps a qualified name in oldTable to the name newTable files the same
 // type under.

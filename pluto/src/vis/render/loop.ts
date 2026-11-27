@@ -22,7 +22,7 @@ export interface Renderer {
 }
 
 /**
- * A request to render a component in the aether visualization tree. Submit a complete
+ * A request to render a component in the Aether visualization tree. Submit a complete
  * version of this request to the {@link Loop} to render a component.
  */
 export interface Request {
@@ -88,7 +88,7 @@ interface LoopParams {
 }
 
 /**
- * Implements the main rendering loop for Synnax's aether components, accepting requests
+ * Implements the main rendering loop for Synnax's Aether components, accepting requests
  * into a queue and rendering them in sync with the browser animation frame.
  */
 export class Loop {

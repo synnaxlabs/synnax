@@ -1,0 +1,52 @@
+{
+  "description": "A match rule at the root reads a document that is not JSON as a JSON string.",
+  "messages": [
+    {
+      "name": "on",
+      "payload": {
+        "format": "json",
+        "fields": [],
+        "match": {
+          "type": "string",
+          "pointer": "",
+          "value": "ON"
+        }
+      },
+      "bindings": []
+    },
+    {
+      "name": "off",
+      "payload": {
+        "format": "json",
+        "fields": [],
+        "match": {
+          "type": "string",
+          "pointer": "",
+          "value": "OFF"
+        }
+      },
+      "bindings": []
+    }
+  ],
+  "cases": [
+    {
+      "text": "ON",
+      "message": "on",
+      "samples": []
+    },
+    {
+      "text": "OFF",
+      "message": "off",
+      "samples": []
+    },
+    {
+      "document": "ON",
+      "message": "on",
+      "samples": []
+    },
+    {
+      "text": "IDLE",
+      "unmatched": true
+    }
+  ]
+}

@@ -299,6 +299,8 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.TS, err = openTS(ctx, cfg, tsFS); !ok(err, l.TS) {
 		return nil, err
 	}
+	// Neither store syncs the path to the storage directory, nor Cesium's entry in it.
+	syncStorageDir(cfg, tsFS)
 	l.Update = update
 	return l, nil
 }
@@ -361,6 +363,28 @@ func configureStorageDir(cfg LayerConfig, vfs vfs.FS, tsFS xfs.FS) error {
 		return validateSufficientDirPermissions(cfg, vfs)
 	}
 	return nil
+}
+
+// syncStorageDir makes durable the entries of the storage directory and of each of its
+// parents, on every open, so a directory that an earlier open made is covered too. The
+// two file systems are one on disk, so the syncs on tsFS cover both stores. A failed
+// sync is logged, since it leaves the entries no less durable than no sync.
+func syncStorageDir(cfg LayerConfig, tsFS xfs.FS) {
+	if *cfg.InMemory {
+		return
+	}
+	for dir := cfg.Dirname; ; dir = filepath.Dir(dir) {
+		if err := tsFS.SyncDir(dir); err != nil {
+			cfg.L.Warn(
+				"failed to sync storage directory",
+				zap.String("dir", dir),
+				zap.Error(err),
+			)
+		}
+		if filepath.Dir(dir) == dir {
+			return
+		}
+	}
 }
 
 const insufficientDirPermissions = `
