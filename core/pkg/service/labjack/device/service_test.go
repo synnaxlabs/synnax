@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/device"
@@ -28,17 +29,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Service", func() {
 	var (
-		stat    *status.Service
-		rackSvc *rack.Service
-		svc     *device.Service
-		tx      gorp.Tx
-		rackKey rack.Key
+		stat       *status.Service
+		rackSvc    *rack.Service
+		svc        *device.Service
+		channelSvc *channel.Service
+		tx         gorp.Tx
+		rackKey    rack.Key
 	)
 	BeforeEach(func(ctx SpecContext) {
 		MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
@@ -47,11 +50,17 @@ var _ = Describe("Service", func() {
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{DB: db}))
 		rackSvc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:         db,
-			HostKey:    1,
+			HostKey:    node.Identity.HostKey,
 			Status:     stat,
 			DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, db, roleSvc)),
 		}))
 		rackKey = rackSvc.EmbeddedKey
+		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+			Channel: node.Channel,
+			DB:      db,
+			HostKey: node.Identity.HostKey,
+			Status:  stat,
+		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:     db,
 			Status: stat,
@@ -109,6 +118,41 @@ var _ = Describe("Service", func() {
 			Exec(ctx, tx)).To(Succeed())
 		return s
 	}
+
+	Describe("Channels", func() {
+		createIndex := func(ctx context.Context) channel.Key {
+			GinkgoHelper()
+			ch := channel.Channel{
+				Name:     channeltestutil.UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(channelSvc.NewWriter(tx).Create(ctx, &ch)).To(Succeed())
+			return ch.Key()
+		}
+		bind := func(ctx context.Context, read *channel.Key) error {
+			d := device.Device{
+				Key:        uuid.New(),
+				Rack:       rackKey,
+				Name:       "T7-0002",
+				Serial:     nextSerial(),
+				Connection: device.ConnectionUSB,
+				Model:      device.ModelT7,
+				Ports:      device.Ports{Variant: device.T7Ports{}},
+				ReadIndex:  read,
+			}
+			return gorp.NewCreate[device.Key, device.Device]().Entry(&d).Exec(ctx, tx)
+		}
+
+		It("Should keep a channel that a device binds from being deleted", func(
+			ctx SpecContext,
+		) {
+			ch := createIndex(ctx)
+			Expect(bind(ctx, new(ch))).To(Succeed())
+			Expect(channelSvc.NewWriter(tx).Delete(ctx, ch, false)).
+				To(MatchError(validate.ErrValidation))
+		})
+	})
 
 	Describe("OpenService", func() {
 		DescribeTable("Should reject a config missing a required field",
@@ -350,7 +394,6 @@ var _ = Describe("Service", func() {
 				Configuration: device.Configuration{
 					Name:       "Renamed",
 					Identifier: "dev1",
-					ReadIndex:  7,
 					Ports:      device.Ports{Variant: ports},
 				},
 			}}
@@ -378,7 +421,6 @@ var _ = Describe("Service", func() {
 			got := retrieve(ctx, d.Key)
 			Expect(got.Name).To(Equal("Renamed"))
 			Expect(got.Identifier).To(Equal("dev1"))
-			Expect(got.ReadIndex).To(BeEquivalentTo(7))
 			Expect(got.Ports).To(Equal(device.Ports{
 				Variant: device.T7Ports{Mux80Attached: true},
 			}))

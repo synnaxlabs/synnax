@@ -52,8 +52,18 @@ func (d Device) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(uint32(d.Serial))
 	w.String(string(d.Connection))
 	w.String(d.Identifier)
-	w.Uint32(uint32(d.ReadIndex))
-	w.Uint32(uint32(d.WriteStateIndex))
+	if d.ReadIndex != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*d.ReadIndex))
+	} else {
+		w.Bool(false)
+	}
+	if d.WriteStateIndex != nil {
+		w.Bool(true)
+		w.Uint32(uint32(*d.WriteStateIndex))
+	} else {
+		w.Bool(false)
+	}
 	w.String(string(d.Model))
 	if err := d.Ports.EncodeOrc(w); err != nil {
 		return err
@@ -91,18 +101,38 @@ func (d *Device) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		rawV, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		d.ReadIndex = channel.Key(rawV)
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			d.ReadIndex = &hv
+		}
 	}
 	{
-		rawV, err := r.Uint32()
+		present, err := r.Bool()
 		if err != nil {
 			return err
 		}
-		d.WriteStateIndex = channel.Key(rawV)
+		if present {
+			var hv channel.Key
+			{
+				rawV, err := r.Uint32()
+				if err != nil {
+					return err
+				}
+				hv = channel.Key(rawV)
+			}
+			d.WriteStateIndex = &hv
+		}
 	}
 	{
 		rawV, err := r.String()

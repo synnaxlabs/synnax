@@ -365,24 +365,24 @@ Device struct {
         @doc value "uniquely identifies the device."
         @key
     }
-    rack              rack.Key    {
+    rack              rack.Key     {
         @doc value     "is the key of the rack the device is connected to."
         @ref kind      place
         @ref on_delete restrict
     }
-    name              string      {
+    name              string       {
         @doc value         "is a human-readable name for the device."
         @filter
         @search
         @validate required
     }
-    serial            uint32      {
+    serial            uint32       {
         @doc value         "is the serial number of the device."
         @filter
         @index lookup
         @validate required
     }
-    connection        Connection  {
+    connection        Connection   {
         @doc value "is the connection the scanner last found the device on."
     }
     identifier        string = "" {
@@ -392,25 +392,33 @@ Device struct {
         """
         @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
     }
-    read_index        channel.Key = 0 {
-        @doc value "is the index channel of the channels that the device reads into."
+    read_index        channel.Key? {
+        @doc value     """
+            is the index channel of the channels that the device reads into.
+        """
+        @ref kind      use
+        @ref on_delete restrict
     }
-    write_state_index channel.Key = 0 {
-        @doc value "is the index channel of the state channels of the device's outputs."
+    write_state_index channel.Key? {
+        @doc value     """
+            is the index channel of the state channels of the device's outputs.
+        """
+        @ref kind      use
+        @ref on_delete restrict
     }
-    status            Status?     {
+    status            Status?      {
         @doc value  "is the current operational status of the device."
         @go marshal omit
         @include
     }
-    model             Model       {
+    model             Model        {
         @doc value         """
             is the model of the device. It selects the ports the device has.
         """
         @filter
         @validate required
     }
-    ports             Ports       {
+    ports             Ports        {
         @doc value "holds the channel maps and the accessories of the device's model."
     }
 
@@ -443,7 +451,7 @@ Identity struct {
 }
 
 Configuration struct {
-    name              string      {
+    name              string       {
         @doc value         "is a human-readable name for the device."
         @validate required
     }
@@ -454,13 +462,13 @@ Configuration struct {
         """
         @go validate pattern "^$|^[A-Za-z][A-Za-z0-9_]{1,11}$" "Identifier must be 2 to 12 characters, start with a letter, and contain only letters, digits, and underscores"
     }
-    read_index        channel.Key = 0 {
+    read_index        channel.Key? {
         @doc value "is the index channel of the channels that the device reads into."
     }
-    write_state_index channel.Key = 0 {
+    write_state_index channel.Key? {
         @doc value "is the index channel of the state channels of the device's outputs."
     }
-    ports             Ports       {
+    ports             Ports        {
         @doc value """
             holds the configuration that depends on the model. Its model must be the
             model of the stored device.

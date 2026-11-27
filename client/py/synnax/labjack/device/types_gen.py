@@ -782,8 +782,8 @@ class Configuration(BaseModel):
 
     name: str = Field(min_length=1)
     identifier: str = ""
-    read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    write_state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    read_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
+    write_state_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
     ports: Ports
 
 
@@ -812,8 +812,8 @@ class Device(BaseModel):
     serial: int = Field(gt=0, le=4294967295)
     connection: Connection
     identifier: str = ""
-    read_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    write_state_index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
+    read_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
+    write_state_index: channel.Key | None = Field(default=None, ge=0, le=4294967295)
     status: Status | None = None
     model: Model
     ports: Ports
