@@ -27,6 +27,19 @@
       "package": "github.com/synnaxlabs/x/io/fs/testutil/crash",
       "name": "Writeback",
       "caller": "https://linear.app/synnax/issue/SY-6385"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "name": "HeldFunc",
+      "caller": "https://linear.app/synnax/issue/SY-6524"
+    },
+    {
+      "module": "gorp",
+      "package": "github.com/synnaxlabs/gorp",
+      "receiver": "Delete",
+      "name": "Held",
+      "caller": "https://linear.app/synnax/issue/SY-6524"
     }
   ]
 }
