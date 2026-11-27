@@ -69,6 +69,9 @@ var _ = Describe("Device", func() {
 			DB:     db,
 			Status: stat,
 			Rack:   rackSvc,
+			Properties: map[string]func(msgpack.EncodedJSON) error{
+				checkedMake: device.CheckProperties[checkedProperties](),
+			},
 		}))
 		tx = DeferClose(db.OpenTx())
 		w = svc.NewWriter(tx)
@@ -411,6 +414,69 @@ var _ = Describe("Device", func() {
 			},
 		)
 	})
+	Describe("Properties", func() {
+		newDevice := func(deviceMake string, props msgpack.EncodedJSON) device.Device {
+			return device.Device{
+				Key:        "checked",
+				Rack:       rackSvc.EmbeddedKey,
+				Location:   "checked",
+				Name:       "checked",
+				Make:       deviceMake,
+				Model:      "checked",
+				Properties: props,
+			}
+		}
+
+		It("Should create a device whose properties pass the check of its make", func(
+			ctx SpecContext,
+		) {
+			d := newDevice(checkedMake, msgpack.EncodedJSON{"port": 502})
+			Expect(w.Create(ctx, &d)).To(Succeed())
+		})
+
+		It("Should refuse a device whose properties fail the check of its make", func(
+			ctx SpecContext,
+		) {
+			d := newDevice(checkedMake, msgpack.EncodedJSON{"port": 0})
+			err := w.Create(ctx, &d)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(
+				ContainSubstring("properties.port: must be greater than 0"),
+			))
+		})
+
+		It("Should refuse a device whose properties do not decode", func(
+			ctx SpecContext,
+		) {
+			d := newDevice(checkedMake, msgpack.EncodedJSON{"port": "modbus"})
+			err := w.Create(ctx, &d)
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(ContainSubstring("properties: ")))
+		})
+
+		It("Should store any properties on a device of a make with no check", func(
+			ctx SpecContext,
+		) {
+			d := newDevice("unchecked", msgpack.EncodedJSON{"port": "modbus"})
+			Expect(w.Create(ctx, &d)).To(Succeed())
+		})
+
+		It("Should refuse an edit that breaks the properties of a device", func(
+			ctx SpecContext,
+		) {
+			d := newDevice(checkedMake, msgpack.EncodedJSON{"port": 502})
+			Expect(w.Create(ctx, &d)).To(Succeed())
+			err := w.Apply(ctx, d.Key, device.NewSetAction(device.SetPayload{
+				Path:  []string{"properties", "port"},
+				Value: 0,
+			}))
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(
+				ContainSubstring("properties.port: must be greater than 0"),
+			))
+		})
+	})
+
 	Describe("CreateMany", func() {
 		It("Should create multiple devices", func(ctx SpecContext) {
 			devices := []device.Device{
@@ -1483,6 +1549,20 @@ var _ = Describe("References", func() {
 		)))
 	})
 })
+
+// checkedMake is the make whose devices the specs check with checkedProperties.
+const checkedMake = "checked"
+
+// checkedProperties is the properties of a device of checkedMake.
+type checkedProperties struct {
+	Port int `json:"port"`
+}
+
+func (p checkedProperties) Validate() error {
+	v := validate.New("properties")
+	v.GreaterThan("port", p.Port, 0)
+	return v.Error()
+}
 
 // labelColor is the color of the labels that the specs create.
 var labelColor = servicecolor.Ref{Variant: servicecolor.FixedRef{}}

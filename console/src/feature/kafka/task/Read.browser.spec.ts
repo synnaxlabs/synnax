@@ -18,6 +18,7 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
+  createTestClientWithRole,
   holdRequests,
 } from "@synnaxlabs/client/testutil";
 import type { Status } from "@synnaxlabs/lyra/status";
@@ -60,6 +61,9 @@ import {
   clickDeploy,
   type CommandAnswer,
   deployAndAwaitTask,
+  findDetailsButton,
+  findDetailsPane,
+  findListButton,
   preloadForms,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -375,7 +379,7 @@ const createSampledRecord = (offset: number, value: object) => ({
 
 /** Clicks Add data. @returns queries scoped to the dialog. */
 const clickAddData = async () => {
-  fireEvent.click(await screen.findByRole("button", { name: "Add data" }));
+  fireEvent.click(await findListButton("Add data"));
   return within(await screen.findByRole("dialog"));
 };
 
@@ -438,7 +442,23 @@ describe("Kafka read form", () => {
     it("should show no topics for a new task", async () => {
       await renderRead({ empty: true });
       await screen.findByText("No topics");
-      await screen.findByText("Add data to read the records of a topic");
+      await screen.findByText("No entry selected");
+    });
+
+    it("should open Add data from the empty details pane", async () => {
+      await renderRead({ empty: true });
+      fireEvent.click(await findDetailsButton("Add data"));
+      await screen.findByRole("dialog");
+    });
+
+    it("should offer no add in the empty details pane of a preview", async () => {
+      await renderRead({
+        empty: true,
+        as: await createTestClientWithRole(client, "Viewer"),
+      });
+      const details = await findDetailsPane();
+      await within(details).findByText("No entry selected");
+      expect(within(details).queryByRole("button", { name: "Add data" })).toBeNull();
     });
 
     it("should pick fields from two topics in one dialog", async () => {
@@ -1022,7 +1042,7 @@ describe("Kafka read form", () => {
 
     it("should open one Add data dialog for a double click", async () => {
       await renderRead();
-      const button = await screen.findByRole("button", { name: "Add data" });
+      const button = await findListButton("Add data");
       fireEvent.click(button);
       fireEvent.click(button);
       await screen.findByRole("dialog");
@@ -1776,6 +1796,78 @@ describe("Kafka read form", () => {
           ?.messages[0].bindings.some(({ field }) => field === pressure);
       expect(bindsPressure("oven-2")).toBe(true);
       expect(bindsPressure("pump-1")).toBe(true);
+    });
+
+    it("should add a new message when a held record of a later topic adds a field that a new key cannot read", async () => {
+      const time = createTimeField();
+      const held = await createRecord({
+        fields: [time, createField("temperature", "float")],
+        recordKey: "oven-1",
+        index: time.key,
+      });
+      const pump = kafka.readRecordZ.parse({
+        ...held,
+        key: uuid.create(),
+        recordKey: "pump-1",
+      });
+      const { draft, dev } = await renderRead({
+        records: [held],
+        topics: [kafka.readTopicZ.parse({ name: "plant", records: [pump] })],
+      });
+      await waitFor(() =>
+        expect(screen.getAllByRole("treeitem", { name: /^temperature/ })).toHaveLength(
+          2,
+        ),
+      );
+      const shapeOf = (key: string, pressure: object) => ({
+        ...OVEN_SHAPE,
+        sources: [key],
+        fields: [OVEN_SHAPE.fields[0], OVEN_SHAPE.fields[1], pressure],
+      });
+      const scan = await createScanTask(client, dev);
+      const first = await answerCommandsUntil(client, [scan], "sample", {
+        browse: { data: browseOf(listTopic(TOPIC), listTopic("plant")) },
+        sample: {
+          data: sampleOfTopic(
+            TOPIC,
+            shapeOf("oven-2", createInferredField("/pressure", "float", "number")),
+          ),
+        },
+      });
+      const dialog = await clickAddData();
+      await first.answered;
+      await dialog.findByText("Adds to oven-1");
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      const second = await answerCommandsUntil(client, [scan], "sample", {
+        sample: {
+          data: sampleOfTopic(
+            "plant",
+            shapeOf("pump-1", createInferredField("/pressure", "string", "string")),
+          ),
+        },
+      });
+      fireEvent.click(dialog.getByText("plant"));
+      await second.answered;
+      fireEvent.click(await dialog.findByRole("button", { name: "Select all" }));
+      fireEvent.click(dialog.getByRole("button", { name: "Add 3 fields" }));
+      const records = await waitFor(async () => {
+        const next = await retrieveRecords(draft.key);
+        expect(next).toHaveLength(3);
+        return next;
+      });
+      const { messages } = await client.icds.retrieve(held.icd);
+      expect(messages).toHaveLength(2);
+      const fields = ICD.jsonFields(messages[0]);
+      expect(fields.map(({ pointer, type }) => [pointer, type])).toEqual([
+        ["/time", "timestamp"],
+        ["/temperature", "float"],
+        ["/pressure", "string"],
+      ]);
+      const byKey = (key: string) => records.find(({ recordKey }) => recordKey === key);
+      expect(byKey("oven-2")?.messages[0].message).toBe(messages[1].key);
+      expect(byKey("pump-1")?.messages[0].bindings.map(({ field }) => field)).toContain(
+        fields[2].key,
+      );
     });
 
     it("should add a new message when a held record adds a field that a new key cannot read", async () => {

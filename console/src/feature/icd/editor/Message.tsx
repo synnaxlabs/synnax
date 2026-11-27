@@ -60,13 +60,17 @@ const CycleTime = ({ path }: CycleTimeProps): ReactElement => {
 export interface MessageProps {
   /** The form path of the message. */
   path: deep.Path<icd.Message>;
+  /** Focuses the name and selects it, for a message the user just added. */
+  autoFocus?: boolean;
 }
+
+const FOCUSED_NAME_INPUT_PROPS = { autoFocus: true, selectOnFocus: true } as const;
 
 /**
  * Edits a message: its format, its cycle time, how frames match it, and its fields. A
  * format switch replaces the payload with an empty one of the new format.
  */
-export const Message = ({ path }: MessageProps): ReactElement => {
+export const Message = ({ path, autoFocus = false }: MessageProps): ReactElement => {
   const payloadPath = path.payload;
   const binary = deep.variant(payloadPath, "format", "binary");
   const text = deep.variant(payloadPath, "format", "text");
@@ -80,7 +84,11 @@ export const Message = ({ path }: MessageProps): ReactElement => {
     <Form.Sections className={CSS.BE("icd-editor", "details")}>
       <Form.Section title="Message">
         <Flex.Box x>
-          <Form.TextField path={path.name} label="Name" />
+          <Form.TextField
+            path={path.name}
+            label="Name"
+            inputProps={autoFocus ? FOCUSED_NAME_INPUT_PROPS : undefined}
+          />
           <Input.Item label="Format" padHelpText>
             <Select.Buttons<payload.Format>
               value={format}

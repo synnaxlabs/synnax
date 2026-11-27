@@ -60,6 +60,7 @@ import {
 } from "@/feature/kafka/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
+import { Empty } from "@/platform/empty";
 import { ICD } from "@/platform/icd";
 import { Task } from "@/platform/task";
 
@@ -656,27 +657,33 @@ const Records: FC<RecordsProps> = ({
     ];
     const make = (icdKey: icd.Key | undefined, messages: icd.Message[]) =>
       making.set(icdKey, [...(making.get(icdKey) ?? []), ...messages]);
-    for (const { topic, shapes, picks, reading } of result.topics) {
-      const records = topicRecords(topic);
-      const reads = readsOf(records, messagesOf);
-      const nameOf = (recordKey: string) => topicMessageName(topic, recordKey);
+    const held = result.topics.map(({ topic }) =>
+      readsOf(topicRecords(topic), messagesOf),
+    );
+    const nameIn = (topic: string) => (recordKey: string) =>
+      topicMessageName(topic, recordKey);
+    // Every extension goes before every reuse, so that each reuse sees the fields that
+    // extensions add, whatever the order of the topics.
+    for (const { topic, shapes, picks } of result.topics) {
       const { extensions, kinds } = createExtensions(
         shapes,
         picks,
-        records,
+        topicRecords(topic),
         messagesOf,
-        nameOf,
-        appends,
+        nameIn(topic),
       );
       extend(extensions, kinds);
       for (const { icd: k, message } of kinds) make(k, [message]);
+    }
+    for (const [i, pick] of result.topics.entries()) {
+      const { topic, shapes, picks, reading } = pick;
       const target = reading?.icd ?? home;
       const added = createAdditions(
         shapes,
         picks,
-        reads,
+        held[i],
         takenIn(target),
-        nameOf,
+        nameIn(topic),
         reading,
         appends,
       );
@@ -704,6 +711,7 @@ const Records: FC<RecordsProps> = ({
   // Adds run one at a time, so a second click cannot make a second ICD.
   const addExclusive = useExclusiveCallback(add);
   const handleAdd = () => handleError(addExclusive, "Failed to add data");
+  const isPreview = Task.useIsPreview();
 
   const rec =
     current == null ? undefined : records.find(({ key }) => key === current.source);
@@ -800,11 +808,12 @@ const Records: FC<RecordsProps> = ({
       title={title ?? undefined}
     >
       {details ?? (
-        <Flex.Box y grow align="center" justify="center">
-          <Text.Text status="disabled">
-            Add data to read the records of a topic
-          </Text.Text>
-        </Flex.Box>
+        <Empty.Action
+          grow
+          message="No entry selected"
+          action={isPreview ? undefined : "Add data"}
+          onClick={handleAdd}
+        />
       )}
     </Task.Views.Panes>
   );
