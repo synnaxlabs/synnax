@@ -118,6 +118,7 @@ sample_to_raw(const x::telem::SampleValue &val) {
                 raw.i32 = 0;
                 return std::pair{raw, wasmtime::ValKind::I32};
             } else {
+                // NOLINTNEXTLINE(bugprone-signed-char-misuse): i8 keeps its sign.
                 raw.i32 = static_cast<int32_t>(arg);
                 return std::pair{raw, wasmtime::ValKind::I32};
             }
@@ -157,8 +158,8 @@ inline wasmtime_val_raw_t wasm_to_raw(const wasmtime::Val &val) {
     return raw;
 }
 
-/// @brief returns the bits of a raw guest value of the given kind, zero-extended to
-/// 64 bits.
+/// @brief returns the bits of a raw guest value of the given kind, zero-extended to 64
+/// bits.
 inline uint64_t raw_bits(const wasmtime_val_raw_t &raw, const wasmtime::ValKind kind) {
     uint64_t bits = 0;
     switch (kind) {
