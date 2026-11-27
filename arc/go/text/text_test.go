@@ -8752,6 +8752,118 @@ time.wait(duration=500ms) -> output`
 				},
 			)
 
+			It(
+				"Should exit a top-level sequence from its last stage",
+				func(ctx SpecContext) {
+					source := `
+				sequence main {
+				    stage only {
+				        input > 10 => next
+				    }
+				}
+				input => main`
+					resolver := []symbol.Symbol{{
+						Name: "input",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10093,
+					}}
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diag := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(HaveLen(1))
+					Expect(
+						main.Transitions[0].Target.Variant,
+					).To(Equal(ir.ExitTarget{}))
+				},
+			)
+
+			It(
+				"Should advance the parent from the last stage of a nested sequence",
+				func(ctx SpecContext) {
+					source := `
+				sequence main {
+				    sequence inner {
+				        stage only {
+				            input > 10 => next
+				        }
+				    }
+				    stage after {
+				        1 -> output
+				    }
+				}`
+					resolver := []symbol.Symbol{
+						{
+							Name: "input",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.F32()),
+							ID:   10094,
+						},
+						{
+							Name: "output",
+							Kind: symbol.KindChannel,
+							Type: types.Chan(types.U8()),
+							ID:   10095,
+						},
+					}
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diag := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(ContainElement(HaveField(
+						"Target.Variant", Equal(ir.StepTarget{Key: "after"}),
+					)))
+					inner := findMember(main, "inner").Scope
+					Expect(inner.Transitions).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Should exit a sequence declared inside a stage from its last stage",
+				func(ctx SpecContext) {
+					source := `
+				sequence main {
+				    stage outer {
+				        sequence inner {
+				            stage only {
+				                input > 10 => next
+				            }
+				        }
+				    }
+				}`
+					resolver := []symbol.Symbol{{
+						Name: "input",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F32()),
+						ID:   10096,
+					}}
+					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+					inter, diag := text.Analyze(
+						ctx,
+						parsedText,
+						NewRoot(nil, resolver...),
+					)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					main := findTopLevelScope(inter, "main")
+					Expect(main.Transitions).To(BeEmpty())
+					outer := findMember(main, "outer").Scope
+					inner := findMember(*outer, "inner").Scope
+					Expect(inner.Transitions).To(HaveLen(1))
+					Expect(
+						inner.Transitions[0].Target.Variant,
+					).To(Equal(ir.ExitTarget{}))
+				},
+			)
+
 			DescribeTable(
 				"next keyword error cases",
 				func(ctx SpecContext, source string, chans []symbol.Symbol, expectedError string) {
@@ -8765,23 +8877,6 @@ time.wait(duration=500ms) -> output`
 					Expect(diag).To(MatchError(ContainSubstring(expectedError)))
 					Expect(diag.Ok()).To(BeFalse())
 				},
-				Entry("next in last stage",
-					`
-					sequence main {
-					    stage only {
-					        input > 10 => next
-					    }
-					}`,
-					[]symbol.Symbol{
-						{
-							Name: "input",
-							Kind: symbol.KindChannel,
-							Type: types.Chan(types.F32()),
-							ID:   10081,
-						},
-					},
-					"no next stage",
-				),
 				Entry(
 					"next as the first node of a flow",
 					`

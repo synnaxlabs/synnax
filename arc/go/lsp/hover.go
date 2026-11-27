@@ -274,9 +274,12 @@ var keywordDocs = map[string]string{
 	).Render(),
 	parser.LiteralNEXT: doc.New(
 		doc.TitleWithKind(parser.LiteralNEXT, "Keyword"),
-		doc.Paragraph("Transitions to a stage unconditionally."),
+		doc.Paragraph(
+			"Goes to the next stage in definition order. In the last stage, it "+
+				"completes the sequence.",
+		),
 		doc.Divider(),
-		doc.Code("arc", "stage first {\n    next second\n}"),
+		doc.Code("arc", "stage first {\n    pressure > 500 => next\n}"),
 	).Render(),
 	parser.LiteralI8: intTypeDoc(
 		parser.LiteralI8,

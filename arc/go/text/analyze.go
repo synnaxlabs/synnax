@@ -235,8 +235,9 @@ func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 	f.transitions = append(f.transitions, t)
 }
 
-// addCompletion wires a terminal step's completion with the given kind to the nearest
-// frame that can take it.
+// addCompletion wires the completion of the innermost frame's active member with the
+// given kind: it advances to the next member, or completes the sequence through the
+// nearest frame that can take it.
 func (s *shellBuilder) addCompletion(on ir.Handle, kind ir.EdgeKind) {
 	for i := len(s.stack) - 1; ; i-- {
 		f := s.stack[i]
@@ -302,12 +303,7 @@ func (s *shellBuilder) applyTransitionIntent(
 ) {
 	switch {
 	case intent.isNext:
-		next := s.top().nextMember()
-		s.addTransition(ir.Transition{
-			On:     on,
-			Kind:   kind,
-			Target: ir.Target{Variant: ir.StepTarget{Key: next}},
-		})
+		s.addCompletion(on, kind)
 	case intent.memberKey != "":
 		frame := intent.targetFrame
 		if frame == nil {
@@ -357,9 +353,8 @@ func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
 // intra-sequence jumps and `next`) and/or registers an activation on the
 // target scope (for cross-scope jumps).
 type transitionIntent struct {
-	// isNext is true when the intent came from the `next` token. The target
-	// member is resolved against the innermost sequence frame at the time the
-	// intent is consumed.
+	// isNext is true when the intent came from the `next` token. It acts as the
+	// completion of the innermost sequence's active member.
 	isNext bool
 	// memberKey, when non-empty and isNext is false, names a sibling member
 	// to transition to. The transition lives on targetFrame (or shell.top()
@@ -1295,9 +1290,8 @@ func buildChannelWriteNode(
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
-// analyzeNextToken emits a transition intent that advances the enclosing
-// sequence to the next sibling member. The target member is resolved against
-// the innermost sequence frame at intent-consumption time.
+// analyzeNextToken emits a transition intent that advances the enclosing sequence to
+// the next sibling member, or completes the sequence from its last member.
 func analyzeNextToken(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	shell *shellBuilder,
@@ -1312,14 +1306,6 @@ func analyzeNextToken(
 		ctx.Diagnostics.Add(
 			codes.TransitionTarget.Atf(ctx.AST, "'next' used outside of a sequence"),
 		)
-		return flowNodeResult{}, false
-	}
-	if frame.nextMember() == "" {
-		ctx.Diagnostics.Add(codes.TransitionTarget.Atf(
-			ctx.AST,
-			"'next' in last stage '%s' has no next stage",
-			frame.memberKeys[frame.activeIdx],
-		))
 		return flowNodeResult{}, false
 	}
 	intent := transitionIntent{isNext: true}
