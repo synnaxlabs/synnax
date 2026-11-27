@@ -11,12 +11,16 @@ package v1_test
 
 import (
 	"context"
+	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
+	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
@@ -33,23 +37,57 @@ import (
 )
 
 var _ = Describe("Rewriter check", func() {
-	// Channels 1 to 3 held "Metrics", "sensor", and "now" before the upgrade.
-	var w v1.Rewriter
+	// Each channel of renamed held its key before the upgrade, which renamed it to the
+	// key with "_2". The channel "log" holds strings and keeps its name.
+	renamed := map[string]telem.DataType{
+		"Metrics":  telem.Float64T,
+		"sensor":   telem.Float64T,
+		"now":      telem.Float64T,
+		"duration": telem.Float64T,
+		"s":        telem.Float64T,
+		"psi":      telem.Float64T,
+		"factor":   telem.Float64T,
+		"time":     telem.Float64T,
+		"flag":     telem.Uint8T,
+		"out":      telem.Float64T,
+	}
+	var (
+		w v1.Rewriter
+		// upgraded resolves each channel name as the Core does after the upgrade.
+		upgraded symtestutil.StaticResolver
+	)
 	BeforeEach(func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		channels := map[v1.Key]v1.TextChannel{}
-		for i, r := range [][2]string{
-			{"Metrics", "Metrics_2"},
-			{"sensor", "sensor_2"},
-			{"now", "now_2"},
-		} {
+		channels := map[v1.Key]v1.TextChannel{
+			100: {Name: "log", DataType: telem.StringT},
+		}
+		upgraded = make(symtestutil.StaticResolver, 0, len(renamed)+1)
+		upgraded = append(upgraded, symbol.Symbol{
+			Name: "log",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.String()),
+			ID:   100,
+		})
+		names := make([]string, 0, len(renamed))
+		for name := range renamed {
+			names = append(names, name)
+		}
+		slices.Sort(names)
+		for i, name := range names {
 			key := v1.Key(i + 1)
-			channels[key] = v1.TextChannel{Name: r[1], DataType: telem.Float64T}
+			dt := renamed[name]
+			channels[key] = v1.TextChannel{Name: name + "_2", DataType: dt}
+			upgraded = append(upgraded, symbol.Symbol{
+				Name: name + "_2",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.FromTelem(dt)),
+				ID:   int(key),
+			})
 			Expect(resource.StageRename(
 				ctx,
 				db,
 				resource.ID{Type: resource.TypeChannel, Key: key.String()},
-				r[0],
+				name,
 				resource.ReasonClash,
 			)).To(Succeed())
 		}
@@ -58,20 +96,6 @@ var _ = Describe("Rewriter check", func() {
 			Ambient: stl.NewSymbols(),
 		}
 	})
-	// upgraded resolves each channel name as the Core does after the upgrade.
-	channel := func(name string, id int) symbol.Symbol {
-		return symbol.Symbol{
-			Name: name,
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.F64()),
-			ID:   id,
-		}
-	}
-	upgraded := symtestutil.StaticResolver{
-		channel("Metrics_2", 1),
-		channel("sensor_2", 2),
-		channel("now_2", 3),
-	}
 	// errorsOf returns the error diagnostics of the live analyzer on src, a calculation
 	// or a program, with the channel names that r resolves.
 	errorsOf := func(
@@ -106,6 +130,62 @@ var _ = Describe("Rewriter check", func() {
 	}
 	program := func(text string) v1.Source {
 		return v1.Source{Text: text, Form: v1.FormProgram}
+	}
+	// graphErrorsOf returns the error diagnostics of the live graph analyzer, which
+	// binds the functions of a graph as a v0.62 Core did, on a graph of fns.
+	graphErrorsOf := func(
+		ctx context.Context,
+		fns ir.Functions,
+		r symbol.Resolver,
+	) []diagnostics.Diagnostic {
+		GinkgoHelper()
+		root := symbol.NewRoot(r, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		g := MustSucceed(graph.Parse(graph.Graph{Functions: slices.Clone(fns)}))
+		_, diag := graph.Analyze(ctx, g, root)
+		return diag.Errors()
+	}
+	// authoritiesOf returns the authorities of the program src as the live analyzer
+	// binds them, with the channel names that r resolves.
+	authoritiesOf := func(
+		ctx context.Context,
+		src v1.Source,
+		r symbol.Resolver,
+	) ir.Authorities {
+		GinkgoHelper()
+		root := symbol.NewRoot(r, stl.NewSymbols())
+		t := MustSucceed(text.Parse(text.Text{Raw: src.Text}, w.Config))
+		aCtx := acontext.NewRoot(ctx, t.AST, root).WithConfig(w.Config)
+		analyzer.AnalyzeProgram(aCtx)
+		a := authority.Analyze(aCtx)
+		Expect(aCtx.Diagnostics.Errors()).To(BeEmpty())
+		return a
+	}
+	function := func(key, body string, inputs ...string) ir.Function {
+		fn := ir.Function{
+			Key:     key,
+			Body:    ir.Body{Raw: body},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
+		}
+		for _, in := range inputs {
+			fn.Inputs = append(fn.Inputs, types.Param{Name: in, Type: types.F64()})
+		}
+		return fn
+	}
+	// bodyOf returns the source of the body of fns[i], as the Arc text pass builds it.
+	bodyOf := func(fns ir.Functions, i int) v1.Source {
+		keys := make([]string, len(fns))
+		for j, f := range fns {
+			keys[j] = f.Key
+		}
+		return v1.Source{
+			Text:      fns[i].Body.Raw,
+			Form:      v1.FormBody,
+			Function:  fns[i].Key,
+			Inputs:    fns[i].Inputs,
+			Outputs:   fns[i].Outputs,
+			Functions: keys,
+		}
 	}
 
 	It("Should report a text that does not parse as not parsed when it holds no old "+
@@ -197,19 +277,124 @@ var _ = Describe("Rewriter check", func() {
 		Expect(keptLines(res)).To(Equal([]int{2}))
 	})
 
-	It("Should keep and report a graph body whose input holds the key of a sibling "+
-		"function, as v0.62 could not bind it", func(ctx SpecContext) {
-		src := v1.Source{
-			Text:      "{ return Metrics * a }",
-			Form:      v1.FormBody,
-			Function:  "f",
-			Functions: []string{"f", "a"},
-			Inputs:    types.Params{{Name: "a", Type: types.F64()}},
-			Outputs:   types.Params{{Name: "output", Type: types.F64()}},
-		}
+	DescribeTable("Should keep and report a graph body that a v0.62 Core could not "+
+		"bind",
+		func(ctx SpecContext, fns ir.Functions, i int) {
+			Expect(graphErrorsOf(ctx, fns, w.Renames)).To(ContainElement(
+				HaveField("Message", ContainSubstring("conflicts with existing")),
+			))
+			res := MustSucceed(w.Rewrite(ctx, bodyOf(fns, i)))
+			Expect(res.Parsed).To(BeFalse())
+			Expect(res.Text).To(Equal(fns[i].Body.Raw))
+			Expect(res.References).To(HaveEach(HaveField("Kept", BeTrue())))
+		},
+		Entry("an input named like an earlier function", ir.Functions{
+			function("other", "{ return x }", "x"),
+			function("scale", "{ return Metrics }", "other"),
+		}, 1),
+		Entry("two functions of one key", ir.Functions{
+			function("scale", "{ return x }", "x"),
+			function("scale", "{ return Metrics * x }", "x"),
+		}, 1),
+	)
+
+	DescribeTable("Should write no new name into an identifier that is not a reference",
+		func(ctx SpecContext, src v1.Source, want string) {
+			res := MustSucceed(w.Rewrite(ctx, src))
+			if len(errorsOf(ctx, src, w.Renames)) == 0 {
+				after := v1.Source{Form: src.Form, Text: res.Text}
+				Expect(errorsOf(ctx, after, upgraded)).To(
+					BeEmpty(),
+					"v0.62 accepted %q; upgraded to %q",
+					src.Text,
+					res.Text,
+				)
+			}
+			Expect(res.Text).To(Equal(want))
+		},
+		Entry("the key of a named argument",
+			program("import time\ntime.wait(duration=1000ms) -> flag"),
+			"import time\ntime.wait(duration=1000ms) -> flag_2"),
+		Entry("the key of a named argument in the stored v4 export sample",
+			program("sensor -> scale(factor=2.0) -> out"),
+			"sensor -> scale(factor=2.0) -> out_2"),
+		Entry("a routing key in the v0 export sample's flow",
+			program("sensor -> scale{factor: 2.0} -> out"),
+			"sensor -> scale{factor: 2.0} -> out_2"),
+		Entry("the unit of a numeric literal",
+			calculation("x i64 ns := 1s\nreturn f64(x)"),
+			"x i64 ns := 1s\nreturn f64(x)"),
+		Entry("the unit of a declared type",
+			calculation("x f64 psi := 1.0\nreturn x"),
+			"x f64 psi := 1.0\nreturn x"),
+		Entry("the unit of a cast",
+			calculation("return f64 psi(Metrics)"),
+			"return f64 psi(Metrics_2)"),
+	)
+
+	// The analyzer binds inline stage and sequence bodies, and authority entries,
+	// after every top-level declaration.
+	DescribeTable("Should leave a read in an inline stage or sequence that a later "+
+		"global of the old name takes",
+		func(ctx SpecContext, src v1.Source, want string) {
+			Expect(errorsOf(ctx, src, w.Renames)).To(BeEmpty())
+			res := MustSucceed(w.Rewrite(ctx, src))
+			after := v1.Source{Form: src.Form, Text: res.Text}
+			Expect(errorsOf(ctx, after, upgraded)).
+				To(BeEmpty(), "upgraded to %q", res.Text)
+			Expect(res.Text).To(Equal(want))
+			Expect(keptLines(res)).To(BeEmpty())
+		},
+		Entry("an inline stage",
+			program("flag -> stage {\n\tMetrics -> log\n}\nMetrics := \"a\""),
+			"flag_2 -> stage {\n\tMetrics -> log\n}\nMetrics := \"a\""),
+		Entry("an inline stage in a named sequence",
+			program("sequence main {\n\tstage a {\n\t\tflag -> stage {\n"+
+				"\t\t\tMetrics -> log\n\t\t}\n\t}\n}\nMetrics := \"a\""),
+			"sequence main {\n\tstage a {\n\t\tflag_2 -> stage {\n"+
+				"\t\t\tMetrics -> log\n\t\t}\n\t}\n}\nMetrics := \"a\""),
+		Entry("an inline sequence",
+			program("flag -> sequence {\n\tMetrics -> log\n}\nMetrics := \"a\""),
+			"flag_2 -> sequence {\n\tMetrics -> log\n}\nMetrics := \"a\""),
+	)
+
+	It("Should keep and report a read in an inline stage when a later global holds "+
+		"the new name", func(ctx SpecContext) {
+		src := program("flag -> stage {\n\tMetrics -> out\n}\nMetrics_2 := \"a\"")
+		Expect(errorsOf(ctx, src, w.Renames)).To(BeEmpty())
 		res := MustSucceed(w.Rewrite(ctx, src))
 		Expect(res.Text).To(Equal(src.Text))
-		Expect(res.Parsed).To(BeFalse())
+		Expect(keptLines(res)).To(ContainElement(2))
+	})
+
+	It("Should leave an authority entry that a later global of the old name takes",
+		func(ctx SpecContext) {
+			src := program("authority (Metrics 200)\nMetrics := 1.0")
+			before := authoritiesOf(ctx, src, w.Renames)
+			res := MustSucceed(w.Rewrite(ctx, src))
+			Expect(res.Text).To(Equal(src.Text))
+			Expect(keptLines(res)).To(BeEmpty())
+			Expect(authoritiesOf(ctx, program(res.Text), upgraded)).To(Equal(before))
+		})
+
+	It("Should keep and report an authority entry when a later global holds the new "+
+		"name", func(ctx SpecContext) {
+		src := program("authority (Metrics 200)\nMetrics_2 := 1.0")
+		res := MustSucceed(w.Rewrite(ctx, src))
+		Expect(res.Text).To(Equal(src.Text))
 		Expect(keptLines(res)).To(Equal([]int{1}))
+	})
+
+	It("Should leave a bare name that a module takes in a graph body, since graph "+
+		"mode imports each module", func(ctx SpecContext) {
+		root := symbol.NewRoot(w.Renames, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		bound := MustSucceed(root.Resolve(ctx, "time"))
+		Expect(bound.Kind).To(Equal(symbol.KindModuleAlias))
+		fns := ir.Functions{function("scale", "{ return time }", "x")}
+		res := MustSucceed(w.Rewrite(ctx, bodyOf(fns, 0)))
+		Expect(res.References).To(HaveLen(1))
+		Expect(res.References[0].Binding).To(Equal(bound.Kind))
+		Expect(res.Text).To(Equal("{ return time }"))
 	})
 })
