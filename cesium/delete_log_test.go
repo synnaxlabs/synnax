@@ -591,6 +591,42 @@ var _ = Describe("Delete on the pointer log", func() {
 		}).Should(Equal(1))
 	})
 
+	It("Should keep the files of a dropped key while a read on another clock stays on "+
+		"a load from before the Drop", func(ctx SpecContext) {
+		write(ctx, 10, 11)
+		clock, other := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key: clock, Name: "time", IsIndex: true, DataType: telem.TimestampT,
+			},
+			cesium.Channel{
+				Key: other, Name: "other", Index: clock, DataType: telem.Int64T,
+			},
+		)).To(Succeed())
+		w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+			Channels: []cesium.ChannelKey{clock, other},
+			Clock:    clock,
+			Start:    10 * telem.SecondTS,
+		}))
+		MustSucceed2(w.Write(ctx, telem.MultiFrame(
+			[]cesium.ChannelKey{clock, other},
+			[]telem.Series{telem.NewSeriesSecondsTSV(10), telem.NewSeriesV[int64](10)},
+		), nil))
+		MustSucceed2(w.Commit(ctx, nil))
+		Expect(w.Close()).To(Succeed())
+		iter := MustSucceed(db.OpenIterator(cesium.IteratorConfig{
+			Bounds:   telem.TimeRangeMax,
+			Channels: []cesium.ChannelKey{other},
+		}))
+		DeferCleanup(func() { Expect(iter.Close()).To(Succeed()) })
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(db.Drop(ctx, []cesium.ChannelKey{data})).To(Succeed())
+		Expect(segments()).To(Equal(1))
+		Expect(iter.SeekFirst()).To(BeTrue())
+		Expect(segments()).To(BeZero())
+	})
+
 	It("Should finish a read that pinned the segments of a key across its Drop",
 		func(ctx SpecContext) {
 			write(ctx, 10, 11)
