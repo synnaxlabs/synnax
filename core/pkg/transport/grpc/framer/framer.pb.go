@@ -403,7 +403,10 @@ type WriterResponse struct {
 	// unauthorized is true if this commit lacked control of a channel, or if a write
 	// since the last reported commit was refused. Each refusal is reported once. A Core
 	// without this field sends no value, which reads as authorized.
-	Unauthorized  bool `protobuf:"varint,6,opt,name=unauthorized,proto3" json:"unauthorized,omitempty"`
+	Unauthorized bool `protobuf:"varint,6,opt,name=unauthorized,proto3" json:"unauthorized,omitempty"`
+	// clocks holds the index channel of each group of the writer's channels, in the
+	// order of the open's keys. Only the open response sets it.
+	Clocks        []uint32 `protobuf:"varint,7,rep,packed,name=clocks,proto3" json:"clocks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -471,6 +474,13 @@ func (x *WriterResponse) GetUnauthorized() bool {
 		return x.Unauthorized
 	}
 	return false
+}
+
+func (x *WriterResponse) GetClocks() []uint32 {
+	if x != nil {
+		return x.Clocks
+	}
+	return nil
 }
 
 type StreamerRequest struct {
@@ -730,13 +740,14 @@ const file_core_pkg_transport_grpc_framer_framer_proto_rawDesc = "" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x121\n" +
 	"\x06config\x18\x02 \x01(\v2\x19.grpc.framer.WriterConfigR\x06config\x12'\n" +
 	"\x05frame\x18\x03 \x01(\v2\x11.x.telem.pb.FrameR\x05frame\x12\x16\n" +
-	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\xa3\x01\n" +
+	"\x06buffer\x18\x04 \x01(\fR\x06buffer\"\xbb\x01\n" +
 	"\x0eWriterResponse\x12\x18\n" +
 	"\acommand\x18\x01 \x01(\x05R\acommand\x12\x18\n" +
 	"\acounter\x18\x03 \x01(\x05R\acounter\x12'\n" +
 	"\x05error\x18\x04 \x01(\v2\x11.errors.PBPayloadR\x05error\x12\x10\n" +
 	"\x03end\x18\x05 \x01(\x03R\x03end\x12\"\n" +
-	"\funauthorized\x18\x06 \x01(\bR\funauthorized\"\x96\x02\n" +
+	"\funauthorized\x18\x06 \x01(\bR\funauthorized\x12\x16\n" +
+	"\x06clocks\x18\a \x03(\rR\x06clocks\"\x96\x02\n" +
 	"\x0fStreamerRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12+\n" +
 	"\x11downsample_factor\x18\x02 \x01(\rR\x10downsampleFactor\x12(\n" +

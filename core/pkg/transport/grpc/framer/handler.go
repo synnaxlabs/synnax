@@ -143,6 +143,7 @@ func (frameWriterResponseTranslator) Forward(
 		End:          int64(msg.End),
 		Error:        errors.TranslatePayloadForward(msg.Err),
 		Unauthorized: !msg.Authorized,
+		Clocks:       msg.Clocks.Uint32(),
 	}, nil
 }
 

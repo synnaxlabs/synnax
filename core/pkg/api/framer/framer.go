@@ -48,6 +48,7 @@ const (
 	frameIteratorAddr  address.Address = "iterator"
 	framerStreamerAddr address.Address = "streamer"
 	frameWriterAddr    address.Address = "writer"
+	indexClaimsAddr    address.Address = "index_claims"
 )
 
 // ServiceConfig is the configuration for the framer API service.
@@ -805,6 +806,10 @@ type WriterResponse struct {
 	End        telem.TimeStamp `json:"end"        msgpack:"end"`
 	Command    WriterCommand   `json:"command"    msgpack:"command"`
 	Authorized bool            `json:"authorized" msgpack:"authorized"`
+	// Clocks holds the index channel of each group of the writer's channels, in the
+	// order of the open's keys. A client writes the time of a group under its clock.
+	// Only the open response sets it.
+	Clocks channel.Keys `json:"clocks" msgpack:"clocks"`
 }
 
 type WriterStream = freighter.ServerStream[WriterRequest, WriterResponse]
@@ -845,7 +850,7 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	// already been freed and cancel does nothing).
 	defer cancel()
 
-	w, err := s.openWriter(sCtx, auth.GetSubject(ctx), stream)
+	w, raises, err := s.openWriter(sCtx, auth.GetSubject(ctx), stream)
 	if err != nil {
 		return err
 	}
@@ -864,11 +869,35 @@ func (s *Service) Write(ctx context.Context, stream WriterStream) error {
 	pipe.SetSegment("writer", w)
 	pipe.SetSource(frameReceiverAddr, receiver)
 	pipe.SetSink(frameSenderAddr, sender)
-	pipe.MustConnect[framer.WriterRequest](
-		frameReceiverAddr,
-		frameWriterAddr,
-		writerRequestBufferSize,
-	)
+	if len(raises) == 0 {
+		pipe.MustConnect[framer.WriterRequest](
+			frameReceiverAddr,
+			frameWriterAddr,
+			writerRequestBufferSize,
+		)
+	} else {
+		claims := newIndexClaims(raises)
+		sender.Transform = func(
+			ctx context.Context,
+			res framer.WriterResponse,
+		) (WriterResponse, bool, error) {
+			if claims.answers(res) {
+				return WriterResponse{}, false, nil
+			}
+			return s.translateWriterResponse(ctx, res)
+		}
+		pipe.SetSegment(indexClaimsAddr, claims)
+		pipe.MustConnect[framer.WriterRequest](
+			frameReceiverAddr,
+			indexClaimsAddr,
+			writerRequestBufferSize,
+		)
+		pipe.MustConnect[framer.WriterRequest](
+			indexClaimsAddr,
+			frameWriterAddr,
+			writerRequestBufferSize,
+		)
+	}
 	pipe.MustConnect[framer.WriterResponse](
 		frameWriterAddr,
 		frameSenderAddr,
@@ -909,24 +938,17 @@ func (s *Service) translateWriterResponse(
 	}, true, nil
 }
 
+// openWriter opens the writer that the first request of stream configures, and sends
+// the open response. It also returns the authority that the first write of each index
+// that the open adds raises it to.
 func (s *Service) openWriter(
 	ctx context.Context,
 	subject resource.ID,
 	stream WriterStream,
-) (framer.StreamWriter, error) {
+) (framer.StreamWriter, map[channel.Key]control.Authority, error) {
 	req, err := stream.Receive()
 	if err != nil {
-		return nil, err
-	}
-
-	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
-			Subject: subject,
-			Action:  access.ActionCreate,
-			Objects: framer.ResourceIDs(req.Config.Keys),
-		})
-	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	authorities := make([]control.Authority, len(req.Config.Authorities))
@@ -934,10 +956,35 @@ func (s *Service) openWriter(
 		authorities[i] = control.Authority(a)
 	}
 
+	var (
+		clocks channel.Keys
+		raises map[channel.Key]control.Authority
+	)
+	if err = s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		if err := s.access.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionCreate,
+			Objects: framer.ResourceIDs(req.Config.Keys),
+		}); err != nil {
+			return err
+		}
+		clocks, raises, err = s.writerClocks(
+			ctx,
+			snap,
+			subject,
+			req.Config.Keys,
+			authorities,
+		)
+		return err
+	}); err != nil {
+		return nil, nil, err
+	}
+	keys, authorities := withRaises(req.Config.Keys, authorities, clocks, raises)
+
 	w, err := s.internal.NewStreamWriter(ctx, framer.WriterConfig{
 		ControlSubject:           req.Config.ControlSubject,
 		Start:                    req.Config.Start,
-		Keys:                     req.Config.Keys,
+		Keys:                     keys,
 		Authorities:              authorities,
 		Mode:                     req.Config.Mode,
 		ErrOnUnauthorized:        new(req.Config.ErrOnUnauthorized),
@@ -946,17 +993,18 @@ func (s *Service) openWriter(
 		AutoIndex:                new(req.Config.AutoIndex),
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Let the client know the writer is ready to receive segments.
 	if err := stream.Send(WriterResponse{
 		Command: framer.WriterCommandOpen,
 		Err:     errors.Payload{Type: errors.TypeNil},
+		Clocks:  clocks,
 	}); err != nil {
-		return nil, errors.Combine(err, release(w))
+		return nil, nil, errors.Combine(err, release(w))
 	}
-	return w, nil
+	return w, raises, nil
 }
 
 // release frees what an opened segment owns when the segment will never join a
