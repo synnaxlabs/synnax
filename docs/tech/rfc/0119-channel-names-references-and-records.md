@@ -297,19 +297,19 @@ Rewire struct {
   (`client/ts/src/channel/types.gen.ts:20-25`). Until the quotes land, a digit-only
   string is still a key, as on `main`: a default Core accepts no channel name that
   starts with a digit (§4.1).
-- **Arc**: A bare name is the root channel of that name, as in every lookup, and a
-  channel in a folder needs its path: a new channel in another folder must never change
-  what a working program means. Files, export, and import use exact paths only. Until
-  Arc reads a dotted path (Phase 25), a bare name is the only way to name a channel in a
-  folder. So until then the Arc and calculation compiles keep `main`'s bare match in any
-  folder, which the Core-wide index makes unambiguous, as for `RetrieveIfNameExists`
-  (§4.1). The later of Phases 10 and 25 makes a bare name the root channel. The same PR
-  rewrites to paths the text that the Core itself writes, such as its metrics
-  (`core/pkg/service/metrics/metrics.go:80-93`). Until the quotes land, Arc cannot read
-  a path through a folder whose name the bare lexer cannot read (a space, `-`, a
-  keyword, a leading digit), and a program that needs one is broken until then. Such a
-  path fails compile with an error that says the folder name cannot be read in Arc yet
-  and offers a folder rename. It never says that quotes are needed.
+- **Arc**: From Phase 31, a bare name is the root channel of that name, as in every
+  lookup, and a channel in a folder needs its path: a new channel in another folder must
+  never change what a working program means. Files, export, and import use exact paths
+  only. Until Phase 31 the Arc and calculation compiles keep `main`'s bare match in any
+  folder. While the Core-wide index stands, a bare name has one holder (§4.1), so the
+  match cannot be ambiguous, and a new channel in another folder cannot change what a
+  program means. Phase 31 drops that index, makes a bare name the root channel, and
+  rewrites stored bare names and the text that the Core itself writes to paths, in the
+  same PR (§4.5). Until the quotes land, Arc cannot read a path through a folder whose
+  name the bare lexer cannot read (a space, `-`, a keyword, a leading digit). A program
+  that needs one breaks at Phase 31, under the guard below, and stays broken until the
+  quotes land. Such a path fails compile with an error that says the folder name cannot
+  be read in Arc yet and offers a folder rename. It never says that quotes are needed.
 - **Bare-name guard** (until the quotes land): A broken program stays visible and never
   binds another channel unseen, since an Arc program can write commands. A compile at
   any time (a save, a deploy, a start, a reconfigure, a calculation) refuses a bare name
@@ -540,7 +540,9 @@ The example value is 86 B. The Pebble key is `gorp.Calculation` and the 16 key b
   so the guard of §4.2 holds from the first start. A bare name that matches channels in
   several folders takes the path of the channel that `core/v0.62.0` resolved, the last
   match in Gorp's key order, and a warning status names the others, so a stored program
-  keeps its channel.
+  keeps its channel. The same PR makes a bare name the root channel and rewrites to
+  paths the text that the Core itself writes, such as its metrics
+  (`core/pkg/service/metrics/metrics.go:80-93`).
 - **Text pass**: A plan that changes a path (§4.11) lexes the text of every Arc and
   calculation outside the write lock, so a holder whose last compile failed is still
   found. A token whose path the action gives to another channel keeps it: it follows the
@@ -748,16 +750,18 @@ or without the flag.
   the choices for each, and the default. Key holders that need no change and offer no
   choice are one `kept` count, not entries.
 - **Effects**: One closed list holds every effect and every choice, in words that fit
-  any record: `restrict`, `cascade`, `detach`, `delete`, `drop`, `retarget`, `keep`,
-  `update_text`, `cancel`, and `rename`. A plan checks the words that each kind of entry
-  allows. A restrict holder offers `cancel` (default), and offers `delete` only when its
-  type has a `Deleter`. So a device holder offers only `cancel`, and a delete of a
-  channel that a device binds is refused, as on `main`. A `delete` pick on an entry that
-  does not offer it fails as an invalid choice. A heal link offers `retarget` (default)
-  or `keep`, a text holder `update_text` (default) or `keep`, and an arriving channel's
-  list `drop` (default) or `cancel`, which cancels the whole action. Each entry names
-  its record by resource ID. A tombstone entry uses the dead channel's ID and carries
-  its path. Hidden entries are one count per effect.
+  any record. `restrict`, `cascade`, and `detach` are effects only. `cancel`, which
+  cancels the whole action, is a choice only. `rename`, `delete`, `drop`, `retarget`,
+  `keep`, and `update_text` are both. A plan checks the words that each kind of entry
+  allows. A restrict holder offers `cancel` (default) or `delete`, and `delete` only
+  when its type has a `Deleter`. So a device holder offers only `cancel`, and a delete
+  of a channel that a device binds is refused, as on `main`. A `delete` pick on an entry
+  that does not offer it fails as an invalid choice. A heal link offers `retarget`
+  (default) or `keep`, a text holder `update_text` (default) or `keep`, an arriving
+  channel's list `drop` (default) or `cancel`, and the displaced channel of a rewire
+  `cancel` (default), `rename`, or `delete` (§4.13). Each entry names its record by
+  resource ID. A tombstone entry uses the dead channel's ID and carries its path. Hidden
+  entries are one count per effect.
 - **Policies**: Each pair of a Gorp table and a reference with a channel link maps to
   exactly one policy: `retarget`, `keep`, or a text holder. The wiring site gives
   `channel/tree` the map and injects the two text holders, Arc and calculation. The
@@ -1031,13 +1035,13 @@ RFC 0121 moves the storage half of create, rename, and delete out of the commit 
 | 22    | Show a channel's uses in the inspector                      | `console/src/feature/channel`, `pluto/src/channel`, `console/src/platform/settings`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 2, 21          |
 | 23    | Pick channels by path in Pluto                              | `pluto/src/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | 11             |
 | 24    | Show one dialog for every impact plan                       | `console/src/feature/impact`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | 19             |
-| 25    | Name channels by path in Arc                                | `arc/go/parser`, `arc/go/symbol`, `arc/go/analyzer`, `core/pkg/service/channel/resolver`, `core/pkg/service/calculation`, `core/pkg/service/metrics`                                                                                                                                                                                                                                                                                                                                                                                                                      | 10             |
+| 25    | Name channels by path in Arc                                | `arc/go/parser`, `arc/go/symbol`, `arc/go/analyzer`, `core/pkg/service/channel/resolver`, `core/pkg/service/calculation`                                                                                                                                                                                                                                                                                                                                                                                                                                                  | 10             |
 | 26    | Store the keys of each compile on Arcs and calculations     | `schemas/synnax/arc.oracle`, `schemas/synnax/drift.oracle`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/channel/resolver`                                                                                                                                                                                                                                                                                                                                                                                                                   | 3, 25          |
 | 27    | Show the used-by-nothing filter in the explorer             | `console/src/feature/channel`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 20, 21, 26     |
 | 28    | Name channels by path in exported files                     | `oracle/plugin/go`, `core/pkg/service/imex`, `core/pkg/service/imex/session`, `core/pkg/service/arc`                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | 16, 25         |
 | 29    | Edit Arc and calculation text in rename plans               | `arc/go/text`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/channel/tree`, `core/pkg/api/calculation`, `client/ts/src/calculation`, `client/py/synnax/calculation`, `schemas/synnax/calculation.oracle`, `pluto/src/calculation`, `console/src/platform/channel`                                                                                                                                                                                                                                                                             | 18, 26         |
 | 30    | Plan every channel rename and move, the LSP rename included | `arc/go/lsp`, `core/pkg/service/channel`, `core/pkg/service/channel/tree`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 29             |
-| 31    | Make channel names unique only within their folder          | `core/pkg/service/channel`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `schemas/synnax/arc.oracle`                                                                                                                                                                                                                                                                                                                                                                                                                                                           | 9, 21, 23, 30  |
+| 31    | Make channel names unique only within their folder          | `core/pkg/service/channel`, `core/pkg/service/arc`, `core/pkg/service/calculation`, `core/pkg/service/metrics`, `schemas/synnax/arc.oracle`                                                                                                                                                                                                                                                                                                                                                                                                                               | 9, 21, 23, 30  |
 | 32    | Add naming rules to folders                                 | `schemas/synnax/group.oracle`, `core/pkg/service/group`, `core/pkg/api/group`, `client/ts/src/group`, `client/py/synnax/group`, `console/src/platform/group`, `console/src/feature/group`, `core/pkg/service/channel`, `core/pkg/service/color`, `core/pkg/service/legacy/device`, `core/pkg/service/lineplot`, `core/pkg/service/log`, `core/pkg/service/panel`, `core/pkg/service/project`, `core/pkg/service/rack`, `core/pkg/service/schematic`, `core/pkg/service/schematic/symbol`, `core/pkg/service/table`                                                        | 21, 31         |
 | 33    | Keep dead channel keys in line plots and logs               | `core/pkg/service/lineplot`, `core/pkg/service/log`, `schemas/synnax/log.oracle`, `pluto/src/lineplot`, `pluto/src/log`                                                                                                                                                                                                                                                                                                                                                                                                                                                   | 1, 18          |
 | 34    | Read channels as measurements on request                    | `core/pkg/service/framer/iterator`, `core/pkg/api/framer`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | 17             |
